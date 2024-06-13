@@ -1,0 +1,37 @@
+{
+    "version": 1.0,
+    "Life": {
+        "Helping Hand": {
+            "name": "Helping Hand",
+            "level": 2,
+            "desc": "Gives 30% of max HP and base armor from caster to an ally. Lasts 3 laps.",
+            "target": "ANY_ALLY",
+            "power": 0,
+            "laps": 3,
+            "self_cast_allowed": false,
+            "self_debuff_applies": true
+        }
+    },
+    "Nature": {
+        "Summon Wolves": {
+            "name": "Summon Wolves",
+            "level": 1,
+            "desc": "Summon wolves to fight for your team. Lasts till the end of the fight.",
+            "target": "RANDOM_CLOSE_TO_CASTER",
+            "power": 1,
+            "laps": 18,
+            "self_cast_allowed": false,
+            "self_debuff_applies": false
+        },
+        "Totem of Courage": {
+            "name": "Totem of Courage",
+            "level": 2,
+            "desc": "Spans an encouraging totem on the battlefield that boosts morale of your army up to the maximum level. Totem has 100 hit points and 10 armon, where it's aura range is 2 cells. Lasts 3 laps.",
+            "target": "FREE_CELL",
+            "power": 0,
+            "laps": 3,
+            "self_cast_allowed": false,
+            "self_debuff_applies": false
+        }
+    }
+}

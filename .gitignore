@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.cache/
+*.tgz
+lerna-debug.log
+.DS
+.DS_Store
+.idea
+docs/
+.parcel-cache/
+

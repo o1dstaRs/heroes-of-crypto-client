@@ -1,0 +1,8 @@
+{
+    "version": 1.0,
+    "Stun": {
+        "name": "Stun",
+        "laps": 1,
+        "desc": "Unit skips turn and unable to respond"
+    }
+}

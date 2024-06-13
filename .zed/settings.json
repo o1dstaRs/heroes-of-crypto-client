@@ -1,0 +1,39 @@
+// Folder-specific settings
+//
+// For a full list of overridable settings, and general information on folder-specific settings,
+// see the documentation: https://docs.zed.dev/configuration/configuring-zed#folder-specific-settings
+{
+    "tab_size": 4,
+    "show_copilot_suggestions": true,
+    "lsp": {
+        "typescript-language-server": {
+            "initialization_options": {
+                "preferences": {
+                    "includeInlayParameterNameHints": "all",
+                    "includeInlayParameterNameHintsWhenArgumentMatchesName": true,
+                    "includeInlayFunctionParameterTypeHints": true,
+                    "includeInlayVariableTypeHints": true,
+                    "includeInlayVariableTypeHintsWhenTypeMatchesName": false,
+                    "includeInlayPropertyDeclarationTypeHints": true,
+                    "includeInlayFunctionLikeReturnTypeHints": true,
+                    "includeInlayEnumMemberValueHints": true
+                }
+            }
+        }
+    },
+    "enabled": true,
+    "show_type_hints": true,
+    "show_parameter_hints": true,
+    "show_other_hints": true,
+    "format_on_save": "on",
+    "file_scan_exclusions": [
+        "node_modules",
+        "game/temp",
+        "game/core/dist",
+        "game/core/.cache",
+        ".DS_Store",
+        ".git",
+        "docs",
+        "docs/benchmark/*.js"
+    ]
+}

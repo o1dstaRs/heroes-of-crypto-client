@@ -1,0 +1,3 @@
+{
+    "files.exclude": ["node_modules", "game/temp", "game/core/dist", "game/core/.cache", ".DS_Store", ".git", "docs"]
+}

@@ -1,0 +1,81 @@
+{
+    "name": "@heroesofcrypto/core",
+    "version": "0.1.2",
+    "private": false,
+    "description": "Core game logic for Heroes of Crypto",
+    "homepage": "https://heroesofcrypto.io",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "npm test && rimraf dist && tsc && yarn run build:docs",
+        "build:docs": "rimraf ../../.parcel-cache && rimraf ../../docs/core && rimraf images && npm run copy:images && npm run generate:images && parcel build --no-optimize src/ui/index.html --public-url . --no-source-maps --dist-dir ../../docs/core",
+        "copy:images": "cp -r $HOC_IMAGES_LOC .",
+        "generate:images": "node scripts/generate_image_imports.js",
+        "start": "rimraf ../../.parcel-cache && parcel src/ui/index.html",
+        "test": "jest test/*",
+        "watch": "rimraf ../../.parcel-cache && parcel watch src/ui/index.html"
+    },
+    "browserslist": [
+        "> 5%"
+    ],
+    "jest": {
+        "testMatch": [
+            "**/**.test.ts"
+        ],
+        "transform": {
+            ".(ts|ts)": "ts-jest"
+        },
+        "transformIgnorePatterns": [
+            "[/\\\\]node_modules[/\\\\].+\\.(js|jsx|ts|tsx|json)$",
+            "units.json",
+            "effects.json",
+            "abilities.json",
+            "package.json"
+        ]
+    },
+    "dependencies": {
+        "@box2d/controllers": "^0.10.0",
+        "@box2d/core": "^0.10.0",
+        "@box2d/debug-draw": "^0.10.0",
+        "@box2d/lights": "^0.10.0",
+        "@box2d/particles": "^0.10.0",
+        "@emotion/react": "^11.11.4",
+        "@emotion/styled": "^11.11.5",
+        "@mui/base": "^5.0.0-beta.40",
+        "@mui/icons-material": "^5.15.19",
+        "@mui/joy": "^5.0.0-beta.36",
+        "@mui/material": "^5.15.19",
+        "@react-nano/router": "^0.12.1",
+        "@types/node-schedule": "^2.1.7",
+        "@types/randomcolor": "^0.5.9",
+        "@types/react": "^18.3.3",
+        "@types/react-dom": "^18.3.0",
+        "@types/shortid": "^0.0.29",
+        "denque": "^2.1.0",
+        "gl-matrix": "^3.4.3",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "react-is": "^18.3.1",
+        "rimraf": "^5.0.7",
+        "sass": "^1.77.4",
+        "shortid": "^2.2.16",
+        "sort-package-json": "^1.57.0",
+        "typed-glsl": "^0.11.2",
+        "typed-signals": "^2.5.0",
+        "typeface-open-sans": "1.1.13",
+        "typescript": "^4.7.2"
+    },
+    "devDependencies": {
+        "@babel/preset-typescript": "^7.24.6",
+        "@parcel/babel-preset-env": "^2.12.0",
+        "@parcel/config-default": "^2.12.0",
+        "@types/jest": "^29.5.12",
+        "jest": "^29.7.0",
+        "parcel": "^2.12.0",
+        "ts-jest": "^29.1.4"
+    },
+    "@parcel/resolver-default": {
+        "packageExports": true
+    }
+}

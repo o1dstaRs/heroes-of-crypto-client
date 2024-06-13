@@ -1,0 +1,6 @@
+{
+    "version": "0.10.0",
+    "packages": ["game/**"],
+    "npmClient": "yarn",
+    "useWorkspaces": true
+}

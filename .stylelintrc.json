@@ -1,0 +1,9 @@
+{
+  "extends": [
+    "@lusito/stylelint-config"
+  ],
+  "rules": {
+    "selector-id-pattern": null,
+    "selector-class-pattern": null
+  }
+}

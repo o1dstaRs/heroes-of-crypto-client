@@ -1,0 +1,201 @@
+{
+    "version": 1.0,
+    "Double Punch": {
+        "name": "Double Punch",
+        "type": "ADDITIONAL_ATTACK",
+        "desc": "Lands second attack with {} of the calculated damage",
+        "power": 100,
+        "power_type": "TOTAL_DAMAGE_PERCENTAGE",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Backstab": {
+        "name": "Backstab",
+        "type": "ATTACK",
+        "desc": "{} higher damage when hit from the enemy respawn side",
+        "power": 25,
+        "power_type": "ADDITIONAL_DAMAGE_PERCENTAGE",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Handyman": {
+        "name": "Handyman",
+        "type": "ATTACK",
+        "desc": "Melee damage is not reduced",
+        "power": 200,
+        "power_type": "TOTAL_DAMAGE_PERCENTAGE",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Double Shot": {
+        "name": "Double Shot",
+        "type": "ADDITIONAL_ATTACK",
+        "desc": "Lands second shot with {} of the calculated damage",
+        "power": 100,
+        "power_type": "TOTAL_DAMAGE_PERCENTAGE",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Shadow Touch": {
+        "name": "Shadow Touch",
+        "type": "ATTACK",
+        "desc": "The unit's attacks are not responded",
+        "power": 100,
+        "power_type": "NORMAL_DAMAGE",
+        "skip_reponse": true,
+        "effect": null
+    },
+    "One in the Field": {
+        "name": "One in the Field",
+        "type": "RESPOND",
+        "desc": "No limit on the responde",
+        "power": 100,
+        "power_type": "UNLIMITED_RESPONSES",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Endless Quiver": {
+        "name": "Endless Quiver",
+        "type": "SUPPLIES",
+        "desc": "Endless supply of arrows",
+        "power": 99,
+        "power_type": "UNLIMITED_SUPPLIES",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Sniper": {
+        "name": "Sniper",
+        "type": "ATTACK",
+        "desc": "Ignores penalties for hitting targets at long distances",
+        "power": 200,
+        "power_type": "UNLIMITED_RANGE",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Leather Armor": {
+        "name": "Leather Armor",
+        "type": "DEFENCE",
+        "desc": "Reduces range armor by {}%",
+        "power": 50,
+        "power_type": "RANGE_ARMOR_MODIFIER",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Limited Supply": {
+        "name": "Limited Suppply",
+        "type": "DEFENCE",
+        "desc": "Only {}% of the arrows are available",
+        "power": 100,
+        "power_type": "RANGE_SHOTS_NUMBER_MODIFIER",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Enchanted Skin": {
+        "name": "Enchanted Skin",
+        "type": "DEFENCE",
+        "desc": "Grants 100% protection against any magic, including buffs and debuffs",
+        "power": 100,
+        "power_type": "MAGIC_RESIST_100",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Undead": {
+        "name": "Undead",
+        "type": "UNIT_TYPE",
+        "desc": "Invulnerable to mental attacks, poison and vampirism. Vulnerable to holy attacks",
+        "power": 1,
+        "power_type": "UNDEAD",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Lightning Spin": {
+        "name": "Lightning Spin",
+        "type": "ATTACK",
+        "Desc": "Attacks all enemies around with {}% damage",
+        "power": 100,
+        "power_type": "TOTAL_DAMAGE_PERCENTAGE",
+        "skip_reponse": true,
+        "effect": null
+    },
+    "Fire Breath": {
+        "name": "Fire Breath",
+        "type": "ATTACK",
+        "Desc": "Burns through the enemy with Fire for {}% damage, where distance equals to the size of the unit",
+        "power": 100,
+        "power_type": "TOTAL_DAMAGE_PERCENTAGE",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Fire Element": {
+        "name": "Fire Element",
+        "type": "DEFENCE",
+        "Desc": "Gives Fire immunity. Water attacks deal {}% more damage",
+        "power": 50,
+        "power_type": "MAGIC_VULNERABILITY_WATER",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Fire Shield": {
+        "name": "Fire Shield",
+        "type": "REFLECT",
+        "Desc": "Reflects back {}% in Fire damage to anyone who decides to attack it",
+        "power": 40,
+        "power_type": "TOTAL_DAMAGE_PERCENTAGE",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Piercing Spear": {
+        "name": "Piercing Spear",
+        "type": "ATTACK",
+        "Desc": "Completely ignores the enemy armor on any attacks",
+        "power": 100,
+        "power_type": "IGNORE_ARMOR",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Boost Health": {
+        "name": "Boost Health",
+        "type": "DEFENCE",
+        "Desc": "Each unit gets {}% more health",
+        "power": 50,
+        "power_type": "BOOST_HEALTH",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Stun": {
+        "name": "Stun",
+        "type": "STATUS",
+        "Desc": "On attack, has a {}% chance to stun an enemy for 1 turn",
+        "power": 30,
+        "power_type": "APPLY_EFFECT",
+        "skip_reponse": false,
+        "effect": "Stun"
+    },
+    "Wild Regeneration": {
+        "name": "Wild Regeneration",
+        "type": "HEAL",
+        "Desc": "On its turn, auto heals up to a maximum HP",
+        "power": 100,
+        "power_type": "REGENERATION",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Heavy Armor": {
+        "name": "Heavy Armor",
+        "type": "DEFENCE",
+        "Desc": "Has {}% additional base armor, while taking {}% more damage from magic",
+        "power": 50,
+        "power_type": "PHYSICAL_RESIST_WHILE_MAGIC_VULNERABLE",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "No Melee": {
+        "name": "No Melee",
+        "type": "ATTACK",
+        "desc": "Unit has no melee attack",
+        "power": 0,
+        "power_type": "TOTAL_DAMAGE_PERCENTAGE",
+        "skip_reponse": false,
+        "effect": null
+    }
+}
