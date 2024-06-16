@@ -10,6 +10,7 @@
  */
 
 import { b2Body, b2Fixture, b2TestOverlap, b2Vec2, b2World, XY } from "@box2d/core";
+import { GridMath, GridSettings, Grid } from "@heroesofcrypto/common";
 
 import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
@@ -20,9 +21,6 @@ import { processLightningSpinAbility } from "../abilities/lightning_spin_ability
 import { processOneInTheFieldAbility } from "../abilities/one_in_the_field_ability";
 import { processStunAbility } from "../abilities/stun_ability";
 import { Drawer } from "../draw/drawer";
-import { Grid } from "../grid/grid";
-import { getCellForPosition, getCellsAroundPoint, getPointForCell } from "../grid/grid_math";
-import { GridSettings } from "../grid/grid_settings";
 import { SceneLog } from "../menu/scene_log";
 import { IWeightedRoute } from "../path/path_helper";
 import { canBeCasted, Spell } from "../spells/spells";
@@ -185,14 +183,14 @@ export class AttackHandler {
     public canBeAttackedByMelee(unitPosition: XY, isSmallUnit: boolean, aggrMatrix?: number[][]): boolean {
         let cells: XY[];
         if (isSmallUnit) {
-            const cell = getCellForPosition(this.gridSettings, unitPosition);
+            const cell = GridMath.getCellForPosition(this.gridSettings, unitPosition);
             if (cell) {
                 cells = [cell];
             } else {
                 cells = [];
             }
         } else {
-            cells = getCellsAroundPoint(this.gridSettings, unitPosition);
+            cells = GridMath.getCellsAroundPoint(this.gridSettings, unitPosition);
         }
 
         for (const cell of cells) {
@@ -314,13 +312,14 @@ export class AttackHandler {
                 rangeResponseAttackDivisor,
             );
 
+            this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
+
             if (damageFromRespond) {
                 this.sceneLog.updateLog(
                     `${targetUnit.getName()} resp ${rangeResponseUnit.getName()} (${damageFromRespond})`,
                 );
             }
 
-            this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
             rangeResponseUnit.applyDamage(damageFromRespond, sceneStepCount);
             DamageStatisticHolder.getInstance().add({
                 unitName: targetUnit.getName(),
@@ -425,7 +424,7 @@ export class AttackHandler {
             return false;
         }
 
-        const currentCell = getCellForPosition(this.gridSettings, attackerUnit.getPosition());
+        const currentCell = GridMath.getCellForPosition(this.gridSettings, attackerUnit.getPosition());
 
         if (!currentCell) {
             return false;
@@ -450,7 +449,7 @@ export class AttackHandler {
                     return false;
                 }
 
-                const position = getPointForCell(
+                const position = GridMath.getPointForCell(
                     attackFromCell,
                     this.gridSettings.getMinX(),
                     this.gridSettings.getStep(),
@@ -458,22 +457,22 @@ export class AttackHandler {
                 );
                 attackerUnit.setPosition(position.x, position.y);
                 grid.occupyCell(
+                    attackFromCell,
                     attackerUnit.getId(),
                     attackerUnit.getTeam(),
                     attackerUnit.getAttackRange(),
-                    attackFromCell,
                 );
             } else {
                 return false;
             }
         } else {
-            const position = getPointForCell(
+            const position = GridMath.getPointForCell(
                 attackFromCell,
                 this.gridSettings.getMinX(),
                 this.gridSettings.getStep(),
                 this.gridSettings.getHalfStep(),
             );
-            const cells = getCellsAroundPoint(this.gridSettings, {
+            const cells = GridMath.getCellsAroundPoint(this.gridSettings, {
                 x: position.x - this.gridSettings.getHalfStep(),
                 y: position.y - this.gridSettings.getHalfStep(),
             });
@@ -499,7 +498,7 @@ export class AttackHandler {
                     position.y - this.gridSettings.getHalfStep(),
                 );
 
-                grid.occupyCells(attackerUnit.getId(), attackerUnit.getTeam(), attackerUnit.getAttackRange(), cells);
+                grid.occupyCells(cells, attackerUnit.getId(), attackerUnit.getTeam(), attackerUnit.getAttackRange());
             } else {
                 return false;
             }
@@ -509,7 +508,7 @@ export class AttackHandler {
         const abilitiesWithPositionCoeff = getAbilitiesWithPosisionCoefficient(
             attackerUnit.getAbilities(),
             attackFromCell,
-            getCellForPosition(this.gridSettings, targetUnit.getPosition()),
+            GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
             targetUnit.isSmallSize(),
             attackerUnit.getTeam(),
         );
@@ -581,7 +580,7 @@ export class AttackHandler {
                 grid,
                 this.gridSettings,
                 "resp",
-                getCellForPosition(this.gridSettings, targetUnit.getPosition()),
+                GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
             );
 
             hasLightningSpinResponseLanded = processLightningSpinAbility(
@@ -599,7 +598,7 @@ export class AttackHandler {
                 abilityMultiplier = 1;
                 const abilitiesWithPositionCoeffResp = getAbilitiesWithPosisionCoefficient(
                     targetUnit.getAbilities(),
-                    getCellForPosition(this.gridSettings, targetUnit.getPosition()),
+                    GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
                     attackFromCell,
                     attackerUnit.isSmallSize(),
                     targetUnit.getTeam(),

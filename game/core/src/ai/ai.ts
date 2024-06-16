@@ -9,15 +9,14 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Grid } from "../grid/grid";
+import { Grid, ObstacleType, HoCMath } from "@heroesofcrypto/common";
+
 import { PathHelper, IWeightedRoute } from "../path/path_helper";
 import { Unit, IUnitAIRepr } from "../units/units";
 import { AttackType, TeamType } from "../units/units_stats";
-import { matrixElementOrZero, XY } from "../utils/math";
-import { ObstacleType } from "../obstacles/obstacle";
 
 export interface IAI {
-    nextMovingTarget(): XY | undefined;
+    nextMovingTarget(): HoCMath.XY | undefined;
 
     decide(grid: Grid, currentTick: number, id: string, enemyTeam: number): void;
 
@@ -49,24 +48,24 @@ export enum AIActionType {
 
 export interface IAIAction {
     actionType(): AIActionType;
-    cellToMove(): XY | undefined;
-    cellToAttack(): XY | undefined;
+    cellToMove(): HoCMath.XY | undefined;
+    cellToAttack(): HoCMath.XY | undefined;
     currentActiveKnownPaths(): Map<number, IWeightedRoute[]>;
 }
 
 export class BasicAIAction implements IAIAction {
     private readonly type: AIActionType;
 
-    private readonly cell: XY | undefined;
+    private readonly cell: HoCMath.XY | undefined;
 
-    private readonly attackCell: XY | undefined;
+    private readonly attackCell: HoCMath.XY | undefined;
 
     private readonly activeKnownPaths: Map<number, IWeightedRoute[]>;
 
     public constructor(
         type: AIActionType,
-        cell: XY | undefined,
-        toAttackCell: XY | undefined,
+        cell: HoCMath.XY | undefined,
+        toAttackCell: HoCMath.XY | undefined,
         activeKnownPaths: Map<number, IWeightedRoute[]>,
     ) {
         this.type = type;
@@ -79,11 +78,11 @@ export class BasicAIAction implements IAIAction {
         return this.type;
     }
 
-    public cellToMove(): XY | undefined {
+    public cellToMove(): HoCMath.XY | undefined {
         return this.cell;
     }
 
-    public cellToAttack(): XY | undefined {
+    public cellToAttack(): HoCMath.XY | undefined {
         return this.attackCell;
     }
 
@@ -111,7 +110,7 @@ export function findTarget(
         return undefined;
     }
     let minDistance = Infinity;
-    let closestTarget: XY | undefined;
+    let closestTarget: HoCMath.XY | undefined;
 
     // if not range or spell type then add BFS, similar is in pathhelper
     // get the cell to go or cell to go and target to attack
@@ -130,7 +129,7 @@ export function findTarget(
 
     for (let i = 0; i < numRows; i++) {
         for (let j = 0; j < numCols; j++) {
-            const element = matrixElementOrZero(matrix, j, i);
+            const element = HoCMath.matrixElementOrZero(matrix, j, i);
             if (element !== unit.getTeam() && element !== 0) {
                 if (
                     element === ObstacleType.BLOCK ||
@@ -204,16 +203,16 @@ export function findTarget(
         const cellToGo = route?.route[routeIndex];
         if (cellToGo) {
             if (unit.isSmallSize()) {
-                if (matrixElementOrZero(matrix, cellToGo.x, cellToGo.y) !== 0) {
+                if (HoCMath.matrixElementOrZero(matrix, cellToGo.x, cellToGo.y) !== 0) {
                     routeIndex--;
                 } else {
                     break;
                 }
             } else if (
-                matrixElementOrZero(matrix, cellToGo.x, cellToGo.y) !== 0 ||
-                matrixElementOrZero(matrix, cellToGo.x - 1, cellToGo.y) !== 0 ||
-                matrixElementOrZero(matrix, cellToGo.x, cellToGo.y - 1) !== 0 ||
-                matrixElementOrZero(matrix, cellToGo.x - 1, cellToGo.y - 1) !== 0
+                HoCMath.matrixElementOrZero(matrix, cellToGo.x, cellToGo.y) !== 0 ||
+                HoCMath.matrixElementOrZero(matrix, cellToGo.x - 1, cellToGo.y) !== 0 ||
+                HoCMath.matrixElementOrZero(matrix, cellToGo.x, cellToGo.y - 1) !== 0 ||
+                HoCMath.matrixElementOrZero(matrix, cellToGo.x - 1, cellToGo.y - 1) !== 0
             ) {
                 routeIndex--;
             } else {
@@ -240,7 +239,7 @@ export function findTarget(
     return new BasicAIAction(AIActionType.MOVE, route?.route[routeIndex], undefined, paths.knownPaths);
 }
 
-function cellKey(xy: XY): number {
+function cellKey(xy: HoCMath.XY): number {
     return (xy.x << 4) | xy.y; // TODO exact method in path_helper.js
 }
 
@@ -276,16 +275,16 @@ Current big, Attacker Big
 [x, 0, 0, 0, x],
 */
 export function getCellsForAttacker(
-    currentCell: XY,
+    currentCell: HoCMath.XY,
     matrixSize: number,
     isCurrentUnitSmall = true,
     isAttackerUnitSmall = true,
-): XY[] {
+): HoCMath.XY[] {
     const borderCells = filterCells(getBorderCells(currentCell, isCurrentUnitSmall), matrixSize);
     if (isAttackerUnitSmall) {
         return borderCells;
     }
-    const cellsForBigAttacker: XY[] = [];
+    const cellsForBigAttacker: HoCMath.XY[] = [];
     for (const borderCell of borderCells) {
         if (borderCell.x <= currentCell.x && borderCell.y <= currentCell.y) {
             cellsForBigAttacker.push(borderCell);
@@ -315,7 +314,7 @@ export function getCellsForAttacker(
 }
 
 // return cells that the small or big unit has
-function getBorderCells(currentCell: XY, isSmallUnit = true): XY[] {
+function getBorderCells(currentCell: HoCMath.XY, isSmallUnit = true): HoCMath.XY[] {
     const borderCells = [];
     borderCells.push({ x: currentCell.x + 1, y: currentCell.y - 1 });
     borderCells.push({ x: currentCell.x + 1, y: currentCell.y });
@@ -338,7 +337,7 @@ function getBorderCells(currentCell: XY, isSmallUnit = true): XY[] {
     return borderCells;
 }
 
-function filterCells(cells: XY[], matrixSize: number, isAttackerSmall = true): XY[] {
+function filterCells(cells: HoCMath.XY[], matrixSize: number, isAttackerSmall = true): HoCMath.XY[] {
     const filtered = [];
     for (const cell of cells) {
         if (inBounds(cell, matrixSize)) {
@@ -356,6 +355,6 @@ function filterCells(cells: XY[], matrixSize: number, isAttackerSmall = true): X
     return filtered;
 }
 
-function inBounds(cell: XY, matrixSize: number): boolean {
+function inBounds(cell: HoCMath.XY, matrixSize: number): boolean {
     return cell.x >= 0 && cell.x < matrixSize && cell.y >= 0 && cell.y < matrixSize;
 }

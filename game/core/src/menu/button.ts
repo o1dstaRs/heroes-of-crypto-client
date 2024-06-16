@@ -10,9 +10,8 @@
  */
 
 import { b2Color, b2Draw, b2FixtureDef, b2PolygonShape, b2Vec2, XY } from "@box2d/core";
+import { GridMath, GridSettings } from "@heroesofcrypto/common";
 
-import { getCellForPosition } from "../grid/grid_math";
-import { GridSettings } from "../grid/grid_settings";
 import { Sprite } from "../utils/gl/Sprite";
 
 export class Button {
@@ -45,7 +44,7 @@ export class Button {
         this.spriteBlack = spriteBlack;
         this.spriteActive = spriteActive;
         this.position = position;
-        this.cell = getCellForPosition(this.gridSettings, position);
+        this.cell = GridMath.getCellForPosition(this.gridSettings, position);
         this.isSelected = isSelected;
 
         //        const unitShape = new b2PolygonShape(this.getTeam() === 1 ? b2Color.BLUE : b2Color.RED);
@@ -69,7 +68,7 @@ export class Button {
 
     public setPosition(position: b2Vec2): void {
         this.position = position;
-        this.cell = getCellForPosition(this.gridSettings, position);
+        this.cell = GridMath.getCellForPosition(this.gridSettings, position);
     }
 
     public isHover(cellPosition?: XY): boolean {

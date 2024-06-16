@@ -35,6 +35,7 @@ import {
     XY,
 } from "@box2d/core";
 import { b2ParticleGroup, DrawParticleSystems } from "@box2d/particles";
+import { HoCMath } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { SceneControl } from "../sceneControls";
@@ -47,7 +48,6 @@ import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
-import { IXYDistance } from "../utils/math";
 import { SceneSettings } from "./scene_settings";
 
 const temp = {
@@ -166,7 +166,7 @@ export abstract class Scene extends b2ContactListener {
 
     public readonly sc_sceneSettings: SceneSettings;
 
-    public sc_currentActiveShotRange?: IXYDistance;
+    public sc_currentActiveShotRange?: HoCMath.IXYDistance;
 
     public sc_unitInfoLines: Array<[string, string]> = [];
 

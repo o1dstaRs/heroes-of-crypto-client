@@ -10,8 +10,9 @@
  */
 
 import { XY, b2World, b2BodyType, b2PolygonShape } from "@box2d/core";
+import { ObstacleType } from "@heroesofcrypto/common";
 
-import { Obstacle, ObstacleType } from "./obstacle";
+import { Obstacle } from "./obstacle";
 import { Sprite } from "../utils/gl/Sprite";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { DefaultShader } from "../utils/gl/defaultShader";

@@ -10,10 +10,10 @@
  */
 
 import { b2World } from "@box2d/core";
+import { GridSettings } from "@heroesofcrypto/common";
 
 import { AbilitiesFactory } from "../abilities/abilities_factory";
 import { getUnitConfig } from "../config_provider";
-import { GridSettings } from "../grid/grid_settings";
 import { SpellsFactory } from "../spells/spells_factory";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";

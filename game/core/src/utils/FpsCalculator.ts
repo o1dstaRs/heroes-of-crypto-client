@@ -1,4 +1,4 @@
-import { q90 } from "./math";
+import { HoCMath } from "@heroesofcrypto/common";
 
 /**
  * Helps calculating a smooth Frames Per Second display
@@ -60,6 +60,6 @@ export class FpsCalculator {
 
     private calculate() {
         this.nextUpdate = this.waitTime;
-        this.p90 = 1000 / q90(this.frameTimes);
+        this.p90 = 1000 / HoCMath.q90(this.frameTimes);
     }
 }

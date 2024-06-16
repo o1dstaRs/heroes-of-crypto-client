@@ -10,6 +10,7 @@
  */
 
 import { b2Body, b2BodyType, b2Color, b2EdgeShape, b2Fixture, b2Vec2, XY } from "@box2d/core";
+import { Grid, GridSettings, GridConstants, GridMath, HoCMath, HoCLib } from "@heroesofcrypto/common";
 
 import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { AbilitiesFactory } from "../abilities/abilities_factory";
@@ -17,18 +18,6 @@ import { nextStandingTargets } from "../abilities/fire_breath_ability";
 import { allEnemiesAroundLargeUnit } from "../abilities/lightning_spin_ability";
 import { Drawer } from "../draw/drawer";
 import { EffectsFactory } from "../effects/effects_factory";
-import { Grid, UPDATE_DOWN, UPDATE_LEFT, UPDATE_RIGHT, UPDATE_UP } from "../grid/grid";
-import {
-    getCellForPosition,
-    getCellsAroundPoint,
-    getClosestSideCenter,
-    getPointForCell,
-    getPointForCells,
-    getRandomCellAroundPosition,
-    isCellWithinGrid,
-    isPositionWithinGrid,
-} from "../grid/grid_math";
-import { GridSettings } from "../grid/grid_settings";
 import { AttackHandler, IAttackObstacle } from "../handlers/attack_handler";
 import { MoveHandler } from "../handlers/move_handler";
 import { Button } from "../menu/button";
@@ -54,6 +43,8 @@ import {
     MORALE_CHANGE_FOR_SKIP,
     MOVEMENT_DELTA,
     NO_VELOCITY,
+    NUMBER_OF_LAPS_TILL_NARROWING_BLOCK,
+    NUMBER_OF_LAPS_TILL_NARROWING_NORMAL,
     NUMBER_OF_LAPS_TILL_STOP_NARROWING,
     STEP,
     UNIT_SIZE_DELTA,
@@ -66,8 +57,6 @@ import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
-import { getRandomInt, getTimeMillis, isBrowser, shuffle } from "../utils/lib";
-import { IXYDistance } from "../utils/math";
 import { GLScene } from "./gl_scene";
 import { registerScene, SceneContext } from "./scene";
 import { SceneSettings } from "./scene_settings";
@@ -98,7 +87,7 @@ class TestHeroes extends GLScene {
 
     private hoverActivePath?: XY[];
 
-    private hoverActiveShotRange?: IXYDistance;
+    private hoverActiveShotRange?: HoCMath.IXYDistance;
 
     private hoverRangeAttackLine?: b2Fixture;
 
@@ -263,7 +252,7 @@ class TestHeroes extends GLScene {
         this.unitsHolder = new UnitsHolder(this.sc_world, this.sc_sceneSettings.getGridSettings(), this.unitsFactory);
 
         this.ground = this.sc_world.CreateBody();
-        this.grid = new Grid(GRID_SIZE);
+        this.grid = new Grid(GRID_SIZE, NUMBER_OF_LAPS_TILL_NARROWING_BLOCK, NUMBER_OF_LAPS_TILL_NARROWING_NORMAL);
         this.refreshVisibleStateIfNeeded();
         this.gridMatrix = this.grid.getMatrix();
         this.obstacleGenerator = new ObstacleGenerator(this.sc_world, textures);
@@ -392,7 +381,7 @@ class TestHeroes extends GLScene {
             new b2Vec2(-1344, 192),
         );
 
-        switch (getRandomInt(0, 4)) {
+        switch (HoCLib.getRandomInt(0, 4)) {
             case 0:
                 this.lifeButton.setIsSelected(true);
                 this.sc_selectedRaceName = "Life";
@@ -441,12 +430,12 @@ class TestHeroes extends GLScene {
             if (this.sc_visibleState) {
                 const fightState = FightStateManager.getInstance().getFightState();
                 this.sc_visibleState.secondsMax = (fightState.currentTurnEnd - fightState.currentTurnStart) / 1000;
-                const remaining = (fightState.currentTurnEnd - getTimeMillis()) / 1000;
+                const remaining = (fightState.currentTurnEnd - HoCLib.getTimeMillis()) / 1000;
                 this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
                 this.sc_visibleStateUpdateNeeded = true;
             }
         };
-        if (isBrowser()) {
+        if (HoCLib.isBrowser()) {
             window.setInterval(this.visibleStateUpdate, 500);
         } else {
             setInterval(this.visibleStateUpdate, 500);
@@ -487,7 +476,7 @@ class TestHeroes extends GLScene {
                     this.obstacleGenerator.generateHole({ x: i * STEP, y: prevLap * STEP }, STEP, STEP),
                 );
                 const cell = { x: cellX, y: cellY };
-                const log = this.moveHandler.moveUnitTowardsCenter(cell, UPDATE_UP, laps);
+                const log = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_UP, laps);
                 if (log) {
                     logs.push(log);
                 }
@@ -500,7 +489,7 @@ class TestHeroes extends GLScene {
                     this.obstacleGenerator.generateHole({ x: i * STEP, y: (maxCellY - laps) * STEP }, STEP, STEP),
                 );
                 const cell = { x: cellX, y: cellY };
-                const log = this.moveHandler.moveUnitTowardsCenter(cell, UPDATE_DOWN, laps);
+                const log = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_DOWN, laps);
                 if (log) {
                     logs.push(log);
                 }
@@ -513,7 +502,7 @@ class TestHeroes extends GLScene {
                     this.obstacleGenerator.generateHole({ x: (minCellX + prevLap) * STEP, y: i * STEP }, STEP, STEP),
                 );
                 const cell = { x: cellX, y: cellY };
-                const log = this.moveHandler.moveUnitTowardsCenter(cell, UPDATE_RIGHT, laps);
+                const log = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_RIGHT, laps);
                 if (log) {
                     logs.push(log);
                 }
@@ -526,7 +515,7 @@ class TestHeroes extends GLScene {
                     this.obstacleGenerator.generateHole({ x: (maxCellX - laps) * STEP, y: i * STEP }, STEP, STEP),
                 );
                 const cell = { x: cellX, y: cellY };
-                const log = this.moveHandler.moveUnitTowardsCenter(cell, UPDATE_LEFT, laps);
+                const log = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_LEFT, laps);
                 if (log) {
                     logs.push(log);
                 }
@@ -651,7 +640,7 @@ class TestHeroes extends GLScene {
 
             const isSmallUnit = selectedUnitData.size === 1;
             const allowedPositions = placement.possibleCellPositions(isSmallUnit);
-            shuffle(allowedPositions);
+            HoCLib.shuffle(allowedPositions);
 
             for (const pos of allowedPositions) {
                 if (this.unitsHolder.spawnSelected(this.grid, selectedUnitData, pos, false)) {
@@ -682,7 +671,7 @@ class TestHeroes extends GLScene {
             this.sc_hoverTextUpdateNeeded = true;
         }
 
-        const mouseCell = getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
+        const mouseCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
         if (this.sc_started && this.currentActiveUnit) {
             if (!mouseCell) {
                 this.resetHover();
@@ -702,7 +691,7 @@ class TestHeroes extends GLScene {
                 this.hoverUnit = unit;
                 this.hoverSelectedCellsSwitchToRed = false;
 
-                const currentUnitCell = getCellForPosition(
+                const currentUnitCell = GridMath.getCellForPosition(
                     this.sc_sceneSettings.getGridSettings(),
                     this.currentActiveUnit.getPosition(),
                 );
@@ -726,7 +715,7 @@ class TestHeroes extends GLScene {
 
                     if (this.hoverUnit) {
                         this.hoverSelectedCells = undefined;
-                        hoverUnitCell = getCellForPosition(
+                        hoverUnitCell = GridMath.getCellForPosition(
                             this.sc_sceneSettings.getGridSettings(),
                             this.hoverUnit.getPosition(),
                         );
@@ -826,7 +815,7 @@ class TestHeroes extends GLScene {
                         const hoverAttackUnit = this.getHoverAttackUnit();
 
                         if (hoverAttackUnit) {
-                            const unitCell = getCellForPosition(
+                            const unitCell = GridMath.getCellForPosition(
                                 this.sc_sceneSettings.getGridSettings(),
                                 hoverAttackUnit.getPosition(),
                             );
@@ -841,7 +830,7 @@ class TestHeroes extends GLScene {
                                 this.canAttackByMeleeTargets.attackCells,
                                 hoverAttackUnit.isSmallSize()
                                     ? [unitCell]
-                                    : getCellsAroundPoint(
+                                    : GridMath.getCellsAroundPoint(
                                           this.sc_sceneSettings.getGridSettings(),
                                           hoverAttackUnit.getPosition(),
                                       ),
@@ -855,7 +844,7 @@ class TestHeroes extends GLScene {
                             const abilitiesWithPositionCoeff = getAbilitiesWithPosisionCoefficient(
                                 this.currentActiveUnit.getAbilities(),
                                 this.hoverAttackFrom,
-                                getCellForPosition(
+                                GridMath.getCellForPosition(
                                     this.sc_sceneSettings.getGridSettings(),
                                     hoverAttackUnit.getPosition(),
                                 ),
@@ -915,7 +904,7 @@ class TestHeroes extends GLScene {
                             this.hoverActivePath = undefined;
                             return;
                         }
-                        const unitCell = getCellForPosition(
+                        const unitCell = GridMath.getCellForPosition(
                             this.sc_sceneSettings.getGridSettings(),
                             unit.getPosition(),
                         );
@@ -952,7 +941,10 @@ class TestHeroes extends GLScene {
                         this.hoverActivePath = undefined;
                         return;
                     }
-                    const unitCell = getCellForPosition(this.sc_sceneSettings.getGridSettings(), unit.getPosition());
+                    const unitCell = GridMath.getCellForPosition(
+                        this.sc_sceneSettings.getGridSettings(),
+                        unit.getPosition(),
+                    );
                     this.hoverActiveShotRange = undefined;
                     if (!unitCell) {
                         this.hoverActivePath = undefined;
@@ -993,7 +985,7 @@ class TestHeroes extends GLScene {
                         const shape = new b2EdgeShape();
 
                         this.hoverRangeAttackPoint =
-                            getClosestSideCenter(
+                            GridMath.getClosestSideCenter(
                                 this.gridMatrix,
                                 this.sc_sceneSettings.getGridSettings(),
                                 this.sc_mouseWorld,
@@ -1022,7 +1014,7 @@ class TestHeroes extends GLScene {
                         const hoverAttackUnit = this.getHoverAttackUnit();
 
                         if (hoverAttackUnit) {
-                            const hoverUnitCell = getCellForPosition(
+                            const hoverUnitCell = GridMath.getCellForPosition(
                                 this.sc_sceneSettings.getGridSettings(),
                                 hoverAttackUnit.getPosition(),
                             );
@@ -1084,7 +1076,7 @@ class TestHeroes extends GLScene {
                     (this.currentActiveUnit.getTeam() === TeamType.LOWER && fightState.lowerTeamUnitsAlive > 1) ||
                     (this.currentActiveUnit.getTeam() === TeamType.UPPER && fightState.upperTeamUnitsAlive > 1);
                 if (
-                    (isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell) &&
+                    (GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell) &&
                         this.currentActivePathHashes.has((mouseCell.x << 4) | mouseCell.y)) ||
                     (!this.sc_isAIActive &&
                         ((this.spellBookButton.isHover(mouseCell) && this.currentActiveUnit.getSpellsCount()) ||
@@ -1128,7 +1120,7 @@ class TestHeroes extends GLScene {
                             undefined,
                             mouseCell,
                         ) &&
-                        isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell)
+                        GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell)
                     ) {
                         this.hoverAttackFrom = mouseCell;
                         this.sc_moveBlocked = true;
@@ -1145,7 +1137,7 @@ class TestHeroes extends GLScene {
                             this.sc_mouseWorld,
                             this.allowedPlacementCellHashes,
                             this.cellToUnitPreRound,
-                            getCellsAroundPoint(
+                            GridMath.getCellsAroundPoint(
                                 this.sc_sceneSettings.getGridSettings(),
                                 this.currentActiveUnit.getPosition(),
                             ),
@@ -1181,7 +1173,7 @@ class TestHeroes extends GLScene {
                         undefined,
                         mouseCell,
                     ) &&
-                    isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell)
+                    GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell)
                 ) {
                     this.hoverAttackFrom = mouseCell;
                     this.sc_moveBlocked = true;
@@ -1419,7 +1411,7 @@ class TestHeroes extends GLScene {
         }
 
         // game has started
-        const mouseCell = getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
+        const mouseCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
         if (
             this.sc_started &&
             this.currentActiveUnit &&
@@ -1427,12 +1419,12 @@ class TestHeroes extends GLScene {
             mouseCell &&
             (this.currentActivePathHashes.has((mouseCell.x << 4) | mouseCell.y) ||
                 (this.currentActiveSpell &&
-                    isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell) &&
+                    GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell) &&
                     this.currentActiveSpell.getSpellTargetType() === SpellTargetType.FREE_CELL))
         ) {
             if (unitStats.size === 1 || this.currentActiveSpell) {
                 if (this.grid.areAllCellsEmpty([mouseCell])) {
-                    return getPointForCell(
+                    return GridMath.getPointForCell(
                         mouseCell,
                         this.sc_sceneSettings.getGridSettings().getMinX(),
                         this.sc_sceneSettings.getGridSettings().getStep(),
@@ -1451,7 +1443,7 @@ class TestHeroes extends GLScene {
                 return undefined;
             }
 
-            return getPointForCells(this.sc_sceneSettings.getGridSettings(), this.hoverSelectedCells);
+            return GridMath.getPointForCells(this.sc_sceneSettings.getGridSettings(), this.hoverSelectedCells);
         }
 
         const unit = this.unitsHolder.getAllUnits().get(unitStats.id);
@@ -1462,7 +1454,7 @@ class TestHeroes extends GLScene {
         // pre-start
         if (!this.sc_started && mouseCell && this.isAllowedPreStartMousePosition(unit, true)) {
             if (unit.isSmallSize()) {
-                return getPointForCell(
+                return GridMath.getPointForCell(
                     mouseCell,
                     this.sc_sceneSettings.getGridSettings().getMinX(),
                     this.sc_sceneSettings.getGridSettings().getStep(),
@@ -1470,7 +1462,7 @@ class TestHeroes extends GLScene {
                 );
             }
 
-            return getPointForCells(this.sc_sceneSettings.getGridSettings(), this.hoverSelectedCells);
+            return GridMath.getPointForCells(this.sc_sceneSettings.getGridSettings(), this.hoverSelectedCells);
         }
 
         return undefined;
@@ -1492,7 +1484,10 @@ class TestHeroes extends GLScene {
                     castStarted = this.cast();
                     moveStarted = true;
                 } else {
-                    const cellIndices = getCellForPosition(this.sc_sceneSettings.getGridSettings(), pointToDropTo);
+                    const cellIndices = GridMath.getCellForPosition(
+                        this.sc_sceneSettings.getGridSettings(),
+                        pointToDropTo,
+                    );
                     if (
                         cellIndices &&
                         this.currentActiveKnownPaths?.get((cellIndices.x << 4) | cellIndices.y)?.length
@@ -1657,7 +1652,7 @@ class TestHeroes extends GLScene {
             return;
         }
 
-        const cell = getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
+        const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
         if (!cell) {
             return;
         }
@@ -1776,7 +1771,7 @@ class TestHeroes extends GLScene {
                 (this.currentActiveUnit.getAttackType() === AttackType.RANGE ||
                     this.currentActiveUnit.getAttackType() === AttackType.MAGIC)
             ) {
-                const currentUnitCell = getCellForPosition(
+                const currentUnitCell = GridMath.getCellForPosition(
                     this.sc_sceneSettings.getGridSettings(),
                     this.currentActiveUnit.getPosition(),
                 );
@@ -1801,7 +1796,7 @@ class TestHeroes extends GLScene {
         } else if (this.hoveredSpell) {
             if (this.hoveredSpell.getSpellTargetType() === SpellTargetType.RANDOM_CLOSE_TO_CASTER) {
                 if (this.currentActiveUnit) {
-                    const randomCell = getRandomCellAroundPosition(
+                    const randomCell = GridMath.getRandomCellAroundPosition(
                         this.sc_sceneSettings.getGridSettings(),
                         this.gridMatrix,
                         this.currentActiveUnit.getTeam(),
@@ -1915,26 +1910,24 @@ class TestHeroes extends GLScene {
                 let refreshUnitPosition = false;
 
                 if (this.currentActiveUnit.isSmallSize()) {
-                    const cell = getCellForPosition(this.sc_sceneSettings.getGridSettings(), pointToDropTo);
+                    const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), pointToDropTo);
                     if (cell && this.grid.areAllCellsEmpty([cell], this.currentActiveUnit.getId())) {
-                        this.grid.occupyCell(
+                        refreshUnitPosition = this.grid.occupyCell(
+                            cell,
                             this.currentActiveUnit.getId(),
                             this.currentActiveUnit.getTeam(),
                             this.currentActiveUnit.getAttackRange(),
-                            cell,
                         );
-                        refreshUnitPosition = true;
                     }
                 } else {
-                    const cells = getCellsAroundPoint(this.sc_sceneSettings.getGridSettings(), pointToDropTo);
+                    const cells = GridMath.getCellsAroundPoint(this.sc_sceneSettings.getGridSettings(), pointToDropTo);
                     if (this.grid.areAllCellsEmpty(cells, this.currentActiveUnit.getId())) {
-                        this.grid.occupyCells(
+                        refreshUnitPosition = this.grid.occupyCells(
+                            cells,
                             this.currentActiveUnit.getId(),
                             this.currentActiveUnit.getTeam(),
                             this.currentActiveUnit.getAttackRange(),
-                            cells,
                         );
-                        refreshUnitPosition = true;
                     }
                 }
 
@@ -1947,33 +1940,41 @@ class TestHeroes extends GLScene {
 
                 this.finishTurn();
             } else if (
-                isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), this.sc_selectedBody.GetPosition())
+                GridMath.isPositionWithinGrid(
+                    this.sc_sceneSettings.getGridSettings(),
+                    this.sc_selectedBody.GetPosition(),
+                )
             ) {
                 const unitStats = this.sc_selectedBody.GetUserData();
                 if (unitStats) {
+                    let refreshUnitPosition = false;
+
                     if (unitStats.size === 1) {
-                        this.grid.occupyCell(
-                            unitStats.id,
-                            unitStats.team,
-                            unitStats.attack_range,
-                            getCellForPosition(
-                                this.sc_sceneSettings.getGridSettings(),
-                                this.sc_selectedBody.GetPosition(),
-                            ),
+                        const cell = GridMath.getCellForPosition(
+                            this.sc_sceneSettings.getGridSettings(),
+                            this.sc_selectedBody.GetPosition(),
                         );
+                        if (cell) {
+                            refreshUnitPosition = this.grid.occupyCell(
+                                cell,
+                                unitStats.id,
+                                unitStats.team,
+                                unitStats.attack_range,
+                            );
+                        }
                     } else {
-                        this.grid.occupyCells(
-                            unitStats.id,
-                            unitStats.team,
-                            unitStats.attack_range,
-                            getCellsAroundPoint(
+                        refreshUnitPosition = this.grid.occupyCells(
+                            GridMath.getCellsAroundPoint(
                                 this.sc_sceneSettings.getGridSettings(),
                                 this.sc_selectedBody.GetPosition(),
                             ),
+                            unitStats.id,
+                            unitStats.team,
+                            unitStats.attack_range,
                         );
                     }
                     const unit = this.unitsHolder.getAllUnits().get(unitStats.id);
-                    if (unit) {
+                    if (unit && refreshUnitPosition) {
                         unit.setPosition(this.sc_selectedBody.GetPosition().x, this.sc_selectedBody.GetPosition().y);
                     }
                 }
@@ -2122,8 +2123,8 @@ class TestHeroes extends GLScene {
             this.currentActiveSpell.getSpellTargetType() === SpellTargetType.FREE_CELL &&
             this.currentActiveUnit
         ) {
-            const mouseCell = getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
-            if (isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell)) {
+            const mouseCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
+            if (GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell)) {
                 this.finishTurn();
                 return true;
             }
@@ -2136,7 +2137,7 @@ class TestHeroes extends GLScene {
         const occupiedCells: string[] = [];
         if (this.currentActiveUnit && !this.unitIdToCellsPreRound) {
             if (!this.currentActiveUnit.isSmallSize()) {
-                const cellsAroundPoint = getCellsAroundPoint(
+                const cellsAroundPoint = GridMath.getCellsAroundPoint(
                     this.sc_sceneSettings.getGridSettings(),
                     this.currentActiveUnit.getPosition(),
                 );
@@ -2222,7 +2223,7 @@ class TestHeroes extends GLScene {
             let allUnitsMadeTurn = true;
 
             if (this.sc_started) {
-                if (getTimeMillis() >= fightState.currentTurnEnd) {
+                if (HoCLib.getTimeMillis() >= fightState.currentTurnEnd) {
                     if (this.currentActiveUnit) {
                         this.currentActiveUnit.decreaseMorale(MORALE_CHANGE_FOR_SKIP);
                         this.currentActiveUnit.applyMoraleStepsModifier(
@@ -2300,42 +2301,45 @@ class TestHeroes extends GLScene {
                                     bodies.set(unit.getId(), b);
                                     positions.set(unit.getId(), b.GetPosition());
                                     unitsUpper.push(unit);
+                                    let occupiedCells = false;
 
                                     if (!this.placementsCleanedUp) {
                                         if (unitStats.size === 1) {
-                                            const cell = getCellForPosition(
+                                            const cell = GridMath.getCellForPosition(
                                                 this.sc_sceneSettings.getGridSettings(),
                                                 b.GetPosition(),
                                             );
                                             if (cell) {
                                                 if (this.grid.areAllCellsEmpty([cell])) {
-                                                    this.grid.occupyCell(
+                                                    occupiedCells = this.grid.occupyCell(
+                                                        cell,
                                                         unitStats.id,
                                                         unitStats.team,
                                                         unitStats.attack_range,
-                                                        cell,
                                                     );
                                                 }
                                             }
                                         } else {
-                                            const cells = getCellsAroundPoint(
+                                            const cells = GridMath.getCellsAroundPoint(
                                                 this.sc_sceneSettings.getGridSettings(),
                                                 b.GetPosition(),
                                             );
                                             if (this.grid.areAllCellsEmpty(cells)) {
-                                                this.grid.occupyCells(
-                                                    unitStats.id,
-                                                    unitStats.team,
-                                                    unitStats.attack_range,
-                                                    getCellsAroundPoint(
+                                                occupiedCells = this.grid.occupyCells(
+                                                    GridMath.getCellsAroundPoint(
                                                         this.sc_sceneSettings.getGridSettings(),
                                                         b.GetPosition(),
                                                     ),
+                                                    unitStats.id,
+                                                    unitStats.team,
+                                                    unitStats.attack_range,
                                                 );
                                             }
                                         }
 
-                                        unit.setPosition(bodyPosition.x, bodyPosition.y);
+                                        if (occupiedCells) {
+                                            unit.setPosition(bodyPosition.x, bodyPosition.y);
+                                        }
                                         unit.randomizeLuckPerTurn();
                                         unit.setAttackMultiplier(1);
                                         unit.setResponded(false);
@@ -2362,43 +2366,46 @@ class TestHeroes extends GLScene {
                                 bodies.set(unit.getId(), b);
                                 positions.set(unit.getId(), b.GetPosition());
                                 unitsLower.push(unit);
+                                let occupiedCells = false;
 
                                 if (!this.placementsCleanedUp) {
                                     if (unitStats.size === 1) {
-                                        const cell = getCellForPosition(
+                                        const cell = GridMath.getCellForPosition(
                                             this.sc_sceneSettings.getGridSettings(),
                                             b.GetPosition(),
                                         );
                                         if (cell) {
                                             if (this.grid.areAllCellsEmpty([cell])) {
-                                                this.grid.occupyCell(
+                                                occupiedCells = this.grid.occupyCell(
+                                                    cell,
                                                     unitStats.id,
                                                     unitStats.team,
                                                     unitStats.attack_range,
-                                                    cell,
                                                 );
                                             }
                                         }
                                     } else {
-                                        const cells = getCellsAroundPoint(
+                                        const cells = GridMath.getCellsAroundPoint(
                                             this.sc_sceneSettings.getGridSettings(),
                                             b.GetPosition(),
                                         );
 
                                         if (this.grid.areAllCellsEmpty(cells)) {
-                                            this.grid.occupyCells(
-                                                unitStats.id,
-                                                unitStats.team,
-                                                unitStats.attack_range,
-                                                getCellsAroundPoint(
+                                            occupiedCells = this.grid.occupyCells(
+                                                GridMath.getCellsAroundPoint(
                                                     this.sc_sceneSettings.getGridSettings(),
                                                     b.GetPosition(),
                                                 ),
+                                                unitStats.id,
+                                                unitStats.team,
+                                                unitStats.attack_range,
                                             );
                                         }
                                     }
 
-                                    unit.setPosition(bodyPosition.x, bodyPosition.y);
+                                    if (occupiedCells) {
+                                        unit.setPosition(bodyPosition.x, bodyPosition.y);
+                                    }
                                     unit.randomizeLuckPerTurn();
                                     unit.setAttackMultiplier(1);
                                     unit.setResponded(false);
@@ -2428,13 +2435,16 @@ class TestHeroes extends GLScene {
                         const cells: XY[] = [];
 
                         if (isSmallUnit) {
-                            const cell = getCellForPosition(this.sc_sceneSettings.getGridSettings(), bodyPosition);
+                            const cell = GridMath.getCellForPosition(
+                                this.sc_sceneSettings.getGridSettings(),
+                                bodyPosition,
+                            );
                             if (cell) {
                                 this.cellToUnitPreRound.set(`${cell.x}:${cell.y}`, unit);
                                 cells.push(cell);
                             }
                         } else {
-                            const cellOne = getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
+                            const cellOne = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
                                 x: bodyPosition.x + HALF_STEP,
                                 y: bodyPosition.y + HALF_STEP,
                             });
@@ -2442,7 +2452,7 @@ class TestHeroes extends GLScene {
                                 this.cellToUnitPreRound.set(`${cellOne.x}:${cellOne.y}`, unit);
                                 cells.push(cellOne);
                             }
-                            const cellTwo = getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
+                            const cellTwo = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
                                 x: bodyPosition.x - HALF_STEP,
                                 y: bodyPosition.y - HALF_STEP,
                             });
@@ -2450,7 +2460,7 @@ class TestHeroes extends GLScene {
                                 this.cellToUnitPreRound.set(`${cellTwo.x}:${cellTwo.y}`, unit);
                                 cells.push(cellTwo);
                             }
-                            const cellThree = getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
+                            const cellThree = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
                                 x: bodyPosition.x + HALF_STEP,
                                 y: bodyPosition.y - HALF_STEP,
                             });
@@ -2458,7 +2468,7 @@ class TestHeroes extends GLScene {
                                 this.cellToUnitPreRound.set(`${cellThree.x}:${cellThree.y}`, unit);
                                 cells.push(cellThree);
                             }
-                            const cellFour = getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
+                            const cellFour = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
                                 x: bodyPosition.x - HALF_STEP,
                                 y: bodyPosition.y + HALF_STEP,
                             });
@@ -2524,8 +2534,8 @@ class TestHeroes extends GLScene {
                     }
 
                     if (!fightFinished) {
-                        shuffle(unitsUpper);
-                        shuffle(unitsLower);
+                        HoCLib.shuffle(unitsUpper);
+                        HoCLib.shuffle(unitsLower);
                         units.sort((a: Unit, b: Unit) =>
                             // eslint-disable-next-line no-nested-ternary
                             a.getSpeed() > b.getSpeed() ? -1 : b.getSpeed() > a.getSpeed() ? 1 : 0,
@@ -2552,7 +2562,7 @@ class TestHeroes extends GLScene {
                                     isPlusMorale = true;
                                 }
 
-                                const chance = getRandomInt(0, 100);
+                                const chance = HoCLib.getRandomInt(0, 100);
                                 if (chance < Math.abs(u.getMorale())) {
                                     if (isPlusMorale) {
                                         FightStateManager.getInstance().enqueueMoralePlus(u.getId());
@@ -2616,7 +2626,7 @@ class TestHeroes extends GLScene {
                                     this.adjustSpellBookSprite();
                                     this.currentActiveUnitSwitchedAttackAuto = false;
                                     // this.grid.print(nextUnit.getId());
-                                    const currentPos = getCellForPosition(
+                                    const currentPos = GridMath.getCellForPosition(
                                         this.sc_sceneSettings.getGridSettings(),
                                         unitBody.GetPosition(),
                                     );
@@ -2687,17 +2697,19 @@ class TestHeroes extends GLScene {
                                     if (this.currentActiveUnit.isSmallSize()) {
                                         this.hoverSelectedCells = [attackedCell];
                                     } else {
-                                        const position = getPointForCell(
+                                        const position = GridMath.getPointForCell(
                                             attackedCell,
                                             this.sc_sceneSettings.getGridSettings().getMinX(),
                                             this.sc_sceneSettings.getGridSettings().getStep(),
                                             this.sc_sceneSettings.getGridSettings().getHalfStep(),
                                         );
-                                        const cells = getCellsAroundPoint(this.sc_sceneSettings.getGridSettings(), {
-                                            x: position.x - this.sc_sceneSettings.getGridSettings().getHalfStep(),
-                                            y: position.y - this.sc_sceneSettings.getGridSettings().getHalfStep(),
-                                        });
-                                        this.hoverSelectedCells = cells;
+                                        this.hoverSelectedCells = GridMath.getCellsAroundPoint(
+                                            this.sc_sceneSettings.getGridSettings(),
+                                            {
+                                                x: position.x - this.sc_sceneSettings.getGridSettings().getHalfStep(),
+                                                y: position.y - this.sc_sceneSettings.getGridSettings().getHalfStep(),
+                                            },
+                                        );
                                     }
                                 }
                             }
@@ -2739,46 +2751,46 @@ class TestHeroes extends GLScene {
                         this.landAttack();
                     } else {
                         // from attack_handler:405 moveHandler.startMoving() refactor for small and big units
-                        const celltoMove = action?.cellToMove();
-                        if (celltoMove) {
+                        const cellToMove = action?.cellToMove();
+                        if (cellToMove) {
                             if (this.currentActiveUnit.isSmallSize()) {
-                                this.hoverSelectedCells = [celltoMove];
+                                this.hoverSelectedCells = [cellToMove];
                                 const moveStarted = this.moveHandler.startMoving(
-                                    celltoMove,
+                                    cellToMove,
                                     this.drawer,
                                     FightStateManager.getInstance().getStepsMoraleMultiplier(),
                                     this.sc_selectedBody,
                                     action?.currentActiveKnownPaths(),
                                 );
                                 if (moveStarted) {
-                                    const position = getPointForCell(
-                                        celltoMove,
+                                    const position = GridMath.getPointForCell(
+                                        cellToMove,
                                         this.sc_sceneSettings.getGridSettings().getMinX(),
                                         this.sc_sceneSettings.getGridSettings().getStep(),
                                         this.sc_sceneSettings.getGridSettings().getHalfStep(),
                                     );
                                     this.currentActiveUnit.setPosition(position.x, position.y);
                                     this.grid.occupyCell(
+                                        cellToMove,
                                         this.currentActiveUnit.getId(),
                                         this.currentActiveUnit.getTeam(),
                                         this.currentActiveUnit.getAttackRange(),
-                                        celltoMove,
                                     );
                                 }
                             } else {
-                                const position = getPointForCell(
-                                    celltoMove,
+                                const position = GridMath.getPointForCell(
+                                    cellToMove,
                                     this.sc_sceneSettings.getGridSettings().getMinX(),
                                     this.sc_sceneSettings.getGridSettings().getStep(),
                                     this.sc_sceneSettings.getGridSettings().getHalfStep(),
                                 );
-                                const cells = getCellsAroundPoint(this.sc_sceneSettings.getGridSettings(), {
+                                const cells = GridMath.getCellsAroundPoint(this.sc_sceneSettings.getGridSettings(), {
                                     x: position.x - this.sc_sceneSettings.getGridSettings().getHalfStep(),
                                     y: position.y - this.sc_sceneSettings.getGridSettings().getHalfStep(),
                                 });
                                 this.hoverSelectedCells = cells;
                                 const moveStarted = this.moveHandler.startMoving(
-                                    celltoMove,
+                                    cellToMove,
                                     this.drawer,
                                     FightStateManager.getInstance().getStepsMoraleMultiplier(),
                                     this.sc_selectedBody,
@@ -2791,10 +2803,10 @@ class TestHeroes extends GLScene {
                                     );
 
                                     this.grid.occupyCells(
+                                        cells,
                                         this.currentActiveUnit.getId(),
                                         this.currentActiveUnit.getTeam(),
                                         this.currentActiveUnit.getAttackRange(),
-                                        cells,
                                     );
                                 }
                             }
@@ -2964,7 +2976,7 @@ class TestHeroes extends GLScene {
                 this.drawer.drawHoverArea(settings.m_debugDraw, isLightMode, this.hoveredSpell.getOnPagePosition());
             }
         } else if (hoverAttackUnit && this.currentActiveUnit?.hasAbilityActive("Fire Breath")) {
-            const targetPos = getCellForPosition(
+            const targetPos = GridMath.getCellForPosition(
                 this.sc_sceneSettings.getGridSettings(),
                 hoverAttackUnit.getPosition(),
             );
@@ -3011,7 +3023,7 @@ class TestHeroes extends GLScene {
         if (
             !this.sc_renderSpellBookOverlay ||
             this.spellBookButton.isHover(
-                getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld),
+                GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld),
             )
         ) {
             if (this.hoverSelectedCellsSwitchToRed && this.hoverSelectedCells) {
@@ -3028,7 +3040,7 @@ class TestHeroes extends GLScene {
         if (this.hoverAttackFrom && !this.sc_renderSpellBookOverlay) {
             this.drawer.drawAttackFrom(
                 settings.m_debugDraw,
-                getPointForCell(
+                GridMath.getPointForCell(
                     this.hoverAttackFrom,
                     this.sc_sceneSettings.getGridSettings().getMinX(),
                     this.sc_sceneSettings.getGridSettings().getStep(),
@@ -3040,7 +3052,7 @@ class TestHeroes extends GLScene {
             );
         }
         if (this.sc_started && this.currentActiveUnit && this.currentActiveUnit.getAttackType() !== AttackType.MELEE) {
-            const currentUnitCell = getCellForPosition(
+            const currentUnitCell = GridMath.getCellForPosition(
                 this.sc_sceneSettings.getGridSettings(),
                 this.currentActiveUnit.getPosition(),
             );

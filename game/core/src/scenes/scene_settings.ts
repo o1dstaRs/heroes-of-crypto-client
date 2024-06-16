@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { GridSettings } from "../grid/grid_settings";
+import { GridSettings } from "@heroesofcrypto/common";
 
 export class SceneSettings {
     private readonly gridSettings: GridSettings;

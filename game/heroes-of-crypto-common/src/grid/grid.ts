@@ -9,25 +9,18 @@
  * -----------------------------------------------------------------------------
  */
 
-import { ObstacleType } from "../obstacles/obstacle";
-import { NUMBER_OF_LAPS_TILL_NARROWING_BLOCK, NUMBER_OF_LAPS_TILL_NARROWING_NORMAL } from "../statics";
-import { TeamType } from "../units/units_stats";
+import { ObstacleType } from "../obstacles/obstacle_type";
+import { TeamType } from "../units/unit_stats";
 import { getRandomInt } from "../utils/lib";
 import { getCellForPosition, getCellsAroundPoint, isCellWithinGrid } from "./grid_math";
 import { GridSettings } from "./grid_settings";
 import { XY } from "../utils/math";
 
-const PRINT_AGGR_GRIDS = true;
-
-export const NO_UPDATE = 0b00000000;
 const UPDATE_DOWN_LEFT = 0b01000001;
 const UPDATE_UP_LEFT = 0b00010010;
 const UPDATE_DOWN_RIGHT = 0b00100100;
 const UPDATE_UP_RIGHT = 0b10001000;
-export const UPDATE_UP = 0b00010000;
-export const UPDATE_DOWN = 0b00100000;
-export const UPDATE_LEFT = 0b01000000;
-export const UPDATE_RIGHT = 0b10000000;
+
 const OBSTACLE_SHORTS = ["B", "L", "W", "H"];
 
 export enum GridType {
@@ -52,12 +45,22 @@ export class Grid {
 
     private readonly targetBoardCoord: string[][];
 
+    private readonly numberOfLapsTillNarrowingBlock: number;
+
+    private readonly numberOfLapsTillNarrowingNormal: number;
+
     private readonly availableCenterStart: number;
 
     private readonly availableCenterEnd: number;
 
-    public constructor(gridSize: number) {
+    public constructor(
+        gridSize: number,
+        numberOfLapsTillNarrowingBlock: number,
+        numberOfLapsTillNarrowingNormal: number,
+    ) {
         this.gridSize = gridSize;
+        this.numberOfLapsTillNarrowingBlock = numberOfLapsTillNarrowingBlock;
+        this.numberOfLapsTillNarrowingNormal = numberOfLapsTillNarrowingNormal;
         this.gridType = this.getRandomGridType();
         if (this.gridType === GridType.NORMAL) {
             this.availableCenterStart = this.gridSize >> 1;
@@ -270,25 +273,19 @@ export class Grid {
         }
     }
 
-    public occupyCell(unitId: string, team: number, attackRange: number, cellPosition?: XY) {
-        if (
-            !cellPosition ||
-            cellPosition.x < 0 ||
-            cellPosition.y < 0 ||
-            cellPosition.x >= this.gridSize ||
-            cellPosition.y >= this.gridSize
-        ) {
-            return;
+    public occupyCell(cell: XY, unitId: string, team: number, attackRange: number): boolean {
+        if (cell.x < 0 || cell.y < 0 || cell.x >= this.gridSize || cell.y >= this.gridSize) {
+            return false;
         }
 
         this.unitIdToTeam[unitId] = team;
 
         //    console.log(`${unitId} TRY OCCUPY ${cell.x} ${cell.y}`);
 
-        const occupantUnitId = this.getOccupantUnitId(cellPosition);
+        const occupantUnitId = this.getOccupantUnitId(cell);
         if (occupantUnitId) {
             // console.log(`${unitId} ALREADY OCCUPIED ${cellPosition.x} ${cellPosition.y} by ${occupantUnitId}`);
-            return;
+            return false;
         }
 
         let aggrGrid: number[][] | undefined;
@@ -298,7 +295,7 @@ export class Grid {
 
         const occupiedCells = this.cellsByUnitId[unitId];
         if (occupiedCells && occupiedCells.length !== 1) {
-            return;
+            return false;
         }
 
         if (occupiedCells?.length) {
@@ -311,9 +308,11 @@ export class Grid {
             }
         }
 
-        this.boardCoord[cellPosition.x][cellPosition.y] = unitId;
-        this.updateAggrGrid(cellPosition, attackRange, 1, aggrGrid);
-        this.cellsByUnitId[unitId] = [cellPosition];
+        this.boardCoord[cell.x][cell.y] = unitId;
+        this.updateAggrGrid(cell, attackRange, 1, aggrGrid);
+        this.cellsByUnitId[unitId] = [cell];
+
+        return true;
     }
 
     public getGridType(): GridType {
@@ -322,8 +321,8 @@ export class Grid {
 
     public getNumberOfLapsTillNarrowing(): number {
         return this.gridType === GridType.BLOCK_CENTER
-            ? NUMBER_OF_LAPS_TILL_NARROWING_BLOCK
-            : NUMBER_OF_LAPS_TILL_NARROWING_NORMAL;
+            ? this.numberOfLapsTillNarrowingBlock
+            : this.numberOfLapsTillNarrowingNormal;
     }
 
     public areAllCellsEmpty(cells: XY[], unitId?: string) {
@@ -359,9 +358,9 @@ export class Grid {
         return this.getAggrMatrixByTeam(team === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER);
     }
 
-    public occupyCells(unitId: string, team: number, attackRange: number, cells?: XY[]) {
-        if (!cells?.length) {
-            return;
+    public occupyCells(cells: XY[], unitId: string, team: number, attackRange: number): boolean {
+        if (!cells.length) {
+            return false;
         }
 
         this.unitIdToTeam[unitId] = team;
@@ -382,12 +381,12 @@ export class Grid {
         }
         if (allOccupied) {
             console.log(`${unitId} ALREADY OCCUPIED cells`);
-            return;
+            return false;
         }
 
         const occupiedCells = this.cellsByUnitId[unitId];
         if (occupiedCells && occupiedCells.length !== 4) {
-            return;
+            return false;
         }
 
         let aggrGrid: number[][] | undefined;
@@ -451,6 +450,8 @@ export class Grid {
             this.updateAggrGrid({ x: xMax, y: yMax }, attackRange, 1, aggrGrid, UPDATE_UP_RIGHT);
         }
         this.cellsByUnitId[unitId] = cells;
+
+        return true;
     }
 
     public getOccupantUnitId(cell: XY): string | undefined {
@@ -501,7 +502,7 @@ export class Grid {
         );
     }
 
-    public print(unitId: string) {
+    public print(unitId: string, printAggrGrids = true) {
         let msg = "";
         for (let column = this.gridSize - 1; column >= 0; column--) {
             const rowElements: string[] = [];
@@ -525,7 +526,7 @@ export class Grid {
         }
         console.log(msg);
 
-        if (PRINT_AGGR_GRIDS) {
+        if (printAggrGrids) {
             const aggrUpper = this.getAggrMatrixByTeam(1);
             if (aggrUpper) {
                 msg = "";

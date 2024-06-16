@@ -9,9 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Grid } from "../grid/grid";
-import { getCellForPosition } from "../grid/grid_math";
-import { GridSettings } from "../grid/grid_settings";
+import { Grid, GridSettings, GridMath, HoCMath } from "@heroesofcrypto/common";
+
 import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
 import { MORALE_CHANGE_FOR_KILL } from "../statics";
@@ -19,10 +18,9 @@ import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { AttackType } from "../units/units_stats";
-import { XY } from "../utils/math";
 
-function getCoosCenter(start: XY): XY {
-    const coos: XY[] = [
+function getCoosCenter(start: HoCMath.XY): HoCMath.XY {
+    const coos: HoCMath.XY[] = [
         start,
         { x: start.x - 1, y: start.y },
         { x: start.x - 1, y: start.y - 1 },
@@ -61,8 +59,8 @@ function addingTargets(
 }
 
 function addTargets(
-    startingPos: XY[],
-    bias: XY,
+    startingPos: HoCMath.XY[],
+    bias: HoCMath.XY,
     target: Unit,
     attacker: Unit,
     grid: Grid,
@@ -90,12 +88,12 @@ function addTargets(
 export function nextStandingTargets(
     attacker: Unit,
     target: Unit,
-    targetPos: XY,
+    targetPos: HoCMath.XY,
     grid: Grid,
     unitsHolder: UnitsHolder,
-    attackerStartingPos?: XY,
+    attackerStartingPos?: HoCMath.XY,
 ): Unit[] {
-    const targetCells: XY[] = [];
+    const targetCells: HoCMath.XY[] = [];
     if (target.isSmallSize()) {
         targetCells.push(targetPos);
     } else {
@@ -130,7 +128,7 @@ export function processFireBreathAbility(
     grid: Grid,
     gridSettings: GridSettings,
     attackTypeString: string,
-    targetMovePosition?: XY,
+    targetMovePosition?: HoCMath.XY,
 ): void {
     const fireBreathAbility = fromUnit.getAbility("Fire Breath");
 
@@ -138,7 +136,7 @@ export function processFireBreathAbility(
         return;
     }
 
-    const targetPos = getCellForPosition(gridSettings, toUnit.getPosition());
+    const targetPos = GridMath.getCellForPosition(gridSettings, toUnit.getPosition());
 
     if (targetPos) {
         const unitsDead: Unit[] = [];

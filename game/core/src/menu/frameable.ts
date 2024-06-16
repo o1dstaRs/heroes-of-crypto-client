@@ -10,8 +10,7 @@
  */
 
 import { XY } from "@box2d/core";
-
-import { GridSettings } from "../grid/grid_settings";
+import { GridSettings } from "@heroesofcrypto/common";
 
 export interface IFrameable {
     renderWithinFrame(gridSettings: GridSettings, framePosition: XY, onFramePosition: OnFramePosition): void;

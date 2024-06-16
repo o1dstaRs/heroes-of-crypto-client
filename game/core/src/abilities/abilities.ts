@@ -9,12 +9,12 @@
  * -----------------------------------------------------------------------------
  */
 
-import { GridSettings } from "../grid/grid_settings";
+import { GridSettings, HoCMath } from "@heroesofcrypto/common";
+
 import { IFrameable, OnFramePosition } from "../menu/frameable";
 import { TeamType } from "../units/units_stats";
 import { Sprite } from "../utils/gl/Sprite";
 import { Effect } from "../effects/effects";
-import { XY } from "../utils/math";
 
 export enum AbilityPowerType {
     TOTAL_DAMAGE_PERCENTAGE = "TOTAL_DAMAGE_PERCENTAGE",
@@ -79,7 +79,7 @@ export class Ability implements IFrameable {
 
     private readonly sprite: Sprite;
 
-    private effect: Effect | undefined;
+    private readonly effect: Effect | undefined;
 
     public constructor(abilityStats: AbilityStats, sprite: Sprite, effect: Effect | undefined) {
         this.abilityStats = abilityStats;
@@ -87,7 +87,11 @@ export class Ability implements IFrameable {
         this.effect = effect;
     }
 
-    public renderWithinFrame(gridSettings: GridSettings, framePosition: XY, onFramePosition: OnFramePosition): void {
+    public renderWithinFrame(
+        gridSettings: GridSettings,
+        framePosition: HoCMath.XY,
+        onFramePosition: OnFramePosition,
+    ): void {
         const xMul = (onFramePosition - 1) % 3;
         const yMul = Math.floor((onFramePosition - 1) / 3);
 
@@ -135,20 +139,12 @@ export class Ability implements IFrameable {
     public getEffectName(): string | undefined {
         return this.effect?.getName();
     }
-
-    public hasEffect(effectName: string): boolean {
-        if (this.effect && this.effect.getName() === effectName) {
-            return true;
-        }
-
-        return false;
-    }
 }
 
 export function getAbilitiesWithPosisionCoefficient(
     unitAbilities: Ability[],
-    fromCell?: XY,
-    toCell?: XY,
+    fromCell?: HoCMath.XY,
+    toCell?: HoCMath.XY,
     toUnitSmallSize?: boolean,
     fromUnitTeam?: TeamType,
 ): Ability[] {

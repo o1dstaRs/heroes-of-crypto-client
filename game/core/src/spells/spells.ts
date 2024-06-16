@@ -10,9 +10,8 @@
  */
 
 import { XY } from "@box2d/core";
+import { GridSettings, GridMath } from "@heroesofcrypto/common";
 
-import { isCellWithinGrid } from "../grid/grid_math";
-import { GridSettings } from "../grid/grid_settings";
 import { IFrameable, OnFramePosition } from "../menu/frameable";
 import { IModifyableUnitStats, TeamType } from "../units/units_stats";
 import { DefaultShader } from "../utils/gl/defaultShader";
@@ -408,7 +407,7 @@ export function canBeCasted(
         !toUnitId &&
         !toUnitName &&
         spell.getSpellTargetType() === SpellTargetType.FREE_CELL &&
-        isCellWithinGrid(gridSettings, targetGridCell)
+        GridMath.isCellWithinGrid(gridSettings, targetGridCell)
     ) {
         return !verifyEmptyCell();
     }

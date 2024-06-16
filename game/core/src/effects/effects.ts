@@ -10,8 +10,8 @@
  */
 
 import { XY } from "@box2d/core";
+import { GridSettings } from "@heroesofcrypto/common";
 
-import { GridSettings } from "../grid/grid_settings";
 import { IFrameable, OnFramePosition } from "../menu/frameable";
 import { Sprite } from "../utils/gl/Sprite";
 

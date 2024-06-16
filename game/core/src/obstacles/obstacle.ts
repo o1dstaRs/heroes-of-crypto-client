@@ -9,21 +9,14 @@
  * -----------------------------------------------------------------------------
  */
 
-import { XY } from "@box2d/core";
+import { ObstacleType, HoCMath } from "@heroesofcrypto/common";
 
 import { Sprite } from "../utils/gl/Sprite";
-
-export enum ObstacleType {
-    BLOCK = -1,
-    HOLE = -2,
-    WATER = -3,
-    LAVA = -4,
-}
 
 export class Obstacle {
     private readonly type: ObstacleType;
 
-    private readonly position: XY;
+    private readonly position: HoCMath.XY;
 
     private readonly sizeX: number;
 
@@ -35,7 +28,7 @@ export class Obstacle {
 
     public constructor(
         type: ObstacleType,
-        position: XY,
+        position: HoCMath.XY,
         sizeX: number,
         sizeY: number,
         lightSprite?: Sprite,
