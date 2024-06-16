@@ -9,3 +9,6 @@ lerna-debug.log
 docs/
 .parcel-cache/
 
+# ignore build time pulled dependencies
+game/heroes-of-crypto-common
+
