@@ -26,10 +26,11 @@
         "game/core"
     ],
     "scripts": {
-        "build": "yarn workspaces run build",
+        "build": "build:pull:common && yarn workspaces run build",
         "build:docs": "vuepress build game/documentation -d docs/docs",
         "build:engine": "yarn workspace @box2d/core build && yarn workspace @box2d/controllers build && yarn workspace @box2d/particles build && yarn workspace @box2d/lights build && yarn workspace @box2d/debug-draw build",
-        "build:game": "yarn workspace @heroesofcrypto/common build && yarn workspace @heroesofcrypto/core build",
+        "build:game": "build:pull:common && yarn workspace @heroesofcrypto/common build && yarn workspace @heroesofcrypto/core build",
+        "build:pull:common": "scripts/pull_hoc_common.sh",
         "lint": "yarn run lint:es && yarn run lint:scss && yarn run lint:package && yarn run lint:style",
         "lint:es": "eslint \"game/*/src/**/*.{ts,tsx}\" --ext \".ts,.tsx\" --ignore-path .prettierignore",
         "lint:es:fix": "yarn run lint:es --fix",

@@ -1,7 +1,0 @@
-node_modules/
-dist/
-.cache/
-*.tgz
-lerna-debug.log
-yarn-error.log
-
