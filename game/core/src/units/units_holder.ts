@@ -12,7 +12,7 @@
 import { b2Body, b2Fixture, b2Vec2, b2World, XY } from "@box2d/core";
 
 import { Grid } from "../grid/grid";
-import { getPointForCell, isBodyWithinGrid } from "../grid/grid_math";
+import { getPointForCell, isPositionWithinGrid } from "../grid/grid_math";
 import { GridSettings } from "../grid/grid_settings";
 import { SquarePlacement } from "../placement/square_placement";
 import { FightStateManager } from "../state/fight_state_manager";
@@ -63,12 +63,12 @@ export class UnitsHolder {
 
         this.destroyBodyFixtures(unit.getId(), bodyToUse);
         for (const f of unit.getHpBarBoundFixtureDefs()) {
-            if (isBodyWithinGrid(this.gridSettings, bodyToUse)) {
+            if (isPositionWithinGrid(this.gridSettings, bodyToUse.GetPosition())) {
                 this.addBodyFixture(unit.getId(), bodyToUse.CreateFixture(f));
             }
         }
         for (const f of unit.getHpBarFixtureDefs()) {
-            if (isBodyWithinGrid(this.gridSettings, bodyToUse)) {
+            if (isPositionWithinGrid(this.gridSettings, bodyToUse.GetPosition())) {
                 this.addBodyFixture(unit.getId(), bodyToUse.CreateFixture(f));
             }
         }
@@ -206,7 +206,7 @@ export class UnitsHolder {
         if (
             (enemyTeamType === TeamType.LOWER && lowerPlacement.isAllowed(body.GetPosition())) ||
             (enemyTeamType === TeamType.UPPER && upperPlacement.isAllowed(body.GetPosition())) ||
-            !isBodyWithinGrid(this.gridSettings, body)
+            !isPositionWithinGrid(this.gridSettings, body.GetPosition())
         ) {
             this.deleteUnitById(grid, body.GetUserData().id);
             this.world.DestroyBody(body);

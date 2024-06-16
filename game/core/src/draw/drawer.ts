@@ -23,7 +23,7 @@ import {
 } from "@box2d/core";
 
 import { GridType } from "../grid/grid";
-import { getCellForBody, getCellForPoint, getCellsAroundPoint, getPointForCell, hasXY } from "../grid/grid_math";
+import { getCellForPosition, getCellsAroundPoint, getPointForCell, hasXY } from "../grid/grid_math";
 import { GridSettings } from "../grid/grid_settings";
 import { Obstacle, ObstacleType } from "../obstacles/obstacle";
 import { ObstacleGenerator } from "../obstacles/obstacle_generator";
@@ -295,13 +295,13 @@ export class Drawer {
                         body.GetAngle(),
                     );
 
-                    const bodyCell = getCellForBody(this.gridSettings, body);
+                    const bodyCell = getCellForPosition(this.gridSettings, body.GetPosition());
                     if (!bodyCell) {
                         bulletsToDestroy.push(b);
                         continue;
                     }
 
-                    const toPositionCell = getCellForPoint(this.gridSettings, b.toPosition);
+                    const toPositionCell = getCellForPosition(this.gridSettings, b.toPosition);
                     const bodyCellIndex = (bodyCell.x << 4) | bodyCell.y;
 
                     if (
@@ -380,7 +380,7 @@ export class Drawer {
 
         let cells: XY[];
         if (affectedUnit.isSmallSize()) {
-            const cell = getCellForPoint(this.gridSettings, affectedUnit.getPosition());
+            const cell = getCellForPosition(this.gridSettings, affectedUnit.getPosition());
             if (cell) {
                 cells = [cell];
             } else {

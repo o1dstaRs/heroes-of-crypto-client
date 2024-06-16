@@ -9,10 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { XY } from "@box2d/core";
-
 import { Grid } from "../grid/grid";
-import { getCellForPoint } from "../grid/grid_math";
+import { getCellForPosition } from "../grid/grid_math";
 import { GridSettings } from "../grid/grid_settings";
 import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
@@ -24,6 +22,7 @@ import { AttackType } from "../units/units_stats";
 import { processFireShieldAbility } from "./fire_shield_ability";
 import { processOneInTheFieldAbility } from "./one_in_the_field_ability";
 import { processStunAbility } from "./stun_ability";
+import { XY } from "../utils/math";
 
 export function allEnemiesAroundLargeUnit(
     attacker: Unit,
@@ -37,7 +36,7 @@ export function allEnemiesAroundLargeUnit(
     if (attacker && !attacker.isSmallSize()) {
         // use either target move position on current
         // depending on the action type (attack vs response)
-        const firstCheckCell = isAttack ? targetMovePosition : getCellForPoint(gridSettings, attacker.getPosition());
+        const firstCheckCell = isAttack ? targetMovePosition : getCellForPosition(gridSettings, attacker.getPosition());
 
         if (!firstCheckCell) {
             return enemyList;

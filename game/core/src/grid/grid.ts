@@ -9,14 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
-import { XY } from "@box2d/core";
-
 import { ObstacleType } from "../obstacles/obstacle";
 import { NUMBER_OF_LAPS_TILL_NARROWING_BLOCK, NUMBER_OF_LAPS_TILL_NARROWING_NORMAL } from "../statics";
 import { TeamType } from "../units/units_stats";
 import { getRandomInt } from "../utils/lib";
-import { getCellForPoint, getCellsAroundPoint, isCellWithinGrid } from "./grid_math";
+import { getCellForPosition, getCellsAroundPoint, isCellWithinGrid } from "./grid_math";
 import { GridSettings } from "./grid_settings";
+import { XY } from "../utils/math";
 
 const PRINT_AGGR_GRIDS = true;
 
@@ -470,7 +469,7 @@ export class Grid {
     ): boolean {
         let cells: XY[];
         if (isSmallUnit) {
-            const cell = getCellForPoint(gridSettings, unitPosition);
+            const cell = getCellForPosition(gridSettings, unitPosition);
             if (cell) {
                 cells = [cell];
             } else {

@@ -9,14 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
-import { XY } from "@box2d/core";
-
 import { Drawer } from "../draw/drawer";
 import { SceneLog } from "../menu/scene_log";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { AttackType } from "../units/units_stats";
+import { XY } from "../utils/math";
 
 export function processDoubleShotAbility(
     fromUnit: Unit,

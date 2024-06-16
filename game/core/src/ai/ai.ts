@@ -9,19 +9,15 @@
  * -----------------------------------------------------------------------------
  */
 
-import { b2Body, XY } from "@box2d/core";
-
 import { Grid } from "../grid/grid";
 import { PathHelper, IWeightedRoute } from "../path/path_helper";
 import { Unit, IUnitAIRepr } from "../units/units";
 import { AttackType, TeamType } from "../units/units_stats";
-import { matrixElementOrZero } from "../utils/math";
+import { matrixElementOrZero, XY } from "../utils/math";
 import { ObstacleType } from "../obstacles/obstacle";
 
 export interface IAI {
     nextMovingTarget(): XY | undefined;
-
-    nextAttackTarget(): b2Body | undefined;
 
     decide(grid: Grid, currentTick: number, id: string, enemyTeam: number): void;
 
@@ -189,7 +185,7 @@ export function findTarget(
 
     /**
      * Use "paths" to go through the board and calculate the end cell
-     * since the "paths" take into accoubt aggro board
+     * since the "paths" take into account aggro board
      */
     let routeIndex = 0;
     let currentDistance: number | undefined = 0;
@@ -245,7 +241,7 @@ export function findTarget(
 }
 
 function cellKey(xy: XY): number {
-    return (xy.x << 4) | xy.y; // TODO extact method in path_helper.js
+    return (xy.x << 4) | xy.y; // TODO exact method in path_helper.js
 }
 
 /*

@@ -19,15 +19,14 @@ import { Drawer } from "../draw/drawer";
 import { EffectsFactory } from "../effects/effects_factory";
 import { Grid, UPDATE_DOWN, UPDATE_LEFT, UPDATE_RIGHT, UPDATE_UP } from "../grid/grid";
 import {
-    getCellForBody,
-    getCellForPoint,
+    getCellForPosition,
     getCellsAroundPoint,
     getClosestSideCenter,
     getPointForCell,
     getPointForCells,
     getRandomCellAroundPosition,
-    isBodyWithinGrid,
     isCellWithinGrid,
+    isPositionWithinGrid,
 } from "../grid/grid_math";
 import { GridSettings } from "../grid/grid_settings";
 import { AttackHandler, IAttackObstacle } from "../handlers/attack_handler";
@@ -683,7 +682,7 @@ class TestHeroes extends GLScene {
             this.sc_hoverTextUpdateNeeded = true;
         }
 
-        const mouseCell = getCellForPoint(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
+        const mouseCell = getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
         if (this.sc_started && this.currentActiveUnit) {
             if (!mouseCell) {
                 this.resetHover();
@@ -703,7 +702,7 @@ class TestHeroes extends GLScene {
                 this.hoverUnit = unit;
                 this.hoverSelectedCellsSwitchToRed = false;
 
-                const currentUnitCell = getCellForPoint(
+                const currentUnitCell = getCellForPosition(
                     this.sc_sceneSettings.getGridSettings(),
                     this.currentActiveUnit.getPosition(),
                 );
@@ -727,7 +726,7 @@ class TestHeroes extends GLScene {
 
                     if (this.hoverUnit) {
                         this.hoverSelectedCells = undefined;
-                        hoverUnitCell = getCellForPoint(
+                        hoverUnitCell = getCellForPosition(
                             this.sc_sceneSettings.getGridSettings(),
                             this.hoverUnit.getPosition(),
                         );
@@ -827,7 +826,7 @@ class TestHeroes extends GLScene {
                         const hoverAttackUnit = this.getHoverAttackUnit();
 
                         if (hoverAttackUnit) {
-                            const unitCell = getCellForPoint(
+                            const unitCell = getCellForPosition(
                                 this.sc_sceneSettings.getGridSettings(),
                                 hoverAttackUnit.getPosition(),
                             );
@@ -856,7 +855,10 @@ class TestHeroes extends GLScene {
                             const abilitiesWithPositionCoeff = getAbilitiesWithPosisionCoefficient(
                                 this.currentActiveUnit.getAbilities(),
                                 this.hoverAttackFrom,
-                                getCellForPoint(this.sc_sceneSettings.getGridSettings(), hoverAttackUnit.getPosition()),
+                                getCellForPosition(
+                                    this.sc_sceneSettings.getGridSettings(),
+                                    hoverAttackUnit.getPosition(),
+                                ),
                                 hoverAttackUnit.isSmallSize(),
                                 this.currentActiveUnit.getTeam(),
                             );
@@ -913,7 +915,10 @@ class TestHeroes extends GLScene {
                             this.hoverActivePath = undefined;
                             return;
                         }
-                        const unitCell = getCellForPoint(this.sc_sceneSettings.getGridSettings(), unit.getPosition());
+                        const unitCell = getCellForPosition(
+                            this.sc_sceneSettings.getGridSettings(),
+                            unit.getPosition(),
+                        );
                         if (!unitCell) {
                             this.hoverActivePath = undefined;
                             return;
@@ -947,7 +952,7 @@ class TestHeroes extends GLScene {
                         this.hoverActivePath = undefined;
                         return;
                     }
-                    const unitCell = getCellForPoint(this.sc_sceneSettings.getGridSettings(), unit.getPosition());
+                    const unitCell = getCellForPosition(this.sc_sceneSettings.getGridSettings(), unit.getPosition());
                     this.hoverActiveShotRange = undefined;
                     if (!unitCell) {
                         this.hoverActivePath = undefined;
@@ -1017,7 +1022,7 @@ class TestHeroes extends GLScene {
                         const hoverAttackUnit = this.getHoverAttackUnit();
 
                         if (hoverAttackUnit) {
-                            const hoverUnitCell = getCellForPoint(
+                            const hoverUnitCell = getCellForPosition(
                                 this.sc_sceneSettings.getGridSettings(),
                                 hoverAttackUnit.getPosition(),
                             );
@@ -1414,7 +1419,7 @@ class TestHeroes extends GLScene {
         }
 
         // game has started
-        const mouseCell = getCellForPoint(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
+        const mouseCell = getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
         if (
             this.sc_started &&
             this.currentActiveUnit &&
@@ -1487,7 +1492,7 @@ class TestHeroes extends GLScene {
                     castStarted = this.cast();
                     moveStarted = true;
                 } else {
-                    const cellIndices = getCellForPoint(this.sc_sceneSettings.getGridSettings(), pointToDropTo);
+                    const cellIndices = getCellForPosition(this.sc_sceneSettings.getGridSettings(), pointToDropTo);
                     if (
                         cellIndices &&
                         this.currentActiveKnownPaths?.get((cellIndices.x << 4) | cellIndices.y)?.length
@@ -1652,7 +1657,7 @@ class TestHeroes extends GLScene {
             return;
         }
 
-        const cell = getCellForPoint(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
+        const cell = getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
         if (!cell) {
             return;
         }
@@ -1771,7 +1776,7 @@ class TestHeroes extends GLScene {
                 (this.currentActiveUnit.getAttackType() === AttackType.RANGE ||
                     this.currentActiveUnit.getAttackType() === AttackType.MAGIC)
             ) {
-                const currentUnitCell = getCellForPoint(
+                const currentUnitCell = getCellForPosition(
                     this.sc_sceneSettings.getGridSettings(),
                     this.currentActiveUnit.getPosition(),
                 );
@@ -1910,7 +1915,7 @@ class TestHeroes extends GLScene {
                 let refreshUnitPosition = false;
 
                 if (this.currentActiveUnit.isSmallSize()) {
-                    const cell = getCellForPoint(this.sc_sceneSettings.getGridSettings(), pointToDropTo);
+                    const cell = getCellForPosition(this.sc_sceneSettings.getGridSettings(), pointToDropTo);
                     if (cell && this.grid.areAllCellsEmpty([cell], this.currentActiveUnit.getId())) {
                         this.grid.occupyCell(
                             this.currentActiveUnit.getId(),
@@ -1941,7 +1946,9 @@ class TestHeroes extends GLScene {
                 }
 
                 this.finishTurn();
-            } else if (isBodyWithinGrid(this.sc_sceneSettings.getGridSettings(), this.sc_selectedBody)) {
+            } else if (
+                isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), this.sc_selectedBody.GetPosition())
+            ) {
                 const unitStats = this.sc_selectedBody.GetUserData();
                 if (unitStats) {
                     if (unitStats.size === 1) {
@@ -1949,7 +1956,10 @@ class TestHeroes extends GLScene {
                             unitStats.id,
                             unitStats.team,
                             unitStats.attack_range,
-                            getCellForBody(this.sc_sceneSettings.getGridSettings(), this.sc_selectedBody),
+                            getCellForPosition(
+                                this.sc_sceneSettings.getGridSettings(),
+                                this.sc_selectedBody.GetPosition(),
+                            ),
                         );
                     } else {
                         this.grid.occupyCells(
@@ -2112,7 +2122,7 @@ class TestHeroes extends GLScene {
             this.currentActiveSpell.getSpellTargetType() === SpellTargetType.FREE_CELL &&
             this.currentActiveUnit
         ) {
-            const mouseCell = getCellForPoint(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
+            const mouseCell = getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
             if (isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell)) {
                 this.finishTurn();
                 return true;
@@ -2204,6 +2214,7 @@ class TestHeroes extends GLScene {
 
             const units: Unit[] = [];
             const bodies: Map<string, b2Body> = new Map();
+            const positions: Map<string, XY> = new Map();
             const fightState = FightStateManager.getInstance().getFightState();
 
             let unitsUpper: Unit[] | undefined = [];
@@ -2287,11 +2298,15 @@ class TestHeroes extends GLScene {
                                 if (this.upperPlacement.isAllowed(bodyPosition) || fightState.firstTurnMade) {
                                     units.push(unit);
                                     bodies.set(unit.getId(), b);
+                                    positions.set(unit.getId(), b.GetPosition());
                                     unitsUpper.push(unit);
 
                                     if (!this.placementsCleanedUp) {
                                         if (unitStats.size === 1) {
-                                            const cell = getCellForBody(this.sc_sceneSettings.getGridSettings(), b);
+                                            const cell = getCellForPosition(
+                                                this.sc_sceneSettings.getGridSettings(),
+                                                b.GetPosition(),
+                                            );
                                             if (cell) {
                                                 if (this.grid.areAllCellsEmpty([cell])) {
                                                     this.grid.occupyCell(
@@ -2345,11 +2360,15 @@ class TestHeroes extends GLScene {
                             } else if (this.lowerPlacement.isAllowed(bodyPosition) || fightState.firstTurnMade) {
                                 units.push(unit);
                                 bodies.set(unit.getId(), b);
+                                positions.set(unit.getId(), b.GetPosition());
                                 unitsLower.push(unit);
 
                                 if (!this.placementsCleanedUp) {
                                     if (unitStats.size === 1) {
-                                        const cell = getCellForBody(this.sc_sceneSettings.getGridSettings(), b);
+                                        const cell = getCellForPosition(
+                                            this.sc_sceneSettings.getGridSettings(),
+                                            b.GetPosition(),
+                                        );
                                         if (cell) {
                                             if (this.grid.areAllCellsEmpty([cell])) {
                                                 this.grid.occupyCell(
@@ -2409,13 +2428,13 @@ class TestHeroes extends GLScene {
                         const cells: XY[] = [];
 
                         if (isSmallUnit) {
-                            const cell = getCellForPoint(this.sc_sceneSettings.getGridSettings(), bodyPosition);
+                            const cell = getCellForPosition(this.sc_sceneSettings.getGridSettings(), bodyPosition);
                             if (cell) {
                                 this.cellToUnitPreRound.set(`${cell.x}:${cell.y}`, unit);
                                 cells.push(cell);
                             }
                         } else {
-                            const cellOne = getCellForPoint(this.sc_sceneSettings.getGridSettings(), {
+                            const cellOne = getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
                                 x: bodyPosition.x + HALF_STEP,
                                 y: bodyPosition.y + HALF_STEP,
                             });
@@ -2423,7 +2442,7 @@ class TestHeroes extends GLScene {
                                 this.cellToUnitPreRound.set(`${cellOne.x}:${cellOne.y}`, unit);
                                 cells.push(cellOne);
                             }
-                            const cellTwo = getCellForPoint(this.sc_sceneSettings.getGridSettings(), {
+                            const cellTwo = getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
                                 x: bodyPosition.x - HALF_STEP,
                                 y: bodyPosition.y - HALF_STEP,
                             });
@@ -2431,7 +2450,7 @@ class TestHeroes extends GLScene {
                                 this.cellToUnitPreRound.set(`${cellTwo.x}:${cellTwo.y}`, unit);
                                 cells.push(cellTwo);
                             }
-                            const cellThree = getCellForPoint(this.sc_sceneSettings.getGridSettings(), {
+                            const cellThree = getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
                                 x: bodyPosition.x + HALF_STEP,
                                 y: bodyPosition.y - HALF_STEP,
                             });
@@ -2439,7 +2458,7 @@ class TestHeroes extends GLScene {
                                 this.cellToUnitPreRound.set(`${cellThree.x}:${cellThree.y}`, unit);
                                 cells.push(cellThree);
                             }
-                            const cellFour = getCellForPoint(this.sc_sceneSettings.getGridSettings(), {
+                            const cellFour = getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
                                 x: bodyPosition.x - HALF_STEP,
                                 y: bodyPosition.y + HALF_STEP,
                             });
@@ -2597,9 +2616,9 @@ class TestHeroes extends GLScene {
                                     this.adjustSpellBookSprite();
                                     this.currentActiveUnitSwitchedAttackAuto = false;
                                     // this.grid.print(nextUnit.getId());
-                                    const currentPos = getCellForBody(
+                                    const currentPos = getCellForPosition(
                                         this.sc_sceneSettings.getGridSettings(),
-                                        unitBody,
+                                        unitBody.GetPosition(),
                                     );
                                     if (currentPos) {
                                         const movePath = this.pathHelper.getMovePath(
@@ -2626,7 +2645,7 @@ class TestHeroes extends GLScene {
                                             this.currentActivePath,
                                             this.currentActiveKnownPaths,
                                             enemyTeam,
-                                            bodies,
+                                            positions,
                                         );
                                         if (nextUnit.getAttackTypeSelection() === SelectedAttackType.RANGE) {
                                             this.sc_currentActiveShotRange = {
@@ -2945,7 +2964,10 @@ class TestHeroes extends GLScene {
                 this.drawer.drawHoverArea(settings.m_debugDraw, isLightMode, this.hoveredSpell.getOnPagePosition());
             }
         } else if (hoverAttackUnit && this.currentActiveUnit?.hasAbilityActive("Fire Breath")) {
-            const targetPos = getCellForPoint(this.sc_sceneSettings.getGridSettings(), hoverAttackUnit.getPosition());
+            const targetPos = getCellForPosition(
+                this.sc_sceneSettings.getGridSettings(),
+                hoverAttackUnit.getPosition(),
+            );
             if (targetPos) {
                 const targetList = nextStandingTargets(
                     this.currentActiveUnit,
@@ -2988,7 +3010,9 @@ class TestHeroes extends GLScene {
 
         if (
             !this.sc_renderSpellBookOverlay ||
-            this.spellBookButton.isHover(getCellForPoint(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld))
+            this.spellBookButton.isHover(
+                getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld),
+            )
         ) {
             if (this.hoverSelectedCellsSwitchToRed && this.hoverSelectedCells) {
                 this.hoverSelectedCells = this.getAvailableCells(this.hoverSelectedCells);
@@ -3016,7 +3040,7 @@ class TestHeroes extends GLScene {
             );
         }
         if (this.sc_started && this.currentActiveUnit && this.currentActiveUnit.getAttackType() !== AttackType.MELEE) {
-            const currentUnitCell = getCellForPoint(
+            const currentUnitCell = getCellForPosition(
                 this.sc_sceneSettings.getGridSettings(),
                 this.currentActiveUnit.getPosition(),
             );

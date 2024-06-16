@@ -23,12 +23,12 @@ fs.readdir(imageDir, (err, files) => {
 
     const imports = files
         .filter((file) => file.endsWith(".webp"))
-        .map((file, index) => `import img${index} from '../../images/${file}';`)
+        .map((file, index) => `import img${index} from "../../images/${file}";`)
         .join("\n");
 
     const exportStatement = `export const images = {${files
         .filter((file) => file.endsWith(".webp"))
-        .map((file, index) => `'${file.substring(0, file.length - 5)}': img${index}`)
+        .map((file, index) => `"${file.substring(0, file.length - 5)}": img${index}`)
         .join(",")}};`;
 
     const content = `${imports}\n\n${exportStatement}`;

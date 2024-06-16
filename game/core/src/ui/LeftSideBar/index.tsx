@@ -26,6 +26,7 @@ import { IVisibleState } from "../../state/state";
 import { TeamType } from "../../units/units_stats";
 import UnitStatsListItem from "../UnitStatsListItem";
 import ColorSchemeToggle from "./ColorSchemeToggle";
+import * as pack from "../../../package.json";
 
 export default function LeftSideBar({ started = false }: { started: boolean }) {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
@@ -162,7 +163,7 @@ export default function LeftSideBar({ started = false }: { started: boolean }) {
                 onClick={() => {}}
             />
             <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                <Typography level="title-lg">Heroes</Typography>
+                <Typography level="title-lg">v{pack.version}</Typography>
                 <ColorSchemeToggle sx={{ ml: "auto" }} />
             </Box>
             <Box

@@ -41,7 +41,7 @@ import {
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
 import { AttackType, TeamType, UnitStats } from "./units_stats";
-import { getCellForPoint } from "../grid/grid_math";
+import { getCellForPosition } from "../grid/grid_math";
 import { Effect } from "../effects/effects";
 import { SceneLog } from "../menu/scene_log";
 import { getRandomInt } from "../utils/lib";
@@ -672,7 +672,7 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
     }
 
     public setPosition(x: number, y: number) {
-        if (this.getName() === "Arbalester") {
+        if (this.hasAbilityActive("Sniper")) {
             this.setRangeShotDistance(
                 Number((this.getDistanceToFurthestCorner(this.getPosition()) / this.gridSettings.getStep()).toFixed(2)),
             );
@@ -685,7 +685,7 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
     }
 
     public getCell(): XY | undefined {
-        return getCellForPoint(this.gridSettings, this.getPosition());
+        return getCellForPosition(this.gridSettings, this.getPosition());
     }
 
     public getSize(): number {

@@ -9,10 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { XY } from "@box2d/core";
-
 import { Grid } from "../grid/grid";
-import { getCellForPoint } from "../grid/grid_math";
+import { getCellForPosition } from "../grid/grid_math";
 import { GridSettings } from "../grid/grid_settings";
 import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
@@ -21,6 +19,7 @@ import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { AttackType } from "../units/units_stats";
+import { XY } from "../utils/math";
 
 function getCoosCenter(start: XY): XY {
     const coos: XY[] = [
@@ -139,7 +138,7 @@ export function processFireBreathAbility(
         return;
     }
 
-    const targetPos = getCellForPoint(gridSettings, toUnit.getPosition());
+    const targetPos = getCellForPosition(gridSettings, toUnit.getPosition());
 
     if (targetPos) {
         const unitsDead: Unit[] = [];

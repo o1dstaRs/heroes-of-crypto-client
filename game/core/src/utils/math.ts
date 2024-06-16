@@ -9,8 +9,6 @@
  * -----------------------------------------------------------------------------
  */
 
-import { b2Body, XY } from "@box2d/core";
-
 /**
  * Enumeration of possible results of line intersection.
  */
@@ -22,6 +20,11 @@ enum EIntersectionType {
     INTERSECTION_OUTSIDE_SEGMENT,
     INTERSECTION_IN_ONE_SEGMENT,
     INTERSECTION_INSIDE_SEGMENT,
+}
+
+export interface XY {
+    x: number;
+    y: number;
 }
 
 export interface IXYDistance {
@@ -43,10 +46,8 @@ export class Intersect2DResult {
     }
 }
 
-export const getDistanceBetweenBodies = (bodyA: b2Body, bodyB: b2Body): number =>
-    Math.sqrt(
-        (bodyB.GetPosition().x - bodyA.GetPosition().x) ** 2 + (bodyB.GetPosition().y - bodyA.GetPosition().y) ** 2,
-    );
+export const getDistance = (positionA: XY, positionB: XY): number =>
+    Math.sqrt((positionB.x - positionA.x) ** 2 + (positionB.y - positionA.y) ** 2);
 
 export const minus = (p0: XY, p1: XY): XY => ({ x: p0.x - p1.x, y: p0.y - p1.y });
 
