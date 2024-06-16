@@ -10,8 +10,7 @@
  */
 
 import { b2Vec2, b2Color, b2ChainShape, b2Fixture, b2Draw, XY } from "@box2d/core";
-
-import { GridSettings } from "../grid/grid_settings";
+import { GridSettings } from "@heroesofcrypto/common";
 
 export enum PlacementType {
     UPPER = 1,

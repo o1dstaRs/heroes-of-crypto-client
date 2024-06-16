@@ -10,10 +10,8 @@
  */
 
 import { b2Body, b2Fixture, b2Vec2, b2World, XY } from "@box2d/core";
+import { Grid, GridSettings, GridMath, HoCLib } from "@heroesofcrypto/common";
 
-import { Grid } from "../grid/grid";
-import { getPointForCell, isPositionWithinGrid } from "../grid/grid_math";
-import { GridSettings } from "../grid/grid_settings";
 import { SquarePlacement } from "../placement/square_placement";
 import { FightStateManager } from "../state/fight_state_manager";
 import {
@@ -26,7 +24,6 @@ import {
     STEP,
     UNIT_SIZE_DELTA,
 } from "../statics";
-import { shuffle } from "../utils/lib";
 import { Unit } from "./units";
 import { UnitsFactory } from "./units_factory";
 import { TeamType, UnitStats } from "./units_stats";
@@ -63,12 +60,12 @@ export class UnitsHolder {
 
         this.destroyBodyFixtures(unit.getId(), bodyToUse);
         for (const f of unit.getHpBarBoundFixtureDefs()) {
-            if (isPositionWithinGrid(this.gridSettings, bodyToUse.GetPosition())) {
+            if (GridMath.isPositionWithinGrid(this.gridSettings, bodyToUse.GetPosition())) {
                 this.addBodyFixture(unit.getId(), bodyToUse.CreateFixture(f));
             }
         }
         for (const f of unit.getHpBarFixtureDefs()) {
-            if (isPositionWithinGrid(this.gridSettings, bodyToUse.GetPosition())) {
+            if (GridMath.isPositionWithinGrid(this.gridSettings, bodyToUse.GetPosition())) {
                 this.addBodyFixture(unit.getId(), bodyToUse.CreateFixture(f));
             }
         }
@@ -147,8 +144,8 @@ export class UnitsHolder {
                     unitsUpper.push(u);
                 }
             }
-            shuffle(unitsUpper);
-            shuffle(unitsLower);
+            HoCLib.shuffle(unitsUpper);
+            HoCLib.shuffle(unitsLower);
             FightStateManager.getInstance().prefetchNextUnitsToTurn(this.allUnits, unitsUpper, unitsLower);
         }
     }
@@ -206,7 +203,7 @@ export class UnitsHolder {
         if (
             (enemyTeamType === TeamType.LOWER && lowerPlacement.isAllowed(body.GetPosition())) ||
             (enemyTeamType === TeamType.UPPER && upperPlacement.isAllowed(body.GetPosition())) ||
-            !isPositionWithinGrid(this.gridSettings, body.GetPosition())
+            !GridMath.isPositionWithinGrid(this.gridSettings, body.GetPosition())
         ) {
             this.deleteUnitById(grid, body.GetUserData().id);
             this.world.DestroyBody(body);
@@ -224,7 +221,7 @@ export class UnitsHolder {
                     0,
                     summoned,
                 );
-                const point = getPointForCell(
+                const point = GridMath.getPointForCell(
                     cell,
                     this.gridSettings.getMinX(),
                     this.gridSettings.getStep(),
@@ -233,9 +230,7 @@ export class UnitsHolder {
                 cloned.setPosition(point.x, point.y);
                 this.positionBody(cloned);
 
-                grid.occupyCell(cloned.getId(), cloned.getTeam(), cloned.getAttackRange(), cell);
-
-                return true;
+                return grid.occupyCell(cell, cloned.getId(), cloned.getTeam(), cloned.getAttackRange());
             }
         } else {
             const cells = [
@@ -258,7 +253,7 @@ export class UnitsHolder {
                 summoned,
             );
 
-            const point = getPointForCell(
+            const point = GridMath.getPointForCell(
                 cell,
                 this.gridSettings.getMinX(),
                 this.gridSettings.getStep(),
@@ -267,9 +262,7 @@ export class UnitsHolder {
             cloned.setPosition(point.x - HALF_STEP, point.y - HALF_STEP);
             this.positionBody(cloned);
 
-            grid.occupyCells(cloned.getId(), cloned.getTeam(), cloned.getAttackRange(), cells);
-
-            return true;
+            return grid.occupyCells(cells, cloned.getId(), cloned.getTeam(), cloned.getAttackRange());
         }
 
         return false;

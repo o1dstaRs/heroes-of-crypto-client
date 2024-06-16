@@ -9,8 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { isPositionWithinGrid } from "../grid/grid_math";
-import { GridSettings } from "../grid/grid_settings";
+import { GridSettings, GridMath, HoCLib } from "@heroesofcrypto/common";
+
 import {
     STEPS_MORALE_MULTIPLIER,
     MAX_TIME_TO_MAKE_TURN_MILLIS,
@@ -20,7 +20,6 @@ import {
 } from "../statics";
 import { Unit } from "../units/units";
 import { TeamType } from "../units/units_stats";
-import { getTimeMillis, removeItemOnce } from "../utils/lib";
 import { IFightState } from "./state";
 
 export class FightStateManager {
@@ -83,14 +82,14 @@ export class FightStateManager {
     public setUnitsCalculatedStacksPower(gridSettings: GridSettings, allUnits: Map<string, Unit>): void {
         let maxTotalExp = Number.MIN_SAFE_INTEGER;
         for (const u of allUnits.values()) {
-            if (!isPositionWithinGrid(gridSettings, u.getPosition())) {
+            if (!GridMath.isPositionWithinGrid(gridSettings, u.getPosition())) {
                 continue;
             }
             const totalExp = u.getExp() * u.getAmountAlive();
             maxTotalExp = maxTotalExp < totalExp ? totalExp : maxTotalExp;
         }
         for (const u of allUnits.values()) {
-            if (!isPositionWithinGrid(gridSettings, u.getPosition())) {
+            if (!GridMath.isPositionWithinGrid(gridSettings, u.getPosition())) {
                 continue;
             }
             const percentage = ((u.getExp() * u.getAmountAlive()) / maxTotalExp) * 100;
@@ -286,7 +285,7 @@ export class FightStateManager {
             );
         }
 
-        this.fightState.currentTurnStart = getTimeMillis();
+        this.fightState.currentTurnStart = HoCLib.getTimeMillis();
         this.fightState.currentTurnEnd = this.fightState.currentTurnStart + Math.min(timeRemaining, maxTimeToMakeTurn);
         console.log(
             `timeRemaining:${timeRemaining} currentTotalTimePerTeam:${currentTotalTimePerTeam} maxTimeToMakeTurn:${maxTimeToMakeTurn} alreadyMadeTurnTeamMembers:${alreadyMadeTurnTeamMembers}`,
@@ -387,7 +386,7 @@ export class FightStateManager {
         if (currentTotalTimePerTeam === undefined) {
             currentTotalTimePerTeam = 0;
         }
-        currentTotalTimePerTeam += Math.floor(getTimeMillis() - this.fightState.currentTurnStart);
+        currentTotalTimePerTeam += Math.floor(HoCLib.getTimeMillis() - this.fightState.currentTurnStart);
         this.fightState.currentLapTotalTimePerTeam.set(team, currentTotalTimePerTeam);
     }
 
@@ -405,19 +404,19 @@ export class FightStateManager {
     }
 
     public removeFromUpNext(unitId: string): boolean {
-        return removeItemOnce(this.fightState.upNext, unitId);
+        return HoCLib.removeItemOnce(this.fightState.upNext, unitId);
     }
 
     public removeFromHourGlassQueue(unitId: string): void {
-        removeItemOnce(this.fightState.hourGlassQueue, unitId);
+        HoCLib.removeItemOnce(this.fightState.hourGlassQueue, unitId);
     }
 
     public removeFromMoraleMinusQueue(unitId: string): void {
-        removeItemOnce(this.fightState.moraleMinusQueue, unitId);
+        HoCLib.removeItemOnce(this.fightState.moraleMinusQueue, unitId);
     }
 
     public removeFromMoralePlusQueue(unitId: string): void {
-        removeItemOnce(this.fightState.moralePlusQueue, unitId);
+        HoCLib.removeItemOnce(this.fightState.moralePlusQueue, unitId);
     }
 
     public increaseStepsMoraleMultiplier(): void {

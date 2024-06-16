@@ -21,11 +21,9 @@ import {
     b2World,
     XY,
 } from "@box2d/core";
+import { GridType, GridMath, GridSettings, ObstacleType } from "@heroesofcrypto/common";
 
-import { GridType } from "../grid/grid";
-import { getCellForPosition, getCellsAroundPoint, getPointForCell, hasXY } from "../grid/grid_math";
-import { GridSettings } from "../grid/grid_settings";
-import { Obstacle, ObstacleType } from "../obstacles/obstacle";
+import { Obstacle } from "../obstacles/obstacle";
 import { ObstacleGenerator } from "../obstacles/obstacle_generator";
 import {
     MAX_FPS,
@@ -196,7 +194,7 @@ export class Drawer {
         this.moveAnimationUnit.render(fps, currentTick, false /* not used */, true);
         const isSmallUnit = this.moveAnimationUnit.isSmallSize();
 
-        const movingTarget = getPointForCell(
+        const movingTarget = GridMath.getPointForCell(
             this.moveAnimationPath[this.moveAnimationIndex],
             this.gridSettings.getMinX(),
             this.gridSettings.getStep(),
@@ -295,13 +293,13 @@ export class Drawer {
                         body.GetAngle(),
                     );
 
-                    const bodyCell = getCellForPosition(this.gridSettings, body.GetPosition());
+                    const bodyCell = GridMath.getCellForPosition(this.gridSettings, body.GetPosition());
                     if (!bodyCell) {
                         bulletsToDestroy.push(b);
                         continue;
                     }
 
-                    const toPositionCell = getCellForPosition(this.gridSettings, b.toPosition);
+                    const toPositionCell = GridMath.getCellForPosition(this.gridSettings, b.toPosition);
                     const bodyCellIndex = (bodyCell.x << 4) | bodyCell.y;
 
                     if (
@@ -380,14 +378,14 @@ export class Drawer {
 
         let cells: XY[];
         if (affectedUnit.isSmallSize()) {
-            const cell = getCellForPosition(this.gridSettings, affectedUnit.getPosition());
+            const cell = GridMath.getCellForPosition(this.gridSettings, affectedUnit.getPosition());
             if (cell) {
                 cells = [cell];
             } else {
                 cells = [];
             }
         } else {
-            cells = getCellsAroundPoint(this.gridSettings, affectedUnit.getPosition());
+            cells = GridMath.getCellsAroundPoint(this.gridSettings, affectedUnit.getPosition());
         }
 
         const nextEnemyCellIndices: number[] = [];
@@ -415,14 +413,17 @@ export class Drawer {
     ): void {
         if (currentActivePath?.length) {
             for (const p of currentActivePath) {
-                const movePoint = getPointForCell(
+                const movePoint = GridMath.getPointForCell(
                     p,
                     this.gridSettings.getMinX(),
                     this.gridSettings.getStep(),
                     this.gridSettings.getHalfStep(),
                 );
 
-                if (hoverAttackFromHashes?.has((p.x << 4) | p.y) || hasXY(movePoint, currentActiveUnitPositions)) {
+                if (
+                    hoverAttackFromHashes?.has((p.x << 4) | p.y) ||
+                    GridMath.hasXY(movePoint, currentActiveUnitPositions)
+                ) {
                     continue;
                 }
 
@@ -538,7 +539,7 @@ export class Drawer {
 
             if (cells.length === 3 || (cells.length === 2 && cells[0].x !== cells[1].x && cells[0].y !== cells[1].y)) {
                 for (const cell of cells) {
-                    const movePoint = getPointForCell(
+                    const movePoint = GridMath.getPointForCell(
                         cell,
                         this.gridSettings.getMinX(),
                         this.gridSettings.getStep(),
@@ -566,7 +567,7 @@ export class Drawer {
                 }
             } else {
                 for (const cell of cells) {
-                    const movePoint = getPointForCell(
+                    const movePoint = GridMath.getPointForCell(
                         cell,
                         this.gridSettings.getMinX(),
                         this.gridSettings.getStep(),

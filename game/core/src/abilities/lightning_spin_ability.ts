@@ -9,9 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Grid } from "../grid/grid";
-import { getCellForPosition } from "../grid/grid_math";
-import { GridSettings } from "../grid/grid_settings";
+import { Grid, GridMath, GridSettings, HoCMath } from "@heroesofcrypto/common";
+
 import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
 import { MORALE_CHANGE_FOR_KILL } from "../statics";
@@ -22,7 +21,6 @@ import { AttackType } from "../units/units_stats";
 import { processFireShieldAbility } from "./fire_shield_ability";
 import { processOneInTheFieldAbility } from "./one_in_the_field_ability";
 import { processStunAbility } from "./stun_ability";
-import { XY } from "../utils/math";
 
 export function allEnemiesAroundLargeUnit(
     attacker: Unit,
@@ -30,13 +28,15 @@ export function allEnemiesAroundLargeUnit(
     unitsHolder: UnitsHolder,
     grid: Grid,
     gridSettings: GridSettings,
-    targetMovePosition?: XY,
+    targetMovePosition?: HoCMath.XY,
 ): Unit[] {
     const enemyList: Unit[] = [];
     if (attacker && !attacker.isSmallSize()) {
         // use either target move position on current
         // depending on the action type (attack vs response)
-        const firstCheckCell = isAttack ? targetMovePosition : getCellForPosition(gridSettings, attacker.getPosition());
+        const firstCheckCell = isAttack
+            ? targetMovePosition
+            : GridMath.getCellForPosition(gridSettings, attacker.getPosition());
 
         if (!firstCheckCell) {
             return enemyList;
@@ -44,7 +44,7 @@ export function allEnemiesAroundLargeUnit(
 
         for (let i = -2; i <= 1; i++) {
             for (let j = -2; j <= 1; j++) {
-                const checkCell: XY = { x: firstCheckCell.x + i, y: firstCheckCell.y + j };
+                const checkCell: HoCMath.XY = { x: firstCheckCell.x + i, y: firstCheckCell.y + j };
                 const checkUnitId = grid.getOccupantUnitId(checkCell);
                 if (checkUnitId) {
                     const addUnit = unitsHolder.getAllUnits().get(checkUnitId);
@@ -70,7 +70,7 @@ export function processLightningSpinAbility(
     sceneStepCount: number,
     grid: Grid,
     gridSettings: GridSettings,
-    targetMovePosition?: XY,
+    targetMovePosition?: HoCMath.XY,
     isAttack = true,
 ): boolean {
     let lightningSpinLanded = false;

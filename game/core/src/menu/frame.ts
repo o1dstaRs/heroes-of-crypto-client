@@ -10,11 +10,11 @@
  */
 
 import { XY } from "@box2d/core";
+import { GridSettings } from "@heroesofcrypto/common";
 
 import { Sprite } from "../utils/gl/Sprite";
 import { IFrameable } from "./frameable";
 import { FRAME_MAX_ELEMENTS_COUNT } from "../statics";
-import { GridSettings } from "../grid/grid_settings";
 
 export class Frame {
     public readonly gridSettings: GridSettings;

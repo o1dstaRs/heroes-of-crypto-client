@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { TeamType } from "../units/units_stats";
+import { TeamType } from "../units/unit_stats";
 import { getRandomInt, matrixElement, shuffle } from "../utils/lib";
 import { getDistance, intersect2D, Intersect2DResult, IXYDistance, XY } from "../utils/math";
 import { GridSettings } from "./grid_settings";

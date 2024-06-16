@@ -9,9 +9,10 @@
  * -----------------------------------------------------------------------------
  */
 
+import { HoCLib } from "@heroesofcrypto/common";
+
 import { SceneLog } from "../menu/scene_log";
 import { Unit } from "../units/units";
-import { getRandomInt } from "../utils/lib";
 
 export function processStunAbility(
     fromUnit: Unit,
@@ -30,7 +31,7 @@ export function processStunAbility(
     }
 
     const stunAbility = fromUnit.getAbility("Stun");
-    if (stunAbility && getRandomInt(0, 100) < fromUnit.calculateAbilityApplyChance(stunAbility)) {
+    if (stunAbility && HoCLib.getRandomInt(0, 100) < fromUnit.calculateAbilityApplyChance(stunAbility)) {
         if (fromUnit.applyEffect(targetUnit, stunAbility.getEffectName(), extend)) {
             sceneLog.updateLog(`${targetUnit.getName()} got stunned for 1 lap`);
         }

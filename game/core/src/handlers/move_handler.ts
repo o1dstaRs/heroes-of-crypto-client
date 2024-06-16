@@ -10,11 +10,9 @@
  */
 
 import { b2Body, XY } from "@box2d/core";
+import { Grid, GridSettings, GridMath, GridConstants } from "@heroesofcrypto/common";
 
 import { Drawer } from "../draw/drawer";
-import { Grid, NO_UPDATE, UPDATE_DOWN, UPDATE_LEFT, UPDATE_RIGHT, UPDATE_UP } from "../grid/grid";
-import { getCellsAroundPoint, getPointForCell, getPointForCells } from "../grid/grid_math";
-import { GridSettings } from "../grid/grid_settings";
 import { IWeightedRoute } from "../path/path_helper";
 import { MORALE_CHANGE_FOR_DISTANCE } from "../statics";
 import { Unit } from "../units/units";
@@ -56,18 +54,18 @@ export class MoveHandler {
             if (unit.isSmallSize()) {
                 cells = [cell];
             } else {
-                cells = getCellsAroundPoint(this.gridSettings, currentPosition);
+                cells = GridMath.getCellsAroundPoint(this.gridSettings, currentPosition);
             }
 
             let targetCells = [];
             for (const c of cells) {
-                if (updatePositionMask & UPDATE_UP) {
+                if (updatePositionMask & GridConstants.UPDATE_UP) {
                     targetCells.push({ x: c.x, y: c.y + 1 });
-                } else if (updatePositionMask & UPDATE_DOWN) {
+                } else if (updatePositionMask & GridConstants.UPDATE_DOWN) {
                     targetCells.push({ x: c.x, y: c.y - 1 });
-                } else if (updatePositionMask & UPDATE_LEFT) {
+                } else if (updatePositionMask & GridConstants.UPDATE_LEFT) {
                     targetCells.push({ x: c.x - 1, y: c.y });
-                } else if (updatePositionMask & UPDATE_RIGHT) {
+                } else if (updatePositionMask & GridConstants.UPDATE_RIGHT) {
                     targetCells.push({ x: c.x + 1, y: c.y });
                 }
             }
@@ -81,17 +79,17 @@ export class MoveHandler {
                 let moveX = false;
                 let moveY = false;
                 let priorityShift = 0;
-                if (updatePositionMask & UPDATE_UP) {
+                if (updatePositionMask & GridConstants.UPDATE_UP) {
                     // bodyNewPosition = { x: bodyPosition.x, y: bodyPosition.y + STEP };
                     priorityShift = unit.getTeam() === TeamType.LOWER ? 1 : -1;
                     moveX = true;
-                } else if (updatePositionMask & UPDATE_DOWN) {
+                } else if (updatePositionMask & GridConstants.UPDATE_DOWN) {
                     priorityShift = unit.getTeam() === TeamType.LOWER ? 1 : -1;
                     moveX = true;
-                } else if (updatePositionMask & UPDATE_LEFT) {
+                } else if (updatePositionMask & GridConstants.UPDATE_LEFT) {
                     priorityShift = unit.getTeam() === TeamType.LOWER ? 1 : -1;
                     moveY = true;
-                } else if (updatePositionMask & UPDATE_RIGHT) {
+                } else if (updatePositionMask & GridConstants.UPDATE_RIGHT) {
                     priorityShift = unit.getTeam() === TeamType.LOWER ? 1 : -1;
                     moveY = true;
                 }
@@ -103,12 +101,17 @@ export class MoveHandler {
                         const shiftedCells = this.getShiftedCells(targetCells, priorityShift, lapsNarrowed, true);
                         if (shiftedCells) {
                             if (this.grid.areAllCellsEmpty(shiftedCells, unit.getId())) {
-                                const point = getPointForCells(this.gridSettings, shiftedCells);
+                                const point = GridMath.getPointForCells(this.gridSettings, shiftedCells);
                                 if (!point) {
                                     targetCells = shiftedCells;
                                     continue;
                                 }
-                                const log = this.finishDirectedUnitMove(unit, shiftedCells, point, NO_UPDATE);
+                                const log = this.finishDirectedUnitMove(
+                                    unit,
+                                    shiftedCells,
+                                    point,
+                                    GridConstants.NO_UPDATE,
+                                );
                                 if (log) {
                                     logs.push(log);
                                 }
@@ -129,12 +132,17 @@ export class MoveHandler {
                         const shiftedCells = this.getShiftedCells(targetCells, priorityShift, lapsNarrowed, false);
                         if (shiftedCells) {
                             if (this.grid.areAllCellsEmpty(shiftedCells, unit.getId())) {
-                                const point = getPointForCells(this.gridSettings, shiftedCells);
+                                const point = GridMath.getPointForCells(this.gridSettings, shiftedCells);
                                 if (!point) {
                                     targetCells = shiftedCells;
                                     continue;
                                 }
-                                const log = this.finishDirectedUnitMove(unit, shiftedCells, point, NO_UPDATE);
+                                const log = this.finishDirectedUnitMove(
+                                    unit,
+                                    shiftedCells,
+                                    point,
+                                    GridConstants.NO_UPDATE,
+                                );
                                 if (log) {
                                     logs.push(log);
                                 }
@@ -201,7 +209,7 @@ export class MoveHandler {
         const movePaths = currentActiveKnownPaths.get((toCell.x << 4) | toCell.y);
         if (movePaths?.length) {
             const path = movePaths[0].route;
-            const targetPos = getPointForCell(
+            const targetPos = GridMath.getPointForCell(
                 path[path.length - 1],
                 this.gridSettings.getMinX(),
                 this.gridSettings.getStep(),
@@ -259,7 +267,7 @@ export class MoveHandler {
         unit: Unit,
         targetCells: XY[],
         bodyNewPosition?: XY,
-        updatePositionMask: number = NO_UPDATE,
+        updatePositionMask: number = GridConstants.NO_UPDATE,
     ): string | undefined {
         if (!targetCells?.length) {
             return undefined;
@@ -267,22 +275,22 @@ export class MoveHandler {
 
         // this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
         if (unit.isSmallSize()) {
-            this.grid.occupyCell(unit.getId(), unit.getTeam(), unit.getAttackRange(), targetCells[0]);
+            this.grid.occupyCell(targetCells[0], unit.getId(), unit.getTeam(), unit.getAttackRange());
         } else {
-            this.grid.occupyCells(unit.getId(), unit.getTeam(), unit.getAttackRange(), targetCells);
+            this.grid.occupyCells(targetCells, unit.getId(), unit.getTeam(), unit.getAttackRange());
         }
         const body = this.unitsHolder.getUnitBody(unit.getId());
         let deleteUnit = false;
         if (body) {
             const bodyPosition = body.GetPosition();
             if (!bodyNewPosition) {
-                if (updatePositionMask & UPDATE_UP) {
+                if (updatePositionMask & GridConstants.UPDATE_UP) {
                     bodyNewPosition = { x: bodyPosition.x, y: bodyPosition.y + this.gridSettings.getStep() };
-                } else if (updatePositionMask & UPDATE_DOWN) {
+                } else if (updatePositionMask & GridConstants.UPDATE_DOWN) {
                     bodyNewPosition = { x: bodyPosition.x, y: bodyPosition.y - this.gridSettings.getStep() };
-                } else if (updatePositionMask & UPDATE_LEFT) {
+                } else if (updatePositionMask & GridConstants.UPDATE_LEFT) {
                     bodyNewPosition = { x: bodyPosition.x - this.gridSettings.getStep(), y: bodyPosition.y };
-                } else if (updatePositionMask & UPDATE_RIGHT) {
+                } else if (updatePositionMask & GridConstants.UPDATE_RIGHT) {
                     bodyNewPosition = { x: bodyPosition.x + this.gridSettings.getStep(), y: bodyPosition.y };
                 }
             }

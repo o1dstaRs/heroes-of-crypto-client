@@ -9,23 +9,20 @@
  * -----------------------------------------------------------------------------
  */
 
-import { getCellForPosition, getCellsAroundPoint, getPointForCell, isPositionWithinGrid } from "../grid/grid_math";
-import { GridSettings } from "../grid/grid_settings";
-import { ObstacleType } from "../obstacles/obstacle";
+import { GridMath, GridSettings, ObstacleType, HoCLib, HoCMath } from "@heroesofcrypto/common";
+
 import { IAttackTargets, Unit } from "../units/units";
 import { TeamType } from "../units/units_stats";
-import { getRandomInt, shuffle } from "../utils/lib";
-import { getDistance, IXYDistance, matrixElementOrZero, XY } from "../utils/math";
 
 export interface IMovePath {
-    cells: XY[];
+    cells: HoCMath.XY[];
     hashes: Set<number>;
     knownPaths: Map<number, IWeightedRoute[]>;
 }
 
 export interface IWeightedRoute {
-    cell: XY;
-    route: XY[];
+    cell: HoCMath.XY;
+    route: HoCMath.XY[];
     weight: number;
     firstAggrMet: boolean;
 }
@@ -40,12 +37,12 @@ export class PathHelper {
     }
 
     public getNeighborCells(
-        currentCell: XY,
+        currentCell: HoCMath.XY,
         visited: Set<number> = new Set(),
         isSmallUnit = true,
         getDiag = true,
         includeLeftRightEdges = false,
-    ): XY[] {
+    ): HoCMath.XY[] {
         const neighborsLine = [];
         const neighborsDiag = [];
         const diff = includeLeftRightEdges ? 2 : 0;
@@ -116,12 +113,12 @@ export class PathHelper {
     }
 
     private attackPointA(
-        unitCell: XY,
+        unitCell: HoCMath.XY,
         newUnitCellX: number,
         newUnitCellY: number,
         availableAttackCellHashes: Set<number>,
         targetUnit: Unit,
-    ): XY | undefined {
+    ): HoCMath.XY | undefined {
         if (availableAttackCellHashes.has((newUnitCellX << 4) | newUnitCellY)) {
             return { x: newUnitCellX, y: newUnitCellY };
         }
@@ -148,12 +145,12 @@ export class PathHelper {
     }
 
     private attackPointB(
-        unitCell: XY,
+        unitCell: HoCMath.XY,
         newUnitCellX: number,
         newUnitCellY: number,
         availableAttackCellHashes: Set<number>,
         targetUnit: Unit,
-    ): XY | undefined {
+    ): HoCMath.XY | undefined {
         if (availableAttackCellHashes.has((newUnitCellX << 4) | newUnitCellY)) {
             return { x: newUnitCellX, y: newUnitCellY };
         }
@@ -180,11 +177,11 @@ export class PathHelper {
     }
 
     private attackPointC(
-        unitCell: XY,
+        unitCell: HoCMath.XY,
         newUnitCellX: number,
         availableAttackCellHashes: Set<number>,
         targetUnit: Unit,
-    ): XY | undefined {
+    ): HoCMath.XY | undefined {
         if (targetUnit.getTeam() === TeamType.UPPER) {
             const firstUnitCellY = unitCell.y - 1;
             if (firstUnitCellY >= 0 && availableAttackCellHashes.has((newUnitCellX << 4) | firstUnitCellY)) {
@@ -217,11 +214,11 @@ export class PathHelper {
     }
 
     private attackPointD(
-        unitCell: XY,
+        unitCell: HoCMath.XY,
         newUnitCellY: number,
         availableAttackCellHashes: Set<number>,
         targetUnit: Unit,
-    ): XY | undefined {
+    ): HoCMath.XY | undefined {
         if (targetUnit.getTeam() === TeamType.UPPER) {
             const firstUnitCellX = unitCell.x - 1;
             if (firstUnitCellX >= 0 && availableAttackCellHashes.has((firstUnitCellX << 4) | newUnitCellY)) {
@@ -253,14 +250,18 @@ export class PathHelper {
         return undefined;
     }
 
-    private getClosestAttackCell(mousePosition: XY, isCornerPos: boolean, cells?: XY[]): XY | undefined {
+    private getClosestAttackCell(
+        mousePosition: HoCMath.XY,
+        isCornerPos: boolean,
+        cells?: HoCMath.XY[],
+    ): HoCMath.XY | undefined {
         if (!cells?.length) {
             return undefined;
         }
 
-        const points: IXYDistance[] = [];
+        const points: HoCMath.IXYDistance[] = [];
         for (const c of cells) {
-            const point = getPointForCell(
+            const point = GridMath.getPointForCell(
                 c,
                 this.gridSettings.getMinX(),
                 this.gridSettings.getStep(),
@@ -272,11 +273,11 @@ export class PathHelper {
             };
             points.push({
                 xy: c,
-                distance: getDistance(mousePosition, position),
+                distance: HoCMath.getDistance(mousePosition, position),
             });
         }
         if (isCornerPos) {
-            points.sort((a: IXYDistance, b: IXYDistance) => {
+            points.sort((a: HoCMath.IXYDistance, b: HoCMath.IXYDistance) => {
                 if (a.distance > b.distance) {
                     return -1;
                 }
@@ -286,7 +287,7 @@ export class PathHelper {
                 return 0;
             });
         } else {
-            points.sort((a: IXYDistance, b: IXYDistance) => {
+            points.sort((a: HoCMath.IXYDistance, b: HoCMath.IXYDistance) => {
                 if (a.distance < b.distance) {
                     return -1;
                 }
@@ -307,8 +308,8 @@ export class PathHelper {
         xMax: number,
         yMin: number,
         yMax: number,
-        mouseCell: XY,
-        mousePosition: XY,
+        mouseCell: HoCMath.XY,
+        mousePosition: HoCMath.XY,
     ): boolean {
         const part = this.gridSettings.getCellSize() / 6;
         const xLeft = unitPositionX - part;
@@ -346,7 +347,7 @@ export class PathHelper {
                 } else if (!indices.length) {
                     knownRoutes.push(weightedRoute);
                 } else {
-                    const randIndex = indices[getRandomInt(0, indices.length)];
+                    const randIndex = indices[HoCLib.getRandomInt(0, indices.length)];
                     knownPaths.set(key, [
                         ...knownRoutes.slice(0, randIndex),
                         weightedRoute,
@@ -362,7 +363,7 @@ export class PathHelper {
     }
 
     private filterUnallowedDestinations(movePath: IMovePath, matrix: number[][], isSmallUnit: boolean): IMovePath {
-        const filteredCells: XY[] = [];
+        const filteredCells: HoCMath.XY[] = [];
         const hashes: Set<number> = new Set();
         const { knownPaths } = movePath;
 
@@ -374,7 +375,7 @@ export class PathHelper {
                 }
             }
 
-            const matrixElement = matrixElementOrZero(matrix, cell.x, cell.y);
+            const matrixElement = HoCMath.matrixElementOrZero(matrix, cell.x, cell.y);
             if (
                 matrixElement === ObstacleType.LAVA ||
                 matrixElement === ObstacleType.WATER ||
@@ -395,19 +396,19 @@ export class PathHelper {
     }
 
     public calculateClosestAttackFrom(
-        mousePosition: XY,
-        attackCells: XY[],
-        unitCells: XY[],
+        mousePosition: HoCMath.XY,
+        attackCells: HoCMath.XY[],
+        unitCells: HoCMath.XY[],
         unitIsSmallSize: boolean,
         attackRange: number,
         targetUnit: Unit,
-        attackCellHashesToLargeCells: Map<number, XY[]>,
-    ): XY | undefined {
+        attackCellHashesToLargeCells: Map<number, HoCMath.XY[]>,
+    ): HoCMath.XY | undefined {
         if (!targetUnit || !attackCells.length || !unitCells.length) {
             return undefined;
         }
 
-        const mouseCell = getCellForPosition(this.gridSettings, mousePosition);
+        const mouseCell = GridMath.getCellForPosition(this.gridSettings, mousePosition);
         if (!mouseCell) {
             return undefined;
         }
@@ -431,7 +432,7 @@ export class PathHelper {
             return undefined;
         }
 
-        const pointForMouseCell = getPointForCell(
+        const pointForMouseCell = GridMath.getPointForCell(
             mouseCell,
             this.gridSettings.getMinX(),
             this.gridSettings.getStep(),
@@ -447,9 +448,9 @@ export class PathHelper {
         const yDown = unitPositionY - part;
         const yTop = unitPositionY + part;
 
-        shuffle(attackCells);
+        HoCLib.shuffle(attackCells);
 
-        const availableAttackCells: XY[] = [];
+        const availableAttackCells: HoCMath.XY[] = [];
         const availableAttackCellHashes: Set<number> = new Set();
         for (const position of attackCells) {
             if (
@@ -494,9 +495,9 @@ export class PathHelper {
                 let closestDistance = Number.MAX_SAFE_INTEGER;
                 let closestPoint = availableAttackCells[0];
                 for (const ap of availableAttackCells) {
-                    const distance = getDistance(
+                    const distance = HoCMath.getDistance(
                         mousePosition,
-                        getPointForCell(
+                        GridMath.getPointForCell(
                             ap,
                             this.gridSettings.getMinX(),
                             this.gridSettings.getStep(),
@@ -842,7 +843,7 @@ export class PathHelper {
         return undefined;
     }
 
-    public areCellsFormingSquare(preStart: boolean, cells?: XY[]): boolean {
+    public areCellsFormingSquare(preStart: boolean, cells?: HoCMath.XY[]): boolean {
         if (!cells || cells.length !== 4) {
             return false;
         }
@@ -889,20 +890,20 @@ export class PathHelper {
     }
 
     public getClosestSquareCellIndices(
-        mousePosition: XY,
+        mousePosition: HoCMath.XY,
         allowedPlacementCellHashes: Set<number>,
         cellToUnitPreRound?: Map<string, Unit>,
-        unitCells?: XY[],
+        unitCells?: HoCMath.XY[],
         allowedToMoveThere?: Set<number>,
         currentActiveKnownPaths?: Map<number, IWeightedRoute[]>,
-    ): XY[] | undefined {
-        const squareCells: XY[] = [];
-        const mouseCell = getCellForPosition(this.gridSettings, mousePosition);
-        const neightborCells: IXYDistance[] = [];
+    ): HoCMath.XY[] | undefined {
+        const squareCells: HoCMath.XY[] = [];
+        const mouseCell = GridMath.getCellForPosition(this.gridSettings, mousePosition);
+        const neightborCells: HoCMath.IXYDistance[] = [];
 
         const hasStarted = !!allowedToMoveThere;
 
-        const isOneOfTheUnitCells = (cellToCheck: XY): boolean => {
+        const isOneOfTheUnitCells = (cellToCheck: HoCMath.XY): boolean => {
             if (!unitCells?.length) {
                 return false;
             }
@@ -924,8 +925,8 @@ export class PathHelper {
             return allowedPlacementCellHashes.has(cellKey) || (!!allowedToMoveThere && allowedToMoveThere.has(cellKey));
         };
 
-        const getReachable = (): XY[] => {
-            const reachable: XY[] = [];
+        const getReachable = (): HoCMath.XY[] => {
+            const reachable: HoCMath.XY[] = [];
 
             let maxX = Number.MIN_SAFE_INTEGER;
             let maxY = Number.MIN_SAFE_INTEGER;
@@ -970,7 +971,7 @@ export class PathHelper {
 
             const cellsToCheck = this.getNeighborCells(mouseCell, new Set([mouseCellKey]), true, true, !hasStarted);
             for (const c of cellsToCheck) {
-                const cellPosition = getPointForCell(
+                const cellPosition = GridMath.getPointForCell(
                     c,
                     this.gridSettings.getMinX(),
                     this.gridSettings.getStep(),
@@ -978,7 +979,7 @@ export class PathHelper {
                 );
                 neightborCells.push({
                     xy: c,
-                    distance: getDistance(mousePosition, {
+                    distance: HoCMath.getDistance(mousePosition, {
                         x: cellPosition.x,
                         y: cellPosition.y,
                     }),
@@ -987,7 +988,7 @@ export class PathHelper {
         }
 
         if (neightborCells.length >= 3) {
-            neightborCells.sort((a: IXYDistance, b: IXYDistance) => {
+            neightborCells.sort((a: HoCMath.IXYDistance, b: HoCMath.IXYDistance) => {
                 if (a.distance < b.distance) {
                     return -1;
                 }
@@ -1064,20 +1065,20 @@ export class PathHelper {
     }
 
     private getLargeUnitAttackCells(
-        attackPosition: XY,
-        attackerBodyCellTopRight: XY,
-        enemyCell: XY,
+        attackPosition: HoCMath.XY,
+        attackerBodyCellTopRight: HoCMath.XY,
+        enemyCell: HoCMath.XY,
         currentActiveKnownPaths: Map<number, IWeightedRoute[]>,
         fromPathHashes?: Set<number>,
-    ): XY[] {
-        const attackCells: XY[] = [];
+    ): HoCMath.XY[] {
+        const attackCells: HoCMath.XY[] = [];
 
         if (!fromPathHashes?.size) {
             return attackCells;
         }
 
-        const verifyAndPush = (cell: XY) => {
-            const cellsToCheck: XY[] = [cell];
+        const verifyAndPush = (cell: HoCMath.XY) => {
+            const cellsToCheck: HoCMath.XY[] = [cell];
             const isSelfCell = cell.x === attackerBodyCellTopRight.x && cell.y === attackerBodyCellTopRight.y;
             if (!isSelfCell && !currentActiveKnownPaths.has((cell.x << 4) | cell.y)) {
                 return;
@@ -1159,21 +1160,21 @@ export class PathHelper {
 
     public attackMeleeAllowed(
         byUnit: Unit,
-        fromPath: XY[],
+        fromPath: HoCMath.XY[],
         currentActiveKnownPaths: Map<number, IWeightedRoute[]>,
         enemyTeam: Unit[],
-        positions: Map<string, XY>,
+        positions: Map<string, HoCMath.XY>,
     ): IAttackTargets {
         const canAttackUnits: Unit[] = [];
         const canAttackUnitIds: Set<string> = new Set();
-        const possibleAttackCells: XY[] = [];
+        const possibleAttackCells: HoCMath.XY[] = [];
         const possibleAttackCellHashes: Set<number> = new Set();
-        const possibleAttackCellHashesToLargeCells: Map<number, XY[]> = new Map();
+        const possibleAttackCellHashesToLargeCells: Map<number, HoCMath.XY[]> = new Map();
 
         let fromPathHashes: Set<number> | undefined;
-        let currentCells: XY[];
+        let currentCells: HoCMath.XY[];
         if (byUnit.isSmallSize()) {
-            const currentCell = getCellForPosition(this.gridSettings, byUnit.getPosition());
+            const currentCell = GridMath.getCellForPosition(this.gridSettings, byUnit.getPosition());
             if (currentCell) {
                 fromPath.unshift(currentCell);
                 currentCells = [currentCell];
@@ -1181,7 +1182,7 @@ export class PathHelper {
                 currentCells = [];
             }
         } else {
-            currentCells = getCellsAroundPoint(this.gridSettings, byUnit.getPosition());
+            currentCells = GridMath.getCellsAroundPoint(this.gridSettings, byUnit.getPosition());
             for (const c of currentCells) {
                 fromPath.unshift(c);
             }
@@ -1201,19 +1202,19 @@ export class PathHelper {
 
         for (const u of enemyTeam) {
             const position = positions.get(u.getId());
-            if (!position || !isPositionWithinGrid(this.gridSettings, position)) {
+            if (!position || !GridMath.isPositionWithinGrid(this.gridSettings, position)) {
                 continue;
             }
 
-            let bodyCells: XY[];
+            let bodyCells: HoCMath.XY[];
             if (u.isSmallSize()) {
-                const bodyCellPos = getCellForPosition(this.gridSettings, position);
+                const bodyCellPos = GridMath.getCellForPosition(this.gridSettings, position);
                 if (!bodyCellPos) {
                     continue;
                 }
                 bodyCells = [bodyCellPos];
             } else {
-                bodyCells = getCellsAroundPoint(this.gridSettings, u.getPosition());
+                bodyCells = GridMath.getCellsAroundPoint(this.gridSettings, u.getPosition());
             }
 
             for (const bodyCellPos of bodyCells) {
@@ -1266,7 +1267,7 @@ export class PathHelper {
     }
 
     public getMovePath(
-        currentCell: XY,
+        currentCell: HoCMath.XY,
         matrix: number[][],
         maxSteps: number,
         aggrBoard?: number[][],
@@ -1274,7 +1275,7 @@ export class PathHelper {
         isSmallUnit = true,
     ): IMovePath {
         const knownPaths: Map<number, IWeightedRoute[]> = new Map();
-        const allowed: XY[] = [];
+        const allowed: HoCMath.XY[] = [];
         let currentCellKeys: number[];
         if (isSmallUnit) {
             currentCellKeys = [(currentCell.x << 4) | currentCell.y];
@@ -1300,7 +1301,7 @@ export class PathHelper {
             },
         ];
 
-        const aggr = (cells: XY[], weightedRoute: IWeightedRoute): number => {
+        const aggr = (cells: HoCMath.XY[], weightedRoute: IWeightedRoute): number => {
             if (!cells.length) {
                 return 1;
             }
@@ -1335,7 +1336,7 @@ export class PathHelper {
             const key = (cur.x << 4) | cur.y;
             for (const n of this.getNeighborCells(cur, visited, isSmallUnit)) {
                 const keyNeighbor = (n.x << 4) | n.y;
-                const el1 = matrixElementOrZero(matrix, n.x, n.y);
+                const el1 = HoCMath.matrixElementOrZero(matrix, n.x, n.y);
                 if (isSmallUnit) {
                     if (
                         ((!canFly && el1) ||
@@ -1349,9 +1350,9 @@ export class PathHelper {
                     const unitKeyLeft = ((n.x - 1) << 4) | n.y;
                     const unitKeyLeftDown = ((n.x - 1) << 4) | (n.y - 1);
                     const unitKeyDown = (n.x << 4) | (n.y - 1);
-                    const el2 = matrixElementOrZero(matrix, n.x - 1, n.y);
-                    const el3 = matrixElementOrZero(matrix, n.x - 1, n.y - 1);
-                    const el4 = matrixElementOrZero(matrix, n.x, n.y - 1);
+                    const el2 = HoCMath.matrixElementOrZero(matrix, n.x - 1, n.y);
+                    const el3 = HoCMath.matrixElementOrZero(matrix, n.x - 1, n.y - 1);
+                    const el4 = HoCMath.matrixElementOrZero(matrix, n.x, n.y - 1);
                     if (
                         (((!canFly && el1) ||
                             (canFly && el1 && el1 !== ObstacleType.LAVA && el1 !== ObstacleType.WATER)) &&
@@ -1402,53 +1403,56 @@ export class PathHelper {
                             if (xA === n.x && yA === n.y) {
                                 if (isSmallUnit) {
                                     if (
-                                        matrixElementOrZero(matrix, xA, cur.y) &&
-                                        matrixElementOrZero(matrix, cur.x, yA)
+                                        HoCMath.matrixElementOrZero(matrix, xA, cur.y) &&
+                                        HoCMath.matrixElementOrZero(matrix, cur.x, yA)
                                     ) {
                                         continue;
                                     }
                                 } else if (
-                                    matrixElementOrZero(matrix, cur.x - 2, cur.y) ||
-                                    matrixElementOrZero(matrix, cur.x, cur.y - 2)
+                                    HoCMath.matrixElementOrZero(matrix, cur.x - 2, cur.y) ||
+                                    HoCMath.matrixElementOrZero(matrix, cur.x, cur.y - 2)
                                 ) {
                                     continue;
                                 }
                             } else if (xB === n.x && yB === n.y) {
                                 if (isSmallUnit) {
                                     if (
-                                        matrixElementOrZero(matrix, xB, cur.y) &&
-                                        matrixElementOrZero(matrix, cur.x, yB)
+                                        HoCMath.matrixElementOrZero(matrix, xB, cur.y) &&
+                                        HoCMath.matrixElementOrZero(matrix, cur.x, yB)
                                     ) {
                                         continue;
                                     }
-                                } else if (matrixElementOrZero(matrix, xA, yB) || matrixElementOrZero(matrix, xB, yA)) {
+                                } else if (
+                                    HoCMath.matrixElementOrZero(matrix, xA, yB) ||
+                                    HoCMath.matrixElementOrZero(matrix, xB, yA)
+                                ) {
                                     continue;
                                 }
                             } else if (xA === n.x && yB === n.y) {
                                 if (isSmallUnit) {
                                     if (
-                                        matrixElementOrZero(matrix, xA, cur.y) &&
-                                        matrixElementOrZero(matrix, cur.x, yB)
+                                        HoCMath.matrixElementOrZero(matrix, xA, cur.y) &&
+                                        HoCMath.matrixElementOrZero(matrix, cur.x, yB)
                                     ) {
                                         continue;
                                     }
                                 } else if (
-                                    matrixElementOrZero(matrix, cur.x - 2, yA) ||
-                                    matrixElementOrZero(matrix, cur.x, yB)
+                                    HoCMath.matrixElementOrZero(matrix, cur.x - 2, yA) ||
+                                    HoCMath.matrixElementOrZero(matrix, cur.x, yB)
                                 ) {
                                     continue;
                                 }
                             } else if (xB === n.x && yA === n.y) {
                                 if (isSmallUnit) {
                                     if (
-                                        matrixElementOrZero(matrix, xB, cur.y) &&
-                                        matrixElementOrZero(matrix, cur.x, yA)
+                                        HoCMath.matrixElementOrZero(matrix, xB, cur.y) &&
+                                        HoCMath.matrixElementOrZero(matrix, cur.x, yA)
                                     ) {
                                         continue;
                                     }
                                 } else if (
-                                    matrixElementOrZero(matrix, xA, cur.y - 2) ||
-                                    matrixElementOrZero(matrix, cur.x + 1, cur.y)
+                                    HoCMath.matrixElementOrZero(matrix, xA, cur.y - 2) ||
+                                    HoCMath.matrixElementOrZero(matrix, cur.x + 1, cur.y)
                                 ) {
                                     continue;
                                 }
@@ -1556,7 +1560,7 @@ export class PathHelper {
             const pos = { x: c.x, y: c.y };
             const key = (c.x << 4) | c.y;
             if (isSmallUnit) {
-                if (matrixElementOrZero(matrix, c.x, c.y) || allowedToMoveThere.has(key)) {
+                if (HoCMath.matrixElementOrZero(matrix, c.x, c.y) || allowedToMoveThere.has(key)) {
                     continue;
                 }
 
@@ -1576,9 +1580,9 @@ export class PathHelper {
                 const unitKeyLeftDown = ((c.x - 1) << 4) | (c.y - 1);
                 if (
                     !allowedToMoveThere.has(unitKeyLeft) &&
-                    !matrixElementOrZero(matrix, c.x - 1, c.y) &&
+                    !HoCMath.matrixElementOrZero(matrix, c.x - 1, c.y) &&
                     !allowedToMoveThere.has(unitKeyLeftDown) &&
-                    !matrixElementOrZero(matrix, c.x - 1, c.y - 1)
+                    !HoCMath.matrixElementOrZero(matrix, c.x - 1, c.y - 1)
                 ) {
                     allowedToMoveThere.add(unitKeyLeft);
                     allowed.push({ x: c.x - 1, y: c.y });
@@ -1599,9 +1603,9 @@ export class PathHelper {
                 const unitKeyRightDown = (c.x << 4) | (c.y - 1);
                 if (
                     !allowedToMoveThere.has(unitKeyRight) &&
-                    !matrixElementOrZero(matrix, c.x, c.y) &&
+                    !HoCMath.matrixElementOrZero(matrix, c.x, c.y) &&
                     !allowedToMoveThere.has(unitKeyRightDown) &&
-                    !matrixElementOrZero(matrix, c.x, c.y - 1)
+                    !HoCMath.matrixElementOrZero(matrix, c.x, c.y - 1)
                 ) {
                     allowedToMoveThere.add(unitKeyRight);
                     allowed.push({ x: c.x, y: c.y });
@@ -1622,9 +1626,9 @@ export class PathHelper {
                 const unitKeyDownLeft = ((c.x - 1) << 4) | (c.y - 1);
                 if (
                     !allowedToMoveThere.has(unitKeyDown) &&
-                    !matrixElementOrZero(matrix, c.x, c.y - 1) &&
+                    !HoCMath.matrixElementOrZero(matrix, c.x, c.y - 1) &&
                     !allowedToMoveThere.has(unitKeyDownLeft) &&
-                    !matrixElementOrZero(matrix, c.x - 1, c.y - 1)
+                    !HoCMath.matrixElementOrZero(matrix, c.x - 1, c.y - 1)
                 ) {
                     allowedToMoveThere.add(unitKeyDown);
                     allowed.push({ x: c.x, y: c.y - 1 });
@@ -1645,9 +1649,9 @@ export class PathHelper {
                 const unitKeyUpLeft = ((c.x - 1) << 4) | c.y;
                 if (
                     !allowedToMoveThere.has(unitKeyUp) &&
-                    !matrixElementOrZero(matrix, c.x, c.y) &&
+                    !HoCMath.matrixElementOrZero(matrix, c.x, c.y) &&
                     !allowedToMoveThere.has(unitKeyUpLeft) &&
-                    !matrixElementOrZero(matrix, c.x - 1, c.y)
+                    !HoCMath.matrixElementOrZero(matrix, c.x - 1, c.y)
                 ) {
                     allowedToMoveThere.add(unitKeyUp);
                     allowed.push({ x: c.x, y: c.y });

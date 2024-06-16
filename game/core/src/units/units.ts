@@ -21,11 +21,11 @@ import {
     XY,
 } from "@box2d/core";
 import { removeFromArray } from "@box2d/lights/dist/utils/arrayUtils";
+import { GridMath, GridSettings, UnitStats, HoCLib } from "@heroesofcrypto/common";
 import Denque from "denque";
 
 import { Ability, AbilityPowerType } from "../abilities/abilities";
 import { AbilitiesFactory } from "../abilities/abilities_factory";
-import { GridSettings } from "../grid/grid_settings";
 import { AppliedSpell, Spell, calculateBuffsDebuffsEffect } from "../spells/spells";
 import { SpellsFactory } from "../spells/spells_factory";
 import {
@@ -40,11 +40,9 @@ import {
 } from "../statics";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
-import { AttackType, TeamType, UnitStats } from "./units_stats";
-import { getCellForPosition } from "../grid/grid_math";
+import { AttackType, TeamType } from "./units_stats";
 import { Effect } from "../effects/effects";
 import { SceneLog } from "../menu/scene_log";
-import { getRandomInt } from "../utils/lib";
 
 export enum SelectedAttackType {
     MELEE = 1,
@@ -685,7 +683,7 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
     }
 
     public getCell(): XY | undefined {
-        return getCellForPosition(this.gridSettings, this.getPosition());
+        return GridMath.getCellForPosition(this.gridSettings, this.getPosition());
     }
 
     public getSize(): number {
@@ -928,7 +926,7 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
     }
 
     public randomizeLuckPerTurn(): void {
-        let calculatedLuck = getRandomInt(-LUCK_MAX_CHANGE_FOR_TURN, LUCK_MAX_CHANGE_FOR_TURN + 1);
+        let calculatedLuck = HoCLib.getRandomInt(-LUCK_MAX_CHANGE_FOR_TURN, LUCK_MAX_CHANGE_FOR_TURN + 1);
         if (calculatedLuck + this.unitStats.luck > LUCK_MAX_VALUE_TOTAL) {
             calculatedLuck = LUCK_MAX_VALUE_TOTAL - this.unitStats.luck;
         } else if (calculatedLuck + this.unitStats.luck < -LUCK_MAX_VALUE_TOTAL) {

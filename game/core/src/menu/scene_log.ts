@@ -23,7 +23,10 @@ export class SceneLog {
 
     public getLog(): string {
         this.updated = false;
-        return this.log.toArray().join("\n");
+        return this.log
+            .toArray()
+            .filter(() => true)
+            .join("\n");
     }
 
     public updateLog(newLog?: string): void {

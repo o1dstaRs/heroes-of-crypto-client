@@ -1,3 +1,4 @@
 node_modules
 dist
 package-lock.json
+game/core/src/generated

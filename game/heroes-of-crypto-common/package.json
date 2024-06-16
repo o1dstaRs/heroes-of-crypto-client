@@ -1,0 +1,52 @@
+{
+    "name": "@heroesofcrypto/common",
+    "version": "0.1.2",
+    "private": false,
+    "description": "Common game logic for Heroes of Crypto. Used on both client and server sides",
+    "homepage": "https://heroesofcrypto.io",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "rimraf dist && tsc"
+    },
+    "browserslist": [
+        "> 5%"
+    ],
+    "jest": {
+        "testMatch": [
+            "**/**.test.ts"
+        ],
+        "transform": {
+            ".(ts|ts)": "ts-jest"
+        },
+        "transformIgnorePatterns": [
+            "[/\\\\]node_modules[/\\\\].+\\.(js|jsx|ts|tsx|json)$",
+            "package.json"
+        ]
+    },
+    "dependencies": {
+        "@types/uuid": "^9.0.8",
+        "uuid": "^10.0.0"
+    },
+    "devDependencies": {
+        "@babel/preset-typescript": "^7.24.6",
+        "@parcel/babel-preset-env": "^2.12.0",
+        "@parcel/config-default": "^2.12.0",
+        "@types/jest": "^29.5.12",
+        "idtsc": "^1.1.0",
+        "jest": "^29.7.0",
+        "parcel": "^2.12.0",
+        "rimraf": "^5.0.7",
+        "ts-jest": "^29.1.4",
+        "typescript": "^4.7.2"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "@parcel/resolver-default": {
+        "packageExports": true
+    }
+}
