@@ -26,11 +26,11 @@
         "game/core"
     ],
     "scripts": {
-        "build": "build:pull:common && yarn workspaces run build",
+        "build": "yarn run pull:common && yarn workspaces run build",
         "build:docs": "vuepress build game/documentation -d docs/docs",
         "build:engine": "yarn workspace @box2d/core build && yarn workspace @box2d/controllers build && yarn workspace @box2d/particles build && yarn workspace @box2d/lights build && yarn workspace @box2d/debug-draw build",
-        "build:game": "build:pull:common && yarn workspace @heroesofcrypto/common build && yarn workspace @heroesofcrypto/core build",
-        "build:pull:common": "scripts/pull_hoc_common.sh",
+        "build:game": "yarn run pull:common && yarn workspace @heroesofcrypto/common build && yarn workspace @heroesofcrypto/core build",
+        "pull:common": "scripts/pull_hoc_common.sh",
         "lint": "yarn run lint:es && yarn run lint:scss && yarn run lint:package && yarn run lint:style",
         "lint:es": "eslint \"game/*/src/**/*.{ts,tsx}\" --ext \".ts,.tsx\" --ignore-path .prettierignore",
         "lint:es:fix": "yarn run lint:es --fix",
@@ -45,7 +45,7 @@
         "release": "lerna publish",
         "start": "yarn workspace @heroesofcrypto/core start",
         "start:docs": "vuepress dev game/documentation",
-        "start:fresh": "yarn run build:engine && yarn workspace @heroesofcrypto/core copy:images && yarn workspace @heroesofcrypto/core generate:images && yarn workspace @heroesofcrypto/core start",
+        "start:fresh": "yarn run pull:common && yarn run build:engine && yarn workspace @heroesofcrypto/common build && yarn workspace @heroesofcrypto/core copy:images && yarn workspace @heroesofcrypto/core generate:images && yarn workspace @heroesofcrypto/core start",
         "updiff": "yarn workspace @box2d/updiff start",
         "updiff:cpp": "yarn workspace @box2d/updiff run convert:cpp",
         "updiff:ts": "yarn workspace @box2d/updiff run convert:ts"
