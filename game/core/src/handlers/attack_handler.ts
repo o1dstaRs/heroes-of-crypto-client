@@ -21,7 +21,7 @@ import { processOneInTheFieldAbility } from "../abilities/one_in_the_field_abili
 import { processStunAbility } from "../abilities/stun_ability";
 import { Drawer } from "../draw/drawer";
 import { Grid } from "../grid/grid";
-import { getCellForPoint, getCellsAroundPoint, getPointForCell } from "../grid/grid_math";
+import { getCellForPosition, getCellsAroundPoint, getPointForCell } from "../grid/grid_math";
 import { GridSettings } from "../grid/grid_settings";
 import { SceneLog } from "../menu/scene_log";
 import { IWeightedRoute } from "../path/path_helper";
@@ -185,7 +185,7 @@ export class AttackHandler {
     public canBeAttackedByMelee(unitPosition: XY, isSmallUnit: boolean, aggrMatrix?: number[][]): boolean {
         let cells: XY[];
         if (isSmallUnit) {
-            const cell = getCellForPoint(this.gridSettings, unitPosition);
+            const cell = getCellForPosition(this.gridSettings, unitPosition);
             if (cell) {
                 cells = [cell];
             } else {
@@ -425,7 +425,7 @@ export class AttackHandler {
             return false;
         }
 
-        const currentCell = getCellForPoint(this.gridSettings, attackerUnit.getPosition());
+        const currentCell = getCellForPosition(this.gridSettings, attackerUnit.getPosition());
 
         if (!currentCell) {
             return false;
@@ -509,7 +509,7 @@ export class AttackHandler {
         const abilitiesWithPositionCoeff = getAbilitiesWithPosisionCoefficient(
             attackerUnit.getAbilities(),
             attackFromCell,
-            getCellForPoint(this.gridSettings, targetUnit.getPosition()),
+            getCellForPosition(this.gridSettings, targetUnit.getPosition()),
             targetUnit.isSmallSize(),
             attackerUnit.getTeam(),
         );
@@ -581,7 +581,7 @@ export class AttackHandler {
                 grid,
                 this.gridSettings,
                 "resp",
-                getCellForPoint(this.gridSettings, targetUnit.getPosition()),
+                getCellForPosition(this.gridSettings, targetUnit.getPosition()),
             );
 
             hasLightningSpinResponseLanded = processLightningSpinAbility(
@@ -599,7 +599,7 @@ export class AttackHandler {
                 abilityMultiplier = 1;
                 const abilitiesWithPositionCoeffResp = getAbilitiesWithPosisionCoefficient(
                     targetUnit.getAbilities(),
-                    getCellForPoint(this.gridSettings, targetUnit.getPosition()),
+                    getCellForPosition(this.gridSettings, targetUnit.getPosition()),
                     attackFromCell,
                     attackerUnit.isSmallSize(),
                     targetUnit.getTeam(),

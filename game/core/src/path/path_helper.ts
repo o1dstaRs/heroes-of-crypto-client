@@ -9,21 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
-import { b2Body, b2Vec2, XY } from "@box2d/core";
-
-import {
-    getCellForBody,
-    getCellForPoint,
-    getCellsAroundPoint,
-    getPointForCell,
-    isBodyWithinGrid,
-} from "../grid/grid_math";
+import { getCellForPosition, getCellsAroundPoint, getPointForCell, isPositionWithinGrid } from "../grid/grid_math";
 import { GridSettings } from "../grid/grid_settings";
 import { ObstacleType } from "../obstacles/obstacle";
 import { IAttackTargets, Unit } from "../units/units";
 import { TeamType } from "../units/units_stats";
 import { getRandomInt, shuffle } from "../utils/lib";
-import { IXYDistance, matrixElementOrZero } from "../utils/math";
+import { getDistance, IXYDistance, matrixElementOrZero, XY } from "../utils/math";
 
 export interface IMovePath {
     cells: XY[];
@@ -280,7 +272,7 @@ export class PathHelper {
             };
             points.push({
                 xy: c,
-                distance: b2Vec2.Distance(mousePosition, position),
+                distance: getDistance(mousePosition, position),
             });
         }
         if (isCornerPos) {
@@ -415,7 +407,7 @@ export class PathHelper {
             return undefined;
         }
 
-        const mouseCell = getCellForPoint(this.gridSettings, mousePosition);
+        const mouseCell = getCellForPosition(this.gridSettings, mousePosition);
         if (!mouseCell) {
             return undefined;
         }
@@ -502,7 +494,7 @@ export class PathHelper {
                 let closestDistance = Number.MAX_SAFE_INTEGER;
                 let closestPoint = availableAttackCells[0];
                 for (const ap of availableAttackCells) {
-                    const distance = b2Vec2.Distance(
+                    const distance = getDistance(
                         mousePosition,
                         getPointForCell(
                             ap,
@@ -905,7 +897,7 @@ export class PathHelper {
         currentActiveKnownPaths?: Map<number, IWeightedRoute[]>,
     ): XY[] | undefined {
         const squareCells: XY[] = [];
-        const mouseCell = getCellForPoint(this.gridSettings, mousePosition);
+        const mouseCell = getCellForPosition(this.gridSettings, mousePosition);
         const neightborCells: IXYDistance[] = [];
 
         const hasStarted = !!allowedToMoveThere;
@@ -986,7 +978,7 @@ export class PathHelper {
                 );
                 neightborCells.push({
                     xy: c,
-                    distance: b2Vec2.Distance(mousePosition, {
+                    distance: getDistance(mousePosition, {
                         x: cellPosition.x,
                         y: cellPosition.y,
                     }),
@@ -1170,7 +1162,7 @@ export class PathHelper {
         fromPath: XY[],
         currentActiveKnownPaths: Map<number, IWeightedRoute[]>,
         enemyTeam: Unit[],
-        bodies: Map<string, b2Body>,
+        positions: Map<string, XY>,
     ): IAttackTargets {
         const canAttackUnits: Unit[] = [];
         const canAttackUnitIds: Set<string> = new Set();
@@ -1181,7 +1173,7 @@ export class PathHelper {
         let fromPathHashes: Set<number> | undefined;
         let currentCells: XY[];
         if (byUnit.isSmallSize()) {
-            const currentCell = getCellForPoint(this.gridSettings, byUnit.getPosition());
+            const currentCell = getCellForPosition(this.gridSettings, byUnit.getPosition());
             if (currentCell) {
                 fromPath.unshift(currentCell);
                 currentCells = [currentCell];
@@ -1208,14 +1200,14 @@ export class PathHelper {
         }
 
         for (const u of enemyTeam) {
-            const body = bodies.get(u.getId());
-            if (!body || !isBodyWithinGrid(this.gridSettings, body)) {
+            const position = positions.get(u.getId());
+            if (!position || !isPositionWithinGrid(this.gridSettings, position)) {
                 continue;
             }
 
             let bodyCells: XY[];
             if (u.isSmallSize()) {
-                const bodyCellPos = getCellForBody(this.gridSettings, body);
+                const bodyCellPos = getCellForPosition(this.gridSettings, position);
                 if (!bodyCellPos) {
                     continue;
                 }

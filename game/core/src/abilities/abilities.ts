@@ -9,13 +9,12 @@
  * -----------------------------------------------------------------------------
  */
 
-import { XY } from "@box2d/core";
-
 import { GridSettings } from "../grid/grid_settings";
 import { IFrameable, OnFramePosition } from "../menu/frameable";
 import { TeamType } from "../units/units_stats";
 import { Sprite } from "../utils/gl/Sprite";
 import { Effect } from "../effects/effects";
+import { XY } from "../utils/math";
 
 export enum AbilityPowerType {
     TOTAL_DAMAGE_PERCENTAGE = "TOTAL_DAMAGE_PERCENTAGE",

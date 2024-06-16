@@ -9,32 +9,19 @@
  * -----------------------------------------------------------------------------
  */
 
-import { b2Body, b2Vec2, XY } from "@box2d/core";
-
 import { TeamType } from "../units/units_stats";
 import { getRandomInt, matrixElement, shuffle } from "../utils/lib";
-import { intersect2D, Intersect2DResult, IXYDistance } from "../utils/math";
+import { getDistance, intersect2D, Intersect2DResult, IXYDistance, XY } from "../utils/math";
 import { GridSettings } from "./grid_settings";
 
-export function getCellForBody(gridSettings: GridSettings, body?: b2Body): XY | undefined {
-    if (!body) {
+export function getCellForPosition(gridSettings: GridSettings, position?: XY): XY | undefined {
+    if (!position) {
         return undefined;
     }
 
     return {
-        x: Math.floor((body.GetPosition().x + gridSettings.getMaxX()) / gridSettings.getCellSize()),
-        y: Math.floor(body.GetPosition().y / gridSettings.getCellSize()),
-    };
-}
-
-export function getCellForPoint(gridSettings: GridSettings, point?: XY): XY | undefined {
-    if (!point) {
-        return undefined;
-    }
-
-    return {
-        x: Math.floor((point.x + gridSettings.getMaxX()) / gridSettings.getCellSize()),
-        y: Math.floor(point.y / gridSettings.getCellSize()),
+        x: Math.floor((position.x + gridSettings.getMaxX()) / gridSettings.getCellSize()),
+        y: Math.floor(position.y / gridSettings.getCellSize()),
     };
 }
 
@@ -50,7 +37,7 @@ export function getCellsAroundPoint(gridSettings: GridSettings, point?: XY): XY[
     const canGoUp = point.y < gridSettings.getMaxY();
 
     if (canGoLeft && canGoUp) {
-        const c = getCellForPoint(gridSettings, {
+        const c = getCellForPosition(gridSettings, {
             x: point.x - gridSettings.getHalfStep(),
             y: point.y + gridSettings.getHalfStep(),
         });
@@ -59,7 +46,7 @@ export function getCellsAroundPoint(gridSettings: GridSettings, point?: XY): XY[
         }
     }
     if (canGoRight && canGoUp) {
-        const c = getCellForPoint(gridSettings, {
+        const c = getCellForPosition(gridSettings, {
             x: point.x + gridSettings.getHalfStep(),
             y: point.y + gridSettings.getHalfStep(),
         });
@@ -68,7 +55,7 @@ export function getCellsAroundPoint(gridSettings: GridSettings, point?: XY): XY[
         }
     }
     if (canGoDown && canGoLeft) {
-        const c = getCellForPoint(gridSettings, {
+        const c = getCellForPosition(gridSettings, {
             x: point.x - gridSettings.getHalfStep(),
             y: point.y - gridSettings.getHalfStep(),
         });
@@ -77,7 +64,7 @@ export function getCellsAroundPoint(gridSettings: GridSettings, point?: XY): XY[
         }
     }
     if (canGoDown && canGoRight) {
-        const c = getCellForPoint(gridSettings, {
+        const c = getCellForPosition(gridSettings, {
             x: point.x + gridSettings.getHalfStep(),
             y: point.y - gridSettings.getHalfStep(),
         });
@@ -87,19 +74,6 @@ export function getCellsAroundPoint(gridSettings: GridSettings, point?: XY): XY[
     }
 
     return cells;
-}
-
-export function isBodyWithinGrid(gridSettings: GridSettings, body?: b2Body): boolean {
-    if (!body) {
-        return false;
-    }
-
-    return (
-        body.GetPosition().x >= gridSettings.getMinX() &&
-        body.GetPosition().x < gridSettings.getMaxX() &&
-        body.GetPosition().y >= gridSettings.getMinY() &&
-        body.GetPosition().y < gridSettings.getMaxY()
-    );
 }
 
 export function isPositionWithinGrid(gridSettings: GridSettings, position?: XY): boolean {
@@ -180,7 +154,7 @@ export function getRandomCellAroundPosition(
     teamType: TeamType,
     position: XY,
 ): XY | undefined {
-    const cell = getCellForPoint(gridSettings, position);
+    const cell = getCellForPosition(gridSettings, position);
     if (!cell) {
         return undefined;
     }
@@ -252,7 +226,7 @@ export function arePointsConnected(gridSettings: GridSettings, pointA: XY, point
             return true;
         }
     } else {
-        return b2Vec2.Distance(pointA, pointB) <= gridSettings.getDiagonalStep() + gridSettings.getMovementDelta();
+        return getDistance(pointA, pointB) <= gridSettings.getDiagonalStep() + gridSettings.getMovementDelta();
     }
     return false;
 }
@@ -263,7 +237,7 @@ export function getClosestCrossingPoint(position: XY, crossingPoints: XY[]): XY 
     for (const point of crossingPoints) {
         if (point.x != null && point.y != null) {
             const pt = { x: point.x, y: point.y };
-            const distance = b2Vec2.Distance(position, pt);
+            const distance = getDistance(position, pt);
             if (distance < currentClosestDistance) {
                 currentClosestDistance = distance;
                 currentClosestPoint = pt;
@@ -366,7 +340,7 @@ export function getClosestSideCenter(
     isSmallUnitFrom: boolean,
     isSmallUnitTo: boolean,
 ): XY | undefined {
-    const cell = getCellForPoint(gridSettings, mousePosition);
+    const cell = getCellForPosition(gridSettings, mousePosition);
     if (!cell) {
         return undefined;
     }
@@ -437,7 +411,7 @@ export function getClosestSideCenter(
     }
 
     for (const p of points) {
-        p.distance = b2Vec2.Distance(fromPosition, p.xy);
+        p.distance = getDistance(fromPosition, p.xy);
     }
 
     points.sort((a: IXYDistance, b: IXYDistance) => {
@@ -455,8 +429,8 @@ export function getClosestSideCenter(
         return twoClosestPoints[0].xy;
     }
 
-    const distanceA = b2Vec2.Distance(twoClosestPoints[0].xy, mousePosition);
-    const distanceB = b2Vec2.Distance(twoClosestPoints[1].xy, mousePosition);
+    const distanceA = getDistance(twoClosestPoints[0].xy, mousePosition);
+    const distanceB = getDistance(twoClosestPoints[1].xy, mousePosition);
     if (distanceA === distanceB || distanceA < distanceB) {
         return twoClosestPoints[0].xy;
     }
