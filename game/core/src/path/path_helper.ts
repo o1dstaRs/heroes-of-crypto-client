@@ -9,10 +9,9 @@
  * -----------------------------------------------------------------------------
  */
 
-import { GridMath, GridSettings, ObstacleType, HoCLib, HoCMath } from "@heroesofcrypto/common";
+import { GridMath, GridSettings, ObstacleType, TeamType, HoCLib, HoCMath } from "@heroesofcrypto/common";
 
 import { IAttackTargets, Unit } from "../units/units";
-import { TeamType } from "../units/units_stats";
 
 export interface IMovePath {
     cells: HoCMath.XY[];

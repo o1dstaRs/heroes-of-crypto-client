@@ -10,7 +10,7 @@
  */
 
 import { b2Body, b2Fixture, b2Vec2, b2World, XY } from "@box2d/core";
-import { Grid, GridSettings, GridMath, HoCLib } from "@heroesofcrypto/common";
+import { TeamType, UnitStats, Grid, GridSettings, GridMath, HoCLib } from "@heroesofcrypto/common";
 
 import { SquarePlacement } from "../placement/square_placement";
 import { FightStateManager } from "../state/fight_state_manager";
@@ -26,7 +26,6 @@ import {
 } from "../statics";
 import { Unit } from "./units";
 import { UnitsFactory } from "./units_factory";
-import { TeamType, UnitStats } from "./units_stats";
 
 export class UnitsHolder {
     private readonly world: b2World;
@@ -97,7 +96,7 @@ export class UnitsHolder {
     }
 
     public refreshUnitsForAllTeams(): Unit[][] {
-        const unitForAllTeams: Unit[][] = new Array(Object.keys(TeamType).length >> 1);
+        const unitForAllTeams: Unit[][] = new Array((Object.keys(TeamType).length - 2) >> 1);
         for (const unit of this.allUnits.values()) {
             const teamId = unit.getTeam() - 1;
             if (!(teamId in unitForAllTeams)) {

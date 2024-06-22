@@ -19,11 +19,11 @@ import ListItemContent from "@mui/joy/ListItemContent";
 import Sheet from "@mui/joy/Sheet";
 import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
+import { TeamType } from "@heroesofcrypto/common";
 import React, { useEffect, useState } from "react";
 
 import { useManager } from "../../manager";
 import { IVisibleState } from "../../state/state";
-import { TeamType } from "../../units/units_stats";
 import UnitStatsListItem from "../UnitStatsListItem";
 import ColorSchemeToggle from "./ColorSchemeToggle";
 import * as pack from "../../../package.json";

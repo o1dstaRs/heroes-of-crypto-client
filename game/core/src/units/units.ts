@@ -21,7 +21,7 @@ import {
     XY,
 } from "@box2d/core";
 import { removeFromArray } from "@box2d/lights/dist/utils/arrayUtils";
-import { GridMath, GridSettings, UnitStats, HoCLib } from "@heroesofcrypto/common";
+import { AttackType, GridMath, GridSettings, UnitStats, HoCLib, TeamType } from "@heroesofcrypto/common";
 import Denque from "denque";
 
 import { Ability, AbilityPowerType } from "../abilities/abilities";
@@ -40,7 +40,6 @@ import {
 } from "../statics";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
-import { AttackType, TeamType } from "./units_stats";
 import { Effect } from "../effects/effects";
 import { SceneLog } from "../menu/scene_log";
 

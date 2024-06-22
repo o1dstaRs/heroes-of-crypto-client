@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { TeamType } from "../units/units_stats";
+import { TeamType } from "@heroesofcrypto/common";
 
 export interface IDamageStatistic {
     unitName: string;

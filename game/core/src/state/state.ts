@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { TeamType } from "../units/units_stats";
+import { TeamType } from "@heroesofcrypto/common";
 
 export interface IFightState {
     currentLap: number;
@@ -21,8 +21,7 @@ export interface IFightState {
     alreadyMadeTurnByTeam: Map<number, Set<string>>;
     alreadyHourGlass: Set<string>;
     alreadyRepliedAttack: Set<string>;
-    lowerTeamUnitsAlive: number;
-    upperTeamUnitsAlive: number;
+    teamUnitsAlive: Map<number, number>;
     hourGlassQueue: string[];
     moralePlusQueue: string[];
     moraleMinusQueue: string[];

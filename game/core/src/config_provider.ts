@@ -9,12 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
+import { TeamType, UnitStats } from "@heroesofcrypto/common";
+
 import unitsJson from "./configuration/units.json";
 import spellsJson from "./configuration/spells.json";
 import abilitiesJson from "./configuration/abilities.json";
 import effectsJson from "./configuration/effects.json";
 import { SpellStats } from "./spells/spells";
-import { TeamType, UnitStats } from "./units/units_stats";
 import { AbilityStats } from "./abilities/abilities";
 import { EffectStats } from "./effects/effects";
 

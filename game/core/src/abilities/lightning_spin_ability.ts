@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Grid, GridMath, GridSettings, HoCMath } from "@heroesofcrypto/common";
+import { AttackType, Grid, GridMath, GridSettings, HoCMath } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
@@ -17,7 +17,6 @@ import { MORALE_CHANGE_FOR_KILL } from "../statics";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
-import { AttackType } from "../units/units_stats";
 import { processFireShieldAbility } from "./fire_shield_ability";
 import { processOneInTheFieldAbility } from "./one_in_the_field_ability";
 import { processStunAbility } from "./stun_ability";

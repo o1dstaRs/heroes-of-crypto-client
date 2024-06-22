@@ -11,6 +11,7 @@
 
 import { b2Clamp, b2Vec2 } from "@box2d/core";
 import { DebugDraw } from "@box2d/debug-draw";
+import { UnitStats } from "@heroesofcrypto/common";
 import { createContext, useContext } from "react";
 import { Signal } from "typed-signals";
 
@@ -22,7 +23,6 @@ import { MAX_FPS } from "./statics";
 import { DamageStatisticHolder, IDamageStatistic } from "./stats/damage_stats";
 import type { SceneControlGroup } from "./ui";
 import type { SceneTable, SceneTableSetter } from "./ui/Main";
-import { UnitStats } from "./units/units_stats";
 import { g_camera } from "./utils/camera";
 import { FpsCalculator } from "./utils/FpsCalculator";
 import { createDefaultShader } from "./utils/gl/defaultShader";

@@ -10,7 +10,7 @@
  */
 
 import { b2Body, b2Fixture, b2TestOverlap, b2Vec2, b2World, XY } from "@box2d/core";
-import { GridMath, GridSettings, Grid } from "@heroesofcrypto/common";
+import { AttackType, UnitStats, GridMath, GridSettings, Grid } from "@heroesofcrypto/common";
 
 import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
@@ -29,7 +29,6 @@ import { MORALE_CHANGE_FOR_KILL, PENALTY_ON_RANGE_SHOT_THROUGH_TEAMMATES } from 
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { IUnitDistance, SelectedAttackType, Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
-import { AttackType, UnitStats } from "../units/units_stats";
 import { MoveHandler } from "./move_handler";
 
 export interface IRangeAttackEvaluation {

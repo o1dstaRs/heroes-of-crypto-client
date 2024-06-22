@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { GridSettings, GridMath, HoCLib } from "@heroesofcrypto/common";
+import { GridSettings, TeamType, GridMath, HoCLib } from "@heroesofcrypto/common";
 
 import {
     STEPS_MORALE_MULTIPLIER,
@@ -19,7 +19,6 @@ import {
     MIN_TIME_TO_MAKE_TURN_MILLIS,
 } from "../statics";
 import { Unit } from "../units/units";
-import { TeamType } from "../units/units_stats";
 import { IFightState } from "./state";
 
 export class FightStateManager {
@@ -38,8 +37,7 @@ export class FightStateManager {
             alreadyMadeTurnByTeam: new Map(),
             alreadyHourGlass: new Set(),
             alreadyRepliedAttack: new Set(),
-            lowerTeamUnitsAlive: 0,
-            upperTeamUnitsAlive: 0,
+            teamUnitsAlive: new Map(),
             hourGlassQueue: [],
             moralePlusQueue: [],
             moraleMinusQueue: [],
@@ -265,7 +263,9 @@ export class FightStateManager {
             alreadyMadeTurnTeamMembers = alreadyMadeTurnTeamMembersSet.size;
         }
         const teamMembersAlive =
-            team === TeamType.LOWER ? this.fightState.lowerTeamUnitsAlive : this.fightState.upperTeamUnitsAlive;
+            team === TeamType.LOWER
+                ? this.fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0
+                : this.fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
         let teamMembersToMakeTurn = teamMembersAlive - alreadyMadeTurnTeamMembers - 1;
         if (teamMembersToMakeTurn < 0) {
             teamMembersToMakeTurn = 0;
@@ -313,7 +313,9 @@ export class FightStateManager {
             alreadyMadeTurnTeamMembers = alreadyMadeTurnTeamMembersSet.size;
         }
         const teamMembersAlive =
-            team === TeamType.LOWER ? this.fightState.lowerTeamUnitsAlive : this.fightState.upperTeamUnitsAlive;
+            team === TeamType.LOWER
+                ? this.fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0
+                : this.fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
 
         let teamMembersToMakeTurn = teamMembersAlive - alreadyMadeTurnTeamMembers;
         if (teamMembersToMakeTurn < 0) {
@@ -364,9 +366,10 @@ export class FightStateManager {
         );
     }
 
-    public setTeamsUnitsAlive(lowerTeamUnitsAlive: number, upperTeamUnitsAlive: number): void {
-        this.fightState.lowerTeamUnitsAlive = lowerTeamUnitsAlive;
-        this.fightState.upperTeamUnitsAlive = upperTeamUnitsAlive;
+    public setTeamUnitsAlive(teamType: TeamType, unitsAlive: number): void {
+        if (teamType) {
+            this.fightState.teamUnitsAlive.set(teamType, unitsAlive);
+        }
     }
 
     public addRepliedAttack(unitId: string): void {

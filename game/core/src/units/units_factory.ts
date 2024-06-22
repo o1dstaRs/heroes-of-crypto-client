@@ -10,7 +10,7 @@
  */
 
 import { b2World } from "@box2d/core";
-import { GridSettings } from "@heroesofcrypto/common";
+import { TeamType, GridSettings } from "@heroesofcrypto/common";
 
 import { AbilitiesFactory } from "../abilities/abilities_factory";
 import { getUnitConfig } from "../config_provider";
@@ -19,7 +19,6 @@ import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
 import { Unit } from "./units";
-import { TeamType } from "./units_stats";
 
 // import { MeleeAI } from "../ai";
 

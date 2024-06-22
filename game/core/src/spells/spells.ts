@@ -10,10 +10,9 @@
  */
 
 import { XY } from "@box2d/core";
-import { GridSettings, GridMath } from "@heroesofcrypto/common";
+import { GridSettings, GridMath, TeamType, IModifyableUnitStats } from "@heroesofcrypto/common";
 
 import { IFrameable, OnFramePosition } from "../menu/frameable";
-import { IModifyableUnitStats, TeamType } from "../units/units_stats";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
 

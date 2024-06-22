@@ -9,9 +9,9 @@ import ListItemButton from "@mui/joy/ListItemButton";
 import ListItemContent from "@mui/joy/ListItemContent";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState } from "react";
+import { AttackType, UnitStats } from "@heroesofcrypto/common";
 
 import { useManager } from "../../manager";
-import { AttackType, UnitStats } from "../../units/units_stats";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
 import { BootIcon } from "../svg/boot";
 import { BowIcon } from "../svg/bow";

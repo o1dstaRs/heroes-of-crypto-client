@@ -9,11 +9,10 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Grid, ObstacleType, HoCMath } from "@heroesofcrypto/common";
+import { AttackType, TeamType, Grid, ObstacleType, HoCMath } from "@heroesofcrypto/common";
 
 import { PathHelper, IWeightedRoute } from "../path/path_helper";
 import { Unit, IUnitAIRepr } from "../units/units";
-import { AttackType, TeamType } from "../units/units_stats";
 
 export interface IAI {
     nextMovingTarget(): HoCMath.XY | undefined;

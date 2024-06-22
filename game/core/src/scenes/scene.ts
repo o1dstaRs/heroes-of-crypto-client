@@ -35,7 +35,7 @@ import {
     XY,
 } from "@box2d/core";
 import { b2ParticleGroup, DrawParticleSystems } from "@box2d/particles";
-import { HoCMath } from "@heroesofcrypto/common";
+import { HoCMath, UnitStats } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { SceneControl } from "../sceneControls";
@@ -43,7 +43,6 @@ import { Settings } from "../settings";
 import { IVisibleState } from "../state/state";
 import { MAX_FPS, MAX_X } from "../statics";
 import type { SceneControlGroup } from "../ui";
-import { UnitStats } from "../units/units_stats";
 import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";

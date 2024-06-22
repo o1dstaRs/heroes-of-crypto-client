@@ -10,7 +10,17 @@
  */
 
 import { b2Body, b2BodyType, b2Color, b2EdgeShape, b2Fixture, b2Vec2, XY } from "@box2d/core";
-import { Grid, GridSettings, GridConstants, GridMath, HoCMath, HoCLib } from "@heroesofcrypto/common";
+import {
+    AttackType,
+    TeamType,
+    UnitStats,
+    Grid,
+    GridSettings,
+    GridConstants,
+    GridMath,
+    HoCMath,
+    HoCLib,
+} from "@heroesofcrypto/common";
 
 import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { AbilitiesFactory } from "../abilities/abilities_factory";
@@ -52,7 +62,6 @@ import {
 import { IAttackTargets, SelectedAttackType, Unit } from "../units/units";
 import { UnitsFactory } from "../units/units_factory";
 import { UnitsHolder } from "../units/units_holder";
-import { AttackType, TeamType, UnitStats } from "../units/units_stats";
 import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
@@ -154,6 +163,8 @@ class TestHeroes extends GLScene {
     private readonly drawer: Drawer;
 
     private readonly visibleStateUpdate: () => void;
+
+    private readonly sendFightState: () => void;
 
     public readonly gl: WebGLRenderingContext;
 
@@ -435,11 +446,17 @@ class TestHeroes extends GLScene {
                 this.sc_visibleStateUpdateNeeded = true;
             }
         };
-        if (HoCLib.isBrowser()) {
-            window.setInterval(this.visibleStateUpdate, 500);
-        } else {
-            setInterval(this.visibleStateUpdate, 500);
-        }
+
+        this.sendFightState = () => {
+            this.refreshVisibleStateIfNeeded();
+            if (this.sc_visibleState) {
+                const fightState = FightStateManager.getInstance().getFightState();
+                console.log(fightState);
+            }
+        };
+
+        HoCLib.interval(this.visibleStateUpdate, 500);
+        HoCLib.interval(this.sendFightState, 2000);
     }
 
     private spawnObstacles(): string | undefined {
@@ -1072,9 +1089,13 @@ class TestHeroes extends GLScene {
             } else {
                 this.hoverUnit = undefined;
                 const fightState = FightStateManager.getInstance().getFightState();
+
+                const lowerTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
+                const upperTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0;
+
                 const moreThanOneUnitAlive =
-                    (this.currentActiveUnit.getTeam() === TeamType.LOWER && fightState.lowerTeamUnitsAlive > 1) ||
-                    (this.currentActiveUnit.getTeam() === TeamType.UPPER && fightState.upperTeamUnitsAlive > 1);
+                    (this.currentActiveUnit.getTeam() === TeamType.LOWER && lowerTeamUnitsAlive > 1) ||
+                    (this.currentActiveUnit.getTeam() === TeamType.UPPER && upperTeamUnitsAlive > 1);
                 if (
                     (GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell) &&
                         this.currentActivePathHashes.has((mouseCell.x << 4) | mouseCell.y)) ||
@@ -1749,9 +1770,13 @@ class TestHeroes extends GLScene {
             //     this.m_selectedBody = undefined;
         } else if (this.currentActiveUnit && !this.sc_renderSpellBookOverlay && !this.sc_isAIActive) {
             const fightState = FightStateManager.getInstance().getFightState();
+
+            const lowerTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
+            const upperTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0;
+
             const moreThanOneUnitAlive =
-                (this.currentActiveUnit.getTeam() === TeamType.LOWER && fightState.lowerTeamUnitsAlive > 1) ||
-                (this.currentActiveUnit.getTeam() === TeamType.UPPER && fightState.upperTeamUnitsAlive > 1);
+                (this.currentActiveUnit.getTeam() === TeamType.LOWER && lowerTeamUnitsAlive > 1) ||
+                (this.currentActiveUnit.getTeam() === TeamType.UPPER && upperTeamUnitsAlive > 1);
             if (
                 moreThanOneUnitAlive &&
                 this.hourGlassButton.isHover(cell) &&
@@ -2549,7 +2574,8 @@ class TestHeroes extends GLScene {
                             a.getSpeed() > b.getSpeed() ? -1 : b.getSpeed() > a.getSpeed() ? 1 : 0,
                         );
 
-                        FightStateManager.getInstance().setTeamsUnitsAlive(unitsLower.length, unitsUpper.length);
+                        FightStateManager.getInstance().setTeamUnitsAlive(TeamType.UPPER, unitsUpper.length);
+                        FightStateManager.getInstance().setTeamUnitsAlive(TeamType.LOWER, unitsLower.length);
 
                         if (turnFlipped) {
                             for (const u of units) {
