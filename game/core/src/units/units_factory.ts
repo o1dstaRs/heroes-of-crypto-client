@@ -10,7 +10,7 @@
  */
 
 import { b2World } from "@box2d/core";
-import { TeamType, GridSettings, UnitType } from "@heroesofcrypto/common";
+import { AllFactions, FactionType, TeamType, GridSettings, UnitType } from "@heroesofcrypto/common";
 
 import { AbilitiesFactory } from "../abilities/abilities_factory";
 import { getUnitConfig } from "../config_provider";
@@ -19,8 +19,23 @@ import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
 import { Unit } from "./units";
+import { Hero } from "../heroes/heroes";
 
-// import { MeleeAI } from "../ai";
+export enum HeroType {
+    NO_TYPE = 0,
+    MAGICIAN = 1,
+    WARRIOR = 2,
+}
+
+export enum HeroGender {
+    NO_GENDER = 0,
+    MALE = 1,
+    FEMALE = 2,
+}
+
+const FACTION_TO_HERO_TYPES: { [faction: string]: HeroType[] } = {
+    [FactionType.NATURE]: [HeroType.MAGICIAN, HeroType.WARRIOR],
+};
 
 export class UnitsFactory {
     protected readonly world: b2World;
@@ -35,7 +50,9 @@ export class UnitsFactory {
 
     protected readonly textures: PreloadedTextures;
 
-    protected readonly smallTexturesByUnitName: { [id: string]: WebGLTexture };
+    protected readonly smallTexturesByCreatureName: { [id: string]: WebGLTexture };
+
+    protected readonly smallTexturesByHero: Map<string, WebGLTexture[]>;
 
     //    protected readonly largeTexturesByUnitName: { [id: string]: WebGLTexture };
 
@@ -68,7 +85,7 @@ export class UnitsFactory {
         this.textures = textures;
         this.spellsFactory = spellsFactory;
         this.abilitiesFactory = abilitiesFactory;
-        this.smallTexturesByUnitName = {
+        this.smallTexturesByCreatureName = {
             Squire: textures.squire_128.texture,
             Peasant: textures.peasant_128.texture,
             Arbalester: textures.arbalester_128.texture,
@@ -112,6 +129,21 @@ export class UnitsFactory {
             Behemoth: textures.behemoth_256.texture,
         };
 
+        this.smallTexturesByHero = new Map();
+        for (const faction of AllFactions) {
+            const heroTypes = FACTION_TO_HERO_TYPES[faction];
+            if (!heroTypes?.length) {
+                continue;
+            }
+
+            for (const heroType of heroTypes) {
+                this.smallTexturesByHero.set(this.generateHeroKey(faction, heroType, HeroGender.FEMALE), []);
+                this.smallTexturesByHero.set(this.generateHeroKey(faction, heroType, HeroGender.MALE), [
+                    textures.nature_mage_1_128.texture,
+                ]);
+            }
+        }
+
         // this.largeTexturesByUnitName = {
         //     Squire: textures.squire_512.texture,
         //     Peasant: textures.peasant_512.texture,
@@ -129,8 +161,12 @@ export class UnitsFactory {
         // };
     }
 
-    public makeUnit(
-        race: string,
+    private generateHeroKey(race: FactionType, heroType: HeroType, heroGender: HeroGender) {
+        return `${race}:${heroType}:${heroGender}}`;
+    }
+
+    public makeCreature(
+        race: FactionType,
         name: string,
         team: TeamType,
         amount: number,
@@ -146,7 +182,7 @@ export class UnitsFactory {
             this.gridSettings,
             team,
             UnitType.CREATURE,
-            new Sprite(this.gl, this.shader, this.smallTexturesByUnitName[name]),
+            new Sprite(this.gl, this.shader, this.smallTexturesByCreatureName[name]),
             new Sprite(this.gl, this.shader, this.textures.tag.texture),
             new Sprite(this.gl, this.shader, this.textures.hourglass.texture),
             new Sprite(this.gl, this.shader, this.textures.green_flag_70.texture),
@@ -154,6 +190,33 @@ export class UnitsFactory {
             this.spellsFactory,
             this.abilitiesFactory,
             summoned,
+            //      new MeleeAI(this.world, this.gridSettings, this.board),
+        );
+    }
+
+    public makeHero(
+        race: FactionType,
+        name: string,
+        team: TeamType,
+        heroType: HeroType,
+        gender: HeroGender,
+        totalExp?: number,
+    ): Unit {
+        return new Hero(
+            this.gl,
+            this.shader,
+            this.digitNormalTextures,
+            this.digitDamageTextures,
+            getUnitConfig(team, race, name, 1, totalExp),
+            this.gridSettings,
+            team,
+            new Sprite(this.gl, this.shader, this.smallTexturesByCreatureName[name]),
+            new Sprite(this.gl, this.shader, this.textures.tag.texture),
+            new Sprite(this.gl, this.shader, this.textures.hourglass.texture),
+            new Sprite(this.gl, this.shader, this.textures.green_flag_70.texture),
+            new Sprite(this.gl, this.shader, this.textures.red_flag_70.texture),
+            this.spellsFactory,
+            this.abilitiesFactory,
             //      new MeleeAI(this.world, this.gridSettings, this.board),
         );
     }

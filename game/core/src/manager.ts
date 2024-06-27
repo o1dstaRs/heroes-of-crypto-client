@@ -423,22 +423,22 @@ export class GameManager {
                 this.onUnitSelected.emit(this.m_scene?.sc_selectedUnitProperties as UnitProperties);
                 this.onRaceSelected.emit("");
             } else {
-                this.onRaceSelected.emit(this.m_scene?.sc_selectedRaceName ?? "");
+                this.onRaceSelected.emit(this.m_scene?.sc_selectedFactionName ?? "");
                 this.onUnitSelected.emit({} as UnitProperties);
             }
 
             this.m_scene.sc_unitPropertiesUpdateNeeded = false;
         }
 
-        if (this.m_scene?.sc_raceNameUpdateNeeded) {
-            if (this.m_scene?.sc_selectedRaceName) {
-                this.onRaceSelected.emit(this.m_scene?.sc_selectedRaceName ?? "");
+        if (this.m_scene?.sc_factionNameUpdateNeeded) {
+            if (this.m_scene?.sc_selectedFactionName) {
+                this.onRaceSelected.emit(this.m_scene?.sc_selectedFactionName ?? "");
             } else {
                 this.onUnitSelected.emit(this.m_scene?.sc_selectedUnitProperties as UnitProperties);
                 this.onRaceSelected.emit("");
             }
 
-            this.m_scene.sc_raceNameUpdateNeeded = false;
+            this.m_scene.sc_factionNameUpdateNeeded = false;
         }
 
         if (this.m_scene?.sc_damageStatsUpdateNeeded) {

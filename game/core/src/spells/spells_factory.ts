@@ -9,6 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
+import { FactionType } from "@heroesofcrypto/common";
+
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
@@ -47,11 +49,11 @@ export class SpellsFactory {
         this.texturesByDigit = texturesByDigit;
     }
 
-    public makeSpell(race: string, name: string, amount: number) {
+    public makeSpell(faction: FactionType, name: string, amount: number): Spell {
         return new Spell(
             this.gl,
             this.shader,
-            getSpellConfig(race, name),
+            getSpellConfig(faction, name),
             amount,
             new Sprite(this.gl, this.shader, this.texturesBySpellName[name]),
             new Sprite(this.gl, this.shader, this.fontTexturesBySpellName[name]),

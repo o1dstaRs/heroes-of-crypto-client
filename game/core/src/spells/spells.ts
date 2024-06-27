@@ -10,7 +10,7 @@
  */
 
 import { XY } from "@box2d/core";
-import { GridSettings, GridMath, TeamType, IModifyableUnitProperties } from "@heroesofcrypto/common";
+import { FactionType, GridSettings, GridMath, TeamType, IModifyableUnitProperties } from "@heroesofcrypto/common";
 
 import { IFrameable, OnFramePosition } from "../menu/frameable";
 import { DefaultShader } from "../utils/gl/defaultShader";
@@ -87,7 +87,7 @@ export class AppliedSpell implements IFrameable {
 export class SpellStats {
     public readonly name: string;
 
-    public readonly race: string;
+    public readonly faction: FactionType;
 
     public readonly level: number;
 
@@ -104,7 +104,7 @@ export class SpellStats {
     public readonly self_debuff_applies: boolean;
 
     public constructor(
-        race: string,
+        faction: FactionType,
         name: string,
         level: number,
         desc: string,
@@ -114,7 +114,7 @@ export class SpellStats {
         self_cast_allowed: boolean,
         self_debuff_applies: boolean,
     ) {
-        this.race = race;
+        this.faction = faction;
         this.name = name;
         this.level = level;
         this.desc = desc;
@@ -143,7 +143,7 @@ export class Spell {
 
     private readonly isSummonSpell: boolean;
 
-    private readonly summonUnitRace: string = "";
+    private readonly summonUnitFaction: FactionType = FactionType.NO_TYPE;
 
     private readonly summonUnitName: string = "";
 
@@ -178,14 +178,14 @@ export class Spell {
         this.isSummonSpell = this.spellStats.name.startsWith("Summon ");
         if (this.isSummonSpell) {
             if (this.spellStats.name.endsWith(" Wolves")) {
-                this.summonUnitRace = "Nature";
+                this.summonUnitFaction = FactionType.NATURE;
                 this.summonUnitName = "Wolf";
             }
         }
     }
 
-    public getRace(): string {
-        return this.spellStats.race;
+    public getFaction(): string {
+        return this.spellStats.faction;
     }
 
     public getName(): string {
@@ -228,8 +228,8 @@ export class Spell {
         return this.isSummonSpell;
     }
 
-    public getSummonUnitRace(): string {
-        return this.summonUnitRace;
+    public getSummonUnitRace(): FactionType {
+        return this.summonUnitFaction;
     }
 
     public getSummonUnitName(): string {

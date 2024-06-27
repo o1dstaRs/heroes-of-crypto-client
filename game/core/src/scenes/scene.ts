@@ -35,7 +35,7 @@ import {
     XY,
 } from "@box2d/core";
 import { b2ParticleGroup, DrawParticleSystems } from "@box2d/particles";
-import { HoCMath, UnitProperties } from "@heroesofcrypto/common";
+import { FactionType, HoCMath, UnitProperties } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { SceneControl } from "../sceneControls";
@@ -193,7 +193,7 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_selectedUnitProperties?: UnitProperties;
 
-    public sc_selectedRaceName?: string;
+    public sc_selectedFactionName?: FactionType;
 
     public sc_visibleState?: IVisibleState;
 
@@ -213,7 +213,7 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_unitPropertiesUpdateNeeded = false;
 
-    public sc_raceNameUpdateNeeded = false;
+    public sc_factionNameUpdateNeeded = false;
 
     public sc_damageStatsUpdateNeeded = false;
 

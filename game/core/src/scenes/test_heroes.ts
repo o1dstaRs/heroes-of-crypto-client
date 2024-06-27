@@ -13,6 +13,7 @@ import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 import { b2Body, b2BodyType, b2Color, b2EdgeShape, b2Fixture, b2Vec2, XY } from "@box2d/core";
 import {
+    FactionType,
     TeamType,
     AttackType,
     UnitProperties,
@@ -399,28 +400,28 @@ class TestHeroes extends GLScene {
         switch (HoCLib.getRandomInt(0, 4)) {
             case 0:
                 this.lifeButton.setIsSelected(true);
-                this.sc_selectedRaceName = "Life";
-                this.sc_raceNameUpdateNeeded = true;
+                this.sc_selectedFactionName = FactionType.LIFE;
+                this.sc_factionNameUpdateNeeded = true;
                 break;
             case 1:
                 this.natureButton.setIsSelected(true);
-                this.sc_selectedRaceName = "Nature";
-                this.sc_raceNameUpdateNeeded = true;
+                this.sc_selectedFactionName = FactionType.NATURE;
+                this.sc_factionNameUpdateNeeded = true;
                 break;
             // case 4:
             //     this.deathButton.setIsSelected(true);
-            //     this.m_selectedRaceName = "Death";
+            //     this.m_selectedRaceName = FactionType.DEATH;
             //     this.m_race_name_update_needed = true;
             //     break;
             case 2:
                 this.mightButton.setIsSelected(true);
-                this.sc_selectedRaceName = "Might";
-                this.sc_raceNameUpdateNeeded = true;
+                this.sc_selectedFactionName = FactionType.MIGHT;
+                this.sc_factionNameUpdateNeeded = true;
                 break;
             case 3:
                 this.chaosButton.setIsSelected(true);
-                this.sc_selectedRaceName = "Chaos";
-                this.sc_raceNameUpdateNeeded = true;
+                this.sc_selectedFactionName = FactionType.CHAOS;
+                this.sc_factionNameUpdateNeeded = true;
                 break;
             // case 5:
             //     this.orderButton.setIsSelected(true);
@@ -615,8 +616,8 @@ class TestHeroes extends GLScene {
     }
 
     private spawnUnits(): void {
-        this.unitsHolder.spawn(TeamType.LOWER, this.sc_selectedRaceName);
-        this.unitsHolder.spawn(TeamType.UPPER, this.sc_selectedRaceName);
+        this.unitsHolder.spawn(TeamType.LOWER, this.sc_selectedFactionName);
+        this.unitsHolder.spawn(TeamType.UPPER, this.sc_selectedFactionName);
     }
 
     public requestTime(team: number): void {
@@ -664,8 +665,8 @@ class TestHeroes extends GLScene {
     protected destroyTempFixtures(): void {
         this.destroyPlacements();
         this.deselectRaceButtons();
-        this.sc_selectedRaceName = "";
-        this.sc_raceNameUpdateNeeded = true;
+        this.sc_selectedFactionName = FactionType.NO_TYPE;
+        this.sc_factionNameUpdateNeeded = true;
     }
 
     protected destroyNonPlacedUnits(): void {
@@ -1782,8 +1783,8 @@ class TestHeroes extends GLScene {
             this.deselectRaceButtons();
             this.lifeButton.setIsSelected(true);
             this.destroyNonPlacedUnits();
-            this.sc_selectedRaceName = "Life";
-            this.sc_raceNameUpdateNeeded = true;
+            this.sc_selectedFactionName = FactionType.LIFE;
+            this.sc_factionNameUpdateNeeded = true;
             this.spawnUnits();
             this.resetHover();
             this.sc_selectedBody = undefined;
@@ -1792,8 +1793,8 @@ class TestHeroes extends GLScene {
             this.deselectRaceButtons();
             this.natureButton.setIsSelected(true);
             this.destroyNonPlacedUnits();
-            this.sc_selectedRaceName = "Nature";
-            this.sc_raceNameUpdateNeeded = true;
+            this.sc_selectedFactionName = FactionType.NATURE;
+            this.sc_factionNameUpdateNeeded = true;
             this.spawnUnits();
             this.resetHover();
             this.sc_selectedBody = undefined;
@@ -1812,8 +1813,8 @@ class TestHeroes extends GLScene {
             this.deselectRaceButtons();
             this.mightButton.setIsSelected(true);
             this.destroyNonPlacedUnits();
-            this.sc_selectedRaceName = "Might";
-            this.sc_raceNameUpdateNeeded = true;
+            this.sc_selectedFactionName = FactionType.MIGHT;
+            this.sc_factionNameUpdateNeeded = true;
             this.spawnUnits();
             this.resetHover();
             this.sc_selectedBody = undefined;
@@ -1822,8 +1823,8 @@ class TestHeroes extends GLScene {
             this.deselectRaceButtons();
             this.chaosButton.setIsSelected(true);
             this.destroyNonPlacedUnits();
-            this.sc_selectedRaceName = "Chaos";
-            this.sc_raceNameUpdateNeeded = true;
+            this.sc_selectedFactionName = FactionType.CHAOS;
+            this.sc_factionNameUpdateNeeded = true;
             this.spawnUnits();
             this.resetHover();
             this.sc_selectedBody = undefined;
@@ -1832,7 +1833,7 @@ class TestHeroes extends GLScene {
             //     this.deselectRaceButtons();
             //     this.deathButton.setIsSelected(true);
             //     this.destroyNonPlacedUnits();
-            //     this.m_selectedRaceName = "Death";
+            //     this.m_selectedRaceName = FactionType.DEATH;
             //     this.m_race_name_update_needed = true;
             //     this.spawnUnits();
             //     this.resetHover();
@@ -1928,7 +1929,7 @@ class TestHeroes extends GLScene {
                             if (possibleUnit) {
                                 possibleUnit.increaseAmountAlive(amountToSummon);
                             } else {
-                                const unitToSummon = this.unitsFactory.makeUnit(
+                                const unitToSummon = this.unitsFactory.makeCreature(
                                     this.hoveredSpell.getSummonUnitRace(),
                                     this.hoveredSpell.getSummonUnitName(),
                                     this.currentActiveUnit.getTeam(),

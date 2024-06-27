@@ -10,7 +10,7 @@
  */
 
 import { b2World } from "@box2d/core";
-import { Faction, TeamType, GridSettings } from "@heroesofcrypto/common";
+import { FactionType, TeamType, GridSettings } from "@heroesofcrypto/common";
 
 import { AbilitiesFactory } from "../abilities/abilities_factory";
 import { getUnitConfig } from "../config_provider";
@@ -32,10 +32,6 @@ export enum HeroGender {
     MALE = 1,
     FEMALE = 2,
 }
-
-const FACTION_TO_HERO_TYPES: { [faction: string]: HeroType[] } = {
-    [Faction.NATURE]: [HeroType.MAGICIAN, HeroType.WARRIOR],
-};
 
 export class HeroesFactory {
     protected readonly world: b2World;
@@ -152,7 +148,7 @@ export class HeroesFactory {
     }
 
     public makeHero(
-        race: string,
+        faction: FactionType,
         name: string,
         team: TeamType,
         heroType: HeroType,
@@ -164,7 +160,7 @@ export class HeroesFactory {
             this.shader,
             this.digitNormalTextures,
             this.digitDamageTextures,
-            getUnitConfig(team, race, name, 1, totalExp),
+            getUnitConfig(team, faction, name, 1, totalExp),
             this.gridSettings,
             team,
             new Sprite(this.gl, this.shader, this.smallTexturesByUnitName[name]),

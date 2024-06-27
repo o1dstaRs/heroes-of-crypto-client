@@ -21,7 +21,18 @@ import {
     XY,
 } from "@box2d/core";
 import { removeFromArray } from "@box2d/lights/dist/utils/arrayUtils";
-import { AttackType, GridMath, GridSettings, UnitProperties, HoCLib, TeamType, UnitType } from "@heroesofcrypto/common";
+import {
+    AllFactionsType,
+    AttackType,
+    FactionType,
+    ToFaction,
+    GridMath,
+    GridSettings,
+    UnitProperties,
+    HoCLib,
+    TeamType,
+    UnitType,
+} from "@heroesofcrypto/common";
 import Denque from "denque";
 
 import { Ability, AbilityPowerType } from "../abilities/abilities";
@@ -67,7 +78,7 @@ export interface IUnitPropertiesProvider {
 
     getName(): string;
 
-    getRace(): string;
+    getFaction(): string;
 
     getHp(): number;
 
@@ -388,9 +399,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             if (spArr.length !== 2) {
                 continue;
             }
-            const race = spArr[0];
+            // can return us undefined
+            const faction = ToFaction[spArr[0] as AllFactionsType];
+            if (faction === undefined) {
+                continue;
+            }
+
             const spellName = spArr[1];
-            this.spells.push(spellsFactory.makeSpell(race, spellName, v));
+            this.spells.push(spellsFactory.makeSpell(faction, spellName, v));
         }
     }
 
@@ -530,8 +546,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.unitProperties;
     }
 
-    public getRace(): string {
-        return this.unitProperties.race;
+    public getFaction(): FactionType {
+        return this.unitProperties.faction;
     }
 
     public getName(): string {
@@ -1215,7 +1231,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         for (const s of this.spells) {
             if (s.getName() === spell.getName()) {
                 s.decreaseAmount();
-                removeFromArray(this.unitProperties.spells, `${s.getRace()}:${s.getName()}`);
+                removeFromArray(this.unitProperties.spells, `${s.getFaction()}:${s.getName()}`);
             }
             if (s.isRemaining()) {
                 spellsUpdated.push(s);

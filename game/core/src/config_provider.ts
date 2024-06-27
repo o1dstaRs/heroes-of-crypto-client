@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { TeamType, UnitProperties, UnitType } from "@heroesofcrypto/common";
+import { FactionType, TeamType, UnitProperties, UnitType } from "@heroesofcrypto/common";
 
 import unitsJson from "./configuration/units.json";
 import spellsJson from "./configuration/spells.json";
@@ -21,15 +21,15 @@ import { EffectStats } from "./effects/effects";
 
 export const getUnitConfig = (
     team: TeamType,
-    raceName: string,
+    faction: FactionType,
     unitName: string,
     amount: number,
     totalExp?: number,
 ): UnitProperties => {
     // @ts-ignore: we do not know the type here yet
-    const raceUnits = unitsJson[raceName];
+    const raceUnits = unitsJson[faction];
     if (!raceUnits) {
-        throw TypeError(`Unknown race - ${raceName}`);
+        throw TypeError(`Unknown race - ${faction}`);
     }
 
     const unitStatsConfig = raceUnits[unitName];
@@ -38,7 +38,7 @@ export const getUnitConfig = (
     }
 
     return new UnitProperties(
-        raceName,
+        faction,
         unitStatsConfig.name,
         unitStatsConfig.hp,
         unitStatsConfig.steps,
@@ -68,11 +68,11 @@ export const getUnitConfig = (
     );
 };
 
-export const getSpellConfig = (raceName: string, spellName: string): SpellStats => {
+export const getSpellConfig = (faction: FactionType, spellName: string): SpellStats => {
     // @ts-ignore: we do not know the type here yet
-    const raceSpells = spellsJson[raceName];
+    const raceSpells = spellsJson[faction];
     if (!raceSpells) {
-        throw TypeError(`Unknown race - ${raceName}`);
+        throw TypeError(`Unknown race - ${faction}`);
     }
 
     const spellStatsConfig = raceSpells[spellName];
@@ -81,7 +81,7 @@ export const getSpellConfig = (raceName: string, spellName: string): SpellStats 
     }
 
     return new SpellStats(
-        raceName,
+        faction,
         spellStatsConfig.name,
         spellStatsConfig.level,
         spellStatsConfig.desc,
