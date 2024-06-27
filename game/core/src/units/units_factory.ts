@@ -10,7 +10,7 @@
  */
 
 import { b2World } from "@box2d/core";
-import { AllFactions, FactionType, TeamType, GridSettings, UnitType } from "@heroesofcrypto/common";
+import { AllFactions, FactionType, HoCLib, TeamType, GridSettings, UnitType } from "@heroesofcrypto/common";
 
 import { AbilitiesFactory } from "../abilities/abilities_factory";
 import { getUnitConfig } from "../config_provider";
@@ -19,7 +19,7 @@ import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
 import { Unit } from "./units";
-import { Hero } from "../heroes/heroes";
+import { Hero } from "./heroes";
 
 export enum HeroType {
     NO_TYPE = 0,
@@ -161,28 +161,42 @@ export class UnitsFactory {
         // };
     }
 
-    private generateHeroKey(race: FactionType, heroType: HeroType, heroGender: HeroGender) {
-        return `${race}:${heroType}:${heroGender}}`;
+    private generateHeroKey(faction: FactionType, heroType: HeroType, heroGender: HeroGender) {
+        return `${faction}:${heroType}:${heroGender}}`;
+    }
+
+    private getRandomHeroTexture(heroKey: string): WebGLTexture | undefined {
+        const textures = this.smallTexturesByHero.get(heroKey);
+        if (textures?.length) {
+            return textures[HoCLib.getRandomInt(0, textures.length)];
+        }
+
+        return undefined;
     }
 
     public makeCreature(
-        race: FactionType,
+        faction: FactionType,
         name: string,
         team: TeamType,
         amount: number,
         totalExp?: number,
         summoned = false,
     ): Unit {
+        const texture = this.smallTexturesByCreatureName[name];
+        if (!texture) {
+            throw new ReferenceError(`Texture for creature ${name} not found`);
+        }
+
         return new Unit(
             this.gl,
             this.shader,
             this.digitNormalTextures,
             this.digitDamageTextures,
-            getUnitConfig(team, race, name, amount, totalExp),
+            getUnitConfig(team, faction, name, amount, totalExp),
             this.gridSettings,
             team,
             UnitType.CREATURE,
-            new Sprite(this.gl, this.shader, this.smallTexturesByCreatureName[name]),
+            new Sprite(this.gl, this.shader, texture),
             new Sprite(this.gl, this.shader, this.textures.tag.texture),
             new Sprite(this.gl, this.shader, this.textures.hourglass.texture),
             new Sprite(this.gl, this.shader, this.textures.green_flag_70.texture),
@@ -195,22 +209,29 @@ export class UnitsFactory {
     }
 
     public makeHero(
-        race: FactionType,
+        faction: FactionType,
         name: string,
         team: TeamType,
         heroType: HeroType,
         gender: HeroGender,
         totalExp?: number,
     ): Unit {
+        const heroKey = this.generateHeroKey(faction, heroType, gender);
+
+        const texture = this.getRandomHeroTexture(heroKey);
+        if (!texture) {
+            throw new ReferenceError(`Texture for hero key ${heroKey} not found`);
+        }
+
         return new Hero(
             this.gl,
             this.shader,
             this.digitNormalTextures,
             this.digitDamageTextures,
-            getUnitConfig(team, race, name, 1, totalExp),
+            getUnitConfig(team, faction, name, 1, totalExp),
             this.gridSettings,
             team,
-            new Sprite(this.gl, this.shader, this.smallTexturesByCreatureName[name]),
+            new Sprite(this.gl, this.shader, texture),
             new Sprite(this.gl, this.shader, this.textures.tag.texture),
             new Sprite(this.gl, this.shader, this.textures.hourglass.texture),
             new Sprite(this.gl, this.shader, this.textures.green_flag_70.texture),

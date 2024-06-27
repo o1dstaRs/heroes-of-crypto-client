@@ -14,10 +14,10 @@ import { TeamType, UnitProperties, GridSettings, UnitType } from "@heroesofcrypt
 
 import { AbilitiesFactory } from "../abilities/abilities_factory";
 import { SpellsFactory } from "../spells/spells_factory";
-import { Unit } from "../units/units";
 import { DAMAGE_ANIMATION_TICKS, MAX_FPS } from "../statics";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
+import { Unit } from "./units";
 
 export class Hero extends Unit {
     public constructor(
