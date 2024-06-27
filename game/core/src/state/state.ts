@@ -12,10 +12,11 @@
 import { TeamType } from "@heroesofcrypto/common";
 
 export interface IFightState {
+    id: string;
     currentLap: number;
     firstTurnMade: boolean;
     fightFinished: boolean;
-    previousTurnTeam?: TeamType;
+    previousTurnTeam: TeamType;
     highestSpeedThisTurn: number;
     alreadyMadeTurn: Set<string>;
     alreadyMadeTurnByTeam: Map<number, Set<string>>;

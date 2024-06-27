@@ -21,15 +21,18 @@ fs.readdir(imageDir, (err, files) => {
         process.exit(1);
     }
 
-    const imports = files
-        .filter((file) => file.endsWith(".webp"))
-        .map((file, index) => `import img${index} from "../../images/${file}";`)
-        .join("\n");
+    let imports = "";
+    let exportEntries = [];
 
-    const exportStatement = `export const images = {${files
-        .filter((file) => file.endsWith(".webp"))
-        .map((file, index) => `"${file.substring(0, file.length - 5)}": img${index}`)
-        .join(",")}};`;
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.endsWith(".webp") && !file.startsWith("overlay")) {
+            imports += `import img${i} from "../../images/${file}";\n`;
+            exportEntries.push(`"${file.substring(0, file.length - 5)}": img${i}`);
+        }
+    }
+
+    const exportStatement = `export const images = {${exportEntries.join(",")}};`;
 
     const content = `${imports}\n\n${exportStatement}`;
 

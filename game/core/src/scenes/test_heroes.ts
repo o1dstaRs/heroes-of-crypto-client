@@ -9,11 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
+import axios from "axios";
+import { v4 as uuidv4 } from "uuid";
 import { b2Body, b2BodyType, b2Color, b2EdgeShape, b2Fixture, b2Vec2, XY } from "@box2d/core";
 import {
-    AttackType,
     TeamType,
-    UnitStats,
+    AttackType,
+    UnitProperties,
     Grid,
     GridSettings,
     GridConstants,
@@ -21,6 +23,8 @@ import {
     HoCMath,
     HoCLib,
 } from "@heroesofcrypto/common";
+import { Fight } from "@heroesofcrypto/common/src/generated/protobuf/v1/fight_pb";
+import { StringList } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 
 import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { AbilitiesFactory } from "../abilities/abilities_factory";
@@ -164,7 +168,7 @@ class TestHeroes extends GLScene {
 
     private readonly visibleStateUpdate: () => void;
 
-    private readonly sendFightState: () => void;
+    private readonly sendFightState: () => Promise<void>;
 
     public readonly gl: WebGLRenderingContext;
 
@@ -447,16 +451,81 @@ class TestHeroes extends GLScene {
             }
         };
 
-        this.sendFightState = () => {
+        this.sendFightState = async () => {
             this.refreshVisibleStateIfNeeded();
             if (this.sc_visibleState) {
                 const fightState = FightStateManager.getInstance().getFightState();
-                console.log(fightState);
+
+                const fight = new Fight();
+                fight.setId(HoCLib.uuidToUint8Array(fightState.id));
+                fight.setCurrentLap(fightState.currentLap);
+                fight.setFirstTurnMade(fightState.firstTurnMade);
+                fight.setFightFinished(fightState.fightFinished);
+                fight.setPreviousTurnTeam(fightState.previousTurnTeam);
+                fight.setHighestSpeedThisTurn(fightState.highestSpeedThisTurn);
+                fight.setAlreadyMadeTurnList(Array.from(fightState.alreadyMadeTurn));
+                const alreadyMadeTurnByUpperTeam = fightState.alreadyMadeTurnByTeam.get(TeamType.UPPER);
+                const alreadyMadeTurnByLowerTeam = fightState.alreadyMadeTurnByTeam.get(TeamType.LOWER);
+                const alreadyMadeTurnByUpperTeamList = new StringList();
+                const alreadyMadeTurnByLowerTeamList = new StringList();
+                if (alreadyMadeTurnByUpperTeam?.size) {
+                    alreadyMadeTurnByUpperTeamList.setValuesList(Array.from(alreadyMadeTurnByUpperTeam));
+                }
+                if (alreadyMadeTurnByLowerTeam?.size) {
+                    alreadyMadeTurnByLowerTeamList.setValuesList(Array.from(alreadyMadeTurnByLowerTeam));
+                }
+                const alreadyMadeTurnByTeamMap = fight.getAlreadyMadeTurnByTeamMap();
+                alreadyMadeTurnByTeamMap.set(TeamType.UPPER, alreadyMadeTurnByUpperTeamList);
+                alreadyMadeTurnByTeamMap.set(TeamType.LOWER, alreadyMadeTurnByLowerTeamList);
+                fight.setAlreadyHourGlassList(Array.from(fightState.alreadyHourGlass));
+                fight.setAlreadyRepliedAttackList(Array.from(fightState.alreadyRepliedAttack));
+                const upperTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
+                const lowerTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0;
+                const teamUnitsAliveMap = fight.getTeamUnitsAliveMap();
+                teamUnitsAliveMap.set(TeamType.UPPER, upperTeamUnitsAlive);
+                teamUnitsAliveMap.set(TeamType.LOWER, lowerTeamUnitsAlive);
+                fight.setHourGlassQueueList(fightState.hourGlassQueue);
+                fight.setMoralePlusQueueList(fightState.moralePlusQueue);
+                fight.setMoraleMinusQueueList(fightState.moraleMinusQueue);
+                fight.setCurrentTurnStart(Math.round(fightState.currentTurnStart));
+                fight.setCurrentTurnEnd(Math.round(fightState.currentTurnEnd));
+                const currentLapTotalTimePerTeam = fight.getCurrentLapTotalTimePerTeamMap();
+                const upperCurrentLapTotalTime = fightState.currentLapTotalTimePerTeam.get(TeamType.UPPER) ?? 0;
+                const lowerCurrentLapTotalTime = fightState.currentLapTotalTimePerTeam.get(TeamType.LOWER) ?? 0;
+                currentLapTotalTimePerTeam.set(TeamType.UPPER, upperCurrentLapTotalTime);
+                currentLapTotalTimePerTeam.set(TeamType.LOWER, lowerCurrentLapTotalTime);
+                fight.setUpNextList(fightState.upNext);
+                fight.setStepsMoraleMultiplier(fightState.stepsMoraleMultiplier);
+                const hasAdditionalTimeRequestedPerTeam = fight.getHasAdditionalTimeRequestedPerTeamMap();
+                const upperAdditionalTimeRequested =
+                    fightState.hasAdditionalTimeRequestedPerTeam.get(TeamType.UPPER) ?? false;
+                const lowerAdditionalTimeRequested =
+                    fightState.hasAdditionalTimeRequestedPerTeam.get(TeamType.LOWER) ?? false;
+                hasAdditionalTimeRequestedPerTeam.set(TeamType.UPPER, upperAdditionalTimeRequested);
+                hasAdditionalTimeRequestedPerTeam.set(TeamType.LOWER, lowerAdditionalTimeRequested);
+
+                try {
+                    console.log("Before sending data");
+                    // console.log(fight.toObject());
+                    const postResponse = await axios.post("http://localhost:8080/fights", fight.serializeBinary(), {
+                        headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
+                    });
+                    // console.log(fight.serializeBinary());
+                    console.log("After sending data");
+                    // console.log(postResponse.headers);
+                    console.log(postResponse.headers);
+                    console.log(postResponse.data);
+                } catch (err) {
+                    console.error(err);
+                }
+
+                // console.log(fightState);
+                // console.log(fight.toObject());
             }
         };
 
         HoCLib.interval(this.visibleStateUpdate, 500);
-        HoCLib.interval(this.sendFightState, 2000);
+        HoCLib.interval(this.sendFightState, 10000);
     }
 
     private spawnObstacles(): string | undefined {
@@ -1236,9 +1305,9 @@ class TestHeroes extends GLScene {
                 return;
             }
 
-            const selectedUnitStats = this.sc_selectedBody?.GetUserData();
-            if (selectedUnitStats) {
-                const u = this.unitsHolder.getAllUnits().get(selectedUnitStats.id);
+            const selectedUnitProperties = this.sc_selectedBody?.GetUserData();
+            if (selectedUnitProperties) {
+                const u = this.unitsHolder.getAllUnits().get(selectedUnitProperties.id);
                 if (!u) {
                     this.resetHover(true);
                     return;
@@ -1249,7 +1318,7 @@ class TestHeroes extends GLScene {
                     return;
                 }
 
-                if (selectedUnitStats.size === 1) {
+                if (selectedUnitProperties.size === 1) {
                     if (this.cellToUnitPreRound) {
                         const unit = this.cellToUnitPreRound.get(cellKey);
                         if (!unit) {
@@ -1263,7 +1332,7 @@ class TestHeroes extends GLScene {
                             return;
                         }
 
-                        if (unit.getId() === selectedUnitStats.id) {
+                        if (unit.getId() === selectedUnitProperties.id) {
                             this.resetHover();
                             return;
                         }
@@ -1292,7 +1361,7 @@ class TestHeroes extends GLScene {
                             this.sc_mouseWorld,
                             this.allowedPlacementCellHashes,
                             this.cellToUnitPreRound,
-                            this.unitIdToCellsPreRound?.get(selectedUnitStats.id),
+                            this.unitIdToCellsPreRound?.get(selectedUnitProperties.id),
                         );
                         if (
                             this.hoverSelectedCells?.length === 4 &&
@@ -1306,7 +1375,7 @@ class TestHeroes extends GLScene {
                         return;
                     }
 
-                    if (unit.getId() === selectedUnitStats.id) {
+                    if (unit.getId() === selectedUnitProperties.id) {
                         this.resetHover();
                         return;
                     }
@@ -1811,10 +1880,10 @@ class TestHeroes extends GLScene {
                         currentUnitCell,
                         true,
                     );
-                    this.sc_unitStatsUpdateNeeded = true;
+                    this.sc_unitPropertiesUpdateNeeded = true;
                 } else {
                     this.selectAttack(SelectedAttackType.MELEE, currentUnitCell, true);
-                    this.sc_unitStatsUpdateNeeded = true;
+                    this.sc_unitPropertiesUpdateNeeded = true;
                 }
                 this.currentActiveUnitSwitchedAttackAuto = true;
             }
@@ -1869,7 +1938,7 @@ class TestHeroes extends GLScene {
                                     randomCell &&
                                     this.unitsHolder.spawnSelected(
                                         this.grid,
-                                        unitToSummon.getAllStats(),
+                                        unitToSummon.getAllProperties(),
                                         randomCell,
                                         true,
                                     )
@@ -2311,7 +2380,7 @@ class TestHeroes extends GLScene {
                         }
                     }
 
-                    const unit = this.unitsHolder.getUnitByStats(unitStats as UnitStats);
+                    const unit = this.unitsHolder.getUnitByStats(unitStats as UnitProperties);
                     if (!unit) {
                         continue;
                     }

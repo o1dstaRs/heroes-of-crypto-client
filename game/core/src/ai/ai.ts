@@ -177,7 +177,7 @@ export function findTarget(
         return undefined;
     }
 
-    if (unit.getAllStats()?.attack_type === AttackType.RANGE) {
+    if (unit.getAllProperties()?.attack_type === AttackType.RANGE) {
         return new BasicAIAction(AIActionType.R_ATTACK, undefined, closestTarget, paths.knownPaths);
     }
 

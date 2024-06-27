@@ -10,7 +10,7 @@
  */
 
 import { b2Body, b2Fixture, b2TestOverlap, b2Vec2, b2World, XY } from "@box2d/core";
-import { AttackType, UnitStats, GridMath, GridSettings, Grid } from "@heroesofcrypto/common";
+import { AttackType, UnitProperties, GridMath, GridSettings, Grid } from "@heroesofcrypto/common";
 
 import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
@@ -95,7 +95,7 @@ export class AttackHandler {
                                 };
                             }
                         } else {
-                            const unitData = body.GetUserData() as UnitStats;
+                            const unitData = body.GetUserData() as UnitProperties;
                             if (unitData.id !== fromUnit.getId() && !unitIdsAffected.includes(unitData.id)) {
                                 unitIdsAffected.push(unitData.id);
                             }
@@ -232,14 +232,14 @@ export class AttackHandler {
         ) {
             targetUnit.applyBuff(
                 currentActiveSpell,
-                attackerUnit.getAllStats().max_hp,
-                attackerUnit.getAllStats().base_armor,
+                attackerUnit.getAllProperties().max_hp,
+                attackerUnit.getAllProperties().base_armor,
             );
             if (currentActiveSpell.isSelfDebuffApplicable()) {
                 attackerUnit.applyDebuff(
                     currentActiveSpell,
-                    attackerUnit.getAllStats().max_hp,
-                    attackerUnit.getAllStats().base_armor,
+                    attackerUnit.getAllProperties().max_hp,
+                    attackerUnit.getAllProperties().base_armor,
                 );
             }
             attackerUnit.useSpell(currentActiveSpell);

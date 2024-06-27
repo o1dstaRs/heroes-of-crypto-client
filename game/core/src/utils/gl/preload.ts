@@ -138,6 +138,8 @@ import thunderbird_256 from "../../../images/thunderbird_256.webp";
 import thunderbird_512 from "../../../images/thunderbird_512.webp";
 import behemoth_256 from "../../../images/behemoth_256.webp";
 import behemoth_512 from "../../../images/behemoth_512.webp";
+import nature_mage_1_128 from "../../../images/nature_mage_1_128.webp";
+import nature_mage_1_512 from "../../../images/nature_mage_1_512.webp";
 import range_black_128 from "../../../images/range_black_128.webp";
 import range_white_128 from "../../../images/range_white_128.webp";
 import melee_white_128 from "../../../images/melee_white_128.webp";
@@ -329,6 +331,8 @@ const preloadMap = {
     thunderbird_512,
     behemoth_256,
     behemoth_512,
+    nature_mage_1_128,
+    nature_mage_1_512,
     range_black_128,
     range_white_128,
     melee_black_128,

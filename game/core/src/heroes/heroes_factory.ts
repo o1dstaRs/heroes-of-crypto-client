@@ -10,7 +10,7 @@
  */
 
 import { b2World } from "@box2d/core";
-import { TeamType, GridSettings, UnitType } from "@heroesofcrypto/common";
+import { Faction, TeamType, GridSettings } from "@heroesofcrypto/common";
 
 import { AbilitiesFactory } from "../abilities/abilities_factory";
 import { getUnitConfig } from "../config_provider";
@@ -18,11 +18,26 @@ import { SpellsFactory } from "../spells/spells_factory";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
-import { Unit } from "./units";
+import { Unit } from "../units/units";
+import { Hero } from "./heroes";
 
-// import { MeleeAI } from "../ai";
+export enum HeroType {
+    NO_TYPE = 0,
+    MAGICIAN = 1,
+    WARRIOR = 2,
+}
 
-export class UnitsFactory {
+export enum HeroGender {
+    NO_GENDER = 0,
+    MALE = 1,
+    FEMALE = 2,
+}
+
+const FACTION_TO_HERO_TYPES: { [faction: string]: HeroType[] } = {
+    [Faction.NATURE]: [HeroType.MAGICIAN, HeroType.WARRIOR],
+};
+
+export class HeroesFactory {
     protected readonly world: b2World;
 
     protected readonly gl: WebGLRenderingContext;
@@ -46,6 +61,13 @@ export class UnitsFactory {
     protected readonly spellsFactory: SpellsFactory;
 
     protected readonly abilitiesFactory: AbilitiesFactory;
+
+    /*
+        faction_name: {
+        : {
+        }
+
+    */
 
     public constructor(
         world: b2World,
@@ -129,23 +151,22 @@ export class UnitsFactory {
         // };
     }
 
-    public makeUnit(
+    public makeHero(
         race: string,
         name: string,
         team: TeamType,
-        amount: number,
+        heroType: HeroType,
+        gender: HeroGender,
         totalExp?: number,
-        summoned = false,
     ): Unit {
-        return new Unit(
+        return new Hero(
             this.gl,
             this.shader,
             this.digitNormalTextures,
             this.digitDamageTextures,
-            getUnitConfig(team, race, name, amount, totalExp),
+            getUnitConfig(team, race, name, 1, totalExp),
             this.gridSettings,
             team,
-            UnitType.CREATURE,
             new Sprite(this.gl, this.shader, this.smallTexturesByUnitName[name]),
             new Sprite(this.gl, this.shader, this.textures.tag.texture),
             new Sprite(this.gl, this.shader, this.textures.hourglass.texture),
@@ -153,7 +174,6 @@ export class UnitsFactory {
             new Sprite(this.gl, this.shader, this.textures.red_flag_70.texture),
             this.spellsFactory,
             this.abilitiesFactory,
-            summoned,
             //      new MeleeAI(this.world, this.gridSettings, this.board),
         );
     }

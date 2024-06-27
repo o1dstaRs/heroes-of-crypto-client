@@ -11,7 +11,7 @@
 
 import { b2Clamp, b2Vec2 } from "@box2d/core";
 import { DebugDraw } from "@box2d/debug-draw";
-import { UnitStats } from "@heroesofcrypto/common";
+import { UnitProperties } from "@heroesofcrypto/common";
 import { createContext, useContext } from "react";
 import { Signal } from "typed-signals";
 
@@ -69,7 +69,7 @@ export class GameManager {
 
     public readonly onAttackLanded = new Signal<(attackMessage: string) => void>();
 
-    public readonly onUnitSelected = new Signal<(unitStats: UnitStats) => void>();
+    public readonly onUnitSelected = new Signal<(unitProperties: UnitProperties) => void>();
 
     public readonly onDamageStatisticsUpdated = new Signal<(damageStats: IDamageStatistic[]) => void>();
 
@@ -418,27 +418,23 @@ export class GameManager {
             this.onAttackLanded.emit(this.m_scene?.sc_sceneLog.getLog());
         }
 
-        if (this.m_scene?.sc_unitStatsUpdateNeeded) {
-            if (this.m_scene?.sc_selectedUnitStats) {
-                // this.onUnitSelected.emit({} as UnitStats);
-                this.onUnitSelected.emit(this.m_scene?.sc_selectedUnitStats as UnitStats);
+        if (this.m_scene?.sc_unitPropertiesUpdateNeeded) {
+            if (this.m_scene?.sc_selectedUnitProperties) {
+                this.onUnitSelected.emit(this.m_scene?.sc_selectedUnitProperties as UnitProperties);
                 this.onRaceSelected.emit("");
             } else {
                 this.onRaceSelected.emit(this.m_scene?.sc_selectedRaceName ?? "");
-                this.onUnitSelected.emit({} as UnitStats);
+                this.onUnitSelected.emit({} as UnitProperties);
             }
 
-            this.m_scene.sc_unitStatsUpdateNeeded = false;
+            this.m_scene.sc_unitPropertiesUpdateNeeded = false;
         }
 
         if (this.m_scene?.sc_raceNameUpdateNeeded) {
             if (this.m_scene?.sc_selectedRaceName) {
-                //                this.onRaceSelected.emit("");
-                // this.onUnitSelected.emit({} as UnitStats);
                 this.onRaceSelected.emit(this.m_scene?.sc_selectedRaceName ?? "");
             } else {
-                // this.onUnitSelected.emit({} as UnitStats);
-                this.onUnitSelected.emit(this.m_scene?.sc_selectedUnitStats as UnitStats);
+                this.onUnitSelected.emit(this.m_scene?.sc_selectedUnitProperties as UnitProperties);
                 this.onRaceSelected.emit("");
             }
 

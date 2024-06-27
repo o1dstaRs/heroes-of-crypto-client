@@ -5,7 +5,6 @@ import { useManager } from "../../manager";
 import { SceneEntry } from "../../scenes/scene";
 import { getSceneLink } from "../../utils/reactUtils";
 import type { SceneControlGroup } from "..";
-import { Button } from "../controls/Button";
 
 interface SceneComponentProps {
     entry: SceneEntry;
@@ -111,7 +110,14 @@ export function useActiveTestEntry() {
     const router = useRouter();
     const link = decodeURIComponent(router.path);
     const manager = useManager();
-    return manager.flatScenes.find((test) => getSceneLink(test) === link);
+    for (const scene of manager.flatScenes) {
+        if (getSceneLink(scene) === link) {
+            return scene;
+        }
+    }
+
+    return undefined;
+    // return manager.flatScenes.find((test) => getSceneLink(test) === link);
 }
 
 interface MainProps {
@@ -122,12 +128,5 @@ export const Main = ({ setSceneControlGroups }: MainProps) => {
     const entry = useActiveTestEntry();
 
     //    alert(JSON.stringify(entry));
-    return entry ? (
-        <GameScreen entry={entry} setSceneControlGroups={setSceneControlGroups} />
-    ) : (
-        <div className="main">
-            <h3>Welcome to Heroes of Crypto</h3>
-            <Button className="button-24" label="Start playing" onClick={() => {}} />
-        </div>
-    );
+    return entry ? <GameScreen entry={entry} setSceneControlGroups={setSceneControlGroups} /> : <span />;
 };

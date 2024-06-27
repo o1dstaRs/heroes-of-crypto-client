@@ -20,10 +20,14 @@ export const Box2dBar = ({ sceneControlGroups: sceneControls }: Box2dBarProps) =
 
     const router = useRouter();
     const link = decodeURIComponent(router.path);
-    const hasValidTest = useMemo(
-        () => manager.groupedScenes.some((group) => group.scenes.some((scene) => link === getSceneLink(scene))),
-        [manager, link],
-    );
+    const hasValidTest = useMemo(() => {
+        manager.groupedScenes.some((group) => {
+            console.log(group);
+            return group.scenes.some((scene) => link === getSceneLink(scene));
+        });
+        console.log("link");
+        console.log(link);
+    }, [manager, link]);
 
     useEffect(() => {
         if (tab) {

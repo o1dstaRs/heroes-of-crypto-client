@@ -10,7 +10,7 @@
  */
 
 import { b2Body, b2Fixture, b2Vec2, b2World, XY } from "@box2d/core";
-import { TeamType, UnitStats, Grid, GridSettings, GridMath, HoCLib } from "@heroesofcrypto/common";
+import { TeamType, UnitProperties, Grid, GridSettings, GridMath, HoCLib } from "@heroesofcrypto/common";
 
 import { SquarePlacement } from "../placement/square_placement";
 import { FightStateManager } from "../state/fight_state_manager";
@@ -82,12 +82,12 @@ export class UnitsHolder {
         return this.allUnits;
     }
 
-    public getUnitByStats(unitStats: UnitStats): Unit | undefined {
-        if (!unitStats) {
+    public getUnitByStats(unitProperties: UnitProperties): Unit | undefined {
+        if (!unitProperties) {
             return undefined;
         }
 
-        const unitId = unitStats.id;
+        const unitId = unitProperties.id;
         if (!unitId) {
             return undefined;
         }
@@ -115,8 +115,8 @@ export class UnitsHolder {
             if (!b) {
                 continue;
             }
-            const unitStats = b.GetUserData();
-            if (unitStats && unitStats.id === unitId) {
+            const unitProperties = b.GetUserData();
+            if (unitProperties && unitProperties.id === unitId) {
                 this.world.DestroyBody(b);
                 break;
             }
@@ -163,10 +163,10 @@ export class UnitsHolder {
         return undefined;
     }
 
-    public getDistanceToClosestEnemy(unitData: UnitStats, position: XY): number {
+    public getDistanceToClosestEnemy(unitProperties: UnitProperties, position: XY): number {
         let closestDistance = Number.MAX_SAFE_INTEGER;
         for (const u of this.getAllUnitsIterator()) {
-            if (u.getTeam() !== unitData.team) {
+            if (u.getTeam() !== unitProperties.team) {
                 closestDistance = Math.min(closestDistance, b2Vec2.Distance(position, u.getPosition()));
             }
         }
@@ -209,7 +209,7 @@ export class UnitsHolder {
         }
     }
 
-    public spawnSelected(grid: Grid, selectedUnitData: UnitStats, cell: XY, summoned: boolean): boolean {
+    public spawnSelected(grid: Grid, selectedUnitData: UnitProperties, cell: XY, summoned: boolean): boolean {
         if (selectedUnitData.size === 1) {
             if (!grid.getOccupantUnitId(cell)) {
                 const cloned = this.unitsFactory.makeUnit(

@@ -9,14 +9,15 @@
  * -----------------------------------------------------------------------------
  */
 
-import { GridSettings, TeamType, GridMath, HoCLib } from "@heroesofcrypto/common";
+import { v4 as uuidv4 } from "uuid";
+import { GridMath, GridSettings, HoCLib, TeamType } from "@heroesofcrypto/common";
 
 import {
-    STEPS_MORALE_MULTIPLIER,
     MAX_TIME_TO_MAKE_TURN_MILLIS,
-    UP_NEXT_UNITS_COUNT,
-    TOTAL_TIME_TO_MAKE_TURN_MILLIS,
     MIN_TIME_TO_MAKE_TURN_MILLIS,
+    STEPS_MORALE_MULTIPLIER,
+    TOTAL_TIME_TO_MAKE_TURN_MILLIS,
+    UP_NEXT_UNITS_COUNT,
 } from "../statics";
 import { Unit } from "../units/units";
 import { IFightState } from "./state";
@@ -28,10 +29,11 @@ export class FightStateManager {
 
     private constructor() {
         this.fightState = {
+            id: uuidv4(),
             currentLap: 1,
             firstTurnMade: false,
             fightFinished: false,
-            previousTurnTeam: undefined,
+            previousTurnTeam: TeamType.NO_TEAM,
             highestSpeedThisTurn: 0,
             alreadyMadeTurn: new Set(),
             alreadyMadeTurnByTeam: new Map(),

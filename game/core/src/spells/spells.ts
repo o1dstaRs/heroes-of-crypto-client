@@ -10,7 +10,7 @@
  */
 
 import { XY } from "@box2d/core";
-import { GridSettings, GridMath, TeamType, IModifyableUnitStats } from "@heroesofcrypto/common";
+import { GridSettings, GridMath, TeamType, IModifyableUnitProperties } from "@heroesofcrypto/common";
 
 import { IFrameable, OnFramePosition } from "../menu/frameable";
 import { DefaultShader } from "../utils/gl/defaultShader";
@@ -32,8 +32,8 @@ export enum BookPosition {
 }
 
 export interface ICalculatedBuffsDebuffsEffect {
-    baseStats: IModifyableUnitStats;
-    additionalStats: IModifyableUnitStats;
+    baseStats: IModifyableUnitProperties;
+    additionalStats: IModifyableUnitProperties;
 }
 
 const BOOK_POSITION_LEFT_X = -516;
@@ -418,11 +418,11 @@ export function calculateBuffsDebuffsEffect(
     buffs: AppliedSpell[],
     debuffs: AppliedSpell[],
 ): ICalculatedBuffsDebuffsEffect {
-    const baseStats: IModifyableUnitStats = {
+    const baseStats: IModifyableUnitProperties = {
         hp: 0,
         armor: 0,
     };
-    const additionalStats: IModifyableUnitStats = {
+    const additionalStats: IModifyableUnitProperties = {
         hp: 0,
         armor: 0,
     };

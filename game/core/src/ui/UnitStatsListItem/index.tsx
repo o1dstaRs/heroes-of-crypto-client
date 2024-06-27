@@ -9,7 +9,7 @@ import ListItemButton from "@mui/joy/ListItemButton";
 import ListItemContent from "@mui/joy/ListItemContent";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState } from "react";
-import { AttackType, UnitStats } from "@heroesofcrypto/common";
+import { AttackType, UnitProperties } from "@heroesofcrypto/common";
 
 import { useManager } from "../../manager";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
@@ -35,13 +35,13 @@ import { images } from "../../generated/image_imports";
 import Toggler from "../Toggler";
 
 export default function UnitStatsListItem() {
-    const [unitStats, setUnitStats] = useState({} as UnitStats);
+    const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
     const [raceName, setRaceName] = useState("");
 
     const manager = useManager();
 
     useEffect(() => {
-        const connection1 = manager.onUnitSelected.connect(setUnitStats);
+        const connection1 = manager.onUnitSelected.connect(setUnitProperties);
         return () => {
             connection1.disconnect();
         };
@@ -86,40 +86,42 @@ export default function UnitStatsListItem() {
             </ListItem>
         );
     }
-    if (unitStats && Object.keys(unitStats).length) {
-        const stackName = `${unitStats.name} x${unitStats.amount_alive}`;
-        const damageRange = `${unitStats.attack_damage_min}-${unitStats.attack_damage_max}`;
-        const luckPerTurn = unitStats.luck_per_turn
-            ? `${unitStats.luck_per_turn >= 0 ? "+" : ""}${unitStats.luck_per_turn}`
+    if (unitProperties && Object.keys(unitProperties).length) {
+        const stackName = `${unitProperties.name} x${unitProperties.amount_alive}`;
+        const damageRange = `${unitProperties.attack_damage_min}-${unitProperties.attack_damage_max}`;
+        const luckPerTurn = unitProperties.luck_per_turn
+            ? `${unitProperties.luck_per_turn >= 0 ? "+" : ""}${unitProperties.luck_per_turn}`
             : "";
-        const armorMod = unitStats.armor_mod ? `${unitStats.armor_mod >= 0 ? "+" : ""}${unitStats.armor_mod}` : "";
+        const armorMod = unitProperties.armor_mod
+            ? `${unitProperties.armor_mod >= 0 ? "+" : ""}${unitProperties.armor_mod}`
+            : "";
 
         let luckButtonStyle;
-        if (unitStats.luck_per_turn > 0) {
+        if (unitProperties.luck_per_turn > 0) {
             luckButtonStyle = { "--ButtonGroup-separatorSize": "0px", backgroundColor: "#D0FFBC" };
-        } else if (unitStats.luck_per_turn < 0) {
+        } else if (unitProperties.luck_per_turn < 0) {
             luckButtonStyle = { "--ButtonGroup-separatorSize": "0px", backgroundColor: "#FFC6C6" };
         } else {
             luckButtonStyle = { "--ButtonGroup-separatorSize": "0px" };
         }
 
         let attackButtonStyle;
-        if (unitStats.attack_multiplier > 1) {
+        if (unitProperties.attack_multiplier > 1) {
             attackButtonStyle = { "--ButtonGroup-separatorSize": "0px", backgroundColor: "#D0FFBC" };
-        } else if (unitStats.attack_multiplier < 1) {
+        } else if (unitProperties.attack_multiplier < 1) {
             attackButtonStyle = { "--ButtonGroup-separatorSize": "0px", backgroundColor: "#FFC6C6" };
         } else {
             attackButtonStyle = { "--ButtonGroup-separatorSize": "0px" };
         }
 
-        const attackTypeSelected = unitStats.attack_type_selected;
-        let attackDamage = unitStats.attack;
-        if (attackTypeSelected === AttackType.MELEE && unitStats.attack_type === AttackType.RANGE) {
+        const attackTypeSelected = unitProperties.attack_type_selected;
+        let attackDamage = unitProperties.attack;
+        if (attackTypeSelected === AttackType.MELEE && unitProperties.attack_type === AttackType.RANGE) {
             attackDamage /= 2;
         }
-        const hasDifferentRangeArmor = unitStats.base_armor !== unitStats.range_armor;
+        const hasDifferentRangeArmor = unitProperties.base_armor !== unitProperties.range_armor;
 
-        const unitName = unitStats.name.toLowerCase().replace(" ", "_");
+        const unitName = unitProperties.name.toLowerCase().replace(" ", "_");
 
         return (
             // @ts-ignore: style params
@@ -127,7 +129,7 @@ export default function UnitStatsListItem() {
                 <Toggler
                     renderToggle={({ open, setOpen }) => (
                         <ListItemButton onClick={() => setOpen(!open)}>
-                            {unitStats.team === 1 ? <RedUserIcon /> : <GreenUserIcon />}
+                            {unitProperties.team === 1 ? <RedUserIcon /> : <GreenUserIcon />}
                             <ListItemContent>
                                 <Typography level="title-sm">{stackName}</Typography>
                             </ListItemContent>
@@ -149,7 +151,7 @@ export default function UnitStatsListItem() {
                                 }}
                             />
                             <Avatar
-                                src={unitStats.team === 1 ? redFlagImage : greenFlagImage}
+                                src={unitProperties.team === 1 ? redFlagImage : greenFlagImage}
                                 variant="plain"
                                 sx={{ transform: "rotateX(-180deg)", zIndex: "tooltip" }}
                                 style={{
@@ -170,11 +172,11 @@ export default function UnitStatsListItem() {
                                 <IconButton disabled>
                                     <HeartIcon />
                                 </IconButton>
-                                <Button disabled>{unitStats.hp}</Button>
-                                <Button disabled>({unitStats.max_hp})</Button>
+                                <Button disabled>{unitProperties.hp}</Button>
+                                <Button disabled>({unitProperties.max_hp})</Button>
                             </ButtonGroup>
                         </ListItem>
-                        {unitStats.can_cast_spells ? (
+                        {unitProperties.can_cast_spells ? (
                             <ListItem>
                                 <ButtonGroup
                                     aria-label="mana"
@@ -185,7 +187,7 @@ export default function UnitStatsListItem() {
                                     <IconButton disabled>
                                         <ScrollIcon />
                                     </IconButton>
-                                    <Button disabled>{unitStats.spells.length}</Button>
+                                    <Button disabled>{unitProperties.spells.length}</Button>
                                 </ButtonGroup>
                             </ListItem>
                         ) : (
@@ -214,15 +216,15 @@ export default function UnitStatsListItem() {
                                     {attackTypeSelected === "RANGE" ? <BowIcon /> : <SwordIcon />}
                                 </IconButton>
                                 <Button disabled>{attackDamage}</Button>
-                                {unitStats.attack_multiplier !== 1 ? (
-                                    <Button disabled>x{unitStats.attack_multiplier}</Button>
+                                {unitProperties.attack_multiplier !== 1 ? (
+                                    <Button disabled>x{unitProperties.attack_multiplier}</Button>
                                 ) : (
                                     <span />
                                 )}
                             </ButtonGroup>
                         </ListItem>
 
-                        {unitStats.attack_type === "RANGE" ? (
+                        {unitProperties.attack_type === "RANGE" ? (
                             <ListItem>
                                 <ButtonGroup
                                     aria-label="shot_distance"
@@ -233,7 +235,7 @@ export default function UnitStatsListItem() {
                                     <IconButton disabled>
                                         <ShotRangeIcon />
                                     </IconButton>
-                                    <Button disabled>{unitStats.shot_distance}</Button>
+                                    <Button disabled>{unitProperties.shot_distance}</Button>
                                 </ButtonGroup>
                                 <ButtonGroup
                                     aria-label="quiver"
@@ -245,7 +247,9 @@ export default function UnitStatsListItem() {
                                         <QuiverIcon />
                                     </IconButton>
                                     <Button disabled>
-                                        {unitStats.range_shots_mod ? unitStats.range_shots_mod : unitStats.range_shots}
+                                        {unitProperties.range_shots_mod
+                                            ? unitProperties.range_shots_mod
+                                            : unitProperties.range_shots}
                                     </Button>
                                 </ButtonGroup>
                             </ListItem>
@@ -263,7 +267,7 @@ export default function UnitStatsListItem() {
                                 <IconButton disabled>
                                     <ShieldIcon />
                                 </IconButton>
-                                <Button disabled>{unitStats.base_armor + unitStats.armor_mod}</Button>
+                                <Button disabled>{unitProperties.base_armor + unitProperties.armor_mod}</Button>
                                 {armorMod ? <Button disabled>({armorMod})</Button> : <span />}
                             </ButtonGroup>
                             <ButtonGroup
@@ -276,7 +280,10 @@ export default function UnitStatsListItem() {
                                     <MagicShieldIcon />
                                 </IconButton>
                                 <Button disabled>
-                                    {unitStats.magic_resist_mod ? unitStats.magic_resist_mod : unitStats.magic_resist}%
+                                    {unitProperties.magic_resist_mod
+                                        ? unitProperties.magic_resist_mod
+                                        : unitProperties.magic_resist}
+                                    %
                                 </Button>
                             </ButtonGroup>
                         </ListItem>
@@ -292,7 +299,7 @@ export default function UnitStatsListItem() {
                                     <IconButton disabled>
                                         <ArrowShieldIcon />
                                     </IconButton>
-                                    <Button disabled>{unitStats.range_armor + unitStats.armor_mod}</Button>
+                                    <Button disabled>{unitProperties.range_armor + unitProperties.armor_mod}</Button>
                                     {armorMod ? <Button disabled>({armorMod})</Button> : <span />}
                                 </ButtonGroup>
                             </ListItem>
@@ -307,9 +314,9 @@ export default function UnitStatsListItem() {
                                 size="xs"
                                 style={{ "--ButtonGroup-separatorSize": "0px" }}
                             >
-                                <IconButton disabled>{unitStats.can_fly ? <WingIcon /> : <BootIcon />}</IconButton>
+                                <IconButton disabled>{unitProperties.can_fly ? <WingIcon /> : <BootIcon />}</IconButton>
                                 <Button disabled>
-                                    {Number((unitStats.steps + unitStats.steps_morale).toFixed(2))}
+                                    {Number((unitProperties.steps + unitProperties.steps_morale).toFixed(2))}
                                 </Button>
                             </ButtonGroup>
                             <ButtonGroup
@@ -321,7 +328,7 @@ export default function UnitStatsListItem() {
                                 <IconButton disabled>
                                     <SpeedIcon />
                                 </IconButton>
-                                <Button disabled>{unitStats.speed}</Button>
+                                <Button disabled>{unitProperties.speed}</Button>
                             </ButtonGroup>
                         </ListItem>
                         <ListItem>
@@ -335,7 +342,7 @@ export default function UnitStatsListItem() {
                                 <IconButton disabled>
                                     <MoraleIcon />
                                 </IconButton>
-                                <Button disabled>{unitStats.morale}</Button>
+                                <Button disabled>{unitProperties.morale}</Button>
                             </ButtonGroup>
                             <ButtonGroup
                                 aria-label="luck"
@@ -346,7 +353,7 @@ export default function UnitStatsListItem() {
                                 <IconButton disabled>
                                     <LuckIcon />
                                 </IconButton>
-                                <Button disabled>{unitStats.luck + unitStats.luck_per_turn}</Button>
+                                <Button disabled>{unitProperties.luck + unitProperties.luck_per_turn}</Button>
                                 {luckPerTurn ? <Button disabled>({luckPerTurn})</Button> : <span />}
                             </ButtonGroup>
                         </ListItem>

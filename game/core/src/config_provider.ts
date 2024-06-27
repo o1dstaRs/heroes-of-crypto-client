@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { TeamType, UnitStats } from "@heroesofcrypto/common";
+import { TeamType, UnitProperties, UnitType } from "@heroesofcrypto/common";
 
 import unitsJson from "./configuration/units.json";
 import spellsJson from "./configuration/spells.json";
@@ -25,7 +25,7 @@ export const getUnitConfig = (
     unitName: string,
     amount: number,
     totalExp?: number,
-): UnitStats => {
+): UnitProperties => {
     // @ts-ignore: we do not know the type here yet
     const raceUnits = unitsJson[raceName];
     if (!raceUnits) {
@@ -37,7 +37,7 @@ export const getUnitConfig = (
         throw TypeError(`Unknown unit - ${unitName}`);
     }
 
-    return new UnitStats(
+    return new UnitProperties(
         raceName,
         unitStatsConfig.name,
         unitStatsConfig.hp,
@@ -64,6 +64,7 @@ export const getUnitConfig = (
         amount > 0 ? amount : Math.ceil((totalExp ?? 0) / unitStatsConfig.exp),
         0,
         team,
+        UnitType.CREATURE,
     );
 };
 
