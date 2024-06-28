@@ -128,7 +128,7 @@ export function findTarget(
 
     for (let i = 0; i < numRows; i++) {
         for (let j = 0; j < numCols; j++) {
-            const element = HoCMath.matrixElementOrZero(matrix, j, i);
+            const element = HoCMath.matrixElementOrDefault(matrix, j, i, 0);
             if (element !== unit.getTeam() && element !== 0) {
                 if (
                     element === ObstacleType.BLOCK ||
@@ -202,16 +202,16 @@ export function findTarget(
         const cellToGo = route?.route[routeIndex];
         if (cellToGo) {
             if (unit.isSmallSize()) {
-                if (HoCMath.matrixElementOrZero(matrix, cellToGo.x, cellToGo.y) !== 0) {
+                if (HoCMath.matrixElementOrDefault(matrix, cellToGo.x, cellToGo.y, 0) !== 0) {
                     routeIndex--;
                 } else {
                     break;
                 }
             } else if (
-                HoCMath.matrixElementOrZero(matrix, cellToGo.x, cellToGo.y) !== 0 ||
-                HoCMath.matrixElementOrZero(matrix, cellToGo.x - 1, cellToGo.y) !== 0 ||
-                HoCMath.matrixElementOrZero(matrix, cellToGo.x, cellToGo.y - 1) !== 0 ||
-                HoCMath.matrixElementOrZero(matrix, cellToGo.x - 1, cellToGo.y - 1) !== 0
+                HoCMath.matrixElementOrDefault(matrix, cellToGo.x, cellToGo.y, 0) !== 0 ||
+                HoCMath.matrixElementOrDefault(matrix, cellToGo.x - 1, cellToGo.y, 0) !== 0 ||
+                HoCMath.matrixElementOrDefault(matrix, cellToGo.x, cellToGo.y - 1, 0) !== 0 ||
+                HoCMath.matrixElementOrDefault(matrix, cellToGo.x - 1, cellToGo.y - 1, 0) !== 0
             ) {
                 routeIndex--;
             } else {

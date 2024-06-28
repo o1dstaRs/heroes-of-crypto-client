@@ -103,7 +103,7 @@ export class GameManager {
         }
     }
 
-    public init(
+    public async init(
         glCanvas: HTMLCanvasElement,
         debugCanvas: HTMLCanvasElement,
         wrapper: HTMLDivElement,
@@ -160,9 +160,8 @@ export class GameManager {
         window.addEventListener("keydown", (e: KeyboardEvent): void => this.HandleKey(e, true));
         window.addEventListener("keyup", (e: KeyboardEvent): void => this.HandleKey(e, false));
 
+        await this.prepareGl(glCanvas);
         this.LoadGame();
-
-        this.prepareGl(glCanvas);
         this.isInitialized = true;
     }
 
@@ -170,13 +169,11 @@ export class GameManager {
         this.gl = initGlCanvas(glCanvas);
         this.textures = await preloadTextures(this.gl);
         this.defaultShader = createDefaultShader(this.gl);
-        this.LoadGame();
     }
 
     public setScene(title: string, constructor: SceneConstructor) {
         this.sceneTitle = title;
         this.sceneConstructor = constructor;
-        this.LoadGame();
     }
 
     public HomeCamera(): void {
@@ -190,10 +187,6 @@ export class GameManager {
     }
 
     public HandleMouseMove(e: MouseEvent): void {
-        //        if (this.started) {
-        //            return;
-        //        }
-
         const element = new b2Vec2(e.offsetX, e.offsetY);
         const world = g_camera.unproject(element, new b2Vec2());
 
@@ -209,10 +202,6 @@ export class GameManager {
     }
 
     public HandleMouseDown(e: MouseEvent): void {
-        //        if (this.started) {
-        //            return;
-        //        }
-
         const element = new b2Vec2(e.offsetX, e.offsetY);
         const world = g_camera.unproject(element, new b2Vec2());
 
@@ -297,6 +286,10 @@ export class GameManager {
             this.m_scene.switchStarted(this.started);
         }
         this.onHasStarted.emit(this.started);
+    }
+
+    public Uninitialize(): void {
+        this.isInitialized = false;
     }
 
     public RequestTime(team?: number): void {

@@ -29,6 +29,7 @@
     "file_scan_exclusions": [
         "node_modules",
         "game/temp",
+        "game/heroes-of-crypto-common",
         "game/core/dist",
         "game/core/.cache",
         ".DS_Store",

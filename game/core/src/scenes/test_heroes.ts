@@ -526,7 +526,7 @@ class TestHeroes extends GLScene {
         };
 
         HoCLib.interval(this.visibleStateUpdate, 500);
-        HoCLib.interval(this.sendFightState, 10000);
+        HoCLib.interval(this.sendFightState, 1000000);
     }
 
     private spawnObstacles(): string | undefined {
@@ -1484,7 +1484,7 @@ class TestHeroes extends GLScene {
                 (!isAllowed &&
                     this.sc_mouseWorld.x < MIN_X &&
                     this.sc_mouseWorld.x >= MIN_X - this.sc_sceneSettings.getGridSettings().getTwoSteps() &&
-                    this.sc_mouseWorld.y >= STEP * 3 &&
+                    this.sc_mouseWorld.y >= STEP * PathHelper.Y_FACTION_ICONS_OFFSET &&
                     this.sc_mouseWorld.y < MAX_Y)
             );
         }
@@ -2721,7 +2721,7 @@ class TestHeroes extends GLScene {
                                     this.currentActiveSpell = undefined;
                                     this.adjustSpellBookSprite();
                                     this.currentActiveUnitSwitchedAttackAuto = false;
-                                    // this.grid.print(nextUnit.getId());
+                                    this.grid.print(nextUnit.getId());
                                     const currentPos = GridMath.getCellForPosition(
                                         this.sc_sceneSettings.getGridSettings(),
                                         unitBody.GetPosition(),

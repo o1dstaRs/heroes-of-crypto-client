@@ -13,7 +13,7 @@ import { b2World } from "@box2d/core";
 import { AllFactions, FactionType, HoCLib, TeamType, GridSettings, UnitType } from "@heroesofcrypto/common";
 
 import { AbilitiesFactory } from "../abilities/abilities_factory";
-import { getUnitConfig } from "../config_provider";
+import { getUnitConfig, getHeroConfig } from "../config_provider";
 import { SpellsFactory } from "../spells/spells_factory";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
@@ -144,6 +144,9 @@ export class UnitsFactory {
             }
         }
 
+        console.log("this.smallTexturesByHero");
+        console.log(this.smallTexturesByHero);
+
         // this.largeTexturesByUnitName = {
         //     Squire: textures.squire_512.texture,
         //     Peasant: textures.peasant_512.texture,
@@ -208,14 +211,7 @@ export class UnitsFactory {
         );
     }
 
-    public makeHero(
-        faction: FactionType,
-        name: string,
-        team: TeamType,
-        heroType: HeroType,
-        gender: HeroGender,
-        totalExp?: number,
-    ): Unit {
+    public makeHero(faction: FactionType, team: TeamType, heroType: HeroType, gender: HeroGender): Unit {
         const heroKey = this.generateHeroKey(faction, heroType, gender);
 
         const texture = this.getRandomHeroTexture(heroKey);
@@ -228,7 +224,7 @@ export class UnitsFactory {
             this.shader,
             this.digitNormalTextures,
             this.digitDamageTextures,
-            getUnitConfig(team, faction, name, 1, totalExp),
+            getHeroConfig(team, faction),
             this.gridSettings,
             team,
             new Sprite(this.gl, this.shader, texture),

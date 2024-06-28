@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { FactionType, TeamType, UnitProperties, UnitType } from "@heroesofcrypto/common";
+import { AttackType, FactionType, TeamType, UnitProperties, UnitType } from "@heroesofcrypto/common";
 
 import unitsJson from "./configuration/units.json";
 import spellsJson from "./configuration/spells.json";
@@ -18,6 +18,87 @@ import effectsJson from "./configuration/effects.json";
 import { SpellStats } from "./spells/spells";
 import { AbilityStats } from "./abilities/abilities";
 import { EffectStats } from "./effects/effects";
+
+const DEFAULT_HERO_CONFIG = {
+    hp: 120,
+    steps: 3,
+    speed: 2,
+    armor: 12,
+    attack_type: AttackType.MELEE,
+    attack: 12,
+    attack_damage_min: 15,
+    attack_damage_max: 25,
+    attack_range: 1,
+    range_shots: 10,
+    shot_distance: 5,
+    magic_resists: 5,
+    can_fly: false,
+    exp: 0,
+    size: 1,
+    level: 1,
+    spells: [],
+    abilities: [],
+    effects: [],
+};
+
+const DEFAULT_LUCK_PER_FACTION = {
+    [FactionType.NO_TYPE]: 0,
+    [FactionType.MIGHT]: 1,
+    [FactionType.CHAOS]: -1,
+    [FactionType.NATURE]: 4,
+    [FactionType.LIFE]: 1,
+    [FactionType.DEATH]: -2,
+};
+
+const DEFAULT_MORALE_PER_FACTION = {
+    [FactionType.NO_TYPE]: 0,
+    [FactionType.MIGHT]: 3,
+    [FactionType.CHAOS]: -1,
+    [FactionType.NATURE]: 1,
+    [FactionType.LIFE]: 4,
+    [FactionType.DEATH]: -4,
+};
+
+export const getHeroConfig = (team: TeamType, faction: FactionType): UnitProperties => {
+    const heroConfig = {
+        ...DEFAULT_HERO_CONFIG,
+        name: "Hero",
+        faction,
+    };
+
+    const luck = DEFAULT_LUCK_PER_FACTION[faction] ?? 0;
+    const morale = DEFAULT_MORALE_PER_FACTION[faction] ?? 0;
+
+    return new UnitProperties(
+        faction,
+        heroConfig.name,
+        heroConfig.hp,
+        heroConfig.steps,
+        morale,
+        luck,
+        heroConfig.speed,
+        heroConfig.armor,
+        heroConfig.attack_type,
+        heroConfig.attack,
+        heroConfig.attack_damage_min,
+        heroConfig.attack_damage_max,
+        heroConfig.attack_range,
+        heroConfig.range_shots,
+        heroConfig.shot_distance,
+        heroConfig.magic_resists,
+        heroConfig.can_fly,
+        heroConfig.exp,
+        heroConfig.size,
+        heroConfig.level,
+        structuredClone(heroConfig.spells),
+        heroConfig.abilities,
+        heroConfig.effects,
+        1,
+        0,
+        team,
+        UnitType.HERO,
+    );
+};
 
 export const getUnitConfig = (
     team: TeamType,
@@ -37,13 +118,16 @@ export const getUnitConfig = (
         throw TypeError(`Unknown unit - ${unitName}`);
     }
 
+    const luck = DEFAULT_LUCK_PER_FACTION[faction] ?? 0;
+    const morale = DEFAULT_MORALE_PER_FACTION[faction] ?? 0;
+
     return new UnitProperties(
         faction,
         unitStatsConfig.name,
         unitStatsConfig.hp,
         unitStatsConfig.steps,
-        unitStatsConfig.morale,
-        unitStatsConfig.luck,
+        morale,
+        luck,
         unitStatsConfig.speed,
         unitStatsConfig.armor,
         unitStatsConfig.attack_type,

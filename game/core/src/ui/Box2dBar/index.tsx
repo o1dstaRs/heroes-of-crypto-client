@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useRouter } from "@react-nano/router";
+import { useLocation } from "react-router-dom";
 
 import "./style.scss";
 import { useManager } from "../../manager";
@@ -18,15 +18,10 @@ export const Box2dBar = ({ sceneControlGroups: sceneControls }: Box2dBarProps) =
     const [tab, setTab] = useState<"controls" | "scenes" | "units">("units");
     const manager = useManager();
 
-    const router = useRouter();
-    const link = decodeURIComponent(router.path);
+    const location = useLocation();
+    const link = decodeURIComponent(location.pathname);
     const hasValidTest = useMemo(() => {
-        manager.groupedScenes.some((group) => {
-            console.log(group);
-            return group.scenes.some((scene) => link === getSceneLink(scene));
-        });
-        console.log("link");
-        console.log(link);
+        manager.groupedScenes.some((group) => group.scenes.some((scene) => link === getSceneLink(scene)));
     }, [manager, link]);
 
     useEffect(() => {

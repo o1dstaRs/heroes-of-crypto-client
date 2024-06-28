@@ -29,6 +29,8 @@ export interface IWeightedRoute {
 export class PathHelper {
     public static DIAGONAL_MOVE_COST = 1.4142135623730951;
 
+    public static Y_FACTION_ICONS_OFFSET = 2;
+
     private readonly gridSettings: GridSettings;
 
     public constructor(gridSettings: GridSettings) {
@@ -374,7 +376,7 @@ export class PathHelper {
                 }
             }
 
-            const matrixElement = HoCMath.matrixElementOrZero(matrix, cell.x, cell.y);
+            const matrixElement = HoCMath.matrixElementOrDefault(matrix, cell.x, cell.y, 0);
             if (
                 matrixElement === ObstacleType.LAVA ||
                 matrixElement === ObstacleType.WATER ||
@@ -859,7 +861,7 @@ export class PathHelper {
                 if (c.x < -2 || c.x >= this.gridSettings.getGridSize() + 2) {
                     return false;
                 }
-                if (c.x < 0 && c.y < 3) {
+                if (c.x < 0 && c.y < PathHelper.Y_FACTION_ICONS_OFFSET) {
                     return false;
                 }
                 if (c.y < -2 || c.y >= this.gridSettings.getGridSize() + 2) {
@@ -953,13 +955,15 @@ export class PathHelper {
             return reachable;
         };
 
+        const yStart = PathHelper.Y_FACTION_ICONS_OFFSET - 1;
+
         if (mouseCell) {
             const mouseCellKey = (mouseCell.x << 4) | mouseCell.y;
             if (isOneOfTheUnitCells(mouseCell)) {
                 squareCells.push(mouseCell);
             } else if (
                 !hasStarted &&
-                ((mouseCell.x < 0 && mouseCell.y > 2) || mouseCell.x >= this.gridSettings.getGridSize())
+                ((mouseCell.x < 0 && mouseCell.y > yStart) || mouseCell.x >= this.gridSettings.getGridSize())
             ) {
                 if (!cellToUnitPreRound?.has(`${mouseCell.x}:${mouseCell.y}`)) {
                     squareCells.push(mouseCell);
@@ -1006,7 +1010,7 @@ export class PathHelper {
                     squareCells.push(refCell);
                 } else if (
                     !hasStarted &&
-                    ((refCell.x < 0 && refCell.y > 2) || refCell.x >= this.gridSettings.getGridSize())
+                    ((refCell.x < 0 && refCell.y > yStart) || refCell.x >= this.gridSettings.getGridSize())
                 ) {
                     if (!cellToUnitPreRound?.has(`${refCell.x}:${refCell.y}`)) {
                         squareCells.push(refCell);
@@ -1043,7 +1047,7 @@ export class PathHelper {
                         squareCells.push(nc.xy);
                     } else if (
                         !hasStarted &&
-                        ((nc.xy.x < 0 && nc.xy.y > 2) || nc.xy.x >= this.gridSettings.getGridSize())
+                        ((nc.xy.x < 0 && nc.xy.y > yStart) || nc.xy.x >= this.gridSettings.getGridSize())
                     ) {
                         if (!cellToUnitPreRound?.has(`${nc.xy.x}:${nc.xy.y}`)) {
                             squareCells.push(nc.xy);
@@ -1335,7 +1339,7 @@ export class PathHelper {
             const key = (cur.x << 4) | cur.y;
             for (const n of this.getNeighborCells(cur, visited, isSmallUnit)) {
                 const keyNeighbor = (n.x << 4) | n.y;
-                const el1 = HoCMath.matrixElementOrZero(matrix, n.x, n.y);
+                const el1 = HoCMath.matrixElementOrDefault(matrix, n.x, n.y, 0);
                 if (isSmallUnit) {
                     if (
                         ((!canFly && el1) ||
@@ -1349,9 +1353,9 @@ export class PathHelper {
                     const unitKeyLeft = ((n.x - 1) << 4) | n.y;
                     const unitKeyLeftDown = ((n.x - 1) << 4) | (n.y - 1);
                     const unitKeyDown = (n.x << 4) | (n.y - 1);
-                    const el2 = HoCMath.matrixElementOrZero(matrix, n.x - 1, n.y);
-                    const el3 = HoCMath.matrixElementOrZero(matrix, n.x - 1, n.y - 1);
-                    const el4 = HoCMath.matrixElementOrZero(matrix, n.x, n.y - 1);
+                    const el2 = HoCMath.matrixElementOrDefault(matrix, n.x - 1, n.y, 0);
+                    const el3 = HoCMath.matrixElementOrDefault(matrix, n.x - 1, n.y - 1, 0);
+                    const el4 = HoCMath.matrixElementOrDefault(matrix, n.x, n.y - 1, 0);
                     if (
                         (((!canFly && el1) ||
                             (canFly && el1 && el1 !== ObstacleType.LAVA && el1 !== ObstacleType.WATER)) &&
@@ -1402,56 +1406,56 @@ export class PathHelper {
                             if (xA === n.x && yA === n.y) {
                                 if (isSmallUnit) {
                                     if (
-                                        HoCMath.matrixElementOrZero(matrix, xA, cur.y) &&
-                                        HoCMath.matrixElementOrZero(matrix, cur.x, yA)
+                                        HoCMath.matrixElementOrDefault(matrix, xA, cur.y, 0) &&
+                                        HoCMath.matrixElementOrDefault(matrix, cur.x, yA, 0)
                                     ) {
                                         continue;
                                     }
                                 } else if (
-                                    HoCMath.matrixElementOrZero(matrix, cur.x - 2, cur.y) ||
-                                    HoCMath.matrixElementOrZero(matrix, cur.x, cur.y - 2)
+                                    HoCMath.matrixElementOrDefault(matrix, cur.x - 2, cur.y, 0) ||
+                                    HoCMath.matrixElementOrDefault(matrix, cur.x, cur.y - 2, 0)
                                 ) {
                                     continue;
                                 }
                             } else if (xB === n.x && yB === n.y) {
                                 if (isSmallUnit) {
                                     if (
-                                        HoCMath.matrixElementOrZero(matrix, xB, cur.y) &&
-                                        HoCMath.matrixElementOrZero(matrix, cur.x, yB)
+                                        HoCMath.matrixElementOrDefault(matrix, xB, cur.y, 0) &&
+                                        HoCMath.matrixElementOrDefault(matrix, cur.x, yB, 0)
                                     ) {
                                         continue;
                                     }
                                 } else if (
-                                    HoCMath.matrixElementOrZero(matrix, xA, yB) ||
-                                    HoCMath.matrixElementOrZero(matrix, xB, yA)
+                                    HoCMath.matrixElementOrDefault(matrix, xA, yB, 0) ||
+                                    HoCMath.matrixElementOrDefault(matrix, xB, yA, 0)
                                 ) {
                                     continue;
                                 }
                             } else if (xA === n.x && yB === n.y) {
                                 if (isSmallUnit) {
                                     if (
-                                        HoCMath.matrixElementOrZero(matrix, xA, cur.y) &&
-                                        HoCMath.matrixElementOrZero(matrix, cur.x, yB)
+                                        HoCMath.matrixElementOrDefault(matrix, xA, cur.y, 0) &&
+                                        HoCMath.matrixElementOrDefault(matrix, cur.x, yB, 0)
                                     ) {
                                         continue;
                                     }
                                 } else if (
-                                    HoCMath.matrixElementOrZero(matrix, cur.x - 2, yA) ||
-                                    HoCMath.matrixElementOrZero(matrix, cur.x, yB)
+                                    HoCMath.matrixElementOrDefault(matrix, cur.x - 2, yA, 0) ||
+                                    HoCMath.matrixElementOrDefault(matrix, cur.x, yB, 0)
                                 ) {
                                     continue;
                                 }
                             } else if (xB === n.x && yA === n.y) {
                                 if (isSmallUnit) {
                                     if (
-                                        HoCMath.matrixElementOrZero(matrix, xB, cur.y) &&
-                                        HoCMath.matrixElementOrZero(matrix, cur.x, yA)
+                                        HoCMath.matrixElementOrDefault(matrix, xB, cur.y, 0) &&
+                                        HoCMath.matrixElementOrDefault(matrix, cur.x, yA, 0)
                                     ) {
                                         continue;
                                     }
                                 } else if (
-                                    HoCMath.matrixElementOrZero(matrix, xA, cur.y - 2) ||
-                                    HoCMath.matrixElementOrZero(matrix, cur.x + 1, cur.y)
+                                    HoCMath.matrixElementOrDefault(matrix, xA, cur.y - 2, 0) ||
+                                    HoCMath.matrixElementOrDefault(matrix, cur.x + 1, cur.y, 0)
                                 ) {
                                     continue;
                                 }
@@ -1559,7 +1563,7 @@ export class PathHelper {
             const pos = { x: c.x, y: c.y };
             const key = (c.x << 4) | c.y;
             if (isSmallUnit) {
-                if (HoCMath.matrixElementOrZero(matrix, c.x, c.y) || allowedToMoveThere.has(key)) {
+                if (HoCMath.matrixElementOrDefault(matrix, c.x, c.y, 0) || allowedToMoveThere.has(key)) {
                     continue;
                 }
 
@@ -1579,9 +1583,9 @@ export class PathHelper {
                 const unitKeyLeftDown = ((c.x - 1) << 4) | (c.y - 1);
                 if (
                     !allowedToMoveThere.has(unitKeyLeft) &&
-                    !HoCMath.matrixElementOrZero(matrix, c.x - 1, c.y) &&
+                    !HoCMath.matrixElementOrDefault(matrix, c.x - 1, c.y, 0) &&
                     !allowedToMoveThere.has(unitKeyLeftDown) &&
-                    !HoCMath.matrixElementOrZero(matrix, c.x - 1, c.y - 1)
+                    !HoCMath.matrixElementOrDefault(matrix, c.x - 1, c.y - 1, 0)
                 ) {
                     allowedToMoveThere.add(unitKeyLeft);
                     allowed.push({ x: c.x - 1, y: c.y });
@@ -1602,9 +1606,9 @@ export class PathHelper {
                 const unitKeyRightDown = (c.x << 4) | (c.y - 1);
                 if (
                     !allowedToMoveThere.has(unitKeyRight) &&
-                    !HoCMath.matrixElementOrZero(matrix, c.x, c.y) &&
+                    !HoCMath.matrixElementOrDefault(matrix, c.x, c.y, 0) &&
                     !allowedToMoveThere.has(unitKeyRightDown) &&
-                    !HoCMath.matrixElementOrZero(matrix, c.x, c.y - 1)
+                    !HoCMath.matrixElementOrDefault(matrix, c.x, c.y - 1, 0)
                 ) {
                     allowedToMoveThere.add(unitKeyRight);
                     allowed.push({ x: c.x, y: c.y });
@@ -1625,9 +1629,9 @@ export class PathHelper {
                 const unitKeyDownLeft = ((c.x - 1) << 4) | (c.y - 1);
                 if (
                     !allowedToMoveThere.has(unitKeyDown) &&
-                    !HoCMath.matrixElementOrZero(matrix, c.x, c.y - 1) &&
+                    !HoCMath.matrixElementOrDefault(matrix, c.x, c.y - 1, 0) &&
                     !allowedToMoveThere.has(unitKeyDownLeft) &&
-                    !HoCMath.matrixElementOrZero(matrix, c.x - 1, c.y - 1)
+                    !HoCMath.matrixElementOrDefault(matrix, c.x - 1, c.y - 1, 0)
                 ) {
                     allowedToMoveThere.add(unitKeyDown);
                     allowed.push({ x: c.x, y: c.y - 1 });
@@ -1648,9 +1652,9 @@ export class PathHelper {
                 const unitKeyUpLeft = ((c.x - 1) << 4) | c.y;
                 if (
                     !allowedToMoveThere.has(unitKeyUp) &&
-                    !HoCMath.matrixElementOrZero(matrix, c.x, c.y) &&
+                    !HoCMath.matrixElementOrDefault(matrix, c.x, c.y, 0) &&
                     !allowedToMoveThere.has(unitKeyUpLeft) &&
-                    !HoCMath.matrixElementOrZero(matrix, c.x - 1, c.y)
+                    !HoCMath.matrixElementOrDefault(matrix, c.x - 1, c.y, 0)
                 ) {
                     allowedToMoveThere.add(unitKeyUp);
                     allowed.push({ x: c.x, y: c.y });

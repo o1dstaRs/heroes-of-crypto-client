@@ -16,6 +16,7 @@ import { SquarePlacement } from "../placement/square_placement";
 import { FightStateManager } from "../state/fight_state_manager";
 import {
     BASE_UNIT_STACK_TO_SPAWN_EXP,
+    DOUBLE_STEP,
     HALF_STEP,
     MAX_X,
     MAX_Y,
@@ -25,6 +26,7 @@ import {
     UNIT_SIZE_DELTA,
 } from "../statics";
 import { Unit } from "./units";
+// import { HeroGender, HeroType, UnitsFactory } from "./units_factory";
 import { UnitsFactory } from "./units_factory";
 
 export class UnitsHolder {
@@ -269,6 +271,8 @@ export class UnitsHolder {
 
     public spawn(team: TeamType, faction?: FactionType) {
         const units: Unit[] = [];
+        const heroes: Unit[] = [];
+
         if (faction === FactionType.LIFE) {
             units.push(
                 this.unitsFactory.makeCreature(FactionType.LIFE, "Squire", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
@@ -295,6 +299,9 @@ export class UnitsHolder {
                 this.unitsFactory.makeCreature(FactionType.LIFE, "Angel", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
         } else if (faction === FactionType.NATURE) {
+            // heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
+            // heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
+            // heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
             units.push(
                 this.unitsFactory.makeCreature(FactionType.NATURE, "Fairy", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
@@ -322,7 +329,6 @@ export class UnitsHolder {
             units.push(
                 this.unitsFactory.makeCreature(FactionType.NATURE, "Unicorn", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
-            // units.push(this.unitsFactory.makeUnit("Nature", "Phoenix", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
             units.push(
                 this.unitsFactory.makeCreature(
                     FactionType.NATURE,
@@ -467,6 +473,20 @@ export class UnitsHolder {
 
         if (foundSomeSmallUnits) {
             posIndex++;
+        }
+
+        let heroPosIndex = 0;
+        for (const h of heroes) {
+            console.log("Trying to pos hero");
+            console.log(h);
+            if (team === TeamType.LOWER) {
+                h.setPosition(-MAX_X - STEP * heroPosIndex - HALF_STEP, DOUBLE_STEP + HALF_STEP);
+            } else {
+                h.setPosition(MAX_X + STEP * heroPosIndex + HALF_STEP, MAX_Y - DOUBLE_STEP - HALF_STEP);
+            }
+            heroPosIndex++;
+
+            this.positionBody(h);
         }
 
         for (const u of units) {
