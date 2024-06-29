@@ -59,10 +59,14 @@ const DEFAULT_MORALE_PER_FACTION = {
     [FactionType.DEATH]: -4,
 };
 
-export const getHeroConfig = (team: TeamType, faction: FactionType): UnitProperties => {
+export const getHeroConfig = (
+    team: TeamType,
+    faction: FactionType,
+    heroName: string,
+    largeTextureName: string,
+): UnitProperties => {
     const heroConfig = {
         ...DEFAULT_HERO_CONFIG,
-        name: "Hero",
         faction,
     };
 
@@ -71,7 +75,7 @@ export const getHeroConfig = (team: TeamType, faction: FactionType): UnitPropert
 
     return new UnitProperties(
         faction,
-        heroConfig.name,
+        heroName,
         heroConfig.hp,
         heroConfig.steps,
         morale,
@@ -97,13 +101,15 @@ export const getHeroConfig = (team: TeamType, faction: FactionType): UnitPropert
         0,
         team,
         UnitType.HERO,
+        largeTextureName,
     );
 };
 
-export const getUnitConfig = (
+export const getCreatureConfig = (
     team: TeamType,
     faction: FactionType,
     unitName: string,
+    largeTextureName: string,
     amount: number,
     totalExp?: number,
 ): UnitProperties => {
@@ -149,6 +155,7 @@ export const getUnitConfig = (
         0,
         team,
         UnitType.CREATURE,
+        largeTextureName,
     );
 };
 

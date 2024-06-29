@@ -29,6 +29,7 @@ import { createDefaultShader } from "./utils/gl/defaultShader";
 import { clearGlCanvas, initGlCanvas, resizeGlCanvas } from "./utils/gl/glUtils";
 import { PreloadedTextures, preloadTextures } from "./utils/gl/preload";
 import { HotKey, hotKeyPress } from "./utils/hotkeys";
+import { FightStateManager } from "./state/fight_state_manager";
 
 function hotKeyToText(hotKey: HotKey) {
     return hotKey.key === " " ? "Space" : hotKey.key;
@@ -290,6 +291,7 @@ export class GameManager {
 
     public Uninitialize(): void {
         this.isInitialized = false;
+        FightStateManager.getInstance().reset();
     }
 
     public RequestTime(team?: number): void {

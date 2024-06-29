@@ -290,7 +290,7 @@ class TestHeroes extends GLScene {
             ...this.upperPlacement.possibleCellHashes(),
         ]);
 
-        this.background = new Sprite(gl, shader, this.textures.back.texture);
+        this.background = new Sprite(gl, shader, this.textures.background_dark.texture);
         this.spellBookOverlay = new Sprite(gl, shader, this.textures.book_1024.texture);
         this.abilitiesFrame = new Frame(
             this.sc_sceneSettings.getGridSettings(),

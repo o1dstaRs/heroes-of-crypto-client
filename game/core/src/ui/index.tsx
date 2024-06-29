@@ -108,7 +108,6 @@ function Home() {
             setNeedToRenderOverlay(false);
             setIsTracking(false);
             navigate("/Heroes#TestFight");
-            console.log("Navigating to Heroes");
         }
     };
 
@@ -121,7 +120,6 @@ function Home() {
             setNeedToRenderOverlay(false);
             setIsTracking(false);
             navigate("/Heroes#TestFight");
-            console.log("Navigating to Heroes");
         }
     };
 
@@ -201,8 +199,6 @@ function Heroes() {
             connection.disconnect();
         };
     });
-
-    console.log("LOADING HEROES");
 
     return (
         <div className="container" style={{ display: "flex" }}>

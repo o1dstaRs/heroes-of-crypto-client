@@ -120,8 +120,7 @@ export default function UnitStatsListItem() {
             attackDamage /= 2;
         }
         const hasDifferentRangeArmor = unitProperties.base_armor !== unitProperties.range_armor;
-
-        const unitName = unitProperties.name.toLowerCase().replace(" ", "_");
+        const largeTextureName = unitProperties.large_texture_name;
 
         return (
             // @ts-ignore: style params
@@ -141,7 +140,7 @@ export default function UnitStatsListItem() {
                         <>
                             <Avatar
                                 // @ts-ignore: src params
-                                src={images[`${unitName}_512`]}
+                                src={images[largeTextureName]}
                                 variant="plain"
                                 sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
                                 style={{

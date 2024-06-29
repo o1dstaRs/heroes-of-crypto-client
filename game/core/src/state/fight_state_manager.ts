@@ -52,6 +52,29 @@ export class FightStateManager {
         };
     }
 
+    public reset(): void {
+        this.fightState.id = uuidv4();
+        this.fightState.currentLap = 1;
+        this.fightState.firstTurnMade = false;
+        this.fightState.fightFinished = false;
+        this.fightState.previousTurnTeam = TeamType.NO_TEAM;
+        this.fightState.highestSpeedThisTurn = 0;
+        this.fightState.alreadyMadeTurn.clear();
+        this.fightState.alreadyMadeTurnByTeam.clear();
+        this.fightState.alreadyHourGlass.clear();
+        this.fightState.alreadyRepliedAttack.clear();
+        this.fightState.teamUnitsAlive.clear();
+        this.fightState.hourGlassQueue = [];
+        this.fightState.moralePlusQueue = [];
+        this.fightState.moraleMinusQueue = [];
+        this.fightState.currentTurnStart = 0;
+        this.fightState.currentTurnEnd = 0;
+        this.fightState.currentLapTotalTimePerTeam.clear();
+        this.fightState.upNext = [];
+        this.fightState.stepsMoraleMultiplier = 0;
+        this.fightState.hasAdditionalTimeRequestedPerTeam.clear();
+    }
+
     public static getInstance(): FightStateManager {
         if (!FightStateManager.instance) {
             FightStateManager.instance = new FightStateManager();
