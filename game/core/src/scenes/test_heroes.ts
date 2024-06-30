@@ -748,6 +748,71 @@ class TestHeroes extends GLScene {
         return this.hoverAttackUnits[0];
     }
 
+    private updateHoverInfoWithButtonAction(mouseCell: XY): void {
+        if (this.spellBookButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Select spell"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.aiButton.isHover(mouseCell)) {
+            if (this.sc_isAIActive) {
+                this.sc_hoverInfoArr = ["Turn off AI"];
+            } else {
+                this.sc_hoverInfoArr = ["Turn on AI"];
+            }
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.shieldButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Clean up randomized luck", "and skip turn"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.nextButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Skip turn"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.hourGlassButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["End turn"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.selectedAttackTypeButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Switch attack type"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.lifeButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Load Life faction units"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.natureButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Load Nature faction units"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.mightButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Load Might faction units"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.chaosButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Load Chaos faction units"];
+            this.sc_hoverTextUpdateNeeded = true;
+        }
+    }
+
     protected hover(): void {
         if (this.sc_isAnimating || !this.sc_mouseWorld) {
             this.resetHover();
@@ -781,9 +846,7 @@ class TestHeroes extends GLScene {
             if (this.sc_renderSpellBookOverlay) {
                 this.hoveredSpell = this.currentActiveUnit.getHoveredSpell(this.sc_mouseWorld);
                 if (this.hoveredSpell) {
-                    console.log("HOVERING SPELL");
                     this.sc_hoverInfoArr = this.hoveredSpell.getDesc();
-                    console.log(this.sc_hoverInfoArr);
                     this.sc_hoverTextUpdateNeeded = true;
                 }
                 this.resetHover(false);
@@ -1199,6 +1262,8 @@ class TestHeroes extends GLScene {
                             (this.selectedAttackTypeButton.isHover(mouseCell) && this.switchToSelectedAttackType))) ||
                     this.aiButton.isHover(mouseCell)
                 ) {
+                    this.updateHoverInfoWithButtonAction(mouseCell);
+
                     if (
                         this.shieldButton.isHover(mouseCell) ||
                         this.nextButton.isHover(mouseCell) ||
@@ -1319,6 +1384,7 @@ class TestHeroes extends GLScene {
             }
 
             if (this.isButtonHover(mouseCell)) {
+                this.updateHoverInfoWithButtonAction(mouseCell);
                 this.hoverSelectedCells = [mouseCell];
                 this.hoverSelectedCellsSwitchToRed = false;
                 this.resetHover(false);
@@ -1327,13 +1393,25 @@ class TestHeroes extends GLScene {
 
             const selectedUnitProperties = this.sc_selectedBody?.GetUserData();
             if (selectedUnitProperties) {
-                const u = this.unitsHolder.getAllUnits().get(selectedUnitProperties.id);
-                if (!u) {
+                const selectedUnit = this.unitsHolder.getAllUnits().get(selectedUnitProperties.id);
+                if (!selectedUnit) {
                     this.resetHover(true);
                     return;
                 }
 
-                if (!this.isAllowedPreStartMousePosition(u)) {
+                if (this.cellToUnitPreRound) {
+                    const hoverUnit = this.cellToUnitPreRound.get(cellKey);
+                    if (
+                        hoverUnit &&
+                        !GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), hoverUnit.getPosition())
+                    ) {
+                        this.sc_hoverUnitNameStr = hoverUnit.getName();
+                        this.sc_selectedAttackType = hoverUnit.getAttackType();
+                        this.sc_hoverTextUpdateNeeded = true;
+                    }
+                }
+
+                if (!this.isAllowedPreStartMousePosition(selectedUnit)) {
                     this.resetHover(true);
                     return;
                 }
@@ -1437,7 +1515,7 @@ class TestHeroes extends GLScene {
                 }
                 this.resetHover(false);
             } else if (this.cellToUnitPreRound && this.unitIdToCellsPreRound) {
-                const unit = this.cellToUnitPreRound.get(`${mouseCell.x}:${mouseCell.y}`);
+                const unit = this.cellToUnitPreRound.get(cellKey);
                 if (unit) {
                     if (!GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), unit.getPosition())) {
                         this.sc_hoverUnitNameStr = unit.getName();

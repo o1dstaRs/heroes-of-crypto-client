@@ -4,6 +4,7 @@ import Button from "@mui/joy/Button";
 import ButtonGroup from "@mui/joy/ButtonGroup";
 import IconButton from "@mui/joy/IconButton";
 import List from "@mui/joy/List";
+import Tooltip from "@mui/joy/Tooltip";
 import ListItem from "@mui/joy/ListItem";
 import ListItemButton from "@mui/joy/ListItemButton";
 import ListItemContent from "@mui/joy/ListItemContent";
@@ -162,199 +163,238 @@ export default function UnitStatsListItem() {
                         </>
 
                         <ListItem>
-                            <ButtonGroup
-                                aria-label="hp"
-                                // @ts-ignore: style params
-                                size="xs"
-                                style={{ "--ButtonGroup-separatorSize": "0px" }}
-                            >
-                                <IconButton disabled>
-                                    <HeartIcon />
-                                </IconButton>
-                                <Button disabled>{unitProperties.hp}</Button>
-                                <Button disabled>({unitProperties.max_hp})</Button>
-                            </ButtonGroup>
-                        </ListItem>
-                        {unitProperties.can_cast_spells ? (
-                            <ListItem>
+                            <Tooltip title="Health points" style={{ zIndex: 3 }}>
                                 <ButtonGroup
-                                    aria-label="mana"
+                                    aria-label="hp"
                                     // @ts-ignore: style params
                                     size="xs"
                                     style={{ "--ButtonGroup-separatorSize": "0px" }}
                                 >
                                     <IconButton disabled>
-                                        <ScrollIcon />
+                                        <HeartIcon />
                                     </IconButton>
-                                    <Button disabled>{unitProperties.spells.length}</Button>
+                                    <Button disabled>{unitProperties.hp}</Button>
+                                    <Button disabled>({unitProperties.max_hp})</Button>
                                 </ButtonGroup>
+                            </Tooltip>
+                        </ListItem>
+                        {unitProperties.can_cast_spells ? (
+                            <ListItem>
+                                <Tooltip title="Number of magic scrolls" style={{ zIndex: 3 }}>
+                                    <ButtonGroup
+                                        aria-label="scrolls"
+                                        // @ts-ignore: style params
+                                        size="xs"
+                                        style={{ "--ButtonGroup-separatorSize": "0px" }}
+                                    >
+                                        <IconButton disabled>
+                                            <ScrollIcon />
+                                        </IconButton>
+                                        <Button disabled>{unitProperties.spells.length}</Button>
+                                    </ButtonGroup>
+                                </Tooltip>
                             </ListItem>
                         ) : (
                             <span />
                         )}
 
                         <ListItem>
-                            <ButtonGroup
-                                aria-label="fist"
-                                // @ts-ignore: style params
-                                size="xs"
-                                style={{ "--ButtonGroup-separatorSize": "0px" }}
-                            >
-                                <IconButton disabled>
-                                    <FistIcon />
-                                </IconButton>
-                                <Button disabled>{damageRange}</Button>
-                            </ButtonGroup>
-                            <ButtonGroup
-                                aria-label="attack"
-                                // @ts-ignore: style params
-                                size="xs"
-                                style={attackButtonStyle}
-                            >
-                                <IconButton disabled>
-                                    {attackTypeSelected === AttackType.RANGE ? <BowIcon /> : <SwordIcon />}
-                                </IconButton>
-                                <Button disabled>{attackDamage}</Button>
-                                {unitProperties.attack_multiplier !== 1 ? (
-                                    <Button disabled>x{unitProperties.attack_multiplier}</Button>
-                                ) : (
-                                    <span />
-                                )}
-                            </ButtonGroup>
+                            <Tooltip title="Attack spread" style={{ zIndex: 3 }}>
+                                <ButtonGroup
+                                    aria-label="attack_spread"
+                                    // @ts-ignore: style params
+                                    size="xs"
+                                    style={{ "--ButtonGroup-separatorSize": "0px" }}
+                                >
+                                    <IconButton disabled>
+                                        <FistIcon />
+                                    </IconButton>
+                                    <Button disabled>{damageRange}</Button>
+                                </ButtonGroup>
+                            </Tooltip>
+                            <Tooltip title="Attack type and multiplier" style={{ zIndex: 3 }}>
+                                <ButtonGroup
+                                    aria-label="attack"
+                                    // @ts-ignore: style params
+                                    size="xs"
+                                    style={attackButtonStyle}
+                                >
+                                    <IconButton disabled>
+                                        {attackTypeSelected === AttackType.RANGE ? <BowIcon /> : <SwordIcon />}
+                                    </IconButton>
+                                    <Button disabled>{attackDamage}</Button>
+                                    {unitProperties.attack_multiplier !== 1 ? (
+                                        <Button disabled>x{unitProperties.attack_multiplier}</Button>
+                                    ) : (
+                                        <span />
+                                    )}
+                                </ButtonGroup>
+                            </Tooltip>
                         </ListItem>
 
                         {unitProperties.attack_type === AttackType.RANGE ? (
                             <ListItem>
-                                <ButtonGroup
-                                    aria-label="shot_distance"
-                                    // @ts-ignore: style params
-                                    size="xs"
-                                    style={{ "--ButtonGroup-separatorSize": "0px" }}
-                                >
-                                    <IconButton disabled>
-                                        <ShotRangeIcon />
-                                    </IconButton>
-                                    <Button disabled>{unitProperties.shot_distance}</Button>
-                                </ButtonGroup>
-                                <ButtonGroup
-                                    aria-label="quiver"
-                                    // @ts-ignore: style params
-                                    size="xs"
-                                    style={{ "--ButtonGroup-separatorSize": "0px" }}
-                                >
-                                    <IconButton disabled>
-                                        <QuiverIcon />
-                                    </IconButton>
-                                    <Button disabled>
-                                        {unitProperties.range_shots_mod
-                                            ? unitProperties.range_shots_mod
-                                            : unitProperties.range_shots}
-                                    </Button>
-                                </ButtonGroup>
+                                <Tooltip title="Ranged shot distance in cells" style={{ zIndex: 3 }}>
+                                    <ButtonGroup
+                                        aria-label="shot_distance"
+                                        // @ts-ignore: style params
+                                        size="xs"
+                                        style={{ "--ButtonGroup-separatorSize": "0px" }}
+                                    >
+                                        <IconButton disabled>
+                                            <ShotRangeIcon />
+                                        </IconButton>
+                                        <Button disabled>{unitProperties.shot_distance}</Button>
+                                    </ButtonGroup>
+                                </Tooltip>
+                                <Tooltip title="Number of ranged shots" style={{ zIndex: 3 }}>
+                                    <ButtonGroup
+                                        aria-label="number_of_shots"
+                                        // @ts-ignore: style params
+                                        size="xs"
+                                        style={{ "--ButtonGroup-separatorSize": "0px" }}
+                                    >
+                                        <IconButton disabled>
+                                            <QuiverIcon />
+                                        </IconButton>
+                                        <Button disabled>
+                                            {unitProperties.range_shots_mod
+                                                ? unitProperties.range_shots_mod
+                                                : unitProperties.range_shots}
+                                        </Button>
+                                    </ButtonGroup>
+                                </Tooltip>
                             </ListItem>
                         ) : (
                             <span />
                         )}
 
                         <ListItem>
-                            <ButtonGroup
-                                aria-label="shield"
-                                // @ts-ignore: style params
-                                size="xs"
-                                style={{ "--ButtonGroup-separatorSize": "0px" }}
-                            >
-                                <IconButton disabled>
-                                    <ShieldIcon />
-                                </IconButton>
-                                <Button disabled>{unitProperties.base_armor + unitProperties.armor_mod}</Button>
-                                {armorMod ? <Button disabled>({armorMod})</Button> : <span />}
-                            </ButtonGroup>
-                            <ButtonGroup
-                                aria-label="magic_shield"
-                                // @ts-ignore: style params
-                                size="xs"
-                                style={{ "--ButtonGroup-separatorSize": "0px" }}
-                            >
-                                <IconButton disabled>
-                                    <MagicShieldIcon />
-                                </IconButton>
-                                <Button disabled>
-                                    {unitProperties.magic_resist_mod
-                                        ? unitProperties.magic_resist_mod
-                                        : unitProperties.magic_resist}
-                                    %
-                                </Button>
-                            </ButtonGroup>
+                            <Tooltip title="Base armor" style={{ zIndex: 3 }}>
+                                <ButtonGroup
+                                    aria-label="armor"
+                                    // @ts-ignore: style params
+                                    size="xs"
+                                    style={{ "--ButtonGroup-separatorSize": "0px" }}
+                                >
+                                    <IconButton disabled>
+                                        <ShieldIcon />
+                                    </IconButton>
+                                    <Button disabled>{unitProperties.base_armor + unitProperties.armor_mod}</Button>
+                                    {armorMod ? <Button disabled>({armorMod})</Button> : <span />}
+                                </ButtonGroup>
+                            </Tooltip>
+                            <Tooltip title="Magic shield in %" style={{ zIndex: 3 }}>
+                                <ButtonGroup
+                                    aria-label="magic_armor"
+                                    // @ts-ignore: style params
+                                    size="xs"
+                                    style={{ "--ButtonGroup-separatorSize": "0px" }}
+                                >
+                                    <IconButton disabled>
+                                        <MagicShieldIcon />
+                                    </IconButton>
+                                    <Button disabled>
+                                        {unitProperties.magic_resist_mod
+                                            ? unitProperties.magic_resist_mod
+                                            : unitProperties.magic_resist}
+                                        %
+                                    </Button>
+                                </ButtonGroup>
+                            </Tooltip>
                         </ListItem>
 
                         {hasDifferentRangeArmor ? (
                             <ListItem>
-                                <ButtonGroup
-                                    aria-label="mana"
-                                    // @ts-ignore: style params
-                                    size="xs"
-                                    style={{ "--ButtonGroup-separatorSize": "0px" }}
-                                >
-                                    <IconButton disabled>
-                                        <ArrowShieldIcon />
-                                    </IconButton>
-                                    <Button disabled>{unitProperties.range_armor + unitProperties.armor_mod}</Button>
-                                    {armorMod ? <Button disabled>({armorMod})</Button> : <span />}
-                                </ButtonGroup>
+                                <Tooltip title="Range armor" style={{ zIndex: 3 }}>
+                                    <ButtonGroup
+                                        aria-label="range_armor"
+                                        // @ts-ignore: style params
+                                        size="xs"
+                                        style={{ "--ButtonGroup-separatorSize": "0px" }}
+                                    >
+                                        <IconButton disabled>
+                                            <ArrowShieldIcon />
+                                        </IconButton>
+                                        <Button disabled>
+                                            {unitProperties.range_armor + unitProperties.armor_mod}
+                                        </Button>
+                                        {armorMod ? <Button disabled>({armorMod})</Button> : <span />}
+                                    </ButtonGroup>
+                                </Tooltip>
                             </ListItem>
                         ) : (
                             <span />
                         )}
 
                         <ListItem>
-                            <ButtonGroup
-                                aria-label="step_size"
-                                // @ts-ignore: style params
-                                size="xs"
-                                style={{ "--ButtonGroup-separatorSize": "0px" }}
+                            <Tooltip title="Movement type and number of steps in cells" style={{ zIndex: 3 }}>
+                                <ButtonGroup
+                                    aria-label="step_size"
+                                    // @ts-ignore: style params
+                                    size="xs"
+                                    style={{ "--ButtonGroup-separatorSize": "0px" }}
+                                >
+                                    <IconButton disabled>
+                                        {unitProperties.can_fly ? <WingIcon /> : <BootIcon />}
+                                    </IconButton>
+                                    <Button disabled>
+                                        {Number((unitProperties.steps + unitProperties.steps_morale).toFixed(2))}
+                                    </Button>
+                                </ButtonGroup>
+                            </Tooltip>
+                            <Tooltip
+                                title="Units with higher speed turn first on the battlefield"
+                                style={{ zIndex: 3 }}
                             >
-                                <IconButton disabled>{unitProperties.can_fly ? <WingIcon /> : <BootIcon />}</IconButton>
-                                <Button disabled>
-                                    {Number((unitProperties.steps + unitProperties.steps_morale).toFixed(2))}
-                                </Button>
-                            </ButtonGroup>
-                            <ButtonGroup
-                                aria-label="speed"
-                                // @ts-ignore: style params
-                                size="xs"
-                                style={{ "--ButtonGroup-separatorSize": "0px" }}
-                            >
-                                <IconButton disabled>
-                                    <SpeedIcon />
-                                </IconButton>
-                                <Button disabled>{unitProperties.speed}</Button>
-                            </ButtonGroup>
+                                <ButtonGroup
+                                    aria-label="speed"
+                                    // @ts-ignore: style params
+                                    size="xs"
+                                    style={{ "--ButtonGroup-separatorSize": "0px" }}
+                                >
+                                    <IconButton disabled>
+                                        <SpeedIcon />
+                                    </IconButton>
+                                    <Button disabled>{unitProperties.speed}</Button>
+                                </ButtonGroup>
+                            </Tooltip>
                         </ListItem>
                         <ListItem>
-                            <ButtonGroup
-                                aria-label="morale"
-                                /*
+                            <Tooltip
+                                title="The morale parameter affects the chance of an out of regular order action depending on whether it is positive or negative"
+                                style={{ zIndex: 3 }}
+                            >
+                                <ButtonGroup
+                                    aria-label="morale"
+                                    /*
     // @ts-ignore: style params */
-                                size="xs"
-                                style={{ "--ButtonGroup-separatorSize": "0px" }}
+                                    size="xs"
+                                    style={{ "--ButtonGroup-separatorSize": "0px" }}
+                                >
+                                    <IconButton disabled>
+                                        <MoraleIcon />
+                                    </IconButton>
+                                    <Button disabled>{unitProperties.morale}</Button>
+                                </ButtonGroup>
+                            </Tooltip>
+                            <Tooltip
+                                title="Dealing extra damage or reducing damage taken in combat. Also affecting abilities chance"
+                                style={{ zIndex: 3 }}
                             >
-                                <IconButton disabled>
-                                    <MoraleIcon />
-                                </IconButton>
-                                <Button disabled>{unitProperties.morale}</Button>
-                            </ButtonGroup>
-                            <ButtonGroup
-                                aria-label="luck"
-                                // @ts-ignore: style params
-                                size="xs"
-                                style={luckButtonStyle}
-                            >
-                                <IconButton disabled>
-                                    <LuckIcon />
-                                </IconButton>
-                                <Button disabled>{unitProperties.luck + unitProperties.luck_per_turn}</Button>
-                                {luckPerTurn ? <Button disabled>({luckPerTurn})</Button> : <span />}
-                            </ButtonGroup>
+                                <ButtonGroup
+                                    aria-label="luck"
+                                    // @ts-ignore: style params
+                                    size="xs"
+                                    style={luckButtonStyle}
+                                >
+                                    <IconButton disabled>
+                                        <LuckIcon />
+                                    </IconButton>
+                                    <Button disabled>{unitProperties.luck + unitProperties.luck_per_turn}</Button>
+                                    {luckPerTurn ? <Button disabled>({luckPerTurn})</Button> : <span />}
+                                </ButtonGroup>
+                            </Tooltip>
                         </ListItem>
                     </List>
                 </Toggler>
