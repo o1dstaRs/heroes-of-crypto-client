@@ -20,9 +20,8 @@ import { getScenesGrouped, Scene, SceneConstructor, SceneEntry } from "./scenes/
 import { Settings } from "./settings";
 import { IVisibleState } from "./state/state";
 import { MAX_FPS } from "./statics";
-import { DamageStatisticHolder, IDamageStatistic } from "./stats/damage_stats";
+import { DamageStatisticHolder, IDamageStatistic, IDamageSpread } from "./stats/damage_stats";
 import type { SceneControlGroup } from "./ui";
-import type { SceneTable, SceneTableSetter } from "./ui/Main";
 import { g_camera } from "./utils/camera";
 import { FpsCalculator } from "./utils/FpsCalculator";
 import { createDefaultShader } from "./utils/gl/defaultShader";
@@ -30,10 +29,6 @@ import { clearGlCanvas, initGlCanvas, resizeGlCanvas } from "./utils/gl/glUtils"
 import { PreloadedTextures, preloadTextures } from "./utils/gl/preload";
 import { HotKey, hotKeyPress } from "./utils/hotkeys";
 import { FightStateManager } from "./state/fight_state_manager";
-
-function hotKeyToText(hotKey: HotKey) {
-    return hotKey.key === " " ? "Space" : hotKey.key;
-}
 
 export class GameManager {
     public m_fpsCalculator = new FpsCalculator(200, 1000, MAX_FPS);
@@ -78,6 +73,8 @@ export class GameManager {
 
     public readonly onVisibleStateUpdated = new Signal<(visibleState: IVisibleState) => void>();
 
+    public readonly onPossibleAttackRangeUpdated = new Signal<(visibleState: IDamageSpread) => void>();
+
     private m_hoveringCanvas = false;
 
     private m_keyMap: { [s: string]: boolean } = {};
@@ -91,8 +88,6 @@ export class GameManager {
     private defaultShader: ReturnType<typeof createDefaultShader> | null = null;
 
     private activateScene: (entry: SceneEntry) => void = () => {};
-
-    private setLeftTable: SceneTableSetter = () => {};
 
     private setSceneControlGroups: (groups: SceneControlGroup[]) => void = () => {};
 
@@ -109,13 +104,11 @@ export class GameManager {
         debugCanvas: HTMLCanvasElement,
         wrapper: HTMLDivElement,
         activateScene: (entry: SceneEntry) => void,
-        setLeftTables: SceneTableSetter,
         setSceneControlGroups: (groups: SceneControlGroup[]) => void,
     ) {
         if (this.isInitialized) {
             return;
         }
-        this.setLeftTable = setLeftTables;
         this.activateScene = activateScene;
         this.setSceneControlGroups = setSceneControlGroups;
         debugCanvas.addEventListener("mousedown", (e) => this.HandleMouseDown(e));
@@ -455,38 +448,16 @@ export class GameManager {
     }
 
     public UpdateText() {
-        const leftTable: SceneTable = [];
-        if (this.m_scene?.sc_attackDamageRange) {
-            let countRangeStr = "";
-            if (this.m_scene?.sc_attackCountRange) {
-                countRangeStr = ` (${this.m_scene?.sc_attackCountRange})`;
-            }
-            leftTable.push(["Attack", `${this.m_scene.sc_attackDamageRange}${countRangeStr}`]);
+        if (this.m_scene?.sc_attackDamageSpreadStr) {
+            this.onPossibleAttackRangeUpdated.emit({
+                attackType: this.m_scene.sc_selectedAttackType,
+                damageSpread: this.m_scene.sc_attackDamageSpreadStr,
+                damageRangeDivisor: this.m_scene.sc_attackRangeDamageDivisorStr,
+                killsSpread: this.m_scene.sc_attackKillSpreadStr,
+            });
+        } else {
+            this.onPossibleAttackRangeUpdated.emit({} as IDamageSpread);
         }
-
-        if (this.m_scene) {
-            if (this.m_scene.sc_unitInfoLines.length) {
-                leftTable.push(["Unit Info:", "!"], ...this.m_scene.sc_unitInfoLines, ["", ""]);
-            }
-
-            if (this.m_settings.m_drawInputHelp) {
-                leftTable.push(
-                    ["Controls:", "!"],
-                    ["Right Drag", "Move Camera"],
-                    ["Left Drag", "Grab Objects"],
-                    ["Wheel", "Zoom"],
-                    ...this.allHotKeys.map((hk) => [hotKeyToText(hk), hk.description] as [string, string]),
-                    ["", ""],
-                );
-            }
-            if (this.m_scene.sc_debugLines.length) {
-                leftTable.push(["Debug Info:", "!"], ...this.m_scene.sc_debugLines, ["", ""]);
-            }
-            if (this.m_scene.sc_statisticLines.length) {
-                leftTable.push(["Statistics:", "!"], ...this.m_scene.sc_statisticLines, ["", ""]);
-            }
-        }
-        this.setLeftTable(leftTable);
     }
 }
 

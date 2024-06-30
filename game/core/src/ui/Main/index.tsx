@@ -1,4 +1,4 @@
-import React, { useEffect, useReducer, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import type { SceneControlGroup } from "..";
@@ -11,61 +11,7 @@ interface SceneComponentProps {
     setSceneControlGroups: (groups: SceneControlGroup[]) => void;
 }
 
-export type SceneTable = Array<[string, string]>;
-export type SceneTableSetter = (table: SceneTable) => void;
-
-function tableReducer(state: SceneTable, action: SceneTable) {
-    if (JSON.stringify(state) !== JSON.stringify(action)) return action;
-    return state;
-}
-
-interface TextTableRowProps {
-    label: string;
-    value: string;
-}
-
-const TextTableRow = ({ label, value }: TextTableRowProps) => {
-    if (value === "!") {
-        return (
-            <tr>
-                <th colSpan={2}>{label}</th>
-            </tr>
-        );
-    }
-    if (value === "-") {
-        return (
-            <tr>
-                <td colSpan={2}>{label}</td>
-            </tr>
-        );
-    }
-    return (
-        <tr>
-            <td>{value}</td>
-            <td>{label}</td>
-        </tr>
-    );
-};
-
-interface TextTableProps {
-    id: string;
-    table: SceneTable;
-}
-
-const TextTable = ({ id, table }: TextTableProps) => (
-    <div id={id}>
-        <table>
-            <tbody>
-                {table.map(([label, value], index) => (
-                    <TextTableRow key={index} label={label} value={value} />
-                ))}
-            </tbody>
-        </table>
-    </div>
-);
-
 const GameScreen = ({ entry: { name, SceneClass }, setSceneControlGroups }: SceneComponentProps) => {
-    const [leftTable, setLeftTable] = useReducer(tableReducer, []);
     const glCanvasRef = useRef<HTMLCanvasElement>(null);
     const debugCanvasRef = useRef<HTMLCanvasElement>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
@@ -87,7 +33,7 @@ const GameScreen = ({ entry: { name, SceneClass }, setSceneControlGroups }: Scen
             };
             const init = async () => {
                 const setTest = (test: SceneEntry) => navigate(getSceneLink(test));
-                await manager.init(glCanvas, debugCanvas, wrapper, setTest, setLeftTable, setSceneControlGroups);
+                await manager.init(glCanvas, debugCanvas, wrapper, setTest, setSceneControlGroups);
                 window.requestAnimationFrame(loop);
             };
             window.requestAnimationFrame(() => {
@@ -104,7 +50,6 @@ const GameScreen = ({ entry: { name, SceneClass }, setSceneControlGroups }: Scen
         <main ref={wrapperRef}>
             <canvas ref={glCanvasRef} />
             <canvas ref={debugCanvasRef} />
-            <TextTable id="left_overlay" table={leftTable} />
         </main>
     );
 };

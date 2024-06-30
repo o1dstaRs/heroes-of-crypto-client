@@ -27,7 +27,7 @@ import { canBeCasted, Spell } from "../spells/spells";
 import { FightStateManager } from "../state/fight_state_manager";
 import { MORALE_CHANGE_FOR_KILL, PENALTY_ON_RANGE_SHOT_THROUGH_TEAMMATES } from "../statics";
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { IUnitDistance, SelectedAttackType, Unit } from "../units/units";
+import { IUnitDistance, Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { MoveHandler } from "./move_handler";
 
@@ -273,7 +273,7 @@ export class AttackHandler {
             !attackerUnit ||
             !targetUnits?.length ||
             !hoverRangeAttackPoint ||
-            attackerUnit.getAttackTypeSelection() !== SelectedAttackType.RANGE ||
+            attackerUnit.getAttackTypeSelection() !== AttackType.RANGE ||
             !this.canLandRangeAttack(attackerUnit, grid.getEnemyAggrMatrixByUnitId(attackerUnit.getId()))
         ) {
             return false;
@@ -417,7 +417,7 @@ export class AttackHandler {
             !attackFromCell ||
             !attackerBody ||
             !currentActiveKnownPaths ||
-            attackerUnit.getAttackTypeSelection() !== SelectedAttackType.MELEE ||
+            attackerUnit.getAttackTypeSelection() !== AttackType.MELEE ||
             attackerUnit.hasAbilityActive("No Melee")
         ) {
             return false;

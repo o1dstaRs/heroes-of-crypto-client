@@ -16,6 +16,7 @@ import LeftSideBar from "./LeftSideBar";
 import { Main, useActiveTestEntry } from "./Main";
 import RightSideBar from "./RightSideBar";
 import "./style.scss";
+import Popover from "./Popover";
 
 // based on the overlays width ratio
 // do not change
@@ -209,6 +210,7 @@ function Heroes() {
             </CssVarsProvider>
             <Main setSceneControlGroups={setSceneControls} />
             <Box2dBar sceneControlGroups={sceneControlGroups} />
+            <Popover />
         </div>
     );
 }

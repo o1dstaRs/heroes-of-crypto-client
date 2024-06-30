@@ -9,22 +9,22 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, FactionType, TeamType, UnitProperties, UnitType } from "@heroesofcrypto/common";
+import { AttackType, FactionType, TeamType, ToAttackType, UnitProperties, UnitType } from "@heroesofcrypto/common";
 
-import unitsJson from "./configuration/units.json";
-import spellsJson from "./configuration/spells.json";
+import { AbilityStats } from "./abilities/abilities";
 import abilitiesJson from "./configuration/abilities.json";
 import effectsJson from "./configuration/effects.json";
-import { SpellStats } from "./spells/spells";
-import { AbilityStats } from "./abilities/abilities";
+import spellsJson from "./configuration/spells.json";
+import creaturesJson from "./configuration/creatures.json";
 import { EffectStats } from "./effects/effects";
+import { SpellStats } from "./spells/spells";
 
 const DEFAULT_HERO_CONFIG = {
     hp: 120,
     steps: 3,
     speed: 2,
     armor: 12,
-    attack_type: AttackType.MELEE,
+    attack_type: "MELEE",
     attack: 12,
     attack_damage_min: 15,
     attack_damage_max: 25,
@@ -73,6 +73,14 @@ export const getHeroConfig = (
     const luck = DEFAULT_LUCK_PER_FACTION[faction] ?? 0;
     const morale = DEFAULT_MORALE_PER_FACTION[faction] ?? 0;
 
+    const attackType =
+        heroConfig.attack_type && heroConfig.attack_type.constructor === String
+            ? ToAttackType[heroConfig.attack_type as string]
+            : undefined;
+    if (attackType === undefined || attackType === AttackType.NO_TYPE) {
+        throw new TypeError(`Invalid attack type for hero ${heroName} = ${attackType}`);
+    }
+
     return new UnitProperties(
         faction,
         heroName,
@@ -82,7 +90,7 @@ export const getHeroConfig = (
         luck,
         heroConfig.speed,
         heroConfig.armor,
-        heroConfig.attack_type,
+        attackType,
         heroConfig.attack,
         heroConfig.attack_damage_min,
         heroConfig.attack_damage_max,
@@ -108,20 +116,28 @@ export const getHeroConfig = (
 export const getCreatureConfig = (
     team: TeamType,
     faction: FactionType,
-    unitName: string,
+    creatureName: string,
     largeTextureName: string,
     amount: number,
     totalExp?: number,
 ): UnitProperties => {
     // @ts-ignore: we do not know the type here yet
-    const raceUnits = unitsJson[faction];
-    if (!raceUnits) {
-        throw TypeError(`Unknown race - ${faction}`);
+    const factionUnits = creaturesJson[faction];
+    if (!factionUnits) {
+        throw TypeError(`Unknown faction - ${faction}`);
     }
 
-    const unitStatsConfig = raceUnits[unitName];
-    if (!unitStatsConfig) {
-        throw TypeError(`Unknown unit - ${unitName}`);
+    const creatureConfig = factionUnits[creatureName];
+    if (!creatureConfig) {
+        throw TypeError(`Unknown creature - ${creatureName}`);
+    }
+
+    const attackType =
+        creatureConfig.attack_type && creatureConfig.attack_type.constructor === String
+            ? ToAttackType[creatureConfig.attack_type as string]
+            : undefined;
+    if (attackType === undefined || attackType === AttackType.NO_TYPE) {
+        throw new TypeError(`Invalid attack type for creature ${creatureName} = ${attackType}`);
     }
 
     const luck = DEFAULT_LUCK_PER_FACTION[faction] ?? 0;
@@ -129,29 +145,29 @@ export const getCreatureConfig = (
 
     return new UnitProperties(
         faction,
-        unitStatsConfig.name,
-        unitStatsConfig.hp,
-        unitStatsConfig.steps,
+        creatureConfig.name,
+        creatureConfig.hp,
+        creatureConfig.steps,
         morale,
         luck,
-        unitStatsConfig.speed,
-        unitStatsConfig.armor,
-        unitStatsConfig.attack_type,
-        unitStatsConfig.attack,
-        unitStatsConfig.attack_damage_min,
-        unitStatsConfig.attack_damage_max,
-        unitStatsConfig.attack_range,
-        unitStatsConfig.range_shots,
-        unitStatsConfig.shot_distance,
-        unitStatsConfig.magic_resist,
-        unitStatsConfig.can_fly,
-        unitStatsConfig.exp,
-        unitStatsConfig.size,
-        unitStatsConfig.level,
-        structuredClone(unitStatsConfig.spells),
-        unitStatsConfig.abilities,
-        unitStatsConfig.effects,
-        amount > 0 ? amount : Math.ceil((totalExp ?? 0) / unitStatsConfig.exp),
+        creatureConfig.speed,
+        creatureConfig.armor,
+        attackType,
+        creatureConfig.attack,
+        creatureConfig.attack_damage_min,
+        creatureConfig.attack_damage_max,
+        creatureConfig.attack_range,
+        creatureConfig.range_shots,
+        creatureConfig.shot_distance,
+        creatureConfig.magic_resist,
+        creatureConfig.can_fly,
+        creatureConfig.exp,
+        creatureConfig.size,
+        creatureConfig.level,
+        structuredClone(creatureConfig.spells),
+        creatureConfig.abilities,
+        creatureConfig.effects,
+        amount > 0 ? amount : Math.ceil((totalExp ?? 0) / creatureConfig.exp),
         0,
         team,
         UnitType.CREATURE,

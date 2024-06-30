@@ -212,7 +212,7 @@ export default function UnitStatsListItem() {
                                 style={attackButtonStyle}
                             >
                                 <IconButton disabled>
-                                    {attackTypeSelected === "RANGE" ? <BowIcon /> : <SwordIcon />}
+                                    {attackTypeSelected === AttackType.RANGE ? <BowIcon /> : <SwordIcon />}
                                 </IconButton>
                                 <Button disabled>{attackDamage}</Button>
                                 {unitProperties.attack_multiplier !== 1 ? (
@@ -223,7 +223,7 @@ export default function UnitStatsListItem() {
                             </ButtonGroup>
                         </ListItem>
 
-                        {unitProperties.attack_type === "RANGE" ? (
+                        {unitProperties.attack_type === AttackType.RANGE ? (
                             <ListItem>
                                 <ButtonGroup
                                     aria-label="shot_distance"

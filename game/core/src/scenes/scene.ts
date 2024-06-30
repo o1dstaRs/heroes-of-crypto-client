@@ -35,7 +35,7 @@ import {
     XY,
 } from "@box2d/core";
 import { b2ParticleGroup, DrawParticleSystems } from "@box2d/particles";
-import { FactionType, HoCMath, UnitProperties } from "@heroesofcrypto/common";
+import { AttackType, FactionType, HoCMath, UnitProperties } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { SceneControl } from "../sceneControls";
@@ -169,9 +169,11 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_unitInfoLines: Array<[string, string]> = [];
 
-    public sc_attackDamageRange = "";
+    public sc_attackDamageSpreadStr = "";
 
-    public sc_attackCountRange = "";
+    public sc_attackRangeDamageDivisorStr = "";
+
+    public sc_attackKillSpreadStr = "";
 
     public sc_mouseJoint: b2MouseJoint | null = null;
 
@@ -194,6 +196,8 @@ export abstract class Scene extends b2ContactListener {
     public sc_selectedUnitProperties?: UnitProperties;
 
     public sc_selectedFactionName?: FactionType;
+
+    public sc_selectedAttackType: AttackType;
 
     public sc_visibleState?: IVisibleState;
 
@@ -237,6 +241,7 @@ export abstract class Scene extends b2ContactListener {
 
         this.sc_groundBody = this.sc_world.CreateBody();
         this.sc_visibleState = undefined;
+        this.sc_selectedAttackType = AttackType.NO_TYPE;
     }
 
     public setupControls() {}

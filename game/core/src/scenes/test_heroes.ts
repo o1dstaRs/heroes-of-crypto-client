@@ -64,7 +64,7 @@ import {
     STEP,
     UNIT_SIZE_DELTA,
 } from "../statics";
-import { IAttackTargets, SelectedAttackType, Unit } from "../units/units";
+import { IAttackTargets, Unit } from "../units/units";
 import { UnitsFactory } from "../units/units_factory";
 import { UnitsHolder } from "../units/units_holder";
 import { g_camera } from "../utils/camera";
@@ -135,7 +135,7 @@ class TestHeroes extends GLScene {
 
     private unitIdToCellsPreRound?: Map<string, XY[]>;
 
-    private switchToSelectedAttackType?: SelectedAttackType;
+    private switchToSelectedAttackType?: AttackType;
 
     private gridMatrix: number[][];
 
@@ -752,9 +752,10 @@ class TestHeroes extends GLScene {
             return;
         }
 
-        if (this.sc_attackDamageRange || this.sc_attackCountRange) {
-            this.sc_attackDamageRange = "";
-            this.sc_attackCountRange = "";
+        if (this.sc_attackDamageSpreadStr || this.sc_attackKillSpreadStr) {
+            this.sc_attackDamageSpreadStr = "";
+            this.sc_attackRangeDamageDivisorStr = "";
+            this.sc_attackKillSpreadStr = "";
             this.sc_hoverTextUpdateNeeded = true;
         }
 
@@ -785,14 +786,13 @@ class TestHeroes extends GLScene {
 
                 if (
                     this.currentActiveUnit &&
-                    (this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.MAGIC ||
-                        this.currentActiveSpell)
+                    (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MAGIC || this.currentActiveSpell)
                 ) {
                     if (
-                        this.currentActiveUnit.getAttackTypeSelection() !== SelectedAttackType.MAGIC &&
+                        this.currentActiveUnit.getAttackTypeSelection() !== AttackType.MAGIC &&
                         this.currentActiveSpell
                     ) {
-                        this.selectAttack(SelectedAttackType.MAGIC, currentUnitCell, true);
+                        this.selectAttack(AttackType.MAGIC, currentUnitCell, true);
                         this.currentActiveUnitSwitchedAttackAuto = true;
                         this.switchToSelectedAttackType = undefined;
                         console.log("Switch to MAGIC");
@@ -857,7 +857,7 @@ class TestHeroes extends GLScene {
                     !this.currentActiveUnitSwitchedAttackAuto &&
                     currentUnitCell &&
                     this.currentActiveUnit.getAttackType() === AttackType.RANGE &&
-                    this.currentActiveUnit.getAttackTypeSelection() !== SelectedAttackType.RANGE &&
+                    this.currentActiveUnit.getAttackTypeSelection() !== AttackType.RANGE &&
                     !this.attackHandler.canBeAttackedByMelee(
                         this.currentActiveUnit.getPosition(),
                         this.currentActiveUnit.isSmallSize(),
@@ -866,11 +866,11 @@ class TestHeroes extends GLScene {
                     this.currentActiveUnit.getRangeShots() > 0
                 ) {
                     //                    if (this.grid.canBeAttackedByMelee(currentUnitCell, this.currentActiveUnit.getId())) {
-                    //                        this.currentActiveUnit.selectAttackType(SelectedAttackType.MELEE);
+                    //                        this.currentActiveUnit.selectAttackType(AttackType.MELEE);
                     //                        console.log("Switch to MELEE");
                     //                    } else if (this.currentActiveUnit.getRangeShots() > 0) {
-                    //                    this.currentActiveUnit.selectAttackType(SelectedAttackType.RANGE);
-                    this.selectAttack(SelectedAttackType.RANGE, currentUnitCell, true);
+                    //                    this.currentActiveUnit.selectAttackType(AttackType.RANGE);
+                    this.selectAttack(AttackType.RANGE, currentUnitCell, true);
                     this.currentActiveUnitSwitchedAttackAuto = true;
                     this.switchToSelectedAttackType = undefined;
 
@@ -878,7 +878,7 @@ class TestHeroes extends GLScene {
                 }
 
                 if (
-                    this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.MELEE &&
+                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE &&
                     !this.currentActiveUnit.hasAbilityActive("No Melee")
                 ) {
                     if (this.hoverRangeAttackLine) {
@@ -964,11 +964,11 @@ class TestHeroes extends GLScene {
                             );
                             const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
                             const maxDied = hoverAttackUnit.calculatePossibleLosses(maxDmg);
-                            this.sc_attackDamageRange = `${minDmg}-${maxDmg}`;
+                            this.sc_attackDamageSpreadStr = `${minDmg}-${maxDmg}`;
                             if (minDied !== maxDied) {
-                                this.sc_attackCountRange = `${minDied}-${maxDied}`;
+                                this.sc_attackKillSpreadStr = `${minDied}-${maxDied}`;
                             } else if (minDied) {
-                                this.sc_attackCountRange = minDied.toString();
+                                this.sc_attackKillSpreadStr = minDied.toString();
                             }
                             this.sc_hoverTextUpdateNeeded = true;
 
@@ -1023,7 +1023,7 @@ class TestHeroes extends GLScene {
                             };
                         }
                     }
-                } else if (this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.RANGE) {
+                } else if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE) {
                     if (!unit) {
                         this.hoverActivePath = undefined;
                         return;
@@ -1144,12 +1144,13 @@ class TestHeroes extends GLScene {
                             const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
                             const maxDied = hoverAttackUnit.calculatePossibleLosses(maxDmg);
                             if (minDied !== maxDied) {
-                                this.sc_attackCountRange = `${minDied}-${maxDied}`;
+                                this.sc_attackKillSpreadStr = `${minDied}-${maxDied}`;
                             } else if (minDied) {
-                                this.sc_attackCountRange = minDied.toString();
+                                this.sc_attackKillSpreadStr = minDied.toString();
                             }
 
-                            this.sc_attackDamageRange = `${divisorStr} ${minDmg}-${maxDmg}`;
+                            this.sc_attackDamageSpreadStr = `${minDmg}-${maxDmg}`;
+                            this.sc_attackRangeDamageDivisorStr = divisorStr;
                             this.sc_hoverTextUpdateNeeded = true;
                         }
                     }
@@ -1731,6 +1732,7 @@ class TestHeroes extends GLScene {
             this.currentActiveUnit.setOnHourglass(false);
         }
         this.currentActiveUnit = undefined;
+        this.sc_selectedAttackType = AttackType.NO_TYPE;
 
         // refresh UI
         this.sc_renderSpellBookOverlay = false;
@@ -1871,19 +1873,19 @@ class TestHeroes extends GLScene {
                     this.currentActiveUnit.getPosition(),
                 );
                 if (
-                    this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.RANGE ||
-                    this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.MAGIC
+                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE ||
+                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.MAGIC
                 ) {
                     this.selectAttack(
                         this.currentActiveUnit.getAttackType() === AttackType.RANGE
-                            ? SelectedAttackType.RANGE
-                            : SelectedAttackType.MAGIC,
+                            ? AttackType.RANGE
+                            : AttackType.MAGIC,
                         currentUnitCell,
                         true,
                     );
                     this.sc_unitPropertiesUpdateNeeded = true;
                 } else {
-                    this.selectAttack(SelectedAttackType.MELEE, currentUnitCell, true);
+                    this.selectAttack(AttackType.MELEE, currentUnitCell, true);
                     this.sc_unitPropertiesUpdateNeeded = true;
                 }
                 this.currentActiveUnitSwitchedAttackAuto = true;
@@ -1999,6 +2001,7 @@ class TestHeroes extends GLScene {
             if (this.currentActiveUnit) {
                 if (!this.currentActivePath) {
                     this.currentActiveUnit = undefined;
+                    this.sc_selectedAttackType = AttackType.NO_TYPE;
                     return;
                 }
 
@@ -2089,6 +2092,7 @@ class TestHeroes extends GLScene {
         }
 
         this.currentActiveUnit = undefined;
+        this.sc_selectedAttackType = AttackType.NO_TYPE;
     }
 
     private refreshVisibleStateIfNeeded() {
@@ -2109,7 +2113,7 @@ class TestHeroes extends GLScene {
         }
     }
 
-    private selectAttack(selectedAttackType: SelectedAttackType, currentUnitCell?: XY, force = false): boolean {
+    private selectAttack(selectedAttackType: AttackType, currentUnitCell?: XY, force = false): boolean {
         if (!this.currentActiveUnit || !currentUnitCell) {
             return false;
         }
@@ -2128,7 +2132,7 @@ class TestHeroes extends GLScene {
                 )
             ) {
                 hasOption = false;
-                if (this.currentActiveUnit.selectAttackType(SelectedAttackType.MELEE)) {
+                if (this.currentActiveUnit.selectAttackType(AttackType.MELEE)) {
                     this.selectedAttackTypeButton.switchSprites(
                         new Sprite(this.gl, this.shader, this.textures.range_white_128.texture),
                         new Sprite(this.gl, this.shader, this.textures.range_black_128.texture),
@@ -2136,13 +2140,14 @@ class TestHeroes extends GLScene {
                     this.currentActiveSpell = undefined;
                     this.adjustSpellBookSprite();
                 }
+                this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
             } else if (isRange && this.currentActiveUnit.getRangeShots() <= 0) {
                 hasOption = false;
             } else if (isMagic && !this.currentActiveUnit.getCanCastSpells()) {
                 hasOption = false;
             } else if (
-                this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.RANGE ||
-                this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.MAGIC
+                this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE ||
+                this.currentActiveUnit.getAttackTypeSelection() === AttackType.MAGIC
             ) {
                 this.selectedAttackTypeButton.switchSprites(
                     new Sprite(this.gl, this.shader, this.textures.melee_white_128.texture),
@@ -2169,11 +2174,11 @@ class TestHeroes extends GLScene {
             if (this.switchToSelectedAttackType) {
                 if (force) {
                     this.currentActiveUnit.selectAttackType(this.switchToSelectedAttackType);
-                    if (this.switchToSelectedAttackType !== SelectedAttackType.MAGIC) {
+                    if (this.switchToSelectedAttackType !== AttackType.MAGIC) {
                         this.currentActiveSpell = undefined;
                         this.adjustSpellBookSprite();
                     }
-                    if (this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.RANGE) {
+                    if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE) {
                         this.sc_currentActiveShotRange = {
                             xy: this.currentActiveUnit.getPosition(),
                             distance: this.currentActiveUnit.getRangeShotDistance() * STEP,
@@ -2181,7 +2186,7 @@ class TestHeroes extends GLScene {
                     } else {
                         this.sc_currentActiveShotRange = undefined;
                     }
-                    if (this.switchToSelectedAttackType === SelectedAttackType.MELEE) {
+                    if (this.switchToSelectedAttackType === AttackType.MELEE) {
                         if (this.currentActiveUnit.getAttackType() === AttackType.RANGE) {
                             this.selectedAttackTypeButton.switchSprites(
                                 new Sprite(this.gl, this.shader, this.textures.range_white_128.texture),
@@ -2194,8 +2199,8 @@ class TestHeroes extends GLScene {
                             );
                         }
                     } else if (
-                        this.switchToSelectedAttackType === SelectedAttackType.RANGE ||
-                        this.switchToSelectedAttackType === SelectedAttackType.MAGIC
+                        this.switchToSelectedAttackType === AttackType.RANGE ||
+                        this.switchToSelectedAttackType === AttackType.MAGIC
                     ) {
                         this.selectedAttackTypeButton.switchSprites(
                             new Sprite(this.gl, this.shader, this.textures.melee_white_128.texture),
@@ -2207,6 +2212,7 @@ class TestHeroes extends GLScene {
             } else {
                 this.switchToSelectedAttackType = selectedAttackType;
             }
+            this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
             return true;
         }
         return false;
@@ -2298,8 +2304,7 @@ class TestHeroes extends GLScene {
 
             const drawActiveShotRange =
                 !this.currentActiveUnit ||
-                (this.currentActiveUnit &&
-                    this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.RANGE);
+                (this.currentActiveUnit && this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE);
             if (drawActiveShotRange && this.sc_currentActiveShotRange) {
                 settings.m_debugDraw.DrawCircle(
                     this.sc_currentActiveShotRange.xy,
@@ -2683,6 +2688,7 @@ class TestHeroes extends GLScene {
                         if (nextUnit) {
                             if (nextUnit.isSkippingThisTurn()) {
                                 this.currentActiveUnit = nextUnit;
+                                this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                                 this.currentActiveUnit.decreaseMorale(MORALE_CHANGE_FOR_SKIP);
                                 this.currentActiveUnit.applyMoraleStepsModifier(
                                     FightStateManager.getInstance().getStepsMoraleMultiplier(),
@@ -2718,6 +2724,7 @@ class TestHeroes extends GLScene {
                                     this.sc_hoverTextUpdateNeeded = true;
                                     this.sc_selectedBody = unitBody;
                                     this.currentActiveUnit = nextUnit;
+                                    this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                                     this.currentActiveSpell = undefined;
                                     this.adjustSpellBookSprite();
                                     this.currentActiveUnitSwitchedAttackAuto = false;
@@ -2753,7 +2760,7 @@ class TestHeroes extends GLScene {
                                             enemyTeam,
                                             positions,
                                         );
-                                        if (nextUnit.getAttackTypeSelection() === SelectedAttackType.RANGE) {
+                                        if (nextUnit.getAttackTypeSelection() === AttackType.RANGE) {
                                             this.sc_currentActiveShotRange = {
                                                 xy: nextUnit.getPosition(),
                                                 distance: nextUnit.getRangeShotDistance() * STEP,
@@ -2777,7 +2784,8 @@ class TestHeroes extends GLScene {
                 if (this.currentActiveUnit && this.sc_isAIActive) {
                     const action = findTarget(this.currentActiveUnit, this.grid, this.gridMatrix, this.pathHelper);
                     if (action?.actionType() === AIActionType.MOVE_AND_M_ATTACK) {
-                        this.currentActiveUnit.selectAttackType(SelectedAttackType.MELEE);
+                        this.currentActiveUnit.selectAttackType(AttackType.MELEE);
+                        this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                         this.currentActiveKnownPaths = action.currentActiveKnownPaths();
                         const cellToAttack = action.cellToAttack();
                         if (cellToAttack) {
@@ -2812,7 +2820,7 @@ class TestHeroes extends GLScene {
                         }
                         this.landAttack();
                     } else if (action?.actionType() === AIActionType.M_ATTACK) {
-                        this.currentActiveUnit.selectAttackType(SelectedAttackType.MELEE);
+                        this.currentActiveUnit.selectAttackType(AttackType.MELEE);
                         this.currentActiveKnownPaths = action.currentActiveKnownPaths();
                         const cellToAttack = action.cellToAttack();
                         if (cellToAttack) {
@@ -2830,7 +2838,7 @@ class TestHeroes extends GLScene {
                         }
                         this.landAttack();
                     } else if (action?.actionType() === AIActionType.R_ATTACK) {
-                        this.currentActiveUnit.selectAttackType(SelectedAttackType.RANGE);
+                        this.currentActiveUnit.selectAttackType(AttackType.RANGE);
                         this.currentActiveKnownPaths = action.currentActiveKnownPaths();
                         const cellToAttack = action.cellToAttack();
                         if (cellToAttack) {
@@ -3153,12 +3161,12 @@ class TestHeroes extends GLScene {
                 this.currentActiveUnit.getPosition(),
             );
 
-            let toSelectAttackType = SelectedAttackType.MELEE;
-            if (this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.MELEE) {
+            let toSelectAttackType = AttackType.MELEE;
+            if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE) {
                 if (this.currentActiveUnit.getAttackType() === AttackType.MAGIC) {
-                    toSelectAttackType = SelectedAttackType.MAGIC;
+                    toSelectAttackType = AttackType.MAGIC;
                 } else if (this.currentActiveUnit.getAttackType() === AttackType.RANGE) {
-                    toSelectAttackType = SelectedAttackType.RANGE;
+                    toSelectAttackType = AttackType.RANGE;
                 }
             }
             if (

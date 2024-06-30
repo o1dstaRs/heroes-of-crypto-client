@@ -54,12 +54,6 @@ import { Sprite } from "../utils/gl/Sprite";
 import { Effect } from "../effects/effects";
 import { SceneLog } from "../menu/scene_log";
 
-export enum SelectedAttackType {
-    MELEE = 1,
-    RANGE = 2,
-    MAGIC = 3,
-}
-
 export interface IAttackTargets {
     units: Unit[];
     unitIds: Set<string>;
@@ -168,9 +162,9 @@ interface IDamager {
 
     calculateAttackDamage(enemyUnit: Unit, attackType: AttackType, divisor: number, abilityMultiplier: number): number;
 
-    getAttackTypeSelection(): SelectedAttackType;
+    getAttackTypeSelection(): AttackType;
 
-    selectAttackType(selectedAttackType: SelectedAttackType): boolean;
+    selectAttackType(selectedAttackType: AttackType): boolean;
 }
 
 interface IDamageTaken {
@@ -231,7 +225,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected effects: Effect[];
 
-    protected selectedAttackType: SelectedAttackType;
+    protected selectedAttackType: AttackType;
 
     protected rangeArmorMultiplier = 1;
 
@@ -278,11 +272,11 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.summoned = summoned;
 
         if (this.unitProperties.attack_type === AttackType.MELEE) {
-            this.selectedAttackType = SelectedAttackType.MELEE;
+            this.selectedAttackType = AttackType.MELEE;
         } else if (this.unitProperties.attack_type === AttackType.RANGE) {
-            this.selectedAttackType = SelectedAttackType.RANGE;
+            this.selectedAttackType = AttackType.RANGE;
         } else {
-            this.selectedAttackType = SelectedAttackType.MAGIC;
+            this.selectedAttackType = AttackType.MAGIC;
         }
 
         const position = (this.position = new b2Vec2());
@@ -1170,27 +1164,27 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.onHourglass = onHourglass;
     }
 
-    public getAttackTypeSelection(): SelectedAttackType {
-        if (this.selectedAttackType === SelectedAttackType.RANGE && this.unitProperties.range_shots <= 0) {
-            this.selectedAttackType = SelectedAttackType.MELEE;
+    public getAttackTypeSelection(): AttackType {
+        if (this.selectedAttackType === AttackType.RANGE && this.unitProperties.range_shots <= 0) {
+            this.selectedAttackType = AttackType.MELEE;
             this.unitProperties.attack_type_selected = AttackType.MELEE;
-        } else if (this.selectedAttackType === SelectedAttackType.MAGIC && this.unitProperties.spells.length <= 0) {
-            this.selectedAttackType = SelectedAttackType.MELEE;
+        } else if (this.selectedAttackType === AttackType.MAGIC && this.unitProperties.spells.length <= 0) {
+            this.selectedAttackType = AttackType.MELEE;
             this.unitProperties.attack_type_selected = AttackType.MELEE;
         }
 
         return this.selectedAttackType;
     }
 
-    public selectAttackType(selectedAttackType: SelectedAttackType): boolean {
-        if (selectedAttackType === SelectedAttackType.MELEE && this.selectedAttackType !== selectedAttackType) {
+    public selectAttackType(selectedAttackType: AttackType): boolean {
+        if (selectedAttackType === AttackType.MELEE && this.selectedAttackType !== selectedAttackType) {
             this.selectedAttackType = selectedAttackType;
             this.unitProperties.attack_type_selected = AttackType.MELEE;
             return true;
         }
 
         if (
-            selectedAttackType === SelectedAttackType.RANGE &&
+            selectedAttackType === AttackType.RANGE &&
             this.unitProperties.attack_type === AttackType.RANGE &&
             this.unitProperties.range_shots &&
             this.selectedAttackType !== selectedAttackType
@@ -1201,7 +1195,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         if (
-            selectedAttackType === SelectedAttackType.MAGIC &&
+            selectedAttackType === AttackType.MAGIC &&
             this.unitProperties.attack_type === AttackType.MAGIC &&
             this.unitProperties.spells.length &&
             this.selectedAttackType !== selectedAttackType
