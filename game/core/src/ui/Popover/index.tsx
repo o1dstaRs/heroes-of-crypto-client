@@ -2,49 +2,118 @@ import React, { useEffect, useState } from "react";
 import { AttackType } from "@heroesofcrypto/common";
 
 import { useManager } from "../../manager";
-import { IDamageSpread } from "../../stats/damage_stats";
+import { IHoverInfo } from "../../stats/damage_stats";
 
-const toAttackString = (damageSpread: IDamageSpread): string => {
-    if (!damageSpread.attackType) {
-        return "";
-    }
-
+const getAttackEmojiByType = (hoverInfo: IHoverInfo): string => {
     let attackTypeEmoji = "🗡️";
-    if (damageSpread.attackType === AttackType.RANGE) {
+    if (hoverInfo.attackType === AttackType.RANGE) {
         attackTypeEmoji = "🏹";
-    } else if (damageSpread.attackType === AttackType.MAGIC) {
+    } else if (hoverInfo.attackType === AttackType.MAGIC) {
         attackTypeEmoji = "💥";
     }
 
-    return `${attackTypeEmoji} ${damageSpread.damageSpread}`;
+    return attackTypeEmoji;
 };
 
-const toKillsString = (damageSpread: IDamageSpread): string => {
-    if (!damageSpread.killsSpread) {
+const toAttackString = (hoverInfo: IHoverInfo): string => {
+    if (!hoverInfo.attackType || !hoverInfo.damageSpread) {
         return "";
     }
 
-    return `💀 ${damageSpread.killsSpread}`;
+    return `${getAttackEmojiByType(hoverInfo)} ${hoverInfo.damageSpread}`;
 };
 
-const toRangeDivisorString = (damageSpread: IDamageSpread): string => {
-    if (!damageSpread.damageRangeDivisor) {
+const toKillsString = (hoverInfo: IHoverInfo): string => {
+    if (!hoverInfo.killsSpread) {
         return "";
     }
 
-    return `🎯 ${damageSpread.damageRangeDivisor}`;
+    return `💀 ${hoverInfo.killsSpread}`;
+};
+
+const toRangeDivisorString = (hoverInfo: IHoverInfo): string => {
+    if (!hoverInfo.damageRangeDivisor) {
+        return "";
+    }
+
+    return `🎯 ${hoverInfo.damageRangeDivisor}`;
+};
+
+const generalInfoElement = (hoverInfo: IHoverInfo): JSX.Element => {
+    if (!hoverInfo.information?.length) {
+        return <></>;
+    }
+
+    console.log("Ssss");
+    console.log(hoverInfo.information);
+
+    return (
+        <>
+            <span>
+                {hoverInfo.information.map((info, index) => (
+                    <React.Fragment key={index}>
+                        {info}
+                        {index < hoverInfo.information.length - 1 && <br />}
+                    </React.Fragment>
+                ))}
+            </span>
+        </>
+    );
+};
+
+const unitInfoElement = (hoverInfo: IHoverInfo): JSX.Element => {
+    if (!hoverInfo.unitName || !hoverInfo.attackType) {
+        return <></>;
+    }
+
+    let attackTypeStr = "Melee";
+    let attackTypeEmoji = "🗡️";
+    if (hoverInfo.attackType === AttackType.RANGE) {
+        attackTypeEmoji = "🏹";
+        attackTypeStr = "Range";
+    } else if (hoverInfo.attackType === AttackType.MAGIC) {
+        attackTypeEmoji = "💥";
+        attackTypeStr = "Magic";
+    }
+
+    return (
+        <>
+            <span>👤 {hoverInfo.unitName}</span>
+            <br />
+            <span>
+                {attackTypeEmoji} {attackTypeStr}
+            </span>
+        </>
+    );
+};
+
+const unitAttackElement = (hoverInfo: IHoverInfo): JSX.Element => {
+    if (!hoverInfo.attackType || !hoverInfo.damageSpread) {
+        return <></>;
+    }
+
+    const rangeDivisorString = toRangeDivisorString(hoverInfo);
+
+    return (
+        <>
+            {rangeDivisorString}
+            {rangeDivisorString && <br />}
+            {toAttackString(hoverInfo)}
+            <br /> {toKillsString(hoverInfo)}
+        </>
+    );
 };
 
 const Popover: React.FC = () => {
     const [positionPopover, setPositionPopover] = useState({ x: 0, y: 0 });
     const [visiblePopover, setVisiblePopover] = useState(true);
 
-    const [damageSpread, setDamageSpread] = useState({} as IDamageSpread);
+    const [hoverInfo, setHoverInfo] = useState({} as IHoverInfo);
 
     const manager = useManager();
 
     useEffect(() => {
-        const connection = manager.onPossibleAttackRangeUpdated.connect(setDamageSpread);
+        const connection = manager.onPossibleAttackRangeUpdated.connect(setHoverInfo);
         return () => {
             connection.disconnect();
         };
@@ -61,7 +130,7 @@ const Popover: React.FC = () => {
         setVisiblePopover(false);
     };
 
-    if (Object.keys(damageSpread).length === 0 && visiblePopover) {
+    if (Object.keys(hoverInfo).length === 0 && visiblePopover) {
         setVisiblePopover(false);
     }
 
@@ -75,15 +144,13 @@ const Popover: React.FC = () => {
         };
     }, []);
 
-    const rangeDivisorString = toRangeDivisorString(damageSpread);
-
     return (
         <div
             style={{
                 position: "fixed",
                 top: positionPopover.y + 10, // Offset to avoid overlapping with the cursor
                 left: positionPopover.x + 10,
-                display: Object.keys(damageSpread).length ? "block" : "none",
+                display: Object.keys(hoverInfo).length ? "block" : "none",
                 padding: "10px",
                 backgroundColor: "rgba(0, 0, 0, 0.75)",
                 color: "white",
@@ -91,10 +158,9 @@ const Popover: React.FC = () => {
                 pointerEvents: "none", // Prevent the popover from intercepting mouse events
             }}
         >
-            {rangeDivisorString}
-            {rangeDivisorString && <br />}
-            {toAttackString(damageSpread)}
-            <br /> {toKillsString(damageSpread)}
+            {generalInfoElement(hoverInfo)}
+            {unitInfoElement(hoverInfo)}
+            {unitAttackElement(hoverInfo)}
         </div>
     );
 };

@@ -17,11 +17,13 @@ export interface IDamageStatistic {
     team: TeamType;
 }
 
-export interface IDamageSpread {
+export interface IHoverInfo {
     attackType: AttackType;
     damageSpread: string;
     damageRangeDivisor: string;
     killsSpread: string;
+    unitName: string;
+    information: string[];
 }
 
 export class DamageStatisticHolder {

@@ -694,9 +694,11 @@ class TestHeroes extends GLScene {
 
     private resetHover(resetSelectedCells = true): void {
         if (resetSelectedCells) {
+            this.sc_hoverUnitNameStr = "";
             this.hoverSelectedCells = undefined;
             this.hoverSelectedCellsSwitchToRed = false;
         }
+
         this.hoverAttackUnits = undefined;
         this.hoverActivePath = undefined;
         this.hoverAttackFrom = undefined;
@@ -752,6 +754,16 @@ class TestHeroes extends GLScene {
             return;
         }
 
+        if (this.sc_hoverUnitNameStr) {
+            this.sc_hoverUnitNameStr = "";
+            this.sc_hoverTextUpdateNeeded = true;
+        }
+
+        if (!this.sc_hoverInfoArr || this.sc_hoverInfoArr.length) {
+            this.sc_hoverInfoArr = [];
+            this.sc_hoverTextUpdateNeeded = true;
+        }
+
         if (this.sc_attackDamageSpreadStr || this.sc_attackKillSpreadStr) {
             this.sc_attackDamageSpreadStr = "";
             this.sc_attackRangeDamageDivisorStr = "";
@@ -768,6 +780,12 @@ class TestHeroes extends GLScene {
 
             if (this.sc_renderSpellBookOverlay) {
                 this.hoveredSpell = this.currentActiveUnit.getHoveredSpell(this.sc_mouseWorld);
+                if (this.hoveredSpell) {
+                    console.log("HOVERING SPELL");
+                    this.sc_hoverInfoArr = this.hoveredSpell.getDesc();
+                    console.log(this.sc_hoverInfoArr);
+                    this.sc_hoverTextUpdateNeeded = true;
+                }
                 this.resetHover(false);
                 return;
             }
@@ -1421,6 +1439,12 @@ class TestHeroes extends GLScene {
             } else if (this.cellToUnitPreRound && this.unitIdToCellsPreRound) {
                 const unit = this.cellToUnitPreRound.get(`${mouseCell.x}:${mouseCell.y}`);
                 if (unit) {
+                    if (!GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), unit.getPosition())) {
+                        this.sc_hoverUnitNameStr = unit.getName();
+                        this.sc_selectedAttackType = unit.getAttackType();
+                        this.sc_hoverTextUpdateNeeded = true;
+                    }
+
                     this.hoverSelectedCells = this.unitIdToCellsPreRound.get(unit.getId());
                     this.hoverSelectedCellsSwitchToRed = false;
                 } else {

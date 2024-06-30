@@ -175,6 +175,10 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_attackKillSpreadStr = "";
 
+    public sc_hoverInfoArr: string[] = [];
+
+    public sc_hoverUnitNameStr = "";
+
     public sc_mouseJoint: b2MouseJoint | null = null;
 
     public sc_pointCount = 0;
@@ -451,6 +455,7 @@ export abstract class Scene extends b2ContactListener {
             this.sc_started = hasStarted;
             if (this.sc_started) {
                 this.destroyTempFixtures();
+                this.sc_hoverUnitNameStr = "";
             }
         }
     }

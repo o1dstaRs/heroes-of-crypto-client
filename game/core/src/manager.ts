@@ -20,7 +20,7 @@ import { getScenesGrouped, Scene, SceneConstructor, SceneEntry } from "./scenes/
 import { Settings } from "./settings";
 import { IVisibleState } from "./state/state";
 import { MAX_FPS } from "./statics";
-import { DamageStatisticHolder, IDamageStatistic, IDamageSpread } from "./stats/damage_stats";
+import { DamageStatisticHolder, IDamageStatistic, IHoverInfo } from "./stats/damage_stats";
 import type { SceneControlGroup } from "./ui";
 import { g_camera } from "./utils/camera";
 import { FpsCalculator } from "./utils/FpsCalculator";
@@ -73,7 +73,7 @@ export class GameManager {
 
     public readonly onVisibleStateUpdated = new Signal<(visibleState: IVisibleState) => void>();
 
-    public readonly onPossibleAttackRangeUpdated = new Signal<(visibleState: IDamageSpread) => void>();
+    public readonly onPossibleAttackRangeUpdated = new Signal<(visibleState: IHoverInfo) => void>();
 
     private m_hoveringCanvas = false;
 
@@ -448,15 +448,21 @@ export class GameManager {
     }
 
     public UpdateText() {
-        if (this.m_scene?.sc_attackDamageSpreadStr) {
+        if (
+            this.m_scene?.sc_attackDamageSpreadStr ||
+            this.m_scene?.sc_hoverUnitNameStr ||
+            this.m_scene?.sc_hoverInfoArr?.length
+        ) {
             this.onPossibleAttackRangeUpdated.emit({
                 attackType: this.m_scene.sc_selectedAttackType,
                 damageSpread: this.m_scene.sc_attackDamageSpreadStr,
                 damageRangeDivisor: this.m_scene.sc_attackRangeDamageDivisorStr,
                 killsSpread: this.m_scene.sc_attackKillSpreadStr,
+                unitName: this.m_scene.sc_hoverUnitNameStr,
+                information: this.m_scene.sc_hoverInfoArr,
             });
         } else {
-            this.onPossibleAttackRangeUpdated.emit({} as IDamageSpread);
+            this.onPossibleAttackRangeUpdated.emit({} as IHoverInfo);
         }
     }
 }

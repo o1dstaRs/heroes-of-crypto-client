@@ -17,7 +17,7 @@ import effectsJson from "./configuration/effects.json";
 import spellsJson from "./configuration/spells.json";
 import creaturesJson from "./configuration/creatures.json";
 import { EffectStats } from "./effects/effects";
-import { SpellStats } from "./spells/spells";
+import { SpellProperties } from "./spells/spells";
 
 const DEFAULT_HERO_CONFIG = {
     hp: 120,
@@ -175,28 +175,28 @@ export const getCreatureConfig = (
     );
 };
 
-export const getSpellConfig = (faction: FactionType, spellName: string): SpellStats => {
+export const getSpellConfig = (faction: FactionType, spellName: string): SpellProperties => {
     // @ts-ignore: we do not know the type here yet
     const raceSpells = spellsJson[faction];
     if (!raceSpells) {
         throw TypeError(`Unknown race - ${faction}`);
     }
 
-    const spellStatsConfig = raceSpells[spellName];
-    if (!spellStatsConfig) {
+    const spellConfig = raceSpells[spellName];
+    if (!spellConfig) {
         throw TypeError(`Unknown spell - ${spellName}`);
     }
 
-    return new SpellStats(
+    return new SpellProperties(
         faction,
-        spellStatsConfig.name,
-        spellStatsConfig.level,
-        spellStatsConfig.desc,
-        spellStatsConfig.target,
-        spellStatsConfig.power,
-        spellStatsConfig.laps,
-        spellStatsConfig.self_cast_allowed,
-        spellStatsConfig.self_debuff_applies,
+        spellConfig.name,
+        spellConfig.level,
+        spellConfig.desc,
+        spellConfig.target,
+        spellConfig.power,
+        spellConfig.laps,
+        spellConfig.self_cast_allowed,
+        spellConfig.self_debuff_applies,
     );
 };
 
