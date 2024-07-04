@@ -633,39 +633,6 @@ export class Drawer {
         }
     }
 
-    public renderUpNextFonts(
-        draw: b2Draw,
-        fps: number,
-        currentTick: number,
-        isLightMode: boolean,
-        unitsNext: Unit[],
-        isAnimationLocked: boolean,
-        currentActiveUnitId?: string,
-    ): void {
-        if (isLightMode) {
-            this.upNextFontBlackSprite.render();
-        } else {
-            this.upNextFontWhiteSprite.render();
-        }
-        let i = 1;
-        let shift = 1;
-        for (const u of unitsNext) {
-            u.render(
-                fps,
-                currentTick,
-                isLightMode,
-                isAnimationLocked,
-                draw,
-                i++,
-                shift,
-                u.getId() === currentActiveUnitId,
-            );
-            if (!u.isSmallSize()) {
-                shift++;
-            }
-        }
-    }
-
     public addTerrainObstacle(obstacle: Obstacle): void {
         this.terrainObstacles.push(obstacle);
     }

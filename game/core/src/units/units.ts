@@ -123,6 +123,10 @@ export interface IUnitPropertiesProvider {
     getTeam(): TeamType;
 
     getUnitType(): UnitType;
+
+    getSmallTextureName(): string;
+
+    getLargeTextureName(): string;
 }
 
 export interface IUnitAIRepr {
@@ -672,6 +676,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public getUnitType(): UnitType {
         return this.unitType;
+    }
+
+    public getSmallTextureName(): string {
+        return this.unitProperties.small_texture_name;
+    }
+
+    public getLargeTextureName(): string {
+        return this.unitProperties.large_texture_name;
     }
 
     public getAmountAlive(): number {

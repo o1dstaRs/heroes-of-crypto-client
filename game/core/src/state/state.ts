@@ -34,6 +34,12 @@ export interface IFightState {
     hasAdditionalTimeRequestedPerTeam: Map<number, boolean>;
 }
 
+export interface IVisibleUnit {
+    amount: number;
+    smallTextureName: string;
+    teamType: TeamType;
+}
+
 export interface IVisibleState {
     canBeStarted: boolean;
     hasFinished: boolean;
@@ -45,4 +51,5 @@ export interface IVisibleState {
     numberOfLapsTillNarrowing: number;
     numberOfLapsTillStopNarrowing: number;
     canRequestAdditionalTime: boolean;
+    upNext: IVisibleUnit[];
 }

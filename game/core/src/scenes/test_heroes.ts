@@ -74,6 +74,7 @@ import { Sprite } from "../utils/gl/Sprite";
 import { GLScene } from "./gl_scene";
 import { registerScene, SceneContext } from "./scene";
 import { SceneSettings } from "./scene_settings";
+import { IVisibleUnit } from "../state/state";
 
 const COLOR_ORANGE = new b2Color(0.909803921568627, 0.282352941176471, 0.203921568627451);
 const COLOR_YELLOW = new b2Color(1, 0.952941176470588, 0.427450980392157);
@@ -2210,6 +2211,7 @@ class TestHeroes extends GLScene {
                 numberOfLapsTillNarrowing: this.grid.getNumberOfLapsTillNarrowing(),
                 numberOfLapsTillStopNarrowing: NUMBER_OF_LAPS_TILL_STOP_NARROWING,
                 canRequestAdditionalTime: !!FightStateManager.getInstance().requestAdditionalTurnTime(undefined, true),
+                upNext: [],
             };
             this.sc_visibleStateUpdateNeeded = true;
         }
@@ -2788,6 +2790,29 @@ class TestHeroes extends GLScene {
                         const nextUnit = nextUnitId ? this.unitsHolder.getAllUnits().get(nextUnitId) : undefined;
 
                         if (nextUnit) {
+                            const unitsNext: IVisibleUnit[] = [];
+                            for (const unitIdNext of FightStateManager.getInstance().getFightState().upNext) {
+                                const unitNext = this.unitsHolder.getAllUnits().get(unitIdNext);
+                                if (unitNext) {
+                                    unitsNext.unshift({
+                                        amount: unitNext.getAmountAlive(),
+                                        smallTextureName: unitNext.getSmallTextureName(),
+                                        teamType: unitNext.getTeam(),
+                                    });
+                                }
+                            }
+                            if (nextUnit) {
+                                unitsNext.push({
+                                    amount: nextUnit.getAmountAlive(),
+                                    smallTextureName: nextUnit.getSmallTextureName(),
+                                    teamType: nextUnit.getTeam(),
+                                });
+                            }
+
+                            if (this.sc_visibleState) {
+                                this.sc_visibleState.upNext = unitsNext;
+                            }
+
                             if (nextUnit.isSkippingThisTurn()) {
                                 this.currentActiveUnit = nextUnit;
                                 this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
@@ -3065,28 +3090,7 @@ class TestHeroes extends GLScene {
             }
         }
 
-        if (this.sc_started) {
-            const unitsNext: Unit[] = [];
-            for (const unitIdNext of FightStateManager.getInstance().getFightState().upNext) {
-                const unitNext = this.unitsHolder.getAllUnits().get(unitIdNext);
-                if (unitNext) {
-                    unitsNext.push(unitNext);
-                }
-            }
-            if (this.currentActiveUnit) {
-                unitsNext.push(this.currentActiveUnit);
-            }
-            this.drawer.renderUpNextFonts(
-                settings.m_debugDraw,
-                this.sc_fps,
-                this.sc_stepCount,
-                isLightMode,
-                unitsNext,
-                this.sc_isAnimating,
-                this.currentActiveUnit?.getId(),
-            );
-            this.placementsCleanedUp = true;
-        } else {
+        if (!this.sc_started) {
             this.sc_isAIActive = false;
             this.lowerPlacement.draw(settings.m_debugDraw);
             this.upperPlacement.draw(settings.m_debugDraw);

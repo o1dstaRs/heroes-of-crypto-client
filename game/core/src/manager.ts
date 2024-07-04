@@ -434,16 +434,16 @@ export class GameManager {
         }
 
         if (this.m_scene?.sc_damageStatsUpdateNeeded) {
-            this.onDamageStatisticsUpdated.emit([] as IDamageStatistic[]);
-            this.onDamageStatisticsUpdated.emit(DamageStatisticHolder.getInstance().get());
+            // this.onDamageStatisticsUpdated.emit([] as IDamageStatistic[]);
+            this.onDamageStatisticsUpdated.emit(structuredClone(DamageStatisticHolder.getInstance().get()));
 
             this.m_scene.sc_damageStatsUpdateNeeded = false;
         }
 
         if (this.m_scene?.sc_visibleStateUpdateNeeded) {
             if (this.m_scene?.sc_visibleState) {
-                this.onVisibleStateUpdated.emit({} as IVisibleState);
-                this.onVisibleStateUpdated.emit(this.m_scene?.sc_visibleState as IVisibleState);
+                // this.onVisibleStateUpdated.emit({} as IVisibleState);
+                this.onVisibleStateUpdated.emit(structuredClone(this.m_scene?.sc_visibleState as IVisibleState));
             } else {
                 this.onVisibleStateUpdated.emit({} as IVisibleState);
             }

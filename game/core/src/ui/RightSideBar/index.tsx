@@ -1,4 +1,5 @@
 import { TextareaAutosize } from "@mui/base/TextareaAutosize";
+import CalendarTodayRoundedIcon from "@mui/icons-material/CalendarTodayRounded";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import QueryStatsRoundedIcon from "@mui/icons-material/QueryStatsRounded";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
@@ -9,7 +10,7 @@ import Input from "@mui/joy/Input";
 import LinearProgress from "@mui/joy/LinearProgress";
 import List from "@mui/joy/List";
 import ListItem from "@mui/joy/ListItem";
-import ListItemButton, { listItemButtonClasses } from "@mui/joy/ListItemButton";
+import ListItemButton from "@mui/joy/ListItemButton";
 import ListItemContent from "@mui/joy/ListItemContent";
 import Sheet from "@mui/joy/Sheet";
 import Stack from "@mui/joy/Stack";
@@ -25,6 +26,12 @@ const DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT = 1;
 
 interface IDamageStatsTogglerProps {
     unitStatsElements: React.ReactNode;
+}
+
+interface ICalendarInfoProps {
+    day: number;
+    week: number;
+    daysUntilNextFight: number;
 }
 
 const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
@@ -48,6 +55,27 @@ const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
             <List sx={{ gap: 0 }}>{unitStatsElements}</List>
         </Toggler>
     </ListItem>
+);
+
+const CalendarInfo: React.FC<ICalendarInfoProps> = ({ day, week, daysUntilNextFight }) => (
+    <>
+        <Divider />
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center", paddingTop: 2 }}>
+            <CalendarTodayRoundedIcon />
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography level="title-sm" sx={{ fontSize: 13 }}>
+                    Day {day}
+                </Typography>
+                <Typography level="body-xs">Week {week}</Typography>
+            </Box>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography level="title-sm" sx={{ fontSize: 13 }}>
+                    Next fight in
+                </Typography>
+                <Typography level="body-xs">{daysUntilNextFight} days</Typography>
+            </Box>
+        </Box>
+    </>
 );
 
 const UnitInputAndActions = ({ selectedUnitCount }: { selectedUnitCount: number }) => {
@@ -260,13 +288,10 @@ export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) 
             <Box
                 sx={{
                     minHeight: 0,
-                    overflow: "hidden auto",
+                    // overflow: "hidden auto",
                     flexGrow: 1,
                     display: "flex",
                     flexDirection: "column",
-                    [`& .${listItemButtonClasses.root}`]: {
-                        gap: 1.5,
-                    },
                 }}
             >
                 <List
@@ -274,20 +299,26 @@ export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) 
                     sx={{
                         gap: 1,
                         "--List-nestedInsetStart": "30px",
-                        "--ListItem-radius": (theme) => theme.vars.radius.sm,
+                        "--ListItem-radius": (t) => t.vars.radius.sm,
                     }}
                 >
                     {!gameStarted && <FightControlToggler />}
                     {gameStarted && <DamageStatsToggler unitStatsElements={unitStatsElements} />}
+                    <Box sx={{ flexGrow: 1 }} />
+                    <TextareaAutosize
+                        placeholder="Fight log"
+                        value={attackText}
+                        style={{
+                            width: "100%",
+                            resize: "vertical",
+                            overflow: "auto",
+                            fontSize: "10px",
+                        }}
+                    />
+                    <CalendarInfo day={1} week={1} daysUntilNextFight={2} />
                 </List>
 
-                <TextareaAutosize
-                    placeholder="Fight log"
-                    value={attackText}
-                    style={{ width: "100%", resize: "vertical", overflow: "auto", fontSize: "10px" }}
-                />
-
-                <List
+                {/* <List
                     size="sm"
                     sx={{
                         mt: "auto",
@@ -296,9 +327,8 @@ export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) 
                         "--List-gap": "8px",
                         mb: 2,
                     }}
-                />
+                /> */}
             </Box>
-            <Divider />
         </Sheet>
     );
 }

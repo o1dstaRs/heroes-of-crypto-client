@@ -109,6 +109,7 @@ export const getHeroConfig = (
         0,
         team,
         UnitType.HERO,
+        `${largeTextureName.split("_").slice(0, -1).join("_")}${heroConfig.size === 1 ? "_128" : "_256"}`,
         largeTextureName,
     );
 };
@@ -171,6 +172,7 @@ export const getCreatureConfig = (
         0,
         team,
         UnitType.CREATURE,
+        `${largeTextureName.split("_").slice(0, -1).join("_")}${creatureConfig.size === 1 ? "_128" : "_256"}`,
         largeTextureName,
     );
 };

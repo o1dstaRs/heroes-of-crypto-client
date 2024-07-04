@@ -1,5 +1,4 @@
 import { TeamType } from "@heroesofcrypto/common";
-import CalendarTodayRoundedIcon from "@mui/icons-material/CalendarTodayRounded";
 import DiceIcon from "@mui/icons-material/Casino";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import FactoryRoundedIcon from "@mui/icons-material/FactoryRounded";
@@ -9,6 +8,8 @@ import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import TerrainRoundedIcon from "@mui/icons-material/TerrainRounded";
 import TimelapseRoundedIcon from "@mui/icons-material/TimelapseRounded";
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
+import Avatar from "@mui/joy/Avatar";
+import Badge from "@mui/joy/Badge";
 import Box from "@mui/joy/Box";
 import Button from "@mui/joy/Button";
 import Card from "@mui/joy/Card";
@@ -24,33 +25,99 @@ import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState } from "react";
 
 import * as packageJson from "../../../package.json";
+import { images } from "../../generated/image_imports";
 import { useManager } from "../../manager";
-import { IVisibleState } from "../../state/state";
+import { IVisibleState, IVisibleUnit } from "../../state/state";
 import UnitStatsListItem from "../UnitStatsListItem";
 import ColorSchemeToggle from "./ColorSchemeToggle";
 
-interface ICalendarInfoProps {
-    day: number;
-    week: number;
-    daysUntilNextFight: number;
-}
+const UpNext: React.FC = () => {
+    const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
+    const theme = useTheme();
 
-const CalendarInfo: React.FC<ICalendarInfoProps> = ({ day, week, daysUntilNextFight }) => (
-    <>
-        <Divider />
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-            <CalendarTodayRoundedIcon />
-            <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography level="title-sm">Day {day}</Typography>
-                <Typography level="body-xs">Week {week}</Typography>
+    const manager = useManager();
+
+    console.log("visibleState");
+    console.log(visibleState);
+
+    useEffect(() => {
+        const connection = manager.onVisibleStateUpdated.connect(setVisibleState);
+        return () => {
+            connection.disconnect();
+        };
+    }, [manager]);
+
+    const visibleUnits: IVisibleUnit[] = visibleState.upNext ?? [];
+    const boxShadow =
+        theme.palette.mode === "dark"
+            ? "-100px 15px 15px 50px rgba(0, 0, 0, 0.3)"
+            : "-100px 15px 15px 50px rgba(255, 255, 255, 0.3)";
+
+    return (
+        <>
+            <Divider />
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2, minHeight: 80 }}>
+                <Typography level="title-md">Up next</Typography>
+
+                <Box sx={{ overflow: "hidden" }}>
+                    <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{
+                            overflowX: "auto",
+                            flexWrap: "nowrap",
+                            "&::-webkit-scrollbar": { display: "none" },
+                            scrollbarWidth: "none",
+                        }}
+                    >
+                        {visibleUnits.length > 0 &&
+                            visibleUnits.map((unit, index) => (
+                                <Box key={index} sx={{ position: "relative" }}>
+                                    <Avatar
+                                        // @ts-ignore: src params
+                                        src={images[unit.smallTextureName]}
+                                        variant="plain"
+                                        sx={{
+                                            transform: "rotateX(-180deg)",
+                                            width: index === visibleUnits.length - 1 ? "72px" : "60px",
+                                            height: index === visibleUnits.length - 1 ? "72px" : "60px",
+                                            flexShrink: 0,
+                                            boxShadow: index === visibleUnits.length - 1 ? boxShadow : "none",
+                                        }}
+                                    />
+                                    <Badge
+                                        badgeContent={unit.amount.toString()}
+                                        // @ts-ignore: style params
+                                        color="#ff0000"
+                                        sx={{
+                                            position: "absolute",
+                                            bottom: index === visibleUnits.length - 1 ? 12 : 18,
+                                            right: index === visibleUnits.length - 1 ? 21 : 16,
+                                            zIndex: 1,
+                                            "& .MuiBadge-badge": {
+                                                fontSize: "0.9rem",
+                                                height: "22px",
+                                                minWidth: "22px",
+                                                color: "white",
+                                                backgroundColor:
+                                                    unit.teamType === TeamType.UPPER
+                                                        ? `rgba(244, 67, 54, ${
+                                                              index === visibleUnits.length - 1 ? 1 : 0.6
+                                                          })`
+                                                        : `rgba(76, 175, 80, ${
+                                                              index === visibleUnits.length - 1 ? 1 : 0.6
+                                                          })`,
+                                            },
+                                        }}
+                                    />
+                                </Box>
+                            ))}
+                    </Stack>
+                </Box>
             </Box>
-            <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography level="title-sm">Next fight in</Typography>
-                <Typography level="body-xs">{daysUntilNextFight} days</Typography>
-            </Box>
-        </Box>
-    </>
-);
+        </>
+    );
+};
 
 const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
@@ -201,7 +268,7 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
                 position: "fixed",
                 zIndex: 1,
                 height: "100dvh",
-                width: "220px",
+                width: "240px",
                 top: 0,
                 left: 0,
                 p: 2,
@@ -316,7 +383,7 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
 
                     <MessageBox gameStarted={gameStarted} />
 
-                    <CalendarInfo day={1} week={1} daysUntilNextFight={2} />
+                    <UpNext />
                 </List>
             </Box>
         </Sheet>
