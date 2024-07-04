@@ -1,36 +1,60 @@
+import { TeamType } from "@heroesofcrypto/common";
 import CalendarTodayRoundedIcon from "@mui/icons-material/CalendarTodayRounded";
+import DiceIcon from "@mui/icons-material/Casino";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import FactoryRoundedIcon from "@mui/icons-material/FactoryRounded";
-import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
 import InfoRoundedIcon from "@mui/icons-material/InfoRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import TerrainRoundedIcon from "@mui/icons-material/TerrainRounded";
 import TimelapseRoundedIcon from "@mui/icons-material/TimelapseRounded";
-import LockRoundedIcon from "@mui/icons-material/LockRounded";
+import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
 import Box from "@mui/joy/Box";
 import Button from "@mui/joy/Button";
 import Card from "@mui/joy/Card";
 import Divider from "@mui/joy/Divider";
-import GlobalStyles from "@mui/joy/GlobalStyles";
 import LinearProgress from "@mui/joy/LinearProgress";
 import List from "@mui/joy/List";
 import ListItem from "@mui/joy/ListItem";
-import ListItemButton, { listItemButtonClasses } from "@mui/joy/ListItemButton";
-import ListItemContent from "@mui/joy/ListItemContent";
+import ListItemButton from "@mui/joy/ListItemButton";
 import Sheet from "@mui/joy/Sheet";
 import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
-import { TeamType } from "@heroesofcrypto/common";
 import React, { useEffect, useState } from "react";
 
+import * as packageJson from "../../../package.json";
 import { useManager } from "../../manager";
 import { IVisibleState } from "../../state/state";
 import UnitStatsListItem from "../UnitStatsListItem";
 import ColorSchemeToggle from "./ColorSchemeToggle";
-import * as pack from "../../../package.json";
+
+interface ICalendarInfoProps {
+    day: number;
+    week: number;
+    daysUntilNextFight: number;
+}
+
+const CalendarInfo: React.FC<ICalendarInfoProps> = ({ day, week, daysUntilNextFight }) => {
+    return (
+        <>
+            <Divider />
+            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                <CalendarTodayRoundedIcon />
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography level="title-sm">Day {day}</Typography>
+                    <Typography level="body-xs">Week {week}</Typography>
+                </Box>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography level="title-sm">Next fight in</Typography>
+                    <Typography level="body-xs">{daysUntilNextFight} days</Typography>
+                </Box>
+            </Box>
+        </>
+    );
+};
 
 export default function LeftSideBar({ started = false }: { started: boolean }) {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
+    const [badgeVisible, setBadgeVisible] = useState(false);
 
     const manager = useManager();
     useEffect(() => {
@@ -39,6 +63,17 @@ export default function LeftSideBar({ started = false }: { started: boolean }) {
             connection3.disconnect();
         };
     }, [manager]);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setBadgeVisible(true);
+            setTimeout(() => {
+                setBadgeVisible(false);
+            }, 5000); // Badge disappears after 5 seconds
+        }, 10000); // Badge appears every 10 seconds
+
+        return () => clearInterval(interval);
+    }, []);
 
     let messageBoxVariant: "plain" | "outlined" | "soft" | "solid" | undefined;
     let messageBoxColor: "primary" | "neutral" | "danger" | "success" | "warning" | undefined;
@@ -51,7 +86,14 @@ export default function LeftSideBar({ started = false }: { started: boolean }) {
     if (visibleState.secondsMax) {
         progressValue = 100 - (visibleState.secondsRemaining / visibleState.secondsMax) * 100;
     }
-    const progress = <LinearProgress variant="outlined" determinate={started} value={progressValue} sx={{ my: 1 }} />;
+    const progress = (
+        <LinearProgress
+            variant="outlined"
+            determinate={started}
+            value={progressValue}
+            sx={{ my: 1, overflow: "hidden auto" }}
+        />
+    );
     const defaultIcon =
         visibleState.lapNumber &&
         visibleState.lapNumber < visibleState.numberOfLapsTillStopNarrowing &&
@@ -111,72 +153,34 @@ export default function LeftSideBar({ started = false }: { started: boolean }) {
         <Sheet
             className="Sidebar"
             sx={{
-                position: {
-                    xs: "fixed",
-                    md: "sticky",
-                },
-                transform: {
-                    xs: "translateX(calc(100% * (var(--SideNavigation-slideIn, 0) - 1)))",
-                    md: "none",
-                },
-                transition: "transform 0.4s, width 0.4s",
+                position: "fixed",
                 zIndex: 1,
                 height: "100dvh",
-                width: "var(--Sidebar-width)",
+                width: "300px",
                 top: 0,
+                left: 0,
                 p: 2,
-                flexShrink: 0,
+                // flexShrink: 0,
                 display: "flex",
                 flexDirection: "column",
                 gap: 2,
                 borderRight: "1px solid",
                 borderColor: "divider",
+                overflowY: "auto", // Allow vertical scrolling
+                overflowX: "hidden", // Prevent horizontal scrolling
             }}
         >
-            <GlobalStyles
-                styles={(theme) => ({
-                    ":root": {
-                        "--Sidebar-width": "220px",
-                        [theme.breakpoints.up("lg")]: {
-                            "--Sidebar-width": "240px",
-                        },
-                    },
-                })}
-            />
-            <Box
-                className="Sidebar-overlay"
-                sx={{
-                    position: "fixed",
-                    zIndex: 2,
-                    top: 0,
-                    left: 0,
-                    width: "100vw",
-                    height: "100vh",
-                    opacity: "var(--SideNavigation-slideIn)",
-                    backgroundColor: "var(--joy-palette-background-backdrop)",
-                    transition: "opacity 0.4s",
-                    transform: {
-                        xs: "translateX(calc(100% * (var(--SideNavigation-slideIn, 0) - 1) + var(--SideNavigation-slideIn, 0) * var(--Sidebar-width, 0px)))",
-                        lg: "translateX(-100%)",
-                    },
-                }}
-                //        onClick={() => closeSidebar()}
-                onClick={() => {}}
-            />
             <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                <Typography level="title-lg">v{pack.version}</Typography>
+                <Typography level="title-lg">v{packageJson.version}</Typography>
                 <ColorSchemeToggle sx={{ ml: "auto" }} />
             </Box>
             <Box
                 sx={{
                     minHeight: 0,
-                    overflow: "hidden auto",
+                    // overflow: "hidden auto",
                     flexGrow: 1,
                     display: "flex",
                     flexDirection: "column",
-                    [`& .${listItemButtonClasses.root}`]: {
-                        gap: 1.5,
-                    },
                 }}
             >
                 <List
@@ -188,21 +192,51 @@ export default function LeftSideBar({ started = false }: { started: boolean }) {
                     }}
                 >
                     <Box display="flex" width="100%">
+                        <ListItem sx={{ flexGrow: 1, flexBasis: 0, position: "relative" }}>
+                            <ListItemButton disabled={true}>
+                                <DiceIcon />
+                            </ListItemButton>
+                            {badgeVisible && (
+                                <Box
+                                    sx={{
+                                        position: "absolute",
+                                        top: -17,
+                                        right: -39,
+                                        backgroundColor: "#FFD700",
+                                        color: "#000000",
+                                        borderRadius: "10px",
+                                        padding: "4px 8px",
+                                        fontSize: "0.7rem",
+                                        boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                                        zIndex: 3,
+                                        "&::after": {
+                                            content: '""',
+                                            position: "absolute",
+                                            bottom: -4,
+                                            left: 8,
+                                            width: 0,
+                                            height: 0,
+                                            borderLeft: "4px solid transparent",
+                                            borderRight: "4px solid transparent",
+                                            borderTop: "5px solid #FFD700",
+                                        },
+                                    }}
+                                >
+                                    Prediction
+                                </Box>
+                            )}
+                            {/* </Badge> */}
+                        </ListItem>
+
                         <ListItem sx={{ flexGrow: 1, flexBasis: 0 }}>
                             <ListItemButton>
                                 <TerrainRoundedIcon />
-                                {/* <Box sx={{ marginLeft: 2 }}>
-                                    <Typography level="title-sm">Terrain</Typography>
-                                </Box> */}
                             </ListItemButton>
                         </ListItem>
 
                         <ListItem sx={{ flexGrow: 1, flexBasis: 0 }}>
                             <ListItemButton>
                                 <FactoryRoundedIcon />
-                                {/* <Box sx={{ marginLeft: 2 }}>
-                                    <Typography level="title-sm">Town</Typography>
-                                </Box> */}
                             </ListItemButton>
                         </ListItem>
 
@@ -219,75 +253,56 @@ export default function LeftSideBar({ started = false }: { started: boolean }) {
                     <Divider />
 
                     <UnitStatsListItem />
-                </List>
 
-                <List
-                    size="sm"
-                    sx={{
-                        mt: "auto",
-                        flexGrow: 0,
-                        "--ListItem-radius": (theme) => theme.vars.radius.sm,
-                        "--List-gap": "8px",
-                        mb: 2,
-                    }}
-                />
+                    <Box sx={{ flexGrow: 1 }} />
 
-                <Card
-                    invertedColors
-                    variant={messageBoxVariant}
-                    color={messageBoxColor}
-                    size="sm"
-                    sx={{ boxShadow: "none" }}
-                >
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography level="title-sm">{messageBoxTitle}</Typography>
-                        {/* eslint-disable-next-line no-nested-ternary */}
-                        {started ? (
-                            visibleState.hasFinished ? (
-                                <RefreshRoundedIcon />
+                    <Card
+                        invertedColors
+                        variant={messageBoxVariant}
+                        color={messageBoxColor}
+                        size="sm"
+                        sx={{ boxShadow: "none" }}
+                    >
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography level="title-sm">{messageBoxTitle}</Typography>
+                            {/* eslint-disable-next-line no-nested-ternary */}
+                            {started ? (
+                                visibleState.hasFinished ? (
+                                    <RefreshRoundedIcon />
+                                ) : (
+                                    defaultIcon
+                                )
                             ) : (
-                                defaultIcon
-                            )
-                        ) : (
-                            <InfoRoundedIcon />
-                        )}
-                    </Stack>
-                    <Typography level="body-xs">{messageBoxText}</Typography>
-                    {progressBar}
+                                <InfoRoundedIcon />
+                            )}
+                        </Stack>
+                        <Typography level="body-xs">{messageBoxText}</Typography>
+                        {progressBar}
 
-                    {messageBoxButtonText ? (
-                        <Button
-                            onClick={() =>
-                                requestAdditionalTimeButtonRendered
-                                    ? manager.RequestTime(visibleState.teamTypeTurn)
-                                    : manager.StartGame()
-                            }
-                            onMouseDown={() =>
-                                requestAdditionalTimeButtonRendered
-                                    ? manager.RequestTime(visibleState.teamTypeTurn)
-                                    : manager.StartGame()
-                            }
-                            size="sm"
-                            variant="solid"
-                        >
-                            {messageBoxButtonText}
-                        </Button>
-                    ) : (
-                        <span />
-                    )}
-                </Card>
-            </Box>
-            <Divider />
-            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                <CalendarTodayRoundedIcon />
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography level="title-sm">Day 1</Typography>
-                    <Typography level="body-xs">Week 1</Typography>
-                </Box>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography level="title-sm">Next fight in</Typography>
-                    <Typography level="body-xs">2 days</Typography>
-                </Box>
+                        {messageBoxButtonText ? (
+                            <Button
+                                onClick={() =>
+                                    requestAdditionalTimeButtonRendered
+                                        ? manager.RequestTime(visibleState.teamTypeTurn)
+                                        : manager.StartGame()
+                                }
+                                onMouseDown={() =>
+                                    requestAdditionalTimeButtonRendered
+                                        ? manager.RequestTime(visibleState.teamTypeTurn)
+                                        : manager.StartGame()
+                                }
+                                size="sm"
+                                variant="solid"
+                            >
+                                {messageBoxButtonText}
+                            </Button>
+                        ) : (
+                            <span />
+                        )}
+                    </Card>
+
+                    <CalendarInfo day={1} week={1} daysUntilNextFight={2} />
+                </List>
             </Box>
         </Sheet>
     );
