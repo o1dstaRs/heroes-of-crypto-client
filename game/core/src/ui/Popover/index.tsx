@@ -78,7 +78,7 @@ const unitInfoElement = (hoverInfo: IHoverInfo): JSX.Element => {
 
     return (
         <>
-            <span>👤 {hoverInfo.unitName}</span>
+            <span>🐙 {hoverInfo.unitName}</span>
             <br />
             <span>
                 {attackTypeEmoji} {attackTypeStr}

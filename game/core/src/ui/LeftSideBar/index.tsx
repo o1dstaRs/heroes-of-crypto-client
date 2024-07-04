@@ -6,6 +6,7 @@ import InfoRoundedIcon from "@mui/icons-material/InfoRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import TerrainRoundedIcon from "@mui/icons-material/TerrainRounded";
 import TimelapseRoundedIcon from "@mui/icons-material/TimelapseRounded";
+import LockRoundedIcon from "@mui/icons-material/LockRounded";
 import Box from "@mui/joy/Box";
 import Button from "@mui/joy/Button";
 import Card from "@mui/joy/Card";
@@ -186,32 +187,34 @@ export default function LeftSideBar({ started = false }: { started: boolean }) {
                         "--ListItem-radius": (theme) => theme.vars.radius.sm,
                     }}
                 >
-                    <ListItem>
-                        <ListItemButton>
-                            <TerrainRoundedIcon />
-                            <ListItemContent>
-                                <Typography level="title-sm">Terrain</Typography>
-                            </ListItemContent>
-                        </ListItemButton>
-                    </ListItem>
+                    <Box display="flex" width="100%">
+                        <ListItem sx={{ flexGrow: 1, flexBasis: 0 }}>
+                            <ListItemButton>
+                                <TerrainRoundedIcon />
+                                {/* <Box sx={{ marginLeft: 2 }}>
+                                    <Typography level="title-sm">Terrain</Typography>
+                                </Box> */}
+                            </ListItemButton>
+                        </ListItem>
 
-                    <ListItem>
-                        <ListItemButton>
-                            <FactoryRoundedIcon />
-                            <ListItemContent>
-                                <Typography level="title-sm">Town</Typography>
-                            </ListItemContent>
-                        </ListItemButton>
-                    </ListItem>
+                        <ListItem sx={{ flexGrow: 1, flexBasis: 0 }}>
+                            <ListItemButton>
+                                <FactoryRoundedIcon />
+                                {/* <Box sx={{ marginLeft: 2 }}>
+                                    <Typography level="title-sm">Town</Typography>
+                                </Box> */}
+                            </ListItemButton>
+                        </ListItem>
 
-                    <ListItem>
-                        <ListItemButton selected>
-                            <DashboardRoundedIcon />
-                            <ListItemContent>
-                                <Typography level="title-sm">Fight</Typography>
-                            </ListItemContent>
-                        </ListItemButton>
-                    </ListItem>
+                        <ListItem sx={{ flexGrow: 1, flexBasis: 0 }}>
+                            <ListItemButton selected>
+                                <DashboardRoundedIcon />
+                                <Box sx={{ marginLeft: 2 }}>
+                                    <Typography level="title-sm">Fight</Typography>
+                                </Box>
+                            </ListItemButton>
+                        </ListItem>
+                    </Box>
 
                     <Divider />
 

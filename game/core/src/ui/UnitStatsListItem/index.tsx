@@ -1,5 +1,6 @@
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import Avatar from "@mui/joy/Avatar";
+import Stack from "@mui/joy/Stack";
 import Button from "@mui/joy/Button";
 import ButtonGroup from "@mui/joy/ButtonGroup";
 import IconButton from "@mui/joy/IconButton";
@@ -396,6 +397,41 @@ export default function UnitStatsListItem() {
                                 </ButtonGroup>
                             </Tooltip>
                         </ListItem>
+                        <Stack direction="row" spacing={2} sx={{ marginTop: 2 }}>
+                            <Avatar
+                                // @ts-ignore: src params
+                                src={images["leather_armor_256"]}
+                                variant="plain"
+                                sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
+                                style={{
+                                    width: "28%",
+                                    height: "auto",
+                                    overflow: "visible",
+                                }}
+                            />
+                            <Avatar
+                                // @ts-ignore: src params
+                                src={images["leather_armor_256"]}
+                                variant="plain"
+                                sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
+                                style={{
+                                    width: "28%",
+                                    height: "auto",
+                                    overflow: "visible",
+                                }}
+                            />
+                            <Avatar
+                                // @ts-ignore: src params
+                                src={images["leather_armor_256"]}
+                                variant="plain"
+                                sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
+                                style={{
+                                    width: "28%",
+                                    height: "auto",
+                                    overflow: "visible",
+                                }}
+                            />
+                        </Stack>
                     </List>
                 </Toggler>
             </ListItem>
