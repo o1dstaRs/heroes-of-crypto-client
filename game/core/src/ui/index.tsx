@@ -11,7 +11,6 @@ import overlayPrediction from "../../images/overlay_prediction.webp";
 import overlaySandbox from "../../images/overlay_sandbox.webp";
 import { useManager } from "../manager";
 import { SceneControl } from "../sceneControls";
-import { Box2dBar } from "./Box2dBar";
 import LeftSideBar from "./LeftSideBar";
 import { Main, useActiveTestEntry } from "./Main";
 import RightSideBar from "./RightSideBar";
@@ -140,7 +139,6 @@ function Home() {
             window.removeEventListener("mousemove", throttledMouseMove);
             window.removeEventListener("click", handleClick);
             window.removeEventListener("touchstart", handleTouch);
-            console.log("Event listener deregistered");
         }
 
         // Cleanup function to ensure the event listener is removed if the component unmounts
@@ -190,14 +188,15 @@ function Home() {
 }
 
 function Heroes() {
-    const [sceneControlGroups, setSceneControls] = useReducer(reduceTestControlGroups, defaultSceneControlGroupsState);
-    const manager = useManager();
+    const [, setSceneControls] = useReducer(reduceTestControlGroups, defaultSceneControlGroupsState);
     const [started, setStarted] = useState(false);
 
+    const manager = useManager();
+
     useEffect(() => {
-        const connection = manager.onHasStarted.connect(setStarted);
+        const connection2 = manager.onHasStarted.connect(setStarted);
         return () => {
-            connection.disconnect();
+            connection2.disconnect();
         };
     });
 
@@ -205,11 +204,10 @@ function Heroes() {
         <div className="container" style={{ display: "flex" }}>
             <CssVarsProvider>
                 <CssBaseline />
-                <LeftSideBar started={started} />
-                {started ? <RightSideBar /> : <span />}
+                <LeftSideBar gameStarted={started} />
+                <RightSideBar gameStarted={started} />
             </CssVarsProvider>
             <Main setSceneControlGroups={setSceneControls} />
-            <Box2dBar sceneControlGroups={sceneControlGroups} />
             <Popover />
         </div>
     );

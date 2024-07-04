@@ -44,9 +44,6 @@ const generalInfoElement = (hoverInfo: IHoverInfo): JSX.Element => {
         return <></>;
     }
 
-    console.log("Ssss");
-    console.log(hoverInfo.information);
-
     return (
         <>
             <span>
@@ -156,6 +153,7 @@ const Popover: React.FC = () => {
                 color: "white",
                 borderRadius: "5px",
                 pointerEvents: "none", // Prevent the popover from intercepting mouse events
+                zIndex: 3,
             }}
         >
             {generalInfoElement(hoverInfo)}

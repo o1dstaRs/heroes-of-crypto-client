@@ -400,7 +400,7 @@ export default function UnitStatsListItem() {
                         <Stack direction="row" spacing={2} sx={{ marginTop: 2 }}>
                             <Avatar
                                 // @ts-ignore: src params
-                                src={images["leather_armor_256"]}
+                                src={images.leather_armor_256}
                                 variant="plain"
                                 sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
                                 style={{
@@ -411,7 +411,7 @@ export default function UnitStatsListItem() {
                             />
                             <Avatar
                                 // @ts-ignore: src params
-                                src={images["leather_armor_256"]}
+                                src={images.leather_armor_256}
                                 variant="plain"
                                 sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
                                 style={{
@@ -422,7 +422,7 @@ export default function UnitStatsListItem() {
                             />
                             <Avatar
                                 // @ts-ignore: src params
-                                src={images["leather_armor_256"]}
+                                src={images.leather_armor_256}
                                 variant="plain"
                                 sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
                                 style={{

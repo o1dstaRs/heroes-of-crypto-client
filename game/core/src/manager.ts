@@ -349,6 +349,10 @@ export class GameManager {
     public Accept(): void {
         if (this.m_scene?.sc_selectedBody && !this.m_scene.sc_started) {
             const userData = this.m_scene.sc_selectedBody.GetUserData();
+            if (!userData || userData.unit_type !== 1) {
+                return;
+            }
+
             userData.amount_alive = this.m_settings.m_amountOfSelectedUnits;
             this.m_scene.addUnitData(userData);
             this.m_scene.refreshScene();
