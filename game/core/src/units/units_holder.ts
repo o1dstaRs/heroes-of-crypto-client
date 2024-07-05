@@ -10,12 +10,13 @@
  */
 
 import { b2Body, b2Fixture, b2Vec2, b2World, XY } from "@box2d/core";
-import { Grid, GridSettings, GridMath, HoCLib } from "@heroesofcrypto/common";
+import { FactionType, TeamType, UnitProperties, Grid, GridSettings, GridMath, HoCLib } from "@heroesofcrypto/common";
 
 import { SquarePlacement } from "../placement/square_placement";
 import { FightStateManager } from "../state/fight_state_manager";
 import {
     BASE_UNIT_STACK_TO_SPAWN_EXP,
+    DOUBLE_STEP,
     HALF_STEP,
     MAX_X,
     MAX_Y,
@@ -25,8 +26,7 @@ import {
     UNIT_SIZE_DELTA,
 } from "../statics";
 import { Unit } from "./units";
-import { UnitsFactory } from "./units_factory";
-import { TeamType, UnitStats } from "./units_stats";
+import { HeroGender, HeroType, UnitsFactory } from "./units_factory";
 
 export class UnitsHolder {
     private readonly world: b2World;
@@ -83,12 +83,12 @@ export class UnitsHolder {
         return this.allUnits;
     }
 
-    public getUnitByStats(unitStats: UnitStats): Unit | undefined {
-        if (!unitStats) {
+    public getUnitByStats(unitProperties: UnitProperties): Unit | undefined {
+        if (!unitProperties) {
             return undefined;
         }
 
-        const unitId = unitStats.id;
+        const unitId = unitProperties.id;
         if (!unitId) {
             return undefined;
         }
@@ -97,7 +97,7 @@ export class UnitsHolder {
     }
 
     public refreshUnitsForAllTeams(): Unit[][] {
-        const unitForAllTeams: Unit[][] = new Array(Object.keys(TeamType).length >> 1);
+        const unitForAllTeams: Unit[][] = new Array((Object.keys(TeamType).length - 2) >> 1);
         for (const unit of this.allUnits.values()) {
             const teamId = unit.getTeam() - 1;
             if (!(teamId in unitForAllTeams)) {
@@ -116,8 +116,8 @@ export class UnitsHolder {
             if (!b) {
                 continue;
             }
-            const unitStats = b.GetUserData();
-            if (unitStats && unitStats.id === unitId) {
+            const unitProperties = b.GetUserData();
+            if (unitProperties && unitProperties.id === unitId) {
                 this.world.DestroyBody(b);
                 break;
             }
@@ -164,10 +164,10 @@ export class UnitsHolder {
         return undefined;
     }
 
-    public getDistanceToClosestEnemy(unitData: UnitStats, position: XY): number {
+    public getDistanceToClosestEnemy(unitProperties: UnitProperties, position: XY): number {
         let closestDistance = Number.MAX_SAFE_INTEGER;
         for (const u of this.getAllUnitsIterator()) {
-            if (u.getTeam() !== unitData.team) {
+            if (u.getTeam() !== unitProperties.team) {
                 closestDistance = Math.min(closestDistance, b2Vec2.Distance(position, u.getPosition()));
             }
         }
@@ -210,11 +210,11 @@ export class UnitsHolder {
         }
     }
 
-    public spawnSelected(grid: Grid, selectedUnitData: UnitStats, cell: XY, summoned: boolean): boolean {
+    public spawnSelected(grid: Grid, selectedUnitData: UnitProperties, cell: XY, summoned: boolean): boolean {
         if (selectedUnitData.size === 1) {
             if (!grid.getOccupantUnitId(cell)) {
-                const cloned = this.unitsFactory.makeUnit(
-                    selectedUnitData.race,
+                const cloned = this.unitsFactory.makeCreature(
+                    selectedUnitData.faction,
                     selectedUnitData.name,
                     selectedUnitData.team,
                     selectedUnitData.amount_alive,
@@ -244,8 +244,8 @@ export class UnitsHolder {
                 return false;
             }
 
-            const cloned = this.unitsFactory.makeUnit(
-                selectedUnitData.race,
+            const cloned = this.unitsFactory.makeCreature(
+                selectedUnitData.faction,
                 selectedUnitData.name,
                 selectedUnitData.team,
                 selectedUnitData.amount_alive,
@@ -268,54 +268,164 @@ export class UnitsHolder {
         return false;
     }
 
-    public spawn(team: TeamType, selectedRace?: string) {
+    public spawn(team: TeamType, faction?: FactionType) {
         const units: Unit[] = [];
-        if (selectedRace === "Life") {
-            units.push(this.unitsFactory.makeUnit("Life", "Squire", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Life", "Peasant", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Life", "Arbalester", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Life", "Pikeman", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Life", "Crusader", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Life", "Griffin", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Life", "Tsar Cannon", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Life", "Angel", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-        } else if (selectedRace === "Nature") {
-            units.push(this.unitsFactory.makeUnit("Nature", "Fairy", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Nature", "Wolf", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Nature", "Leprechaun", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Nature", "White Tiger", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Nature", "Elf", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Nature", "Satyr", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Nature", "Unicorn", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            // units.push(this.unitsFactory.makeUnit("Nature", "Phoenix", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Nature", "Faerie Dragon", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Nature", "Gargantuan", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-        } else if (selectedRace === "Chaos") {
-            units.push(this.unitsFactory.makeUnit("Chaos", "Scavenger", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Chaos", "Orc", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Chaos", "Troglodyte", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Chaos", "Medusa", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Chaos", "Troll", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Chaos", "Beholder", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Chaos", "Efreet", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Chaos", "Goblin Knight", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Chaos", "Black Dragon", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Chaos", "Hydra", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-        } else if (selectedRace === "Death") {
-            units.push(this.unitsFactory.makeUnit("Death", "Skeleton", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Death", "Imp", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Death", "Zombie", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Death", "Dark Champion", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-        } else if (selectedRace === "Might") {
-            units.push(this.unitsFactory.makeUnit("Might", "Berserker", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Might", "Centaur", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Might", "Wolf Rider", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Might", "Nomad", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Might", "Harpy", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Might", "Ogre Mage", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Might", "Cyclops", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Might", "Thunderbird", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.unitsFactory.makeUnit("Might", "Behemoth", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+        const heroes: Unit[] = [];
+
+        if (faction === FactionType.LIFE) {
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.LIFE, "Squire", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.LIFE, "Peasant", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.LIFE, "Arbalester", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.LIFE, "Pikeman", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.LIFE, "Crusader", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.LIFE, "Griffin", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.LIFE, "Tsar Cannon", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.LIFE, "Angel", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+        } else if (faction === FactionType.NATURE) {
+            heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
+            heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
+            heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.NATURE, "Fairy", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.NATURE, "Wolf", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.NATURE, "Leprechaun", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(
+                    FactionType.NATURE,
+                    "White Tiger",
+                    team,
+                    0,
+                    BASE_UNIT_STACK_TO_SPAWN_EXP,
+                ),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.NATURE, "Elf", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.NATURE, "Satyr", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.NATURE, "Unicorn", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(
+                    FactionType.NATURE,
+                    "Faerie Dragon",
+                    team,
+                    0,
+                    BASE_UNIT_STACK_TO_SPAWN_EXP,
+                ),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.NATURE, "Gargantuan", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+        } else if (faction === FactionType.CHAOS) {
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.CHAOS, "Scavenger", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(this.unitsFactory.makeCreature(FactionType.CHAOS, "Orc", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.CHAOS, "Troglodyte", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.CHAOS, "Medusa", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.CHAOS, "Troll", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.CHAOS, "Beholder", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.CHAOS, "Efreet", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(
+                    FactionType.CHAOS,
+                    "Goblin Knight",
+                    team,
+                    0,
+                    BASE_UNIT_STACK_TO_SPAWN_EXP,
+                ),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(
+                    FactionType.CHAOS,
+                    "Black Dragon",
+                    team,
+                    0,
+                    BASE_UNIT_STACK_TO_SPAWN_EXP,
+                ),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.CHAOS, "Hydra", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+        } else if (faction === FactionType.DEATH) {
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.DEATH, "Skeleton", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(this.unitsFactory.makeCreature(FactionType.DEATH, "Imp", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.DEATH, "Zombie", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(
+                    FactionType.DEATH,
+                    "Dark Champion",
+                    team,
+                    0,
+                    BASE_UNIT_STACK_TO_SPAWN_EXP,
+                ),
+            );
+        } else if (faction === FactionType.MIGHT) {
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.MIGHT, "Berserker", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.MIGHT, "Centaur", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.MIGHT, "Wolf Rider", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.MIGHT, "Nomad", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.MIGHT, "Harpy", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.MIGHT, "Ogre Mage", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.MIGHT, "Cyclops", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.MIGHT, "Thunderbird", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.MIGHT, "Behemoth", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
         }
 
         let posIndex = SHIFT_UNITS_POSITION_Y;
@@ -362,6 +472,18 @@ export class UnitsHolder {
 
         if (foundSomeSmallUnits) {
             posIndex++;
+        }
+
+        let heroPosIndex = 0;
+        for (const h of heroes) {
+            if (team === TeamType.LOWER) {
+                h.setPosition(-MAX_X - STEP * heroPosIndex - HALF_STEP, DOUBLE_STEP + HALF_STEP);
+            } else {
+                h.setPosition(MAX_X + STEP * heroPosIndex + HALF_STEP, MAX_Y - DOUBLE_STEP - HALF_STEP);
+            }
+            heroPosIndex++;
+
+            this.positionBody(h);
         }
 
         for (const u of units) {

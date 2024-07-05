@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Grid, GridSettings, GridMath, HoCMath } from "@heroesofcrypto/common";
+import { AttackType, Grid, GridSettings, GridMath, HoCMath } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
@@ -17,7 +17,6 @@ import { MORALE_CHANGE_FOR_KILL } from "../statics";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
-import { AttackType } from "../units/units_stats";
 
 function getCoosCenter(start: HoCMath.XY): HoCMath.XY {
     const coos: HoCMath.XY[] = [

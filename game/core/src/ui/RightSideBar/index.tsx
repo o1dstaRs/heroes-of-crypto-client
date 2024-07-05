@@ -1,22 +1,188 @@
 import { TextareaAutosize } from "@mui/base/TextareaAutosize";
+import CalendarTodayRoundedIcon from "@mui/icons-material/CalendarTodayRounded";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import QueryStatsRoundedIcon from "@mui/icons-material/QueryStatsRounded";
+import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import Box from "@mui/joy/Box";
+import Button from "@mui/joy/Button";
 import Divider from "@mui/joy/Divider";
+import Input from "@mui/joy/Input";
 import LinearProgress from "@mui/joy/LinearProgress";
 import List from "@mui/joy/List";
 import ListItem from "@mui/joy/ListItem";
-import ListItemButton, { listItemButtonClasses } from "@mui/joy/ListItemButton";
+import ListItemButton from "@mui/joy/ListItemButton";
 import ListItemContent from "@mui/joy/ListItemContent";
 import Sheet from "@mui/joy/Sheet";
+import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { UnitProperties } from "@heroesofcrypto/common";
 
 import { useManager } from "../../manager";
 import { IDamageStatistic } from "../../stats/damage_stats";
 import Toggler from "../Toggler";
 
-export default function RightSideBar() {
+const DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT = 1;
+
+interface IDamageStatsTogglerProps {
+    unitStatsElements: React.ReactNode;
+}
+
+interface ICalendarInfoProps {
+    day: number;
+    week: number;
+    daysUntilNextFight: number;
+}
+
+const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
+    unitStatsElements,
+}: {
+    unitStatsElements: React.ReactNode;
+}) => (
+    /* @ts-ignore: style params */
+    <ListItem style={{ "--List-nestedInsetStart": "0px" }} nested>
+        <Toggler
+            renderToggle={({ open, setOpen }) => (
+                <ListItemButton onClick={() => setOpen(!open)}>
+                    <QueryStatsRoundedIcon />
+                    <ListItemContent>
+                        <Typography level="title-sm">Damage</Typography>
+                    </ListItemContent>
+                    <KeyboardArrowDownIcon sx={{ transform: open ? "rotate(180deg)" : "none" }} />
+                </ListItemButton>
+            )}
+        >
+            <List sx={{ gap: 0 }}>{unitStatsElements}</List>
+        </Toggler>
+    </ListItem>
+);
+
+const CalendarInfo: React.FC<ICalendarInfoProps> = ({ day, week, daysUntilNextFight }) => (
+    <>
+        <Divider />
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center", paddingTop: 2 }}>
+            <CalendarTodayRoundedIcon />
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography level="title-sm" sx={{ fontSize: 13 }}>
+                    Day {day}
+                </Typography>
+                <Typography level="body-xs">Week {week}</Typography>
+            </Box>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography level="title-sm" sx={{ fontSize: 13 }}>
+                    Next fight in
+                </Typography>
+                <Typography level="body-xs">{daysUntilNextFight} days</Typography>
+            </Box>
+        </Box>
+    </>
+);
+
+const UnitInputAndActions = ({ selectedUnitCount }: { selectedUnitCount: number }) => {
+    const changedRef = useRef(false);
+    const [unitCount, setUnitCount] = useState("");
+
+    const changeUnitCount = (value: string) => {
+        changedRef.current = !!selectedUnitCount;
+        setUnitCount(value);
+    };
+
+    if (selectedUnitCount > 0) {
+        if (!changedRef.current) {
+            const selectedUnitCountString = selectedUnitCount.toString();
+            if (selectedUnitCountString !== unitCount) {
+                setUnitCount(selectedUnitCount.toString());
+            }
+        }
+    } else if (unitCount !== "") {
+        setUnitCount("");
+    }
+
+    const manager = useManager();
+
+    const handleAccept = (count: number) => {
+        if (!Number.isNaN(count) && count > 0) {
+            manager.m_settings.m_amountOfSelectedUnits = count;
+            manager.Accept();
+            setUnitCount(count.toString());
+            changedRef.current = false;
+        }
+    };
+
+    return (
+        <Box sx={{ width: "100%", maxWidth: 400, marginTop: 2 }}>
+            <Stack spacing={1}>
+                <Input
+                    type="number"
+                    value={unitCount}
+                    onChange={(e) => changeUnitCount(e.target.value)}
+                    placeholder="# of units"
+                    slotProps={{
+                        input: {
+                            min: DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT,
+                        },
+                    }}
+                />
+                <Stack direction="row" spacing={2}>
+                    <Button
+                        variant="solid"
+                        color="primary"
+                        onClick={() => {
+                            handleAccept(parseInt(unitCount) || DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT);
+                        }}
+                        sx={{ flexGrow: 1 }}
+                    >
+                        Accept
+                    </Button>
+                    <Button
+                        variant="outlined"
+                        color="neutral"
+                        onClick={() => {
+                            manager.Clone();
+                        }}
+                        sx={{ flexGrow: 1 }}
+                    >
+                        Clone
+                    </Button>
+                </Stack>
+            </Stack>
+        </Box>
+    );
+};
+
+const FightControlToggler: React.FC = () => {
+    const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
+
+    const manager = useManager();
+
+    useEffect(() => {
+        const connection = manager.onUnitSelected.connect(setUnitProperties);
+        return () => {
+            connection.disconnect();
+        };
+    });
+
+    return (
+        /* @ts-ignore: style params */
+        <ListItem style={{ "--List-nestedInsetStart": "0px" }} nested>
+            <Toggler
+                renderToggle={({ open, setOpen }) => (
+                    <ListItemButton onClick={() => setOpen(!open)}>
+                        <TuneRoundedIcon />
+                        <ListItemContent>
+                            <Typography level="title-sm">Fight control</Typography>
+                        </ListItemContent>
+                        <KeyboardArrowDownIcon sx={{ transform: open ? "rotate(180deg)" : "none" }} />
+                    </ListItemButton>
+                )}
+            >
+                <UnitInputAndActions selectedUnitCount={unitProperties.amount_alive || 0} />
+            </Toggler>
+        </ListItem>
+    );
+};
+
+export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) {
     const [unitDamageStatistics, setUnitDamageStatistics] = useState([] as IDamageStatistic[]);
     const manager = useManager();
 
@@ -102,59 +268,30 @@ export default function RightSideBar() {
         <Sheet
             className="Sidebar"
             sx={{
-                position: {
-                    xs: "fixed",
-                    // md: "sticky",
-                },
-                transform: {
-                    xs: "translateX(calc(100% * (var(--SideNavigation-slideIn, 0) - 1)))",
-                    md: "none",
-                },
-                transition: "transform 0.4s, width 0.4s",
-                zIndex: 10000,
+                position: "fixed",
+                zIndex: 1,
                 height: "100dvh",
-                width: "202px",
+                width: "220px",
                 top: 0,
-                p: 2,
-                flexShrink: 0,
                 right: 0,
+                p: 2,
+                // flexShrink: 0,
                 display: "flex",
                 flexDirection: "column",
                 gap: 2,
                 borderRight: "1px solid",
                 borderColor: "divider",
+                overflowY: "auto", // Allow vertical scrolling
+                overflowX: "hidden", // Prevent horizontal scrolling
             }}
         >
             <Box
-                className="Sidebar-overlay"
-                sx={{
-                    position: "fixed",
-                    zIndex: 9998,
-                    top: 0,
-                    left: 0,
-                    width: "100vw",
-                    height: "100vh",
-                    opacity: "var(--SideNavigation-slideIn)",
-                    backgroundColor: "var(--joy-palette-background-backdrop)",
-                    transition: "opacity 0.4s",
-                    transform: {
-                        xs: "translateX(calc(100% * (var(--SideNavigation-slideIn, 0) - 1) + var(--SideNavigation-slideIn, 0) * var(--Sidebar-width, 0px)))",
-                        lg: "translateX(-100%)",
-                    },
-                }}
-                //        onClick={() => closeSidebar()}
-                onClick={() => {}}
-            />
-            <Box
                 sx={{
                     minHeight: 0,
-                    overflow: "hidden auto",
+                    // overflow: "hidden auto",
                     flexGrow: 1,
                     display: "flex",
                     flexDirection: "column",
-                    [`& .${listItemButtonClasses.root}`]: {
-                        gap: 1.5,
-                    },
                 }}
             >
                 <List
@@ -162,34 +299,26 @@ export default function RightSideBar() {
                     sx={{
                         gap: 1,
                         "--List-nestedInsetStart": "30px",
-                        "--ListItem-radius": (theme) => theme.vars.radius.sm,
+                        "--ListItem-radius": (t) => t.vars.radius.sm,
                     }}
                 >
-                    {/* @ts-ignore: style params */}
-                    <ListItem style={{ "--List-nestedInsetStart": "0px" }} nested>
-                        <Toggler
-                            renderToggle={({ open, setOpen }) => (
-                                <ListItemButton onClick={() => setOpen(!open)}>
-                                    <QueryStatsRoundedIcon />
-                                    <ListItemContent>
-                                        <Typography level="title-sm">Damage</Typography>
-                                    </ListItemContent>
-                                    <KeyboardArrowDownIcon sx={{ transform: open ? "rotate(180deg)" : "none" }} />
-                                </ListItemButton>
-                            )}
-                        >
-                            <List sx={{ gap: 0 }}>{unitStatsElements}</List>
-                        </Toggler>
-                    </ListItem>
+                    {!gameStarted && <FightControlToggler />}
+                    {gameStarted && <DamageStatsToggler unitStatsElements={unitStatsElements} />}
+                    <Box sx={{ flexGrow: 1 }} />
+                    <TextareaAutosize
+                        placeholder="Fight log"
+                        value={attackText}
+                        style={{
+                            width: "100%",
+                            resize: "vertical",
+                            overflow: "auto",
+                            fontSize: "10px",
+                        }}
+                    />
+                    <CalendarInfo day={1} week={1} daysUntilNextFight={2} />
                 </List>
 
-                <TextareaAutosize
-                    placeholder="Fight log"
-                    value={attackText}
-                    style={{ width: "100%", resize: "vertical", overflow: "auto", fontSize: "10px" }}
-                />
-
-                <List
+                {/* <List
                     size="sm"
                     sx={{
                         mt: "auto",
@@ -198,9 +327,8 @@ export default function RightSideBar() {
                         "--List-gap": "8px",
                         mb: 2,
                     }}
-                />
+                /> */}
             </Box>
-            <Divider />
         </Sheet>
     );
 }

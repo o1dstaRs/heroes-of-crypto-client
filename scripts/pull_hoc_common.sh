@@ -36,5 +36,5 @@ then
   git clone https://github.com/o1dstaRs/heroes-of-crypto-common.git
 else
   cd "$OUT_DIR"
-  git pull
+  git pull origin $1
 fi

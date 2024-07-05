@@ -35,7 +35,7 @@ import {
     XY,
 } from "@box2d/core";
 import { b2ParticleGroup, DrawParticleSystems } from "@box2d/particles";
-import { HoCMath } from "@heroesofcrypto/common";
+import { AttackType, FactionType, HoCMath, UnitProperties } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { SceneControl } from "../sceneControls";
@@ -43,7 +43,6 @@ import { Settings } from "../settings";
 import { IVisibleState } from "../state/state";
 import { MAX_FPS, MAX_X } from "../statics";
 import type { SceneControlGroup } from "../ui";
-import { UnitStats } from "../units/units_stats";
 import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
@@ -170,9 +169,15 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_unitInfoLines: Array<[string, string]> = [];
 
-    public sc_attackDamageRange = "";
+    public sc_attackDamageSpreadStr = "";
 
-    public sc_attackCountRange = "";
+    public sc_attackRangeDamageDivisorStr = "";
+
+    public sc_attackKillSpreadStr = "";
+
+    public sc_hoverInfoArr: string[] = [];
+
+    public sc_hoverUnitNameStr = "";
 
     public sc_mouseJoint: b2MouseJoint | null = null;
 
@@ -192,9 +197,11 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_selectedBody?: b2Body;
 
-    public sc_selectedUnitStats?: UnitStats;
+    public sc_selectedUnitProperties?: UnitProperties;
 
-    public sc_selectedRaceName?: string;
+    public sc_selectedFactionName?: FactionType;
+
+    public sc_selectedAttackType: AttackType;
 
     public sc_visibleState?: IVisibleState;
 
@@ -212,9 +219,9 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_visibleStateUpdateNeeded = false;
 
-    public sc_unitStatsUpdateNeeded = false;
+    public sc_unitPropertiesUpdateNeeded = false;
 
-    public sc_raceNameUpdateNeeded = false;
+    public sc_factionNameUpdateNeeded = false;
 
     public sc_damageStatsUpdateNeeded = false;
 
@@ -238,6 +245,7 @@ export abstract class Scene extends b2ContactListener {
 
         this.sc_groundBody = this.sc_world.CreateBody();
         this.sc_visibleState = undefined;
+        this.sc_selectedAttackType = AttackType.NO_TYPE;
     }
 
     public setupControls() {}
@@ -263,7 +271,7 @@ export abstract class Scene extends b2ContactListener {
         if (this.sc_started && onlyWhenNotStarted) {
             if (this.sc_selectedBody) {
                 this.sc_unitInfoLines.length = 0;
-                this.sc_selectedUnitStats = undefined;
+                this.sc_selectedUnitProperties = undefined;
                 this.addUnitData(this.sc_selectedBody.GetUserData());
             }
             return;
@@ -275,8 +283,8 @@ export abstract class Scene extends b2ContactListener {
         }
         this.sc_unitInfoLines.length = 0;
         if (refreshStats) {
-            this.sc_selectedUnitStats = undefined;
-            this.sc_unitStatsUpdateNeeded = true;
+            this.sc_selectedUnitProperties = undefined;
+            this.sc_unitPropertiesUpdateNeeded = true;
         }
         this.sc_currentActiveShotRange = undefined;
     }
@@ -447,6 +455,7 @@ export abstract class Scene extends b2ContactListener {
             this.sc_started = hasStarted;
             if (this.sc_started) {
                 this.destroyTempFixtures();
+                this.sc_hoverUnitNameStr = "";
             }
         }
     }
@@ -481,10 +490,10 @@ export abstract class Scene extends b2ContactListener {
         this.sc_debugLines.push([label, `${value}`]);
     }
 
-    public addUnitData(unitStats: UnitStats): void {
-        this.sc_selectedUnitStats = unitStats;
-        this.sc_unitStatsUpdateNeeded = true;
-        this.refreshFrames(unitStats.id);
+    public addUnitData(unitProperties: UnitProperties): void {
+        this.sc_selectedUnitProperties = unitProperties;
+        this.sc_unitPropertiesUpdateNeeded = true;
+        this.refreshFrames(unitProperties.id);
     }
 
     public addStatistic(label: string, value: string | number | boolean): void {
@@ -658,7 +667,10 @@ export abstract class Scene extends b2ContactListener {
     }
 
     public GetDefaultViewZoom() {
-        return window.innerWidth / 4096;
+        // return window.innerWidth / 4096;
+        const widthRatio = window.innerWidth / 2048;
+        const heightRatio = window.innerHeight / 2048;
+        return Math.min(widthRatio, heightRatio);
     }
 
     public getCenter(): XY {

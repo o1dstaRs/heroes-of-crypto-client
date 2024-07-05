@@ -10,7 +10,7 @@
  */
 
 import { b2Body, b2Fixture, b2TestOverlap, b2Vec2, b2World, XY } from "@box2d/core";
-import { GridMath, GridSettings, Grid } from "@heroesofcrypto/common";
+import { AttackType, UnitProperties, GridMath, GridSettings, Grid } from "@heroesofcrypto/common";
 
 import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
@@ -27,9 +27,8 @@ import { canBeCasted, Spell } from "../spells/spells";
 import { FightStateManager } from "../state/fight_state_manager";
 import { MORALE_CHANGE_FOR_KILL, PENALTY_ON_RANGE_SHOT_THROUGH_TEAMMATES } from "../statics";
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { IUnitDistance, SelectedAttackType, Unit } from "../units/units";
+import { IUnitDistance, Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
-import { AttackType, UnitStats } from "../units/units_stats";
 import { MoveHandler } from "./move_handler";
 
 export interface IRangeAttackEvaluation {
@@ -96,7 +95,7 @@ export class AttackHandler {
                                 };
                             }
                         } else {
-                            const unitData = body.GetUserData() as UnitStats;
+                            const unitData = body.GetUserData() as UnitProperties;
                             if (unitData.id !== fromUnit.getId() && !unitIdsAffected.includes(unitData.id)) {
                                 unitIdsAffected.push(unitData.id);
                             }
@@ -233,14 +232,14 @@ export class AttackHandler {
         ) {
             targetUnit.applyBuff(
                 currentActiveSpell,
-                attackerUnit.getAllStats().max_hp,
-                attackerUnit.getAllStats().base_armor,
+                attackerUnit.getAllProperties().max_hp,
+                attackerUnit.getAllProperties().base_armor,
             );
             if (currentActiveSpell.isSelfDebuffApplicable()) {
                 attackerUnit.applyDebuff(
                     currentActiveSpell,
-                    attackerUnit.getAllStats().max_hp,
-                    attackerUnit.getAllStats().base_armor,
+                    attackerUnit.getAllProperties().max_hp,
+                    attackerUnit.getAllProperties().base_armor,
                 );
             }
             attackerUnit.useSpell(currentActiveSpell);
@@ -274,7 +273,7 @@ export class AttackHandler {
             !attackerUnit ||
             !targetUnits?.length ||
             !hoverRangeAttackPoint ||
-            attackerUnit.getAttackTypeSelection() !== SelectedAttackType.RANGE ||
+            attackerUnit.getAttackTypeSelection() !== AttackType.RANGE ||
             !this.canLandRangeAttack(attackerUnit, grid.getEnemyAggrMatrixByUnitId(attackerUnit.getId()))
         ) {
             return false;
@@ -418,7 +417,7 @@ export class AttackHandler {
             !attackFromCell ||
             !attackerBody ||
             !currentActiveKnownPaths ||
-            attackerUnit.getAttackTypeSelection() !== SelectedAttackType.MELEE ||
+            attackerUnit.getAttackTypeSelection() !== AttackType.MELEE ||
             attackerUnit.hasAbilityActive("No Melee")
         ) {
             return false;

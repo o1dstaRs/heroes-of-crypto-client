@@ -15,23 +15,49 @@ const path = require("path");
 const imageDir = path.resolve(__dirname, "../images");
 const outputFile = path.resolve(__dirname, "../src/generated/image_imports.ts");
 
+const SEGMENT_NAME_TO_IMPORT_NAME = {
+    0: "zero",
+    1: "one",
+    2: "two",
+    3: "three",
+    4: "four",
+    5: "five",
+    6: "six",
+    7: "seven",
+    8: "eight",
+    9: "nine",
+};
+
 fs.readdir(imageDir, (err, files) => {
     if (err) {
         console.error("Could not list the directory.", err);
         process.exit(1);
     }
 
-    const imports = files
-        .filter((file) => file.endsWith(".webp"))
-        .map((file, index) => `import img${index} from "../../images/${file}";`)
-        .join("\n");
+    let imports = "";
+    let exportEntries = [];
 
-    const exportStatement = `export const images = {${files
-        .filter((file) => file.endsWith(".webp"))
-        .map((file, index) => `"${file.substring(0, file.length - 5)}": img${index}`)
-        .join(",")}};`;
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.endsWith(".webp") && !file.startsWith("overlay")) {
+            const fileNameSegments = file.split("_");
+            if (fileNameSegments.length) {
+                const firstSegment = fileNameSegments[0];
+                const importNameBase = `${SEGMENT_NAME_TO_IMPORT_NAME[firstSegment] || firstSegment}_${fileNameSegments.slice(1, fileNameSegments.length).join("_")}`;
+                let cutBy = 5;
+                if (importNameBase.endsWith("_")) {
+                    cutBy = 6;
+                }
+                const importName = importNameBase.substring(0, importNameBase.length - cutBy);
+                imports += `import ${importName} from "../../images/${file}";\n`;
+                exportEntries.push(`"${importName}": ${importName}`);
+            }
+        }
+    }
 
-    const content = `${imports}\n\n${exportStatement}`;
+    const exportStatement = `export const images = {${exportEntries.join(", ")}};\n`;
+
+    const content = `${imports}\n${exportStatement}`;
 
     fs.writeFile(outputFile, content, (err) => {
         if (err) {

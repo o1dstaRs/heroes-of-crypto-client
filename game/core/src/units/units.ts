@@ -21,7 +21,18 @@ import {
     XY,
 } from "@box2d/core";
 import { removeFromArray } from "@box2d/lights/dist/utils/arrayUtils";
-import { GridMath, GridSettings, UnitStats, HoCLib } from "@heroesofcrypto/common";
+import {
+    AllFactionsType,
+    AttackType,
+    FactionType,
+    ToFaction,
+    GridMath,
+    GridSettings,
+    UnitProperties,
+    HoCLib,
+    TeamType,
+    UnitType,
+} from "@heroesofcrypto/common";
 import Denque from "denque";
 
 import { Ability, AbilityPowerType } from "../abilities/abilities";
@@ -40,15 +51,8 @@ import {
 } from "../statics";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
-import { AttackType, TeamType } from "./units_stats";
 import { Effect } from "../effects/effects";
 import { SceneLog } from "../menu/scene_log";
-
-export enum SelectedAttackType {
-    MELEE = 1,
-    RANGE = 2,
-    MAGIC = 3,
-}
 
 export interface IAttackTargets {
     units: Unit[];
@@ -63,12 +67,12 @@ export interface IUnitDistance {
     distance: number;
 }
 
-export interface IUnitStats {
-    getAllStats(): UnitStats;
+export interface IUnitPropertiesProvider {
+    getAllProperties(): UnitProperties;
 
     getName(): string;
 
-    getRace(): string;
+    getFaction(): string;
 
     getHp(): number;
 
@@ -115,6 +119,14 @@ export interface IUnitStats {
     getAmountDied(): number;
 
     getStackPower(): number;
+
+    getTeam(): TeamType;
+
+    getUnitType(): UnitType;
+
+    getSmallTextureName(): string;
+
+    getLargeTextureName(): string;
 }
 
 export interface IUnitAIRepr {
@@ -126,7 +138,7 @@ export interface IUnitAIRepr {
     getCanFly(): boolean;
     isSmallSize(): boolean;
     getCell(): XY | undefined;
-    getAllStats(): UnitStats | undefined;
+    getAllProperties(): UnitProperties | undefined;
 }
 
 interface IDamageable {
@@ -154,9 +166,9 @@ interface IDamager {
 
     calculateAttackDamage(enemyUnit: Unit, attackType: AttackType, divisor: number, abilityMultiplier: number): number;
 
-    getAttackTypeSelection(): SelectedAttackType;
+    getAttackTypeSelection(): AttackType;
 
-    selectAttackType(selectedAttackType: SelectedAttackType): boolean;
+    selectAttackType(selectedAttackType: AttackType): boolean;
 }
 
 interface IDamageTaken {
@@ -164,7 +176,7 @@ interface IDamageTaken {
     unitsDied: number;
 }
 
-export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
+export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUnitAIRepr {
     protected readonly gl: WebGLRenderingContext;
 
     protected readonly shader: DefaultShader;
@@ -173,68 +185,71 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
 
     protected readonly digitDamageTextures: Map<number, WebGLTexture>;
 
-    private readonly unitStats: UnitStats;
+    protected readonly unitProperties: UnitProperties;
 
-    private readonly initialUnitStats: UnitStats;
+    protected readonly initialUnitProperties: UnitProperties;
 
-    private readonly gridSettings: GridSettings;
+    protected readonly gridSettings: GridSettings;
 
-    private readonly teamType: TeamType;
+    protected readonly teamType: TeamType;
 
-    private readonly smallSprite: Sprite;
+    protected readonly unitType: UnitType;
 
-    private readonly tagSprite: Sprite;
+    protected readonly smallSprite: Sprite;
 
-    private readonly hourglassSprite: Sprite;
+    protected readonly tagSprite: Sprite;
 
-    private readonly greenSmallFlagSprite: Sprite;
+    protected readonly hourglassSprite: Sprite;
 
-    private readonly redSmallFlagSprite: Sprite;
+    protected readonly greenSmallFlagSprite: Sprite;
 
-    private readonly summoned: boolean;
+    protected readonly redSmallFlagSprite: Sprite;
 
-    private readonly bodyDef: b2BodyDef;
+    protected readonly summoned: boolean;
 
-    private readonly fixtureDef: b2FixtureDef;
+    protected readonly bodyDef: b2BodyDef;
 
-    private readonly buffs: AppliedSpell[];
+    protected readonly fixtureDef: b2FixtureDef;
 
-    private readonly debuffs: AppliedSpell[];
+    protected readonly buffs: AppliedSpell[];
 
-    private readonly position: b2Vec2;
+    protected readonly debuffs: AppliedSpell[];
 
-    private readonly hpBarFixtureDefs: b2FixtureDef[];
+    protected readonly position: b2Vec2;
 
-    private readonly hpBarBoundFixtureDefs: b2FixtureDef[];
+    protected readonly stackPowerBarFixtureDefs: b2FixtureDef[];
 
-    private readonly damageAnimationTicks: Denque<IDamageTaken> = new Denque<IDamageTaken>();
+    protected readonly stackPowerBarBoundFixtureDefs: b2FixtureDef[];
 
-    private spells: Spell[];
+    protected readonly damageAnimationTicks: Denque<IDamageTaken> = new Denque<IDamageTaken>();
 
-    private abilities: Ability[];
+    protected spells: Spell[];
 
-    private effects: Effect[];
+    protected abilities: Ability[];
 
-    private selectedAttackType: SelectedAttackType;
+    protected effects: Effect[];
 
-    private rangeArmorMultiplier = 1;
+    protected selectedAttackType: AttackType;
 
-    private maxRangeShots = 0;
+    protected rangeArmorMultiplier = 1;
 
-    private responded = false;
+    protected maxRangeShots = 0;
 
-    private onHourglass = false;
+    protected responded = false;
 
-    private stackPower = MAX_UNIT_STACK_POWER;
+    protected onHourglass = false;
+
+    protected stackPower = MAX_UNIT_STACK_POWER;
 
     public constructor(
         gl: WebGLRenderingContext,
         shader: DefaultShader,
         digitNormalTextures: Map<number, WebGLTexture>,
         digitDamageTextures: Map<number, WebGLTexture>,
-        unitStats: UnitStats,
+        unitProperties: UnitProperties,
         gridSettings: GridSettings,
         teamType: TeamType,
+        unitType: UnitType,
         smallSprite: Sprite,
         tagSprite: Sprite,
         hourglassSprite: Sprite,
@@ -248,10 +263,11 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
         this.shader = shader;
         this.digitNormalTextures = digitNormalTextures;
         this.digitDamageTextures = digitDamageTextures;
-        this.unitStats = unitStats;
-        this.initialUnitStats = structuredClone(unitStats);
+        this.unitProperties = unitProperties;
+        this.initialUnitProperties = structuredClone(unitProperties);
         this.gridSettings = gridSettings;
         this.teamType = teamType;
+        this.unitType = unitType;
         this.smallSprite = smallSprite;
         this.tagSprite = tagSprite;
         this.hourglassSprite = hourglassSprite;
@@ -259,12 +275,12 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
         this.redSmallFlagSprite = redSmallFlagSprite;
         this.summoned = summoned;
 
-        if (this.unitStats.attack_type === AttackType.MELEE) {
-            this.selectedAttackType = SelectedAttackType.MELEE;
-        } else if (this.unitStats.attack_type === AttackType.RANGE) {
-            this.selectedAttackType = SelectedAttackType.RANGE;
+        if (this.unitProperties.attack_type === AttackType.MELEE) {
+            this.selectedAttackType = AttackType.MELEE;
+        } else if (this.unitProperties.attack_type === AttackType.RANGE) {
+            this.selectedAttackType = AttackType.RANGE;
         } else {
-            this.selectedAttackType = SelectedAttackType.MAGIC;
+            this.selectedAttackType = AttackType.MAGIC;
         }
 
         const position = (this.position = new b2Vec2());
@@ -273,7 +289,7 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
             type: b2BodyType.b2_dynamicBody,
             position,
             fixedRotation: true,
-            userData: unitStats,
+            userData: unitProperties,
         };
 
         const unitShape = new b2PolygonShape();
@@ -284,18 +300,18 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
             restitution: 0.0,
         };
         unitShape.SetAsBox(
-            this.gridSettings.getUnitSize() * this.unitStats.size,
-            this.gridSettings.getUnitSize() * this.unitStats.size,
+            this.gridSettings.getUnitSize() * this.unitProperties.size,
+            this.gridSettings.getUnitSize() * this.unitProperties.size,
         );
 
         const halfUnitStep = this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep();
         const fullUnitStep = this.isSmallSize() ? this.gridSettings.getStep() : this.gridSettings.getTwoSteps();
 
-        this.hpBarBoundFixtureDefs = new Array(5);
+        this.stackPowerBarBoundFixtureDefs = new Array(5);
         let i = 0;
-        while (i < this.hpBarBoundFixtureDefs.length) {
+        while (i < this.stackPowerBarBoundFixtureDefs.length) {
             const hpBoundShape = new b2ChainShape(b2Color.WHITE);
-            const step = fullUnitStep / this.hpBarBoundFixtureDefs.length;
+            const step = fullUnitStep / this.stackPowerBarBoundFixtureDefs.length;
             const yOffset = i * step;
             const yBottom = this.position.y - halfUnitStep + yOffset;
             const yTop = yBottom + step;
@@ -305,7 +321,7 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
                 new b2Vec2(this.position.x - halfUnitStep + fullUnitStep / 7, yBottom),
                 new b2Vec2(this.position.x - halfUnitStep, yBottom),
             ]);
-            this.hpBarBoundFixtureDefs[i++] = {
+            this.stackPowerBarBoundFixtureDefs[i++] = {
                 shape: hpBoundShape,
                 density: 1,
                 friction: 0,
@@ -314,11 +330,11 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
             };
         }
 
-        this.hpBarFixtureDefs = new Array(5);
+        this.stackPowerBarFixtureDefs = new Array(5);
         let j = 0;
-        while (j < this.hpBarFixtureDefs.length) {
+        while (j < this.stackPowerBarFixtureDefs.length) {
             const hpBarShape = new b2PolygonShape();
-            const step = fullUnitStep / this.hpBarBoundFixtureDefs.length;
+            const step = fullUnitStep / this.stackPowerBarBoundFixtureDefs.length;
             const yOffset = j * step;
             const yBottom = this.position.y - halfUnitStep + yOffset + HP_BAR_DELTA;
             const yTop = yBottom + step - HP_BAR_DELTA;
@@ -328,7 +344,7 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
                 new b2Vec2(this.position.x - halfUnitStep + HP_BAR_DELTA, yBottom),
                 new b2Vec2(this.position.x - halfUnitStep + fullUnitStep / 7 - HP_BAR_DELTA, yBottom),
             ]);
-            this.hpBarFixtureDefs[j++] = {
+            this.stackPowerBarFixtureDefs[j++] = {
                 shape: hpBarShape,
                 density: 1,
                 friction: 0,
@@ -343,14 +359,16 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
         this.debuffs = [];
 
         this.abilities = [];
-        this.maxRangeShots = this.unitStats.range_shots;
+        this.maxRangeShots = this.unitProperties.range_shots;
         this.parseAbilities(abilitiesFactory);
-        this.unitStats.range_armor = Number((this.unitStats.base_armor * this.rangeArmorMultiplier).toFixed(2));
+        this.unitProperties.range_armor = Number(
+            (this.unitProperties.base_armor * this.rangeArmorMultiplier).toFixed(2),
+        );
 
         this.effects = [];
     }
 
-    private getDistanceToFurthestCorner(position: XY): number {
+    protected getDistanceToFurthestCorner(position: XY): number {
         return Math.max(
             b2Vec2.Distance(position, { x: this.gridSettings.getMinX(), y: this.gridSettings.getMinY() }),
             b2Vec2.Distance(position, { x: this.gridSettings.getMinX(), y: this.gridSettings.getMaxY() }),
@@ -359,9 +377,9 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
         );
     }
 
-    private parseSpells(spellsFactory: SpellsFactory): void {
+    protected parseSpells(spellsFactory: SpellsFactory): void {
         const spells: Map<string, number> = new Map();
-        for (const sp of this.unitStats.spells) {
+        for (const sp of this.unitProperties.spells) {
             if (!spells.has(sp)) {
                 spells.set(sp, 1);
             } else {
@@ -379,9 +397,14 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
             if (spArr.length !== 2) {
                 continue;
             }
-            const race = spArr[0];
+            // can return us undefined
+            const faction = ToFaction[spArr[0] as AllFactionsType];
+            if (faction === undefined) {
+                continue;
+            }
+
             const spellName = spArr[1];
-            this.spells.push(spellsFactory.makeSpell(race, spellName, v));
+            this.spells.push(spellsFactory.makeSpell(faction, spellName, v));
         }
     }
 
@@ -397,14 +420,14 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
         return this.debuffs;
     }
 
-    private parseAbilities(abilitiesFactory: AbilitiesFactory): void {
-        for (const abilityName of this.unitStats.abilities) {
+    protected parseAbilities(abilitiesFactory: AbilitiesFactory): void {
+        for (const abilityName of this.unitProperties.abilities) {
             const ability = abilitiesFactory.makeAbility(abilityName);
             this.abilities.push(ability);
             if (abilityName === "Endless Quiver") {
-                this.unitStats.range_shots_mod = ability.getPower();
+                this.unitProperties.range_shots_mod = ability.getPower();
             } else if (abilityName === "Enchanted Skin") {
-                this.unitStats.magic_resist_mod = ability.getPower();
+                this.unitProperties.magic_resist_mod = ability.getPower();
             } else if (abilityName === "Leather Armor") {
                 this.rangeArmorMultiplier = ability.getPower() / 100;
             } else if (abilityName === "Limited Supply") {
@@ -464,9 +487,9 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
     }
 
     public refreshPreTurnState(sceneLog: SceneLog) {
-        if (this.unitStats.hp !== this.unitStats.max_hp && this.hasAbilityActive("Wild Regeneration")) {
-            const healedHp = this.unitStats.max_hp - this.unitStats.hp;
-            this.unitStats.hp = this.unitStats.max_hp;
+        if (this.unitProperties.hp !== this.unitProperties.max_hp && this.hasAbilityActive("Wild Regeneration")) {
+            const healedHp = this.unitProperties.max_hp - this.unitProperties.hp;
+            this.unitProperties.hp = this.unitProperties.max_hp;
             sceneLog.updateLog(`${this.getName()} auto regenerated to its maximum hp (+${healedHp})`);
         }
     }
@@ -517,32 +540,32 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
         return 0;
     }
 
-    public getAllStats(): UnitStats {
-        return this.unitStats;
+    public getAllProperties(): UnitProperties {
+        return this.unitProperties;
     }
 
-    public getRace(): string {
-        return this.unitStats.race;
+    public getFaction(): FactionType {
+        return this.unitProperties.faction;
     }
 
     public getName(): string {
-        return this.unitStats.name;
+        return this.unitProperties.name;
     }
 
     public getHp(): number {
-        return this.unitStats.hp;
+        return this.unitProperties.hp;
     }
 
     public getMaxHp(): number {
-        return this.unitStats.max_hp;
+        return this.unitProperties.max_hp;
     }
 
     public getSteps(): number {
-        return this.unitStats.steps + this.unitStats.steps_morale;
+        return this.unitProperties.steps + this.unitProperties.steps_morale;
     }
 
     public getMorale(): number {
-        const { morale } = this.unitStats;
+        const { morale } = this.unitProperties;
         if (morale > MORALE_MAX_VALUE_TOTAL) {
             return MORALE_MAX_VALUE_TOTAL;
         }
@@ -553,7 +576,7 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
     }
 
     public getLuck(): number {
-        const luck = this.unitStats.luck + this.unitStats.luck_per_turn;
+        const luck = this.unitProperties.luck + this.unitProperties.luck_per_turn;
         if (luck > LUCK_MAX_VALUE_TOTAL) {
             return LUCK_MAX_VALUE_TOTAL;
         }
@@ -564,67 +587,71 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
     }
 
     public getLuckPerTurn(): number {
-        return this.unitStats.luck_per_turn;
+        return this.unitProperties.luck_per_turn;
     }
 
     public getSpeed(): number {
-        return this.unitStats.speed;
+        return this.unitProperties.speed;
     }
 
     public getArmor(): number {
-        return this.unitStats.base_armor + this.unitStats.armor_mod;
+        return this.unitProperties.base_armor + this.unitProperties.armor_mod;
     }
 
     public getRangeArmor(): number {
-        return this.unitStats.range_armor + this.unitStats.armor_mod;
+        return this.unitProperties.range_armor + this.unitProperties.armor_mod;
     }
 
     public getAttackType(): AttackType {
-        return this.unitStats.attack_type;
+        return this.unitProperties.attack_type;
     }
 
     public getAttack(): number {
-        return this.unitStats.attack;
+        return this.unitProperties.attack;
     }
 
     public getAttackDamageMin(): number {
-        return this.unitStats.attack_damage_min;
+        return this.unitProperties.attack_damage_min;
     }
 
     public getAttackDamageMax(): number {
-        return this.unitStats.attack_damage_max;
+        return this.unitProperties.attack_damage_max;
     }
 
     public getAttackRange(): number {
-        return this.unitStats.attack_range;
+        return this.unitProperties.attack_range;
     }
 
     public getRangeShots(): number {
-        return this.unitStats.range_shots_mod ? this.unitStats.range_shots_mod : this.unitStats.range_shots;
+        return this.unitProperties.range_shots_mod
+            ? this.unitProperties.range_shots_mod
+            : this.unitProperties.range_shots;
     }
 
     public getRangeShotDistance(): number {
-        return this.unitStats.shot_distance;
+        return this.unitProperties.shot_distance;
     }
 
     public getMagicResist(): number {
-        return this.unitStats.magic_resist_mod ? this.unitStats.magic_resist_mod : this.unitStats.magic_resist;
+        return this.unitProperties.magic_resist_mod
+            ? this.unitProperties.magic_resist_mod
+            : this.unitProperties.magic_resist;
     }
 
     public getSpellsCount(): number {
-        return this.unitStats.spells.length;
+        return this.unitProperties.spells.length;
     }
 
     public getCanCastSpells(): boolean {
-        return this.unitStats.can_cast_spells;
+        return this.unitProperties.can_cast_spells;
     }
 
     public getCanFly(): boolean {
-        return this.unitStats.can_fly;
+        return this.unitProperties.can_fly;
     }
 
     public getExp(): number {
-        return this.unitStats.exp;
+        return this.unitProperties.exp;
     }
 
     public getBodyDef(): b2BodyDef {
@@ -636,23 +663,35 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
     }
 
     public getHpBarBoundFixtureDefs(): b2FixtureDef[] {
-        return this.hpBarBoundFixtureDefs.slice(0, this.getStackPower());
+        return this.stackPowerBarBoundFixtureDefs.slice(0, this.getStackPower());
     }
 
     public getHpBarFixtureDefs(): b2FixtureDef[] {
-        return this.hpBarFixtureDefs.slice(0, this.getStackPower());
+        return this.stackPowerBarFixtureDefs.slice(0, this.getStackPower());
     }
 
     public getTeam(): TeamType {
         return this.teamType;
     }
 
+    public getUnitType(): UnitType {
+        return this.unitType;
+    }
+
+    public getSmallTextureName(): string {
+        return this.unitProperties.small_texture_name;
+    }
+
+    public getLargeTextureName(): string {
+        return this.unitProperties.large_texture_name;
+    }
+
     public getAmountAlive(): number {
-        return this.unitStats.amount_alive;
+        return this.unitProperties.amount_alive;
     }
 
     public getAmountDied(): number {
-        return this.unitStats.amount_died;
+        return this.unitProperties.amount_died;
     }
 
     public getStackPower(): number {
@@ -666,7 +705,7 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
     }
 
     public getId(): string {
-        return this.unitStats.id;
+        return this.unitProperties.id;
     }
 
     public setPosition(x: number, y: number) {
@@ -687,11 +726,11 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
     }
 
     public getSize(): number {
-        return this.unitStats.size;
+        return this.unitProperties.size;
     }
 
     public isSmallSize(): boolean {
-        return this.unitStats.size === 1;
+        return this.unitProperties.size === 1;
     }
 
     public isSummoned(): boolean {
@@ -699,12 +738,12 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
     }
 
     public getLevel(): number {
-        return this.unitStats.level;
+        return this.unitProperties.level;
     }
 
     public increaseAmountAlive(increaseBy: number): void {
         if (!this.isDead() && this.isSummoned()) {
-            this.unitStats.amount_alive += increaseBy;
+            this.unitProperties.amount_alive += increaseBy;
         }
     }
 
@@ -753,7 +792,7 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
         if (isDamageAnimationLocked || !finishDamageTick || currentTick > finishDamageTick) {
             this.renderAmountSprites(
                 this.digitNormalTextures,
-                this.unitStats.amount_alive,
+                this.unitProperties.amount_alive,
                 position,
                 upNextPosition,
                 xShift,
@@ -799,7 +838,7 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
             } else {
                 const texture = this.digitNormalTextures.get(-1);
                 if (texture) {
-                    for (let i = 1; i <= this.unitStats.amount_alive.toString().length; i++) {
+                    for (let i = 1; i <= this.unitProperties.amount_alive.toString().length; i++) {
                         const sprite = new Sprite(this.gl, this.shader, texture);
                         sprite.setRect(
                             position.x + (upNextPosition ? fullUnitStep - xShift : halfUnitStep) - sixthStep * i,
@@ -927,23 +966,23 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
 
     public randomizeLuckPerTurn(): void {
         let calculatedLuck = HoCLib.getRandomInt(-LUCK_MAX_CHANGE_FOR_TURN, LUCK_MAX_CHANGE_FOR_TURN + 1);
-        if (calculatedLuck + this.unitStats.luck > LUCK_MAX_VALUE_TOTAL) {
-            calculatedLuck = LUCK_MAX_VALUE_TOTAL - this.unitStats.luck;
-        } else if (calculatedLuck + this.unitStats.luck < -LUCK_MAX_VALUE_TOTAL) {
-            calculatedLuck = -LUCK_MAX_VALUE_TOTAL - this.unitStats.luck;
+        if (calculatedLuck + this.unitProperties.luck > LUCK_MAX_VALUE_TOTAL) {
+            calculatedLuck = LUCK_MAX_VALUE_TOTAL - this.unitProperties.luck;
+        } else if (calculatedLuck + this.unitProperties.luck < -LUCK_MAX_VALUE_TOTAL) {
+            calculatedLuck = -LUCK_MAX_VALUE_TOTAL - this.unitProperties.luck;
         }
-        this.unitStats.luck_per_turn = calculatedLuck;
+        this.unitProperties.luck_per_turn = calculatedLuck;
     }
 
     public cleanupLuckPerTurn(): void {
-        this.unitStats.luck_per_turn = 0;
+        this.unitProperties.luck_per_turn = 0;
     }
 
     public applyDamage(minusHp: number, currentTick: number): void {
         const damageTakenEntry = this.damageAnimationTicks.peekFront();
         const nextAnimationTick = damageTakenEntry?.animationTicks ?? 0;
-        if (minusHp < this.unitStats.hp) {
-            this.unitStats.hp -= minusHp;
+        if (minusHp < this.unitProperties.hp) {
+            this.unitProperties.hp -= minusHp;
             this.damageAnimationTicks.unshift({
                 animationTicks: Math.max(currentTick, nextAnimationTick) + DAMAGE_ANIMATION_TICKS,
                 unitsDied: 0,
@@ -951,21 +990,21 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
             return;
         }
 
-        this.unitStats.amount_died += 1;
-        this.unitStats.amount_alive -= 1;
-        minusHp -= this.unitStats.hp;
-        this.unitStats.hp = this.unitStats.max_hp;
+        this.unitProperties.amount_died += 1;
+        this.unitProperties.amount_alive -= 1;
+        minusHp -= this.unitProperties.hp;
+        this.unitProperties.hp = this.unitProperties.max_hp;
 
-        const amountDied = Math.floor(minusHp / this.unitStats.max_hp);
-        if (amountDied >= this.unitStats.amount_alive) {
-            this.unitStats.amount_died += this.unitStats.amount_alive;
-            this.unitStats.amount_alive = 0;
+        const amountDied = Math.floor(minusHp / this.unitProperties.max_hp);
+        if (amountDied >= this.unitProperties.amount_alive) {
+            this.unitProperties.amount_died += this.unitProperties.amount_alive;
+            this.unitProperties.amount_alive = 0;
             return;
         }
 
-        this.unitStats.amount_died += amountDied;
-        this.unitStats.amount_alive -= amountDied;
-        this.unitStats.hp -= minusHp % this.unitStats.max_hp;
+        this.unitProperties.amount_died += amountDied;
+        this.unitProperties.amount_alive -= amountDied;
+        this.unitProperties.hp -= minusHp % this.unitProperties.max_hp;
         this.damageAnimationTicks.unshift({
             animationTicks: Math.max(currentTick, nextAnimationTick) + DAMAGE_ANIMATION_TICKS,
             unitsDied: amountDied + 1,
@@ -973,34 +1012,34 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
     }
 
     public isDead(): boolean {
-        return this.unitStats.amount_alive <= 0;
+        return this.unitProperties.amount_alive <= 0;
     }
 
     public increaseMorale(moraleAmount: number): void {
-        this.unitStats.morale += moraleAmount;
-        if (this.unitStats.morale > MORALE_MAX_VALUE_TOTAL) {
-            this.unitStats.morale = MORALE_MAX_VALUE_TOTAL;
+        this.unitProperties.morale += moraleAmount;
+        if (this.unitProperties.morale > MORALE_MAX_VALUE_TOTAL) {
+            this.unitProperties.morale = MORALE_MAX_VALUE_TOTAL;
         }
     }
 
     public decreaseMorale(moraleAmount: number): void {
-        this.unitStats.morale -= moraleAmount;
-        if (this.unitStats.morale < -MORALE_MAX_VALUE_TOTAL) {
-            this.unitStats.morale = -MORALE_MAX_VALUE_TOTAL;
+        this.unitProperties.morale -= moraleAmount;
+        if (this.unitProperties.morale < -MORALE_MAX_VALUE_TOTAL) {
+            this.unitProperties.morale = -MORALE_MAX_VALUE_TOTAL;
         }
     }
 
     public applyMoraleStepsModifier(stepsMoraleMultiplier = 0): void {
-        this.unitStats.steps_morale = Number((stepsMoraleMultiplier * this.getMorale()).toFixed(2));
+        this.unitProperties.steps_morale = Number((stepsMoraleMultiplier * this.getMorale()).toFixed(2));
     }
 
     public setAttackMultiplier(multiplier: number) {
-        this.unitStats.attack_multiplier = multiplier;
+        this.unitProperties.attack_multiplier = multiplier;
     }
 
     public calculatePossibleLosses(minusHp: number): number {
         let amountDied = 0;
-        const currentHp = this.unitStats.hp;
+        const currentHp = this.unitProperties.hp;
 
         if (minusHp < currentHp) {
             return amountDied;
@@ -1009,9 +1048,9 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
         amountDied++;
         minusHp -= currentHp;
 
-        amountDied += Math.floor(minusHp / this.unitStats.max_hp);
-        if (amountDied >= this.unitStats.amount_alive) {
-            return this.unitStats.amount_alive;
+        amountDied += Math.floor(minusHp / this.unitProperties.max_hp);
+        if (amountDied >= this.unitProperties.amount_alive) {
+            return this.unitProperties.amount_alive;
         }
 
         return amountDied;
@@ -1053,11 +1092,11 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
         }
 
         return Math.ceil(
-            ((((this.unitStats.attack_damage_min * this.unitStats.attack * this.unitStats.amount_alive) /
+            ((((this.unitProperties.attack_damage_min * this.unitProperties.attack * this.unitProperties.amount_alive) /
                 this.getEnemyArmor(enemyUnit, isRangeAttack)) *
                 (1 - enemyUnit.getLuck() / 100)) /
                 divisor) *
-                this.unitStats.attack_multiplier *
+                this.unitProperties.attack_multiplier *
                 abilityMultiplier,
         );
     }
@@ -1072,11 +1111,11 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
             divisor = 1;
         }
         return Math.ceil(
-            ((((this.unitStats.attack_damage_max * this.unitStats.attack * this.unitStats.amount_alive) /
+            ((((this.unitProperties.attack_damage_max * this.unitProperties.attack * this.unitProperties.amount_alive) /
                 this.getEnemyArmor(enemyUnit, isRangeAttack)) *
                 (1 - (enemyUnit.getLuck() + enemyUnit.getLuckPerTurn()) / 100)) /
                 divisor) *
-                this.unitStats.attack_multiplier *
+                this.unitProperties.attack_multiplier *
                 abilityMultiplier,
         );
     }
@@ -1086,7 +1125,7 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
         const max = this.calculateAttackDamageMax(enemyUnit, attackType === AttackType.RANGE, divisor);
         const attackingByMelee = attackType === AttackType.MELEE;
         if (!attackingByMelee && attackType === AttackType.RANGE) {
-            if (this.unitStats.range_shots <= 0) {
+            if (this.unitProperties.range_shots <= 0) {
                 return 0;
             }
             let gotUnlimitedSupplies = false;
@@ -1096,12 +1135,14 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
                 }
             }
             if (!gotUnlimitedSupplies) {
-                this.unitStats.range_shots -= 1;
+                this.unitProperties.range_shots -= 1;
             }
         }
 
         const attackTypeMultiplier =
-            attackingByMelee && this.unitStats.attack_type === AttackType.RANGE && !this.hasAbilityActive("Handyman")
+            attackingByMelee &&
+            this.unitProperties.attack_type === AttackType.RANGE &&
+            !this.hasAbilityActive("Handyman")
                 ? 0.5
                 : 1;
         return Math.floor((Math.random() * (max - min) + min) * attackTypeMultiplier * abilityMultiplier);
@@ -1135,44 +1176,44 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
         this.onHourglass = onHourglass;
     }
 
-    public getAttackTypeSelection(): SelectedAttackType {
-        if (this.selectedAttackType === SelectedAttackType.RANGE && this.unitStats.range_shots <= 0) {
-            this.selectedAttackType = SelectedAttackType.MELEE;
-            this.unitStats.attack_type_selected = AttackType.MELEE;
-        } else if (this.selectedAttackType === SelectedAttackType.MAGIC && this.unitStats.spells.length <= 0) {
-            this.selectedAttackType = SelectedAttackType.MELEE;
-            this.unitStats.attack_type_selected = AttackType.MELEE;
+    public getAttackTypeSelection(): AttackType {
+        if (this.selectedAttackType === AttackType.RANGE && this.unitProperties.range_shots <= 0) {
+            this.selectedAttackType = AttackType.MELEE;
+            this.unitProperties.attack_type_selected = AttackType.MELEE;
+        } else if (this.selectedAttackType === AttackType.MAGIC && this.unitProperties.spells.length <= 0) {
+            this.selectedAttackType = AttackType.MELEE;
+            this.unitProperties.attack_type_selected = AttackType.MELEE;
         }
 
         return this.selectedAttackType;
     }
 
-    public selectAttackType(selectedAttackType: SelectedAttackType): boolean {
-        if (selectedAttackType === SelectedAttackType.MELEE && this.selectedAttackType !== selectedAttackType) {
+    public selectAttackType(selectedAttackType: AttackType): boolean {
+        if (selectedAttackType === AttackType.MELEE && this.selectedAttackType !== selectedAttackType) {
             this.selectedAttackType = selectedAttackType;
-            this.unitStats.attack_type_selected = AttackType.MELEE;
+            this.unitProperties.attack_type_selected = AttackType.MELEE;
             return true;
         }
 
         if (
-            selectedAttackType === SelectedAttackType.RANGE &&
-            this.unitStats.attack_type === AttackType.RANGE &&
-            this.unitStats.range_shots &&
+            selectedAttackType === AttackType.RANGE &&
+            this.unitProperties.attack_type === AttackType.RANGE &&
+            this.unitProperties.range_shots &&
             this.selectedAttackType !== selectedAttackType
         ) {
             this.selectedAttackType = selectedAttackType;
-            this.unitStats.attack_type_selected = AttackType.RANGE;
+            this.unitProperties.attack_type_selected = AttackType.RANGE;
             return true;
         }
 
         if (
-            selectedAttackType === SelectedAttackType.MAGIC &&
-            this.unitStats.attack_type === AttackType.MAGIC &&
-            this.unitStats.spells.length &&
+            selectedAttackType === AttackType.MAGIC &&
+            this.unitProperties.attack_type === AttackType.MAGIC &&
+            this.unitProperties.spells.length &&
             this.selectedAttackType !== selectedAttackType
         ) {
             this.selectedAttackType = selectedAttackType;
-            this.unitStats.attack_type_selected = AttackType.MAGIC;
+            this.unitProperties.attack_type_selected = AttackType.MAGIC;
             return true;
         }
 
@@ -1196,7 +1237,7 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
         for (const s of this.spells) {
             if (s.getName() === spell.getName()) {
                 s.decreaseAmount();
-                removeFromArray(this.unitStats.spells, `${s.getRace()}:${s.getName()}`);
+                removeFromArray(this.unitProperties.spells, `${s.getFaction()}:${s.getName()}`);
             }
             if (s.isRemaining()) {
                 spellsUpdated.push(s);
@@ -1207,25 +1248,27 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
 
     public adjustBaseStats() {
         const baseStatsDiff = calculateBuffsDebuffsEffect(this.getBuffs(), this.getDebuffs());
-        this.unitStats.max_hp = this.refreshAndGetAdjustedMaxHp() + baseStatsDiff.baseStats.hp;
-        if (this.unitStats.max_hp < this.unitStats.hp) {
-            this.unitStats.hp = this.unitStats.max_hp;
+        this.unitProperties.max_hp = this.refreshAndGetAdjustedMaxHp() + baseStatsDiff.baseStats.hp;
+        if (this.unitProperties.max_hp < this.unitProperties.hp) {
+            this.unitProperties.hp = this.unitProperties.max_hp;
         }
-        this.unitStats.base_armor = this.initialUnitStats.base_armor + baseStatsDiff.baseStats.armor;
-        this.unitStats.range_armor = Number((this.unitStats.base_armor * this.rangeArmorMultiplier).toFixed(2));
+        this.unitProperties.base_armor = this.initialUnitProperties.base_armor + baseStatsDiff.baseStats.armor;
+        this.unitProperties.range_armor = Number(
+            (this.unitProperties.base_armor * this.rangeArmorMultiplier).toFixed(2),
+        );
 
         const heavyArmorAbility = this.getAbility("Heavy Armor");
         if (heavyArmorAbility) {
-            this.unitStats.base_armor += Number(
+            this.unitProperties.base_armor += Number(
                 (
-                    this.unitStats.base_armor *
+                    this.unitProperties.base_armor *
                     ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / MAX_UNIT_STACK_POWER) *
                     this.getStackPower()
                 ).toFixed(2),
             );
-            this.unitStats.range_armor += Number(
+            this.unitProperties.range_armor += Number(
                 (
-                    this.unitStats.range_armor *
+                    this.unitProperties.range_armor *
                     ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / MAX_UNIT_STACK_POWER) *
                     this.getStackPower()
                 ).toFixed(2),
@@ -1239,21 +1282,21 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
         }
 
         const actualStackPowerCoeff = this.getStackPower() / MAX_UNIT_STACK_POWER;
-        this.unitStats.range_shots = Math.min(
-            this.unitStats.range_shots,
+        this.unitProperties.range_shots = Math.min(
+            this.unitProperties.range_shots,
             Math.floor(this.maxRangeShots * actualStackPowerCoeff),
         );
     }
 
     public setRangeShotDistance(distance: number) {
-        this.unitStats.shot_distance = distance;
+        this.unitProperties.shot_distance = distance;
     }
 
     public setStackPower(stackPower: number): void {
         this.stackPower = stackPower;
     }
 
-    private getEnemyArmor(enemyUnit: Unit, isRangeAttack: boolean): number {
+    protected getEnemyArmor(enemyUnit: Unit, isRangeAttack: boolean): number {
         if (this.hasAbilityActive("Piercing Spear")) {
             return 1;
         }
@@ -1261,28 +1304,28 @@ export class Unit implements IUnitStats, IDamageable, IDamager, IUnitAIRepr {
         return isRangeAttack ? enemyUnit.getRangeArmor() : enemyUnit.getArmor();
     }
 
-    private refreshAndGetAdjustedMaxHp(): number {
+    protected refreshAndGetAdjustedMaxHp(): number {
         const boostHpPower = this.getAbilityPower("Boost Health");
         if (boostHpPower) {
             const actualStackPowerCoeff = this.getStackPower() / MAX_UNIT_STACK_POWER;
             let adjustActualHp = false;
-            if (this.unitStats.hp === this.unitStats.max_hp) {
+            if (this.unitProperties.hp === this.unitProperties.max_hp) {
                 adjustActualHp = true;
             }
-            this.unitStats.max_hp = Math.floor(
-                this.initialUnitStats.max_hp +
-                    ((this.initialUnitStats.max_hp * boostHpPower) / 100) * actualStackPowerCoeff,
+            this.unitProperties.max_hp = Math.floor(
+                this.initialUnitProperties.max_hp +
+                    ((this.initialUnitProperties.max_hp * boostHpPower) / 100) * actualStackPowerCoeff,
             );
             if (adjustActualHp) {
-                this.unitStats.hp = this.unitStats.max_hp;
+                this.unitProperties.hp = this.unitProperties.max_hp;
             }
-            return this.unitStats.max_hp;
+            return this.unitProperties.max_hp;
         }
 
-        return this.initialUnitStats.max_hp;
+        return this.initialUnitProperties.max_hp;
     }
 
-    private renderAmountSprites(
+    protected renderAmountSprites(
         digitTextures: Map<number, WebGLTexture>,
         amountToRender: number,
         position: XY,

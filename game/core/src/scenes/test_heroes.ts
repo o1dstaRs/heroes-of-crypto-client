@@ -9,8 +9,23 @@
  * -----------------------------------------------------------------------------
  */
 
+import axios from "axios";
+import { v4 as uuidv4 } from "uuid";
 import { b2Body, b2BodyType, b2Color, b2EdgeShape, b2Fixture, b2Vec2, XY } from "@box2d/core";
-import { Grid, GridSettings, GridConstants, GridMath, HoCMath, HoCLib } from "@heroesofcrypto/common";
+import {
+    FactionType,
+    TeamType,
+    AttackType,
+    UnitProperties,
+    Grid,
+    GridSettings,
+    GridConstants,
+    GridMath,
+    HoCMath,
+    HoCLib,
+} from "@heroesofcrypto/common";
+import { Fight } from "@heroesofcrypto/common/src/generated/protobuf/v1/fight_pb";
+import { StringList } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 
 import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { AbilitiesFactory } from "../abilities/abilities_factory";
@@ -49,10 +64,9 @@ import {
     STEP,
     UNIT_SIZE_DELTA,
 } from "../statics";
-import { IAttackTargets, SelectedAttackType, Unit } from "../units/units";
+import { IAttackTargets, Unit } from "../units/units";
 import { UnitsFactory } from "../units/units_factory";
 import { UnitsHolder } from "../units/units_holder";
-import { AttackType, TeamType, UnitStats } from "../units/units_stats";
 import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
@@ -60,6 +74,7 @@ import { Sprite } from "../utils/gl/Sprite";
 import { GLScene } from "./gl_scene";
 import { registerScene, SceneContext } from "./scene";
 import { SceneSettings } from "./scene_settings";
+import { IVisibleUnit } from "../state/state";
 
 const COLOR_ORANGE = new b2Color(0.909803921568627, 0.282352941176471, 0.203921568627451);
 const COLOR_YELLOW = new b2Color(1, 0.952941176470588, 0.427450980392157);
@@ -121,7 +136,7 @@ class TestHeroes extends GLScene {
 
     private unitIdToCellsPreRound?: Map<string, XY[]>;
 
-    private switchToSelectedAttackType?: SelectedAttackType;
+    private switchToSelectedAttackType?: AttackType;
 
     private gridMatrix: number[][];
 
@@ -154,6 +169,8 @@ class TestHeroes extends GLScene {
     private readonly drawer: Drawer;
 
     private readonly visibleStateUpdate: () => void;
+
+    private readonly sendFightState: () => Promise<void>;
 
     public readonly gl: WebGLRenderingContext;
 
@@ -274,7 +291,7 @@ class TestHeroes extends GLScene {
             ...this.upperPlacement.possibleCellHashes(),
         ]);
 
-        this.background = new Sprite(gl, shader, this.textures.back.texture);
+        this.background = new Sprite(gl, shader, this.textures.background_dark.texture);
         this.spellBookOverlay = new Sprite(gl, shader, this.textures.book_1024.texture);
         this.abilitiesFrame = new Frame(
             this.sc_sceneSettings.getGridSettings(),
@@ -384,28 +401,28 @@ class TestHeroes extends GLScene {
         switch (HoCLib.getRandomInt(0, 4)) {
             case 0:
                 this.lifeButton.setIsSelected(true);
-                this.sc_selectedRaceName = "Life";
-                this.sc_raceNameUpdateNeeded = true;
+                this.sc_selectedFactionName = FactionType.LIFE;
+                this.sc_factionNameUpdateNeeded = true;
                 break;
             case 1:
                 this.natureButton.setIsSelected(true);
-                this.sc_selectedRaceName = "Nature";
-                this.sc_raceNameUpdateNeeded = true;
+                this.sc_selectedFactionName = FactionType.NATURE;
+                this.sc_factionNameUpdateNeeded = true;
                 break;
             // case 4:
             //     this.deathButton.setIsSelected(true);
-            //     this.m_selectedRaceName = "Death";
+            //     this.m_selectedRaceName = FactionType.DEATH;
             //     this.m_race_name_update_needed = true;
             //     break;
             case 2:
                 this.mightButton.setIsSelected(true);
-                this.sc_selectedRaceName = "Might";
-                this.sc_raceNameUpdateNeeded = true;
+                this.sc_selectedFactionName = FactionType.MIGHT;
+                this.sc_factionNameUpdateNeeded = true;
                 break;
             case 3:
                 this.chaosButton.setIsSelected(true);
-                this.sc_selectedRaceName = "Chaos";
-                this.sc_raceNameUpdateNeeded = true;
+                this.sc_selectedFactionName = FactionType.CHAOS;
+                this.sc_factionNameUpdateNeeded = true;
                 break;
             // case 5:
             //     this.orderButton.setIsSelected(true);
@@ -435,11 +452,82 @@ class TestHeroes extends GLScene {
                 this.sc_visibleStateUpdateNeeded = true;
             }
         };
-        if (HoCLib.isBrowser()) {
-            window.setInterval(this.visibleStateUpdate, 500);
-        } else {
-            setInterval(this.visibleStateUpdate, 500);
-        }
+
+        this.sendFightState = async () => {
+            this.refreshVisibleStateIfNeeded();
+            if (this.sc_visibleState) {
+                const fightState = FightStateManager.getInstance().getFightState();
+
+                const fight = new Fight();
+                fight.setId(HoCLib.uuidToUint8Array(fightState.id));
+                fight.setCurrentLap(fightState.currentLap);
+                fight.setFirstTurnMade(fightState.firstTurnMade);
+                fight.setFightFinished(fightState.fightFinished);
+                fight.setPreviousTurnTeam(fightState.previousTurnTeam);
+                fight.setHighestSpeedThisTurn(fightState.highestSpeedThisTurn);
+                fight.setAlreadyMadeTurnList(Array.from(fightState.alreadyMadeTurn));
+                const alreadyMadeTurnByUpperTeam = fightState.alreadyMadeTurnByTeam.get(TeamType.UPPER);
+                const alreadyMadeTurnByLowerTeam = fightState.alreadyMadeTurnByTeam.get(TeamType.LOWER);
+                const alreadyMadeTurnByUpperTeamList = new StringList();
+                const alreadyMadeTurnByLowerTeamList = new StringList();
+                if (alreadyMadeTurnByUpperTeam?.size) {
+                    alreadyMadeTurnByUpperTeamList.setValuesList(Array.from(alreadyMadeTurnByUpperTeam));
+                }
+                if (alreadyMadeTurnByLowerTeam?.size) {
+                    alreadyMadeTurnByLowerTeamList.setValuesList(Array.from(alreadyMadeTurnByLowerTeam));
+                }
+                const alreadyMadeTurnByTeamMap = fight.getAlreadyMadeTurnByTeamMap();
+                alreadyMadeTurnByTeamMap.set(TeamType.UPPER, alreadyMadeTurnByUpperTeamList);
+                alreadyMadeTurnByTeamMap.set(TeamType.LOWER, alreadyMadeTurnByLowerTeamList);
+                fight.setAlreadyHourGlassList(Array.from(fightState.alreadyHourGlass));
+                fight.setAlreadyRepliedAttackList(Array.from(fightState.alreadyRepliedAttack));
+                const upperTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
+                const lowerTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0;
+                const teamUnitsAliveMap = fight.getTeamUnitsAliveMap();
+                teamUnitsAliveMap.set(TeamType.UPPER, upperTeamUnitsAlive);
+                teamUnitsAliveMap.set(TeamType.LOWER, lowerTeamUnitsAlive);
+                fight.setHourGlassQueueList(fightState.hourGlassQueue);
+                fight.setMoralePlusQueueList(fightState.moralePlusQueue);
+                fight.setMoraleMinusQueueList(fightState.moraleMinusQueue);
+                fight.setCurrentTurnStart(Math.round(fightState.currentTurnStart));
+                fight.setCurrentTurnEnd(Math.round(fightState.currentTurnEnd));
+                const currentLapTotalTimePerTeam = fight.getCurrentLapTotalTimePerTeamMap();
+                const upperCurrentLapTotalTime = fightState.currentLapTotalTimePerTeam.get(TeamType.UPPER) ?? 0;
+                const lowerCurrentLapTotalTime = fightState.currentLapTotalTimePerTeam.get(TeamType.LOWER) ?? 0;
+                currentLapTotalTimePerTeam.set(TeamType.UPPER, upperCurrentLapTotalTime);
+                currentLapTotalTimePerTeam.set(TeamType.LOWER, lowerCurrentLapTotalTime);
+                fight.setUpNextList(fightState.upNext);
+                fight.setStepsMoraleMultiplier(fightState.stepsMoraleMultiplier);
+                const hasAdditionalTimeRequestedPerTeam = fight.getHasAdditionalTimeRequestedPerTeamMap();
+                const upperAdditionalTimeRequested =
+                    fightState.hasAdditionalTimeRequestedPerTeam.get(TeamType.UPPER) ?? false;
+                const lowerAdditionalTimeRequested =
+                    fightState.hasAdditionalTimeRequestedPerTeam.get(TeamType.LOWER) ?? false;
+                hasAdditionalTimeRequestedPerTeam.set(TeamType.UPPER, upperAdditionalTimeRequested);
+                hasAdditionalTimeRequestedPerTeam.set(TeamType.LOWER, lowerAdditionalTimeRequested);
+
+                try {
+                    console.log("Before sending data");
+                    // console.log(fight.toObject());
+                    const postResponse = await axios.post("http://localhost:8080/fights", fight.serializeBinary(), {
+                        headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
+                    });
+                    // console.log(fight.serializeBinary());
+                    console.log("After sending data");
+                    // console.log(postResponse.headers);
+                    console.log(postResponse.headers);
+                    console.log(postResponse.data);
+                } catch (err) {
+                    console.error(err);
+                }
+
+                // console.log(fightState);
+                // console.log(fight.toObject());
+            }
+        };
+
+        HoCLib.interval(this.visibleStateUpdate, 500);
+        HoCLib.interval(this.sendFightState, 1000000);
     }
 
     private spawnObstacles(): string | undefined {
@@ -529,8 +617,8 @@ class TestHeroes extends GLScene {
     }
 
     private spawnUnits(): void {
-        this.unitsHolder.spawn(TeamType.LOWER, this.sc_selectedRaceName);
-        this.unitsHolder.spawn(TeamType.UPPER, this.sc_selectedRaceName);
+        this.unitsHolder.spawn(TeamType.LOWER, this.sc_selectedFactionName);
+        this.unitsHolder.spawn(TeamType.UPPER, this.sc_selectedFactionName);
     }
 
     public requestTime(team: number): void {
@@ -578,8 +666,8 @@ class TestHeroes extends GLScene {
     protected destroyTempFixtures(): void {
         this.destroyPlacements();
         this.deselectRaceButtons();
-        this.sc_selectedRaceName = "";
-        this.sc_raceNameUpdateNeeded = true;
+        this.sc_selectedFactionName = FactionType.NO_TYPE;
+        this.sc_factionNameUpdateNeeded = true;
     }
 
     protected destroyNonPlacedUnits(): void {
@@ -607,9 +695,11 @@ class TestHeroes extends GLScene {
 
     private resetHover(resetSelectedCells = true): void {
         if (resetSelectedCells) {
+            this.sc_hoverUnitNameStr = "";
             this.hoverSelectedCells = undefined;
             this.hoverSelectedCellsSwitchToRed = false;
         }
+
         this.hoverAttackUnits = undefined;
         this.hoverActivePath = undefined;
         this.hoverAttackFrom = undefined;
@@ -659,15 +749,91 @@ class TestHeroes extends GLScene {
         return this.hoverAttackUnits[0];
     }
 
+    private updateHoverInfoWithButtonAction(mouseCell: XY): void {
+        if (this.spellBookButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Select spell"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.aiButton.isHover(mouseCell)) {
+            if (this.sc_isAIActive) {
+                this.sc_hoverInfoArr = ["Turn off AI"];
+            } else {
+                this.sc_hoverInfoArr = ["Turn on AI"];
+            }
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.shieldButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Clean up randomized luck", "and skip turn"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.nextButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Skip turn"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.hourGlassButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["End turn"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.selectedAttackTypeButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Switch attack type"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.lifeButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Load Life faction units"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.natureButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Load Nature faction units"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.mightButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Load Might faction units"];
+            this.sc_hoverTextUpdateNeeded = true;
+            return;
+        }
+
+        if (this.chaosButton.isHover(mouseCell)) {
+            this.sc_hoverInfoArr = ["Load Chaos faction units"];
+            this.sc_hoverTextUpdateNeeded = true;
+        }
+    }
+
     protected hover(): void {
         if (this.sc_isAnimating || !this.sc_mouseWorld) {
             this.resetHover();
             return;
         }
 
-        if (this.sc_attackDamageRange || this.sc_attackCountRange) {
-            this.sc_attackDamageRange = "";
-            this.sc_attackCountRange = "";
+        if (this.sc_hoverUnitNameStr) {
+            this.sc_hoverUnitNameStr = "";
+            this.sc_hoverTextUpdateNeeded = true;
+        }
+
+        if (!this.sc_hoverInfoArr || this.sc_hoverInfoArr.length) {
+            this.sc_hoverInfoArr = [];
+            this.sc_hoverTextUpdateNeeded = true;
+        }
+
+        if (this.sc_attackDamageSpreadStr || this.sc_attackKillSpreadStr) {
+            this.sc_attackDamageSpreadStr = "";
+            this.sc_attackRangeDamageDivisorStr = "";
+            this.sc_attackKillSpreadStr = "";
             this.sc_hoverTextUpdateNeeded = true;
         }
 
@@ -680,6 +846,10 @@ class TestHeroes extends GLScene {
 
             if (this.sc_renderSpellBookOverlay) {
                 this.hoveredSpell = this.currentActiveUnit.getHoveredSpell(this.sc_mouseWorld);
+                if (this.hoveredSpell) {
+                    this.sc_hoverInfoArr = this.hoveredSpell.getDesc();
+                    this.sc_hoverTextUpdateNeeded = true;
+                }
                 this.resetHover(false);
                 return;
             }
@@ -698,14 +868,13 @@ class TestHeroes extends GLScene {
 
                 if (
                     this.currentActiveUnit &&
-                    (this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.MAGIC ||
-                        this.currentActiveSpell)
+                    (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MAGIC || this.currentActiveSpell)
                 ) {
                     if (
-                        this.currentActiveUnit.getAttackTypeSelection() !== SelectedAttackType.MAGIC &&
+                        this.currentActiveUnit.getAttackTypeSelection() !== AttackType.MAGIC &&
                         this.currentActiveSpell
                     ) {
-                        this.selectAttack(SelectedAttackType.MAGIC, currentUnitCell, true);
+                        this.selectAttack(AttackType.MAGIC, currentUnitCell, true);
                         this.currentActiveUnitSwitchedAttackAuto = true;
                         this.switchToSelectedAttackType = undefined;
                         console.log("Switch to MAGIC");
@@ -770,7 +939,7 @@ class TestHeroes extends GLScene {
                     !this.currentActiveUnitSwitchedAttackAuto &&
                     currentUnitCell &&
                     this.currentActiveUnit.getAttackType() === AttackType.RANGE &&
-                    this.currentActiveUnit.getAttackTypeSelection() !== SelectedAttackType.RANGE &&
+                    this.currentActiveUnit.getAttackTypeSelection() !== AttackType.RANGE &&
                     !this.attackHandler.canBeAttackedByMelee(
                         this.currentActiveUnit.getPosition(),
                         this.currentActiveUnit.isSmallSize(),
@@ -779,11 +948,11 @@ class TestHeroes extends GLScene {
                     this.currentActiveUnit.getRangeShots() > 0
                 ) {
                     //                    if (this.grid.canBeAttackedByMelee(currentUnitCell, this.currentActiveUnit.getId())) {
-                    //                        this.currentActiveUnit.selectAttackType(SelectedAttackType.MELEE);
+                    //                        this.currentActiveUnit.selectAttackType(AttackType.MELEE);
                     //                        console.log("Switch to MELEE");
                     //                    } else if (this.currentActiveUnit.getRangeShots() > 0) {
-                    //                    this.currentActiveUnit.selectAttackType(SelectedAttackType.RANGE);
-                    this.selectAttack(SelectedAttackType.RANGE, currentUnitCell, true);
+                    //                    this.currentActiveUnit.selectAttackType(AttackType.RANGE);
+                    this.selectAttack(AttackType.RANGE, currentUnitCell, true);
                     this.currentActiveUnitSwitchedAttackAuto = true;
                     this.switchToSelectedAttackType = undefined;
 
@@ -791,7 +960,7 @@ class TestHeroes extends GLScene {
                 }
 
                 if (
-                    this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.MELEE &&
+                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE &&
                     !this.currentActiveUnit.hasAbilityActive("No Melee")
                 ) {
                     if (this.hoverRangeAttackLine) {
@@ -877,11 +1046,11 @@ class TestHeroes extends GLScene {
                             );
                             const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
                             const maxDied = hoverAttackUnit.calculatePossibleLosses(maxDmg);
-                            this.sc_attackDamageRange = `${minDmg}-${maxDmg}`;
+                            this.sc_attackDamageSpreadStr = `${minDmg}-${maxDmg}`;
                             if (minDied !== maxDied) {
-                                this.sc_attackCountRange = `${minDied}-${maxDied}`;
+                                this.sc_attackKillSpreadStr = `${minDied}-${maxDied}`;
                             } else if (minDied) {
-                                this.sc_attackCountRange = minDied.toString();
+                                this.sc_attackKillSpreadStr = minDied.toString();
                             }
                             this.sc_hoverTextUpdateNeeded = true;
 
@@ -936,7 +1105,7 @@ class TestHeroes extends GLScene {
                             };
                         }
                     }
-                } else if (this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.RANGE) {
+                } else if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE) {
                     if (!unit) {
                         this.hoverActivePath = undefined;
                         return;
@@ -1057,12 +1226,13 @@ class TestHeroes extends GLScene {
                             const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
                             const maxDied = hoverAttackUnit.calculatePossibleLosses(maxDmg);
                             if (minDied !== maxDied) {
-                                this.sc_attackCountRange = `${minDied}-${maxDied}`;
+                                this.sc_attackKillSpreadStr = `${minDied}-${maxDied}`;
                             } else if (minDied) {
-                                this.sc_attackCountRange = minDied.toString();
+                                this.sc_attackKillSpreadStr = minDied.toString();
                             }
 
-                            this.sc_attackDamageRange = `${divisorStr} ${minDmg}-${maxDmg}`;
+                            this.sc_attackDamageSpreadStr = `${minDmg}-${maxDmg}`;
+                            this.sc_attackRangeDamageDivisorStr = divisorStr;
                             this.sc_hoverTextUpdateNeeded = true;
                         }
                     }
@@ -1072,9 +1242,13 @@ class TestHeroes extends GLScene {
             } else {
                 this.hoverUnit = undefined;
                 const fightState = FightStateManager.getInstance().getFightState();
+
+                const lowerTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
+                const upperTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0;
+
                 const moreThanOneUnitAlive =
-                    (this.currentActiveUnit.getTeam() === TeamType.LOWER && fightState.lowerTeamUnitsAlive > 1) ||
-                    (this.currentActiveUnit.getTeam() === TeamType.UPPER && fightState.upperTeamUnitsAlive > 1);
+                    (this.currentActiveUnit.getTeam() === TeamType.LOWER && lowerTeamUnitsAlive > 1) ||
+                    (this.currentActiveUnit.getTeam() === TeamType.UPPER && upperTeamUnitsAlive > 1);
                 if (
                     (GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell) &&
                         this.currentActivePathHashes.has((mouseCell.x << 4) | mouseCell.y)) ||
@@ -1089,6 +1263,8 @@ class TestHeroes extends GLScene {
                             (this.selectedAttackTypeButton.isHover(mouseCell) && this.switchToSelectedAttackType))) ||
                     this.aiButton.isHover(mouseCell)
                 ) {
+                    this.updateHoverInfoWithButtonAction(mouseCell);
+
                     if (
                         this.shieldButton.isHover(mouseCell) ||
                         this.nextButton.isHover(mouseCell) ||
@@ -1209,26 +1385,39 @@ class TestHeroes extends GLScene {
             }
 
             if (this.isButtonHover(mouseCell)) {
+                this.updateHoverInfoWithButtonAction(mouseCell);
                 this.hoverSelectedCells = [mouseCell];
                 this.hoverSelectedCellsSwitchToRed = false;
                 this.resetHover(false);
                 return;
             }
 
-            const selectedUnitStats = this.sc_selectedBody?.GetUserData();
-            if (selectedUnitStats) {
-                const u = this.unitsHolder.getAllUnits().get(selectedUnitStats.id);
-                if (!u) {
+            const selectedUnitProperties = this.sc_selectedBody?.GetUserData();
+            if (selectedUnitProperties) {
+                const selectedUnit = this.unitsHolder.getAllUnits().get(selectedUnitProperties.id);
+                if (!selectedUnit) {
                     this.resetHover(true);
                     return;
                 }
 
-                if (!this.isAllowedPreStartMousePosition(u)) {
+                if (this.cellToUnitPreRound) {
+                    const hoverUnit = this.cellToUnitPreRound.get(cellKey);
+                    if (
+                        hoverUnit &&
+                        !GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), hoverUnit.getPosition())
+                    ) {
+                        this.sc_hoverUnitNameStr = hoverUnit.getName();
+                        this.sc_selectedAttackType = hoverUnit.getAttackType();
+                        this.sc_hoverTextUpdateNeeded = true;
+                    }
+                }
+
+                if (!this.isAllowedPreStartMousePosition(selectedUnit)) {
                     this.resetHover(true);
                     return;
                 }
 
-                if (selectedUnitStats.size === 1) {
+                if (selectedUnitProperties.size === 1) {
                     if (this.cellToUnitPreRound) {
                         const unit = this.cellToUnitPreRound.get(cellKey);
                         if (!unit) {
@@ -1242,7 +1431,7 @@ class TestHeroes extends GLScene {
                             return;
                         }
 
-                        if (unit.getId() === selectedUnitStats.id) {
+                        if (unit.getId() === selectedUnitProperties.id) {
                             this.resetHover();
                             return;
                         }
@@ -1271,7 +1460,7 @@ class TestHeroes extends GLScene {
                             this.sc_mouseWorld,
                             this.allowedPlacementCellHashes,
                             this.cellToUnitPreRound,
-                            this.unitIdToCellsPreRound?.get(selectedUnitStats.id),
+                            this.unitIdToCellsPreRound?.get(selectedUnitProperties.id),
                         );
                         if (
                             this.hoverSelectedCells?.length === 4 &&
@@ -1285,7 +1474,7 @@ class TestHeroes extends GLScene {
                         return;
                     }
 
-                    if (unit.getId() === selectedUnitStats.id) {
+                    if (unit.getId() === selectedUnitProperties.id) {
                         this.resetHover();
                         return;
                     }
@@ -1327,8 +1516,14 @@ class TestHeroes extends GLScene {
                 }
                 this.resetHover(false);
             } else if (this.cellToUnitPreRound && this.unitIdToCellsPreRound) {
-                const unit = this.cellToUnitPreRound.get(`${mouseCell.x}:${mouseCell.y}`);
+                const unit = this.cellToUnitPreRound.get(cellKey);
                 if (unit) {
+                    if (!GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), unit.getPosition())) {
+                        this.sc_hoverUnitNameStr = unit.getName();
+                        this.sc_selectedAttackType = unit.getAttackType();
+                        this.sc_hoverTextUpdateNeeded = true;
+                    }
+
                     this.hoverSelectedCells = this.unitIdToCellsPreRound.get(unit.getId());
                     this.hoverSelectedCellsSwitchToRed = false;
                 } else {
@@ -1393,7 +1588,7 @@ class TestHeroes extends GLScene {
                 (!isAllowed &&
                     this.sc_mouseWorld.x < MIN_X &&
                     this.sc_mouseWorld.x >= MIN_X - this.sc_sceneSettings.getGridSettings().getTwoSteps() &&
-                    this.sc_mouseWorld.y >= STEP * 3 &&
+                    this.sc_mouseWorld.y >= STEP * PathHelper.Y_FACTION_ICONS_OFFSET &&
                     this.sc_mouseWorld.y < MAX_Y)
             );
         }
@@ -1640,6 +1835,7 @@ class TestHeroes extends GLScene {
             this.currentActiveUnit.setOnHourglass(false);
         }
         this.currentActiveUnit = undefined;
+        this.sc_selectedAttackType = AttackType.NO_TYPE;
 
         // refresh UI
         this.sc_renderSpellBookOverlay = false;
@@ -1692,8 +1888,8 @@ class TestHeroes extends GLScene {
             this.deselectRaceButtons();
             this.lifeButton.setIsSelected(true);
             this.destroyNonPlacedUnits();
-            this.sc_selectedRaceName = "Life";
-            this.sc_raceNameUpdateNeeded = true;
+            this.sc_selectedFactionName = FactionType.LIFE;
+            this.sc_factionNameUpdateNeeded = true;
             this.spawnUnits();
             this.resetHover();
             this.sc_selectedBody = undefined;
@@ -1702,8 +1898,8 @@ class TestHeroes extends GLScene {
             this.deselectRaceButtons();
             this.natureButton.setIsSelected(true);
             this.destroyNonPlacedUnits();
-            this.sc_selectedRaceName = "Nature";
-            this.sc_raceNameUpdateNeeded = true;
+            this.sc_selectedFactionName = FactionType.NATURE;
+            this.sc_factionNameUpdateNeeded = true;
             this.spawnUnits();
             this.resetHover();
             this.sc_selectedBody = undefined;
@@ -1722,8 +1918,8 @@ class TestHeroes extends GLScene {
             this.deselectRaceButtons();
             this.mightButton.setIsSelected(true);
             this.destroyNonPlacedUnits();
-            this.sc_selectedRaceName = "Might";
-            this.sc_raceNameUpdateNeeded = true;
+            this.sc_selectedFactionName = FactionType.MIGHT;
+            this.sc_factionNameUpdateNeeded = true;
             this.spawnUnits();
             this.resetHover();
             this.sc_selectedBody = undefined;
@@ -1732,8 +1928,8 @@ class TestHeroes extends GLScene {
             this.deselectRaceButtons();
             this.chaosButton.setIsSelected(true);
             this.destroyNonPlacedUnits();
-            this.sc_selectedRaceName = "Chaos";
-            this.sc_raceNameUpdateNeeded = true;
+            this.sc_selectedFactionName = FactionType.CHAOS;
+            this.sc_factionNameUpdateNeeded = true;
             this.spawnUnits();
             this.resetHover();
             this.sc_selectedBody = undefined;
@@ -1742,16 +1938,20 @@ class TestHeroes extends GLScene {
             //     this.deselectRaceButtons();
             //     this.deathButton.setIsSelected(true);
             //     this.destroyNonPlacedUnits();
-            //     this.m_selectedRaceName = "Death";
+            //     this.m_selectedRaceName = FactionType.DEATH;
             //     this.m_race_name_update_needed = true;
             //     this.spawnUnits();
             //     this.resetHover();
             //     this.m_selectedBody = undefined;
         } else if (this.currentActiveUnit && !this.sc_renderSpellBookOverlay && !this.sc_isAIActive) {
             const fightState = FightStateManager.getInstance().getFightState();
+
+            const lowerTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
+            const upperTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0;
+
             const moreThanOneUnitAlive =
-                (this.currentActiveUnit.getTeam() === TeamType.LOWER && fightState.lowerTeamUnitsAlive > 1) ||
-                (this.currentActiveUnit.getTeam() === TeamType.UPPER && fightState.upperTeamUnitsAlive > 1);
+                (this.currentActiveUnit.getTeam() === TeamType.LOWER && lowerTeamUnitsAlive > 1) ||
+                (this.currentActiveUnit.getTeam() === TeamType.UPPER && upperTeamUnitsAlive > 1);
             if (
                 moreThanOneUnitAlive &&
                 this.hourGlassButton.isHover(cell) &&
@@ -1776,20 +1976,20 @@ class TestHeroes extends GLScene {
                     this.currentActiveUnit.getPosition(),
                 );
                 if (
-                    this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.RANGE ||
-                    this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.MAGIC
+                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE ||
+                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.MAGIC
                 ) {
                     this.selectAttack(
                         this.currentActiveUnit.getAttackType() === AttackType.RANGE
-                            ? SelectedAttackType.RANGE
-                            : SelectedAttackType.MAGIC,
+                            ? AttackType.RANGE
+                            : AttackType.MAGIC,
                         currentUnitCell,
                         true,
                     );
-                    this.sc_unitStatsUpdateNeeded = true;
+                    this.sc_unitPropertiesUpdateNeeded = true;
                 } else {
-                    this.selectAttack(SelectedAttackType.MELEE, currentUnitCell, true);
-                    this.sc_unitStatsUpdateNeeded = true;
+                    this.selectAttack(AttackType.MELEE, currentUnitCell, true);
+                    this.sc_unitPropertiesUpdateNeeded = true;
                 }
                 this.currentActiveUnitSwitchedAttackAuto = true;
             }
@@ -1834,7 +2034,7 @@ class TestHeroes extends GLScene {
                             if (possibleUnit) {
                                 possibleUnit.increaseAmountAlive(amountToSummon);
                             } else {
-                                const unitToSummon = this.unitsFactory.makeUnit(
+                                const unitToSummon = this.unitsFactory.makeCreature(
                                     this.hoveredSpell.getSummonUnitRace(),
                                     this.hoveredSpell.getSummonUnitName(),
                                     this.currentActiveUnit.getTeam(),
@@ -1844,7 +2044,7 @@ class TestHeroes extends GLScene {
                                     randomCell &&
                                     this.unitsHolder.spawnSelected(
                                         this.grid,
-                                        unitToSummon.getAllStats(),
+                                        unitToSummon.getAllProperties(),
                                         randomCell,
                                         true,
                                     )
@@ -1904,6 +2104,7 @@ class TestHeroes extends GLScene {
             if (this.currentActiveUnit) {
                 if (!this.currentActivePath) {
                     this.currentActiveUnit = undefined;
+                    this.sc_selectedAttackType = AttackType.NO_TYPE;
                     return;
                 }
 
@@ -1994,6 +2195,7 @@ class TestHeroes extends GLScene {
         }
 
         this.currentActiveUnit = undefined;
+        this.sc_selectedAttackType = AttackType.NO_TYPE;
     }
 
     private refreshVisibleStateIfNeeded() {
@@ -2009,12 +2211,13 @@ class TestHeroes extends GLScene {
                 numberOfLapsTillNarrowing: this.grid.getNumberOfLapsTillNarrowing(),
                 numberOfLapsTillStopNarrowing: NUMBER_OF_LAPS_TILL_STOP_NARROWING,
                 canRequestAdditionalTime: !!FightStateManager.getInstance().requestAdditionalTurnTime(undefined, true),
+                upNext: [],
             };
             this.sc_visibleStateUpdateNeeded = true;
         }
     }
 
-    private selectAttack(selectedAttackType: SelectedAttackType, currentUnitCell?: XY, force = false): boolean {
+    private selectAttack(selectedAttackType: AttackType, currentUnitCell?: XY, force = false): boolean {
         if (!this.currentActiveUnit || !currentUnitCell) {
             return false;
         }
@@ -2033,7 +2236,7 @@ class TestHeroes extends GLScene {
                 )
             ) {
                 hasOption = false;
-                if (this.currentActiveUnit.selectAttackType(SelectedAttackType.MELEE)) {
+                if (this.currentActiveUnit.selectAttackType(AttackType.MELEE)) {
                     this.selectedAttackTypeButton.switchSprites(
                         new Sprite(this.gl, this.shader, this.textures.range_white_128.texture),
                         new Sprite(this.gl, this.shader, this.textures.range_black_128.texture),
@@ -2041,13 +2244,14 @@ class TestHeroes extends GLScene {
                     this.currentActiveSpell = undefined;
                     this.adjustSpellBookSprite();
                 }
+                this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
             } else if (isRange && this.currentActiveUnit.getRangeShots() <= 0) {
                 hasOption = false;
             } else if (isMagic && !this.currentActiveUnit.getCanCastSpells()) {
                 hasOption = false;
             } else if (
-                this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.RANGE ||
-                this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.MAGIC
+                this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE ||
+                this.currentActiveUnit.getAttackTypeSelection() === AttackType.MAGIC
             ) {
                 this.selectedAttackTypeButton.switchSprites(
                     new Sprite(this.gl, this.shader, this.textures.melee_white_128.texture),
@@ -2074,11 +2278,11 @@ class TestHeroes extends GLScene {
             if (this.switchToSelectedAttackType) {
                 if (force) {
                     this.currentActiveUnit.selectAttackType(this.switchToSelectedAttackType);
-                    if (this.switchToSelectedAttackType !== SelectedAttackType.MAGIC) {
+                    if (this.switchToSelectedAttackType !== AttackType.MAGIC) {
                         this.currentActiveSpell = undefined;
                         this.adjustSpellBookSprite();
                     }
-                    if (this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.RANGE) {
+                    if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE) {
                         this.sc_currentActiveShotRange = {
                             xy: this.currentActiveUnit.getPosition(),
                             distance: this.currentActiveUnit.getRangeShotDistance() * STEP,
@@ -2086,7 +2290,7 @@ class TestHeroes extends GLScene {
                     } else {
                         this.sc_currentActiveShotRange = undefined;
                     }
-                    if (this.switchToSelectedAttackType === SelectedAttackType.MELEE) {
+                    if (this.switchToSelectedAttackType === AttackType.MELEE) {
                         if (this.currentActiveUnit.getAttackType() === AttackType.RANGE) {
                             this.selectedAttackTypeButton.switchSprites(
                                 new Sprite(this.gl, this.shader, this.textures.range_white_128.texture),
@@ -2099,8 +2303,8 @@ class TestHeroes extends GLScene {
                             );
                         }
                     } else if (
-                        this.switchToSelectedAttackType === SelectedAttackType.RANGE ||
-                        this.switchToSelectedAttackType === SelectedAttackType.MAGIC
+                        this.switchToSelectedAttackType === AttackType.RANGE ||
+                        this.switchToSelectedAttackType === AttackType.MAGIC
                     ) {
                         this.selectedAttackTypeButton.switchSprites(
                             new Sprite(this.gl, this.shader, this.textures.melee_white_128.texture),
@@ -2112,6 +2316,7 @@ class TestHeroes extends GLScene {
             } else {
                 this.switchToSelectedAttackType = selectedAttackType;
             }
+            this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
             return true;
         }
         return false;
@@ -2203,8 +2408,7 @@ class TestHeroes extends GLScene {
 
             const drawActiveShotRange =
                 !this.currentActiveUnit ||
-                (this.currentActiveUnit &&
-                    this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.RANGE);
+                (this.currentActiveUnit && this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE);
             if (drawActiveShotRange && this.sc_currentActiveShotRange) {
                 settings.m_debugDraw.DrawCircle(
                     this.sc_currentActiveShotRange.xy,
@@ -2286,7 +2490,7 @@ class TestHeroes extends GLScene {
                         }
                     }
 
-                    const unit = this.unitsHolder.getUnitByStats(unitStats as UnitStats);
+                    const unit = this.unitsHolder.getUnitByStats(unitStats as UnitProperties);
                     if (!unit) {
                         continue;
                     }
@@ -2549,7 +2753,8 @@ class TestHeroes extends GLScene {
                             a.getSpeed() > b.getSpeed() ? -1 : b.getSpeed() > a.getSpeed() ? 1 : 0,
                         );
 
-                        FightStateManager.getInstance().setTeamsUnitsAlive(unitsLower.length, unitsUpper.length);
+                        FightStateManager.getInstance().setTeamUnitsAlive(TeamType.UPPER, unitsUpper.length);
+                        FightStateManager.getInstance().setTeamUnitsAlive(TeamType.LOWER, unitsLower.length);
 
                         if (turnFlipped) {
                             for (const u of units) {
@@ -2585,8 +2790,32 @@ class TestHeroes extends GLScene {
                         const nextUnit = nextUnitId ? this.unitsHolder.getAllUnits().get(nextUnitId) : undefined;
 
                         if (nextUnit) {
+                            const unitsNext: IVisibleUnit[] = [];
+                            for (const unitIdNext of FightStateManager.getInstance().getFightState().upNext) {
+                                const unitNext = this.unitsHolder.getAllUnits().get(unitIdNext);
+                                if (unitNext) {
+                                    unitsNext.unshift({
+                                        amount: unitNext.getAmountAlive(),
+                                        smallTextureName: unitNext.getSmallTextureName(),
+                                        teamType: unitNext.getTeam(),
+                                    });
+                                }
+                            }
+                            if (nextUnit) {
+                                unitsNext.push({
+                                    amount: nextUnit.getAmountAlive(),
+                                    smallTextureName: nextUnit.getSmallTextureName(),
+                                    teamType: nextUnit.getTeam(),
+                                });
+                            }
+
+                            if (this.sc_visibleState) {
+                                this.sc_visibleState.upNext = unitsNext;
+                            }
+
                             if (nextUnit.isSkippingThisTurn()) {
                                 this.currentActiveUnit = nextUnit;
+                                this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                                 this.currentActiveUnit.decreaseMorale(MORALE_CHANGE_FOR_SKIP);
                                 this.currentActiveUnit.applyMoraleStepsModifier(
                                     FightStateManager.getInstance().getStepsMoraleMultiplier(),
@@ -2622,10 +2851,11 @@ class TestHeroes extends GLScene {
                                     this.sc_hoverTextUpdateNeeded = true;
                                     this.sc_selectedBody = unitBody;
                                     this.currentActiveUnit = nextUnit;
+                                    this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                                     this.currentActiveSpell = undefined;
                                     this.adjustSpellBookSprite();
                                     this.currentActiveUnitSwitchedAttackAuto = false;
-                                    // this.grid.print(nextUnit.getId());
+                                    this.grid.print(nextUnit.getId());
                                     const currentPos = GridMath.getCellForPosition(
                                         this.sc_sceneSettings.getGridSettings(),
                                         unitBody.GetPosition(),
@@ -2657,7 +2887,7 @@ class TestHeroes extends GLScene {
                                             enemyTeam,
                                             positions,
                                         );
-                                        if (nextUnit.getAttackTypeSelection() === SelectedAttackType.RANGE) {
+                                        if (nextUnit.getAttackTypeSelection() === AttackType.RANGE) {
                                             this.sc_currentActiveShotRange = {
                                                 xy: nextUnit.getPosition(),
                                                 distance: nextUnit.getRangeShotDistance() * STEP,
@@ -2681,7 +2911,8 @@ class TestHeroes extends GLScene {
                 if (this.currentActiveUnit && this.sc_isAIActive) {
                     const action = findTarget(this.currentActiveUnit, this.grid, this.gridMatrix, this.pathHelper);
                     if (action?.actionType() === AIActionType.MOVE_AND_M_ATTACK) {
-                        this.currentActiveUnit.selectAttackType(SelectedAttackType.MELEE);
+                        this.currentActiveUnit.selectAttackType(AttackType.MELEE);
+                        this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                         this.currentActiveKnownPaths = action.currentActiveKnownPaths();
                         const cellToAttack = action.cellToAttack();
                         if (cellToAttack) {
@@ -2716,7 +2947,7 @@ class TestHeroes extends GLScene {
                         }
                         this.landAttack();
                     } else if (action?.actionType() === AIActionType.M_ATTACK) {
-                        this.currentActiveUnit.selectAttackType(SelectedAttackType.MELEE);
+                        this.currentActiveUnit.selectAttackType(AttackType.MELEE);
                         this.currentActiveKnownPaths = action.currentActiveKnownPaths();
                         const cellToAttack = action.cellToAttack();
                         if (cellToAttack) {
@@ -2734,7 +2965,7 @@ class TestHeroes extends GLScene {
                         }
                         this.landAttack();
                     } else if (action?.actionType() === AIActionType.R_ATTACK) {
-                        this.currentActiveUnit.selectAttackType(SelectedAttackType.RANGE);
+                        this.currentActiveUnit.selectAttackType(AttackType.RANGE);
                         this.currentActiveKnownPaths = action.currentActiveKnownPaths();
                         const cellToAttack = action.cellToAttack();
                         if (cellToAttack) {
@@ -2859,28 +3090,7 @@ class TestHeroes extends GLScene {
             }
         }
 
-        if (this.sc_started) {
-            const unitsNext: Unit[] = [];
-            for (const unitIdNext of FightStateManager.getInstance().getFightState().upNext) {
-                const unitNext = this.unitsHolder.getAllUnits().get(unitIdNext);
-                if (unitNext) {
-                    unitsNext.push(unitNext);
-                }
-            }
-            if (this.currentActiveUnit) {
-                unitsNext.push(this.currentActiveUnit);
-            }
-            this.drawer.renderUpNextFonts(
-                settings.m_debugDraw,
-                this.sc_fps,
-                this.sc_stepCount,
-                isLightMode,
-                unitsNext,
-                this.sc_isAnimating,
-                this.currentActiveUnit?.getId(),
-            );
-            this.placementsCleanedUp = true;
-        } else {
+        if (!this.sc_started) {
             this.sc_isAIActive = false;
             this.lowerPlacement.draw(settings.m_debugDraw);
             this.upperPlacement.draw(settings.m_debugDraw);
@@ -3057,12 +3267,12 @@ class TestHeroes extends GLScene {
                 this.currentActiveUnit.getPosition(),
             );
 
-            let toSelectAttackType = SelectedAttackType.MELEE;
-            if (this.currentActiveUnit.getAttackTypeSelection() === SelectedAttackType.MELEE) {
+            let toSelectAttackType = AttackType.MELEE;
+            if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE) {
                 if (this.currentActiveUnit.getAttackType() === AttackType.MAGIC) {
-                    toSelectAttackType = SelectedAttackType.MAGIC;
+                    toSelectAttackType = AttackType.MAGIC;
                 } else if (this.currentActiveUnit.getAttackType() === AttackType.RANGE) {
-                    toSelectAttackType = SelectedAttackType.RANGE;
+                    toSelectAttackType = AttackType.RANGE;
                 }
             }
             if (

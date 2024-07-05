@@ -10,10 +10,9 @@
  */
 
 import { XY } from "@box2d/core";
-import { GridSettings, GridMath } from "@heroesofcrypto/common";
+import { FactionType, GridSettings, GridMath, TeamType, IModifyableUnitProperties } from "@heroesofcrypto/common";
 
 import { IFrameable, OnFramePosition } from "../menu/frameable";
-import { IModifyableUnitStats, TeamType } from "../units/units_stats";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
 
@@ -33,8 +32,8 @@ export enum BookPosition {
 }
 
 export interface ICalculatedBuffsDebuffsEffect {
-    baseStats: IModifyableUnitStats;
-    additionalStats: IModifyableUnitStats;
+    baseStats: IModifyableUnitProperties;
+    additionalStats: IModifyableUnitProperties;
 }
 
 const BOOK_POSITION_LEFT_X = -516;
@@ -85,14 +84,14 @@ export class AppliedSpell implements IFrameable {
     }
 }
 
-export class SpellStats {
+export class SpellProperties {
     public readonly name: string;
 
-    public readonly race: string;
+    public readonly faction: FactionType;
 
     public readonly level: number;
 
-    public readonly desc: string;
+    public readonly desc: string[];
 
     public readonly spellTargetType: SpellTargetType;
 
@@ -105,17 +104,17 @@ export class SpellStats {
     public readonly self_debuff_applies: boolean;
 
     public constructor(
-        race: string,
+        faction: FactionType,
         name: string,
         level: number,
-        desc: string,
+        desc: string[],
         spellTargetType: SpellTargetType,
         power: number,
         laps: number,
         self_cast_allowed: boolean,
         self_debuff_applies: boolean,
     ) {
-        this.race = race;
+        this.faction = faction;
         this.name = name;
         this.level = level;
         this.desc = desc;
@@ -132,7 +131,7 @@ export class Spell {
 
     private readonly shader: DefaultShader;
 
-    private readonly spellStats: SpellStats;
+    private readonly spellProperties: SpellProperties;
 
     private amountRemaining: number;
 
@@ -144,7 +143,7 @@ export class Spell {
 
     private readonly isSummonSpell: boolean;
 
-    private readonly summonUnitRace: string = "";
+    private readonly summonUnitFaction: FactionType = FactionType.NO_TYPE;
 
     private readonly summonUnitName: string = "";
 
@@ -159,7 +158,7 @@ export class Spell {
     public constructor(
         gl: WebGLRenderingContext,
         shader: DefaultShader,
-        spellStats: SpellStats,
+        spellProperties: SpellProperties,
         amount: number,
         sprite: Sprite,
         fontSprite: Sprite,
@@ -167,7 +166,7 @@ export class Spell {
     ) {
         this.gl = gl;
         this.shader = shader;
-        this.spellStats = spellStats;
+        this.spellProperties = spellProperties;
         this.amountRemaining = amount;
         this.sprite = sprite;
         this.fontSprite = fontSprite;
@@ -176,49 +175,49 @@ export class Spell {
         this.xMax = 0;
         this.yMin = 0;
         this.yMax = 0;
-        this.isSummonSpell = this.spellStats.name.startsWith("Summon ");
+        this.isSummonSpell = this.spellProperties.name.startsWith("Summon ");
         if (this.isSummonSpell) {
-            if (this.spellStats.name.endsWith(" Wolves")) {
-                this.summonUnitRace = "Nature";
+            if (this.spellProperties.name.endsWith(" Wolves")) {
+                this.summonUnitFaction = FactionType.NATURE;
                 this.summonUnitName = "Wolf";
             }
         }
     }
 
-    public getRace(): string {
-        return this.spellStats.race;
+    public getFaction(): string {
+        return this.spellProperties.faction;
     }
 
     public getName(): string {
-        return this.spellStats.name;
+        return this.spellProperties.name;
     }
 
     public getLevel(): number {
-        return this.spellStats.level;
+        return this.spellProperties.level;
     }
 
-    public getDesc(): string {
-        return this.spellStats.desc;
+    public getDesc(): string[] {
+        return this.spellProperties.desc;
     }
 
     public getSpellTargetType(): SpellTargetType {
-        return this.spellStats.spellTargetType;
+        return this.spellProperties.spellTargetType;
     }
 
     public getPower(): number {
-        return this.spellStats.power;
+        return this.spellProperties.power;
     }
 
     public getLapsTotal(): number {
-        return this.spellStats.laps;
+        return this.spellProperties.laps;
     }
 
     public isSelfCastAllowed(): boolean {
-        return this.spellStats.self_cast_allowed;
+        return this.spellProperties.self_cast_allowed;
     }
 
     public isSelfDebuffApplicable(): boolean {
-        return this.spellStats.self_debuff_applies;
+        return this.spellProperties.self_debuff_applies;
     }
 
     public isRemaining(): boolean {
@@ -229,8 +228,8 @@ export class Spell {
         return this.isSummonSpell;
     }
 
-    public getSummonUnitRace(): string {
-        return this.summonUnitRace;
+    public getSummonUnitRace(): FactionType {
+        return this.summonUnitFaction;
     }
 
     public getSummonUnitName(): string {
@@ -419,11 +418,11 @@ export function calculateBuffsDebuffsEffect(
     buffs: AppliedSpell[],
     debuffs: AppliedSpell[],
 ): ICalculatedBuffsDebuffsEffect {
-    const baseStats: IModifyableUnitStats = {
+    const baseStats: IModifyableUnitProperties = {
         hp: 0,
         armor: 0,
     };
-    const additionalStats: IModifyableUnitStats = {
+    const additionalStats: IModifyableUnitProperties = {
         hp: 0,
         armor: 0,
     };

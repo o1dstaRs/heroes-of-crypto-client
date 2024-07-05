@@ -9,14 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCMath } from "@heroesofcrypto/common";
+import { AttackType, HoCMath } from "@heroesofcrypto/common";
 
 import { Drawer } from "../draw/drawer";
 import { SceneLog } from "../menu/scene_log";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
-import { AttackType } from "../units/units_stats";
 
 export function processDoubleShotAbility(
     fromUnit: Unit,

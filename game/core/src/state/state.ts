@@ -9,20 +9,20 @@
  * -----------------------------------------------------------------------------
  */
 
-import { TeamType } from "../units/units_stats";
+import { TeamType } from "@heroesofcrypto/common";
 
 export interface IFightState {
+    id: string;
     currentLap: number;
     firstTurnMade: boolean;
     fightFinished: boolean;
-    previousTurnTeam?: TeamType;
+    previousTurnTeam: TeamType;
     highestSpeedThisTurn: number;
     alreadyMadeTurn: Set<string>;
     alreadyMadeTurnByTeam: Map<number, Set<string>>;
     alreadyHourGlass: Set<string>;
     alreadyRepliedAttack: Set<string>;
-    lowerTeamUnitsAlive: number;
-    upperTeamUnitsAlive: number;
+    teamUnitsAlive: Map<number, number>;
     hourGlassQueue: string[];
     moralePlusQueue: string[];
     moraleMinusQueue: string[];
@@ -32,6 +32,12 @@ export interface IFightState {
     upNext: string[];
     stepsMoraleMultiplier: number;
     hasAdditionalTimeRequestedPerTeam: Map<number, boolean>;
+}
+
+export interface IVisibleUnit {
+    amount: number;
+    smallTextureName: string;
+    teamType: TeamType;
 }
 
 export interface IVisibleState {
@@ -45,4 +51,5 @@ export interface IVisibleState {
     numberOfLapsTillNarrowing: number;
     numberOfLapsTillStopNarrowing: number;
     canRequestAdditionalTime: boolean;
+    upNext: IVisibleUnit[];
 }

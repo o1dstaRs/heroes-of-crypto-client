@@ -9,10 +9,9 @@
  * -----------------------------------------------------------------------------
  */
 
-import { GridSettings, HoCMath } from "@heroesofcrypto/common";
+import { GridSettings, HoCMath, TeamType } from "@heroesofcrypto/common";
 
 import { IFrameable, OnFramePosition } from "../menu/frameable";
-import { TeamType } from "../units/units_stats";
 import { Sprite } from "../utils/gl/Sprite";
 import { Effect } from "../effects/effects";
 

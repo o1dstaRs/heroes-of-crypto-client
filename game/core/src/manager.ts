@@ -11,6 +11,7 @@
 
 import { b2Clamp, b2Vec2 } from "@box2d/core";
 import { DebugDraw } from "@box2d/debug-draw";
+import { UnitProperties } from "@heroesofcrypto/common";
 import { createContext, useContext } from "react";
 import { Signal } from "typed-signals";
 
@@ -19,20 +20,15 @@ import { getScenesGrouped, Scene, SceneConstructor, SceneEntry } from "./scenes/
 import { Settings } from "./settings";
 import { IVisibleState } from "./state/state";
 import { MAX_FPS } from "./statics";
-import { DamageStatisticHolder, IDamageStatistic } from "./stats/damage_stats";
+import { DamageStatisticHolder, IDamageStatistic, IHoverInfo } from "./stats/damage_stats";
 import type { SceneControlGroup } from "./ui";
-import type { SceneTable, SceneTableSetter } from "./ui/Main";
-import { UnitStats } from "./units/units_stats";
 import { g_camera } from "./utils/camera";
 import { FpsCalculator } from "./utils/FpsCalculator";
 import { createDefaultShader } from "./utils/gl/defaultShader";
 import { clearGlCanvas, initGlCanvas, resizeGlCanvas } from "./utils/gl/glUtils";
 import { PreloadedTextures, preloadTextures } from "./utils/gl/preload";
 import { HotKey, hotKeyPress } from "./utils/hotkeys";
-
-function hotKeyToText(hotKey: HotKey) {
-    return hotKey.key === " " ? "Space" : hotKey.key;
-}
+import { FightStateManager } from "./state/fight_state_manager";
 
 export class GameManager {
     public m_fpsCalculator = new FpsCalculator(200, 1000, MAX_FPS);
@@ -69,13 +65,15 @@ export class GameManager {
 
     public readonly onAttackLanded = new Signal<(attackMessage: string) => void>();
 
-    public readonly onUnitSelected = new Signal<(unitStats: UnitStats) => void>();
+    public readonly onUnitSelected = new Signal<(unitProperties: UnitProperties) => void>();
 
     public readonly onDamageStatisticsUpdated = new Signal<(damageStats: IDamageStatistic[]) => void>();
 
     public readonly onRaceSelected = new Signal<(raceName: string) => void>();
 
     public readonly onVisibleStateUpdated = new Signal<(visibleState: IVisibleState) => void>();
+
+    public readonly onPossibleAttackRangeUpdated = new Signal<(visibleState: IHoverInfo) => void>();
 
     private m_hoveringCanvas = false;
 
@@ -91,8 +89,6 @@ export class GameManager {
 
     private activateScene: (entry: SceneEntry) => void = () => {};
 
-    private setLeftTable: SceneTableSetter = () => {};
-
     private setSceneControlGroups: (groups: SceneControlGroup[]) => void = () => {};
 
     private started = false;
@@ -103,18 +99,16 @@ export class GameManager {
         }
     }
 
-    public init(
+    public async init(
         glCanvas: HTMLCanvasElement,
         debugCanvas: HTMLCanvasElement,
         wrapper: HTMLDivElement,
         activateScene: (entry: SceneEntry) => void,
-        setLeftTables: SceneTableSetter,
         setSceneControlGroups: (groups: SceneControlGroup[]) => void,
     ) {
         if (this.isInitialized) {
             return;
         }
-        this.setLeftTable = setLeftTables;
         this.activateScene = activateScene;
         this.setSceneControlGroups = setSceneControlGroups;
         debugCanvas.addEventListener("mousedown", (e) => this.HandleMouseDown(e));
@@ -160,9 +154,8 @@ export class GameManager {
         window.addEventListener("keydown", (e: KeyboardEvent): void => this.HandleKey(e, true));
         window.addEventListener("keyup", (e: KeyboardEvent): void => this.HandleKey(e, false));
 
+        await this.prepareGl(glCanvas);
         this.LoadGame();
-
-        this.prepareGl(glCanvas);
         this.isInitialized = true;
     }
 
@@ -170,13 +163,11 @@ export class GameManager {
         this.gl = initGlCanvas(glCanvas);
         this.textures = await preloadTextures(this.gl);
         this.defaultShader = createDefaultShader(this.gl);
-        this.LoadGame();
     }
 
     public setScene(title: string, constructor: SceneConstructor) {
         this.sceneTitle = title;
         this.sceneConstructor = constructor;
-        this.LoadGame();
     }
 
     public HomeCamera(): void {
@@ -190,10 +181,6 @@ export class GameManager {
     }
 
     public HandleMouseMove(e: MouseEvent): void {
-        //        if (this.started) {
-        //            return;
-        //        }
-
         const element = new b2Vec2(e.offsetX, e.offsetY);
         const world = g_camera.unproject(element, new b2Vec2());
 
@@ -209,10 +196,6 @@ export class GameManager {
     }
 
     public HandleMouseDown(e: MouseEvent): void {
-        //        if (this.started) {
-        //            return;
-        //        }
-
         const element = new b2Vec2(e.offsetX, e.offsetY);
         const world = g_camera.unproject(element, new b2Vec2());
 
@@ -299,6 +282,11 @@ export class GameManager {
         this.onHasStarted.emit(this.started);
     }
 
+    public Uninitialize(): void {
+        this.isInitialized = false;
+        FightStateManager.getInstance().reset();
+    }
+
     public RequestTime(team?: number): void {
         if (this.started && this.m_scene && team !== undefined) {
             this.m_scene.requestTime(team);
@@ -361,6 +349,10 @@ export class GameManager {
     public Accept(): void {
         if (this.m_scene?.sc_selectedBody && !this.m_scene.sc_started) {
             const userData = this.m_scene.sc_selectedBody.GetUserData();
+            if (!userData || userData.unit_type !== 1) {
+                return;
+            }
+
             userData.amount_alive = this.m_settings.m_amountOfSelectedUnits;
             this.m_scene.addUnitData(userData);
             this.m_scene.refreshScene();
@@ -418,44 +410,40 @@ export class GameManager {
             this.onAttackLanded.emit(this.m_scene?.sc_sceneLog.getLog());
         }
 
-        if (this.m_scene?.sc_unitStatsUpdateNeeded) {
-            if (this.m_scene?.sc_selectedUnitStats) {
-                // this.onUnitSelected.emit({} as UnitStats);
-                this.onUnitSelected.emit(this.m_scene?.sc_selectedUnitStats as UnitStats);
+        if (this.m_scene?.sc_unitPropertiesUpdateNeeded) {
+            if (this.m_scene?.sc_selectedUnitProperties) {
+                this.onUnitSelected.emit(this.m_scene?.sc_selectedUnitProperties as UnitProperties);
                 this.onRaceSelected.emit("");
             } else {
-                this.onRaceSelected.emit(this.m_scene?.sc_selectedRaceName ?? "");
-                this.onUnitSelected.emit({} as UnitStats);
+                this.onRaceSelected.emit(this.m_scene?.sc_selectedFactionName ?? "");
+                this.onUnitSelected.emit({} as UnitProperties);
             }
 
-            this.m_scene.sc_unitStatsUpdateNeeded = false;
+            this.m_scene.sc_unitPropertiesUpdateNeeded = false;
         }
 
-        if (this.m_scene?.sc_raceNameUpdateNeeded) {
-            if (this.m_scene?.sc_selectedRaceName) {
-                //                this.onRaceSelected.emit("");
-                // this.onUnitSelected.emit({} as UnitStats);
-                this.onRaceSelected.emit(this.m_scene?.sc_selectedRaceName ?? "");
+        if (this.m_scene?.sc_factionNameUpdateNeeded) {
+            if (this.m_scene?.sc_selectedFactionName) {
+                this.onRaceSelected.emit(this.m_scene?.sc_selectedFactionName ?? "");
             } else {
-                // this.onUnitSelected.emit({} as UnitStats);
-                this.onUnitSelected.emit(this.m_scene?.sc_selectedUnitStats as UnitStats);
+                this.onUnitSelected.emit(this.m_scene?.sc_selectedUnitProperties as UnitProperties);
                 this.onRaceSelected.emit("");
             }
 
-            this.m_scene.sc_raceNameUpdateNeeded = false;
+            this.m_scene.sc_factionNameUpdateNeeded = false;
         }
 
         if (this.m_scene?.sc_damageStatsUpdateNeeded) {
-            this.onDamageStatisticsUpdated.emit([] as IDamageStatistic[]);
-            this.onDamageStatisticsUpdated.emit(DamageStatisticHolder.getInstance().get());
+            // this.onDamageStatisticsUpdated.emit([] as IDamageStatistic[]);
+            this.onDamageStatisticsUpdated.emit(structuredClone(DamageStatisticHolder.getInstance().get()));
 
             this.m_scene.sc_damageStatsUpdateNeeded = false;
         }
 
         if (this.m_scene?.sc_visibleStateUpdateNeeded) {
             if (this.m_scene?.sc_visibleState) {
-                this.onVisibleStateUpdated.emit({} as IVisibleState);
-                this.onVisibleStateUpdated.emit(this.m_scene?.sc_visibleState as IVisibleState);
+                // this.onVisibleStateUpdated.emit({} as IVisibleState);
+                this.onVisibleStateUpdated.emit(structuredClone(this.m_scene?.sc_visibleState as IVisibleState));
             } else {
                 this.onVisibleStateUpdated.emit({} as IVisibleState);
             }
@@ -464,38 +452,22 @@ export class GameManager {
     }
 
     public UpdateText() {
-        const leftTable: SceneTable = [];
-        if (this.m_scene?.sc_attackDamageRange) {
-            let countRangeStr = "";
-            if (this.m_scene?.sc_attackCountRange) {
-                countRangeStr = ` (${this.m_scene?.sc_attackCountRange})`;
-            }
-            leftTable.push(["Attack", `${this.m_scene.sc_attackDamageRange}${countRangeStr}`]);
+        if (
+            this.m_scene?.sc_attackDamageSpreadStr ||
+            this.m_scene?.sc_hoverUnitNameStr ||
+            this.m_scene?.sc_hoverInfoArr?.length
+        ) {
+            this.onPossibleAttackRangeUpdated.emit({
+                attackType: this.m_scene.sc_selectedAttackType,
+                damageSpread: this.m_scene.sc_attackDamageSpreadStr,
+                damageRangeDivisor: this.m_scene.sc_attackRangeDamageDivisorStr,
+                killsSpread: this.m_scene.sc_attackKillSpreadStr,
+                unitName: this.m_scene.sc_hoverUnitNameStr,
+                information: this.m_scene.sc_hoverInfoArr,
+            });
+        } else {
+            this.onPossibleAttackRangeUpdated.emit({} as IHoverInfo);
         }
-
-        if (this.m_scene) {
-            if (this.m_scene.sc_unitInfoLines.length) {
-                leftTable.push(["Unit Info:", "!"], ...this.m_scene.sc_unitInfoLines, ["", ""]);
-            }
-
-            if (this.m_settings.m_drawInputHelp) {
-                leftTable.push(
-                    ["Controls:", "!"],
-                    ["Right Drag", "Move Camera"],
-                    ["Left Drag", "Grab Objects"],
-                    ["Wheel", "Zoom"],
-                    ...this.allHotKeys.map((hk) => [hotKeyToText(hk), hk.description] as [string, string]),
-                    ["", ""],
-                );
-            }
-            if (this.m_scene.sc_debugLines.length) {
-                leftTable.push(["Debug Info:", "!"], ...this.m_scene.sc_debugLines, ["", ""]);
-            }
-            if (this.m_scene.sc_statisticLines.length) {
-                leftTable.push(["Statistics:", "!"], ...this.m_scene.sc_statisticLines, ["", ""]);
-            }
-        }
-        this.setLeftTable(leftTable);
     }
 }
 

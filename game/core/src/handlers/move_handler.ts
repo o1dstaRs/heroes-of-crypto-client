@@ -10,14 +10,13 @@
  */
 
 import { b2Body, XY } from "@box2d/core";
-import { Grid, GridSettings, GridMath, GridConstants } from "@heroesofcrypto/common";
+import { Grid, GridSettings, GridMath, GridConstants, TeamType } from "@heroesofcrypto/common";
 
 import { Drawer } from "../draw/drawer";
 import { IWeightedRoute } from "../path/path_helper";
 import { MORALE_CHANGE_FOR_DISTANCE } from "../statics";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
-import { TeamType } from "../units/units_stats";
 
 export class MoveHandler {
     public readonly gridSettings: GridSettings;

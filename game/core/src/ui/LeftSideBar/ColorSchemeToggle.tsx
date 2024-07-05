@@ -31,7 +31,7 @@ export default function ColorSchemeToggle({ onClick, sx, ...props }: IconButtonP
             }}
             sx={[
                 {
-                    "& > *:first-child": {
+                    "& > *:first-of-type": {
                         display: mode === "dark" ? "none" : "initial",
                     },
                     "& > *:last-child": {

@@ -9,17 +9,17 @@
  * -----------------------------------------------------------------------------
  */
 
-import { GridSettings, GridMath, HoCLib } from "@heroesofcrypto/common";
+import { v4 as uuidv4 } from "uuid";
+import { GridMath, GridSettings, HoCLib, TeamType } from "@heroesofcrypto/common";
 
 import {
-    STEPS_MORALE_MULTIPLIER,
     MAX_TIME_TO_MAKE_TURN_MILLIS,
-    UP_NEXT_UNITS_COUNT,
-    TOTAL_TIME_TO_MAKE_TURN_MILLIS,
     MIN_TIME_TO_MAKE_TURN_MILLIS,
+    STEPS_MORALE_MULTIPLIER,
+    TOTAL_TIME_TO_MAKE_TURN_MILLIS,
+    UP_NEXT_UNITS_COUNT,
 } from "../statics";
 import { Unit } from "../units/units";
-import { TeamType } from "../units/units_stats";
 import { IFightState } from "./state";
 
 export class FightStateManager {
@@ -29,17 +29,17 @@ export class FightStateManager {
 
     private constructor() {
         this.fightState = {
+            id: uuidv4(),
             currentLap: 1,
             firstTurnMade: false,
             fightFinished: false,
-            previousTurnTeam: undefined,
+            previousTurnTeam: TeamType.NO_TEAM,
             highestSpeedThisTurn: 0,
             alreadyMadeTurn: new Set(),
             alreadyMadeTurnByTeam: new Map(),
             alreadyHourGlass: new Set(),
             alreadyRepliedAttack: new Set(),
-            lowerTeamUnitsAlive: 0,
-            upperTeamUnitsAlive: 0,
+            teamUnitsAlive: new Map(),
             hourGlassQueue: [],
             moralePlusQueue: [],
             moraleMinusQueue: [],
@@ -50,6 +50,29 @@ export class FightStateManager {
             stepsMoraleMultiplier: 0,
             hasAdditionalTimeRequestedPerTeam: new Map(),
         };
+    }
+
+    public reset(): void {
+        this.fightState.id = uuidv4();
+        this.fightState.currentLap = 1;
+        this.fightState.firstTurnMade = false;
+        this.fightState.fightFinished = false;
+        this.fightState.previousTurnTeam = TeamType.NO_TEAM;
+        this.fightState.highestSpeedThisTurn = 0;
+        this.fightState.alreadyMadeTurn.clear();
+        this.fightState.alreadyMadeTurnByTeam.clear();
+        this.fightState.alreadyHourGlass.clear();
+        this.fightState.alreadyRepliedAttack.clear();
+        this.fightState.teamUnitsAlive.clear();
+        this.fightState.hourGlassQueue = [];
+        this.fightState.moralePlusQueue = [];
+        this.fightState.moraleMinusQueue = [];
+        this.fightState.currentTurnStart = 0;
+        this.fightState.currentTurnEnd = 0;
+        this.fightState.currentLapTotalTimePerTeam.clear();
+        this.fightState.upNext = [];
+        this.fightState.stepsMoraleMultiplier = 0;
+        this.fightState.hasAdditionalTimeRequestedPerTeam.clear();
     }
 
     public static getInstance(): FightStateManager {
@@ -265,7 +288,9 @@ export class FightStateManager {
             alreadyMadeTurnTeamMembers = alreadyMadeTurnTeamMembersSet.size;
         }
         const teamMembersAlive =
-            team === TeamType.LOWER ? this.fightState.lowerTeamUnitsAlive : this.fightState.upperTeamUnitsAlive;
+            team === TeamType.LOWER
+                ? this.fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0
+                : this.fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
         let teamMembersToMakeTurn = teamMembersAlive - alreadyMadeTurnTeamMembers - 1;
         if (teamMembersToMakeTurn < 0) {
             teamMembersToMakeTurn = 0;
@@ -313,7 +338,9 @@ export class FightStateManager {
             alreadyMadeTurnTeamMembers = alreadyMadeTurnTeamMembersSet.size;
         }
         const teamMembersAlive =
-            team === TeamType.LOWER ? this.fightState.lowerTeamUnitsAlive : this.fightState.upperTeamUnitsAlive;
+            team === TeamType.LOWER
+                ? this.fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0
+                : this.fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
 
         let teamMembersToMakeTurn = teamMembersAlive - alreadyMadeTurnTeamMembers;
         if (teamMembersToMakeTurn < 0) {
@@ -364,9 +391,10 @@ export class FightStateManager {
         );
     }
 
-    public setTeamsUnitsAlive(lowerTeamUnitsAlive: number, upperTeamUnitsAlive: number): void {
-        this.fightState.lowerTeamUnitsAlive = lowerTeamUnitsAlive;
-        this.fightState.upperTeamUnitsAlive = upperTeamUnitsAlive;
+    public setTeamUnitsAlive(teamType: TeamType, unitsAlive: number): void {
+        if (teamType) {
+            this.fightState.teamUnitsAlive.set(teamType, unitsAlive);
+        }
     }
 
     public addRepliedAttack(unitId: string): void {

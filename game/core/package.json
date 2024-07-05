@@ -4,9 +4,7 @@
     "private": false,
     "description": "Core game logic for Heroes of Crypto",
     "homepage": "https://heroesofcrypto.io",
-    "files": [
-        "dist"
-    ],
+    "files": ["dist"],
     "scripts": {
         "build": "npm test && rimraf dist && tsc && yarn run build:docs",
         "build:docs": "rimraf ../../.parcel-cache && rimraf ../../docs/core && rimraf images && npm run copy:images && npm run generate:images && parcel build --no-optimize src/ui/index.html --public-url . --no-source-maps --dist-dir ../../docs/core",
@@ -16,13 +14,9 @@
         "test": "jest test/*",
         "watch": "rimraf ../../.parcel-cache && parcel watch src/ui/index.html"
     },
-    "browserslist": [
-        "> 5%"
-    ],
+    "browserslist": ["> 5%"],
     "jest": {
-        "testMatch": [
-            "**/**.test.ts"
-        ],
+        "testMatch": ["**/**.test.ts"],
         "transform": {
             ".(ts|ts)": "ts-jest"
         },
@@ -47,17 +41,19 @@
         "@mui/icons-material": "^5.15.19",
         "@mui/joy": "^5.0.0-beta.36",
         "@mui/material": "^5.15.19",
-        "@react-nano/router": "^0.12.1",
         "@types/node-schedule": "^2.1.7",
         "@types/randomcolor": "^0.5.9",
         "@types/react": "^18.3.3",
         "@types/react-dom": "^18.3.0",
+        "@types/react-router-dom": "^5.3.3",
         "@types/uuid": "^9.0.8",
+        "axios": "^1.7.2",
         "denque": "^2.1.0",
         "gl-matrix": "^3.4.3",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "react-is": "^18.3.1",
+        "react-router-dom": "^6.24.0",
         "sass": "^1.77.4",
         "sort-package-json": "^1.57.0",
         "typed-glsl": "^0.11.2",
