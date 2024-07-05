@@ -41,7 +41,7 @@
         "lint:style": "yarn run lint:style:base --check",
         "lint:style:base": "prettier \"game/*/src/**/*.{ts,tsx,js,json,scss}\" \"game/*/*.{ts,tsx,js,json,scss}\"",
         "lint:style:fix": "yarn run lint:style:base --write",
-        "pull:common": "scripts/pull_hoc_common.sh zolotukhin",
+        "pull:common": "scripts/pull_hoc_common.sh main",
         "release": "lerna publish",
         "start": "yarn workspace @heroesofcrypto/core start",
         "start:fresh": "yarn run pull:common && yarn run build:engine && yarn workspace @heroesofcrypto/common build && yarn workspace @heroesofcrypto/core copy:images && yarn workspace @heroesofcrypto/core generate:images && yarn workspace @heroesofcrypto/core start",
