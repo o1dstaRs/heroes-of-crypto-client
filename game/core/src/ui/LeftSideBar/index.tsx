@@ -28,7 +28,7 @@ import * as packageJson from "../../../package.json";
 import { images } from "../../generated/image_imports";
 import { useManager } from "../../manager";
 import { IVisibleState, IVisibleUnit } from "../../state/state";
-import UnitStatsListItem from "../UnitStatsListItem";
+import { UnitStatsListItem } from "../UnitStatsListItem";
 import ColorSchemeToggle from "./ColorSchemeToggle";
 
 const UpNext: React.FC = () => {
@@ -36,9 +36,6 @@ const UpNext: React.FC = () => {
     const theme = useTheme();
 
     const manager = useManager();
-
-    console.log("visibleState");
-    console.log(visibleState);
 
     useEffect(() => {
         const connection = manager.onVisibleStateUpdated.connect(setVisibleState);
@@ -254,8 +251,8 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
             setBadgeVisible(true);
             setTimeout(() => {
                 setBadgeVisible(false);
-            }, 5000); // Badge disappears after 5 seconds
-        }, 10000); // Badge appears every 10 seconds
+            }, 50000); // Badge disappears after 5 seconds
+        }, 100000); // Badge appears every 10 seconds
 
         return () => clearInterval(interval);
     }, []);

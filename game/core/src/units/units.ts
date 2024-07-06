@@ -22,6 +22,7 @@ import {
 } from "@box2d/core";
 import { removeFromArray } from "@box2d/lights/dist/utils/arrayUtils";
 import {
+    AbilityPowerType,
     AllFactionsType,
     AttackType,
     FactionType,
@@ -35,7 +36,7 @@ import {
 } from "@heroesofcrypto/common";
 import Denque from "denque";
 
-import { Ability, AbilityPowerType } from "../abilities/abilities";
+import { Ability } from "../abilities/abilities";
 import { AbilitiesFactory } from "../abilities/abilities_factory";
 import { AppliedSpell, Spell, calculateBuffsDebuffsEffect } from "../spells/spells";
 import { SpellsFactory } from "../spells/spells_factory";

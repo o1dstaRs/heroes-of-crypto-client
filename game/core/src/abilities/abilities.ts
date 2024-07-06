@@ -9,79 +9,28 @@
  * -----------------------------------------------------------------------------
  */
 
-import { GridSettings, HoCMath, TeamType } from "@heroesofcrypto/common";
+import {
+    AbilityProperties,
+    AbilityType,
+    AbilityPowerType,
+    GridSettings,
+    HoCMath,
+    TeamType,
+} from "@heroesofcrypto/common";
 
 import { IFrameable, OnFramePosition } from "../menu/frameable";
 import { Sprite } from "../utils/gl/Sprite";
 import { Effect } from "../effects/effects";
 
-export enum AbilityPowerType {
-    TOTAL_DAMAGE_PERCENTAGE = "TOTAL_DAMAGE_PERCENTAGE",
-    ADDITIONAL_DAMAGE_PERCENTAGE = "ADDITIONAL_DAMAGE_PERCENTAGE",
-    UNLIMITED_RESPONSES = "UNLIMITED_RESPONSES",
-    UNLIMITED_SUPPLIES = "UNLIMITED_SUPPLIES",
-    UNLIMITED_RANGE = "UNLIMITED_RANGE",
-    MAGIC_RESIST_100 = "MAGIC_RESIST_100",
-    LIGHTNING_SPIN_ATTACK = "LIGHTNING_SPIN_ATTACK",
-    FIRE_BREATH = "FIRE_BREATH",
-    APPLY_EFFECT = "APPLY_EFFECT",
-}
-
-export enum AbilityType {
-    ATTACK = "ATTACK",
-    ADDITIONAL_ATTACK = "ADDITIONAL_ATTACK",
-    RESPOND = "RESPOND",
-    SUPPLIES = "SUPPLIES",
-    DEFENCE = "DEFENCE",
-    REFLECT = "REFLECT",
-    STATUS = "STATUS",
-    HEAL = "HEAL",
-    UNIT_TYPE = "UNIT_TYPE",
-}
-
-export class AbilityStats {
-    public readonly name: string;
-
-    public readonly type: AbilityType;
-
-    public readonly desc: string;
-
-    public readonly power: number;
-
-    public readonly power_type: AbilityPowerType;
-
-    public readonly skip_response: boolean;
-
-    public readonly effect: string | null;
-
-    public constructor(
-        name: string,
-        type: AbilityType,
-        desc: string,
-        power: number,
-        powerType: AbilityPowerType,
-        skipResponse: boolean,
-        effect: string | null,
-    ) {
-        this.name = name;
-        this.type = type;
-        this.desc = desc;
-        this.power = power;
-        this.power_type = powerType;
-        this.skip_response = skipResponse;
-        this.effect = effect;
-    }
-}
-
 export class Ability implements IFrameable {
-    private readonly abilityStats: AbilityStats;
+    private readonly abilityProperties: AbilityProperties;
 
     private readonly sprite: Sprite;
 
     private readonly effect: Effect | undefined;
 
-    public constructor(abilityStats: AbilityStats, sprite: Sprite, effect: Effect | undefined) {
-        this.abilityStats = abilityStats;
+    public constructor(abilityProperties: AbilityProperties, sprite: Sprite, effect: Effect | undefined) {
+        this.abilityProperties = abilityProperties;
         this.sprite = sprite;
         this.effect = effect;
     }
@@ -104,27 +53,27 @@ export class Ability implements IFrameable {
     }
 
     public getName(): string {
-        return this.abilityStats.name;
+        return this.abilityProperties.name;
     }
 
     public getType(): AbilityType {
-        return this.abilityStats.type;
+        return this.abilityProperties.type;
     }
 
     public getDesc(): string {
-        return this.abilityStats.desc;
+        return this.abilityProperties.desc;
     }
 
     public getPower(): number {
-        return this.abilityStats.power;
+        return this.abilityProperties.power;
     }
 
     public getPowerType(): AbilityPowerType {
-        return this.abilityStats.power_type;
+        return this.abilityProperties.power_type;
     }
 
     public getSkipResponse(): boolean {
-        return this.abilityStats.skip_response;
+        return this.abilityProperties.skip_response;
     }
 
     public getEffect(): Effect | undefined {

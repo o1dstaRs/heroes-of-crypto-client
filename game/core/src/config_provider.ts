@@ -9,14 +9,21 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, FactionType, TeamType, ToAttackType, UnitProperties, UnitType } from "@heroesofcrypto/common";
+import {
+    AttackType,
+    AbilityProperties,
+    FactionType,
+    TeamType,
+    ToAttackType,
+    UnitProperties,
+    UnitType,
+} from "@heroesofcrypto/common";
 
-import { AbilityStats } from "./abilities/abilities";
 import abilitiesJson from "./configuration/abilities.json";
 import effectsJson from "./configuration/effects.json";
 import spellsJson from "./configuration/spells.json";
 import creaturesJson from "./configuration/creatures.json";
-import { EffectStats } from "./effects/effects";
+import { EffectProperties } from "./effects/effects";
 import { SpellProperties } from "./spells/spells";
 
 const DEFAULT_HERO_CONFIG = {
@@ -38,6 +45,7 @@ const DEFAULT_HERO_CONFIG = {
     level: 1,
     spells: [],
     abilities: [],
+    abilities_descriptions: [],
     effects: [],
 };
 
@@ -104,6 +112,7 @@ export const getHeroConfig = (
         heroConfig.level,
         structuredClone(heroConfig.spells),
         heroConfig.abilities,
+        heroConfig.abilities_descriptions,
         heroConfig.effects,
         1,
         0,
@@ -111,6 +120,24 @@ export const getHeroConfig = (
         UnitType.HERO,
         `${largeTextureName.split("_").slice(0, -1).join("_")}${heroConfig.size === 1 ? "_128" : "_256"}`,
         largeTextureName,
+    );
+};
+
+export const getAbilityConfig = (abilityName: string): AbilityProperties => {
+    // @ts-ignore: we do not know the type here yet
+    const Abilities = abilitiesJson[abilityName];
+    if (!Abilities) {
+        throw TypeError(`Unknown ability type - ${abilityName}`);
+    }
+
+    return new AbilityProperties(
+        abilityName,
+        Abilities.type,
+        Abilities.desc,
+        Abilities.power,
+        Abilities.power_type,
+        Abilities.skip_reponse,
+        Abilities.effect,
     );
 };
 
@@ -144,6 +171,26 @@ export const getCreatureConfig = (
     const luck = DEFAULT_LUCK_PER_FACTION[faction] ?? 0;
     const morale = DEFAULT_MORALE_PER_FACTION[faction] ?? 0;
 
+    const abilityDescriptions: string[] = [];
+
+    for (const abilityName of creatureConfig.abilities) {
+        const abilityConfig = getAbilityConfig(abilityName);
+
+        if (!abilityConfig) {
+            throw new TypeError(`Unable to get config for ability ${abilityName} and creature ${creatureName}`);
+        }
+
+        if (!abilityConfig.desc) {
+            throw new TypeError(`No description for ability ${abilityName} and creature ${creatureName}`);
+        }
+
+        if (abilityConfig.power === null || abilityConfig.power === undefined) {
+            throw new TypeError(`No power for ability ${abilityName} and creature ${creatureName}`);
+        }
+
+        abilityDescriptions.push(abilityConfig.desc.replace(/\{\}/g, abilityConfig.power.toString()));
+    }
+
     return new UnitProperties(
         faction,
         creatureConfig.name,
@@ -167,6 +214,7 @@ export const getCreatureConfig = (
         creatureConfig.level,
         structuredClone(creatureConfig.spells),
         creatureConfig.abilities,
+        abilityDescriptions,
         creatureConfig.effects,
         amount > 0 ? amount : Math.ceil((totalExp ?? 0) / creatureConfig.exp),
         0,
@@ -202,30 +250,12 @@ export const getSpellConfig = (faction: FactionType, spellName: string): SpellPr
     );
 };
 
-export const getAbilityConfig = (abilityName: string): AbilityStats => {
-    // @ts-ignore: we do not know the type here yet
-    const Abilities = abilitiesJson[abilityName];
-    if (!Abilities) {
-        throw TypeError(`Unknown ability type - ${abilityName}`);
-    }
-
-    return new AbilityStats(
-        abilityName,
-        Abilities.type,
-        Abilities.desc,
-        Abilities.power,
-        Abilities.power_type,
-        Abilities.skip_reponse,
-        Abilities.effect,
-    );
-};
-
-export const getEffectConfig = (effectName: string): EffectStats | undefined => {
+export const getEffectConfig = (effectName: string): EffectProperties | undefined => {
     // @ts-ignore: we do not know the type here yet
     const effect = effectsJson[effectName];
     if (!effect) {
         return undefined;
     }
 
-    return new EffectStats(effectName, effect.laps, effect.desc);
+    return new EffectProperties(effectName, effect.laps, effect.desc);
 };

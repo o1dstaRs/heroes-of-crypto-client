@@ -110,7 +110,7 @@ const Popover: React.FC = () => {
     const manager = useManager();
 
     useEffect(() => {
-        const connection = manager.onPossibleAttackRangeUpdated.connect(setHoverInfo);
+        const connection = manager.onHoverInfoUpdated.connect(setHoverInfo);
         return () => {
             connection.disconnect();
         };

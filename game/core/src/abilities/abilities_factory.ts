@@ -16,12 +16,15 @@ import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
 import { Ability } from "./abilities";
 
+export const abilityToTextureName = (abilityName: string): string =>
+    `${abilityName.toLowerCase().replace(/ /g, "_")}_256`;
+
 export class AbilitiesFactory {
     protected readonly gl: WebGLRenderingContext;
 
     protected readonly shader: DefaultShader;
 
-    protected readonly texturesBySpellName: { [id: string]: WebGLTexture };
+    protected readonly textures: PreloadedTextures;
 
     protected readonly effectsFactory: EffectsFactory;
 
@@ -33,38 +36,23 @@ export class AbilitiesFactory {
     ) {
         this.gl = gl;
         this.shader = shader;
-        this.texturesBySpellName = {
-            "Double Punch": textures.double_punch_256.texture,
-            "Double Shot": textures.double_shot_256.texture,
-            Sniper: textures.sniper_256.texture,
-            "Leather Armor": textures.leather_armor_256.texture,
-            "Limited Supply": textures.limited_supply_256.texture,
-            Backstab: textures.backstab_256.texture,
-            Handyman: textures.handyman_256.texture,
-            Stun: textures.stun_256.texture,
-            "Endless Quiver": textures.endless_quiver_256.texture,
-            "One in the Field": textures.one_in_the_field_256.texture,
-            "Shadow Touch": textures.shadow_touch_256.texture,
-            "Wild Regeneration": textures.wild_regeneration_256.texture,
-            "Enchanted Skin": textures.enchanted_skin_256.texture,
-            "Lightning Spin": textures.lightning_spin_256.texture,
-            "Fire Breath": textures.fire_breath_256.texture,
-            "Fire Shield": textures.fire_shield_256.texture,
-            "Fire Element": textures.fire_element_256.texture,
-            Undead: textures.undead_256.texture,
-            "Boost Health": textures.boost_health_256.texture,
-            "Piercing Spear": textures.piercing_spear_256.texture,
-            "Heavy Armor": textures.heavy_armor_256.texture,
-            "No Melee": textures.no_melee_256.texture,
-        };
+        this.textures = textures;
         this.effectsFactory = effectsFactory;
     }
 
     public makeAbility(name: string) {
+        const abilityConfig = getAbilityConfig(name);
+
+        const textureName = abilityToTextureName(name);
+        const texture = (this.textures as Record<string, { texture: WebGLTexture }>)[textureName]?.texture;
+        if (!texture) {
+            throw new ReferenceError(`Texture for ability ${name} not found`);
+        }
+
         return new Ability(
-            getAbilityConfig(name),
-            new Sprite(this.gl, this.shader, this.texturesBySpellName[name]),
-            this.effectsFactory.makeEffect(getAbilityConfig(name).effect),
+            abilityConfig,
+            new Sprite(this.gl, this.shader, texture),
+            this.effectsFactory.makeEffect(abilityConfig.effect),
         );
     }
 }

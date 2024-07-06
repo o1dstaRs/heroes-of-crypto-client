@@ -2846,7 +2846,7 @@ class TestHeroes extends GLScene {
                                     this.currentActivePath = undefined;
                                 } else {
                                     unitBody.SetIsActive(true);
-                                    this.addUnitData(unitBody.GetUserData());
+                                    this.setSelectedUnitProperties(unitBody.GetUserData());
                                     nextUnit.refreshPreTurnState(this.sc_sceneLog);
                                     this.sc_hoverTextUpdateNeeded = true;
                                     this.sc_selectedBody = unitBody;

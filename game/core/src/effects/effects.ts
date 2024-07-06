@@ -15,7 +15,7 @@ import { GridSettings } from "@heroesofcrypto/common";
 import { IFrameable, OnFramePosition } from "../menu/frameable";
 import { Sprite } from "../utils/gl/Sprite";
 
-export class EffectStats {
+export class EffectProperties {
     public readonly name: string;
 
     public readonly laps: number;
@@ -30,16 +30,16 @@ export class EffectStats {
 }
 
 export class Effect implements IFrameable {
-    public readonly effectStats: EffectStats;
+    public readonly effectProperties: EffectProperties;
 
     private laps: number;
 
     private readonly sprite: Sprite;
 
-    public constructor(effectStats: EffectStats, sprite: Sprite) {
-        this.effectStats = effectStats;
+    public constructor(effectProperties: EffectProperties, sprite: Sprite) {
+        this.effectProperties = effectProperties;
         this.sprite = sprite;
-        this.laps = effectStats.laps;
+        this.laps = effectProperties.laps;
     }
 
     public renderWithinFrame(gridSettings: GridSettings, framePosition: XY, onFramePosition: OnFramePosition): void {
@@ -56,19 +56,19 @@ export class Effect implements IFrameable {
     }
 
     public getName(): string {
-        return this.effectStats.name;
+        return this.effectProperties.name;
     }
 
     public getDesc(): string {
-        return this.effectStats.desc;
+        return this.effectProperties.desc;
     }
 
     public getLaps(): number {
         return this.laps;
     }
 
-    public getStats(): EffectStats {
-        return this.effectStats;
+    public getStats(): EffectProperties {
+        return this.effectProperties;
     }
 
     public extend(): void {

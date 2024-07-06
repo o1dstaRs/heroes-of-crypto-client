@@ -40,6 +40,19 @@ export interface IVisibleUnit {
     teamType: TeamType;
 }
 
+export interface IVisibleImpact {
+    name: string;
+    smallTextureName: string;
+    description: string;
+    laps: number;
+}
+
+export interface IVisibleOverallImpact {
+    abilities: IVisibleImpact[];
+    buffs: IVisibleImpact[];
+    debuffs: IVisibleImpact[];
+}
+
 export interface IVisibleState {
     canBeStarted: boolean;
     hasFinished: boolean;

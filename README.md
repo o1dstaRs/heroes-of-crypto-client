@@ -23,7 +23,7 @@ HOC_IMAGES_LOC=./path/to/images
 
 Most important commands to execute from the root folder (you need [yarn](https://yarnpkg.com/) installed):
 
--   `yarn` -> install dependencies
+-   `./scripts/pull_hoc_common.sh && yarn` -> pull and install dependencies
 -   `yarn build` -> build all projects
 -   `yarn build:engine` -> build only box2d engine and lights
 -   `yarn build:game` -> build the game code without its engine

@@ -36,7 +36,7 @@ import redFlagImage from "../../../images/red_flag_128.webp";
 import { images } from "../../generated/image_imports";
 import Toggler from "../Toggler";
 
-export default function UnitStatsListItem() {
+export const UnitStatsListItem: React.FC = () => {
     const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
     const [raceName, setRaceName] = useState("");
 
@@ -439,4 +439,4 @@ export default function UnitStatsListItem() {
     }
 
     return <ListItem nested />;
-}
+};
