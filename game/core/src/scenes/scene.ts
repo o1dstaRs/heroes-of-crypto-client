@@ -511,9 +511,15 @@ export abstract class Scene extends b2ContactListener {
                 name: abilityName,
                 smallTextureName: abilityToTextureName(abilityName),
                 description: abilityDescription,
-                laps: 0,
+                laps: Number.MAX_SAFE_INTEGER,
             });
         }
+
+        this.sc_visibleOverallImpact = {
+            abilities: visibleAbilitiesImpact,
+            buffs: [],
+            debuffs: [],
+        };
 
         this.sc_unitPropertiesUpdateNeeded = true;
     }
