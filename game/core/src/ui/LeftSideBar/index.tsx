@@ -251,8 +251,8 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
             setBadgeVisible(true);
             setTimeout(() => {
                 setBadgeVisible(false);
-            }, 50000); // Badge disappears after 5 seconds
-        }, 100000); // Badge appears every 10 seconds
+            }, 5000); // Badge disappears after 5 seconds
+        }, 10000); // Badge appears every 10 seconds
 
         return () => clearInterval(interval);
     }, []);
