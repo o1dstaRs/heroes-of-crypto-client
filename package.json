@@ -50,14 +50,14 @@
         "updiff:ts": "yarn workspace @box2d/updiff run convert:ts"
     },
     "devDependencies": {
-        "@eslint/js": "^9.5.0",
+        "@eslint/js": "^9.6.0",
         "@lusito/eslint-config-react": "^2.3.0",
         "@lusito/prettier-config": "^2.3.1",
         "@lusito/stylelint-config": "^2.3.0",
         "@parcel/transformer-sass": "^2.12.0",
         "buffer": "^6.0.3",
         "crypto-browserify": "^3.12.0",
-        "eslint": "^9.5.0",
+        "eslint": "^9.6.0",
         "eslint-plugin-jsx-a11y": "^6.5.1",
         "eslint-plugin-react": "^7.31.8",
         "eslint-plugin-react-hooks": "^4.2.1",
