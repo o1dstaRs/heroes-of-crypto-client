@@ -70,8 +70,10 @@ function getSelectionType(coordinates: ICoordinates): SelectionType {
     return SelectionType.PREDICTION;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const throttle = (func: (...args: any[]) => void, delay: number) => {
     let lastCall = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (...args: any[]) => {
         const now = new Date().getTime();
         if (now - lastCall < delay) {

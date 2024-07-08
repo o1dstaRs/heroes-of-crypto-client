@@ -18,7 +18,7 @@ import { Signal } from "typed-signals";
 import "./scenes";
 import { getScenesGrouped, Scene, SceneConstructor, SceneEntry } from "./scenes/scene";
 import { Settings } from "./settings";
-import { IVisibleState } from "./state/state";
+import { IVisibleOverallImpact, IVisibleState } from "./state/state";
 import { MAX_FPS } from "./statics";
 import { DamageStatisticHolder, IDamageStatistic, IHoverInfo } from "./stats/damage_stats";
 import type { SceneControlGroup } from "./ui";
@@ -61,19 +61,23 @@ export class GameManager {
 
     private sceneTitle = "Heroes";
 
-    public readonly onHasStarted = new Signal<(started: boolean) => void>();
+    public readonly onHasStarted = new Signal<(_started: boolean) => void>();
 
-    public readonly onAttackLanded = new Signal<(attackMessage: string) => void>();
+    public readonly onAttackLanded = new Signal<(_attackMessage: string) => void>();
 
-    public readonly onUnitSelected = new Signal<(unitProperties: UnitProperties) => void>();
+    public readonly onUnitSelected = new Signal<(_unitProperties: UnitProperties) => void>();
 
-    public readonly onDamageStatisticsUpdated = new Signal<(damageStats: IDamageStatistic[]) => void>();
+    public readonly onDamageStatisticsUpdated = new Signal<(_damageStats: IDamageStatistic[]) => void>();
 
-    public readonly onRaceSelected = new Signal<(raceName: string) => void>();
+    public readonly onRaceSelected = new Signal<(_raceName: string) => void>();
 
-    public readonly onVisibleStateUpdated = new Signal<(visibleState: IVisibleState) => void>();
+    public readonly onVisibleStateUpdated = new Signal<(_visibleState: IVisibleState) => void>();
 
-    public readonly onPossibleAttackRangeUpdated = new Signal<(visibleState: IHoverInfo) => void>();
+    public readonly onVisibleOverallImpactUpdated = new Signal<
+        (_visibleOverallImpact: IVisibleOverallImpact) => void
+    >();
+
+    public readonly onHoverInfoUpdated = new Signal<(_visibleState: IHoverInfo) => void>();
 
     private m_hoveringCanvas = false;
 
@@ -207,7 +211,7 @@ export class GameManager {
                 } else {
                     this.m_scene?.MouseDown(world);
                 }
-                this.UpdateText();
+                this.UpdateHoverInfo();
                 break;
             case 2: // right mouse button
                 this.m_rMouseDown = true;
@@ -250,7 +254,7 @@ export class GameManager {
                 }
                 if (this.m_hoveringCanvas) e.preventDefault();
                 if (key === "Escape") {
-                    this.UpdateText();
+                    this.UpdateHoverInfo();
                 }
             }
         }
@@ -343,7 +347,7 @@ export class GameManager {
 
         // Slice to force an update (and thus a reset) of the UI
         this.setSceneControlGroups(this.m_scene.sc_testControlGroups.slice());
-        this.UpdateText();
+        this.UpdateHoverInfo();
     }
 
     public Accept(): void {
@@ -354,9 +358,10 @@ export class GameManager {
             }
 
             userData.amount_alive = this.m_settings.m_amountOfSelectedUnits;
-            this.m_scene.addUnitData(userData);
+            this.m_scene.sc_selectedUnitProperties = userData;
+            this.m_scene.sc_unitPropertiesUpdateNeeded = true;
             this.m_scene.refreshScene();
-            this.UpdateText();
+            this.UpdateHoverInfo();
         }
     }
 
@@ -402,7 +407,7 @@ export class GameManager {
         //        if (this.m_settings.m_drawFpsMeter) this.DrawFpsMeter(this.m_ctx);
 
         if (this.m_scene?.sc_hoverTextUpdateNeeded) {
-            this.UpdateText();
+            this.UpdateHoverInfo();
             this.m_scene.sc_hoverTextUpdateNeeded = false;
         }
 
@@ -412,11 +417,17 @@ export class GameManager {
 
         if (this.m_scene?.sc_unitPropertiesUpdateNeeded) {
             if (this.m_scene?.sc_selectedUnitProperties) {
-                this.onUnitSelected.emit(this.m_scene?.sc_selectedUnitProperties as UnitProperties);
+                this.onUnitSelected.emit(structuredClone(this.m_scene.sc_selectedUnitProperties));
                 this.onRaceSelected.emit("");
             } else {
                 this.onRaceSelected.emit(this.m_scene?.sc_selectedFactionName ?? "");
                 this.onUnitSelected.emit({} as UnitProperties);
+            }
+
+            if (this.m_scene?.sc_visibleOverallImpact) {
+                this.onVisibleOverallImpactUpdated.emit(structuredClone(this.m_scene.sc_visibleOverallImpact));
+            } else {
+                this.onVisibleOverallImpactUpdated.emit({} as IVisibleOverallImpact);
             }
 
             this.m_scene.sc_unitPropertiesUpdateNeeded = false;
@@ -426,7 +437,7 @@ export class GameManager {
             if (this.m_scene?.sc_selectedFactionName) {
                 this.onRaceSelected.emit(this.m_scene?.sc_selectedFactionName ?? "");
             } else {
-                this.onUnitSelected.emit(this.m_scene?.sc_selectedUnitProperties as UnitProperties);
+                // this.onUnitSelected.emit(structuredClone(this.m_scene?.sc_selectedUnitProperties));
                 this.onRaceSelected.emit("");
             }
 
@@ -451,13 +462,13 @@ export class GameManager {
         }
     }
 
-    public UpdateText() {
+    public UpdateHoverInfo() {
         if (
             this.m_scene?.sc_attackDamageSpreadStr ||
             this.m_scene?.sc_hoverUnitNameStr ||
             this.m_scene?.sc_hoverInfoArr?.length
         ) {
-            this.onPossibleAttackRangeUpdated.emit({
+            this.onHoverInfoUpdated.emit({
                 attackType: this.m_scene.sc_selectedAttackType,
                 damageSpread: this.m_scene.sc_attackDamageSpreadStr,
                 damageRangeDivisor: this.m_scene.sc_attackRangeDamageDivisorStr,
@@ -466,7 +477,7 @@ export class GameManager {
                 information: this.m_scene.sc_hoverInfoArr,
             });
         } else {
-            this.onPossibleAttackRangeUpdated.emit({} as IHoverInfo);
+            this.onHoverInfoUpdated.emit({} as IHoverInfo);
         }
     }
 }

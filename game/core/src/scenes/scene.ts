@@ -40,7 +40,7 @@ import { AttackType, FactionType, HoCMath, UnitProperties } from "@heroesofcrypt
 import { SceneLog } from "../menu/scene_log";
 import { SceneControl } from "../sceneControls";
 import { Settings } from "../settings";
-import { IVisibleState } from "../state/state";
+import { IVisibleImpact, IVisibleOverallImpact, IVisibleState } from "../state/state";
 import { MAX_FPS, MAX_X } from "../statics";
 import type { SceneControlGroup } from "../ui";
 import { g_camera } from "../utils/camera";
@@ -48,6 +48,7 @@ import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
 import { SceneSettings } from "./scene_settings";
+import { abilityToTextureName } from "../abilities/abilities_factory";
 
 const temp = {
     aabb: new b2AABB(),
@@ -205,6 +206,8 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_visibleState?: IVisibleState;
 
+    public sc_visibleOverallImpact?: IVisibleOverallImpact;
+
     public sc_groundBody: b2Body;
 
     public sc_testControlGroups: SceneControlGroup[] = [];
@@ -272,7 +275,8 @@ export abstract class Scene extends b2ContactListener {
             if (this.sc_selectedBody) {
                 this.sc_unitInfoLines.length = 0;
                 this.sc_selectedUnitProperties = undefined;
-                this.addUnitData(this.sc_selectedBody.GetUserData());
+                this.sc_visibleOverallImpact = undefined;
+                this.setSelectedUnitProperties(this.sc_selectedBody.GetUserData());
             }
             return;
         }
@@ -284,6 +288,7 @@ export abstract class Scene extends b2ContactListener {
         this.sc_unitInfoLines.length = 0;
         if (refreshStats) {
             this.sc_selectedUnitProperties = undefined;
+            this.sc_visibleOverallImpact = undefined;
             this.sc_unitPropertiesUpdateNeeded = true;
         }
         this.sc_currentActiveShotRange = undefined;
@@ -377,7 +382,7 @@ export abstract class Scene extends b2ContactListener {
             }
 
             if (!attackLanded) {
-                this.addUnitData(body.GetUserData());
+                this.setSelectedUnitProperties(body.GetUserData());
 
                 if (this.sc_sceneSettings.isDraggable()) {
                     const md = new b2MouseJointDef();
@@ -430,7 +435,7 @@ export abstract class Scene extends b2ContactListener {
         });
 
         if (hit_fixture) {
-            this.addUnitData(hit_fixture.GetBody().GetUserData());
+            this.setSelectedUnitProperties(hit_fixture.GetBody().GetUserData());
         }
     }
 
@@ -490,10 +495,33 @@ export abstract class Scene extends b2ContactListener {
         this.sc_debugLines.push([label, `${value}`]);
     }
 
-    public addUnitData(unitProperties: UnitProperties): void {
+    protected setSelectedUnitProperties(unitProperties: UnitProperties): void {
         this.sc_selectedUnitProperties = unitProperties;
+
+        const visibleAbilitiesImpact: IVisibleImpact[] = [];
+        for (let i = 0; i < unitProperties.abilities.length; i++) {
+            const abilityName = unitProperties.abilities[i];
+            const abilityDescription = unitProperties.abilities_descriptions[i];
+
+            if (!abilityName || !abilityDescription) {
+                break;
+            }
+
+            visibleAbilitiesImpact.push({
+                name: abilityName,
+                smallTextureName: abilityToTextureName(abilityName),
+                description: abilityDescription,
+                laps: Number.MAX_SAFE_INTEGER,
+            });
+        }
+
+        this.sc_visibleOverallImpact = {
+            abilities: visibleAbilitiesImpact,
+            buffs: [],
+            debuffs: [],
+        };
+
         this.sc_unitPropertiesUpdateNeeded = true;
-        this.refreshFrames(unitProperties.id);
     }
 
     public addStatistic(label: string, value: string | number | boolean): void {

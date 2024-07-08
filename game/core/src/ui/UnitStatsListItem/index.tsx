@@ -35,9 +35,45 @@ import greenFlagImage from "../../../images/green_flag_128.webp";
 import redFlagImage from "../../../images/red_flag_128.webp";
 import { images } from "../../generated/image_imports";
 import Toggler from "../Toggler";
+import { IVisibleOverallImpact, IVisibleImpact } from "../../state/state";
 
-export default function UnitStatsListItem() {
+interface IAbilityStackProps {
+    abilities: IVisibleImpact[];
+}
+
+const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities }) => {
+    return (
+        <Stack direction="row" spacing={2} sx={{ marginTop: 2 }}>
+            {abilities.map(
+                (ability: IVisibleImpact, index: number) =>
+                    ability.laps > 0 && (
+                        <Tooltip
+                            title={`${ability.name}: ${ability.description}`}
+                            key={`toolip_${index}`}
+                            style={{ zIndex: 3 }}
+                        >
+                            <Avatar
+                                key={`ability_avatar_${index}`}
+                                // @ts-ignore: src params
+                                src={images[ability.smallTextureName]}
+                                variant="plain"
+                                sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
+                                style={{
+                                    width: "28%",
+                                    height: "auto",
+                                    overflow: "visible",
+                                }}
+                            />
+                        </Tooltip>
+                    ),
+            )}
+        </Stack>
+    );
+};
+
+export const UnitStatsListItem: React.FC = () => {
     const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
+    const [overallImpact, setVisibleOverallImpact] = useState({} as IVisibleOverallImpact);
     const [raceName, setRaceName] = useState("");
 
     const manager = useManager();
@@ -55,6 +91,15 @@ export default function UnitStatsListItem() {
             connection2.disconnect();
         };
     });
+
+    useEffect(() => {
+        const connection3 = manager.onVisibleOverallImpactUpdated.connect(setVisibleOverallImpact);
+        return () => {
+            connection3.disconnect();
+        };
+    });
+
+    const abilities: IVisibleImpact[] = overallImpact.abilities || [];
 
     // @ts-ignore: style params
     if (raceName) {
@@ -90,7 +135,7 @@ export default function UnitStatsListItem() {
     }
     if (unitProperties && Object.keys(unitProperties).length) {
         const stackName = `${unitProperties.name} x${unitProperties.amount_alive}`;
-        const damageRange = `${unitProperties.attack_damage_min}-${unitProperties.attack_damage_max}`;
+        const damageRange = `${unitProperties.attack_damage_min} - ${unitProperties.attack_damage_max}`;
         const luckPerTurn = unitProperties.luck_per_turn
             ? `${unitProperties.luck_per_turn >= 0 ? "+" : ""}${unitProperties.luck_per_turn}`
             : "";
@@ -397,41 +442,7 @@ export default function UnitStatsListItem() {
                                 </ButtonGroup>
                             </Tooltip>
                         </ListItem>
-                        <Stack direction="row" spacing={2} sx={{ marginTop: 2 }}>
-                            <Avatar
-                                // @ts-ignore: src params
-                                src={images.leather_armor_256}
-                                variant="plain"
-                                sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
-                                style={{
-                                    width: "28%",
-                                    height: "auto",
-                                    overflow: "visible",
-                                }}
-                            />
-                            <Avatar
-                                // @ts-ignore: src params
-                                src={images.leather_armor_256}
-                                variant="plain"
-                                sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
-                                style={{
-                                    width: "28%",
-                                    height: "auto",
-                                    overflow: "visible",
-                                }}
-                            />
-                            <Avatar
-                                // @ts-ignore: src params
-                                src={images.leather_armor_256}
-                                variant="plain"
-                                sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
-                                style={{
-                                    width: "28%",
-                                    height: "auto",
-                                    overflow: "visible",
-                                }}
-                            />
-                        </Stack>
+                        <AbilityStack abilities={abilities} />
                     </List>
                 </Toggler>
             </ListItem>
@@ -439,4 +450,4 @@ export default function UnitStatsListItem() {
     }
 
     return <ListItem nested />;
-}
+};

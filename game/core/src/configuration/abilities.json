@@ -3,7 +3,7 @@
     "Double Punch": {
         "name": "Double Punch",
         "type": "ADDITIONAL_ATTACK",
-        "desc": "Lands second attack with {} of the calculated damage",
+        "desc": "Lands second attack with {}% of the calculated damage",
         "power": 100,
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
@@ -12,7 +12,7 @@
     "Backstab": {
         "name": "Backstab",
         "type": "ATTACK",
-        "desc": "{} higher damage when hit from the enemy respawn side",
+        "desc": "{}% higher damage when hit from the enemy respawn side",
         "power": 25,
         "power_type": "ADDITIONAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
@@ -30,7 +30,7 @@
     "Double Shot": {
         "name": "Double Shot",
         "type": "ADDITIONAL_ATTACK",
-        "desc": "Lands second shot with {} of the calculated damage",
+        "desc": "Lands second shot with {}% of the calculated damage",
         "power": 100,
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
@@ -48,7 +48,7 @@
     "One in the Field": {
         "name": "One in the Field",
         "type": "RESPOND",
-        "desc": "No limit on the responde",
+        "desc": "Responds on each attack",
         "power": 100,
         "power_type": "UNLIMITED_RESPONSES",
         "skip_reponse": false,
@@ -82,11 +82,11 @@
         "effect": null
     },
     "Limited Supply": {
-        "name": "Limited Suppply",
+        "name": "Limited Supply",
         "type": "DEFENCE",
         "desc": "Only {}% of the arrows are available",
         "power": 100,
-        "power_type": "RANGE_SHOTS_NUMBER_MODIFIER",
+        "power_type": "LIMITED_SUPPLIES",
         "skip_reponse": false,
         "effect": null
     },
@@ -111,7 +111,7 @@
     "Lightning Spin": {
         "name": "Lightning Spin",
         "type": "ATTACK",
-        "Desc": "Attacks all enemies around with {}% damage",
+        "desc": "Attacks all enemies around with {}% damage",
         "power": 100,
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": true,
@@ -120,7 +120,7 @@
     "Fire Breath": {
         "name": "Fire Breath",
         "type": "ATTACK",
-        "Desc": "Burns through the enemy with Fire for {}% damage, where distance equals to the size of the unit",
+        "desc": "Burns through the enemy with Fire for {}% damage, where distance equals to the size of the unit",
         "power": 100,
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
@@ -129,7 +129,7 @@
     "Fire Element": {
         "name": "Fire Element",
         "type": "DEFENCE",
-        "Desc": "Gives Fire immunity. Water attacks deal {}% more damage",
+        "desc": "Gives Fire immunity. Water attacks deal {}% more damage",
         "power": 50,
         "power_type": "MAGIC_VULNERABILITY_WATER",
         "skip_reponse": false,
@@ -138,7 +138,7 @@
     "Fire Shield": {
         "name": "Fire Shield",
         "type": "REFLECT",
-        "Desc": "Reflects back {}% in Fire damage to anyone who decides to attack it",
+        "desc": "Reflects back {}% in Fire damage to anyone who decides to attack it",
         "power": 40,
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
@@ -147,7 +147,7 @@
     "Piercing Spear": {
         "name": "Piercing Spear",
         "type": "ATTACK",
-        "Desc": "Completely ignores the enemy armor on any attacks",
+        "desc": "Completely ignores the enemy armor on any attacks",
         "power": 100,
         "power_type": "IGNORE_ARMOR",
         "skip_reponse": false,
@@ -156,7 +156,7 @@
     "Boost Health": {
         "name": "Boost Health",
         "type": "DEFENCE",
-        "Desc": "Each unit gets {}% more health",
+        "desc": "Each unit gets {}% more health",
         "power": 50,
         "power_type": "BOOST_HEALTH",
         "skip_reponse": false,
@@ -165,7 +165,7 @@
     "Stun": {
         "name": "Stun",
         "type": "STATUS",
-        "Desc": "On attack, has a {}% chance to stun an enemy for 1 turn",
+        "desc": "On attack, has a {}% chance to stun an enemy for 1 turn",
         "power": 30,
         "power_type": "APPLY_EFFECT",
         "skip_reponse": false,
@@ -174,7 +174,7 @@
     "Wild Regeneration": {
         "name": "Wild Regeneration",
         "type": "HEAL",
-        "Desc": "On its turn, auto heals up to a maximum HP",
+        "desc": "On its turn, auto heals up to a maximum HP",
         "power": 100,
         "power_type": "REGENERATION",
         "skip_reponse": false,
@@ -183,7 +183,7 @@
     "Heavy Armor": {
         "name": "Heavy Armor",
         "type": "DEFENCE",
-        "Desc": "Has {}% additional base armor, while taking {}% more damage from magic",
+        "desc": "Has {}% additional base armor, while taking {}% more damage from magic",
         "power": 50,
         "power_type": "PHYSICAL_RESIST_WHILE_MAGIC_VULNERABLE",
         "skip_reponse": false,

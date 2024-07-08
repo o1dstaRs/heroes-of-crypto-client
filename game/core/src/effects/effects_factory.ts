@@ -13,7 +13,7 @@ import { getEffectConfig } from "../config_provider";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
-import { Effect, EffectStats } from "./effects";
+import { Effect, EffectProperties } from "./effects";
 
 export class EffectsFactory {
     protected readonly gl: WebGLRenderingContext;
@@ -36,7 +36,7 @@ export class EffectsFactory {
         }
 
         const config = getEffectConfig(name);
-        if (!(config instanceof EffectStats)) {
+        if (!(config instanceof EffectProperties)) {
             return undefined;
         }
 

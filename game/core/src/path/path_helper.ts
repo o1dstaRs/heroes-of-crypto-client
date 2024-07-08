@@ -49,8 +49,14 @@ export class PathHelper {
         const diff = includeLeftRightEdges ? 2 : 0;
         const canGoLeft = currentCell.x > (isSmallUnit ? 0 : 1) - diff;
         const canGoRight = currentCell.x < this.gridSettings.getGridSize() - 1 + diff;
-        // eslint-disable-next-line no-nested-ternary
-        const canGoDown = currentCell.y > (currentCell.x < 0 ? 2 : isSmallUnit ? 0 : 1);
+        let canGoDown;
+        if (currentCell.x < 0) {
+            canGoDown = currentCell.y > 2;
+        } else if (isSmallUnit) {
+            canGoDown = currentCell.y > 0;
+        } else {
+            canGoDown = currentCell.y > 1;
+        }
         const canGoUp = currentCell.y < this.gridSettings.getGridSize() - 1;
 
         if (canGoLeft) {

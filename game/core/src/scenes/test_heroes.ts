@@ -2740,18 +2740,30 @@ class TestHeroes extends GLScene {
                     if (!fightFinished) {
                         HoCLib.shuffle(unitsUpper);
                         HoCLib.shuffle(unitsLower);
-                        units.sort((a: Unit, b: Unit) =>
-                            // eslint-disable-next-line no-nested-ternary
-                            a.getSpeed() > b.getSpeed() ? -1 : b.getSpeed() > a.getSpeed() ? 1 : 0,
-                        );
-                        unitsUpper.sort((a: Unit, b: Unit) =>
-                            // eslint-disable-next-line no-nested-ternary
-                            a.getSpeed() > b.getSpeed() ? -1 : b.getSpeed() > a.getSpeed() ? 1 : 0,
-                        );
-                        unitsLower.sort((a: Unit, b: Unit) =>
-                            // eslint-disable-next-line no-nested-ternary
-                            a.getSpeed() > b.getSpeed() ? -1 : b.getSpeed() > a.getSpeed() ? 1 : 0,
-                        );
+                        units.sort((a: Unit, b: Unit) => {
+                            if (a.getSpeed() > b.getSpeed()) {
+                                return -1;
+                            } else if (b.getSpeed() > a.getSpeed()) {
+                                return 1;
+                            }
+                            return 0;
+                        });
+                        unitsUpper.sort((a: Unit, b: Unit) => {
+                            if (a.getSpeed() > b.getSpeed()) {
+                                return -1;
+                            } else if (b.getSpeed() > a.getSpeed()) {
+                                return 1;
+                            }
+                            return 0;
+                        });
+                        unitsLower.sort((a: Unit, b: Unit) => {
+                            if (a.getSpeed() > b.getSpeed()) {
+                                return -1;
+                            } else if (b.getSpeed() > a.getSpeed()) {
+                                return 1;
+                            }
+                            return 0;
+                        });
 
                         FightStateManager.getInstance().setTeamUnitsAlive(TeamType.UPPER, unitsUpper.length);
                         FightStateManager.getInstance().setTeamUnitsAlive(TeamType.LOWER, unitsLower.length);
@@ -2846,7 +2858,7 @@ class TestHeroes extends GLScene {
                                     this.currentActivePath = undefined;
                                 } else {
                                     unitBody.SetIsActive(true);
-                                    this.addUnitData(unitBody.GetUserData());
+                                    this.setSelectedUnitProperties(unitBody.GetUserData());
                                     nextUnit.refreshPreTurnState(this.sc_sceneLog);
                                     this.sc_hoverTextUpdateNeeded = true;
                                     this.sc_selectedBody = unitBody;
