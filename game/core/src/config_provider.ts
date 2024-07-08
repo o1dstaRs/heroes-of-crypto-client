@@ -17,6 +17,8 @@ import {
     ToAttackType,
     UnitProperties,
     UnitType,
+    ToAbilityType,
+    ToAbilityPowerType,
 } from "@heroesofcrypto/common";
 
 import abilitiesJson from "./configuration/abilities.json";
@@ -125,19 +127,29 @@ export const getHeroConfig = (
 
 export const getAbilityConfig = (abilityName: string): AbilityProperties => {
     // @ts-ignore: we do not know the type here yet
-    const Abilities = abilitiesJson[abilityName];
-    if (!Abilities) {
-        throw TypeError(`Unknown ability type - ${abilityName}`);
+    const ability = abilitiesJson[abilityName];
+    if (!ability) {
+        throw TypeError(`Unknown ability - ${abilityName}`);
+    }
+
+    const abilityType = ToAbilityType[ability.type];
+    if (!abilityType) {
+        throw new TypeError(`Invalid type for ability ${abilityName} = ${abilityType}`);
+    }
+
+    const abilityPowerType = ToAbilityPowerType[ability.power_type];
+    if (!abilityPowerType) {
+        throw new TypeError(`Invalid power type for ability ${abilityName} = ${abilityPowerType}`);
     }
 
     return new AbilityProperties(
         abilityName,
-        Abilities.type,
-        Abilities.desc,
-        Abilities.power,
-        Abilities.power_type,
-        Abilities.skip_reponse,
-        Abilities.effect,
+        abilityType,
+        ability.desc,
+        ability.power,
+        abilityPowerType,
+        ability.skip_reponse,
+        ability.effect,
     );
 };
 

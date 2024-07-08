@@ -35,10 +35,12 @@ export class RayHandlerImpl extends RayHandler {
             );
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public getBodyPosition(body: any) {
         return (body as b2Body).GetPosition();
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public getBodyAngle(body: any) {
         return (body as b2Body).GetAngle();
     }

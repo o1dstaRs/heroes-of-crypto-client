@@ -82,11 +82,11 @@
         "effect": null
     },
     "Limited Supply": {
-        "name": "Limited Suppply",
+        "name": "Limited Supply",
         "type": "DEFENCE",
         "desc": "Only {}% of the arrows are available",
         "power": 100,
-        "power_type": "RANGE_SHOTS_NUMBER_MODIFIER",
+        "power_type": "LIMITED_SUPPLIES",
         "skip_reponse": false,
         "effect": null
     },

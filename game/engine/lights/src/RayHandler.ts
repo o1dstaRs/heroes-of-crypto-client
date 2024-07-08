@@ -98,7 +98,7 @@ export abstract class RayHandler {
         fboHeight: number,
         viewportWidth: number,
         viewportHeight: number,
-        shadows = true
+        shadows = true,
     ) {
         this.gl = gl;
         this.diffuseBlendFunc = new BlendFunc(gl, gl.DST_COLOR, gl.ZERO);

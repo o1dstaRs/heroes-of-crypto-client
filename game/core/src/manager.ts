@@ -61,21 +61,23 @@ export class GameManager {
 
     private sceneTitle = "Heroes";
 
-    public readonly onHasStarted = new Signal<(started: boolean) => void>();
+    public readonly onHasStarted = new Signal<(_started: boolean) => void>();
 
-    public readonly onAttackLanded = new Signal<(attackMessage: string) => void>();
+    public readonly onAttackLanded = new Signal<(_attackMessage: string) => void>();
 
-    public readonly onUnitSelected = new Signal<(unitProperties: UnitProperties) => void>();
+    public readonly onUnitSelected = new Signal<(_unitProperties: UnitProperties) => void>();
 
-    public readonly onDamageStatisticsUpdated = new Signal<(damageStats: IDamageStatistic[]) => void>();
+    public readonly onDamageStatisticsUpdated = new Signal<(_damageStats: IDamageStatistic[]) => void>();
 
-    public readonly onRaceSelected = new Signal<(raceName: string) => void>();
+    public readonly onRaceSelected = new Signal<(_raceName: string) => void>();
 
-    public readonly onVisibleStateUpdated = new Signal<(visibleState: IVisibleState) => void>();
+    public readonly onVisibleStateUpdated = new Signal<(_visibleState: IVisibleState) => void>();
 
-    public readonly onVisibleOverallImpactUpdated = new Signal<(visibleOverallImpact: IVisibleOverallImpact) => void>();
+    public readonly onVisibleOverallImpactUpdated = new Signal<
+        (_visibleOverallImpact: IVisibleOverallImpact) => void
+    >();
 
-    public readonly onHoverInfoUpdated = new Signal<(visibleState: IHoverInfo) => void>();
+    public readonly onHoverInfoUpdated = new Signal<(_visibleState: IHoverInfo) => void>();
 
     private m_hoveringCanvas = false;
 
