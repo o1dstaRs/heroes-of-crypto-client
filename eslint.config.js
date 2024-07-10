@@ -44,7 +44,6 @@ module.exports = [
             "no-bitwise": "off",
             "no-multi-assign": "off",
             "@typescript-eslint/no-empty-function": "off",
-            // Comment out this rule temporarily to see if it resolves the issue
             "@typescript-eslint/explicit-member-accessibility": "error",
             "@typescript-eslint/ban-ts-comment": [
                 "error",

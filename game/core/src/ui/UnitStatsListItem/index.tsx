@@ -41,32 +41,40 @@ interface IAbilityStackProps {
     abilities: IVisibleImpact[];
 }
 
+const ABILITIES_FIT_IN_ONE_ROW = 3;
+
 const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities }) => {
     return (
-        <Stack direction="row" spacing={2} sx={{ marginTop: 2 }}>
-            {abilities.map(
-                (ability: IVisibleImpact, index: number) =>
-                    ability.laps > 0 && (
-                        <Tooltip
-                            title={`${ability.name}: ${ability.description}`}
-                            key={`toolip_${index}`}
-                            style={{ zIndex: 3 }}
-                        >
-                            <Avatar
-                                key={`ability_avatar_${index}`}
-                                // @ts-ignore: src params
-                                src={images[ability.smallTextureName]}
-                                variant="plain"
-                                sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
-                                style={{
-                                    width: "28%",
-                                    height: "auto",
-                                    overflow: "visible",
-                                }}
-                            />
-                        </Tooltip>
-                    ),
-            )}
+        <Stack spacing={2} sx={{ marginTop: 1 }}>
+            {[
+                ...Array(Math.ceil(abilities.filter((ability) => ability.laps > 0).length / ABILITIES_FIT_IN_ONE_ROW)),
+            ].map((_, rowIndex) => (
+                <Stack key={`row_${rowIndex}`} direction="row" spacing={2}>
+                    {abilities
+                        .filter((ability) => ability.laps > 0)
+                        .slice(rowIndex * ABILITIES_FIT_IN_ONE_ROW, (rowIndex + 1) * ABILITIES_FIT_IN_ONE_ROW)
+                        .map((ability, index) => (
+                            <Tooltip
+                                title={`${ability.name}: ${ability.description}`}
+                                key={`tooltip_${rowIndex}_${index}`}
+                                style={{ zIndex: 3 }}
+                            >
+                                <Avatar
+                                    key={`ability_avatar_${rowIndex}_${index}`}
+                                    // @ts-ignore: src params
+                                    src={images[ability.smallTextureName]}
+                                    variant="plain"
+                                    sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
+                                    style={{
+                                        width: "28%",
+                                        height: "auto",
+                                        overflow: "visible",
+                                    }}
+                                />
+                            </Tooltip>
+                        ))}
+                </Stack>
+            ))}
         </Stack>
     );
 };
@@ -442,6 +450,9 @@ export const UnitStatsListItem: React.FC = () => {
                                 </ButtonGroup>
                             </Tooltip>
                         </ListItem>
+                        <Typography level="title-sm" sx={{ marginTop: 1.5 }}>
+                            Abilities
+                        </Typography>
                         <AbilityStack abilities={abilities} />
                     </List>
                 </Toggler>

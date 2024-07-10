@@ -36,7 +36,6 @@ import { EffectsFactory } from "../effects/effects_factory";
 import { AttackHandler, IAttackObstacle } from "../handlers/attack_handler";
 import { MoveHandler } from "../handlers/move_handler";
 import { Button } from "../menu/button";
-import { Frame } from "../menu/frame";
 import { ObstacleGenerator } from "../obstacles/obstacle_generator";
 import { IWeightedRoute, PathHelper } from "../path/path_helper";
 import { AIActionType, findTarget } from "../ai/ai";
@@ -180,12 +179,6 @@ class TestHeroes extends GLScene {
 
     public readonly spellBookOverlay: Sprite;
 
-    public readonly buffsFrame: Frame;
-
-    public readonly debuffsFrame: Frame;
-
-    public readonly abilitiesFrame: Frame;
-
     public readonly spellBookWhiteSprite: Sprite;
 
     public readonly spellBookBlackSprite: Sprite;
@@ -293,36 +286,6 @@ class TestHeroes extends GLScene {
 
         this.background = new Sprite(gl, shader, this.textures.background_dark.texture);
         this.spellBookOverlay = new Sprite(gl, shader, this.textures.book_1024.texture);
-        this.abilitiesFrame = new Frame(
-            this.sc_sceneSettings.getGridSettings(),
-            { x: this.sc_sceneSettings.getGridSettings().getMinX() - 576, y: 1470 },
-            512,
-            512,
-            new Sprite(gl, shader, this.textures.frame_black_512.texture),
-            new Sprite(gl, shader, this.textures.frame_black_512.texture),
-            new Sprite(gl, shader, this.textures.abilities_white_font.texture),
-            new Sprite(gl, shader, this.textures.abilities_white_font.texture),
-        );
-        this.buffsFrame = new Frame(
-            this.sc_sceneSettings.getGridSettings(),
-            { x: this.sc_sceneSettings.getGridSettings().getMinX() - 576, y: 958 },
-            512,
-            512,
-            new Sprite(gl, shader, this.textures.frame_black_512.texture),
-            new Sprite(gl, shader, this.textures.frame_black_512.texture),
-            new Sprite(gl, shader, this.textures.buffs_white_font.texture),
-            new Sprite(gl, shader, this.textures.buffs_white_font.texture),
-        );
-        this.debuffsFrame = new Frame(
-            this.sc_sceneSettings.getGridSettings(),
-            { x: this.sc_sceneSettings.getGridSettings().getMinX() - 576, y: 446 },
-            512,
-            512,
-            new Sprite(gl, shader, this.textures.frame_black_512.texture),
-            new Sprite(gl, shader, this.textures.frame_black_512.texture),
-            new Sprite(gl, shader, this.textures.debuffs_white_font.texture),
-            new Sprite(gl, shader, this.textures.debuffs_white_font.texture),
-        );
         this.spellBookWhiteSprite = new Sprite(gl, shader, this.textures.spellbook_white_128.texture);
         this.spellBookBlackSprite = new Sprite(gl, shader, this.textures.spellbook_black_128.texture);
 
@@ -1722,30 +1685,6 @@ class TestHeroes extends GLScene {
         this.unitsHolder.refreshStackPowerForAllUnits();
     }
 
-    protected refreshFrames(unitId: string): void {
-        this.abilitiesFrame.cleanupFrameables();
-        this.buffsFrame.cleanupFrameables();
-        this.debuffsFrame.cleanupFrameables();
-        const selectedUnit = this.unitsHolder.getAllUnits().get(unitId);
-        if (selectedUnit) {
-            for (const ability of selectedUnit.getAbilities()) {
-                this.abilitiesFrame.addFrameable(ability);
-            }
-
-            for (const buff of selectedUnit.getBuffs()) {
-                this.buffsFrame.addFrameable(buff);
-            }
-
-            for (const effect of selectedUnit.getEffects()) {
-                this.debuffsFrame.addFrameable(effect);
-            }
-
-            for (const debuff of selectedUnit.getDebuffs()) {
-                this.debuffsFrame.addFrameable(debuff);
-            }
-        }
-    }
-
     protected landAttack(): boolean {
         if (
             this.attackHandler.handleMeleeAttack(
@@ -2390,11 +2329,6 @@ class TestHeroes extends GLScene {
         this.background.render();
         this.drawer.renderTerrainSpritesBack(isLightMode);
         this.drawer.renderHole();
-        if (this.sc_started) {
-            this.buffsFrame.render(isLightMode);
-            this.debuffsFrame.render(isLightMode);
-            this.abilitiesFrame.render(isLightMode);
-        }
 
         this.drawer.animate(this.sc_fps, this.sc_stepCount);
         if (!this.sc_isAnimating) {

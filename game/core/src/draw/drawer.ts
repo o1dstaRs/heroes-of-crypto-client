@@ -53,10 +53,6 @@ export class Drawer {
 
     private readonly world: b2World;
 
-    private readonly upNextFontWhiteSprite: Sprite;
-
-    private readonly upNextFontBlackSprite: Sprite;
-
     private readonly holeLayersSprites: Sprite[] = new Array(MAX_HOLE_LAYERS);
 
     private readonly terrainObstacles: Obstacle[];
@@ -95,22 +91,8 @@ export class Drawer {
         this.animating = false;
         this.animatingDoubleShot = false;
         this.onlyUniqueBulletSourcesRemaining = false;
-        this.upNextFontWhiteSprite = new Sprite(gl, shader, textures.up_next_white_font.texture);
-        this.upNextFontBlackSprite = new Sprite(gl, shader, textures.up_next_black_font.texture);
 
         this.obstacleGenerator = obstacleGenerator;
-        this.upNextFontWhiteSprite.setRect(
-            gridSettings.getMinX() - gridSettings.getTwoSteps() - 24,
-            gridSettings.getTwoSteps() + 16,
-            gridSettings.getTwoSteps(),
-            gridSettings.getHalfStep(),
-        );
-        this.upNextFontBlackSprite.setRect(
-            gridSettings.getMinX() - gridSettings.getTwoSteps() - 24,
-            gridSettings.getTwoSteps() + 16,
-            gridSettings.getTwoSteps(),
-            gridSettings.getHalfStep(),
-        );
 
         const centerY = this.gridSettings.getMaxY() >> 1;
         if (gridType === GridType.WATER_CENTER) {
