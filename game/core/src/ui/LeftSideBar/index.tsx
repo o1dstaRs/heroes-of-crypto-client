@@ -144,7 +144,7 @@ const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
             variant="outlined"
             determinate={gameStarted}
             value={messageBoxProgressValue}
-            sx={{ my: 1, overflow: "hidden auto" }}
+            sx={{ my: 1, overflow: "hidden" }}
         />
     );
     const defaultIcon =

@@ -467,8 +467,6 @@ export abstract class Scene extends b2ContactListener {
 
     protected abstract destroyTempFixtures(): void;
 
-    protected abstract refreshFrames(unitId: string): void;
-
     public MouseMove(p: b2Vec2, leftDrag: boolean): void {
         this.sc_mouseWorld.Copy(p);
 

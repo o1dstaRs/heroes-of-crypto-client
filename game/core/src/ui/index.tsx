@@ -1,6 +1,7 @@
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
 import React, { useEffect, useReducer, useState } from "react";
+import { useTheme } from "@mui/joy";
 import ReactDOM from "react-dom";
 import { HashRouter, Route, Routes, useNavigate } from "react-router-dom";
 import "typeface-open-sans";
@@ -12,6 +13,7 @@ import overlaySandbox from "../../images/overlay_sandbox.webp";
 import { useManager } from "../manager";
 import { SceneControl } from "../sceneControls";
 import LeftSideBar from "./LeftSideBar";
+import DraggableToolbar from "./DraggableToolbar";
 import { Main, useActiveTestEntry } from "./Main";
 import RightSideBar from "./RightSideBar";
 import "./style.scss";
@@ -194,6 +196,7 @@ function Heroes() {
     const [started, setStarted] = useState(false);
 
     const manager = useManager();
+    const theme = useTheme();
 
     useEffect(() => {
         const connection2 = manager.onHasStarted.connect(setStarted);
@@ -202,12 +205,15 @@ function Heroes() {
         };
     });
 
+    console.log(theme);
+
     return (
         <div className="container" style={{ display: "flex" }}>
             <CssVarsProvider>
                 <CssBaseline />
                 <LeftSideBar gameStarted={started} />
                 <RightSideBar gameStarted={started} />
+                <DraggableToolbar />
             </CssVarsProvider>
             <Main setSceneControlGroups={setSceneControls} />
             <Popover />
