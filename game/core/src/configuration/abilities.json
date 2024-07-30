@@ -138,7 +138,7 @@
     "Fire Shield": {
         "name": "Fire Shield",
         "type": "REFLECT",
-        "desc": "Reflects back {}% in Fire damage to anyone who decides to attack it",
+        "desc": "Reflects back {}% in Fire damage to anyone who decides to attack them by melee",
         "power": 40,
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,

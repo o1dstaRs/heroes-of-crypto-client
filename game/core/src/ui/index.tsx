@@ -111,7 +111,7 @@ function Home() {
         if (sType === SelectionType.SANDBOX) {
             setNeedToRenderOverlay(false);
             setIsTracking(false);
-            navigate("/Heroes#TestFight");
+            navigate("/Heroes#Sandbox");
         }
     };
 
@@ -123,7 +123,7 @@ function Home() {
         if (sType === SelectionType.SANDBOX) {
             setNeedToRenderOverlay(false);
             setIsTracking(false);
-            navigate("/Heroes#TestFight");
+            navigate("/Heroes#Sandbox");
         }
     };
 
