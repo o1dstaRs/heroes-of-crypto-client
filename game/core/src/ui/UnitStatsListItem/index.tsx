@@ -1,6 +1,7 @@
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import Avatar from "@mui/joy/Avatar";
 import Stack from "@mui/joy/Stack";
+import { Box } from "@mui/joy";
 import Button from "@mui/joy/Button";
 import ButtonGroup from "@mui/joy/ButtonGroup";
 import IconButton from "@mui/joy/IconButton";
@@ -11,7 +12,7 @@ import ListItemButton from "@mui/joy/ListItemButton";
 import ListItemContent from "@mui/joy/ListItemContent";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState } from "react";
-import { AttackType, UnitProperties } from "@heroesofcrypto/common";
+import { AttackType, HoCConstants, UnitProperties, TeamType } from "@heroesofcrypto/common";
 
 import { useManager } from "../../manager";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
@@ -39,11 +40,48 @@ import { IVisibleOverallImpact, IVisibleImpact } from "../../state/state";
 
 interface IAbilityStackProps {
     abilities: IVisibleImpact[];
+    teamType: TeamType;
 }
 
 const ABILITIES_FIT_IN_ONE_ROW = 3;
 
-const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities }) => {
+const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType }> = ({ stackPower, teamType }) => {
+    if (stackPower === 0) return null;
+
+    const backgroundColor = teamType === TeamType.LOWER ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.4)";
+    const borderColor = teamType === TeamType.LOWER ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.4)";
+
+    return (
+        <Box
+            sx={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                width: "20%",
+                height: "100%",
+                zIndex: 2,
+            }}
+        >
+            {[...Array(stackPower)].map((_, index) => (
+                <Box
+                    key={`stack_${index}`}
+                    sx={{
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        width: "100%",
+                        height: `${((index + 1) / HoCConstants.MAX_UNIT_STACK_POWER) * 100}%`,
+                        clipPath: "polygon(20% 100%, 100% 100%, 100% 20%, 0 0)",
+                        backgroundColor: backgroundColor,
+                        border: `1px solid ${borderColor}`,
+                    }}
+                />
+            ))}
+        </Box>
+    );
+};
+
+const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => {
     return (
         <Stack spacing={2} sx={{ marginTop: 1 }}>
             {[
@@ -59,18 +97,33 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities }) => {
                                 key={`tooltip_${rowIndex}_${index}`}
                                 style={{ zIndex: 3 }}
                             >
-                                <Avatar
-                                    key={`ability_avatar_${rowIndex}_${index}`}
-                                    // @ts-ignore: src params
-                                    src={images[ability.smallTextureName]}
-                                    variant="plain"
-                                    sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
-                                    style={{
+                                <Box
+                                    sx={{
+                                        position: "relative",
                                         width: "28%",
-                                        height: "auto",
-                                        overflow: "visible",
+                                        paddingBottom: "28%",
                                     }}
-                                />
+                                >
+                                    <Box
+                                        component="img"
+                                        // @ts-ignore: src params
+                                        src={images[ability.smallTextureName]}
+                                        sx={{
+                                            position: "absolute",
+                                            top: 0,
+                                            left: 0,
+                                            width: "100%",
+                                            height: "100%",
+                                            objectFit: "cover",
+                                            transform: "rotateX(-180deg)",
+                                            zIndex: 1,
+                                        }}
+                                    />
+                                    <StackPowerOverlay
+                                        stackPower={ability.stackPowered ? ability.stackPower : 0}
+                                        teamType={teamType}
+                                    />
+                                </Box>
                             </Tooltip>
                         ))}
                 </Stack>
@@ -453,7 +506,7 @@ export const UnitStatsListItem: React.FC = () => {
                         <Typography level="title-sm" sx={{ marginTop: 1.5 }}>
                             Abilities
                         </Typography>
-                        <AbilityStack abilities={abilities} />
+                        <AbilityStack abilities={abilities} teamType={unitProperties.team} />
                     </List>
                 </Toggler>
             </ListItem>

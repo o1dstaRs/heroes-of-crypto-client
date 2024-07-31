@@ -57,11 +57,6 @@ export const BASE_UNIT_STACK_TO_SPAWN_EXP = 1000;
 export const SHIFT_UNITS_POSITION_Y = 3;
 export const MAX_HOLE_LAYERS = 5;
 
-// damage
-export const PENALTY_ON_RANGE_SHOT_THROUGH_TEAMMATES = false;
-export const MIN_UNIT_STACK_POWER = 1;
-export const MAX_UNIT_STACK_POWER = 5;
-
 // ui
 export const FIGHT_BUTTONS_RIGHT_POSITION_X = 1214;
 export const FIGHT_BUTTONS_LEFT_POSITION_X = -1086;

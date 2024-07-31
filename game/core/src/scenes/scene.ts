@@ -500,6 +500,7 @@ export abstract class Scene extends b2ContactListener {
         for (let i = 0; i < unitProperties.abilities.length; i++) {
             const abilityName = unitProperties.abilities[i];
             const abilityDescription = unitProperties.abilities_descriptions[i];
+            const abilityStackPowered = unitProperties.abilities_stack_powered[i];
 
             if (!abilityName || !abilityDescription) {
                 break;
@@ -510,6 +511,8 @@ export abstract class Scene extends b2ContactListener {
                 smallTextureName: abilityToTextureName(abilityName),
                 description: abilityDescription,
                 laps: Number.MAX_SAFE_INTEGER,
+                stackPower: unitProperties.stack_power,
+                stackPowered: abilityStackPowered,
             });
         }
 
