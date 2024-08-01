@@ -257,7 +257,7 @@ class Sandbox extends GLScene {
             this.sc_sceneSettings.getGridSettings(),
             textures,
             new SpellsFactory(this.gl, this.shader, this.digitNormalTextures, textures),
-            new AbilitiesFactory(this.gl, this.shader, textures, new EffectsFactory(this.gl, this.shader, textures)),
+            new AbilitiesFactory(new EffectsFactory()),
         );
         this.unitsHolder = new UnitsHolder(this.sc_world, this.sc_sceneSettings.getGridSettings(), this.unitsFactory);
 
@@ -483,9 +483,6 @@ class Sandbox extends GLScene {
                 } catch (err) {
                     console.error(err);
                 }
-
-                // console.log(fightState);
-                // console.log(fight.toObject());
             }
         };
 
@@ -2801,7 +2798,7 @@ class Sandbox extends GLScene {
                                     this.currentActiveSpell = undefined;
                                     this.adjustSpellBookSprite();
                                     this.currentActiveUnitSwitchedAttackAuto = false;
-                                    this.grid.print(nextUnit.getId());
+                                    // this.grid.print(nextUnit.getId());
                                     const currentPos = GridMath.getCellForPosition(
                                         this.sc_sceneSettings.getGridSettings(),
                                         unitBody.GetPosition(),
@@ -3040,6 +3037,8 @@ class Sandbox extends GLScene {
             this.sc_isAIActive = false;
             this.lowerPlacement.draw(settings.m_debugDraw);
             this.upperPlacement.draw(settings.m_debugDraw);
+        } else {
+            this.placementsCleanedUp = true;
         }
 
         const themeLightColor = isLightMode ? COLOR_LIGHT_ORANGE : COLOR_LIGHT_YELLOW;

@@ -455,7 +455,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     public isSkippingThisTurn(): boolean {
         const effects = this.getEffects();
         for (const e of effects) {
-            if (e.getName() === "Stun") {
+            if (e.getName() === "Stun" || e.getName() === "Blindness") {
                 return true;
             }
         }
@@ -493,7 +493,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public deleteEffect(effect: Effect) {
-        this.effects = this.effects.filter((x) => x !== effect);
+        this.effects = this.effects.filter((x) => x.getName() !== effect.getName());
     }
 
     public minusLap() {
@@ -1056,7 +1056,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public calculateAbilityMultiplier(ability: Ability): number {
         let calculatedCoeff = 1;
-        if (ability.getPowerType() === AbilityPowerType.TOTAL_DAMAGE_PERCENTAGE) {
+        if (
+            ability.getPowerType() === AbilityPowerType.TOTAL_DAMAGE_PERCENTAGE ||
+            ability.getPowerType() === AbilityPowerType.IGNORE_ARMOR
+        ) {
             let combinedPower = ability.getPower() + this.getLuck();
             if (combinedPower < 0) {
                 combinedPower = 1;
@@ -1159,7 +1162,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public canRespond(): boolean {
         for (const e of this.effects) {
-            if (e.getName() === "Stun") {
+            if (e.getName() === "Stun" || e.getName() === "Blindness") {
                 return false;
             }
         }
@@ -1220,15 +1223,11 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public applyBuff(buff: Spell, casterMaxHp: number, casterBaseArmor: number): void {
-        this.buffs.push(
-            new AppliedSpell(buff.getSprite(), buff.getName(), buff.getLapsTotal(), casterMaxHp, casterBaseArmor),
-        );
+        this.buffs.push(new AppliedSpell(buff.getName(), buff.getLapsTotal(), casterMaxHp, casterBaseArmor));
     }
 
     public applyDebuff(debuff: Spell, casterMaxHp: number, casterBaseArmor: number): void {
-        this.debuffs.push(
-            new AppliedSpell(debuff.getSprite(), debuff.getName(), debuff.getLapsTotal(), casterMaxHp, casterBaseArmor),
-        );
+        this.debuffs.push(new AppliedSpell(debuff.getName(), debuff.getLapsTotal(), casterMaxHp, casterBaseArmor));
     }
 
     public useSpell(spell: Spell): void {
@@ -1296,11 +1295,13 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     protected getEnemyArmor(enemyUnit: Unit, isRangeAttack: boolean): number {
-        if (this.hasAbilityActive("Piercing Spear")) {
-            return 1;
+        const piercingSpearAbility = this.getAbility("Piercing Spear");
+        const armor = isRangeAttack ? enemyUnit.getRangeArmor() : enemyUnit.getArmor();
+        if (piercingSpearAbility) {
+            return armor * (1 - this.calculateAbilityMultiplier(piercingSpearAbility));
         }
 
-        return isRangeAttack ? enemyUnit.getRangeArmor() : enemyUnit.getArmor();
+        return armor;
     }
 
     protected refreshAndGetAdjustedMaxHp(): number {

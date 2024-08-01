@@ -10,25 +10,10 @@
  */
 
 import { getEffectConfig } from "../config_provider";
-import { DefaultShader } from "../utils/gl/defaultShader";
-import { PreloadedTextures } from "../utils/gl/preload";
-import { Sprite } from "../utils/gl/Sprite";
 import { Effect, EffectProperties } from "./effects";
 
 export class EffectsFactory {
-    protected readonly gl: WebGLRenderingContext;
-
-    protected readonly shader: DefaultShader;
-
-    protected readonly texturesBySpellName: { [id: string]: WebGLTexture };
-
-    public constructor(gl: WebGLRenderingContext, shader: DefaultShader, textures: PreloadedTextures) {
-        this.gl = gl;
-        this.shader = shader;
-        this.texturesBySpellName = {
-            Stun: textures.stun_256.texture,
-        };
-    }
+    public constructor() {}
 
     public makeEffect(name: string | null): Effect | undefined {
         if (!name) {
@@ -40,6 +25,6 @@ export class EffectsFactory {
             return undefined;
         }
 
-        return new Effect(config, new Sprite(this.gl, this.shader, this.texturesBySpellName[name]));
+        return new Effect(config);
     }
 }

@@ -695,10 +695,9 @@ export abstract class Scene extends b2ContactListener {
         }
     }
 
-    public GetDefaultViewZoom() {
-        // return window.innerWidth / 4096;
-        const widthRatio = window.innerWidth / 2048;
-        const heightRatio = window.innerHeight / 2048;
+    public GetDefaultViewZoom(edgesSize = 256) {
+        const widthRatio = window.innerWidth / (2048 + edgesSize);
+        const heightRatio = window.innerHeight / (2048 + edgesSize);
         return Math.min(widthRatio, heightRatio);
     }
 

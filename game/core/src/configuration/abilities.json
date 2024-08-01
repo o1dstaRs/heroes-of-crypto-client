@@ -163,11 +163,11 @@
     "Piercing Spear": {
         "name": "Piercing Spear",
         "type": "ATTACK",
-        "desc": "Completely ignores the enemy armor on any attacks",
-        "power": 100,
+        "desc": "Ignores {}% of the enemy armor on any attacks",
+        "power": 50,
         "power_type": "IGNORE_ARMOR",
         "skip_reponse": false,
-        "stack_powered": false,
+        "stack_powered": true,
         "effect": null
     },
     "Boost Health": {
@@ -189,6 +189,16 @@
         "skip_reponse": false,
         "stack_powered": true,
         "effect": "Stun"
+    },
+    "Blindness": {
+        "name": "Blindness",
+        "type": "STATUS",
+        "desc": "Upon attacking, there is a {}% chance to blind an enemy for 2 turns",
+        "power": 25,
+        "power_type": "APPLY_EFFECT",
+        "skip_reponse": false,
+        "stack_powered": true,
+        "effect": "Blindness"
     },
     "Wild Regeneration": {
         "name": "Wild Regeneration",

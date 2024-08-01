@@ -30,6 +30,7 @@ import { DamageStatisticHolder } from "../stats/damage_stats";
 import { IUnitDistance, Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { MoveHandler } from "./move_handler";
+import { processBlindnessAbility } from "../abilities/blindness_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisor: number;
@@ -327,6 +328,7 @@ export class AttackHandler {
             });
 
             processStunAbility(targetUnit, rangeResponseUnit, attackerUnit, this.sceneLog);
+            processBlindnessAbility(targetUnit, rangeResponseUnit, attackerUnit, this.sceneLog);
             processOneInTheFieldAbility(targetUnit);
         } else {
             this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
@@ -349,6 +351,7 @@ export class AttackHandler {
             switchTargetUnit = true;
         } else {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processBlindnessAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
         }
 
         if (rangeResponseUnit?.isDead()) {
@@ -392,6 +395,7 @@ export class AttackHandler {
             attackerUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
         } else if (secondShotLanded) {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processBlindnessAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
         }
 
         return true;
@@ -638,6 +642,7 @@ export class AttackHandler {
                 );
 
                 processStunAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
+                processBlindnessAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
 
                 processOneInTheFieldAbility(targetUnit);
             }
@@ -646,6 +651,7 @@ export class AttackHandler {
         if (!hasLightningSpinAttackLanded) {
             // check for the stun here
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processBlindnessAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
 
             // this code has to be here to make sure that respond damage has been applied as well
             targetUnit.applyDamage(damageFromAttack, sceneStepCount);
@@ -683,6 +689,7 @@ export class AttackHandler {
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
         } else if (secondPunchLanded) {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processBlindnessAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
         }
 
         return true;

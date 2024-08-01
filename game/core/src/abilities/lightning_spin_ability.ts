@@ -20,6 +20,7 @@ import { UnitsHolder } from "../units/units_holder";
 import { processFireShieldAbility } from "./fire_shield_ability";
 import { processOneInTheFieldAbility } from "./one_in_the_field_ability";
 import { processStunAbility } from "./stun_ability";
+import { processBlindnessAbility } from "./blindness_ability";
 
 export function allEnemiesAroundLargeUnit(
     attacker: Unit,
@@ -115,6 +116,7 @@ export function processLightningSpinAbility(
             // just in case if we have more inherited/stolen abilities
             processFireShieldAbility(enemy, fromUnit, sceneLog, unitsHolder, damageFromAttack, sceneStepCount);
             processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
+            processBlindnessAbility(fromUnit, enemy, fromUnit, sceneLog);
         }
 
         unitsHolder.refreshStackPowerForAllUnits();

@@ -1,7 +1,6 @@
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
 import React, { useEffect, useReducer, useState } from "react";
-import { useTheme } from "@mui/joy";
 import ReactDOM from "react-dom";
 import { HashRouter, Route, Routes, useNavigate } from "react-router-dom";
 import "typeface-open-sans";
@@ -196,16 +195,19 @@ function Heroes() {
     const [started, setStarted] = useState(false);
 
     const manager = useManager();
-    const theme = useTheme();
 
     useEffect(() => {
-        const connection2 = manager.onHasStarted.connect(setStarted);
+        const connection2 = manager.onHasStarted.connect((hasStarted) => {
+            setStarted(hasStarted);
+            if (hasStarted) {
+                manager.HomeCamera();
+            }
+        });
+
         return () => {
             connection2.disconnect();
         };
-    });
-
-    console.log(theme);
+    }, [manager]); // Add manager to the dependency array
 
     return (
         <div className="container" style={{ display: "flex" }}>

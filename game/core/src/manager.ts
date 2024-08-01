@@ -175,7 +175,12 @@ export class GameManager {
     }
 
     public HomeCamera(): void {
-        const zoom = this.m_scene ? this.m_scene.GetDefaultViewZoom() : 25;
+        let edgesSize = 256;
+        if (this.started) {
+            edgesSize = 0;
+        }
+
+        const zoom = this.m_scene ? this.m_scene.GetDefaultViewZoom(edgesSize) : 25;
         const center = this.m_scene ? this.m_scene.getCenter() : b2Vec2.ZERO;
         g_camera.setPositionAndZoom(center.x, center.y, zoom);
     }

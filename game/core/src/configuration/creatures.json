@@ -125,7 +125,7 @@
             "size": 1,
             "level": 3,
             "spells": [],
-            "abilities": ["One in the Field"]
+            "abilities": []
         },
         "Tsar Cannon": {
             "name": "Tsar Cannon",
@@ -218,7 +218,7 @@
             "hp": 8,
             "steps": 3.5,
             "speed": 4,
-            "armor": 10,
+            "armor": 9,
             "attack_type": "MELEE",
             "attack": 12,
             "attack_damage_min": 2,
@@ -228,7 +228,7 @@
             "shot_distance": 0,
             "magic_resist": 0,
             "can_fly": false,
-            "exp": 6.5,
+            "exp": 6.6,
             "size": 1,
             "level": 1,
             "spells": [],
@@ -316,7 +316,7 @@
             "size": 1,
             "level": 3,
             "spells": [],
-            "abilities": ["One in the Field"]
+            "abilities": ["One in the Field", "Blindness"]
         },
         "Phoenix": {
             "name": "Phoenix",
@@ -709,9 +709,9 @@
             "speed": 3,
             "armor": 9,
             "attack_type": "RANGE",
-            "attack": 3,
-            "attack_damage_min": 1,
-            "attack_damage_max": 1,
+            "attack": 11,
+            "attack_damage_min": 2,
+            "attack_damage_max": 3,
             "attack_range": 1,
             "range_shots": 4,
             "shot_distance": 3.5,
