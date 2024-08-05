@@ -193,7 +193,7 @@
     "Blindness": {
         "name": "Blindness",
         "type": "STATUS",
-        "desc": "Upon attacking, there is a {}% chance to blind an enemy for 2 turns",
+        "desc": "When responding to a melee attack, there is a {}% chance to blind the enemy for 2 turns",
         "power": 25,
         "power_type": "APPLY_EFFECT",
         "skip_reponse": false,

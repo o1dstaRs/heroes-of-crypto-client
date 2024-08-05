@@ -116,7 +116,10 @@ export function processLightningSpinAbility(
             // just in case if we have more inherited/stolen abilities
             processFireShieldAbility(enemy, fromUnit, sceneLog, unitsHolder, damageFromAttack, sceneStepCount);
             processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
-            processBlindnessAbility(fromUnit, enemy, fromUnit, sceneLog);
+            // works only on response
+            if (!isAttack) {
+                processBlindnessAbility(fromUnit, enemy, fromUnit, sceneLog);
+            }
         }
 
         unitsHolder.refreshStackPowerForAllUnits();

@@ -328,7 +328,6 @@ export class AttackHandler {
             });
 
             processStunAbility(targetUnit, rangeResponseUnit, attackerUnit, this.sceneLog);
-            processBlindnessAbility(targetUnit, rangeResponseUnit, attackerUnit, this.sceneLog);
             processOneInTheFieldAbility(targetUnit);
         } else {
             this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
@@ -351,7 +350,6 @@ export class AttackHandler {
             switchTargetUnit = true;
         } else {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-            processBlindnessAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
         }
 
         if (rangeResponseUnit?.isDead()) {
@@ -651,7 +649,6 @@ export class AttackHandler {
         if (!hasLightningSpinAttackLanded) {
             // check for the stun here
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-            processBlindnessAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
 
             // this code has to be here to make sure that respond damage has been applied as well
             targetUnit.applyDamage(damageFromAttack, sceneStepCount);
@@ -689,7 +686,6 @@ export class AttackHandler {
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
         } else if (secondPunchLanded) {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-            processBlindnessAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
         }
 
         return true;
