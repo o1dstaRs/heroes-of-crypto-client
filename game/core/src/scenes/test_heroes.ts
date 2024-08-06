@@ -82,7 +82,7 @@ const COLOR_LIGHT_GREY = new b2Color(0.847058823529412, 0.847058823529412, 0.847
 const COLOR_LIGHT_ORANGE = new b2Color(0.968627450980392, 0.745098039215686, 0.427450980392157);
 const COLOR_LIGHT_YELLOW = new b2Color(1, 1, 0.749019607843137);
 
-class TestHeroes extends GLScene {
+class Sandbox extends GLScene {
     private ground: b2Body;
 
     private placementsCleanedUp = false;
@@ -257,7 +257,7 @@ class TestHeroes extends GLScene {
             this.sc_sceneSettings.getGridSettings(),
             textures,
             new SpellsFactory(this.gl, this.shader, this.digitNormalTextures, textures),
-            new AbilitiesFactory(this.gl, this.shader, textures, new EffectsFactory(this.gl, this.shader, textures)),
+            new AbilitiesFactory(new EffectsFactory()),
         );
         this.unitsHolder = new UnitsHolder(this.sc_world, this.sc_sceneSettings.getGridSettings(), this.unitsFactory);
 
@@ -483,9 +483,6 @@ class TestHeroes extends GLScene {
                 } catch (err) {
                     console.error(err);
                 }
-
-                // console.log(fightState);
-                // console.log(fight.toObject());
             }
         };
 
@@ -2801,7 +2798,7 @@ class TestHeroes extends GLScene {
                                     this.currentActiveSpell = undefined;
                                     this.adjustSpellBookSprite();
                                     this.currentActiveUnitSwitchedAttackAuto = false;
-                                    this.grid.print(nextUnit.getId());
+                                    // this.grid.print(nextUnit.getId());
                                     const currentPos = GridMath.getCellForPosition(
                                         this.sc_sceneSettings.getGridSettings(),
                                         unitBody.GetPosition(),
@@ -3040,6 +3037,8 @@ class TestHeroes extends GLScene {
             this.sc_isAIActive = false;
             this.lowerPlacement.draw(settings.m_debugDraw);
             this.upperPlacement.draw(settings.m_debugDraw);
+        } else {
+            this.placementsCleanedUp = true;
         }
 
         const themeLightColor = isLightMode ? COLOR_LIGHT_ORANGE : COLOR_LIGHT_YELLOW;
@@ -3266,4 +3265,4 @@ class TestHeroes extends GLScene {
     }
 }
 
-registerScene("Heroes", "TestFight", TestHeroes);
+registerScene("Heroes", "Sandbox", Sandbox);

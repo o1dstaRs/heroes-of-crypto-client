@@ -45,6 +45,8 @@ export interface IVisibleImpact {
     smallTextureName: string;
     description: string;
     laps: number;
+    stackPower: number;
+    stackPowered: boolean;
 }
 
 export interface IVisibleOverallImpact {

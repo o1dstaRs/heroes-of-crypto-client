@@ -10,7 +10,7 @@
  */
 
 import { b2Body, b2Fixture, b2TestOverlap, b2Vec2, b2World, XY } from "@box2d/core";
-import { AttackType, UnitProperties, GridMath, GridSettings, Grid } from "@heroesofcrypto/common";
+import { AttackType, HoCConstants, UnitProperties, GridMath, GridSettings, Grid } from "@heroesofcrypto/common";
 
 import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
@@ -25,11 +25,12 @@ import { SceneLog } from "../menu/scene_log";
 import { IWeightedRoute } from "../path/path_helper";
 import { canBeCasted, Spell } from "../spells/spells";
 import { FightStateManager } from "../state/fight_state_manager";
-import { MORALE_CHANGE_FOR_KILL, PENALTY_ON_RANGE_SHOT_THROUGH_TEAMMATES } from "../statics";
+import { MORALE_CHANGE_FOR_KILL } from "../statics";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { IUnitDistance, Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { MoveHandler } from "./move_handler";
+import { processBlindnessAbility } from "../abilities/blindness_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisor: number;
@@ -144,7 +145,7 @@ export class AttackHandler {
             }
 
             if (ud.unit.getTeam() === fromUnit.getTeam()) {
-                if (PENALTY_ON_RANGE_SHOT_THROUGH_TEAMMATES) {
+                if (HoCConstants.PENALTY_ON_RANGE_SHOT_THROUGH_TEAMMATES) {
                     rangeAttackDivisor *= 2;
                 }
             } else {
@@ -392,6 +393,7 @@ export class AttackHandler {
             attackerUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
         } else if (secondShotLanded) {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processBlindnessAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
         }
 
         return true;
@@ -638,7 +640,7 @@ export class AttackHandler {
                 );
 
                 processStunAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
-
+                processBlindnessAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                 processOneInTheFieldAbility(targetUnit);
             }
         }

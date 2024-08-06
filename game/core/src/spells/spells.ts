@@ -12,7 +12,6 @@
 import { XY } from "@box2d/core";
 import { FactionType, GridSettings, GridMath, TeamType, IModifyableUnitProperties } from "@heroesofcrypto/common";
 
-import { IFrameable, OnFramePosition } from "../menu/frameable";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
 
@@ -41,9 +40,7 @@ const BOOK_POSITION_RIGHT_X = 256;
 const BOOK_POSITION_Y = 1328;
 const BOOK_SPELL_SIZE = 256;
 
-export class AppliedSpell implements IFrameable {
-    private readonly sprite: Sprite;
-
+export class AppliedSpell {
     public readonly name: string;
 
     public readonly lapsRemaining: number;
@@ -52,31 +49,11 @@ export class AppliedSpell implements IFrameable {
 
     public readonly casterBaseArmor: number;
 
-    public constructor(
-        sprite: Sprite,
-        name: string,
-        lapsRemaining: number,
-        casterMaxHp: number,
-        casterBaseArmor: number,
-    ) {
-        this.sprite = sprite;
+    public constructor(name: string, lapsRemaining: number, casterMaxHp: number, casterBaseArmor: number) {
         this.name = name;
         this.lapsRemaining = lapsRemaining;
         this.casterMaxHp = casterMaxHp;
         this.casterBaseArmor = casterBaseArmor;
-    }
-
-    public renderWithinFrame(gridSettings: GridSettings, framePosition: XY, onFramePosition: OnFramePosition): void {
-        const xMul = (onFramePosition - 1) % 3;
-        const yMul = Math.floor((onFramePosition - 1) / 3);
-
-        this.sprite.setRect(
-            framePosition.x + gridSettings.getHalfStep() + gridSettings.getStep() * xMul,
-            framePosition.y - gridSettings.getHalfStep() + gridSettings.getStep() * (3 - yMul),
-            gridSettings.getStep(),
-            gridSettings.getStep(),
-        );
-        this.sprite.render();
     }
 
     public getName(): string {
