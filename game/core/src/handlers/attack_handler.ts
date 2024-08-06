@@ -641,7 +641,6 @@ export class AttackHandler {
 
                 processStunAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                 processBlindnessAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
-
                 processOneInTheFieldAbility(targetUnit);
             }
         }
