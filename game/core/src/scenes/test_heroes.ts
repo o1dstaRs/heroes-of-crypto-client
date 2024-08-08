@@ -3168,7 +3168,13 @@ class TestHeroes extends GLScene {
             }
         } else if (hoverAttackUnit) {
             this.drawer.drawAttackTo(settings.m_debugDraw, hoverAttackUnit.getPosition(), hoverAttackUnit.getSize());
-        } else if (this.hoverRangeAttackObstacle) {
+        }
+        // else if (this.hoverRangeAttackObstacle && this.currentActiveUnit?.hasAbilityActive("Large Caliber 9")) {
+        //     for (const unit of allUnitsInShotArea(
+
+        //     ))
+        // }
+        else if (this.hoverRangeAttackObstacle) {
             this.drawer.drawAttackTo(
                 settings.m_debugDraw,
                 this.hoverRangeAttackObstacle.position,

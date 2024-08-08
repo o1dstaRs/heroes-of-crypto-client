@@ -12,7 +12,7 @@
 import { b2Body, b2Fixture, b2TestOverlap, b2Vec2, b2World, XY } from "@box2d/core";
 import { AttackType, UnitProperties, GridMath, GridSettings, Grid } from "@heroesofcrypto/common";
 
-import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
+import { getAbilitiesWithChanceMultiplier, getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
 import { processDoubleShotAbility } from "../abilities/double_shot_ability";
 import { processFireBreathAbility } from "../abilities/fire_breath_ability";
@@ -520,6 +520,16 @@ export class AttackHandler {
             console.log(`abilityMultiplier: ${abilityMultiplier}`);
         }
 
+        const abilitiesWithChanceCoeff = getAbilitiesWithChanceMultiplier(attackerUnit.getAbilities());
+
+        if (abilitiesWithChanceCoeff.length) {
+            for (const awcc of abilitiesWithChanceCoeff) {
+                abilityMultiplier *= attackerUnit.calculateAbilityMultiplier(awcc);
+            }
+
+            console.log(`abilityMultiplier with ChanceMultiplier: ${abilityMultiplier}`);
+        }
+
         const damageFromAttack = attackerUnit.calculateAttackDamage(targetUnit, AttackType.MELEE, 1, abilityMultiplier);
 
         const fightState = FightStateManager.getInstance().getFightState();
@@ -610,6 +620,17 @@ export class AttackHandler {
 
                     console.log(`response abilityMultiplier: ${abilityMultiplier}`);
                 }
+
+                const abilitiesWithChanceCoeff = getAbilitiesWithChanceMultiplier(attackerUnit.getAbilities());
+
+                if (abilitiesWithChanceCoeff.length) {
+                    for (const awcc of abilitiesWithChanceCoeff) {
+                        abilityMultiplier *= attackerUnit.calculateAbilityMultiplier(awcc);
+                    }
+
+                    console.log(`response abilityMultiplier with ChanceMultiplier: ${abilityMultiplier}`);
+                }
+
                 const damageFromRespond = targetUnit.calculateAttackDamage(
                     attackerUnit,
                     AttackType.MELEE,

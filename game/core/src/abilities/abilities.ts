@@ -21,6 +21,7 @@ import {
 import { IFrameable, OnFramePosition } from "../menu/frameable";
 import { Sprite } from "../utils/gl/Sprite";
 import { Effect } from "../effects/effects";
+import { processLuckyStrikeAbility } from "./lucky_strike_ability";
 
 export class Ability implements IFrameable {
     private readonly abilityProperties: AbilityProperties;
@@ -113,6 +114,19 @@ export function getAbilitiesWithPosisionCoefficient(
             if (fromUnitTeam === TeamType.UPPER && aY < tY - (toUnitSmallSize ? 0 : 1)) {
                 abilities.push(a);
             }
+        }
+    }
+
+    return abilities;
+}
+
+export function getAbilitiesWithChanceMultiplier(unitAbilities: Ability[]): Ability[] {
+    const abilities: Ability[] = [];
+
+    for (const a of unitAbilities) {
+        if (processLuckyStrikeAbility(a)) {
+            console.log("Lucky Strike!");
+            abilities.push(a);
         }
     }
 

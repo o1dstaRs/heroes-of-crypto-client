@@ -197,5 +197,14 @@
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
         "effect": null
+    },
+    "Lucky Strike": {
+        "name": "Lucky Strike",
+        "type": "ATTACK",
+        "desc": "With a 40% chance may can deal 25% more damage (it also works with a responce)",
+        "power": 25,
+        "power_type": "TOTAL_DAMAGE_PERCENTAGE",
+        "skip_reponse": false,
+        "effect": null
     }
 }
