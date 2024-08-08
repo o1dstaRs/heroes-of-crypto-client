@@ -4,5 +4,10 @@
         "name": "Stun",
         "laps": 1,
         "desc": "Unit skips turn and unable to respond"
+    },
+    "Blindness": {
+        "name": "Blindness",
+        "laps": 2,
+        "desc": "The unit skips its turn and is unable to respond"
     }
 }

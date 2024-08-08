@@ -12,6 +12,7 @@
 import {
     AttackType,
     AbilityProperties,
+    HoCConstants,
     FactionType,
     TeamType,
     ToAttackType,
@@ -48,6 +49,7 @@ const DEFAULT_HERO_CONFIG = {
     spells: [],
     abilities: [],
     abilities_descriptions: [],
+    abilities_stack_powered: [],
     effects: [],
 };
 
@@ -115,6 +117,7 @@ export const getHeroConfig = (
         structuredClone(heroConfig.spells),
         heroConfig.abilities,
         heroConfig.abilities_descriptions,
+        heroConfig.abilities_stack_powered,
         heroConfig.effects,
         1,
         0,
@@ -122,6 +125,7 @@ export const getHeroConfig = (
         UnitType.HERO,
         `${largeTextureName.split("_").slice(0, -1).join("_")}${heroConfig.size === 1 ? "_128" : "_256"}`,
         largeTextureName,
+        HoCConstants.MIN_UNIT_STACK_POWER,
     );
 };
 
@@ -149,6 +153,7 @@ export const getAbilityConfig = (abilityName: string): AbilityProperties => {
         ability.power,
         abilityPowerType,
         ability.skip_reponse,
+        ability.stack_powered,
         ability.effect,
     );
 };
@@ -184,6 +189,7 @@ export const getCreatureConfig = (
     const morale = DEFAULT_MORALE_PER_FACTION[faction] ?? 0;
 
     const abilityDescriptions: string[] = [];
+    const abilityStackPowered: boolean[] = [];
 
     for (const abilityName of creatureConfig.abilities) {
         const abilityConfig = getAbilityConfig(abilityName);
@@ -201,6 +207,7 @@ export const getCreatureConfig = (
         }
 
         abilityDescriptions.push(abilityConfig.desc.replace(/\{\}/g, abilityConfig.power.toString()));
+        abilityStackPowered.push(abilityConfig.stack_powered);
     }
 
     return new UnitProperties(
@@ -227,6 +234,7 @@ export const getCreatureConfig = (
         structuredClone(creatureConfig.spells),
         creatureConfig.abilities,
         abilityDescriptions,
+        abilityStackPowered,
         creatureConfig.effects,
         amount > 0 ? amount : Math.ceil((totalExp ?? 0) / creatureConfig.exp),
         0,
@@ -234,6 +242,7 @@ export const getCreatureConfig = (
         UnitType.CREATURE,
         `${largeTextureName.split("_").slice(0, -1).join("_")}${creatureConfig.size === 1 ? "_128" : "_256"}`,
         largeTextureName,
+        HoCConstants.MAX_UNIT_STACK_POWER,
     );
 };
 

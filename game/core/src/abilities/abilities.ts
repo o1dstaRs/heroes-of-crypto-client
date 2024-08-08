@@ -9,48 +9,19 @@
  * -----------------------------------------------------------------------------
  */
 
-import {
-    AbilityProperties,
-    AbilityType,
-    AbilityPowerType,
-    GridSettings,
-    HoCMath,
-    TeamType,
-} from "@heroesofcrypto/common";
+import { AbilityProperties, AbilityType, AbilityPowerType, HoCMath, TeamType } from "@heroesofcrypto/common";
 
-import { IFrameable, OnFramePosition } from "../menu/frameable";
-import { Sprite } from "../utils/gl/Sprite";
 import { Effect } from "../effects/effects";
 import { processLuckyStrikeAbility } from "./lucky_strike_ability";
 
-export class Ability implements IFrameable {
+export class Ability {
     private readonly abilityProperties: AbilityProperties;
-
-    private readonly sprite: Sprite;
 
     private readonly effect: Effect | undefined;
 
-    public constructor(abilityProperties: AbilityProperties, sprite: Sprite, effect: Effect | undefined) {
+    public constructor(abilityProperties: AbilityProperties, effect: Effect | undefined) {
         this.abilityProperties = abilityProperties;
-        this.sprite = sprite;
         this.effect = effect;
-    }
-
-    public renderWithinFrame(
-        gridSettings: GridSettings,
-        framePosition: HoCMath.XY,
-        onFramePosition: OnFramePosition,
-    ): void {
-        const xMul = (onFramePosition - 1) % 3;
-        const yMul = Math.floor((onFramePosition - 1) / 3);
-
-        this.sprite.setRect(
-            framePosition.x + gridSettings.getHalfStep() + gridSettings.getStep() * xMul,
-            framePosition.y - gridSettings.getHalfStep() + gridSettings.getStep() * (3 - yMul),
-            gridSettings.getStep(),
-            gridSettings.getStep(),
-        );
-        this.sprite.render();
     }
 
     public getName(): string {
@@ -79,6 +50,7 @@ export class Ability implements IFrameable {
 
     public getEffect(): Effect | undefined {
         if (this.effect) {
+            this.effect.toDefault();
             return this.effect;
         }
 

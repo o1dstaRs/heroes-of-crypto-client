@@ -55,7 +55,7 @@ export class Hero extends Unit {
             false,
         );
 
-        this.stackPower = 0;
+        this.setStackPower(0);
     }
 
     public render(

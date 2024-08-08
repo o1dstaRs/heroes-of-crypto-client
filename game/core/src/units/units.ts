@@ -25,6 +25,7 @@ import {
     AbilityPowerType,
     AllFactionsType,
     AttackType,
+    HoCConstants,
     FactionType,
     ToFaction,
     GridMath,
@@ -46,8 +47,6 @@ import {
     LUCK_MAX_CHANGE_FOR_TURN,
     LUCK_MAX_VALUE_TOTAL,
     MAX_FPS,
-    MAX_UNIT_STACK_POWER,
-    MIN_UNIT_STACK_POWER,
     MORALE_MAX_VALUE_TOTAL,
 } from "../statics";
 import { DefaultShader } from "../utils/gl/defaultShader";
@@ -239,8 +238,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     protected responded = false;
 
     protected onHourglass = false;
-
-    protected stackPower = MAX_UNIT_STACK_POWER;
 
     public constructor(
         gl: WebGLRenderingContext,
@@ -458,7 +455,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     public isSkippingThisTurn(): boolean {
         const effects = this.getEffects();
         for (const e of effects) {
-            if (e.getName() === "Stun") {
+            if (e.getName() === "Stun" || e.getName() === "Blindness") {
                 return true;
             }
         }
@@ -496,7 +493,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public deleteEffect(effect: Effect) {
-        this.effects = this.effects.filter((x) => x !== effect);
+        this.effects = this.effects.filter((x) => x.getName() !== effect.getName());
     }
 
     public minusLap() {
@@ -696,13 +693,13 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public getStackPower(): number {
-        if (this.stackPower > MAX_UNIT_STACK_POWER) {
-            return MAX_UNIT_STACK_POWER;
+        if (this.unitProperties.stack_power > HoCConstants.MAX_UNIT_STACK_POWER) {
+            return HoCConstants.MAX_UNIT_STACK_POWER;
         }
-        if (this.stackPower < MIN_UNIT_STACK_POWER) {
-            return MIN_UNIT_STACK_POWER;
+        if (this.unitProperties.stack_power < HoCConstants.MIN_UNIT_STACK_POWER) {
+            return HoCConstants.MIN_UNIT_STACK_POWER;
         }
-        return this.stackPower;
+        return this.unitProperties.stack_power;
     }
 
     public getId(): string {
@@ -1059,16 +1056,20 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public calculateAbilityMultiplier(ability: Ability): number {
         let calculatedCoeff = 1;
-        if (ability.getPowerType() === AbilityPowerType.TOTAL_DAMAGE_PERCENTAGE) {
+        if (
+            ability.getPowerType() === AbilityPowerType.TOTAL_DAMAGE_PERCENTAGE ||
+            ability.getPowerType() === AbilityPowerType.IGNORE_ARMOR
+        ) {
             let combinedPower = ability.getPower() + this.getLuck();
             if (combinedPower < 0) {
                 combinedPower = 1;
             }
 
-            calculatedCoeff *= (combinedPower / 100 / MAX_UNIT_STACK_POWER) * this.getStackPower();
+            calculatedCoeff *= (combinedPower / 100 / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower();
         } else if (ability.getPowerType() === AbilityPowerType.ADDITIONAL_DAMAGE_PERCENTAGE) {
             calculatedCoeff +=
-                (ability.getPower() / 100 / MAX_UNIT_STACK_POWER) * this.getStackPower() + this.getLuck() / 100;
+                (ability.getPower() / 100 / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower() +
+                this.getLuck() / 100;
         }
 
         return calculatedCoeff;
@@ -1079,7 +1080,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (combinedPower < 0) {
             return 0;
         }
-        return (combinedPower / MAX_UNIT_STACK_POWER) * this.getStackPower();
+        return (combinedPower / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower();
     }
 
     public calculateAttackDamageMin(
@@ -1161,7 +1162,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public canRespond(): boolean {
         for (const e of this.effects) {
-            if (e.getName() === "Stun") {
+            if (e.getName() === "Stun" || e.getName() === "Blindness") {
                 return false;
             }
         }
@@ -1222,15 +1223,11 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public applyBuff(buff: Spell, casterMaxHp: number, casterBaseArmor: number): void {
-        this.buffs.push(
-            new AppliedSpell(buff.getSprite(), buff.getName(), buff.getLapsTotal(), casterMaxHp, casterBaseArmor),
-        );
+        this.buffs.push(new AppliedSpell(buff.getName(), buff.getLapsTotal(), casterMaxHp, casterBaseArmor));
     }
 
     public applyDebuff(debuff: Spell, casterMaxHp: number, casterBaseArmor: number): void {
-        this.debuffs.push(
-            new AppliedSpell(debuff.getSprite(), debuff.getName(), debuff.getLapsTotal(), casterMaxHp, casterBaseArmor),
-        );
+        this.debuffs.push(new AppliedSpell(debuff.getName(), debuff.getLapsTotal(), casterMaxHp, casterBaseArmor));
     }
 
     public useSpell(spell: Spell): void {
@@ -1263,14 +1260,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.unitProperties.base_armor += Number(
                 (
                     this.unitProperties.base_armor *
-                    ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / MAX_UNIT_STACK_POWER) *
+                    ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
                     this.getStackPower()
                 ).toFixed(2),
             );
             this.unitProperties.range_armor += Number(
                 (
                     this.unitProperties.range_armor *
-                    ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / MAX_UNIT_STACK_POWER) *
+                    ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
                     this.getStackPower()
                 ).toFixed(2),
             );
@@ -1282,7 +1279,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             return;
         }
 
-        const actualStackPowerCoeff = this.getStackPower() / MAX_UNIT_STACK_POWER;
+        const actualStackPowerCoeff = this.getStackPower() / HoCConstants.MAX_UNIT_STACK_POWER;
         this.unitProperties.range_shots = Math.min(
             this.unitProperties.range_shots,
             Math.floor(this.maxRangeShots * actualStackPowerCoeff),
@@ -1294,21 +1291,23 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public setStackPower(stackPower: number): void {
-        this.stackPower = stackPower;
+        this.unitProperties.stack_power = stackPower;
     }
 
     protected getEnemyArmor(enemyUnit: Unit, isRangeAttack: boolean): number {
-        if (this.hasAbilityActive("Piercing Spear")) {
-            return 1;
+        const piercingSpearAbility = this.getAbility("Piercing Spear");
+        const armor = isRangeAttack ? enemyUnit.getRangeArmor() : enemyUnit.getArmor();
+        if (piercingSpearAbility) {
+            return armor * (1 - this.calculateAbilityMultiplier(piercingSpearAbility));
         }
 
-        return isRangeAttack ? enemyUnit.getRangeArmor() : enemyUnit.getArmor();
+        return armor;
     }
 
     protected refreshAndGetAdjustedMaxHp(): number {
         const boostHpPower = this.getAbilityPower("Boost Health");
         if (boostHpPower) {
-            const actualStackPowerCoeff = this.getStackPower() / MAX_UNIT_STACK_POWER;
+            const actualStackPowerCoeff = this.getStackPower() / HoCConstants.MAX_UNIT_STACK_POWER;
             let adjustActualHp = false;
             if (this.unitProperties.hp === this.unitProperties.max_hp) {
                 adjustActualHp = true;

@@ -11,48 +11,21 @@
 
 import { getAbilityConfig } from "../config_provider";
 import { EffectsFactory } from "../effects/effects_factory";
-import { DefaultShader } from "../utils/gl/defaultShader";
-import { PreloadedTextures } from "../utils/gl/preload";
-import { Sprite } from "../utils/gl/Sprite";
 import { Ability } from "./abilities";
 
 export const abilityToTextureName = (abilityName: string): string =>
     `${abilityName.toLowerCase().replace(/ /g, "_")}_256`;
 
 export class AbilitiesFactory {
-    protected readonly gl: WebGLRenderingContext;
-
-    protected readonly shader: DefaultShader;
-
-    protected readonly textures: PreloadedTextures;
-
     protected readonly effectsFactory: EffectsFactory;
 
-    public constructor(
-        gl: WebGLRenderingContext,
-        shader: DefaultShader,
-        textures: PreloadedTextures,
-        effectsFactory: EffectsFactory,
-    ) {
-        this.gl = gl;
-        this.shader = shader;
-        this.textures = textures;
+    public constructor(effectsFactory: EffectsFactory) {
         this.effectsFactory = effectsFactory;
     }
 
     public makeAbility(name: string) {
         const abilityConfig = getAbilityConfig(name);
 
-        const textureName = abilityToTextureName(name);
-        const texture = (this.textures as Record<string, { texture: WebGLTexture }>)[textureName]?.texture;
-        if (!texture) {
-            throw new ReferenceError(`Texture for ability ${name} not found`);
-        }
-
-        return new Ability(
-            abilityConfig,
-            new Sprite(this.gl, this.shader, texture),
-            this.effectsFactory.makeEffect(abilityConfig.effect),
-        );
+        return new Ability(abilityConfig, this.effectsFactory.makeEffect(abilityConfig.effect));
     }
 }

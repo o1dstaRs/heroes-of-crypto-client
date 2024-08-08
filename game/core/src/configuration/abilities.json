@@ -7,6 +7,7 @@
         "power": 100,
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
+        "stack_powered": true,
         "effect": null
     },
     "Backstab": {
@@ -16,6 +17,7 @@
         "power": 25,
         "power_type": "ADDITIONAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
+        "stack_powered": true,
         "effect": null
     },
     "Handyman": {
@@ -25,6 +27,7 @@
         "power": 200,
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
+        "stack_powered": false,
         "effect": null
     },
     "Double Shot": {
@@ -34,6 +37,7 @@
         "power": 100,
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
+        "stack_powered": true,
         "effect": null
     },
     "Shadow Touch": {
@@ -43,6 +47,7 @@
         "power": 100,
         "power_type": "NORMAL_DAMAGE",
         "skip_reponse": true,
+        "stack_powered": false,
         "effect": null
     },
     "One in the Field": {
@@ -52,6 +57,7 @@
         "power": 100,
         "power_type": "UNLIMITED_RESPONSES",
         "skip_reponse": false,
+        "stack_powered": false,
         "effect": null
     },
     "Endless Quiver": {
@@ -61,6 +67,7 @@
         "power": 99,
         "power_type": "UNLIMITED_SUPPLIES",
         "skip_reponse": false,
+        "stack_powered": false,
         "effect": null
     },
     "Sniper": {
@@ -70,6 +77,7 @@
         "power": 200,
         "power_type": "UNLIMITED_RANGE",
         "skip_reponse": false,
+        "stack_powered": false,
         "effect": null
     },
     "Leather Armor": {
@@ -79,6 +87,7 @@
         "power": 50,
         "power_type": "RANGE_ARMOR_MODIFIER",
         "skip_reponse": false,
+        "stack_powered": true,
         "effect": null
     },
     "Limited Supply": {
@@ -88,6 +97,7 @@
         "power": 100,
         "power_type": "LIMITED_SUPPLIES",
         "skip_reponse": false,
+        "stack_powered": true,
         "effect": null
     },
     "Enchanted Skin": {
@@ -97,6 +107,7 @@
         "power": 100,
         "power_type": "MAGIC_RESIST_100",
         "skip_reponse": false,
+        "stack_powered": false,
         "effect": null
     },
     "Undead": {
@@ -106,6 +117,7 @@
         "power": 1,
         "power_type": "UNDEAD",
         "skip_reponse": false,
+        "stack_powered": false,
         "effect": null
     },
     "Lightning Spin": {
@@ -115,6 +127,7 @@
         "power": 100,
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": true,
+        "stack_powered": true,
         "effect": null
     },
     "Fire Breath": {
@@ -124,6 +137,7 @@
         "power": 100,
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
+        "stack_powered": true,
         "effect": null
     },
     "Fire Element": {
@@ -133,24 +147,27 @@
         "power": 50,
         "power_type": "MAGIC_VULNERABILITY_WATER",
         "skip_reponse": false,
+        "stack_powered": true,
         "effect": null
     },
     "Fire Shield": {
         "name": "Fire Shield",
         "type": "REFLECT",
-        "desc": "Reflects back {}% in Fire damage to anyone who decides to attack it",
+        "desc": "Reflects back {}% in Fire damage to anyone who decides to attack them by melee",
         "power": 40,
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
+        "stack_powered": true,
         "effect": null
     },
     "Piercing Spear": {
         "name": "Piercing Spear",
         "type": "ATTACK",
-        "desc": "Completely ignores the enemy armor on any attacks",
-        "power": 100,
+        "desc": "Ignores {}% of the enemy armor on any attacks",
+        "power": 50,
         "power_type": "IGNORE_ARMOR",
         "skip_reponse": false,
+        "stack_powered": true,
         "effect": null
     },
     "Boost Health": {
@@ -160,6 +177,7 @@
         "power": 50,
         "power_type": "BOOST_HEALTH",
         "skip_reponse": false,
+        "stack_powered": true,
         "effect": null
     },
     "Stun": {
@@ -169,7 +187,18 @@
         "power": 30,
         "power_type": "APPLY_EFFECT",
         "skip_reponse": false,
+        "stack_powered": true,
         "effect": "Stun"
+    },
+    "Blindness": {
+        "name": "Blindness",
+        "type": "STATUS",
+        "desc": "When responding to a melee attack, there is a {}% chance to blind the enemy for 2 turns",
+        "power": 25,
+        "power_type": "APPLY_EFFECT",
+        "skip_reponse": false,
+        "stack_powered": true,
+        "effect": "Blindness"
     },
     "Wild Regeneration": {
         "name": "Wild Regeneration",
@@ -178,6 +207,7 @@
         "power": 100,
         "power_type": "REGENERATION",
         "skip_reponse": false,
+        "stack_powered": false,
         "effect": null
     },
     "Heavy Armor": {
@@ -187,6 +217,7 @@
         "power": 50,
         "power_type": "PHYSICAL_RESIST_WHILE_MAGIC_VULNERABLE",
         "skip_reponse": false,
+        "stack_powered": true,
         "effect": null
     },
     "No Melee": {
@@ -196,6 +227,7 @@
         "power": 0,
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
+        "stack_powered": false,
         "effect": null
     },
     "Lucky Strike": {
