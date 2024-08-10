@@ -12,6 +12,8 @@
 import {
     AttackType,
     AbilityProperties,
+    AuraEffectProperties,
+    EffectProperties,
     HoCConstants,
     FactionType,
     TeamType,
@@ -23,10 +25,10 @@ import {
 } from "@heroesofcrypto/common";
 
 import abilitiesJson from "./configuration/abilities.json";
+import auraEffectsJson from "./configuration/aura_effects.json";
 import effectsJson from "./configuration/effects.json";
 import spellsJson from "./configuration/spells.json";
 import creaturesJson from "./configuration/creatures.json";
-import { EffectProperties } from "./effects/effects";
 import { SpellProperties } from "./spells/spells";
 
 const DEFAULT_HERO_CONFIG = {
@@ -51,6 +53,10 @@ const DEFAULT_HERO_CONFIG = {
     abilities_descriptions: [],
     abilities_stack_powered: [],
     effects: [],
+    abilities_auras: [],
+    aura_effects: [],
+    aura_ranges: [],
+    aura_is_buff: [],
 };
 
 const DEFAULT_LUCK_PER_FACTION = {
@@ -118,7 +124,11 @@ export const getHeroConfig = (
         heroConfig.abilities,
         heroConfig.abilities_descriptions,
         heroConfig.abilities_stack_powered,
+        heroConfig.abilities_auras,
         heroConfig.effects,
+        heroConfig.aura_effects,
+        heroConfig.aura_ranges,
+        heroConfig.aura_is_buff,
         1,
         0,
         team,
@@ -155,6 +165,7 @@ export const getAbilityConfig = (abilityName: string): AbilityProperties => {
         ability.skip_reponse,
         ability.stack_powered,
         ability.effect,
+        ability.aura_effect,
     );
 };
 
@@ -188,8 +199,11 @@ export const getCreatureConfig = (
     const luck = DEFAULT_LUCK_PER_FACTION[faction] ?? 0;
     const morale = DEFAULT_MORALE_PER_FACTION[faction] ?? 0;
 
+    const abilityAuraRanges: number[] = [];
     const abilityDescriptions: string[] = [];
-    const abilityStackPowered: boolean[] = [];
+    const abilityIsStackPowered: boolean[] = [];
+    const abilityIsAura: boolean[] = [];
+    const abilityAuraIsBuff: boolean[] = [];
 
     for (const abilityName of creatureConfig.abilities) {
         const abilityConfig = getAbilityConfig(abilityName);
@@ -207,7 +221,19 @@ export const getCreatureConfig = (
         }
 
         abilityDescriptions.push(abilityConfig.desc.replace(/\{\}/g, abilityConfig.power.toString()));
-        abilityStackPowered.push(abilityConfig.stack_powered);
+        abilityIsStackPowered.push(abilityConfig.stack_powered);
+
+        const auraEffect = abilityConfig.aura_effect;
+        if (auraEffect) {
+            const auraConfig = getAuraEffectConfig(auraEffect);
+            abilityAuraRanges.push(auraConfig?.range ?? 0);
+            abilityAuraIsBuff.push(auraConfig?.is_buff ?? true);
+        } else {
+            abilityAuraRanges.push(0);
+            abilityAuraIsBuff.push(true);
+        }
+
+        abilityIsAura.push(!!abilityConfig.aura_effect);
     }
 
     return new UnitProperties(
@@ -234,8 +260,12 @@ export const getCreatureConfig = (
         structuredClone(creatureConfig.spells),
         creatureConfig.abilities,
         abilityDescriptions,
-        abilityStackPowered,
+        abilityIsStackPowered,
+        abilityIsAura,
         creatureConfig.effects,
+        creatureConfig.aura_effects,
+        abilityAuraRanges,
+        abilityAuraIsBuff,
         amount > 0 ? amount : Math.ceil((totalExp ?? 0) / creatureConfig.exp),
         0,
         team,
@@ -279,4 +309,20 @@ export const getEffectConfig = (effectName: string): EffectProperties | undefine
     }
 
     return new EffectProperties(effectName, effect.laps, effect.desc);
+};
+
+export const getAuraEffectConfig = (auraEffectName: string): AuraEffectProperties | undefined => {
+    // @ts-ignore: we do not know the type here yet
+    const auraEffect = auraEffectsJson[auraEffectName];
+    if (!auraEffect) {
+        return undefined;
+    }
+
+    return new AuraEffectProperties(
+        auraEffectName,
+        auraEffect.range,
+        auraEffect.desc,
+        auraEffect.power,
+        auraEffect.is_buff,
+    );
 };

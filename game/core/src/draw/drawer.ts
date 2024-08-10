@@ -49,6 +49,15 @@ export interface IBullet {
 }
 
 export class Drawer {
+    public static COLOR_ORANGE = new b2Color(0.909803921568627, 0.282352941176471, 0.203921568627451);
+    public static COLOR_YELLOW = new b2Color(1, 0.952941176470588, 0.427450980392157);
+    public static COLOR_GREY = new b2Color(0.5, 0.5, 0.5);
+    public static COLOR_LIGHT_GREY = new b2Color(0.847058823529412, 0.847058823529412, 0.847058823529412);
+    public static COLOR_LIGHT_ORANGE = new b2Color(0.968627450980392, 0.745098039215686, 0.427450980392157);
+    public static COLOR_LIGHT_YELLOW = new b2Color(1, 1, 0.749019607843137);
+    public static COLOR_RED = new b2Color(1, 0, 0);
+    public static COLOR_GREEN = new b2Color(0, 1, 0);
+
     private readonly gridSettings: GridSettings;
 
     private readonly world: b2World;
@@ -497,6 +506,45 @@ export class Drawer {
             ],
             4,
             color,
+        );
+    }
+
+    public drawAuraArea(draw: b2Draw, position: XY, range: number, isBuff: boolean): void {
+        const start = {
+            x: position.x - range - this.gridSettings.getHalfStep(),
+            y: position.y - range - this.gridSettings.getHalfStep(),
+        };
+        const end = {
+            x: position.x + range + this.gridSettings.getHalfStep(),
+            y: position.y + range + this.gridSettings.getHalfStep(),
+        };
+        draw.DrawPolygon(
+            [
+                { x: start.x, y: start.y },
+                { x: start.x, y: end.y },
+                { x: end.x, y: end.y },
+                { x: end.x, y: start.y },
+            ],
+            4,
+            isBuff ? Drawer.COLOR_GREEN : Drawer.COLOR_RED,
+        );
+        const startOffset = {
+            x: position.x - range - this.gridSettings.getHalfStep() - 1,
+            y: position.y - range - this.gridSettings.getHalfStep() - 1,
+        };
+        const endOffset = {
+            x: position.x + range + this.gridSettings.getHalfStep() + 1,
+            y: position.y + range + this.gridSettings.getHalfStep() + 1,
+        };
+        draw.DrawPolygon(
+            [
+                { x: startOffset.x, y: startOffset.y },
+                { x: startOffset.x, y: endOffset.y },
+                { x: endOffset.x, y: endOffset.y },
+                { x: endOffset.x, y: startOffset.y },
+            ],
+            4,
+            isBuff ? Drawer.COLOR_GREEN : Drawer.COLOR_RED,
         );
     }
 

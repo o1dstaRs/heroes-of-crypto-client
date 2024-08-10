@@ -2,6 +2,7 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import Avatar from "@mui/joy/Avatar";
 import Stack from "@mui/joy/Stack";
 import { Box } from "@mui/joy";
+import { useTheme } from "@mui/joy/styles";
 import Button from "@mui/joy/Button";
 import ButtonGroup from "@mui/joy/ButtonGroup";
 import IconButton from "@mui/joy/IconButton";
@@ -82,6 +83,9 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType }> = 
 };
 
 const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => {
+    const theme = useTheme();
+    const auraColor = theme.palette.mode === "dark" ? "rgba(255, 255, 255, 0.75)" : "rgba(0, 0, 0, 0.75)";
+
     return (
         <Stack spacing={2} sx={{ marginTop: 1 }}>
             {[
@@ -102,6 +106,20 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
                                         position: "relative",
                                         width: "28%",
                                         paddingBottom: "28%",
+                                        overflow: "hidden",
+                                        "&::before": {
+                                            // Using pseudo-element to create the circular glow
+                                            content: '""',
+                                            position: "absolute",
+                                            top: "50%",
+                                            left: "50%",
+                                            width: "100%",
+                                            height: "100%",
+                                            transform: "translate(-50%, -50%)",
+                                            borderRadius: "20%", // Makes the element circular
+                                            boxShadow: ability.isAura ? `0 0 15px 10px ${auraColor}` : "none",
+                                            zIndex: 0, // Ensures it's behind the image
+                                        },
                                     }}
                                 >
                                     <Box
@@ -120,7 +138,7 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
                                         }}
                                     />
                                     <StackPowerOverlay
-                                        stackPower={ability.stackPowered ? ability.stackPower : 0}
+                                        stackPower={ability.isStackPowered ? ability.stackPower : 0}
                                         teamType={teamType}
                                     />
                                 </Box>

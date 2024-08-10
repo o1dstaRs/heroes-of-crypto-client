@@ -9,19 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-export class EffectProperties {
-    public readonly name: string;
-
-    public laps: number;
-
-    public readonly desc: string;
-
-    public constructor(name: string, laps: number, desc: string) {
-        this.name = name;
-        this.laps = laps;
-        this.desc = desc;
-    }
-}
+import { EffectProperties } from "@heroesofcrypto/common";
 
 export class Effect {
     public readonly defaultProperties: EffectProperties;
@@ -45,7 +33,7 @@ export class Effect {
         return this.effectProperties.laps;
     }
 
-    public getStats(): EffectProperties {
+    public getProperties(): EffectProperties {
         return this.effectProperties;
     }
 
