@@ -1,0 +1,9 @@
+{
+    "version": 1.0,
+    "Sharpened Weapons": {
+        "name": "Sharpened Weapons",
+        "range": 2,
+        "desc": "Affected melee units have +{}% attack power",
+        "power": 20
+    }
+}

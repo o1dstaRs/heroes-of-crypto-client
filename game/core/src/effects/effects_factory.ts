@@ -9,7 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { getEffectConfig } from "../config_provider";
+import { getAuraEffectConfig, getEffectConfig } from "../config_provider";
+import { AuraEffect, AuraEffectProperties } from "./aura_effects";
 import { Effect, EffectProperties } from "./effects";
 
 export class EffectsFactory {
@@ -26,5 +27,18 @@ export class EffectsFactory {
         }
 
         return new Effect(config);
+    }
+
+    public makeAuraEffect(name: string | null): AuraEffect | undefined {
+        if (!name) {
+            return undefined;
+        }
+
+        const config = getAuraEffectConfig(name);
+        if (!(config instanceof AuraEffectProperties)) {
+            return undefined;
+        }
+
+        return new AuraEffect(config);
     }
 }

@@ -104,7 +104,7 @@
             "size": 1,
             "level": 3,
             "spells": [],
-            "abilities": ["Double Punch"]
+            "abilities": ["Double Punch", "Sharpened Weapons Aura"]
         },
         "Griffin": {
             "name": "Griffin",
@@ -365,9 +365,9 @@
             "hp": 225,
             "steps": 4.5,
             "speed": 4,
-            "armor": 32,
+            "armor": 30,
             "attack_type": "RANGE",
-            "attack": 34,
+            "attack": 32,
             "attack_damage_min": 28,
             "attack_damage_max": 40,
             "attack_range": 1,

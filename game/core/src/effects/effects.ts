@@ -45,7 +45,7 @@ export class Effect {
         return this.effectProperties.laps;
     }
 
-    public getStats(): EffectProperties {
+    public getProperties(): EffectProperties {
         return this.effectProperties;
     }
 

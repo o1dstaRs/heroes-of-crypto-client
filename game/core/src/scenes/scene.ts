@@ -500,7 +500,8 @@ export abstract class Scene extends b2ContactListener {
         for (let i = 0; i < unitProperties.abilities.length; i++) {
             const abilityName = unitProperties.abilities[i];
             const abilityDescription = unitProperties.abilities_descriptions[i];
-            const abilityStackPowered = unitProperties.abilities_stack_powered[i];
+            const isStackPowered = unitProperties.abilities_stack_powered[i];
+            const isAura = unitProperties.abilities_auras[i];
 
             if (!abilityName || !abilityDescription) {
                 break;
@@ -512,7 +513,8 @@ export abstract class Scene extends b2ContactListener {
                 description: abilityDescription,
                 laps: Number.MAX_SAFE_INTEGER,
                 stackPower: unitProperties.stack_power,
-                stackPowered: abilityStackPowered,
+                isStackPowered: isStackPowered,
+                isAura: isAura,
             });
         }
 
