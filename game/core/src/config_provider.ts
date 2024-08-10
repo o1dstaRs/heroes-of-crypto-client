@@ -12,6 +12,8 @@
 import {
     AttackType,
     AbilityProperties,
+    AuraEffectProperties,
+    EffectProperties,
     HoCConstants,
     FactionType,
     TeamType,
@@ -27,9 +29,7 @@ import auraEffectsJson from "./configuration/aura_effects.json";
 import effectsJson from "./configuration/effects.json";
 import spellsJson from "./configuration/spells.json";
 import creaturesJson from "./configuration/creatures.json";
-import { EffectProperties } from "./effects/effects";
 import { SpellProperties } from "./spells/spells";
-import { AuraEffectProperties } from "./effects/aura_effects";
 
 const DEFAULT_HERO_CONFIG = {
     hp: 120,
@@ -55,6 +55,8 @@ const DEFAULT_HERO_CONFIG = {
     effects: [],
     abilities_auras: [],
     aura_effects: [],
+    aura_ranges: [],
+    aura_is_buff: [],
 };
 
 const DEFAULT_LUCK_PER_FACTION = {
@@ -125,6 +127,8 @@ export const getHeroConfig = (
         heroConfig.abilities_auras,
         heroConfig.effects,
         heroConfig.aura_effects,
+        heroConfig.aura_ranges,
+        heroConfig.aura_is_buff,
         1,
         0,
         team,
@@ -195,9 +199,11 @@ export const getCreatureConfig = (
     const luck = DEFAULT_LUCK_PER_FACTION[faction] ?? 0;
     const morale = DEFAULT_MORALE_PER_FACTION[faction] ?? 0;
 
+    const abilityAuraRanges: number[] = [];
     const abilityDescriptions: string[] = [];
     const abilityIsStackPowered: boolean[] = [];
     const abilityIsAura: boolean[] = [];
+    const abilityAuraIsBuff: boolean[] = [];
 
     for (const abilityName of creatureConfig.abilities) {
         const abilityConfig = getAbilityConfig(abilityName);
@@ -216,6 +222,17 @@ export const getCreatureConfig = (
 
         abilityDescriptions.push(abilityConfig.desc.replace(/\{\}/g, abilityConfig.power.toString()));
         abilityIsStackPowered.push(abilityConfig.stack_powered);
+
+        const auraEffect = abilityConfig.aura_effect;
+        if (auraEffect) {
+            const auraConfig = getAuraEffectConfig(auraEffect);
+            abilityAuraRanges.push(auraConfig?.range ?? 0);
+            abilityAuraIsBuff.push(auraConfig?.is_buff ?? true);
+        } else {
+            abilityAuraRanges.push(0);
+            abilityAuraIsBuff.push(true);
+        }
+
         abilityIsAura.push(!!abilityConfig.aura_effect);
     }
 
@@ -247,6 +264,8 @@ export const getCreatureConfig = (
         abilityIsAura,
         creatureConfig.effects,
         creatureConfig.aura_effects,
+        abilityAuraRanges,
+        abilityAuraIsBuff,
         amount > 0 ? amount : Math.ceil((totalExp ?? 0) / creatureConfig.exp),
         0,
         team,
@@ -299,5 +318,11 @@ export const getAuraEffectConfig = (auraEffectName: string): AuraEffectPropertie
         return undefined;
     }
 
-    return new AuraEffectProperties(auraEffectName, auraEffect.range, auraEffect.desc);
+    return new AuraEffectProperties(
+        auraEffectName,
+        auraEffect.range,
+        auraEffect.desc,
+        auraEffect.power,
+        auraEffect.is_buff,
+    );
 };

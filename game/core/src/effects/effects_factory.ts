@@ -9,9 +9,11 @@
  * -----------------------------------------------------------------------------
  */
 
+import { AuraEffectProperties, EffectProperties } from "@heroesofcrypto/common";
+
 import { getAuraEffectConfig, getEffectConfig } from "../config_provider";
-import { AuraEffect, AuraEffectProperties } from "./aura_effects";
-import { Effect, EffectProperties } from "./effects";
+import { AuraEffect } from "./aura_effects";
+import { Effect } from "./effects";
 
 export class EffectsFactory {
     public constructor() {}

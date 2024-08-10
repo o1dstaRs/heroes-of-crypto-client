@@ -255,13 +255,35 @@
     },
     "Sharpened Weapons Aura": {
         "name": "Sharpened Weapons Aura",
-        "type": "ALLY_AURA",
-        "desc": "Affected melee units have +{}% attack power",
+        "type": "BUFF_AURA",
+        "desc": "Affected melee allies have +{}% attack power",
         "power": 20,
-        "power_type": "INCREASE_MELEE_DAMAGE",
+        "power_type": "ADDITIONAL_MELEE_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
         "stack_powered": true,
         "effect": null,
         "aura_effect": "Sharpened Weapons"
+    },
+    "Range Null Field Aura": {
+        "name": "Range Null Field Aura",
+        "type": "DEBUFF_AURA",
+        "desc": "Affected enemy units are unable to use range attacks",
+        "power": 0,
+        "power_type": "DISABLE_RANGE_ATTACK",
+        "skip_reponse": false,
+        "stack_powered": false,
+        "effect": null,
+        "aura_effect": "Range Null Field"
+    },
+    "Luck Aura": {
+        "name": "Luck Aura",
+        "type": "BUFF_AURA",
+        "desc": "Allies within range gain maximum luck",
+        "power": 0,
+        "power_type": "LUCK_10",
+        "skip_reponse": false,
+        "stack_powered": false,
+        "effect": null,
+        "aura_effect": "Luck"
     }
 }

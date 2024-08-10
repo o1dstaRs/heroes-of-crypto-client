@@ -125,7 +125,7 @@
             "size": 1,
             "level": 3,
             "spells": [],
-            "abilities": []
+            "abilities": ["Range Null Field Aura"]
         },
         "Tsar Cannon": {
             "name": "Tsar Cannon",
@@ -232,7 +232,7 @@
             "size": 1,
             "level": 1,
             "spells": [],
-            "abilities": []
+            "abilities": ["Luck Aura"]
         },
         "White Tiger": {
             "name": "White Tiger",

@@ -9,28 +9,30 @@
  * -----------------------------------------------------------------------------
  */
 
-import axios from "axios";
-import { v4 as uuidv4 } from "uuid";
-import { b2Body, b2BodyType, b2Color, b2EdgeShape, b2Fixture, b2Vec2, XY } from "@box2d/core";
+import { b2Body, b2BodyType, b2EdgeShape, b2Fixture, b2Vec2, XY } from "@box2d/core";
 import {
-    FactionType,
-    TeamType,
     AttackType,
-    UnitProperties,
+    FactionType,
     Grid,
-    GridSettings,
     GridConstants,
     GridMath,
-    HoCMath,
+    GridSettings,
     HoCLib,
+    HoCMath,
+    TeamType,
+    IAuraOnMap,
+    UnitProperties,
 } from "@heroesofcrypto/common";
 import { Fight } from "@heroesofcrypto/common/src/generated/protobuf/v1/fight_pb";
 import { StringList } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import axios from "axios";
+import { v4 as uuidv4 } from "uuid";
 
 import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { AbilitiesFactory } from "../abilities/abilities_factory";
 import { nextStandingTargets } from "../abilities/fire_breath_ability";
 import { allEnemiesAroundLargeUnit } from "../abilities/lightning_spin_ability";
+import { AIActionType, findTarget } from "../ai/ai";
 import { Drawer } from "../draw/drawer";
 import { EffectsFactory } from "../effects/effects_factory";
 import { AttackHandler, IAttackObstacle } from "../handlers/attack_handler";
@@ -38,12 +40,12 @@ import { MoveHandler } from "../handlers/move_handler";
 import { Button } from "../menu/button";
 import { ObstacleGenerator } from "../obstacles/obstacle_generator";
 import { IWeightedRoute, PathHelper } from "../path/path_helper";
-import { AIActionType, findTarget } from "../ai/ai";
 import { PlacementType, SquarePlacement } from "../placement/square_placement";
 import { Settings } from "../settings";
 import { canBeCasted, Spell, SpellTargetType } from "../spells/spells";
 import { SpellsFactory } from "../spells/spells_factory";
 import { FightStateManager } from "../state/fight_state_manager";
+import { IVisibleUnit } from "../state/state";
 import {
     FIGHT_BUTTONS_LEFT_POSITION_X,
     FIGHT_BUTTONS_RIGHT_POSITION_X,
@@ -73,14 +75,6 @@ import { Sprite } from "../utils/gl/Sprite";
 import { GLScene } from "./gl_scene";
 import { registerScene, SceneContext } from "./scene";
 import { SceneSettings } from "./scene_settings";
-import { IVisibleUnit } from "../state/state";
-
-const COLOR_ORANGE = new b2Color(0.909803921568627, 0.282352941176471, 0.203921568627451);
-const COLOR_YELLOW = new b2Color(1, 0.952941176470588, 0.427450980392157);
-const COLOR_GREY = new b2Color(0.5, 0.5, 0.5);
-const COLOR_LIGHT_GREY = new b2Color(0.847058823529412, 0.847058823529412, 0.847058823529412);
-const COLOR_LIGHT_ORANGE = new b2Color(0.968627450980392, 0.745098039215686, 0.427450980392157);
-const COLOR_LIGHT_YELLOW = new b2Color(1, 1, 0.749019607843137);
 
 class Sandbox extends GLScene {
     private ground: b2Body;
@@ -110,6 +104,8 @@ class Sandbox extends GLScene {
     private hoverRangeAttackPoint?: XY;
 
     private hoverRangeAttackObstacle?: IAttackObstacle;
+
+    private hoverActiveAuraRanges: IAuraOnMap[] = [];
 
     private hoverAttackUnits?: Unit[];
 
@@ -668,6 +664,7 @@ class Sandbox extends GLScene {
         this.hoverRangeAttackObstacle = undefined;
         this.hoverRangeAttackDivisor = 1;
         this.hoverActiveShotRange = undefined;
+        this.hoverActiveAuraRanges = [];
         if (this.hoverRangeAttackLine) {
             this.ground.DestroyFixture(this.hoverRangeAttackLine);
             this.hoverRangeAttackLine = undefined;
@@ -1064,6 +1061,13 @@ class Sandbox extends GLScene {
                                 distance: unit.getRangeShotDistance() * STEP,
                             };
                         }
+
+                        this.fillActiveAuraRanges(
+                            unit.getPosition(),
+                            unit.getAllProperties().aura_ranges,
+                            unit.getAllProperties().aura_is_buff,
+                            true,
+                        );
                     }
                 } else if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE) {
                     if (!unit) {
@@ -1830,6 +1834,7 @@ class Sandbox extends GLScene {
             this.resetHover();
             this.sc_selectedBody = undefined;
             this.sc_currentActiveShotRange = undefined;
+            this.sc_currentActiveAuraRanges = [];
         } else if (!this.sc_started && this.natureButton.isHover(cell)) {
             this.deselectRaceButtons();
             this.natureButton.setIsSelected(true);
@@ -1840,6 +1845,7 @@ class Sandbox extends GLScene {
             this.resetHover();
             this.sc_selectedBody = undefined;
             this.sc_currentActiveShotRange = undefined;
+            this.sc_currentActiveAuraRanges = [];
             // } else if (!this.m_started && this.orderButton.isHover(cell)) {
             //     this.deselectRaceButtons();
             //     this.orderButton.setIsSelected(true);
@@ -1850,6 +1856,7 @@ class Sandbox extends GLScene {
             //     this.resetHover();
             //     this.m_selectedBody = undefined;
             //     this.sc_currentActiveShotRange = undefined;
+            //     this.sc_currentActiveAuraRanges = [];
         } else if (!this.sc_started && this.mightButton.isHover(cell)) {
             this.deselectRaceButtons();
             this.mightButton.setIsSelected(true);
@@ -1860,6 +1867,7 @@ class Sandbox extends GLScene {
             this.resetHover();
             this.sc_selectedBody = undefined;
             this.sc_currentActiveShotRange = undefined;
+            this.sc_currentActiveAuraRanges = [];
         } else if (!this.sc_started && this.chaosButton.isHover(cell)) {
             this.deselectRaceButtons();
             this.chaosButton.setIsSelected(true);
@@ -1870,6 +1878,7 @@ class Sandbox extends GLScene {
             this.resetHover();
             this.sc_selectedBody = undefined;
             this.sc_currentActiveShotRange = undefined;
+            this.sc_currentActiveAuraRanges = [];
             // } else if (!this.m_started && this.deathButton.isHover(cell)) {
             //     this.deselectRaceButtons();
             //     this.deathButton.setIsSelected(true);
@@ -2302,7 +2311,38 @@ class Sandbox extends GLScene {
         return cells;
     }
 
-    protected selectUnitPreStart(position: XY, rangeShotDistance = 0): void {
+    private fillActiveAuraRanges(
+        position: XY,
+        auraRanges: number[] = [],
+        auraIsBuff: boolean[] = [],
+        forHover: boolean = false,
+    ): void {
+        let auraMapRanges: IAuraOnMap[];
+        if (forHover) {
+            this.hoverActiveAuraRanges = [];
+            auraMapRanges = this.hoverActiveAuraRanges;
+        } else {
+            this.sc_currentActiveAuraRanges = [];
+            auraMapRanges = this.sc_currentActiveAuraRanges;
+        }
+
+        if (auraRanges.length === auraIsBuff.length) {
+            for (let i = 0; i < auraRanges.length; i++) {
+                auraMapRanges.push({
+                    xy: position,
+                    range: auraRanges[i] * STEP,
+                    isBuff: auraIsBuff[i],
+                });
+            }
+        }
+    }
+
+    protected selectUnitPreStart(
+        position: XY,
+        rangeShotDistance = 0,
+        auraRanges: number[] = [],
+        auraIsBuff: boolean[] = [],
+    ): void {
         if (rangeShotDistance > 0) {
             this.sc_currentActiveShotRange = {
                 xy: position,
@@ -2311,6 +2351,7 @@ class Sandbox extends GLScene {
         } else {
             this.sc_currentActiveShotRange = undefined;
         }
+        this.fillActiveAuraRanges(position, auraRanges, auraIsBuff);
     }
 
     public Step(settings: Settings, timeStep: number): number {
@@ -2333,7 +2374,7 @@ class Sandbox extends GLScene {
                 settings.m_debugDraw.DrawCircle(
                     this.hoverActiveShotRange.xy,
                     this.hoverActiveShotRange.distance,
-                    isLightMode ? COLOR_ORANGE : COLOR_YELLOW,
+                    isLightMode ? Drawer.COLOR_ORANGE : Drawer.COLOR_YELLOW,
                 );
             }
 
@@ -2344,7 +2385,7 @@ class Sandbox extends GLScene {
                 settings.m_debugDraw.DrawCircle(
                     this.sc_currentActiveShotRange.xy,
                     this.sc_currentActiveShotRange.distance,
-                    isLightMode ? COLOR_ORANGE : COLOR_YELLOW,
+                    isLightMode ? Drawer.COLOR_ORANGE : Drawer.COLOR_YELLOW,
                 );
             }
 
@@ -2830,17 +2871,22 @@ class Sandbox extends GLScene {
                                             enemyTeam,
                                             positions,
                                         );
-                                        if (nextUnit.getAttackTypeSelection() === AttackType.RANGE) {
-                                            this.sc_currentActiveShotRange = {
-                                                xy: nextUnit.getPosition(),
-                                                distance: nextUnit.getRangeShotDistance() * STEP,
-                                            };
-                                        } else {
-                                            this.sc_currentActiveShotRange = undefined;
-                                        }
                                     } else {
                                         this.canAttackByMeleeTargets = undefined;
                                     }
+                                    if (nextUnit.getAttackTypeSelection() === AttackType.RANGE) {
+                                        this.sc_currentActiveShotRange = {
+                                            xy: nextUnit.getPosition(),
+                                            distance: nextUnit.getRangeShotDistance() * STEP,
+                                        };
+                                    } else {
+                                        this.sc_currentActiveShotRange = undefined;
+                                    }
+                                    this.fillActiveAuraRanges(
+                                        nextUnit.getPosition(),
+                                        nextUnit.getAllProperties().aura_ranges,
+                                        nextUnit.getAllProperties().aura_is_buff,
+                                    );
                                     FightStateManager.getInstance().markFirstTurn();
                                 }
                             }
@@ -3041,8 +3087,8 @@ class Sandbox extends GLScene {
             this.placementsCleanedUp = true;
         }
 
-        const themeLightColor = isLightMode ? COLOR_LIGHT_ORANGE : COLOR_LIGHT_YELLOW;
-        const themeMainColor = isLightMode ? COLOR_GREY : COLOR_LIGHT_GREY;
+        const themeLightColor = isLightMode ? Drawer.COLOR_LIGHT_ORANGE : Drawer.COLOR_LIGHT_YELLOW;
+        const themeMainColor = isLightMode ? Drawer.COLOR_GREY : Drawer.COLOR_LIGHT_GREY;
 
         const isEnemy =
             this.hoverUnit && this.currentActiveUnit && this.hoverUnit.getTeam() !== this.currentActiveUnit.getTeam();
@@ -3121,6 +3167,23 @@ class Sandbox extends GLScene {
                     this.hoverActivePath,
                     hoverUnitCellPositions,
                 );
+            }
+        }
+
+        if (this.sc_currentActiveAuraRanges.length) {
+            for (const aura of this.sc_currentActiveAuraRanges) {
+                const isBuff = aura.isBuff ?? true;
+                if (aura.range) {
+                    this.drawer.drawAuraArea(settings.m_debugDraw, aura.xy, aura.range, isBuff);
+                }
+            }
+        }
+        if (this.hoverActiveAuraRanges.length) {
+            for (const aura of this.hoverActiveAuraRanges) {
+                const isBuff = aura.isBuff ?? true;
+                if (aura.range) {
+                    this.drawer.drawAuraArea(settings.m_debugDraw, aura.xy, aura.range, isBuff);
+                }
             }
         }
 

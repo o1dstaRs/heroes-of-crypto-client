@@ -9,19 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-export class AuraEffectProperties {
-    public readonly name: string;
-
-    public range: number;
-
-    public readonly desc: string;
-
-    public constructor(name: string, range: number, desc: string) {
-        this.name = name;
-        this.range = range;
-        this.desc = desc;
-    }
-}
+import { AuraEffectProperties } from "@heroesofcrypto/common";
 
 export class AuraEffect {
     public readonly defaultProperties: AuraEffectProperties;

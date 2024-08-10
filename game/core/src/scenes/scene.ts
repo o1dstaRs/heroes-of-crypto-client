@@ -35,7 +35,7 @@ import {
     XY,
 } from "@box2d/core";
 import { b2ParticleGroup, DrawParticleSystems } from "@box2d/particles";
-import { AttackType, FactionType, HoCMath, UnitProperties } from "@heroesofcrypto/common";
+import { AttackType, FactionType, HoCMath, IAuraOnMap, UnitProperties } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { SceneControl } from "../sceneControls";
@@ -168,6 +168,8 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_currentActiveShotRange?: HoCMath.IXYDistance;
 
+    public sc_currentActiveAuraRanges: IAuraOnMap[] = [];
+
     public sc_unitInfoLines: Array<[string, string]> = [];
 
     public sc_attackDamageSpreadStr = "";
@@ -292,6 +294,7 @@ export abstract class Scene extends b2ContactListener {
             this.sc_unitPropertiesUpdateNeeded = true;
         }
         this.sc_currentActiveShotRange = undefined;
+        this.sc_currentActiveAuraRanges = [];
     }
 
     public getBaseHotkeys(): HotKey[] {
@@ -316,7 +319,12 @@ export abstract class Scene extends b2ContactListener {
 
     protected abstract handleMouseDownForSelectedBody(): void;
 
-    protected abstract selectUnitPreStart(position: XY, rangeShotDistance: number): void;
+    protected abstract selectUnitPreStart(
+        position: XY,
+        rangeShotDistance: number,
+        auraRanges: number[],
+        auraIsBuff: boolean[],
+    ): void;
 
     public abstract cloneObject(): void;
 
@@ -398,7 +406,12 @@ export abstract class Scene extends b2ContactListener {
                 } else if (!this.sc_started) {
                     body.SetIsActive(true);
                     const userData = body.GetUserData();
-                    this.selectUnitPreStart(body.GetPosition(), userData.shot_distance);
+                    this.selectUnitPreStart(
+                        body.GetPosition(),
+                        userData.shot_distance,
+                        userData.aura_ranges,
+                        userData.aura_is_buff,
+                    );
                 }
             }
         } else if (this.sc_selectedBody) {

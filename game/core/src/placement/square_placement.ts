@@ -66,11 +66,12 @@ export class SquarePlacement extends b2ChainShape {
             new b2Vec2(this.xRight, this.yLower),
             new b2Vec2(this.xLeft, this.yLower),
         ]);
+        // use 1 as a border to avoid collision with aura areas
         this.verticles = [
-            { x: this.xLeft, y: this.yUpper },
-            { x: this.xRight, y: this.yUpper },
-            { x: this.xRight, y: this.yLower },
-            { x: this.xLeft, y: this.yLower },
+            { x: this.xLeft + 1, y: this.yUpper - 1 },
+            { x: this.xRight - 1, y: this.yUpper - 1 },
+            { x: this.xRight - 1, y: this.yLower + 1 },
+            { x: this.xLeft + 1, y: this.yLower + 1 },
         ];
 
         const possibleCellPositions = this.possibleCellPositions();
