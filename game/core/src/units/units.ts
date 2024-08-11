@@ -211,9 +211,9 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected readonly fixtureDef: b2FixtureDef;
 
-    protected readonly buffs: AppliedSpell[];
+    protected buffs: AppliedSpell[];
 
-    protected readonly debuffs: AppliedSpell[];
+    protected debuffs: AppliedSpell[];
 
     protected readonly position: b2Vec2;
 
@@ -493,7 +493,15 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public deleteEffect(effect: Effect) {
-        this.effects = this.effects.filter((x) => x.getName() !== effect.getName());
+        this.effects = this.effects.filter((e) => e.getName() !== effect.getName());
+    }
+
+    public deleteBuff(buff: AppliedSpell) {
+        this.buffs = this.buffs.filter((b) => b.getName() !== buff.getName());
+    }
+
+    public deleteDebuff(debuff: AppliedSpell) {
+        this.debuffs = this.debuffs.filter((d) => d.getName() !== debuff.getName());
     }
 
     public minusLap() {
@@ -504,6 +512,26 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
             if (!ef.getLaps()) {
                 this.deleteEffect(ef);
+            }
+        }
+
+        for (const b of this.buffs) {
+            if (b.getLaps() > 0) {
+                b.minusLap();
+            }
+
+            if (!b.getLaps()) {
+                this.deleteBuff(b);
+            }
+        }
+
+        for (const d of this.debuffs) {
+            if (d.getLaps() > 0) {
+                d.minusLap();
+            }
+
+            if (!d.getLaps()) {
+                this.deleteDebuff(d);
             }
         }
     }
@@ -1222,12 +1250,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return false;
     }
 
-    public applyBuff(buff: Spell, casterMaxHp: number, casterBaseArmor: number): void {
-        this.buffs.push(new AppliedSpell(buff.getName(), buff.getLapsTotal(), casterMaxHp, casterBaseArmor));
+    public applyBuff(buff: Spell, casterMaxHp: number, casterBaseArmor: number, extend: boolean = false): void {
+        this.buffs.push(
+            new AppliedSpell(buff.getName(), buff.getLapsTotal() + (extend ? 1 : 0), casterMaxHp, casterBaseArmor),
+        );
     }
 
-    public applyDebuff(debuff: Spell, casterMaxHp: number, casterBaseArmor: number): void {
-        this.debuffs.push(new AppliedSpell(debuff.getName(), debuff.getLapsTotal(), casterMaxHp, casterBaseArmor));
+    public applyDebuff(debuff: Spell, casterMaxHp: number, casterBaseArmor: number, extend: boolean = false): void {
+        this.debuffs.push(
+            new AppliedSpell(debuff.getName(), debuff.getLapsTotal() + (extend ? 1 : 0), casterMaxHp, casterBaseArmor),
+        );
     }
 
     public useSpell(spell: Spell): void {

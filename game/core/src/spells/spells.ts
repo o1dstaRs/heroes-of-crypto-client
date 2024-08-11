@@ -41,13 +41,13 @@ const BOOK_POSITION_Y = 1328;
 const BOOK_SPELL_SIZE = 256;
 
 export class AppliedSpell {
-    public readonly name: string;
+    private readonly name: string;
 
-    public readonly lapsRemaining: number;
+    private lapsRemaining: number;
 
-    public readonly casterMaxHp: number;
+    private readonly casterMaxHp: number;
 
-    public readonly casterBaseArmor: number;
+    private readonly casterBaseArmor: number;
 
     public constructor(name: string, lapsRemaining: number, casterMaxHp: number, casterBaseArmor: number) {
         this.name = name;
@@ -55,9 +55,29 @@ export class AppliedSpell {
         this.casterMaxHp = casterMaxHp;
         this.casterBaseArmor = casterBaseArmor;
     }
+    public getCasterMaxHp(): number {
+        return this.casterMaxHp;
+    }
+
+    public getCasterBaseArmor(): number {
+        return this.casterBaseArmor;
+    }
 
     public getName(): string {
         return this.name;
+    }
+
+    public minusLap(): void {
+        if (this.lapsRemaining > 0) {
+            this.lapsRemaining -= 1;
+        }
+        if (this.lapsRemaining < 0) {
+            this.lapsRemaining = 0;
+        }
+    }
+
+    public getLaps(): number {
+        return this.lapsRemaining;
     }
 }
 
@@ -335,7 +355,7 @@ export function canBeCasted(
     const notAlreadyApplied = (): boolean => {
         if (alreadyAppliedBuffAndDebuffs?.length) {
             for (const existingBuff of alreadyAppliedBuffAndDebuffs) {
-                if (existingBuff.name === spell.getName() && existingBuff.lapsRemaining) {
+                if (existingBuff.getName() === spell.getName() && existingBuff.getLaps()) {
                     return false;
                 }
             }
@@ -406,33 +426,33 @@ export function calculateBuffsDebuffsEffect(
 
     const alreadyAppliedBuffs: string[] = [];
     for (const b of buffs) {
-        if (b.lapsRemaining <= 0) {
+        if (b.getLaps() <= 0) {
             continue;
         }
 
-        if (alreadyAppliedBuffs.includes(b.name)) {
+        if (alreadyAppliedBuffs.includes(b.getName())) {
             continue;
         }
-        if (b.name === "Helping Hand") {
-            baseStats.hp = Math.ceil(b.casterMaxHp * 0.3);
-            baseStats.armor = Math.ceil(b.casterBaseArmor * 0.3);
-            alreadyAppliedBuffs.push(b.name);
+        if (b.getName() === "Helping Hand") {
+            baseStats.hp = Math.ceil(b.getCasterMaxHp() * 0.3);
+            baseStats.armor = Math.ceil(b.getCasterBaseArmor() * 0.3);
+            alreadyAppliedBuffs.push(b.getName());
         }
     }
 
     const alreadyAppliedDebuffs: string[] = [];
     for (const db of debuffs) {
-        if (db.lapsRemaining <= 0) {
+        if (db.getLaps() <= 0) {
             continue;
         }
 
-        if (alreadyAppliedDebuffs.includes(db.name)) {
+        if (alreadyAppliedDebuffs.includes(db.getName())) {
             continue;
         }
-        if (db.name === "Helping Hand") {
-            baseStats.hp = -Math.ceil(db.casterMaxHp * 0.3);
-            baseStats.armor = -Math.ceil(db.casterBaseArmor * 0.3);
-            alreadyAppliedDebuffs.push(db.name);
+        if (db.getName() === "Helping Hand") {
+            baseStats.hp = -Math.ceil(db.getCasterMaxHp() * 0.3);
+            baseStats.armor = -Math.ceil(db.getCasterBaseArmor() * 0.3);
+            alreadyAppliedDebuffs.push(db.getName());
         }
     }
 

@@ -241,6 +241,7 @@ export class AttackHandler {
                     currentActiveSpell,
                     attackerUnit.getAllProperties().max_hp,
                     attackerUnit.getAllProperties().base_armor,
+                    true,
                 );
             }
             attackerUnit.useSpell(currentActiveSpell);

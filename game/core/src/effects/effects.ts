@@ -12,9 +12,9 @@
 import { EffectProperties } from "@heroesofcrypto/common";
 
 export class Effect {
-    public readonly defaultProperties: EffectProperties;
+    private readonly defaultProperties: EffectProperties;
 
-    public effectProperties: EffectProperties;
+    private effectProperties: EffectProperties;
 
     public constructor(effectProperties: EffectProperties) {
         this.defaultProperties = effectProperties;
