@@ -1,4 +1,5 @@
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import Avatar from "@mui/joy/Avatar";
 import Stack from "@mui/joy/Stack";
 import { Box } from "@mui/joy";
@@ -150,6 +151,43 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
     );
 };
 
+const EffectColumn: React.FC<{ effects: IVisibleImpact[]; title: string }> = ({ effects, title }) => {
+    const [scrollIndex, setScrollIndex] = useState(0);
+
+    const scrollUp = () => setScrollIndex(Math.max(0, scrollIndex - 1));
+    const scrollDown = () => setScrollIndex(Math.min(effects.length - 5, scrollIndex + 1));
+
+    return (
+        <Box sx={{ width: "80px", height: "100%", display: "flex", flexDirection: "column" }}>
+            <Typography level="body-sm" sx={{ textAlign: "center" }}>
+                {title}
+            </Typography>
+            <IconButton onClick={scrollUp} disabled={scrollIndex === 0} size="sm">
+                <KeyboardArrowUpIcon />
+            </IconButton>
+            <Box sx={{ flex: 1, overflow: "hidden" }}>
+                {effects.slice(scrollIndex, scrollIndex + 5).map((effect, index) => (
+                    <Tooltip key={index} title={`${effect.name}: ${effect.description}`}>
+                        <Box
+                            component="img"
+                            // @ts-ignore: src params
+                            src={images[effect.smallTextureName]}
+                            sx={{
+                                width: "100%",
+                                height: "20%",
+                                objectFit: "contain",
+                            }}
+                        />
+                    </Tooltip>
+                ))}
+            </Box>
+            <IconButton onClick={scrollDown} disabled={scrollIndex >= effects.length - 5} size="sm">
+                <KeyboardArrowDownIcon />
+            </IconButton>
+        </Box>
+    );
+};
+
 export const UnitStatsListItem: React.FC = () => {
     const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
     const [overallImpact, setVisibleOverallImpact] = useState({} as IVisibleOverallImpact);
@@ -179,6 +217,8 @@ export const UnitStatsListItem: React.FC = () => {
     });
 
     const abilities: IVisibleImpact[] = overallImpact.abilities || [];
+    const buffs: IVisibleImpact[] = overallImpact.buffs || [];
+    const debuffs: IVisibleImpact[] = overallImpact.debuffs || [];
 
     // @ts-ignore: style params
     if (raceName) {

@@ -510,6 +510,9 @@ export abstract class Scene extends b2ContactListener {
         this.sc_selectedUnitProperties = unitProperties;
 
         const visibleAbilitiesImpact: IVisibleImpact[] = [];
+        const visibleBuffsImpact: IVisibleImpact[] = [];
+        const visibleDebuffsImpact: IVisibleImpact[] = [];
+
         for (let i = 0; i < unitProperties.abilities.length; i++) {
             const abilityName = unitProperties.abilities[i];
             const abilityDescription = unitProperties.abilities_descriptions[i];
@@ -533,8 +536,8 @@ export abstract class Scene extends b2ContactListener {
 
         this.sc_visibleOverallImpact = {
             abilities: visibleAbilitiesImpact,
-            buffs: [],
-            debuffs: [],
+            buffs: visibleBuffsImpact,
+            debuffs: visibleDebuffsImpact,
         };
 
         this.sc_unitPropertiesUpdateNeeded = true;

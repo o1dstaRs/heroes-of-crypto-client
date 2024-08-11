@@ -91,11 +91,11 @@
     "Leather Armor": {
         "name": "Leather Armor",
         "type": "DEFENCE",
-        "desc": "Reduces range armor by {}%",
+        "desc": "This unit's ranged armor is reduced by {}%",
         "power": 50,
         "power_type": "RANGE_ARMOR_MODIFIER",
         "skip_reponse": false,
-        "stack_powered": true,
+        "stack_powered": false,
         "effect": null,
         "aura_effect": null
     },
@@ -161,7 +161,7 @@
         "power": 50,
         "power_type": "MAGIC_VULNERABILITY_WATER",
         "skip_reponse": false,
-        "stack_powered": true,
+        "stack_powered": false,
         "effect": null,
         "aura_effect": null
     },
