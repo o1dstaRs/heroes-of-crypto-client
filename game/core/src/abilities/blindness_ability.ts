@@ -32,7 +32,7 @@ export function processBlindnessAbility(
 
     const blindnessAbility = fromUnit.getAbility("Blindness");
     if (blindnessAbility && HoCLib.getRandomInt(0, 100) < fromUnit.calculateAbilityApplyChance(blindnessAbility)) {
-        if (fromUnit.applyEffect(targetUnit, blindnessAbility.getEffectName(), extend)) {
+        if (targetUnit.applyEffect(fromUnit, blindnessAbility.getEffectName(), extend)) {
             sceneLog.updateLog(`${targetUnit.getName()} is blind for 2 laps`);
         }
     }

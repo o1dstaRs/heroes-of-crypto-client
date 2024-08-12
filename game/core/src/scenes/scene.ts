@@ -49,6 +49,7 @@ import { PreloadedTextures } from "../utils/gl/preload";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
 import { SceneSettings } from "./scene_settings";
 import { abilityToTextureName } from "../abilities/abilities_factory";
+import { getEffectConfig } from "../config_provider";
 
 const temp = {
     aabb: new b2AABB(),
@@ -532,6 +533,53 @@ export abstract class Scene extends b2ContactListener {
                 isStackPowered: isStackPowered,
                 isAura: isAura,
             });
+        }
+
+        if (unitProperties.applied_effects.length === unitProperties.applied_effects_laps.length) {
+            for (let i = 0; i < unitProperties.applied_effects.length; i++) {
+                const lapsRemaining = unitProperties.applied_effects_laps[i];
+                if (lapsRemaining < 1) {
+                    continue;
+                }
+
+                const effectName = unitProperties.applied_effects[i];
+                const effectConfig = getEffectConfig(effectName);
+                const description = effectConfig ? effectConfig.desc : "";
+
+                visibleDebuffsImpact.push({
+                    name: effectName,
+                    smallTextureName: abilityToTextureName(effectName),
+                    description: description,
+                    laps: lapsRemaining,
+                    stackPower: 0,
+                    isStackPowered: false,
+                    isAura: false,
+                });
+            }
+        }
+
+        if (
+            unitProperties.applied_buffs.length === unitProperties.applied_buffs_laps.length &&
+            unitProperties.applied_buffs.length === unitProperties.applied_buffs_descriptions.length
+        ) {
+            for (let i = 0; i < unitProperties.applied_buffs.length; i++) {
+                const lapsRemaining = unitProperties.applied_buffs_laps[i];
+                if (lapsRemaining < 1) {
+                    continue;
+                }
+
+                const buffName = unitProperties.applied_buffs[i];
+
+                visibleBuffsImpact.push({
+                    name: buffName,
+                    smallTextureName: abilityToTextureName(buffName),
+                    description: unitProperties.applied_buffs_descriptions[i],
+                    laps: lapsRemaining,
+                    stackPower: 0,
+                    isStackPowered: false,
+                    isAura: false,
+                });
+            }
         }
 
         this.sc_visibleOverallImpact = {

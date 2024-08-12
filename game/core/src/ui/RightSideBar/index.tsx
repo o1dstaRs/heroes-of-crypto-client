@@ -271,7 +271,7 @@ export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) 
                 position: "fixed",
                 zIndex: 1,
                 height: "100dvh",
-                width: "220px",
+                width: "280px",
                 top: 0,
                 right: 0,
                 p: 2,

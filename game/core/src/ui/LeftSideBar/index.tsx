@@ -265,7 +265,7 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
                 position: "fixed",
                 zIndex: 1,
                 height: "100dvh",
-                width: "240px",
+                width: "280px",
                 top: 0,
                 left: 0,
                 p: 2,

@@ -463,19 +463,19 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return false;
     }
 
-    public applyEffect(toUnit: Unit, effectName: string | undefined, extended = false): boolean {
-        if (!effectName || toUnit.hasEffectActive(effectName)) {
+    public applyEffect(fromUnit: Unit, effectName: string | undefined, extended = false): boolean {
+        if (!effectName || this.hasEffectActive(effectName)) {
             return false;
         }
 
-        for (const a of this.getAbilities()) {
+        for (const a of fromUnit.getAbilities()) {
             if (a.getEffectName() === effectName) {
                 const ef = a.getEffect();
                 if (ef) {
                     if (extended) {
                         ef.extend();
                     }
-                    toUnit.effects.push(ef);
+                    this.effects.push(ef);
                     this.unitProperties.applied_effects.push(ef.getName());
                     this.unitProperties.applied_effects_laps.push(ef.getLaps());
                     return true;
@@ -510,11 +510,15 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     public deleteBuff(buff: AppliedSpell) {
         this.buffs = this.buffs.filter((b) => b.getName() !== buff.getName());
 
-        if (this.unitProperties.applied_buffs.length === this.unitProperties.applied_buffs_laps.length) {
+        if (
+            this.unitProperties.applied_buffs.length === this.unitProperties.applied_buffs_laps.length &&
+            this.unitProperties.applied_buffs.length == this.unitProperties.applied_buffs_descriptions.length
+        ) {
             for (let i = 0; i < this.unitProperties.applied_buffs.length; i++) {
                 if (this.unitProperties.applied_buffs[i] === buff.getName()) {
                     this.unitProperties.applied_buffs.splice(i, 1);
                     this.unitProperties.applied_buffs_laps.splice(i, 1);
+                    this.unitProperties.applied_buffs_descriptions.splice(i, 1);
                 }
             }
         }
@@ -523,11 +527,15 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     public deleteDebuff(debuff: AppliedSpell) {
         this.debuffs = this.debuffs.filter((d) => d.getName() !== debuff.getName());
 
-        if (this.unitProperties.applied_debuffs.length === this.unitProperties.applied_debuffs_laps.length) {
+        if (
+            this.unitProperties.applied_debuffs.length === this.unitProperties.applied_debuffs_laps.length &&
+            this.unitProperties.applied_debuffs.length == this.unitProperties.applied_debuffs_descriptions.length
+        ) {
             for (let i = 0; i < this.unitProperties.applied_debuffs.length; i++) {
                 if (this.unitProperties.applied_debuffs[i] === debuff.getName()) {
                     this.unitProperties.applied_debuffs.splice(i, 1);
                     this.unitProperties.applied_debuffs_laps.splice(i, 1);
+                    this.unitProperties.applied_debuffs_descriptions.splice(i, 1);
                 }
             }
         }
@@ -539,7 +547,15 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 ef.minusLap();
             }
 
-            if (!ef.getLaps()) {
+            if (ef.getLaps()) {
+                if (this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_laps.length) {
+                    for (let i = 0; i < this.unitProperties.applied_effects.length; i++) {
+                        if (this.unitProperties.applied_effects[i] === ef.getName()) {
+                            this.unitProperties.applied_effects_laps[i]--;
+                        }
+                    }
+                }
+            } else {
                 this.deleteEffect(ef);
             }
         }
@@ -549,7 +565,15 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 b.minusLap();
             }
 
-            if (!b.getLaps()) {
+            if (b.getLaps()) {
+                if (this.unitProperties.applied_buffs.length === this.unitProperties.applied_buffs_laps.length) {
+                    for (let i = 0; i < this.unitProperties.applied_buffs.length; i++) {
+                        if (this.unitProperties.applied_buffs[i] === b.getName()) {
+                            this.unitProperties.applied_buffs_laps[i]--;
+                        }
+                    }
+                }
+            } else {
                 this.deleteBuff(b);
             }
         }
@@ -559,7 +583,15 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 d.minusLap();
             }
 
-            if (!d.getLaps()) {
+            if (d.getLaps()) {
+                if (this.unitProperties.applied_debuffs.length === this.unitProperties.applied_debuffs_laps.length) {
+                    for (let i = 0; i < this.unitProperties.applied_debuffs.length; i++) {
+                        if (this.unitProperties.applied_debuffs[i] === d.getName()) {
+                            this.unitProperties.applied_debuffs_laps[i]--;
+                        }
+                    }
+                }
+            } else {
                 this.deleteDebuff(d);
             }
         }
@@ -1288,6 +1320,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.buffs.push(new AppliedSpell(buff.getName(), lapsTotal, casterMaxHp, casterBaseArmor));
         this.unitProperties.applied_buffs.push(buff.getName());
         this.unitProperties.applied_buffs_laps.push(lapsTotal);
+        this.unitProperties.applied_buffs_descriptions.push(buff.getDesc().join(" "));
     }
 
     public applyDebuff(debuff: Spell, casterMaxHp: number, casterBaseArmor: number, extend: boolean = false): void {
@@ -1295,6 +1328,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.debuffs.push(new AppliedSpell(debuff.getName(), lapsTotal, casterMaxHp, casterBaseArmor));
         this.unitProperties.applied_debuffs.push(debuff.getName());
         this.unitProperties.applied_debuffs_laps.push(lapsTotal);
+        this.unitProperties.applied_debuffs_descriptions.push(debuff.getDesc().join(" "));
     }
 
     public useSpell(spell: Spell): void {
