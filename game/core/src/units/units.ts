@@ -1320,7 +1320,12 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.buffs.push(new AppliedSpell(buff.getName(), lapsTotal, casterMaxHp, casterBaseArmor));
         this.unitProperties.applied_buffs.push(buff.getName());
         this.unitProperties.applied_buffs_laps.push(lapsTotal);
-        this.unitProperties.applied_buffs_descriptions.push(buff.getDesc().join(" "));
+        this.unitProperties.applied_buffs_descriptions.push(
+            buff
+                .getDesc()
+                .slice(0, buff.getDesc().length - 1)
+                .join(" "),
+        );
     }
 
     public applyDebuff(debuff: Spell, casterMaxHp: number, casterBaseArmor: number, extend: boolean = false): void {
@@ -1328,7 +1333,12 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.debuffs.push(new AppliedSpell(debuff.getName(), lapsTotal, casterMaxHp, casterBaseArmor));
         this.unitProperties.applied_debuffs.push(debuff.getName());
         this.unitProperties.applied_debuffs_laps.push(lapsTotal);
-        this.unitProperties.applied_debuffs_descriptions.push(debuff.getDesc().join(" "));
+        this.unitProperties.applied_debuffs_descriptions.push(
+            debuff
+                .getDesc()
+                .slice(0, debuff.getDesc().length - 1)
+                .join(" "),
+        );
     }
 
     public useSpell(spell: Spell): void {

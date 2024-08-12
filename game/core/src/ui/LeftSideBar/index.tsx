@@ -76,8 +76,8 @@ const UpNext: React.FC = () => {
                                         variant="plain"
                                         sx={{
                                             transform: "rotateX(-180deg)",
-                                            width: index === visibleUnits.length - 1 ? "72px" : "60px",
-                                            height: index === visibleUnits.length - 1 ? "72px" : "60px",
+                                            width: index === visibleUnits.length - 1 ? "84px" : "72px",
+                                            height: index === visibleUnits.length - 1 ? "84px" : "72px",
                                             flexShrink: 0,
                                             boxShadow: index === visibleUnits.length - 1 ? boxShadow : "none",
                                         }}

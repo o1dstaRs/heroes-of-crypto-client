@@ -151,7 +151,6 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
 };
 
 const EffectColumn: React.FC<{ effects: IVisibleImpact[]; title: string }> = ({ effects, title }) => {
-    const ef = [...effects, ...effects, ...effects, ...effects, ...effects, ...effects, ...effects, ...effects];
     return (
         <Box sx={{ width: "30px", height: "100%", display: "flex", flexDirection: "column" }}>
             <Typography level="body-sm" sx={{ textAlign: "center", fontSize: 9 }}>
@@ -170,8 +169,15 @@ const EffectColumn: React.FC<{ effects: IVisibleImpact[]; title: string }> = ({ 
                 <Box sx={{ height: "120px" }}>
                     {" "}
                     {/* Container to limit visible height */}
-                    {ef.map((effect, index) => (
-                        <Tooltip key={index} title={`${effect.name}: ${effect.description}`}>
+                    {effects.map((effect, index) => (
+                        <Tooltip
+                            key={index}
+                            title={`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${
+                                effect.laps > 0
+                                    ? " (remaining " + effect.laps.toString() + (effect.laps === 1 ? " lap)" : " laps)")
+                                    : ""
+                            }`}
+                        >
                             <Box
                                 component="img"
                                 // @ts-ignore: src params
@@ -180,6 +186,8 @@ const EffectColumn: React.FC<{ effects: IVisibleImpact[]; title: string }> = ({ 
                                     width: "100%",
                                     height: "30px",
                                     objectFit: "contain",
+                                    transform: "rotateX(-180deg)",
+                                    zIndex: "modal",
                                 }}
                             />
                         </Tooltip>
@@ -222,7 +230,7 @@ export const UnitStatsListItem: React.FC = () => {
     const buffs: IVisibleImpact[] = overallImpact.buffs || [];
     const debuffs: IVisibleImpact[] = overallImpact.debuffs || [];
 
-    console.log(buffs);
+    const hasBuffsOrDebuffs = buffs.length > 0 || debuffs.length > 0;
 
     // @ts-ignore: style params
     if (raceName) {
@@ -307,8 +315,7 @@ export const UnitStatsListItem: React.FC = () => {
                     )}
                 >
                     <Box sx={{ display: "flex", width: "100%", overflow: "visible" }}>
-                        {/* Left column: Unit stats (3/4 width) */}
-                        <Box sx={{ width: "85%", pr: 1.5 }}>
+                        <Box sx={{ width: hasBuffsOrDebuffs ? "85%" : "100%", pr: hasBuffsOrDebuffs ? 1.5 : 0 }}>
                             <List sx={{ gap: 0 }}>
                                 <Box sx={{ position: "relative", marginBottom: 1.5 }}>
                                     <Avatar
@@ -583,10 +590,12 @@ export const UnitStatsListItem: React.FC = () => {
                                 </ListItem>
                             </List>
                         </Box>
-                        <Box sx={{ width: "15%", display: "flex", flexDirection: "column" }}>
-                            <EffectColumn effects={buffs} title="Buffs" />
-                            <EffectColumn effects={debuffs} title="Debuffs" />
-                        </Box>
+                        {hasBuffsOrDebuffs && (
+                            <Box sx={{ width: "15%", display: "flex", flexDirection: "column" }}>
+                                <EffectColumn effects={buffs} title="Buffs" />
+                                <EffectColumn effects={debuffs} title="Debuffs" />
+                            </Box>
+                        )}
                     </Box>
                     <Box>
                         <Typography level="title-sm" sx={{ marginTop: 1.5 }}>
