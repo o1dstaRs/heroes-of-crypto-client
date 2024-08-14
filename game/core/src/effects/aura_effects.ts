@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AuraEffectProperties } from "@heroesofcrypto/common";
+import { AbilityPowerType, AttackType, AuraEffectProperties } from "@heroesofcrypto/common";
 
 export class AuraEffect {
     public readonly defaultProperties: AuraEffectProperties;
@@ -37,20 +37,52 @@ export class AuraEffect {
         return this.auraEffectProperties;
     }
 
+    public getPower(): number {
+        return this.auraEffectProperties.power;
+    }
+
     public extendRange(): void {
-        this.auraEffectProperties.range += 1;
+        this.auraEffectProperties.range = Math.floor(this.auraEffectProperties.range) + 1;
     }
 
     public toDefault(): void {
         this.auraEffectProperties = structuredClone(this.defaultProperties);
     }
 
+    public getPowerType(): AbilityPowerType {
+        return this.auraEffectProperties.power_type;
+    }
+
+    public setPower(power: number): void {
+        this.auraEffectProperties.power = power;
+    }
+
     public narrowRange(): void {
-        if (this.auraEffectProperties.range > 0) {
-            this.auraEffectProperties.range -= 1;
-        }
-        if (this.auraEffectProperties.range < 0) {
-            this.auraEffectProperties.range = 0;
+        this.auraEffectProperties.range = Math.floor(this.auraEffectProperties.range) - 1;
+        if (this.auraEffectProperties.range < -1) {
+            this.auraEffectProperties.range = -1;
         }
     }
+}
+
+export function canBeApplied(unitAttackType: AttackType, auraEffectProperties: AuraEffectProperties): boolean {
+    if (auraEffectProperties.power_type === AbilityPowerType.LUCK_10) {
+        return true;
+    }
+
+    if (
+        unitAttackType === AttackType.RANGE &&
+        auraEffectProperties.power_type === AbilityPowerType.DISABLE_RANGE_ATTACK
+    ) {
+        return true;
+    }
+
+    if (
+        unitAttackType === AttackType.MELEE &&
+        auraEffectProperties.power_type === AbilityPowerType.ADDITIONAL_MELEE_DAMAGE_PERCENTAGE
+    ) {
+        return true;
+    }
+
+    return false;
 }

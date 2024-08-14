@@ -68,6 +68,10 @@ export class AppliedSpell {
     }
 
     public minusLap(): void {
+        if (this.lapsRemaining === Number.MAX_SAFE_INTEGER) {
+            return;
+        }
+
         if (this.lapsRemaining > 0) {
             this.lapsRemaining -= 1;
         }
@@ -418,10 +422,12 @@ export function calculateBuffsDebuffsEffect(
     const baseStats: IModifyableUnitProperties = {
         hp: 0,
         armor: 0,
+        luck: 0,
     };
     const additionalStats: IModifyableUnitProperties = {
         hp: 0,
         armor: 0,
+        luck: 0,
     };
 
     const alreadyAppliedBuffs: string[] = [];
@@ -437,6 +443,9 @@ export function calculateBuffsDebuffsEffect(
             baseStats.hp = Math.ceil(b.getCasterMaxHp() * 0.3);
             baseStats.armor = Math.ceil(b.getCasterBaseArmor() * 0.3);
             alreadyAppliedBuffs.push(b.getName());
+        }
+        if (b.getName() === "Luck Aura") {
+            baseStats.luck = Number.MAX_SAFE_INTEGER;
         }
     }
 

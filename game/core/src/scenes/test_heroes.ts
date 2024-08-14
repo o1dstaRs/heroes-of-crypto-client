@@ -101,7 +101,7 @@ class Sandbox extends GLScene {
 
     private hoverRangeAttackDivisor = 1;
 
-    private hoverRangeAttackPoint?: XY;
+    private hoverRangeAttackPosition?: XY;
 
     private hoverRangeAttackObstacle?: IAttackObstacle;
 
@@ -660,7 +660,7 @@ class Sandbox extends GLScene {
         this.hoverActivePath = undefined;
         this.hoverAttackFrom = undefined;
         this.hoverAttackIsSmallSize = undefined;
-        this.hoverRangeAttackPoint = undefined;
+        this.hoverRangeAttackPosition = undefined;
         this.hoverRangeAttackObstacle = undefined;
         this.hoverRangeAttackDivisor = 1;
         this.hoverActiveShotRange = undefined;
@@ -902,7 +902,8 @@ class Sandbox extends GLScene {
                         this.currentActiveUnit.isSmallSize(),
                         this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
                     ) &&
-                    this.currentActiveUnit.getRangeShots() > 0
+                    this.currentActiveUnit.getRangeShots() > 0 &&
+                    !this.currentActiveUnit.hasDebuffActive("Range Null Field Aura")
                 ) {
                     //                    if (this.grid.canBeAttackedByMelee(currentUnitCell, this.currentActiveUnit.getId())) {
                     //                        this.currentActiveUnit.selectAttackType(AttackType.MELEE);
@@ -924,7 +925,7 @@ class Sandbox extends GLScene {
                         this.ground.DestroyFixture(this.hoverRangeAttackLine);
                         this.hoverRangeAttackLine = undefined;
                     }
-                    this.hoverRangeAttackPoint = undefined;
+                    this.hoverRangeAttackPosition = undefined;
                     this.hoverRangeAttackDivisor = 1;
                     this.hoverActiveShotRange = undefined;
                     this.rangeResponseAttackDivisor = 1;
@@ -956,7 +957,7 @@ class Sandbox extends GLScene {
                                 this.canAttackByMeleeTargets.attackCells,
                                 hoverAttackUnit.isSmallSize()
                                     ? [unitCell]
-                                    : GridMath.getCellsAroundPoint(
+                                    : GridMath.getCellsAroundPosition(
                                           this.sc_sceneSettings.getGridSettings(),
                                           hoverAttackUnit.getPosition(),
                                       ),
@@ -1110,14 +1111,14 @@ class Sandbox extends GLScene {
                         if (this.hoverRangeAttackLine) {
                             this.ground.DestroyFixture(this.hoverRangeAttackLine);
                             this.hoverRangeAttackLine = undefined;
-                            this.hoverRangeAttackPoint = undefined;
+                            this.hoverRangeAttackPosition = undefined;
                         }
                     }
 
                     if (!this.hoverRangeAttackLine && unit.getTeam() !== this.currentActiveUnit.getTeam()) {
                         const shape = new b2EdgeShape();
 
-                        this.hoverRangeAttackPoint =
+                        this.hoverRangeAttackPosition =
                             GridMath.getClosestSideCenter(
                                 this.gridMatrix,
                                 this.sc_sceneSettings.getGridSettings(),
@@ -1128,7 +1129,7 @@ class Sandbox extends GLScene {
                                 unit.isSmallSize(),
                             ) ?? unit.getPosition();
 
-                        shape.SetTwoSided(this.currentActiveUnit.getPosition(), this.hoverRangeAttackPoint);
+                        shape.SetTwoSided(this.currentActiveUnit.getPosition(), this.hoverRangeAttackPosition);
                         this.hoverRangeAttackLine = this.ground.CreateFixture({
                             shape,
                             isSensor: true,
@@ -1162,7 +1163,8 @@ class Sandbox extends GLScene {
                                     hoverAttackUnit.getPosition(),
                                     hoverAttackUnit.isSmallSize(),
                                     this.grid.getEnemyAggrMatrixByUnitId(hoverAttackUnit.getId()),
-                                )
+                                ) &&
+                                !hoverAttackUnit.hasDebuffActive("Range Null Field Aura")
                             ) {
                                 const evaluatedRangeResponse = this.attackHandler.evaluateRangeAttack(
                                     this.unitsHolder.getAllUnits(),
@@ -1277,7 +1279,7 @@ class Sandbox extends GLScene {
                             this.sc_mouseWorld,
                             this.allowedPlacementCellHashes,
                             this.cellToUnitPreRound,
-                            GridMath.getCellsAroundPoint(
+                            GridMath.getCellsAroundPosition(
                                 this.sc_sceneSettings.getGridSettings(),
                                 this.currentActiveUnit.getPosition(),
                             ),
@@ -1559,7 +1561,7 @@ class Sandbox extends GLScene {
         return this.pathHelper.areCellsFormingSquare(true, this.hoverSelectedCells);
     }
 
-    protected getPointToDropTo(body?: b2Body): XY | undefined {
+    protected getPositionToDropTo(body?: b2Body): XY | undefined {
         if (!body) {
             return undefined;
         }
@@ -1583,7 +1585,7 @@ class Sandbox extends GLScene {
         ) {
             if (unitStats.size === 1 || this.currentActiveSpell) {
                 if (this.grid.areAllCellsEmpty([mouseCell])) {
-                    return GridMath.getPointForCell(
+                    return GridMath.getPositionForCell(
                         mouseCell,
                         this.sc_sceneSettings.getGridSettings().getMinX(),
                         this.sc_sceneSettings.getGridSettings().getStep(),
@@ -1602,7 +1604,7 @@ class Sandbox extends GLScene {
                 return undefined;
             }
 
-            return GridMath.getPointForCells(this.sc_sceneSettings.getGridSettings(), this.hoverSelectedCells);
+            return GridMath.getPositionForCells(this.sc_sceneSettings.getGridSettings(), this.hoverSelectedCells);
         }
 
         const unit = this.unitsHolder.getAllUnits().get(unitStats.id);
@@ -1613,7 +1615,7 @@ class Sandbox extends GLScene {
         // pre-start
         if (!this.sc_started && mouseCell && this.isAllowedPreStartMousePosition(unit, true)) {
             if (unit.isSmallSize()) {
-                return GridMath.getPointForCell(
+                return GridMath.getPositionForCell(
                     mouseCell,
                     this.sc_sceneSettings.getGridSettings().getMinX(),
                     this.sc_sceneSettings.getGridSettings().getStep(),
@@ -1621,7 +1623,7 @@ class Sandbox extends GLScene {
                 );
             }
 
-            return GridMath.getPointForCells(this.sc_sceneSettings.getGridSettings(), this.hoverSelectedCells);
+            return GridMath.getPositionForCells(this.sc_sceneSettings.getGridSettings(), this.hoverSelectedCells);
         }
 
         return undefined;
@@ -1633,9 +1635,9 @@ class Sandbox extends GLScene {
         }
 
         this.sc_mouseDropStep = this.sc_stepCount;
-        const pointToDropTo = this.getPointToDropTo(this.sc_selectedBody);
+        const positionToDropTo = this.getPositionToDropTo(this.sc_selectedBody);
 
-        if (pointToDropTo && !this.sc_isAIActive) {
+        if (positionToDropTo && !this.sc_isAIActive) {
             let castStarted = false;
             let moveStarted = false;
             if (this.sc_started) {
@@ -1645,7 +1647,7 @@ class Sandbox extends GLScene {
                 } else {
                     const cellIndices = GridMath.getCellForPosition(
                         this.sc_sceneSettings.getGridSettings(),
-                        pointToDropTo,
+                        positionToDropTo,
                     );
                     if (
                         cellIndices &&
@@ -1662,7 +1664,11 @@ class Sandbox extends GLScene {
                 }
             } else {
                 moveStarted = true;
-                this.sc_selectedBody.SetTransformXY(pointToDropTo.x, pointToDropTo.y, this.sc_selectedBody.GetAngle());
+                this.sc_selectedBody.SetTransformXY(
+                    positionToDropTo.x,
+                    positionToDropTo.y,
+                    this.sc_selectedBody.GetAngle(),
+                );
             }
 
             if (!this.sc_moveBlocked || castStarted) {
@@ -1671,7 +1677,7 @@ class Sandbox extends GLScene {
                         this.sc_selectedBody.SetIsActive(false);
                     }
                     if (!this.sc_moveBlocked) {
-                        this.finishDrop(pointToDropTo);
+                        this.finishDrop(positionToDropTo);
                     }
                     this.deselect(false, !this.sc_started);
                     this.sc_mouseJoint = null;
@@ -1718,7 +1724,7 @@ class Sandbox extends GLScene {
                 this.currentActiveUnit,
                 this.hoverAttackUnits,
                 this.rangeResponseUnit,
-                this.hoverRangeAttackPoint,
+                this.hoverRangeAttackPosition,
             )
         ) {
             this.sc_damageStatsUpdateNeeded = true;
@@ -2044,7 +2050,7 @@ class Sandbox extends GLScene {
         }
     }
 
-    protected finishDrop(pointToDropTo: XY) {
+    protected finishDrop(positionToDropTo: XY) {
         if (this.sc_selectedBody) {
             if (this.currentActiveUnit) {
                 if (!this.currentActivePath) {
@@ -2056,7 +2062,7 @@ class Sandbox extends GLScene {
                 let refreshUnitPosition = false;
 
                 if (this.currentActiveUnit.isSmallSize()) {
-                    const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), pointToDropTo);
+                    const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), positionToDropTo);
                     if (cell && this.grid.areAllCellsEmpty([cell], this.currentActiveUnit.getId())) {
                         refreshUnitPosition = this.grid.occupyCell(
                             cell,
@@ -2066,7 +2072,10 @@ class Sandbox extends GLScene {
                         );
                     }
                 } else {
-                    const cells = GridMath.getCellsAroundPoint(this.sc_sceneSettings.getGridSettings(), pointToDropTo);
+                    const cells = GridMath.getCellsAroundPosition(
+                        this.sc_sceneSettings.getGridSettings(),
+                        positionToDropTo,
+                    );
                     if (this.grid.areAllCellsEmpty(cells, this.currentActiveUnit.getId())) {
                         refreshUnitPosition = this.grid.occupyCells(
                             cells,
@@ -2110,7 +2119,7 @@ class Sandbox extends GLScene {
                         }
                     } else {
                         refreshUnitPosition = this.grid.occupyCells(
-                            GridMath.getCellsAroundPoint(
+                            GridMath.getCellsAroundPosition(
                                 this.sc_sceneSettings.getGridSettings(),
                                 this.sc_selectedBody.GetPosition(),
                             ),
@@ -2174,11 +2183,13 @@ class Sandbox extends GLScene {
         if (currentUnitCell && (isRange || isMagic)) {
             if (
                 isRange &&
-                this.attackHandler.canBeAttackedByMelee(
+                (this.attackHandler.canBeAttackedByMelee(
                     this.currentActiveUnit.getPosition(),
                     this.currentActiveUnit.isSmallSize(),
                     this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
-                )
+                ) ||
+                    this.currentActiveUnit.getRangeShots() <= 0 ||
+                    this.currentActiveUnit.hasDebuffActive("Range Null Field Aura"))
             ) {
                 hasOption = false;
                 if (this.currentActiveUnit.selectAttackType(AttackType.MELEE)) {
@@ -2190,8 +2201,6 @@ class Sandbox extends GLScene {
                     this.adjustSpellBookSprite();
                 }
                 this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
-            } else if (isRange && this.currentActiveUnit.getRangeShots() <= 0) {
-                hasOption = false;
             } else if (isMagic && !this.currentActiveUnit.getCanCastSpells()) {
                 hasOption = false;
             } else if (
@@ -2287,12 +2296,12 @@ class Sandbox extends GLScene {
         const occupiedCells: string[] = [];
         if (this.currentActiveUnit && !this.unitIdToCellsPreRound) {
             if (!this.currentActiveUnit.isSmallSize()) {
-                const cellsAroundPoint = GridMath.getCellsAroundPoint(
+                const cellsAroundPosition = GridMath.getCellsAroundPosition(
                     this.sc_sceneSettings.getGridSettings(),
                     this.currentActiveUnit.getPosition(),
                 );
-                for (const cellAroundPoint of cellsAroundPoint) {
-                    occupiedCells.push(`${cellAroundPoint.x}:${cellAroundPoint.y}`);
+                for (const cellAroundPosition of cellsAroundPosition) {
+                    occupiedCells.push(`${cellAroundPosition.x}:${cellAroundPosition.y}`);
                 }
             }
         }
@@ -2496,13 +2505,13 @@ class Sandbox extends GLScene {
                                                 }
                                             }
                                         } else {
-                                            const cells = GridMath.getCellsAroundPoint(
+                                            const cells = GridMath.getCellsAroundPosition(
                                                 this.sc_sceneSettings.getGridSettings(),
                                                 b.GetPosition(),
                                             );
                                             if (this.grid.areAllCellsEmpty(cells)) {
                                                 occupiedCells = this.grid.occupyCells(
-                                                    GridMath.getCellsAroundPoint(
+                                                    GridMath.getCellsAroundPosition(
                                                         this.sc_sceneSettings.getGridSettings(),
                                                         b.GetPosition(),
                                                     ),
@@ -2561,14 +2570,14 @@ class Sandbox extends GLScene {
                                             }
                                         }
                                     } else {
-                                        const cells = GridMath.getCellsAroundPoint(
+                                        const cells = GridMath.getCellsAroundPosition(
                                             this.sc_sceneSettings.getGridSettings(),
                                             b.GetPosition(),
                                         );
 
                                         if (this.grid.areAllCellsEmpty(cells)) {
                                             occupiedCells = this.grid.occupyCells(
-                                                GridMath.getCellsAroundPoint(
+                                                GridMath.getCellsAroundPosition(
                                                     this.sc_sceneSettings.getGridSettings(),
                                                     b.GetPosition(),
                                                 ),
@@ -2808,6 +2817,7 @@ class Sandbox extends GLScene {
                                 this.finishTurn();
                             } else {
                                 this.sc_moveBlocked = false;
+                                this.unitsHolder.refreshAuraEffectsForAllUnits();
                                 this.unitsHolder.refreshStackPowerForAllUnits();
                                 this.gridMatrix = this.grid.getMatrix();
                                 this.refreshVisibleStateIfNeeded();
@@ -2917,13 +2927,13 @@ class Sandbox extends GLScene {
                                     if (this.currentActiveUnit.isSmallSize()) {
                                         this.hoverSelectedCells = [attackedCell];
                                     } else {
-                                        const position = GridMath.getPointForCell(
+                                        const position = GridMath.getPositionForCell(
                                             attackedCell,
                                             this.sc_sceneSettings.getGridSettings().getMinX(),
                                             this.sc_sceneSettings.getGridSettings().getStep(),
                                             this.sc_sceneSettings.getGridSettings().getHalfStep(),
                                         );
-                                        this.hoverSelectedCells = GridMath.getCellsAroundPoint(
+                                        this.hoverSelectedCells = GridMath.getCellsAroundPosition(
                                             this.sc_sceneSettings.getGridSettings(),
                                             {
                                                 x: position.x - this.sc_sceneSettings.getGridSettings().getHalfStep(),
@@ -2983,7 +2993,7 @@ class Sandbox extends GLScene {
                                     action?.currentActiveKnownPaths(),
                                 );
                                 if (moveStarted) {
-                                    const position = GridMath.getPointForCell(
+                                    const position = GridMath.getPositionForCell(
                                         cellToMove,
                                         this.sc_sceneSettings.getGridSettings().getMinX(),
                                         this.sc_sceneSettings.getGridSettings().getStep(),
@@ -2998,13 +3008,13 @@ class Sandbox extends GLScene {
                                     );
                                 }
                             } else {
-                                const position = GridMath.getPointForCell(
+                                const position = GridMath.getPositionForCell(
                                     cellToMove,
                                     this.sc_sceneSettings.getGridSettings().getMinX(),
                                     this.sc_sceneSettings.getGridSettings().getStep(),
                                     this.sc_sceneSettings.getGridSettings().getHalfStep(),
                                 );
-                                const cells = GridMath.getCellsAroundPoint(this.sc_sceneSettings.getGridSettings(), {
+                                const cells = GridMath.getCellsAroundPosition(this.sc_sceneSettings.getGridSettings(), {
                                     x: position.x - this.sc_sceneSettings.getGridSettings().getHalfStep(),
                                     y: position.y - this.sc_sceneSettings.getGridSettings().getHalfStep(),
                                 });
@@ -3258,7 +3268,7 @@ class Sandbox extends GLScene {
         if (this.hoverAttackFrom && !this.sc_renderSpellBookOverlay) {
             this.drawer.drawAttackFrom(
                 settings.m_debugDraw,
-                GridMath.getPointForCell(
+                GridMath.getPositionForCell(
                     this.hoverAttackFrom,
                     this.sc_sceneSettings.getGridSettings().getMinX(),
                     this.sc_sceneSettings.getGridSettings().getStep(),

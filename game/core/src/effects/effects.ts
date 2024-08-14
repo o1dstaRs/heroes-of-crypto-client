@@ -38,6 +38,10 @@ export class Effect {
     }
 
     public extend(): void {
+        if (this.effectProperties.laps === Number.MAX_SAFE_INTEGER) {
+            return;
+        }
+
         this.effectProperties.laps += 1;
     }
 
@@ -46,6 +50,10 @@ export class Effect {
     }
 
     public minusLap(): void {
+        if (this.effectProperties.laps === Number.MAX_SAFE_INTEGER) {
+            return;
+        }
+
         if (this.effectProperties.laps > 0) {
             this.effectProperties.laps -= 1;
         }

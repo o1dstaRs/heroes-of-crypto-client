@@ -23,6 +23,10 @@ export class AbilitiesFactory {
         this.effectsFactory = effectsFactory;
     }
 
+    public getEffectsFactory(): EffectsFactory {
+        return this.effectsFactory;
+    }
+
     public makeAbility(name: string) {
         const abilityConfig = getAbilityConfig(name);
 

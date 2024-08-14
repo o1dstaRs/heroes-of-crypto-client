@@ -316,7 +316,7 @@ export abstract class Scene extends b2ContactListener {
 
     protected abstract landAttack(): boolean;
 
-    protected abstract finishDrop(pointToDropTo: XY): void;
+    protected abstract finishDrop(positionToDropTo: XY): void;
 
     protected abstract handleMouseDownForSelectedBody(): void;
 
@@ -574,6 +574,30 @@ export abstract class Scene extends b2ContactListener {
                     name: buffName,
                     smallTextureName: abilityToTextureName(buffName),
                     description: unitProperties.applied_buffs_descriptions[i],
+                    laps: lapsRemaining,
+                    stackPower: 0,
+                    isStackPowered: false,
+                    isAura: false,
+                });
+            }
+        }
+
+        if (
+            unitProperties.applied_debuffs.length === unitProperties.applied_debuffs_laps.length &&
+            unitProperties.applied_debuffs.length === unitProperties.applied_debuffs_descriptions.length
+        ) {
+            for (let i = 0; i < unitProperties.applied_debuffs.length; i++) {
+                const lapsRemaining = unitProperties.applied_debuffs_laps[i];
+                if (lapsRemaining < 1) {
+                    continue;
+                }
+
+                const debuffName = unitProperties.applied_debuffs[i];
+
+                visibleDebuffsImpact.push({
+                    name: debuffName,
+                    smallTextureName: abilityToTextureName(debuffName),
+                    description: unitProperties.applied_debuffs_descriptions[i],
                     laps: lapsRemaining,
                     stackPower: 0,
                     isStackPowered: false,
