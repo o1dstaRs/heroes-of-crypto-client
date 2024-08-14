@@ -266,7 +266,7 @@
             "attack_damage_min": 4,
             "attack_damage_max": 7,
             "attack_range": 1,
-            "range_shots": 0,
+            "range_shots": 24,
             "shot_distance": 7.75,
             "magic_resist": 5,
             "can_fly": false,
