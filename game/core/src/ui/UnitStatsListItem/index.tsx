@@ -173,7 +173,7 @@ const EffectColumn: React.FC<{ effects: IVisibleImpact[]; title: string }> = ({ 
                         <Tooltip
                             key={index}
                             title={`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${
-                                effect.laps > 0
+                                effect.laps > 0 && effect.laps !== Number.MAX_SAFE_INTEGER
                                     ? " (remaining " + effect.laps.toString() + (effect.laps === 1 ? " lap)" : " laps)")
                                     : ""
                             }`}
@@ -271,7 +271,7 @@ export const UnitStatsListItem: React.FC = () => {
             ? `${unitProperties.luck_per_turn >= 0 ? "+" : ""}${unitProperties.luck_per_turn}`
             : "";
         const armorMod = unitProperties.armor_mod
-            ? `${unitProperties.armor_mod >= 0 ? "+" : ""}${unitProperties.armor_mod}`
+            ? `${unitProperties.armor_mod >= 0 ? "+" : ""}${Number(unitProperties.armor_mod.toFixed(2))}`
             : "";
 
         let luckButtonStyle;
@@ -293,7 +293,7 @@ export const UnitStatsListItem: React.FC = () => {
         }
 
         const attackTypeSelected = unitProperties.attack_type_selected;
-        let attackDamage = unitProperties.attack;
+        let attackDamage = unitProperties.base_attack + unitProperties.attack_mod;
         if (attackTypeSelected === AttackType.MELEE && unitProperties.attack_type === AttackType.RANGE) {
             attackDamage /= 2;
         }
@@ -408,7 +408,7 @@ export const UnitStatsListItem: React.FC = () => {
                                             <IconButton disabled>
                                                 {attackTypeSelected === AttackType.RANGE ? <BowIcon /> : <SwordIcon />}
                                             </IconButton>
-                                            <Button disabled>{attackDamage}</Button>
+                                            <Button disabled>{Number(attackDamage.toFixed(2))}</Button>
                                             {unitProperties.attack_multiplier !== 1 ? (
                                                 <Button disabled>x{unitProperties.attack_multiplier}</Button>
                                             ) : (
@@ -466,9 +466,7 @@ export const UnitStatsListItem: React.FC = () => {
                                             <IconButton disabled>
                                                 <ShieldIcon />
                                             </IconButton>
-                                            <Button disabled>
-                                                {unitProperties.base_armor + unitProperties.armor_mod}
-                                            </Button>
+                                            <Button disabled>{Number(unitProperties.base_armor.toFixed(2))}</Button>
                                             {armorMod ? <Button disabled>({armorMod})</Button> : <span />}
                                         </ButtonGroup>
                                     </Tooltip>
@@ -504,9 +502,7 @@ export const UnitStatsListItem: React.FC = () => {
                                                 <IconButton disabled>
                                                     <ArrowShieldIcon />
                                                 </IconButton>
-                                                <Button disabled>
-                                                    {unitProperties.range_armor + unitProperties.armor_mod}
-                                                </Button>
+                                                <Button disabled>{unitProperties.range_armor}</Button>
                                                 {armorMod ? <Button disabled>({armorMod})</Button> : <span />}
                                             </ButtonGroup>
                                         </Tooltip>

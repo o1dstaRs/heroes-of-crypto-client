@@ -60,6 +60,8 @@ const DEFAULT_HERO_CONFIG = {
     applied_debuffs_laps: [],
     applied_buffs_descriptions: [],
     applied_debuffs_descriptions: [],
+    applied_buffs_powers: [],
+    applied_debuffs_powers: [],
     abilities_auras: [],
     aura_effects: [],
     aura_ranges: [],
@@ -140,6 +142,8 @@ export const getHeroConfig = (
         heroConfig.applied_debuffs_laps,
         heroConfig.applied_buffs_descriptions,
         heroConfig.applied_debuffs_descriptions,
+        heroConfig.applied_buffs_powers,
+        heroConfig.applied_debuffs_powers,
         heroConfig.aura_effects,
         heroConfig.aura_ranges,
         heroConfig.aura_is_buff,
@@ -218,6 +222,7 @@ export const getCreatureConfig = (
     const abilityIsStackPowered: boolean[] = [];
     const abilityIsAura: boolean[] = [];
     const abilityAuraIsBuff: boolean[] = [];
+    const auraEffects: string[] = [];
 
     for (const abilityName of creatureConfig.abilities) {
         const abilityConfig = getAbilityConfig(abilityName);
@@ -239,6 +244,7 @@ export const getCreatureConfig = (
 
         const auraEffect = abilityConfig.aura_effect;
         if (auraEffect) {
+            auraEffects.push(auraEffect);
             const auraConfig = getAuraEffectConfig(auraEffect);
             abilityAuraRanges.push(auraConfig?.range ?? 0);
             abilityAuraIsBuff.push(auraConfig?.is_buff ?? true);
@@ -284,7 +290,9 @@ export const getCreatureConfig = (
         [],
         [],
         [],
-        creatureConfig.aura_effects,
+        [],
+        [],
+        auraEffects,
         abilityAuraRanges,
         abilityAuraIsBuff,
         amount > 0 ? amount : Math.ceil((totalExp ?? 0) / creatureConfig.exp),
@@ -339,11 +347,17 @@ export const getAuraEffectConfig = (auraEffectName: string): AuraEffectPropertie
         return undefined;
     }
 
+    const auraEffectPowerType = ToAbilityPowerType[auraEffect.power_type];
+    if (!auraEffectPowerType) {
+        throw new TypeError(`Invalid power type for aura effect ${auraEffectName} = ${auraEffectPowerType}`);
+    }
+
     return new AuraEffectProperties(
         auraEffectName,
         auraEffect.range,
         auraEffect.desc,
         auraEffect.power,
         auraEffect.is_buff,
+        auraEffectPowerType,
     );
 };

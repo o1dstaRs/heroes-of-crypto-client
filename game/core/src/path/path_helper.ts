@@ -119,7 +119,7 @@ export class PathHelper {
         return [...neighborsLine, ...neighborsDiag];
     }
 
-    private attackPointA(
+    private attackCellA(
         unitCell: HoCMath.XY,
         newUnitCellX: number,
         newUnitCellY: number,
@@ -151,7 +151,7 @@ export class PathHelper {
         return undefined;
     }
 
-    private attackPointB(
+    private attackCellB(
         unitCell: HoCMath.XY,
         newUnitCellX: number,
         newUnitCellY: number,
@@ -183,7 +183,7 @@ export class PathHelper {
         return undefined;
     }
 
-    private attackPointC(
+    private attackCellC(
         unitCell: HoCMath.XY,
         newUnitCellX: number,
         availableAttackCellHashes: Set<number>,
@@ -220,7 +220,7 @@ export class PathHelper {
         return undefined;
     }
 
-    private attackPointD(
+    private attackCellD(
         unitCell: HoCMath.XY,
         newUnitCellY: number,
         availableAttackCellHashes: Set<number>,
@@ -266,25 +266,25 @@ export class PathHelper {
             return undefined;
         }
 
-        const points: HoCMath.IXYDistance[] = [];
+        const attackCells: HoCMath.IXYDistance[] = [];
         for (const c of cells) {
-            const point = GridMath.getPointForCell(
+            const position = GridMath.getPositionForCell(
                 c,
                 this.gridSettings.getMinX(),
                 this.gridSettings.getStep(),
                 this.gridSettings.getHalfStep(),
             );
-            const position = {
-                x: point.x - this.gridSettings.getHalfStep(),
-                y: point.y - this.gridSettings.getHalfStep(),
+            const newPosition = {
+                x: position.x - this.gridSettings.getHalfStep(),
+                y: position.y - this.gridSettings.getHalfStep(),
             };
-            points.push({
+            attackCells.push({
                 xy: c,
-                distance: HoCMath.getDistance(mousePosition, position),
+                distance: HoCMath.getDistance(mousePosition, newPosition),
             });
         }
         if (isCornerPos) {
-            points.sort((a: HoCMath.IXYDistance, b: HoCMath.IXYDistance) => {
+            attackCells.sort((a: HoCMath.IXYDistance, b: HoCMath.IXYDistance) => {
                 if (a.distance > b.distance) {
                     return -1;
                 }
@@ -294,7 +294,7 @@ export class PathHelper {
                 return 0;
             });
         } else {
-            points.sort((a: HoCMath.IXYDistance, b: HoCMath.IXYDistance) => {
+            attackCells.sort((a: HoCMath.IXYDistance, b: HoCMath.IXYDistance) => {
                 if (a.distance < b.distance) {
                     return -1;
                 }
@@ -305,7 +305,7 @@ export class PathHelper {
             });
         }
 
-        return points[0].xy;
+        return attackCells[0].xy;
     }
 
     private isCornerMousePosition(
@@ -439,15 +439,15 @@ export class PathHelper {
             return undefined;
         }
 
-        const pointForMouseCell = GridMath.getPointForCell(
+        const positionForMouseCell = GridMath.getPositionForCell(
             mouseCell,
             this.gridSettings.getMinX(),
             this.gridSettings.getStep(),
             this.gridSettings.getHalfStep(),
         );
 
-        const unitPositionX = pointForMouseCell.x;
-        const unitPositionY = pointForMouseCell.y;
+        const unitPositionX = positionForMouseCell.x;
+        const unitPositionY = positionForMouseCell.y;
 
         const part = targetUnit.isSmallSize() ? this.gridSettings.getCellSize() / 6 : 0;
         const xLeft = unitPositionX - part;
@@ -500,11 +500,11 @@ export class PathHelper {
                     mousePosition.y < yTop)
             ) {
                 let closestDistance = Number.MAX_SAFE_INTEGER;
-                let closestPoint = availableAttackCells[0];
+                let closestCell = availableAttackCells[0];
                 for (const ap of availableAttackCells) {
                     const distance = HoCMath.getDistance(
                         mousePosition,
-                        GridMath.getPointForCell(
+                        GridMath.getPositionForCell(
                             ap,
                             this.gridSettings.getMinX(),
                             this.gridSettings.getStep(),
@@ -513,11 +513,11 @@ export class PathHelper {
                     );
                     if (distance < closestDistance) {
                         closestDistance = distance;
-                        closestPoint = ap;
+                        closestCell = ap;
                     }
                 }
 
-                if (closestPoint && !unitIsSmallSize) {
+                if (closestCell && !unitIsSmallSize) {
                     return this.getClosestAttackCell(
                         mousePosition,
                         this.isCornerMousePosition(
@@ -530,11 +530,11 @@ export class PathHelper {
                             mouseCell,
                             mousePosition,
                         ),
-                        attackCellHashesToLargeCells.get((closestPoint.x << 4) | closestPoint.y),
+                        attackCellHashesToLargeCells.get((closestCell.x << 4) | closestCell.y),
                     );
                 }
 
-                return closestPoint;
+                return closestCell;
             }
 
             if (mousePosition.x < xLeft && mousePosition.y < yDown) {
@@ -542,14 +542,14 @@ export class PathHelper {
                 const newUnitCellPositionY = mouseCell.y - 1;
 
                 if (newUnitCellPositionX >= 0 && newUnitCellPositionY >= 0) {
-                    const closestPoint = this.attackPointA(
+                    const closestCell = this.attackCellA(
                         mouseCell,
                         newUnitCellPositionX,
                         newUnitCellPositionY,
                         availableAttackCellHashes,
                         targetUnit,
                     );
-                    if (closestPoint && !unitIsSmallSize) {
+                    if (closestCell && !unitIsSmallSize) {
                         return this.getClosestAttackCell(
                             mousePosition,
                             this.isCornerMousePosition(
@@ -562,10 +562,10 @@ export class PathHelper {
                                 mouseCell,
                                 mousePosition,
                             ),
-                            attackCellHashesToLargeCells.get((closestPoint.x << 4) | closestPoint.y),
+                            attackCellHashesToLargeCells.get((closestCell.x << 4) | closestCell.y),
                         );
                     }
-                    return closestPoint;
+                    return closestCell;
                 }
             } else if (mousePosition.x > xRight && mousePosition.y > yTop) {
                 const newUnitCellPositionX = mouseCell.x + 1;
@@ -575,14 +575,14 @@ export class PathHelper {
                     newUnitCellPositionX < this.gridSettings.getGridSize() &&
                     newUnitCellPositionY < this.gridSettings.getGridSize()
                 ) {
-                    const closestPoint = this.attackPointB(
+                    const closestCell = this.attackCellB(
                         mouseCell,
                         newUnitCellPositionX,
                         newUnitCellPositionY,
                         availableAttackCellHashes,
                         targetUnit,
                     );
-                    if (closestPoint && !unitIsSmallSize) {
+                    if (closestCell && !unitIsSmallSize) {
                         return this.getClosestAttackCell(
                             mousePosition,
                             this.isCornerMousePosition(
@@ -595,24 +595,24 @@ export class PathHelper {
                                 mouseCell,
                                 mousePosition,
                             ),
-                            attackCellHashesToLargeCells.get((closestPoint.x << 4) | closestPoint.y),
+                            attackCellHashesToLargeCells.get((closestCell.x << 4) | closestCell.y),
                         );
                     }
-                    return closestPoint;
+                    return closestCell;
                 }
             } else if (mousePosition.x < xLeft && mousePosition.y > yTop) {
                 const newUnitCellPositionX = mouseCell.x - 1;
                 const newUnitCellPositionY = mouseCell.y + 1;
 
                 if (newUnitCellPositionX >= 0 && newUnitCellPositionY < this.gridSettings.getGridSize()) {
-                    const closestPoint = this.attackPointB(
+                    const closestCell = this.attackCellB(
                         mouseCell,
                         newUnitCellPositionX,
                         newUnitCellPositionY,
                         availableAttackCellHashes,
                         targetUnit,
                     );
-                    if (closestPoint && !unitIsSmallSize) {
+                    if (closestCell && !unitIsSmallSize) {
                         return this.getClosestAttackCell(
                             mousePosition,
                             this.isCornerMousePosition(
@@ -625,24 +625,24 @@ export class PathHelper {
                                 mouseCell,
                                 mousePosition,
                             ),
-                            attackCellHashesToLargeCells.get((closestPoint.x << 4) | closestPoint.y),
+                            attackCellHashesToLargeCells.get((closestCell.x << 4) | closestCell.y),
                         );
                     }
-                    return closestPoint;
+                    return closestCell;
                 }
             } else if (mousePosition.x > xRight && mousePosition.y < yDown) {
                 const newUnitCellPositionX = mouseCell.x + 1;
                 const newUnitCellPositionY = mouseCell.y - 1;
 
                 if (newUnitCellPositionX < this.gridSettings.getGridSize() && newUnitCellPositionY >= 0) {
-                    const closestPoint = this.attackPointA(
+                    const closestCell = this.attackCellA(
                         mouseCell,
                         newUnitCellPositionX,
                         newUnitCellPositionY,
                         availableAttackCellHashes,
                         targetUnit,
                     );
-                    if (closestPoint && !unitIsSmallSize) {
+                    if (closestCell && !unitIsSmallSize) {
                         return this.getClosestAttackCell(
                             mousePosition,
                             this.isCornerMousePosition(
@@ -655,10 +655,10 @@ export class PathHelper {
                                 mouseCell,
                                 mousePosition,
                             ),
-                            attackCellHashesToLargeCells.get((closestPoint.x << 4) | closestPoint.y),
+                            attackCellHashesToLargeCells.get((closestCell.x << 4) | closestCell.y),
                         );
                     }
-                    return closestPoint;
+                    return closestCell;
                 }
             } else if (mousePosition.x > xRight) {
                 const newUnitCellPositionX = mouseCell.x + 1;
@@ -683,13 +683,13 @@ export class PathHelper {
                     return p;
                 }
 
-                const closestPoint = this.attackPointC(
+                const closestCell = this.attackCellC(
                     mouseCell,
                     newUnitCellPositionX,
                     availableAttackCellHashes,
                     targetUnit,
                 );
-                if (closestPoint && !unitIsSmallSize) {
+                if (closestCell && !unitIsSmallSize) {
                     return this.getClosestAttackCell(
                         mousePosition,
                         this.isCornerMousePosition(
@@ -702,10 +702,10 @@ export class PathHelper {
                             mouseCell,
                             mousePosition,
                         ),
-                        attackCellHashesToLargeCells.get((closestPoint.x << 4) | closestPoint.y),
+                        attackCellHashesToLargeCells.get((closestCell.x << 4) | closestCell.y),
                     );
                 }
-                return closestPoint;
+                return closestCell;
             } else if (mousePosition.x < xLeft) {
                 const newUnitCellPositionX = mouseCell.x - 1;
                 if (availableAttackCellHashes.has((newUnitCellPositionX << 4) | mouseCell.y)) {
@@ -729,13 +729,13 @@ export class PathHelper {
                     return p;
                 }
 
-                const closestPoint = this.attackPointC(
+                const closestCell = this.attackCellC(
                     mouseCell,
                     newUnitCellPositionX,
                     availableAttackCellHashes,
                     targetUnit,
                 );
-                if (closestPoint && !unitIsSmallSize) {
+                if (closestCell && !unitIsSmallSize) {
                     return this.getClosestAttackCell(
                         mousePosition,
                         this.isCornerMousePosition(
@@ -748,10 +748,10 @@ export class PathHelper {
                             mouseCell,
                             mousePosition,
                         ),
-                        attackCellHashesToLargeCells.get((closestPoint.x << 4) | closestPoint.y),
+                        attackCellHashesToLargeCells.get((closestCell.x << 4) | closestCell.y),
                     );
                 }
-                return closestPoint;
+                return closestCell;
             } else if (mousePosition.y > yTop) {
                 const newUnitCellPositionY = mouseCell.y + 1;
                 if (availableAttackCellHashes.has((mouseCell.x << 4) | newUnitCellPositionY)) {
@@ -775,13 +775,13 @@ export class PathHelper {
                     return p;
                 }
 
-                const closestPoint = this.attackPointD(
+                const closestCell = this.attackCellD(
                     mouseCell,
                     newUnitCellPositionY,
                     availableAttackCellHashes,
                     targetUnit,
                 );
-                if (closestPoint && !unitIsSmallSize) {
+                if (closestCell && !unitIsSmallSize) {
                     return this.getClosestAttackCell(
                         mousePosition,
                         this.isCornerMousePosition(
@@ -794,10 +794,10 @@ export class PathHelper {
                             mouseCell,
                             mousePosition,
                         ),
-                        attackCellHashesToLargeCells.get((closestPoint.x << 4) | closestPoint.y),
+                        attackCellHashesToLargeCells.get((closestCell.x << 4) | closestCell.y),
                     );
                 }
-                return closestPoint;
+                return closestCell;
             } else if (mousePosition.y < yDown) {
                 const newUnitCellPositionY = mouseCell.y - 1;
                 if (availableAttackCellHashes.has((mouseCell.x << 4) | newUnitCellPositionY)) {
@@ -821,13 +821,13 @@ export class PathHelper {
                     return p;
                 }
 
-                const closestPoint = this.attackPointD(
+                const closestCell = this.attackCellD(
                     mouseCell,
                     newUnitCellPositionY,
                     availableAttackCellHashes,
                     targetUnit,
                 );
-                if (closestPoint && !unitIsSmallSize) {
+                if (closestCell && !unitIsSmallSize) {
                     return this.getClosestAttackCell(
                         mousePosition,
                         this.isCornerMousePosition(
@@ -840,10 +840,10 @@ export class PathHelper {
                             mouseCell,
                             mousePosition,
                         ),
-                        attackCellHashesToLargeCells.get((closestPoint.x << 4) | closestPoint.y),
+                        attackCellHashesToLargeCells.get((closestCell.x << 4) | closestCell.y),
                     );
                 }
-                return closestPoint;
+                return closestCell;
             }
         }
 
@@ -980,7 +980,7 @@ export class PathHelper {
 
             const cellsToCheck = this.getNeighborCells(mouseCell, new Set([mouseCellKey]), true, true, !hasStarted);
             for (const c of cellsToCheck) {
-                const cellPosition = GridMath.getPointForCell(
+                const cellPosition = GridMath.getPositionForCell(
                     c,
                     this.gridSettings.getMinX(),
                     this.gridSettings.getStep(),
@@ -1191,7 +1191,7 @@ export class PathHelper {
                 currentCells = [];
             }
         } else {
-            currentCells = GridMath.getCellsAroundPoint(this.gridSettings, byUnit.getPosition());
+            currentCells = GridMath.getCellsAroundPosition(this.gridSettings, byUnit.getPosition());
             for (const c of currentCells) {
                 fromPath.unshift(c);
             }
@@ -1223,7 +1223,7 @@ export class PathHelper {
                 }
                 bodyCells = [bodyCellPos];
             } else {
-                bodyCells = GridMath.getCellsAroundPoint(this.gridSettings, u.getPosition());
+                bodyCells = GridMath.getCellsAroundPosition(this.gridSettings, u.getPosition());
             }
 
             for (const bodyCellPos of bodyCells) {
@@ -1321,14 +1321,14 @@ export class PathHelper {
                     sumAggr += aggrBoard[cell.x][cell.y] || 1;
                 }
 
-                const aggrPoint = sumAggr / cells.length;
-                if (aggrPoint > 1) {
+                const aggrValue = sumAggr / cells.length;
+                if (aggrValue > 1) {
                     if (!weightedRoute.firstAggrMet) {
                         weightedRoute.firstAggrMet = true;
                         return 1;
                     }
                 }
-                return aggrPoint;
+                return aggrValue;
             }
 
             return 1;
