@@ -23,6 +23,7 @@ import {
 import { canBeApplied } from "../effects/aura_effects";
 
 import { SquarePlacement } from "../placement/square_placement";
+import { AppliedSpell } from "../spells/spells";
 import { FightStateManager } from "../state/fight_state_manager";
 import {
     BASE_UNIT_STACK_TO_SPAWN_EXP,
@@ -94,6 +95,72 @@ export class UnitsHolder {
 
     public getAllUnits(): Map<string, Unit> {
         return this.allUnits;
+    }
+
+    public getAllEnemyUnits(teamType: TeamType): Unit[] {
+        const enemyUnits: Unit[] = [];
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() !== teamType) {
+                enemyUnits.push(unit);
+            }
+        }
+
+        return enemyUnits;
+    }
+
+    public getAllAllies(teamType: TeamType): Unit[] {
+        const allies: Unit[] = [];
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() === teamType) {
+                allies.push(unit);
+            }
+        }
+
+        return allies;
+    }
+
+    public getAllTeamUnitsBuffs(teamType: TeamType): Map<string, AppliedSpell[]> {
+        const teamUnitBuffs: Map<string, AppliedSpell[]> = new Map();
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() === teamType) {
+                teamUnitBuffs.set(unit.getId(), unit.getBuffs());
+            }
+        }
+
+        return teamUnitBuffs;
+    }
+
+    public getAllEnemyUnitsDebuffs(teamType: TeamType): Map<string, AppliedSpell[]> {
+        const teamUnitBuffs: Map<string, AppliedSpell[]> = new Map();
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() !== teamType) {
+                teamUnitBuffs.set(unit.getId(), unit.getDebuffs());
+            }
+        }
+
+        return teamUnitBuffs;
+    }
+
+    public getAllTeamUnitsMagicResist(teamType: TeamType): Map<string, number> {
+        const teamUnitMagicResist: Map<string, number> = new Map();
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() === teamType) {
+                teamUnitMagicResist.set(unit.getId(), unit.getMagicResist());
+            }
+        }
+
+        return teamUnitMagicResist;
+    }
+
+    public getAllEnemyUnitsMagicResist(teamType: TeamType): Map<string, number> {
+        const enemyUnitMagicResist: Map<string, number> = new Map();
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() !== teamType) {
+                enemyUnitMagicResist.set(unit.getId(), unit.getMagicResist());
+            }
+        }
+
+        return enemyUnitMagicResist;
     }
 
     public getUnitByStats(unitProperties: UnitProperties): Unit | undefined {

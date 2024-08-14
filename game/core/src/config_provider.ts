@@ -309,12 +309,16 @@ export const getSpellConfig = (faction: FactionType, spellName: string): SpellPr
     // @ts-ignore: we do not know the type here yet
     const raceSpells = spellsJson[faction];
     if (!raceSpells) {
-        throw TypeError(`Unknown race - ${faction}`);
+        throw TypeError(`Unknown race ${faction} for the spell - ${spellName}`);
     }
 
     const spellConfig = raceSpells[spellName];
     if (!spellConfig) {
         throw TypeError(`Unknown spell - ${spellName}`);
+    }
+
+    if (!spellConfig.conflicts_with || spellConfig.conflicts_with.constructor !== Array) {
+        throw TypeError(`Unknown 'conflicts_with' type for the spell - ${spellName}`);
     }
 
     return new SpellProperties(
@@ -327,6 +331,8 @@ export const getSpellConfig = (faction: FactionType, spellName: string): SpellPr
         spellConfig.laps,
         spellConfig.self_cast_allowed,
         spellConfig.self_debuff_applies,
+        spellConfig.minimal_caster_stack_power,
+        spellConfig.conflicts_with,
     );
 };
 

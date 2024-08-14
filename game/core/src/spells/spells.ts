@@ -19,6 +19,8 @@ export enum SpellTargetType {
     FREE_CELL = "FREE_CELL",
     ANY_ALLY = "ANY_ALLY",
     RANDOM_CLOSE_TO_CASTER = "RANDOM_CLOSE_TO_CASTER",
+    ALL_ALLIES = "ALL_ALLIES",
+    ALL_ENEMIES = "ALL_ENEMIES",
 }
 
 export enum BookPosition {
@@ -104,6 +106,10 @@ export class SpellProperties {
 
     public readonly self_debuff_applies: boolean;
 
+    public readonly minimal_caster_stack_power: number;
+
+    public readonly conflicts_with: string[];
+
     public constructor(
         faction: FactionType,
         name: string,
@@ -114,6 +120,8 @@ export class SpellProperties {
         laps: number,
         self_cast_allowed: boolean,
         self_debuff_applies: boolean,
+        minimal_caster_stack_power: number,
+        conflicts_with: string[],
     ) {
         this.faction = faction;
         this.name = name;
@@ -124,6 +132,8 @@ export class SpellProperties {
         this.laps = laps;
         this.self_cast_allowed = self_cast_allowed;
         this.self_debuff_applies = self_debuff_applies;
+        this.minimal_caster_stack_power = minimal_caster_stack_power;
+        this.conflicts_with = conflicts_with;
     }
 }
 
@@ -219,6 +229,14 @@ export class Spell {
 
     public isSelfDebuffApplicable(): boolean {
         return this.spellProperties.self_debuff_applies;
+    }
+
+    public getMinimalCasterStackPower(): number {
+        return this.spellProperties.minimal_caster_stack_power;
+    }
+
+    public getConflictsWith(): string[] {
+        return this.spellProperties.conflicts_with;
     }
 
     public isRemaining(): boolean {
@@ -323,6 +341,98 @@ export class Spell {
     }
 }
 
+const verifyEmptyCell = (gridMatrix: number[][], emptyGridCell?: XY): boolean => {
+    if (!emptyGridCell) {
+        return false;
+    }
+
+    if (!(emptyGridCell.y in gridMatrix)) {
+        return false;
+    }
+
+    if (!(emptyGridCell.x in gridMatrix[emptyGridCell.y])) {
+        return false;
+    }
+
+    return !gridMatrix[emptyGridCell.y][emptyGridCell.x];
+};
+
+export function canBeMassCasted(
+    spell: Spell,
+    alliesBuffs: Map<string, AppliedSpell[]>,
+    enemiesDebuffs: Map<string, AppliedSpell[]>,
+    alliesMagicResists: Map<string, number>,
+    enemiesMagicResists: Map<string, number>,
+): boolean {
+    let canBeCasted = false;
+
+    if (spell.getSpellTargetType() === SpellTargetType.ALL_ALLIES) {
+        for (const [unitId, magicResist] of alliesMagicResists) {
+            const allyBuffs = alliesBuffs.get(unitId);
+
+            if (allyBuffs?.length) {
+                let canBeCastedForAlly = false;
+
+                for (const buff of allyBuffs) {
+                    if (
+                        !spell.getConflictsWith().includes(buff.getName()) &&
+                        buff.getName() !== spell.getName() &&
+                        magicResist !== 100
+                    ) {
+                        canBeCastedForAlly = true;
+                        break;
+                    }
+                }
+
+                if (canBeCastedForAlly) {
+                    canBeCasted = true;
+                    break;
+                }
+            } else if (magicResist !== 100) {
+                canBeCasted = true;
+                break;
+            }
+        }
+    } else if (spell.getSpellTargetType() === SpellTargetType.ALL_ENEMIES) {
+        for (const [unitId, magicResist] of enemiesMagicResists) {
+            const enemyDebuffs = enemiesDebuffs.get(unitId);
+
+            if (enemyDebuffs?.length) {
+                let canBeCastedForEnemy = false;
+
+                for (const debuff of enemyDebuffs) {
+                    if (
+                        !spell.getConflictsWith().includes(debuff.getName()) &&
+                        debuff.getName() !== spell.getName() &&
+                        magicResist !== 100
+                    ) {
+                        canBeCastedForEnemy = true;
+                        break;
+                    }
+                }
+
+                if (canBeCastedForEnemy) {
+                    canBeCasted = true;
+                    break;
+                }
+            } else if (magicResist !== 100) {
+                canBeCasted = true;
+                break;
+            }
+        }
+    }
+
+    return canBeCasted;
+}
+
+export function canBeSummoned(spell: Spell, gridMatrix: number[][], emptyGridCell?: XY): boolean {
+    if (spell.isSummon() && spell.getSpellTargetType() === SpellTargetType.RANDOM_CLOSE_TO_CASTER) {
+        return verifyEmptyCell(gridMatrix, emptyGridCell);
+    }
+
+    return false;
+}
+
 export function canBeCasted(
     isLocked: boolean,
     gridSettings: GridSettings,
@@ -337,10 +447,19 @@ export function canBeCasted(
     toTeamType?: TeamType,
     fromUnitName?: string,
     toUnitName?: string,
+    fromUnitStackPower?: number,
     toUnitMagicResistance?: number,
     targetGridCell?: XY,
 ) {
-    if (isLocked || !spell || spell.getLapsTotal() <= 0 || !spell.isRemaining() || !unitSpells?.length) {
+    if (
+        isLocked ||
+        !fromUnitStackPower ||
+        !spell ||
+        spell.getLapsTotal() <= 0 ||
+        !spell.isRemaining() ||
+        !unitSpells?.length ||
+        spell.getMinimalCasterStackPower() > fromUnitStackPower
+    ) {
         return false;
     }
 
@@ -357,31 +476,19 @@ export function canBeCasted(
     }
 
     const notAlreadyApplied = (): boolean => {
+        const willConclictWith = spell.getConflictsWith();
         if (alreadyAppliedBuffAndDebuffs?.length) {
             for (const existingBuff of alreadyAppliedBuffAndDebuffs) {
-                if (existingBuff.getName() === spell.getName() && existingBuff.getLaps()) {
+                if (
+                    (existingBuff.getName() === spell.getName() || willConclictWith.includes(existingBuff.getName())) &&
+                    existingBuff.getLaps()
+                ) {
                     return false;
                 }
             }
         }
 
         return true;
-    };
-
-    const verifyEmptyCell = (): boolean => {
-        if (!emptyGridCell) {
-            return false;
-        }
-
-        if (!(emptyGridCell.y in gridMatrix)) {
-            return false;
-        }
-
-        if (!(emptyGridCell.x in gridMatrix[emptyGridCell.y])) {
-            return false;
-        }
-
-        return !gridMatrix[emptyGridCell.y][emptyGridCell.x];
     };
 
     if (spell.getSpellTargetType() === SpellTargetType.ANY_ALLY) {
@@ -394,13 +501,13 @@ export function canBeCasted(
             (fromUnitName && toUnitName && fromUnitName === toUnitName);
 
         if (
-            (spell.isSelfCastAllowed() && fromUnitId && toUnitId && fromUnitId === toUnitId) ||
-            (!spell.isSelfCastAllowed() && !isSelfCast && fromTeamType && toTeamType && fromTeamType === toTeamType)
+            fromTeamType &&
+            toTeamType &&
+            fromTeamType === toTeamType &&
+            (spell.isSelfCastAllowed() || (!spell.isSelfCastAllowed() && !isSelfCast))
         ) {
             return notAlreadyApplied();
         }
-    } else if (spell.getSpellTargetType() === SpellTargetType.RANDOM_CLOSE_TO_CASTER) {
-        return !!toUnitId || verifyEmptyCell();
     }
 
     if (
@@ -409,7 +516,7 @@ export function canBeCasted(
         spell.getSpellTargetType() === SpellTargetType.FREE_CELL &&
         GridMath.isCellWithinGrid(gridSettings, targetGridCell)
     ) {
-        return !verifyEmptyCell();
+        return !verifyEmptyCell(gridMatrix, emptyGridCell);
     }
 
     return false;

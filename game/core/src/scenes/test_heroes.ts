@@ -42,7 +42,7 @@ import { ObstacleGenerator } from "../obstacles/obstacle_generator";
 import { IWeightedRoute, PathHelper } from "../path/path_helper";
 import { PlacementType, SquarePlacement } from "../placement/square_placement";
 import { Settings } from "../settings";
-import { canBeCasted, Spell, SpellTargetType } from "../spells/spells";
+import { canBeCasted, canBeMassCasted, canBeSummoned, Spell, SpellTargetType } from "../spells/spells";
 import { SpellsFactory } from "../spells/spells_factory";
 import { FightStateManager } from "../state/fight_state_manager";
 import { IVisibleUnit } from "../state/state";
@@ -874,6 +874,7 @@ class Sandbox extends GLScene {
                             this.hoverUnit?.getTeam(),
                             this.currentActiveUnit.getName(),
                             this.hoverUnit?.getName(),
+                            this.currentActiveUnit.getStackPower(),
                             this.hoverUnit?.getMagicResist(),
                         )
                     ) {
@@ -1259,6 +1260,7 @@ class Sandbox extends GLScene {
                             undefined,
                             this.currentActiveUnit.getName(),
                             undefined,
+                            this.currentActiveUnit.getStackPower(),
                             undefined,
                             mouseCell,
                         ) &&
@@ -1312,6 +1314,7 @@ class Sandbox extends GLScene {
                         undefined,
                         this.currentActiveUnit.getName(),
                         undefined,
+                        this.currentActiveUnit.getStackPower(),
                         undefined,
                         mouseCell,
                     ) &&
@@ -1945,7 +1948,11 @@ class Sandbox extends GLScene {
                 this.currentActiveUnitSwitchedAttackAuto = true;
             }
         } else if (this.hoveredSpell) {
-            if (this.hoveredSpell.getSpellTargetType() === SpellTargetType.RANDOM_CLOSE_TO_CASTER) {
+            if (
+                this.hoveredSpell.getSpellTargetType() === SpellTargetType.RANDOM_CLOSE_TO_CASTER ||
+                this.hoveredSpell.getSpellTargetType() === SpellTargetType.ALL_ALLIES ||
+                this.hoveredSpell.getSpellTargetType() === SpellTargetType.ALL_ENEMIES
+            ) {
                 if (this.currentActiveUnit) {
                     const randomCell = GridMath.getRandomCellAroundPosition(
                         this.sc_sceneSettings.getGridSettings(),
@@ -1954,63 +1961,106 @@ class Sandbox extends GLScene {
                         this.currentActiveUnit.getPosition(),
                     );
 
-                    const possibleUnit = this.unitsHolder.getSummonedUnitByName(
-                        this.currentActiveUnit.getTeam(),
-                        this.hoveredSpell.getSummonUnitName(),
-                    );
+                    if (canBeSummoned(this.hoveredSpell, this.gridMatrix, randomCell)) {
+                        const amountToSummon = this.currentActiveUnit.getAmountAlive() * this.hoveredSpell.getPower();
 
-                    if (
-                        (possibleUnit || randomCell) &&
-                        canBeCasted(
-                            false,
-                            this.sc_sceneSettings.getGridSettings(),
-                            this.gridMatrix,
-                            this.hoverUnit?.getBuffs(),
-                            this.hoveredSpell,
-                            this.currentActiveUnit?.getSpells(),
-                            randomCell,
-                            this.currentActiveUnit?.getId(),
-                            possibleUnit?.getId(),
-                            this.currentActiveUnit?.getTeam(),
-                            this.hoverUnit?.getTeam(),
-                            this.currentActiveUnit?.getName(),
-                            this.hoverUnit?.getName(),
-                            this.hoverUnit?.getMagicResist(),
-                        )
-                    ) {
-                        if (this.hoveredSpell.isSummon()) {
-                            const amountToSummon =
-                                this.currentActiveUnit.getAmountAlive() * this.hoveredSpell.getPower();
+                        const possibleUnit = this.unitsHolder.getSummonedUnitByName(
+                            this.currentActiveUnit.getTeam(),
+                            this.hoveredSpell.getSummonUnitName(),
+                        );
 
-                            if (possibleUnit) {
-                                possibleUnit.increaseAmountAlive(amountToSummon);
-                            } else {
-                                const unitToSummon = this.unitsFactory.makeCreature(
-                                    this.hoveredSpell.getSummonUnitRace(),
-                                    this.hoveredSpell.getSummonUnitName(),
-                                    this.currentActiveUnit.getTeam(),
-                                    amountToSummon,
-                                );
-                                if (
-                                    randomCell &&
-                                    this.unitsHolder.spawnSelected(
-                                        this.grid,
-                                        unitToSummon.getAllProperties(),
-                                        randomCell,
-                                        true,
-                                    )
-                                ) {
-                                    this.unitsHolder.refreshStackPowerForAllUnits();
-                                }
-                            }
-
-                            if (this.currentActiveUnit) {
-                                this.sc_sceneLog.updateLog(
-                                    `${this.currentActiveUnit.getName()} summoned ${amountToSummon} x ${this.hoveredSpell.getSummonUnitName()}`,
-                                );
+                        if (possibleUnit) {
+                            possibleUnit.increaseAmountAlive(amountToSummon);
+                        } else {
+                            const unitToSummon = this.unitsFactory.makeCreature(
+                                this.hoveredSpell.getSummonUnitRace(),
+                                this.hoveredSpell.getSummonUnitName(),
+                                this.currentActiveUnit.getTeam(),
+                                amountToSummon,
+                            );
+                            if (
+                                randomCell &&
+                                this.unitsHolder.spawnSelected(
+                                    this.grid,
+                                    unitToSummon.getAllProperties(),
+                                    randomCell,
+                                    true,
+                                )
+                            ) {
+                                this.unitsHolder.refreshStackPowerForAllUnits();
                             }
                         }
+
+                        if (this.currentActiveUnit) {
+                            this.sc_sceneLog.updateLog(
+                                `${this.currentActiveUnit.getName()} summoned ${amountToSummon} x ${this.hoveredSpell.getSummonUnitName()}`,
+                            );
+                        }
+
                         this.currentActiveUnit.useSpell(this.hoveredSpell);
+                        this.finishTurn();
+                    } else if (
+                        canBeMassCasted(
+                            this.hoveredSpell,
+                            this.unitsHolder.getAllTeamUnitsBuffs(this.currentActiveUnit.getTeam()),
+                            this.unitsHolder.getAllEnemyUnitsDebuffs(this.currentActiveUnit.getTeam()),
+                            this.unitsHolder.getAllTeamUnitsMagicResist(this.currentActiveUnit.getTeam()),
+                            this.unitsHolder.getAllEnemyUnitsMagicResist(this.currentActiveUnit.getTeam()),
+                        )
+                    ) {
+                        if (this.hoveredSpell.getSpellTargetType() === SpellTargetType.ALL_ALLIES) {
+                            for (const u of this.unitsHolder.getAllAllies(this.currentActiveUnit.getTeam())) {
+                                if (u.getMagicResist() === 100) {
+                                    continue;
+                                }
+
+                                const conflictingSpells = [
+                                    ...this.hoveredSpell.getConflictsWith(),
+                                    this.hoveredSpell.getName(),
+                                ];
+                                let needToApply = true;
+                                for (const cs of conflictingSpells) {
+                                    if (u.hasBuffActive(cs)) {
+                                        needToApply = false;
+                                        break;
+                                    }
+                                }
+
+                                if (needToApply) {
+                                    u.applyBuff(this.hoveredSpell, 0, 0, u.getId() === this.currentActiveUnit.getId());
+                                }
+                            }
+                        } else {
+                            for (const u of this.unitsHolder.getAllEnemyUnits(this.currentActiveUnit.getTeam())) {
+                                if (u.getMagicResist() === 100) {
+                                    continue;
+                                }
+
+                                const conflictingSpells = [
+                                    ...this.hoveredSpell.getConflictsWith(),
+                                    this.hoveredSpell.getName(),
+                                ];
+                                let needToApply = true;
+                                for (const cs of conflictingSpells) {
+                                    if (u.hasDebuffActive(cs)) {
+                                        needToApply = false;
+                                        break;
+                                    }
+                                }
+
+                                if (needToApply) {
+                                    u.applyDebuff(
+                                        this.hoveredSpell,
+                                        0,
+                                        0,
+                                        u.getId() === this.currentActiveUnit.getId(),
+                                    );
+                                }
+                            }
+                        }
+
+                        this.currentActiveUnit.useSpell(this.hoveredSpell);
+                        this.unitsHolder.refreshStackPowerForAllUnits();
                         this.finishTurn();
                     } else {
                         this.currentActiveSpell = undefined;

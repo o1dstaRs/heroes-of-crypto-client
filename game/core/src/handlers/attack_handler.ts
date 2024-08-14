@@ -229,6 +229,7 @@ export class AttackHandler {
                 targetUnit.getTeam(),
                 attackerUnit.getName(),
                 targetUnit.getName(),
+                attackerUnit.getStackPower(),
                 targetUnit.getMagicResist(),
             )
         ) {
@@ -236,6 +237,7 @@ export class AttackHandler {
                 currentActiveSpell,
                 attackerUnit.getAllProperties().max_hp,
                 attackerUnit.getAllProperties().base_armor,
+                attackerUnit.getId() === targetUnit.getId(),
             );
             if (currentActiveSpell.isSelfDebuffApplicable()) {
                 attackerUnit.applyDebuff(

@@ -8,8 +8,9 @@
         "dist"
     ],
     "scripts": {
-        "build": "npm test && rimraf dist && tsc && yarn run build:docs",
-        "build:docs": "rimraf ../../.parcel-cache && rimraf ../../docs/core && rimraf images && npm run copy:images && npm run generate:images && parcel build --no-optimize src/ui/index.html --public-url . --no-source-maps --dist-dir ../../docs/core",
+        "build": "yarn run build:images && npm test && rimraf dist && tsc && yarn run build:docs",
+        "build:docs": "rimraf ../../.parcel-cache && rimraf ../../docs/core && parcel build --no-optimize src/ui/index.html --public-url . --no-source-maps --dist-dir ../../docs/core",
+        "build:images": "rimraf images && npm run copy:images && npm run generate:images",
         "copy:images": "cp -r $HOC_IMAGES_LOC .",
         "generate:images": "node scripts/generate_image_imports.js",
         "start": "rimraf ../../.parcel-cache && parcel src/ui/index.html",

@@ -45,7 +45,7 @@
         "pull:common": "scripts/pull_hoc_common.sh main",
         "release": "lerna publish",
         "start": "yarn workspace @heroesofcrypto/core start",
-        "start:fresh": "yarn run common:command && yarn run build:engine && yarn workspace @heroesofcrypto/common build && yarn workspace @heroesofcrypto/core copy:images && yarn workspace @heroesofcrypto/core generate:images && yarn workspace @heroesofcrypto/core start",
+        "start:fresh": "yarn run common:command && yarn run build:engine && yarn workspace @heroesofcrypto/common build && yarn workspace @heroesofcrypto/core build:images && yarn workspace @heroesofcrypto/core start",
         "updiff": "yarn workspace @box2d/updiff start",
         "updiff:cpp": "yarn workspace @box2d/updiff run convert:cpp",
         "updiff:ts": "yarn workspace @box2d/updiff run convert:ts"
