@@ -234,6 +234,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected readonly effectsFactory: EffectsFactory;
 
+    protected readonly spellsFactory: SpellsFactory;
+
     protected selectedAttackType: AttackType;
 
     protected rangeArmorMultiplier = 1;
@@ -278,6 +280,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.greenSmallFlagSprite = greenSmallFlagSprite;
         this.redSmallFlagSprite = redSmallFlagSprite;
         this.effectsFactory = effectsFactory;
+        this.spellsFactory = spellsFactory;
         this.summoned = summoned;
 
         if (this.unitProperties.attack_type === AttackType.MELEE) {
@@ -359,7 +362,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             };
         }
         this.spells = [];
-        this.parseSpells(spellsFactory);
+        this.parseSpells();
         this.buffs = [];
         this.debuffs = [];
 
@@ -382,7 +385,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         );
     }
 
-    protected parseSpells(spellsFactory: SpellsFactory): void {
+    protected parseSpells(): void {
         const spells: Map<string, number> = new Map();
         for (const sp of this.unitProperties.spells) {
             if (!spells.has(sp)) {
@@ -409,7 +412,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             }
 
             const spellName = spArr[1];
-            this.spells.push(spellsFactory.makeSpell(faction, spellName, v));
+            this.spells.push(this.spellsFactory.makeSpell(faction, spellName, v));
         }
     }
 
@@ -1141,7 +1144,12 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         let bookPosition = 1;
         const rendered: number[] = [];
         for (let i = windowLeft; i < windowRight; i++) {
-            if (i in this.spells && this.spells[i] && this.spells[i].isRemaining()) {
+            if (
+                i in this.spells &&
+                this.spells[i] &&
+                this.spells[i].isRemaining() &&
+                this.spells[i].getMinimalCasterStackPower() <= this.getStackPower()
+            ) {
                 this.spells[i].renderOnPage(bookPosition++);
                 rendered.push(i);
             }
@@ -1572,6 +1580,20 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             );
         } else {
             this.unitProperties.base_attack = this.initialUnitProperties.base_attack;
+        }
+
+        if (this.hasBuffActive("Riot")) {
+            const spell = this.spellsFactory.makeSpell(FactionType.CHAOS, "Riot", 1);
+            this.unitProperties.attack_mod = Number(
+                ((this.unitProperties.base_attack * spell.getPower()) / 100).toFixed(2),
+            );
+        } else if (this.hasBuffActive("Mass Riot")) {
+            const spell = this.spellsFactory.makeSpell(FactionType.CHAOS, "Mass Riot", 1);
+            this.unitProperties.attack_mod = Number(
+                ((this.unitProperties.base_attack * spell.getPower()) / 100).toFixed(2),
+            );
+        } else {
+            this.unitProperties.attack_mod = this.initialUnitProperties.attack_mod;
         }
 
         // Heavy Armor

@@ -788,11 +788,11 @@
         },
         "Ogre Mage": {
             "name": "Ogre Mage",
-            "hp": 64,
+            "hp": 60,
             "steps": 5,
             "speed": 5,
-            "armor": 24,
-            "attack_type": "MELEE",
+            "armor": 22,
+            "attack_type": "MAGIC",
             "attack": 24,
             "attack_damage_min": 14,
             "attack_damage_max": 20,
@@ -804,7 +804,13 @@
             "exp": 110,
             "size": 1,
             "level": 3,
-            "spells": [],
+            "spells": [
+                "Chaos:Riot",
+                "Chaos:Magic Mirror",
+                "Chaos:Magic Mirror",
+                "Chaos:Mass Riot",
+                "Chaos:Mass Magic Mirror"
+            ],
             "abilities": []
         },
         "Cyclops": {

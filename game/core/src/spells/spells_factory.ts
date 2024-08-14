@@ -40,11 +40,19 @@ export class SpellsFactory {
             "Totem of Courage": textures.totel_of_courage_256.texture,
             "Helping Hand": textures.helping_hand_256.texture,
             "Summon Wolves": textures.summon_wolves_256.texture,
+            Riot: textures.riot_256.texture,
+            "Mass Riot": textures.mass_riot_256.texture,
+            "Magic Mirror": textures.magic_mirror_256.texture,
+            "Mass Magic Mirror": textures.mass_magic_mirror_256.texture,
         };
         this.fontTexturesBySpellName = {
             "Totem of Courage": textures.totem_of_courage_font.texture,
             "Helping Hand": textures.helping_hand_font.texture,
             "Summon Wolves": textures.summon_wolves_font.texture,
+            Riot: textures.riot_font.texture,
+            "Mass Riot": textures.mass_riot_font.texture,
+            "Magic Mirror": textures.magic_mirror_font.texture,
+            "Mass Magic Mirror": textures.mass_magic_mirror_font.texture,
         };
         this.texturesByDigit = texturesByDigit;
     }

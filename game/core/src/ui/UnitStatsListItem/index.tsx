@@ -293,7 +293,7 @@ export const UnitStatsListItem: React.FC = () => {
         }
 
         const attackTypeSelected = unitProperties.attack_type_selected;
-        let attackDamage = unitProperties.base_attack + unitProperties.attack_mod;
+        let attackDamage = unitProperties.base_attack;
         if (attackTypeSelected === AttackType.MELEE && unitProperties.attack_type === AttackType.RANGE) {
             attackDamage /= 2;
         }
@@ -409,10 +409,11 @@ export const UnitStatsListItem: React.FC = () => {
                                                 {attackTypeSelected === AttackType.RANGE ? <BowIcon /> : <SwordIcon />}
                                             </IconButton>
                                             <Button disabled>{Number(attackDamage.toFixed(2))}</Button>
-                                            {unitProperties.attack_multiplier !== 1 ? (
+                                            {unitProperties.attack_mod > 0 && (
+                                                <Button disabled>(+{Number(unitProperties.attack_mod)})</Button>
+                                            )}
+                                            {unitProperties.attack_multiplier !== 1 && (
                                                 <Button disabled>x{unitProperties.attack_multiplier}</Button>
-                                            ) : (
-                                                <span />
                                             )}
                                         </ButtonGroup>
                                     </Tooltip>
@@ -580,7 +581,7 @@ export const UnitStatsListItem: React.FC = () => {
                                             <Button disabled>
                                                 {unitProperties.luck + unitProperties.luck_per_turn}
                                             </Button>
-                                            {luckPerTurn ? <Button disabled>({luckPerTurn})</Button> : <span />}
+                                            {luckPerTurn && <Button disabled>({luckPerTurn})</Button>}
                                         </ButtonGroup>
                                     </Tooltip>
                                 </ListItem>
