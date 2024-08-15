@@ -1065,6 +1065,7 @@ class Sandbox extends GLScene {
                         }
 
                         this.fillActiveAuraRanges(
+                            unit.isSmallSize(),
                             unit.getPosition(),
                             unit.getAllProperties().aura_ranges,
                             unit.getAllProperties().aura_is_buff,
