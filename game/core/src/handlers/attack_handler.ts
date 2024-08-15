@@ -312,7 +312,7 @@ export class AttackHandler {
             this.gridSettings,
             "attk",
             hoverRangeAttackDivisor,
-            hoverRangeAttackPoint,
+            hoverRangeAttackPosition,
         );
 
         // response starts here

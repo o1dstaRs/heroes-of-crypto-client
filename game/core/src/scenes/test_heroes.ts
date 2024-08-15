@@ -3289,37 +3289,40 @@ class Sandbox extends GLScene {
             )) {
                 this.drawer.drawAttackTo(settings.m_debugDraw, enemy.getPosition(), enemy.getSize());
             }
-        } else if (hoverAttackUnit && this.currentActiveUnit && this.hoverRangeAttackPoint && this.currentActiveUnit?.hasAbilityActive("Large Caliber")) {
-                for (const target of allUnitsInShotArea(
-                    hoverAttackUnit,
-                    this.hoverRangeAttackPoint,
-                    this.unitsHolder,
-                    this.grid,
-                    this.sc_sceneSettings.getGridSettings()
-                    )) {
-                        if (this.hoverRangeAttackObstacle) {
-                            this.drawer.drawAttackTo(
-                                settings.m_debugDraw,
-                                this.hoverRangeAttackObstacle.position,
-                                this.hoverRangeAttackObstacle.size,
-                            );
-                        }
-                        else {
-                            this.drawer.drawAttackTo(settings.m_debugDraw, target.getPosition(), target.getSize());
-                        }
-                    }
+        } else if (
+            hoverAttackUnit &&
+            this.currentActiveUnit &&
+            this.hoverRangeAttackPosition &&
+            this.currentActiveUnit?.hasAbilityActive("Large Caliber")
+        ) {
+            for (const target of allUnitsInShotArea(
+                hoverAttackUnit,
+                this.hoverRangeAttackPosition,
+                this.unitsHolder,
+                this.grid,
+                this.sc_sceneSettings.getGridSettings(),
+            )) {
+                if (this.hoverRangeAttackObstacle) {
+                    this.drawer.drawAttackTo(
+                        settings.m_debugDraw,
+                        this.hoverRangeAttackObstacle.position,
+                        this.hoverRangeAttackObstacle.size,
+                    );
+                } else {
+                    this.drawer.drawAttackTo(settings.m_debugDraw, target.getPosition(), target.getSize());
+                }
+            }
             // console.dir(this.hoverAttackUnits)
             // for (const unit of allUnitsInShotArea(
             //     GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.currentActiveUnit.getPosition()),
             //     GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.hoverRangeAttackPoint),
             //     this.unitsHolder,
             //     this.grid,
-                
+
             // ))
         } else if (hoverAttackUnit) {
             this.drawer.drawAttackTo(settings.m_debugDraw, hoverAttackUnit.getPosition(), hoverAttackUnit.getSize());
-        }
-        else if (this.hoverRangeAttackObstacle) {
+        } else if (this.hoverRangeAttackObstacle) {
             this.drawer.drawAttackTo(
                 settings.m_debugDraw,
                 this.hoverRangeAttackObstacle.position,
