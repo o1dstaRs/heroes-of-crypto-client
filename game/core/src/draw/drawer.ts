@@ -509,14 +509,15 @@ export class Drawer {
         );
     }
 
-    public drawAuraArea(draw: b2Draw, position: XY, range: number, isBuff: boolean): void {
+    public drawAuraArea(draw: b2Draw, position: XY, range: number, isBuff: boolean, isSmallUnit: boolean = true): void {
+        const step = isSmallUnit ? this.gridSettings.getHalfStep() : this.gridSettings.getStep();
         const start = {
-            x: position.x - range - this.gridSettings.getHalfStep(),
-            y: position.y - range - this.gridSettings.getHalfStep(),
+            x: position.x - range - step,
+            y: position.y - range - step,
         };
         const end = {
-            x: position.x + range + this.gridSettings.getHalfStep(),
-            y: position.y + range + this.gridSettings.getHalfStep(),
+            x: position.x + range + step,
+            y: position.y + range + step,
         };
         draw.DrawPolygon(
             [
@@ -529,12 +530,12 @@ export class Drawer {
             isBuff ? Drawer.COLOR_GREEN : Drawer.COLOR_RED,
         );
         const startOffset = {
-            x: position.x - range - this.gridSettings.getHalfStep() - 1,
-            y: position.y - range - this.gridSettings.getHalfStep() - 1,
+            x: position.x - range - step - 1,
+            y: position.y - range - step - 1,
         };
         const endOffset = {
-            x: position.x + range + this.gridSettings.getHalfStep() + 1,
-            y: position.y + range + this.gridSettings.getHalfStep() + 1,
+            x: position.x + range + step + 1,
+            y: position.y + range + step + 1,
         };
         draw.DrawPolygon(
             [

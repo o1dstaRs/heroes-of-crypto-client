@@ -1257,7 +1257,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     public calculateAuraEffectMultiplier(auraEffect: AuraEffect): number {
         let calculatedCoeff = 1;
 
-        if (auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_MELEE_DAMAGE_PERCENTAGE) {
+        if (
+            auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_MELEE_DAMAGE_PERCENTAGE ||
+            auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_RANGE_ARMOR_PERCENTAGE
+        ) {
             calculatedCoeff +=
                 (auraEffect.getPower() / 100 / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower() +
                 this.getLuck() / 100;
@@ -1281,7 +1284,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             calculatedCoeff *= (combinedPower / 100 / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower();
         } else if (
             ability.getPowerType() === AbilityPowerType.ADDITIONAL_DAMAGE_PERCENTAGE ||
-            ability.getPowerType() === AbilityPowerType.ADDITIONAL_MELEE_DAMAGE_PERCENTAGE
+            ability.getPowerType() === AbilityPowerType.ADDITIONAL_MELEE_DAMAGE_PERCENTAGE ||
+            ability.getPowerType() === AbilityPowerType.ADDITIONAL_RANGE_ARMOR_PERCENTAGE
         ) {
             calculatedCoeff +=
                 (ability.getPower() / 100 / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower() +
@@ -1560,13 +1564,24 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.unitProperties.luck = LUCK_MAX_VALUE_TOTAL;
             this.unitProperties.luck_per_turn = 0;
         } else {
-            this.unitProperties.luck = this.initialUnitProperties.luck;
-            this.randomizeLuckPerTurn();
+            if (this.unitProperties.luck !== this.initialUnitProperties.luck) {
+                this.unitProperties.luck = this.initialUnitProperties.luck;
+                this.randomizeLuckPerTurn();
+            }
         }
 
         this.unitProperties.base_armor = Number(
             (this.initialUnitProperties.base_armor + baseStatsDiff.baseStats.armor).toFixed(2),
         );
+
+        const leatherArmorAbility = this.getAbility("Leather Armor");
+        this.rangeArmorMultiplier = leatherArmorAbility ? leatherArmorAbility.getPower() / 100 : 1;
+
+        const arrowsWingshieldAura = this.getAppliedAuraEffect("Arrows Wingshield Aura");
+        if (arrowsWingshieldAura) {
+            this.rangeArmorMultiplier *= Number((1 + arrowsWingshieldAura.getPower() / 100).toFixed(2));
+        }
+
         this.unitProperties.range_armor = Number(
             (this.unitProperties.base_armor * this.rangeArmorMultiplier).toFixed(2),
         );
@@ -1575,7 +1590,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (sharpenedWeaponsAura) {
             this.unitProperties.base_attack = Number(
                 (
-                    this.initialUnitProperties.base_attack * this.calculateAuraEffectMultiplier(sharpenedWeaponsAura)
+                    this.initialUnitProperties.base_attack *
+                    Number((1 + sharpenedWeaponsAura.getPower() / 100).toFixed(2))
                 ).toFixed(2),
             );
         } else {
@@ -1734,6 +1750,17 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.refreshAbiltyDescription(
                 sharpenedWeaponsAuraAbility.getName(),
                 sharpenedWeaponsAuraAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Arrows Wingshield Aura
+        const arrowsWingshieldAuraAbility = this.getAbility("Arrows Wingshield Aura");
+        if (arrowsWingshieldAuraAbility) {
+            const percentage =
+                Number((this.calculateAbilityMultiplier(arrowsWingshieldAuraAbility) * 100).toFixed(2)) - 100;
+            this.refreshAbiltyDescription(
+                arrowsWingshieldAuraAbility.getName(),
+                arrowsWingshieldAuraAbility.getDesc().replace(/\{\}/g, percentage.toString()),
             );
         }
 

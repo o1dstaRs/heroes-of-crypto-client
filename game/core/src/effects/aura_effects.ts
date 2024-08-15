@@ -66,7 +66,10 @@ export class AuraEffect {
 }
 
 export function canBeApplied(unitAttackType: AttackType, auraEffectProperties: AuraEffectProperties): boolean {
-    if (auraEffectProperties.power_type === AbilityPowerType.LUCK_10) {
+    if (
+        auraEffectProperties.power_type === AbilityPowerType.LUCK_10 ||
+        auraEffectProperties.power_type === AbilityPowerType.ADDITIONAL_RANGE_ARMOR_PERCENTAGE
+    ) {
         return true;
     }
 

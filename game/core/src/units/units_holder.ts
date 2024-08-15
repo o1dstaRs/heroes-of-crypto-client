@@ -258,6 +258,9 @@ export class UnitsHolder {
     public refreshStackPowerForAllUnits(): void {
         FightStateManager.getInstance().setUnitsCalculatedStacksPower(this.gridSettings, this.allUnits);
         for (const u of this.getAllUnitsIterator()) {
+            if (!GridMath.isCellWithinGrid(this.gridSettings, u.getBaseCell())) {
+                continue;
+            }
             u.adjustBaseStats();
             u.adjustRangeShotsNumber(false);
             this.refreshBarFixtures(u);
@@ -315,13 +318,17 @@ export class UnitsHolder {
 
         // fill the maps with the aura effects, duplicate auras allowed
         for (const u of this.getAllUnitsIterator()) {
+            if (!GridMath.isCellWithinGrid(this.gridSettings, u.getBaseCell())) {
+                continue;
+            }
+
             u.cleanAuraEffects();
 
             const unitAuraEffects = u.getAuraEffects();
             for (const uae of unitAuraEffects) {
-                uae.toDefault();
-                const unitAuraEffectProperties = uae.getProperties();
                 for (const c of u.getCells()) {
+                    uae.toDefault();
+                    const unitAuraEffectProperties = uae.getProperties();
                     if (unitAuraEffectProperties.power) {
                         unitAuraEffectProperties.power =
                             Number((u.calculateAuraEffectMultiplier(uae) * 100).toFixed(2)) - 100;

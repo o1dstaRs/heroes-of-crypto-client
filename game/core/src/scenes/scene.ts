@@ -321,6 +321,7 @@ export abstract class Scene extends b2ContactListener {
     protected abstract handleMouseDownForSelectedBody(): void;
 
     protected abstract selectUnitPreStart(
+        isSmallUnit: boolean,
         position: XY,
         rangeShotDistance: number,
         auraRanges: number[],
@@ -406,12 +407,13 @@ export abstract class Scene extends b2ContactListener {
                     body.SetAwake(true);
                 } else if (!this.sc_started) {
                     body.SetIsActive(true);
-                    const userData = body.GetUserData();
+                    const unitData = body.GetUserData();
                     this.selectUnitPreStart(
+                        unitData.size === 1,
                         body.GetPosition(),
-                        userData.shot_distance,
-                        userData.aura_ranges,
-                        userData.aura_is_buff,
+                        unitData.shot_distance,
+                        unitData.aura_ranges,
+                        unitData.aura_is_buff,
                     );
                 }
             }

@@ -285,5 +285,16 @@
         "stack_powered": false,
         "effect": null,
         "aura_effect": "Luck"
+    },
+    "Arrows Wingshield Aura": {
+        "name": "Arrows Wingshield Aura",
+        "type": "BUFF_AURA",
+        "desc": "Allies in range receive a +{}% defense bonus against ranged attacks",
+        "power": 20,
+        "power_type": "ADDITIONAL_RANGE_ARMOR_PERCENTAGE",
+        "skip_reponse": false,
+        "stack_powered": true,
+        "effect": null,
+        "aura_effect": "Arrows Wingshield"
     }
 }

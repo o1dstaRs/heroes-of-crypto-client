@@ -1065,6 +1065,7 @@ class Sandbox extends GLScene {
                         }
 
                         this.fillActiveAuraRanges(
+                            unit.isSmallSize(),
                             unit.getPosition(),
                             unit.getAllProperties().aura_ranges,
                             unit.getAllProperties().aura_is_buff,
@@ -2371,6 +2372,7 @@ class Sandbox extends GLScene {
     }
 
     private fillActiveAuraRanges(
+        isSmallUnit: boolean,
         position: XY,
         auraRanges: number[] = [],
         auraIsBuff: boolean[] = [],
@@ -2391,12 +2393,14 @@ class Sandbox extends GLScene {
                     xy: position,
                     range: auraRanges[i] * STEP,
                     isBuff: auraIsBuff[i],
+                    isSmallUnit: isSmallUnit,
                 });
             }
         }
     }
 
     protected selectUnitPreStart(
+        isSmallUnit: boolean,
         position: XY,
         rangeShotDistance = 0,
         auraRanges: number[] = [],
@@ -2410,7 +2414,7 @@ class Sandbox extends GLScene {
         } else {
             this.sc_currentActiveShotRange = undefined;
         }
-        this.fillActiveAuraRanges(position, auraRanges, auraIsBuff);
+        this.fillActiveAuraRanges(isSmallUnit, position, auraRanges, auraIsBuff);
     }
 
     public Step(settings: Settings, timeStep: number): number {
@@ -2943,6 +2947,7 @@ class Sandbox extends GLScene {
                                         this.sc_currentActiveShotRange = undefined;
                                     }
                                     this.fillActiveAuraRanges(
+                                        nextUnit.isSmallSize(),
                                         nextUnit.getPosition(),
                                         nextUnit.getAllProperties().aura_ranges,
                                         nextUnit.getAllProperties().aura_is_buff,
@@ -3234,7 +3239,7 @@ class Sandbox extends GLScene {
             for (const aura of this.sc_currentActiveAuraRanges) {
                 const isBuff = aura.isBuff ?? true;
                 if (aura.range) {
-                    this.drawer.drawAuraArea(settings.m_debugDraw, aura.xy, aura.range, isBuff);
+                    this.drawer.drawAuraArea(settings.m_debugDraw, aura.xy, aura.range, isBuff, aura.isSmallUnit);
                 }
             }
         }
@@ -3242,7 +3247,7 @@ class Sandbox extends GLScene {
             for (const aura of this.hoverActiveAuraRanges) {
                 const isBuff = aura.isBuff ?? true;
                 if (aura.range) {
-                    this.drawer.drawAuraArea(settings.m_debugDraw, aura.xy, aura.range, isBuff);
+                    this.drawer.drawAuraArea(settings.m_debugDraw, aura.xy, aura.range, isBuff, aura.isSmallUnit);
                 }
             }
         }
