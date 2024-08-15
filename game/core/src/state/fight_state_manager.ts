@@ -289,8 +289,8 @@ export class FightStateManager {
         }
         const teamMembersAlive =
             team === TeamType.LOWER
-                ? this.fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0
-                : this.fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
+                ? (this.fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0)
+                : (this.fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0);
         let teamMembersToMakeTurn = teamMembersAlive - alreadyMadeTurnTeamMembers - 1;
         if (teamMembersToMakeTurn < 0) {
             teamMembersToMakeTurn = 0;
@@ -339,8 +339,8 @@ export class FightStateManager {
         }
         const teamMembersAlive =
             team === TeamType.LOWER
-                ? this.fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0
-                : this.fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
+                ? (this.fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0)
+                : (this.fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0);
 
         let teamMembersToMakeTurn = teamMembersAlive - alreadyMadeTurnTeamMembers;
         if (teamMembersToMakeTurn < 0) {

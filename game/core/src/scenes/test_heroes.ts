@@ -74,6 +74,7 @@ import { GLScene } from "./gl_scene";
 import { registerScene, SceneContext } from "./scene";
 import { SceneSettings } from "./scene_settings";
 import { IVisibleUnit } from "../state/state";
+import { allUnitsInShotArea } from "../abilities/large_caliber_ability";
 
 const COLOR_ORANGE = new b2Color(0.909803921568627, 0.282352941176471, 0.203921568627451);
 const COLOR_YELLOW = new b2Color(1, 0.952941176470588, 0.427450980392157);
@@ -3165,14 +3166,36 @@ class Sandbox extends GLScene {
             )) {
                 this.drawer.drawAttackTo(settings.m_debugDraw, enemy.getPosition(), enemy.getSize());
             }
+        } else if (hoverAttackUnit && this.currentActiveUnit && this.hoverRangeAttackPoint && this.currentActiveUnit?.hasAbilityActive("Large Caliber")) {
+                for (const target of allUnitsInShotArea(
+                    hoverAttackUnit,
+                    this.hoverRangeAttackPoint,
+                    this.unitsHolder,
+                    this.grid,
+                    this.sc_sceneSettings.getGridSettings()
+                    )) {
+                        if (this.hoverRangeAttackObstacle) {
+                            this.drawer.drawAttackTo(
+                                settings.m_debugDraw,
+                                this.hoverRangeAttackObstacle.position,
+                                this.hoverRangeAttackObstacle.size,
+                            );
+                        }
+                        else {
+                            this.drawer.drawAttackTo(settings.m_debugDraw, target.getPosition(), target.getSize());
+                        }
+                    }
+            // console.dir(this.hoverAttackUnits)
+            // for (const unit of allUnitsInShotArea(
+            //     GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.currentActiveUnit.getPosition()),
+            //     GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.hoverRangeAttackPoint),
+            //     this.unitsHolder,
+            //     this.grid,
+                
+            // ))
         } else if (hoverAttackUnit) {
             this.drawer.drawAttackTo(settings.m_debugDraw, hoverAttackUnit.getPosition(), hoverAttackUnit.getSize());
         }
-        // else if (this.hoverRangeAttackObstacle && this.currentActiveUnit?.hasAbilityActive("Large Caliber 9")) {
-        //     for (const unit of allUnitsInShotArea(
-
-        //     ))
-        // }
         else if (this.hoverRangeAttackObstacle) {
             this.drawer.drawAttackTo(
                 settings.m_debugDraw,

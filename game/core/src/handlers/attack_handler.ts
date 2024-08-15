@@ -31,6 +31,7 @@ import { IUnitDistance, Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { MoveHandler } from "./move_handler";
 import { processBlindnessAbility } from "../abilities/blindness_ability";
+import { processLargeCaliberAbility } from "../abilities/large_caliber_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisor: number;
@@ -297,6 +298,19 @@ export class AttackHandler {
 
         const fightState = FightStateManager.getInstance().getFightState();
 
+        processLargeCaliberAbility(
+            attackerUnit,
+            targetUnit,
+            this.sceneLog,
+            unitsHolder,
+            sceneStepCount,
+            grid,
+            this.gridSettings,
+            "attk",
+            hoverRangeAttackDivisor,
+            hoverRangeAttackPoint,
+        );
+
         // response starts here
         if (
             rangeResponseUnit &&
@@ -329,6 +343,18 @@ export class AttackHandler {
 
             processStunAbility(targetUnit, rangeResponseUnit, attackerUnit, this.sceneLog);
             processOneInTheFieldAbility(targetUnit);
+            processLargeCaliberAbility(
+                targetUnit,
+                rangeResponseUnit,
+                this.sceneLog,
+                unitsHolder,
+                sceneStepCount,
+                grid,
+                this.gridSettings,
+                "resp",
+                rangeResponseAttackDivisor,
+                attackerUnit.getPosition(),
+            );
         } else {
             this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
         }
@@ -623,7 +649,7 @@ export class AttackHandler {
                     console.log(`response abilityMultiplier: ${abilityMultiplier}`);
                 }
 
-                const abilitiesWithChanceCoeff = getAbilitiesWithChanceMultiplier(attackerUnit.getAbilities());
+                const abilitiesWithChanceCoeff = getAbilitiesWithChanceMultiplier(targetUnit.getAbilities());
 
                 if (abilitiesWithChanceCoeff.length) {
                     for (const awcc of abilitiesWithChanceCoeff) {

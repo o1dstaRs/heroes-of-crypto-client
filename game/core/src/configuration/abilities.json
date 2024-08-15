@@ -235,7 +235,16 @@
         "type": "ATTACK",
         "desc": "With a 40% chance may can deal 25% more damage (it also works with a responce)",
         "power": 25,
-        "power_type": "TOTAL_DAMAGE_PERCENTAGE",
+        "power_type": "ADDITIONAL_DAMAGE_PERCENTAGE",
+        "skip_reponse": false,
+        "effect": null
+    },
+    "Large Caliber": {
+        "name": "Large Caliber",
+        "type": "ATTACK",
+        "desc": "AOE damage on {} squares",
+        "power": 9,
+        "power_type": "NORMAL_DAMAGE",
         "skip_reponse": false,
         "effect": null
     }
