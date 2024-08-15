@@ -151,7 +151,7 @@
         "Angel": {
             "name": "Angel",
             "hp": 168,
-            "steps": 7.8,
+            "steps": 8.8,
             "speed": 7.7,
             "armor": 30,
             "attack_type": "MELEE",
@@ -167,7 +167,7 @@
             "size": 2,
             "level": 4,
             "spells": [],
-            "abilities": []
+            "abilities": ["Arrows Wingshield Aura"]
         }
     },
     "Nature": {
@@ -768,7 +768,7 @@
         "Harpy": {
             "name": "Harpy",
             "hp": 20,
-            "steps": 5,
+            "steps": 6,
             "speed": 6,
             "armor": 15,
             "attack_type": "MELEE",

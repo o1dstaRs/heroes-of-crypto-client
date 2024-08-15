@@ -23,5 +23,13 @@
         "power": 0,
         "is_buff": true,
         "power_type": "LUCK_10"
+    },
+    "Arrows Wingshield": {
+        "name": "Arrows Wingshield",
+        "range": 2,
+        "desc": "Allies in range receive a +{}% defense bonus against ranged attacks.",
+        "power": 20,
+        "is_buff": true,
+        "power_type": "ADDITIONAL_RANGE_ARMOR_PERCENTAGE"
     }
 }

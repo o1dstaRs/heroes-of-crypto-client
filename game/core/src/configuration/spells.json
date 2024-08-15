@@ -60,7 +60,7 @@
         "Mass Riot": {
             "name": "Mass Riot",
             "level": 3,
-            "desc": ["All: adds 25% of additional damage to all allies.", "Lasts 3 laps."],
+            "desc": ["Adds 25% of additional damage to all allies.", "Lasts 3 laps."],
             "target": "ALL_ALLIES",
             "power": 25,
             "laps": 3,
@@ -73,7 +73,7 @@
             "name": "Magic Mirror",
             "level": 1,
             "desc": [
-                "Reflects back 30% of consumed magical damage back to attacker.",
+                "Reflects 30% of consumed magical damage back to attacker.",
                 "Gives 30% chance to reflect any debuff.",
                 "Lasts 3 laps."
             ],
@@ -89,7 +89,7 @@
             "name": "Mass Magic Mirror",
             "level": 3,
             "desc": [
-                "All: reflects back 25% of consumed magical damage back to attacker.",
+                "Reflects 25% of consumed magical damage back to attacker.",
                 "Gives 25% chance to reflect any debuff.",
                 "Lasts 3 laps."
             ],
