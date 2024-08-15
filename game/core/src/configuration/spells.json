@@ -9,7 +9,9 @@
             "power": 0,
             "laps": 3,
             "self_cast_allowed": false,
-            "self_debuff_applies": true
+            "self_debuff_applies": true,
+            "minimal_caster_stack_power": 4,
+            "conflicts_with": []
         }
     },
     "Nature": {
@@ -21,7 +23,9 @@
             "power": 1,
             "laps": 18,
             "self_cast_allowed": false,
-            "self_debuff_applies": false
+            "self_debuff_applies": false,
+            "minimal_caster_stack_power": 1,
+            "conflicts_with": []
         },
         "Totem of Courage": {
             "name": "Totem of Courage",
@@ -35,7 +39,67 @@
             "power": 0,
             "laps": 3,
             "self_cast_allowed": false,
-            "self_debuff_applies": false
+            "self_debuff_applies": false,
+            "minimal_caster_stack_power": 1,
+            "conflicts_with": []
+        }
+    },
+    "Chaos": {
+        "Riot": {
+            "name": "Riot",
+            "level": 1,
+            "desc": ["Adds 30% of additional damage to an ally.", "Lasts 3 laps."],
+            "target": "ANY_ALLY",
+            "power": 30,
+            "laps": 3,
+            "self_cast_allowed": true,
+            "self_debuff_applies": false,
+            "minimal_caster_stack_power": 1,
+            "conflicts_with": ["Mass Riot"]
+        },
+        "Mass Riot": {
+            "name": "Mass Riot",
+            "level": 3,
+            "desc": ["All: adds 25% of additional damage to all allies.", "Lasts 3 laps."],
+            "target": "ALL_ALLIES",
+            "power": 25,
+            "laps": 3,
+            "self_cast_allowed": true,
+            "self_debuff_applies": false,
+            "minimal_caster_stack_power": 4,
+            "conflicts_with": ["Riot"]
+        },
+        "Magic Mirror": {
+            "name": "Magic Mirror",
+            "level": 1,
+            "desc": [
+                "Reflects back 30% of consumed magical damage back to attacker.",
+                "Gives 30% chance to reflect any debuff.",
+                "Lasts 3 laps."
+            ],
+            "target": "ANY_ALLY",
+            "power": 30,
+            "laps": 3,
+            "self_cast_allowed": true,
+            "self_debuff_applies": false,
+            "minimal_caster_stack_power": 1,
+            "conflicts_with": ["Mass Magic Mirror"]
+        },
+        "Mass Magic Mirror": {
+            "name": "Mass Magic Mirror",
+            "level": 3,
+            "desc": [
+                "All: reflects back 25% of consumed magical damage back to attacker.",
+                "Gives 25% chance to reflect any debuff.",
+                "Lasts 3 laps."
+            ],
+            "target": "ALL_ALLIES",
+            "power": 25,
+            "laps": 3,
+            "self_cast_allowed": true,
+            "self_debuff_applies": false,
+            "minimal_caster_stack_power": 4,
+            "conflicts_with": ["Magic Mirror"]
         }
     }
 }

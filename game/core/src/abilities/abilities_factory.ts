@@ -23,9 +23,17 @@ export class AbilitiesFactory {
         this.effectsFactory = effectsFactory;
     }
 
+    public getEffectsFactory(): EffectsFactory {
+        return this.effectsFactory;
+    }
+
     public makeAbility(name: string) {
         const abilityConfig = getAbilityConfig(name);
 
-        return new Ability(abilityConfig, this.effectsFactory.makeEffect(abilityConfig.effect));
+        return new Ability(
+            abilityConfig,
+            this.effectsFactory.makeEffect(abilityConfig.effect),
+            this.effectsFactory.makeAuraEffect(abilityConfig.aura_effect),
+        );
     }
 }

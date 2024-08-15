@@ -9,24 +9,12 @@
  * -----------------------------------------------------------------------------
  */
 
-export class EffectProperties {
-    public readonly name: string;
-
-    public laps: number;
-
-    public readonly desc: string;
-
-    public constructor(name: string, laps: number, desc: string) {
-        this.name = name;
-        this.laps = laps;
-        this.desc = desc;
-    }
-}
+import { EffectProperties } from "@heroesofcrypto/common";
 
 export class Effect {
-    public readonly defaultProperties: EffectProperties;
+    private readonly defaultProperties: EffectProperties;
 
-    public effectProperties: EffectProperties;
+    private effectProperties: EffectProperties;
 
     public constructor(effectProperties: EffectProperties) {
         this.defaultProperties = effectProperties;
@@ -45,11 +33,15 @@ export class Effect {
         return this.effectProperties.laps;
     }
 
-    public getStats(): EffectProperties {
+    public getProperties(): EffectProperties {
         return this.effectProperties;
     }
 
     public extend(): void {
+        if (this.effectProperties.laps === Number.MAX_SAFE_INTEGER) {
+            return;
+        }
+
         this.effectProperties.laps += 1;
     }
 
@@ -58,6 +50,10 @@ export class Effect {
     }
 
     public minusLap(): void {
+        if (this.effectProperties.laps === Number.MAX_SAFE_INTEGER) {
+            return;
+        }
+
         if (this.effectProperties.laps > 0) {
             this.effectProperties.laps -= 1;
         }

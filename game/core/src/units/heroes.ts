@@ -52,6 +52,7 @@ export class Hero extends Unit {
             redSmallFlagSprite,
             spellsFactory,
             abilitiesFactory,
+            abilitiesFactory.getEffectsFactory(),
             false,
         );
 

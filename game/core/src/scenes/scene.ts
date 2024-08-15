@@ -35,7 +35,7 @@ import {
     XY,
 } from "@box2d/core";
 import { b2ParticleGroup, DrawParticleSystems } from "@box2d/particles";
-import { AttackType, FactionType, HoCMath, UnitProperties } from "@heroesofcrypto/common";
+import { AttackType, FactionType, HoCMath, IAuraOnMap, UnitProperties } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { SceneControl } from "../sceneControls";
@@ -49,6 +49,7 @@ import { PreloadedTextures } from "../utils/gl/preload";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
 import { SceneSettings } from "./scene_settings";
 import { abilityToTextureName } from "../abilities/abilities_factory";
+import { getEffectConfig } from "../config_provider";
 
 const temp = {
     aabb: new b2AABB(),
@@ -167,6 +168,8 @@ export abstract class Scene extends b2ContactListener {
     public readonly sc_sceneSettings: SceneSettings;
 
     public sc_currentActiveShotRange?: HoCMath.IXYDistance;
+
+    public sc_currentActiveAuraRanges: IAuraOnMap[] = [];
 
     public sc_unitInfoLines: Array<[string, string]> = [];
 
@@ -292,6 +295,7 @@ export abstract class Scene extends b2ContactListener {
             this.sc_unitPropertiesUpdateNeeded = true;
         }
         this.sc_currentActiveShotRange = undefined;
+        this.sc_currentActiveAuraRanges = [];
     }
 
     public getBaseHotkeys(): HotKey[] {
@@ -312,11 +316,16 @@ export abstract class Scene extends b2ContactListener {
 
     protected abstract landAttack(): boolean;
 
-    protected abstract finishDrop(pointToDropTo: XY): void;
+    protected abstract finishDrop(positionToDropTo: XY): void;
 
     protected abstract handleMouseDownForSelectedBody(): void;
 
-    protected abstract selectUnitPreStart(position: XY, rangeShotDistance: number): void;
+    protected abstract selectUnitPreStart(
+        position: XY,
+        rangeShotDistance: number,
+        auraRanges: number[],
+        auraIsBuff: boolean[],
+    ): void;
 
     public abstract cloneObject(): void;
 
@@ -398,7 +407,12 @@ export abstract class Scene extends b2ContactListener {
                 } else if (!this.sc_started) {
                     body.SetIsActive(true);
                     const userData = body.GetUserData();
-                    this.selectUnitPreStart(body.GetPosition(), userData.shot_distance);
+                    this.selectUnitPreStart(
+                        body.GetPosition(),
+                        userData.shot_distance,
+                        userData.aura_ranges,
+                        userData.aura_is_buff,
+                    );
                 }
             }
         } else if (this.sc_selectedBody) {
@@ -497,10 +511,14 @@ export abstract class Scene extends b2ContactListener {
         this.sc_selectedUnitProperties = unitProperties;
 
         const visibleAbilitiesImpact: IVisibleImpact[] = [];
+        const visibleBuffsImpact: IVisibleImpact[] = [];
+        const visibleDebuffsImpact: IVisibleImpact[] = [];
+
         for (let i = 0; i < unitProperties.abilities.length; i++) {
             const abilityName = unitProperties.abilities[i];
             const abilityDescription = unitProperties.abilities_descriptions[i];
-            const abilityStackPowered = unitProperties.abilities_stack_powered[i];
+            const isStackPowered = unitProperties.abilities_stack_powered[i];
+            const isAura = unitProperties.abilities_auras[i];
 
             if (!abilityName || !abilityDescription) {
                 break;
@@ -512,14 +530,86 @@ export abstract class Scene extends b2ContactListener {
                 description: abilityDescription,
                 laps: Number.MAX_SAFE_INTEGER,
                 stackPower: unitProperties.stack_power,
-                stackPowered: abilityStackPowered,
+                isStackPowered: isStackPowered,
+                isAura: isAura,
             });
+        }
+
+        if (unitProperties.applied_effects.length === unitProperties.applied_effects_laps.length) {
+            for (let i = 0; i < unitProperties.applied_effects.length; i++) {
+                const lapsRemaining = unitProperties.applied_effects_laps[i];
+                if (lapsRemaining < 1) {
+                    continue;
+                }
+
+                const effectName = unitProperties.applied_effects[i];
+                const effectConfig = getEffectConfig(effectName);
+                const description = effectConfig ? effectConfig.desc : "";
+
+                visibleDebuffsImpact.push({
+                    name: effectName,
+                    smallTextureName: abilityToTextureName(effectName),
+                    description: description,
+                    laps: lapsRemaining,
+                    stackPower: 0,
+                    isStackPowered: false,
+                    isAura: false,
+                });
+            }
+        }
+
+        if (
+            unitProperties.applied_buffs.length === unitProperties.applied_buffs_laps.length &&
+            unitProperties.applied_buffs.length === unitProperties.applied_buffs_descriptions.length
+        ) {
+            for (let i = 0; i < unitProperties.applied_buffs.length; i++) {
+                const lapsRemaining = unitProperties.applied_buffs_laps[i];
+                if (lapsRemaining < 1) {
+                    continue;
+                }
+
+                const buffName = unitProperties.applied_buffs[i];
+
+                visibleBuffsImpact.push({
+                    name: buffName,
+                    smallTextureName: abilityToTextureName(buffName),
+                    description: unitProperties.applied_buffs_descriptions[i],
+                    laps: lapsRemaining,
+                    stackPower: 0,
+                    isStackPowered: false,
+                    isAura: false,
+                });
+            }
+        }
+
+        if (
+            unitProperties.applied_debuffs.length === unitProperties.applied_debuffs_laps.length &&
+            unitProperties.applied_debuffs.length === unitProperties.applied_debuffs_descriptions.length
+        ) {
+            for (let i = 0; i < unitProperties.applied_debuffs.length; i++) {
+                const lapsRemaining = unitProperties.applied_debuffs_laps[i];
+                if (lapsRemaining < 1) {
+                    continue;
+                }
+
+                const debuffName = unitProperties.applied_debuffs[i];
+
+                visibleDebuffsImpact.push({
+                    name: debuffName,
+                    smallTextureName: abilityToTextureName(debuffName),
+                    description: unitProperties.applied_debuffs_descriptions[i],
+                    laps: lapsRemaining,
+                    stackPower: 0,
+                    isStackPowered: false,
+                    isAura: false,
+                });
+            }
         }
 
         this.sc_visibleOverallImpact = {
             abilities: visibleAbilitiesImpact,
-            buffs: [],
-            debuffs: [],
+            buffs: visibleBuffsImpact,
+            debuffs: visibleDebuffsImpact,
         };
 
         this.sc_unitPropertiesUpdateNeeded = true;

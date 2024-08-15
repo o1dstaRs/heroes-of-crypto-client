@@ -177,7 +177,8 @@ export class AttackHandler {
         return (
             unit.getAttackType() === AttackType.RANGE &&
             !this.canBeAttackedByMelee(unit.getPosition(), unit.isSmallSize(), aggrMatrix) &&
-            unit.getRangeShots() > 0
+            unit.getRangeShots() > 0 &&
+            !unit.hasDebuffActive("Range Null Field Aura")
         );
     }
 
@@ -191,7 +192,7 @@ export class AttackHandler {
                 cells = [];
             }
         } else {
-            cells = GridMath.getCellsAroundPoint(this.gridSettings, unitPosition);
+            cells = GridMath.getCellsAroundPosition(this.gridSettings, unitPosition);
         }
 
         for (const cell of cells) {
@@ -229,6 +230,7 @@ export class AttackHandler {
                 targetUnit.getTeam(),
                 attackerUnit.getName(),
                 targetUnit.getName(),
+                attackerUnit.getStackPower(),
                 targetUnit.getMagicResist(),
             )
         ) {
@@ -236,12 +238,14 @@ export class AttackHandler {
                 currentActiveSpell,
                 attackerUnit.getAllProperties().max_hp,
                 attackerUnit.getAllProperties().base_armor,
+                attackerUnit.getId() === targetUnit.getId(),
             );
             if (currentActiveSpell.isSelfDebuffApplicable()) {
                 attackerUnit.applyDebuff(
                     currentActiveSpell,
                     attackerUnit.getAllProperties().max_hp,
                     attackerUnit.getAllProperties().base_armor,
+                    true,
                 );
             }
             attackerUnit.useSpell(currentActiveSpell);
@@ -269,12 +273,12 @@ export class AttackHandler {
         attackerUnit?: Unit,
         targetUnits?: Unit[],
         rangeResponseUnit?: Unit,
-        hoverRangeAttackPoint?: XY,
+        hoverRangeAttackPosition?: XY,
     ): boolean {
         if (
             !attackerUnit ||
             !targetUnits?.length ||
-            !hoverRangeAttackPoint ||
+            !hoverRangeAttackPosition ||
             attackerUnit.getAttackTypeSelection() !== AttackType.RANGE ||
             !this.canLandRangeAttack(attackerUnit, grid.getEnemyAggrMatrixByUnitId(attackerUnit.getId()))
         ) {
@@ -286,7 +290,7 @@ export class AttackHandler {
             return false;
         }
 
-        drawer.startBulletAnimation(attackerUnit.getPosition(), hoverRangeAttackPoint, targetUnit);
+        drawer.startBulletAnimation(attackerUnit.getPosition(), hoverRangeAttackPosition, targetUnit);
 
         // let abilityMultiplier = currentActiveUnit.calculateAbilityMultiplier();
         const damageFromAttack = attackerUnit.calculateAttackDamage(
@@ -407,7 +411,7 @@ export class AttackHandler {
             drawer,
             unitsHolder,
             hoverRangeAttackDivisor,
-            hoverRangeAttackPoint,
+            hoverRangeAttackPosition,
             sceneStepCount,
         );
 
@@ -476,7 +480,7 @@ export class AttackHandler {
                     return false;
                 }
 
-                const position = GridMath.getPointForCell(
+                const position = GridMath.getPositionForCell(
                     attackFromCell,
                     this.gridSettings.getMinX(),
                     this.gridSettings.getStep(),
@@ -493,13 +497,13 @@ export class AttackHandler {
                 return false;
             }
         } else {
-            const position = GridMath.getPointForCell(
+            const position = GridMath.getPositionForCell(
                 attackFromCell,
                 this.gridSettings.getMinX(),
                 this.gridSettings.getStep(),
                 this.gridSettings.getHalfStep(),
             );
-            const cells = GridMath.getCellsAroundPoint(this.gridSettings, {
+            const cells = GridMath.getCellsAroundPosition(this.gridSettings, {
                 x: position.x - this.gridSettings.getHalfStep(),
                 y: position.y - this.gridSettings.getHalfStep(),
             });

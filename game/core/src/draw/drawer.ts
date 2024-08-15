@@ -49,6 +49,15 @@ export interface IBullet {
 }
 
 export class Drawer {
+    public static COLOR_ORANGE = new b2Color(0.909803921568627, 0.282352941176471, 0.203921568627451);
+    public static COLOR_YELLOW = new b2Color(1, 0.952941176470588, 0.427450980392157);
+    public static COLOR_GREY = new b2Color(0.5, 0.5, 0.5);
+    public static COLOR_LIGHT_GREY = new b2Color(0.847058823529412, 0.847058823529412, 0.847058823529412);
+    public static COLOR_LIGHT_ORANGE = new b2Color(0.968627450980392, 0.745098039215686, 0.427450980392157);
+    public static COLOR_LIGHT_YELLOW = new b2Color(1, 1, 0.749019607843137);
+    public static COLOR_RED = new b2Color(1, 0, 0);
+    public static COLOR_GREEN = new b2Color(0, 1, 0);
+
     private readonly gridSettings: GridSettings;
 
     private readonly world: b2World;
@@ -176,7 +185,7 @@ export class Drawer {
         this.moveAnimationUnit.render(fps, currentTick, false /* not used */, true);
         const isSmallUnit = this.moveAnimationUnit.isSmallSize();
 
-        const movingTarget = GridMath.getPointForCell(
+        const movingTarget = GridMath.getPositionForCell(
             this.moveAnimationPath[this.moveAnimationIndex],
             this.gridSettings.getMinX(),
             this.gridSettings.getStep(),
@@ -367,7 +376,7 @@ export class Drawer {
                 cells = [];
             }
         } else {
-            cells = GridMath.getCellsAroundPoint(this.gridSettings, affectedUnit.getPosition());
+            cells = GridMath.getCellsAroundPosition(this.gridSettings, affectedUnit.getPosition());
         }
 
         const nextEnemyCellIndices: number[] = [];
@@ -395,7 +404,7 @@ export class Drawer {
     ): void {
         if (currentActivePath?.length) {
             for (const p of currentActivePath) {
-                const movePoint = GridMath.getPointForCell(
+                const movePosition = GridMath.getPositionForCell(
                     p,
                     this.gridSettings.getMinX(),
                     this.gridSettings.getStep(),
@@ -404,14 +413,14 @@ export class Drawer {
 
                 if (
                     hoverAttackFromHashes?.has((p.x << 4) | p.y) ||
-                    GridMath.hasXY(movePoint, currentActiveUnitPositions)
+                    GridMath.hasXY(movePosition, currentActiveUnitPositions)
                 ) {
                     continue;
                 }
 
                 const polygonStartingPosition: XY = {
-                    x: movePoint.x - this.gridSettings.getHalfStep(),
-                    y: movePoint.y - this.gridSettings.getHalfStep(),
+                    x: movePosition.x - this.gridSettings.getHalfStep(),
+                    y: movePosition.y - this.gridSettings.getHalfStep(),
                 };
                 const newX = polygonStartingPosition.x + this.gridSettings.getStep();
                 const newY = polygonStartingPosition.y + this.gridSettings.getStep();
@@ -500,6 +509,45 @@ export class Drawer {
         );
     }
 
+    public drawAuraArea(draw: b2Draw, position: XY, range: number, isBuff: boolean): void {
+        const start = {
+            x: position.x - range - this.gridSettings.getHalfStep(),
+            y: position.y - range - this.gridSettings.getHalfStep(),
+        };
+        const end = {
+            x: position.x + range + this.gridSettings.getHalfStep(),
+            y: position.y + range + this.gridSettings.getHalfStep(),
+        };
+        draw.DrawPolygon(
+            [
+                { x: start.x, y: start.y },
+                { x: start.x, y: end.y },
+                { x: end.x, y: end.y },
+                { x: end.x, y: start.y },
+            ],
+            4,
+            isBuff ? Drawer.COLOR_GREEN : Drawer.COLOR_RED,
+        );
+        const startOffset = {
+            x: position.x - range - this.gridSettings.getHalfStep() - 1,
+            y: position.y - range - this.gridSettings.getHalfStep() - 1,
+        };
+        const endOffset = {
+            x: position.x + range + this.gridSettings.getHalfStep() + 1,
+            y: position.y + range + this.gridSettings.getHalfStep() + 1,
+        };
+        draw.DrawPolygon(
+            [
+                { x: startOffset.x, y: startOffset.y },
+                { x: startOffset.x, y: endOffset.y },
+                { x: endOffset.x, y: endOffset.y },
+                { x: endOffset.x, y: startOffset.y },
+            ],
+            4,
+            isBuff ? Drawer.COLOR_GREEN : Drawer.COLOR_RED,
+        );
+    }
+
     public drawHoverCells(
         draw: b2Draw,
         isLightMode: boolean,
@@ -521,7 +569,7 @@ export class Drawer {
 
             if (cells.length === 3 || (cells.length === 2 && cells[0].x !== cells[1].x && cells[0].y !== cells[1].y)) {
                 for (const cell of cells) {
-                    const movePoint = GridMath.getPointForCell(
+                    const movePosition = GridMath.getPositionForCell(
                         cell,
                         this.gridSettings.getMinX(),
                         this.gridSettings.getStep(),
@@ -529,8 +577,8 @@ export class Drawer {
                     );
 
                     const polygonStartingPosition: XY = {
-                        x: movePoint.x - this.gridSettings.getHalfStep(),
-                        y: movePoint.y - this.gridSettings.getHalfStep(),
+                        x: movePosition.x - this.gridSettings.getHalfStep(),
+                        y: movePosition.y - this.gridSettings.getHalfStep(),
                     };
 
                     maxX = polygonStartingPosition.x + this.gridSettings.getStep();
@@ -549,7 +597,7 @@ export class Drawer {
                 }
             } else {
                 for (const cell of cells) {
-                    const movePoint = GridMath.getPointForCell(
+                    const movePosition = GridMath.getPositionForCell(
                         cell,
                         this.gridSettings.getMinX(),
                         this.gridSettings.getStep(),
@@ -557,8 +605,8 @@ export class Drawer {
                     );
 
                     const polygonStartingPosition: XY = {
-                        x: movePoint.x - this.gridSettings.getHalfStep(),
-                        y: movePoint.y - this.gridSettings.getHalfStep(),
+                        x: movePosition.x - this.gridSettings.getHalfStep(),
+                        y: movePosition.y - this.gridSettings.getHalfStep(),
                     };
 
                     minX = Math.min(minX, polygonStartingPosition.x);
@@ -581,10 +629,10 @@ export class Drawer {
         }
     }
 
-    public drawAttackFrom(draw: b2Draw, fromPoint: XY, isSmallUnit = true): void {
+    public drawAttackFrom(draw: b2Draw, fromPosition: XY, isSmallUnit = true): void {
         const polygonStartingPosition: XY = {
-            x: fromPoint.x - this.gridSettings.getHalfStep() - (isSmallUnit ? 0 : this.gridSettings.getStep()),
-            y: fromPoint.y - this.gridSettings.getHalfStep() - (isSmallUnit ? 0 : this.gridSettings.getStep()),
+            x: fromPosition.x - this.gridSettings.getHalfStep() - (isSmallUnit ? 0 : this.gridSettings.getStep()),
+            y: fromPosition.y - this.gridSettings.getHalfStep() - (isSmallUnit ? 0 : this.gridSettings.getStep()),
         };
         const newX =
             polygonStartingPosition.x + (isSmallUnit ? this.gridSettings.getStep() : this.gridSettings.getTwoSteps());
@@ -640,7 +688,7 @@ export class Drawer {
         const largeUnitsYtoX = largeUnitsCache[1];
         const mode = localStorage.getItem("joy-mode");
         const color = mode === "light" ? new b2Color(0.2, 0.2, 0.2) : new b2Color(0.8, 0.8, 0.8);
-        const points: XY[] = [];
+        const positions: XY[] = [];
 
         // get verticals
         for (
@@ -658,15 +706,15 @@ export class Drawer {
                 if (possibleUnitXPositions?.length) {
                     for (const px of possibleUnitXPositions) {
                         if (px === newX) {
-                            points.push({ x: newX, y: fromY });
-                            points.push({ x: newX, y: y - this.gridSettings.getStep() });
+                            positions.push({ x: newX, y: fromY });
+                            positions.push({ x: newX, y: y - this.gridSettings.getStep() });
                             fromY = y + this.gridSettings.getStep();
                         }
                     }
                 }
             }
-            points.push({ x: newX, y: fromY });
-            points.push({ x: newX, y: this.gridSettings.getMaxY() });
+            positions.push({ x: newX, y: fromY });
+            positions.push({ x: newX, y: this.gridSettings.getMaxY() });
         }
 
         // get horizontals
@@ -685,22 +733,22 @@ export class Drawer {
                 if (possibleUnitYPositions?.length) {
                     for (const py of possibleUnitYPositions) {
                         if (py === newY) {
-                            points.push({ x: fromX, y: newY });
-                            points.push({ x: x - this.gridSettings.getStep(), y: newY });
+                            positions.push({ x: fromX, y: newY });
+                            positions.push({ x: x - this.gridSettings.getStep(), y: newY });
                             fromX = x + this.gridSettings.getStep();
                         }
                     }
                 }
             }
-            points.push({ x: fromX, y: newY });
-            points.push({ x: this.gridSettings.getMaxX(), y: newY });
+            positions.push({ x: fromX, y: newY });
+            positions.push({ x: this.gridSettings.getMaxX(), y: newY });
         }
 
         // draw lines
         let index = 0;
-        while (index < points.length - 1) {
-            const p1 = points[index];
-            const p2 = points[index + 1];
+        while (index < positions.length - 1) {
+            const p1 = positions[index];
+            const p2 = positions[index + 1];
             draw.DrawSegment(p1, p2, color);
             index += 2;
         }

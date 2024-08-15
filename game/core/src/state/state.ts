@@ -46,7 +46,8 @@ export interface IVisibleImpact {
     description: string;
     laps: number;
     stackPower: number;
-    stackPowered: boolean;
+    isStackPowered: boolean;
+    isAura: boolean;
 }
 
 export interface IVisibleOverallImpact {

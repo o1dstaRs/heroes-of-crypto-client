@@ -10,6 +10,7 @@
  */
 
 import { AbilityProperties, AbilityType, AbilityPowerType, HoCMath, TeamType } from "@heroesofcrypto/common";
+import { AuraEffect } from "../effects/aura_effects";
 
 import { Effect } from "../effects/effects";
 import { processLuckyStrikeAbility } from "./lucky_strike_ability";
@@ -19,9 +20,16 @@ export class Ability {
 
     private readonly effect: Effect | undefined;
 
-    public constructor(abilityProperties: AbilityProperties, effect: Effect | undefined) {
+    private readonly auraEffect: AuraEffect | undefined;
+
+    public constructor(
+        abilityProperties: AbilityProperties,
+        effect: Effect | undefined,
+        auraEffect: AuraEffect | undefined,
+    ) {
         this.abilityProperties = abilityProperties;
         this.effect = effect;
+        this.auraEffect = auraEffect;
     }
 
     public getName(): string {
@@ -59,6 +67,19 @@ export class Ability {
 
     public getEffectName(): string | undefined {
         return this.effect?.getName();
+    }
+
+    public getAuraEffect(): AuraEffect | undefined {
+        if (this.auraEffect) {
+            this.auraEffect.toDefault();
+            return this.auraEffect;
+        }
+
+        return undefined;
+    }
+
+    public getAuraEffectName(): string | undefined {
+        return this.auraEffect?.getName();
     }
 }
 

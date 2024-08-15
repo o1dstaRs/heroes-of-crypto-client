@@ -9,8 +9,11 @@
  * -----------------------------------------------------------------------------
  */
 
-import { getEffectConfig } from "../config_provider";
-import { Effect, EffectProperties } from "./effects";
+import { AuraEffectProperties, EffectProperties } from "@heroesofcrypto/common";
+
+import { getAuraEffectConfig, getEffectConfig } from "../config_provider";
+import { AuraEffect } from "./aura_effects";
+import { Effect } from "./effects";
 
 export class EffectsFactory {
     public constructor() {}
@@ -26,5 +29,18 @@ export class EffectsFactory {
         }
 
         return new Effect(config);
+    }
+
+    public makeAuraEffect(name: string | null): AuraEffect | undefined {
+        if (!name) {
+            return undefined;
+        }
+
+        const config = getAuraEffectConfig(name);
+        if (!(config instanceof AuraEffectProperties)) {
+            return undefined;
+        }
+
+        return new AuraEffect(config);
     }
 }

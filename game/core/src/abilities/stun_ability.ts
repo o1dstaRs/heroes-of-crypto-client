@@ -32,7 +32,7 @@ export function processStunAbility(
 
     const stunAbility = fromUnit.getAbility("Stun");
     if (stunAbility && HoCLib.getRandomInt(0, 100) < fromUnit.calculateAbilityApplyChance(stunAbility)) {
-        if (fromUnit.applyEffect(targetUnit, stunAbility.getEffectName(), extend)) {
+        if (targetUnit.applyEffect(fromUnit, stunAbility.getEffectName(), extend)) {
             sceneLog.updateLog(`${targetUnit.getName()} got stunned for 1 lap`);
         }
     }

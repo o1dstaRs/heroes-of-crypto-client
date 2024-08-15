@@ -99,10 +99,10 @@ export function findTarget(
     matrix: number[][], // matrix for big unit has 4 cells filled
     pathHelper: PathHelper,
 ): BasicAIAction | undefined {
-    if (unit.getCell() === undefined) {
+    if (unit.getBaseCell() === undefined) {
         return undefined;
     }
-    const unitPos = unit.getCell() ?? { x: -1, y: -1 }; // pos = XY
+    const unitCell = unit.getBaseCell() ?? { x: -1, y: -1 }; // pos = XY
     const numRows = matrix.length;
     const numCols = matrix[0].length;
     if (numRows !== numCols) {
@@ -117,7 +117,7 @@ export function findTarget(
 
     const max_steps = 100; // unit.steps
     const paths = pathHelper.getMovePath(
-        unitPos,
+        unitCell,
         matrix,
         max_steps + unit.getSteps(),
         grid.getAggrMatrixByTeam(unit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER),
@@ -142,16 +142,16 @@ export function findTarget(
                 const neighbors = getCellsForAttacker({ x: j, y: i }, numRows, true, true);
                 for (const elementNeighbor of neighbors) {
                     if (unit.isSmallSize()) {
-                        if (cellKey(elementNeighbor) === cellKey(unitPos)) {
-                            return new BasicAIAction(AIActionType.M_ATTACK, unitPos, { x: j, y: i }, paths.knownPaths);
+                        if (cellKey(elementNeighbor) === cellKey(unitCell)) {
+                            return new BasicAIAction(AIActionType.M_ATTACK, unitCell, { x: j, y: i }, paths.knownPaths);
                         }
                     } else if (
-                        cellKey(elementNeighbor) === cellKey(unitPos) ||
-                        cellKey(elementNeighbor) === cellKey({ x: unitPos.x - 1, y: unitPos.y }) ||
-                        cellKey(elementNeighbor) === cellKey({ x: unitPos.x - 1, y: unitPos.y - 1 }) ||
-                        cellKey(elementNeighbor) === cellKey({ x: unitPos.x, y: unitPos.y })
+                        cellKey(elementNeighbor) === cellKey(unitCell) ||
+                        cellKey(elementNeighbor) === cellKey({ x: unitCell.x - 1, y: unitCell.y }) ||
+                        cellKey(elementNeighbor) === cellKey({ x: unitCell.x - 1, y: unitCell.y - 1 }) ||
+                        cellKey(elementNeighbor) === cellKey({ x: unitCell.x, y: unitCell.y })
                     ) {
-                        return new BasicAIAction(AIActionType.M_ATTACK, unitPos, { x: j, y: i }, paths.knownPaths);
+                        return new BasicAIAction(AIActionType.M_ATTACK, unitCell, { x: j, y: i }, paths.knownPaths);
                     }
 
                     const cellK = cellKey(elementNeighbor);

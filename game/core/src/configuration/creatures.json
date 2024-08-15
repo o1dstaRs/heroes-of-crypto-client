@@ -62,7 +62,7 @@
             "size": 1,
             "level": 1,
             "spells": [],
-            "abilities": ["Sniper", "Limited Supply", "Leather Armor"]
+            "abilities": ["Sniper", "Leather Armor", "Limited Supply"]
         },
         "Pikeman": {
             "name": "Pikeman",
@@ -92,7 +92,7 @@
             "speed": 5,
             "armor": 26,
             "attack_type": "MELEE",
-            "attack": 24,
+            "attack": 20,
             "attack_damage_min": 12,
             "attack_damage_max": 20,
             "attack_range": 1,
@@ -104,7 +104,7 @@
             "size": 1,
             "level": 3,
             "spells": [],
-            "abilities": ["Double Punch"]
+            "abilities": ["Double Punch", "Sharpened Weapons Aura"]
         },
         "Griffin": {
             "name": "Griffin",
@@ -125,7 +125,7 @@
             "size": 1,
             "level": 3,
             "spells": [],
-            "abilities": []
+            "abilities": ["Range Null Field Aura"]
         },
         "Tsar Cannon": {
             "name": "Tsar Cannon",
@@ -174,7 +174,7 @@
         "Fairy": {
             "name": "Fairy",
             "hp": 7,
-            "steps": 6,
+            "steps": 8,
             "speed": 5,
             "armor": 8,
             "attack_type": "MELEE",
@@ -232,7 +232,7 @@
             "size": 1,
             "level": 1,
             "spells": [],
-            "abilities": ["Lucky Strike"]
+            "abilities": ["Lucky Strike", "Luck Aura"]
         },
         "White Tiger": {
             "name": "White Tiger",
@@ -365,9 +365,9 @@
             "hp": 225,
             "steps": 4.5,
             "speed": 4,
-            "armor": 32,
+            "armor": 30,
             "attack_type": "RANGE",
-            "attack": 34,
+            "attack": 32,
             "attack_damage_min": 28,
             "attack_damage_max": 40,
             "attack_range": 1,
@@ -415,7 +415,7 @@
             "attack_damage_min": 1,
             "attack_damage_max": 4,
             "attack_range": 1,
-            "range_shots": 6,
+            "range_shots": 8,
             "shot_distance": 5.5,
             "magic_resist": 0,
             "can_fly": false,
@@ -512,7 +512,7 @@
         "Efreet": {
             "name": "Efreet",
             "hp": 58,
-            "steps": 6.9,
+            "steps": 7.9,
             "speed": 8,
             "armor": 20,
             "attack_type": "MELEE",
@@ -528,14 +528,14 @@
             "size": 1,
             "level": 3,
             "spells": [],
-            "abilities": ["Fire Shield", "Fire Element"]
+            "abilities": ["Fire Element", "Fire Shield"]
         },
         "Goblin Knight": {
             "name": "Goblin Knight",
             "hp": 85,
             "steps": 4.6,
             "speed": 8,
-            "armor": 22,
+            "armor": 24,
             "attack_type": "MELEE",
             "attack": 20,
             "attack_damage_min": 13,
@@ -570,7 +570,7 @@
             "size": 2,
             "level": 4,
             "spells": [],
-            "abilities": ["Enchanted Skin", "Fire Breath", "Fire Element"]
+            "abilities": ["Fire Element", "Enchanted Skin", "Fire Breath"]
         },
         "Hydra": {
             "name": "Hydra",
@@ -714,10 +714,10 @@
             "attack_damage_max": 3,
             "attack_range": 1,
             "range_shots": 4,
-            "shot_distance": 3.5,
+            "shot_distance": 4,
             "magic_resist": 0,
             "can_fly": false,
-            "exp": 14.3,
+            "exp": 13.8,
             "size": 1,
             "level": 1,
             "spells": [],
@@ -788,11 +788,11 @@
         },
         "Ogre Mage": {
             "name": "Ogre Mage",
-            "hp": 64,
+            "hp": 60,
             "steps": 5,
             "speed": 5,
-            "armor": 24,
-            "attack_type": "MELEE",
+            "armor": 22,
+            "attack_type": "MAGIC",
             "attack": 24,
             "attack_damage_min": 14,
             "attack_damage_max": 20,
@@ -804,7 +804,13 @@
             "exp": 110,
             "size": 1,
             "level": 3,
-            "spells": [],
+            "spells": [
+                "Chaos:Riot",
+                "Chaos:Magic Mirror",
+                "Chaos:Magic Mirror",
+                "Chaos:Mass Riot",
+                "Chaos:Mass Magic Mirror"
+            ],
             "abilities": []
         },
         "Cyclops": {
@@ -814,8 +820,8 @@
             "speed": 4,
             "armor": 18,
             "attack_type": "RANGE",
-            "attack": 22,
-            "attack_damage_min": 12,
+            "attack": 23,
+            "attack_damage_min": 13,
             "attack_damage_max": 18,
             "attack_range": 1,
             "range_shots": 8,
@@ -831,7 +837,7 @@
         "Thunderbird": {
             "name": "Thunderbird",
             "hp": 146,
-            "steps": 8,
+            "steps": 9,
             "speed": 9,
             "armor": 28,
             "attack_type": "MELEE",

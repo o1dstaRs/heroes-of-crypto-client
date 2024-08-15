@@ -24,7 +24,7 @@ export function processDoubleShotAbility(
     drawer: Drawer,
     unitsHolder: UnitsHolder,
     hoverRangeAttackDivisor: number,
-    hoverRangeAttackPoint: HoCMath.XY,
+    hoverRangeAttackPosition: HoCMath.XY,
     sceneStepCount: number,
 ): boolean {
     const doubleShotAbility = fromUnit.getAbility("Double Shot");
@@ -33,7 +33,7 @@ export function processDoubleShotAbility(
         return false;
     }
 
-    drawer.startBulletAnimation(fromUnit.getPosition(), hoverRangeAttackPoint, toUnit);
+    drawer.startBulletAnimation(fromUnit.getPosition(), hoverRangeAttackPosition, toUnit);
     unitsHolder.refreshStackPowerForAllUnits();
 
     const abilityMultiplier = fromUnit.calculateAbilityMultiplier(doubleShotAbility);

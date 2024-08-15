@@ -53,7 +53,7 @@ export class MoveHandler {
             if (unit.isSmallSize()) {
                 cells = [cell];
             } else {
-                cells = GridMath.getCellsAroundPoint(this.gridSettings, currentPosition);
+                cells = GridMath.getCellsAroundPosition(this.gridSettings, currentPosition);
             }
 
             let targetCells = [];
@@ -100,15 +100,15 @@ export class MoveHandler {
                         const shiftedCells = this.getShiftedCells(targetCells, priorityShift, lapsNarrowed, true);
                         if (shiftedCells) {
                             if (this.grid.areAllCellsEmpty(shiftedCells, unit.getId())) {
-                                const point = GridMath.getPointForCells(this.gridSettings, shiftedCells);
-                                if (!point) {
+                                const position = GridMath.getPositionForCells(this.gridSettings, shiftedCells);
+                                if (!position) {
                                     targetCells = shiftedCells;
                                     continue;
                                 }
                                 const log = this.finishDirectedUnitMove(
                                     unit,
                                     shiftedCells,
-                                    point,
+                                    position,
                                     GridConstants.NO_UPDATE,
                                 );
                                 if (log) {
@@ -131,15 +131,15 @@ export class MoveHandler {
                         const shiftedCells = this.getShiftedCells(targetCells, priorityShift, lapsNarrowed, false);
                         if (shiftedCells) {
                             if (this.grid.areAllCellsEmpty(shiftedCells, unit.getId())) {
-                                const point = GridMath.getPointForCells(this.gridSettings, shiftedCells);
-                                if (!point) {
+                                const position = GridMath.getPositionForCells(this.gridSettings, shiftedCells);
+                                if (!position) {
                                     targetCells = shiftedCells;
                                     continue;
                                 }
                                 const log = this.finishDirectedUnitMove(
                                     unit,
                                     shiftedCells,
-                                    point,
+                                    position,
                                     GridConstants.NO_UPDATE,
                                 );
                                 if (log) {
@@ -208,7 +208,7 @@ export class MoveHandler {
         const movePaths = currentActiveKnownPaths.get((toCell.x << 4) | toCell.y);
         if (movePaths?.length) {
             const path = movePaths[0].route;
-            const targetPos = GridMath.getPointForCell(
+            const targetPos = GridMath.getPositionForCell(
                 path[path.length - 1],
                 this.gridSettings.getMinX(),
                 this.gridSettings.getStep(),

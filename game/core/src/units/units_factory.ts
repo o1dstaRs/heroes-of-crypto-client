@@ -273,6 +273,7 @@ export class UnitsFactory {
             new Sprite(this.gl, this.shader, this.textures.red_flag_70.texture),
             this.spellsFactory,
             this.abilitiesFactory,
+            this.abilitiesFactory.getEffectsFactory(),
             summoned,
             //      new MeleeAI(this.world, this.gridSettings, this.board),
         );

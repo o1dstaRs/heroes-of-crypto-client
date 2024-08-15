@@ -8,7 +8,8 @@
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
         "stack_powered": true,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Backstab": {
         "name": "Backstab",
@@ -18,7 +19,8 @@
         "power_type": "ADDITIONAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
         "stack_powered": true,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Handyman": {
         "name": "Handyman",
@@ -28,7 +30,8 @@
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
         "stack_powered": false,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Double Shot": {
         "name": "Double Shot",
@@ -38,7 +41,8 @@
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
         "stack_powered": true,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Shadow Touch": {
         "name": "Shadow Touch",
@@ -48,7 +52,8 @@
         "power_type": "NORMAL_DAMAGE",
         "skip_reponse": true,
         "stack_powered": false,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "One in the Field": {
         "name": "One in the Field",
@@ -58,7 +63,8 @@
         "power_type": "UNLIMITED_RESPONSES",
         "skip_reponse": false,
         "stack_powered": false,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Endless Quiver": {
         "name": "Endless Quiver",
@@ -68,7 +74,8 @@
         "power_type": "UNLIMITED_SUPPLIES",
         "skip_reponse": false,
         "stack_powered": false,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Sniper": {
         "name": "Sniper",
@@ -78,17 +85,19 @@
         "power_type": "UNLIMITED_RANGE",
         "skip_reponse": false,
         "stack_powered": false,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Leather Armor": {
         "name": "Leather Armor",
         "type": "DEFENCE",
-        "desc": "Reduces range armor by {}%",
+        "desc": "This unit's ranged armor is reduced by {}%",
         "power": 50,
         "power_type": "RANGE_ARMOR_MODIFIER",
         "skip_reponse": false,
-        "stack_powered": true,
-        "effect": null
+        "stack_powered": false,
+        "effect": null,
+        "aura_effect": null
     },
     "Limited Supply": {
         "name": "Limited Supply",
@@ -98,7 +107,8 @@
         "power_type": "LIMITED_SUPPLIES",
         "skip_reponse": false,
         "stack_powered": true,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Enchanted Skin": {
         "name": "Enchanted Skin",
@@ -108,7 +118,8 @@
         "power_type": "MAGIC_RESIST_100",
         "skip_reponse": false,
         "stack_powered": false,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Undead": {
         "name": "Undead",
@@ -118,7 +129,8 @@
         "power_type": "UNDEAD",
         "skip_reponse": false,
         "stack_powered": false,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Lightning Spin": {
         "name": "Lightning Spin",
@@ -128,7 +140,8 @@
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": true,
         "stack_powered": true,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Fire Breath": {
         "name": "Fire Breath",
@@ -138,7 +151,8 @@
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
         "stack_powered": true,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Fire Element": {
         "name": "Fire Element",
@@ -147,8 +161,9 @@
         "power": 50,
         "power_type": "MAGIC_VULNERABILITY_WATER",
         "skip_reponse": false,
-        "stack_powered": true,
-        "effect": null
+        "stack_powered": false,
+        "effect": null,
+        "aura_effect": null
     },
     "Fire Shield": {
         "name": "Fire Shield",
@@ -158,7 +173,8 @@
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
         "stack_powered": true,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Piercing Spear": {
         "name": "Piercing Spear",
@@ -168,7 +184,8 @@
         "power_type": "IGNORE_ARMOR",
         "skip_reponse": false,
         "stack_powered": true,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Boost Health": {
         "name": "Boost Health",
@@ -178,7 +195,8 @@
         "power_type": "BOOST_HEALTH",
         "skip_reponse": false,
         "stack_powered": true,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Stun": {
         "name": "Stun",
@@ -188,7 +206,8 @@
         "power_type": "APPLY_EFFECT",
         "skip_reponse": false,
         "stack_powered": true,
-        "effect": "Stun"
+        "effect": "Stun",
+        "aura_effect": null
     },
     "Blindness": {
         "name": "Blindness",
@@ -198,7 +217,8 @@
         "power_type": "APPLY_EFFECT",
         "skip_reponse": false,
         "stack_powered": true,
-        "effect": "Blindness"
+        "effect": "Blindness",
+        "aura_effect": null
     },
     "Wild Regeneration": {
         "name": "Wild Regeneration",
@@ -208,7 +228,8 @@
         "power_type": "REGENERATION",
         "skip_reponse": false,
         "stack_powered": false,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Heavy Armor": {
         "name": "Heavy Armor",
@@ -218,7 +239,8 @@
         "power_type": "PHYSICAL_RESIST_WHILE_MAGIC_VULNERABLE",
         "skip_reponse": false,
         "stack_powered": true,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "No Melee": {
         "name": "No Melee",
@@ -228,7 +250,41 @@
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
         "stack_powered": false,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
+    },
+    "Sharpened Weapons Aura": {
+        "name": "Sharpened Weapons Aura",
+        "type": "BUFF_AURA",
+        "desc": "Affected melee allies have +{}% base attack power",
+        "power": 20,
+        "power_type": "ADDITIONAL_MELEE_DAMAGE_PERCENTAGE",
+        "skip_reponse": false,
+        "stack_powered": true,
+        "effect": null,
+        "aura_effect": "Sharpened Weapons"
+    },
+    "Range Null Field Aura": {
+        "name": "Range Null Field Aura",
+        "type": "DEBUFF_AURA",
+        "desc": "Affected enemy units are unable to use range attacks",
+        "power": 0,
+        "power_type": "DISABLE_RANGE_ATTACK",
+        "skip_reponse": false,
+        "stack_powered": false,
+        "effect": null,
+        "aura_effect": "Range Null Field"
+    },
+    "Luck Aura": {
+        "name": "Luck Aura",
+        "type": "BUFF_AURA",
+        "desc": "Allies within range gain maximum luck",
+        "power": 0,
+        "power_type": "LUCK_10",
+        "skip_reponse": false,
+        "stack_powered": false,
+        "effect": null,
+        "aura_effect": "Luck"
     },
     "Lucky Strike": {
         "name": "Lucky Strike",
@@ -237,7 +293,8 @@
         "power": 25,
         "power_type": "ADDITIONAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     },
     "Large Caliber": {
         "name": "Large Caliber",
@@ -246,6 +303,7 @@
         "power": 9,
         "power_type": "NORMAL_DAMAGE",
         "skip_reponse": false,
-        "effect": null
+        "effect": null,
+        "aura_effect": null
     }
 }

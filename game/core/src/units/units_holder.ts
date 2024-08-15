@@ -10,9 +10,20 @@
  */
 
 import { b2Body, b2Fixture, b2Vec2, b2World, XY } from "@box2d/core";
-import { FactionType, TeamType, UnitProperties, Grid, GridSettings, GridMath, HoCLib } from "@heroesofcrypto/common";
+import {
+    AuraEffectProperties,
+    FactionType,
+    TeamType,
+    UnitProperties,
+    Grid,
+    GridSettings,
+    GridMath,
+    HoCLib,
+} from "@heroesofcrypto/common";
+import { canBeApplied } from "../effects/aura_effects";
 
 import { SquarePlacement } from "../placement/square_placement";
+import { AppliedSpell } from "../spells/spells";
 import { FightStateManager } from "../state/fight_state_manager";
 import {
     BASE_UNIT_STACK_TO_SPAWN_EXP,
@@ -41,12 +52,15 @@ export class UnitsHolder {
 
     private readonly unitIdToBodyFixtures: Map<string, b2Fixture[]>;
 
+    private teamsAuraEffects: Map<TeamType, Map<number, AuraEffectProperties[]>>;
+
     public constructor(world: b2World, gridSettings: GridSettings, unitsFactory: UnitsFactory) {
         this.world = world;
         this.gridSettings = gridSettings;
         this.unitsFactory = unitsFactory;
         this.unitIdToBodyFixtures = new Map();
         this.allBodies = new Map();
+        this.teamsAuraEffects = new Map();
     }
 
     public refreshBarFixtures(unit: Unit, body?: b2Body): void {
@@ -81,6 +95,72 @@ export class UnitsHolder {
 
     public getAllUnits(): Map<string, Unit> {
         return this.allUnits;
+    }
+
+    public getAllEnemyUnits(teamType: TeamType): Unit[] {
+        const enemyUnits: Unit[] = [];
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() !== teamType) {
+                enemyUnits.push(unit);
+            }
+        }
+
+        return enemyUnits;
+    }
+
+    public getAllAllies(teamType: TeamType): Unit[] {
+        const allies: Unit[] = [];
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() === teamType) {
+                allies.push(unit);
+            }
+        }
+
+        return allies;
+    }
+
+    public getAllTeamUnitsBuffs(teamType: TeamType): Map<string, AppliedSpell[]> {
+        const teamUnitBuffs: Map<string, AppliedSpell[]> = new Map();
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() === teamType) {
+                teamUnitBuffs.set(unit.getId(), unit.getBuffs());
+            }
+        }
+
+        return teamUnitBuffs;
+    }
+
+    public getAllEnemyUnitsDebuffs(teamType: TeamType): Map<string, AppliedSpell[]> {
+        const teamUnitBuffs: Map<string, AppliedSpell[]> = new Map();
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() !== teamType) {
+                teamUnitBuffs.set(unit.getId(), unit.getDebuffs());
+            }
+        }
+
+        return teamUnitBuffs;
+    }
+
+    public getAllTeamUnitsMagicResist(teamType: TeamType): Map<string, number> {
+        const teamUnitMagicResist: Map<string, number> = new Map();
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() === teamType) {
+                teamUnitMagicResist.set(unit.getId(), unit.getMagicResist());
+            }
+        }
+
+        return teamUnitMagicResist;
+    }
+
+    public getAllEnemyUnitsMagicResist(teamType: TeamType): Map<string, number> {
+        const enemyUnitMagicResist: Map<string, number> = new Map();
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() !== teamType) {
+                enemyUnitMagicResist.set(unit.getId(), unit.getMagicResist());
+            }
+        }
+
+        return enemyUnitMagicResist;
     }
 
     public getUnitByStats(unitProperties: UnitProperties): Unit | undefined {
@@ -184,6 +264,158 @@ export class UnitsHolder {
         }
     }
 
+    private getAuraCellKeys(cell: XY, auraRange: number): number[] {
+        const ret: number[] = [];
+        let cellsPool: XY[] = [cell];
+        const cellsCheckedAura: number[] = [];
+
+        if (auraRange >= 0) {
+            ret.push((cell.x << 4) | cell.y);
+        }
+
+        while (auraRange > 0) {
+            let nextPool: XY[] = [];
+            while (cellsPool.length) {
+                const cellToCheck = cellsPool.pop();
+                if (!cellToCheck) {
+                    continue;
+                }
+
+                const cellToCheckKey = (cellToCheck.x << 4) | cellToCheck.y;
+
+                if (cellsCheckedAura.includes(cellToCheckKey)) {
+                    continue;
+                }
+
+                const cells = GridMath.getCellsAroundCell(this.gridSettings, cellToCheck);
+                for (const c of cells) {
+                    nextPool.push(c);
+                    const cellKey = (c.x << 4) | c.y;
+                    if (!ret.includes(cellKey)) {
+                        ret.push(cellKey);
+                    }
+                }
+
+                cellsCheckedAura.push(cellToCheckKey);
+            }
+            cellsPool = nextPool;
+
+            auraRange--;
+        }
+
+        return ret;
+    }
+
+    public refreshAuraEffectsForAllUnits(): void {
+        // setup the initial empty maps
+        this.teamsAuraEffects = new Map();
+        for (let i = 0; i < (Object.keys(TeamType).length - 2) >> 1; i++) {
+            this.teamsAuraEffects.set(i + 1, new Map());
+        }
+
+        // fill the maps with the aura effects, duplicate auras allowed
+        for (const u of this.getAllUnitsIterator()) {
+            u.cleanAuraEffects();
+
+            const unitAuraEffects = u.getAuraEffects();
+            for (const uae of unitAuraEffects) {
+                uae.toDefault();
+                const unitAuraEffectProperties = uae.getProperties();
+                for (const c of u.getCells()) {
+                    if (unitAuraEffectProperties.power) {
+                        unitAuraEffectProperties.power =
+                            Number((u.calculateAuraEffectMultiplier(uae) * 100).toFixed(2)) - 100;
+                    }
+
+                    if (unitAuraEffectProperties.range < 0) {
+                        continue;
+                    }
+
+                    const teamAuraEffects = this.teamsAuraEffects.get(
+                        unitAuraEffectProperties.is_buff ? u.getTeam() : u.getOppositeTeam(),
+                    );
+
+                    if (!teamAuraEffects) {
+                        continue;
+                    }
+
+                    const affectedCellKeys = this.getAuraCellKeys(c, unitAuraEffectProperties.range);
+                    for (const ack of affectedCellKeys) {
+                        if (!teamAuraEffects.has(ack)) {
+                            teamAuraEffects.set(ack, []);
+                        }
+
+                        const teamAuraEffectsPerCell = teamAuraEffects.get(ack);
+                        if (!teamAuraEffectsPerCell) {
+                            continue;
+                        }
+
+                        teamAuraEffectsPerCell.push(unitAuraEffectProperties);
+                    }
+                }
+            }
+        }
+
+        // within the same team, squash aura effects where for the same auras, the one with bigger power will be applied
+        for (const [team, cells] of this.teamsAuraEffects) {
+            const newValue = new Map<number, AuraEffectProperties[]>();
+            for (const [cellKey, auraEffects] of cells) {
+                const auraEffectsMap = new Map<string, AuraEffectProperties>();
+                for (const ae of auraEffects) {
+                    if (!auraEffectsMap.has(ae.name)) {
+                        auraEffectsMap.set(ae.name, ae);
+                    } else {
+                        const existingAuraEffect = auraEffectsMap.get(ae.name);
+                        if (existingAuraEffect && ae.power > existingAuraEffect.power) {
+                            auraEffectsMap.set(ae.name, ae);
+                        }
+                    }
+                }
+                newValue.set(cellKey, Array.from(auraEffectsMap.values()));
+            }
+            this.teamsAuraEffects.set(team, newValue);
+        }
+
+        // apply aura effects to the units
+        for (const u of this.getAllUnitsIterator()) {
+            const teamAuraEffects = this.teamsAuraEffects.get(u.getTeam());
+            if (!teamAuraEffects) {
+                continue;
+            }
+
+            let unitAuraNamesToApply: string[] = [];
+            let unitAuraEffectPropertiesToApply: AuraEffectProperties[] = [];
+            for (const c of u.getCells()) {
+                const cellKey = (c.x << 4) | c.y;
+                const auraEffects = teamAuraEffects.get(cellKey);
+                if (!auraEffects || !auraEffects.length) {
+                    continue;
+                }
+
+                for (const ae of auraEffects) {
+                    if (!unitAuraNamesToApply.includes(ae.name)) {
+                        unitAuraNamesToApply.push(`${ae.name} Aura`);
+                        unitAuraEffectPropertiesToApply.push(ae);
+                    }
+                }
+            }
+
+            for (let i = 0; i < unitAuraEffectPropertiesToApply.length; i++) {
+                if (canBeApplied(u.getAttackType(), unitAuraEffectPropertiesToApply[i])) {
+                    u.applyAuraEffect(
+                        `${unitAuraEffectPropertiesToApply[i].name} Aura`,
+                        unitAuraEffectPropertiesToApply[i].desc.replace(
+                            /\{\}/g,
+                            unitAuraEffectPropertiesToApply[i].power.toString(),
+                        ),
+                        unitAuraEffectPropertiesToApply[i].is_buff,
+                        unitAuraEffectPropertiesToApply[i].power,
+                    );
+                }
+            }
+        }
+    }
+
     public decreaseMoraleForTheSameUnitsOfTheTeam(unit: Unit): void {
         for (const u of this.getAllUnitsIterator()) {
             if (u.getTeam() === unit.getTeam() && u.getName() === unit.getName()) {
@@ -221,13 +453,13 @@ export class UnitsHolder {
                     0,
                     summoned,
                 );
-                const point = GridMath.getPointForCell(
+                const position = GridMath.getPositionForCell(
                     cell,
                     this.gridSettings.getMinX(),
                     this.gridSettings.getStep(),
                     this.gridSettings.getHalfStep(),
                 );
-                cloned.setPosition(point.x, point.y);
+                cloned.setPosition(position.x, position.y);
                 this.positionBody(cloned);
 
                 return grid.occupyCell(cell, cloned.getId(), cloned.getTeam(), cloned.getAttackRange());
@@ -253,13 +485,13 @@ export class UnitsHolder {
                 summoned,
             );
 
-            const point = GridMath.getPointForCell(
+            const position = GridMath.getPositionForCell(
                 cell,
                 this.gridSettings.getMinX(),
                 this.gridSettings.getStep(),
                 this.gridSettings.getHalfStep(),
             );
-            cloned.setPosition(point.x - HALF_STEP, point.y - HALF_STEP);
+            cloned.setPosition(position.x - HALF_STEP, position.y - HALF_STEP);
             this.positionBody(cloned);
 
             return grid.occupyCells(cells, cloned.getId(), cloned.getTeam(), cloned.getAttackRange());
