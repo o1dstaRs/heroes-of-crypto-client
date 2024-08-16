@@ -404,5 +404,9 @@ function isFree(cell: HoCMath.XY, matrix: number[][]): boolean {
 }
 
 function cellToString(cell: HoCMath.XY | undefined): string {
-    return "x:" + cell.x + " y:" + cell.y;
+    if (cell === undefined) {
+        return "undefined";
+    } else {
+        return "x:" + cell.x + " y:" + cell.y;
+    }
 }
