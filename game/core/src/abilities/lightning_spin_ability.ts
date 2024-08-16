@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, Grid, GridMath, GridSettings, HoCMath } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, Grid, GridMath, GridSettings, HoCMath } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
@@ -95,9 +95,13 @@ export function processLightningSpinAbility(
         }
 
         for (const enemy of enemyList) {
-            const abilityMultiplier = fromUnit.calculateAbilityMultiplier(lightningSpinAbility);
-            console.log(`abilityMultiplier: ${abilityMultiplier}`);
+            const isAttackMissed = HoCLib.getRandomInt(0, 100) < fromUnit.calculateMissChance(enemy);
+            if (isAttackMissed) {
+                sceneLog.updateLog(`${fromUnit.getName()} misses ${actionString} ${enemy.getName()}`);
+                continue;
+            }
 
+            const abilityMultiplier = fromUnit.calculateAbilityMultiplier(lightningSpinAbility);
             const damageFromAttack = fromUnit.calculateAttackDamage(enemy, AttackType.MELEE, 1, abilityMultiplier);
 
             enemy.applyDamage(damageFromAttack, sceneStepCount);

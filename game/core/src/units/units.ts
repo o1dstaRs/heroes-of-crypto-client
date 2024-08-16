@@ -464,7 +464,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public getEffect(effectName: string): Effect | undefined {
-        console.log(`NUMBER OF EFFECTS: ${this.effects.length}`);
         for (const e of this.effects) {
             if (effectName === e.getName()) {
                 return e;
@@ -517,8 +516,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             return true;
         }
 
-        console.log("FALSE");
-
         return false;
     }
 
@@ -531,7 +528,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public deleteEffect(effectName: string) {
-        console.log(`delete ${effectName}`);
         this.effects = this.effects.filter((e) => e.getName() !== effectName);
 
         if (
@@ -593,8 +589,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             if (ef.getLaps() > 0) {
                 ef.minusLap();
             }
-
-            console.log(`Laps: effect ${ef.getName()} = ${ef.getLaps()}`);
 
             if (ef.getLaps()) {
                 if (
@@ -1327,6 +1321,27 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return calculatedCoeff;
     }
 
+    public calculateMissChance(enemyUnit: Unit): number {
+        const combinedMissChances = [];
+        const selfBoarSalivaEffect = this.getEffect("Boar Saliva");
+
+        if (selfBoarSalivaEffect) {
+            combinedMissChances.push(selfBoarSalivaEffect.getPower() / 100);
+        }
+
+        const enemyDodgeAbility = enemyUnit.getAbility("Dodge");
+        if (enemyDodgeAbility) {
+            const dodgeChance = this.calculateAbilityApplyChance(enemyDodgeAbility) / 100;
+            combinedMissChances.push(dodgeChance);
+        }
+
+        if (combinedMissChances.length) {
+            return Math.floor(HoCMath.winningAtLeastOneEventProbability(combinedMissChances) * 100);
+        }
+
+        return 0;
+    }
+
     public calculateAbilityApplyChance(ability: Ability): number {
         const combinedPower = ability.getPower() + this.getLuck();
         if (combinedPower < 0) {
@@ -1541,7 +1556,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public applyDebuff(debuff: Spell, casterMaxHp: number, casterBaseArmor: number, extend: boolean = false): void {
-        console.log("APPLY DEBUFFF");
         // not checking for duplicates here, do it on a caller side
         const lapsTotal = debuff.getLapsTotal() + (extend ? 1 : 0);
         this.debuffs.push(new AppliedSpell(debuff.getName(), lapsTotal, casterMaxHp, casterBaseArmor));
@@ -1856,6 +1870,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.refreshAbiltyDescription(
                 magicShieldAbility.getName(),
                 magicShieldAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Dodge
+        const dodgeAbility = this.getAbility("Dodge");
+        if (dodgeAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(dodgeAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                dodgeAbility.getName(),
+                dodgeAbility.getDesc().replace(/\{\}/g, percentage.toString()),
             );
         }
     }

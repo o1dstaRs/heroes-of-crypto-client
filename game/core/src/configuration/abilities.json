@@ -329,5 +329,16 @@
         "stack_powered": true,
         "effect": "Boar Saliva",
         "aura_effect": null
+    },
+    "Dodge": {
+        "name": "Dodge",
+        "type": "DEFENCE",
+        "desc": "Unit has {}% chance to dodge any attack, including magic and debuffs",
+        "power": 20,
+        "power_type": "DODGE_ANY_PERCENTAGE",
+        "skip_reponse": false,
+        "stack_powered": true,
+        "effect": null,
+        "aura_effect": null
     }
 }

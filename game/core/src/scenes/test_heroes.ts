@@ -1134,8 +1134,6 @@ class Sandbox extends GLScene {
                                 for (const awpc of abilitiesWithPositionCoeff) {
                                     abilityMultiplier *= this.currentActiveUnit.calculateAbilityMultiplier(awpc);
                                 }
-
-                                console.log(`hover abilityMultiplier: ${abilityMultiplier}`);
                             }
 
                             const isRangedAttacker =

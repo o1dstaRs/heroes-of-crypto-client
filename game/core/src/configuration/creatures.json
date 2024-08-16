@@ -388,7 +388,7 @@
             "hp": 9,
             "steps": 4.3,
             "speed": 7,
-            "armor": 12,
+            "armor": 10,
             "attack_type": "MELEE",
             "attack": 9,
             "attack_damage_min": 1,
@@ -402,7 +402,7 @@
             "size": 1,
             "level": 1,
             "spells": [],
-            "abilities": ["Backstab"]
+            "abilities": ["Backstab", "Dodge"]
         },
         "Orc": {
             "name": "Orc",

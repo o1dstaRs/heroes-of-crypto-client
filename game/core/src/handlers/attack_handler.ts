@@ -10,16 +10,7 @@
  */
 
 import { b2Body, b2Fixture, b2TestOverlap, b2Vec2, b2World, XY } from "@box2d/core";
-import {
-    AttackType,
-    HoCLib,
-    HoCMath,
-    HoCConstants,
-    UnitProperties,
-    GridMath,
-    GridSettings,
-    Grid,
-} from "@heroesofcrypto/common";
+import { AttackType, HoCLib, HoCConstants, UnitProperties, GridMath, GridSettings, Grid } from "@heroesofcrypto/common";
 
 import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
@@ -302,7 +293,7 @@ export class AttackHandler {
         drawer.startBulletAnimation(attackerUnit.getPosition(), hoverRangeAttackPosition, targetUnit);
 
         // let abilityMultiplier = currentActiveUnit.calculateAbilityMultiplier();
-        const isAttackMissed = HoCLib.getRandomInt(0, 100) < this.calculateMissChance(attackerUnit, targetUnit);
+        const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(targetUnit);
         const damageFromAttack = attackerUnit.calculateAttackDamage(
             targetUnit,
             AttackType.RANGE,
@@ -320,7 +311,7 @@ export class AttackHandler {
             targetUnit.canRespond() &&
             this.canLandRangeAttack(targetUnit, grid.getEnemyAggrMatrixByUnitId(targetUnit.getId()))
         ) {
-            // const isResponseMissed = HoCLib.getRandomInt(0, 100) < this.calculateMissChance(targetUnit, attackerUnit);
+            const isResponseMissed = HoCLib.getRandomInt(0, 100) < targetUnit.calculateMissChance(rangeResponseUnit);
             drawer.startBulletAnimation(targetUnit.getPosition(), attackerUnit.getPosition(), rangeResponseUnit);
             const damageFromRespond = targetUnit.calculateAttackDamage(
                 rangeResponseUnit,
@@ -334,21 +325,24 @@ export class AttackHandler {
                 this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
             }
 
-            if (damageFromRespond) {
-                this.sceneLog.updateLog(
-                    `${targetUnit.getName()} resp ${rangeResponseUnit.getName()} (${damageFromRespond})`,
-                );
+            if (isResponseMissed) {
+                this.sceneLog.updateLog(`${targetUnit.getName()} misses resp ${rangeResponseUnit.getName()}`);
+            } else {
+                if (damageFromRespond) {
+                    this.sceneLog.updateLog(
+                        `${targetUnit.getName()} resp ${rangeResponseUnit.getName()} (${damageFromRespond})`,
+                    );
+                }
+
+                rangeResponseUnit.applyDamage(damageFromRespond, sceneStepCount);
+                DamageStatisticHolder.getInstance().add({
+                    unitName: targetUnit.getName(),
+                    damage: damageFromRespond,
+                    team: targetUnit.getTeam(),
+                });
+
+                processOneInTheFieldAbility(targetUnit);
             }
-
-            rangeResponseUnit.applyDamage(damageFromRespond, sceneStepCount);
-            DamageStatisticHolder.getInstance().add({
-                unitName: targetUnit.getName(),
-                damage: damageFromRespond,
-                team: targetUnit.getTeam(),
-            });
-
-            processStunAbility(targetUnit, rangeResponseUnit, attackerUnit, this.sceneLog);
-            processOneInTheFieldAbility(targetUnit);
         } else if (isAttackMissed) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
         } else {
@@ -373,17 +367,21 @@ export class AttackHandler {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
         }
 
-        if (rangeResponseUnit?.isDead()) {
-            this.sceneLog.updateLog(`${rangeResponseUnit.getName()} died`);
-            unitsHolder.deleteUnitById(grid, rangeResponseUnit.getId());
-            unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(rangeResponseUnit);
-            if (!switchTargetUnit) {
-                targetUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
-                targetUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
-            }
+        if (rangeResponseUnit) {
+            if (rangeResponseUnit.isDead()) {
+                this.sceneLog.updateLog(`${rangeResponseUnit.getName()} died`);
+                unitsHolder.deleteUnitById(grid, rangeResponseUnit.getId());
+                unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(rangeResponseUnit);
+                if (!switchTargetUnit) {
+                    targetUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
+                    targetUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
+                }
 
-            if (rangeResponseUnit && attackerUnit.getId() === rangeResponseUnit.getId()) {
-                return true;
+                if (rangeResponseUnit && attackerUnit.getId() === rangeResponseUnit.getId()) {
+                    return true;
+                }
+            } else {
+                processStunAbility(targetUnit, rangeResponseUnit, attackerUnit, this.sceneLog);
             }
         }
 
@@ -539,11 +537,9 @@ export class AttackHandler {
             for (const awpc of abilitiesWithPositionCoeff) {
                 abilityMultiplier *= attackerUnit.calculateAbilityMultiplier(awpc);
             }
-
-            console.log(`abilityMultiplier: ${abilityMultiplier}`);
         }
 
-        const isAttackMissed = HoCLib.getRandomInt(0, 100) < this.calculateMissChance(attackerUnit, targetUnit);
+        const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(targetUnit);
         const damageFromAttack = attackerUnit.calculateAttackDamage(targetUnit, AttackType.MELEE, 1, abilityMultiplier);
 
         const fightState = FightStateManager.getInstance().getFightState();
@@ -596,7 +592,7 @@ export class AttackHandler {
             !attackerUnit.canSkipResponse() &&
             !targetUnit.hasAbilityActive("No Melee")
         ) {
-            const isResponseMissed = HoCLib.getRandomInt(0, 100) < this.calculateMissChance(targetUnit, attackerUnit);
+            const isResponseMissed = HoCLib.getRandomInt(0, 100) < targetUnit.calculateMissChance(attackerUnit);
 
             processFireBreathAbility(
                 targetUnit,
@@ -637,8 +633,6 @@ export class AttackHandler {
                     for (const awpc of abilitiesWithPositionCoeffResp) {
                         abilityMultiplier *= targetUnit.calculateAbilityMultiplier(awpc);
                     }
-
-                    console.log(`response abilityMultiplier: ${abilityMultiplier}`);
                 }
                 const damageFromRespond = targetUnit.calculateAttackDamage(
                     attackerUnit,
@@ -689,21 +683,13 @@ export class AttackHandler {
             // ~ already responded here
         }
 
-        const isSecondAttackMissed = HoCLib.getRandomInt(0, 100) < this.calculateMissChance(attackerUnit, targetUnit);
-        let secondPunchLanded = false;
-        if (attackerUnit.hasAbilityActive("Double Punch")) {
-            if (isSecondAttackMissed) {
-                this.sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
-            } else {
-                secondPunchLanded = processDoublePunchAbility(
-                    attackerUnit,
-                    targetUnit,
-                    this.sceneLog,
-                    unitsHolder,
-                    sceneStepCount,
-                );
-            }
-        }
+        const secondPunchLanded = processDoublePunchAbility(
+            attackerUnit,
+            targetUnit,
+            this.sceneLog,
+            unitsHolder,
+            sceneStepCount,
+        );
 
         if (!hasLightningSpinResponseLanded && attackerUnit.isDead()) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} died`);
@@ -727,21 +713,5 @@ export class AttackHandler {
         }
 
         return true;
-    }
-
-    private calculateMissChance(attackerUnit: Unit, targetUnit: Unit): number {
-        const combinedMissChances = [];
-        const boarSalivaEffect = attackerUnit.getEffect("Boar Saliva");
-        console.log(targetUnit.getName());
-
-        if (boarSalivaEffect) {
-            combinedMissChances.push(boarSalivaEffect.getPower() / 100);
-        }
-
-        if (combinedMissChances.length) {
-            return Math.floor(HoCMath.winningAtLeastOneEventProbability(combinedMissChances) * 100);
-        }
-
-        return 0;
     }
 }
