@@ -57,8 +57,7 @@ export class Ability {
 
     public getEffect(): Effect | undefined {
         if (this.effect) {
-            this.effect.toDefault();
-            return this.effect;
+            return new Effect(this.effect.getDefaultProperties());
         }
 
         return undefined;

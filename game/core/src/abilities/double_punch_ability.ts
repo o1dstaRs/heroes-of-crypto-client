@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType } from "@heroesofcrypto/common";
+import { AttackType, HoCLib } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { DamageStatisticHolder } from "../stats/damage_stats";
@@ -27,9 +27,13 @@ export function processDoublePunchAbility(
     const doublePunchAbility = fromUnit.getAbility("Double Punch");
     let secondPunchLanded = false;
     if (doublePunchAbility && !fromUnit.isDead() && !toUnit.isDead()) {
+        if (HoCLib.getRandomInt(0, 100) < fromUnit.calculateMissChance(toUnit)) {
+            sceneLog.updateLog(`${fromUnit.getName()} misses attk ${toUnit.getName()}`);
+            return false;
+        }
+
         unitsHolder.refreshStackPowerForAllUnits();
         const abilityMultiplier = fromUnit.calculateAbilityMultiplier(doublePunchAbility);
-        console.log(`second attack abilityMultiplier: ${abilityMultiplier}`);
         const damageFromAttack = fromUnit.calculateAttackDamage(toUnit, AttackType.MELEE, 1, abilityMultiplier);
         toUnit.applyDamage(damageFromAttack, sceneStepCount);
         DamageStatisticHolder.getInstance().add({

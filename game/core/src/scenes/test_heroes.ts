@@ -135,6 +135,8 @@ class Sandbox extends GLScene {
 
     private gridMatrix: number[][];
 
+    private performingAIAction = false;
+
     private readonly allowedPlacementCellHashes: Set<number>;
 
     private readonly obstacleGenerator: ObstacleGenerator;
@@ -164,6 +166,8 @@ class Sandbox extends GLScene {
     private readonly drawer: Drawer;
 
     private readonly visibleStateUpdate: () => void;
+
+    private readonly performAIAction: (wasAIActive: boolean) => void;
 
     private readonly sendFightState: () => Promise<void>;
 
@@ -410,6 +414,152 @@ class Sandbox extends GLScene {
                 this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
                 this.sc_visibleStateUpdateNeeded = true;
             }
+        };
+
+        this.performAIAction = (wasAIActive: boolean) => {
+            if (!this.currentActiveUnit) {
+                return;
+            }
+
+            const action = findTarget(this.currentActiveUnit, this.grid, this.gridMatrix, this.pathHelper);
+            if (action?.actionType() === AIActionType.MOVE_AND_M_ATTACK) {
+                this.currentActiveUnit.selectAttackType(AttackType.MELEE);
+                this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
+                this.currentActiveKnownPaths = action.currentActiveKnownPaths();
+                const cellToAttack = action.cellToAttack();
+                if (cellToAttack) {
+                    const targetUnitId = this.grid.getOccupantUnitId(cellToAttack);
+                    if (targetUnitId !== undefined) {
+                        const unitToAttack = this.unitsHolder.getAllUnits().get(targetUnitId);
+                        if (unitToAttack) {
+                            this.hoverAttackUnits = [unitToAttack];
+                        }
+                        const attackedCell = action.cellToMove();
+                        if (attackedCell) {
+                            this.hoverAttackFrom = attackedCell;
+                            if (this.currentActiveUnit.isSmallSize()) {
+                                this.hoverSelectedCells = [attackedCell];
+                            } else {
+                                const position = GridMath.getPositionForCell(
+                                    attackedCell,
+                                    this.sc_sceneSettings.getGridSettings().getMinX(),
+                                    this.sc_sceneSettings.getGridSettings().getStep(),
+                                    this.sc_sceneSettings.getGridSettings().getHalfStep(),
+                                );
+                                this.hoverSelectedCells = GridMath.getCellsAroundPosition(
+                                    this.sc_sceneSettings.getGridSettings(),
+                                    {
+                                        x: position.x - this.sc_sceneSettings.getGridSettings().getHalfStep(),
+                                        y: position.y - this.sc_sceneSettings.getGridSettings().getHalfStep(),
+                                    },
+                                );
+                            }
+                        }
+                    }
+                }
+                this.landAttack();
+            } else if (action?.actionType() === AIActionType.M_ATTACK) {
+                this.currentActiveUnit.selectAttackType(AttackType.MELEE);
+                this.currentActiveKnownPaths = action.currentActiveKnownPaths();
+                const cellToAttack = action.cellToAttack();
+                if (cellToAttack) {
+                    const targetUnitId = this.grid.getOccupantUnitId(cellToAttack);
+                    if (targetUnitId !== undefined) {
+                        const unitToAttack = this.unitsHolder.getAllUnits().get(targetUnitId);
+                        if (unitToAttack) {
+                            this.hoverAttackUnits = [unitToAttack];
+                        }
+                        const attackedCell = action.cellToMove();
+                        if (attackedCell) {
+                            this.hoverAttackFrom = attackedCell;
+                        }
+                    }
+                }
+                this.landAttack();
+            } else if (action?.actionType() === AIActionType.R_ATTACK) {
+                this.currentActiveUnit.selectAttackType(AttackType.RANGE);
+                this.currentActiveKnownPaths = action.currentActiveKnownPaths();
+                const cellToAttack = action.cellToAttack();
+                if (cellToAttack) {
+                    const targetUnitId = this.grid.getOccupantUnitId(cellToAttack);
+                    if (targetUnitId !== undefined) {
+                        this.rangeResponseUnit = this.unitsHolder.getAllUnits().get(targetUnitId);
+                    }
+                }
+                // for (const unit of this.unitsHolder.getAllUnits().values()) {
+                //    if(unit.getCell() !== undefined && unit.getCell() === action.cellToAttack()) {
+                //        this.rangeResponseUnit = unit;
+                //    }
+                // }
+                this.landAttack();
+            } else {
+                // from attack_handler:405 moveHandler.startMoving() refactor for small and big units
+                const cellToMove = action?.cellToMove();
+                if (cellToMove) {
+                    if (this.currentActiveUnit.isSmallSize()) {
+                        this.hoverSelectedCells = [cellToMove];
+                        const moveStarted = this.moveHandler.startMoving(
+                            cellToMove,
+                            this.drawer,
+                            FightStateManager.getInstance().getStepsMoraleMultiplier(),
+                            this.sc_selectedBody,
+                            action?.currentActiveKnownPaths(),
+                        );
+                        if (moveStarted) {
+                            const position = GridMath.getPositionForCell(
+                                cellToMove,
+                                this.sc_sceneSettings.getGridSettings().getMinX(),
+                                this.sc_sceneSettings.getGridSettings().getStep(),
+                                this.sc_sceneSettings.getGridSettings().getHalfStep(),
+                            );
+                            this.currentActiveUnit.setPosition(position.x, position.y);
+                            this.grid.occupyCell(
+                                cellToMove,
+                                this.currentActiveUnit.getId(),
+                                this.currentActiveUnit.getTeam(),
+                                this.currentActiveUnit.getAttackRange(),
+                            );
+                        }
+                    } else {
+                        const position = GridMath.getPositionForCell(
+                            cellToMove,
+                            this.sc_sceneSettings.getGridSettings().getMinX(),
+                            this.sc_sceneSettings.getGridSettings().getStep(),
+                            this.sc_sceneSettings.getGridSettings().getHalfStep(),
+                        );
+                        const cells = GridMath.getCellsAroundPosition(this.sc_sceneSettings.getGridSettings(), {
+                            x: position.x - this.sc_sceneSettings.getGridSettings().getHalfStep(),
+                            y: position.y - this.sc_sceneSettings.getGridSettings().getHalfStep(),
+                        });
+                        this.hoverSelectedCells = cells;
+                        const moveStarted = this.moveHandler.startMoving(
+                            cellToMove,
+                            this.drawer,
+                            FightStateManager.getInstance().getStepsMoraleMultiplier(),
+                            this.sc_selectedBody,
+                            action?.currentActiveKnownPaths(),
+                        );
+                        if (moveStarted) {
+                            this.currentActiveUnit.setPosition(
+                                position.x - this.sc_sceneSettings.getGridSettings().getHalfStep(),
+                                position.y - this.sc_sceneSettings.getGridSettings().getHalfStep(),
+                            );
+
+                            this.grid.occupyCells(
+                                cells,
+                                this.currentActiveUnit.getId(),
+                                this.currentActiveUnit.getTeam(),
+                                this.currentActiveUnit.getAttackRange(),
+                            );
+                        }
+                    }
+                }
+            }
+
+            // finish turn
+            this.finishTurn();
+            this.sc_isAIActive = wasAIActive;
+            this.performingAIAction = false;
         };
 
         this.sendFightState = async () => {
@@ -984,8 +1134,6 @@ class Sandbox extends GLScene {
                                 for (const awpc of abilitiesWithPositionCoeff) {
                                     abilityMultiplier *= this.currentActiveUnit.calculateAbilityMultiplier(awpc);
                                 }
-
-                                console.log(`hover abilityMultiplier: ${abilityMultiplier}`);
                             }
 
                             const isRangedAttacker =
@@ -2962,144 +3110,17 @@ class Sandbox extends GLScene {
                 }
 
                 // AI section
-                if (this.currentActiveUnit && this.sc_isAIActive) {
-                    const action = findTarget(this.currentActiveUnit, this.grid, this.gridMatrix, this.pathHelper);
-                    if (action?.actionType() === AIActionType.MOVE_AND_M_ATTACK) {
-                        this.currentActiveUnit.selectAttackType(AttackType.MELEE);
-                        this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
-                        this.currentActiveKnownPaths = action.currentActiveKnownPaths();
-                        const cellToAttack = action.cellToAttack();
-                        if (cellToAttack) {
-                            const targetUnitId = this.grid.getOccupantUnitId(cellToAttack);
-                            if (targetUnitId !== undefined) {
-                                const unitToAttack = this.unitsHolder.getAllUnits().get(targetUnitId);
-                                if (unitToAttack) {
-                                    this.hoverAttackUnits = [unitToAttack];
-                                }
-                                const attackedCell = action.cellToMove();
-                                if (attackedCell) {
-                                    this.hoverAttackFrom = attackedCell;
-                                    if (this.currentActiveUnit.isSmallSize()) {
-                                        this.hoverSelectedCells = [attackedCell];
-                                    } else {
-                                        const position = GridMath.getPositionForCell(
-                                            attackedCell,
-                                            this.sc_sceneSettings.getGridSettings().getMinX(),
-                                            this.sc_sceneSettings.getGridSettings().getStep(),
-                                            this.sc_sceneSettings.getGridSettings().getHalfStep(),
-                                        );
-                                        this.hoverSelectedCells = GridMath.getCellsAroundPosition(
-                                            this.sc_sceneSettings.getGridSettings(),
-                                            {
-                                                x: position.x - this.sc_sceneSettings.getGridSettings().getHalfStep(),
-                                                y: position.y - this.sc_sceneSettings.getGridSettings().getHalfStep(),
-                                            },
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                        this.landAttack();
-                    } else if (action?.actionType() === AIActionType.M_ATTACK) {
-                        this.currentActiveUnit.selectAttackType(AttackType.MELEE);
-                        this.currentActiveKnownPaths = action.currentActiveKnownPaths();
-                        const cellToAttack = action.cellToAttack();
-                        if (cellToAttack) {
-                            const targetUnitId = this.grid.getOccupantUnitId(cellToAttack);
-                            if (targetUnitId !== undefined) {
-                                const unitToAttack = this.unitsHolder.getAllUnits().get(targetUnitId);
-                                if (unitToAttack) {
-                                    this.hoverAttackUnits = [unitToAttack];
-                                }
-                                const attackedCell = action.cellToMove();
-                                if (attackedCell) {
-                                    this.hoverAttackFrom = attackedCell;
-                                }
-                            }
-                        }
-                        this.landAttack();
-                    } else if (action?.actionType() === AIActionType.R_ATTACK) {
-                        this.currentActiveUnit.selectAttackType(AttackType.RANGE);
-                        this.currentActiveKnownPaths = action.currentActiveKnownPaths();
-                        const cellToAttack = action.cellToAttack();
-                        if (cellToAttack) {
-                            const targetUnitId = this.grid.getOccupantUnitId(cellToAttack);
-                            if (targetUnitId !== undefined) {
-                                this.rangeResponseUnit = this.unitsHolder.getAllUnits().get(targetUnitId);
-                            }
-                        }
-                        // for (const unit of this.unitsHolder.getAllUnits().values()) {
-                        //    if(unit.getCell() !== undefined && unit.getCell() === action.cellToAttack()) {
-                        //        this.rangeResponseUnit = unit;
-                        //    }
-                        // }
-                        this.landAttack();
-                    } else {
-                        // from attack_handler:405 moveHandler.startMoving() refactor for small and big units
-                        const cellToMove = action?.cellToMove();
-                        if (cellToMove) {
-                            if (this.currentActiveUnit.isSmallSize()) {
-                                this.hoverSelectedCells = [cellToMove];
-                                const moveStarted = this.moveHandler.startMoving(
-                                    cellToMove,
-                                    this.drawer,
-                                    FightStateManager.getInstance().getStepsMoraleMultiplier(),
-                                    this.sc_selectedBody,
-                                    action?.currentActiveKnownPaths(),
-                                );
-                                if (moveStarted) {
-                                    const position = GridMath.getPositionForCell(
-                                        cellToMove,
-                                        this.sc_sceneSettings.getGridSettings().getMinX(),
-                                        this.sc_sceneSettings.getGridSettings().getStep(),
-                                        this.sc_sceneSettings.getGridSettings().getHalfStep(),
-                                    );
-                                    this.currentActiveUnit.setPosition(position.x, position.y);
-                                    this.grid.occupyCell(
-                                        cellToMove,
-                                        this.currentActiveUnit.getId(),
-                                        this.currentActiveUnit.getTeam(),
-                                        this.currentActiveUnit.getAttackRange(),
-                                    );
-                                }
-                            } else {
-                                const position = GridMath.getPositionForCell(
-                                    cellToMove,
-                                    this.sc_sceneSettings.getGridSettings().getMinX(),
-                                    this.sc_sceneSettings.getGridSettings().getStep(),
-                                    this.sc_sceneSettings.getGridSettings().getHalfStep(),
-                                );
-                                const cells = GridMath.getCellsAroundPosition(this.sc_sceneSettings.getGridSettings(), {
-                                    x: position.x - this.sc_sceneSettings.getGridSettings().getHalfStep(),
-                                    y: position.y - this.sc_sceneSettings.getGridSettings().getHalfStep(),
-                                });
-                                this.hoverSelectedCells = cells;
-                                const moveStarted = this.moveHandler.startMoving(
-                                    cellToMove,
-                                    this.drawer,
-                                    FightStateManager.getInstance().getStepsMoraleMultiplier(),
-                                    this.sc_selectedBody,
-                                    action?.currentActiveKnownPaths(),
-                                );
-                                if (moveStarted) {
-                                    this.currentActiveUnit.setPosition(
-                                        position.x - this.sc_sceneSettings.getGridSettings().getHalfStep(),
-                                        position.y - this.sc_sceneSettings.getGridSettings().getHalfStep(),
-                                    );
-
-                                    this.grid.occupyCells(
-                                        cells,
-                                        this.currentActiveUnit.getId(),
-                                        this.currentActiveUnit.getTeam(),
-                                        this.currentActiveUnit.getAttackRange(),
-                                    );
-                                }
-                            }
-                        }
-                    }
-
-                    // finish turn
-                    this.finishTurn();
+                if (
+                    this.currentActiveUnit &&
+                    (this.sc_isAIActive || this.currentActiveUnit?.hasAbilityActive("AI Driven")) &&
+                    !this.performingAIAction
+                ) {
+                    this.performingAIAction = true;
+                    const wasAIActive = this.sc_isAIActive;
+                    this.sc_isAIActive = true;
+                    setTimeout(() => {
+                        this.performAIAction(wasAIActive);
+                    }, 750);
                 }
             }
 

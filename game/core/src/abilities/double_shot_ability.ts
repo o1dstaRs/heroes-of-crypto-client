@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCMath } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, HoCMath } from "@heroesofcrypto/common";
 
 import { Drawer } from "../draw/drawer";
 import { SceneLog } from "../menu/scene_log";
@@ -33,11 +33,16 @@ export function processDoubleShotAbility(
         return false;
     }
 
+    const isSecondAttackMissed = HoCLib.getRandomInt(0, 100) < fromUnit.calculateMissChance(toUnit);
+    if (isSecondAttackMissed) {
+        sceneLog.updateLog(`${fromUnit.getName()} misses attk ${toUnit.getName()}`);
+        return false;
+    }
+
     drawer.startBulletAnimation(fromUnit.getPosition(), hoverRangeAttackPosition, toUnit);
     unitsHolder.refreshStackPowerForAllUnits();
 
     const abilityMultiplier = fromUnit.calculateAbilityMultiplier(doubleShotAbility);
-    console.log(`second shot abilityMultiplier: ${abilityMultiplier}`);
     const damageFromAttack = fromUnit.calculateAttackDamage(
         toUnit,
         AttackType.RANGE,

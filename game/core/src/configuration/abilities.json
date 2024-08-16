@@ -211,7 +211,7 @@
     },
     "Blindness": {
         "name": "Blindness",
-        "type": "STATUS",
+        "type": "MIND",
         "desc": "When responding to a melee attack, there is a {}% chance to blind the enemy for 2 turns",
         "power": 25,
         "power_type": "APPLY_EFFECT",
@@ -296,5 +296,49 @@
         "stack_powered": true,
         "effect": null,
         "aura_effect": "Arrows Wingshield"
+    },
+    "AI Driven": {
+        "name": "AI Driven",
+        "type": "CONTROL",
+        "desc": "Unit acts on its own, with all its moves decided by the AI, not the player",
+        "power": 0,
+        "power_type": "BASIC_AI",
+        "skip_reponse": false,
+        "stack_powered": false,
+        "effect": null,
+        "aura_effect": null
+    },
+    "Magic Shield": {
+        "name": "Magic Shield",
+        "type": "DEFENCE",
+        "desc": "Provides {}% resistance to all magical attacks and debuffs",
+        "power": 50,
+        "power_type": "MAGIC_RESIST_50",
+        "skip_reponse": false,
+        "stack_powered": true,
+        "effect": null,
+        "aura_effect": null
+    },
+    "Boar Saliva": {
+        "name": "Boar Saliva",
+        "type": "MIND",
+        "desc": "Applying Board Saliva to an enemy has a {}% chance to miss their physical attack",
+        "power": 30,
+        "power_type": "APPLY_EFFECT",
+        "skip_reponse": false,
+        "stack_powered": true,
+        "effect": "Boar Saliva",
+        "aura_effect": null
+    },
+    "Dodge": {
+        "name": "Dodge",
+        "type": "DEFENCE",
+        "desc": "Unit has {}% chance to dodge any attack, including magic and debuffs",
+        "power": 20,
+        "power_type": "DODGE_ANY_PERCENTAGE",
+        "skip_reponse": false,
+        "stack_powered": true,
+        "effect": null,
+        "aura_effect": null
     }
 }

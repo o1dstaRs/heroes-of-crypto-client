@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, Grid, GridMath, GridSettings, HoCMath } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, Grid, GridMath, GridSettings, HoCMath } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
@@ -21,6 +21,7 @@ import { processFireShieldAbility } from "./fire_shield_ability";
 import { processOneInTheFieldAbility } from "./one_in_the_field_ability";
 import { processStunAbility } from "./stun_ability";
 import { processBlindnessAbility } from "./blindness_ability";
+import { processBoarSalivaAbility } from "./boar_saliva_ability";
 
 export function allEnemiesAroundLargeUnit(
     attacker: Unit,
@@ -94,9 +95,13 @@ export function processLightningSpinAbility(
         }
 
         for (const enemy of enemyList) {
-            const abilityMultiplier = fromUnit.calculateAbilityMultiplier(lightningSpinAbility);
-            console.log(`abilityMultiplier: ${abilityMultiplier}`);
+            const isAttackMissed = HoCLib.getRandomInt(0, 100) < fromUnit.calculateMissChance(enemy);
+            if (isAttackMissed) {
+                sceneLog.updateLog(`${fromUnit.getName()} misses ${actionString} ${enemy.getName()}`);
+                continue;
+            }
 
+            const abilityMultiplier = fromUnit.calculateAbilityMultiplier(lightningSpinAbility);
             const damageFromAttack = fromUnit.calculateAttackDamage(enemy, AttackType.MELEE, 1, abilityMultiplier);
 
             enemy.applyDamage(damageFromAttack, sceneStepCount);
@@ -116,6 +121,7 @@ export function processLightningSpinAbility(
             // just in case if we have more inherited/stolen abilities
             processFireShieldAbility(enemy, fromUnit, sceneLog, unitsHolder, damageFromAttack, sceneStepCount);
             processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
+            processBoarSalivaAbility(fromUnit, enemy, fromUnit, sceneLog);
             // works only on response
             if (!isAttack) {
                 processBlindnessAbility(fromUnit, enemy, fromUnit, sceneLog);

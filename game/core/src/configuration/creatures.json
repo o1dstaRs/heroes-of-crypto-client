@@ -388,7 +388,7 @@
             "hp": 9,
             "steps": 4.3,
             "speed": 7,
-            "armor": 12,
+            "armor": 10,
             "attack_type": "MELEE",
             "attack": 9,
             "attack_damage_min": 1,
@@ -402,7 +402,7 @@
             "size": 1,
             "level": 1,
             "spells": [],
-            "abilities": ["Backstab"]
+            "abilities": ["Backstab", "Dodge"]
         },
         "Orc": {
             "name": "Orc",
@@ -700,7 +700,7 @@
             "size": 1,
             "level": 1,
             "spells": [],
-            "abilities": ["Double Punch"]
+            "abilities": ["AI Driven", "Double Punch"]
         },
         "Centaur": {
             "name": "Centaur",
@@ -875,6 +875,27 @@
             "level": 3,
             "spells": [],
             "abilities": []
+        },
+        "Frenzied Boar": {
+            "name": "Frenzied Boar",
+            "hp": 225,
+            "steps": 6,
+            "speed": 6.5,
+            "armor": 38,
+            "attack_type": "MELEE",
+            "attack": 38,
+            "attack_damage_min": 70,
+            "attack_damage_max": 80,
+            "attack_range": 1,
+            "range_shots": 0,
+            "shot_distance": 0,
+            "magic_resist": 15,
+            "can_fly": false,
+            "exp": 500,
+            "size": 2,
+            "level": 3,
+            "spells": [],
+            "abilities": ["AI Driven", "Magic Shield", "Boar Saliva"]
         }
     }
 }

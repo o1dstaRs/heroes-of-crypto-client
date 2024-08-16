@@ -90,8 +90,10 @@ export class FightStateManager {
 
         while (this.fightState.upNext.length < UP_NEXT_UNITS_COUNT) {
             const nextUnitId = this.getNextTurnUnitId(allUnits, unitsUpper, unitsLower);
+
             if (nextUnitId) {
                 const unit = allUnits.get(nextUnitId);
+
                 if (unit) {
                     this.fightState.upNext.push(nextUnitId);
                     this.updatePreviousTurnTeam(unit.getTeam());
@@ -157,7 +159,7 @@ export class FightStateManager {
         let secondBatch: Unit[];
 
         // total morale based
-        if (this.fightState.previousTurnTeam == null) {
+        if (this.fightState.previousTurnTeam == TeamType.NO_TEAM) {
             for (const u of unitsUpper) {
                 this.fightState.highestSpeedThisTurn = Math.max(this.fightState.highestSpeedThisTurn, u.getSpeed());
                 totalArmyMoraleUpper += u.getMorale();
@@ -185,6 +187,7 @@ export class FightStateManager {
                 for (const u of unitsUpper) {
                     upperMaxSpeed = u.getSpeed() > upperMaxSpeed ? u.getSpeed() : upperMaxSpeed;
                 }
+
                 if (lowerMaxSpeed > upperMaxSpeed) {
                     firstBatch = unitsLower;
                     secondBatch = unitsUpper;
@@ -312,9 +315,9 @@ export class FightStateManager {
 
         this.fightState.currentTurnStart = HoCLib.getTimeMillis();
         this.fightState.currentTurnEnd = this.fightState.currentTurnStart + Math.min(timeRemaining, maxTimeToMakeTurn);
-        console.log(
-            `timeRemaining:${timeRemaining} currentTotalTimePerTeam:${currentTotalTimePerTeam} maxTimeToMakeTurn:${maxTimeToMakeTurn} alreadyMadeTurnTeamMembers:${alreadyMadeTurnTeamMembers}`,
-        );
+        // console.log(
+        // `timeRemaining:${timeRemaining} currentTotalTimePerTeam:${currentTotalTimePerTeam} maxTimeToMakeTurn:${maxTimeToMakeTurn} alreadyMadeTurnTeamMembers:${alreadyMadeTurnTeamMembers}`,
+        // );
     }
 
     public requestAdditionalTurnTime(team?: number, justCheck = false): number {

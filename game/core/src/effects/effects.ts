@@ -33,8 +33,16 @@ export class Effect {
         return this.effectProperties.laps;
     }
 
+    public getPower(): number {
+        return this.effectProperties.power;
+    }
+
     public getProperties(): EffectProperties {
         return this.effectProperties;
+    }
+
+    public setPower(power: number): void {
+        this.effectProperties.power = power;
     }
 
     public extend(): void {
@@ -45,8 +53,8 @@ export class Effect {
         this.effectProperties.laps += 1;
     }
 
-    public toDefault(): void {
-        this.effectProperties = structuredClone(this.defaultProperties);
+    public getDefaultProperties(): EffectProperties {
+        return structuredClone(this.defaultProperties);
     }
 
     public minusLap(): void {

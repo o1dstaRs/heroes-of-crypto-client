@@ -32,6 +32,7 @@ import {
     GridSettings,
     UnitProperties,
     HoCLib,
+    HoCMath,
     TeamType,
     UnitType,
 } from "@heroesofcrypto/common";
@@ -432,15 +433,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         for (const abilityName of this.unitProperties.abilities) {
             const ability = abilitiesFactory.makeAbility(abilityName);
             this.abilities.push(ability);
-            if (abilityName === "Endless Quiver") {
-                this.unitProperties.range_shots_mod = ability.getPower();
-            } else if (abilityName === "Enchanted Skin") {
-                this.unitProperties.magic_resist_mod = ability.getPower();
-            } else if (abilityName === "Leather Armor") {
-                this.rangeArmorMultiplier = ability.getPower() / 100;
-            } else if (abilityName === "Limited Supply") {
-                this.adjustRangeShotsNumber(true);
-            }
         }
     }
 
@@ -465,6 +457,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         for (const a of this.abilities) {
             if (abilityName === a.getName()) {
                 return a;
+            }
+        }
+
+        return undefined;
+    }
+
+    public getEffect(effectName: string): Effect | undefined {
+        for (const e of this.effects) {
+            if (effectName === e.getName()) {
+                return e;
             }
         }
 
@@ -496,24 +498,22 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return false;
     }
 
-    public applyEffect(fromUnit: Unit, effectName: string | undefined, extended = false): boolean {
-        if (!effectName || this.hasEffectActive(effectName)) {
-            return false;
-        }
-
-        for (const a of fromUnit.getAbilities()) {
-            if (a.getEffectName() === effectName) {
-                const ef = a.getEffect();
-                if (ef) {
-                    if (extended) {
-                        ef.extend();
-                    }
-                    this.effects.push(ef);
-                    this.unitProperties.applied_effects.push(ef.getName());
-                    this.unitProperties.applied_effects_laps.push(ef.getLaps());
-                    return true;
-                }
-            }
+    public applyEffect(effect: Effect): boolean {
+        // not checking for duplicates here, do it on a caller side
+        if (
+            this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_laps.length &&
+            this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_powers.length &&
+            this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_descriptions.length
+        ) {
+            this.deleteEffect(effect.getName());
+            this.effects.push(effect);
+            this.unitProperties.applied_effects.push(effect.getName());
+            this.unitProperties.applied_effects_laps.push(effect.getLaps());
+            this.unitProperties.applied_effects_powers.push(effect.getPower());
+            this.unitProperties.applied_effects_descriptions.push(
+                effect.getDesc().replace(/\{\}/g, effect.getPower().toString()),
+            );
+            return true;
         }
 
         return false;
@@ -530,11 +530,17 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     public deleteEffect(effectName: string) {
         this.effects = this.effects.filter((e) => e.getName() !== effectName);
 
-        if (this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_laps.length) {
+        if (
+            this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_laps.length &&
+            this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_descriptions.length &&
+            this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_powers.length
+        ) {
             for (let i = this.unitProperties.applied_effects.length - 1; i >= 0; i--) {
                 if (this.unitProperties.applied_effects[i] === effectName) {
                     this.unitProperties.applied_effects.splice(i, 1);
                     this.unitProperties.applied_effects_laps.splice(i, 1);
+                    this.unitProperties.applied_effects_descriptions.splice(i, 1);
+                    this.unitProperties.applied_effects_powers.splice(i, 1);
                 }
             }
         }
@@ -545,7 +551,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         if (
             this.unitProperties.applied_buffs.length === this.unitProperties.applied_buffs_laps.length &&
-            this.unitProperties.applied_buffs.length == this.unitProperties.applied_buffs_descriptions.length
+            this.unitProperties.applied_buffs.length == this.unitProperties.applied_buffs_descriptions.length &&
+            this.unitProperties.applied_buffs.length == this.unitProperties.applied_buffs_powers.length
         ) {
             for (let i = this.unitProperties.applied_buffs.length - 1; i >= 0; i--) {
                 if (this.unitProperties.applied_buffs[i] === buffName) {
@@ -563,7 +570,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         if (
             this.unitProperties.applied_debuffs.length === this.unitProperties.applied_debuffs_laps.length &&
-            this.unitProperties.applied_debuffs.length == this.unitProperties.applied_debuffs_descriptions.length
+            this.unitProperties.applied_debuffs.length == this.unitProperties.applied_debuffs_descriptions.length &&
+            this.unitProperties.applied_debuffs.length == this.unitProperties.applied_debuffs_powers.length
         ) {
             for (let i = this.unitProperties.applied_debuffs.length - 1; i >= 0; i--) {
                 if (this.unitProperties.applied_debuffs[i] === debuffName) {
@@ -583,7 +591,12 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             }
 
             if (ef.getLaps()) {
-                if (this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_laps.length) {
+                if (
+                    this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_laps.length &&
+                    this.unitProperties.applied_effects.length ===
+                        this.unitProperties.applied_effects_descriptions.length &&
+                    this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_powers.length
+                ) {
                     for (let i = 0; i < this.unitProperties.applied_effects.length; i++) {
                         if (
                             this.unitProperties.applied_effects[i] === ef.getName() &&
@@ -1269,11 +1282,24 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return calculatedCoeff;
     }
 
+    public calculateEffectMultiplier(effect: Effect): number {
+        let calculatedCoeff = 1;
+        let combinedPower = effect.getPower() + this.getLuck();
+        if (combinedPower < 0) {
+            combinedPower = 1;
+        }
+
+        calculatedCoeff *= (combinedPower / 100 / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower();
+
+        return calculatedCoeff;
+    }
+
     public calculateAbilityMultiplier(ability: Ability): number {
         let calculatedCoeff = 1;
         if (
             ability.getPowerType() === AbilityPowerType.TOTAL_DAMAGE_PERCENTAGE ||
             ability.getPowerType() === AbilityPowerType.IGNORE_ARMOR ||
+            ability.getPowerType() === AbilityPowerType.MAGIC_RESIST_50 ||
             ability.getPowerType() === AbilityPowerType.BOOST_HEALTH
         ) {
             let combinedPower = ability.getPower() + this.getLuck();
@@ -1293,6 +1319,27 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         return calculatedCoeff;
+    }
+
+    public calculateMissChance(enemyUnit: Unit): number {
+        const combinedMissChances = [];
+        const selfBoarSalivaEffect = this.getEffect("Boar Saliva");
+
+        if (selfBoarSalivaEffect) {
+            combinedMissChances.push(selfBoarSalivaEffect.getPower() / 100);
+        }
+
+        const enemyDodgeAbility = enemyUnit.getAbility("Dodge");
+        if (enemyDodgeAbility) {
+            const dodgeChance = this.calculateAbilityApplyChance(enemyDodgeAbility) / 100;
+            combinedMissChances.push(dodgeChance);
+        }
+
+        if (combinedMissChances.length) {
+            return Math.floor(HoCMath.winningAtLeastOneEventProbability(combinedMissChances) * 100);
+        }
+
+        return 0;
     }
 
     public calculateAbilityApplyChance(ability: Ability): number {
@@ -1554,12 +1601,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public adjustBaseStats() {
+        // HP
         const baseStatsDiff = calculateBuffsDebuffsEffect(this.getBuffs(), this.getDebuffs());
         this.unitProperties.max_hp = this.refreshAndGetAdjustedMaxHp() + baseStatsDiff.baseStats.hp;
         if (this.unitProperties.max_hp < this.unitProperties.hp) {
             this.unitProperties.hp = this.unitProperties.max_hp;
         }
 
+        // LUCK
         if (baseStatsDiff.baseStats.luck === Number.MAX_SAFE_INTEGER) {
             this.unitProperties.luck = LUCK_MAX_VALUE_TOTAL;
             this.unitProperties.luck_per_turn = 0;
@@ -1570,6 +1619,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             }
         }
 
+        // ARMOR
         this.unitProperties.base_armor = Number(
             (this.initialUnitProperties.base_armor + baseStatsDiff.baseStats.armor).toFixed(2),
         );
@@ -1586,6 +1636,30 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             (this.unitProperties.base_armor * this.rangeArmorMultiplier).toFixed(2),
         );
 
+        // MDEF
+        this.unitProperties.magic_resist = this.initialUnitProperties.magic_resist;
+        const enchantedSkinAbility = this.getAbility("Enchanted Skin");
+        if (enchantedSkinAbility) {
+            this.unitProperties.magic_resist_mod = enchantedSkinAbility.getPower();
+        } else {
+            const magicResists: number[] = [this.getMagicResist() / 100];
+            const magicShieldAbility = this.getAbility("Magic Shield");
+            if (magicShieldAbility) {
+                magicResists.push(this.calculateAbilityMultiplier(magicShieldAbility));
+                this.unitProperties.magic_resist = Number(
+                    (HoCMath.winningAtLeastOneEventProbability(magicResists) * 100).toFixed(2),
+                );
+            }
+        }
+
+        // SHOTS
+        this.adjustRangeShotsNumber(true);
+        const endlessQuiverAbility = this.getAbility("Endless Quiver");
+        if (endlessQuiverAbility) {
+            this.unitProperties.range_shots_mod = endlessQuiverAbility.getPower();
+        }
+
+        // ATTACK
         const sharpenedWeaponsAura = this.getAppliedAuraEffect("Sharpened Weapons Aura");
         if (sharpenedWeaponsAura) {
             this.unitProperties.base_attack = Number(
@@ -1612,6 +1686,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.unitProperties.attack_mod = this.initialUnitProperties.attack_mod;
         }
 
+        // ABILITIES DESCRIPTIONS
         // Heavy Armor
         const heavyArmorAbility = this.getAbility("Heavy Armor");
         if (heavyArmorAbility) {
@@ -1775,6 +1850,36 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.refreshAbiltyDescription(
                 limitedSupplyAbility.getName(),
                 limitedSupplyAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Boar Saliva
+        const boarSalivaAbility = this.getAbility("Boar Saliva");
+        if (boarSalivaAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(boarSalivaAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                boarSalivaAbility.getName(),
+                boarSalivaAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Magic Shield
+        const magicShieldAbility = this.getAbility("Magic Shield");
+        if (magicShieldAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(magicShieldAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                magicShieldAbility.getName(),
+                magicShieldAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Dodge
+        const dodgeAbility = this.getAbility("Dodge");
+        if (dodgeAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(dodgeAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                dodgeAbility.getName(),
+                dodgeAbility.getDesc().replace(/\{\}/g, percentage.toString()),
             );
         }
     }
