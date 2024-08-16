@@ -49,7 +49,6 @@ import { PreloadedTextures } from "../utils/gl/preload";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
 import { SceneSettings } from "./scene_settings";
 import { abilityToTextureName } from "../abilities/abilities_factory";
-import { getEffectConfig } from "../config_provider";
 
 const temp = {
     aabb: new b2AABB(),
@@ -537,7 +536,10 @@ export abstract class Scene extends b2ContactListener {
             });
         }
 
-        if (unitProperties.applied_effects.length === unitProperties.applied_effects_laps.length) {
+        if (
+            unitProperties.applied_effects.length === unitProperties.applied_effects_laps.length &&
+            unitProperties.applied_effects.length === unitProperties.applied_effects_descriptions.length
+        ) {
             for (let i = 0; i < unitProperties.applied_effects.length; i++) {
                 const lapsRemaining = unitProperties.applied_effects_laps[i];
                 if (lapsRemaining < 1) {
@@ -545,8 +547,7 @@ export abstract class Scene extends b2ContactListener {
                 }
 
                 const effectName = unitProperties.applied_effects[i];
-                const effectConfig = getEffectConfig(effectName);
-                const description = effectConfig ? effectConfig.desc : "";
+                const description = unitProperties.applied_effects_descriptions[i];
 
                 visibleDebuffsImpact.push({
                     name: effectName,

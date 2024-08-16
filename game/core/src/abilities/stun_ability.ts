@@ -24,16 +24,25 @@ export function processStunAbility(
         return;
     }
 
-    let extend = false;
-    // extend to make sure current turn is encountered
-    if (targetUnit.getId() === currentActiveUnit.getId()) {
-        extend = true;
-    }
-
     const stunAbility = fromUnit.getAbility("Stun");
     if (stunAbility && HoCLib.getRandomInt(0, 100) < fromUnit.calculateAbilityApplyChance(stunAbility)) {
-        if (targetUnit.applyEffect(fromUnit, stunAbility.getEffectName(), extend)) {
-            sceneLog.updateLog(`${targetUnit.getName()} got stunned for 1 lap`);
+        const stunEffect = stunAbility.getEffect();
+        if (!stunEffect) {
+            return;
+        }
+
+        if (targetUnit.hasEffectActive(stunEffect.getName())) {
+            return;
+        }
+
+        const laps = stunEffect.getLaps();
+
+        if (targetUnit.getId() === currentActiveUnit.getId()) {
+            stunEffect.extend();
+        }
+
+        if (targetUnit.applyEffect(stunEffect)) {
+            sceneLog.updateLog(`${targetUnit.getName()} got stunned for ${laps} lap`);
         }
     }
 }

@@ -58,8 +58,10 @@ const DEFAULT_HERO_CONFIG = {
     applied_effects_laps: [],
     applied_buffs_laps: [],
     applied_debuffs_laps: [],
+    applied_effects_descriptions: [],
     applied_buffs_descriptions: [],
     applied_debuffs_descriptions: [],
+    applied_effects_powers: [],
     applied_buffs_powers: [],
     applied_debuffs_powers: [],
     abilities_auras: [],
@@ -140,8 +142,10 @@ export const getHeroConfig = (
         heroConfig.applied_effects_laps,
         heroConfig.applied_buffs_laps,
         heroConfig.applied_debuffs_laps,
+        heroConfig.applied_effects_descriptions,
         heroConfig.applied_buffs_descriptions,
         heroConfig.applied_debuffs_descriptions,
+        heroConfig.applied_effects_powers,
         heroConfig.applied_buffs_powers,
         heroConfig.applied_debuffs_powers,
         heroConfig.aura_effects,
@@ -292,6 +296,8 @@ export const getCreatureConfig = (
         [],
         [],
         [],
+        [],
+        [],
         auraEffects,
         abilityAuraRanges,
         abilityAuraIsBuff,
@@ -343,7 +349,7 @@ export const getEffectConfig = (effectName: string): EffectProperties | undefine
         return undefined;
     }
 
-    return new EffectProperties(effectName, effect.laps, effect.desc);
+    return new EffectProperties(effectName, effect.laps, effect.desc, effect.power);
 };
 
 export const getAuraEffectConfig = (auraEffectName: string): AuraEffectProperties | undefined => {

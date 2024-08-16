@@ -21,6 +21,7 @@ import { processFireShieldAbility } from "./fire_shield_ability";
 import { processOneInTheFieldAbility } from "./one_in_the_field_ability";
 import { processStunAbility } from "./stun_ability";
 import { processBlindnessAbility } from "./blindness_ability";
+import { processBoarSalivaAbility } from "./boar_saliva_ability";
 
 export function allEnemiesAroundLargeUnit(
     attacker: Unit,
@@ -116,6 +117,7 @@ export function processLightningSpinAbility(
             // just in case if we have more inherited/stolen abilities
             processFireShieldAbility(enemy, fromUnit, sceneLog, unitsHolder, damageFromAttack, sceneStepCount);
             processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
+            processBoarSalivaAbility(fromUnit, enemy, fromUnit, sceneLog);
             // works only on response
             if (!isAttack) {
                 processBlindnessAbility(fromUnit, enemy, fromUnit, sceneLog);

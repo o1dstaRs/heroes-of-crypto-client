@@ -312,9 +312,9 @@ export class FightStateManager {
 
         this.fightState.currentTurnStart = HoCLib.getTimeMillis();
         this.fightState.currentTurnEnd = this.fightState.currentTurnStart + Math.min(timeRemaining, maxTimeToMakeTurn);
-        console.log(
-            `timeRemaining:${timeRemaining} currentTotalTimePerTeam:${currentTotalTimePerTeam} maxTimeToMakeTurn:${maxTimeToMakeTurn} alreadyMadeTurnTeamMembers:${alreadyMadeTurnTeamMembers}`,
-        );
+        // console.log(
+        // `timeRemaining:${timeRemaining} currentTotalTimePerTeam:${currentTotalTimePerTeam} maxTimeToMakeTurn:${maxTimeToMakeTurn} alreadyMadeTurnTeamMembers:${alreadyMadeTurnTeamMembers}`,
+        // );
     }
 
     public requestAdditionalTurnTime(team?: number, justCheck = false): number {

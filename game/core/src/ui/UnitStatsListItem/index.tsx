@@ -471,7 +471,7 @@ export const UnitStatsListItem: React.FC = () => {
                                             {armorMod ? <Button disabled>({armorMod})</Button> : <span />}
                                         </ButtonGroup>
                                     </Tooltip>
-                                    <Tooltip title="Magic shield in %" style={{ zIndex: 3 }}>
+                                    <Tooltip title="Magic resist in %" style={{ zIndex: 3 }}>
                                         <ButtonGroup
                                             aria-label="magic_armor"
                                             // @ts-ignore: style params

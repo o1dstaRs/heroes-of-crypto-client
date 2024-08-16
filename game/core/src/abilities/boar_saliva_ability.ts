@@ -9,12 +9,10 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCLib } from "@heroesofcrypto/common";
-
 import { SceneLog } from "../menu/scene_log";
 import { Unit } from "../units/units";
 
-export function processBlindnessAbility(
+export function processBoarSalivaAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     currentActiveUnit: Unit,
@@ -24,25 +22,28 @@ export function processBlindnessAbility(
         return;
     }
 
-    const blindnessAbility = fromUnit.getAbility("Blindness");
-    if (blindnessAbility && HoCLib.getRandomInt(0, 100) < fromUnit.calculateAbilityApplyChance(blindnessAbility)) {
-        const blindnessEffect = blindnessAbility.getEffect();
-        if (!blindnessEffect) {
+    const boarSalivaAbility = fromUnit.getAbility("Boar Saliva");
+    if (boarSalivaAbility) {
+        const boarSalivaEffect = boarSalivaAbility.getEffect();
+        if (!boarSalivaEffect) {
             return;
         }
 
-        if (targetUnit.hasEffectActive(blindnessEffect.getName())) {
+        if (targetUnit.hasEffectActive(boarSalivaEffect.getName())) {
             return;
         }
 
-        const laps = blindnessEffect.getLaps();
+        // need to overwrite actual effect power here
+        boarSalivaEffect.setPower(Number((fromUnit.calculateEffectMultiplier(boarSalivaEffect) * 100).toFixed(2)));
+
+        const laps = boarSalivaEffect.getLaps();
 
         if (targetUnit.getId() === currentActiveUnit.getId()) {
-            blindnessEffect.extend();
+            boarSalivaEffect.extend();
         }
 
-        if (targetUnit.applyEffect(blindnessEffect)) {
-            sceneLog.updateLog(`${targetUnit.getName()} is blind for ${laps} laps`);
+        if (targetUnit.applyEffect(boarSalivaEffect)) {
+            sceneLog.updateLog(`Applied Boar Saliva on ${targetUnit.getName()} for ${laps} laps`);
         }
     }
 }

@@ -665,6 +665,15 @@ export class UnitsHolder {
             units.push(
                 this.unitsFactory.makeCreature(FactionType.MIGHT, "Behemoth", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
+            units.push(
+                this.unitsFactory.makeCreature(
+                    FactionType.MIGHT,
+                    "Frenzied Boar",
+                    team,
+                    0,
+                    BASE_UNIT_STACK_TO_SPAWN_EXP,
+                ),
+            );
         }
 
         let posIndex = SHIFT_UNITS_POSITION_Y;
