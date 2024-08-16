@@ -54,22 +54,19 @@ export interface IAIAction {
 
 export class BasicAIAction implements IAIAction {
     private readonly type: AIActionType;
-
-    private readonly cell: HoCMath.XY | undefined;
-
-    private readonly attackCell: HoCMath.XY | undefined;
-
+    private readonly cellToMoveTo: HoCMath.XY | undefined;
+    private readonly cellToAttackTo: HoCMath.XY | undefined;
     private readonly activeKnownPaths: Map<number, IWeightedRoute[]>;
 
     public constructor(
         type: AIActionType,
-        cell: HoCMath.XY | undefined,
-        toAttackCell: HoCMath.XY | undefined,
+        cellToMoveTo: HoCMath.XY | undefined,
+        cellToAttackTo: HoCMath.XY | undefined,
         activeKnownPaths: Map<number, IWeightedRoute[]>,
     ) {
         this.type = type;
-        this.cell = cell;
-        this.attackCell = toAttackCell;
+        this.cellToMoveTo = cellToMoveTo;
+        this.cellToAttackTo = cellToAttackTo;
         this.activeKnownPaths = activeKnownPaths;
     }
 
@@ -78,11 +75,11 @@ export class BasicAIAction implements IAIAction {
     }
 
     public cellToMove(): HoCMath.XY | undefined {
-        return this.cell;
+        return this.cellToMoveTo;
     }
 
     public cellToAttack(): HoCMath.XY | undefined {
-        return this.attackCell;
+        return this.cellToAttackTo;
     }
 
     public currentActiveKnownPaths(): Map<number, IWeightedRoute[]> {
@@ -97,6 +94,20 @@ export function findTarget(
     unit: IUnitAIRepr,
     grid: Grid,
     matrix: number[][], // matrix for big unit has 4 cells filled
+    pathHelper: PathHelper,
+): BasicAIAction | undefined {
+    console.group("Start AI check");
+    console.time("AI step");
+    const action = doFindTarget(unit, grid, matrix, pathHelper);
+    console.timeEnd("AI step");
+    console.groupEnd();
+    return action;
+}
+
+function doFindTarget(
+    unit: IUnitAIRepr,
+    grid: Grid,
+    matrix: number[][],
     pathHelper: PathHelper,
 ): BasicAIAction | undefined {
     if (unit.getBaseCell() === undefined) {
@@ -126,6 +137,18 @@ export function findTarget(
     );
     let route;
 
+    /*
+    Note:
+    any big unit in matrix occupies 4 cells, the current unit is provided by upper right cell:
+    3 ---- 0 0 0 0 0 0 0
+    2 ---- 0 2 2 0 0 - x
+    1 ---- 0 2 2 0 0 - -
+    0 ---- 0 0 0 0 0 0 0
+    ^      | | | | | | |
+    |      | | | | | | |
+    y/x->  0 1 2 3 4 5 6
+    */
+    console.log("currentUnit is at: " + cellToString(unitCell));
     for (let i = 0; i < numRows; i++) {
         for (let j = 0; j < numCols; j++) {
             const element = HoCMath.matrixElementOrDefault(matrix, j, i, 0);
@@ -138,9 +161,11 @@ export function findTarget(
                 ) {
                     continue;
                 }
-
-                const neighbors = getCellsForAttacker({ x: j, y: i }, numRows, true, true);
+                console.log("checking possible target at x=" + j + ", i=" + i);
+                // get the list of cells that atacker can go to in order to attack the unit
+                const neighbors = getCellsForAttacker({ x: j, y: i }, matrix, unit.isSmallSize(), true);
                 for (const elementNeighbor of neighbors) {
+                    console.log("checking a cellToMoveTo:" + cellToString(elementNeighbor));
                     if (unit.isSmallSize()) {
                         if (cellKey(elementNeighbor) === cellKey(unitCell)) {
                             return new BasicAIAction(AIActionType.M_ATTACK, unitCell, { x: j, y: i }, paths.knownPaths);
@@ -149,7 +174,7 @@ export function findTarget(
                         cellKey(elementNeighbor) === cellKey(unitCell) ||
                         cellKey(elementNeighbor) === cellKey({ x: unitCell.x - 1, y: unitCell.y }) ||
                         cellKey(elementNeighbor) === cellKey({ x: unitCell.x - 1, y: unitCell.y - 1 }) ||
-                        cellKey(elementNeighbor) === cellKey({ x: unitCell.x, y: unitCell.y })
+                        cellKey(elementNeighbor) === cellKey({ x: unitCell.x, y: unitCell.y - 1 })
                     ) {
                         return new BasicAIAction(AIActionType.M_ATTACK, unitCell, { x: j, y: i }, paths.knownPaths);
                     }
@@ -163,10 +188,15 @@ export function findTarget(
                             continue;
                         }
                         if (weight < minDistance) {
+                            console.log(
+                                "New min distance: " + weight + " elementNeighbor:" + cellToString(elementNeighbor),
+                            );
                             minDistance = weight;
                             closestTarget = { x: j, y: i };
                             route = tmpRoute?.at(0);
                         }
+                    } else {
+                        console.log("No known path to elementNeighbor:" + cellToString(elementNeighbor));
                     }
                 }
             }
@@ -176,7 +206,7 @@ export function findTarget(
     if (closestTarget === undefined) {
         return undefined;
     }
-
+    console.log("СlosestTarget:" + cellToString(closestTarget));
     if (unit.getAllProperties()?.attack_type === AttackType.RANGE) {
         return new BasicAIAction(AIActionType.R_ATTACK, undefined, closestTarget, paths.knownPaths);
     }
@@ -226,6 +256,7 @@ export function findTarget(
         return new BasicAIAction(AIActionType.M_ATTACK, route?.route[routeIndex], closestTarget, paths.knownPaths);
     }
 
+    console.log("MinDistance=" + minDistance + " unit.steps=" + unit.getSteps());
     if (minDistance <= unit.getSteps()) {
         return new BasicAIAction(
             AIActionType.MOVE_AND_M_ATTACK,
@@ -234,7 +265,8 @@ export function findTarget(
             paths.knownPaths,
         );
     }
-
+    let toMoveTo = route?.route[routeIndex];
+    console.log("action MOVE with cell to move to x:" + toMoveTo?.x + " t:" + toMoveTo?.y);
     return new BasicAIAction(AIActionType.MOVE, route?.route[routeIndex], undefined, paths.knownPaths);
 }
 
@@ -243,109 +275,119 @@ function cellKey(xy: HoCMath.XY): number {
 }
 
 /*
-find neighbor positions for a unit
+find cells for the given cell that attacker can stand at
 
 Current small
 [0, 0, 0, 0, 0],
-[0, 0, 0, 0, 0],
-[0, 0, 0, 0, 0],
 [0, 0, 2, 0, 0],
+[0, 0, 0, 0, 0],
+[0, 0, 0, 0, 0],
 [0, 0, 0, 0, 0],
 
 Current small, Attacker Big
 [0, 0, 0, 0, 0],
-[0, 0, 0, 0, 0],
 [0, x, x, x, x],
+[0, x, 0, 0, x],
 [0, x, 2, 0, x],
 [0, x, 0, 0, x],
 
 Current big
 [0, 0, 0, 0, 0],
 [0, 0, 0, 0, 0],
-[0, -, -, 0, 0],
 [0, -, 2, 0, 0],
+[0, -, -, 0, 0],
 [0, 0, 0, 0, 0],
 
 Current big, Attacker Big
-[0, 0, 0, 0, 0],
 [x, x, x, x, x],
-[x, -, -, 0, x],
-[x, -, 2, 0, x],
+[x, 0, 0, 0, x],
+[x, 2, 2, 0, x],
+[x, 2, 2, 0, x],
 [x, 0, 0, 0, x],
 */
 export function getCellsForAttacker(
-    currentCell: HoCMath.XY,
-    matrixSize: number,
+    cellToAttack: HoCMath.XY,
+    matrix: number[][],
     isCurrentUnitSmall = true,
-    isAttackerUnitSmall = true,
+    isTargetUnitSmall = true,
 ): HoCMath.XY[] {
-    const borderCells = filterCells(getBorderCells(currentCell, isCurrentUnitSmall), matrixSize);
-    if (isAttackerUnitSmall) {
+    const borderCells = filterCells(getBorderCells(cellToAttack, isCurrentUnitSmall), matrix, isCurrentUnitSmall);
+    if (isTargetUnitSmall) {
         return borderCells;
     }
     const cellsForBigAttacker: HoCMath.XY[] = [];
     for (const borderCell of borderCells) {
-        if (borderCell.x <= currentCell.x && borderCell.y <= currentCell.y) {
+        if (borderCell.x <= cellToAttack.x && borderCell.y <= cellToAttack.y) {
             cellsForBigAttacker.push(borderCell);
         } else if (
-            borderCell.x === currentCell.x + 1 &&
-            borderCell.y === currentCell.y - (isCurrentUnitSmall ? 1 : 2)
+            borderCell.x === cellToAttack.x + 1 &&
+            borderCell.y === cellToAttack.y - (isCurrentUnitSmall ? 1 : 2)
         ) {
             cellsForBigAttacker.push(borderCell);
             cellsForBigAttacker.push({ x: borderCell.x + 1, y: borderCell.y });
-        } else if (borderCell.x === currentCell.x + 1 && borderCell.y === currentCell.y + 1) {
+        } else if (borderCell.x === cellToAttack.x + 1 && borderCell.y === cellToAttack.y + 1) {
             cellsForBigAttacker.push({ x: borderCell.x + 1, y: borderCell.y });
             cellsForBigAttacker.push({ x: borderCell.x + 1, y: borderCell.y + 1 });
             cellsForBigAttacker.push({ x: borderCell.x, y: borderCell.y + 1 });
-        } else if (borderCell.x === currentCell.x + 1) {
+        } else if (borderCell.x === cellToAttack.x + 1) {
             cellsForBigAttacker.push({ x: borderCell.x + 1, y: borderCell.y });
         } else if (
-            borderCell.x === currentCell.x - (isCurrentUnitSmall ? 1 : 2) &&
-            borderCell.y === currentCell.y + 1
+            borderCell.x === cellToAttack.x - (isCurrentUnitSmall ? 1 : 2) &&
+            borderCell.y === cellToAttack.y + 1
         ) {
             cellsForBigAttacker.push({ x: borderCell.x, y: borderCell.y });
             cellsForBigAttacker.push({ x: borderCell.x, y: borderCell.y + 1 });
-        } else if (borderCell.y === currentCell.y + 1) {
+        } else if (borderCell.y === cellToAttack.y + 1) {
             cellsForBigAttacker.push({ x: borderCell.x, y: borderCell.y + 1 });
         }
     }
-    return filterCells(cellsForBigAttacker, matrixSize, false);
+    return filterCells(cellsForBigAttacker, matrix, false);
 }
 
-// return cells that the small or big unit has
+// return border cells that the small or big unit has
 function getBorderCells(currentCell: HoCMath.XY, isSmallUnit = true): HoCMath.XY[] {
     const borderCells = [];
-    borderCells.push({ x: currentCell.x + 1, y: currentCell.y - 1 });
-    borderCells.push({ x: currentCell.x + 1, y: currentCell.y });
-    borderCells.push({ x: currentCell.x + 1, y: currentCell.y + 1 });
-    borderCells.push({ x: currentCell.x, y: currentCell.y + 1 });
     borderCells.push({ x: currentCell.x - 1, y: currentCell.y + 1 });
+    borderCells.push({ x: currentCell.x - 1, y: currentCell.y });
+    borderCells.push({ x: currentCell.x - 1, y: currentCell.y - 1 });
+    borderCells.push({ x: currentCell.x, y: currentCell.y - 1 });
+    borderCells.push({ x: currentCell.x + 1, y: currentCell.y - 1 });
     if (isSmallUnit) {
-        borderCells.push({ x: currentCell.x - 1, y: currentCell.y });
-        borderCells.push({ x: currentCell.x - 1, y: currentCell.y - 1 });
-        borderCells.push({ x: currentCell.x, y: currentCell.y - 1 });
+        borderCells.push({ x: currentCell.x + 1, y: currentCell.y });
+        borderCells.push({ x: currentCell.x + 1, y: currentCell.y + 1 });
+        borderCells.push({ x: currentCell.x, y: currentCell.y + 1 });
     } else {
-        borderCells.push({ x: currentCell.x - 2, y: currentCell.y + 1 });
-        borderCells.push({ x: currentCell.x - 2, y: currentCell.y });
-        borderCells.push({ x: currentCell.x - 2, y: currentCell.y - 1 });
-        borderCells.push({ x: currentCell.x - 2, y: currentCell.y - 2 });
-        borderCells.push({ x: currentCell.x - 1, y: currentCell.y - 2 });
-        borderCells.push({ x: currentCell.x, y: currentCell.y - 2 });
-        borderCells.push({ x: currentCell.x + 1, y: currentCell.y - 2 });
+        /*
+        // big attacker
+        // small target
+        // possible cells that big attacker can be palces at (right up corner) to attack the cell
+        0 0 0 0 0 0 0
+        0 x x x x 0 0
+        0 x 0 0 x 0 0
+        0 x c 0 x 0 0
+        0 x x x x 0 0
+        */
+        borderCells.push({ x: currentCell.x - 1, y: currentCell.y + 2 });
+        borderCells.push({ x: currentCell.x, y: currentCell.y + 2 });
+        borderCells.push({ x: currentCell.x + 1, y: currentCell.y + 2 });
+        borderCells.push({ x: currentCell.x + 2, y: currentCell.y + 2 });
+        borderCells.push({ x: currentCell.x + 2, y: currentCell.y + 1 });
+        borderCells.push({ x: currentCell.x + 2, y: currentCell.y });
+        borderCells.push({ x: currentCell.x + 2, y: currentCell.y - 1 });
     }
     return borderCells;
 }
 
-function filterCells(cells: HoCMath.XY[], matrixSize: number, isAttackerSmall = true): HoCMath.XY[] {
+function filterCells(cells: HoCMath.XY[], matrix: number[][], isAttackerSmall = true): HoCMath.XY[] {
     const filtered = [];
     for (const cell of cells) {
-        if (inBounds(cell, matrixSize)) {
+        if (isFree(cell, matrix)) {
             if (isAttackerSmall) {
                 filtered.push(cell);
             } else if (
-                inBounds({ x: cell.x - 1, y: cell.y }, matrixSize) &&
-                inBounds({ x: cell.x - 1, y: cell.y - 1 }, matrixSize) &&
-                inBounds({ x: cell.x, y: cell.y - 1 }, matrixSize)
+                isFree({ x: cell.x - 1, y: cell.y }, matrix) &&
+                isFree({ x: cell.x - 1, y: cell.y - 1 }, matrix) &&
+                isFree({ x: cell.x, y: cell.y - 1 }, matrix)
             ) {
                 filtered.push(cell);
             }
@@ -354,6 +396,17 @@ function filterCells(cells: HoCMath.XY[], matrixSize: number, isAttackerSmall = 
     return filtered;
 }
 
-function inBounds(cell: HoCMath.XY, matrixSize: number): boolean {
-    return cell.x >= 0 && cell.x < matrixSize && cell.y >= 0 && cell.y < matrixSize;
+function isFree(cell: HoCMath.XY, matrix: number[][]): boolean {
+    if (HoCMath.matrixElementOrDefault(matrix, cell.x, cell.y, 0) != 0) {
+        return false;
+    }
+    return cell.x >= 0 && cell.x < matrix[0].length && cell.y >= 0 && cell.y < matrix.length;
+}
+
+function cellToString(cell: HoCMath.XY | undefined): string {
+    if (cell === undefined) {
+        return "undefined";
+    } else {
+        return "x:" + cell.x + " y:" + cell.y;
+    }
 }
