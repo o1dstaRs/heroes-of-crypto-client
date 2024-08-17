@@ -46,7 +46,11 @@ interface IAbilityStackProps {
 
 const ABILITIES_FIT_IN_ONE_ROW = 3;
 
-const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType }> = ({ stackPower, teamType }) => {
+const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAura: boolean }> = ({
+    stackPower,
+    teamType,
+    isAura,
+}) => {
     if (stackPower === 0) return null;
 
     const backgroundColor = teamType === TeamType.LOWER ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.4)";
@@ -58,9 +62,9 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType }> = 
                 position: "absolute",
                 bottom: 0,
                 left: 0,
-                width: "20%",
-                height: "100%",
-                zIndex: 2,
+                width: isAura ? "100%" : "20%",
+                height: isAura ? "50%" : "100%", // Half height for aura to create a half-circle
+                zIndex: 3, // Ensures it's above the image and glow effect
             }}
         >
             {[...Array(stackPower)].map((_, index) => (
@@ -68,13 +72,21 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType }> = 
                     key={`stack_${index}`}
                     sx={{
                         position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        width: "100%",
-                        height: `${((index + 1) / HoCConstants.MAX_UNIT_STACK_POWER) * 100}%`,
-                        clipPath: "polygon(20% 100%, 100% 100%, 100% 20%, 0 0)",
+                        bottom: `${isAura ? 90 : 0}%`,
+                        right: isAura ? "40%" : 0, // Center the stack horizontally
+                        width: isAura ? "20px" : "100%", // Width of each rectangle
+                        // height: "12px", // Height of each rectangle
+                        height: isAura
+                            ? `${index * (index / 3) + 15}px`
+                            : `${((index + 1) / HoCConstants.MAX_UNIT_STACK_POWER) * 100}%`,
+                        transform: isAura
+                            ? `rotate(${index * 41}deg) translateX(-20%) translateY(200%)` // Rotate each rectangle to form a half-circle
+                            : "none",
+                        transformOrigin: "bottom center", // Set origin for rotation to the bottom center of the rectangle
+                        clipPath: isAura ? "none" : "polygon(20% 100%, 100% 100%, 100% 20%, 0 0)",
                         backgroundColor: backgroundColor,
                         border: `1px solid ${borderColor}`,
+                        zIndex: stackPower - index, // Ensure stacking order
                     }}
                 />
             ))}
@@ -84,7 +96,8 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType }> = 
 
 const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => {
     const theme = useTheme();
-    const auraColor = theme.palette.mode === "dark" ? "rgba(255, 255, 255, 0.75)" : "rgba(0, 0, 0, 0.75)";
+    const isDarkMode = theme.palette.mode === "dark";
+    const auraColor = isDarkMode ? "rgba(255, 255, 255, 0.75)" : "rgba(0, 0, 0, 0.75)";
 
     return (
         <Stack spacing={2} sx={{ marginTop: 1 }}>
@@ -107,6 +120,7 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
                                         width: "28%",
                                         paddingBottom: "28%",
                                         overflow: "hidden",
+                                        borderRadius: ability.isAura ? "50%" : "15%", // Circle if aura, rounded corners otherwise
                                         "&::before": {
                                             // Using pseudo-element to create the circular glow
                                             content: '""',
@@ -116,9 +130,22 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
                                             width: "100%",
                                             height: "100%",
                                             transform: "translate(-50%, -50%)",
-                                            borderRadius: "20%", // Makes the element circular
-                                            boxShadow: ability.isAura ? `0 0 15px 10px ${auraColor}` : "none",
+                                            borderRadius: ability.isAura ? "50%" : "20%", // Circle if aura, slightly rounded otherwise
+                                            boxShadow: ability.isAura ? `-20px 0 -20px 60px ${auraColor}` : "none",
                                             zIndex: 0, // Ensures it's behind the image
+                                        },
+                                        "&::after": {
+                                            // Adding a frame effect
+                                            content: '""',
+                                            position: "absolute",
+                                            top: 0,
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 0,
+                                            borderRadius: ability.isAura ? "50%" : "15%", // Circle if aura, rounded corners otherwise
+                                            border: ability.isAura ? `2px solid ${auraColor}` : "none", // Only show frame for aura
+                                            zIndex: 2, // Ensures it's above the image and glow effect
+                                            pointerEvents: "none", // Prevents the frame from interfering with clicks
                                         },
                                     }}
                                 >
@@ -140,6 +167,7 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
                                     <StackPowerOverlay
                                         stackPower={ability.isStackPowered ? ability.stackPower : 0}
                                         teamType={teamType}
+                                        isAura={ability.isAura}
                                     />
                                 </Box>
                             </Tooltip>
@@ -202,6 +230,9 @@ export const UnitStatsListItem: React.FC = () => {
     const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
     const [overallImpact, setVisibleOverallImpact] = useState({} as IVisibleOverallImpact);
     const [raceName, setRaceName] = useState("");
+    const theme = useTheme();
+    const isDarkMode = theme.palette.mode === "dark";
+    console.log(`isDarkMode ${isDarkMode}`);
 
     const manager = useManager();
 
@@ -541,7 +572,7 @@ export const UnitStatsListItem: React.FC = () => {
                                             style={{ "--ButtonGroup-separatorSize": "0px" }}
                                         >
                                             <IconButton disabled>
-                                                <SpeedIcon />
+                                                <SpeedIcon sx={{ color: isDarkMode ? "#f5fefd" : "#000000" }} />
                                             </IconButton>
                                             <Button disabled>{unitProperties.speed}</Button>
                                         </ButtonGroup>
@@ -560,7 +591,7 @@ export const UnitStatsListItem: React.FC = () => {
                                             style={{ "--ButtonGroup-separatorSize": "0px" }}
                                         >
                                             <IconButton disabled>
-                                                <MoraleIcon />
+                                                <MoraleIcon sx={{ color: isDarkMode ? "#ffff00" : "#DC4D01" }} />
                                             </IconButton>
                                             <Button disabled>{unitProperties.morale}</Button>
                                         </ButtonGroup>

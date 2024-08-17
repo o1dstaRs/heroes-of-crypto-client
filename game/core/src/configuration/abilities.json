@@ -340,5 +340,38 @@
         "stack_powered": true,
         "effect": null,
         "aura_effect": null
+    },
+    "Small Specie": {
+        "name": "Small Specie",
+        "type": "DEFENCE",
+        "desc": "Unit has {}% chance to dodge large unit physical attack",
+        "power": 50,
+        "power_type": "DODGE_PHYSICAL_LARGE_PERCENTAGE",
+        "skip_reponse": false,
+        "stack_powered": true,
+        "effect": null,
+        "aura_effect": null
+    },
+    "Bitter Experience": {
+        "name": "Bitter Experience",
+        "type": "DEFENCE",
+        "desc": "Every time unit gets hit, it gains +1 armor and step for the rest of the battle",
+        "power": 1,
+        "power_type": "GAIN_ARMOR_AND_STEPS_TAKING_DAMAGE",
+        "skip_reponse": false,
+        "stack_powered": false,
+        "effect": null,
+        "aura_effect": null
+    },
+    "Absorb Penalties Aura": {
+        "name": "Absorb Penalties Aura",
+        "type": "BUFF_AURA",
+        "desc": "The unit has a {}% chance to absorb any debuff applied to an ally within range and apply it to themselves instead",
+        "power": 50,
+        "power_type": "ABSORB_DEBUFF",
+        "skip_reponse": false,
+        "stack_powered": true,
+        "effect": null,
+        "aura_effect": "Absorb Penalties"
     }
 }

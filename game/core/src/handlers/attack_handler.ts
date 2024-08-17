@@ -347,13 +347,14 @@ export class AttackHandler {
             this.sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
         } else {
             this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
-            targetUnit.applyDamage(damageFromAttack, sceneStepCount);
-            DamageStatisticHolder.getInstance().add({
-                unitName: attackerUnit.getName(),
-                damage: damageFromAttack,
-                team: attackerUnit.getTeam(),
-            });
         }
+
+        targetUnit.applyDamage(damageFromAttack, sceneStepCount);
+        DamageStatisticHolder.getInstance().add({
+            unitName: attackerUnit.getName(),
+            damage: damageFromAttack,
+            team: attackerUnit.getTeam(),
+        });
 
         let switchTargetUnit = false;
         if (targetUnit.isDead()) {

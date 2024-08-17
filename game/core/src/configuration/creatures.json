@@ -27,7 +27,7 @@
             "hp": 8,
             "steps": 3,
             "speed": 2,
-            "armor": 8,
+            "armor": 7,
             "attack_type": "MELEE",
             "attack": 9,
             "attack_damage_min": 2,
@@ -41,7 +41,7 @@
             "size": 1,
             "level": 1,
             "spells": [],
-            "abilities": []
+            "abilities": ["Bitter Experience", "Absorb Penalties Aura"]
         },
         "Arbalester": {
             "name": "Arbalester",
@@ -50,7 +50,7 @@
             "speed": 2,
             "armor": 8,
             "attack_type": "RANGE",
-            "attack": 8,
+            "attack": 7,
             "attack_damage_min": 2,
             "attack_damage_max": 3,
             "attack_range": 1,
@@ -178,7 +178,7 @@
             "speed": 5,
             "armor": 8,
             "attack_type": "MELEE",
-            "attack": 11,
+            "attack": 10,
             "attack_damage_min": 2,
             "attack_damage_max": 3,
             "attack_range": 1,
@@ -190,7 +190,7 @@
             "size": 1,
             "level": 1,
             "spells": [],
-            "abilities": ["Shadow Touch"]
+            "abilities": ["Shadow Touch", "Small Specie"]
         },
         "Wolf": {
             "name": "Wolf",
@@ -220,7 +220,7 @@
             "speed": 4,
             "armor": 9,
             "attack_type": "MELEE",
-            "attack": 12,
+            "attack": 13,
             "attack_damage_min": 2,
             "attack_damage_max": 3,
             "attack_range": 1,
@@ -299,10 +299,10 @@
         },
         "Unicorn": {
             "name": "Unicorn",
-            "hp": 76,
+            "hp": 72,
             "steps": 4.5,
             "speed": 6,
-            "armor": 26,
+            "armor": 25,
             "attack_type": "MELEE",
             "attack": 21,
             "attack_damage_min": 11,
@@ -362,13 +362,13 @@
         },
         "Gargantuan": {
             "name": "Gargantuan",
-            "hp": 225,
+            "hp": 200,
             "steps": 4.5,
             "speed": 4,
             "armor": 30,
             "attack_type": "RANGE",
-            "attack": 32,
-            "attack_damage_min": 28,
+            "attack": 30,
+            "attack_damage_min": 30,
             "attack_damage_max": 40,
             "attack_range": 1,
             "range_shots": 16,
@@ -512,11 +512,11 @@
         "Efreet": {
             "name": "Efreet",
             "hp": 58,
-            "steps": 7.9,
+            "steps": 8.4,
             "speed": 8,
             "armor": 20,
             "attack_type": "MELEE",
-            "attack": 21,
+            "attack": 22,
             "attack_damage_min": 18,
             "attack_damage_max": 24,
             "attack_range": 1,
@@ -683,8 +683,8 @@
     "Might": {
         "Berserker": {
             "name": "Berserker",
-            "hp": 13,
-            "steps": 3.8,
+            "hp": 14,
+            "steps": 4.1,
             "speed": 7,
             "armor": 9,
             "attack_type": "MELEE",

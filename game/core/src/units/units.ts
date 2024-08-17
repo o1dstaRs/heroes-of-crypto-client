@@ -1207,6 +1207,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.hp = this.unitProperties.max_hp;
 
         const amountDied = Math.floor(minusHp / this.unitProperties.max_hp);
+        // dead
         if (amountDied >= this.unitProperties.amount_alive) {
             this.unitProperties.amount_died += this.unitProperties.amount_alive;
             this.unitProperties.amount_alive = 0;
@@ -1220,6 +1221,13 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             animationTicks: Math.max(currentTick, nextAnimationTick) + DAMAGE_ANIMATION_TICKS,
             unitsDied: amountDied + 1,
         });
+
+        if (this.hasAbilityActive("Bitter Experience")) {
+            this.unitProperties.base_armor += 1;
+            this.initialUnitProperties.base_armor += 1;
+            this.unitProperties.steps += 1;
+            this.initialUnitProperties.steps += 1;
+        }
     }
 
     public isDead(): boolean {
@@ -1272,7 +1280,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         if (
             auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_MELEE_DAMAGE_PERCENTAGE ||
-            auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_RANGE_ARMOR_PERCENTAGE
+            auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_RANGE_ARMOR_PERCENTAGE ||
+            auraEffect.getPowerType() === AbilityPowerType.ABSORB_DEBUFF
         ) {
             calculatedCoeff +=
                 (auraEffect.getPower() / 100 / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower() +
@@ -1300,6 +1309,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             ability.getPowerType() === AbilityPowerType.TOTAL_DAMAGE_PERCENTAGE ||
             ability.getPowerType() === AbilityPowerType.IGNORE_ARMOR ||
             ability.getPowerType() === AbilityPowerType.MAGIC_RESIST_50 ||
+            ability.getPowerType() === AbilityPowerType.ABSORB_DEBUFF ||
             ability.getPowerType() === AbilityPowerType.BOOST_HEALTH
         ) {
             let combinedPower = ability.getPower() + this.getLuck();
@@ -1333,6 +1343,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (enemyDodgeAbility) {
             const dodgeChance = this.calculateAbilityApplyChance(enemyDodgeAbility) / 100;
             combinedMissChances.push(dodgeChance);
+        }
+
+        if (!this.isSmallSize()) {
+            const smallSpecieAbility = enemyUnit.getAbility("Small Specie");
+            if (smallSpecieAbility) {
+                const dodgeChance = this.calculateAbilityApplyChance(smallSpecieAbility) / 100;
+                combinedMissChances.push(dodgeChance);
+            }
         }
 
         if (combinedMissChances.length) {
@@ -1880,6 +1898,26 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.refreshAbiltyDescription(
                 dodgeAbility.getName(),
                 dodgeAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Small Specie
+        const smallSpecieAbility = this.getAbility("Small Specie");
+        if (smallSpecieAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(smallSpecieAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                smallSpecieAbility.getName(),
+                smallSpecieAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Absorb Penalties Aura
+        const absorbPenaltiesAuraAbility = this.getAbility("Absorb Penalties Aura");
+        if (absorbPenaltiesAuraAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(absorbPenaltiesAuraAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                absorbPenaltiesAuraAbility.getName(),
+                absorbPenaltiesAuraAbility.getDesc().replace(/\{\}/g, percentage.toString()),
             );
         }
     }
