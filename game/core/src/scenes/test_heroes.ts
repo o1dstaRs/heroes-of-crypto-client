@@ -1010,6 +1010,7 @@ class Sandbox extends GLScene {
                     }
 
                     if (
+                        this.currentActiveSpell &&
                         canBeCasted(
                             false,
                             this.sc_sceneSettings.getGridSettings(),
@@ -1029,13 +1030,19 @@ class Sandbox extends GLScene {
                         )
                     ) {
                         if (hoverUnitCell) {
-                            this.hoverAttackFrom = hoverUnitCell;
+                            if (!this.currentActiveSpell.isBuff() && this.hoverUnit) {
+                                this.hoverAttackUnits = [this.hoverUnit];
+                            } else {
+                                this.hoverAttackFrom = hoverUnitCell;
+                            }
+                            // this.hoverAttackFrom = hoverUnitCell;
                             this.hoverAttackIsSmallSize = this.hoverUnit?.isSmallSize();
                             this.sc_moveBlocked = true;
                         }
                     } else {
                         this.hoverAttackFrom = undefined;
                         this.hoverAttackIsSmallSize = undefined;
+                        this.hoverAttackUnits = undefined;
                     }
 
                     return;

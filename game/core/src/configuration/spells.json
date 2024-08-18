@@ -8,6 +8,7 @@
             "target": "ANY_ALLY",
             "power": 0,
             "laps": 3,
+            "is_buff": true,
             "self_cast_allowed": false,
             "self_debuff_applies": true,
             "minimal_caster_stack_power": 4,
@@ -22,6 +23,7 @@
             "target": "RANDOM_CLOSE_TO_CASTER",
             "power": 1,
             "laps": 18,
+            "is_buff": false,
             "self_cast_allowed": false,
             "self_debuff_applies": false,
             "minimal_caster_stack_power": 1,
@@ -38,6 +40,7 @@
             "target": "FREE_CELL",
             "power": 0,
             "laps": 3,
+            "is_buff": false,
             "self_cast_allowed": false,
             "self_debuff_applies": false,
             "minimal_caster_stack_power": 1,
@@ -52,6 +55,7 @@
             "target": "ANY_ALLY",
             "power": 30,
             "laps": 3,
+            "is_buff": true,
             "self_cast_allowed": true,
             "self_debuff_applies": false,
             "minimal_caster_stack_power": 1,
@@ -64,6 +68,7 @@
             "target": "ALL_ALLIES",
             "power": 25,
             "laps": 3,
+            "is_buff": true,
             "self_cast_allowed": true,
             "self_debuff_applies": false,
             "minimal_caster_stack_power": 4,
@@ -71,7 +76,7 @@
         },
         "Magic Mirror": {
             "name": "Magic Mirror",
-            "level": 1,
+            "level": 2,
             "desc": [
                 "Reflects 30% of consumed magical damage back to attacker.",
                 "Gives 30% chance to reflect any debuff.",
@@ -80,6 +85,7 @@
             "target": "ANY_ALLY",
             "power": 30,
             "laps": 3,
+            "is_buff": true,
             "self_cast_allowed": true,
             "self_debuff_applies": false,
             "minimal_caster_stack_power": 1,
@@ -87,7 +93,7 @@
         },
         "Mass Magic Mirror": {
             "name": "Mass Magic Mirror",
-            "level": 3,
+            "level": 4,
             "desc": [
                 "Reflects 25% of consumed magical damage back to attacker.",
                 "Gives 25% chance to reflect any debuff.",
@@ -96,10 +102,52 @@
             "target": "ALL_ALLIES",
             "power": 25,
             "laps": 3,
+            "is_buff": true,
             "self_cast_allowed": true,
             "self_debuff_applies": false,
             "minimal_caster_stack_power": 4,
             "conflicts_with": ["Magic Mirror"]
+        }
+    },
+    "Death": {
+        "Sadness": {
+            "name": "Sadness",
+            "level": 1,
+            "desc": ["The affected unit's morale is at its lowest level.", "Lasts 3 laps."],
+            "target": "ANY_ENEMY",
+            "power": 0,
+            "laps": 3,
+            "is_buff": false,
+            "self_cast_allowed": false,
+            "self_debuff_applies": false,
+            "minimal_caster_stack_power": 1,
+            "conflicts_with": []
+        },
+        "Quagmire": {
+            "name": "Quagmire",
+            "level": 1,
+            "desc": ["The unit's movement range is reduced by 25%.", "Lasts 3 laps."],
+            "target": "ANY_ENEMY",
+            "power": 25,
+            "laps": 3,
+            "is_buff": false,
+            "self_cast_allowed": false,
+            "self_debuff_applies": false,
+            "minimal_caster_stack_power": 1,
+            "conflicts_with": []
+        },
+        "Weakening Beam": {
+            "name": "Weakening Beam",
+            "level": 1,
+            "desc": ["The unit's base armor is reduced by 24%.", "Lasts 3 laps."],
+            "target": "ANY_ENEMY",
+            "power": 24,
+            "laps": 3,
+            "is_buff": false,
+            "self_cast_allowed": false,
+            "self_debuff_applies": false,
+            "minimal_caster_stack_power": 1,
+            "conflicts_with": []
         }
     }
 }

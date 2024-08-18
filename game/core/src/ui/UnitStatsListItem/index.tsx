@@ -232,7 +232,6 @@ export const UnitStatsListItem: React.FC = () => {
     const [raceName, setRaceName] = useState("");
     const theme = useTheme();
     const isDarkMode = theme.palette.mode === "dark";
-    console.log(`isDarkMode ${isDarkMode}`);
 
     const manager = useManager();
 

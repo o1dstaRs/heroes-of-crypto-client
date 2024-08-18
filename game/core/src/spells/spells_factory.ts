@@ -44,6 +44,9 @@ export class SpellsFactory {
             "Mass Riot": textures.mass_riot_256.texture,
             "Magic Mirror": textures.magic_mirror_256.texture,
             "Mass Magic Mirror": textures.mass_magic_mirror_256.texture,
+            Sadness: textures.sadness_256.texture,
+            Quagmire: textures.quagmire_256.texture,
+            "Weakening Beam": textures.weakening_beam_256.texture,
         };
         this.fontTexturesBySpellName = {
             "Totem of Courage": textures.totem_of_courage_font.texture,
@@ -53,6 +56,9 @@ export class SpellsFactory {
             "Mass Riot": textures.mass_riot_font.texture,
             "Magic Mirror": textures.magic_mirror_font.texture,
             "Mass Magic Mirror": textures.mass_magic_mirror_font.texture,
+            Sadness: textures.sadness_font.texture,
+            Quagmire: textures.quagmire_font.texture,
+            "Weakening Beam": textures.weakening_beam_font.texture,
         };
         this.texturesByDigit = texturesByDigit;
     }

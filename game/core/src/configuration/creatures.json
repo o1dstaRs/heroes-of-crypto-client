@@ -85,6 +85,27 @@
             "spells": [],
             "abilities": []
         },
+        "Healer": {
+            "name": "Healer",
+            "hp": 13,
+            "steps": 3.2,
+            "speed": 2,
+            "armor": 12,
+            "attack_type": "MAGIC",
+            "attack": 13,
+            "attack_damage_min": 3,
+            "attack_damage_max": 6,
+            "attack_range": 1,
+            "range_shots": 0,
+            "shot_distance": 0,
+            "magic_resist": 5,
+            "can_fly": false,
+            "exp": 25,
+            "size": 1,
+            "level": 2,
+            "spells": ["Death:Sadness", "Death:Quagmire", "Death:Weakening Beam"],
+            "abilities": []
+        },
         "Crusader": {
             "name": "Crusader",
             "hp": 75,

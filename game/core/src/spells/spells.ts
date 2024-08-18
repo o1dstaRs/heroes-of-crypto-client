@@ -21,6 +21,7 @@ export enum SpellTargetType {
     RANDOM_CLOSE_TO_CASTER = "RANDOM_CLOSE_TO_CASTER",
     ALL_ALLIES = "ALL_ALLIES",
     ALL_ENEMIES = "ALL_ENEMIES",
+    ANY_ENEMY = "ANY_ENEMY",
 }
 
 export enum BookPosition {
@@ -45,14 +46,23 @@ const BOOK_SPELL_SIZE = 256;
 export class AppliedSpell {
     private readonly name: string;
 
+    private readonly power: number;
+
     private lapsRemaining: number;
 
     private readonly casterMaxHp: number;
 
     private readonly casterBaseArmor: number;
 
-    public constructor(name: string, lapsRemaining: number, casterMaxHp: number, casterBaseArmor: number) {
+    public constructor(
+        name: string,
+        power: number,
+        lapsRemaining: number,
+        casterMaxHp: number,
+        casterBaseArmor: number,
+    ) {
         this.name = name;
+        this.power = power;
         this.lapsRemaining = lapsRemaining;
         this.casterMaxHp = casterMaxHp;
         this.casterBaseArmor = casterBaseArmor;
@@ -67,6 +77,10 @@ export class AppliedSpell {
 
     public getName(): string {
         return this.name;
+    }
+
+    public getPower(): number {
+        return this.power;
     }
 
     public minusLap(): void {
@@ -96,11 +110,13 @@ export class SpellProperties {
 
     public readonly desc: string[];
 
-    public readonly spellTargetType: SpellTargetType;
+    public readonly spell_target_type: SpellTargetType;
 
     public readonly power: number;
 
     public readonly laps: number;
+
+    public readonly is_buff: boolean;
 
     public readonly self_cast_allowed: boolean;
 
@@ -115,9 +131,10 @@ export class SpellProperties {
         name: string,
         level: number,
         desc: string[],
-        spellTargetType: SpellTargetType,
+        spell_target_type: SpellTargetType,
         power: number,
         laps: number,
+        is_buff: boolean,
         self_cast_allowed: boolean,
         self_debuff_applies: boolean,
         minimal_caster_stack_power: number,
@@ -127,9 +144,10 @@ export class SpellProperties {
         this.name = name;
         this.level = level;
         this.desc = desc;
-        this.spellTargetType = spellTargetType;
+        this.spell_target_type = spell_target_type;
         this.power = power;
         this.laps = laps;
+        this.is_buff = is_buff;
         this.self_cast_allowed = self_cast_allowed;
         this.self_debuff_applies = self_debuff_applies;
         this.minimal_caster_stack_power = minimal_caster_stack_power;
@@ -212,7 +230,7 @@ export class Spell {
     }
 
     public getSpellTargetType(): SpellTargetType {
-        return this.spellProperties.spellTargetType;
+        return this.spellProperties.spell_target_type;
     }
 
     public getPower(): number {
@@ -221,6 +239,10 @@ export class Spell {
 
     public getLapsTotal(): number {
         return this.spellProperties.laps;
+    }
+
+    public isBuff(): boolean {
+        return this.spellProperties.is_buff;
     }
 
     public isSelfCastAllowed(): boolean {
@@ -491,14 +513,14 @@ export function canBeCasted(
         return true;
     };
 
+    const isSelfCast =
+        (fromUnitId && toUnitId && fromUnitId === toUnitId) ||
+        (fromUnitName && toUnitName && fromUnitName === toUnitName && fromTeamType === toTeamType);
+
     if (spell.getSpellTargetType() === SpellTargetType.ANY_ALLY) {
         if (toUnitMagicResistance && toUnitMagicResistance === 100) {
             return false;
         }
-
-        const isSelfCast =
-            (fromUnitId && toUnitId && fromUnitId === toUnitId) ||
-            (fromUnitName && toUnitName && fromUnitName === toUnitName);
 
         if (
             fromTeamType &&
@@ -506,6 +528,16 @@ export function canBeCasted(
             fromTeamType === toTeamType &&
             (spell.isSelfCastAllowed() || (!spell.isSelfCastAllowed() && !isSelfCast))
         ) {
+            return notAlreadyApplied();
+        }
+    }
+
+    if (spell.getSpellTargetType() === SpellTargetType.ANY_ENEMY) {
+        if (toUnitMagicResistance && toUnitMagicResistance === 100) {
+            return false;
+        }
+
+        if (fromTeamType && toTeamType && fromTeamType !== toTeamType && !isSelfCast) {
             return notAlreadyApplied();
         }
     }
@@ -530,11 +562,13 @@ export function calculateBuffsDebuffsEffect(
         hp: 0,
         armor: 0,
         luck: 0,
+        morale: 0,
     };
     const additionalStats: IModifyableUnitProperties = {
         hp: 0,
         armor: 0,
         luck: 0,
+        morale: 0,
     };
 
     const alreadyAppliedBuffs: string[] = [];
@@ -569,6 +603,9 @@ export function calculateBuffsDebuffsEffect(
             baseStats.hp = -Math.ceil(db.getCasterMaxHp() * 0.3);
             baseStats.armor = -Math.ceil(db.getCasterBaseArmor() * 0.3);
             alreadyAppliedDebuffs.push(db.getName());
+        }
+        if (db.getName() === "Sadness") {
+            baseStats.morale = Number.MIN_SAFE_INTEGER;
         }
     }
 

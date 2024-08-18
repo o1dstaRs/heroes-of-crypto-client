@@ -425,6 +425,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.buffs;
     }
 
+    public getDebuff(debuffName: string): AppliedSpell | undefined {
+        for (const db of this.debuffs) {
+            if (debuffName === db.getName()) {
+                return db;
+            }
+        }
+
+        return undefined;
+    }
+
     public getDebuffs(): AppliedSpell[] {
         return this.debuffs;
     }
@@ -1540,7 +1550,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         power: number,
     ): void {
         const lapsTotal = Number.MAX_SAFE_INTEGER;
-        const applied = new AppliedSpell(auraEffectName, lapsTotal, 0, 0);
+        const applied = new AppliedSpell(auraEffectName, power, lapsTotal, 0, 0);
         if (isBuff) {
             this.deleteBuff(auraEffectName);
             this.buffs.push(applied);
@@ -1561,7 +1571,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     public applyBuff(buff: Spell, casterMaxHp: number, casterBaseArmor: number, extend: boolean = false): void {
         // not checking for duplicates here, do it on a caller side
         const lapsTotal = buff.getLapsTotal() + (extend ? 1 : 0);
-        this.buffs.push(new AppliedSpell(buff.getName(), lapsTotal, casterMaxHp, casterBaseArmor));
+        this.buffs.push(new AppliedSpell(buff.getName(), buff.getPower(), lapsTotal, casterMaxHp, casterBaseArmor));
         this.unitProperties.applied_buffs.push(buff.getName());
         this.unitProperties.applied_buffs_laps.push(lapsTotal);
         this.unitProperties.applied_buffs_descriptions.push(
@@ -1576,7 +1586,9 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     public applyDebuff(debuff: Spell, casterMaxHp: number, casterBaseArmor: number, extend: boolean = false): void {
         // not checking for duplicates here, do it on a caller side
         const lapsTotal = debuff.getLapsTotal() + (extend ? 1 : 0);
-        this.debuffs.push(new AppliedSpell(debuff.getName(), lapsTotal, casterMaxHp, casterBaseArmor));
+        this.debuffs.push(
+            new AppliedSpell(debuff.getName(), debuff.getPower(), lapsTotal, casterMaxHp, casterBaseArmor),
+        );
         this.unitProperties.applied_debuffs.push(debuff.getName());
         this.unitProperties.applied_debuffs_laps.push(lapsTotal);
         this.unitProperties.applied_debuffs_descriptions.push(
@@ -1637,6 +1649,13 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             }
         }
 
+        // MORALE
+        if (baseStatsDiff.baseStats.morale === Number.MIN_SAFE_INTEGER) {
+            this.unitProperties.morale = -MORALE_MAX_VALUE_TOTAL;
+        } else {
+            this.unitProperties.morale = this.initialUnitProperties.morale;
+        }
+
         // ARMOR
         this.unitProperties.base_armor = Number(
             (this.initialUnitProperties.base_armor + baseStatsDiff.baseStats.armor).toFixed(2),
@@ -1649,10 +1668,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (arrowsWingshieldAura) {
             this.rangeArmorMultiplier *= Number((1 + arrowsWingshieldAura.getPower() / 100).toFixed(2));
         }
-
-        this.unitProperties.range_armor = Number(
-            (this.unitProperties.base_armor * this.rangeArmorMultiplier).toFixed(2),
-        );
 
         // MDEF
         this.unitProperties.magic_resist = this.initialUnitProperties.magic_resist;
@@ -1704,6 +1719,22 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.unitProperties.attack_mod = this.initialUnitProperties.attack_mod;
         }
 
+        // BUFFS & DEBUFFS
+        const quagmireDebuff = this.getDebuff("Quagmire");
+        if (quagmireDebuff) {
+            this.unitProperties.steps = Number(
+                (this.initialUnitProperties.steps * ((100 - quagmireDebuff.getPower()) / 100)).toFixed(2),
+            );
+        } else {
+            this.unitProperties.steps = this.initialUnitProperties.steps;
+        }
+
+        const weakeningBeamDebuff = this.getDebuff("Weakening Beam");
+        let baseArmorMultiplier = 1;
+        if (weakeningBeamDebuff) {
+            baseArmorMultiplier = Number(((100 - weakeningBeamDebuff.getPower()) / 100).toFixed(2));
+        }
+
         // ABILITIES DESCRIPTIONS
         // Heavy Armor
         const heavyArmorAbility = this.getAbility("Heavy Armor");
@@ -1719,21 +1750,40 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 heavyArmorAbility.getName(),
                 heavyArmorAbility.getDesc().replace(/\{\}/g, percentage.toString()),
             );
-            this.unitProperties.base_armor += Number(
+
+            baseArmorMultiplier = Number(
                 (
-                    this.unitProperties.base_armor *
-                    ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
-                    this.getStackPower()
+                    baseArmorMultiplier *
+                    (1 +
+                        ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
+                            this.getStackPower())
                 ).toFixed(2),
             );
-            this.unitProperties.range_armor += Number(
-                (
-                    this.unitProperties.range_armor *
-                    ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
-                    this.getStackPower()
-                ).toFixed(2),
-            );
+
+            console.log("baseArmorMultiplier1");
+            console.log(baseArmorMultiplier);
+
+            // console.log(
+            //     1 +
+            //         ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
+            //             this.getStackPower(),
+            // );
+            // console.log(
+            //     baseArmorMultiplier *
+            //         (1 +
+            //             ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
+            //                 this.getStackPower()),
+            // );
         }
+
+        console.log("baseArmorMultiplier2");
+        console.log(baseArmorMultiplier);
+
+        this.unitProperties.base_armor = Number((this.unitProperties.base_armor * baseArmorMultiplier).toFixed(2));
+
+        this.unitProperties.range_armor = Number(
+            (this.unitProperties.base_armor * this.rangeArmorMultiplier).toFixed(2),
+        );
 
         // Lightning Spin
         const lightningSpinAbility = this.getAbility("Lightning Spin");

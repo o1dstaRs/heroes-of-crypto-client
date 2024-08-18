@@ -234,12 +234,22 @@ export class AttackHandler {
                 targetUnit.getMagicResist(),
             )
         ) {
-            targetUnit.applyBuff(
-                currentActiveSpell,
-                attackerUnit.getAllProperties().max_hp,
-                attackerUnit.getAllProperties().base_armor,
-                attackerUnit.getId() === targetUnit.getId(),
-            );
+            if (currentActiveSpell.isBuff()) {
+                targetUnit.applyBuff(
+                    currentActiveSpell,
+                    attackerUnit.getAllProperties().max_hp,
+                    attackerUnit.getAllProperties().base_armor,
+                    attackerUnit.getId() === targetUnit.getId(),
+                );
+            } else {
+                targetUnit.applyDebuff(
+                    currentActiveSpell,
+                    attackerUnit.getAllProperties().max_hp,
+                    attackerUnit.getAllProperties().base_armor,
+                    attackerUnit.getId() === targetUnit.getId(),
+                );
+            }
+
             if (currentActiveSpell.isSelfDebuffApplicable()) {
                 attackerUnit.applyDebuff(
                     currentActiveSpell,

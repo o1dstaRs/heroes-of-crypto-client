@@ -34,7 +34,7 @@
     },
     "Absorb Penalties": {
         "name": "Absorb Penalties",
-        "range": 1,
+        "range": 2,
         "desc": "{}% chance to absorb any debuff applied to an ally within range and apply it to themselves instead.",
         "power": 50,
         "is_buff": true,

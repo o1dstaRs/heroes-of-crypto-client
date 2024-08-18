@@ -335,6 +335,7 @@ export const getSpellConfig = (faction: FactionType, spellName: string): SpellPr
         spellConfig.target,
         spellConfig.power,
         spellConfig.laps,
+        spellConfig.is_buff,
         spellConfig.self_cast_allowed,
         spellConfig.self_debuff_applies,
         spellConfig.minimal_caster_stack_power,
