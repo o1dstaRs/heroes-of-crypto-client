@@ -178,7 +178,8 @@ export class AttackHandler {
             unit.getAttackType() === AttackType.RANGE &&
             !this.canBeAttackedByMelee(unit.getPosition(), unit.isSmallSize(), aggrMatrix) &&
             unit.getRangeShots() > 0 &&
-            !unit.hasDebuffActive("Range Null Field Aura")
+            !unit.hasDebuffActive("Range Null Field Aura") &&
+            !unit.hasDebuffActive("Rangebane")
         );
     }
 

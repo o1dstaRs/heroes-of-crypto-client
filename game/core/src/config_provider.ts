@@ -20,8 +20,13 @@ import {
     ToAttackType,
     UnitProperties,
     UnitType,
+    SpellPowerType,
+    SpellTargetType,
+    SpellProperties,
     ToAbilityType,
     ToAbilityPowerType,
+    ToSpellPowerType,
+    ToSpellTargetType,
 } from "@heroesofcrypto/common";
 
 import abilitiesJson from "./configuration/abilities.json";
@@ -29,7 +34,6 @@ import auraEffectsJson from "./configuration/aura_effects.json";
 import effectsJson from "./configuration/effects.json";
 import spellsJson from "./configuration/spells.json";
 import creaturesJson from "./configuration/creatures.json";
-import { SpellProperties } from "./spells/spells";
 
 const DEFAULT_HERO_CONFIG = {
     hp: 120,
@@ -77,15 +81,17 @@ const DEFAULT_LUCK_PER_FACTION = {
     [FactionType.NATURE]: 4,
     [FactionType.LIFE]: 1,
     [FactionType.DEATH]: -2,
+    [FactionType.ORDER]: 3,
 };
 
 const DEFAULT_MORALE_PER_FACTION = {
     [FactionType.NO_TYPE]: 0,
-    [FactionType.MIGHT]: 3,
+    [FactionType.MIGHT]: 2,
     [FactionType.CHAOS]: -1,
     [FactionType.NATURE]: 1,
     [FactionType.LIFE]: 4,
     [FactionType.DEATH]: -4,
+    [FactionType.ORDER]: 3,
 };
 
 export const getHeroConfig = (
@@ -212,7 +218,7 @@ export const getCreatureConfig = (
 
     const attackType =
         creatureConfig.attack_type && creatureConfig.attack_type.constructor === String
-            ? ToAttackType[creatureConfig.attack_type as string]
+            ? ToAttackType[creatureConfig.attack_type]
             : undefined;
     if (attackType === undefined || attackType === AttackType.NO_TYPE) {
         throw new TypeError(`Invalid attack type for creature ${creatureName} = ${attackType}`);
@@ -327,13 +333,30 @@ export const getSpellConfig = (faction: FactionType, spellName: string): SpellPr
         throw TypeError(`Unknown 'conflicts_with' type for the spell - ${spellName}`);
     }
 
+    const targetType =
+        spellConfig.target && spellConfig.target.constructor === String
+            ? ToSpellTargetType[spellConfig.target as string]
+            : undefined;
+    if (targetType === undefined || targetType === SpellTargetType.NO_TYPE) {
+        throw new TypeError(`Invalid target type for spell ${spellName} = ${targetType}`);
+    }
+
+    const powerType =
+        spellConfig.power_type && spellConfig.power_type.constructor === String
+            ? ToSpellPowerType[spellConfig.power_type as string]
+            : undefined;
+    if (powerType === undefined || powerType === SpellPowerType.NO_TYPE) {
+        throw new TypeError(`Invalid power type for spell ${spellName} = ${powerType}`);
+    }
+
     return new SpellProperties(
         faction,
         spellConfig.name,
         spellConfig.level,
         spellConfig.desc,
-        spellConfig.target,
+        targetType,
         spellConfig.power,
+        powerType,
         spellConfig.laps,
         spellConfig.is_buff,
         spellConfig.self_cast_allowed,

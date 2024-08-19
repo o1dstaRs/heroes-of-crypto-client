@@ -239,8 +239,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected selectedAttackType: AttackType;
 
-    protected rangeArmorMultiplier = 1;
-
     protected maxRangeShots = 0;
 
     protected responded = false;
@@ -366,13 +364,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.parseSpells();
         this.buffs = [];
         this.debuffs = [];
-
         this.maxRangeShots = this.unitProperties.range_shots;
         this.parseAbilities(abilitiesFactory);
-        this.unitProperties.range_armor = Number(
-            (this.unitProperties.base_armor * this.rangeArmorMultiplier).toFixed(2),
-        );
-
         this.effects = [];
         this.parseAuraEffects();
     }
@@ -1662,11 +1655,11 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         );
 
         const leatherArmorAbility = this.getAbility("Leather Armor");
-        this.rangeArmorMultiplier = leatherArmorAbility ? leatherArmorAbility.getPower() / 100 : 1;
+        let rangeArmorMultiplier = leatherArmorAbility ? leatherArmorAbility.getPower() / 100 : 1;
 
         const arrowsWingshieldAura = this.getAppliedAuraEffect("Arrows Wingshield Aura");
         if (arrowsWingshieldAura) {
-            this.rangeArmorMultiplier *= Number((1 + arrowsWingshieldAura.getPower() / 100).toFixed(2));
+            rangeArmorMultiplier = rangeArmorMultiplier * (1 + arrowsWingshieldAura.getPower() / 100);
         }
 
         // MDEF
@@ -1693,16 +1686,17 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         // ATTACK
+        this.unitProperties.base_attack = this.initialUnitProperties.base_attack;
+        let baseAttackMultiplier = 1;
         const sharpenedWeaponsAura = this.getAppliedAuraEffect("Sharpened Weapons Aura");
+
         if (sharpenedWeaponsAura) {
-            this.unitProperties.base_attack = Number(
-                (
-                    this.initialUnitProperties.base_attack *
-                    Number((1 + sharpenedWeaponsAura.getPower() / 100).toFixed(2))
-                ).toFixed(2),
-            );
-        } else {
-            this.unitProperties.base_attack = this.initialUnitProperties.base_attack;
+            baseAttackMultiplier = baseAttackMultiplier * (1 + sharpenedWeaponsAura.getPower() / 100);
+        }
+
+        const weaknessDebuff = this.getDebuff("Weakness");
+        if (weaknessDebuff) {
+            baseAttackMultiplier = baseAttackMultiplier * ((100 - weaknessDebuff.getPower()) / 100);
         }
 
         if (this.hasBuffActive("Riot")) {
@@ -1719,6 +1713,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.unitProperties.attack_mod = this.initialUnitProperties.attack_mod;
         }
 
+        this.unitProperties.base_attack = Number((this.unitProperties.base_attack * baseAttackMultiplier).toFixed(2));
+
         // BUFFS & DEBUFFS
         const quagmireDebuff = this.getDebuff("Quagmire");
         if (quagmireDebuff) {
@@ -1732,7 +1728,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         const weakeningBeamDebuff = this.getDebuff("Weakening Beam");
         let baseArmorMultiplier = 1;
         if (weakeningBeamDebuff) {
-            baseArmorMultiplier = Number(((100 - weakeningBeamDebuff.getPower()) / 100).toFixed(2));
+            baseArmorMultiplier = (100 - weakeningBeamDebuff.getPower()) / 100;
         }
 
         // ABILITIES DESCRIPTIONS
@@ -1751,39 +1747,15 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 heavyArmorAbility.getDesc().replace(/\{\}/g, percentage.toString()),
             );
 
-            baseArmorMultiplier = Number(
-                (
-                    baseArmorMultiplier *
-                    (1 +
-                        ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
-                            this.getStackPower())
-                ).toFixed(2),
-            );
-
-            console.log("baseArmorMultiplier1");
-            console.log(baseArmorMultiplier);
-
-            // console.log(
-            //     1 +
-            //         ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
-            //             this.getStackPower(),
-            // );
-            // console.log(
-            //     baseArmorMultiplier *
-            //         (1 +
-            //             ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
-            //                 this.getStackPower()),
-            // );
+            baseArmorMultiplier =
+                baseArmorMultiplier *
+                (1 +
+                    ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
+                        this.getStackPower());
         }
 
-        console.log("baseArmorMultiplier2");
-        console.log(baseArmorMultiplier);
-
         this.unitProperties.base_armor = Number((this.unitProperties.base_armor * baseArmorMultiplier).toFixed(2));
-
-        this.unitProperties.range_armor = Number(
-            (this.unitProperties.base_armor * this.rangeArmorMultiplier).toFixed(2),
-        );
+        this.unitProperties.range_armor = Number((this.unitProperties.base_armor * rangeArmorMultiplier).toFixed(2));
 
         // Lightning Spin
         const lightningSpinAbility = this.getAbility("Lightning Spin");

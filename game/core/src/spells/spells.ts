@@ -10,19 +10,19 @@
  */
 
 import { XY } from "@box2d/core";
-import { FactionType, GridSettings, GridMath, TeamType, IModifyableUnitProperties } from "@heroesofcrypto/common";
+import {
+    FactionType,
+    SpellProperties,
+    SpellTargetType,
+    SpellPowerType,
+    GridSettings,
+    GridMath,
+    TeamType,
+    IModifyableUnitProperties,
+} from "@heroesofcrypto/common";
 
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
-
-export enum SpellTargetType {
-    FREE_CELL = "FREE_CELL",
-    ANY_ALLY = "ANY_ALLY",
-    RANDOM_CLOSE_TO_CASTER = "RANDOM_CLOSE_TO_CASTER",
-    ALL_ALLIES = "ALL_ALLIES",
-    ALL_ENEMIES = "ALL_ENEMIES",
-    ANY_ENEMY = "ANY_ENEMY",
-}
 
 export enum BookPosition {
     ONE = 1,
@@ -98,60 +98,6 @@ export class AppliedSpell {
 
     public getLaps(): number {
         return this.lapsRemaining;
-    }
-}
-
-export class SpellProperties {
-    public readonly name: string;
-
-    public readonly faction: FactionType;
-
-    public readonly level: number;
-
-    public readonly desc: string[];
-
-    public readonly spell_target_type: SpellTargetType;
-
-    public readonly power: number;
-
-    public readonly laps: number;
-
-    public readonly is_buff: boolean;
-
-    public readonly self_cast_allowed: boolean;
-
-    public readonly self_debuff_applies: boolean;
-
-    public readonly minimal_caster_stack_power: number;
-
-    public readonly conflicts_with: string[];
-
-    public constructor(
-        faction: FactionType,
-        name: string,
-        level: number,
-        desc: string[],
-        spell_target_type: SpellTargetType,
-        power: number,
-        laps: number,
-        is_buff: boolean,
-        self_cast_allowed: boolean,
-        self_debuff_applies: boolean,
-        minimal_caster_stack_power: number,
-        conflicts_with: string[],
-    ) {
-        this.faction = faction;
-        this.name = name;
-        this.level = level;
-        this.desc = desc;
-        this.spell_target_type = spell_target_type;
-        this.power = power;
-        this.laps = laps;
-        this.is_buff = is_buff;
-        this.self_cast_allowed = self_cast_allowed;
-        this.self_debuff_applies = self_debuff_applies;
-        this.minimal_caster_stack_power = minimal_caster_stack_power;
-        this.conflicts_with = conflicts_with;
     }
 }
 
@@ -235,6 +181,10 @@ export class Spell {
 
     public getPower(): number {
         return this.spellProperties.power;
+    }
+
+    public getPowerType(): SpellPowerType {
+        return this.spellProperties.power_type;
     }
 
     public getLapsTotal(): number {

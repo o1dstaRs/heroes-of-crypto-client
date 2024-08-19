@@ -18,6 +18,7 @@ import {
     GridMath,
     GridSettings,
     HoCLib,
+    SpellTargetType,
     HoCMath,
     TeamType,
     IAuraOnMap,
@@ -42,7 +43,7 @@ import { ObstacleGenerator } from "../obstacles/obstacle_generator";
 import { IWeightedRoute, PathHelper } from "../path/path_helper";
 import { PlacementType, SquarePlacement } from "../placement/square_placement";
 import { Settings } from "../settings";
-import { canBeCasted, canBeMassCasted, canBeSummoned, Spell, SpellTargetType } from "../spells/spells";
+import { canBeCasted, canBeMassCasted, canBeSummoned, Spell } from "../spells/spells";
 import { SpellsFactory } from "../spells/spells_factory";
 import { FightStateManager } from "../state/fight_state_manager";
 import { IVisibleUnit } from "../state/state";
@@ -1061,7 +1062,8 @@ class Sandbox extends GLScene {
                         this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
                     ) &&
                     this.currentActiveUnit.getRangeShots() > 0 &&
-                    !this.currentActiveUnit.hasDebuffActive("Range Null Field Aura")
+                    !this.currentActiveUnit.hasDebuffActive("Range Null Field Aura") &&
+                    !this.currentActiveUnit.hasDebuffActive("Rangebane")
                 ) {
                     //                    if (this.grid.canBeAttackedByMelee(currentUnitCell, this.currentActiveUnit.getId())) {
                     //                        this.currentActiveUnit.selectAttackType(AttackType.MELEE);
@@ -1321,7 +1323,8 @@ class Sandbox extends GLScene {
                                     hoverAttackUnit.isSmallSize(),
                                     this.grid.getEnemyAggrMatrixByUnitId(hoverAttackUnit.getId()),
                                 ) &&
-                                !hoverAttackUnit.hasDebuffActive("Range Null Field Aura")
+                                !hoverAttackUnit.hasDebuffActive("Range Null Field Aura") &&
+                                !hoverAttackUnit.hasDebuffActive("Rangebane")
                             ) {
                                 const evaluatedRangeResponse = this.attackHandler.evaluateRangeAttack(
                                     this.unitsHolder.getAllUnits(),
@@ -2395,7 +2398,8 @@ class Sandbox extends GLScene {
                     this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
                 ) ||
                     this.currentActiveUnit.getRangeShots() <= 0 ||
-                    this.currentActiveUnit.hasDebuffActive("Range Null Field Aura"))
+                    this.currentActiveUnit.hasDebuffActive("Range Null Field Aura") ||
+                    this.currentActiveUnit.hasDebuffActive("Rangebane"))
             ) {
                 hasOption = false;
                 if (this.currentActiveUnit.selectAttackType(AttackType.MELEE)) {

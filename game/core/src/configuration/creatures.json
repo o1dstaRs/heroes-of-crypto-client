@@ -58,7 +58,7 @@
             "shot_distance": 5,
             "magic_resist": 0,
             "can_fly": false,
-            "exp": 8.5,
+            "exp": 8.1,
             "size": 1,
             "level": 1,
             "spells": [],
@@ -103,7 +103,14 @@
             "exp": 25,
             "size": 1,
             "level": 2,
-            "spells": ["Death:Sadness", "Death:Quagmire", "Death:Weakening Beam"],
+            "spells": [
+                "Death:Sadness",
+                "Death:Quagmire",
+                "Death:Weakening Beam",
+                "Death:Weakness",
+                "Order:Rangebane",
+                "Order:Cowardice"
+            ],
             "abilities": []
         },
         "Crusader": {
@@ -511,7 +518,7 @@
         },
         "Beholder": {
             "name": "Beholder",
-            "hp": 19,
+            "hp": 21,
             "steps": 3.3,
             "speed": 4,
             "armor": 14,

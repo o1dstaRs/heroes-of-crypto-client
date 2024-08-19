@@ -47,6 +47,9 @@ export class SpellsFactory {
             Sadness: textures.sadness_256.texture,
             Quagmire: textures.quagmire_256.texture,
             "Weakening Beam": textures.weakening_beam_256.texture,
+            Rangebane: textures.rangebane_256.texture,
+            Weakness: textures.weakness_256.texture,
+            Cowardice: textures.cowardice_256.texture,
         };
         this.fontTexturesBySpellName = {
             "Totem of Courage": textures.totem_of_courage_font.texture,
@@ -59,6 +62,9 @@ export class SpellsFactory {
             Sadness: textures.sadness_font.texture,
             Quagmire: textures.quagmire_font.texture,
             "Weakening Beam": textures.weakening_beam_font.texture,
+            Rangebane: textures.rangebane_font.texture,
+            Weakness: textures.weakness_font.texture,
+            Cowardice: textures.cowardice_font.texture,
         };
         this.texturesByDigit = texturesByDigit;
     }
