@@ -2195,6 +2195,10 @@ class Sandbox extends GLScene {
                                     u.applyBuff(this.hoveredSpell, 0, 0, u.getId() === this.currentActiveUnit.getId());
                                 }
                             }
+
+                            this.sc_sceneLog.updateLog(
+                                `${this.currentActiveUnit.getName()} cast ${this.hoveredSpell.getName()} on allies`,
+                            );
                         } else {
                             for (const u of this.unitsHolder.getAllEnemyUnits(this.currentActiveUnit.getTeam())) {
                                 if (u.getMagicResist() === 100) {
@@ -2222,6 +2226,10 @@ class Sandbox extends GLScene {
                                     );
                                 }
                             }
+
+                            this.sc_sceneLog.updateLog(
+                                `${this.currentActiveUnit.getName()} cast ${this.hoveredSpell.getName()} on enemies`,
+                            );
                         }
 
                         this.currentActiveUnit.useSpell(this.hoveredSpell);

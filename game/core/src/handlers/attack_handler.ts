@@ -235,6 +235,7 @@ export class AttackHandler {
                 targetUnit.getMagicResist(),
             )
         ) {
+            let applied = true;
             if (currentActiveSpell.isBuff()) {
                 targetUnit.applyBuff(
                     currentActiveSpell,
@@ -242,6 +243,8 @@ export class AttackHandler {
                     attackerUnit.getAllProperties().base_armor,
                     attackerUnit.getId() === targetUnit.getId(),
                 );
+            } else if (HoCLib.getRandomInt(0, 100) < Math.floor(targetUnit.getMagicResist())) {
+                applied = false;
             } else {
                 targetUnit.applyDebuff(
                     currentActiveSpell,
@@ -267,6 +270,9 @@ export class AttackHandler {
                 newText += ` on ${targetUnit.getName()}`;
             }
             this.sceneLog.updateLog(newText);
+            if (!applied) {
+                this.sceneLog.updateLog(`${targetUnit.getName()} resisted from ${currentActiveSpell.getName()}`);
+            }
 
             return true;
         }
