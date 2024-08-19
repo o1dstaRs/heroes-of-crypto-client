@@ -486,6 +486,19 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return undefined;
     }
 
+    public getCumulativeHp(): number {
+        if (this.isDead()) {
+            return 0;
+        }
+
+        let cumulativeHp = this.unitProperties.hp;
+        if (cumulativeHp < 0) {
+            cumulativeHp = 0;
+        }
+
+        return (this.unitProperties.amount_alive - 1) * this.unitProperties.max_hp + cumulativeHp;
+    }
+
     public getEffects(): Effect[] {
         return this.effects;
     }

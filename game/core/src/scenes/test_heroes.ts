@@ -1091,10 +1091,16 @@ class Sandbox extends GLScene {
                     this.rangeResponseAttackDivisor = 1;
                     this.rangeResponseUnit = undefined;
                     if (this.canAttackByMeleeTargets?.unitIds.has(unitId)) {
-                        if (unit) {
+                        if (
+                            unit &&
+                            !(
+                                this.currentActiveUnit.hasDebuffActive("Cowardice") &&
+                                this.currentActiveUnit.getCumulativeHp() < unit.getCumulativeHp()
+                            )
+                        ) {
                             this.hoverAttackUnits = [unit];
                         } else {
-                            this.hoverAttackUnits = unit;
+                            this.hoverAttackUnits = undefined;
                         }
 
                         this.hoverActivePath = undefined;

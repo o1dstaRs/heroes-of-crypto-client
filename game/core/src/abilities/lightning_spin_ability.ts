@@ -96,6 +96,11 @@ export function processLightningSpinAbility(
 
         for (const enemy of enemyList) {
             const isAttackMissed = HoCLib.getRandomInt(0, 100) < fromUnit.calculateMissChance(enemy);
+
+            if (fromUnit.hasDebuffActive("Cowardice") && fromUnit.getCumulativeHp() < enemy.getCumulativeHp()) {
+                continue;
+            }
+
             if (isAttackMissed) {
                 sceneLog.updateLog(`${fromUnit.getName()} misses ${actionString} ${enemy.getName()}`);
                 continue;

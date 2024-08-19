@@ -288,6 +288,7 @@ export class AttackHandler {
     ): boolean {
         if (
             !attackerUnit ||
+            attackerUnit.isDead() ||
             !targetUnits?.length ||
             !hoverRangeAttackPosition ||
             attackerUnit.getAttackTypeSelection() !== AttackType.RANGE ||
@@ -297,7 +298,12 @@ export class AttackHandler {
         }
 
         let targetUnit: Unit | undefined = targetUnits.shift();
-        if (!targetUnit) {
+        if (
+            !targetUnit ||
+            targetUnit.getTeam() === attackerUnit.getTeam() ||
+            targetUnit.isDead() ||
+            (attackerUnit.hasDebuffActive("Cowardice") && attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp())
+        ) {
             return false;
         }
 
@@ -320,7 +326,8 @@ export class AttackHandler {
             !attackerUnit.canSkipResponse() &&
             !fightState.alreadyRepliedAttack.has(targetUnit.getId()) &&
             targetUnit.canRespond() &&
-            this.canLandRangeAttack(targetUnit, grid.getEnemyAggrMatrixByUnitId(targetUnit.getId()))
+            this.canLandRangeAttack(targetUnit, grid.getEnemyAggrMatrixByUnitId(targetUnit.getId())) &&
+            !(targetUnit.hasDebuffActive("Cowardice") && targetUnit.getCumulativeHp() < attackerUnit.getCumulativeHp())
         ) {
             const isResponseMissed = HoCLib.getRandomInt(0, 100) < targetUnit.calculateMissChance(rangeResponseUnit);
             drawer.startBulletAnimation(targetUnit.getPosition(), attackerUnit.getPosition(), rangeResponseUnit);
@@ -399,7 +406,13 @@ export class AttackHandler {
 
         if (switchTargetUnit) {
             targetUnit = targetUnits.shift();
-            if (!targetUnit) {
+            if (
+                !targetUnit ||
+                targetUnit.getTeam() === attackerUnit.getTeam() ||
+                targetUnit.isDead() ||
+                (attackerUnit.hasDebuffActive("Cowardice") &&
+                    attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp())
+            ) {
                 return true;
             }
         }
@@ -446,12 +459,16 @@ export class AttackHandler {
         if (
             currentActiveSpell ||
             !attackerUnit ||
+            attackerUnit.isDead() ||
             !targetUnit ||
+            targetUnit.isDead() ||
             !attackFromCell ||
             !attackerBody ||
             !currentActiveKnownPaths ||
             attackerUnit.getAttackTypeSelection() !== AttackType.MELEE ||
-            attackerUnit.hasAbilityActive("No Melee")
+            attackerUnit.hasAbilityActive("No Melee") ||
+            attackerUnit.getTeam() === targetUnit.getTeam() ||
+            (attackerUnit.hasDebuffActive("Cowardice") && attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp())
         ) {
             return false;
         }
@@ -602,7 +619,8 @@ export class AttackHandler {
             !fightState.alreadyRepliedAttack.has(targetUnit.getId()) &&
             targetUnit.canRespond() &&
             !attackerUnit.canSkipResponse() &&
-            !targetUnit.hasAbilityActive("No Melee")
+            !targetUnit.hasAbilityActive("No Melee") &&
+            !(targetUnit.hasDebuffActive("Cowardice") && targetUnit.getCumulativeHp() < attackerUnit.getCumulativeHp())
         ) {
             const isResponseMissed = HoCLib.getRandomInt(0, 100) < targetUnit.calculateMissChance(attackerUnit);
 
