@@ -99,6 +99,8 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
     const isDarkMode = theme.palette.mode === "dark";
     const auraColor = isDarkMode ? "rgba(255, 255, 255, 0.75)" : "rgba(0, 0, 0, 0.75)";
 
+    console.log(abilities);
+
     return (
         <Stack spacing={2} sx={{ marginTop: 1 }}>
             {[
@@ -110,7 +112,17 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
                         .slice(rowIndex * ABILITIES_FIT_IN_ONE_ROW, (rowIndex + 1) * ABILITIES_FIT_IN_ONE_ROW)
                         .map((ability, index) => (
                             <Tooltip
-                                title={`${ability.name}: ${ability.description}`}
+                                title={
+                                    <>
+                                        {ability.name}:&nbsp;
+                                        {ability.description.split("\n").map((line, index) => (
+                                            <React.Fragment key={index}>
+                                                {line}
+                                                <br />
+                                            </React.Fragment>
+                                        ))}
+                                    </>
+                                }
                                 key={`tooltip_${rowIndex}_${index}`}
                                 style={{ zIndex: 3 }}
                             >

@@ -27,7 +27,7 @@ import {
     AttackType,
     HoCConstants,
     FactionType,
-    ToFaction,
+    ToFactionType,
     GridMath,
     GridSettings,
     UnitProperties,
@@ -400,7 +400,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 continue;
             }
             // can return us undefined
-            const faction = ToFaction[spArr[0] as AllFactionsType];
+            const faction = ToFactionType[spArr[0] as AllFactionsType];
             if (faction === undefined) {
                 continue;
             }
@@ -1757,7 +1757,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             );
             this.refreshAbiltyDescription(
                 heavyArmorAbility.getName(),
-                heavyArmorAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                heavyArmorAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
 
             baseArmorMultiplier =
@@ -1776,7 +1776,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(lightningSpinAbility) * 100).toFixed(2));
             this.refreshAbiltyDescription(
                 lightningSpinAbility.getName(),
-                lightningSpinAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                lightningSpinAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1786,7 +1786,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(fireBreathAbility) * 100).toFixed(2));
             this.refreshAbiltyDescription(
                 fireBreathAbility.getName(),
-                fireBreathAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                fireBreathAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1796,7 +1796,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(fireShieldAbility) * 100).toFixed(2));
             this.refreshAbiltyDescription(
                 fireShieldAbility.getName(),
-                fireShieldAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                fireShieldAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1806,7 +1806,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(backstabAbility) * 100).toFixed(2)) - 100;
             this.refreshAbiltyDescription(
                 backstabAbility.getName(),
-                backstabAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                backstabAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1816,7 +1816,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number(this.calculateAbilityApplyChance(stunAbility).toFixed(2));
             this.refreshAbiltyDescription(
                 stunAbility.getName(),
-                stunAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                stunAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1826,7 +1826,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(doublePunchAbility) * 100).toFixed(2));
             this.refreshAbiltyDescription(
                 doublePunchAbility.getName(),
-                doublePunchAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                doublePunchAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1836,7 +1836,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(piercingSpearAbility) * 100).toFixed(2));
             this.refreshAbiltyDescription(
                 piercingSpearAbility.getName(),
-                piercingSpearAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                piercingSpearAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1846,7 +1846,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(boostHealthAbility) * 100).toFixed(2));
             this.refreshAbiltyDescription(
                 boostHealthAbility.getName(),
-                boostHealthAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                boostHealthAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1856,7 +1856,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(doubleShotAbility) * 100).toFixed(2));
             this.refreshAbiltyDescription(
                 doubleShotAbility.getName(),
-                doubleShotAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                doubleShotAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1866,7 +1866,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number(this.calculateAbilityApplyChance(blindnessAbility).toFixed(2));
             this.refreshAbiltyDescription(
                 blindnessAbility.getName(),
-                blindnessAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                blindnessAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1877,7 +1877,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 Number((this.calculateAbilityMultiplier(sharpenedWeaponsAuraAbility) * 100).toFixed(2)) - 100;
             this.refreshAbiltyDescription(
                 sharpenedWeaponsAuraAbility.getName(),
-                sharpenedWeaponsAuraAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                sharpenedWeaponsAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1888,7 +1888,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 Number((this.calculateAbilityMultiplier(arrowsWingshieldAuraAbility) * 100).toFixed(2)) - 100;
             this.refreshAbiltyDescription(
                 arrowsWingshieldAuraAbility.getName(),
-                arrowsWingshieldAuraAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                arrowsWingshieldAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1902,7 +1902,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             );
             this.refreshAbiltyDescription(
                 limitedSupplyAbility.getName(),
-                limitedSupplyAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                limitedSupplyAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1912,7 +1912,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number(this.calculateAbilityApplyChance(boarSalivaAbility).toFixed(2));
             this.refreshAbiltyDescription(
                 boarSalivaAbility.getName(),
-                boarSalivaAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                boarSalivaAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1922,7 +1922,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number(this.calculateAbilityApplyChance(magicShieldAbility).toFixed(2));
             this.refreshAbiltyDescription(
                 magicShieldAbility.getName(),
-                magicShieldAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                magicShieldAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1932,7 +1932,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number(this.calculateAbilityApplyChance(dodgeAbility).toFixed(2));
             this.refreshAbiltyDescription(
                 dodgeAbility.getName(),
-                dodgeAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                dodgeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1942,7 +1942,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number(this.calculateAbilityApplyChance(smallSpecieAbility).toFixed(2));
             this.refreshAbiltyDescription(
                 smallSpecieAbility.getName(),
-                smallSpecieAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                smallSpecieAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1952,7 +1952,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(absorbPenaltiesAuraAbility) * 100).toFixed(2));
             this.refreshAbiltyDescription(
                 absorbPenaltiesAuraAbility.getName(),
-                absorbPenaltiesAuraAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                absorbPenaltiesAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
     }

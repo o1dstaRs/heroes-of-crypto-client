@@ -32,6 +32,8 @@ import { UnitsHolder } from "../units/units_holder";
 import { MoveHandler } from "./move_handler";
 import { processBlindnessAbility } from "../abilities/blindness_ability";
 import { processBoarSalivaAbility } from "../abilities/boar_saliva_ability";
+import { processSpitBallAbility } from "../abilities/spit_ball_ability";
+import { SpellsFactory } from "../spells/spells_factory";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisor: number;
@@ -52,9 +54,12 @@ export class AttackHandler {
 
     public readonly sceneLog: SceneLog;
 
-    public constructor(world: b2World, gridSettings: GridSettings, sceneLog: SceneLog) {
+    public readonly spellsFactory: SpellsFactory;
+
+    public constructor(world: b2World, gridSettings: GridSettings, spellsFactory: SpellsFactory, sceneLog: SceneLog) {
         this.world = world;
         this.gridSettings = gridSettings;
+        this.spellsFactory = spellsFactory;
         this.sceneLog = sceneLog;
     }
 
@@ -390,6 +395,7 @@ export class AttackHandler {
             switchTargetUnit = true;
         } else {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processSpitBallAbility(attackerUnit, targetUnit, attackerUnit, this.spellsFactory, this.sceneLog);
         }
 
         if (rangeResponseUnit) {
@@ -407,6 +413,7 @@ export class AttackHandler {
                 }
             } else {
                 processStunAbility(targetUnit, rangeResponseUnit, attackerUnit, this.sceneLog);
+                processSpitBallAbility(targetUnit, rangeResponseUnit, attackerUnit, this.spellsFactory, this.sceneLog);
             }
         }
 
@@ -443,6 +450,7 @@ export class AttackHandler {
             attackerUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
         } else if (secondShotLanded) {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processSpitBallAbility(attackerUnit, targetUnit, attackerUnit, this.spellsFactory, this.sceneLog);
             processBlindnessAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
         }
 

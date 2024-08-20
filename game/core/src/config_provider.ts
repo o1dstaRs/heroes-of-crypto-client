@@ -184,6 +184,10 @@ export const getAbilityConfig = (abilityName: string): AbilityProperties => {
         throw new TypeError(`Invalid power type for ability ${abilityName} = ${abilityPowerType}`);
     }
 
+    if (!ability.desc || ability.desc.constructor !== Array || !ability.desc.length) {
+        throw new TypeError(`Invalid description list for ability ${abilityName}`);
+    }
+
     return new AbilityProperties(
         abilityName,
         abilityType,
@@ -241,7 +245,7 @@ export const getCreatureConfig = (
             throw new TypeError(`Unable to get config for ability ${abilityName} and creature ${creatureName}`);
         }
 
-        if (!abilityConfig.desc) {
+        if (!abilityConfig.desc || abilityConfig.desc.constructor !== Array || !abilityConfig.desc.length) {
             throw new TypeError(`No description for ability ${abilityName} and creature ${creatureName}`);
         }
 
@@ -249,7 +253,7 @@ export const getCreatureConfig = (
             throw new TypeError(`No power for ability ${abilityName} and creature ${creatureName}`);
         }
 
-        abilityDescriptions.push(abilityConfig.desc.replace(/\{\}/g, abilityConfig.power.toString()));
+        abilityDescriptions.push(abilityConfig.desc.join("\n").replace(/\{\}/g, abilityConfig.power.toString()));
         abilityIsStackPowered.push(abilityConfig.stack_powered);
 
         const auraEffect = abilityConfig.aura_effect;

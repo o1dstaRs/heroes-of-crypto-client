@@ -249,6 +249,7 @@ class Sandbox extends GLScene {
             [-1, textures.m_damage.texture],
         ]);
 
+        const spellsFactory = new SpellsFactory(this.gl, this.shader, this.digitNormalTextures, textures);
         this.unitsFactory = new UnitsFactory(
             this.sc_world,
             this.gl,
@@ -257,7 +258,7 @@ class Sandbox extends GLScene {
             this.digitDamageTextures,
             this.sc_sceneSettings.getGridSettings(),
             textures,
-            new SpellsFactory(this.gl, this.shader, this.digitNormalTextures, textures),
+            spellsFactory,
             new AbilitiesFactory(new EffectsFactory()),
         );
         this.unitsHolder = new UnitsHolder(this.sc_world, this.sc_sceneSettings.getGridSettings(), this.unitsFactory);
@@ -401,6 +402,7 @@ class Sandbox extends GLScene {
         this.attackHandler = new AttackHandler(
             this.sc_world,
             this.sc_sceneSettings.getGridSettings(),
+            spellsFactory,
             this.sc_sceneLog,
         );
         this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);

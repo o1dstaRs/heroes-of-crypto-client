@@ -39,7 +39,7 @@ export class Ability {
         return this.abilityProperties.type;
     }
 
-    public getDesc(): string {
+    public getDesc(): string[] {
         return this.abilityProperties.desc;
     }
 
