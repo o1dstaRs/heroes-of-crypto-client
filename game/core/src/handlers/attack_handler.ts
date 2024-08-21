@@ -35,6 +35,7 @@ import { processBoarSalivaAbility } from "../abilities/boar_saliva_ability";
 import { processSpitBallAbility } from "../abilities/spit_ball_ability";
 import { processPetrifyingGazeAbility } from "../abilities/petrifying_gaze_ability";
 import { SpellsFactory } from "../spells/spells_factory";
+import { getAbsorptionTarget } from "../effects/effects_helper";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisor: number;
@@ -213,6 +214,8 @@ export class AttackHandler {
 
     public handleMagicAttack(
         gridMatrix: number[][],
+        unitsHolder: UnitsHolder,
+        grid: Grid,
         currentActiveSpell?: Spell,
         attackerUnit?: Unit,
         targetUnit?: Unit,
@@ -252,7 +255,14 @@ export class AttackHandler {
             } else if (HoCLib.getRandomInt(0, 100) < Math.floor(targetUnit.getMagicResist())) {
                 applied = false;
             } else {
-                targetUnit.applyDebuff(
+                // effect can be absorbed
+                let debuffTarget = targetUnit;
+                const absorptionTarget = getAbsorptionTarget(debuffTarget, grid, unitsHolder);
+                if (absorptionTarget) {
+                    debuffTarget = absorptionTarget;
+                }
+
+                debuffTarget.applyDebuff(
                     currentActiveSpell,
                     attackerUnit.getAllProperties().max_hp,
                     attackerUnit.getAllProperties().base_armor,
@@ -261,7 +271,14 @@ export class AttackHandler {
             }
 
             if (currentActiveSpell.isSelfDebuffApplicable()) {
-                attackerUnit.applyDebuff(
+                // effect can be absorbed
+                let debuffTarget = attackerUnit;
+                const absorptionTarget = getAbsorptionTarget(debuffTarget, grid, unitsHolder);
+                if (absorptionTarget) {
+                    debuffTarget = absorptionTarget;
+                }
+
+                debuffTarget.applyDebuff(
                     currentActiveSpell,
                     attackerUnit.getAllProperties().max_hp,
                     attackerUnit.getAllProperties().base_armor,
@@ -398,7 +415,15 @@ export class AttackHandler {
         } else {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
-            processSpitBallAbility(attackerUnit, targetUnit, attackerUnit, this.spellsFactory, this.sceneLog);
+            processSpitBallAbility(
+                attackerUnit,
+                targetUnit,
+                attackerUnit,
+                this.spellsFactory,
+                unitsHolder,
+                grid,
+                this.sceneLog,
+            );
         }
 
         if (rangeResponseUnit) {
@@ -423,7 +448,15 @@ export class AttackHandler {
                     sceneStepCount,
                     this.sceneLog,
                 );
-                processSpitBallAbility(targetUnit, rangeResponseUnit, attackerUnit, this.spellsFactory, this.sceneLog);
+                processSpitBallAbility(
+                    targetUnit,
+                    rangeResponseUnit,
+                    attackerUnit,
+                    this.spellsFactory,
+                    unitsHolder,
+                    grid,
+                    this.sceneLog,
+                );
             }
         }
 
@@ -467,7 +500,15 @@ export class AttackHandler {
                 sceneStepCount,
                 this.sceneLog,
             );
-            processSpitBallAbility(attackerUnit, targetUnit, attackerUnit, this.spellsFactory, this.sceneLog);
+            processSpitBallAbility(
+                attackerUnit,
+                targetUnit,
+                attackerUnit,
+                this.spellsFactory,
+                unitsHolder,
+                grid,
+                this.sceneLog,
+            );
             processBlindnessAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
         }
 

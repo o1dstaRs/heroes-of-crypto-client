@@ -573,10 +573,12 @@ export abstract class Scene extends b2ContactListener {
 
                 const buffName = unitProperties.applied_buffs[i];
 
+                const description = unitProperties.applied_buffs_descriptions[i].split(";")[0];
+
                 visibleBuffsImpact.push({
                     name: buffName,
                     smallTextureName: abilityToTextureName(buffName),
-                    description: unitProperties.applied_buffs_descriptions[i],
+                    description: description,
                     laps: lapsRemaining,
                     stackPower: 0,
                     isStackPowered: false,
@@ -596,11 +598,12 @@ export abstract class Scene extends b2ContactListener {
                 }
 
                 const debuffName = unitProperties.applied_debuffs[i];
+                const description = unitProperties.applied_debuffs_descriptions[i].split(";")[0];
 
                 visibleDebuffsImpact.push({
                     name: debuffName,
                     smallTextureName: abilityToTextureName(debuffName),
-                    description: unitProperties.applied_debuffs_descriptions[i],
+                    description: description,
                     laps: lapsRemaining,
                     stackPower: 0,
                     isStackPowered: false,

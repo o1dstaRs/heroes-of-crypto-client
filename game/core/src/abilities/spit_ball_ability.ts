@@ -9,11 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, ToFactionType, AllFactionsType } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, ToFactionType, AllFactionsType, Grid } from "@heroesofcrypto/common";
+import { getAbsorptionTarget } from "../effects/effects_helper";
 
 import { SceneLog } from "../menu/scene_log";
 import { SpellsFactory } from "../spells/spells_factory";
 import { Unit } from "../units/units";
+import { UnitsHolder } from "../units/units_holder";
 
 const POSSIBLE_DEBUFFS_TO_FACTIONS = {
     Sadness: "Death",
@@ -29,8 +31,16 @@ export function processSpitBallAbility(
     targetUnit: Unit,
     currentActiveUnit: Unit,
     spellsFactory: SpellsFactory,
+    unitsHolder: UnitsHolder,
+    grid: Grid,
     sceneLog: SceneLog,
 ): void {
+    // effect can be absorbed
+    const absorptionTarget = getAbsorptionTarget(targetUnit, grid, unitsHolder);
+    if (absorptionTarget) {
+        targetUnit = absorptionTarget;
+    }
+
     if (targetUnit.isDead()) {
         return;
     }

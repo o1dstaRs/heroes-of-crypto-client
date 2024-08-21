@@ -333,7 +333,7 @@ export const UnitStatsListItem: React.FC = () => {
         }
 
         const attackTypeSelected = unitProperties.attack_type_selected;
-        let attackDamage = unitProperties.base_attack + unitProperties.attack_mod;
+        let attackDamage = (unitProperties.base_attack + unitProperties.attack_mod) * unitProperties.attack_multiplier;
         if (attackTypeSelected === AttackType.MELEE && unitProperties.attack_type === AttackType.RANGE) {
             attackDamage /= 2;
         }

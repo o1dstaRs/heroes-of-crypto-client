@@ -119,7 +119,7 @@
     "Death": {
         "Sadness": {
             "name": "Sadness",
-            "level": 1,
+            "level": 2,
             "desc": ["The affected unit's morale is at its lowest level.", "Lasts 3 laps."],
             "target": "ANY_ENEMY",
             "power": 0,

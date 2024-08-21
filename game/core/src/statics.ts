@@ -24,7 +24,7 @@ export const MOVEMENT_DELTA = 5;
 export const HP_BAR_DELTA = 0.09;
 
 // morale and luck
-export const MORALE_CHANGE_FOR_DISTANCE = 2;
+export const MORALE_CHANGE_FOR_DISTANCE = 3;
 export const MORALE_CHANGE_FOR_SHIELD_OR_CLOCK = 2;
 export const MORALE_CHANGE_FOR_SKIP = 1;
 export const MORALE_CHANGE_FOR_KILL = 3;

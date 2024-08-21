@@ -414,6 +414,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.spells;
     }
 
+    public getBuff(buffName: string): AppliedSpell | undefined {
+        for (const b of this.buffs) {
+            if (buffName === b.getName()) {
+                return b;
+            }
+        }
+
+        return undefined;
+    }
+
     public getBuffs(): AppliedSpell[] {
         return this.buffs;
     }
@@ -1255,6 +1265,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (this.unitProperties.morale > MORALE_MAX_VALUE_TOTAL) {
             this.unitProperties.morale = MORALE_MAX_VALUE_TOTAL;
         }
+        this.initialUnitProperties.morale = this.unitProperties.morale;
     }
 
     public decreaseMorale(moraleAmount: number): void {
@@ -1262,6 +1273,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (this.unitProperties.morale < -MORALE_MAX_VALUE_TOTAL) {
             this.unitProperties.morale = -MORALE_MAX_VALUE_TOTAL;
         }
+        this.initialUnitProperties.morale = this.unitProperties.morale;
     }
 
     public applyMoraleStepsModifier(stepsMoraleMultiplier = 0): void {
@@ -1557,8 +1569,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         power: number,
         sourceCellString: string,
     ): void {
+        let firstSpellProperty: number | undefined = undefined;
+        let secondSpellProperty: number | undefined = undefined;
+        const sourceCellStringSplit = sourceCellString.split(";");
+        if (sourceCellStringSplit.length === 2) {
+            firstSpellProperty = parseInt(sourceCellStringSplit[0]);
+            secondSpellProperty = parseInt(sourceCellStringSplit[1]);
+        }
+
         const lapsTotal = Number.MAX_SAFE_INTEGER;
-        const applied = new AppliedSpell(auraEffectName, power, lapsTotal, 0, 0);
+        const applied = new AppliedSpell(auraEffectName, power, lapsTotal, firstSpellProperty, secondSpellProperty);
         if (isBuff) {
             this.deleteBuff(auraEffectName);
             this.buffs.push(applied);

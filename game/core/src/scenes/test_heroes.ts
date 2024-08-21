@@ -36,6 +36,7 @@ import { allEnemiesAroundLargeUnit } from "../abilities/lightning_spin_ability";
 import { AIActionType, findTarget } from "../ai/ai";
 import { Drawer } from "../draw/drawer";
 import { EffectsFactory } from "../effects/effects_factory";
+import { getAbsorptionTarget } from "../effects/effects_helper";
 import { AttackHandler, IAttackObstacle } from "../handlers/attack_handler";
 import { MoveHandler } from "../handlers/move_handler";
 import { Button } from "../menu/button";
@@ -1905,6 +1906,8 @@ class Sandbox extends GLScene {
         if (
             this.attackHandler.handleMagicAttack(
                 this.gridMatrix,
+                this.unitsHolder,
+                this.grid,
                 this.currentActiveSpell,
                 this.currentActiveUnit,
                 this.hoverUnit,
@@ -2208,7 +2211,15 @@ class Sandbox extends GLScene {
                             );
                         } else {
                             for (const u of this.unitsHolder.getAllEnemyUnits(this.currentActiveUnit.getTeam())) {
-                                if (u.getMagicResist() === 100) {
+                                let debuffTarget = u;
+
+                                // effect can be absorbed
+                                const absorptionTarget = getAbsorptionTarget(u, this.grid, this.unitsHolder);
+                                if (absorptionTarget) {
+                                    debuffTarget = absorptionTarget;
+                                }
+
+                                if (debuffTarget.getMagicResist() === 100) {
                                     continue;
                                 }
 
@@ -2218,18 +2229,18 @@ class Sandbox extends GLScene {
                                 ];
                                 let needToApply = true;
                                 for (const cs of conflictingSpells) {
-                                    if (u.hasDebuffActive(cs)) {
+                                    if (debuffTarget.hasDebuffActive(cs)) {
                                         needToApply = false;
                                         break;
                                     }
                                 }
 
                                 if (needToApply) {
-                                    u.applyDebuff(
+                                    debuffTarget.applyDebuff(
                                         this.hoveredSpell,
                                         undefined,
                                         undefined,
-                                        u.getId() === this.currentActiveUnit.getId(),
+                                        debuffTarget.getId() === this.currentActiveUnit.getId(),
                                     );
                                 }
                             }
