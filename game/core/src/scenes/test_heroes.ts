@@ -2194,7 +2194,12 @@ class Sandbox extends GLScene {
                                 }
 
                                 if (needToApply) {
-                                    u.applyBuff(this.hoveredSpell, 0, 0, u.getId() === this.currentActiveUnit.getId());
+                                    u.applyBuff(
+                                        this.hoveredSpell,
+                                        undefined,
+                                        undefined,
+                                        u.getId() === this.currentActiveUnit.getId(),
+                                    );
                                 }
                             }
 
@@ -2222,8 +2227,8 @@ class Sandbox extends GLScene {
                                 if (needToApply) {
                                     u.applyDebuff(
                                         this.hoveredSpell,
-                                        0,
-                                        0,
+                                        undefined,
+                                        undefined,
                                         u.getId() === this.currentActiveUnit.getId(),
                                     );
                                 }

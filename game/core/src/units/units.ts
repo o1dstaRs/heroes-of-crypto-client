@@ -1323,6 +1323,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         let calculatedCoeff = 1;
         if (
             ability.getPowerType() === AbilityPowerType.TOTAL_DAMAGE_PERCENTAGE ||
+            ability.getPowerType() === AbilityPowerType.KILL_RANDOM_AMOUNT ||
             ability.getPowerType() === AbilityPowerType.IGNORE_ARMOR ||
             ability.getPowerType() === AbilityPowerType.MAGIC_RESIST_50 ||
             ability.getPowerType() === AbilityPowerType.ABSORB_DEBUFF ||
@@ -1554,6 +1555,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         auraEffectDescription: string,
         isBuff: boolean,
         power: number,
+        sourceCellString: string,
     ): void {
         const lapsTotal = Number.MAX_SAFE_INTEGER;
         const applied = new AppliedSpell(auraEffectName, power, lapsTotal, 0, 0);
@@ -1562,46 +1564,64 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.buffs.push(applied);
             this.unitProperties.applied_buffs.push(auraEffectName);
             this.unitProperties.applied_buffs_laps.push(lapsTotal);
-            this.unitProperties.applied_buffs_descriptions.push(auraEffectDescription);
+            this.unitProperties.applied_buffs_descriptions.push(`${auraEffectDescription};${sourceCellString}`);
             this.unitProperties.applied_buffs_powers.push(power);
         } else {
             this.deleteDebuff(auraEffectName);
             this.debuffs.push(applied);
             this.unitProperties.applied_debuffs.push(auraEffectName);
             this.unitProperties.applied_debuffs_laps.push(lapsTotal);
-            this.unitProperties.applied_debuffs_descriptions.push(auraEffectDescription);
+            this.unitProperties.applied_debuffs_descriptions.push(`${auraEffectDescription};${sourceCellString}`);
             this.unitProperties.applied_debuffs_powers.push(power);
         }
     }
 
-    public applyBuff(buff: Spell, casterMaxHp: number, casterBaseArmor: number, extend: boolean = false): void {
+    public applyBuff(
+        buff: Spell,
+        firstBuffProperty?: number,
+        secondBuffProperty?: number,
+        extend: boolean = false,
+    ): void {
         // not checking for duplicates here, do it on a caller side
         const lapsTotal = buff.getLapsTotal() + (extend ? 1 : 0);
-        this.buffs.push(new AppliedSpell(buff.getName(), buff.getPower(), lapsTotal, casterMaxHp, casterBaseArmor));
+        const firstBuffPropertyString = firstBuffProperty === undefined ? "" : firstBuffProperty.toString();
+        const secondBuffPropertyString = secondBuffProperty === undefined ? "" : secondBuffProperty.toString();
+
+        this.buffs.push(
+            new AppliedSpell(buff.getName(), buff.getPower(), lapsTotal, firstBuffProperty, secondBuffProperty),
+        );
         this.unitProperties.applied_buffs.push(buff.getName());
         this.unitProperties.applied_buffs_laps.push(lapsTotal);
         this.unitProperties.applied_buffs_descriptions.push(
-            buff
+            `${buff
                 .getDesc()
                 .slice(0, buff.getDesc().length - 1)
-                .join(" "),
+                .join(" ")};${firstBuffPropertyString};${secondBuffPropertyString}`,
         );
         this.unitProperties.applied_buffs_powers.push(0);
     }
 
-    public applyDebuff(debuff: Spell, casterMaxHp: number, casterBaseArmor: number, extend: boolean = false): void {
+    public applyDebuff(
+        debuff: Spell,
+        firstDebuffProperty?: number,
+        secondDebuffProperty?: number,
+        extend: boolean = false,
+    ): void {
         // not checking for duplicates here, do it on a caller side
         const lapsTotal = debuff.getLapsTotal() + (extend ? 1 : 0);
+        const firstDebuffPropertyString = firstDebuffProperty === undefined ? "" : firstDebuffProperty.toString();
+        const secondDebuffPropertyString = secondDebuffProperty === undefined ? "" : secondDebuffProperty.toString();
+
         this.debuffs.push(
-            new AppliedSpell(debuff.getName(), debuff.getPower(), lapsTotal, casterMaxHp, casterBaseArmor),
+            new AppliedSpell(debuff.getName(), debuff.getPower(), lapsTotal, firstDebuffProperty, secondDebuffProperty),
         );
         this.unitProperties.applied_debuffs.push(debuff.getName());
         this.unitProperties.applied_debuffs_laps.push(lapsTotal);
         this.unitProperties.applied_debuffs_descriptions.push(
-            debuff
+            `${debuff
                 .getDesc()
                 .slice(0, debuff.getDesc().length - 1)
-                .join(" "),
+                .join(" ")};${firstDebuffPropertyString};${secondDebuffPropertyString}`,
         );
         this.unitProperties.applied_debuffs_powers.push(0);
     }
@@ -1953,6 +1973,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.refreshAbiltyDescription(
                 absorbPenaltiesAuraAbility.getName(),
                 absorbPenaltiesAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Petrifying Gaze
+        const petrifyingGazeAbility = this.getAbility("Petrifying Gaze");
+        if (petrifyingGazeAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(petrifyingGazeAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                petrifyingGazeAbility.getName(),
+                petrifyingGazeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
     }

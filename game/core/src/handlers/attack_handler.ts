@@ -33,6 +33,7 @@ import { MoveHandler } from "./move_handler";
 import { processBlindnessAbility } from "../abilities/blindness_ability";
 import { processBoarSalivaAbility } from "../abilities/boar_saliva_ability";
 import { processSpitBallAbility } from "../abilities/spit_ball_ability";
+import { processPetrifyingGazeAbility } from "../abilities/petrifying_gaze_ability";
 import { SpellsFactory } from "../spells/spells_factory";
 
 export interface IRangeAttackEvaluation {
@@ -332,6 +333,7 @@ export class AttackHandler {
         const fightState = FightStateManager.getInstance().getFightState();
 
         // response starts here
+        let damageFromRespond = 0;
         if (
             rangeResponseUnit &&
             !attackerUnit.canSkipResponse() &&
@@ -342,7 +344,7 @@ export class AttackHandler {
         ) {
             const isResponseMissed = HoCLib.getRandomInt(0, 100) < targetUnit.calculateMissChance(rangeResponseUnit);
             drawer.startBulletAnimation(targetUnit.getPosition(), attackerUnit.getPosition(), rangeResponseUnit);
-            const damageFromRespond = targetUnit.calculateAttackDamage(
+            damageFromRespond = targetUnit.calculateAttackDamage(
                 rangeResponseUnit,
                 AttackType.RANGE,
                 rangeResponseAttackDivisor,
@@ -395,6 +397,7 @@ export class AttackHandler {
             switchTargetUnit = true;
         } else {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
             processSpitBallAbility(attackerUnit, targetUnit, attackerUnit, this.spellsFactory, this.sceneLog);
         }
 
@@ -413,6 +416,13 @@ export class AttackHandler {
                 }
             } else {
                 processStunAbility(targetUnit, rangeResponseUnit, attackerUnit, this.sceneLog);
+                processPetrifyingGazeAbility(
+                    targetUnit,
+                    attackerUnit,
+                    damageFromRespond,
+                    sceneStepCount,
+                    this.sceneLog,
+                );
                 processSpitBallAbility(targetUnit, rangeResponseUnit, attackerUnit, this.spellsFactory, this.sceneLog);
             }
         }
@@ -431,7 +441,7 @@ export class AttackHandler {
         }
 
         // second attack
-        const secondShotLanded = processDoubleShotAbility(
+        const secondShotResult = processDoubleShotAbility(
             attackerUnit,
             targetUnit,
             this.sceneLog,
@@ -448,8 +458,15 @@ export class AttackHandler {
             attackerUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
             attackerUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
-        } else if (secondShotLanded) {
+        } else if (secondShotResult.applied) {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processPetrifyingGazeAbility(
+                attackerUnit,
+                targetUnit,
+                secondShotResult.damage,
+                sceneStepCount,
+                this.sceneLog,
+            );
             processSpitBallAbility(attackerUnit, targetUnit, attackerUnit, this.spellsFactory, this.sceneLog);
             processBlindnessAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
         }
@@ -706,6 +723,13 @@ export class AttackHandler {
                 );
 
                 processStunAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
+                processPetrifyingGazeAbility(
+                    targetUnit,
+                    attackerUnit,
+                    damageFromRespond,
+                    sceneStepCount,
+                    this.sceneLog,
+                );
                 processBoarSalivaAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                 processBlindnessAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                 processOneInTheFieldAbility(targetUnit);
@@ -715,6 +739,7 @@ export class AttackHandler {
         if (!hasLightningSpinAttackLanded && !isAttackMissed) {
             // check for the stun here
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
             processBoarSalivaAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
 
             // this code has to be here to make sure that respond damage has been applied as well
@@ -727,7 +752,7 @@ export class AttackHandler {
             // ~ already responded here
         }
 
-        const secondPunchLanded = processDoublePunchAbility(
+        const secondPunchResult = processDoublePunchAbility(
             attackerUnit,
             targetUnit,
             this.sceneLog,
@@ -751,8 +776,15 @@ export class AttackHandler {
             attackerUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
             attackerUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
-        } else if (secondPunchLanded) {
+        } else if (secondPunchResult.applied) {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processPetrifyingGazeAbility(
+                attackerUnit,
+                targetUnit,
+                secondPunchResult.damage,
+                sceneStepCount,
+                this.sceneLog,
+            );
             processBoarSalivaAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
         }
 

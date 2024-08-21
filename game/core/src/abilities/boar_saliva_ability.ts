@@ -18,7 +18,7 @@ export function processBoarSalivaAbility(
     currentActiveUnit: Unit,
     sceneLog: SceneLog,
 ): void {
-    if (fromUnit.isDead() || targetUnit.isDead()) {
+    if (targetUnit.isDead()) {
         return;
     }
 

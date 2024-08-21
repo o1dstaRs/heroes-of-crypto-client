@@ -493,7 +493,7 @@
             "size": 1,
             "level": 2,
             "spells": [],
-            "abilities": ["Endless Quiver"]
+            "abilities": ["Endless Quiver", "Petrifying Gaze"]
         },
         "Troll": {
             "name": "Troll",

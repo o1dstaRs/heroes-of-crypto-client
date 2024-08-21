@@ -22,6 +22,7 @@ import { processOneInTheFieldAbility } from "./one_in_the_field_ability";
 import { processStunAbility } from "./stun_ability";
 import { processBlindnessAbility } from "./blindness_ability";
 import { processBoarSalivaAbility } from "./boar_saliva_ability";
+import { processPetrifyingGazeAbility } from "./petrifying_gaze_ability";
 
 export function allEnemiesAroundLargeUnit(
     attacker: Unit,
@@ -95,6 +96,10 @@ export function processLightningSpinAbility(
         }
 
         for (const enemy of enemyList) {
+            if (enemy.isDead()) {
+                continue;
+            }
+
             const isAttackMissed = HoCLib.getRandomInt(0, 100) < fromUnit.calculateMissChance(enemy);
 
             if (fromUnit.hasDebuffActive("Cowardice") && fromUnit.getCumulativeHp() < enemy.getCumulativeHp()) {
@@ -126,6 +131,7 @@ export function processLightningSpinAbility(
             // just in case if we have more inherited/stolen abilities
             processFireShieldAbility(enemy, fromUnit, sceneLog, unitsHolder, damageFromAttack, sceneStepCount);
             processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
+            processPetrifyingGazeAbility(fromUnit, enemy, damageFromAttack, sceneStepCount, sceneLog);
             processBoarSalivaAbility(fromUnit, enemy, fromUnit, sceneLog);
             // works only on response
             if (!isAttack) {

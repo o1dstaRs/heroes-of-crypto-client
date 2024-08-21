@@ -99,8 +99,6 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
     const isDarkMode = theme.palette.mode === "dark";
     const auraColor = isDarkMode ? "rgba(255, 255, 255, 0.75)" : "rgba(0, 0, 0, 0.75)";
 
-    console.log(abilities);
-
     return (
         <Stack spacing={2} sx={{ marginTop: 1 }}>
             {[

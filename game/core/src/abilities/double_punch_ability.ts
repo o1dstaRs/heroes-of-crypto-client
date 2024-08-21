@@ -17,24 +17,34 @@ import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { processFireShieldAbility } from "./fire_shield_ability";
 
+export interface IDoublePunchResult {
+    applied: boolean;
+    damage: number;
+}
+
 export function processDoublePunchAbility(
     fromUnit: Unit,
     toUnit: Unit,
     sceneLog: SceneLog,
     unitsHolder: UnitsHolder,
     sceneStepCount: number,
-): boolean {
+): IDoublePunchResult {
     const doublePunchAbility = fromUnit.getAbility("Double Punch");
     let secondPunchLanded = false;
+    let damageFromAttack = 0;
+
     if (doublePunchAbility && !fromUnit.isDead() && !toUnit.isDead()) {
         if (HoCLib.getRandomInt(0, 100) < fromUnit.calculateMissChance(toUnit)) {
             sceneLog.updateLog(`${fromUnit.getName()} misses attk ${toUnit.getName()}`);
-            return false;
+            return {
+                applied: secondPunchLanded,
+                damage: damageFromAttack,
+            };
         }
 
         unitsHolder.refreshStackPowerForAllUnits();
         const abilityMultiplier = fromUnit.calculateAbilityMultiplier(doublePunchAbility);
-        const damageFromAttack = fromUnit.calculateAttackDamage(toUnit, AttackType.MELEE, 1, abilityMultiplier);
+        damageFromAttack = fromUnit.calculateAttackDamage(toUnit, AttackType.MELEE, 1, abilityMultiplier);
         toUnit.applyDamage(damageFromAttack, sceneStepCount);
         DamageStatisticHolder.getInstance().add({
             unitName: fromUnit.getName(),
@@ -47,5 +57,8 @@ export function processDoublePunchAbility(
         secondPunchLanded = true;
     }
 
-    return secondPunchLanded;
+    return {
+        applied: secondPunchLanded,
+        damage: damageFromAttack,
+    };
 }

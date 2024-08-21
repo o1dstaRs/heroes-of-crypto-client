@@ -31,6 +31,10 @@ export function processSpitBallAbility(
     spellsFactory: SpellsFactory,
     sceneLog: SceneLog,
 ): void {
+    if (targetUnit.isDead()) {
+        return;
+    }
+
     const spilBallAbility = fromUnit.getAbility("Spit Ball");
     if (!spilBallAbility || HoCLib.getRandomInt(0, 100) >= fromUnit.calculateAbilityApplyChance(spilBallAbility)) {
         return;
@@ -69,7 +73,7 @@ export function processSpitBallAbility(
         }
 
         const debuff = spellsFactory.makeSpell(faction, randomDebuff, 1);
-        targetUnit.applyDebuff(debuff, 0, 0, targetUnit.getId() === currentActiveUnit.getId());
+        targetUnit.applyDebuff(debuff, undefined, undefined, targetUnit.getId() === currentActiveUnit.getId());
         sceneLog.updateLog(`Applied ${randomDebuff} on ${targetUnit.getName()}`);
     } else {
         sceneLog.updateLog(`${targetUnit.getName()} resisted from ${randomDebuff}`);

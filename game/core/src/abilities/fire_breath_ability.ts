@@ -142,7 +142,11 @@ export function processFireBreathAbility(
         const targets = nextStandingTargets(fromUnit, toUnit, targetPos, grid, unitsHolder, targetMovePosition);
 
         for (const nextStandingTarget of targets) {
-            if (nextStandingTarget.getMagicResist() >= 100 || nextStandingTarget.hasAbilityActive("Fire Element")) {
+            if (
+                nextStandingTarget.isDead() ||
+                nextStandingTarget.getMagicResist() >= 100 ||
+                nextStandingTarget.hasAbilityActive("Fire Element")
+            ) {
                 continue;
             }
 
