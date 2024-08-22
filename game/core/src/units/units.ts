@@ -27,7 +27,7 @@ import {
     AttackType,
     HoCConstants,
     FactionType,
-    ToFaction,
+    ToFactionType,
     GridMath,
     GridSettings,
     UnitProperties,
@@ -239,8 +239,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected selectedAttackType: AttackType;
 
-    protected rangeArmorMultiplier = 1;
-
     protected maxRangeShots = 0;
 
     protected responded = false;
@@ -366,13 +364,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.parseSpells();
         this.buffs = [];
         this.debuffs = [];
-
         this.maxRangeShots = this.unitProperties.range_shots;
         this.parseAbilities(abilitiesFactory);
-        this.unitProperties.range_armor = Number(
-            (this.unitProperties.base_armor * this.rangeArmorMultiplier).toFixed(2),
-        );
-
         this.effects = [];
         this.parseAuraEffects();
     }
@@ -407,7 +400,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 continue;
             }
             // can return us undefined
-            const faction = ToFaction[spArr[0] as AllFactionsType];
+            const faction = ToFactionType[spArr[0] as AllFactionsType];
             if (faction === undefined) {
                 continue;
             }
@@ -421,8 +414,28 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.spells;
     }
 
+    public getBuff(buffName: string): AppliedSpell | undefined {
+        for (const b of this.buffs) {
+            if (buffName === b.getName()) {
+                return b;
+            }
+        }
+
+        return undefined;
+    }
+
     public getBuffs(): AppliedSpell[] {
         return this.buffs;
+    }
+
+    public getDebuff(debuffName: string): AppliedSpell | undefined {
+        for (const db of this.debuffs) {
+            if (debuffName === db.getName()) {
+                return db;
+            }
+        }
+
+        return undefined;
     }
 
     public getDebuffs(): AppliedSpell[] {
@@ -481,6 +494,19 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         return undefined;
+    }
+
+    public getCumulativeHp(): number {
+        if (this.isDead()) {
+            return 0;
+        }
+
+        let cumulativeHp = this.unitProperties.hp;
+        if (cumulativeHp < 0) {
+            cumulativeHp = 0;
+        }
+
+        return (this.unitProperties.amount_alive - 1) * this.unitProperties.max_hp + cumulativeHp;
     }
 
     public getEffects(): Effect[] {
@@ -1207,6 +1233,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.hp = this.unitProperties.max_hp;
 
         const amountDied = Math.floor(minusHp / this.unitProperties.max_hp);
+        // dead
         if (amountDied >= this.unitProperties.amount_alive) {
             this.unitProperties.amount_died += this.unitProperties.amount_alive;
             this.unitProperties.amount_alive = 0;
@@ -1220,6 +1247,13 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             animationTicks: Math.max(currentTick, nextAnimationTick) + DAMAGE_ANIMATION_TICKS,
             unitsDied: amountDied + 1,
         });
+
+        if (this.hasAbilityActive("Bitter Experience")) {
+            this.unitProperties.base_armor += 1;
+            this.initialUnitProperties.base_armor += 1;
+            this.unitProperties.steps += 1;
+            this.initialUnitProperties.steps += 1;
+        }
     }
 
     public isDead(): boolean {
@@ -1231,6 +1265,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (this.unitProperties.morale > MORALE_MAX_VALUE_TOTAL) {
             this.unitProperties.morale = MORALE_MAX_VALUE_TOTAL;
         }
+        this.initialUnitProperties.morale = this.unitProperties.morale;
     }
 
     public decreaseMorale(moraleAmount: number): void {
@@ -1238,6 +1273,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (this.unitProperties.morale < -MORALE_MAX_VALUE_TOTAL) {
             this.unitProperties.morale = -MORALE_MAX_VALUE_TOTAL;
         }
+        this.initialUnitProperties.morale = this.unitProperties.morale;
     }
 
     public applyMoraleStepsModifier(stepsMoraleMultiplier = 0): void {
@@ -1272,7 +1308,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         if (
             auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_MELEE_DAMAGE_PERCENTAGE ||
-            auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_RANGE_ARMOR_PERCENTAGE
+            auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_RANGE_ARMOR_PERCENTAGE ||
+            auraEffect.getPowerType() === AbilityPowerType.ABSORB_DEBUFF
         ) {
             calculatedCoeff +=
                 (auraEffect.getPower() / 100 / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower() +
@@ -1298,8 +1335,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         let calculatedCoeff = 1;
         if (
             ability.getPowerType() === AbilityPowerType.TOTAL_DAMAGE_PERCENTAGE ||
+            ability.getPowerType() === AbilityPowerType.KILL_RANDOM_AMOUNT ||
             ability.getPowerType() === AbilityPowerType.IGNORE_ARMOR ||
             ability.getPowerType() === AbilityPowerType.MAGIC_RESIST_50 ||
+            ability.getPowerType() === AbilityPowerType.ABSORB_DEBUFF ||
             ability.getPowerType() === AbilityPowerType.BOOST_HEALTH
         ) {
             let combinedPower = ability.getPower() + this.getLuck();
@@ -1333,6 +1372,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (enemyDodgeAbility) {
             const dodgeChance = this.calculateAbilityApplyChance(enemyDodgeAbility) / 100;
             combinedMissChances.push(dodgeChance);
+        }
+
+        if (!this.isSmallSize()) {
+            const smallSpecieAbility = enemyUnit.getAbility("Small Specie");
+            if (smallSpecieAbility) {
+                const dodgeChance = this.calculateAbilityApplyChance(smallSpecieAbility) / 100;
+                combinedMissChances.push(dodgeChance);
+            }
         }
 
         if (combinedMissChances.length) {
@@ -1520,52 +1567,81 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         auraEffectDescription: string,
         isBuff: boolean,
         power: number,
+        sourceCellString: string,
     ): void {
+        let firstSpellProperty: number | undefined = undefined;
+        let secondSpellProperty: number | undefined = undefined;
+        const sourceCellStringSplit = sourceCellString.split(";");
+        if (sourceCellStringSplit.length === 2) {
+            firstSpellProperty = parseInt(sourceCellStringSplit[0]);
+            secondSpellProperty = parseInt(sourceCellStringSplit[1]);
+        }
+
         const lapsTotal = Number.MAX_SAFE_INTEGER;
-        const applied = new AppliedSpell(auraEffectName, lapsTotal, 0, 0);
+        const applied = new AppliedSpell(auraEffectName, power, lapsTotal, firstSpellProperty, secondSpellProperty);
         if (isBuff) {
             this.deleteBuff(auraEffectName);
             this.buffs.push(applied);
             this.unitProperties.applied_buffs.push(auraEffectName);
             this.unitProperties.applied_buffs_laps.push(lapsTotal);
-            this.unitProperties.applied_buffs_descriptions.push(auraEffectDescription);
+            this.unitProperties.applied_buffs_descriptions.push(`${auraEffectDescription};${sourceCellString}`);
             this.unitProperties.applied_buffs_powers.push(power);
         } else {
             this.deleteDebuff(auraEffectName);
             this.debuffs.push(applied);
             this.unitProperties.applied_debuffs.push(auraEffectName);
             this.unitProperties.applied_debuffs_laps.push(lapsTotal);
-            this.unitProperties.applied_debuffs_descriptions.push(auraEffectDescription);
+            this.unitProperties.applied_debuffs_descriptions.push(`${auraEffectDescription};${sourceCellString}`);
             this.unitProperties.applied_debuffs_powers.push(power);
         }
     }
 
-    public applyBuff(buff: Spell, casterMaxHp: number, casterBaseArmor: number, extend: boolean = false): void {
+    public applyBuff(
+        buff: Spell,
+        firstBuffProperty?: number,
+        secondBuffProperty?: number,
+        extend: boolean = false,
+    ): void {
         // not checking for duplicates here, do it on a caller side
         const lapsTotal = buff.getLapsTotal() + (extend ? 1 : 0);
-        this.buffs.push(new AppliedSpell(buff.getName(), lapsTotal, casterMaxHp, casterBaseArmor));
+        const firstBuffPropertyString = firstBuffProperty === undefined ? "" : firstBuffProperty.toString();
+        const secondBuffPropertyString = secondBuffProperty === undefined ? "" : secondBuffProperty.toString();
+
+        this.buffs.push(
+            new AppliedSpell(buff.getName(), buff.getPower(), lapsTotal, firstBuffProperty, secondBuffProperty),
+        );
         this.unitProperties.applied_buffs.push(buff.getName());
         this.unitProperties.applied_buffs_laps.push(lapsTotal);
         this.unitProperties.applied_buffs_descriptions.push(
-            buff
+            `${buff
                 .getDesc()
                 .slice(0, buff.getDesc().length - 1)
-                .join(" "),
+                .join(" ")};${firstBuffPropertyString};${secondBuffPropertyString}`,
         );
         this.unitProperties.applied_buffs_powers.push(0);
     }
 
-    public applyDebuff(debuff: Spell, casterMaxHp: number, casterBaseArmor: number, extend: boolean = false): void {
+    public applyDebuff(
+        debuff: Spell,
+        firstDebuffProperty?: number,
+        secondDebuffProperty?: number,
+        extend: boolean = false,
+    ): void {
         // not checking for duplicates here, do it on a caller side
         const lapsTotal = debuff.getLapsTotal() + (extend ? 1 : 0);
-        this.debuffs.push(new AppliedSpell(debuff.getName(), lapsTotal, casterMaxHp, casterBaseArmor));
+        const firstDebuffPropertyString = firstDebuffProperty === undefined ? "" : firstDebuffProperty.toString();
+        const secondDebuffPropertyString = secondDebuffProperty === undefined ? "" : secondDebuffProperty.toString();
+
+        this.debuffs.push(
+            new AppliedSpell(debuff.getName(), debuff.getPower(), lapsTotal, firstDebuffProperty, secondDebuffProperty),
+        );
         this.unitProperties.applied_debuffs.push(debuff.getName());
         this.unitProperties.applied_debuffs_laps.push(lapsTotal);
         this.unitProperties.applied_debuffs_descriptions.push(
-            debuff
+            `${debuff
                 .getDesc()
                 .slice(0, debuff.getDesc().length - 1)
-                .join(" "),
+                .join(" ")};${firstDebuffPropertyString};${secondDebuffPropertyString}`,
         );
         this.unitProperties.applied_debuffs_powers.push(0);
     }
@@ -1619,22 +1695,25 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             }
         }
 
+        // MORALE
+        if (baseStatsDiff.baseStats.morale === Number.MIN_SAFE_INTEGER) {
+            this.unitProperties.morale = -MORALE_MAX_VALUE_TOTAL;
+        } else {
+            this.unitProperties.morale = this.initialUnitProperties.morale;
+        }
+
         // ARMOR
         this.unitProperties.base_armor = Number(
             (this.initialUnitProperties.base_armor + baseStatsDiff.baseStats.armor).toFixed(2),
         );
 
         const leatherArmorAbility = this.getAbility("Leather Armor");
-        this.rangeArmorMultiplier = leatherArmorAbility ? leatherArmorAbility.getPower() / 100 : 1;
+        let rangeArmorMultiplier = leatherArmorAbility ? leatherArmorAbility.getPower() / 100 : 1;
 
         const arrowsWingshieldAura = this.getAppliedAuraEffect("Arrows Wingshield Aura");
         if (arrowsWingshieldAura) {
-            this.rangeArmorMultiplier *= Number((1 + arrowsWingshieldAura.getPower() / 100).toFixed(2));
+            rangeArmorMultiplier = rangeArmorMultiplier * (1 + arrowsWingshieldAura.getPower() / 100);
         }
-
-        this.unitProperties.range_armor = Number(
-            (this.unitProperties.base_armor * this.rangeArmorMultiplier).toFixed(2),
-        );
 
         // MDEF
         this.unitProperties.magic_resist = this.initialUnitProperties.magic_resist;
@@ -1660,16 +1739,17 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         // ATTACK
+        this.unitProperties.base_attack = this.initialUnitProperties.base_attack;
+        let baseAttackMultiplier = 1;
         const sharpenedWeaponsAura = this.getAppliedAuraEffect("Sharpened Weapons Aura");
+
         if (sharpenedWeaponsAura) {
-            this.unitProperties.base_attack = Number(
-                (
-                    this.initialUnitProperties.base_attack *
-                    Number((1 + sharpenedWeaponsAura.getPower() / 100).toFixed(2))
-                ).toFixed(2),
-            );
-        } else {
-            this.unitProperties.base_attack = this.initialUnitProperties.base_attack;
+            baseAttackMultiplier = baseAttackMultiplier * (1 + sharpenedWeaponsAura.getPower() / 100);
+        }
+
+        const weaknessDebuff = this.getDebuff("Weakness");
+        if (weaknessDebuff) {
+            baseAttackMultiplier = baseAttackMultiplier * ((100 - weaknessDebuff.getPower()) / 100);
         }
 
         if (this.hasBuffActive("Riot")) {
@@ -1686,6 +1766,24 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.unitProperties.attack_mod = this.initialUnitProperties.attack_mod;
         }
 
+        this.unitProperties.base_attack = Number((this.unitProperties.base_attack * baseAttackMultiplier).toFixed(2));
+
+        // BUFFS & DEBUFFS
+        const quagmireDebuff = this.getDebuff("Quagmire");
+        if (quagmireDebuff) {
+            this.unitProperties.steps = Number(
+                (this.initialUnitProperties.steps * ((100 - quagmireDebuff.getPower()) / 100)).toFixed(2),
+            );
+        } else {
+            this.unitProperties.steps = this.initialUnitProperties.steps;
+        }
+
+        const weakeningBeamDebuff = this.getDebuff("Weakening Beam");
+        let baseArmorMultiplier = 1;
+        if (weakeningBeamDebuff) {
+            baseArmorMultiplier = (100 - weakeningBeamDebuff.getPower()) / 100;
+        }
+
         // ABILITIES DESCRIPTIONS
         // Heavy Armor
         const heavyArmorAbility = this.getAbility("Heavy Armor");
@@ -1699,23 +1797,18 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             );
             this.refreshAbiltyDescription(
                 heavyArmorAbility.getName(),
-                heavyArmorAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                heavyArmorAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
-            this.unitProperties.base_armor += Number(
-                (
-                    this.unitProperties.base_armor *
+
+            baseArmorMultiplier =
+                baseArmorMultiplier *
+                (1 +
                     ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
-                    this.getStackPower()
-                ).toFixed(2),
-            );
-            this.unitProperties.range_armor += Number(
-                (
-                    this.unitProperties.range_armor *
-                    ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
-                    this.getStackPower()
-                ).toFixed(2),
-            );
+                        this.getStackPower());
         }
+
+        this.unitProperties.base_armor = Number((this.unitProperties.base_armor * baseArmorMultiplier).toFixed(2));
+        this.unitProperties.range_armor = Number((this.unitProperties.base_armor * rangeArmorMultiplier).toFixed(2));
 
         // Lightning Spin
         const lightningSpinAbility = this.getAbility("Lightning Spin");
@@ -1723,7 +1816,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(lightningSpinAbility) * 100).toFixed(2));
             this.refreshAbiltyDescription(
                 lightningSpinAbility.getName(),
-                lightningSpinAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                lightningSpinAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1733,7 +1826,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(fireBreathAbility) * 100).toFixed(2));
             this.refreshAbiltyDescription(
                 fireBreathAbility.getName(),
-                fireBreathAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                fireBreathAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1743,7 +1836,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(fireShieldAbility) * 100).toFixed(2));
             this.refreshAbiltyDescription(
                 fireShieldAbility.getName(),
-                fireShieldAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                fireShieldAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1753,7 +1846,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(backstabAbility) * 100).toFixed(2)) - 100;
             this.refreshAbiltyDescription(
                 backstabAbility.getName(),
-                backstabAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                backstabAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1763,7 +1856,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number(this.calculateAbilityApplyChance(stunAbility).toFixed(2));
             this.refreshAbiltyDescription(
                 stunAbility.getName(),
-                stunAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                stunAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1773,7 +1866,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(doublePunchAbility) * 100).toFixed(2));
             this.refreshAbiltyDescription(
                 doublePunchAbility.getName(),
-                doublePunchAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                doublePunchAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1783,7 +1876,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(piercingSpearAbility) * 100).toFixed(2));
             this.refreshAbiltyDescription(
                 piercingSpearAbility.getName(),
-                piercingSpearAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                piercingSpearAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1793,7 +1886,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(boostHealthAbility) * 100).toFixed(2));
             this.refreshAbiltyDescription(
                 boostHealthAbility.getName(),
-                boostHealthAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                boostHealthAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1803,7 +1896,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(doubleShotAbility) * 100).toFixed(2));
             this.refreshAbiltyDescription(
                 doubleShotAbility.getName(),
-                doubleShotAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                doubleShotAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1813,7 +1906,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number(this.calculateAbilityApplyChance(blindnessAbility).toFixed(2));
             this.refreshAbiltyDescription(
                 blindnessAbility.getName(),
-                blindnessAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                blindnessAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1824,7 +1917,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 Number((this.calculateAbilityMultiplier(sharpenedWeaponsAuraAbility) * 100).toFixed(2)) - 100;
             this.refreshAbiltyDescription(
                 sharpenedWeaponsAuraAbility.getName(),
-                sharpenedWeaponsAuraAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                sharpenedWeaponsAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1835,7 +1928,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 Number((this.calculateAbilityMultiplier(arrowsWingshieldAuraAbility) * 100).toFixed(2)) - 100;
             this.refreshAbiltyDescription(
                 arrowsWingshieldAuraAbility.getName(),
-                arrowsWingshieldAuraAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                arrowsWingshieldAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1849,7 +1942,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             );
             this.refreshAbiltyDescription(
                 limitedSupplyAbility.getName(),
-                limitedSupplyAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                limitedSupplyAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1859,7 +1952,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number(this.calculateAbilityApplyChance(boarSalivaAbility).toFixed(2));
             this.refreshAbiltyDescription(
                 boarSalivaAbility.getName(),
-                boarSalivaAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                boarSalivaAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1869,7 +1962,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number(this.calculateAbilityApplyChance(magicShieldAbility).toFixed(2));
             this.refreshAbiltyDescription(
                 magicShieldAbility.getName(),
-                magicShieldAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                magicShieldAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -1879,7 +1972,37 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number(this.calculateAbilityApplyChance(dodgeAbility).toFixed(2));
             this.refreshAbiltyDescription(
                 dodgeAbility.getName(),
-                dodgeAbility.getDesc().replace(/\{\}/g, percentage.toString()),
+                dodgeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Small Specie
+        const smallSpecieAbility = this.getAbility("Small Specie");
+        if (smallSpecieAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(smallSpecieAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                smallSpecieAbility.getName(),
+                smallSpecieAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Absorb Penalties Aura
+        const absorbPenaltiesAuraAbility = this.getAbility("Absorb Penalties Aura");
+        if (absorbPenaltiesAuraAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(absorbPenaltiesAuraAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                absorbPenaltiesAuraAbility.getName(),
+                absorbPenaltiesAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Petrifying Gaze
+        const petrifyingGazeAbility = this.getAbility("Petrifying Gaze");
+        if (petrifyingGazeAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(petrifyingGazeAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                petrifyingGazeAbility.getName(),
+                petrifyingGazeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
     }

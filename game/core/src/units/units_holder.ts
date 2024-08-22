@@ -11,7 +11,7 @@
 
 import { b2Body, b2Fixture, b2Vec2, b2World, XY } from "@box2d/core";
 import {
-    AuraEffectProperties,
+    AppliedAuraEffectProperties,
     FactionType,
     TeamType,
     UnitProperties,
@@ -52,7 +52,7 @@ export class UnitsHolder {
 
     private readonly unitIdToBodyFixtures: Map<string, b2Fixture[]>;
 
-    private teamsAuraEffects: Map<TeamType, Map<number, AuraEffectProperties[]>>;
+    private teamsAuraEffects: Map<TeamType, Map<number, AppliedAuraEffectProperties[]>>;
 
     public constructor(world: b2World, gridSettings: GridSettings, unitsFactory: UnitsFactory) {
         this.world = world;
@@ -357,7 +357,14 @@ export class UnitsHolder {
                             continue;
                         }
 
-                        teamAuraEffectsPerCell.push(unitAuraEffectProperties);
+                        const baseCell = u.getBaseCell();
+                        if (!baseCell) {
+                            continue;
+                        }
+
+                        teamAuraEffectsPerCell.push(
+                            new AppliedAuraEffectProperties(unitAuraEffectProperties, baseCell),
+                        );
                     }
                 }
             }
@@ -365,16 +372,22 @@ export class UnitsHolder {
 
         // within the same team, squash aura effects where for the same auras, the one with bigger power will be applied
         for (const [team, cells] of this.teamsAuraEffects) {
-            const newValue = new Map<number, AuraEffectProperties[]>();
-            for (const [cellKey, auraEffects] of cells) {
-                const auraEffectsMap = new Map<string, AuraEffectProperties>();
-                for (const ae of auraEffects) {
-                    if (!auraEffectsMap.has(ae.name)) {
-                        auraEffectsMap.set(ae.name, ae);
+            const newValue = new Map<number, AppliedAuraEffectProperties[]>();
+            for (const [cellKey, appliedAuraEffects] of cells) {
+                const auraEffectsMap = new Map<string, AppliedAuraEffectProperties>();
+                for (const aae of appliedAuraEffects) {
+                    const auraEffectProperties = aae.getAuraEffectProperties();
+                    if (!auraEffectsMap.has(auraEffectProperties.name)) {
+                        auraEffectsMap.set(auraEffectProperties.name, aae);
                     } else {
-                        const existingAuraEffect = auraEffectsMap.get(ae.name);
-                        if (existingAuraEffect && ae.power > existingAuraEffect.power) {
-                            auraEffectsMap.set(ae.name, ae);
+                        const existingAppliedAuraEffect = auraEffectsMap.get(auraEffectProperties.name);
+                        if (!existingAppliedAuraEffect) {
+                            continue;
+                        }
+                        const existingAuraEffectProperties = existingAppliedAuraEffect.getAuraEffectProperties();
+
+                        if (auraEffectProperties.power > existingAuraEffectProperties.power) {
+                            auraEffectsMap.set(auraEffectProperties.name, aae);
                         }
                     }
                 }
@@ -391,32 +404,33 @@ export class UnitsHolder {
             }
 
             let unitAuraNamesToApply: string[] = [];
-            let unitAuraEffectPropertiesToApply: AuraEffectProperties[] = [];
+            let unitAppliedAuraEffectProperties: AppliedAuraEffectProperties[] = [];
             for (const c of u.getCells()) {
                 const cellKey = (c.x << 4) | c.y;
-                const auraEffects = teamAuraEffects.get(cellKey);
-                if (!auraEffects || !auraEffects.length) {
+                const appliedAuraEffects = teamAuraEffects.get(cellKey);
+                if (!appliedAuraEffects || !appliedAuraEffects.length) {
                     continue;
                 }
 
-                for (const ae of auraEffects) {
-                    if (!unitAuraNamesToApply.includes(ae.name)) {
-                        unitAuraNamesToApply.push(`${ae.name} Aura`);
-                        unitAuraEffectPropertiesToApply.push(ae);
+                for (const aae of appliedAuraEffects) {
+                    const auraEffectProperties = aae.getAuraEffectProperties();
+                    if (!unitAuraNamesToApply.includes(auraEffectProperties.name)) {
+                        unitAuraNamesToApply.push(`${auraEffectProperties.name} Aura`);
+                        unitAppliedAuraEffectProperties.push(aae);
                     }
                 }
             }
 
-            for (let i = 0; i < unitAuraEffectPropertiesToApply.length; i++) {
-                if (canBeApplied(u.getAttackType(), unitAuraEffectPropertiesToApply[i])) {
+            for (let i = 0; i < unitAppliedAuraEffectProperties.length; i++) {
+                const appliedAuraEffectProperties = unitAppliedAuraEffectProperties[i];
+                const auraEffectProperties = appliedAuraEffectProperties.getAuraEffectProperties();
+                if (canBeApplied(u.getAttackType(), auraEffectProperties)) {
                     u.applyAuraEffect(
-                        `${unitAuraEffectPropertiesToApply[i].name} Aura`,
-                        unitAuraEffectPropertiesToApply[i].desc.replace(
-                            /\{\}/g,
-                            unitAuraEffectPropertiesToApply[i].power.toString(),
-                        ),
-                        unitAuraEffectPropertiesToApply[i].is_buff,
-                        unitAuraEffectPropertiesToApply[i].power,
+                        `${auraEffectProperties.name} Aura`,
+                        auraEffectProperties.desc.replace(/\{\}/g, auraEffectProperties.power.toString()),
+                        auraEffectProperties.is_buff,
+                        auraEffectProperties.power,
+                        appliedAuraEffectProperties.getSourceCellAsString(),
                     );
                 }
             }
@@ -523,6 +537,9 @@ export class UnitsHolder {
             );
             units.push(
                 this.unitsFactory.makeCreature(FactionType.LIFE, "Pikeman", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.LIFE, "Healer", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
             units.push(
                 this.unitsFactory.makeCreature(FactionType.LIFE, "Crusader", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),

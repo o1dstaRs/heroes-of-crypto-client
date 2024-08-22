@@ -18,6 +18,7 @@ import {
     GridMath,
     GridSettings,
     HoCLib,
+    SpellTargetType,
     HoCMath,
     TeamType,
     IAuraOnMap,
@@ -35,6 +36,7 @@ import { allEnemiesAroundLargeUnit } from "../abilities/lightning_spin_ability";
 import { AIActionType, findTarget } from "../ai/ai";
 import { Drawer } from "../draw/drawer";
 import { EffectsFactory } from "../effects/effects_factory";
+import { getAbsorptionTarget } from "../effects/effects_helper";
 import { AttackHandler, IAttackObstacle } from "../handlers/attack_handler";
 import { MoveHandler } from "../handlers/move_handler";
 import { Button } from "../menu/button";
@@ -42,7 +44,7 @@ import { ObstacleGenerator } from "../obstacles/obstacle_generator";
 import { IWeightedRoute, PathHelper } from "../path/path_helper";
 import { PlacementType, SquarePlacement } from "../placement/square_placement";
 import { Settings } from "../settings";
-import { canBeCasted, canBeMassCasted, canBeSummoned, Spell, SpellTargetType } from "../spells/spells";
+import { canBeCasted, canBeMassCasted, canBeSummoned, Spell } from "../spells/spells";
 import { SpellsFactory } from "../spells/spells_factory";
 import { FightStateManager } from "../state/fight_state_manager";
 import { IVisibleUnit } from "../state/state";
@@ -248,6 +250,7 @@ class Sandbox extends GLScene {
             [-1, textures.m_damage.texture],
         ]);
 
+        const spellsFactory = new SpellsFactory(this.gl, this.shader, this.digitNormalTextures, textures);
         this.unitsFactory = new UnitsFactory(
             this.sc_world,
             this.gl,
@@ -256,7 +259,7 @@ class Sandbox extends GLScene {
             this.digitDamageTextures,
             this.sc_sceneSettings.getGridSettings(),
             textures,
-            new SpellsFactory(this.gl, this.shader, this.digitNormalTextures, textures),
+            spellsFactory,
             new AbilitiesFactory(new EffectsFactory()),
         );
         this.unitsHolder = new UnitsHolder(this.sc_world, this.sc_sceneSettings.getGridSettings(), this.unitsFactory);
@@ -400,6 +403,7 @@ class Sandbox extends GLScene {
         this.attackHandler = new AttackHandler(
             this.sc_world,
             this.sc_sceneSettings.getGridSettings(),
+            spellsFactory,
             this.sc_sceneLog,
         );
         this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
@@ -1010,6 +1014,7 @@ class Sandbox extends GLScene {
                     }
 
                     if (
+                        this.currentActiveSpell &&
                         canBeCasted(
                             false,
                             this.sc_sceneSettings.getGridSettings(),
@@ -1029,13 +1034,19 @@ class Sandbox extends GLScene {
                         )
                     ) {
                         if (hoverUnitCell) {
-                            this.hoverAttackFrom = hoverUnitCell;
+                            if (!this.currentActiveSpell.isBuff() && this.hoverUnit) {
+                                this.hoverAttackUnits = [this.hoverUnit];
+                            } else {
+                                this.hoverAttackFrom = hoverUnitCell;
+                            }
+                            // this.hoverAttackFrom = hoverUnitCell;
                             this.hoverAttackIsSmallSize = this.hoverUnit?.isSmallSize();
                             this.sc_moveBlocked = true;
                         }
                     } else {
                         this.hoverAttackFrom = undefined;
                         this.hoverAttackIsSmallSize = undefined;
+                        this.hoverAttackUnits = undefined;
                     }
 
                     return;
@@ -1054,7 +1065,8 @@ class Sandbox extends GLScene {
                         this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
                     ) &&
                     this.currentActiveUnit.getRangeShots() > 0 &&
-                    !this.currentActiveUnit.hasDebuffActive("Range Null Field Aura")
+                    !this.currentActiveUnit.hasDebuffActive("Range Null Field Aura") &&
+                    !this.currentActiveUnit.hasDebuffActive("Rangebane")
                 ) {
                     //                    if (this.grid.canBeAttackedByMelee(currentUnitCell, this.currentActiveUnit.getId())) {
                     //                        this.currentActiveUnit.selectAttackType(AttackType.MELEE);
@@ -1082,10 +1094,16 @@ class Sandbox extends GLScene {
                     this.rangeResponseAttackDivisor = 1;
                     this.rangeResponseUnit = undefined;
                     if (this.canAttackByMeleeTargets?.unitIds.has(unitId)) {
-                        if (unit) {
+                        if (
+                            unit &&
+                            !(
+                                this.currentActiveUnit.hasDebuffActive("Cowardice") &&
+                                this.currentActiveUnit.getCumulativeHp() < unit.getCumulativeHp()
+                            )
+                        ) {
                             this.hoverAttackUnits = [unit];
                         } else {
-                            this.hoverAttackUnits = unit;
+                            this.hoverAttackUnits = undefined;
                         }
 
                         this.hoverActivePath = undefined;
@@ -1314,7 +1332,8 @@ class Sandbox extends GLScene {
                                     hoverAttackUnit.isSmallSize(),
                                     this.grid.getEnemyAggrMatrixByUnitId(hoverAttackUnit.getId()),
                                 ) &&
-                                !hoverAttackUnit.hasDebuffActive("Range Null Field Aura")
+                                !hoverAttackUnit.hasDebuffActive("Range Null Field Aura") &&
+                                !hoverAttackUnit.hasDebuffActive("Rangebane")
                             ) {
                                 const evaluatedRangeResponse = this.attackHandler.evaluateRangeAttack(
                                     this.unitsHolder.getAllUnits(),
@@ -1887,6 +1906,8 @@ class Sandbox extends GLScene {
         if (
             this.attackHandler.handleMagicAttack(
                 this.gridMatrix,
+                this.unitsHolder,
+                this.grid,
                 this.currentActiveSpell,
                 this.currentActiveUnit,
                 this.hoverUnit,
@@ -2176,12 +2197,29 @@ class Sandbox extends GLScene {
                                 }
 
                                 if (needToApply) {
-                                    u.applyBuff(this.hoveredSpell, 0, 0, u.getId() === this.currentActiveUnit.getId());
+                                    u.applyBuff(
+                                        this.hoveredSpell,
+                                        undefined,
+                                        undefined,
+                                        u.getId() === this.currentActiveUnit.getId(),
+                                    );
                                 }
                             }
+
+                            this.sc_sceneLog.updateLog(
+                                `${this.currentActiveUnit.getName()} cast ${this.hoveredSpell.getName()} on allies`,
+                            );
                         } else {
                             for (const u of this.unitsHolder.getAllEnemyUnits(this.currentActiveUnit.getTeam())) {
-                                if (u.getMagicResist() === 100) {
+                                let debuffTarget = u;
+
+                                // effect can be absorbed
+                                const absorptionTarget = getAbsorptionTarget(u, this.grid, this.unitsHolder);
+                                if (absorptionTarget) {
+                                    debuffTarget = absorptionTarget;
+                                }
+
+                                if (debuffTarget.getMagicResist() === 100) {
                                     continue;
                                 }
 
@@ -2191,21 +2229,25 @@ class Sandbox extends GLScene {
                                 ];
                                 let needToApply = true;
                                 for (const cs of conflictingSpells) {
-                                    if (u.hasDebuffActive(cs)) {
+                                    if (debuffTarget.hasDebuffActive(cs)) {
                                         needToApply = false;
                                         break;
                                     }
                                 }
 
                                 if (needToApply) {
-                                    u.applyDebuff(
+                                    debuffTarget.applyDebuff(
                                         this.hoveredSpell,
-                                        0,
-                                        0,
-                                        u.getId() === this.currentActiveUnit.getId(),
+                                        undefined,
+                                        undefined,
+                                        debuffTarget.getId() === this.currentActiveUnit.getId(),
                                     );
                                 }
                             }
+
+                            this.sc_sceneLog.updateLog(
+                                `${this.currentActiveUnit.getName()} cast ${this.hoveredSpell.getName()} on enemies`,
+                            );
                         }
 
                         this.currentActiveUnit.useSpell(this.hoveredSpell);
@@ -2388,7 +2430,8 @@ class Sandbox extends GLScene {
                     this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
                 ) ||
                     this.currentActiveUnit.getRangeShots() <= 0 ||
-                    this.currentActiveUnit.hasDebuffActive("Range Null Field Aura"))
+                    this.currentActiveUnit.hasDebuffActive("Range Null Field Aura") ||
+                    this.currentActiveUnit.hasDebuffActive("Rangebane"))
             ) {
                 hasOption = false;
                 if (this.currentActiveUnit.selectAttackType(AttackType.MELEE)) {

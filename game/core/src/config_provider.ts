@@ -20,8 +20,13 @@ import {
     ToAttackType,
     UnitProperties,
     UnitType,
+    SpellPowerType,
+    SpellTargetType,
+    SpellProperties,
     ToAbilityType,
     ToAbilityPowerType,
+    ToSpellPowerType,
+    ToSpellTargetType,
 } from "@heroesofcrypto/common";
 
 import abilitiesJson from "./configuration/abilities.json";
@@ -29,7 +34,6 @@ import auraEffectsJson from "./configuration/aura_effects.json";
 import effectsJson from "./configuration/effects.json";
 import spellsJson from "./configuration/spells.json";
 import creaturesJson from "./configuration/creatures.json";
-import { SpellProperties } from "./spells/spells";
 
 const DEFAULT_HERO_CONFIG = {
     hp: 120,
@@ -77,15 +81,17 @@ const DEFAULT_LUCK_PER_FACTION = {
     [FactionType.NATURE]: 4,
     [FactionType.LIFE]: 1,
     [FactionType.DEATH]: -2,
+    [FactionType.ORDER]: 3,
 };
 
 const DEFAULT_MORALE_PER_FACTION = {
     [FactionType.NO_TYPE]: 0,
-    [FactionType.MIGHT]: 3,
+    [FactionType.MIGHT]: 2,
     [FactionType.CHAOS]: -1,
     [FactionType.NATURE]: 1,
     [FactionType.LIFE]: 4,
     [FactionType.DEATH]: -4,
+    [FactionType.ORDER]: 3,
 };
 
 export const getHeroConfig = (
@@ -178,6 +184,10 @@ export const getAbilityConfig = (abilityName: string): AbilityProperties => {
         throw new TypeError(`Invalid power type for ability ${abilityName} = ${abilityPowerType}`);
     }
 
+    if (!ability.desc || ability.desc.constructor !== Array || !ability.desc.length) {
+        throw new TypeError(`Invalid description list for ability ${abilityName}`);
+    }
+
     return new AbilityProperties(
         abilityName,
         abilityType,
@@ -212,7 +222,7 @@ export const getCreatureConfig = (
 
     const attackType =
         creatureConfig.attack_type && creatureConfig.attack_type.constructor === String
-            ? ToAttackType[creatureConfig.attack_type as string]
+            ? ToAttackType[creatureConfig.attack_type]
             : undefined;
     if (attackType === undefined || attackType === AttackType.NO_TYPE) {
         throw new TypeError(`Invalid attack type for creature ${creatureName} = ${attackType}`);
@@ -235,7 +245,7 @@ export const getCreatureConfig = (
             throw new TypeError(`Unable to get config for ability ${abilityName} and creature ${creatureName}`);
         }
 
-        if (!abilityConfig.desc) {
+        if (!abilityConfig.desc || abilityConfig.desc.constructor !== Array || !abilityConfig.desc.length) {
             throw new TypeError(`No description for ability ${abilityName} and creature ${creatureName}`);
         }
 
@@ -243,7 +253,7 @@ export const getCreatureConfig = (
             throw new TypeError(`No power for ability ${abilityName} and creature ${creatureName}`);
         }
 
-        abilityDescriptions.push(abilityConfig.desc.replace(/\{\}/g, abilityConfig.power.toString()));
+        abilityDescriptions.push(abilityConfig.desc.join("\n").replace(/\{\}/g, abilityConfig.power.toString()));
         abilityIsStackPowered.push(abilityConfig.stack_powered);
 
         const auraEffect = abilityConfig.aura_effect;
@@ -327,14 +337,32 @@ export const getSpellConfig = (faction: FactionType, spellName: string): SpellPr
         throw TypeError(`Unknown 'conflicts_with' type for the spell - ${spellName}`);
     }
 
+    const targetType =
+        spellConfig.target && spellConfig.target.constructor === String
+            ? ToSpellTargetType[spellConfig.target as string]
+            : undefined;
+    if (targetType === undefined || targetType === SpellTargetType.NO_TYPE) {
+        throw new TypeError(`Invalid target type for spell ${spellName} = ${targetType}`);
+    }
+
+    const powerType =
+        spellConfig.power_type && spellConfig.power_type.constructor === String
+            ? ToSpellPowerType[spellConfig.power_type as string]
+            : undefined;
+    if (powerType === undefined || powerType === SpellPowerType.NO_TYPE) {
+        throw new TypeError(`Invalid power type for spell ${spellName} = ${powerType}`);
+    }
+
     return new SpellProperties(
         faction,
         spellConfig.name,
         spellConfig.level,
         spellConfig.desc,
-        spellConfig.target,
+        targetType,
         spellConfig.power,
+        powerType,
         spellConfig.laps,
+        spellConfig.is_buff,
         spellConfig.self_cast_allowed,
         spellConfig.self_debuff_applies,
         spellConfig.minimal_caster_stack_power,

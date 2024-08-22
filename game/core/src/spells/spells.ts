@@ -10,18 +10,19 @@
  */
 
 import { XY } from "@box2d/core";
-import { FactionType, GridSettings, GridMath, TeamType, IModifyableUnitProperties } from "@heroesofcrypto/common";
+import {
+    FactionType,
+    SpellProperties,
+    SpellTargetType,
+    SpellPowerType,
+    GridSettings,
+    GridMath,
+    TeamType,
+    IModifyableUnitProperties,
+} from "@heroesofcrypto/common";
 
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
-
-export enum SpellTargetType {
-    FREE_CELL = "FREE_CELL",
-    ANY_ALLY = "ANY_ALLY",
-    RANDOM_CLOSE_TO_CASTER = "RANDOM_CLOSE_TO_CASTER",
-    ALL_ALLIES = "ALL_ALLIES",
-    ALL_ENEMIES = "ALL_ENEMIES",
-}
 
 export enum BookPosition {
     ONE = 1,
@@ -45,28 +46,41 @@ const BOOK_SPELL_SIZE = 256;
 export class AppliedSpell {
     private readonly name: string;
 
+    private readonly power: number;
+
     private lapsRemaining: number;
 
-    private readonly casterMaxHp: number;
+    private readonly firstSpellProperty?: number = undefined;
 
-    private readonly casterBaseArmor: number;
+    private readonly secondSpellProperty?: number = undefined;
 
-    public constructor(name: string, lapsRemaining: number, casterMaxHp: number, casterBaseArmor: number) {
+    public constructor(
+        name: string,
+        power: number,
+        lapsRemaining: number,
+        firstSpellProperty?: number,
+        secondSpellProperty?: number,
+    ) {
         this.name = name;
+        this.power = power;
         this.lapsRemaining = lapsRemaining;
-        this.casterMaxHp = casterMaxHp;
-        this.casterBaseArmor = casterBaseArmor;
+        this.firstSpellProperty = firstSpellProperty;
+        this.secondSpellProperty = secondSpellProperty;
     }
-    public getCasterMaxHp(): number {
-        return this.casterMaxHp;
+    public getFirstSpellProperty(): number | undefined {
+        return this.firstSpellProperty;
     }
 
-    public getCasterBaseArmor(): number {
-        return this.casterBaseArmor;
+    public getSecondSpellProperty(): number | undefined {
+        return this.secondSpellProperty;
     }
 
     public getName(): string {
         return this.name;
+    }
+
+    public getPower(): number {
+        return this.power;
     }
 
     public minusLap(): void {
@@ -84,56 +98,6 @@ export class AppliedSpell {
 
     public getLaps(): number {
         return this.lapsRemaining;
-    }
-}
-
-export class SpellProperties {
-    public readonly name: string;
-
-    public readonly faction: FactionType;
-
-    public readonly level: number;
-
-    public readonly desc: string[];
-
-    public readonly spellTargetType: SpellTargetType;
-
-    public readonly power: number;
-
-    public readonly laps: number;
-
-    public readonly self_cast_allowed: boolean;
-
-    public readonly self_debuff_applies: boolean;
-
-    public readonly minimal_caster_stack_power: number;
-
-    public readonly conflicts_with: string[];
-
-    public constructor(
-        faction: FactionType,
-        name: string,
-        level: number,
-        desc: string[],
-        spellTargetType: SpellTargetType,
-        power: number,
-        laps: number,
-        self_cast_allowed: boolean,
-        self_debuff_applies: boolean,
-        minimal_caster_stack_power: number,
-        conflicts_with: string[],
-    ) {
-        this.faction = faction;
-        this.name = name;
-        this.level = level;
-        this.desc = desc;
-        this.spellTargetType = spellTargetType;
-        this.power = power;
-        this.laps = laps;
-        this.self_cast_allowed = self_cast_allowed;
-        this.self_debuff_applies = self_debuff_applies;
-        this.minimal_caster_stack_power = minimal_caster_stack_power;
-        this.conflicts_with = conflicts_with;
     }
 }
 
@@ -212,15 +176,23 @@ export class Spell {
     }
 
     public getSpellTargetType(): SpellTargetType {
-        return this.spellProperties.spellTargetType;
+        return this.spellProperties.spell_target_type;
     }
 
     public getPower(): number {
         return this.spellProperties.power;
     }
 
+    public getPowerType(): SpellPowerType {
+        return this.spellProperties.power_type;
+    }
+
     public getLapsTotal(): number {
         return this.spellProperties.laps;
+    }
+
+    public isBuff(): boolean {
+        return this.spellProperties.is_buff;
     }
 
     public isSelfCastAllowed(): boolean {
@@ -491,14 +463,14 @@ export function canBeCasted(
         return true;
     };
 
+    const isSelfCast =
+        (fromUnitId && toUnitId && fromUnitId === toUnitId) ||
+        (fromUnitName && toUnitName && fromUnitName === toUnitName && fromTeamType === toTeamType);
+
     if (spell.getSpellTargetType() === SpellTargetType.ANY_ALLY) {
         if (toUnitMagicResistance && toUnitMagicResistance === 100) {
             return false;
         }
-
-        const isSelfCast =
-            (fromUnitId && toUnitId && fromUnitId === toUnitId) ||
-            (fromUnitName && toUnitName && fromUnitName === toUnitName);
 
         if (
             fromTeamType &&
@@ -506,6 +478,16 @@ export function canBeCasted(
             fromTeamType === toTeamType &&
             (spell.isSelfCastAllowed() || (!spell.isSelfCastAllowed() && !isSelfCast))
         ) {
+            return notAlreadyApplied();
+        }
+    }
+
+    if (spell.getSpellTargetType() === SpellTargetType.ANY_ENEMY) {
+        if (toUnitMagicResistance && toUnitMagicResistance === 100) {
+            return false;
+        }
+
+        if (fromTeamType && toTeamType && fromTeamType !== toTeamType && !isSelfCast) {
             return notAlreadyApplied();
         }
     }
@@ -530,11 +512,13 @@ export function calculateBuffsDebuffsEffect(
         hp: 0,
         armor: 0,
         luck: 0,
+        morale: 0,
     };
     const additionalStats: IModifyableUnitProperties = {
         hp: 0,
         armor: 0,
         luck: 0,
+        morale: 0,
     };
 
     const alreadyAppliedBuffs: string[] = [];
@@ -547,8 +531,18 @@ export function calculateBuffsDebuffsEffect(
             continue;
         }
         if (b.getName() === "Helping Hand") {
-            baseStats.hp = Math.ceil(b.getCasterMaxHp() * 0.3);
-            baseStats.armor = Math.ceil(b.getCasterBaseArmor() * 0.3);
+            const maxHp = b.getFirstSpellProperty();
+            if (maxHp === undefined) {
+                continue;
+            }
+
+            const baseArmor = b.getSecondSpellProperty();
+            if (baseArmor === undefined) {
+                continue;
+            }
+
+            baseStats.hp = Math.ceil(maxHp * 0.3);
+            baseStats.armor = Math.ceil(baseArmor * 0.3);
             alreadyAppliedBuffs.push(b.getName());
         }
         if (b.getName() === "Luck Aura") {
@@ -566,9 +560,22 @@ export function calculateBuffsDebuffsEffect(
             continue;
         }
         if (db.getName() === "Helping Hand") {
-            baseStats.hp = -Math.ceil(db.getCasterMaxHp() * 0.3);
-            baseStats.armor = -Math.ceil(db.getCasterBaseArmor() * 0.3);
+            const maxHp = db.getFirstSpellProperty();
+            if (maxHp === undefined) {
+                continue;
+            }
+
+            const baseArmor = db.getSecondSpellProperty();
+            if (baseArmor === undefined) {
+                continue;
+            }
+
+            baseStats.hp = -Math.ceil(maxHp * 0.3);
+            baseStats.armor = -Math.ceil(baseArmor * 0.3);
             alreadyAppliedDebuffs.push(db.getName());
+        }
+        if (db.getName() === "Sadness") {
+            baseStats.morale = Number.MIN_SAFE_INTEGER;
         }
     }
 
