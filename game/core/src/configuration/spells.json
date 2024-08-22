@@ -1,5 +1,35 @@
 {
     "version": 1.0,
+    "System": {
+        "Morale": {
+            "name": "Morale",
+            "level": 0,
+            "desc": ["Unit reaches maximum morale, increasing its attack multiplier to 1.25.", "Lasts 1 lap."],
+            "target": "ANY_UNIT",
+            "power": 0,
+            "power_type": "COMMON",
+            "laps": 1,
+            "is_buff": true,
+            "self_cast_allowed": false,
+            "self_debuff_applies": false,
+            "minimal_caster_stack_power": 1,
+            "conflicts_with": []
+        },
+        "Dismorale": {
+            "name": "Dismorale",
+            "level": 0,
+            "desc": ["Unit's morale falls to its lowest level, reducing its attack multiplier to 0.8.", "Lasts 1 lap."],
+            "target": "ANY_UNIT",
+            "power": 0,
+            "power_type": "COMMON",
+            "laps": 1,
+            "is_buff": false,
+            "self_cast_allowed": false,
+            "self_debuff_applies": false,
+            "minimal_caster_stack_power": 1,
+            "conflicts_with": []
+        }
+    },
     "Life": {
         "Helping Hand": {
             "name": "Helping Hand",

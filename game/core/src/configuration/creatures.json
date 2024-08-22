@@ -83,7 +83,7 @@
             "size": 1,
             "level": 2,
             "spells": [],
-            "abilities": []
+            "abilities": ["Wardguard"]
         },
         "Healer": {
             "name": "Healer",

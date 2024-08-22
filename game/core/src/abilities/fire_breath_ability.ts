@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, Grid, GridSettings, GridMath, HoCMath } from "@heroesofcrypto/common";
+import { AttackType, Grid, HoCConstants, GridSettings, GridMath, HoCMath } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
@@ -150,11 +150,30 @@ export function processFireBreathAbility(
                 continue;
             }
 
-            const fireBreathAttackDamage = fromUnit.calculateAttackDamage(
-                nextStandingTarget,
-                AttackType.MELEE,
-                1,
-                fromUnit.calculateAbilityMultiplier(fireBreathAbility),
+            const heavyArmorAbility = nextStandingTarget.getAbility("Heavy Armor");
+            let multiplier = 1;
+            if (heavyArmorAbility) {
+                multiplier = Number(
+                    (
+                        ((heavyArmorAbility.getPower() + nextStandingTarget.getLuck()) /
+                            100 /
+                            HoCConstants.MAX_UNIT_STACK_POWER) *
+                            nextStandingTarget.getStackPower() +
+                        1
+                    ).toFixed(2),
+                );
+            }
+
+            // take magic resist into account
+            const fireBreathAttackDamage = Math.floor(
+                fromUnit.calculateAttackDamage(
+                    nextStandingTarget,
+                    AttackType.MELEE,
+                    1,
+                    fromUnit.calculateAbilityMultiplier(fireBreathAbility),
+                ) *
+                    (1 - nextStandingTarget.getMagicResist() / 100) *
+                    multiplier,
             );
 
             nextStandingTarget.applyDamage(fireBreathAttackDamage, sceneStepCount);

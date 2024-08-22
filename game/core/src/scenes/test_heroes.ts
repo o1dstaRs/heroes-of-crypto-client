@@ -101,7 +101,7 @@ class Sandbox extends GLScene {
 
     private hoverRangeAttackLine?: b2Fixture;
 
-    private hoverRangeAttackDivisor = 1;
+    private hoverRangeAttackDivisors: number[] = [];
 
     private hoverRangeAttackPosition?: XY;
 
@@ -148,6 +148,8 @@ class Sandbox extends GLScene {
     private readonly lowerPlacement: SquarePlacement;
 
     private readonly unitsFactory: UnitsFactory;
+
+    private readonly spellsFactory: SpellsFactory;
 
     private readonly unitsHolder: UnitsHolder;
 
@@ -250,7 +252,7 @@ class Sandbox extends GLScene {
             [-1, textures.m_damage.texture],
         ]);
 
-        const spellsFactory = new SpellsFactory(this.gl, this.shader, this.digitNormalTextures, textures);
+        this.spellsFactory = new SpellsFactory(this.gl, this.shader, this.digitNormalTextures, textures);
         this.unitsFactory = new UnitsFactory(
             this.sc_world,
             this.gl,
@@ -259,7 +261,7 @@ class Sandbox extends GLScene {
             this.digitDamageTextures,
             this.sc_sceneSettings.getGridSettings(),
             textures,
-            spellsFactory,
+            this.spellsFactory,
             new AbilitiesFactory(new EffectsFactory()),
         );
         this.unitsHolder = new UnitsHolder(this.sc_world, this.sc_sceneSettings.getGridSettings(), this.unitsFactory);
@@ -403,7 +405,7 @@ class Sandbox extends GLScene {
         this.attackHandler = new AttackHandler(
             this.sc_world,
             this.sc_sceneSettings.getGridSettings(),
-            spellsFactory,
+            this.spellsFactory,
             this.sc_sceneLog,
         );
         this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
@@ -816,7 +818,7 @@ class Sandbox extends GLScene {
         this.hoverAttackIsSmallSize = undefined;
         this.hoverRangeAttackPosition = undefined;
         this.hoverRangeAttackObstacle = undefined;
-        this.hoverRangeAttackDivisor = 1;
+        this.hoverRangeAttackDivisors = [];
         this.hoverActiveShotRange = undefined;
         this.hoverActiveAuraRanges = [];
         if (this.hoverRangeAttackLine) {
@@ -972,6 +974,26 @@ class Sandbox extends GLScene {
                 this.hoverUnit = unit;
                 this.hoverSelectedCellsSwitchToRed = false;
 
+                this.hoverActiveShotRange = undefined;
+                if (unit) {
+                    if (
+                        this.attackHandler.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId()))
+                    ) {
+                        this.hoverActiveShotRange = {
+                            xy: unit.getPosition(),
+                            distance: unit.getRangeShotDistance() * STEP,
+                        };
+                    }
+
+                    this.fillActiveAuraRanges(
+                        unit.isSmallSize(),
+                        unit.getPosition(),
+                        unit.getAllProperties().aura_ranges,
+                        unit.getAllProperties().aura_is_buff,
+                        true,
+                    );
+                }
+
                 const currentUnitCell = GridMath.getCellForPosition(
                     this.sc_sceneSettings.getGridSettings(),
                     this.currentActiveUnit.getPosition(),
@@ -1068,11 +1090,6 @@ class Sandbox extends GLScene {
                     !this.currentActiveUnit.hasDebuffActive("Range Null Field Aura") &&
                     !this.currentActiveUnit.hasDebuffActive("Rangebane")
                 ) {
-                    //                    if (this.grid.canBeAttackedByMelee(currentUnitCell, this.currentActiveUnit.getId())) {
-                    //                        this.currentActiveUnit.selectAttackType(AttackType.MELEE);
-                    //                        console.log("Switch to MELEE");
-                    //                    } else if (this.currentActiveUnit.getRangeShots() > 0) {
-                    //                    this.currentActiveUnit.selectAttackType(AttackType.RANGE);
                     this.selectAttack(AttackType.RANGE, currentUnitCell, true);
                     this.currentActiveUnitSwitchedAttackAuto = true;
                     this.switchToSelectedAttackType = undefined;
@@ -1089,8 +1106,7 @@ class Sandbox extends GLScene {
                         this.hoverRangeAttackLine = undefined;
                     }
                     this.hoverRangeAttackPosition = undefined;
-                    this.hoverRangeAttackDivisor = 1;
-                    this.hoverActiveShotRange = undefined;
+                    this.hoverRangeAttackDivisors = [];
                     this.rangeResponseAttackDivisor = 1;
                     this.rangeResponseUnit = undefined;
                     if (this.canAttackByMeleeTargets?.unitIds.has(unitId)) {
@@ -1217,26 +1233,6 @@ class Sandbox extends GLScene {
                             unit.getCanFly(),
                             unit.isSmallSize(),
                         ).cells;
-
-                        if (
-                            this.attackHandler.canLandRangeAttack(
-                                unit,
-                                this.grid.getEnemyAggrMatrixByUnitId(unit.getId()),
-                            )
-                        ) {
-                            this.hoverActiveShotRange = {
-                                xy: unit.getPosition(),
-                                distance: unit.getRangeShotDistance() * STEP,
-                            };
-                        }
-
-                        this.fillActiveAuraRanges(
-                            unit.isSmallSize(),
-                            unit.getPosition(),
-                            unit.getAllProperties().aura_ranges,
-                            unit.getAllProperties().aura_is_buff,
-                            true,
-                        );
                     }
                 } else if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE) {
                     if (!unit) {
@@ -1247,7 +1243,7 @@ class Sandbox extends GLScene {
                         this.sc_sceneSettings.getGridSettings(),
                         unit.getPosition(),
                     );
-                    this.hoverActiveShotRange = undefined;
+
                     if (!unitCell) {
                         this.hoverActivePath = undefined;
                         return;
@@ -1265,15 +1261,6 @@ class Sandbox extends GLScene {
                         unit.getCanFly(),
                         unit.isSmallSize(),
                     ).cells;
-
-                    if (
-                        this.attackHandler.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId()))
-                    ) {
-                        this.hoverActiveShotRange = {
-                            xy: unit.getPosition(),
-                            distance: unit.getRangeShotDistance() * STEP,
-                        };
-                    }
 
                     if (previousHover !== this.hoverActivePath) {
                         if (this.hoverRangeAttackLine) {
@@ -1309,13 +1296,19 @@ class Sandbox extends GLScene {
                             this.currentActiveUnit,
                             unit,
                         );
-                        this.hoverRangeAttackDivisor = evaluatedRangeAttack.rangeAttackDivisor;
+                        this.hoverRangeAttackDivisors = evaluatedRangeAttack.rangeAttackDivisors;
                         this.hoverAttackUnits = evaluatedRangeAttack.targetUnits;
                         this.hoverRangeAttackObstacle = evaluatedRangeAttack.attackObstacle;
 
                         const hoverAttackUnit = this.getHoverAttackUnit();
 
-                        if (hoverAttackUnit) {
+                        if (
+                            hoverAttackUnit &&
+                            !(
+                                this.currentActiveUnit.hasDebuffActive("Cowardice") &&
+                                this.currentActiveUnit.getCumulativeHp() < hoverAttackUnit.getCumulativeHp()
+                            )
+                        ) {
                             const hoverUnitCell = GridMath.getCellForPosition(
                                 this.sc_sceneSettings.getGridSettings(),
                                 hoverAttackUnit.getPosition(),
@@ -1341,22 +1334,25 @@ class Sandbox extends GLScene {
                                     hoverAttackUnit,
                                     this.currentActiveUnit,
                                 );
-                                this.rangeResponseAttackDivisor = evaluatedRangeResponse.rangeAttackDivisor;
+                                this.rangeResponseAttackDivisor =
+                                    evaluatedRangeResponse.rangeAttackDivisors.shift() ?? 1;
                                 this.rangeResponseUnit = evaluatedRangeResponse.targetUnits.shift();
                             }
 
-                            const divisorStr =
-                                this.hoverRangeAttackDivisor > 1 ? `1/${this.hoverRangeAttackDivisor} ` : "";
+                            const hoverRangeAttackDivisor = this.hoverRangeAttackDivisors.length
+                                ? this.hoverRangeAttackDivisors[0] ?? 1
+                                : 1;
+                            const divisorStr = hoverRangeAttackDivisor > 1 ? `1/${hoverRangeAttackDivisor} ` : "";
 
                             const minDmg = this.currentActiveUnit.calculateAttackDamageMin(
                                 hoverAttackUnit,
                                 true,
-                                this.hoverRangeAttackDivisor,
+                                hoverRangeAttackDivisor,
                             );
                             const maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
                                 hoverAttackUnit,
                                 true,
-                                this.hoverRangeAttackDivisor,
+                                hoverRangeAttackDivisor,
                             );
                             const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
                             const maxDied = hoverAttackUnit.calculatePossibleLosses(maxDmg);
@@ -1369,6 +1365,8 @@ class Sandbox extends GLScene {
                             this.sc_attackDamageSpreadStr = `${minDmg}-${maxDmg}`;
                             this.sc_attackRangeDamageDivisorStr = divisorStr;
                             this.sc_hoverTextUpdateNeeded = true;
+                        } else {
+                            this.hoverAttackUnits = undefined;
                         }
                     }
                 } else {
@@ -1889,7 +1887,7 @@ class Sandbox extends GLScene {
                 this.unitsHolder,
                 this.drawer,
                 this.grid,
-                this.hoverRangeAttackDivisor,
+                this.hoverRangeAttackDivisors,
                 this.rangeResponseAttackDivisor,
                 this.sc_stepCount,
                 this.currentActiveUnit,
@@ -1926,7 +1924,7 @@ class Sandbox extends GLScene {
         }
 
         // cleanup range attack state
-        this.hoverRangeAttackDivisor = 1;
+        this.hoverRangeAttackDivisors = [];
         if (this.hoverRangeAttackLine) {
             this.ground.DestroyFixture(this.hoverRangeAttackLine);
             this.hoverRangeAttackLine = undefined;
@@ -3008,11 +3006,19 @@ class Sandbox extends GLScene {
                                 const chance = HoCLib.getRandomInt(0, 100);
                                 if (chance < Math.abs(u.getMorale())) {
                                     if (isPlusMorale) {
+                                        const buff = this.spellsFactory.makeSpell(FactionType.NO_TYPE, "Morale", 1);
+                                        u.applyBuff(buff);
                                         FightStateManager.getInstance().enqueueMoralePlus(u.getId());
-                                        u.setAttackMultiplier(1.25);
+                                        // u.setAttackMultiplier(1.25);
                                     } else {
+                                        const debuff = this.spellsFactory.makeSpell(
+                                            FactionType.NO_TYPE,
+                                            "Dismorale",
+                                            1,
+                                        );
+                                        u.applyDebuff(debuff);
                                         FightStateManager.getInstance().enqueueMoraleMinus(u.getId());
-                                        u.setAttackMultiplier(0.8);
+                                        // u.setAttackMultiplier(0.8);
                                     }
                                 }
                             }
