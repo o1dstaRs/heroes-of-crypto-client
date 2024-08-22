@@ -611,71 +611,86 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public minusLap() {
-        for (const ef of this.effects) {
-            if (ef.getLaps() > 0) {
-                ef.minusLap();
-            }
+        const dismoraleDebuff = this.getDebuff("Dismorale");
+        if (!dismoraleDebuff) {
+            for (const ef of this.effects) {
+                if (ef.getLaps() > 0) {
+                    ef.minusLap();
+                }
 
-            if (ef.getLaps()) {
-                if (
-                    this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_laps.length &&
-                    this.unitProperties.applied_effects.length ===
-                        this.unitProperties.applied_effects_descriptions.length &&
-                    this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_powers.length
-                ) {
-                    for (let i = 0; i < this.unitProperties.applied_effects.length; i++) {
-                        if (
-                            this.unitProperties.applied_effects[i] === ef.getName() &&
-                            this.unitProperties.applied_effects_laps[i] !== Number.MAX_SAFE_INTEGER
-                        ) {
-                            this.unitProperties.applied_effects_laps[i]--;
+                if (ef.getLaps()) {
+                    if (
+                        this.unitProperties.applied_effects.length ===
+                            this.unitProperties.applied_effects_laps.length &&
+                        this.unitProperties.applied_effects.length ===
+                            this.unitProperties.applied_effects_descriptions.length &&
+                        this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_powers.length
+                    ) {
+                        for (let i = 0; i < this.unitProperties.applied_effects.length; i++) {
+                            if (
+                                this.unitProperties.applied_effects[i] === ef.getName() &&
+                                this.unitProperties.applied_effects_laps[i] !== Number.MAX_SAFE_INTEGER
+                            ) {
+                                this.unitProperties.applied_effects_laps[i]--;
+                            }
                         }
                     }
+                } else {
+                    this.deleteEffect(ef.getName());
                 }
-            } else {
-                this.deleteEffect(ef.getName());
             }
         }
 
-        for (const b of this.buffs) {
-            if (b.getLaps() > 0) {
-                b.minusLap();
-            }
+        const moraleBuff = this.getBuff("Morale");
+        if (moraleBuff) {
+            this.deleteBuff("Morale");
+        } else {
+            for (const b of this.buffs) {
+                if (b.getLaps() > 0 && b) {
+                    b.minusLap();
+                }
 
-            if (b.getLaps()) {
-                if (this.unitProperties.applied_buffs.length === this.unitProperties.applied_buffs_laps.length) {
-                    for (let i = 0; i < this.unitProperties.applied_buffs.length; i++) {
-                        if (
-                            this.unitProperties.applied_buffs[i] === b.getName() &&
-                            this.unitProperties.applied_buffs_laps[i] !== Number.MAX_SAFE_INTEGER
-                        ) {
-                            this.unitProperties.applied_buffs_laps[i]--;
+                if (b.getLaps()) {
+                    if (this.unitProperties.applied_buffs.length === this.unitProperties.applied_buffs_laps.length) {
+                        for (let i = 0; i < this.unitProperties.applied_buffs.length; i++) {
+                            if (
+                                this.unitProperties.applied_buffs[i] === b.getName() &&
+                                this.unitProperties.applied_buffs_laps[i] !== Number.MAX_SAFE_INTEGER
+                            ) {
+                                this.unitProperties.applied_buffs_laps[i]--;
+                            }
                         }
                     }
+                } else {
+                    this.deleteBuff(b.getName());
                 }
-            } else {
-                this.deleteBuff(b.getName());
             }
         }
 
-        for (const d of this.debuffs) {
-            if (d.getLaps() > 0) {
-                d.minusLap();
-            }
+        if (dismoraleDebuff) {
+            this.deleteDebuff("Dismorale");
+        } else {
+            for (const d of this.debuffs) {
+                if (d.getLaps() > 0) {
+                    d.minusLap();
+                }
 
-            if (d.getLaps()) {
-                if (this.unitProperties.applied_debuffs.length === this.unitProperties.applied_debuffs_laps.length) {
-                    for (let i = 0; i < this.unitProperties.applied_debuffs.length; i++) {
-                        if (
-                            this.unitProperties.applied_debuffs[i] === d.getName() &&
-                            this.unitProperties.applied_debuffs_laps[i] !== Number.MAX_SAFE_INTEGER
-                        ) {
-                            this.unitProperties.applied_debuffs_laps[i]--;
+                if (d.getLaps()) {
+                    if (
+                        this.unitProperties.applied_debuffs.length === this.unitProperties.applied_debuffs_laps.length
+                    ) {
+                        for (let i = 0; i < this.unitProperties.applied_debuffs.length; i++) {
+                            if (
+                                this.unitProperties.applied_debuffs[i] === d.getName() &&
+                                this.unitProperties.applied_debuffs_laps[i] !== Number.MAX_SAFE_INTEGER
+                            ) {
+                                this.unitProperties.applied_debuffs_laps[i]--;
+                            }
                         }
                     }
+                } else {
+                    this.deleteDebuff(d.getName());
                 }
-            } else {
-                this.deleteDebuff(d.getName());
             }
         }
     }
@@ -1338,6 +1353,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             ability.getPowerType() === AbilityPowerType.KILL_RANDOM_AMOUNT ||
             ability.getPowerType() === AbilityPowerType.IGNORE_ARMOR ||
             ability.getPowerType() === AbilityPowerType.MAGIC_RESIST_50 ||
+            ability.getPowerType() === AbilityPowerType.MAGIC_RESIST_25 ||
             ability.getPowerType() === AbilityPowerType.ABSORB_DEBUFF ||
             ability.getPowerType() === AbilityPowerType.BOOST_HEALTH
         ) {
@@ -1697,6 +1713,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         // MORALE
         if (baseStatsDiff.baseStats.morale === Number.MIN_SAFE_INTEGER) {
+            if (this.hasBuffActive("Morale")) {
+                this.unitProperties.morale = 0;
+            } else {
+                this.unitProperties.morale = -MORALE_MAX_VALUE_TOTAL;
+            }
+        } else if (this.hasBuffActive("Morale")) {
+            this.setAttackMultiplier(1.25);
+            this.unitProperties.morale = MORALE_MAX_VALUE_TOTAL;
+        } else if (this.hasDebuffActive("Dismorale")) {
+            this.setAttackMultiplier(0.8);
             this.unitProperties.morale = -MORALE_MAX_VALUE_TOTAL;
         } else {
             this.unitProperties.morale = this.initialUnitProperties.morale;
@@ -1725,10 +1751,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const magicShieldAbility = this.getAbility("Magic Shield");
             if (magicShieldAbility) {
                 magicResists.push(this.calculateAbilityMultiplier(magicShieldAbility));
-                this.unitProperties.magic_resist = Number(
-                    (HoCMath.winningAtLeastOneEventProbability(magicResists) * 100).toFixed(2),
-                );
             }
+
+            const wardguardAbility = this.getAbility("Wardguard");
+            if (wardguardAbility) {
+                magicResists.push(this.calculateAbilityMultiplier(wardguardAbility));
+            }
+
+            this.unitProperties.magic_resist = Number(
+                (HoCMath.winningAtLeastOneEventProbability(magicResists) * 100).toFixed(2),
+            );
         }
 
         // SHOTS
@@ -1953,6 +1985,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.refreshAbiltyDescription(
                 boarSalivaAbility.getName(),
                 boarSalivaAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Wardguard
+        const wardguardAbility = this.getAbility("Wardguard");
+        if (wardguardAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(wardguardAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                wardguardAbility.getName(),
+                wardguardAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 

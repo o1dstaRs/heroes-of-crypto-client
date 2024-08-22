@@ -38,7 +38,7 @@ import { SpellsFactory } from "../spells/spells_factory";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 
 export interface IRangeAttackEvaluation {
-    rangeAttackDivisor: number;
+    rangeAttackDivisors: number[];
     targetUnits: Unit[];
     attackObstacle?: IAttackObstacle;
 }
@@ -145,6 +145,7 @@ export class AttackHandler {
         });
 
         let rangeAttackDivisor = 1;
+        const rangeAttackDivisors: number[] = [];
         const shotDistancePixels = Math.ceil(fromUnit.getRangeShotDistance() * this.gridSettings.getStep());
 
         for (const ud of unitsSortedByDistance) {
@@ -162,19 +163,22 @@ export class AttackHandler {
                     rangeAttackDivisor *= 2;
                 }
                 targetUnits.push(ud.unit);
+
+                if (rangeAttackDivisor > 8) {
+                    rangeAttackDivisor = 8;
+                }
+
+                if (fromUnit.hasAbilityActive("Sniper")) {
+                    rangeAttackDivisor = 1;
+                }
+
+                rangeAttackDivisors.push(rangeAttackDivisor);
                 attackObstacle = undefined;
             }
         }
-        if (rangeAttackDivisor > 8) {
-            rangeAttackDivisor = 8;
-        }
-
-        if (fromUnit.hasAbilityActive("Sniper")) {
-            rangeAttackDivisor = 1;
-        }
 
         return {
-            rangeAttackDivisor,
+            rangeAttackDivisors,
             targetUnits,
             attackObstacle,
         };
@@ -307,7 +311,7 @@ export class AttackHandler {
         unitsHolder: UnitsHolder,
         drawer: Drawer,
         grid: Grid,
-        hoverRangeAttackDivisor: number,
+        hoverRangeAttackDivisors: number[],
         rangeResponseAttackDivisor: number,
         sceneStepCount: number,
         attackerUnit?: Unit,
@@ -319,10 +323,15 @@ export class AttackHandler {
             !attackerUnit ||
             attackerUnit.isDead() ||
             !targetUnits?.length ||
+            !hoverRangeAttackDivisors.length ||
             !hoverRangeAttackPosition ||
             attackerUnit.getAttackTypeSelection() !== AttackType.RANGE ||
             !this.canLandRangeAttack(attackerUnit, grid.getEnemyAggrMatrixByUnitId(attackerUnit.getId()))
         ) {
+            return false;
+        }
+
+        if (targetUnits.length !== hoverRangeAttackDivisors.length) {
             return false;
         }
 
@@ -333,6 +342,11 @@ export class AttackHandler {
             targetUnit.isDead() ||
             (attackerUnit.hasDebuffActive("Cowardice") && attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp())
         ) {
+            return false;
+        }
+
+        let hoverRangeAttackDivisor: number | undefined = hoverRangeAttackDivisors.shift();
+        if (!hoverRangeAttackDivisor) {
             return false;
         }
 
@@ -357,7 +371,10 @@ export class AttackHandler {
             !fightState.alreadyRepliedAttack.has(targetUnit.getId()) &&
             targetUnit.canRespond() &&
             this.canLandRangeAttack(targetUnit, grid.getEnemyAggrMatrixByUnitId(targetUnit.getId())) &&
-            !(targetUnit.hasDebuffActive("Cowardice") && targetUnit.getCumulativeHp() < attackerUnit.getCumulativeHp())
+            !(
+                targetUnit.hasDebuffActive("Cowardice") &&
+                targetUnit.getCumulativeHp() < rangeResponseUnit.getCumulativeHp()
+            )
         ) {
             const isResponseMissed = HoCLib.getRandomInt(0, 100) < targetUnit.calculateMissChance(rangeResponseUnit);
             drawer.startBulletAnimation(targetUnit.getPosition(), attackerUnit.getPosition(), rangeResponseUnit);
@@ -469,6 +486,10 @@ export class AttackHandler {
                 (attackerUnit.hasDebuffActive("Cowardice") &&
                     attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp())
             ) {
+                return true;
+            }
+            hoverRangeAttackDivisor = hoverRangeAttackDivisors.shift();
+            if (!hoverRangeAttackDivisor) {
                 return true;
             }
         }

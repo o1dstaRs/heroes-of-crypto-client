@@ -9,6 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
+import { HoCConstants } from "@heroesofcrypto/common";
+
 import { SceneLog } from "../menu/scene_log";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
@@ -28,7 +30,24 @@ export function processFireShieldAbility(
 
     const fireShieldAbility = fromUnit.getAbility("Fire Shield");
     if (fireShieldAbility && !toUnit.hasAbilityActive("Fire Element")) {
-        const fireShieldDmg = Math.ceil(damageFromAttack * fromUnit.calculateAbilityMultiplier(fireShieldAbility));
+        const heavyArmorAbility = toUnit.getAbility("Heavy Armor");
+        let multiplier = 1;
+        if (heavyArmorAbility) {
+            multiplier = Number(
+                (
+                    ((heavyArmorAbility.getPower() + toUnit.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
+                        toUnit.getStackPower() +
+                    1
+                ).toFixed(2),
+            );
+        }
+
+        // take magic resist into account
+        const fireShieldDmg = Math.floor(
+            Math.ceil(damageFromAttack * fromUnit.calculateAbilityMultiplier(fireShieldAbility)) *
+                (1 - toUnit.getMagicResist() / 100) *
+                multiplier,
+        );
         toUnit.applyDamage(fireShieldDmg, sceneStepCount);
         DamageStatisticHolder.getInstance().add({
             unitName: fromUnit.getName(),

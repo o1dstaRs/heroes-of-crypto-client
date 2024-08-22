@@ -405,5 +405,16 @@
         "stack_powered": true,
         "effect": null,
         "aura_effect": null
+    },
+    "Wardguard": {
+        "name": "Wardguard",
+        "type": "DEFENCE",
+        "desc": ["Provides {}% resistance to all magical attacks and debuffs"],
+        "power": 25,
+        "power_type": "MAGIC_RESIST_25",
+        "skip_reponse": false,
+        "stack_powered": true,
+        "effect": null,
+        "aura_effect": null
     }
 }

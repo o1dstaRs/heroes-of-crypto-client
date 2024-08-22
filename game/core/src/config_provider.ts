@@ -323,7 +323,7 @@ export const getCreatureConfig = (
 
 export const getSpellConfig = (faction: FactionType, spellName: string): SpellProperties => {
     // @ts-ignore: we do not know the type here yet
-    const raceSpells = spellsJson[faction];
+    const raceSpells = spellsJson[faction ? faction : "System"];
     if (!raceSpells) {
         throw TypeError(`Unknown race ${faction} for the spell - ${spellName}`);
     }

@@ -315,21 +315,46 @@ export const UnitStatsListItem: React.FC = () => {
             : "";
 
         let luckButtonStyle;
-        if (unitProperties.luck_per_turn > 0) {
-            luckButtonStyle = { "--ButtonGroup-separatorSize": "0px", backgroundColor: "#D0FFBC" };
-        } else if (unitProperties.luck_per_turn < 0) {
-            luckButtonStyle = { "--ButtonGroup-separatorSize": "0px", backgroundColor: "#FFC6C6" };
+        if (unitProperties.luck_per_turn > 0 || (!unitProperties.luck_per_turn && unitProperties.luck === 10)) {
+            luckButtonStyle = {
+                "--ButtonGroup-separatorSize": "0px",
+                backgroundColor: "#D0FFBC",
+                border:
+                    unitProperties.luck_per_turn === 10 || (!unitProperties.luck_per_turn && unitProperties.luck === 10)
+                        ? "2px solid green"
+                        : "none",
+            };
+        } else if (unitProperties.luck_per_turn < 0 || (!unitProperties.luck_per_turn && unitProperties.luck === -10)) {
+            luckButtonStyle = {
+                "--ButtonGroup-separatorSize": "0px",
+                backgroundColor: "#FFC6C6",
+                border:
+                    unitProperties.luck_per_turn === -10 ||
+                    (!unitProperties.luck_per_turn && unitProperties.luck === -10)
+                        ? "2px solid red"
+                        : "none",
+            };
         } else {
             luckButtonStyle = { "--ButtonGroup-separatorSize": "0px" };
         }
 
         let attackButtonStyle;
         if (unitProperties.attack_multiplier > 1) {
-            attackButtonStyle = { "--ButtonGroup-separatorSize": "0px", backgroundColor: "#D0FFBC" };
+            attackButtonStyle = {
+                "--ButtonGroup-separatorSize": "0px",
+                backgroundColor: "#D0FFBC",
+                border: "2px solid green",
+            };
         } else if (unitProperties.attack_multiplier < 1) {
-            attackButtonStyle = { "--ButtonGroup-separatorSize": "0px", backgroundColor: "#FFC6C6" };
+            attackButtonStyle = {
+                "--ButtonGroup-separatorSize": "0px",
+                backgroundColor: "#FFC6C6",
+                border: "2px solid red",
+            };
         } else {
-            attackButtonStyle = { "--ButtonGroup-separatorSize": "0px" };
+            attackButtonStyle = {
+                "--ButtonGroup-separatorSize": "0px",
+            };
         }
 
         const attackTypeSelected = unitProperties.attack_type_selected;
