@@ -861,7 +861,7 @@
             "size": 1,
             "level": 3,
             "spells": [],
-            "abilities": []
+            "abilities": ["Large Caliber"]
         },
         "Thunderbird": {
             "name": "Thunderbird",

@@ -42,7 +42,7 @@ import { alreadyApplied, isMirrored } from "../spells/spells_helper";
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
     affectedUnits: Unit[];
-    affectedCells: XY[];
+    affectedCells: Array<XY[]>;
     attackObstacle?: IAttackObstacle;
 }
 
@@ -75,7 +75,7 @@ export class AttackHandler {
     ): IRangeAttackEvaluation {
         const affectedUnitIds: string[] = [];
         const affectedUnits: Unit[] = [];
-        const affectedCells: XY[] = [];
+        const affectedCells: Array<XY[]> = [];
         const rangeAttackDivisors: number[] = [];
         const isSniper = attackerUnit.hasAbilityActive("Sniper");
         let attackObstacle: IAttackObstacle | undefined;
@@ -118,7 +118,15 @@ export class AttackHandler {
 
             affectedUnits.push(possibleUnit);
             affectedUnitIds.push(possibleUnitId);
-            affectedCells.push(cell);
+
+            if (attackerUnit.hasAbilityActive("Large Caliber")) {
+                const cells = GridMath.getCellsAroundCell(this.gridSettings, cell);
+                cells.push(cell);
+                affectedCells.push(cells);
+            } else {
+                affectedCells.push([cell]);
+            }
+
             if (!isSniper) {
                 const shotDistancePixels = Math.ceil(attackerUnit.getRangeShotDistance() * this.gridSettings.getStep());
                 let distance = HoCMath.getDistance(attackerUnit.getPosition(), position);

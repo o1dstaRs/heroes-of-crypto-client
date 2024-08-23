@@ -1275,98 +1275,101 @@ class Sandbox extends GLScene {
                     if (!this.hoverRangeAttackLine && unit.getTeam() !== this.currentActiveUnit.getTeam()) {
                         const shape = new b2EdgeShape();
 
-                        this.hoverRangeAttackPosition =
-                            GridMath.getClosestSideCenter(
-                                this.gridMatrix,
-                                this.sc_sceneSettings.getGridSettings(),
-                                this.sc_mouseWorld,
-                                this.currentActiveUnit.getPosition(),
-                                unit.getPosition(),
-                                this.currentActiveUnit.isSmallSize(),
-                                unit.isSmallSize(),
-                            ) ?? unit.getPosition();
-
-                        shape.SetTwoSided(this.currentActiveUnit.getPosition(), this.hoverRangeAttackPosition);
-                        this.hoverRangeAttackLine = this.ground.CreateFixture({
-                            shape,
-                            isSensor: true,
-                        });
-
-                        const evaluatedRangeAttack = this.attackHandler.evaluateRangeAttack(
-                            this.unitsHolder.getAllUnits(),
-                            this.currentActiveUnit,
+                        this.hoverRangeAttackPosition = GridMath.getClosestSideCenter(
+                            this.gridMatrix,
+                            this.sc_sceneSettings.getGridSettings(),
+                            this.sc_mouseWorld,
                             this.currentActiveUnit.getPosition(),
-                            this.hoverRangeAttackPosition,
+                            unit.getPosition(),
+                            this.currentActiveUnit.isSmallSize(),
+                            unit.isSmallSize(),
                         );
-                        this.hoverRangeAttackDivisors = evaluatedRangeAttack.rangeAttackDivisors;
-                        this.hoverAttackUnits = evaluatedRangeAttack.affectedUnits;
-                        this.hoverRangeAttackObstacle = evaluatedRangeAttack.attackObstacle;
 
-                        const hoverAttackUnit = this.getHoverAttackUnit();
+                        if (this.hoverRangeAttackPosition) {
+                            shape.SetTwoSided(this.currentActiveUnit.getPosition(), this.hoverRangeAttackPosition);
+                            this.hoverRangeAttackLine = this.ground.CreateFixture({
+                                shape,
+                                isSensor: true,
+                            });
 
-                        if (
-                            hoverAttackUnit &&
-                            !(
-                                this.currentActiveUnit.hasDebuffActive("Cowardice") &&
-                                this.currentActiveUnit.getCumulativeHp() < hoverAttackUnit.getCumulativeHp()
-                            )
-                        ) {
-                            const hoverUnitCell = GridMath.getCellForPosition(
-                                this.sc_sceneSettings.getGridSettings(),
-                                hoverAttackUnit.getPosition(),
+                            const evaluatedRangeAttack = this.attackHandler.evaluateRangeAttack(
+                                this.unitsHolder.getAllUnits(),
+                                this.currentActiveUnit,
+                                this.currentActiveUnit.getPosition(),
+                                this.hoverRangeAttackPosition,
                             );
+                            this.hoverRangeAttackDivisors = evaluatedRangeAttack.rangeAttackDivisors;
+                            this.hoverAttackUnits = evaluatedRangeAttack.affectedUnits;
+                            this.hoverRangeAttackObstacle = evaluatedRangeAttack.attackObstacle;
 
-                            // if we are attacking RANGE unit,
-                            // it has to response back
+                            const hoverAttackUnit = this.getHoverAttackUnit();
+
                             if (
-                                hoverUnitCell &&
-                                hoverAttackUnit.getAttackType() === AttackType.RANGE &&
-                                hoverAttackUnit.getRangeShots() > 0 &&
-                                !this.attackHandler.canBeAttackedByMelee(
-                                    hoverAttackUnit.getPosition(),
-                                    hoverAttackUnit.isSmallSize(),
-                                    this.grid.getEnemyAggrMatrixByUnitId(hoverAttackUnit.getId()),
-                                ) &&
-                                !hoverAttackUnit.hasDebuffActive("Range Null Field Aura") &&
-                                !hoverAttackUnit.hasDebuffActive("Rangebane")
+                                hoverAttackUnit &&
+                                !(
+                                    this.currentActiveUnit.hasDebuffActive("Cowardice") &&
+                                    this.currentActiveUnit.getCumulativeHp() < hoverAttackUnit.getCumulativeHp()
+                                )
                             ) {
-                                const evaluatedRangeResponse = this.attackHandler.evaluateRangeAttack(
-                                    this.unitsHolder.getAllUnits(),
-                                    hoverAttackUnit,
+                                const hoverUnitCell = GridMath.getCellForPosition(
+                                    this.sc_sceneSettings.getGridSettings(),
                                     hoverAttackUnit.getPosition(),
-                                    this.currentActiveUnit.getPosition(),
                                 );
-                                this.rangeResponseAttackDivisor =
-                                    evaluatedRangeResponse.rangeAttackDivisors.shift() ?? 1;
-                                this.rangeResponseUnit = evaluatedRangeResponse.affectedUnits.shift();
+
+                                // if we are attacking RANGE unit,
+                                // it has to response back
+                                if (
+                                    hoverUnitCell &&
+                                    hoverAttackUnit.getAttackType() === AttackType.RANGE &&
+                                    hoverAttackUnit.getRangeShots() > 0 &&
+                                    !this.attackHandler.canBeAttackedByMelee(
+                                        hoverAttackUnit.getPosition(),
+                                        hoverAttackUnit.isSmallSize(),
+                                        this.grid.getEnemyAggrMatrixByUnitId(hoverAttackUnit.getId()),
+                                    ) &&
+                                    !hoverAttackUnit.hasDebuffActive("Range Null Field Aura") &&
+                                    !hoverAttackUnit.hasDebuffActive("Rangebane")
+                                ) {
+                                    const evaluatedRangeResponse = this.attackHandler.evaluateRangeAttack(
+                                        this.unitsHolder.getAllUnits(),
+                                        hoverAttackUnit,
+                                        hoverAttackUnit.getPosition(),
+                                        this.currentActiveUnit.getPosition(),
+                                    );
+                                    this.rangeResponseAttackDivisor =
+                                        evaluatedRangeResponse.rangeAttackDivisors.shift() ?? 1;
+                                    this.rangeResponseUnit = evaluatedRangeResponse.affectedUnits.shift();
+                                }
+
+                                const hoverRangeAttackDivisor = this.hoverRangeAttackDivisors.length
+                                    ? this.hoverRangeAttackDivisors[0] ?? 1
+                                    : 1;
+                                const divisorStr = hoverRangeAttackDivisor > 1 ? `1/${hoverRangeAttackDivisor} ` : "";
+
+                                const minDmg = this.currentActiveUnit.calculateAttackDamageMin(
+                                    hoverAttackUnit,
+                                    true,
+                                    hoverRangeAttackDivisor,
+                                );
+                                const maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
+                                    hoverAttackUnit,
+                                    true,
+                                    hoverRangeAttackDivisor,
+                                );
+                                const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
+                                const maxDied = hoverAttackUnit.calculatePossibleLosses(maxDmg);
+                                if (minDied !== maxDied) {
+                                    this.sc_attackKillSpreadStr = `${minDied}-${maxDied}`;
+                                } else if (minDied) {
+                                    this.sc_attackKillSpreadStr = minDied.toString();
+                                }
+
+                                this.sc_attackDamageSpreadStr = `${minDmg}-${maxDmg}`;
+                                this.sc_attackRangeDamageDivisorStr = divisorStr;
+                                this.sc_hoverTextUpdateNeeded = true;
+                            } else {
+                                this.hoverAttackUnits = undefined;
                             }
-
-                            const hoverRangeAttackDivisor = this.hoverRangeAttackDivisors.length
-                                ? this.hoverRangeAttackDivisors[0] ?? 1
-                                : 1;
-                            const divisorStr = hoverRangeAttackDivisor > 1 ? `1/${hoverRangeAttackDivisor} ` : "";
-
-                            const minDmg = this.currentActiveUnit.calculateAttackDamageMin(
-                                hoverAttackUnit,
-                                true,
-                                hoverRangeAttackDivisor,
-                            );
-                            const maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
-                                hoverAttackUnit,
-                                true,
-                                hoverRangeAttackDivisor,
-                            );
-                            const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
-                            const maxDied = hoverAttackUnit.calculatePossibleLosses(maxDmg);
-                            if (minDied !== maxDied) {
-                                this.sc_attackKillSpreadStr = `${minDied}-${maxDied}`;
-                            } else if (minDied) {
-                                this.sc_attackKillSpreadStr = minDied.toString();
-                            }
-
-                            this.sc_attackDamageSpreadStr = `${minDmg}-${maxDmg}`;
-                            this.sc_attackRangeDamageDivisorStr = divisorStr;
-                            this.sc_hoverTextUpdateNeeded = true;
                         } else {
                             this.hoverAttackUnits = undefined;
                         }
