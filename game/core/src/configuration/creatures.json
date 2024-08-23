@@ -418,7 +418,7 @@
             "speed": 7,
             "armor": 10,
             "attack_type": "MELEE",
-            "attack": 9,
+            "attack": 8,
             "attack_damage_min": 1,
             "attack_damage_max": 4,
             "attack_range": 1,
@@ -833,6 +833,7 @@
             "size": 1,
             "level": 3,
             "spells": [
+                "Chaos:Riot",
                 "Chaos:Riot",
                 "Chaos:Magic Mirror",
                 "Chaos:Magic Mirror",

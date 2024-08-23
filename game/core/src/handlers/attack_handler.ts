@@ -36,6 +36,8 @@ import { processSpitBallAbility } from "../abilities/spit_ball_ability";
 import { processPetrifyingGazeAbility } from "../abilities/petrifying_gaze_ability";
 import { SpellsFactory } from "../spells/spells_factory";
 import { getAbsorptionTarget } from "../effects/effects_helper";
+import { getLapString } from "../utils/strings";
+import { alreadyApplied, isMirrored } from "../spells/spells_helper";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -249,6 +251,7 @@ export class AttackHandler {
             )
         ) {
             let applied = true;
+            let mirroredStr = "";
             if (currentActiveSpell.isBuff()) {
                 targetUnit.applyBuff(
                     currentActiveSpell,
@@ -266,12 +269,26 @@ export class AttackHandler {
                     debuffTarget = absorptionTarget;
                 }
 
+                const laps = currentActiveSpell.getLapsTotal();
+
                 debuffTarget.applyDebuff(
                     currentActiveSpell,
-                    attackerUnit.getAllProperties().max_hp,
-                    attackerUnit.getAllProperties().base_armor,
+                    undefined,
+                    undefined,
                     attackerUnit.getId() === targetUnit.getId(),
                 );
+
+                if (isMirrored(debuffTarget) && !alreadyApplied(debuffTarget, currentActiveSpell)) {
+                    attackerUnit.applyDebuff(
+                        currentActiveSpell,
+                        undefined,
+                        undefined,
+                        attackerUnit.getId() === targetUnit.getId(),
+                    );
+                    mirroredStr = `${debuffTarget.getName()} mirrored ${currentActiveSpell.getName()} to ${attackerUnit.getName()} for ${getLapString(
+                        laps,
+                    )}`;
+                }
             }
 
             if (currentActiveSpell.isSelfDebuffApplicable()) {
@@ -282,24 +299,28 @@ export class AttackHandler {
                     debuffTarget = absorptionTarget;
                 }
 
-                debuffTarget.applyDebuff(
-                    currentActiveSpell,
-                    attackerUnit.getAllProperties().max_hp,
-                    attackerUnit.getAllProperties().base_armor,
-                    true,
-                );
+                if (!alreadyApplied(debuffTarget, currentActiveSpell)) {
+                    debuffTarget.applyDebuff(
+                        currentActiveSpell,
+                        attackerUnit.getAllProperties().max_hp,
+                        attackerUnit.getAllProperties().base_armor,
+                        true,
+                    );
+                }
             }
+            const laps = currentActiveSpell.getLapsTotal();
             attackerUnit.useSpell(currentActiveSpell);
             let newText = `${attackerUnit.getName()} cast ${currentActiveSpell.getName()}`;
             if (attackerUnit.getId() === targetUnit.getId()) {
-                newText += " on themselves";
+                newText += ` on themselves for ${getLapString(laps)}`;
             } else {
-                newText += ` on ${targetUnit.getName()}`;
+                newText += ` on ${targetUnit.getName()} for ${getLapString(laps)}`;
             }
             this.sceneLog.updateLog(newText);
             if (!applied) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} resisted from ${currentActiveSpell.getName()}`);
             }
+            this.sceneLog.updateLog(mirroredStr);
 
             return true;
         }

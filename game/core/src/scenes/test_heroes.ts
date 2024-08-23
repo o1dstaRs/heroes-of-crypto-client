@@ -46,6 +46,7 @@ import { PlacementType, SquarePlacement } from "../placement/square_placement";
 import { Settings } from "../settings";
 import { canBeCasted, canBeMassCasted, canBeSummoned, Spell } from "../spells/spells";
 import { SpellsFactory } from "../spells/spells_factory";
+import { alreadyApplied, isMirrored } from "../spells/spells_helper";
 import { FightStateManager } from "../state/fight_state_manager";
 import { IVisibleUnit } from "../state/state";
 import {
@@ -74,6 +75,7 @@ import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
+import { getLapString } from "../utils/strings";
 import { GLScene } from "./gl_scene";
 import { registerScene, SceneContext } from "./scene";
 import { SceneSettings } from "./scene_settings";
@@ -2177,24 +2179,16 @@ class Sandbox extends GLScene {
                         )
                     ) {
                         if (this.hoveredSpell.getSpellTargetType() === SpellTargetType.ALL_ALLIES) {
+                            this.sc_sceneLog.updateLog(
+                                `${this.currentActiveUnit.getName()} cast ${this.hoveredSpell.getName()} on allies`,
+                            );
+
                             for (const u of this.unitsHolder.getAllAllies(this.currentActiveUnit.getTeam())) {
                                 if (u.getMagicResist() === 100) {
                                     continue;
                                 }
 
-                                const conflictingSpells = [
-                                    ...this.hoveredSpell.getConflictsWith(),
-                                    this.hoveredSpell.getName(),
-                                ];
-                                let needToApply = true;
-                                for (const cs of conflictingSpells) {
-                                    if (u.hasBuffActive(cs)) {
-                                        needToApply = false;
-                                        break;
-                                    }
-                                }
-
-                                if (needToApply) {
+                                if (!alreadyApplied(u, this.hoveredSpell)) {
                                     u.applyBuff(
                                         this.hoveredSpell,
                                         undefined,
@@ -2203,11 +2197,11 @@ class Sandbox extends GLScene {
                                     );
                                 }
                             }
-
-                            this.sc_sceneLog.updateLog(
-                                `${this.currentActiveUnit.getName()} cast ${this.hoveredSpell.getName()} on allies`,
-                            );
                         } else {
+                            this.sc_sceneLog.updateLog(
+                                `${this.currentActiveUnit.getName()} cast ${this.hoveredSpell.getName()} on enemies`,
+                            );
+
                             for (const u of this.unitsHolder.getAllEnemyUnits(this.currentActiveUnit.getTeam())) {
                                 let debuffTarget = u;
 
@@ -2221,31 +2215,39 @@ class Sandbox extends GLScene {
                                     continue;
                                 }
 
-                                const conflictingSpells = [
-                                    ...this.hoveredSpell.getConflictsWith(),
-                                    this.hoveredSpell.getName(),
-                                ];
-                                let needToApply = true;
-                                for (const cs of conflictingSpells) {
-                                    if (debuffTarget.hasDebuffActive(cs)) {
-                                        needToApply = false;
-                                        break;
-                                    }
+                                if (HoCLib.getRandomInt(0, 100) < Math.floor(debuffTarget.getMagicResist())) {
+                                    this.sc_sceneLog.updateLog(
+                                        `${debuffTarget.getName()} resisted from ${this.hoveredSpell.getName()}`,
+                                    );
+                                    continue;
                                 }
 
-                                if (needToApply) {
+                                if (!alreadyApplied(debuffTarget, this.hoveredSpell)) {
+                                    const laps = this.hoveredSpell.getLapsTotal();
                                     debuffTarget.applyDebuff(
                                         this.hoveredSpell,
                                         undefined,
                                         undefined,
                                         debuffTarget.getId() === this.currentActiveUnit.getId(),
                                     );
+                                    if (
+                                        isMirrored(debuffTarget) &&
+                                        !alreadyApplied(this.currentActiveUnit, this.hoveredSpell)
+                                    ) {
+                                        this.currentActiveUnit.applyDebuff(
+                                            this.hoveredSpell,
+                                            undefined,
+                                            undefined,
+                                            true,
+                                        );
+                                        this.sc_sceneLog.updateLog(
+                                            `${debuffTarget.getName()} mirrored ${this.hoveredSpell.getName()} to ${this.currentActiveUnit.getName()} for ${getLapString(
+                                                laps,
+                                            )}`,
+                                        );
+                                    }
                                 }
                             }
-
-                            this.sc_sceneLog.updateLog(
-                                `${this.currentActiveUnit.getName()} cast ${this.hoveredSpell.getName()} on enemies`,
-                            );
                         }
 
                         this.currentActiveUnit.useSpell(this.hoveredSpell);
@@ -2769,7 +2771,6 @@ class Sandbox extends GLScene {
                                             unit.setPosition(bodyPosition.x, bodyPosition.y);
                                         }
                                         unit.randomizeLuckPerTurn();
-                                        unit.setAttackMultiplier(1);
                                         unit.setResponded(false);
                                         unit.setOnHourglass(false);
                                         unit.applyMoraleStepsModifier(
@@ -2835,7 +2836,6 @@ class Sandbox extends GLScene {
                                         unit.setPosition(bodyPosition.x, bodyPosition.y);
                                     }
                                     unit.randomizeLuckPerTurn();
-                                    unit.setAttackMultiplier(1);
                                     unit.setResponded(false);
                                     unit.setOnHourglass(false);
                                     unit.applyMoraleStepsModifier(
@@ -2921,7 +2921,6 @@ class Sandbox extends GLScene {
             if (this.sc_started && allUnitsMadeTurn && !fightFinished) {
                 for (const u of units) {
                     u.randomizeLuckPerTurn();
-                    u.setAttackMultiplier(1);
                     u.setResponded(false);
                     u.setOnHourglass(false);
                     u.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
@@ -3009,7 +3008,6 @@ class Sandbox extends GLScene {
                                         const buff = this.spellsFactory.makeSpell(FactionType.NO_TYPE, "Morale", 1);
                                         u.applyBuff(buff);
                                         FightStateManager.getInstance().enqueueMoralePlus(u.getId());
-                                        // u.setAttackMultiplier(1.25);
                                     } else {
                                         const debuff = this.spellsFactory.makeSpell(
                                             FactionType.NO_TYPE,
@@ -3018,7 +3016,6 @@ class Sandbox extends GLScene {
                                         );
                                         u.applyDebuff(debuff);
                                         FightStateManager.getInstance().enqueueMoraleMinus(u.getId());
-                                        // u.setAttackMultiplier(0.8);
                                     }
                                 }
                             }

@@ -13,6 +13,7 @@ import { HoCLib } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { Unit } from "../units/units";
+import { getLapString } from "../utils/strings";
 
 export function processStunAbility(
     fromUnit: Unit,
@@ -42,7 +43,7 @@ export function processStunAbility(
         }
 
         if (targetUnit.applyEffect(stunEffect)) {
-            sceneLog.updateLog(`${targetUnit.getName()} got stunned for ${laps} lap`);
+            sceneLog.updateLog(`${targetUnit.getName()} got stunned for ${getLapString(laps)}`);
         }
     }
 }

@@ -11,6 +11,7 @@
 
 import { SceneLog } from "../menu/scene_log";
 import { Unit } from "../units/units";
+import { getLapString } from "../utils/strings";
 
 export function processBoarSalivaAbility(
     fromUnit: Unit,
@@ -43,7 +44,9 @@ export function processBoarSalivaAbility(
         }
 
         if (targetUnit.applyEffect(boarSalivaEffect)) {
-            sceneLog.updateLog(`Applied Boar Saliva on ${targetUnit.getName()} for ${laps} laps`);
+            sceneLog.updateLog(
+                `${fromUnit.getName()} applied Boar Saliva on ${targetUnit.getName()} for ${getLapString(laps)}`,
+            );
         }
     }
 }

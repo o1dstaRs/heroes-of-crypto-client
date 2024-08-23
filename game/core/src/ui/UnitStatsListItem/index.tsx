@@ -20,6 +20,7 @@ import redFlagImage from "../../../images/red_flag_128.webp";
 import { images } from "../../generated/image_imports";
 import { useManager } from "../../manager";
 import { IVisibleImpact, IVisibleOverallImpact } from "../../state/state";
+import { getLapString } from "../../utils/strings";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
 import { BootIcon } from "../svg/boot";
 import { BowIcon } from "../svg/bow";
@@ -212,7 +213,7 @@ const EffectColumn: React.FC<{ effects: IVisibleImpact[]; title: string }> = ({ 
                             key={index}
                             title={`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${
                                 effect.laps > 0 && effect.laps !== Number.MAX_SAFE_INTEGER
-                                    ? " (remaining " + effect.laps.toString() + (effect.laps === 1 ? " lap)" : " laps)")
+                                    ? ` (remaining ${getLapString(effect.laps)})`
                                     : ""
                             }`}
                         >

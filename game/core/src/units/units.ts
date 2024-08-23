@@ -1295,10 +1295,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.steps_morale = Number((stepsMoraleMultiplier * this.getMorale()).toFixed(2));
     }
 
-    public setAttackMultiplier(multiplier: number) {
-        this.unitProperties.attack_multiplier = multiplier;
-    }
-
     public calculatePossibleLosses(minusHp: number): number {
         let amountDied = 0;
         const currentHp = this.unitProperties.hp;
@@ -1712,20 +1708,28 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         // MORALE
+        this.unitProperties.attack_multiplier = 1;
+        this.unitProperties.morale = this.initialUnitProperties.morale;
+        let lockedMorale = false;
         if (baseStatsDiff.baseStats.morale === Number.MIN_SAFE_INTEGER) {
             if (this.hasBuffActive("Morale")) {
                 this.unitProperties.morale = 0;
+                lockedMorale = true;
             } else {
                 this.unitProperties.morale = -MORALE_MAX_VALUE_TOTAL;
             }
-        } else if (this.hasBuffActive("Morale")) {
-            this.setAttackMultiplier(1.25);
-            this.unitProperties.morale = MORALE_MAX_VALUE_TOTAL;
+        }
+
+        if (this.hasBuffActive("Morale")) {
+            this.unitProperties.attack_multiplier = 1.25;
+            if (!lockedMorale) {
+                this.unitProperties.morale = MORALE_MAX_VALUE_TOTAL;
+            }
         } else if (this.hasDebuffActive("Dismorale")) {
-            this.setAttackMultiplier(0.8);
-            this.unitProperties.morale = -MORALE_MAX_VALUE_TOTAL;
-        } else {
-            this.unitProperties.morale = this.initialUnitProperties.morale;
+            this.unitProperties.attack_multiplier = 0.8;
+            if (!lockedMorale) {
+                this.unitProperties.morale = -MORALE_MAX_VALUE_TOTAL;
+            }
         }
 
         // ARMOR
