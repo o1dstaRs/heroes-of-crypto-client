@@ -154,7 +154,7 @@
             "target": "ANY_ENEMY",
             "power": 0,
             "power_type": "COMMON",
-            "laps": 15,
+            "laps": 3,
             "is_buff": false,
             "self_cast_allowed": false,
             "self_debuff_applies": false,
