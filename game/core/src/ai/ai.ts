@@ -37,12 +37,11 @@ export interface IAI {
 }
 
 export enum AIActionType {
-    M_ATTACK,
-    R_ATTACK,
-    S_ATTACK,
+    MELEE_ATTACK,
+    RANGE_ATTACK,
+    MAGIC_ATTACK,
     MOVE,
-    MOVE_AND_M_ATTACK,
-    WAIT,
+    MOVE_AND_MELEE_ATTACK,
 }
 
 export interface IAIAction {
@@ -168,7 +167,12 @@ function doFindTarget(
                     console.log("checking a cellToMoveTo:" + cellToString(elementNeighbor));
                     if (unit.isSmallSize()) {
                         if (cellKey(elementNeighbor) === cellKey(unitCell)) {
-                            return new BasicAIAction(AIActionType.M_ATTACK, unitCell, { x: j, y: i }, paths.knownPaths);
+                            return new BasicAIAction(
+                                AIActionType.MELEE_ATTACK,
+                                unitCell,
+                                { x: j, y: i },
+                                paths.knownPaths,
+                            );
                         }
                     } else if (
                         cellKey(elementNeighbor) === cellKey(unitCell) ||
@@ -176,7 +180,7 @@ function doFindTarget(
                         cellKey(elementNeighbor) === cellKey({ x: unitCell.x - 1, y: unitCell.y - 1 }) ||
                         cellKey(elementNeighbor) === cellKey({ x: unitCell.x, y: unitCell.y - 1 })
                     ) {
-                        return new BasicAIAction(AIActionType.M_ATTACK, unitCell, { x: j, y: i }, paths.knownPaths);
+                        return new BasicAIAction(AIActionType.MELEE_ATTACK, unitCell, { x: j, y: i }, paths.knownPaths);
                     }
 
                     const cellK = cellKey(elementNeighbor);
@@ -208,7 +212,7 @@ function doFindTarget(
     }
     console.log("СlosestTarget:" + cellToString(closestTarget));
     if (unit.getAllProperties()?.attack_type === AttackType.RANGE) {
-        return new BasicAIAction(AIActionType.R_ATTACK, undefined, closestTarget, paths.knownPaths);
+        return new BasicAIAction(AIActionType.RANGE_ATTACK, undefined, closestTarget, paths.knownPaths);
     }
 
     /**
@@ -253,13 +257,13 @@ function doFindTarget(
     }
 
     if (routeIndex === 0) {
-        return new BasicAIAction(AIActionType.M_ATTACK, route?.route[routeIndex], closestTarget, paths.knownPaths);
+        return new BasicAIAction(AIActionType.MELEE_ATTACK, route?.route[routeIndex], closestTarget, paths.knownPaths);
     }
 
     console.log("MinDistance=" + minDistance + " unit.steps=" + unit.getSteps());
     if (minDistance <= unit.getSteps()) {
         return new BasicAIAction(
-            AIActionType.MOVE_AND_M_ATTACK,
+            AIActionType.MOVE_AND_MELEE_ATTACK,
             route?.route[routeIndex],
             closestTarget,
             paths.knownPaths,

@@ -430,7 +430,7 @@ class Sandbox extends GLScene {
             }
 
             const action = findTarget(this.currentActiveUnit, this.grid, this.gridMatrix, this.pathHelper);
-            if (action?.actionType() === AIActionType.MOVE_AND_M_ATTACK) {
+            if (action?.actionType() === AIActionType.MOVE_AND_MELEE_ATTACK) {
                 this.currentActiveUnit.selectAttackType(AttackType.MELEE);
                 this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                 this.currentActiveKnownPaths = action.currentActiveKnownPaths();
@@ -466,7 +466,7 @@ class Sandbox extends GLScene {
                     }
                 }
                 this.landAttack();
-            } else if (action?.actionType() === AIActionType.M_ATTACK) {
+            } else if (action?.actionType() === AIActionType.MELEE_ATTACK) {
                 this.currentActiveUnit.selectAttackType(AttackType.MELEE);
                 this.currentActiveKnownPaths = action.currentActiveKnownPaths();
                 const cellToAttack = action.cellToAttack();
@@ -484,7 +484,7 @@ class Sandbox extends GLScene {
                     }
                 }
                 this.landAttack();
-            } else if (action?.actionType() === AIActionType.R_ATTACK) {
+            } else if (action?.actionType() === AIActionType.RANGE_ATTACK) {
                 this.currentActiveUnit.selectAttackType(AttackType.RANGE);
                 this.currentActiveKnownPaths = action.currentActiveKnownPaths();
                 const cellToAttack = action.cellToAttack();
