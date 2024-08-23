@@ -9,8 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { b2Body, b2Fixture, b2TestOverlap, b2Vec2, b2World, XY } from "@box2d/core";
-import { AttackType, HoCLib, HoCConstants, UnitProperties, GridMath, GridSettings, Grid } from "@heroesofcrypto/common";
+import { b2Body, XY } from "@box2d/core";
+import { AttackType, HoCLib, HoCMath, GridMath, GridSettings, Grid } from "@heroesofcrypto/common";
 
 import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
@@ -27,7 +27,7 @@ import { canBeCasted, Spell } from "../spells/spells";
 import { FightStateManager } from "../state/fight_state_manager";
 import { MORALE_CHANGE_FOR_KILL } from "../statics";
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { IUnitDistance, Unit } from "../units/units";
+import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { MoveHandler } from "./move_handler";
 import { processBlindnessAbility } from "../abilities/blindness_ability";
@@ -41,7 +41,8 @@ import { alreadyApplied, isMirrored } from "../spells/spells_helper";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
-    targetUnits: Unit[];
+    affectedUnits: Unit[];
+    affectedCells: XY[];
     attackObstacle?: IAttackObstacle;
 }
 
@@ -52,138 +53,168 @@ export interface IAttackObstacle {
 }
 
 export class AttackHandler {
-    public readonly world: b2World;
-
     public readonly gridSettings: GridSettings;
+
+    public readonly grid: Grid;
 
     public readonly sceneLog: SceneLog;
 
     public readonly spellsFactory: SpellsFactory;
 
-    public constructor(world: b2World, gridSettings: GridSettings, spellsFactory: SpellsFactory, sceneLog: SceneLog) {
-        this.world = world;
+    public constructor(gridSettings: GridSettings, grid: Grid, spellsFactory: SpellsFactory, sceneLog: SceneLog) {
         this.gridSettings = gridSettings;
+        this.grid = grid;
         this.spellsFactory = spellsFactory;
         this.sceneLog = sceneLog;
     }
 
-    public evaluateRangeAttack(
+    private getAffectedUnitsAndObstacles(
         allUnits: Map<string, Unit>,
-        hoverRangeAttackLine: b2Fixture,
-        fromUnit: Unit,
-        toUnit: Unit,
+        cellsToPositions: [XY, XY][],
+        attackerUnit: Unit,
     ): IRangeAttackEvaluation {
-        const unitIdsAffected: string[] = [];
-        // store units in array sorted by distance
-        // just to make sure we can process multiple shots in the future
-        const targetUnits: Unit[] = [];
-        let attackObstacle: IAttackObstacle | undefined;
-        let closestBlockDistance = Number.MAX_SAFE_INTEGER;
-
-        this.world.QueryAABB(hoverRangeAttackLine.GetAABB(0), (fixture: b2Fixture): boolean => {
-            const body = fixture.GetBody();
-            if (hoverRangeAttackLine) {
-                const overlap = b2TestOverlap(
-                    fixture.GetShape(),
-                    0,
-                    hoverRangeAttackLine.GetShape(),
-                    0,
-                    body.GetTransform(),
-                    hoverRangeAttackLine.GetBody().GetTransform(),
-                );
-
-                if (overlap) {
-                    const userData = body.GetUserData();
-                    if (userData?.id && userData?.size) {
-                        if (userData.id === "BLOCK") {
-                            const currentDistance = b2Vec2.Distance(fromUnit.getPosition(), body.GetPosition());
-                            if (currentDistance < closestBlockDistance) {
-                                closestBlockDistance = currentDistance;
-                                attackObstacle = {
-                                    position: body.GetPosition(),
-                                    size: userData.size,
-                                    distance: closestBlockDistance,
-                                };
-                            }
-                        } else {
-                            const unitData = body.GetUserData() as UnitProperties;
-                            if (unitData.id !== fromUnit.getId() && !unitIdsAffected.includes(unitData.id)) {
-                                unitIdsAffected.push(unitData.id);
-                            }
-                        }
-                    }
-                }
-            }
-            return true;
-        });
-
-        const unitsSortedByDistance: IUnitDistance[] = new Array(unitIdsAffected.length + 1);
-        let idx = 0;
-        for (const uId of unitIdsAffected) {
-            const unitAffected = allUnits.get(uId);
-            if (!unitAffected) {
-                continue;
-            }
-
-            unitsSortedByDistance[idx++] = {
-                unit: unitAffected,
-                distance: b2Vec2.Distance(fromUnit.getPosition(), unitAffected.getPosition()),
-            };
-        }
-
-        unitsSortedByDistance[idx] = {
-            unit: toUnit,
-            distance: b2Vec2.Distance(fromUnit.getPosition(), toUnit.getPosition()),
-        };
-
-        unitsSortedByDistance.sort((a: IUnitDistance, b: IUnitDistance) => {
-            if (a.distance < b.distance) {
-                return -1;
-            }
-            if (a.distance > b.distance) {
-                return 1;
-            }
-            return 0;
-        });
-
-        let rangeAttackDivisor = 1;
+        const affectedUnitIds: string[] = [];
+        const affectedUnits: Unit[] = [];
+        const affectedCells: XY[] = [];
         const rangeAttackDivisors: number[] = [];
-        const shotDistancePixels = Math.ceil(fromUnit.getRangeShotDistance() * this.gridSettings.getStep());
+        const isSniper = attackerUnit.hasAbilityActive("Sniper");
+        let attackObstacle: IAttackObstacle | undefined;
 
-        for (const ud of unitsSortedByDistance) {
-            if (ud.distance >= closestBlockDistance) {
+        for (const cellToPosition of cellsToPositions) {
+            let rangeAttackDivisor = 1;
+            const cell = cellToPosition[0];
+            const position = cellToPosition[1];
+
+            const possibleUnitId = this.grid.getOccupantUnitId(cell);
+            if (possibleUnitId === "B") {
+                const obstablePosition = {
+                    x: (this.gridSettings.getMinX() + this.gridSettings.getMaxX()) / 2,
+                    y: (this.gridSettings.getMinY() + this.gridSettings.getMaxY()) / 2,
+                };
+                attackObstacle = {
+                    position: obstablePosition,
+                    size: 4,
+                    distance: HoCMath.getDistance(attackerUnit.getPosition(), obstablePosition),
+                };
                 break;
             }
 
-            if (ud.unit.getTeam() === fromUnit.getTeam()) {
-                if (HoCConstants.PENALTY_ON_RANGE_SHOT_THROUGH_TEAMMATES) {
-                    rangeAttackDivisor *= 2;
-                }
-            } else {
-                while (ud.distance >= shotDistancePixels) {
-                    ud.distance -= shotDistancePixels;
-                    rangeAttackDivisor *= 2;
-                }
-                targetUnits.push(ud.unit);
-
-                if (rangeAttackDivisor > 8) {
-                    rangeAttackDivisor = 8;
-                }
-
-                if (fromUnit.hasAbilityActive("Sniper")) {
-                    rangeAttackDivisor = 1;
-                }
-
-                rangeAttackDivisors.push(rangeAttackDivisor);
-                attackObstacle = undefined;
+            if (!possibleUnitId) {
+                continue;
             }
+            if ((attackerUnit && attackerUnit.getId() === possibleUnitId) || affectedUnitIds.includes(possibleUnitId)) {
+                continue;
+            }
+            const possibleUnit = allUnits.get(possibleUnitId);
+            if (!possibleUnit) {
+                continue;
+            }
+
+            if (attackerUnit) {
+                if (attackerUnit.getTeam() === possibleUnit.getTeam()) {
+                    continue;
+                }
+            }
+
+            affectedUnits.push(possibleUnit);
+            affectedUnitIds.push(possibleUnitId);
+            affectedCells.push(cell);
+            if (!isSniper) {
+                const shotDistancePixels = Math.ceil(attackerUnit.getRangeShotDistance() * this.gridSettings.getStep());
+                let distance = HoCMath.getDistance(attackerUnit.getPosition(), position);
+                while (distance >= shotDistancePixels) {
+                    distance -= shotDistancePixels;
+                    rangeAttackDivisor *= 2;
+                }
+            }
+            if (rangeAttackDivisor < 1) {
+                rangeAttackDivisor = 1;
+            }
+            if (rangeAttackDivisor > 8) {
+                rangeAttackDivisor = 8;
+            }
+            rangeAttackDivisors.push(Math.floor(rangeAttackDivisor));
         }
+
+        // if (!isAttackBlocked && !affectedUnitIds.includes(targetUnit.getId())) {
+        // affectedUnits.push(targetUnit);
+        // }
 
         return {
             rangeAttackDivisors,
-            targetUnits,
+            affectedUnits,
+            affectedCells,
             attackObstacle,
         };
+    }
+
+    private getCellsToPositions(positions: XY[]): Array<[XY, XY]> {
+        const cells: Array<[XY, XY]> = [];
+        const cellKeys: number[] = [];
+
+        for (const position of positions) {
+            const cell = GridMath.getCellForPosition(this.gridSettings, position);
+            if (!cell) {
+                continue;
+            }
+            const cellKey = (cell.x << 4) | cell.y;
+            if (cellKeys.includes(cellKey)) {
+                continue;
+            }
+            cells.push([cell, position]);
+            cellKeys.push(cellKey);
+        }
+        return cells;
+    }
+
+    private getIntersectedPositions(start: XY, end: XY): XY[] {
+        const positions: XY[] = [];
+
+        // Convert world coordinates to grid coordinates
+        const gridStart = start;
+        const gridEnd = end;
+
+        let x0 = Math.round(gridStart.x);
+        let y0 = Math.round(gridStart.y);
+        let x1 = Math.round(gridEnd.x);
+        let y1 = Math.round(gridEnd.y);
+
+        const dx = Math.abs(x1 - x0);
+        const dy = Math.abs(y1 - y0);
+        const sx = x0 < x1 ? 1 : -1;
+        const sy = y0 < y1 ? 1 : -1;
+        let err = dx - dy;
+
+        while (true) {
+            positions.push({ x: x0, y: y0 });
+
+            if (x0 === x1 && y0 === y1) break;
+
+            const e2 = 2 * err;
+            if (e2 > -dy) {
+                err -= dy;
+                x0 += sx;
+            }
+            if (e2 < dx) {
+                err += dx;
+                y0 += sy;
+            }
+        }
+
+        return positions;
+    }
+
+    public evaluateRangeAttack(
+        allUnits: Map<string, Unit>,
+        fromUnit: Unit,
+        fromPosition: XY,
+        toPosition: XY,
+    ): IRangeAttackEvaluation {
+        const intersectedCellsToPositions = this.getCellsToPositions(
+            this.getIntersectedPositions(fromPosition, toPosition),
+        );
+
+        return this.getAffectedUnitsAndObstacles(allUnits, intersectedCellsToPositions, fromUnit);
     }
 
     public canLandRangeAttack(unit: Unit, aggrMatrix?: number[][]): boolean {

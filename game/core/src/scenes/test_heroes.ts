@@ -405,8 +405,8 @@ class Sandbox extends GLScene {
 
         this.spawnUnits();
         this.attackHandler = new AttackHandler(
-            this.sc_world,
             this.sc_sceneSettings.getGridSettings(),
+            this.grid,
             this.spellsFactory,
             this.sc_sceneLog,
         );
@@ -1294,12 +1294,12 @@ class Sandbox extends GLScene {
 
                         const evaluatedRangeAttack = this.attackHandler.evaluateRangeAttack(
                             this.unitsHolder.getAllUnits(),
-                            this.hoverRangeAttackLine,
                             this.currentActiveUnit,
-                            unit,
+                            this.currentActiveUnit.getPosition(),
+                            this.hoverRangeAttackPosition,
                         );
                         this.hoverRangeAttackDivisors = evaluatedRangeAttack.rangeAttackDivisors;
-                        this.hoverAttackUnits = evaluatedRangeAttack.targetUnits;
+                        this.hoverAttackUnits = evaluatedRangeAttack.affectedUnits;
                         this.hoverRangeAttackObstacle = evaluatedRangeAttack.attackObstacle;
 
                         const hoverAttackUnit = this.getHoverAttackUnit();
@@ -1332,13 +1332,13 @@ class Sandbox extends GLScene {
                             ) {
                                 const evaluatedRangeResponse = this.attackHandler.evaluateRangeAttack(
                                     this.unitsHolder.getAllUnits(),
-                                    this.hoverRangeAttackLine,
                                     hoverAttackUnit,
-                                    this.currentActiveUnit,
+                                    hoverAttackUnit.getPosition(),
+                                    this.currentActiveUnit.getPosition(),
                                 );
                                 this.rangeResponseAttackDivisor =
                                     evaluatedRangeResponse.rangeAttackDivisors.shift() ?? 1;
-                                this.rangeResponseUnit = evaluatedRangeResponse.targetUnits.shift();
+                                this.rangeResponseUnit = evaluatedRangeResponse.affectedUnits.shift();
                             }
 
                             const hoverRangeAttackDivisor = this.hoverRangeAttackDivisors.length
