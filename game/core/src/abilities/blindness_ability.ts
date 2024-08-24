@@ -13,6 +13,7 @@ import { HoCLib } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { Unit } from "../units/units";
+import { getLapString } from "../utils/strings";
 
 export function processBlindnessAbility(
     fromUnit: Unit,
@@ -42,7 +43,7 @@ export function processBlindnessAbility(
         }
 
         if (targetUnit.applyEffect(blindnessEffect)) {
-            sceneLog.updateLog(`${targetUnit.getName()} is blind for ${laps} laps`);
+            sceneLog.updateLog(`${targetUnit.getName()} is blind for ${getLapString(laps)}}`);
         }
     }
 }

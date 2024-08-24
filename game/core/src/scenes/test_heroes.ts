@@ -46,6 +46,7 @@ import { PlacementType, SquarePlacement } from "../placement/square_placement";
 import { Settings } from "../settings";
 import { canBeCasted, canBeMassCasted, canBeSummoned, Spell } from "../spells/spells";
 import { SpellsFactory } from "../spells/spells_factory";
+import { alreadyApplied, isMirrored } from "../spells/spells_helper";
 import { FightStateManager } from "../state/fight_state_manager";
 import { IVisibleUnit } from "../state/state";
 import {
@@ -74,6 +75,7 @@ import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
+import { getLapString } from "../utils/strings";
 import { GLScene } from "./gl_scene";
 import { registerScene, SceneContext } from "./scene";
 import { SceneSettings } from "./scene_settings";
@@ -403,8 +405,8 @@ class Sandbox extends GLScene {
 
         this.spawnUnits();
         this.attackHandler = new AttackHandler(
-            this.sc_world,
             this.sc_sceneSettings.getGridSettings(),
+            this.grid,
             this.spellsFactory,
             this.sc_sceneLog,
         );
@@ -428,7 +430,7 @@ class Sandbox extends GLScene {
             }
 
             const action = findTarget(this.currentActiveUnit, this.grid, this.gridMatrix, this.pathHelper);
-            if (action?.actionType() === AIActionType.MOVE_AND_M_ATTACK) {
+            if (action?.actionType() === AIActionType.MOVE_AND_MELEE_ATTACK) {
                 this.currentActiveUnit.selectAttackType(AttackType.MELEE);
                 this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                 this.currentActiveKnownPaths = action.currentActiveKnownPaths();
@@ -464,7 +466,7 @@ class Sandbox extends GLScene {
                     }
                 }
                 this.landAttack();
-            } else if (action?.actionType() === AIActionType.M_ATTACK) {
+            } else if (action?.actionType() === AIActionType.MELEE_ATTACK) {
                 this.currentActiveUnit.selectAttackType(AttackType.MELEE);
                 this.currentActiveKnownPaths = action.currentActiveKnownPaths();
                 const cellToAttack = action.cellToAttack();
@@ -482,7 +484,7 @@ class Sandbox extends GLScene {
                     }
                 }
                 this.landAttack();
-            } else if (action?.actionType() === AIActionType.R_ATTACK) {
+            } else if (action?.actionType() === AIActionType.RANGE_ATTACK) {
                 this.currentActiveUnit.selectAttackType(AttackType.RANGE);
                 this.currentActiveKnownPaths = action.currentActiveKnownPaths();
                 const cellToAttack = action.cellToAttack();
@@ -1273,98 +1275,101 @@ class Sandbox extends GLScene {
                     if (!this.hoverRangeAttackLine && unit.getTeam() !== this.currentActiveUnit.getTeam()) {
                         const shape = new b2EdgeShape();
 
-                        this.hoverRangeAttackPosition =
-                            GridMath.getClosestSideCenter(
-                                this.gridMatrix,
-                                this.sc_sceneSettings.getGridSettings(),
-                                this.sc_mouseWorld,
-                                this.currentActiveUnit.getPosition(),
-                                unit.getPosition(),
-                                this.currentActiveUnit.isSmallSize(),
-                                unit.isSmallSize(),
-                            ) ?? unit.getPosition();
-
-                        shape.SetTwoSided(this.currentActiveUnit.getPosition(), this.hoverRangeAttackPosition);
-                        this.hoverRangeAttackLine = this.ground.CreateFixture({
-                            shape,
-                            isSensor: true,
-                        });
-
-                        const evaluatedRangeAttack = this.attackHandler.evaluateRangeAttack(
-                            this.unitsHolder.getAllUnits(),
-                            this.hoverRangeAttackLine,
-                            this.currentActiveUnit,
-                            unit,
+                        this.hoverRangeAttackPosition = GridMath.getClosestSideCenter(
+                            this.gridMatrix,
+                            this.sc_sceneSettings.getGridSettings(),
+                            this.sc_mouseWorld,
+                            this.currentActiveUnit.getPosition(),
+                            unit.getPosition(),
+                            this.currentActiveUnit.isSmallSize(),
+                            unit.isSmallSize(),
                         );
-                        this.hoverRangeAttackDivisors = evaluatedRangeAttack.rangeAttackDivisors;
-                        this.hoverAttackUnits = evaluatedRangeAttack.targetUnits;
-                        this.hoverRangeAttackObstacle = evaluatedRangeAttack.attackObstacle;
 
-                        const hoverAttackUnit = this.getHoverAttackUnit();
+                        if (this.hoverRangeAttackPosition) {
+                            shape.SetTwoSided(this.currentActiveUnit.getPosition(), this.hoverRangeAttackPosition);
+                            this.hoverRangeAttackLine = this.ground.CreateFixture({
+                                shape,
+                                isSensor: true,
+                            });
 
-                        if (
-                            hoverAttackUnit &&
-                            !(
-                                this.currentActiveUnit.hasDebuffActive("Cowardice") &&
-                                this.currentActiveUnit.getCumulativeHp() < hoverAttackUnit.getCumulativeHp()
-                            )
-                        ) {
-                            const hoverUnitCell = GridMath.getCellForPosition(
-                                this.sc_sceneSettings.getGridSettings(),
-                                hoverAttackUnit.getPosition(),
+                            const evaluatedRangeAttack = this.attackHandler.evaluateRangeAttack(
+                                this.unitsHolder.getAllUnits(),
+                                this.currentActiveUnit,
+                                this.currentActiveUnit.getPosition(),
+                                this.hoverRangeAttackPosition,
                             );
+                            this.hoverRangeAttackDivisors = evaluatedRangeAttack.rangeAttackDivisors;
+                            this.hoverAttackUnits = evaluatedRangeAttack.affectedUnits;
+                            this.hoverRangeAttackObstacle = evaluatedRangeAttack.attackObstacle;
 
-                            // if we are attacking RANGE unit,
-                            // it has to response back
+                            const hoverAttackUnit = this.getHoverAttackUnit();
+
                             if (
-                                hoverUnitCell &&
-                                hoverAttackUnit.getAttackType() === AttackType.RANGE &&
-                                hoverAttackUnit.getRangeShots() > 0 &&
-                                !this.attackHandler.canBeAttackedByMelee(
-                                    hoverAttackUnit.getPosition(),
-                                    hoverAttackUnit.isSmallSize(),
-                                    this.grid.getEnemyAggrMatrixByUnitId(hoverAttackUnit.getId()),
-                                ) &&
-                                !hoverAttackUnit.hasDebuffActive("Range Null Field Aura") &&
-                                !hoverAttackUnit.hasDebuffActive("Rangebane")
+                                hoverAttackUnit &&
+                                !(
+                                    this.currentActiveUnit.hasDebuffActive("Cowardice") &&
+                                    this.currentActiveUnit.getCumulativeHp() < hoverAttackUnit.getCumulativeHp()
+                                )
                             ) {
-                                const evaluatedRangeResponse = this.attackHandler.evaluateRangeAttack(
-                                    this.unitsHolder.getAllUnits(),
-                                    this.hoverRangeAttackLine,
-                                    hoverAttackUnit,
-                                    this.currentActiveUnit,
+                                const hoverUnitCell = GridMath.getCellForPosition(
+                                    this.sc_sceneSettings.getGridSettings(),
+                                    hoverAttackUnit.getPosition(),
                                 );
-                                this.rangeResponseAttackDivisor =
-                                    evaluatedRangeResponse.rangeAttackDivisors.shift() ?? 1;
-                                this.rangeResponseUnit = evaluatedRangeResponse.targetUnits.shift();
+
+                                // if we are attacking RANGE unit,
+                                // it has to response back
+                                if (
+                                    hoverUnitCell &&
+                                    hoverAttackUnit.getAttackType() === AttackType.RANGE &&
+                                    hoverAttackUnit.getRangeShots() > 0 &&
+                                    !this.attackHandler.canBeAttackedByMelee(
+                                        hoverAttackUnit.getPosition(),
+                                        hoverAttackUnit.isSmallSize(),
+                                        this.grid.getEnemyAggrMatrixByUnitId(hoverAttackUnit.getId()),
+                                    ) &&
+                                    !hoverAttackUnit.hasDebuffActive("Range Null Field Aura") &&
+                                    !hoverAttackUnit.hasDebuffActive("Rangebane")
+                                ) {
+                                    const evaluatedRangeResponse = this.attackHandler.evaluateRangeAttack(
+                                        this.unitsHolder.getAllUnits(),
+                                        hoverAttackUnit,
+                                        hoverAttackUnit.getPosition(),
+                                        this.currentActiveUnit.getPosition(),
+                                    );
+                                    this.rangeResponseAttackDivisor =
+                                        evaluatedRangeResponse.rangeAttackDivisors.shift() ?? 1;
+                                    this.rangeResponseUnit = evaluatedRangeResponse.affectedUnits.shift();
+                                }
+
+                                const hoverRangeAttackDivisor = this.hoverRangeAttackDivisors.length
+                                    ? this.hoverRangeAttackDivisors[0] ?? 1
+                                    : 1;
+                                const divisorStr = hoverRangeAttackDivisor > 1 ? `1/${hoverRangeAttackDivisor} ` : "";
+
+                                const minDmg = this.currentActiveUnit.calculateAttackDamageMin(
+                                    hoverAttackUnit,
+                                    true,
+                                    hoverRangeAttackDivisor,
+                                );
+                                const maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
+                                    hoverAttackUnit,
+                                    true,
+                                    hoverRangeAttackDivisor,
+                                );
+                                const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
+                                const maxDied = hoverAttackUnit.calculatePossibleLosses(maxDmg);
+                                if (minDied !== maxDied) {
+                                    this.sc_attackKillSpreadStr = `${minDied}-${maxDied}`;
+                                } else if (minDied) {
+                                    this.sc_attackKillSpreadStr = minDied.toString();
+                                }
+
+                                this.sc_attackDamageSpreadStr = `${minDmg}-${maxDmg}`;
+                                this.sc_attackRangeDamageDivisorStr = divisorStr;
+                                this.sc_hoverTextUpdateNeeded = true;
+                            } else {
+                                this.hoverAttackUnits = undefined;
                             }
-
-                            const hoverRangeAttackDivisor = this.hoverRangeAttackDivisors.length
-                                ? this.hoverRangeAttackDivisors[0] ?? 1
-                                : 1;
-                            const divisorStr = hoverRangeAttackDivisor > 1 ? `1/${hoverRangeAttackDivisor} ` : "";
-
-                            const minDmg = this.currentActiveUnit.calculateAttackDamageMin(
-                                hoverAttackUnit,
-                                true,
-                                hoverRangeAttackDivisor,
-                            );
-                            const maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
-                                hoverAttackUnit,
-                                true,
-                                hoverRangeAttackDivisor,
-                            );
-                            const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
-                            const maxDied = hoverAttackUnit.calculatePossibleLosses(maxDmg);
-                            if (minDied !== maxDied) {
-                                this.sc_attackKillSpreadStr = `${minDied}-${maxDied}`;
-                            } else if (minDied) {
-                                this.sc_attackKillSpreadStr = minDied.toString();
-                            }
-
-                            this.sc_attackDamageSpreadStr = `${minDmg}-${maxDmg}`;
-                            this.sc_attackRangeDamageDivisorStr = divisorStr;
-                            this.sc_hoverTextUpdateNeeded = true;
                         } else {
                             this.hoverAttackUnits = undefined;
                         }
@@ -2177,24 +2182,16 @@ class Sandbox extends GLScene {
                         )
                     ) {
                         if (this.hoveredSpell.getSpellTargetType() === SpellTargetType.ALL_ALLIES) {
+                            this.sc_sceneLog.updateLog(
+                                `${this.currentActiveUnit.getName()} cast ${this.hoveredSpell.getName()} on allies`,
+                            );
+
                             for (const u of this.unitsHolder.getAllAllies(this.currentActiveUnit.getTeam())) {
                                 if (u.getMagicResist() === 100) {
                                     continue;
                                 }
 
-                                const conflictingSpells = [
-                                    ...this.hoveredSpell.getConflictsWith(),
-                                    this.hoveredSpell.getName(),
-                                ];
-                                let needToApply = true;
-                                for (const cs of conflictingSpells) {
-                                    if (u.hasBuffActive(cs)) {
-                                        needToApply = false;
-                                        break;
-                                    }
-                                }
-
-                                if (needToApply) {
+                                if (!alreadyApplied(u, this.hoveredSpell)) {
                                     u.applyBuff(
                                         this.hoveredSpell,
                                         undefined,
@@ -2203,11 +2200,11 @@ class Sandbox extends GLScene {
                                     );
                                 }
                             }
-
-                            this.sc_sceneLog.updateLog(
-                                `${this.currentActiveUnit.getName()} cast ${this.hoveredSpell.getName()} on allies`,
-                            );
                         } else {
+                            this.sc_sceneLog.updateLog(
+                                `${this.currentActiveUnit.getName()} cast ${this.hoveredSpell.getName()} on enemies`,
+                            );
+
                             for (const u of this.unitsHolder.getAllEnemyUnits(this.currentActiveUnit.getTeam())) {
                                 let debuffTarget = u;
 
@@ -2221,31 +2218,39 @@ class Sandbox extends GLScene {
                                     continue;
                                 }
 
-                                const conflictingSpells = [
-                                    ...this.hoveredSpell.getConflictsWith(),
-                                    this.hoveredSpell.getName(),
-                                ];
-                                let needToApply = true;
-                                for (const cs of conflictingSpells) {
-                                    if (debuffTarget.hasDebuffActive(cs)) {
-                                        needToApply = false;
-                                        break;
-                                    }
+                                if (HoCLib.getRandomInt(0, 100) < Math.floor(debuffTarget.getMagicResist())) {
+                                    this.sc_sceneLog.updateLog(
+                                        `${debuffTarget.getName()} resisted from ${this.hoveredSpell.getName()}`,
+                                    );
+                                    continue;
                                 }
 
-                                if (needToApply) {
+                                if (!alreadyApplied(debuffTarget, this.hoveredSpell)) {
+                                    const laps = this.hoveredSpell.getLapsTotal();
                                     debuffTarget.applyDebuff(
                                         this.hoveredSpell,
                                         undefined,
                                         undefined,
                                         debuffTarget.getId() === this.currentActiveUnit.getId(),
                                     );
+                                    if (
+                                        isMirrored(debuffTarget) &&
+                                        !alreadyApplied(this.currentActiveUnit, this.hoveredSpell)
+                                    ) {
+                                        this.currentActiveUnit.applyDebuff(
+                                            this.hoveredSpell,
+                                            undefined,
+                                            undefined,
+                                            true,
+                                        );
+                                        this.sc_sceneLog.updateLog(
+                                            `${debuffTarget.getName()} mirrored ${this.hoveredSpell.getName()} to ${this.currentActiveUnit.getName()} for ${getLapString(
+                                                laps,
+                                            )}`,
+                                        );
+                                    }
                                 }
                             }
-
-                            this.sc_sceneLog.updateLog(
-                                `${this.currentActiveUnit.getName()} cast ${this.hoveredSpell.getName()} on enemies`,
-                            );
                         }
 
                         this.currentActiveUnit.useSpell(this.hoveredSpell);
@@ -2769,7 +2774,6 @@ class Sandbox extends GLScene {
                                             unit.setPosition(bodyPosition.x, bodyPosition.y);
                                         }
                                         unit.randomizeLuckPerTurn();
-                                        unit.setAttackMultiplier(1);
                                         unit.setResponded(false);
                                         unit.setOnHourglass(false);
                                         unit.applyMoraleStepsModifier(
@@ -2835,7 +2839,6 @@ class Sandbox extends GLScene {
                                         unit.setPosition(bodyPosition.x, bodyPosition.y);
                                     }
                                     unit.randomizeLuckPerTurn();
-                                    unit.setAttackMultiplier(1);
                                     unit.setResponded(false);
                                     unit.setOnHourglass(false);
                                     unit.applyMoraleStepsModifier(
@@ -2921,7 +2924,6 @@ class Sandbox extends GLScene {
             if (this.sc_started && allUnitsMadeTurn && !fightFinished) {
                 for (const u of units) {
                     u.randomizeLuckPerTurn();
-                    u.setAttackMultiplier(1);
                     u.setResponded(false);
                     u.setOnHourglass(false);
                     u.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
@@ -3009,7 +3011,6 @@ class Sandbox extends GLScene {
                                         const buff = this.spellsFactory.makeSpell(FactionType.NO_TYPE, "Morale", 1);
                                         u.applyBuff(buff);
                                         FightStateManager.getInstance().enqueueMoralePlus(u.getId());
-                                        // u.setAttackMultiplier(1.25);
                                     } else {
                                         const debuff = this.spellsFactory.makeSpell(
                                             FactionType.NO_TYPE,
@@ -3018,7 +3019,6 @@ class Sandbox extends GLScene {
                                         );
                                         u.applyDebuff(debuff);
                                         FightStateManager.getInstance().enqueueMoraleMinus(u.getId());
-                                        // u.setAttackMultiplier(0.8);
                                     }
                                 }
                             }

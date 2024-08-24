@@ -14,8 +14,10 @@ import { getAbsorptionTarget } from "../effects/effects_helper";
 
 import { SceneLog } from "../menu/scene_log";
 import { SpellsFactory } from "../spells/spells_factory";
+import { isMirrored } from "../spells/spells_helper";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
+import { getLapString } from "../utils/strings";
 
 const POSSIBLE_DEBUFFS_TO_FACTIONS = {
     Sadness: "Death",
@@ -62,6 +64,10 @@ export function processSpitBallAbility(
         }
     }
 
+    if (!debuffs.size) {
+        return;
+    }
+
     const randomDebuff = Array.from(debuffs)[HoCLib.getRandomInt(0, debuffs.size)];
 
     let applied = true;
@@ -83,8 +89,20 @@ export function processSpitBallAbility(
         }
 
         const debuff = spellsFactory.makeSpell(faction, randomDebuff, 1);
+        let laps = debuff.getLapsTotal();
+
         targetUnit.applyDebuff(debuff, undefined, undefined, targetUnit.getId() === currentActiveUnit.getId());
-        sceneLog.updateLog(`Applied ${randomDebuff} on ${targetUnit.getName()}`);
+        sceneLog.updateLog(
+            `${fromUnit.getName()} applied ${randomDebuff} on ${targetUnit.getName()} for ${getLapString(laps)}`,
+        );
+
+        // we already know it has not been applied already
+        if (isMirrored(targetUnit)) {
+            fromUnit.applyDebuff(debuff, undefined, undefined, fromUnit.getId() === currentActiveUnit.getId());
+            sceneLog.updateLog(
+                `${targetUnit.getName()} mirrored ${randomDebuff} to ${fromUnit.getName()} for ${getLapString(laps)}`,
+            );
+        }
     } else {
         sceneLog.updateLog(`${targetUnit.getName()} resisted from ${randomDebuff}`);
     }
