@@ -400,7 +400,7 @@
             "attack_damage_max": 40,
             "attack_range": 1,
             "range_shots": 16,
-            "shot_distance": 6,
+            "shot_distance": 5,
             "magic_resist": 15,
             "can_fly": false,
             "exp": 500,

@@ -571,7 +571,7 @@ export class AttackHandler {
 
         if (rangeResponseUnit) {
             if (largeCaliberResponseResult?.landed) {
-                if (attackerUnit.getId() === rangeResponseUnit.getId()) {
+                if (rangeResponseUnit.isDead() && attackerUnit.getId() === rangeResponseUnit.getId()) {
                     return true;
                 }
             } else {
@@ -612,7 +612,7 @@ export class AttackHandler {
         if (switchTargetUnit) {
             const affectedUnits = targetUnits.shift();
             if (!affectedUnits?.length) {
-                return false;
+                return true;
             }
 
             targetUnit = affectedUnits[0];

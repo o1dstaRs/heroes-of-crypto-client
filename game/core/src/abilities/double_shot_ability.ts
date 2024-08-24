@@ -60,8 +60,8 @@ export function processDoubleShotAbility(
         };
     }
 
-    drawer.startBulletAnimation(fromUnit.getPosition(), hoverRangeAttackPosition, toUnit);
     unitsHolder.refreshStackPowerForAllUnits();
+    drawer.startBulletAnimation(fromUnit.getPosition(), hoverRangeAttackPosition, toUnit);
 
     let largeCaliberAttackResult = processLargeCaliberAbility(
         fromUnit,
