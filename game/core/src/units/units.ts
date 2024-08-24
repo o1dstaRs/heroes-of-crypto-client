@@ -854,6 +854,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             : this.unitProperties.range_shots;
     }
 
+    public decreaseNumberOfShots(): void {
+        this.unitProperties.range_shots -= 1;
+        if (this.unitProperties.range_shots < 0) {
+            this.unitProperties.range_shots = 0;
+        }
+        this.unitProperties.range_shots = Math.floor(this.unitProperties.range_shots);
+    }
+
     public getRangeShotDistance(): number {
         return this.unitProperties.shot_distance;
     }
@@ -1448,12 +1456,18 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         );
     }
 
-    public calculateAttackDamage(enemyUnit: Unit, attackType: AttackType, divisor = 1, abilityMultiplier = 1): number {
+    public calculateAttackDamage(
+        enemyUnit: Unit,
+        attackType: AttackType,
+        divisor = 1,
+        abilityMultiplier = 1,
+        decreaseNumberOfShots = true,
+    ): number {
         const min = this.calculateAttackDamageMin(enemyUnit, attackType === AttackType.RANGE, divisor);
         const max = this.calculateAttackDamageMax(enemyUnit, attackType === AttackType.RANGE, divisor);
         const attackingByMelee = attackType === AttackType.MELEE;
         if (!attackingByMelee && attackType === AttackType.RANGE) {
-            if (this.unitProperties.range_shots <= 0) {
+            if (this.getRangeShots() <= 0) {
                 return 0;
             }
             let gotUnlimitedSupplies = false;
@@ -1462,8 +1476,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                     gotUnlimitedSupplies = true;
                 }
             }
-            if (!gotUnlimitedSupplies) {
-                this.unitProperties.range_shots -= 1;
+            if (decreaseNumberOfShots && !gotUnlimitedSupplies) {
+                this.decreaseNumberOfShots();
             }
         }
 
@@ -1473,7 +1487,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             !this.hasAbilityActive("Handyman")
                 ? 0.5
                 : 1;
-        return Math.floor((Math.random() * (max - min) + min) * attackTypeMultiplier * abilityMultiplier);
+
+        return Math.floor(HoCLib.getRandomInt(min, max) * attackTypeMultiplier * abilityMultiplier);
     }
 
     public canSkipResponse(): boolean {
@@ -1505,7 +1520,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public getAttackTypeSelection(): AttackType {
-        if (this.selectedAttackType === AttackType.RANGE && this.unitProperties.range_shots <= 0) {
+        if (this.selectedAttackType === AttackType.RANGE && this.getRangeShots() <= 0) {
             this.selectedAttackType = AttackType.MELEE;
             this.unitProperties.attack_type_selected = AttackType.MELEE;
         } else if (this.selectedAttackType === AttackType.MAGIC && this.unitProperties.spells.length <= 0) {
@@ -1526,7 +1541,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (
             selectedAttackType === AttackType.RANGE &&
             this.unitProperties.attack_type === AttackType.RANGE &&
-            this.unitProperties.range_shots &&
+            this.getRangeShots() &&
             this.selectedAttackType !== selectedAttackType
         ) {
             this.selectedAttackType = selectedAttackType;

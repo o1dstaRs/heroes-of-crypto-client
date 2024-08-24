@@ -390,12 +390,12 @@
         },
         "Gargantuan": {
             "name": "Gargantuan",
-            "hp": 200,
+            "hp": 180,
             "steps": 4.5,
             "speed": 4,
             "armor": 30,
             "attack_type": "RANGE",
-            "attack": 30,
+            "attack": 28,
             "attack_damage_min": 30,
             "attack_damage_max": 40,
             "attack_range": 1,
@@ -407,7 +407,7 @@
             "size": 2,
             "level": 4,
             "spells": [],
-            "abilities": ["Double Shot"]
+            "abilities": ["Double Shot", "Large Caliber"]
         }
     },
     "Chaos": {
@@ -608,8 +608,8 @@
             "armor": 32,
             "attack_type": "MELEE",
             "attack": 33,
-            "attack_damage_min": 35,
-            "attack_damage_max": 70,
+            "attack_damage_min": 30,
+            "attack_damage_max": 60,
             "attack_range": 1,
             "range_shots": 0,
             "shot_distance": 0,

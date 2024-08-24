@@ -9,25 +9,31 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, HoCMath } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, HoCMath, Grid } from "@heroesofcrypto/common";
 
 import { Drawer } from "../draw/drawer";
 import { SceneLog } from "../menu/scene_log";
+import { SpellsFactory } from "../spells/spells_factory";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
+import { processLargeCaliberAbility } from "./large_caliber_ability";
 
 export interface IDoubleShotResult {
     applied: boolean;
+    largeCaliberLanded: boolean;
     damage: number;
 }
 
 export function processDoubleShotAbility(
     fromUnit: Unit,
     toUnit: Unit,
+    affectedUnits: Unit[],
     sceneLog: SceneLog,
     drawer: Drawer,
     unitsHolder: UnitsHolder,
+    spellsFactory: SpellsFactory,
+    grid: Grid,
     hoverRangeAttackDivisor: number,
     hoverRangeAttackPosition: HoCMath.XY,
     sceneStepCount: number,
@@ -39,6 +45,7 @@ export function processDoubleShotAbility(
     if (!doubleShotAbility || fromUnit.isDead() || toUnit.isDead()) {
         return {
             applied: false,
+            largeCaliberLanded: false,
             damage: damageFromAttack,
         };
     }
@@ -48,6 +55,7 @@ export function processDoubleShotAbility(
         sceneLog.updateLog(`${fromUnit.getName()} misses attk ${toUnit.getName()}`);
         return {
             applied: false,
+            largeCaliberLanded: false,
             damage: damageFromAttack,
         };
     }
@@ -55,23 +63,40 @@ export function processDoubleShotAbility(
     drawer.startBulletAnimation(fromUnit.getPosition(), hoverRangeAttackPosition, toUnit);
     unitsHolder.refreshStackPowerForAllUnits();
 
-    const abilityMultiplier = fromUnit.calculateAbilityMultiplier(doubleShotAbility);
-    damageFromAttack = fromUnit.calculateAttackDamage(
-        toUnit,
-        AttackType.RANGE,
+    let largeCaliberAttackResult = processLargeCaliberAbility(
+        fromUnit,
+        affectedUnits,
+        fromUnit,
         hoverRangeAttackDivisor,
-        abilityMultiplier,
+        sceneStepCount,
+        spellsFactory,
+        unitsHolder,
+        grid,
+        sceneLog,
+        true,
     );
-    toUnit.applyDamage(damageFromAttack, sceneStepCount);
-    DamageStatisticHolder.getInstance().add({
-        unitName: fromUnit.getName(),
-        damage: damageFromAttack,
-        team: fromUnit.getTeam(),
-    });
-    sceneLog.updateLog(`${fromUnit.getName()} attk ${toUnit.getName()} (${damageFromAttack})`);
+    if (largeCaliberAttackResult.landed) {
+        damageFromAttack = largeCaliberAttackResult.maxDamage;
+    } else {
+        const abilityMultiplier = fromUnit.calculateAbilityMultiplier(doubleShotAbility);
+        damageFromAttack = fromUnit.calculateAttackDamage(
+            toUnit,
+            AttackType.RANGE,
+            hoverRangeAttackDivisor,
+            abilityMultiplier,
+        );
+        toUnit.applyDamage(damageFromAttack, sceneStepCount);
+        DamageStatisticHolder.getInstance().add({
+            unitName: fromUnit.getName(),
+            damage: damageFromAttack,
+            team: fromUnit.getTeam(),
+        });
+        sceneLog.updateLog(`${fromUnit.getName()} attk ${toUnit.getName()} (${damageFromAttack})`);
+    }
 
     return {
         applied: true,
+        largeCaliberLanded: largeCaliberAttackResult.landed,
         damage: damageFromAttack,
     };
 }

@@ -38,10 +38,11 @@ import { SpellsFactory } from "../spells/spells_factory";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 import { getLapString } from "../utils/strings";
 import { alreadyApplied, isMirrored } from "../spells/spells_helper";
+import { ILargeCaliberResult, processLargeCaliberAbility } from "../abilities/large_caliber_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
-    affectedUnits: Unit[];
+    affectedUnits: Array<Unit[]>;
     affectedCells: Array<XY[]>;
     attackObstacle?: IAttackObstacle;
 }
@@ -74,7 +75,7 @@ export class AttackHandler {
         attackerUnit: Unit,
     ): IRangeAttackEvaluation {
         const affectedUnitIds: string[] = [];
-        const affectedUnits: Unit[] = [];
+        const affectedUnits: Array<Unit[]> = [];
         const affectedCells: Array<XY[]> = [];
         const rangeAttackDivisors: number[] = [];
         const isSniper = attackerUnit.hasAbilityActive("Sniper");
@@ -116,16 +117,39 @@ export class AttackHandler {
                 }
             }
 
-            affectedUnits.push(possibleUnit);
+            let unitsThisShot: Unit[] = [];
+            unitsThisShot.push(possibleUnit);
             affectedUnitIds.push(possibleUnitId);
 
             if (attackerUnit.hasAbilityActive("Large Caliber")) {
+                const unitIds: string[] = [possibleUnitId];
                 const cells = GridMath.getCellsAroundCell(this.gridSettings, cell);
+
+                for (const c of cells) {
+                    const possibleUnitId = this.grid.getOccupantUnitId(c);
+                    if (!possibleUnitId) {
+                        continue;
+                    }
+                    if (unitIds.includes(possibleUnitId)) {
+                        continue;
+                    }
+
+                    const possibleUnit = allUnits.get(possibleUnitId);
+                    if (!possibleUnit) {
+                        continue;
+                    }
+
+                    unitsThisShot.push(possibleUnit);
+                    unitIds.push(possibleUnitId);
+                }
+
                 cells.push(cell);
                 affectedCells.push(cells);
             } else {
                 affectedCells.push([cell]);
             }
+
+            affectedUnits.push(unitsThisShot);
 
             if (!isSniper) {
                 const shotDistancePixels = Math.ceil(attackerUnit.getRangeShotDistance() * this.gridSettings.getStep());
@@ -375,8 +399,8 @@ export class AttackHandler {
         rangeResponseAttackDivisor: number,
         sceneStepCount: number,
         attackerUnit?: Unit,
-        targetUnits?: Unit[],
-        rangeResponseUnit?: Unit,
+        targetUnits?: Array<Unit[]>,
+        rangeResponseUnits?: Unit[],
         hoverRangeAttackPosition?: XY,
     ): boolean {
         if (
@@ -395,7 +419,12 @@ export class AttackHandler {
             return false;
         }
 
-        let targetUnit: Unit | undefined = targetUnits.shift();
+        const affectedUnits = targetUnits.shift();
+        if (!affectedUnits?.length) {
+            return false;
+        }
+
+        let targetUnit = affectedUnits[0];
         if (
             !targetUnit ||
             targetUnit.getTeam() === attackerUnit.getTeam() ||
@@ -412,19 +441,15 @@ export class AttackHandler {
 
         drawer.startBulletAnimation(attackerUnit.getPosition(), hoverRangeAttackPosition, targetUnit);
 
-        // let abilityMultiplier = currentActiveUnit.calculateAbilityMultiplier();
         const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(targetUnit);
-        const damageFromAttack = attackerUnit.calculateAttackDamage(
-            targetUnit,
-            AttackType.RANGE,
-            hoverRangeAttackDivisor,
-            // abilityMultiplier,
-        );
+        let damageFromAttack = 0;
 
         const fightState = FightStateManager.getInstance().getFightState();
+        const rangeResponseUnit = rangeResponseUnits?.length ? rangeResponseUnits[0] : undefined;
 
         // response starts here
         let damageFromRespond = 0;
+        let isResponseMissed = false;
         if (
             rangeResponseUnit &&
             !attackerUnit.canSkipResponse() &&
@@ -436,98 +461,105 @@ export class AttackHandler {
                 targetUnit.getCumulativeHp() < rangeResponseUnit.getCumulativeHp()
             )
         ) {
-            const isResponseMissed = HoCLib.getRandomInt(0, 100) < targetUnit.calculateMissChance(rangeResponseUnit);
+            isResponseMissed = HoCLib.getRandomInt(0, 100) < targetUnit.calculateMissChance(rangeResponseUnit);
             drawer.startBulletAnimation(targetUnit.getPosition(), attackerUnit.getPosition(), rangeResponseUnit);
-            damageFromRespond = targetUnit.calculateAttackDamage(
-                rangeResponseUnit,
-                AttackType.RANGE,
-                rangeResponseAttackDivisor,
-            );
-
-            if (isAttackMissed) {
-                this.sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
-            } else {
-                this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
-            }
-
-            if (isResponseMissed) {
-                this.sceneLog.updateLog(`${targetUnit.getName()} misses resp ${rangeResponseUnit.getName()}`);
-            } else {
-                if (damageFromRespond) {
-                    this.sceneLog.updateLog(
-                        `${targetUnit.getName()} resp ${rangeResponseUnit.getName()} (${damageFromRespond})`,
-                    );
-                }
-
-                rangeResponseUnit.applyDamage(damageFromRespond, sceneStepCount);
-                DamageStatisticHolder.getInstance().add({
-                    unitName: targetUnit.getName(),
-                    damage: damageFromRespond,
-                    team: targetUnit.getTeam(),
-                });
-
-                processOneInTheFieldAbility(targetUnit);
-            }
-        } else if (isAttackMissed) {
-            this.sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
-        } else {
-            this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
         }
 
-        targetUnit.applyDamage(damageFromAttack, sceneStepCount);
-        DamageStatisticHolder.getInstance().add({
-            unitName: attackerUnit.getName(),
-            damage: damageFromAttack,
-            team: attackerUnit.getTeam(),
-        });
-
-        let switchTargetUnit = false;
-        if (targetUnit.isDead()) {
-            this.sceneLog.updateLog(`${targetUnit.getName()} died`);
-            unitsHolder.deleteUnitById(grid, targetUnit.getId());
-            attackerUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
-            unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
-            attackerUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
-            switchTargetUnit = true;
+        // handle attack damage
+        let largeCaliberAttackResult: ILargeCaliberResult | undefined = undefined;
+        if (isAttackMissed) {
+            this.sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
         } else {
-            processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-            processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
-            processSpitBallAbility(
+            largeCaliberAttackResult = processLargeCaliberAbility(
                 attackerUnit,
-                targetUnit,
+                affectedUnits,
                 attackerUnit,
+                hoverRangeAttackDivisor,
+                sceneStepCount,
                 this.spellsFactory,
                 unitsHolder,
                 grid,
                 this.sceneLog,
+                true,
             );
+            if (largeCaliberAttackResult.landed) {
+                damageFromAttack = largeCaliberAttackResult.maxDamage;
+            } else {
+                damageFromAttack = attackerUnit.calculateAttackDamage(
+                    targetUnit,
+                    AttackType.RANGE,
+                    hoverRangeAttackDivisor,
+                );
+                this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
+                targetUnit.applyDamage(damageFromAttack, sceneStepCount);
+                DamageStatisticHolder.getInstance().add({
+                    unitName: attackerUnit.getName(),
+                    damage: damageFromAttack,
+                    team: attackerUnit.getTeam(),
+                });
+            }
         }
 
-        if (rangeResponseUnit) {
-            if (rangeResponseUnit.isDead()) {
-                this.sceneLog.updateLog(`${rangeResponseUnit.getName()} died`);
-                unitsHolder.deleteUnitById(grid, rangeResponseUnit.getId());
-                unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(rangeResponseUnit);
-                if (!switchTargetUnit) {
-                    targetUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
-                    targetUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
-                }
-
-                if (rangeResponseUnit && attackerUnit.getId() === rangeResponseUnit.getId()) {
-                    return true;
-                }
+        // handle response damage
+        let largeCaliberResponseResult: ILargeCaliberResult | undefined = undefined;
+        if (rangeResponseUnit && rangeResponseUnits) {
+            if (isResponseMissed) {
+                this.sceneLog.updateLog(`${targetUnit.getName()} misses resp ${rangeResponseUnit.getName()}`);
             } else {
-                processStunAbility(targetUnit, rangeResponseUnit, attackerUnit, this.sceneLog);
-                processPetrifyingGazeAbility(
+                largeCaliberResponseResult = processLargeCaliberAbility(
                     targetUnit,
-                    attackerUnit,
-                    damageFromRespond,
+                    rangeResponseUnits,
+                    targetUnit,
+                    rangeResponseAttackDivisor,
                     sceneStepCount,
+                    this.spellsFactory,
+                    unitsHolder,
+                    grid,
                     this.sceneLog,
+                    false,
                 );
+                if (largeCaliberResponseResult.landed) {
+                    damageFromRespond = largeCaliberResponseResult.maxDamage;
+                } else {
+                    damageFromRespond = targetUnit.calculateAttackDamage(
+                        rangeResponseUnit,
+                        AttackType.RANGE,
+                        rangeResponseAttackDivisor,
+                    );
+
+                    this.sceneLog.updateLog(
+                        `${targetUnit.getName()} resp ${rangeResponseUnit.getName()} (${damageFromRespond})`,
+                    );
+
+                    rangeResponseUnit.applyDamage(damageFromRespond, sceneStepCount);
+                    DamageStatisticHolder.getInstance().add({
+                        unitName: targetUnit.getName(),
+                        damage: damageFromRespond,
+                        team: targetUnit.getTeam(),
+                    });
+                }
+            }
+
+            processOneInTheFieldAbility(targetUnit);
+        }
+
+        let switchTargetUnit = false;
+        if (targetUnit.isDead()) {
+            switchTargetUnit = true;
+        }
+        if (!largeCaliberAttackResult?.landed) {
+            if (targetUnit.isDead()) {
+                this.sceneLog.updateLog(`${targetUnit.getName()} died`);
+                unitsHolder.deleteUnitById(grid, targetUnit.getId());
+                attackerUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
+                unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
+                attackerUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
+            } else {
+                processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+                processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
                 processSpitBallAbility(
+                    attackerUnit,
                     targetUnit,
-                    rangeResponseUnit,
                     attackerUnit,
                     this.spellsFactory,
                     unitsHolder,
@@ -537,8 +569,54 @@ export class AttackHandler {
             }
         }
 
+        if (rangeResponseUnit) {
+            if (largeCaliberResponseResult?.landed) {
+                if (attackerUnit.getId() === rangeResponseUnit.getId()) {
+                    return true;
+                }
+            } else {
+                if (rangeResponseUnit.isDead()) {
+                    this.sceneLog.updateLog(`${rangeResponseUnit.getName()} died`);
+                    unitsHolder.deleteUnitById(grid, rangeResponseUnit.getId());
+                    unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(rangeResponseUnit);
+                    if (!targetUnit.isDead()) {
+                        targetUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
+                        targetUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
+                    }
+
+                    if (attackerUnit.getId() === rangeResponseUnit.getId()) {
+                        return true;
+                    }
+                } else {
+                    processStunAbility(targetUnit, rangeResponseUnit, attackerUnit, this.sceneLog);
+                    processPetrifyingGazeAbility(
+                        targetUnit,
+                        attackerUnit,
+                        damageFromRespond,
+                        sceneStepCount,
+                        this.sceneLog,
+                    );
+                    processSpitBallAbility(
+                        targetUnit,
+                        rangeResponseUnit,
+                        attackerUnit,
+                        this.spellsFactory,
+                        unitsHolder,
+                        grid,
+                        this.sceneLog,
+                    );
+                }
+            }
+        }
+
         if (switchTargetUnit) {
-            targetUnit = targetUnits.shift();
+            const affectedUnits = targetUnits.shift();
+            if (!affectedUnits?.length) {
+                return false;
+            }
+
+            targetUnit = affectedUnits[0];
+
             if (
                 !targetUnit ||
                 targetUnit.getTeam() === attackerUnit.getTeam() ||
@@ -558,39 +636,43 @@ export class AttackHandler {
         const secondShotResult = processDoubleShotAbility(
             attackerUnit,
             targetUnit,
+            affectedUnits,
             this.sceneLog,
             drawer,
             unitsHolder,
+            this.spellsFactory,
+            grid,
             hoverRangeAttackDivisor,
             hoverRangeAttackPosition,
             sceneStepCount,
         );
 
-        if (targetUnit.isDead()) {
-            this.sceneLog.updateLog(`${targetUnit.getName()} died`);
-            unitsHolder.deleteUnitById(grid, targetUnit.getId());
-            attackerUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
-            unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
-            attackerUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
-        } else if (secondShotResult.applied) {
-            processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-            processPetrifyingGazeAbility(
-                attackerUnit,
-                targetUnit,
-                secondShotResult.damage,
-                sceneStepCount,
-                this.sceneLog,
-            );
-            processSpitBallAbility(
-                attackerUnit,
-                targetUnit,
-                attackerUnit,
-                this.spellsFactory,
-                unitsHolder,
-                grid,
-                this.sceneLog,
-            );
-            processBlindnessAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+        if (!secondShotResult.largeCaliberLanded) {
+            if (targetUnit.isDead()) {
+                this.sceneLog.updateLog(`${targetUnit.getName()} died`);
+                unitsHolder.deleteUnitById(grid, targetUnit.getId());
+                attackerUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
+                unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
+                attackerUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
+            } else if (secondShotResult.applied) {
+                processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+                processPetrifyingGazeAbility(
+                    attackerUnit,
+                    targetUnit,
+                    secondShotResult.damage,
+                    sceneStepCount,
+                    this.sceneLog,
+                );
+                processSpitBallAbility(
+                    attackerUnit,
+                    targetUnit,
+                    attackerUnit,
+                    this.spellsFactory,
+                    unitsHolder,
+                    grid,
+                    this.sceneLog,
+                );
+            }
         }
 
         return true;
@@ -854,8 +936,8 @@ export class AttackHandler {
                 );
                 processBoarSalivaAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                 processBlindnessAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
-                processOneInTheFieldAbility(targetUnit);
             }
+            processOneInTheFieldAbility(targetUnit);
         }
 
         if (!hasLightningSpinAttackLanded && !isAttackMissed) {

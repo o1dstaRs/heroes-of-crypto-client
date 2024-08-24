@@ -192,8 +192,6 @@ export function processFireBreathAbility(
             }
         }
 
-        unitsHolder.refreshStackPowerForAllUnits();
-
         for (const unitDead of unitsDead) {
             sceneLog.updateLog(`${unitDead.getName()} died`);
             unitsHolder.deleteUnitById(grid, unitDead.getId());
@@ -201,5 +199,7 @@ export function processFireBreathAbility(
             fromUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unitDead);
         }
+
+        unitsHolder.refreshStackPowerForAllUnits();
     }
 }
