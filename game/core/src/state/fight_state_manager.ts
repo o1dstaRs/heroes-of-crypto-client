@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { GridMath, GridSettings, TeamType, FightProperties } from "@heroesofcrypto/common";
+import { GridMath, GridSettings, TeamType, FightProperties, HoCConstants } from "@heroesofcrypto/common";
 
 import { Unit } from "../units/units";
 
@@ -43,7 +43,7 @@ export class FightStateManager {
         allUnits: Map<string, Unit>,
         unitsUpper: Unit[],
         unitsLower: Unit[],
-        upNextUnitsCount = 1,
+        upNextUnitsCount = HoCConstants.UP_NEXT_UNITS_COUNT,
     ): void {
         if (upNextUnitsCount < 1) {
             upNextUnitsCount = 1;

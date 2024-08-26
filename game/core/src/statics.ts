@@ -33,9 +33,6 @@ export const MOUNTAIN_ENLARGE_Y = 165;
 export const MOUNTAIN_ENLARGE_DOUBLE_X = 370;
 export const MOUNTAIN_ENLARGE_DOUBLE_Y = 330;
 
-// turn
-export const UP_NEXT_UNITS_COUNT = 3;
-
 // spawn
 export const BASE_UNIT_STACK_TO_SPAWN_EXP = 1000;
 export const SHIFT_UNITS_POSITION_Y = 3;
