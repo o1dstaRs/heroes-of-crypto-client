@@ -10,11 +10,10 @@
  */
 
 import { b2Body, XY } from "@box2d/core";
-import { Grid, GridSettings, GridMath, GridConstants, TeamType } from "@heroesofcrypto/common";
+import { Grid, GridSettings, GridMath, GridConstants, TeamType, HoCConstants } from "@heroesofcrypto/common";
 
 import { Drawer } from "../draw/drawer";
 import { IWeightedRoute } from "../path/path_helper";
-import { MORALE_CHANGE_FOR_DISTANCE } from "../statics";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 
@@ -224,10 +223,10 @@ export class MoveHandler {
             drawer.startMoveAnimation(body, unit, path);
             const distanceAfter = this.unitsHolder.getDistanceToClosestEnemy(body.GetUserData(), targetPos);
             if (distanceAfter < distanceBefore) {
-                unit.increaseMorale(MORALE_CHANGE_FOR_DISTANCE);
+                unit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_DISTANCE);
                 unit.applyMoraleStepsModifier(stepsMoraleMultiplier);
             } else if (distanceAfter > distanceBefore) {
-                unit.decreaseMorale(MORALE_CHANGE_FOR_DISTANCE);
+                unit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_DISTANCE);
                 unit.applyMoraleStepsModifier(stepsMoraleMultiplier);
             }
         } else {

@@ -14,7 +14,7 @@ import { Unit } from "../units/units";
 
 export function processOneInTheFieldAbility(unit: Unit): void {
     if (!unit.hasAbilityActive("One in the Field")) {
-        FightStateManager.getInstance().addRepliedAttack(unit.getId());
+        FightStateManager.getInstance().getFightProperties().addRepliedAttack(unit.getId());
         unit.setResponded(true);
     }
 }

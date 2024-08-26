@@ -9,12 +9,11 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, Grid } from "@heroesofcrypto/common";
+import { AttackType, Grid, HoCConstants } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { SpellsFactory } from "../spells/spells_factory";
 import { FightStateManager } from "../state/fight_state_manager";
-import { MORALE_CHANGE_FOR_KILL } from "../statics";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
@@ -71,9 +70,11 @@ export function processLargeCaliberAbility(
             if (unit.isDead()) {
                 sceneLog.updateLog(`${unit.getName()} died`);
                 unitsHolder.deleteUnitById(grid, unit.getId());
-                attackerUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
+                attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unit);
-                attackerUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
+                attackerUnit.applyMoraleStepsModifier(
+                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                );
             } else {
                 processStunAbility(attackerUnit, unit, attackerUnit, sceneLog);
 

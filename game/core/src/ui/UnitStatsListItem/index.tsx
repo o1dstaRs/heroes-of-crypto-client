@@ -19,7 +19,7 @@ import greenFlagImage from "../../../images/green_flag_128.webp";
 import redFlagImage from "../../../images/red_flag_128.webp";
 import { images } from "../../generated/image_imports";
 import { useManager } from "../../manager";
-import { IVisibleImpact, IVisibleOverallImpact } from "../../state/state";
+import { IVisibleImpact, IVisibleOverallImpact } from "../../state/visible_state";
 import { getLapString } from "../../utils/strings";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
 import { BootIcon } from "../svg/boot";

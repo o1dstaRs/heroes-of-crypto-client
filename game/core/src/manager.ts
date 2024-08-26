@@ -18,7 +18,7 @@ import { Signal } from "typed-signals";
 import "./scenes";
 import { getScenesGrouped, Scene, SceneConstructor, SceneEntry } from "./scenes/scene";
 import { Settings } from "./settings";
-import { IVisibleOverallImpact, IVisibleState } from "./state/state";
+import { IVisibleOverallImpact, IVisibleState } from "./state/visible_state";
 import { MAX_FPS } from "./statics";
 import { DamageStatisticHolder, IDamageStatistic, IHoverInfo } from "./stats/damage_stats";
 import type { SceneControlGroup } from "./ui";

@@ -9,11 +9,10 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, Grid, HoCConstants, GridSettings, GridMath, HoCMath } from "@heroesofcrypto/common";
+import { AttackType, Grid, GridSettings, GridMath, HoCMath, HoCConstants } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
-import { MORALE_CHANGE_FOR_KILL } from "../statics";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
@@ -195,8 +194,10 @@ export function processFireBreathAbility(
         for (const unitDead of unitsDead) {
             sceneLog.updateLog(`${unitDead.getName()} died`);
             unitsHolder.deleteUnitById(grid, unitDead.getId());
-            fromUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
-            fromUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
+            fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
+            fromUnit.applyMoraleStepsModifier(
+                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+            );
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unitDead);
         }
 

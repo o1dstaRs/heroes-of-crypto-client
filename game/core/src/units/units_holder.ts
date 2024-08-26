@@ -19,6 +19,7 @@ import {
     GridSettings,
     GridMath,
     HoCLib,
+    HoCConstants,
 } from "@heroesofcrypto/common";
 import { canBeApplied } from "../effects/aura_effects";
 
@@ -31,7 +32,6 @@ import {
     HALF_STEP,
     MAX_X,
     MAX_Y,
-    MORALE_CHANGE_FOR_KILL,
     SHIFT_UNITS_POSITION_Y,
     STEP,
     UNIT_SIZE_DELTA,
@@ -210,11 +210,11 @@ export class UnitsHolder {
         }
         this.allBodies.delete(unitId);
 
-        FightStateManager.getInstance().removeFromHourGlassQueue(unitId);
-        FightStateManager.getInstance().removeFromMoraleMinusQueue(unitId);
-        FightStateManager.getInstance().removeFromMoralePlusQueue(unitId);
+        FightStateManager.getInstance().getFightProperties().removeFromHourGlassQueue(unitId);
+        FightStateManager.getInstance().getFightProperties().removeFromMoraleMinusQueue(unitId);
+        FightStateManager.getInstance().getFightProperties().removeFromMoralePlusQueue(unitId);
 
-        if (FightStateManager.getInstance().removeFromUpNext(unitId)) {
+        if (FightStateManager.getInstance().getFightProperties().removeFromUpNext(unitId)) {
             const unitsUpper: Unit[] = [];
             const unitsLower: Unit[] = [];
             for (const u of this.getAllUnitsIterator()) {
@@ -440,8 +440,10 @@ export class UnitsHolder {
     public decreaseMoraleForTheSameUnitsOfTheTeam(unit: Unit): void {
         for (const u of this.getAllUnitsIterator()) {
             if (u.getTeam() === unit.getTeam() && u.getName() === unit.getName()) {
-                u.decreaseMorale(MORALE_CHANGE_FOR_KILL);
-                u.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
+                u.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
+                u.applyMoraleStepsModifier(
+                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                );
             }
         }
     }

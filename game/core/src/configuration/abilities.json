@@ -420,7 +420,18 @@
     "Large Caliber": {
         "name": "Large Caliber",
         "type": "ATTACK",
-        "desc": ["Ranged attacks deal {}% of the damage to all units adjacent to the target cell"],
+        "desc": ["Ranged attacks deal {}% of the damage to all units adjacent to the target unit's cell"],
+        "power": 100,
+        "power_type": "TOTAL_DAMAGE_PERCENTAGE",
+        "skip_reponse": false,
+        "stack_powered": true,
+        "effect": null,
+        "aura_effect": null
+    },
+    "Area Throw": {
+        "name": "Area Throw",
+        "type": "ATTACK",
+        "desc": ["Ranged attacks inflict {}% of the damage on all units adjacent to the target cell."],
         "power": 100,
         "power_type": "TOTAL_DAMAGE_PERCENTAGE",
         "skip_reponse": false,

@@ -574,9 +574,6 @@ export function calculateBuffsDebuffsEffect(
             baseStats.armor = -Math.ceil(baseArmor * 0.3);
             alreadyAppliedDebuffs.push(db.getName());
         }
-        if (db.getName() === "Sadness") {
-            baseStats.morale = Number.MIN_SAFE_INTEGER;
-        }
     }
 
     return {

@@ -1,9 +1,22 @@
 {
-  "extends": [
-    "@lusito/stylelint-config"
-  ],
-  "rules": {
-    "selector-id-pattern": null,
-    "selector-class-pattern": null
-  }
+    "plugins": ["stylelint-scss"],
+    "customSyntax": "postcss-scss",
+    "rules": {
+        "selector-id-pattern": null,
+        "selector-class-pattern": null,
+        "rule-empty-line-before": [
+            "always",
+            {
+                "except": ["first-nested"],
+                "ignore": ["after-comment"]
+            }
+        ],
+        "declaration-empty-line-before": [
+            "always",
+            {
+                "except": ["first-nested"],
+                "ignore": ["after-comment", "after-declaration"]
+            }
+        ]
+    }
 }
