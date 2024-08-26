@@ -1283,9 +1283,6 @@ export class PathHelper {
         canFly = false,
         isSmallUnit = true,
     ): IMovePath {
-        console.log("getMovePath");
-        console.log(currentCell);
-
         const knownPaths: Map<number, IWeightedRoute[]> = new Map();
         const allowed: HoCMath.XY[] = [];
         let currentCellKeys: number[];
@@ -1321,8 +1318,6 @@ export class PathHelper {
             if (aggrBoard) {
                 let sumAggr = 0;
                 for (const cell of cells) {
-                    console.log("cell");
-                    console.log(cell);
                     sumAggr += aggrBoard[cell.x][cell.y] || 1;
                 }
 
