@@ -40,7 +40,7 @@ import { AttackType, FactionType, HoCMath, IAuraOnMap, UnitProperties } from "@h
 import { SceneLog } from "../menu/scene_log";
 import { SceneControl } from "../sceneControls";
 import { Settings } from "../settings";
-import { IVisibleImpact, IVisibleOverallImpact, IVisibleState } from "../state/state";
+import { IVisibleImpact, IVisibleOverallImpact, IVisibleState } from "../state/visible_state";
 import { MAX_FPS, MAX_X } from "../statics";
 import type { SceneControlGroup } from "../ui";
 import { g_camera } from "../utils/camera";

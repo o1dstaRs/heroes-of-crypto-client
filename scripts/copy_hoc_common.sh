@@ -23,3 +23,15 @@ else
   cp -r "${ROOT_DIR}/../heroes-of-crypto-common" $GAME_DIR
   rm -rf "${DEST_DIR}/node_modules"
 fi
+
+cat > "${DEST_DIR}/tsconfig.json" << EOL
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "outDir": "dist",
+        "skipLibCheck": true,
+        "esModuleInterop": true
+    },
+    "include": ["src/**/*", "src/generated/protobuf/v1/*"]
+}
+EOL

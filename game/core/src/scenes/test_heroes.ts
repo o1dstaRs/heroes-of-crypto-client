@@ -17,6 +17,7 @@ import {
     GridConstants,
     GridMath,
     GridSettings,
+    HoCConstants,
     HoCLib,
     SpellTargetType,
     HoCMath,
@@ -24,8 +25,6 @@ import {
     IAuraOnMap,
     UnitProperties,
 } from "@heroesofcrypto/common";
-import { Fight } from "@heroesofcrypto/common/src/generated/protobuf/v1/fight_pb";
-import { StringList } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 
@@ -48,7 +47,7 @@ import { canBeCasted, canBeMassCasted, canBeSummoned, Spell } from "../spells/sp
 import { SpellsFactory } from "../spells/spells_factory";
 import { alreadyApplied, isMirrored } from "../spells/spells_helper";
 import { FightStateManager } from "../state/fight_state_manager";
-import { IVisibleUnit } from "../state/state";
+import { IVisibleUnit } from "../state/visible_state";
 import {
     FIGHT_BUTTONS_LEFT_POSITION_X,
     FIGHT_BUTTONS_RIGHT_POSITION_X,
@@ -58,13 +57,8 @@ import {
     MAX_Y,
     MIN_X,
     MIN_Y,
-    MORALE_CHANGE_FOR_SHIELD_OR_CLOCK,
-    MORALE_CHANGE_FOR_SKIP,
     MOVEMENT_DELTA,
     NO_VELOCITY,
-    NUMBER_OF_LAPS_TILL_NARROWING_BLOCK,
-    NUMBER_OF_LAPS_TILL_NARROWING_NORMAL,
-    NUMBER_OF_LAPS_TILL_STOP_NARROWING,
     STEP,
     UNIT_SIZE_DELTA,
 } from "../statics";
@@ -91,7 +85,7 @@ class Sandbox extends GLScene {
 
     private currentActivePath?: XY[];
 
-    private currentActivePathHashes: Set<number> = new Set();
+    private currentActivePathHashes?: Set<number>;
 
     private currentActiveKnownPaths?: Map<number, IWeightedRoute[]>;
 
@@ -269,7 +263,7 @@ class Sandbox extends GLScene {
         this.unitsHolder = new UnitsHolder(this.sc_world, this.sc_sceneSettings.getGridSettings(), this.unitsFactory);
 
         this.ground = this.sc_world.CreateBody();
-        this.grid = new Grid(GRID_SIZE, NUMBER_OF_LAPS_TILL_NARROWING_BLOCK, NUMBER_OF_LAPS_TILL_NARROWING_NORMAL);
+        this.grid = new Grid(GRID_SIZE, FightStateManager.getInstance().getFightProperties().getGridType());
         this.refreshVisibleStateIfNeeded();
         this.gridMatrix = this.grid.getMatrix();
         this.obstacleGenerator = new ObstacleGenerator(this.sc_world, textures);
@@ -416,9 +410,10 @@ class Sandbox extends GLScene {
         this.visibleStateUpdate = () => {
             this.refreshVisibleStateIfNeeded();
             if (this.sc_visibleState) {
-                const fightState = FightStateManager.getInstance().getFightState();
-                this.sc_visibleState.secondsMax = (fightState.currentTurnEnd - fightState.currentTurnStart) / 1000;
-                const remaining = (fightState.currentTurnEnd - HoCLib.getTimeMillis()) / 1000;
+                const fightProperties = FightStateManager.getInstance().getFightProperties();
+                this.sc_visibleState.secondsMax =
+                    (fightProperties.getCurrentTurnEnd() - fightProperties.getCurrentTurnStart()) / 1000;
+                const remaining = (fightProperties.getCurrentTurnEnd() - HoCLib.getTimeMillis()) / 1000;
                 this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
                 this.sc_visibleStateUpdateNeeded = true;
             }
@@ -432,6 +427,18 @@ class Sandbox extends GLScene {
             const action = findTarget(this.currentActiveUnit, this.grid, this.gridMatrix, this.pathHelper);
             if (action?.actionType() === AIActionType.MOVE_AND_MELEE_ATTACK) {
                 this.currentActiveUnit.selectAttackType(AttackType.MELEE);
+                if (
+                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE &&
+                    this.currentActiveUnit.hasAbilityActive("Area Throw")
+                ) {
+                    const currentCell = GridMath.getCellForPosition(
+                        this.sc_sceneSettings.getGridSettings(),
+                        this.currentActiveUnit.getPosition(),
+                    );
+                    if (currentCell) {
+                        this.updateCurrentMovePath(currentCell);
+                    }
+                }
                 this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                 this.currentActiveKnownPaths = action.currentActiveKnownPaths();
                 const cellToAttack = action.cellToAttack();
@@ -468,6 +475,18 @@ class Sandbox extends GLScene {
                 this.landAttack();
             } else if (action?.actionType() === AIActionType.MELEE_ATTACK) {
                 this.currentActiveUnit.selectAttackType(AttackType.MELEE);
+                if (
+                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE &&
+                    this.currentActiveUnit.hasAbilityActive("Area Throw")
+                ) {
+                    const currentCell = GridMath.getCellForPosition(
+                        this.sc_sceneSettings.getGridSettings(),
+                        this.currentActiveUnit.getPosition(),
+                    );
+                    if (currentCell) {
+                        this.updateCurrentMovePath(currentCell);
+                    }
+                }
                 this.currentActiveKnownPaths = action.currentActiveKnownPaths();
                 const cellToAttack = action.cellToAttack();
                 if (cellToAttack) {
@@ -486,7 +505,14 @@ class Sandbox extends GLScene {
                 this.landAttack();
             } else if (action?.actionType() === AIActionType.RANGE_ATTACK) {
                 this.currentActiveUnit.selectAttackType(AttackType.RANGE);
-                this.currentActiveKnownPaths = action.currentActiveKnownPaths();
+                if (
+                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE &&
+                    this.currentActiveUnit.hasAbilityActive("Area Throw")
+                ) {
+                    this.cleanActivePaths();
+                } else {
+                    this.currentActiveKnownPaths = action.currentActiveKnownPaths();
+                }
                 const cellToAttack = action.cellToAttack();
                 if (cellToAttack) {
                     const targetUnitId = this.grid.getOccupantUnitId(cellToAttack);
@@ -512,7 +538,7 @@ class Sandbox extends GLScene {
                         const moveStarted = this.moveHandler.startMoving(
                             cellToMove,
                             this.drawer,
-                            FightStateManager.getInstance().getStepsMoraleMultiplier(),
+                            FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                             this.sc_selectedBody,
                             action?.currentActiveKnownPaths(),
                         );
@@ -546,7 +572,7 @@ class Sandbox extends GLScene {
                         const moveStarted = this.moveHandler.startMoving(
                             cellToMove,
                             this.drawer,
-                            FightStateManager.getInstance().getStepsMoraleMultiplier(),
+                            FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                             this.sc_selectedBody,
                             action?.currentActiveKnownPaths(),
                         );
@@ -576,60 +602,12 @@ class Sandbox extends GLScene {
         this.sendFightState = async () => {
             this.refreshVisibleStateIfNeeded();
             if (this.sc_visibleState) {
-                const fightState = FightStateManager.getInstance().getFightState();
-
-                const fight = new Fight();
-                fight.setId(HoCLib.uuidToUint8Array(fightState.id));
-                fight.setCurrentLap(fightState.currentLap);
-                fight.setFirstTurnMade(fightState.firstTurnMade);
-                fight.setFightFinished(fightState.fightFinished);
-                fight.setPreviousTurnTeam(fightState.previousTurnTeam);
-                fight.setHighestSpeedThisTurn(fightState.highestSpeedThisTurn);
-                fight.setAlreadyMadeTurnList(Array.from(fightState.alreadyMadeTurn));
-                const alreadyMadeTurnByUpperTeam = fightState.alreadyMadeTurnByTeam.get(TeamType.UPPER);
-                const alreadyMadeTurnByLowerTeam = fightState.alreadyMadeTurnByTeam.get(TeamType.LOWER);
-                const alreadyMadeTurnByUpperTeamList = new StringList();
-                const alreadyMadeTurnByLowerTeamList = new StringList();
-                if (alreadyMadeTurnByUpperTeam?.size) {
-                    alreadyMadeTurnByUpperTeamList.setValuesList(Array.from(alreadyMadeTurnByUpperTeam));
-                }
-                if (alreadyMadeTurnByLowerTeam?.size) {
-                    alreadyMadeTurnByLowerTeamList.setValuesList(Array.from(alreadyMadeTurnByLowerTeam));
-                }
-                const alreadyMadeTurnByTeamMap = fight.getAlreadyMadeTurnByTeamMap();
-                alreadyMadeTurnByTeamMap.set(TeamType.UPPER, alreadyMadeTurnByUpperTeamList);
-                alreadyMadeTurnByTeamMap.set(TeamType.LOWER, alreadyMadeTurnByLowerTeamList);
-                fight.setAlreadyHourGlassList(Array.from(fightState.alreadyHourGlass));
-                fight.setAlreadyRepliedAttackList(Array.from(fightState.alreadyRepliedAttack));
-                const upperTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
-                const lowerTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0;
-                const teamUnitsAliveMap = fight.getTeamUnitsAliveMap();
-                teamUnitsAliveMap.set(TeamType.UPPER, upperTeamUnitsAlive);
-                teamUnitsAliveMap.set(TeamType.LOWER, lowerTeamUnitsAlive);
-                fight.setHourGlassQueueList(fightState.hourGlassQueue);
-                fight.setMoralePlusQueueList(fightState.moralePlusQueue);
-                fight.setMoraleMinusQueueList(fightState.moraleMinusQueue);
-                fight.setCurrentTurnStart(Math.round(fightState.currentTurnStart));
-                fight.setCurrentTurnEnd(Math.round(fightState.currentTurnEnd));
-                const currentLapTotalTimePerTeam = fight.getCurrentLapTotalTimePerTeamMap();
-                const upperCurrentLapTotalTime = fightState.currentLapTotalTimePerTeam.get(TeamType.UPPER) ?? 0;
-                const lowerCurrentLapTotalTime = fightState.currentLapTotalTimePerTeam.get(TeamType.LOWER) ?? 0;
-                currentLapTotalTimePerTeam.set(TeamType.UPPER, upperCurrentLapTotalTime);
-                currentLapTotalTimePerTeam.set(TeamType.LOWER, lowerCurrentLapTotalTime);
-                fight.setUpNextList(fightState.upNext);
-                fight.setStepsMoraleMultiplier(fightState.stepsMoraleMultiplier);
-                const hasAdditionalTimeRequestedPerTeam = fight.getHasAdditionalTimeRequestedPerTeamMap();
-                const upperAdditionalTimeRequested =
-                    fightState.hasAdditionalTimeRequestedPerTeam.get(TeamType.UPPER) ?? false;
-                const lowerAdditionalTimeRequested =
-                    fightState.hasAdditionalTimeRequestedPerTeam.get(TeamType.LOWER) ?? false;
-                hasAdditionalTimeRequestedPerTeam.set(TeamType.UPPER, upperAdditionalTimeRequested);
-                hasAdditionalTimeRequestedPerTeam.set(TeamType.LOWER, lowerAdditionalTimeRequested);
+                const fightProperties = FightStateManager.getInstance().getFightProperties();
 
                 try {
                     console.log("Before sending data");
                     // console.log(fight.toObject());
-                    const postResponse = await axios.post("http://localhost:8080/fights", fight.serializeBinary(), {
+                    const postResponse = await axios.post("http://localhost:8080/fights", fightProperties.serialize(), {
                         headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
                     });
                     // console.log(fight.serializeBinary());
@@ -648,12 +626,16 @@ class Sandbox extends GLScene {
     }
 
     private spawnObstacles(): string | undefined {
-        if (FightStateManager.getInstance().getFightState().currentLap >= NUMBER_OF_LAPS_TILL_STOP_NARROWING) {
+        if (
+            FightStateManager.getInstance().getFightProperties().getCurrentLap() >=
+            HoCConstants.NUMBER_OF_LAPS_TILL_STOP_NARROWING
+        ) {
             return undefined;
         }
 
         let laps = Math.floor(
-            FightStateManager.getInstance().getFightState().currentLap / this.grid.getNumberOfLapsTillNarrowing(),
+            FightStateManager.getInstance().getFightProperties().getCurrentLap() /
+                FightStateManager.getInstance().getFightProperties().getNumberOfLapsTillNarrowing(),
         );
         if (laps < 1) {
             return undefined;
@@ -739,7 +721,7 @@ class Sandbox extends GLScene {
     }
 
     public requestTime(team: number): void {
-        FightStateManager.getInstance().requestAdditionalTurnTime(team);
+        FightStateManager.getInstance().getFightProperties().requestAdditionalTurnTime(team);
         if (this.sc_visibleState) {
             this.sc_visibleState.canRequestAdditionalTime = false;
             this.sc_visibleStateUpdateNeeded = true;
@@ -1388,31 +1370,32 @@ class Sandbox extends GLScene {
                 }
             } else {
                 this.hoverUnit = undefined;
-                const fightState = FightStateManager.getInstance().getFightState();
+                const fightProperties = FightStateManager.getInstance().getFightProperties();
 
-                const lowerTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
-                const upperTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0;
+                const lowerTeamUnitsAlive = fightProperties.getTeamUnitsAlive(TeamType.UPPER);
+                const upperTeamUnitsAlive = fightProperties.getTeamUnitsAlive(TeamType.LOWER);
 
                 const moreThanOneUnitAlive =
                     (this.currentActiveUnit.getTeam() === TeamType.LOWER && lowerTeamUnitsAlive > 1) ||
                     (this.currentActiveUnit.getTeam() === TeamType.UPPER && upperTeamUnitsAlive > 1);
                 if (
                     (GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell) &&
-                        this.currentActivePathHashes.has((mouseCell.x << 4) | mouseCell.y)) ||
+                        this.currentActivePathHashes?.has((mouseCell.x << 4) | mouseCell.y)) ||
                     (!this.sc_isAIActive &&
                         ((this.spellBookButton.isHover(mouseCell) && this.currentActiveUnit.getSpellsCount()) ||
                             this.shieldButton.isHover(mouseCell) ||
                             this.nextButton.isHover(mouseCell) ||
                             (moreThanOneUnitAlive &&
                                 this.hourGlassButton.isHover(mouseCell) &&
-                                !fightState.hourGlassQueue.includes(this.currentActiveUnit.getId()) &&
-                                !fightState.alreadyHourGlass.has(this.currentActiveUnit.getId())) ||
+                                !fightProperties.hourGlassIncludes(this.currentActiveUnit.getId()) &&
+                                !fightProperties.hasAlreadyHourGlass(this.currentActiveUnit.getId())) ||
                             (this.selectedAttackTypeButton.isHover(mouseCell) && this.switchToSelectedAttackType))) ||
                     this.aiButton.isHover(mouseCell)
                 ) {
                     this.updateHoverInfoWithButtonAction(mouseCell);
 
                     if (
+                        this.selectedAttackTypeButton.isHover(mouseCell) ||
                         this.shieldButton.isHover(mouseCell) ||
                         this.nextButton.isHover(mouseCell) ||
                         this.aiButton.isHover(mouseCell) ||
@@ -1761,7 +1744,7 @@ class Sandbox extends GLScene {
             this.currentActiveUnit &&
             this.currentActiveUnit.getId() === unitStats.id &&
             mouseCell &&
-            (this.currentActivePathHashes.has((mouseCell.x << 4) | mouseCell.y) ||
+            (this.currentActivePathHashes?.has((mouseCell.x << 4) | mouseCell.y) ||
                 (this.currentActiveSpell &&
                     GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell) &&
                     this.currentActiveSpell.getSpellTargetType() === SpellTargetType.FREE_CELL))
@@ -1839,7 +1822,7 @@ class Sandbox extends GLScene {
                         moveStarted = this.moveHandler.startMoving(
                             cellIndices,
                             this.drawer,
-                            FightStateManager.getInstance().getStepsMoraleMultiplier(),
+                            FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                             this.sc_selectedBody,
                             this.currentActiveKnownPaths,
                         );
@@ -1959,10 +1942,9 @@ class Sandbox extends GLScene {
             this.sc_selectedBody = undefined;
         }
         if (!isHourGlass && this.currentActiveUnit) {
-            FightStateManager.getInstance().addAlreadyMadeTurn(
-                this.currentActiveUnit.getTeam(),
-                this.currentActiveUnit.getId(),
-            );
+            FightStateManager.getInstance()
+                .getFightProperties()
+                .addAlreadyMadeTurn(this.currentActiveUnit.getTeam(), this.currentActiveUnit.getId());
             this.currentActiveUnit.setOnHourglass(false);
         }
         this.currentActiveUnit = undefined;
@@ -1998,9 +1980,9 @@ class Sandbox extends GLScene {
             }
         } else if (this.nextButton.isHover(cell) && !this.sc_renderSpellBookOverlay && !this.sc_isAIActive) {
             if (this.currentActiveUnit) {
-                this.currentActiveUnit.decreaseMorale(MORALE_CHANGE_FOR_SKIP);
+                this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SKIP);
                 this.currentActiveUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getStepsMoraleMultiplier(),
+                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                 );
                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
             }
@@ -2008,9 +1990,9 @@ class Sandbox extends GLScene {
         } else if (this.shieldButton.isHover(cell) && !this.sc_renderSpellBookOverlay && !this.sc_isAIActive) {
             if (this.currentActiveUnit) {
                 this.currentActiveUnit.cleanupLuckPerTurn();
-                this.currentActiveUnit.decreaseMorale(MORALE_CHANGE_FOR_SHIELD_OR_CLOCK);
+                this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK);
                 this.currentActiveUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getStepsMoraleMultiplier(),
+                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                 );
                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} shield turn`);
             }
@@ -2080,10 +2062,10 @@ class Sandbox extends GLScene {
             //     this.resetHover();
             //     this.m_selectedBody = undefined;
         } else if (this.currentActiveUnit && !this.sc_renderSpellBookOverlay && !this.sc_isAIActive) {
-            const fightState = FightStateManager.getInstance().getFightState();
+            const fightState = FightStateManager.getInstance().getFightProperties();
 
-            const lowerTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
-            const upperTeamUnitsAlive = fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0;
+            const lowerTeamUnitsAlive = fightState.getTeamUnitsAlive(TeamType.UPPER);
+            const upperTeamUnitsAlive = fightState.getTeamUnitsAlive(TeamType.LOWER);
 
             const moreThanOneUnitAlive =
                 (this.currentActiveUnit.getTeam() === TeamType.LOWER && lowerTeamUnitsAlive > 1) ||
@@ -2091,14 +2073,14 @@ class Sandbox extends GLScene {
             if (
                 moreThanOneUnitAlive &&
                 this.hourGlassButton.isHover(cell) &&
-                !fightState.hourGlassQueue.includes(this.currentActiveUnit.getId()) &&
-                !fightState.alreadyHourGlass.has(this.currentActiveUnit.getId())
+                !fightState.hourGlassIncludes(this.currentActiveUnit.getId()) &&
+                !fightState.hasAlreadyHourGlass(this.currentActiveUnit.getId())
             ) {
-                this.currentActiveUnit.decreaseMorale(MORALE_CHANGE_FOR_SHIELD_OR_CLOCK);
+                this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK);
                 this.currentActiveUnit.setOnHourglass(true);
-                FightStateManager.getInstance().enqueueHourGlass(this.currentActiveUnit.getId());
+                FightStateManager.getInstance().getFightProperties().enqueueHourGlass(this.currentActiveUnit.getId());
                 this.currentActiveUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getStepsMoraleMultiplier(),
+                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                 );
                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} clock turn`);
                 this.finishTurn(true); // hourglass finish
@@ -2290,11 +2272,16 @@ class Sandbox extends GLScene {
         }
     }
 
-    protected finishFight(): void {
-        this.canAttackByMeleeTargets = undefined;
-        FightStateManager.getInstance().finishFight();
+    protected cleanActivePaths(): void {
         this.currentActivePath = undefined;
         this.currentActiveKnownPaths = undefined;
+        this.currentActivePathHashes = undefined;
+    }
+
+    protected finishFight(): void {
+        this.canAttackByMeleeTargets = undefined;
+        FightStateManager.getInstance().getFightProperties().finishFight();
+        this.cleanActivePaths();
         this.sc_sceneLog.updateLog(`Fight finished!`);
         this.refreshVisibleStateIfNeeded();
         if (this.sc_visibleState) {
@@ -2415,9 +2402,13 @@ class Sandbox extends GLScene {
                 teamTypeTurn: undefined,
                 hasAdditionalTime: false,
                 lapNumber: 0,
-                numberOfLapsTillNarrowing: this.grid.getNumberOfLapsTillNarrowing(),
-                numberOfLapsTillStopNarrowing: NUMBER_OF_LAPS_TILL_STOP_NARROWING,
-                canRequestAdditionalTime: !!FightStateManager.getInstance().requestAdditionalTurnTime(undefined, true),
+                numberOfLapsTillNarrowing: FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getNumberOfLapsTillNarrowing(),
+                numberOfLapsTillStopNarrowing: HoCConstants.NUMBER_OF_LAPS_TILL_STOP_NARROWING,
+                canRequestAdditionalTime: !!FightStateManager.getInstance()
+                    .getFightProperties()
+                    .requestAdditionalTurnTime(undefined, true),
                 upNext: [],
             };
             this.sc_visibleStateUpdateNeeded = true;
@@ -2524,6 +2515,21 @@ class Sandbox extends GLScene {
             } else {
                 this.switchToSelectedAttackType = selectedAttackType;
             }
+
+            if (this.currentActiveUnit.hasAbilityActive("Area Throw")) {
+                if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE) {
+                    const currentCell = GridMath.getCellForPosition(
+                        this.sc_sceneSettings.getGridSettings(),
+                        this.currentActiveUnit.getPosition(),
+                    );
+                    if (currentCell) {
+                        this.updateCurrentMovePath(currentCell);
+                    }
+                } else if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE) {
+                    this.cleanActivePaths();
+                }
+            }
+
             this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
             return true;
         }
@@ -2620,6 +2626,26 @@ class Sandbox extends GLScene {
         this.fillActiveAuraRanges(isSmallUnit, position, auraRanges, auraIsBuff);
     }
 
+    protected updateCurrentMovePath(currentCell: XY): void {
+        if (!this.currentActiveUnit) {
+            return;
+        }
+
+        const movePath = this.pathHelper.getMovePath(
+            currentCell,
+            this.gridMatrix,
+            this.currentActiveUnit.getSteps(),
+            this.grid.getAggrMatrixByTeam(
+                this.currentActiveUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
+            ),
+            this.currentActiveUnit.getCanFly(),
+            this.currentActiveUnit.isSmallSize(),
+        );
+        this.currentActivePath = movePath.cells;
+        this.currentActiveKnownPaths = movePath.knownPaths;
+        this.currentActivePathHashes = movePath.hashes;
+    }
+
     public Step(settings: Settings, timeStep: number): number {
         this.sc_isAnimating = this.drawer.isAnimating();
         super.Step(settings, timeStep);
@@ -2658,19 +2684,17 @@ class Sandbox extends GLScene {
             const units: Unit[] = [];
             const bodies: Map<string, b2Body> = new Map();
             const positions: Map<string, XY> = new Map();
-            const fightState = FightStateManager.getInstance().getFightState();
+            const fightProperties = FightStateManager.getInstance().getFightProperties();
 
             let unitsUpper: Unit[] | undefined = [];
             let unitsLower: Unit[] | undefined = [];
             let allUnitsMadeTurn = true;
 
             if (this.sc_started) {
-                if (HoCLib.getTimeMillis() >= fightState.currentTurnEnd) {
+                if (HoCLib.getTimeMillis() >= fightProperties.getCurrentTurnEnd()) {
                     if (this.currentActiveUnit) {
-                        this.currentActiveUnit.decreaseMorale(MORALE_CHANGE_FOR_SKIP);
-                        this.currentActiveUnit.applyMoraleStepsModifier(
-                            FightStateManager.getInstance().getStepsMoraleMultiplier(),
-                        );
+                        this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SKIP);
+                        this.currentActiveUnit.applyMoraleStepsModifier(fightProperties.getStepsMoraleMultiplier());
                         this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
                     }
                     this.finishTurn();
@@ -2738,7 +2762,7 @@ class Sandbox extends GLScene {
                     if (this.sc_started) {
                         if (unit) {
                             if (unitStats.team === TeamType.UPPER) {
-                                if (this.upperPlacement.isAllowed(bodyPosition) || fightState.firstTurnMade) {
+                                if (this.upperPlacement.isAllowed(bodyPosition) || fightProperties.getFirstTurnMade()) {
                                     units.push(unit);
                                     bodies.set(unit.getId(), b);
                                     positions.set(unit.getId(), b.GetPosition());
@@ -2786,11 +2810,13 @@ class Sandbox extends GLScene {
                                         unit.setResponded(false);
                                         unit.setOnHourglass(false);
                                         unit.applyMoraleStepsModifier(
-                                            FightStateManager.getInstance().getStepsMoraleMultiplier(),
+                                            FightStateManager.getInstance()
+                                                .getFightProperties()
+                                                .getStepsMoraleMultiplier(),
                                         );
                                     }
 
-                                    if (allUnitsMadeTurn && !fightState.alreadyMadeTurn.has(unit.getId())) {
+                                    if (allUnitsMadeTurn && !fightProperties.hasAlreadyMadeTurn(unit.getId())) {
                                         allUnitsMadeTurn = false;
                                     }
                                 } else {
@@ -2802,7 +2828,10 @@ class Sandbox extends GLScene {
                                         b,
                                     );
                                 }
-                            } else if (this.lowerPlacement.isAllowed(bodyPosition) || fightState.firstTurnMade) {
+                            } else if (
+                                this.lowerPlacement.isAllowed(bodyPosition) ||
+                                fightProperties.getFirstTurnMade()
+                            ) {
                                 units.push(unit);
                                 bodies.set(unit.getId(), b);
                                 positions.set(unit.getId(), b.GetPosition());
@@ -2851,11 +2880,11 @@ class Sandbox extends GLScene {
                                     unit.setResponded(false);
                                     unit.setOnHourglass(false);
                                     unit.applyMoraleStepsModifier(
-                                        FightStateManager.getInstance().getStepsMoraleMultiplier(),
+                                        FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                                     );
                                 }
 
-                                if (allUnitsMadeTurn && !fightState.alreadyMadeTurn.has(unit.getId())) {
+                                if (allUnitsMadeTurn && !fightProperties.hasAlreadyMadeTurn(unit.getId())) {
                                     allUnitsMadeTurn = false;
                                 }
                             } else {
@@ -2924,24 +2953,26 @@ class Sandbox extends GLScene {
             }
 
             let turnFlipped =
-                fightState.currentLap === 1 &&
-                !FightStateManager.getInstance().getFightState().alreadyMadeTurn.size &&
-                !FightStateManager.getInstance().getFightState().hourGlassQueue.length;
+                fightProperties.getCurrentLap() === 1 &&
+                !FightStateManager.getInstance().getFightProperties().getAlreadyMadeTurnSize() &&
+                !FightStateManager.getInstance().getFightProperties().getHourGlassQueueSize();
 
-            let { fightFinished } = fightState;
+            let fightFinished = fightProperties.getFightFinished();
 
             if (this.sc_started && allUnitsMadeTurn && !fightFinished) {
                 for (const u of units) {
                     u.randomizeLuckPerTurn();
                     u.setResponded(false);
                     u.setOnHourglass(false);
-                    u.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
+                    u.applyMoraleStepsModifier(
+                        FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                    );
                 }
-                FightStateManager.getInstance().flipLap();
-                if (FightStateManager.getInstance().isForestLap(this.grid.getNumberOfLapsTillNarrowing())) {
+                FightStateManager.getInstance().getFightProperties().flipLap();
+                if (FightStateManager.getInstance().getFightProperties().isNarrowingLap()) {
                     // can generate logs on destroy events
                     this.sc_sceneLog.updateLog(this.spawnObstacles());
-                    FightStateManager.getInstance().increaseStepsMoraleMultiplier();
+                    FightStateManager.getInstance().getFightProperties().increaseStepsMoraleMultiplier();
 
                     // spawn may actually delete units due to overlap with obstacles
                     // so we have to refresh all the units here
@@ -2951,13 +2982,17 @@ class Sandbox extends GLScene {
                     this.unitsHolder.refreshStackPowerForAllUnits();
                     if (unitsLower) {
                         for (const ul of unitsLower) {
-                            ul.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
+                            ul.applyMoraleStepsModifier(
+                                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                            );
                         }
                     }
 
                     if (unitsUpper) {
                         for (const uu of unitsUpper) {
-                            uu.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
+                            uu.applyMoraleStepsModifier(
+                                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                            );
                         }
                     }
                 }
@@ -3000,8 +3035,12 @@ class Sandbox extends GLScene {
                             return 0;
                         });
 
-                        FightStateManager.getInstance().setTeamUnitsAlive(TeamType.UPPER, unitsUpper.length);
-                        FightStateManager.getInstance().setTeamUnitsAlive(TeamType.LOWER, unitsLower.length);
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .setTeamUnitsAlive(TeamType.UPPER, unitsUpper.length);
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .setTeamUnitsAlive(TeamType.LOWER, unitsLower.length);
 
                         if (turnFlipped) {
                             for (const u of units) {
@@ -3019,7 +3058,9 @@ class Sandbox extends GLScene {
                                     if (isPlusMorale) {
                                         const buff = this.spellsFactory.makeSpell(FactionType.NO_TYPE, "Morale", 1);
                                         u.applyBuff(buff);
-                                        FightStateManager.getInstance().enqueueMoralePlus(u.getId());
+                                        FightStateManager.getInstance()
+                                            .getFightProperties()
+                                            .enqueueMoralePlus(u.getId());
                                     } else {
                                         const debuff = this.spellsFactory.makeSpell(
                                             FactionType.NO_TYPE,
@@ -3027,7 +3068,9 @@ class Sandbox extends GLScene {
                                             1,
                                         );
                                         u.applyDebuff(debuff);
-                                        FightStateManager.getInstance().enqueueMoraleMinus(u.getId());
+                                        FightStateManager.getInstance()
+                                            .getFightProperties()
+                                            .enqueueMoraleMinus(u.getId());
                                     }
                                 }
                             }
@@ -3039,12 +3082,14 @@ class Sandbox extends GLScene {
                             unitsLower,
                         );
 
-                        const nextUnitId = FightStateManager.getInstance().dequeueNextUnitId();
+                        const nextUnitId = FightStateManager.getInstance().getFightProperties().dequeueNextUnitId();
                         const nextUnit = nextUnitId ? this.unitsHolder.getAllUnits().get(nextUnitId) : undefined;
 
                         if (nextUnit) {
                             const unitsNext: IVisibleUnit[] = [];
-                            for (const unitIdNext of FightStateManager.getInstance().getFightState().upNext) {
+                            for (const unitIdNext of FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getUpNextQueueIterable()) {
                                 const unitNext = this.unitsHolder.getAllUnits().get(unitIdNext);
                                 if (unitNext) {
                                     unitsNext.unshift({
@@ -3069,9 +3114,9 @@ class Sandbox extends GLScene {
                             if (nextUnit.isSkippingThisTurn()) {
                                 this.currentActiveUnit = nextUnit;
                                 this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
-                                this.currentActiveUnit.decreaseMorale(MORALE_CHANGE_FOR_SKIP);
+                                this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SKIP);
                                 this.currentActiveUnit.applyMoraleStepsModifier(
-                                    FightStateManager.getInstance().getStepsMoraleMultiplier(),
+                                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                                 );
                                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
                                 this.finishTurn();
@@ -3083,13 +3128,11 @@ class Sandbox extends GLScene {
                                 this.refreshVisibleStateIfNeeded();
                                 if (this.sc_visibleState) {
                                     this.sc_visibleState.teamTypeTurn = nextUnit.getTeam();
-                                    this.sc_visibleState.lapNumber = fightState.currentLap;
-                                    this.sc_visibleState.canRequestAdditionalTime =
-                                        !!FightStateManager.getInstance().requestAdditionalTurnTime(
-                                            this.sc_visibleState.teamTypeTurn,
-                                            true,
-                                        );
-                                    FightStateManager.getInstance().startTurn(nextUnit.getTeam());
+                                    this.sc_visibleState.lapNumber = fightProperties.getCurrentLap();
+                                    this.sc_visibleState.canRequestAdditionalTime = !!FightStateManager.getInstance()
+                                        .getFightProperties()
+                                        .requestAdditionalTurnTime(this.sc_visibleState.teamTypeTurn, true);
+                                    FightStateManager.getInstance().getFightProperties().startTurn(nextUnit.getTeam());
                                     this.visibleStateUpdate();
                                 }
 
@@ -3097,7 +3140,7 @@ class Sandbox extends GLScene {
                                 const unitBody = bodies.get(nextUnit.getId());
                                 if (!unitBody) {
                                     this.canAttackByMeleeTargets = undefined;
-                                    this.currentActivePath = undefined;
+                                    this.cleanActivePaths();
                                 } else {
                                     unitBody.SetIsActive(true);
                                     this.setSelectedUnitProperties(unitBody.GetUserData());
@@ -3110,37 +3153,27 @@ class Sandbox extends GLScene {
                                     this.adjustSpellBookSprite();
                                     this.currentActiveUnitSwitchedAttackAuto = false;
                                     // this.grid.print(nextUnit.getId());
-                                    const currentPos = GridMath.getCellForPosition(
+                                    const currentCell = GridMath.getCellForPosition(
                                         this.sc_sceneSettings.getGridSettings(),
                                         unitBody.GetPosition(),
                                     );
-                                    if (currentPos) {
-                                        const movePath = this.pathHelper.getMovePath(
-                                            currentPos,
-                                            this.gridMatrix,
-                                            nextUnit.getSteps(),
-                                            this.grid.getAggrMatrixByTeam(
-                                                this.currentActiveUnit.getTeam() === TeamType.LOWER
-                                                    ? TeamType.UPPER
-                                                    : TeamType.LOWER,
-                                            ),
-                                            nextUnit.getCanFly(),
-                                            nextUnit.isSmallSize(),
-                                        );
-                                        this.currentActivePath = movePath.cells;
-                                        this.currentActiveKnownPaths = movePath.knownPaths;
-                                        this.currentActivePathHashes = movePath.hashes;
+                                    if (currentCell) {
+                                        this.updateCurrentMovePath(currentCell);
                                         const enemyTeam =
                                             this.currentActiveUnit.getTeam() === TeamType.LOWER
                                                 ? unitsUpper
                                                 : unitsLower;
-                                        this.canAttackByMeleeTargets = this.pathHelper.attackMeleeAllowed(
-                                            this.currentActiveUnit,
-                                            this.currentActivePath,
-                                            this.currentActiveKnownPaths,
-                                            enemyTeam,
-                                            positions,
-                                        );
+                                        if (this.currentActivePath && this.currentActiveKnownPaths) {
+                                            this.canAttackByMeleeTargets = this.pathHelper.attackMeleeAllowed(
+                                                this.currentActiveUnit,
+                                                this.currentActivePath,
+                                                this.currentActiveKnownPaths,
+                                                enemyTeam,
+                                                positions,
+                                            );
+                                        } else {
+                                            this.canAttackByMeleeTargets = undefined;
+                                        }
                                     } else {
                                         this.canAttackByMeleeTargets = undefined;
                                     }
@@ -3158,7 +3191,7 @@ class Sandbox extends GLScene {
                                         nextUnit.getAllProperties().aura_ranges,
                                         nextUnit.getAllProperties().aura_is_buff,
                                     );
-                                    FightStateManager.getInstance().markFirstTurn();
+                                    FightStateManager.getInstance().getFightProperties().markFirstTurn();
                                 }
                             }
                         } else {

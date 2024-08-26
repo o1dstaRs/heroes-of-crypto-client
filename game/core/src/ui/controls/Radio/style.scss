@@ -31,9 +31,13 @@
         position: absolute;
         background: $color-check-mark;
         color: $color-check-mark;
+
         left: #{$size-control * 0.2};
+
         width: #{$size-control * 0.6};
+
         height: #{$size-control * 0.6};
+
         margin-right: $spacing-md;
         border-radius: 50%;
     }

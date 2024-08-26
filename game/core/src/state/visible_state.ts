@@ -11,29 +11,6 @@
 
 import { TeamType } from "@heroesofcrypto/common";
 
-export interface IFightState {
-    id: string;
-    currentLap: number;
-    firstTurnMade: boolean;
-    fightFinished: boolean;
-    previousTurnTeam: TeamType;
-    highestSpeedThisTurn: number;
-    alreadyMadeTurn: Set<string>;
-    alreadyMadeTurnByTeam: Map<number, Set<string>>;
-    alreadyHourGlass: Set<string>;
-    alreadyRepliedAttack: Set<string>;
-    teamUnitsAlive: Map<number, number>;
-    hourGlassQueue: string[];
-    moralePlusQueue: string[];
-    moraleMinusQueue: string[];
-    currentTurnStart: number;
-    currentTurnEnd: number;
-    currentLapTotalTimePerTeam: Map<number, number>;
-    upNext: string[];
-    stepsMoraleMultiplier: number;
-    hasAdditionalTimeRequestedPerTeam: Map<number, boolean>;
-}
-
 export interface IVisibleUnit {
     amount: number;
     smallTextureName: string;

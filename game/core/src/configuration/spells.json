@@ -44,6 +44,20 @@
             "self_debuff_applies": true,
             "minimal_caster_stack_power": 4,
             "conflicts_with": []
+        },
+        "Courage": {
+            "name": "Courage",
+            "level": 2,
+            "desc": ["The allied unit's morale has reached its peak.", "Lasts 3 laps."],
+            "target": "ANY_ALLY",
+            "power": 0,
+            "power_type": "MIND",
+            "laps": 3,
+            "is_buff": true,
+            "self_cast_allowed": true,
+            "self_debuff_applies": false,
+            "minimal_caster_stack_power": 1,
+            "conflicts_with": []
         }
     },
     "Nature": {
@@ -55,24 +69,6 @@
             "power": 1,
             "power_type": "COMMON",
             "laps": 18,
-            "is_buff": false,
-            "self_cast_allowed": false,
-            "self_debuff_applies": false,
-            "minimal_caster_stack_power": 1,
-            "conflicts_with": []
-        },
-        "Totem of Courage": {
-            "name": "Totem of Courage",
-            "level": 2,
-            "desc": [
-                "Spans an encouraging totem on the battlefield that boosts morale of your army up to the maximum level.",
-                "Totem has 100 hit points and 10 armor, where it's aura range is 2 cells.",
-                "Lasts 3 laps."
-            ],
-            "target": "FREE_CELL",
-            "power": 0,
-            "power_type": "COMMON",
-            "laps": 3,
             "is_buff": false,
             "self_cast_allowed": false,
             "self_debuff_applies": false,
@@ -153,7 +149,7 @@
             "desc": ["The affected unit's morale is at its lowest level.", "Lasts 3 laps."],
             "target": "ANY_ENEMY",
             "power": 0,
-            "power_type": "COMMON",
+            "power_type": "MIND",
             "laps": 3,
             "is_buff": false,
             "self_cast_allowed": false,

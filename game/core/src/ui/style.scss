@@ -7,7 +7,7 @@
     width: 100%;
     height: 100%;
 
-    //  flex-direction: column;
+    //  flex-direction: column;flex-direction
     position: relative;
 
     > .menubar {
@@ -142,6 +142,7 @@ main {
 #right_overlay {
     > table {
         float: right;
+
         margin-right: #{$size-sidebar + $spacing-lg};
     }
 

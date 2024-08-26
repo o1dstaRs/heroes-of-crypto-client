@@ -42,14 +42,7 @@ import { Ability } from "../abilities/abilities";
 import { AbilitiesFactory } from "../abilities/abilities_factory";
 import { AppliedSpell, Spell, calculateBuffsDebuffsEffect } from "../spells/spells";
 import { SpellsFactory } from "../spells/spells_factory";
-import {
-    DAMAGE_ANIMATION_TICKS,
-    HP_BAR_DELTA,
-    LUCK_MAX_CHANGE_FOR_TURN,
-    LUCK_MAX_VALUE_TOTAL,
-    MAX_FPS,
-    MORALE_MAX_VALUE_TOTAL,
-} from "../statics";
+import { DAMAGE_ANIMATION_TICKS, HP_BAR_DELTA, MAX_FPS } from "../statics";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
 import { Effect } from "../effects/effects";
@@ -796,22 +789,22 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public getMorale(): number {
         const { morale } = this.unitProperties;
-        if (morale > MORALE_MAX_VALUE_TOTAL) {
-            return MORALE_MAX_VALUE_TOTAL;
+        if (morale > HoCConstants.MORALE_MAX_VALUE_TOTAL) {
+            return HoCConstants.MORALE_MAX_VALUE_TOTAL;
         }
-        if (morale < -MORALE_MAX_VALUE_TOTAL) {
-            return -MORALE_MAX_VALUE_TOTAL;
+        if (morale < -HoCConstants.MORALE_MAX_VALUE_TOTAL) {
+            return -HoCConstants.MORALE_MAX_VALUE_TOTAL;
         }
         return morale;
     }
 
     public getLuck(): number {
         const luck = this.unitProperties.luck + this.unitProperties.luck_per_turn;
-        if (luck > LUCK_MAX_VALUE_TOTAL) {
-            return LUCK_MAX_VALUE_TOTAL;
+        if (luck > HoCConstants.LUCK_MAX_VALUE_TOTAL) {
+            return HoCConstants.LUCK_MAX_VALUE_TOTAL;
         }
-        if (luck < -LUCK_MAX_VALUE_TOTAL) {
-            return -LUCK_MAX_VALUE_TOTAL;
+        if (luck < -HoCConstants.LUCK_MAX_VALUE_TOTAL) {
+            return -HoCConstants.LUCK_MAX_VALUE_TOTAL;
         }
         return luck;
     }
@@ -1225,11 +1218,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public randomizeLuckPerTurn(): void {
-        let calculatedLuck = HoCLib.getRandomInt(-LUCK_MAX_CHANGE_FOR_TURN, LUCK_MAX_CHANGE_FOR_TURN + 1);
-        if (calculatedLuck + this.unitProperties.luck > LUCK_MAX_VALUE_TOTAL) {
-            calculatedLuck = LUCK_MAX_VALUE_TOTAL - this.unitProperties.luck;
-        } else if (calculatedLuck + this.unitProperties.luck < -LUCK_MAX_VALUE_TOTAL) {
-            calculatedLuck = -LUCK_MAX_VALUE_TOTAL - this.unitProperties.luck;
+        let calculatedLuck = HoCLib.getRandomInt(
+            -HoCConstants.LUCK_MAX_CHANGE_FOR_TURN,
+            HoCConstants.LUCK_MAX_CHANGE_FOR_TURN + 1,
+        );
+        if (calculatedLuck + this.unitProperties.luck > HoCConstants.LUCK_MAX_VALUE_TOTAL) {
+            calculatedLuck = HoCConstants.LUCK_MAX_VALUE_TOTAL - this.unitProperties.luck;
+        } else if (calculatedLuck + this.unitProperties.luck < -HoCConstants.LUCK_MAX_VALUE_TOTAL) {
+            calculatedLuck = -HoCConstants.LUCK_MAX_VALUE_TOTAL - this.unitProperties.luck;
         }
         this.unitProperties.luck_per_turn = calculatedLuck;
     }
@@ -1284,17 +1280,35 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public increaseMorale(moraleAmount: number): void {
+        if (
+            this.hasBuffActive("Courage") ||
+            this.hasBuffActive("Morale") ||
+            this.hasDebuffActive("Sadness") ||
+            this.hasDebuffActive("Dismorale")
+        ) {
+            return;
+        }
+
         this.unitProperties.morale += moraleAmount;
-        if (this.unitProperties.morale > MORALE_MAX_VALUE_TOTAL) {
-            this.unitProperties.morale = MORALE_MAX_VALUE_TOTAL;
+        if (this.unitProperties.morale > HoCConstants.MORALE_MAX_VALUE_TOTAL) {
+            this.unitProperties.morale = HoCConstants.MORALE_MAX_VALUE_TOTAL;
         }
         this.initialUnitProperties.morale = this.unitProperties.morale;
     }
 
     public decreaseMorale(moraleAmount: number): void {
+        if (
+            this.hasBuffActive("Courage") ||
+            this.hasBuffActive("Morale") ||
+            this.hasDebuffActive("Sadness") ||
+            this.hasDebuffActive("Dismorale")
+        ) {
+            return;
+        }
+
         this.unitProperties.morale -= moraleAmount;
-        if (this.unitProperties.morale < -MORALE_MAX_VALUE_TOTAL) {
-            this.unitProperties.morale = -MORALE_MAX_VALUE_TOTAL;
+        if (this.unitProperties.morale < -HoCConstants.MORALE_MAX_VALUE_TOTAL) {
+            this.unitProperties.morale = -HoCConstants.MORALE_MAX_VALUE_TOTAL;
         }
         this.initialUnitProperties.morale = this.unitProperties.morale;
     }
@@ -1706,6 +1720,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     public adjustBaseStats() {
         // HP
         const baseStatsDiff = calculateBuffsDebuffsEffect(this.getBuffs(), this.getDebuffs());
+
         this.unitProperties.max_hp = this.refreshAndGetAdjustedMaxHp() + baseStatsDiff.baseStats.hp;
         if (this.unitProperties.max_hp < this.unitProperties.hp) {
             this.unitProperties.hp = this.unitProperties.max_hp;
@@ -1713,7 +1728,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         // LUCK
         if (baseStatsDiff.baseStats.luck === Number.MAX_SAFE_INTEGER) {
-            this.unitProperties.luck = LUCK_MAX_VALUE_TOTAL;
+            this.unitProperties.luck = HoCConstants.LUCK_MAX_VALUE_TOTAL;
             this.unitProperties.luck_per_turn = 0;
         } else {
             if (this.unitProperties.luck !== this.initialUnitProperties.luck) {
@@ -1726,24 +1741,31 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.attack_multiplier = 1;
         this.unitProperties.morale = this.initialUnitProperties.morale;
         let lockedMorale = false;
-        if (baseStatsDiff.baseStats.morale === Number.MIN_SAFE_INTEGER) {
-            if (this.hasBuffActive("Morale")) {
+        if (this.hasDebuffActive("Sadness")) {
+            if (this.hasBuffActive("Courage")) {
                 this.unitProperties.morale = 0;
                 lockedMorale = true;
             } else {
-                this.unitProperties.morale = -MORALE_MAX_VALUE_TOTAL;
+                this.unitProperties.morale = -HoCConstants.MORALE_MAX_VALUE_TOTAL;
             }
         }
-
+        if (this.hasBuffActive("Courage")) {
+            if (this.hasDebuffActive("Sadness")) {
+                this.unitProperties.morale = 0;
+                lockedMorale = true;
+            } else {
+                this.unitProperties.morale = HoCConstants.MORALE_MAX_VALUE_TOTAL;
+            }
+        }
         if (this.hasBuffActive("Morale")) {
             this.unitProperties.attack_multiplier = 1.25;
             if (!lockedMorale) {
-                this.unitProperties.morale = MORALE_MAX_VALUE_TOTAL;
+                this.unitProperties.morale = HoCConstants.MORALE_MAX_VALUE_TOTAL;
             }
         } else if (this.hasDebuffActive("Dismorale")) {
             this.unitProperties.attack_multiplier = 0.8;
             if (!lockedMorale) {
-                this.unitProperties.morale = -MORALE_MAX_VALUE_TOTAL;
+                this.unitProperties.morale = -HoCConstants.MORALE_MAX_VALUE_TOTAL;
             }
         }
 

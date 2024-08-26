@@ -27,7 +27,7 @@ import React, { useEffect, useState } from "react";
 import * as packageJson from "../../../package.json";
 import { images } from "../../generated/image_imports";
 import { useManager } from "../../manager";
-import { IVisibleState, IVisibleUnit } from "../../state/state";
+import { IVisibleState, IVisibleUnit } from "../../state/visible_state";
 import { UnitStatsListItem } from "../UnitStatsListItem";
 import ColorSchemeToggle from "./ColorSchemeToggle";
 

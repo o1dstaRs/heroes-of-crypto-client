@@ -38,3 +38,15 @@ else
   cd "$OUT_DIR"
   git pull origin $1
 fi
+
+cat > "${DEST_DIR}/tsconfig.json" << EOL
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "outDir": "dist",
+        "skipLibCheck": true,
+        "esModuleInterop": true
+    },
+    "include": ["src/**/*", "src/generated/protobuf/v1/*"]
+}
+EOL

@@ -9,70 +9,21 @@
  * -----------------------------------------------------------------------------
  */
 
-import { v4 as uuidv4 } from "uuid";
-import { GridMath, GridSettings, HoCLib, TeamType } from "@heroesofcrypto/common";
+import { GridMath, GridSettings, TeamType, FightProperties, HoCConstants } from "@heroesofcrypto/common";
 
-import {
-    MAX_TIME_TO_MAKE_TURN_MILLIS,
-    MIN_TIME_TO_MAKE_TURN_MILLIS,
-    STEPS_MORALE_MULTIPLIER,
-    TOTAL_TIME_TO_MAKE_TURN_MILLIS,
-    UP_NEXT_UNITS_COUNT,
-} from "../statics";
 import { Unit } from "../units/units";
-import { IFightState } from "./state";
 
 export class FightStateManager {
     private static instance: FightStateManager;
 
-    private readonly fightState: IFightState;
+    private fightProperties: FightProperties;
 
     private constructor() {
-        this.fightState = {
-            id: uuidv4(),
-            currentLap: 1,
-            firstTurnMade: false,
-            fightFinished: false,
-            previousTurnTeam: TeamType.NO_TEAM,
-            highestSpeedThisTurn: 0,
-            alreadyMadeTurn: new Set(),
-            alreadyMadeTurnByTeam: new Map(),
-            alreadyHourGlass: new Set(),
-            alreadyRepliedAttack: new Set(),
-            teamUnitsAlive: new Map(),
-            hourGlassQueue: [],
-            moralePlusQueue: [],
-            moraleMinusQueue: [],
-            currentTurnStart: 0,
-            currentTurnEnd: 0,
-            currentLapTotalTimePerTeam: new Map(),
-            upNext: [],
-            stepsMoraleMultiplier: 0,
-            hasAdditionalTimeRequestedPerTeam: new Map(),
-        };
+        this.fightProperties = new FightProperties();
     }
 
     public reset(): void {
-        this.fightState.id = uuidv4();
-        this.fightState.currentLap = 1;
-        this.fightState.firstTurnMade = false;
-        this.fightState.fightFinished = false;
-        this.fightState.previousTurnTeam = TeamType.NO_TEAM;
-        this.fightState.highestSpeedThisTurn = 0;
-        this.fightState.alreadyMadeTurn.clear();
-        this.fightState.alreadyMadeTurnByTeam.clear();
-        this.fightState.alreadyHourGlass.clear();
-        this.fightState.alreadyRepliedAttack.clear();
-        this.fightState.teamUnitsAlive.clear();
-        this.fightState.hourGlassQueue = [];
-        this.fightState.moralePlusQueue = [];
-        this.fightState.moraleMinusQueue = [];
-        this.fightState.currentTurnStart = 0;
-        this.fightState.currentTurnEnd = 0;
-        this.fightState.currentLapTotalTimePerTeam.clear();
-        this.fightState.upNext = [];
-        this.fightState.stepsMoraleMultiplier = 0;
-        this.fightState.hasAdditionalTimeRequestedPerTeam.clear();
+        this.fightProperties = new FightProperties();
     }
 
     public static getInstance(): FightStateManager {
@@ -83,20 +34,35 @@ export class FightStateManager {
         return FightStateManager.instance;
     }
 
-    public prefetchNextUnitsToTurn(allUnits: Map<string, Unit>, unitsUpper: Unit[], unitsLower: Unit[]): void {
-        if (this.fightState.upNext.length >= UP_NEXT_UNITS_COUNT) {
+    public getFightProperties(): FightProperties {
+        return this.fightProperties;
+    }
+
+    // TODO: move all that into FightProperties. That requires Unit to be ported into Common code
+    public prefetchNextUnitsToTurn(
+        allUnits: Map<string, Unit>,
+        unitsUpper: Unit[],
+        unitsLower: Unit[],
+        upNextUnitsCount = HoCConstants.UP_NEXT_UNITS_COUNT,
+    ): void {
+        if (upNextUnitsCount < 1) {
+            upNextUnitsCount = 1;
+        }
+        upNextUnitsCount = Math.floor(upNextUnitsCount);
+
+        if (this.fightProperties.getUpNextQueueSize() >= upNextUnitsCount) {
             return;
         }
 
-        while (this.fightState.upNext.length < UP_NEXT_UNITS_COUNT) {
+        while (this.fightProperties.getUpNextQueueSize() < upNextUnitsCount) {
             const nextUnitId = this.getNextTurnUnitId(allUnits, unitsUpper, unitsLower);
 
             if (nextUnitId) {
                 const unit = allUnits.get(nextUnitId);
 
                 if (unit) {
-                    this.fightState.upNext.push(nextUnitId);
-                    this.updatePreviousTurnTeam(unit.getTeam());
+                    this.fightProperties.enqueueUpNext(nextUnitId);
+                    this.fightProperties.updatePreviousTurnTeam(unit.getTeam());
                 }
             } else {
                 break;
@@ -132,22 +98,18 @@ export class FightStateManager {
         }
     }
 
-    public dequeueNextUnitId(): string | undefined {
-        return this.fightState.upNext.shift();
-    }
-
     private getNextTurnUnitId(allUnits: Map<string, Unit>, unitsUpper: Unit[], unitsLower: Unit[]): string | undefined {
         if (!unitsLower.length || !unitsUpper.length) {
             return undefined;
         }
 
         // plus morale
-        while (this.fightState.moralePlusQueue.length) {
-            const nextUnitId = this.fightState.moralePlusQueue.shift();
+        while (this.fightProperties.getMoralePlusQueueSize()) {
+            const nextUnitId = this.fightProperties.dequeueMoralePlus();
             if (
                 nextUnitId &&
-                !this.fightState.alreadyMadeTurn.has(nextUnitId) &&
-                !this.fightState.upNext.includes(nextUnitId)
+                !this.fightProperties.hasAlreadyMadeTurn(nextUnitId) &&
+                !this.fightProperties.upNextIncludes(nextUnitId)
             ) {
                 return nextUnitId;
             }
@@ -159,13 +121,17 @@ export class FightStateManager {
         let secondBatch: Unit[];
 
         // total morale based
-        if (this.fightState.previousTurnTeam == TeamType.NO_TEAM) {
+        if (this.fightProperties.getPreviousTurnTeam() == TeamType.NO_TEAM) {
             for (const u of unitsUpper) {
-                this.fightState.highestSpeedThisTurn = Math.max(this.fightState.highestSpeedThisTurn, u.getSpeed());
+                this.fightProperties.setHighestSpeedThisTurn(
+                    Math.max(this.fightProperties.getHighestSpeedThisTurn(), u.getSpeed()),
+                );
                 totalArmyMoraleUpper += u.getMorale();
             }
             for (const u of unitsLower) {
-                this.fightState.highestSpeedThisTurn = Math.max(this.fightState.highestSpeedThisTurn, u.getSpeed());
+                this.fightProperties.setHighestSpeedThisTurn(
+                    Math.max(this.fightProperties.getHighestSpeedThisTurn(), u.getSpeed()),
+                );
                 totalArmyMoraleLower += u.getMorale();
             }
 
@@ -205,7 +171,7 @@ export class FightStateManager {
                     }
                 }
             }
-        } else if (this.fightState.previousTurnTeam === TeamType.LOWER) {
+        } else if (this.fightProperties.getPreviousTurnTeam() === TeamType.LOWER) {
             firstBatch = unitsUpper;
             secondBatch = unitsLower;
         } else {
@@ -216,10 +182,10 @@ export class FightStateManager {
         for (const u of firstBatch) {
             const unitId = u.getId();
             if (
-                !this.fightState.alreadyMadeTurn.has(unitId) &&
-                !this.fightState.upNext.includes(unitId) &&
-                !this.fightState.hourGlassQueue.includes(unitId) &&
-                !this.fightState.moraleMinusQueue.includes(unitId)
+                !this.fightProperties.hasAlreadyMadeTurn(unitId) &&
+                !this.fightProperties.upNextIncludes(unitId) &&
+                !this.fightProperties.hourGlassIncludes(unitId) &&
+                !this.fightProperties.moraleMinusIncludes(unitId)
             ) {
                 return unitId;
             }
@@ -227,22 +193,22 @@ export class FightStateManager {
         for (const u of secondBatch) {
             const unitId = u.getId();
             if (
-                !this.fightState.alreadyMadeTurn.has(unitId) &&
-                !this.fightState.upNext.includes(unitId) &&
-                !this.fightState.hourGlassQueue.includes(unitId) &&
-                !this.fightState.moraleMinusQueue.includes(unitId)
+                !this.fightProperties.hasAlreadyMadeTurn(unitId) &&
+                !this.fightProperties.upNextIncludes(unitId) &&
+                !this.fightProperties.hourGlassIncludes(unitId) &&
+                !this.fightProperties.moraleMinusIncludes(unitId)
             ) {
                 return unitId;
             }
         }
 
         // minus morale
-        while (this.fightState.moraleMinusQueue.length) {
-            const nextUnitId = this.fightState.moraleMinusQueue.shift();
+        while (this.fightProperties.getMoraleMinusQueueSize()) {
+            const nextUnitId = this.fightProperties.dequeueMoraleMinus();
             if (
                 nextUnitId &&
-                !this.fightState.alreadyMadeTurn.has(nextUnitId) &&
-                !this.fightState.upNext.includes(nextUnitId)
+                !this.fightProperties.hasAlreadyMadeTurn(nextUnitId) &&
+                !this.fightProperties.upNextIncludes(nextUnitId)
             ) {
                 return nextUnitId;
             }
@@ -250,18 +216,18 @@ export class FightStateManager {
 
         // hourglass
         if (
-            this.fightState.hourGlassQueue.length &&
-            this.fightState.alreadyMadeTurn.size +
-                this.fightState.hourGlassQueue.length +
-                this.fightState.upNext.length >=
+            this.fightProperties.getHourGlassQueueSize() &&
+            this.fightProperties.getAlreadyMadeTurnSize() +
+                this.fightProperties.getHourGlassQueueSize() +
+                this.fightProperties.getUpNextQueueSize() >=
                 allUnits.size
         ) {
-            while (this.fightState.hourGlassQueue.length) {
-                const nextUnitId = this.fightState.hourGlassQueue.shift();
+            while (this.fightProperties.getHourGlassQueueSize()) {
+                const nextUnitId = this.fightProperties.dequeueHourGlassQueue();
                 if (
                     nextUnitId &&
-                    !this.fightState.alreadyMadeTurn.has(nextUnitId) &&
-                    !this.fightState.upNext.includes(nextUnitId)
+                    !this.fightProperties.hasAlreadyMadeTurn(nextUnitId) &&
+                    !this.fightProperties.upNextIncludes(nextUnitId)
                 ) {
                     return nextUnitId;
                 }
@@ -269,196 +235,5 @@ export class FightStateManager {
         }
 
         return undefined;
-    }
-
-    public getFightState(): IFightState {
-        return this.fightState;
-    }
-
-    public finishFight(): void {
-        this.fightState.fightFinished = true;
-    }
-
-    public startTurn(team: number): void {
-        let currentTotalTimePerTeam = this.fightState.currentLapTotalTimePerTeam.get(team);
-        if (currentTotalTimePerTeam === undefined) {
-            currentTotalTimePerTeam = 0;
-        }
-
-        let alreadyMadeTurnTeamMembers = 0;
-        const alreadyMadeTurnTeamMembersSet = this.fightState.alreadyMadeTurnByTeam.get(team);
-        if (alreadyMadeTurnTeamMembersSet) {
-            alreadyMadeTurnTeamMembers = alreadyMadeTurnTeamMembersSet.size;
-        }
-        const teamMembersAlive =
-            team === TeamType.LOWER
-                ? this.fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0
-                : this.fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
-        let teamMembersToMakeTurn = teamMembersAlive - alreadyMadeTurnTeamMembers - 1;
-        if (teamMembersToMakeTurn < 0) {
-            teamMembersToMakeTurn = 0;
-        }
-
-        const allocatedForOtherUnits = MIN_TIME_TO_MAKE_TURN_MILLIS * teamMembersToMakeTurn;
-        const timeRemaining = TOTAL_TIME_TO_MAKE_TURN_MILLIS - currentTotalTimePerTeam - allocatedForOtherUnits;
-
-        let maxTimeToMakeTurn = MAX_TIME_TO_MAKE_TURN_MILLIS;
-        if (teamMembersAlive > 0 && teamMembersAlive - alreadyMadeTurnTeamMembers > 0) {
-            maxTimeToMakeTurn = Math.min(
-                maxTimeToMakeTurn,
-                Math.ceil(
-                    (TOTAL_TIME_TO_MAKE_TURN_MILLIS - currentTotalTimePerTeam) /
-                        (teamMembersAlive - alreadyMadeTurnTeamMembers),
-                ),
-            );
-        }
-
-        this.fightState.currentTurnStart = HoCLib.getTimeMillis();
-        this.fightState.currentTurnEnd = this.fightState.currentTurnStart + Math.min(timeRemaining, maxTimeToMakeTurn);
-        // console.log(
-        // `timeRemaining:${timeRemaining} currentTotalTimePerTeam:${currentTotalTimePerTeam} maxTimeToMakeTurn:${maxTimeToMakeTurn} alreadyMadeTurnTeamMembers:${alreadyMadeTurnTeamMembers}`,
-        // );
-    }
-
-    public requestAdditionalTurnTime(team?: number, justCheck = false): number {
-        if (!team) {
-            return 0;
-        }
-
-        const hasAdditionaTimeRequested = this.fightState.hasAdditionalTimeRequestedPerTeam.get(team);
-        if (hasAdditionaTimeRequested) {
-            return 0;
-        }
-
-        let currentTotalTimePerTeam = this.fightState.currentLapTotalTimePerTeam.get(team);
-        if (currentTotalTimePerTeam === undefined) {
-            currentTotalTimePerTeam = 0;
-        }
-
-        let alreadyMadeTurnTeamMembers = 0;
-        const alreadyMadeTurnTeamMembersSet = this.fightState.alreadyMadeTurnByTeam.get(team);
-        if (alreadyMadeTurnTeamMembersSet) {
-            alreadyMadeTurnTeamMembers = alreadyMadeTurnTeamMembersSet.size;
-        }
-        const teamMembersAlive =
-            team === TeamType.LOWER
-                ? this.fightState.teamUnitsAlive.get(TeamType.LOWER) ?? 0
-                : this.fightState.teamUnitsAlive.get(TeamType.UPPER) ?? 0;
-
-        let teamMembersToMakeTurn = teamMembersAlive - alreadyMadeTurnTeamMembers;
-        if (teamMembersToMakeTurn < 0) {
-            teamMembersToMakeTurn = 0;
-        }
-        const allocatedForOtherUnits = MIN_TIME_TO_MAKE_TURN_MILLIS * (teamMembersToMakeTurn - 1);
-        const timeRemaining = TOTAL_TIME_TO_MAKE_TURN_MILLIS - currentTotalTimePerTeam - allocatedForOtherUnits;
-        if (timeRemaining > 0 && teamMembersAlive - alreadyMadeTurnTeamMembers > 0) {
-            const additionalTime = Math.min(
-                MAX_TIME_TO_MAKE_TURN_MILLIS,
-                Math.ceil(
-                    (TOTAL_TIME_TO_MAKE_TURN_MILLIS - currentTotalTimePerTeam) /
-                        (teamMembersAlive - alreadyMadeTurnTeamMembers),
-                ),
-            );
-            if (!justCheck) {
-                this.fightState.currentTurnEnd += additionalTime;
-                this.fightState.hasAdditionalTimeRequestedPerTeam.set(team, true);
-            }
-
-            return additionalTime;
-        }
-
-        return 0;
-    }
-
-    public markFirstTurn(): void {
-        this.fightState.firstTurnMade = true;
-    }
-
-    public flipLap(): void {
-        this.fightState.alreadyMadeTurn.clear();
-        this.fightState.alreadyMadeTurnByTeam.clear();
-        this.fightState.alreadyHourGlass.clear();
-        this.fightState.alreadyRepliedAttack.clear();
-        this.fightState.currentLap++;
-        this.fightState.hourGlassQueue.length = 0;
-        this.fightState.moraleMinusQueue.length = 0;
-        this.fightState.moralePlusQueue.length = 0;
-        this.fightState.currentLapTotalTimePerTeam.clear();
-        this.fightState.hasAdditionalTimeRequestedPerTeam.clear();
-    }
-
-    public isForestLap(numberOfLapsTillsForest: number): boolean {
-        return (
-            this.fightState.currentLap > numberOfLapsTillsForest &&
-            this.fightState.currentLap % numberOfLapsTillsForest === 1
-        );
-    }
-
-    public setTeamUnitsAlive(teamType: TeamType, unitsAlive: number): void {
-        if (teamType) {
-            this.fightState.teamUnitsAlive.set(teamType, unitsAlive);
-        }
-    }
-
-    public addRepliedAttack(unitId: string): void {
-        this.fightState.alreadyRepliedAttack.add(unitId);
-    }
-
-    public addAlreadyMadeTurn(team: number, unitId: string): void {
-        let unitIdsSet = this.fightState.alreadyMadeTurnByTeam.get(team);
-        if (!unitIdsSet) {
-            unitIdsSet = new Set();
-        }
-        unitIdsSet.add(unitId);
-
-        this.fightState.alreadyMadeTurn.add(unitId);
-        this.fightState.alreadyMadeTurnByTeam.set(team, unitIdsSet);
-        let currentTotalTimePerTeam = this.fightState.currentLapTotalTimePerTeam.get(team);
-        if (currentTotalTimePerTeam === undefined) {
-            currentTotalTimePerTeam = 0;
-        }
-        currentTotalTimePerTeam += Math.floor(HoCLib.getTimeMillis() - this.fightState.currentTurnStart);
-        this.fightState.currentLapTotalTimePerTeam.set(team, currentTotalTimePerTeam);
-    }
-
-    public enqueueHourGlass(unitId: string) {
-        this.fightState.alreadyHourGlass.add(unitId);
-        this.fightState.hourGlassQueue.push(unitId);
-    }
-
-    public enqueueMoraleMinus(unitId: string) {
-        this.fightState.moraleMinusQueue.push(unitId);
-    }
-
-    public enqueueMoralePlus(unitId: string) {
-        this.fightState.moralePlusQueue.push(unitId);
-    }
-
-    public removeFromUpNext(unitId: string): boolean {
-        return HoCLib.removeItemOnce(this.fightState.upNext, unitId);
-    }
-
-    public removeFromHourGlassQueue(unitId: string): void {
-        HoCLib.removeItemOnce(this.fightState.hourGlassQueue, unitId);
-    }
-
-    public removeFromMoraleMinusQueue(unitId: string): void {
-        HoCLib.removeItemOnce(this.fightState.moraleMinusQueue, unitId);
-    }
-
-    public removeFromMoralePlusQueue(unitId: string): void {
-        HoCLib.removeItemOnce(this.fightState.moralePlusQueue, unitId);
-    }
-
-    public increaseStepsMoraleMultiplier(): void {
-        this.fightState.stepsMoraleMultiplier += STEPS_MORALE_MULTIPLIER;
-    }
-
-    public getStepsMoraleMultiplier(): number {
-        return this.fightState.stepsMoraleMultiplier;
-    }
-
-    private updatePreviousTurnTeam(team: TeamType): void {
-        this.fightState.previousTurnTeam = team;
     }
 }

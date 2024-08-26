@@ -23,16 +23,6 @@ export const UNIT_SIZE_DELTA = 0.06;
 export const MOVEMENT_DELTA = 5;
 export const HP_BAR_DELTA = 0.09;
 
-// morale and luck
-export const MORALE_CHANGE_FOR_DISTANCE = 3;
-export const MORALE_CHANGE_FOR_SHIELD_OR_CLOCK = 2;
-export const MORALE_CHANGE_FOR_SKIP = 1;
-export const MORALE_CHANGE_FOR_KILL = 4;
-export const MORALE_MAX_VALUE_TOTAL = 20;
-export const LUCK_MAX_CHANGE_FOR_TURN = 3;
-export const LUCK_MAX_VALUE_TOTAL = 10;
-export const STEPS_MORALE_MULTIPLIER = 0.05;
-
 // animation
 export const MAX_FPS = 120;
 export const DAMAGE_ANIMATION_TICKS = 100;
@@ -42,15 +32,6 @@ export const MOUNTAIN_ENLARGE_X = 185;
 export const MOUNTAIN_ENLARGE_Y = 165;
 export const MOUNTAIN_ENLARGE_DOUBLE_X = 370;
 export const MOUNTAIN_ENLARGE_DOUBLE_Y = 330;
-
-// turn
-export const MIN_TIME_TO_MAKE_TURN_MILLIS = 6000;
-export const MAX_TIME_TO_MAKE_TURN_MILLIS = 30000;
-export const TOTAL_TIME_TO_MAKE_TURN_MILLIS = 120000;
-export const UP_NEXT_UNITS_COUNT = 3;
-export const NUMBER_OF_LAPS_TILL_NARROWING_NORMAL = 3;
-export const NUMBER_OF_LAPS_TILL_NARROWING_BLOCK = 4;
-export const NUMBER_OF_LAPS_TILL_STOP_NARROWING = 18;
 
 // spawn
 export const BASE_UNIT_STACK_TO_SPAWN_EXP = 1000;

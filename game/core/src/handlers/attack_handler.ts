@@ -10,7 +10,7 @@
  */
 
 import { b2Body, XY } from "@box2d/core";
-import { AttackType, HoCLib, HoCMath, GridMath, GridSettings, Grid } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, HoCMath, GridMath, GridSettings, Grid, HoCConstants } from "@heroesofcrypto/common";
 
 import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
@@ -25,7 +25,6 @@ import { SceneLog } from "../menu/scene_log";
 import { IWeightedRoute } from "../path/path_helper";
 import { canBeCasted, Spell } from "../spells/spells";
 import { FightStateManager } from "../state/fight_state_manager";
-import { MORALE_CHANGE_FOR_KILL } from "../statics";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
@@ -444,7 +443,7 @@ export class AttackHandler {
         const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(targetUnit);
         let damageFromAttack = 0;
 
-        const fightState = FightStateManager.getInstance().getFightState();
+        const fightProperties = FightStateManager.getInstance().getFightProperties();
         const rangeResponseUnit = rangeResponseUnits?.length ? rangeResponseUnits[0] : undefined;
 
         // response starts here
@@ -453,7 +452,7 @@ export class AttackHandler {
         if (
             rangeResponseUnit &&
             !attackerUnit.canSkipResponse() &&
-            !fightState.alreadyRepliedAttack.has(targetUnit.getId()) &&
+            !fightProperties.hasAlreadyRepliedAttack(targetUnit.getId()) &&
             targetUnit.canRespond() &&
             this.canLandRangeAttack(targetUnit, grid.getEnemyAggrMatrixByUnitId(targetUnit.getId())) &&
             !(
@@ -551,9 +550,11 @@ export class AttackHandler {
             if (targetUnit.isDead()) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
                 unitsHolder.deleteUnitById(grid, targetUnit.getId());
-                attackerUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
+                attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
-                attackerUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
+                attackerUnit.applyMoraleStepsModifier(
+                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                );
             } else {
                 processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
                 processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
@@ -580,8 +581,10 @@ export class AttackHandler {
                     unitsHolder.deleteUnitById(grid, rangeResponseUnit.getId());
                     unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(rangeResponseUnit);
                     if (!targetUnit.isDead()) {
-                        targetUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
-                        targetUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
+                        targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
+                        targetUnit.applyMoraleStepsModifier(
+                            FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                        );
                     }
 
                     if (attackerUnit.getId() === rangeResponseUnit.getId()) {
@@ -651,9 +654,11 @@ export class AttackHandler {
             if (targetUnit.isDead()) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
                 unitsHolder.deleteUnitById(grid, targetUnit.getId());
-                attackerUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
+                attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
-                attackerUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
+                attackerUnit.applyMoraleStepsModifier(
+                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                );
             } else if (secondShotResult.applied) {
                 processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
                 processPetrifyingGazeAbility(
@@ -725,7 +730,7 @@ export class AttackHandler {
                     moveHandler.startMoving(
                         attackFromCell,
                         drawer,
-                        FightStateManager.getInstance().getStepsMoraleMultiplier(),
+                        FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                         attackerBody,
                         currentActiveKnownPaths,
                     );
@@ -769,7 +774,7 @@ export class AttackHandler {
                     moveHandler.startMoving(
                         attackFromCell,
                         drawer,
-                        FightStateManager.getInstance().getStepsMoraleMultiplier(),
+                        FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                         attackerBody,
                         currentActiveKnownPaths,
                     );
@@ -806,7 +811,7 @@ export class AttackHandler {
         const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(targetUnit);
         const damageFromAttack = attackerUnit.calculateAttackDamage(targetUnit, AttackType.MELEE, 1, abilityMultiplier);
 
-        const fightState = FightStateManager.getInstance().getFightState();
+        const fightProperties = FightStateManager.getInstance().getFightProperties();
         const hasLightningSpinAttackLanded = processLightningSpinAbility(
             attackerUnit,
             this.sceneLog,
@@ -851,7 +856,7 @@ export class AttackHandler {
 
         // capture response
         if (
-            !fightState.alreadyRepliedAttack.has(targetUnit.getId()) &&
+            !fightProperties.hasAlreadyRepliedAttack(targetUnit.getId()) &&
             targetUnit.canRespond() &&
             !attackerUnit.canSkipResponse() &&
             !targetUnit.hasAbilityActive("No Melee") &&
@@ -968,8 +973,10 @@ export class AttackHandler {
             this.sceneLog.updateLog(`${attackerUnit.getName()} died`);
 
             unitsHolder.deleteUnitById(grid, attackerUnit.getId());
-            targetUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
-            targetUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
+            targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
+            targetUnit.applyMoraleStepsModifier(
+                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+            );
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(attackerUnit);
         }
 
@@ -977,8 +984,10 @@ export class AttackHandler {
             this.sceneLog.updateLog(`${targetUnit.getName()} died`);
 
             unitsHolder.deleteUnitById(grid, targetUnit.getId());
-            attackerUnit.increaseMorale(MORALE_CHANGE_FOR_KILL);
-            attackerUnit.applyMoraleStepsModifier(FightStateManager.getInstance().getStepsMoraleMultiplier());
+            attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
+            attackerUnit.applyMoraleStepsModifier(
+                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+            );
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
         } else if (secondPunchResult.applied) {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
