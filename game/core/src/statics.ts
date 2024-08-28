@@ -42,4 +42,4 @@ export const MAX_HOLE_LAYERS = 5;
 export const FIGHT_BUTTONS_RIGHT_POSITION_X = 1214;
 export const FIGHT_BUTTONS_LEFT_POSITION_X = -1086;
 export const FRAME_MAX_ELEMENTS_COUNT = 9;
-export const BAR_SIZE_PIXELS_STR = "200px";
+export const BAR_SIZE_PIXELS_STR = "280px";
