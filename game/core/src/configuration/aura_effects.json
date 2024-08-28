@@ -18,7 +18,7 @@
     },
     "Luck": {
         "name": "Luck",
-        "range": 1,
+        "range": 2,
         "desc": "Allies within range gain maximum luck.",
         "power": 0,
         "is_buff": true,

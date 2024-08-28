@@ -28,6 +28,7 @@ import * as packageJson from "../../../package.json";
 import { images } from "../../generated/image_imports";
 import { useManager } from "../../manager";
 import { IVisibleState, IVisibleUnit } from "../../state/visible_state";
+import { BAR_SIZE_PIXELS_STR } from "../../statics";
 import { UnitStatsListItem } from "../UnitStatsListItem";
 import ColorSchemeToggle from "./ColorSchemeToggle";
 
@@ -265,7 +266,7 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
                 position: "fixed",
                 zIndex: 1,
                 height: "100dvh",
-                width: "280px",
+                width: BAR_SIZE_PIXELS_STR,
                 top: 0,
                 left: 0,
                 p: 2,

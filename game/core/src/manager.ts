@@ -470,6 +470,7 @@ export class GameManager {
     public UpdateHoverInfo() {
         if (
             this.m_scene?.sc_attackDamageSpreadStr ||
+            this.m_scene?.sc_attackRangeDamageDivisorStr ||
             this.m_scene?.sc_hoverUnitNameStr ||
             this.m_scene?.sc_hoverInfoArr?.length
         ) {

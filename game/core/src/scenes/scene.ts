@@ -216,6 +216,8 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_started = false;
 
+    public sc_isSelection = false;
+
     public sc_mouseDropStep = 0;
 
     public sc_mouseDownStep = 0;
@@ -374,23 +376,32 @@ export abstract class Scene extends b2ContactListener {
             return true; // Continue the query.
         });
 
-        if (hit_fixture) {
+        if (hit_fixture || this.sc_isSelection) {
             if (this.sc_mouseDropStep === this.sc_stepCount) {
                 return;
             }
 
-            const body = hit_fixture.GetBody();
             let attackLanded = false;
-            if (!this.sc_started && this.sc_selectedBody !== body) {
-                if (this.sc_selectedBody) {
-                    this.sc_selectedBody.SetIsActive(false);
-                }
-                this.sc_selectedBody = body;
-            } else if (!this.sc_isAIActive) {
+            const body = hit_fixture?.GetBody();
+
+            if (this.sc_isSelection) {
                 attackLanded = this.landAttack();
+            } else {
+                if (this.sc_started) {
+                    if (!this.sc_isAIActive) {
+                        attackLanded = this.landAttack();
+                    }
+                } else {
+                    if (body && this.sc_selectedBody !== body) {
+                        if (this.sc_selectedBody) {
+                            this.sc_selectedBody.SetIsActive(false);
+                        }
+                        this.sc_selectedBody = body;
+                    }
+                }
             }
 
-            if (!attackLanded) {
+            if (!attackLanded && body) {
                 this.setSelectedUnitProperties(body.GetUserData());
 
                 if (this.sc_sceneSettings.isDraggable()) {

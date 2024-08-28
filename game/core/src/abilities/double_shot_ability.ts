@@ -17,7 +17,7 @@ import { SpellsFactory } from "../spells/spells_factory";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
-import { processLargeCaliberAbility } from "./large_caliber_ability";
+import { processRangeAOEAbility } from "./large_caliber_ability";
 
 export interface IDoubleShotResult {
     applied: boolean;
@@ -63,7 +63,7 @@ export function processDoubleShotAbility(
     unitsHolder.refreshStackPowerForAllUnits();
     drawer.startBulletAnimation(fromUnit.getPosition(), hoverRangeAttackPosition, toUnit);
 
-    let largeCaliberAttackResult = processLargeCaliberAbility(
+    let aoeRangeAttackResult = processRangeAOEAbility(
         fromUnit,
         affectedUnits,
         fromUnit,
@@ -75,8 +75,8 @@ export function processDoubleShotAbility(
         sceneLog,
         true,
     );
-    if (largeCaliberAttackResult.landed) {
-        damageFromAttack = largeCaliberAttackResult.maxDamage;
+    if (aoeRangeAttackResult.landed) {
+        damageFromAttack = aoeRangeAttackResult.maxDamage;
     } else {
         const abilityMultiplier = fromUnit.calculateAbilityMultiplier(doubleShotAbility);
         damageFromAttack = fromUnit.calculateAttackDamage(
@@ -96,7 +96,7 @@ export function processDoubleShotAbility(
 
     return {
         applied: true,
-        largeCaliberLanded: largeCaliberAttackResult.landed,
+        largeCaliberLanded: aoeRangeAttackResult.landed,
         damage: damageFromAttack,
     };
 }

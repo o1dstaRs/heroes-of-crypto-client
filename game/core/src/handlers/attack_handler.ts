@@ -37,7 +37,7 @@ import { SpellsFactory } from "../spells/spells_factory";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 import { getLapString } from "../utils/strings";
 import { alreadyApplied, isMirrored } from "../spells/spells_helper";
-import { ILargeCaliberResult, processLargeCaliberAbility } from "../abilities/large_caliber_ability";
+import { IAOERangeAttackResult, processRangeAOEAbility } from "../abilities/large_caliber_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -77,11 +77,9 @@ export class AttackHandler {
         const affectedUnits: Array<Unit[]> = [];
         const affectedCells: Array<XY[]> = [];
         const rangeAttackDivisors: number[] = [];
-        const isSniper = attackerUnit.hasAbilityActive("Sniper");
         let attackObstacle: IAttackObstacle | undefined;
 
         for (const cellToPosition of cellsToPositions) {
-            let rangeAttackDivisor = 1;
             const cell = cellToPosition[0];
             const position = cellToPosition[1];
 
@@ -120,7 +118,7 @@ export class AttackHandler {
             unitsThisShot.push(possibleUnit);
             affectedUnitIds.push(possibleUnitId);
 
-            if (attackerUnit.hasAbilityActive("Large Caliber")) {
+            if (attackerUnit.hasAbilityActive("Large Caliber") || attackerUnit.hasAbilityActive("Area Throw")) {
                 const unitIds: string[] = [possibleUnitId];
                 const cells = GridMath.getCellsAroundCell(this.gridSettings, cell);
 
@@ -149,22 +147,7 @@ export class AttackHandler {
             }
 
             affectedUnits.push(unitsThisShot);
-
-            if (!isSniper) {
-                const shotDistancePixels = Math.ceil(attackerUnit.getRangeShotDistance() * this.gridSettings.getStep());
-                let distance = HoCMath.getDistance(attackerUnit.getPosition(), position);
-                while (distance >= shotDistancePixels) {
-                    distance -= shotDistancePixels;
-                    rangeAttackDivisor *= 2;
-                }
-            }
-            if (rangeAttackDivisor < 1) {
-                rangeAttackDivisor = 1;
-            }
-            if (rangeAttackDivisor > 8) {
-                rangeAttackDivisor = 8;
-            }
-            rangeAttackDivisors.push(Math.floor(rangeAttackDivisor));
+            rangeAttackDivisors.push(this.getRangeAttackDivisor(attackerUnit, position));
         }
 
         // if (!isAttackBlocked && !affectedUnitIds.includes(targetUnit.getId())) {
@@ -233,6 +216,27 @@ export class AttackHandler {
         }
 
         return positions;
+    }
+
+    public getRangeAttackDivisor(attackerUnit: Unit, attackPosition: XY): number {
+        let rangeAttackDivisor = 1;
+
+        if (!attackerUnit.hasAbilityActive("Sniper")) {
+            const shotDistancePixels = Math.ceil(attackerUnit.getRangeShotDistance() * this.gridSettings.getStep());
+            let distance = HoCMath.getDistance(attackerUnit.getPosition(), attackPosition);
+            while (distance >= shotDistancePixels) {
+                distance -= shotDistancePixels;
+                rangeAttackDivisor *= 2;
+            }
+        }
+        if (rangeAttackDivisor < 1) {
+            rangeAttackDivisor = 1;
+        }
+        if (rangeAttackDivisor > 8) {
+            rangeAttackDivisor = 8;
+        }
+
+        return Math.floor(rangeAttackDivisor);
     }
 
     public evaluateRangeAttack(
@@ -401,11 +405,13 @@ export class AttackHandler {
         targetUnits?: Array<Unit[]>,
         rangeResponseUnits?: Unit[],
         hoverRangeAttackPosition?: XY,
+        isAOE = false,
     ): boolean {
         if (
             !attackerUnit ||
             attackerUnit.isDead() ||
-            !targetUnits?.length ||
+            // AOE attack can have zero target units
+            (!targetUnits?.length && !isAOE) ||
             !hoverRangeAttackDivisors.length ||
             !hoverRangeAttackPosition ||
             attackerUnit.getAttackTypeSelection() !== AttackType.RANGE ||
@@ -414,29 +420,47 @@ export class AttackHandler {
             return false;
         }
 
+        if (!targetUnits) {
+            if (isAOE) {
+                this.sceneLog.updateLog(`${attackerUnit.getName()} miss aoe`);
+            }
+            return isAOE;
+        }
+
         if (targetUnits.length !== hoverRangeAttackDivisors.length) {
             return false;
         }
 
-        const affectedUnits = targetUnits.shift();
+        let targetUnitUndex = 0;
+        const affectedUnits = targetUnits.at(targetUnitUndex);
         if (!affectedUnits?.length) {
             return false;
         }
 
         let targetUnit = affectedUnits[0];
+
+        if (!targetUnit && isAOE) {
+            this.sceneLog.updateLog(`${attackerUnit.getName()} miss aoe`);
+            return true;
+        }
+
         if (
-            !targetUnit ||
-            targetUnit.getTeam() === attackerUnit.getTeam() ||
-            targetUnit.isDead() ||
-            (attackerUnit.hasDebuffActive("Cowardice") && attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp())
+            !isAOE &&
+            (!targetUnit ||
+                (targetUnit.getTeam() === attackerUnit.getTeam() && !isAOE) ||
+                targetUnit.isDead() ||
+                (attackerUnit.hasDebuffActive("Cowardice") &&
+                    attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp()))
         ) {
             return false;
         }
 
-        let hoverRangeAttackDivisor: number | undefined = hoverRangeAttackDivisors.shift();
+        let hoverRangeAttackDivisor: number | undefined = hoverRangeAttackDivisors.at(targetUnitUndex);
         if (!hoverRangeAttackDivisor) {
             return false;
         }
+
+        targetUnitUndex++;
 
         drawer.startBulletAnimation(attackerUnit.getPosition(), hoverRangeAttackPosition, targetUnit);
 
@@ -465,11 +489,11 @@ export class AttackHandler {
         }
 
         // handle attack damage
-        let largeCaliberAttackResult: ILargeCaliberResult | undefined = undefined;
+        let largeCaliberAttackResult: IAOERangeAttackResult | undefined = undefined;
         if (isAttackMissed) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
         } else {
-            largeCaliberAttackResult = processLargeCaliberAbility(
+            largeCaliberAttackResult = processRangeAOEAbility(
                 attackerUnit,
                 affectedUnits,
                 attackerUnit,
@@ -500,12 +524,12 @@ export class AttackHandler {
         }
 
         // handle response damage
-        let largeCaliberResponseResult: ILargeCaliberResult | undefined = undefined;
+        let largeCaliberResponseResult: IAOERangeAttackResult | undefined = undefined;
         if (rangeResponseUnit && rangeResponseUnits) {
             if (isResponseMissed) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} misses resp ${rangeResponseUnit.getName()}`);
             } else {
-                largeCaliberResponseResult = processLargeCaliberAbility(
+                largeCaliberResponseResult = processRangeAOEAbility(
                     targetUnit,
                     rangeResponseUnits,
                     targetUnit,
@@ -613,7 +637,7 @@ export class AttackHandler {
         }
 
         if (switchTargetUnit) {
-            const affectedUnits = targetUnits.shift();
+            const affectedUnits = targetUnits.at(targetUnitUndex);
             if (!affectedUnits?.length) {
                 return true;
             }
@@ -629,7 +653,7 @@ export class AttackHandler {
             ) {
                 return true;
             }
-            hoverRangeAttackDivisor = hoverRangeAttackDivisors.shift();
+            hoverRangeAttackDivisor = hoverRangeAttackDivisors.at(targetUnitUndex);
             if (!hoverRangeAttackDivisor) {
                 return true;
             }
