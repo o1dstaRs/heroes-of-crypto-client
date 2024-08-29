@@ -35,14 +35,7 @@ import {
     XY,
 } from "@box2d/core";
 import { b2ParticleGroup, DrawParticleSystems } from "@box2d/particles";
-import {
-    AttackType,
-    FactionType,
-    HoCMath,
-    IAuraOnMap,
-    UnitProperties,
-    abilityToTextureName,
-} from "@heroesofcrypto/common";
+import { AttackType, FactionType, HoCMath, IAuraOnMap, UnitProperties, AbilityHelper } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { SceneControl } from "../sceneControls";
@@ -544,7 +537,7 @@ export abstract class Scene extends b2ContactListener {
 
             visibleAbilitiesImpact.push({
                 name: abilityName,
-                smallTextureName: abilityToTextureName(abilityName),
+                smallTextureName: AbilityHelper.abilityToTextureName(abilityName),
                 description: abilityDescription,
                 laps: Number.MAX_SAFE_INTEGER,
                 stackPower: unitProperties.stack_power,
@@ -568,7 +561,7 @@ export abstract class Scene extends b2ContactListener {
 
                 visibleDebuffsImpact.push({
                     name: effectName,
-                    smallTextureName: abilityToTextureName(effectName),
+                    smallTextureName: AbilityHelper.abilityToTextureName(effectName),
                     description: description,
                     laps: lapsRemaining,
                     stackPower: 0,
@@ -594,7 +587,7 @@ export abstract class Scene extends b2ContactListener {
 
                 visibleBuffsImpact.push({
                     name: buffName,
-                    smallTextureName: abilityToTextureName(buffName),
+                    smallTextureName: AbilityHelper.abilityToTextureName(buffName),
                     description: description,
                     laps: lapsRemaining,
                     stackPower: 0,
@@ -619,7 +612,7 @@ export abstract class Scene extends b2ContactListener {
 
                 visibleDebuffsImpact.push({
                     name: debuffName,
-                    smallTextureName: abilityToTextureName(debuffName),
+                    smallTextureName: AbilityHelper.abilityToTextureName(debuffName),
                     description: description,
                     laps: lapsRemaining,
                     stackPower: 0,

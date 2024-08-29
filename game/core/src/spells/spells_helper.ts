@@ -35,7 +35,7 @@ export const isMirrored = (targetUnit: Unit): boolean => {
     return HoCLib.getRandomInt(0, 100) < Math.floor(mirrorChance);
 };
 
-export const alreadyApplied = (targetUnit: Unit, spell: Spell): boolean => {
+export const hasAlreadyAppliedSpell = (targetUnit: Unit, spell: Spell): boolean => {
     const conflictingSpells = [...spell.getConflictsWith(), spell.getName()];
     let needToApply = true;
     for (const cs of conflictingSpells) {

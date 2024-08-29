@@ -27,7 +27,7 @@ import {
     TeamType,
     IAuraOnMap,
     UnitProperties,
-    getAbilitiesWithPosisionCoefficient,
+    AbilityHelper,
 } from "@heroesofcrypto/common";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
@@ -47,7 +47,7 @@ import { PlacementType, SquarePlacement } from "../placement/square_placement";
 import { Settings } from "../settings";
 import { RenderableSpell } from "../spells/renderable_spell";
 import { canBeCasted, canBeMassCasted, canBeSummoned, Spell } from "../spells/spells";
-import { alreadyApplied, isMirrored } from "../spells/spells_helper";
+import { hasAlreadyAppliedSpell, isMirrored } from "../spells/spells_helper";
 import { FightStateManager } from "../state/fight_state_manager";
 import { IVisibleUnit } from "../state/visible_state";
 import {
@@ -1236,7 +1236,7 @@ class Sandbox extends GLScene {
                             );
                             this.hoverAttackIsSmallSize = undefined;
                             let abilityMultiplier = 1;
-                            const abilitiesWithPositionCoeff = getAbilitiesWithPosisionCoefficient(
+                            const abilitiesWithPositionCoeff = AbilityHelper.getAbilitiesWithPosisionCoefficient(
                                 this.currentActiveUnit.getAbilities(),
                                 this.hoverAttackFrom,
                                 GridMath.getCellForPosition(
@@ -2309,7 +2309,7 @@ class Sandbox extends GLScene {
                                     continue;
                                 }
 
-                                if (!alreadyApplied(u, this.hoveredSpell)) {
+                                if (!hasAlreadyAppliedSpell(u, this.hoveredSpell)) {
                                     u.applyBuff(
                                         this.hoveredSpell,
                                         undefined,
@@ -2343,7 +2343,7 @@ class Sandbox extends GLScene {
                                     continue;
                                 }
 
-                                if (!alreadyApplied(debuffTarget, this.hoveredSpell)) {
+                                if (!hasAlreadyAppliedSpell(debuffTarget, this.hoveredSpell)) {
                                     const laps = this.hoveredSpell.getLapsTotal();
                                     debuffTarget.applyDebuff(
                                         this.hoveredSpell,
@@ -2353,7 +2353,7 @@ class Sandbox extends GLScene {
                                     );
                                     if (
                                         isMirrored(debuffTarget) &&
-                                        !alreadyApplied(this.currentActiveUnit, this.hoveredSpell)
+                                        !hasAlreadyAppliedSpell(this.currentActiveUnit, this.hoveredSpell)
                                     ) {
                                         this.currentActiveUnit.applyDebuff(
                                             this.hoveredSpell,

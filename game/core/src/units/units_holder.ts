@@ -11,6 +11,7 @@
 
 import { b2Body, b2Fixture, b2Vec2, b2World, XY } from "@box2d/core";
 import {
+    AppliedSpell,
     AppliedAuraEffectProperties,
     FactionType,
     TeamType,
@@ -18,13 +19,12 @@ import {
     Grid,
     GridSettings,
     GridMath,
-    canApplyAuraEffect,
+    EffectHelper,
     HoCLib,
     HoCConstants,
 } from "@heroesofcrypto/common";
 
 import { SquarePlacement } from "../placement/square_placement";
-import { AppliedSpell } from "../spells/spells";
 import { FightStateManager } from "../state/fight_state_manager";
 import {
     BASE_UNIT_STACK_TO_SPAWN_EXP,
@@ -424,7 +424,7 @@ export class UnitsHolder {
             for (let i = 0; i < unitAppliedAuraEffectProperties.length; i++) {
                 const appliedAuraEffectProperties = unitAppliedAuraEffectProperties[i];
                 const auraEffectProperties = appliedAuraEffectProperties.getAuraEffectProperties();
-                if (canApplyAuraEffect(u.getAttackType(), auraEffectProperties)) {
+                if (EffectHelper.canApplyAuraEffect(u.getAttackType(), auraEffectProperties)) {
                     u.applyAuraEffect(
                         `${auraEffectProperties.name} Aura`,
                         auraEffectProperties.desc.replace(/\{\}/g, auraEffectProperties.power.toString()),

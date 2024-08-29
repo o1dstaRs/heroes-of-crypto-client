@@ -22,6 +22,7 @@ import {
 } from "@box2d/core";
 import { removeFromArray } from "@box2d/lights/dist/utils/arrayUtils";
 import {
+    AppliedSpell,
     AbilityPowerType,
     Ability,
     Effect,
@@ -44,7 +45,7 @@ import {
 } from "@heroesofcrypto/common";
 import Denque from "denque";
 
-import { AppliedSpell, Spell, calculateBuffsDebuffsEffect, spellToTextureNames } from "../spells/spells";
+import { Spell, calculateBuffsDebuffsEffect, spellToTextureNames } from "../spells/spells";
 import { DAMAGE_ANIMATION_TICKS, HP_BAR_DELTA, MAX_FPS } from "../statics";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";

@@ -18,7 +18,7 @@ import {
     GridSettings,
     Grid,
     HoCConstants,
-    getAbilitiesWithPosisionCoefficient,
+    AbilityHelper,
 } from "@heroesofcrypto/common";
 
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
@@ -43,7 +43,7 @@ import { processSpitBallAbility } from "../abilities/spit_ball_ability";
 import { processPetrifyingGazeAbility } from "../abilities/petrifying_gaze_ability";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 import { getLapString } from "../utils/strings";
-import { alreadyApplied, isMirrored } from "../spells/spells_helper";
+import { hasAlreadyAppliedSpell, isMirrored } from "../spells/spells_helper";
 import { IAOERangeAttackResult, processRangeAOEAbility } from "../abilities/aoe_range_ability";
 
 export interface IRangeAttackEvaluation {
@@ -348,7 +348,7 @@ export class AttackHandler {
                     attackerUnit.getId() === targetUnit.getId(),
                 );
 
-                if (isMirrored(debuffTarget) && !alreadyApplied(debuffTarget, currentActiveSpell)) {
+                if (isMirrored(debuffTarget) && !hasAlreadyAppliedSpell(debuffTarget, currentActiveSpell)) {
                     attackerUnit.applyDebuff(
                         currentActiveSpell,
                         undefined,
@@ -369,7 +369,7 @@ export class AttackHandler {
                     debuffTarget = absorptionTarget;
                 }
 
-                if (!alreadyApplied(debuffTarget, currentActiveSpell)) {
+                if (!hasAlreadyAppliedSpell(debuffTarget, currentActiveSpell)) {
                     debuffTarget.applyDebuff(
                         currentActiveSpell,
                         attackerUnit.getAllProperties().max_hp,
@@ -802,7 +802,7 @@ export class AttackHandler {
         }
 
         let abilityMultiplier = 1;
-        const abilitiesWithPositionCoeff = getAbilitiesWithPosisionCoefficient(
+        const abilitiesWithPositionCoeff = AbilityHelper.getAbilitiesWithPosisionCoefficient(
             attackerUnit.getAbilities(),
             attackFromCell,
             GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
@@ -899,7 +899,7 @@ export class AttackHandler {
                 this.sceneLog.updateLog(`${targetUnit.getName()} misses resp ${attackerUnit.getName()}`);
             } else if (!hasLightningSpinResponseLanded) {
                 abilityMultiplier = 1;
-                const abilitiesWithPositionCoeffResp = getAbilitiesWithPosisionCoefficient(
+                const abilitiesWithPositionCoeffResp = AbilityHelper.getAbilitiesWithPosisionCoefficient(
                     targetUnit.getAbilities(),
                     GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
                     attackFromCell,
