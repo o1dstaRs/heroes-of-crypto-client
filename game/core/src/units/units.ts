@@ -416,7 +416,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
     }
 
-    public getSpells(): Spell[] {
+    public getSpells(): RenderableSpell[] {
         return this.spells;
     }
 
@@ -1196,7 +1196,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
     }
 
-    public getHoveredSpell(mousePosition: XY): Spell | undefined {
+    public getHoveredSpell(mousePosition: XY): RenderableSpell | undefined {
         for (const s of this.spells) {
             if (s.isHover(mousePosition)) {
                 return s;
@@ -1700,10 +1700,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.applied_debuffs_powers.push(0);
     }
 
-    public useSpell(spell: Spell): void {
-        const spellsUpdated: Spell[] = [];
+    public useSpell(spellName: string): void {
+        const spellsUpdated: RenderableSpell[] = [];
         for (const s of this.spells) {
-            if (s.getName() === spell.getName()) {
+            if (s.getName() === spellName) {
                 s.decreaseAmount();
                 removeFromArray(this.unitProperties.spells, `${s.getFaction()}:${s.getName()}`);
             }

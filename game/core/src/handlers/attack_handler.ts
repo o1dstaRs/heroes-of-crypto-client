@@ -379,7 +379,7 @@ export class AttackHandler {
                 }
             }
             const laps = currentActiveSpell.getLapsTotal();
-            attackerUnit.useSpell(currentActiveSpell);
+            attackerUnit.useSpell(currentActiveSpell.getName());
             let newText = `${attackerUnit.getName()} cast ${currentActiveSpell.getName()}`;
             if (attackerUnit.getId() === targetUnit.getId()) {
                 newText += ` on themselves for ${getLapString(laps)}`;

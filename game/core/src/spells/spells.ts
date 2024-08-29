@@ -21,11 +21,6 @@ import {
     IModifyableUnitProperties,
 } from "@heroesofcrypto/common";
 
-export interface ICalculatedBuffsDebuffsEffect {
-    baseStats: IModifyableUnitProperties;
-    additionalStats: IModifyableUnitProperties;
-}
-
 export class AppliedSpell {
     private readonly name: string;
 
@@ -82,6 +77,11 @@ export class AppliedSpell {
     public getLaps(): number {
         return this.lapsRemaining;
     }
+}
+
+export interface ICalculatedBuffsDebuffsEffect {
+    baseStats: IModifyableUnitProperties;
+    additionalStats: IModifyableUnitProperties;
 }
 
 export interface ISpellParams {

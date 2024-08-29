@@ -45,6 +45,7 @@ import { ObstacleGenerator } from "../obstacles/obstacle_generator";
 import { IWeightedRoute, PathHelper } from "../path/path_helper";
 import { PlacementType, SquarePlacement } from "../placement/square_placement";
 import { Settings } from "../settings";
+import { RenderableSpell } from "../spells/renderable_spell";
 import { canBeCasted, canBeMassCasted, canBeSummoned, Spell } from "../spells/spells";
 import { alreadyApplied, isMirrored } from "../spells/spells_helper";
 import { FightStateManager } from "../state/fight_state_manager";
@@ -90,7 +91,7 @@ class Sandbox extends GLScene {
 
     private currentActiveKnownPaths?: Map<number, IWeightedRoute[]>;
 
-    private currentActiveSpell?: Spell;
+    private currentActiveSpell?: RenderableSpell;
 
     private hoverActivePath?: XY[];
 
@@ -120,7 +121,7 @@ class Sandbox extends GLScene {
 
     private hoverSelectedCellsSwitchToRed = false;
 
-    private hoveredSpell?: Spell;
+    private hoveredSpell?: RenderableSpell;
 
     private rangeResponseUnits?: Unit[];
 
@@ -2287,7 +2288,7 @@ class Sandbox extends GLScene {
                             );
                         }
 
-                        this.currentActiveUnit.useSpell(this.hoveredSpell);
+                        this.currentActiveUnit.useSpell(this.hoveredSpell.getName());
                         this.finishTurn();
                     } else if (
                         canBeMassCasted(
@@ -2370,7 +2371,7 @@ class Sandbox extends GLScene {
                             }
                         }
 
-                        this.currentActiveUnit.useSpell(this.hoveredSpell);
+                        this.currentActiveUnit.useSpell(this.hoveredSpell.getName());
                         this.unitsHolder.refreshStackPowerForAllUnits();
                         this.finishTurn();
                     } else {
