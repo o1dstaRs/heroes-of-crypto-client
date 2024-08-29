@@ -21,7 +21,6 @@ import {
     HoCConfig,
 } from "@heroesofcrypto/common";
 
-import { SpellsFactory } from "../spells/spells_factory";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
@@ -189,8 +188,6 @@ export class UnitsFactory {
 
     protected readonly digitDamageTextures: Map<number, WebGLTexture>;
 
-    protected readonly spellsFactory: SpellsFactory;
-
     protected readonly abilityFactory: AbilityFactory;
 
     public constructor(
@@ -201,7 +198,6 @@ export class UnitsFactory {
         digitDamageTextures: Map<number, WebGLTexture>,
         gridSettings: GridSettings,
         textures: PreloadedTextures,
-        spellsFactory: SpellsFactory,
         abilityFactory: AbilityFactory,
     ) {
         this.world = world;
@@ -212,7 +208,6 @@ export class UnitsFactory {
         this.unitSize = gridSettings.getUnitSize();
         this.gridSettings = gridSettings;
         this.textures = textures;
-        this.spellsFactory = spellsFactory;
         this.abilityFactory = abilityFactory;
 
         this.smallTexturesByHero = new Map();
@@ -278,10 +273,10 @@ export class UnitsFactory {
             new Sprite(this.gl, this.shader, this.textures.hourglass.texture),
             new Sprite(this.gl, this.shader, this.textures.green_flag_70.texture),
             new Sprite(this.gl, this.shader, this.textures.red_flag_70.texture),
-            this.spellsFactory,
             this.abilityFactory,
             this.abilityFactory.getEffectsFactory(),
             summoned,
+            this.textures,
             //      new MeleeAI(this.world, this.gridSettings, this.board),
         );
     }
@@ -318,8 +313,8 @@ export class UnitsFactory {
             new Sprite(this.gl, this.shader, this.textures.hourglass.texture),
             new Sprite(this.gl, this.shader, this.textures.green_flag_70.texture),
             new Sprite(this.gl, this.shader, this.textures.red_flag_70.texture),
-            this.spellsFactory,
             this.abilityFactory,
+            this.textures,
             //      new MeleeAI(this.world, this.gridSettings, this.board),
         );
     }

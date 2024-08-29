@@ -9,7 +9,6 @@
  * -----------------------------------------------------------------------------
  */
 
-import { XY } from "@box2d/core";
 import {
     FactionType,
     SpellProperties,
@@ -18,30 +17,14 @@ import {
     GridSettings,
     GridMath,
     TeamType,
+    HoCMath,
     IModifyableUnitProperties,
 } from "@heroesofcrypto/common";
-
-import { DefaultShader } from "../utils/gl/defaultShader";
-import { Sprite } from "../utils/gl/Sprite";
-
-export enum BookPosition {
-    ONE = 1,
-    TWO = 2,
-    THREE = 3,
-    FOUR = 4,
-    FIVE = 5,
-    SIX = 6,
-}
 
 export interface ICalculatedBuffsDebuffsEffect {
     baseStats: IModifyableUnitProperties;
     additionalStats: IModifyableUnitProperties;
 }
-
-const BOOK_POSITION_LEFT_X = -516;
-const BOOK_POSITION_RIGHT_X = 256;
-const BOOK_POSITION_Y = 1328;
-const BOOK_SPELL_SIZE = 256;
 
 export class AppliedSpell {
     private readonly name: string;
@@ -101,20 +84,15 @@ export class AppliedSpell {
     }
 }
 
+export interface ISpellParams {
+    spellProperties: SpellProperties;
+    amount: number;
+}
+
 export class Spell {
-    private readonly gl: WebGLRenderingContext;
-
-    private readonly shader: DefaultShader;
-
     private readonly spellProperties: SpellProperties;
 
-    private amountRemaining: number;
-
-    private readonly sprite: Sprite;
-
-    private readonly fontSprite: Sprite;
-
-    private readonly texturesByDigit: Map<number, WebGLTexture>;
+    protected amountRemaining: number;
 
     private readonly isSummonSpell: boolean;
 
@@ -122,34 +100,9 @@ export class Spell {
 
     private readonly summonUnitName: string = "";
 
-    private xMin: number;
-
-    private xMax: number;
-
-    private yMin: number;
-
-    private yMax: number;
-
-    public constructor(
-        gl: WebGLRenderingContext,
-        shader: DefaultShader,
-        spellProperties: SpellProperties,
-        amount: number,
-        sprite: Sprite,
-        fontSprite: Sprite,
-        texturesByDigit: Map<number, WebGLTexture>,
-    ) {
-        this.gl = gl;
-        this.shader = shader;
-        this.spellProperties = spellProperties;
-        this.amountRemaining = amount;
-        this.sprite = sprite;
-        this.fontSprite = fontSprite;
-        this.texturesByDigit = texturesByDigit;
-        this.xMin = 0;
-        this.xMax = 0;
-        this.yMin = 0;
-        this.yMax = 0;
+    public constructor(spellParams: ISpellParams) {
+        this.spellProperties = spellParams.spellProperties;
+        this.amountRemaining = spellParams.amount;
         this.isSummonSpell = this.spellProperties.name.startsWith("Summon ");
         if (this.isSummonSpell) {
             if (this.spellProperties.name.endsWith(" Wolves")) {
@@ -227,93 +180,12 @@ export class Spell {
         return this.summonUnitName;
     }
 
-    public getSprite(): Sprite {
-        return this.sprite;
-    }
-
     public decreaseAmount(): void {
         this.amountRemaining -= 1;
     }
-
-    public cleanupPagePosition(): void {
-        this.xMin = 0;
-        this.xMax = 0;
-        this.yMin = 0;
-        this.yMax = 0;
-    }
-
-    public isHover(mousePosition: XY): boolean {
-        return (
-            this.xMin !== this.xMax &&
-            this.yMin !== this.yMax &&
-            mousePosition.x >= this.xMin &&
-            mousePosition.x < this.xMax &&
-            mousePosition.y >= this.yMin &&
-            mousePosition.y < this.yMax
-        );
-    }
-
-    public getOnPagePosition(): XY[] {
-        return [
-            { x: this.xMin, y: this.yMin },
-            { x: this.xMax, y: this.yMax },
-        ];
-    }
-
-    public renderOnPage(bookPosition: BookPosition): void {
-        const page = Math.ceil(bookPosition / 3);
-        const mod = bookPosition % 3;
-        const pagePosition = mod || 3;
-
-        const xPos = page === 1 ? BOOK_POSITION_LEFT_X : BOOK_POSITION_RIGHT_X;
-        const yPos =
-            BOOK_POSITION_Y - (pagePosition - 1) * BOOK_SPELL_SIZE - 0.25 * (pagePosition - 1) * BOOK_SPELL_SIZE;
-
-        this.sprite.setRect(xPos, yPos, BOOK_SPELL_SIZE, BOOK_SPELL_SIZE);
-
-        this.xMin = xPos;
-        this.xMax = xPos + BOOK_SPELL_SIZE;
-        this.yMin = yPos;
-        this.yMax = yPos + BOOK_SPELL_SIZE;
-
-        const fifthStep = BOOK_SPELL_SIZE / 5;
-
-        this.fontSprite.setRect(xPos, yPos - 46, BOOK_SPELL_SIZE, fifthStep);
-
-        this.sprite.render();
-        this.fontSprite.render();
-
-        let index = 0;
-        let numberOfScrolls = this.amountRemaining;
-        const amountSprites: Sprite[] = new Array(numberOfScrolls.toString().length);
-
-        if (numberOfScrolls < 10) {
-            const texture = this.texturesByDigit.get(numberOfScrolls);
-            if (texture) {
-                amountSprites[index] = new Sprite(this.gl, this.shader, texture);
-            }
-        } else {
-            while (numberOfScrolls) {
-                const digit = numberOfScrolls % 10;
-                const texture = this.texturesByDigit.get(digit);
-                if (texture) {
-                    amountSprites[index++] = new Sprite(this.gl, this.shader, texture);
-                }
-                numberOfScrolls = Math.floor(numberOfScrolls / 10);
-            }
-        }
-
-        const sixthStep = BOOK_SPELL_SIZE / 6;
-
-        let i = 1;
-        for (const s of amountSprites) {
-            s.setRect(xPos + BOOK_SPELL_SIZE - sixthStep * i++, yPos, sixthStep, fifthStep);
-            s.render();
-        }
-    }
 }
 
-const verifyEmptyCell = (gridMatrix: number[][], emptyGridCell?: XY): boolean => {
+const verifyEmptyCell = (gridMatrix: number[][], emptyGridCell?: HoCMath.XY): boolean => {
     if (!emptyGridCell) {
         return false;
     }
@@ -397,13 +269,18 @@ export function canBeMassCasted(
     return canBeCasted;
 }
 
-export function canBeSummoned(spell: Spell, gridMatrix: number[][], emptyGridCell?: XY): boolean {
+export function canBeSummoned(spell: Spell, gridMatrix: number[][], emptyGridCell?: HoCMath.XY): boolean {
     if (spell.isSummon() && spell.getSpellTargetType() === SpellTargetType.RANDOM_CLOSE_TO_CASTER) {
         return verifyEmptyCell(gridMatrix, emptyGridCell);
     }
 
     return false;
 }
+
+export const spellToTextureNames = (spellName: string): [string, string] => {
+    const baseName = spellName.toLowerCase().replace(/ /g, "_");
+    return [`${baseName}_256`, `${baseName}_font`];
+};
 
 export function canBeCasted(
     isLocked: boolean,
@@ -412,7 +289,7 @@ export function canBeCasted(
     alreadyAppliedBuffAndDebuffs?: AppliedSpell[],
     spell?: Spell,
     unitSpells?: Spell[],
-    emptyGridCell?: XY,
+    emptyGridCell?: HoCMath.XY,
     fromUnitId?: string,
     toUnitId?: string,
     fromTeamType?: TeamType,
@@ -421,7 +298,7 @@ export function canBeCasted(
     toUnitName?: string,
     fromUnitStackPower?: number,
     toUnitMagicResistance?: number,
-    targetGridCell?: XY,
+    targetGridCell?: HoCMath.XY,
 ) {
     if (
         isLocked ||

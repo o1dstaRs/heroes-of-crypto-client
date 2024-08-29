@@ -12,6 +12,7 @@
 import { b2Body, b2BodyType, b2EdgeShape, b2Fixture, b2Vec2, XY } from "@box2d/core";
 import {
     AttackType,
+    HoCConfig,
     AbilityFactory,
     FactionType,
     EffectFactory,
@@ -45,7 +46,6 @@ import { IWeightedRoute, PathHelper } from "../path/path_helper";
 import { PlacementType, SquarePlacement } from "../placement/square_placement";
 import { Settings } from "../settings";
 import { canBeCasted, canBeMassCasted, canBeSummoned, Spell } from "../spells/spells";
-import { SpellsFactory } from "../spells/spells_factory";
 import { alreadyApplied, isMirrored } from "../spells/spells_helper";
 import { FightStateManager } from "../state/fight_state_manager";
 import { IVisibleUnit } from "../state/visible_state";
@@ -148,8 +148,6 @@ class Sandbox extends GLScene {
 
     private readonly unitsFactory: UnitsFactory;
 
-    private readonly spellsFactory: SpellsFactory;
-
     private readonly unitsHolder: UnitsHolder;
 
     private readonly grid: Grid;
@@ -251,7 +249,6 @@ class Sandbox extends GLScene {
             [-1, textures.m_damage.texture],
         ]);
 
-        this.spellsFactory = new SpellsFactory(this.gl, this.shader, this.digitNormalTextures, textures);
         this.unitsFactory = new UnitsFactory(
             this.sc_world,
             this.gl,
@@ -260,7 +257,6 @@ class Sandbox extends GLScene {
             this.digitDamageTextures,
             this.sc_sceneSettings.getGridSettings(),
             textures,
-            this.spellsFactory,
             new AbilityFactory(new EffectFactory()),
         );
         this.unitsHolder = new UnitsHolder(this.sc_world, this.sc_sceneSettings.getGridSettings(), this.unitsFactory);
@@ -401,12 +397,7 @@ class Sandbox extends GLScene {
         }
 
         this.spawnUnits();
-        this.attackHandler = new AttackHandler(
-            this.sc_sceneSettings.getGridSettings(),
-            this.grid,
-            this.spellsFactory,
-            this.sc_sceneLog,
-        );
+        this.attackHandler = new AttackHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.sc_sceneLog);
         this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
 
         // update remaining time every half a second
@@ -3191,17 +3182,19 @@ class Sandbox extends GLScene {
                                 const chance = HoCLib.getRandomInt(0, 100);
                                 if (chance < Math.abs(u.getMorale())) {
                                     if (isPlusMorale) {
-                                        const buff = this.spellsFactory.makeSpell(FactionType.NO_TYPE, "Morale", 1);
+                                        const buff = new Spell({
+                                            spellProperties: HoCConfig.getSpellConfig(FactionType.NO_TYPE, "Morale"),
+                                            amount: 1,
+                                        });
                                         u.applyBuff(buff);
                                         FightStateManager.getInstance()
                                             .getFightProperties()
                                             .enqueueMoralePlus(u.getId());
                                     } else {
-                                        const debuff = this.spellsFactory.makeSpell(
-                                            FactionType.NO_TYPE,
-                                            "Dismorale",
-                                            1,
-                                        );
+                                        const debuff = new Spell({
+                                            spellProperties: HoCConfig.getSpellConfig(FactionType.NO_TYPE, "Dismorale"),
+                                            amount: 1,
+                                        });
                                         u.applyDebuff(debuff);
                                         FightStateManager.getInstance()
                                             .getFightProperties()

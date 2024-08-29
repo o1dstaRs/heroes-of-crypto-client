@@ -9,27 +9,15 @@
  * -----------------------------------------------------------------------------
  */
 
-import { FactionType, HoCConfig } from "@heroesofcrypto/common";
+import { FactionType, HoCConfig, SpellProperties } from "@heroesofcrypto/common";
 
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
 import { Spell } from "./spells";
 import { PreloadedTextures } from "../utils/gl/preload";
 
-export const spellToTextureNames = (spellName: string): [string, string] => {
-    const baseName = spellName.toLowerCase().replace(/ /g, "_");
-    return [`${baseName}_256`, `${baseName}_font`];
-};
 
 export class SpellsFactory {
-    protected readonly gl: WebGLRenderingContext;
-
-    protected readonly shader: DefaultShader;
-
-    protected readonly texturesByDigit: Map<number, WebGLTexture>;
-
-    protected readonly textures: PreloadedTextures;
-
     public constructor(
         gl: WebGLRenderingContext,
         shader: DefaultShader,
@@ -43,15 +31,6 @@ export class SpellsFactory {
     }
 
     public makeSpell(faction: FactionType, name: string, amount: number): Spell {
-        const textureNames = spellToTextureNames(name);
-        return new Spell(
-            this.gl,
-            this.shader,
-            HoCConfig.getSpellConfig(faction, name),
-            amount,
-            new Sprite(this.gl, this.shader, this.textures[textureNames[0] as keyof PreloadedTextures].texture),
-            new Sprite(this.gl, this.shader, this.textures[textureNames[1] as keyof PreloadedTextures].texture),
-            this.texturesByDigit,
-        );
+        return new Spell({ spellProperties: HoCConfig.getSpellConfig(faction, name), amount });
     }
 }

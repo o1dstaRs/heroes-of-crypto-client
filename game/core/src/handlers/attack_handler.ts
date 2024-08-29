@@ -41,7 +41,6 @@ import { processBlindnessAbility } from "../abilities/blindness_ability";
 import { processBoarSalivaAbility } from "../abilities/boar_saliva_ability";
 import { processSpitBallAbility } from "../abilities/spit_ball_ability";
 import { processPetrifyingGazeAbility } from "../abilities/petrifying_gaze_ability";
-import { SpellsFactory } from "../spells/spells_factory";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 import { getLapString } from "../utils/strings";
 import { alreadyApplied, isMirrored } from "../spells/spells_helper";
@@ -67,12 +66,9 @@ export class AttackHandler {
 
     public readonly sceneLog: SceneLog;
 
-    public readonly spellsFactory: SpellsFactory;
-
-    public constructor(gridSettings: GridSettings, grid: Grid, spellsFactory: SpellsFactory, sceneLog: SceneLog) {
+    public constructor(gridSettings: GridSettings, grid: Grid, sceneLog: SceneLog) {
         this.gridSettings = gridSettings;
         this.grid = grid;
-        this.spellsFactory = spellsFactory;
         this.sceneLog = sceneLog;
     }
 
@@ -507,7 +503,6 @@ export class AttackHandler {
                 attackerUnit,
                 hoverRangeAttackDivisor,
                 sceneStepCount,
-                this.spellsFactory,
                 unitsHolder,
                 grid,
                 this.sceneLog,
@@ -543,7 +538,6 @@ export class AttackHandler {
                     targetUnit,
                     rangeResponseAttackDivisor,
                     sceneStepCount,
-                    this.spellsFactory,
                     unitsHolder,
                     grid,
                     this.sceneLog,
@@ -590,15 +584,7 @@ export class AttackHandler {
             } else {
                 processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
                 processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
-                processSpitBallAbility(
-                    attackerUnit,
-                    targetUnit,
-                    attackerUnit,
-                    this.spellsFactory,
-                    unitsHolder,
-                    grid,
-                    this.sceneLog,
-                );
+                processSpitBallAbility(attackerUnit, targetUnit, attackerUnit, unitsHolder, grid, this.sceneLog);
             }
         }
 
@@ -635,7 +621,6 @@ export class AttackHandler {
                         targetUnit,
                         rangeResponseUnit,
                         attackerUnit,
-                        this.spellsFactory,
                         unitsHolder,
                         grid,
                         this.sceneLog,
@@ -675,7 +660,6 @@ export class AttackHandler {
             this.sceneLog,
             drawer,
             unitsHolder,
-            this.spellsFactory,
             grid,
             hoverRangeAttackDivisor,
             hoverRangeAttackPosition,
@@ -700,15 +684,7 @@ export class AttackHandler {
                     sceneStepCount,
                     this.sceneLog,
                 );
-                processSpitBallAbility(
-                    attackerUnit,
-                    targetUnit,
-                    attackerUnit,
-                    this.spellsFactory,
-                    unitsHolder,
-                    grid,
-                    this.sceneLog,
-                );
+                processSpitBallAbility(attackerUnit, targetUnit, attackerUnit, unitsHolder, grid, this.sceneLog);
             }
         }
 

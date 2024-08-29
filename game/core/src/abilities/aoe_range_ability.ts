@@ -12,7 +12,6 @@
 import { AttackType, Grid, HoCConstants, HoCMath } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
-import { SpellsFactory } from "../spells/spells_factory";
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
@@ -32,7 +31,6 @@ export function processRangeAOEAbility(
     currentActiveUnit: Unit,
     rangeAttackDivisor: number,
     sceneStepCount: number,
-    spellsFactory: SpellsFactory,
     unitsHolder: UnitsHolder,
     grid: Grid,
     sceneLog: SceneLog,
@@ -82,15 +80,7 @@ export function processRangeAOEAbility(
             } else {
                 processStunAbility(attackerUnit, unit, attackerUnit, sceneLog);
 
-                processSpitBallAbility(
-                    attackerUnit,
-                    unit,
-                    currentActiveUnit,
-                    spellsFactory,
-                    unitsHolder,
-                    grid,
-                    sceneLog,
-                );
+                processSpitBallAbility(attackerUnit, unit, currentActiveUnit, unitsHolder, grid, sceneLog);
             }
         }
         attackerUnit.decreaseNumberOfShots();

@@ -29,6 +29,7 @@ import {
     AbilityFactory,
     AllFactionsType,
     AuraEffect,
+    HoCConfig,
     AttackType,
     HoCConstants,
     FactionType,
@@ -43,12 +44,13 @@ import {
 } from "@heroesofcrypto/common";
 import Denque from "denque";
 
-import { AppliedSpell, Spell, calculateBuffsDebuffsEffect } from "../spells/spells";
-import { SpellsFactory } from "../spells/spells_factory";
+import { AppliedSpell, Spell, calculateBuffsDebuffsEffect, spellToTextureNames } from "../spells/spells";
 import { DAMAGE_ANIMATION_TICKS, HP_BAR_DELTA, MAX_FPS } from "../statics";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
 import { SceneLog } from "../menu/scene_log";
+import { RenderableSpell } from "../spells/renderable_spell";
+import { PreloadedTextures } from "../utils/gl/preload";
 
 export interface IAttackTargets {
     units: Unit[];
@@ -202,6 +204,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected readonly summoned: boolean;
 
+    protected readonly textures: PreloadedTextures;
+
     protected readonly bodyDef: b2BodyDef;
 
     protected readonly fixtureDef: b2FixtureDef;
@@ -218,7 +222,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected readonly damageAnimationTicks: Denque<IDamageTaken> = new Denque<IDamageTaken>();
 
-    protected spells: Spell[];
+    protected spells: RenderableSpell[];
 
     protected effects: Effect[];
 
@@ -227,8 +231,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     protected readonly auraEffects: AuraEffect[] = [];
 
     protected readonly effectFactory: EffectFactory;
-
-    protected readonly spellsFactory: SpellsFactory;
 
     protected selectedAttackType: AttackType;
 
@@ -252,10 +254,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         hourglassSprite: Sprite,
         greenSmallFlagSprite: Sprite,
         redSmallFlagSprite: Sprite,
-        spellsFactory: SpellsFactory,
         abilityFactory: AbilityFactory,
         effectFactory: EffectFactory,
         summoned: boolean,
+        textures: PreloadedTextures,
     ) {
         this.gl = gl;
         this.shader = shader;
@@ -272,8 +274,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.greenSmallFlagSprite = greenSmallFlagSprite;
         this.redSmallFlagSprite = redSmallFlagSprite;
         this.effectFactory = effectFactory;
-        this.spellsFactory = spellsFactory;
         this.summoned = summoned;
+        this.textures = textures;
 
         if (this.unitProperties.attack_type === AttackType.MELEE) {
             this.selectedAttackType = AttackType.MELEE;
@@ -399,7 +401,18 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             }
 
             const spellName = spArr[1];
-            this.spells.push(this.spellsFactory.makeSpell(faction, spellName, v));
+            const spellProperties = HoCConfig.getSpellConfig(faction, spellName);
+            const textureNames = spellToTextureNames(spellName);
+            this.spells.push(
+                new RenderableSpell(
+                    { spellProperties: spellProperties, amount: v },
+                    this.gl,
+                    this.shader,
+                    new Sprite(this.gl, this.shader, this.textures[textureNames[0] as keyof PreloadedTextures].texture),
+                    new Sprite(this.gl, this.shader, this.textures[textureNames[1] as keyof PreloadedTextures].texture),
+                    this.digitNormalTextures,
+                ),
+            );
         }
     }
 
@@ -1826,12 +1839,18 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         if (this.hasBuffActive("Riot")) {
-            const spell = this.spellsFactory.makeSpell(FactionType.CHAOS, "Riot", 1);
+            const spell = new Spell({
+                spellProperties: HoCConfig.getSpellConfig(FactionType.CHAOS, "Riot"),
+                amount: 1,
+            });
             this.unitProperties.attack_mod = Number(
                 ((this.unitProperties.base_attack * spell.getPower()) / 100).toFixed(2),
             );
         } else if (this.hasBuffActive("Mass Riot")) {
-            const spell = this.spellsFactory.makeSpell(FactionType.CHAOS, "Mass Riot", 1);
+            const spell = new Spell({
+                spellProperties: HoCConfig.getSpellConfig(FactionType.CHAOS, "Mass Riot"),
+                amount: 1,
+            });
             this.unitProperties.attack_mod = Number(
                 ((this.unitProperties.base_attack * spell.getPower()) / 100).toFixed(2),
             );
