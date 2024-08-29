@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, Grid, HoCConstants } from "@heroesofcrypto/common";
+import { AttackType, Grid, HoCConstants, HoCMath } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { SpellsFactory } from "../spells/spells_factory";
@@ -21,12 +21,12 @@ import { processPetrifyingGazeAbility } from "./petrifying_gaze_ability";
 import { processSpitBallAbility } from "./spit_ball_ability";
 import { processStunAbility } from "./stun_ability";
 
-export interface ILargeCaliberResult {
+export interface IAOERangeAttackResult {
     landed: boolean;
     maxDamage: number;
 }
 
-export function processLargeCaliberAbility(
+export function processRangeAOEAbility(
     attackerUnit: Unit,
     affectedUnits: Unit[],
     currentActiveUnit: Unit,
@@ -37,16 +37,20 @@ export function processLargeCaliberAbility(
     grid: Grid,
     sceneLog: SceneLog,
     isAttack = true,
-): ILargeCaliberResult {
-    const largeCaliberAbility = attackerUnit.getAbility("Large Caliber");
+): IAOERangeAttackResult {
+    let aoeAbility = attackerUnit.getAbility("Area Throw");
+    if (!aoeAbility) {
+        aoeAbility = attackerUnit.getAbility("Large Caliber");
+    }
+
     let maxDamage = 0;
-    if (largeCaliberAbility) {
+    if (aoeAbility) {
         for (const unit of affectedUnits) {
             const damageFromAttack = attackerUnit.calculateAttackDamage(
                 unit,
                 AttackType.RANGE,
                 rangeAttackDivisor,
-                attackerUnit.calculateAbilityMultiplier(largeCaliberAbility),
+                attackerUnit.calculateAbilityMultiplier(aoeAbility),
                 false,
             );
 
@@ -101,4 +105,45 @@ export function processLargeCaliberAbility(
         landed: false,
         maxDamage,
     };
+}
+
+export function evaluateAffectedUnits(
+    affectedCells: HoCMath.XY[],
+    unitsHolder: UnitsHolder,
+    grid: Grid,
+): Array<Unit[]> | undefined {
+    const cellKeys: number[] = [];
+    const unitIds: string[] = [];
+    const affectedUnits: Unit[] = [];
+
+    for (const c of affectedCells) {
+        const cellKey = (c.x << 4) | c.y;
+        if (cellKeys.includes(cellKey)) {
+            continue;
+        }
+
+        const occupantId = grid.getOccupantUnitId(c);
+        if (!occupantId) {
+            continue;
+        }
+
+        if (unitIds.includes(occupantId)) {
+            continue;
+        }
+
+        const occupantUnit = unitsHolder.getAllUnits().get(occupantId);
+        if (!occupantUnit) {
+            continue;
+        }
+
+        affectedUnits.push(occupantUnit);
+        cellKeys.push(cellKey);
+        unitIds.push(occupantId);
+    }
+
+    if (affectedUnits.length) {
+        return [affectedUnits, affectedUnits];
+    }
+
+    return undefined;
 }

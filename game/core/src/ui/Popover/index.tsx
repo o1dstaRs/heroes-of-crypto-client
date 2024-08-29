@@ -85,16 +85,17 @@ const unitInfoElement = (hoverInfo: IHoverInfo): JSX.Element => {
 };
 
 const unitAttackElement = (hoverInfo: IHoverInfo): JSX.Element => {
-    if (!hoverInfo.attackType || !hoverInfo.damageSpread) {
+    if (!hoverInfo.attackType || !(hoverInfo.damageSpread || hoverInfo.damageRangeDivisor)) {
         return <></>;
     }
 
     const rangeDivisorString = toRangeDivisorString(hoverInfo);
+    const attackString = toAttackString(hoverInfo);
 
     return (
         <>
             {rangeDivisorString}
-            {rangeDivisorString && <br />}
+            {rangeDivisorString && attackString && <br />}
             {toAttackString(hoverInfo)}
             <br /> {toKillsString(hoverInfo)}
         </>

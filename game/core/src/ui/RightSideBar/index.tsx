@@ -21,6 +21,7 @@ import { UnitProperties } from "@heroesofcrypto/common";
 import { useManager } from "../../manager";
 import { IDamageStatistic } from "../../stats/damage_stats";
 import Toggler from "../Toggler";
+import { BAR_SIZE_PIXELS_STR } from "../../statics";
 
 const DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT = 1;
 
@@ -271,7 +272,7 @@ export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) 
                 position: "fixed",
                 zIndex: 1,
                 height: "100dvh",
-                width: "280px",
+                width: BAR_SIZE_PIXELS_STR,
                 top: 0,
                 right: 0,
                 p: 2,

@@ -2088,6 +2088,36 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 petrifyingGazeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
+
+        // Spit Ball
+        const spitBallAbility = this.getAbility("Spit Ball");
+        if (spitBallAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(spitBallAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                spitBallAbility.getName(),
+                spitBallAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Large Caliber
+        const largeCaliberAbility = this.getAbility("Large Caliber");
+        if (largeCaliberAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(largeCaliberAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                largeCaliberAbility.getName(),
+                largeCaliberAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Area Throw
+        const areaThrowAbility = this.getAbility("Area Throw");
+        if (areaThrowAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(areaThrowAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                areaThrowAbility.getName(),
+                areaThrowAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
     }
 
     public adjustRangeShotsNumber(force: boolean) {

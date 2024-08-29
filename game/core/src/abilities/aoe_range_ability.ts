@@ -64,7 +64,7 @@ export function allEnemiesAroundLargeUnit(
     return enemyList;
 }
 
-export function processLightningSpinAbility(
+export function processAOERangeAbility(
     fromUnit: Unit,
     sceneLog: SceneLog,
     unitsHolder: UnitsHolder,
