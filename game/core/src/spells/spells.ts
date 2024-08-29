@@ -144,7 +144,7 @@ const verifyEmptyCell = (gridMatrix: number[][], emptyGridCell?: HoCMath.XY): bo
     return !gridMatrix[emptyGridCell.y][emptyGridCell.x];
 };
 
-export function canBeMassCasted(
+export function canMassCastSpell(
     spell: Spell,
     alliesBuffs: Map<string, AppliedSpell[]>,
     enemiesDebuffs: Map<string, AppliedSpell[]>,
@@ -212,7 +212,7 @@ export function canBeMassCasted(
     return canBeCasted;
 }
 
-export function canBeSummoned(spell: Spell, gridMatrix: number[][], emptyGridCell?: HoCMath.XY): boolean {
+export function canCastSummon(spell: Spell, gridMatrix: number[][], emptyGridCell?: HoCMath.XY): boolean {
     if (spell.isSummon() && spell.getSpellTargetType() === SpellTargetType.RANDOM_CLOSE_TO_CASTER) {
         return verifyEmptyCell(gridMatrix, emptyGridCell);
     }
@@ -225,7 +225,7 @@ export const spellToTextureNames = (spellName: string): [string, string] => {
     return [`${baseName}_256`, `${baseName}_font`];
 };
 
-export function canBeCasted(
+export function canCastSpell(
     isLocked: boolean,
     gridSettings: GridSettings,
     gridMatrix: number[][],

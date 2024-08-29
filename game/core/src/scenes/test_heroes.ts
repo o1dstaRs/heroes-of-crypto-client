@@ -46,7 +46,7 @@ import { IWeightedRoute, PathHelper } from "../path/path_helper";
 import { PlacementType, SquarePlacement } from "../placement/square_placement";
 import { Settings } from "../settings";
 import { RenderableSpell } from "../spells/renderable_spell";
-import { canBeCasted, canBeMassCasted, canBeSummoned, Spell } from "../spells/spells";
+import { canCastSpell, canMassCastSpell, canCastSummon, Spell } from "../spells/spells";
 import { hasAlreadyAppliedSpell, isMirrored } from "../spells/spells_helper";
 import { FightStateManager } from "../state/fight_state_manager";
 import { IVisibleUnit } from "../state/visible_state";
@@ -1121,7 +1121,7 @@ class Sandbox extends GLScene {
 
                     if (
                         this.currentActiveSpell &&
-                        canBeCasted(
+                        canCastSpell(
                             false,
                             this.sc_sceneSettings.getGridSettings(),
                             this.gridMatrix,
@@ -1531,7 +1531,7 @@ class Sandbox extends GLScene {
 
                         if (
                             this.currentActiveSpell &&
-                            canBeCasted(
+                            canCastSpell(
                                 false,
                                 this.sc_sceneSettings.getGridSettings(),
                                 this.gridMatrix,
@@ -1585,7 +1585,7 @@ class Sandbox extends GLScene {
                             this.resetHover(false);
                         }
                     } else if (
-                        canBeCasted(
+                        canCastSpell(
                             false,
                             this.sc_sceneSettings.getGridSettings(),
                             this.gridMatrix,
@@ -2252,7 +2252,7 @@ class Sandbox extends GLScene {
                         this.currentActiveUnit.getPosition(),
                     );
 
-                    if (canBeSummoned(this.hoveredSpell, this.gridMatrix, randomCell)) {
+                    if (canCastSummon(this.hoveredSpell, this.gridMatrix, randomCell)) {
                         const amountToSummon = this.currentActiveUnit.getAmountAlive() * this.hoveredSpell.getPower();
 
                         const possibleUnit = this.unitsHolder.getSummonedUnitByName(
@@ -2291,7 +2291,7 @@ class Sandbox extends GLScene {
                         this.currentActiveUnit.useSpell(this.hoveredSpell.getName());
                         this.finishTurn();
                     } else if (
-                        canBeMassCasted(
+                        canMassCastSpell(
                             this.hoveredSpell,
                             this.unitsHolder.getAllTeamUnitsBuffs(this.currentActiveUnit.getTeam()),
                             this.unitsHolder.getAllEnemyUnitsDebuffs(this.currentActiveUnit.getTeam()),

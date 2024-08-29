@@ -35,7 +35,9 @@ import {
     HoCConstants,
     FactionType,
     ToFactionType,
+    SpellHelper,
     GridMath,
+    Spell,
     GridSettings,
     UnitProperties,
     HoCLib,
@@ -45,7 +47,6 @@ import {
 } from "@heroesofcrypto/common";
 import Denque from "denque";
 
-import { Spell, calculateBuffsDebuffsEffect, spellToTextureNames } from "../spells/spells";
 import { DAMAGE_ANIMATION_TICKS, HP_BAR_DELTA, MAX_FPS } from "../statics";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
@@ -403,7 +404,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
             const spellName = spArr[1];
             const spellProperties = HoCConfig.getSpellConfig(faction, spellName);
-            const textureNames = spellToTextureNames(spellName);
+            const textureNames = SpellHelper.spellToTextureNames(spellName);
             this.spells.push(
                 new RenderableSpell(
                     { spellProperties: spellProperties, amount: v },
@@ -1733,7 +1734,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public adjustBaseStats() {
         // HP
-        const baseStatsDiff = calculateBuffsDebuffsEffect(this.getBuffs(), this.getDebuffs());
+        const baseStatsDiff = SpellHelper.calculateBuffsDebuffsEffect(this.getBuffs(), this.getDebuffs());
 
         this.unitProperties.max_hp = this.refreshAndGetAdjustedMaxHp() + baseStatsDiff.baseStats.hp;
         if (this.unitProperties.max_hp < this.unitProperties.hp) {
