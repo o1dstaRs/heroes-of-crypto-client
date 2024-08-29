@@ -17,6 +17,8 @@ import {
     GridMath,
     GridSettings,
     Grid,
+    SpellHelper,
+    Spell,
     HoCConstants,
     AbilityHelper,
 } from "@heroesofcrypto/common";
@@ -31,7 +33,6 @@ import { processStunAbility } from "../abilities/stun_ability";
 import { Drawer } from "../draw/drawer";
 import { SceneLog } from "../menu/scene_log";
 import { IWeightedRoute } from "../path/path_helper";
-import { canCastSpell, Spell } from "../spells/spells";
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
@@ -302,7 +303,7 @@ export class AttackHandler {
 
         if (
             targetUnit &&
-            canCastSpell(
+            SpellHelper.canCastSpell(
                 false,
                 this.gridSettings,
                 gridMatrix,

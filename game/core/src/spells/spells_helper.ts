@@ -9,10 +9,9 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCLib } from "@heroesofcrypto/common";
+import { HoCLib, Spell } from "@heroesofcrypto/common";
 
 import { Unit } from "../units/units";
-import { Spell } from "./spells";
 
 export const isMirrored = (targetUnit: Unit): boolean => {
     let mirrorChance = 0;

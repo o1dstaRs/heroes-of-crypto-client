@@ -9,11 +9,10 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCMath } from "@heroesofcrypto/common";
+import { HoCMath, ISpellParams, Spell } from "@heroesofcrypto/common";
 
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
-import { ISpellParams, Spell } from "./spells";
 
 export enum BookPosition {
     ONE = 1,
