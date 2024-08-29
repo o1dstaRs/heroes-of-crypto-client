@@ -10,9 +10,17 @@
  */
 
 import { b2Body, XY } from "@box2d/core";
-import { AttackType, HoCLib, HoCMath, GridMath, GridSettings, Grid, HoCConstants } from "@heroesofcrypto/common";
+import {
+    AttackType,
+    HoCLib,
+    HoCMath,
+    GridMath,
+    GridSettings,
+    Grid,
+    HoCConstants,
+    getAbilitiesWithPosisionCoefficient,
+} from "@heroesofcrypto/common";
 
-import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
 import { processDoubleShotAbility } from "../abilities/double_shot_ability";
 import { processFireBreathAbility } from "../abilities/fire_breath_ability";

@@ -35,7 +35,14 @@ import {
     XY,
 } from "@box2d/core";
 import { b2ParticleGroup, DrawParticleSystems } from "@box2d/particles";
-import { AttackType, FactionType, HoCMath, IAuraOnMap, UnitProperties } from "@heroesofcrypto/common";
+import {
+    AttackType,
+    FactionType,
+    HoCMath,
+    IAuraOnMap,
+    UnitProperties,
+    abilityToTextureName,
+} from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { SceneControl } from "../sceneControls";
@@ -48,7 +55,6 @@ import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
 import { SceneSettings } from "./scene_settings";
-import { abilityToTextureName } from "../abilities/abilities_factory";
 
 const temp = {
     aabb: new b2AABB(),

@@ -18,10 +18,10 @@ import {
     Grid,
     GridSettings,
     GridMath,
+    canApplyAuraEffect,
     HoCLib,
     HoCConstants,
 } from "@heroesofcrypto/common";
-import { canBeApplied } from "../effects/aura_effects";
 
 import { SquarePlacement } from "../placement/square_placement";
 import { AppliedSpell } from "../spells/spells";
@@ -424,7 +424,7 @@ export class UnitsHolder {
             for (let i = 0; i < unitAppliedAuraEffectProperties.length; i++) {
                 const appliedAuraEffectProperties = unitAppliedAuraEffectProperties[i];
                 const auraEffectProperties = appliedAuraEffectProperties.getAuraEffectProperties();
-                if (canBeApplied(u.getAttackType(), auraEffectProperties)) {
+                if (canApplyAuraEffect(u.getAttackType(), auraEffectProperties)) {
                     u.applyAuraEffect(
                         `${auraEffectProperties.name} Aura`,
                         auraEffectProperties.desc.replace(/\{\}/g, auraEffectProperties.power.toString()),

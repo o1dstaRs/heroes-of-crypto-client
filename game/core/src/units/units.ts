@@ -23,7 +23,12 @@ import {
 import { removeFromArray } from "@box2d/lights/dist/utils/arrayUtils";
 import {
     AbilityPowerType,
+    Ability,
+    Effect,
+    EffectFactory,
+    AbilityFactory,
     AllFactionsType,
+    AuraEffect,
     AttackType,
     HoCConstants,
     FactionType,
@@ -38,17 +43,12 @@ import {
 } from "@heroesofcrypto/common";
 import Denque from "denque";
 
-import { Ability } from "../abilities/abilities";
-import { AbilitiesFactory } from "../abilities/abilities_factory";
 import { AppliedSpell, Spell, calculateBuffsDebuffsEffect } from "../spells/spells";
 import { SpellsFactory } from "../spells/spells_factory";
 import { DAMAGE_ANIMATION_TICKS, HP_BAR_DELTA, MAX_FPS } from "../statics";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
-import { Effect } from "../effects/effects";
 import { SceneLog } from "../menu/scene_log";
-import { EffectsFactory } from "../effects/effects_factory";
-import { AuraEffect } from "../effects/aura_effects";
 
 export interface IAttackTargets {
     units: Unit[];
@@ -226,7 +226,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected readonly auraEffects: AuraEffect[] = [];
 
-    protected readonly effectsFactory: EffectsFactory;
+    protected readonly effectFactory: EffectFactory;
 
     protected readonly spellsFactory: SpellsFactory;
 
@@ -253,8 +253,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         greenSmallFlagSprite: Sprite,
         redSmallFlagSprite: Sprite,
         spellsFactory: SpellsFactory,
-        abilitiesFactory: AbilitiesFactory,
-        effectsFactory: EffectsFactory,
+        abilityFactory: AbilityFactory,
+        effectFactory: EffectFactory,
         summoned: boolean,
     ) {
         this.gl = gl;
@@ -271,7 +271,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.hourglassSprite = hourglassSprite;
         this.greenSmallFlagSprite = greenSmallFlagSprite;
         this.redSmallFlagSprite = redSmallFlagSprite;
-        this.effectsFactory = effectsFactory;
+        this.effectFactory = effectFactory;
         this.spellsFactory = spellsFactory;
         this.summoned = summoned;
 
@@ -358,7 +358,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.buffs = [];
         this.debuffs = [];
         this.maxRangeShots = this.unitProperties.range_shots;
-        this.parseAbilities(abilitiesFactory);
+        this.parseAbilities(abilityFactory);
         this.effects = [];
         this.parseAuraEffects();
     }
@@ -435,16 +435,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.debuffs;
     }
 
-    protected parseAbilities(abilitiesFactory: AbilitiesFactory): void {
+    protected parseAbilities(abilityFactory: AbilityFactory): void {
         for (const abilityName of this.unitProperties.abilities) {
-            const ability = abilitiesFactory.makeAbility(abilityName);
+            const ability = abilityFactory.makeAbility(abilityName);
             this.abilities.push(ability);
         }
     }
 
     protected parseAuraEffects(): void {
         for (const auraEffectName of this.unitProperties.aura_effects) {
-            const auraEffect = this.effectsFactory.makeAuraEffect(auraEffectName);
+            const auraEffect = this.effectFactory.makeAuraEffect(auraEffectName);
             if (auraEffect) {
                 this.auraEffects.push(auraEffect);
             }
@@ -741,7 +741,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 ) {
                     const auraEffectWords = auraEffectName.split(/\s+/);
                     const auraEffectString = auraEffectWords.slice(0, -1).join(" ");
-                    const auraEffect = this.effectsFactory.makeAuraEffect(auraEffectString);
+                    const auraEffect = this.effectFactory.makeAuraEffect(auraEffectString);
                     if (auraEffect) {
                         auraEffect.setPower(this.unitProperties.applied_buffs_powers[i]);
                         return auraEffect;
