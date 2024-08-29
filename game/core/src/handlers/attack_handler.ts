@@ -17,7 +17,7 @@ import { processDoublePunchAbility } from "../abilities/double_punch_ability";
 import { processDoubleShotAbility } from "../abilities/double_shot_ability";
 import { processFireBreathAbility } from "../abilities/fire_breath_ability";
 import { processFireShieldAbility } from "../abilities/fire_shield_ability";
-import { processLightningSpinAbility } from "../abilities/lightning_spin_ability";
+import { processAOERangeAbility } from "../abilities/aoe_range_ability";
 import { processOneInTheFieldAbility } from "../abilities/one_in_the_field_ability";
 import { processStunAbility } from "../abilities/stun_ability";
 import { Drawer } from "../draw/drawer";
@@ -836,7 +836,7 @@ export class AttackHandler {
         const damageFromAttack = attackerUnit.calculateAttackDamage(targetUnit, AttackType.MELEE, 1, abilityMultiplier);
 
         const fightProperties = FightStateManager.getInstance().getFightProperties();
-        const hasLightningSpinAttackLanded = processLightningSpinAbility(
+        const hasLightningSpinAttackLanded = processAOERangeAbility(
             attackerUnit,
             this.sceneLog,
             unitsHolder,
@@ -900,7 +900,7 @@ export class AttackHandler {
                 GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
             );
 
-            hasLightningSpinResponseLanded = processLightningSpinAbility(
+            hasLightningSpinResponseLanded = processAOERangeAbility(
                 targetUnit,
                 this.sceneLog,
                 unitsHolder,
