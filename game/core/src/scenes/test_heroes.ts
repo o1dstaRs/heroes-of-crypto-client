@@ -12,7 +12,9 @@
 import { b2Body, b2BodyType, b2EdgeShape, b2Fixture, b2Vec2, XY } from "@box2d/core";
 import {
     AttackType,
+    AbilityFactory,
     FactionType,
+    EffectFactory,
     Grid,
     GridConstants,
     GridMath,
@@ -24,18 +26,16 @@ import {
     TeamType,
     IAuraOnMap,
     UnitProperties,
+    getAbilitiesWithPosisionCoefficient,
 } from "@heroesofcrypto/common";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 
-import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
-import { AbilitiesFactory } from "../abilities/abilities_factory";
 import { evaluateAffectedUnits } from "../abilities/aoe_range_ability";
 import { nextStandingTargets } from "../abilities/fire_breath_ability";
 import { allEnemiesAroundLargeUnit } from "../abilities/lightning_spin_ability";
 import { AIActionType, findTarget } from "../ai/ai";
 import { Drawer } from "../draw/drawer";
-import { EffectsFactory } from "../effects/effects_factory";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 import { AttackHandler, IAttackObstacle } from "../handlers/attack_handler";
 import { MoveHandler } from "../handlers/move_handler";
@@ -261,7 +261,7 @@ class Sandbox extends GLScene {
             this.sc_sceneSettings.getGridSettings(),
             textures,
             this.spellsFactory,
-            new AbilitiesFactory(new EffectsFactory()),
+            new AbilityFactory(new EffectFactory()),
         );
         this.unitsHolder = new UnitsHolder(this.sc_world, this.sc_sceneSettings.getGridSettings(), this.unitsFactory);
 

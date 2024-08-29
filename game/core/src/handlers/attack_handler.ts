@@ -489,11 +489,11 @@ export class AttackHandler {
         }
 
         // handle attack damage
-        let largeCaliberAttackResult: IAOERangeAttackResult | undefined = undefined;
+        let aoeRangeAttackResult: IAOERangeAttackResult | undefined = undefined;
         if (isAttackMissed) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
         } else {
-            largeCaliberAttackResult = processRangeAOEAbility(
+            aoeRangeAttackResult = processRangeAOEAbility(
                 attackerUnit,
                 affectedUnits,
                 attackerUnit,
@@ -505,8 +505,8 @@ export class AttackHandler {
                 this.sceneLog,
                 true,
             );
-            if (largeCaliberAttackResult.landed) {
-                damageFromAttack = largeCaliberAttackResult.maxDamage;
+            if (aoeRangeAttackResult.landed) {
+                damageFromAttack = aoeRangeAttackResult.maxDamage;
             } else {
                 damageFromAttack = attackerUnit.calculateAttackDamage(
                     targetUnit,
@@ -524,12 +524,12 @@ export class AttackHandler {
         }
 
         // handle response damage
-        let largeCaliberResponseResult: IAOERangeAttackResult | undefined = undefined;
+        let aoeRangeResponseResult: IAOERangeAttackResult | undefined = undefined;
         if (rangeResponseUnit && rangeResponseUnits) {
             if (isResponseMissed) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} misses resp ${rangeResponseUnit.getName()}`);
             } else {
-                largeCaliberResponseResult = processRangeAOEAbility(
+                aoeRangeResponseResult = processRangeAOEAbility(
                     targetUnit,
                     rangeResponseUnits,
                     targetUnit,
@@ -541,8 +541,8 @@ export class AttackHandler {
                     this.sceneLog,
                     false,
                 );
-                if (largeCaliberResponseResult.landed) {
-                    damageFromRespond = largeCaliberResponseResult.maxDamage;
+                if (aoeRangeResponseResult.landed) {
+                    damageFromRespond = aoeRangeResponseResult.maxDamage;
                 } else {
                     damageFromRespond = targetUnit.calculateAttackDamage(
                         rangeResponseUnit,
@@ -570,7 +570,7 @@ export class AttackHandler {
         if (targetUnit.isDead()) {
             switchTargetUnit = true;
         }
-        if (!largeCaliberAttackResult?.landed) {
+        if (!aoeRangeAttackResult?.landed) {
             if (targetUnit.isDead()) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
                 unitsHolder.deleteUnitById(grid, targetUnit.getId());
@@ -595,7 +595,7 @@ export class AttackHandler {
         }
 
         if (rangeResponseUnit) {
-            if (largeCaliberResponseResult?.landed) {
+            if (aoeRangeResponseResult?.landed) {
                 if (rangeResponseUnit.isDead() && attackerUnit.getId() === rangeResponseUnit.getId()) {
                     return true;
                 }

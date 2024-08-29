@@ -9,11 +9,10 @@
  * -----------------------------------------------------------------------------
  */
 
-import { FactionType } from "@heroesofcrypto/common";
+import { FactionType, HoCConfig } from "@heroesofcrypto/common";
 
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
-import { getSpellConfig } from "../config_provider";
 import { Spell } from "./spells";
 import { PreloadedTextures } from "../utils/gl/preload";
 
@@ -48,7 +47,7 @@ export class SpellsFactory {
         return new Spell(
             this.gl,
             this.shader,
-            getSpellConfig(faction, name),
+            HoCConfig.getSpellConfig(faction, name),
             amount,
             new Sprite(this.gl, this.shader, this.textures[textureNames[0] as keyof PreloadedTextures].texture),
             new Sprite(this.gl, this.shader, this.textures[textureNames[1] as keyof PreloadedTextures].texture),

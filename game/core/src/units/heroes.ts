@@ -10,9 +10,8 @@
  */
 
 import { b2Color, b2Draw, b2FixtureDef } from "@box2d/core";
-import { TeamType, UnitProperties, GridSettings, UnitType } from "@heroesofcrypto/common";
+import { AbilityFactory, TeamType, UnitProperties, GridSettings, UnitType } from "@heroesofcrypto/common";
 
-import { AbilitiesFactory } from "../abilities/abilities_factory";
 import { SpellsFactory } from "../spells/spells_factory";
 import { DAMAGE_ANIMATION_TICKS, MAX_FPS } from "../statics";
 import { DefaultShader } from "../utils/gl/defaultShader";
@@ -34,7 +33,7 @@ export class Hero extends Unit {
         greenSmallFlagSprite: Sprite,
         redSmallFlagSprite: Sprite,
         spellsFactory: SpellsFactory,
-        abilitiesFactory: AbilitiesFactory,
+        abilityFactory: AbilityFactory,
     ) {
         super(
             gl,
@@ -51,8 +50,8 @@ export class Hero extends Unit {
             greenSmallFlagSprite,
             redSmallFlagSprite,
             spellsFactory,
-            abilitiesFactory,
-            abilitiesFactory.getEffectsFactory(),
+            abilityFactory,
+            abilityFactory.getEffectsFactory(),
             false,
         );
 
