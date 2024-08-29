@@ -9,10 +9,9 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCLib } from "@heroesofcrypto/common";
+import { HoCLib, Spell } from "@heroesofcrypto/common";
 
 import { Unit } from "../units/units";
-import { Spell } from "./spells";
 
 export const isMirrored = (targetUnit: Unit): boolean => {
     let mirrorChance = 0;
@@ -35,7 +34,7 @@ export const isMirrored = (targetUnit: Unit): boolean => {
     return HoCLib.getRandomInt(0, 100) < Math.floor(mirrorChance);
 };
 
-export const alreadyApplied = (targetUnit: Unit, spell: Spell): boolean => {
+export const hasAlreadyAppliedSpell = (targetUnit: Unit, spell: Spell): boolean => {
     const conflictingSpells = [...spell.getConflictsWith(), spell.getName()];
     let needToApply = true;
     for (const cs of conflictingSpells) {

@@ -10,11 +10,17 @@
  */
 
 import { b2World } from "@box2d/core";
-import { AllFactions, FactionType, HoCLib, TeamType, GridSettings, UnitType } from "@heroesofcrypto/common";
+import {
+    AllFactions,
+    AbilityFactory,
+    FactionType,
+    HoCLib,
+    TeamType,
+    GridSettings,
+    UnitType,
+    HoCConfig,
+} from "@heroesofcrypto/common";
 
-import { AbilitiesFactory } from "../abilities/abilities_factory";
-import { getCreatureConfig, getHeroConfig } from "../config_provider";
-import { SpellsFactory } from "../spells/spells_factory";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
@@ -182,9 +188,7 @@ export class UnitsFactory {
 
     protected readonly digitDamageTextures: Map<number, WebGLTexture>;
 
-    protected readonly spellsFactory: SpellsFactory;
-
-    protected readonly abilitiesFactory: AbilitiesFactory;
+    protected readonly abilityFactory: AbilityFactory;
 
     public constructor(
         world: b2World,
@@ -194,8 +198,7 @@ export class UnitsFactory {
         digitDamageTextures: Map<number, WebGLTexture>,
         gridSettings: GridSettings,
         textures: PreloadedTextures,
-        spellsFactory: SpellsFactory,
-        abilitiesFactory: AbilitiesFactory,
+        abilityFactory: AbilityFactory,
     ) {
         this.world = world;
         this.gl = gl;
@@ -205,8 +208,7 @@ export class UnitsFactory {
         this.unitSize = gridSettings.getUnitSize();
         this.gridSettings = gridSettings;
         this.textures = textures;
-        this.spellsFactory = spellsFactory;
-        this.abilitiesFactory = abilitiesFactory;
+        this.abilityFactory = abilityFactory;
 
         this.smallTexturesByHero = new Map();
         for (const faction of AllFactions) {
@@ -242,7 +244,7 @@ export class UnitsFactory {
         totalExp?: number,
         summoned = false,
     ): Unit {
-        const creatureConfig = getCreatureConfig(
+        const creatureConfig = HoCConfig.getCreatureConfig(
             team,
             faction,
             name,
@@ -271,10 +273,10 @@ export class UnitsFactory {
             new Sprite(this.gl, this.shader, this.textures.hourglass.texture),
             new Sprite(this.gl, this.shader, this.textures.green_flag_70.texture),
             new Sprite(this.gl, this.shader, this.textures.red_flag_70.texture),
-            this.spellsFactory,
-            this.abilitiesFactory,
-            this.abilitiesFactory.getEffectsFactory(),
+            this.abilityFactory,
+            this.abilityFactory.getEffectsFactory(),
             summoned,
+            this.textures,
             //      new MeleeAI(this.world, this.gridSettings, this.board),
         );
     }
@@ -303,7 +305,7 @@ export class UnitsFactory {
             this.shader,
             this.digitNormalTextures,
             this.digitDamageTextures,
-            getHeroConfig(team, faction, heroName, largeTextureName),
+            HoCConfig.getHeroConfig(team, faction, heroName, largeTextureName),
             this.gridSettings,
             team,
             new Sprite(this.gl, this.shader, texture),
@@ -311,8 +313,8 @@ export class UnitsFactory {
             new Sprite(this.gl, this.shader, this.textures.hourglass.texture),
             new Sprite(this.gl, this.shader, this.textures.green_flag_70.texture),
             new Sprite(this.gl, this.shader, this.textures.red_flag_70.texture),
-            this.spellsFactory,
-            this.abilitiesFactory,
+            this.abilityFactory,
+            this.textures,
             //      new MeleeAI(this.world, this.gridSettings, this.board),
         );
     }

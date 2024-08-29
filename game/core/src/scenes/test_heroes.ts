@@ -12,7 +12,10 @@
 import { b2Body, b2BodyType, b2EdgeShape, b2Fixture, b2Vec2, XY } from "@box2d/core";
 import {
     AttackType,
+    HoCConfig,
+    AbilityFactory,
     FactionType,
+    EffectFactory,
     Grid,
     GridConstants,
     GridMath,
@@ -20,22 +23,22 @@ import {
     HoCConstants,
     HoCLib,
     SpellTargetType,
+    Spell,
+    SpellHelper,
     HoCMath,
     TeamType,
     IAuraOnMap,
     UnitProperties,
+    AbilityHelper,
 } from "@heroesofcrypto/common";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 
-import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
-import { AbilitiesFactory } from "../abilities/abilities_factory";
-import { evaluateAffectedUnits } from "../abilities/large_caliber_ability";
+import { evaluateAffectedUnits } from "../abilities/aoe_range_ability";
 import { nextStandingTargets } from "../abilities/fire_breath_ability";
-import { allEnemiesAroundLargeUnit } from "../abilities/aoe_range_ability";
+import { allEnemiesAroundLargeUnit } from "../abilities/lightning_spin_ability";
 import { AIActionType, findTarget } from "../ai/ai";
 import { Drawer } from "../draw/drawer";
-import { EffectsFactory } from "../effects/effects_factory";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 import { AttackHandler, IAttackObstacle } from "../handlers/attack_handler";
 import { MoveHandler } from "../handlers/move_handler";
@@ -44,9 +47,8 @@ import { ObstacleGenerator } from "../obstacles/obstacle_generator";
 import { IWeightedRoute, PathHelper } from "../path/path_helper";
 import { PlacementType, SquarePlacement } from "../placement/square_placement";
 import { Settings } from "../settings";
-import { canBeCasted, canBeMassCasted, canBeSummoned, Spell } from "../spells/spells";
-import { SpellsFactory } from "../spells/spells_factory";
-import { alreadyApplied, isMirrored } from "../spells/spells_helper";
+import { RenderableSpell } from "../spells/renderable_spell";
+import { hasAlreadyAppliedSpell, isMirrored } from "../spells/spells_helper";
 import { FightStateManager } from "../state/fight_state_manager";
 import { IVisibleUnit } from "../state/visible_state";
 import {
@@ -90,7 +92,7 @@ class Sandbox extends GLScene {
 
     private currentActiveKnownPaths?: Map<number, IWeightedRoute[]>;
 
-    private currentActiveSpell?: Spell;
+    private currentActiveSpell?: RenderableSpell;
 
     private hoverActivePath?: XY[];
 
@@ -120,7 +122,7 @@ class Sandbox extends GLScene {
 
     private hoverSelectedCellsSwitchToRed = false;
 
-    private hoveredSpell?: Spell;
+    private hoveredSpell?: RenderableSpell;
 
     private rangeResponseUnits?: Unit[];
 
@@ -147,8 +149,6 @@ class Sandbox extends GLScene {
     private readonly lowerPlacement: SquarePlacement;
 
     private readonly unitsFactory: UnitsFactory;
-
-    private readonly spellsFactory: SpellsFactory;
 
     private readonly unitsHolder: UnitsHolder;
 
@@ -251,7 +251,6 @@ class Sandbox extends GLScene {
             [-1, textures.m_damage.texture],
         ]);
 
-        this.spellsFactory = new SpellsFactory(this.gl, this.shader, this.digitNormalTextures, textures);
         this.unitsFactory = new UnitsFactory(
             this.sc_world,
             this.gl,
@@ -260,8 +259,7 @@ class Sandbox extends GLScene {
             this.digitDamageTextures,
             this.sc_sceneSettings.getGridSettings(),
             textures,
-            this.spellsFactory,
-            new AbilitiesFactory(new EffectsFactory()),
+            new AbilityFactory(new EffectFactory()),
         );
         this.unitsHolder = new UnitsHolder(this.sc_world, this.sc_sceneSettings.getGridSettings(), this.unitsFactory);
 
@@ -401,12 +399,7 @@ class Sandbox extends GLScene {
         }
 
         this.spawnUnits();
-        this.attackHandler = new AttackHandler(
-            this.sc_sceneSettings.getGridSettings(),
-            this.grid,
-            this.spellsFactory,
-            this.sc_sceneLog,
-        );
+        this.attackHandler = new AttackHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.sc_sceneLog);
         this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
 
         // update remaining time every half a second
@@ -1129,7 +1122,7 @@ class Sandbox extends GLScene {
 
                     if (
                         this.currentActiveSpell &&
-                        canBeCasted(
+                        SpellHelper.canCastSpell(
                             false,
                             this.sc_sceneSettings.getGridSettings(),
                             this.gridMatrix,
@@ -1244,7 +1237,7 @@ class Sandbox extends GLScene {
                             );
                             this.hoverAttackIsSmallSize = undefined;
                             let abilityMultiplier = 1;
-                            const abilitiesWithPositionCoeff = getAbilitiesWithPosisionCoefficient(
+                            const abilitiesWithPositionCoeff = AbilityHelper.getAbilitiesWithPosisionCoefficient(
                                 this.currentActiveUnit.getAbilities(),
                                 this.hoverAttackFrom,
                                 GridMath.getCellForPosition(
@@ -1539,7 +1532,7 @@ class Sandbox extends GLScene {
 
                         if (
                             this.currentActiveSpell &&
-                            canBeCasted(
+                            SpellHelper.canCastSpell(
                                 false,
                                 this.sc_sceneSettings.getGridSettings(),
                                 this.gridMatrix,
@@ -1593,7 +1586,7 @@ class Sandbox extends GLScene {
                             this.resetHover(false);
                         }
                     } else if (
-                        canBeCasted(
+                        SpellHelper.canCastSpell(
                             false,
                             this.sc_sceneSettings.getGridSettings(),
                             this.gridMatrix,
@@ -2260,7 +2253,7 @@ class Sandbox extends GLScene {
                         this.currentActiveUnit.getPosition(),
                     );
 
-                    if (canBeSummoned(this.hoveredSpell, this.gridMatrix, randomCell)) {
+                    if (SpellHelper.canCastSummon(this.hoveredSpell, this.gridMatrix, randomCell)) {
                         const amountToSummon = this.currentActiveUnit.getAmountAlive() * this.hoveredSpell.getPower();
 
                         const possibleUnit = this.unitsHolder.getSummonedUnitByName(
@@ -2296,10 +2289,10 @@ class Sandbox extends GLScene {
                             );
                         }
 
-                        this.currentActiveUnit.useSpell(this.hoveredSpell);
+                        this.currentActiveUnit.useSpell(this.hoveredSpell.getName());
                         this.finishTurn();
                     } else if (
-                        canBeMassCasted(
+                        SpellHelper.canMassCastSpell(
                             this.hoveredSpell,
                             this.unitsHolder.getAllTeamUnitsBuffs(this.currentActiveUnit.getTeam()),
                             this.unitsHolder.getAllEnemyUnitsDebuffs(this.currentActiveUnit.getTeam()),
@@ -2317,7 +2310,7 @@ class Sandbox extends GLScene {
                                     continue;
                                 }
 
-                                if (!alreadyApplied(u, this.hoveredSpell)) {
+                                if (!hasAlreadyAppliedSpell(u, this.hoveredSpell)) {
                                     u.applyBuff(
                                         this.hoveredSpell,
                                         undefined,
@@ -2351,7 +2344,7 @@ class Sandbox extends GLScene {
                                     continue;
                                 }
 
-                                if (!alreadyApplied(debuffTarget, this.hoveredSpell)) {
+                                if (!hasAlreadyAppliedSpell(debuffTarget, this.hoveredSpell)) {
                                     const laps = this.hoveredSpell.getLapsTotal();
                                     debuffTarget.applyDebuff(
                                         this.hoveredSpell,
@@ -2361,7 +2354,7 @@ class Sandbox extends GLScene {
                                     );
                                     if (
                                         isMirrored(debuffTarget) &&
-                                        !alreadyApplied(this.currentActiveUnit, this.hoveredSpell)
+                                        !hasAlreadyAppliedSpell(this.currentActiveUnit, this.hoveredSpell)
                                     ) {
                                         this.currentActiveUnit.applyDebuff(
                                             this.hoveredSpell,
@@ -2379,7 +2372,7 @@ class Sandbox extends GLScene {
                             }
                         }
 
-                        this.currentActiveUnit.useSpell(this.hoveredSpell);
+                        this.currentActiveUnit.useSpell(this.hoveredSpell.getName());
                         this.unitsHolder.refreshStackPowerForAllUnits();
                         this.finishTurn();
                     } else {
@@ -3191,17 +3184,19 @@ class Sandbox extends GLScene {
                                 const chance = HoCLib.getRandomInt(0, 100);
                                 if (chance < Math.abs(u.getMorale())) {
                                     if (isPlusMorale) {
-                                        const buff = this.spellsFactory.makeSpell(FactionType.NO_TYPE, "Morale", 1);
+                                        const buff = new Spell({
+                                            spellProperties: HoCConfig.getSpellConfig(FactionType.NO_TYPE, "Morale"),
+                                            amount: 1,
+                                        });
                                         u.applyBuff(buff);
                                         FightStateManager.getInstance()
                                             .getFightProperties()
                                             .enqueueMoralePlus(u.getId());
                                     } else {
-                                        const debuff = this.spellsFactory.makeSpell(
-                                            FactionType.NO_TYPE,
-                                            "Dismorale",
-                                            1,
-                                        );
+                                        const debuff = new Spell({
+                                            spellProperties: HoCConfig.getSpellConfig(FactionType.NO_TYPE, "Dismorale"),
+                                            amount: 1,
+                                        });
                                         u.applyDebuff(debuff);
                                         FightStateManager.getInstance()
                                             .getFightProperties()

@@ -22,13 +22,22 @@ import {
 } from "@box2d/core";
 import { removeFromArray } from "@box2d/lights/dist/utils/arrayUtils";
 import {
+    AppliedSpell,
     AbilityPowerType,
+    Ability,
+    Effect,
+    EffectFactory,
+    AbilityFactory,
     AllFactionsType,
+    AuraEffect,
+    HoCConfig,
     AttackType,
     HoCConstants,
     FactionType,
     ToFactionType,
+    SpellHelper,
     GridMath,
+    Spell,
     GridSettings,
     UnitProperties,
     HoCLib,
@@ -38,17 +47,12 @@ import {
 } from "@heroesofcrypto/common";
 import Denque from "denque";
 
-import { Ability } from "../abilities/abilities";
-import { AbilitiesFactory } from "../abilities/abilities_factory";
-import { AppliedSpell, Spell, calculateBuffsDebuffsEffect } from "../spells/spells";
-import { SpellsFactory } from "../spells/spells_factory";
 import { DAMAGE_ANIMATION_TICKS, HP_BAR_DELTA, MAX_FPS } from "../statics";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
-import { Effect } from "../effects/effects";
 import { SceneLog } from "../menu/scene_log";
-import { EffectsFactory } from "../effects/effects_factory";
-import { AuraEffect } from "../effects/aura_effects";
+import { RenderableSpell } from "../spells/renderable_spell";
+import { PreloadedTextures } from "../utils/gl/preload";
 
 export interface IAttackTargets {
     units: Unit[];
@@ -202,6 +206,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected readonly summoned: boolean;
 
+    protected readonly textures: PreloadedTextures;
+
     protected readonly bodyDef: b2BodyDef;
 
     protected readonly fixtureDef: b2FixtureDef;
@@ -218,7 +224,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected readonly damageAnimationTicks: Denque<IDamageTaken> = new Denque<IDamageTaken>();
 
-    protected spells: Spell[];
+    protected spells: RenderableSpell[];
 
     protected effects: Effect[];
 
@@ -226,9 +232,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected readonly auraEffects: AuraEffect[] = [];
 
-    protected readonly effectsFactory: EffectsFactory;
-
-    protected readonly spellsFactory: SpellsFactory;
+    protected readonly effectFactory: EffectFactory;
 
     protected selectedAttackType: AttackType;
 
@@ -252,10 +256,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         hourglassSprite: Sprite,
         greenSmallFlagSprite: Sprite,
         redSmallFlagSprite: Sprite,
-        spellsFactory: SpellsFactory,
-        abilitiesFactory: AbilitiesFactory,
-        effectsFactory: EffectsFactory,
+        abilityFactory: AbilityFactory,
+        effectFactory: EffectFactory,
         summoned: boolean,
+        textures: PreloadedTextures,
     ) {
         this.gl = gl;
         this.shader = shader;
@@ -271,9 +275,9 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.hourglassSprite = hourglassSprite;
         this.greenSmallFlagSprite = greenSmallFlagSprite;
         this.redSmallFlagSprite = redSmallFlagSprite;
-        this.effectsFactory = effectsFactory;
-        this.spellsFactory = spellsFactory;
+        this.effectFactory = effectFactory;
         this.summoned = summoned;
+        this.textures = textures;
 
         if (this.unitProperties.attack_type === AttackType.MELEE) {
             this.selectedAttackType = AttackType.MELEE;
@@ -358,7 +362,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.buffs = [];
         this.debuffs = [];
         this.maxRangeShots = this.unitProperties.range_shots;
-        this.parseAbilities(abilitiesFactory);
+        this.parseAbilities(abilityFactory);
         this.effects = [];
         this.parseAuraEffects();
     }
@@ -399,11 +403,22 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             }
 
             const spellName = spArr[1];
-            this.spells.push(this.spellsFactory.makeSpell(faction, spellName, v));
+            const spellProperties = HoCConfig.getSpellConfig(faction, spellName);
+            const textureNames = SpellHelper.spellToTextureNames(spellName);
+            this.spells.push(
+                new RenderableSpell(
+                    { spellProperties: spellProperties, amount: v },
+                    this.gl,
+                    this.shader,
+                    new Sprite(this.gl, this.shader, this.textures[textureNames[0] as keyof PreloadedTextures].texture),
+                    new Sprite(this.gl, this.shader, this.textures[textureNames[1] as keyof PreloadedTextures].texture),
+                    this.digitNormalTextures,
+                ),
+            );
         }
     }
 
-    public getSpells(): Spell[] {
+    public getSpells(): RenderableSpell[] {
         return this.spells;
     }
 
@@ -435,16 +450,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.debuffs;
     }
 
-    protected parseAbilities(abilitiesFactory: AbilitiesFactory): void {
+    protected parseAbilities(abilityFactory: AbilityFactory): void {
         for (const abilityName of this.unitProperties.abilities) {
-            const ability = abilitiesFactory.makeAbility(abilityName);
+            const ability = abilityFactory.makeAbility(abilityName);
             this.abilities.push(ability);
         }
     }
 
     protected parseAuraEffects(): void {
         for (const auraEffectName of this.unitProperties.aura_effects) {
-            const auraEffect = this.effectsFactory.makeAuraEffect(auraEffectName);
+            const auraEffect = this.effectFactory.makeAuraEffect(auraEffectName);
             if (auraEffect) {
                 this.auraEffects.push(auraEffect);
             }
@@ -741,7 +756,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 ) {
                     const auraEffectWords = auraEffectName.split(/\s+/);
                     const auraEffectString = auraEffectWords.slice(0, -1).join(" ");
-                    const auraEffect = this.effectsFactory.makeAuraEffect(auraEffectString);
+                    const auraEffect = this.effectFactory.makeAuraEffect(auraEffectString);
                     if (auraEffect) {
                         auraEffect.setPower(this.unitProperties.applied_buffs_powers[i]);
                         return auraEffect;
@@ -1183,7 +1198,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
     }
 
-    public getHoveredSpell(mousePosition: XY): Spell | undefined {
+    public getHoveredSpell(mousePosition: XY): RenderableSpell | undefined {
         for (const s of this.spells) {
             if (s.isHover(mousePosition)) {
                 return s;
@@ -1687,10 +1702,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.applied_debuffs_powers.push(0);
     }
 
-    public useSpell(spell: Spell): void {
-        const spellsUpdated: Spell[] = [];
+    public useSpell(spellName: string): void {
+        const spellsUpdated: RenderableSpell[] = [];
         for (const s of this.spells) {
-            if (s.getName() === spell.getName()) {
+            if (s.getName() === spellName) {
                 s.decreaseAmount();
                 removeFromArray(this.unitProperties.spells, `${s.getFaction()}:${s.getName()}`);
             }
@@ -1719,7 +1734,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public adjustBaseStats() {
         // HP
-        const baseStatsDiff = calculateBuffsDebuffsEffect(this.getBuffs(), this.getDebuffs());
+        const baseStatsDiff = SpellHelper.calculateBuffsDebuffsEffect(this.getBuffs(), this.getDebuffs());
 
         this.unitProperties.max_hp = this.refreshAndGetAdjustedMaxHp() + baseStatsDiff.baseStats.hp;
         if (this.unitProperties.max_hp < this.unitProperties.hp) {
@@ -1826,12 +1841,18 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         if (this.hasBuffActive("Riot")) {
-            const spell = this.spellsFactory.makeSpell(FactionType.CHAOS, "Riot", 1);
+            const spell = new Spell({
+                spellProperties: HoCConfig.getSpellConfig(FactionType.CHAOS, "Riot"),
+                amount: 1,
+            });
             this.unitProperties.attack_mod = Number(
                 ((this.unitProperties.base_attack * spell.getPower()) / 100).toFixed(2),
             );
         } else if (this.hasBuffActive("Mass Riot")) {
-            const spell = this.spellsFactory.makeSpell(FactionType.CHAOS, "Mass Riot", 1);
+            const spell = new Spell({
+                spellProperties: HoCConfig.getSpellConfig(FactionType.CHAOS, "Mass Riot"),
+                amount: 1,
+            });
             this.unitProperties.attack_mod = Number(
                 ((this.unitProperties.base_attack * spell.getPower()) / 100).toFixed(2),
             );

@@ -9,11 +9,10 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, ToFactionType, AllFactionsType, Grid } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, HoCConfig, ToFactionType, AllFactionsType, Grid, Spell } from "@heroesofcrypto/common";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 
 import { SceneLog } from "../menu/scene_log";
-import { SpellsFactory } from "../spells/spells_factory";
 import { isMirrored } from "../spells/spells_helper";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
@@ -32,7 +31,6 @@ export function processSpitBallAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     currentActiveUnit: Unit,
-    spellsFactory: SpellsFactory,
     unitsHolder: UnitsHolder,
     grid: Grid,
     sceneLog: SceneLog,
@@ -88,7 +86,7 @@ export function processSpitBallAbility(
             return;
         }
 
-        const debuff = spellsFactory.makeSpell(faction, randomDebuff, 1);
+        const debuff = new Spell({ spellProperties: HoCConfig.getSpellConfig(faction, randomDebuff), amount: 1 });
         let laps = debuff.getLapsTotal();
 
         targetUnit.applyDebuff(debuff, undefined, undefined, targetUnit.getId() === currentActiveUnit.getId());

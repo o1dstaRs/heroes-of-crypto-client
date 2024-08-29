@@ -9,153 +9,131 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, Grid, GridMath, GridSettings, HoCMath, HoCConstants } from "@heroesofcrypto/common";
+import { AttackType, Grid, HoCConstants, HoCMath } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
-import { processFireShieldAbility } from "./fire_shield_ability";
-import { processOneInTheFieldAbility } from "./one_in_the_field_ability";
-import { processStunAbility } from "./stun_ability";
-import { processBlindnessAbility } from "./blindness_ability";
-import { processBoarSalivaAbility } from "./boar_saliva_ability";
 import { processPetrifyingGazeAbility } from "./petrifying_gaze_ability";
+import { processSpitBallAbility } from "./spit_ball_ability";
+import { processStunAbility } from "./stun_ability";
 
-export function allEnemiesAroundLargeUnit(
-    attacker: Unit,
-    isAttack: boolean,
-    unitsHolder: UnitsHolder,
-    grid: Grid,
-    gridSettings: GridSettings,
-    targetMovePosition?: HoCMath.XY,
-): Unit[] {
-    const enemyList: Unit[] = [];
-    if (attacker && !attacker.isSmallSize()) {
-        // use either target move position on current
-        // depending on the action type (attack vs response)
-        const firstCheckCell = isAttack
-            ? targetMovePosition
-            : GridMath.getCellForPosition(gridSettings, attacker.getPosition());
-
-        if (!firstCheckCell) {
-            return enemyList;
-        }
-
-        for (let i = -2; i <= 1; i++) {
-            for (let j = -2; j <= 1; j++) {
-                const checkCell: HoCMath.XY = { x: firstCheckCell.x + i, y: firstCheckCell.y + j };
-                const checkUnitId = grid.getOccupantUnitId(checkCell);
-                if (checkUnitId) {
-                    const addUnit = unitsHolder.getAllUnits().get(checkUnitId);
-                    if (
-                        addUnit &&
-                        checkUnitId !== attacker.getId() &&
-                        !enemyList.includes(addUnit) &&
-                        !(attacker.getTeam() === addUnit?.getTeam())
-                    ) {
-                        enemyList.push(addUnit);
-                    }
-                }
-            }
-        }
-    }
-    return enemyList;
+export interface IAOERangeAttackResult {
+    landed: boolean;
+    maxDamage: number;
 }
 
-export function processAOERangeAbility(
-    fromUnit: Unit,
-    sceneLog: SceneLog,
-    unitsHolder: UnitsHolder,
+export function processRangeAOEAbility(
+    attackerUnit: Unit,
+    affectedUnits: Unit[],
+    currentActiveUnit: Unit,
+    rangeAttackDivisor: number,
     sceneStepCount: number,
+    unitsHolder: UnitsHolder,
     grid: Grid,
-    gridSettings: GridSettings,
-    targetMovePosition?: HoCMath.XY,
+    sceneLog: SceneLog,
     isAttack = true,
-): boolean {
-    let lightningSpinLanded = false;
-    const lightningSpinAbility = fromUnit.getAbility("Lightning Spin");
-
-    if (lightningSpinAbility) {
-        const unitsDead: Unit[] = [];
-        const enemyList = allEnemiesAroundLargeUnit(
-            fromUnit,
-            isAttack,
-            unitsHolder,
-            grid,
-            gridSettings,
-            targetMovePosition,
-        );
-        let actionString: string;
-        if (isAttack) {
-            actionString = "attk";
-        } else {
-            actionString = "resp";
-        }
-
-        for (const enemy of enemyList) {
-            if (enemy.isDead()) {
-                continue;
-            }
-
-            const isAttackMissed = HoCLib.getRandomInt(0, 100) < fromUnit.calculateMissChance(enemy);
-
-            if (fromUnit.hasDebuffActive("Cowardice") && fromUnit.getCumulativeHp() < enemy.getCumulativeHp()) {
-                continue;
-            }
-
-            if (isAttackMissed) {
-                sceneLog.updateLog(`${fromUnit.getName()} misses ${actionString} ${enemy.getName()}`);
-                continue;
-            }
-
-            const abilityMultiplier = fromUnit.calculateAbilityMultiplier(lightningSpinAbility);
-            const damageFromAttack = fromUnit.calculateAttackDamage(enemy, AttackType.MELEE, 1, abilityMultiplier);
-
-            enemy.applyDamage(damageFromAttack, sceneStepCount);
-            DamageStatisticHolder.getInstance().add({
-                unitName: fromUnit.getName(),
-                damage: damageFromAttack,
-                team: fromUnit.getTeam(),
-            });
-
-            sceneLog.updateLog(`${fromUnit.getName()} ${actionString} ${enemy.getName()} (${damageFromAttack})`);
-
-            if (enemy.isDead()) {
-                unitsDead.push(enemy);
-            }
-
-            // check all the possible modificators here
-            // just in case if we have more inherited/stolen abilities
-            processFireShieldAbility(enemy, fromUnit, sceneLog, unitsHolder, damageFromAttack, sceneStepCount);
-            processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
-            processPetrifyingGazeAbility(fromUnit, enemy, damageFromAttack, sceneStepCount, sceneLog);
-            processBoarSalivaAbility(fromUnit, enemy, fromUnit, sceneLog);
-            // works only on response
-            if (!isAttack) {
-                processBlindnessAbility(fromUnit, enemy, fromUnit, sceneLog);
-            }
-        }
-
-        unitsHolder.refreshStackPowerForAllUnits();
-
-        for (const unitDead of unitsDead) {
-            sceneLog.updateLog(`${unitDead.getName()} died`);
-            unitsHolder.deleteUnitById(grid, unitDead.getId());
-            fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-            fromUnit.applyMoraleStepsModifier(
-                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-            );
-            unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unitDead);
-        }
-
-        if (!isAttack) {
-            processOneInTheFieldAbility(fromUnit);
-        }
-
-        lightningSpinLanded = true;
+): IAOERangeAttackResult {
+    let aoeAbility = attackerUnit.getAbility("Area Throw");
+    if (!aoeAbility) {
+        aoeAbility = attackerUnit.getAbility("Large Caliber");
     }
 
-    return lightningSpinLanded;
+    let maxDamage = 0;
+    if (aoeAbility) {
+        for (const unit of affectedUnits) {
+            const damageFromAttack = attackerUnit.calculateAttackDamage(
+                unit,
+                AttackType.RANGE,
+                rangeAttackDivisor,
+                attackerUnit.calculateAbilityMultiplier(aoeAbility),
+                false,
+            );
+
+            unit.applyDamage(damageFromAttack, sceneStepCount);
+            DamageStatisticHolder.getInstance().add({
+                unitName: attackerUnit.getName(),
+                damage: damageFromAttack,
+                team: attackerUnit.getTeam(),
+            });
+            sceneLog.updateLog(
+                `${attackerUnit.getName()} ${isAttack ? "attk" : "resp"} ${unit.getName()} (${damageFromAttack})`,
+            );
+            maxDamage = Math.max(maxDamage, damageFromAttack);
+
+            if (!unit.isDead()) {
+                processPetrifyingGazeAbility(attackerUnit, unit, damageFromAttack, sceneStepCount, sceneLog);
+            }
+        }
+
+        for (const unit of affectedUnits) {
+            if (unit.isDead()) {
+                sceneLog.updateLog(`${unit.getName()} died`);
+                unitsHolder.deleteUnitById(grid, unit.getId());
+                attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
+                unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unit);
+                attackerUnit.applyMoraleStepsModifier(
+                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                );
+            } else {
+                processStunAbility(attackerUnit, unit, attackerUnit, sceneLog);
+
+                processSpitBallAbility(attackerUnit, unit, currentActiveUnit, unitsHolder, grid, sceneLog);
+            }
+        }
+        attackerUnit.decreaseNumberOfShots();
+
+        return {
+            landed: true,
+            maxDamage,
+        };
+    }
+
+    return {
+        landed: false,
+        maxDamage,
+    };
+}
+
+export function evaluateAffectedUnits(
+    affectedCells: HoCMath.XY[],
+    unitsHolder: UnitsHolder,
+    grid: Grid,
+): Array<Unit[]> | undefined {
+    const cellKeys: number[] = [];
+    const unitIds: string[] = [];
+    const affectedUnits: Unit[] = [];
+
+    for (const c of affectedCells) {
+        const cellKey = (c.x << 4) | c.y;
+        if (cellKeys.includes(cellKey)) {
+            continue;
+        }
+
+        const occupantId = grid.getOccupantUnitId(c);
+        if (!occupantId) {
+            continue;
+        }
+
+        if (unitIds.includes(occupantId)) {
+            continue;
+        }
+
+        const occupantUnit = unitsHolder.getAllUnits().get(occupantId);
+        if (!occupantUnit) {
+            continue;
+        }
+
+        affectedUnits.push(occupantUnit);
+        cellKeys.push(cellKey);
+        unitIds.push(occupantId);
+    }
+
+    if (affectedUnits.length) {
+        return [affectedUnits, affectedUnits];
+    }
+
+    return undefined;
 }

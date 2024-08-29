@@ -13,11 +13,10 @@ import { AttackType, HoCLib, HoCMath, Grid } from "@heroesofcrypto/common";
 
 import { Drawer } from "../draw/drawer";
 import { SceneLog } from "../menu/scene_log";
-import { SpellsFactory } from "../spells/spells_factory";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
-import { processRangeAOEAbility } from "./large_caliber_ability";
+import { processRangeAOEAbility } from "./aoe_range_ability";
 
 export interface IDoubleShotResult {
     applied: boolean;
@@ -32,7 +31,6 @@ export function processDoubleShotAbility(
     sceneLog: SceneLog,
     drawer: Drawer,
     unitsHolder: UnitsHolder,
-    spellsFactory: SpellsFactory,
     grid: Grid,
     hoverRangeAttackDivisor: number,
     hoverRangeAttackPosition: HoCMath.XY,
@@ -69,7 +67,6 @@ export function processDoubleShotAbility(
         fromUnit,
         hoverRangeAttackDivisor,
         sceneStepCount,
-        spellsFactory,
         unitsHolder,
         grid,
         sceneLog,

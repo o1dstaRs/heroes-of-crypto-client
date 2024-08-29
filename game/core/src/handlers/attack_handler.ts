@@ -10,20 +10,29 @@
  */
 
 import { b2Body, XY } from "@box2d/core";
-import { AttackType, HoCLib, HoCMath, GridMath, GridSettings, Grid, HoCConstants } from "@heroesofcrypto/common";
+import {
+    AttackType,
+    HoCLib,
+    HoCMath,
+    GridMath,
+    GridSettings,
+    Grid,
+    SpellHelper,
+    Spell,
+    HoCConstants,
+    AbilityHelper,
+} from "@heroesofcrypto/common";
 
-import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
 import { processDoubleShotAbility } from "../abilities/double_shot_ability";
 import { processFireBreathAbility } from "../abilities/fire_breath_ability";
 import { processFireShieldAbility } from "../abilities/fire_shield_ability";
-import { processAOERangeAbility } from "../abilities/aoe_range_ability";
+import { processLightningSpinAbility } from "../abilities/lightning_spin_ability";
 import { processOneInTheFieldAbility } from "../abilities/one_in_the_field_ability";
 import { processStunAbility } from "../abilities/stun_ability";
 import { Drawer } from "../draw/drawer";
 import { SceneLog } from "../menu/scene_log";
 import { IWeightedRoute } from "../path/path_helper";
-import { canBeCasted, Spell } from "../spells/spells";
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
@@ -33,11 +42,10 @@ import { processBlindnessAbility } from "../abilities/blindness_ability";
 import { processBoarSalivaAbility } from "../abilities/boar_saliva_ability";
 import { processSpitBallAbility } from "../abilities/spit_ball_ability";
 import { processPetrifyingGazeAbility } from "../abilities/petrifying_gaze_ability";
-import { SpellsFactory } from "../spells/spells_factory";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 import { getLapString } from "../utils/strings";
-import { alreadyApplied, isMirrored } from "../spells/spells_helper";
-import { IAOERangeAttackResult, processRangeAOEAbility } from "../abilities/large_caliber_ability";
+import { hasAlreadyAppliedSpell, isMirrored } from "../spells/spells_helper";
+import { IAOERangeAttackResult, processRangeAOEAbility } from "../abilities/aoe_range_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -59,12 +67,9 @@ export class AttackHandler {
 
     public readonly sceneLog: SceneLog;
 
-    public readonly spellsFactory: SpellsFactory;
-
-    public constructor(gridSettings: GridSettings, grid: Grid, spellsFactory: SpellsFactory, sceneLog: SceneLog) {
+    public constructor(gridSettings: GridSettings, grid: Grid, sceneLog: SceneLog) {
         this.gridSettings = gridSettings;
         this.grid = grid;
-        this.spellsFactory = spellsFactory;
         this.sceneLog = sceneLog;
     }
 
@@ -298,7 +303,7 @@ export class AttackHandler {
 
         if (
             targetUnit &&
-            canBeCasted(
+            SpellHelper.canCastSpell(
                 false,
                 this.gridSettings,
                 gridMatrix,
@@ -344,7 +349,7 @@ export class AttackHandler {
                     attackerUnit.getId() === targetUnit.getId(),
                 );
 
-                if (isMirrored(debuffTarget) && !alreadyApplied(debuffTarget, currentActiveSpell)) {
+                if (isMirrored(debuffTarget) && !hasAlreadyAppliedSpell(debuffTarget, currentActiveSpell)) {
                     attackerUnit.applyDebuff(
                         currentActiveSpell,
                         undefined,
@@ -365,7 +370,7 @@ export class AttackHandler {
                     debuffTarget = absorptionTarget;
                 }
 
-                if (!alreadyApplied(debuffTarget, currentActiveSpell)) {
+                if (!hasAlreadyAppliedSpell(debuffTarget, currentActiveSpell)) {
                     debuffTarget.applyDebuff(
                         currentActiveSpell,
                         attackerUnit.getAllProperties().max_hp,
@@ -375,7 +380,7 @@ export class AttackHandler {
                 }
             }
             const laps = currentActiveSpell.getLapsTotal();
-            attackerUnit.useSpell(currentActiveSpell);
+            attackerUnit.useSpell(currentActiveSpell.getName());
             let newText = `${attackerUnit.getName()} cast ${currentActiveSpell.getName()}`;
             if (attackerUnit.getId() === targetUnit.getId()) {
                 newText += ` on themselves for ${getLapString(laps)}`;
@@ -489,24 +494,23 @@ export class AttackHandler {
         }
 
         // handle attack damage
-        let largeCaliberAttackResult: IAOERangeAttackResult | undefined = undefined;
+        let aoeRangeAttackResult: IAOERangeAttackResult | undefined = undefined;
         if (isAttackMissed) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
         } else {
-            largeCaliberAttackResult = processRangeAOEAbility(
+            aoeRangeAttackResult = processRangeAOEAbility(
                 attackerUnit,
                 affectedUnits,
                 attackerUnit,
                 hoverRangeAttackDivisor,
                 sceneStepCount,
-                this.spellsFactory,
                 unitsHolder,
                 grid,
                 this.sceneLog,
                 true,
             );
-            if (largeCaliberAttackResult.landed) {
-                damageFromAttack = largeCaliberAttackResult.maxDamage;
+            if (aoeRangeAttackResult.landed) {
+                damageFromAttack = aoeRangeAttackResult.maxDamage;
             } else {
                 damageFromAttack = attackerUnit.calculateAttackDamage(
                     targetUnit,
@@ -524,25 +528,24 @@ export class AttackHandler {
         }
 
         // handle response damage
-        let largeCaliberResponseResult: IAOERangeAttackResult | undefined = undefined;
+        let aoeRangeResponseResult: IAOERangeAttackResult | undefined = undefined;
         if (rangeResponseUnit && rangeResponseUnits) {
             if (isResponseMissed) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} misses resp ${rangeResponseUnit.getName()}`);
             } else {
-                largeCaliberResponseResult = processRangeAOEAbility(
+                aoeRangeResponseResult = processRangeAOEAbility(
                     targetUnit,
                     rangeResponseUnits,
                     targetUnit,
                     rangeResponseAttackDivisor,
                     sceneStepCount,
-                    this.spellsFactory,
                     unitsHolder,
                     grid,
                     this.sceneLog,
                     false,
                 );
-                if (largeCaliberResponseResult.landed) {
-                    damageFromRespond = largeCaliberResponseResult.maxDamage;
+                if (aoeRangeResponseResult.landed) {
+                    damageFromRespond = aoeRangeResponseResult.maxDamage;
                 } else {
                     damageFromRespond = targetUnit.calculateAttackDamage(
                         rangeResponseUnit,
@@ -570,7 +573,7 @@ export class AttackHandler {
         if (targetUnit.isDead()) {
             switchTargetUnit = true;
         }
-        if (!largeCaliberAttackResult?.landed) {
+        if (!aoeRangeAttackResult?.landed) {
             if (targetUnit.isDead()) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
                 unitsHolder.deleteUnitById(grid, targetUnit.getId());
@@ -582,20 +585,12 @@ export class AttackHandler {
             } else {
                 processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
                 processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
-                processSpitBallAbility(
-                    attackerUnit,
-                    targetUnit,
-                    attackerUnit,
-                    this.spellsFactory,
-                    unitsHolder,
-                    grid,
-                    this.sceneLog,
-                );
+                processSpitBallAbility(attackerUnit, targetUnit, attackerUnit, unitsHolder, grid, this.sceneLog);
             }
         }
 
         if (rangeResponseUnit) {
-            if (largeCaliberResponseResult?.landed) {
+            if (aoeRangeResponseResult?.landed) {
                 if (rangeResponseUnit.isDead() && attackerUnit.getId() === rangeResponseUnit.getId()) {
                     return true;
                 }
@@ -627,7 +622,6 @@ export class AttackHandler {
                         targetUnit,
                         rangeResponseUnit,
                         attackerUnit,
-                        this.spellsFactory,
                         unitsHolder,
                         grid,
                         this.sceneLog,
@@ -667,7 +661,6 @@ export class AttackHandler {
             this.sceneLog,
             drawer,
             unitsHolder,
-            this.spellsFactory,
             grid,
             hoverRangeAttackDivisor,
             hoverRangeAttackPosition,
@@ -692,15 +685,7 @@ export class AttackHandler {
                     sceneStepCount,
                     this.sceneLog,
                 );
-                processSpitBallAbility(
-                    attackerUnit,
-                    targetUnit,
-                    attackerUnit,
-                    this.spellsFactory,
-                    unitsHolder,
-                    grid,
-                    this.sceneLog,
-                );
+                processSpitBallAbility(attackerUnit, targetUnit, attackerUnit, unitsHolder, grid, this.sceneLog);
             }
         }
 
@@ -818,7 +803,7 @@ export class AttackHandler {
         }
 
         let abilityMultiplier = 1;
-        const abilitiesWithPositionCoeff = getAbilitiesWithPosisionCoefficient(
+        const abilitiesWithPositionCoeff = AbilityHelper.getAbilitiesWithPosisionCoefficient(
             attackerUnit.getAbilities(),
             attackFromCell,
             GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
@@ -836,7 +821,7 @@ export class AttackHandler {
         const damageFromAttack = attackerUnit.calculateAttackDamage(targetUnit, AttackType.MELEE, 1, abilityMultiplier);
 
         const fightProperties = FightStateManager.getInstance().getFightProperties();
-        const hasLightningSpinAttackLanded = processAOERangeAbility(
+        const hasLightningSpinAttackLanded = processLightningSpinAbility(
             attackerUnit,
             this.sceneLog,
             unitsHolder,
@@ -900,7 +885,7 @@ export class AttackHandler {
                 GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
             );
 
-            hasLightningSpinResponseLanded = processAOERangeAbility(
+            hasLightningSpinResponseLanded = processLightningSpinAbility(
                 targetUnit,
                 this.sceneLog,
                 unitsHolder,
@@ -915,7 +900,7 @@ export class AttackHandler {
                 this.sceneLog.updateLog(`${targetUnit.getName()} misses resp ${attackerUnit.getName()}`);
             } else if (!hasLightningSpinResponseLanded) {
                 abilityMultiplier = 1;
-                const abilitiesWithPositionCoeffResp = getAbilitiesWithPosisionCoefficient(
+                const abilitiesWithPositionCoeffResp = AbilityHelper.getAbilitiesWithPosisionCoefficient(
                     targetUnit.getAbilities(),
                     GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
                     attackFromCell,
