@@ -9,11 +9,10 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, HoCConfig, ToFactionType, AllFactionsType, Grid } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, HoCConfig, ToFactionType, AllFactionsType, Grid, Spell } from "@heroesofcrypto/common";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 
 import { SceneLog } from "../menu/scene_log";
-import { Spell } from "../spells/spells";
 import { isMirrored } from "../spells/spells_helper";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
