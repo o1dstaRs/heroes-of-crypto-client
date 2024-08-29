@@ -17,7 +17,7 @@ import { SpellsFactory } from "../spells/spells_factory";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
-import { processRangeAOEAbility } from "./large_caliber_ability";
+import { processRangeAOEAbility } from "./aoe_range_ability";
 
 export interface IDoubleShotResult {
     applied: boolean;

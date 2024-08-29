@@ -17,7 +17,7 @@ import { processDoublePunchAbility } from "../abilities/double_punch_ability";
 import { processDoubleShotAbility } from "../abilities/double_shot_ability";
 import { processFireBreathAbility } from "../abilities/fire_breath_ability";
 import { processFireShieldAbility } from "../abilities/fire_shield_ability";
-import { processAOERangeAbility } from "../abilities/aoe_range_ability";
+import { processLightningSpinAbility } from "../abilities/lightning_spin_ability";
 import { processOneInTheFieldAbility } from "../abilities/one_in_the_field_ability";
 import { processStunAbility } from "../abilities/stun_ability";
 import { Drawer } from "../draw/drawer";
@@ -37,7 +37,7 @@ import { SpellsFactory } from "../spells/spells_factory";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 import { getLapString } from "../utils/strings";
 import { alreadyApplied, isMirrored } from "../spells/spells_helper";
-import { IAOERangeAttackResult, processRangeAOEAbility } from "../abilities/large_caliber_ability";
+import { IAOERangeAttackResult, processRangeAOEAbility } from "../abilities/aoe_range_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -836,7 +836,7 @@ export class AttackHandler {
         const damageFromAttack = attackerUnit.calculateAttackDamage(targetUnit, AttackType.MELEE, 1, abilityMultiplier);
 
         const fightProperties = FightStateManager.getInstance().getFightProperties();
-        const hasLightningSpinAttackLanded = processAOERangeAbility(
+        const hasLightningSpinAttackLanded = processLightningSpinAbility(
             attackerUnit,
             this.sceneLog,
             unitsHolder,
@@ -900,7 +900,7 @@ export class AttackHandler {
                 GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
             );
 
-            hasLightningSpinResponseLanded = processAOERangeAbility(
+            hasLightningSpinResponseLanded = processLightningSpinAbility(
                 targetUnit,
                 this.sceneLog,
                 unitsHolder,

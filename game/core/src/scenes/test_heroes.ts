@@ -30,9 +30,9 @@ import { v4 as uuidv4 } from "uuid";
 
 import { getAbilitiesWithPosisionCoefficient } from "../abilities/abilities";
 import { AbilitiesFactory } from "../abilities/abilities_factory";
-import { evaluateAffectedUnits } from "../abilities/large_caliber_ability";
+import { evaluateAffectedUnits } from "../abilities/aoe_range_ability";
 import { nextStandingTargets } from "../abilities/fire_breath_ability";
-import { allEnemiesAroundLargeUnit } from "../abilities/aoe_range_ability";
+import { allEnemiesAroundLargeUnit } from "../abilities/lightning_spin_ability";
 import { AIActionType, findTarget } from "../ai/ai";
 import { Drawer } from "../draw/drawer";
 import { EffectsFactory } from "../effects/effects_factory";
