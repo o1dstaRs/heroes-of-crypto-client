@@ -1537,6 +1537,12 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             }
         }
 
+        for (const a of this.abilities) {
+            if (a.getName() === "No Melee" || a.getName() === "Through Shot") {
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -2137,6 +2143,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.refreshAbiltyDescription(
                 areaThrowAbility.getName(),
                 areaThrowAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Through Shot
+        const throughShotAbility = this.getAbility("Through Shot");
+        if (throughShotAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(throughShotAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                throughShotAbility.getName(),
+                throughShotAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
     }

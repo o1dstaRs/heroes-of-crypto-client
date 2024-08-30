@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, Grid, HoCConstants, HoCMath } from "@heroesofcrypto/common";
+import { AttackType, Grid, HoCConstants, HoCMath, HoCLib } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
@@ -44,27 +44,32 @@ export function processRangeAOEAbility(
     let maxDamage = 0;
     if (aoeAbility) {
         for (const unit of affectedUnits) {
-            const damageFromAttack = attackerUnit.calculateAttackDamage(
-                unit,
-                AttackType.RANGE,
-                rangeAttackDivisor,
-                attackerUnit.calculateAbilityMultiplier(aoeAbility),
-                false,
-            );
+            const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(unit);
+            if (isAttackMissed) {
+                sceneLog.updateLog(`${attackerUnit.getName()} misses ${isAttack ? "attk" : "resp"} ${unit.getName()}`);
+            } else {
+                const damageFromAttack = attackerUnit.calculateAttackDamage(
+                    unit,
+                    AttackType.RANGE,
+                    rangeAttackDivisor,
+                    attackerUnit.calculateAbilityMultiplier(aoeAbility),
+                    false,
+                );
 
-            unit.applyDamage(damageFromAttack, sceneStepCount);
-            DamageStatisticHolder.getInstance().add({
-                unitName: attackerUnit.getName(),
-                damage: damageFromAttack,
-                team: attackerUnit.getTeam(),
-            });
-            sceneLog.updateLog(
-                `${attackerUnit.getName()} ${isAttack ? "attk" : "resp"} ${unit.getName()} (${damageFromAttack})`,
-            );
-            maxDamage = Math.max(maxDamage, damageFromAttack);
+                unit.applyDamage(damageFromAttack, sceneStepCount);
+                DamageStatisticHolder.getInstance().add({
+                    unitName: attackerUnit.getName(),
+                    damage: damageFromAttack,
+                    team: attackerUnit.getTeam(),
+                });
+                sceneLog.updateLog(
+                    `${attackerUnit.getName()} ${isAttack ? "attk" : "resp"} ${unit.getName()} (${damageFromAttack})`,
+                );
+                maxDamage = Math.max(maxDamage, damageFromAttack);
 
-            if (!unit.isDead()) {
-                processPetrifyingGazeAbility(attackerUnit, unit, damageFromAttack, sceneStepCount, sceneLog);
+                if (!unit.isDead()) {
+                    processPetrifyingGazeAbility(attackerUnit, unit, damageFromAttack, sceneStepCount, sceneLog);
+                }
             }
         }
 
@@ -79,7 +84,6 @@ export function processRangeAOEAbility(
                 );
             } else {
                 processStunAbility(attackerUnit, unit, attackerUnit, sceneLog);
-
                 processSpitBallAbility(attackerUnit, unit, currentActiveUnit, unitsHolder, grid, sceneLog);
             }
         }

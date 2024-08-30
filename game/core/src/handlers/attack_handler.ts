@@ -46,6 +46,7 @@ import { getAbsorptionTarget } from "../effects/effects_helper";
 import { getLapString } from "../utils/strings";
 import { hasAlreadyAppliedSpell, isMirrored } from "../spells/spells_helper";
 import { IAOERangeAttackResult, processRangeAOEAbility } from "../abilities/aoe_range_ability";
+import { processThroughShotAbility } from "../abilities/through_shot_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -449,6 +450,22 @@ export class AttackHandler {
             return true;
         }
 
+        const throughShotLanded = processThroughShotAbility(
+            attackerUnit,
+            targetUnits,
+            attackerUnit,
+            hoverRangeAttackDivisors,
+            hoverRangeAttackPosition,
+            unitsHolder,
+            grid,
+            drawer,
+            sceneStepCount,
+            this.sceneLog,
+        );
+        if (throughShotLanded) {
+            return true;
+        }
+
         if (
             !isAOE &&
             (!targetUnit ||
@@ -494,76 +511,71 @@ export class AttackHandler {
         }
 
         // handle attack damage
-        let aoeRangeAttackResult: IAOERangeAttackResult | undefined = undefined;
-        if (isAttackMissed) {
+        let aoeRangeAttackResult = processRangeAOEAbility(
+            attackerUnit,
+            affectedUnits,
+            attackerUnit,
+            hoverRangeAttackDivisor,
+            sceneStepCount,
+            unitsHolder,
+            grid,
+            this.sceneLog,
+            true,
+        );
+        if (aoeRangeAttackResult.landed) {
+            damageFromAttack = aoeRangeAttackResult.maxDamage;
+        } else if (isAttackMissed) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
         } else {
-            aoeRangeAttackResult = processRangeAOEAbility(
-                attackerUnit,
-                affectedUnits,
-                attackerUnit,
+            damageFromAttack = attackerUnit.calculateAttackDamage(
+                targetUnit,
+                AttackType.RANGE,
                 hoverRangeAttackDivisor,
-                sceneStepCount,
-                unitsHolder,
-                grid,
-                this.sceneLog,
-                true,
             );
-            if (aoeRangeAttackResult.landed) {
-                damageFromAttack = aoeRangeAttackResult.maxDamage;
-            } else {
-                damageFromAttack = attackerUnit.calculateAttackDamage(
-                    targetUnit,
-                    AttackType.RANGE,
-                    hoverRangeAttackDivisor,
-                );
-                this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
-                targetUnit.applyDamage(damageFromAttack, sceneStepCount);
-                DamageStatisticHolder.getInstance().add({
-                    unitName: attackerUnit.getName(),
-                    damage: damageFromAttack,
-                    team: attackerUnit.getTeam(),
-                });
-            }
+            this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
+            targetUnit.applyDamage(damageFromAttack, sceneStepCount);
+            DamageStatisticHolder.getInstance().add({
+                unitName: attackerUnit.getName(),
+                damage: damageFromAttack,
+                team: attackerUnit.getTeam(),
+            });
         }
 
         // handle response damage
         let aoeRangeResponseResult: IAOERangeAttackResult | undefined = undefined;
         if (rangeResponseUnit && rangeResponseUnits) {
-            if (isResponseMissed) {
+            aoeRangeResponseResult = processRangeAOEAbility(
+                targetUnit,
+                rangeResponseUnits,
+                targetUnit,
+                rangeResponseAttackDivisor,
+                sceneStepCount,
+                unitsHolder,
+                grid,
+                this.sceneLog,
+                false,
+            );
+            if (aoeRangeResponseResult.landed) {
+                damageFromRespond = aoeRangeResponseResult.maxDamage;
+            } else if (isResponseMissed) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} misses resp ${rangeResponseUnit.getName()}`);
             } else {
-                aoeRangeResponseResult = processRangeAOEAbility(
-                    targetUnit,
-                    rangeResponseUnits,
-                    targetUnit,
+                damageFromRespond = targetUnit.calculateAttackDamage(
+                    rangeResponseUnit,
+                    AttackType.RANGE,
                     rangeResponseAttackDivisor,
-                    sceneStepCount,
-                    unitsHolder,
-                    grid,
-                    this.sceneLog,
-                    false,
                 );
-                if (aoeRangeResponseResult.landed) {
-                    damageFromRespond = aoeRangeResponseResult.maxDamage;
-                } else {
-                    damageFromRespond = targetUnit.calculateAttackDamage(
-                        rangeResponseUnit,
-                        AttackType.RANGE,
-                        rangeResponseAttackDivisor,
-                    );
 
-                    this.sceneLog.updateLog(
-                        `${targetUnit.getName()} resp ${rangeResponseUnit.getName()} (${damageFromRespond})`,
-                    );
+                this.sceneLog.updateLog(
+                    `${targetUnit.getName()} resp ${rangeResponseUnit.getName()} (${damageFromRespond})`,
+                );
 
-                    rangeResponseUnit.applyDamage(damageFromRespond, sceneStepCount);
-                    DamageStatisticHolder.getInstance().add({
-                        unitName: targetUnit.getName(),
-                        damage: damageFromRespond,
-                        team: targetUnit.getTeam(),
-                    });
-                }
+                rangeResponseUnit.applyDamage(damageFromRespond, sceneStepCount);
+                DamageStatisticHolder.getInstance().add({
+                    unitName: targetUnit.getName(),
+                    damage: damageFromRespond,
+                    team: targetUnit.getTeam(),
+                });
             }
 
             processOneInTheFieldAbility(targetUnit);
