@@ -17,6 +17,7 @@ import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { processRangeAOEAbility } from "./aoe_range_ability";
+import { processLuckyStrikeAbility } from "./lucky_strike_ability";
 
 export interface IDoubleShotResult {
     applied: boolean;
@@ -73,14 +74,13 @@ export function processDoubleShotAbility(
         true,
     );
     if (aoeRangeAttackResult.landed) {
-        damageFromAttack = aoeRangeAttackResult.maxDamage;
+        damageFromAttack = processLuckyStrikeAbility(fromUnit, aoeRangeAttackResult.maxDamage, sceneLog);
     } else {
         const abilityMultiplier = fromUnit.calculateAbilityMultiplier(doubleShotAbility);
-        damageFromAttack = fromUnit.calculateAttackDamage(
-            toUnit,
-            AttackType.RANGE,
-            hoverRangeAttackDivisor,
-            abilityMultiplier,
+        damageFromAttack = processLuckyStrikeAbility(
+            fromUnit,
+            fromUnit.calculateAttackDamage(toUnit, AttackType.RANGE, hoverRangeAttackDivisor, abilityMultiplier),
+            sceneLog,
         );
         toUnit.applyDamage(damageFromAttack, sceneStepCount);
         DamageStatisticHolder.getInstance().add({

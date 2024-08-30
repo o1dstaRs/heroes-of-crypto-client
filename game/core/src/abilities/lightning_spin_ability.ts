@@ -22,6 +22,7 @@ import { processStunAbility } from "./stun_ability";
 import { processBlindnessAbility } from "./blindness_ability";
 import { processBoarSalivaAbility } from "./boar_saliva_ability";
 import { processPetrifyingGazeAbility } from "./petrifying_gaze_ability";
+import { processLuckyStrikeAbility } from "./lucky_strike_ability";
 
 export function allEnemiesAroundLargeUnit(
     attacker: Unit,
@@ -111,7 +112,11 @@ export function processLightningSpinAbility(
             }
 
             const abilityMultiplier = fromUnit.calculateAbilityMultiplier(lightningSpinAbility);
-            const damageFromAttack = fromUnit.calculateAttackDamage(enemy, AttackType.MELEE, 1, abilityMultiplier);
+            const damageFromAttack = processLuckyStrikeAbility(
+                fromUnit,
+                fromUnit.calculateAttackDamage(enemy, AttackType.MELEE, 1, abilityMultiplier),
+                sceneLog,
+            );
 
             enemy.applyDamage(damageFromAttack, sceneStepCount);
             DamageStatisticHolder.getInstance().add({

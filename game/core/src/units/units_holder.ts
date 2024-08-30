@@ -261,7 +261,7 @@ export class UnitsHolder {
             if (!GridMath.isCellWithinGrid(this.gridSettings, u.getBaseCell())) {
                 continue;
             }
-            u.adjustBaseStats();
+            u.adjustBaseStats(FightStateManager.getInstance().getFightProperties().getCurrentLap());
             u.adjustRangeShotsNumber(false);
             this.refreshBarFixtures(u);
         }
@@ -586,15 +586,15 @@ export class UnitsHolder {
             units.push(
                 this.unitsFactory.makeCreature(FactionType.NATURE, "Unicorn", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
-            units.push(
-                this.unitsFactory.makeCreature(
-                    FactionType.NATURE,
-                    "Faerie Dragon",
-                    team,
-                    0,
-                    BASE_UNIT_STACK_TO_SPAWN_EXP,
-                ),
-            );
+            // units.push(
+            //     this.unitsFactory.makeCreature(
+            //         FactionType.NATURE,
+            //         "Faerie Dragon",
+            //         team,
+            //         0,
+            //         BASE_UNIT_STACK_TO_SPAWN_EXP,
+            //     ),
+            // );
             units.push(
                 this.unitsFactory.makeCreature(FactionType.NATURE, "Gargantuan", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
@@ -678,9 +678,9 @@ export class UnitsHolder {
             units.push(
                 this.unitsFactory.makeCreature(FactionType.MIGHT, "Cyclops", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.MIGHT, "Thunderbird", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
+            // units.push(
+            //     this.unitsFactory.makeCreature(FactionType.MIGHT, "Thunderbird", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            // );
             units.push(
                 this.unitsFactory.makeCreature(FactionType.MIGHT, "Behemoth", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );

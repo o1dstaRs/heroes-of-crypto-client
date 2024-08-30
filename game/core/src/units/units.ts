@@ -242,6 +242,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected onHourglass = false;
 
+    protected adjustedBaseStatsRounds: number[] = [];
+
     public constructor(
         gl: WebGLRenderingContext,
         shader: DefaultShader,
@@ -1379,6 +1381,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return calculatedCoeff;
     }
 
+    public calculateAbilityCount(ability: Ability): number {
+        if (ability.getPowerType() !== AbilityPowerType.ADDITIONAL_STEPS) {
+            return 0;
+        }
+
+        return Number(((ability.getPower() / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower()).toFixed(2));
+    }
+
     public calculateAbilityMultiplier(ability: Ability): number {
         let calculatedCoeff = 1;
         if (
@@ -1533,6 +1543,12 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     public canRespond(): boolean {
         for (const e of this.effects) {
             if (e.getName() === "Stun" || e.getName() === "Blindness") {
+                return false;
+            }
+        }
+
+        for (const a of this.abilities) {
+            if (a.getName() === "No Melee" || a.getName() === "Through Shot") {
                 return false;
             }
         }
@@ -1732,11 +1748,17 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
     }
 
-    public adjustBaseStats() {
+    public adjustBaseStats(currentLap: number) {
         // HP
         const baseStatsDiff = SpellHelper.calculateBuffsDebuffsEffect(this.getBuffs(), this.getDebuffs());
+        const hasUnyieldingPower = this.hasAbilityActive("Unyielding Power");
 
-        this.unitProperties.max_hp = this.refreshAndGetAdjustedMaxHp() + baseStatsDiff.baseStats.hp;
+        this.unitProperties.max_hp = this.refreshAndGetAdjustedMaxHp(currentLap) + baseStatsDiff.baseStats.hp;
+
+        if (hasUnyieldingPower && !this.adjustedBaseStatsRounds.includes(currentLap)) {
+            this.unitProperties.hp += 5;
+        }
+
         if (this.unitProperties.max_hp < this.unitProperties.hp) {
             this.unitProperties.hp = this.unitProperties.max_hp;
         }
@@ -1826,8 +1848,25 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.unitProperties.range_shots_mod = endlessQuiverAbility.getPower();
         }
 
+        // STEPS
+        const skyRunnerAbility = this.getAbility("Sky Runner");
+        this.unitProperties.steps = this.initialUnitProperties.steps;
+        if (skyRunnerAbility) {
+            this.unitProperties.steps += this.calculateAbilityCount(skyRunnerAbility);
+        }
+        const quagmireDebuff = this.getDebuff("Quagmire");
+        let stepsMultiplier = 1;
+        if (quagmireDebuff) {
+            stepsMultiplier = (100 - quagmireDebuff.getPower()) / 100;
+        }
+        this.unitProperties.steps = Number((this.unitProperties.steps * stepsMultiplier).toFixed(2));
+
         // ATTACK
+        if (hasUnyieldingPower && !this.adjustedBaseStatsRounds.includes(currentLap)) {
+            this.initialUnitProperties.base_attack += 2;
+        }
         this.unitProperties.base_attack = this.initialUnitProperties.base_attack;
+
         let baseAttackMultiplier = 1;
         const sharpenedWeaponsAura = this.getAppliedAuraEffect("Sharpened Weapons Aura");
 
@@ -1863,20 +1902,13 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.base_attack = Number((this.unitProperties.base_attack * baseAttackMultiplier).toFixed(2));
 
         // BUFFS & DEBUFFS
-        const quagmireDebuff = this.getDebuff("Quagmire");
-        if (quagmireDebuff) {
-            this.unitProperties.steps = Number(
-                (this.initialUnitProperties.steps * ((100 - quagmireDebuff.getPower()) / 100)).toFixed(2),
-            );
-        } else {
-            this.unitProperties.steps = this.initialUnitProperties.steps;
-        }
-
         const weakeningBeamDebuff = this.getDebuff("Weakening Beam");
         let baseArmorMultiplier = 1;
         if (weakeningBeamDebuff) {
             baseArmorMultiplier = (100 - weakeningBeamDebuff.getPower()) / 100;
         }
+
+        this.adjustedBaseStatsRounds.push(currentLap);
 
         // ABILITIES DESCRIPTIONS
         // Heavy Armor
@@ -2139,6 +2171,37 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 areaThrowAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
+
+        // Through Shot
+        const throughShotAbility = this.getAbility("Through Shot");
+        if (throughShotAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(throughShotAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                throughShotAbility.getName(),
+                throughShotAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Sky Runner
+        if (skyRunnerAbility) {
+            this.refreshAbiltyDescription(
+                skyRunnerAbility.getName(),
+                skyRunnerAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateAbilityCount(skyRunnerAbility).toString()),
+            );
+        }
+
+        // Lucky Strike
+        const luckyStrikeAbility = this.getAbility("Lucky Strike");
+        if (luckyStrikeAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(luckyStrikeAbility) * 100).toFixed(2)) - 100;
+            this.refreshAbiltyDescription(
+                luckyStrikeAbility.getName(),
+                luckyStrikeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
     }
 
     public adjustRangeShotsNumber(force: boolean) {
@@ -2171,7 +2234,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return armor;
     }
 
-    protected refreshAndGetAdjustedMaxHp(): number {
+    protected refreshAndGetAdjustedMaxHp(currentLap: number): number {
+        const hasUnyieldingPower = this.hasAbilityActive("Unyielding Power");
+        if (hasUnyieldingPower) {
+            this.unitProperties.max_hp = this.initialUnitProperties.max_hp + currentLap * 5;
+        } else {
+            this.unitProperties.max_hp = this.initialUnitProperties.max_hp;
+        }
+
         const boostHealthAbility = this.getAbility("Boost Health");
         if (boostHealthAbility) {
             const multiplier = this.calculateAbilityMultiplier(boostHealthAbility);
@@ -2180,8 +2250,9 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             if (this.unitProperties.hp === this.unitProperties.max_hp) {
                 adjustActualHp = true;
             }
-            this.unitProperties.max_hp = Math.floor(
-                this.initialUnitProperties.max_hp + this.initialUnitProperties.max_hp * multiplier,
+
+            this.unitProperties.max_hp = Math.round(
+                this.unitProperties.max_hp + this.unitProperties.max_hp * multiplier,
             );
             if (adjustActualHp) {
                 this.unitProperties.hp = this.unitProperties.max_hp;
@@ -2189,7 +2260,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             return this.unitProperties.max_hp;
         }
 
-        return this.initialUnitProperties.max_hp;
+        return this.unitProperties.max_hp;
     }
 
     protected renderAmountSprites(
