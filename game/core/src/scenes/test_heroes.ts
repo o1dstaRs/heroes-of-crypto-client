@@ -855,11 +855,15 @@ class Sandbox extends GLScene {
                 true,
                 hoverRangeAttackDivisor,
             );
-            const maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
+            let maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
                 hoverAttackUnit,
                 true,
                 hoverRangeAttackDivisor,
             );
+            const luckyStrikeAbility = this.currentActiveUnit.getAbility("Lucky Strike");
+            if (luckyStrikeAbility) {
+                maxDmg = Math.floor(maxDmg * this.currentActiveUnit.calculateAbilityMultiplier(luckyStrikeAbility));
+            }
             const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
             const maxDied = hoverAttackUnit.calculatePossibleLosses(maxDmg);
             if (minDied !== maxDied) {
@@ -1263,12 +1267,18 @@ class Sandbox extends GLScene {
                                 isRangedAttacker ? 2 : 1,
                                 abilityMultiplier,
                             );
-                            const maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
+                            let maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
                                 hoverAttackUnit,
                                 false,
                                 isRangedAttacker ? 2 : 1,
                                 abilityMultiplier,
                             );
+                            const luckyStrikeAbility = this.currentActiveUnit.getAbility("Lucky Strike");
+                            if (luckyStrikeAbility) {
+                                maxDmg = Math.floor(
+                                    maxDmg * this.currentActiveUnit.calculateAbilityMultiplier(luckyStrikeAbility),
+                                );
+                            }
                             const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
                             const maxDied = hoverAttackUnit.calculatePossibleLosses(maxDmg);
                             this.sc_attackDamageSpreadStr = `${minDmg}-${maxDmg}`;

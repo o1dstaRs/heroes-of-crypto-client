@@ -1379,6 +1379,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return calculatedCoeff;
     }
 
+    public calculateAbilityCount(ability: Ability): number {
+        if (ability.getPowerType() !== AbilityPowerType.ADDITIONAL_STEPS) {
+            return 0;
+        }
+
+        return Number(((ability.getPower() / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower()).toFixed(2));
+    }
+
     public calculateAbilityMultiplier(ability: Ability): number {
         let calculatedCoeff = 1;
         if (
@@ -1832,6 +1840,19 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.unitProperties.range_shots_mod = endlessQuiverAbility.getPower();
         }
 
+        // STEPS
+        const skyRunnerAbility = this.getAbility("Sky Runner");
+        this.unitProperties.steps = this.initialUnitProperties.steps;
+        if (skyRunnerAbility) {
+            this.unitProperties.steps += this.calculateAbilityCount(skyRunnerAbility);
+        }
+        const quagmireDebuff = this.getDebuff("Quagmire");
+        let stepsMultiplier = 1;
+        if (quagmireDebuff) {
+            stepsMultiplier = (100 - quagmireDebuff.getPower()) / 100;
+        }
+        this.unitProperties.steps = Number((this.unitProperties.steps * stepsMultiplier).toFixed(2));
+
         // ATTACK
         this.unitProperties.base_attack = this.initialUnitProperties.base_attack;
         let baseAttackMultiplier = 1;
@@ -1869,15 +1890,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.base_attack = Number((this.unitProperties.base_attack * baseAttackMultiplier).toFixed(2));
 
         // BUFFS & DEBUFFS
-        const quagmireDebuff = this.getDebuff("Quagmire");
-        if (quagmireDebuff) {
-            this.unitProperties.steps = Number(
-                (this.initialUnitProperties.steps * ((100 - quagmireDebuff.getPower()) / 100)).toFixed(2),
-            );
-        } else {
-            this.unitProperties.steps = this.initialUnitProperties.steps;
-        }
-
         const weakeningBeamDebuff = this.getDebuff("Weakening Beam");
         let baseArmorMultiplier = 1;
         if (weakeningBeamDebuff) {
@@ -2153,6 +2165,27 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.refreshAbiltyDescription(
                 throughShotAbility.getName(),
                 throughShotAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Sky Runner
+        if (skyRunnerAbility) {
+            this.refreshAbiltyDescription(
+                skyRunnerAbility.getName(),
+                skyRunnerAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateAbilityCount(skyRunnerAbility).toString()),
+            );
+        }
+
+        // Lucky Strike
+        const luckyStrikeAbility = this.getAbility("Lucky Strike");
+        if (luckyStrikeAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(luckyStrikeAbility) * 100).toFixed(2)) - 100;
+            this.refreshAbiltyDescription(
+                luckyStrikeAbility.getName(),
+                luckyStrikeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
     }

@@ -47,6 +47,7 @@ import { getLapString } from "../utils/strings";
 import { hasAlreadyAppliedSpell, isMirrored } from "../spells/spells_helper";
 import { IAOERangeAttackResult, processRangeAOEAbility } from "../abilities/aoe_range_ability";
 import { processThroughShotAbility } from "../abilities/through_shot_ability";
+import { processLuckyStrikeAbility } from "../abilities/lucky_strike_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -493,7 +494,7 @@ export class AttackHandler {
         const rangeResponseUnit = rangeResponseUnits?.length ? rangeResponseUnits[0] : undefined;
 
         // response starts here
-        let damageFromRespond = 0;
+        let damageFromRespose = 0;
         let isResponseMissed = false;
         if (
             rangeResponseUnit &&
@@ -523,14 +524,14 @@ export class AttackHandler {
             true,
         );
         if (aoeRangeAttackResult.landed) {
-            damageFromAttack = aoeRangeAttackResult.maxDamage;
+            damageFromAttack = processLuckyStrikeAbility(attackerUnit, aoeRangeAttackResult.maxDamage, this.sceneLog);
         } else if (isAttackMissed) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
         } else {
-            damageFromAttack = attackerUnit.calculateAttackDamage(
-                targetUnit,
-                AttackType.RANGE,
-                hoverRangeAttackDivisor,
+            damageFromAttack = processLuckyStrikeAbility(
+                attackerUnit,
+                attackerUnit.calculateAttackDamage(targetUnit, AttackType.RANGE, hoverRangeAttackDivisor),
+                this.sceneLog,
             );
             this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
             targetUnit.applyDamage(damageFromAttack, sceneStepCount);
@@ -556,24 +557,28 @@ export class AttackHandler {
                 false,
             );
             if (aoeRangeResponseResult.landed) {
-                damageFromRespond = aoeRangeResponseResult.maxDamage;
+                damageFromRespose = processLuckyStrikeAbility(
+                    targetUnit,
+                    aoeRangeResponseResult.maxDamage,
+                    this.sceneLog,
+                );
             } else if (isResponseMissed) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} misses resp ${rangeResponseUnit.getName()}`);
             } else {
-                damageFromRespond = targetUnit.calculateAttackDamage(
-                    rangeResponseUnit,
-                    AttackType.RANGE,
-                    rangeResponseAttackDivisor,
+                damageFromRespose = processLuckyStrikeAbility(
+                    targetUnit,
+                    targetUnit.calculateAttackDamage(rangeResponseUnit, AttackType.RANGE, rangeResponseAttackDivisor),
+                    this.sceneLog,
                 );
 
                 this.sceneLog.updateLog(
-                    `${targetUnit.getName()} resp ${rangeResponseUnit.getName()} (${damageFromRespond})`,
+                    `${targetUnit.getName()} resp ${rangeResponseUnit.getName()} (${damageFromRespose})`,
                 );
 
-                rangeResponseUnit.applyDamage(damageFromRespond, sceneStepCount);
+                rangeResponseUnit.applyDamage(damageFromRespose, sceneStepCount);
                 DamageStatisticHolder.getInstance().add({
                     unitName: targetUnit.getName(),
-                    damage: damageFromRespond,
+                    damage: damageFromRespose,
                     team: targetUnit.getTeam(),
                 });
             }
@@ -626,7 +631,7 @@ export class AttackHandler {
                     processPetrifyingGazeAbility(
                         targetUnit,
                         attackerUnit,
-                        damageFromRespond,
+                        damageFromRespose,
                         sceneStepCount,
                         this.sceneLog,
                     );
@@ -830,7 +835,11 @@ export class AttackHandler {
         }
 
         const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(targetUnit);
-        const damageFromAttack = attackerUnit.calculateAttackDamage(targetUnit, AttackType.MELEE, 1, abilityMultiplier);
+        const damageFromAttack = processLuckyStrikeAbility(
+            attackerUnit,
+            attackerUnit.calculateAttackDamage(targetUnit, AttackType.MELEE, 1, abilityMultiplier),
+            this.sceneLog,
+        );
 
         const fightProperties = FightStateManager.getInstance().getFightProperties();
         const hasLightningSpinAttackLanded = processLightningSpinAbility(
@@ -925,21 +934,20 @@ export class AttackHandler {
                         abilityMultiplier *= targetUnit.calculateAbilityMultiplier(awpc);
                     }
                 }
-                const damageFromRespond = targetUnit.calculateAttackDamage(
-                    attackerUnit,
-                    AttackType.MELEE,
-                    1,
-                    abilityMultiplier,
+                const damageFromResponse = processLuckyStrikeAbility(
+                    targetUnit,
+                    targetUnit.calculateAttackDamage(attackerUnit, AttackType.MELEE, 1, abilityMultiplier),
+                    this.sceneLog,
                 );
 
                 this.sceneLog.updateLog(
-                    `${targetUnit.getName()} resp ${attackerUnit.getName()} (${damageFromRespond})`,
+                    `${targetUnit.getName()} resp ${attackerUnit.getName()} (${damageFromResponse})`,
                 );
 
-                attackerUnit.applyDamage(damageFromRespond, sceneStepCount);
+                attackerUnit.applyDamage(damageFromResponse, sceneStepCount);
                 DamageStatisticHolder.getInstance().add({
                     unitName: targetUnit.getName(),
-                    damage: damageFromRespond,
+                    damage: damageFromResponse,
                     team: targetUnit.getTeam(),
                 });
 
@@ -948,7 +956,7 @@ export class AttackHandler {
                     targetUnit,
                     this.sceneLog,
                     unitsHolder,
-                    damageFromRespond,
+                    damageFromResponse,
                     sceneStepCount,
                 );
 
@@ -956,7 +964,7 @@ export class AttackHandler {
                 processPetrifyingGazeAbility(
                     targetUnit,
                     attackerUnit,
-                    damageFromRespond,
+                    damageFromResponse,
                     sceneStepCount,
                     this.sceneLog,
                 );

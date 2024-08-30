@@ -16,6 +16,7 @@ import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
+import { processLuckyStrikeAbility } from "./lucky_strike_ability";
 import { processPetrifyingGazeAbility } from "./petrifying_gaze_ability";
 import { processSpitBallAbility } from "./spit_ball_ability";
 import { processStunAbility } from "./stun_ability";
@@ -48,12 +49,16 @@ export function processRangeAOEAbility(
             if (isAttackMissed) {
                 sceneLog.updateLog(`${attackerUnit.getName()} misses ${isAttack ? "attk" : "resp"} ${unit.getName()}`);
             } else {
-                const damageFromAttack = attackerUnit.calculateAttackDamage(
-                    unit,
-                    AttackType.RANGE,
-                    rangeAttackDivisor,
-                    attackerUnit.calculateAbilityMultiplier(aoeAbility),
-                    false,
+                const damageFromAttack = processLuckyStrikeAbility(
+                    attackerUnit,
+                    attackerUnit.calculateAttackDamage(
+                        unit,
+                        AttackType.RANGE,
+                        rangeAttackDivisor,
+                        attackerUnit.calculateAbilityMultiplier(aoeAbility),
+                        false,
+                    ),
+                    sceneLog,
                 );
 
                 unit.applyDamage(damageFromAttack, sceneStepCount);
