@@ -111,8 +111,6 @@ export function processThroughShotAbility(
     }
 
     attackerUnit.decreaseNumberOfShots();
-    console.log("targetUnit");
-    console.log(targetUnit);
     if (targetUnit) {
         drawer.startBulletAnimation(attackerUnit.getPosition(), hoverRangeAttackPosition, targetUnit);
     }

@@ -242,6 +242,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected onHourglass = false;
 
+    protected adjustedBaseStatsRounds: number[] = [];
+
     public constructor(
         gl: WebGLRenderingContext,
         shader: DefaultShader,
@@ -1746,11 +1748,17 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
     }
 
-    public adjustBaseStats() {
+    public adjustBaseStats(currentLap: number) {
         // HP
         const baseStatsDiff = SpellHelper.calculateBuffsDebuffsEffect(this.getBuffs(), this.getDebuffs());
+        const hasUnyieldingPower = this.hasAbilityActive("Unyielding Power");
 
-        this.unitProperties.max_hp = this.refreshAndGetAdjustedMaxHp() + baseStatsDiff.baseStats.hp;
+        this.unitProperties.max_hp = this.refreshAndGetAdjustedMaxHp(currentLap) + baseStatsDiff.baseStats.hp;
+
+        if (hasUnyieldingPower && !this.adjustedBaseStatsRounds.includes(currentLap)) {
+            this.unitProperties.hp += 5;
+        }
+
         if (this.unitProperties.max_hp < this.unitProperties.hp) {
             this.unitProperties.hp = this.unitProperties.max_hp;
         }
@@ -1854,7 +1862,11 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.steps = Number((this.unitProperties.steps * stepsMultiplier).toFixed(2));
 
         // ATTACK
+        if (hasUnyieldingPower && !this.adjustedBaseStatsRounds.includes(currentLap)) {
+            this.initialUnitProperties.base_attack += 2;
+        }
         this.unitProperties.base_attack = this.initialUnitProperties.base_attack;
+
         let baseAttackMultiplier = 1;
         const sharpenedWeaponsAura = this.getAppliedAuraEffect("Sharpened Weapons Aura");
 
@@ -1895,6 +1907,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (weakeningBeamDebuff) {
             baseArmorMultiplier = (100 - weakeningBeamDebuff.getPower()) / 100;
         }
+
+        this.adjustedBaseStatsRounds.push(currentLap);
 
         // ABILITIES DESCRIPTIONS
         // Heavy Armor
@@ -2220,7 +2234,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return armor;
     }
 
-    protected refreshAndGetAdjustedMaxHp(): number {
+    protected refreshAndGetAdjustedMaxHp(currentLap: number): number {
+        const hasUnyieldingPower = this.hasAbilityActive("Unyielding Power");
+        if (hasUnyieldingPower) {
+            this.unitProperties.max_hp = this.initialUnitProperties.max_hp + currentLap * 5;
+        } else {
+            this.unitProperties.max_hp = this.initialUnitProperties.max_hp;
+        }
+
         const boostHealthAbility = this.getAbility("Boost Health");
         if (boostHealthAbility) {
             const multiplier = this.calculateAbilityMultiplier(boostHealthAbility);
@@ -2229,8 +2250,9 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             if (this.unitProperties.hp === this.unitProperties.max_hp) {
                 adjustActualHp = true;
             }
-            this.unitProperties.max_hp = Math.floor(
-                this.initialUnitProperties.max_hp + this.initialUnitProperties.max_hp * multiplier,
+
+            this.unitProperties.max_hp = Math.round(
+                this.unitProperties.max_hp + this.unitProperties.max_hp * multiplier,
             );
             if (adjustActualHp) {
                 this.unitProperties.hp = this.unitProperties.max_hp;
@@ -2238,7 +2260,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             return this.unitProperties.max_hp;
         }
 
-        return this.initialUnitProperties.max_hp;
+        return this.unitProperties.max_hp;
     }
 
     protected renderAmountSprites(
