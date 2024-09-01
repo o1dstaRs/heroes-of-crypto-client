@@ -330,8 +330,7 @@ export class UnitsHolder {
                     uae.toDefault();
                     const unitAuraEffectProperties = uae.getProperties();
                     if (unitAuraEffectProperties.power) {
-                        unitAuraEffectProperties.power =
-                            Number((u.calculateAuraEffectMultiplier(uae) * 100).toFixed(2)) - 100;
+                        unitAuraEffectProperties.power = u.calculateAuraPower(uae);
                     }
 
                     if (unitAuraEffectProperties.range < 0) {

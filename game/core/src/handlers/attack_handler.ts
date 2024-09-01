@@ -48,6 +48,8 @@ import { hasAlreadyAppliedSpell, isMirrored } from "../spells/spells_helper";
 import { IAOERangeAttackResult, processRangeAOEAbility } from "../abilities/aoe_range_ability";
 import { processThroughShotAbility } from "../abilities/through_shot_ability";
 import { processLuckyStrikeAbility } from "../abilities/lucky_strike_ability";
+import { processShatterArmorAbility } from "../abilities/shatter_armor_ability";
+import { processRapidChargeAbility } from "../abilities/rapid_charge_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -746,11 +748,21 @@ export class AttackHandler {
         }
 
         const stationaryAttack = currentCell.x === attackFromCell.x && currentCell.y === attackFromCell.y;
+        let distanceTravelled = 0;
+
         if (attackerUnit.isSmallSize()) {
             if (
                 grid.areAllCellsEmpty([attackFromCell], attackerUnit.getId()) &&
                 (stationaryAttack || currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y)?.length)
             ) {
+                const position = GridMath.getPositionForCell(
+                    attackFromCell,
+                    this.gridSettings.getMinX(),
+                    this.gridSettings.getStep(),
+                    this.gridSettings.getHalfStep(),
+                );
+
+                distanceTravelled = HoCMath.getDistance(attackerUnit.getPosition(), position);
                 const moveStarted =
                     stationaryAttack ||
                     moveHandler.startMoving(
@@ -764,12 +776,6 @@ export class AttackHandler {
                     return false;
                 }
 
-                const position = GridMath.getPositionForCell(
-                    attackFromCell,
-                    this.gridSettings.getMinX(),
-                    this.gridSettings.getStep(),
-                    this.gridSettings.getHalfStep(),
-                );
                 attackerUnit.setPosition(position.x, position.y);
                 grid.occupyCell(
                     attackFromCell,
@@ -787,6 +793,7 @@ export class AttackHandler {
                 this.gridSettings.getStep(),
                 this.gridSettings.getHalfStep(),
             );
+            distanceTravelled = HoCMath.getDistance(attackerUnit.getPosition(), position);
             const cells = GridMath.getCellsAroundPosition(this.gridSettings, {
                 x: position.x - this.gridSettings.getHalfStep(),
                 y: position.y - this.gridSettings.getHalfStep(),
@@ -819,7 +826,7 @@ export class AttackHandler {
             }
         }
 
-        let abilityMultiplier = 1;
+        let abilityMultiplier = processRapidChargeAbility(attackerUnit, distanceTravelled, this.gridSettings);
         const abilitiesWithPositionCoeff = AbilityHelper.getAbilitiesWithPosisionCoefficient(
             attackerUnit.getAbilities(),
             attackFromCell,
@@ -849,6 +856,7 @@ export class AttackHandler {
             sceneStepCount,
             grid,
             this.gridSettings,
+            distanceTravelled,
             attackFromCell,
             true,
         );
@@ -913,6 +921,7 @@ export class AttackHandler {
                 sceneStepCount,
                 grid,
                 this.gridSettings,
+                0,
                 attackFromCell,
                 false,
             );
@@ -979,6 +988,7 @@ export class AttackHandler {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
             processBoarSalivaAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processShatterArmorAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
 
             // this code has to be here to make sure that respond damage has been applied as well
             targetUnit.applyDamage(damageFromAttack, sceneStepCount);
@@ -1028,6 +1038,7 @@ export class AttackHandler {
                 this.sceneLog,
             );
             processBoarSalivaAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processShatterArmorAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
         }
 
         return true;

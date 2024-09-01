@@ -1369,6 +1369,8 @@ class Sandbox extends GLScene {
                     if (!this.hoverRangeAttackLine && this.hoverUnit.getTeam() !== this.currentActiveUnit.getTeam()) {
                         const shape = new b2EdgeShape();
 
+                        const isThroughShot = this.currentActiveUnit.hasAbilityActive("Through Shot");
+
                         this.hoverRangeAttackPosition = GridMath.getClosestSideCenter(
                             this.gridMatrix,
                             this.sc_sceneSettings.getGridSettings(),
@@ -1378,11 +1380,12 @@ class Sandbox extends GLScene {
                             this.currentActiveUnit.isSmallSize(),
                             this.hoverUnit.isSmallSize(),
                             this.currentActiveUnit.getTeam(),
+                            isThroughShot,
                         );
 
                         if (this.hoverRangeAttackPosition) {
                             const currentUnitPosition = this.currentActiveUnit.getPosition();
-                            if (this.currentActiveUnit.hasAbilityActive("Through Shot")) {
+                            if (isThroughShot) {
                                 this.hoverRangeAttackPosition = GridMath.projectLineToFieldEdge(
                                     this.sc_sceneSettings.getGridSettings(),
                                     currentUnitPosition.x,
@@ -2945,7 +2948,7 @@ class Sandbox extends GLScene {
                                         if (occupiedCells) {
                                             unit.setPosition(bodyPosition.x, bodyPosition.y);
                                         }
-                                        unit.randomizeLuckPerTurn();
+                                        // unit.randomizeLuckPerTurn();
                                         unit.setResponded(false);
                                         unit.setOnHourglass(false);
                                         unit.applyMoraleStepsModifier(
@@ -3015,7 +3018,7 @@ class Sandbox extends GLScene {
                                     if (occupiedCells) {
                                         unit.setPosition(bodyPosition.x, bodyPosition.y);
                                     }
-                                    unit.randomizeLuckPerTurn();
+                                    // unit.randomizeLuckPerTurn();
                                     unit.setResponded(false);
                                     unit.setOnHourglass(false);
                                     unit.applyMoraleStepsModifier(
@@ -3100,7 +3103,7 @@ class Sandbox extends GLScene {
 
             if (this.sc_started && allUnitsMadeTurn && !fightFinished) {
                 for (const u of units) {
-                    u.randomizeLuckPerTurn();
+                    // u.randomizeLuckPerTurn();
                     u.setResponded(false);
                     u.setOnHourglass(false);
                     u.applyMoraleStepsModifier(
@@ -3265,6 +3268,10 @@ class Sandbox extends GLScene {
                                 this.sc_moveBlocked = false;
                                 this.unitsHolder.refreshAuraEffectsForAllUnits();
                                 this.unitsHolder.refreshStackPowerForAllUnits();
+                                // need to call it twice to make sure aura effects are applied
+                                this.unitsHolder.refreshAuraEffectsForAllUnits();
+                                this.unitsHolder.refreshStackPowerForAllUnits();
+
                                 this.gridMatrix = this.grid.getMatrix();
                                 this.refreshVisibleStateIfNeeded();
                                 if (this.sc_visibleState) {
