@@ -242,7 +242,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected onHourglass = false;
 
-    protected adjustedBaseStatsRounds: number[] = [];
+    protected adjustedBaseStatsLaps: number[] = [];
 
     public constructor(
         gl: WebGLRenderingContext,
@@ -831,11 +831,11 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public getArmor(): number {
-        return this.unitProperties.base_armor + this.unitProperties.armor_mod;
+        return Math.max(1, this.unitProperties.base_armor + this.unitProperties.armor_mod);
     }
 
     public getRangeArmor(): number {
-        return this.unitProperties.range_armor + this.unitProperties.armor_mod;
+        return Math.max(1, this.unitProperties.range_armor + this.unitProperties.armor_mod);
     }
 
     public getAttackType(): AttackType {
@@ -1353,7 +1353,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return amountDied;
     }
 
-    public calculateAuraEffectMultiplier(auraEffect: AuraEffect): number {
+    public calculateAuraPower(auraEffect: AuraEffect): number {
         let calculatedCoeff = 1;
 
         if (
@@ -1366,7 +1366,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 this.getLuck() / 100;
         }
 
-        return calculatedCoeff;
+        if (auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_STEPS) {
+            return Number(
+                (
+                    (auraEffect.getPower() / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower() +
+                    (this.getLuck() / 100) * auraEffect.getPower()
+                ).toFixed(1),
+            );
+        }
+
+        return Number((calculatedCoeff * 100).toFixed(2)) - 100;
     }
 
     public calculateEffectMultiplier(effect: Effect): number {
@@ -1382,11 +1391,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public calculateAbilityCount(ability: Ability): number {
-        if (ability.getPowerType() !== AbilityPowerType.ADDITIONAL_STEPS) {
+        if (ability.getPowerType() !== AbilityPowerType.ADDITIONAL_STEPS && ability.getName() !== "Shatter Armor") {
             return 0;
         }
 
-        return Number(((ability.getPower() / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower()).toFixed(2));
+        return Number(
+            (
+                (ability.getPower() / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower() +
+                (this.getLuck() / 100) * ability.getPower()
+            ).toFixed(1),
+        );
     }
 
     public calculateAbilityMultiplier(ability: Ability): number {
@@ -1755,7 +1769,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         this.unitProperties.max_hp = this.refreshAndGetAdjustedMaxHp(currentLap) + baseStatsDiff.baseStats.hp;
 
-        if (hasUnyieldingPower && !this.adjustedBaseStatsRounds.includes(currentLap)) {
+        if (hasUnyieldingPower && !this.adjustedBaseStatsLaps.includes(currentLap)) {
             this.unitProperties.hp += 5;
         }
 
@@ -1770,6 +1784,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         } else {
             if (this.unitProperties.luck !== this.initialUnitProperties.luck) {
                 this.unitProperties.luck = this.initialUnitProperties.luck;
+            }
+            if (!this.adjustedBaseStatsLaps.includes(currentLap)) {
                 this.randomizeLuckPerTurn();
             }
         }
@@ -1810,6 +1826,12 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.base_armor = Number(
             (this.initialUnitProperties.base_armor + baseStatsDiff.baseStats.armor).toFixed(2),
         );
+        const shatterArmorEffect = this.getEffect("Shatter Armor");
+        if (shatterArmorEffect) {
+            this.unitProperties.armor_mod = -shatterArmorEffect.getPower();
+        } else {
+            this.unitProperties.armor_mod = this.initialUnitProperties.armor_mod;
+        }
 
         const leatherArmorAbility = this.getAbility("Leather Armor");
         let rangeArmorMultiplier = leatherArmorAbility ? leatherArmorAbility.getPower() / 100 : 1;
@@ -1854,6 +1876,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (skyRunnerAbility) {
             this.unitProperties.steps += this.calculateAbilityCount(skyRunnerAbility);
         }
+        const wolfTrailAuraEffect = this.getAppliedAuraEffect("Wolf Trail Aura");
+        if (wolfTrailAuraEffect) {
+            this.unitProperties.steps += wolfTrailAuraEffect.getPower();
+        }
         const quagmireDebuff = this.getDebuff("Quagmire");
         let stepsMultiplier = 1;
         if (quagmireDebuff) {
@@ -1862,7 +1888,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.steps = Number((this.unitProperties.steps * stepsMultiplier).toFixed(2));
 
         // ATTACK
-        if (hasUnyieldingPower && !this.adjustedBaseStatsRounds.includes(currentLap)) {
+        if (hasUnyieldingPower && !this.adjustedBaseStatsLaps.includes(currentLap)) {
             this.initialUnitProperties.base_attack += 2;
         }
         this.unitProperties.base_attack = this.initialUnitProperties.base_attack;
@@ -1908,7 +1934,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             baseArmorMultiplier = (100 - weakeningBeamDebuff.getPower()) / 100;
         }
 
-        this.adjustedBaseStatsRounds.push(currentLap);
+        this.adjustedBaseStatsLaps.push(currentLap);
 
         // ABILITIES DESCRIPTIONS
         // Heavy Armor
@@ -2200,6 +2226,40 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.refreshAbiltyDescription(
                 luckyStrikeAbility.getName(),
                 luckyStrikeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Shatter Armor
+        const shatterArmorAbility = this.getAbility("Shatter Armor");
+        if (shatterArmorAbility) {
+            this.refreshAbiltyDescription(
+                shatterArmorAbility.getName(),
+                shatterArmorAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateAbilityCount(shatterArmorAbility).toString()),
+            );
+        }
+
+        // Rapid Charge
+        const rapidChargeAbility = this.getAbility("Rapid Charge");
+        if (rapidChargeAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(rapidChargeAbility) * 100).toFixed(2)) - 100;
+            this.refreshAbiltyDescription(
+                rapidChargeAbility.getName(),
+                rapidChargeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Wolf Trail Aura
+        const wolfTrailAuraAbility = this.getAbility("Wolf Trail Aura");
+        if (wolfTrailAuraAbility) {
+            this.refreshAbiltyDescription(
+                wolfTrailAuraAbility.getName(),
+                wolfTrailAuraAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateAbilityCount(wolfTrailAuraAbility).toString()),
             );
         }
     }

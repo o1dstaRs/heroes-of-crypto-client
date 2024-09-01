@@ -23,6 +23,8 @@ import { processBlindnessAbility } from "./blindness_ability";
 import { processBoarSalivaAbility } from "./boar_saliva_ability";
 import { processPetrifyingGazeAbility } from "./petrifying_gaze_ability";
 import { processLuckyStrikeAbility } from "./lucky_strike_ability";
+import { processShatterArmorAbility } from "./shatter_armor_ability";
+import { processRapidChargeAbility } from "./rapid_charge_ability";
 
 export function allEnemiesAroundLargeUnit(
     attacker: Unit,
@@ -72,6 +74,7 @@ export function processLightningSpinAbility(
     sceneStepCount: number,
     grid: Grid,
     gridSettings: GridSettings,
+    distanceTravelled: number,
     targetMovePosition?: HoCMath.XY,
     isAttack = true,
 ): boolean {
@@ -95,6 +98,7 @@ export function processLightningSpinAbility(
             actionString = "resp";
         }
 
+        const commonAbilityMultiplier = processRapidChargeAbility(fromUnit, distanceTravelled, gridSettings);
         for (const enemy of enemyList) {
             if (enemy.isDead()) {
                 continue;
@@ -111,7 +115,8 @@ export function processLightningSpinAbility(
                 continue;
             }
 
-            const abilityMultiplier = fromUnit.calculateAbilityMultiplier(lightningSpinAbility);
+            const abilityMultiplier =
+                fromUnit.calculateAbilityMultiplier(lightningSpinAbility) * commonAbilityMultiplier;
             const damageFromAttack = processLuckyStrikeAbility(
                 fromUnit,
                 fromUnit.calculateAttackDamage(enemy, AttackType.MELEE, 1, abilityMultiplier),
@@ -138,7 +143,9 @@ export function processLightningSpinAbility(
             processPetrifyingGazeAbility(fromUnit, enemy, damageFromAttack, sceneStepCount, sceneLog);
             processBoarSalivaAbility(fromUnit, enemy, fromUnit, sceneLog);
             // works only on response
-            if (!isAttack) {
+            if (isAttack) {
+                processShatterArmorAbility(fromUnit, enemy, fromUnit, sceneLog);
+            } else {
                 processBlindnessAbility(fromUnit, enemy, fromUnit, sceneLog);
             }
         }

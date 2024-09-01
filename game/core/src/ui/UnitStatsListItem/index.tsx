@@ -358,12 +358,27 @@ export const UnitStatsListItem: React.FC = () => {
             };
         }
 
+        let armorButtonStyle;
+        if (unitProperties.armor_mod < 0) {
+            armorButtonStyle = {
+                "--ButtonGroup-separatorSize": "0px",
+                backgroundColor: "#FFC6C6",
+                border: "2px solid red",
+            };
+        } else {
+            armorButtonStyle = {
+                "--ButtonGroup-separatorSize": "0px",
+            };
+        }
+
         const attackTypeSelected = unitProperties.attack_type_selected;
         let attackDamage = (unitProperties.base_attack + unitProperties.attack_mod) * unitProperties.attack_multiplier;
         if (attackTypeSelected === AttackType.MELEE && unitProperties.attack_type === AttackType.RANGE) {
             attackDamage /= 2;
         }
-        const hasDifferentRangeArmor = unitProperties.base_armor !== unitProperties.range_armor;
+        const meleeArmor = Math.max(1, unitProperties.base_armor + unitProperties.armor_mod);
+        const rangeArmor = Math.max(1, unitProperties.range_armor + unitProperties.armor_mod);
+        const hasDifferentRangeArmor = meleeArmor !== rangeArmor;
         const largeTextureName = unitProperties.large_texture_name;
 
         return (
@@ -528,12 +543,12 @@ export const UnitStatsListItem: React.FC = () => {
                                             aria-label="armor"
                                             // @ts-ignore: style params
                                             size="xs"
-                                            style={{ "--ButtonGroup-separatorSize": "0px" }}
+                                            style={armorButtonStyle}
                                         >
                                             <IconButton disabled>
                                                 <ShieldIcon />
                                             </IconButton>
-                                            <Button disabled>{Number(unitProperties.base_armor.toFixed(2))}</Button>
+                                            <Button disabled>{Number(meleeArmor.toFixed(2))}</Button>
                                             {armorMod ? <Button disabled>({armorMod})</Button> : <span />}
                                         </ButtonGroup>
                                     </Tooltip>
@@ -564,12 +579,12 @@ export const UnitStatsListItem: React.FC = () => {
                                                 aria-label="range_armor"
                                                 // @ts-ignore: style params
                                                 size="xs"
-                                                style={{ "--ButtonGroup-separatorSize": "0px" }}
+                                                style={armorButtonStyle}
                                             >
                                                 <IconButton disabled>
                                                     <ArrowShieldIcon />
                                                 </IconButton>
-                                                <Button disabled>{unitProperties.range_armor}</Button>
+                                                <Button disabled>{Number(rangeArmor.toFixed(2))}</Button>
                                                 {armorMod ? <Button disabled>({armorMod})</Button> : <span />}
                                             </ButtonGroup>
                                         </Tooltip>
