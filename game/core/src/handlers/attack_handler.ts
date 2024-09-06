@@ -18,6 +18,7 @@ import {
     GridSettings,
     Grid,
     SpellHelper,
+    SpellPowerType,
     Spell,
     HoCConstants,
     AbilityHelper,
@@ -50,6 +51,7 @@ import { processThroughShotAbility } from "../abilities/through_shot_ability";
 import { processLuckyStrikeAbility } from "../abilities/lucky_strike_ability";
 import { processShatterArmorAbility } from "../abilities/shatter_armor_ability";
 import { processRapidChargeAbility } from "../abilities/rapid_charge_ability";
+import { processPenetratingBiteAbility } from "../abilities/penetrating_bite_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -321,19 +323,30 @@ export class AttackHandler {
                 targetUnit.getTeam(),
                 attackerUnit.getName(),
                 targetUnit.getName(),
+                targetUnit.getHp(),
+                targetUnit.getMaxHp(),
                 attackerUnit.getStackPower(),
                 targetUnit.getMagicResist(),
             )
         ) {
             let applied = true;
             let mirroredStr = "";
+            const laps = currentActiveSpell.getLapsTotal();
+            let clarifyingStr = getLapString(laps);
             if (currentActiveSpell.isBuff()) {
-                targetUnit.applyBuff(
-                    currentActiveSpell,
-                    attackerUnit.getAllProperties().max_hp,
-                    attackerUnit.getAllProperties().base_armor,
-                    attackerUnit.getId() === targetUnit.getId(),
-                );
+                if (currentActiveSpell.getPowerType() === SpellPowerType.HEAL) {
+                    const healPower = targetUnit.applyHeal(
+                        Math.floor(currentActiveSpell.getPower() * attackerUnit.getAmountAlive()),
+                    );
+                    clarifyingStr = `for ${healPower} hp`;
+                } else {
+                    targetUnit.applyBuff(
+                        currentActiveSpell,
+                        attackerUnit.getAllProperties().max_hp,
+                        attackerUnit.getAllProperties().base_armor,
+                        attackerUnit.getId() === targetUnit.getId(),
+                    );
+                }
             } else if (HoCLib.getRandomInt(0, 100) < Math.floor(targetUnit.getMagicResist())) {
                 applied = false;
             } else {
@@ -383,13 +396,13 @@ export class AttackHandler {
                     );
                 }
             }
-            const laps = currentActiveSpell.getLapsTotal();
+
             attackerUnit.useSpell(currentActiveSpell.getName());
             let newText = `${attackerUnit.getName()} cast ${currentActiveSpell.getName()}`;
             if (attackerUnit.getId() === targetUnit.getId()) {
-                newText += ` on themselves for ${getLapString(laps)}`;
+                newText += ` on themselves for ${clarifyingStr}`;
             } else {
-                newText += ` on ${targetUnit.getName()} for ${getLapString(laps)}`;
+                newText += ` on ${targetUnit.getName()} for ${clarifyingStr}`;
             }
             this.sceneLog.updateLog(newText);
             if (!applied) {
@@ -842,11 +855,12 @@ export class AttackHandler {
         }
 
         const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(targetUnit);
-        const damageFromAttack = processLuckyStrikeAbility(
-            attackerUnit,
-            attackerUnit.calculateAttackDamage(targetUnit, AttackType.MELEE, 1, abilityMultiplier),
-            this.sceneLog,
-        );
+        const damageFromAttack =
+            processLuckyStrikeAbility(
+                attackerUnit,
+                attackerUnit.calculateAttackDamage(targetUnit, AttackType.MELEE, 1, abilityMultiplier),
+                this.sceneLog,
+            ) + processPenetratingBiteAbility(attackerUnit, targetUnit);
 
         const fightProperties = FightStateManager.getInstance().getFightProperties();
         const hasLightningSpinAttackLanded = processLightningSpinAbility(
@@ -943,11 +957,12 @@ export class AttackHandler {
                         abilityMultiplier *= targetUnit.calculateAbilityMultiplier(awpc);
                     }
                 }
-                const damageFromResponse = processLuckyStrikeAbility(
-                    targetUnit,
-                    targetUnit.calculateAttackDamage(attackerUnit, AttackType.MELEE, 1, abilityMultiplier),
-                    this.sceneLog,
-                );
+                const damageFromResponse =
+                    processLuckyStrikeAbility(
+                        targetUnit,
+                        targetUnit.calculateAttackDamage(attackerUnit, AttackType.MELEE, 1, abilityMultiplier),
+                        this.sceneLog,
+                    ) + processPenetratingBiteAbility(targetUnit, attackerUnit);
 
                 this.sceneLog.updateLog(
                     `${targetUnit.getName()} resp ${attackerUnit.getName()} (${damageFromResponse})`,

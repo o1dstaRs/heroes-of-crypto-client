@@ -37,7 +37,7 @@ import {
     UNIT_SIZE_DELTA,
 } from "../statics";
 import { Unit } from "./units";
-import { HeroGender, HeroType, UnitsFactory } from "./units_factory";
+import { UnitsFactory } from "./units_factory";
 
 export class UnitsHolder {
     private readonly world: b2World;
@@ -150,6 +150,28 @@ export class UnitsHolder {
         }
 
         return teamUnitMagicResist;
+    }
+
+    public getAllTeamUnitsHp(teamType: TeamType): Map<string, number> {
+        const teamUnitHp: Map<string, number> = new Map();
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() === teamType) {
+                teamUnitHp.set(unit.getId(), unit.getHp());
+            }
+        }
+
+        return teamUnitHp;
+    }
+
+    public getAllTeamUnitsMaxHp(teamType: TeamType): Map<string, number> {
+        const teamUnitMaxHp: Map<string, number> = new Map();
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() === teamType) {
+                teamUnitMaxHp.set(unit.getId(), unit.getMaxHp());
+            }
+        }
+
+        return teamUnitMaxHp;
     }
 
     public getAllEnemyUnitsMagicResist(teamType: TeamType): Map<string, number> {
@@ -540,6 +562,9 @@ export class UnitsHolder {
                 this.unitsFactory.makeCreature(FactionType.LIFE, "Pikeman", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
             units.push(
+                this.unitsFactory.makeCreature(FactionType.LIFE, "Valkyrie", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
                 this.unitsFactory.makeCreature(FactionType.LIFE, "Healer", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
             units.push(
@@ -555,9 +580,9 @@ export class UnitsHolder {
                 this.unitsFactory.makeCreature(FactionType.LIFE, "Angel", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
         } else if (faction === FactionType.NATURE) {
-            heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
-            heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
-            heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
+            // heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
+            // heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
+            // heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
             units.push(
                 this.unitsFactory.makeCreature(FactionType.NATURE, "Fairy", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
@@ -585,6 +610,9 @@ export class UnitsHolder {
             units.push(
                 this.unitsFactory.makeCreature(FactionType.NATURE, "Unicorn", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.NATURE, "Mantis", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
             // units.push(
             //     this.unitsFactory.makeCreature(
             //         FactionType.NATURE,
@@ -596,6 +624,9 @@ export class UnitsHolder {
             // );
             units.push(
                 this.unitsFactory.makeCreature(FactionType.NATURE, "Gargantuan", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.NATURE, "Pegasus", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
         } else if (faction === FactionType.CHAOS) {
             units.push(
@@ -638,6 +669,9 @@ export class UnitsHolder {
             units.push(
                 this.unitsFactory.makeCreature(FactionType.CHAOS, "Hydra", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
+            // units.push(
+            //     this.unitsFactory.makeCreature(FactionType.CHAOS, "Abomination", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            // );
         } else if (faction === FactionType.DEATH) {
             units.push(
                 this.unitsFactory.makeCreature(FactionType.DEATH, "Skeleton", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
@@ -670,6 +704,9 @@ export class UnitsHolder {
             );
             units.push(
                 this.unitsFactory.makeCreature(FactionType.MIGHT, "Harpy", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.MIGHT, "Hyena", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
             units.push(
                 this.unitsFactory.makeCreature(FactionType.MIGHT, "Ogre Mage", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),

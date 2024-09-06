@@ -17,6 +17,7 @@ import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { processFireShieldAbility } from "./fire_shield_ability";
 import { processLuckyStrikeAbility } from "./lucky_strike_ability";
+import { processPenetratingBiteAbility } from "./penetrating_bite_ability";
 
 export interface IDoublePunchResult {
     applied: boolean;
@@ -45,11 +46,12 @@ export function processDoublePunchAbility(
 
         unitsHolder.refreshStackPowerForAllUnits();
         const abilityMultiplier = fromUnit.calculateAbilityMultiplier(doublePunchAbility);
-        damageFromAttack = processLuckyStrikeAbility(
-            fromUnit,
-            fromUnit.calculateAttackDamage(toUnit, AttackType.MELEE, 1, abilityMultiplier),
-            sceneLog,
-        );
+        damageFromAttack =
+            processLuckyStrikeAbility(
+                fromUnit,
+                fromUnit.calculateAttackDamage(toUnit, AttackType.MELEE, 1, abilityMultiplier),
+                sceneLog,
+            ) + processPenetratingBiteAbility(fromUnit, toUnit);
         toUnit.applyDamage(damageFromAttack, sceneStepCount);
         DamageStatisticHolder.getInstance().add({
             unitName: fromUnit.getName(),

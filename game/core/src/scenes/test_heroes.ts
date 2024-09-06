@@ -25,6 +25,7 @@ import {
     SpellTargetType,
     Spell,
     SpellHelper,
+    SpellPowerType,
     HoCMath,
     TeamType,
     IAuraOnMap,
@@ -37,6 +38,8 @@ import { v4 as uuidv4 } from "uuid";
 import { evaluateAffectedUnits } from "../abilities/aoe_range_ability";
 import { nextStandingTargets } from "../abilities/fire_breath_ability";
 import { allEnemiesAroundLargeUnit } from "../abilities/lightning_spin_ability";
+import { processPenetratingBiteAbility } from "../abilities/penetrating_bite_ability";
+import { processRapidChargeAbility } from "../abilities/rapid_charge_ability";
 import { AIActionType, findTarget } from "../ai/ai";
 import { Drawer } from "../draw/drawer";
 import { getAbsorptionTarget } from "../effects/effects_helper";
@@ -1023,7 +1026,16 @@ class Sandbox extends GLScene {
             if (this.sc_renderSpellBookOverlay) {
                 this.hoveredSpell = this.currentActiveUnit.getHoveredSpell(this.sc_mouseWorld);
                 if (this.hoveredSpell) {
-                    this.sc_hoverInfoArr = this.hoveredSpell.getDesc();
+                    const infoArr: string[] = [];
+                    for (const descStr of this.hoveredSpell.getDesc()) {
+                        infoArr.push(
+                            descStr.replace(
+                                /\{\}/g,
+                                (this.currentActiveUnit.getAmountAlive() * this.hoveredSpell.getPower()).toString(),
+                            ),
+                        );
+                    }
+                    this.sc_hoverInfoArr = infoArr;
                     this.sc_hoverTextUpdateNeeded = true;
                 }
                 this.resetHover(false);
@@ -1102,28 +1114,6 @@ class Sandbox extends GLScene {
                         console.log("Switch to MAGIC");
                     }
 
-                    // let hoverUnitCell: XY | undefined;
-
-                    // if (this.hoverUnit) {
-                    //     this.hoverSelectedCells = undefined;
-                    //     hoverUnitCell = GridMath.getCellForPosition(
-                    //         this.sc_sceneSettings.getGridSettings(),
-                    //         this.hoverUnit.getPosition(),
-                    //     );
-                    //     if (hoverUnitCell) {
-                    //         this.hoverActivePath = this.pathHelper.getMovePath(
-                    //             hoverUnitCell,
-                    //             this.gridMatrix,
-                    //             this.hoverUnit.getSteps(),
-                    //             this.grid.getAggrMatrixByTeam(
-                    //                 this.hoverUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
-                    //             ),
-                    //             this.hoverUnit.getCanFly(),
-                    //             this.hoverUnit.isSmallSize(),
-                    //         ).cells;
-                    //     }
-                    // }
-
                     if (
                         this.currentActiveSpell &&
                         SpellHelper.canCastSpell(
@@ -1140,6 +1130,8 @@ class Sandbox extends GLScene {
                             this.hoverUnit?.getTeam(),
                             this.currentActiveUnit.getName(),
                             this.hoverUnit?.getName(),
+                            this.hoverUnit?.getHp(),
+                            this.hoverUnit?.getMaxHp(),
                             this.currentActiveUnit.getStackPower(),
                             this.hoverUnit?.getMagicResist(),
                         )
@@ -1258,21 +1250,40 @@ class Sandbox extends GLScene {
                                 }
                             }
 
+                            if (this.hoverAttackFrom) {
+                                abilityMultiplier *= processRapidChargeAbility(
+                                    this.currentActiveUnit,
+                                    HoCMath.getDistance(
+                                        this.currentActiveUnit.getPosition(),
+                                        GridMath.getPositionForCell(
+                                            this.hoverAttackFrom,
+                                            this.sc_sceneSettings.getGridSettings().getMinX(),
+                                            this.sc_sceneSettings.getGridSettings().getStep(),
+                                            this.sc_sceneSettings.getGridSettings().getHalfStep(),
+                                        ),
+                                    ),
+                                    this.sc_sceneSettings.getGridSettings(),
+                                );
+                            }
+
                             const isRangedAttacker =
                                 this.currentActiveUnit.getAttackType() === AttackType.RANGE &&
                                 !this.currentActiveUnit.hasAbilityActive("Handyman");
-                            const minDmg = this.currentActiveUnit.calculateAttackDamageMin(
-                                hoverAttackUnit,
-                                false,
-                                isRangedAttacker ? 2 : 1,
-                                abilityMultiplier,
-                            );
-                            let maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
-                                hoverAttackUnit,
-                                false,
-                                isRangedAttacker ? 2 : 1,
-                                abilityMultiplier,
-                            );
+
+                            const minDmg =
+                                this.currentActiveUnit.calculateAttackDamageMin(
+                                    hoverAttackUnit,
+                                    false,
+                                    isRangedAttacker ? 2 : 1,
+                                    abilityMultiplier,
+                                ) + processPenetratingBiteAbility(this.currentActiveUnit, hoverAttackUnit);
+                            let maxDmg =
+                                this.currentActiveUnit.calculateAttackDamageMax(
+                                    hoverAttackUnit,
+                                    false,
+                                    isRangedAttacker ? 2 : 1,
+                                    abilityMultiplier,
+                                ) + processPenetratingBiteAbility(this.currentActiveUnit, hoverAttackUnit);
                             const luckyStrikeAbility = this.currentActiveUnit.getAbility("Lucky Strike");
                             if (luckyStrikeAbility) {
                                 maxDmg = Math.floor(
@@ -1561,6 +1572,8 @@ class Sandbox extends GLScene {
                             undefined,
                             this.currentActiveUnit.getName(),
                             undefined,
+                            undefined,
+                            undefined,
                             this.currentActiveUnit.getStackPower(),
                             undefined,
                             mouseCell,
@@ -1614,6 +1627,8 @@ class Sandbox extends GLScene {
                         this.currentActiveUnit.getTeam(),
                         undefined,
                         this.currentActiveUnit.getName(),
+                        undefined,
+                        undefined,
                         undefined,
                         this.currentActiveUnit.getStackPower(),
                         undefined,
@@ -2312,25 +2327,44 @@ class Sandbox extends GLScene {
                             this.unitsHolder.getAllEnemyUnitsDebuffs(this.currentActiveUnit.getTeam()),
                             this.unitsHolder.getAllTeamUnitsMagicResist(this.currentActiveUnit.getTeam()),
                             this.unitsHolder.getAllEnemyUnitsMagicResist(this.currentActiveUnit.getTeam()),
+                            this.unitsHolder.getAllTeamUnitsHp(this.currentActiveUnit.getTeam()),
+                            this.unitsHolder.getAllTeamUnitsMaxHp(this.currentActiveUnit.getTeam()),
                         )
                     ) {
                         if (this.hoveredSpell.getSpellTargetType() === SpellTargetType.ALL_ALLIES) {
-                            this.sc_sceneLog.updateLog(
-                                `${this.currentActiveUnit.getName()} cast ${this.hoveredSpell.getName()} on allies`,
-                            );
+                            const isHeal = this.hoveredSpell.getPowerType() === SpellPowerType.HEAL;
+                            if (!isHeal) {
+                                this.sc_sceneLog.updateLog(
+                                    `${this.currentActiveUnit.getName()} cast ${this.hoveredSpell.getName()} on allies`,
+                                );
+                            }
 
                             for (const u of this.unitsHolder.getAllAllies(this.currentActiveUnit.getTeam())) {
                                 if (u.getMagicResist() === 100) {
                                     continue;
                                 }
 
-                                if (!hasAlreadyAppliedSpell(u, this.hoveredSpell)) {
-                                    u.applyBuff(
-                                        this.hoveredSpell,
-                                        undefined,
-                                        undefined,
-                                        u.getId() === this.currentActiveUnit.getId(),
+                                if (isHeal) {
+                                    const healPower = u.applyHeal(
+                                        Math.floor(
+                                            this.hoveredSpell.getPower() * this.currentActiveUnit.getAmountAlive(),
+                                        ),
                                     );
+                                    u.applyHeal(healPower);
+                                    if (healPower) {
+                                        this.sc_sceneLog.updateLog(
+                                            `${this.currentActiveUnit.getName()} mass healed ${u.getName()} for ${healPower} hp`,
+                                        );
+                                    }
+                                } else {
+                                    if (!hasAlreadyAppliedSpell(u, this.hoveredSpell)) {
+                                        u.applyBuff(
+                                            this.hoveredSpell,
+                                            undefined,
+                                            undefined,
+                                            u.getId() === this.currentActiveUnit.getId(),
+                                        );
+                                    }
                                 }
                             }
                         } else {

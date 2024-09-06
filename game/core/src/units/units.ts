@@ -1746,6 +1746,22 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.spells = spellsUpdated;
     }
 
+    public applyHeal(healPower: number): number {
+        if (healPower < 0) {
+            return 0;
+        }
+
+        let healedFor = Math.floor(healPower);
+        const wasHp = this.unitProperties.hp;
+        this.unitProperties.hp += healedFor;
+        if (this.unitProperties.hp > this.unitProperties.max_hp) {
+            healedFor = this.unitProperties.max_hp - wasHp;
+            this.unitProperties.hp = this.unitProperties.max_hp;
+        }
+
+        return healedFor;
+    }
+
     private refreshAbiltyDescription(abilityName: string, abilityDescription: string): void {
         if (
             this.unitProperties.abilities.length === this.unitProperties.abilities_descriptions.length &&
@@ -1903,6 +1919,13 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         const weaknessDebuff = this.getDebuff("Weakness");
         if (weaknessDebuff) {
             baseAttackMultiplier = baseAttackMultiplier * ((100 - weaknessDebuff.getPower()) / 100);
+        }
+
+        const blessingBuff = this.getBuff("Blessing");
+        if (blessingBuff) {
+            this.unitProperties.attack_damage_min = this.unitProperties.attack_damage_max;
+        } else {
+            this.unitProperties.attack_damage_min = this.initialUnitProperties.attack_damage_min;
         }
 
         if (this.hasBuffActive("Riot")) {
@@ -2260,6 +2283,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                     .getDesc()
                     .join("\n")
                     .replace(/\{\}/g, this.calculateAbilityCount(wolfTrailAuraAbility).toString()),
+            );
+        }
+
+        // Penetrating Bite
+        const penetratingBiteAbility = this.getAbility("Penetrating Bite");
+        if (penetratingBiteAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(penetratingBiteAbility) * 100).toFixed(2)) - 100;
+            this.refreshAbiltyDescription(
+                penetratingBiteAbility.getName(),
+                penetratingBiteAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
     }
