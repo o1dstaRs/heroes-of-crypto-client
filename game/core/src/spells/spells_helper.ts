@@ -36,13 +36,13 @@ export const isMirrored = (targetUnit: Unit): boolean => {
 
 export const hasAlreadyAppliedSpell = (targetUnit: Unit, spell: Spell): boolean => {
     const conflictingSpells = [...spell.getConflictsWith(), spell.getName()];
-    let needToApply = true;
+    let alreadyApplied = false;
     for (const cs of conflictingSpells) {
         if ((spell.isBuff() && targetUnit.hasBuffActive(cs)) || (!spell.isBuff() && targetUnit.hasDebuffActive(cs))) {
-            needToApply = false;
+            alreadyApplied = true;
             break;
         }
     }
 
-    return needToApply;
+    return alreadyApplied;
 };

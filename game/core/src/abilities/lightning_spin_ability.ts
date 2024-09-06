@@ -25,6 +25,7 @@ import { processPetrifyingGazeAbility } from "./petrifying_gaze_ability";
 import { processLuckyStrikeAbility } from "./lucky_strike_ability";
 import { processShatterArmorAbility } from "./shatter_armor_ability";
 import { processRapidChargeAbility } from "./rapid_charge_ability";
+import { processPenetratingBiteAbility } from "./penetrating_bite_ability";
 
 export function allEnemiesAroundLargeUnit(
     attacker: Unit,
@@ -117,11 +118,12 @@ export function processLightningSpinAbility(
 
             const abilityMultiplier =
                 fromUnit.calculateAbilityMultiplier(lightningSpinAbility) * commonAbilityMultiplier;
-            const damageFromAttack = processLuckyStrikeAbility(
-                fromUnit,
-                fromUnit.calculateAttackDamage(enemy, AttackType.MELEE, 1, abilityMultiplier),
-                sceneLog,
-            );
+            const damageFromAttack =
+                processLuckyStrikeAbility(
+                    fromUnit,
+                    fromUnit.calculateAttackDamage(enemy, AttackType.MELEE, 1, abilityMultiplier),
+                    sceneLog,
+                ) + processPenetratingBiteAbility(fromUnit, enemy);
 
             enemy.applyDamage(damageFromAttack, sceneStepCount);
             DamageStatisticHolder.getInstance().add({
