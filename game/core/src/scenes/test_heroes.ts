@@ -1608,7 +1608,7 @@ class Sandbox extends GLScene {
                         this.hoverSelectedCells = this.pathHelper.getClosestSquareCellIndices(
                             this.sc_mouseWorld,
                             this.allowedPlacementCellHashes,
-                            this.cellToUnitPreRound,
+                            Array.from(this.cellToUnitPreRound.keys()),
                             GridMath.getCellsAroundPosition(
                                 this.sc_sceneSettings.getGridSettings(),
                                 this.currentActiveUnit.getPosition(),
@@ -1758,7 +1758,7 @@ class Sandbox extends GLScene {
                         this.hoverSelectedCells = this.pathHelper.getClosestSquareCellIndices(
                             this.sc_mouseWorld,
                             this.allowedPlacementCellHashes,
-                            this.cellToUnitPreRound,
+                            Array.from(this.cellToUnitPreRound.keys()),
                             this.unitIdToCellsPreRound?.get(selectedUnitProperties.id),
                         );
                         if (
@@ -1791,7 +1791,7 @@ class Sandbox extends GLScene {
                         this.hoverSelectedCells = this.pathHelper.getClosestSquareCellIndices(
                             this.sc_mouseWorld,
                             this.allowedPlacementCellHashes,
-                            this.cellToUnitPreRound,
+                            Array.from(this.cellToUnitPreRound.keys()),
                         );
                         if (
                             this.hoverSelectedCells?.length === 4 &&

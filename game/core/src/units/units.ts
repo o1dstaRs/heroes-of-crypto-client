@@ -36,6 +36,7 @@ import {
     FactionType,
     ToFactionType,
     SpellHelper,
+    IWeightedRoute,
     GridMath,
     Spell,
     GridSettings,
@@ -2395,6 +2396,110 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         return this.unitProperties.max_hp;
+    }
+
+    public attackMeleeAllowed(
+        fromPath: HoCMath.XY[],
+        currentActiveKnownPaths: Map<number, IWeightedRoute[]>,
+        enemyTeam: Unit[],
+        positions: Map<string, HoCMath.XY>,
+    ): IAttackTargets {
+        const canAttackUnitIds: Set<string> = new Set();
+        const possibleAttackCells: HoCMath.XY[] = [];
+        const possibleAttackCellHashes: Set<number> = new Set();
+        const possibleAttackCellHashesToLargeCells: Map<number, HoCMath.XY[]> = new Map();
+
+        let fromPathHashes: Set<number> | undefined;
+        let currentCells: HoCMath.XY[];
+        if (this.isSmallSize()) {
+            const currentCell = GridMath.getCellForPosition(this.gridSettings, this.getPosition());
+            if (currentCell) {
+                fromPath.unshift(currentCell);
+                currentCells = [currentCell];
+            } else {
+                currentCells = [];
+            }
+        } else {
+            currentCells = GridMath.getCellsAroundPosition(this.gridSettings, this.getPosition());
+            for (const c of currentCells) {
+                fromPath.unshift(c);
+            }
+            fromPathHashes = new Set();
+            for (const fp of fromPath) {
+                fromPathHashes.add((fp.x << 4) | fp.y);
+            }
+        }
+
+        let maxX = Number.MIN_SAFE_INTEGER;
+        let maxY = Number.MIN_SAFE_INTEGER;
+
+        for (const c of currentCells) {
+            maxX = Math.max(maxX, c.x);
+            maxY = Math.max(maxY, c.y);
+        }
+
+        for (const u of enemyTeam) {
+            const position = positions.get(u.getId());
+            if (!position || !GridMath.isPositionWithinGrid(this.gridSettings, position)) {
+                continue;
+            }
+
+            let bodyCells: HoCMath.XY[];
+            if (u.isSmallSize()) {
+                const bodyCellPos = GridMath.getCellForPosition(this.gridSettings, position);
+                if (!bodyCellPos) {
+                    continue;
+                }
+                bodyCells = [bodyCellPos];
+            } else {
+                bodyCells = GridMath.getCellsAroundPosition(this.gridSettings, u.getPosition());
+            }
+
+            for (const bodyCellPos of bodyCells) {
+                for (const possiblePos of fromPath) {
+                    if (
+                        Math.abs(bodyCellPos.x - possiblePos.x) <= this.getAttackRange() &&
+                        Math.abs(bodyCellPos.y - possiblePos.y) <= this.getAttackRange()
+                    ) {
+                        const posHash = (possiblePos.x << 4) | possiblePos.y;
+                        let addPos = false;
+                        if (this.isSmallSize()) {
+                            addPos = true;
+                        } else {
+                            const getLargeUnitAttackCells = this.getLargeUnitAttackCells(
+                                possiblePos,
+                                { x: maxX, y: maxY },
+                                bodyCellPos,
+                                currentActiveKnownPaths,
+                                fromPathHashes,
+                            );
+                            if (getLargeUnitAttackCells?.length) {
+                                addPos = true;
+                                possibleAttackCellHashesToLargeCells.set(posHash, getLargeUnitAttackCells);
+                            }
+                        }
+
+                        if (addPos) {
+                            if (!canAttackUnitIds.has(u.getId())) {
+                                canAttackUnitIds.add(u.getId());
+                            }
+
+                            if (!possibleAttackCellHashes.has(posHash)) {
+                                possibleAttackCells.push(possiblePos);
+                                possibleAttackCellHashes.add(posHash);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return {
+            unitIds: canAttackUnitIds,
+            attackCells: possibleAttackCells,
+            attackCellHashes: possibleAttackCellHashes,
+            attackCellHashesToLargeCells: possibleAttackCellHashesToLargeCells,
+        };
     }
 
     protected renderAmountSprites(
