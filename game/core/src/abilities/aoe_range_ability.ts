@@ -49,13 +49,20 @@ export function processRangeAOEAbility(
             if (isAttackMissed) {
                 sceneLog.updateLog(`${attackerUnit.getName()} misses ${isAttack ? "attk" : "resp"} ${unit.getName()}`);
             } else {
+                let abilityMultiplier = attackerUnit.calculateAbilityMultiplier(aoeAbility);
+
+                const paralysisAttackerEffect = attackerUnit.getEffect("Paralysis");
+                if (paralysisAttackerEffect) {
+                    abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
+                }
+
                 const damageFromAttack = processLuckyStrikeAbility(
                     attackerUnit,
                     attackerUnit.calculateAttackDamage(
                         unit,
                         AttackType.RANGE,
                         rangeAttackDivisor,
-                        attackerUnit.calculateAbilityMultiplier(aoeAbility),
+                        abilityMultiplier,
                         false,
                     ),
                     sceneLog,
@@ -67,6 +74,10 @@ export function processRangeAOEAbility(
                     damage: damageFromAttack,
                     team: attackerUnit.getTeam(),
                 });
+                const pegasusLightEffect = unit.getEffect("Pegasus Light");
+                if (pegasusLightEffect) {
+                    attackerUnit.increaseMorale(pegasusLightEffect.getPower());
+                }
                 sceneLog.updateLog(
                     `${attackerUnit.getName()} ${isAttack ? "attk" : "resp"} ${unit.getName()} (${damageFromAttack})`,
                 );

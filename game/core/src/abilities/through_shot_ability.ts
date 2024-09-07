@@ -68,7 +68,11 @@ export function processThroughShotAbility(
         if (isAttackMissed) {
             sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
         } else {
-            const throughShotMultiplier = attackerUnit.calculateAbilityMultiplier(throughShotAbility);
+            let throughShotMultiplier = attackerUnit.calculateAbilityMultiplier(throughShotAbility);
+            const paralysisAttackerEffect = attackerUnit.getEffect("Paralysis");
+            if (paralysisAttackerEffect) {
+                throughShotMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
+            }
             const damageFromAttack = processLuckyStrikeAbility(
                 attackerUnit,
                 attackerUnit.calculateAttackDamage(
@@ -87,6 +91,10 @@ export function processThroughShotAbility(
                 damage: damageFromAttack,
                 team: attackerUnit.getTeam(),
             });
+            const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
+            if (pegasusLightEffect) {
+                attackerUnit.increaseMorale(pegasusLightEffect.getPower());
+            }
             unitsDamaged.push(targetUnit);
 
             if (!targetUnit.isDead()) {

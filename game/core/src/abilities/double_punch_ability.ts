@@ -45,7 +45,11 @@ export function processDoublePunchAbility(
         }
 
         unitsHolder.refreshStackPowerForAllUnits();
-        const abilityMultiplier = fromUnit.calculateAbilityMultiplier(doublePunchAbility);
+        let abilityMultiplier = fromUnit.calculateAbilityMultiplier(doublePunchAbility);
+        const paralysisAttackerEffect = fromUnit.getEffect("Paralysis");
+        if (paralysisAttackerEffect) {
+            abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
+        }
         damageFromAttack =
             processLuckyStrikeAbility(
                 fromUnit,
@@ -58,6 +62,10 @@ export function processDoublePunchAbility(
             damage: damageFromAttack,
             team: fromUnit.getTeam(),
         });
+        const pegasusLightEffect = toUnit.getEffect("Pegasus Light");
+        if (pegasusLightEffect) {
+            fromUnit.increaseMorale(pegasusLightEffect.getPower());
+        }
         sceneLog.updateLog(`${fromUnit.getName()} attk ${toUnit.getName()} (${damageFromAttack})`);
 
         processFireShieldAbility(toUnit, fromUnit, sceneLog, unitsHolder, damageFromAttack, sceneStepCount);

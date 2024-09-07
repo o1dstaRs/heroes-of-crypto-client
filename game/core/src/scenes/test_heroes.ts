@@ -1078,7 +1078,7 @@ class Sandbox extends GLScene {
                         );
 
                         this.hoverSelectedCells = undefined;
-                        if (hoverUnitCell) {
+                        if (hoverUnitCell && this.hoverUnit.canMove()) {
                             this.hoverActivePath = this.pathHelper.getMovePath(
                                 hoverUnitCell,
                                 this.gridMatrix,
@@ -1089,6 +1089,8 @@ class Sandbox extends GLScene {
                                 this.hoverUnit.getCanFly(),
                                 this.hoverUnit.isSmallSize(),
                             ).cells;
+                        } else {
+                            this.hoverActivePath = undefined;
                         }
                     } else {
                         this.resetHover();
@@ -1217,6 +1219,9 @@ class Sandbox extends GLScene {
                                 return;
                             }
 
+                            console.log("szzolotu");
+                            console.log(this.canAttackByMeleeTargets);
+
                             this.hoverAttackFrom = this.pathHelper.calculateClosestAttackFrom(
                                 this.sc_mouseWorld,
                                 this.canAttackByMeleeTargets.attackCells,
@@ -1228,7 +1233,8 @@ class Sandbox extends GLScene {
                                       ),
                                 this.currentActiveUnit.isSmallSize(),
                                 this.currentActiveUnit.getAttackRange(),
-                                hoverAttackUnit,
+                                hoverAttackUnit.isSmallSize(),
+                                hoverAttackUnit.getTeam(),
                                 this.canAttackByMeleeTargets.attackCellHashesToLargeCells,
                             );
                             this.hoverAttackIsSmallSize = undefined;
@@ -1300,16 +1306,20 @@ class Sandbox extends GLScene {
                             }
                             this.sc_hoverTextUpdateNeeded = true;
 
-                            this.hoverActivePath = this.pathHelper.getMovePath(
-                                unitCell,
-                                this.gridMatrix,
-                                hoverAttackUnit.getSteps(),
-                                this.grid.getAggrMatrixByTeam(
-                                    hoverAttackUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
-                                ),
-                                hoverAttackUnit.getCanFly(),
-                                hoverAttackUnit.isSmallSize(),
-                            ).cells;
+                            if (hoverAttackUnit.canMove()) {
+                                this.hoverActivePath = this.pathHelper.getMovePath(
+                                    unitCell,
+                                    this.gridMatrix,
+                                    hoverAttackUnit.getSteps(),
+                                    this.grid.getAggrMatrixByTeam(
+                                        hoverAttackUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
+                                    ),
+                                    hoverAttackUnit.getCanFly(),
+                                    hoverAttackUnit.isSmallSize(),
+                                ).cells;
+                            } else {
+                                this.hoverActivePath = undefined;
+                            }
                         }
                     } else {
                         this.hoverAttackUnits = undefined;
@@ -1328,16 +1338,20 @@ class Sandbox extends GLScene {
                             return;
                         }
 
-                        this.hoverActivePath = this.pathHelper.getMovePath(
-                            unitCell,
-                            this.gridMatrix,
-                            this.hoverUnit.getSteps(),
-                            this.grid.getAggrMatrixByTeam(
-                                this.hoverUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
-                            ),
-                            this.hoverUnit.getCanFly(),
-                            this.hoverUnit.isSmallSize(),
-                        ).cells;
+                        if (this.hoverUnit.canMove()) {
+                            this.hoverActivePath = this.pathHelper.getMovePath(
+                                unitCell,
+                                this.gridMatrix,
+                                this.hoverUnit.getSteps(),
+                                this.grid.getAggrMatrixByTeam(
+                                    this.hoverUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
+                                ),
+                                this.hoverUnit.getCanFly(),
+                                this.hoverUnit.isSmallSize(),
+                            ).cells;
+                        } else {
+                            this.hoverActivePath = undefined;
+                        }
                     }
                 } else if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE) {
                     this.hoverAOECells = undefined;
@@ -2807,19 +2821,23 @@ class Sandbox extends GLScene {
             return;
         }
 
-        const movePath = this.pathHelper.getMovePath(
-            currentCell,
-            this.gridMatrix,
-            this.currentActiveUnit.getSteps(),
-            this.grid.getAggrMatrixByTeam(
-                this.currentActiveUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
-            ),
-            this.currentActiveUnit.getCanFly(),
-            this.currentActiveUnit.isSmallSize(),
-        );
-        this.currentActivePath = movePath.cells;
-        this.currentActiveKnownPaths = movePath.knownPaths;
-        this.currentActivePathHashes = movePath.hashes;
+        if (this.currentActiveUnit.canMove()) {
+            const movePath = this.pathHelper.getMovePath(
+                currentCell,
+                this.gridMatrix,
+                this.currentActiveUnit.getSteps(),
+                this.grid.getAggrMatrixByTeam(
+                    this.currentActiveUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
+                ),
+                this.currentActiveUnit.getCanFly(),
+                this.currentActiveUnit.isSmallSize(),
+            );
+            this.currentActivePath = movePath.cells;
+            this.currentActiveKnownPaths = movePath.knownPaths;
+            this.currentActivePathHashes = movePath.hashes;
+        } else {
+            this.cleanActivePaths();
+        }
     }
 
     public Step(settings: Settings, timeStep: number): number {

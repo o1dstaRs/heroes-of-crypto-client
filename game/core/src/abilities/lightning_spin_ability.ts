@@ -26,6 +26,8 @@ import { processLuckyStrikeAbility } from "./lucky_strike_ability";
 import { processShatterArmorAbility } from "./shatter_armor_ability";
 import { processRapidChargeAbility } from "./rapid_charge_ability";
 import { processPenetratingBiteAbility } from "./penetrating_bite_ability";
+import { processPegasusLightAbility } from "./pegasus_light_ability";
+import { processParalysisAbility } from "./paralysis_ability";
 
 export function allEnemiesAroundLargeUnit(
     attacker: Unit,
@@ -116,8 +118,11 @@ export function processLightningSpinAbility(
                 continue;
             }
 
-            const abilityMultiplier =
-                fromUnit.calculateAbilityMultiplier(lightningSpinAbility) * commonAbilityMultiplier;
+            let abilityMultiplier = fromUnit.calculateAbilityMultiplier(lightningSpinAbility) * commonAbilityMultiplier;
+            const paralysisAttackerEffect = fromUnit.getEffect("Paralysis");
+            if (paralysisAttackerEffect) {
+                abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
+            }
             const damageFromAttack =
                 processLuckyStrikeAbility(
                     fromUnit,
@@ -131,6 +136,10 @@ export function processLightningSpinAbility(
                 damage: damageFromAttack,
                 team: fromUnit.getTeam(),
             });
+            const pegasusLightEffect = enemy.getEffect("Pegasus Light");
+            if (pegasusLightEffect) {
+                fromUnit.increaseMorale(pegasusLightEffect.getPower());
+            }
 
             sceneLog.updateLog(`${fromUnit.getName()} ${actionString} ${enemy.getName()} (${damageFromAttack})`);
 
@@ -144,6 +153,8 @@ export function processLightningSpinAbility(
             processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
             processPetrifyingGazeAbility(fromUnit, enemy, damageFromAttack, sceneStepCount, sceneLog);
             processBoarSalivaAbility(fromUnit, enemy, fromUnit, sceneLog);
+            processPegasusLightAbility(fromUnit, enemy, fromUnit, sceneLog);
+            processParalysisAbility(fromUnit, enemy, fromUnit, sceneLog);
             // works only on response
             if (isAttack) {
                 processShatterArmorAbility(fromUnit, enemy, fromUnit, sceneLog);

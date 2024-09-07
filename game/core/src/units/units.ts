@@ -55,7 +55,6 @@ import { RenderableSpell } from "../spells/renderable_spell";
 import { PreloadedTextures } from "../utils/gl/preload";
 
 export interface IAttackTargets {
-    units: Unit[];
     unitIds: Set<string>;
     attackCells: XY[];
     attackCellHashes: Set<number>;
@@ -1006,6 +1005,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.unitProperties.level;
     }
 
+    public canMove(): boolean {
+        return !this.hasEffectActive("Paralysis");
+    }
+
     public increaseAmountAlive(increaseBy: number): void {
         if (!this.isDead() && this.isSummoned()) {
             this.unitProperties.amount_alive += increaseBy;
@@ -1356,6 +1359,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     public calculateAuraPower(auraEffect: AuraEffect): number {
         let calculatedCoeff = 1;
 
+        if (auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_BASE_ATTACK_AND_ARMOR) {
+            return auraEffect.getPower();
+        }
+
         if (
             auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_MELEE_DAMAGE_PERCENTAGE ||
             auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_RANGE_ARMOR_PERCENTAGE ||
@@ -1383,6 +1390,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         let combinedPower = effect.getPower() + this.getLuck();
         if (combinedPower < 0) {
             combinedPower = 1;
+        }
+
+        if (effect.getName() === "Pegasus Light") {
+            return combinedPower;
         }
 
         calculatedCoeff *= (combinedPower / 100 / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower();
@@ -1839,6 +1850,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         // ARMOR
+        const pegasusMightAura = this.getAppliedAuraEffect("Pegasus Might Aura");
+        console.log(pegasusMightAura);
         this.unitProperties.base_armor = Number(
             (this.initialUnitProperties.base_armor + baseStatsDiff.baseStats.armor).toFixed(2),
         );
@@ -1847,6 +1860,9 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.unitProperties.armor_mod = -shatterArmorEffect.getPower();
         } else {
             this.unitProperties.armor_mod = this.initialUnitProperties.armor_mod;
+        }
+        if (pegasusMightAura) {
+            this.unitProperties.base_armor += pegasusMightAura.getPower();
         }
 
         const leatherArmorAbility = this.getAbility("Leather Armor");
@@ -1904,10 +1920,15 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.steps = Number((this.unitProperties.steps * stepsMultiplier).toFixed(2));
 
         // ATTACK
-        if (hasUnyieldingPower && !this.adjustedBaseStatsLaps.includes(currentLap)) {
-            this.initialUnitProperties.base_attack += 2;
+        if (!this.adjustedBaseStatsLaps.includes(currentLap)) {
+            if (hasUnyieldingPower) {
+                this.initialUnitProperties.base_attack += 2;
+            }
         }
         this.unitProperties.base_attack = this.initialUnitProperties.base_attack;
+        if (pegasusMightAura) {
+            this.unitProperties.base_attack += pegasusMightAura.getPower();
+        }
 
         let baseAttackMultiplier = 1;
         const sharpenedWeaponsAura = this.getAppliedAuraEffect("Sharpened Weapons Aura");
@@ -2293,6 +2314,26 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.refreshAbiltyDescription(
                 penetratingBiteAbility.getName(),
                 penetratingBiteAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Pegasus Light
+        const pegasusLightAbility = this.getAbility("Pegasus Light");
+        if (pegasusLightAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(pegasusLightAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                pegasusLightAbility.getName(),
+                pegasusLightAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Paralysis
+        const paralysisAbility = this.getAbility("Paralysis");
+        if (paralysisAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(paralysisAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                paralysisAbility.getName(),
+                paralysisAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
     }

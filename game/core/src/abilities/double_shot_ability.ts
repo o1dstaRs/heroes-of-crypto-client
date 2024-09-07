@@ -76,7 +76,11 @@ export function processDoubleShotAbility(
     if (aoeRangeAttackResult.landed) {
         damageFromAttack = processLuckyStrikeAbility(fromUnit, aoeRangeAttackResult.maxDamage, sceneLog);
     } else {
-        const abilityMultiplier = fromUnit.calculateAbilityMultiplier(doubleShotAbility);
+        let abilityMultiplier = fromUnit.calculateAbilityMultiplier(doubleShotAbility);
+        const paralysisAttackerEffect = fromUnit.getEffect("Paralysis");
+        if (paralysisAttackerEffect) {
+            abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
+        }
         damageFromAttack = processLuckyStrikeAbility(
             fromUnit,
             fromUnit.calculateAttackDamage(toUnit, AttackType.RANGE, hoverRangeAttackDivisor, abilityMultiplier),
@@ -88,6 +92,10 @@ export function processDoubleShotAbility(
             damage: damageFromAttack,
             team: fromUnit.getTeam(),
         });
+        const pegasusLightEffect = toUnit.getEffect("Pegasus Light");
+        if (pegasusLightEffect) {
+            fromUnit.increaseMorale(pegasusLightEffect.getPower());
+        }
         sceneLog.updateLog(`${fromUnit.getName()} attk ${toUnit.getName()} (${damageFromAttack})`);
     }
 
