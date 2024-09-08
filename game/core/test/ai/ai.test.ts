@@ -5,7 +5,6 @@
 // import { IUnitAIRepr } from "../../src/units/units";
 // import { TeamType, UnitStats } from "../../src/units/units_stats";
 // import { getUnitConfig } from "../../src/config_provider";
-// import { PathHelper } from "../../src/path/path_helper";
 // import { GridSettings } from "../../src/grid/grid_settings";
 // import { GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA } from "../../src/statics";
 
@@ -45,170 +44,170 @@ describe("MoveAndAttackForSmallUnit", () => {
         // expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE_AND_M_ATTACK);
     });
 
-//     it("Should target for the unit and melee attack if near", () => {
-//         const matrix: number[][] = [
-//             [0, 0, 1, 0],
-//             [0, 0, 0, 0],
-//             [0, 0, 0, 0],
-//             [0, 2, 0, 0],
-//         ];
-//         /**
-//          * End matrix
-//          * const matrix: number[][] = [
-//             [0, 0, 0, 0],
-//             [0, 0, 0, 0],
-//             [0, 0, 1, 0],
-//             [0, 2, 0, 0], <- to attack
-//         ];
-//          */
-//         const unit = new UnitRepr(
-//             "id", 
-//             TeamType.UPPER,
-//             2,
-//             1,
-//             1,
-//             false,
-//             true,
-//             { x: 2, y: 0 },
-//             getUnitConfig(TeamType.UPPER, "Life", "Peasant", 2),
-//         );
-//         const closestTarget = findTarget(unit, new Grid(4), matrix, pathHelper);
-//         expect(closestTarget?.cellToAttack()).toEqual({ x: 1, y: 3 });
-//         expect(closestTarget?.cellToMove()).toEqual({ x: 2, y: 2 });
-//         expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE_AND_M_ATTACK);
-//     });
+    //     it("Should target for the unit and melee attack if near", () => {
+    //         const matrix: number[][] = [
+    //             [0, 0, 1, 0],
+    //             [0, 0, 0, 0],
+    //             [0, 0, 0, 0],
+    //             [0, 2, 0, 0],
+    //         ];
+    //         /**
+    //          * End matrix
+    //          * const matrix: number[][] = [
+    //             [0, 0, 0, 0],
+    //             [0, 0, 0, 0],
+    //             [0, 0, 1, 0],
+    //             [0, 2, 0, 0], <- to attack
+    //         ];
+    //          */
+    //         const unit = new UnitRepr(
+    //             "id",
+    //             TeamType.UPPER,
+    //             2,
+    //             1,
+    //             1,
+    //             false,
+    //             true,
+    //             { x: 2, y: 0 },
+    //             getUnitConfig(TeamType.UPPER, "Life", "Peasant", 2),
+    //         );
+    //         const closestTarget = findTarget(unit, new Grid(4), matrix, pathHelper);
+    //         expect(closestTarget?.cellToAttack()).toEqual({ x: 1, y: 3 });
+    //         expect(closestTarget?.cellToMove()).toEqual({ x: 2, y: 2 });
+    //         expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE_AND_M_ATTACK);
+    //     });
 
-//     it("Should go by diagonal and melee attack if near", () => {
-//         const matrix: number[][] = [
-//             [0, 0, 0, 1],
-//             [0, 0, 0, 0],
-//             [0, 0, 0, 0],
-//             [2, 0, 0, 0],
-//         ];
-//         /**
-//          * End matrix
-//          * const matrix: number[][] = [
-//             [0, 0, 0, 0],
-//             [0, 0, 0, 0],
-//             [0, 1, 0, 0],
-//             [2, 0, 0, 0], <- to attack
-//         ];
-//          */
-//         const unit = new UnitRepr(
-//             "id", 
-//             TeamType.UPPER,
-//             3,
-//             1,
-//             1,
-//             false,
-//             true,
-//             { x: 3, y: 0 },
-//             getUnitConfig(TeamType.UPPER, "Life", "Peasant", 2),
-//         );
-//         const closestTarget = findTarget(unit, new Grid(4), matrix, pathHelper);
-//         expect(closestTarget?.cellToMove()).toEqual({ x: 1, y: 2 });
-//         expect(closestTarget?.cellToAttack()).toEqual({ x: 0, y: 3 });
-//         expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE_AND_M_ATTACK);
-//     });
+    //     it("Should go by diagonal and melee attack if near", () => {
+    //         const matrix: number[][] = [
+    //             [0, 0, 0, 1],
+    //             [0, 0, 0, 0],
+    //             [0, 0, 0, 0],
+    //             [2, 0, 0, 0],
+    //         ];
+    //         /**
+    //          * End matrix
+    //          * const matrix: number[][] = [
+    //             [0, 0, 0, 0],
+    //             [0, 0, 0, 0],
+    //             [0, 1, 0, 0],
+    //             [2, 0, 0, 0], <- to attack
+    //         ];
+    //          */
+    //         const unit = new UnitRepr(
+    //             "id",
+    //             TeamType.UPPER,
+    //             3,
+    //             1,
+    //             1,
+    //             false,
+    //             true,
+    //             { x: 3, y: 0 },
+    //             getUnitConfig(TeamType.UPPER, "Life", "Peasant", 2),
+    //         );
+    //         const closestTarget = findTarget(unit, new Grid(4), matrix, pathHelper);
+    //         expect(closestTarget?.cellToMove()).toEqual({ x: 1, y: 2 });
+    //         expect(closestTarget?.cellToAttack()).toEqual({ x: 0, y: 3 });
+    //         expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE_AND_M_ATTACK);
+    //     });
 
-//     it("Should go by diagonal close if can not attack", () => {
-//         const matrix: number[][] = [
-//             [0, 0, 0, 1],
-//             [0, 0, 0, 0],
-//             [0, 0, 0, 0],
-//             [2, 0, 0, 0],
-//         ];
-//         /**
-//          * End matrix
-//          * const matrix: number[][] = [
-//             [0, 0, 0, 0],
-//             [0, 0, 1, 0],
-//             [0, 0, 0, 0],
-//             [2, 0, 0, 0],
-//         ];
-//          */
-//         const unit = new UnitRepr(
-//             "id", 
-//             TeamType.UPPER,
-//             2,
-//             1,
-//             1,
-//             false,
-//             true,
-//             { x: 3, y: 0 },
-//             getUnitConfig(TeamType.UPPER, "Life", "Peasant", 2),
-//         );
-//         const closestTarget = findTarget(unit, new Grid(4), matrix, pathHelper);
-//         expect(closestTarget?.cellToMove()).toEqual({ x: 2, y: 1 });
-//         expect(closestTarget?.cellToAttack()).toBeUndefined();
-//         expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE);
-//     });
+    //     it("Should go by diagonal close if can not attack", () => {
+    //         const matrix: number[][] = [
+    //             [0, 0, 0, 1],
+    //             [0, 0, 0, 0],
+    //             [0, 0, 0, 0],
+    //             [2, 0, 0, 0],
+    //         ];
+    //         /**
+    //          * End matrix
+    //          * const matrix: number[][] = [
+    //             [0, 0, 0, 0],
+    //             [0, 0, 1, 0],
+    //             [0, 0, 0, 0],
+    //             [2, 0, 0, 0],
+    //         ];
+    //          */
+    //         const unit = new UnitRepr(
+    //             "id",
+    //             TeamType.UPPER,
+    //             2,
+    //             1,
+    //             1,
+    //             false,
+    //             true,
+    //             { x: 3, y: 0 },
+    //             getUnitConfig(TeamType.UPPER, "Life", "Peasant", 2),
+    //         );
+    //         const closestTarget = findTarget(unit, new Grid(4), matrix, pathHelper);
+    //         expect(closestTarget?.cellToMove()).toEqual({ x: 2, y: 1 });
+    //         expect(closestTarget?.cellToAttack()).toBeUndefined();
+    //         expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE);
+    //     });
 
-//     it("Should go close to target if cannot attack", () => {
-//         const matrix: number[][] = [
-//             [0, 0, 1, 0],
-//             [0, 0, 0, 0],
-//             [0, 0, 0, 0],
-//             [0, 2, 0, 0],
-//         ];
-//         /**
-//          * End matrix
-//          * const matrix: number[][] = [
-//             [0, 0, 0, 0],
-//             [0, 0, 1, 0],
-//             [0, 0, 0, 0],
-//             [0, 2, 0, 0],
-//         ];
-//          */
-//         const unit = new UnitRepr(
-//             "id", 
-//             TeamType.UPPER,
-//             1,
-//             1,
-//             1,
-//             false,
-//             true,
-//             { x: 2, y: 0 },
-//             getUnitConfig(TeamType.UPPER, "Life", "Peasant", 2),
-//         );
-//         const closestTarget = findTarget(unit, new Grid(4), matrix, pathHelper);
-//         expect(closestTarget?.cellToMove()).toEqual({ x: 2, y: 1 });
-//         expect(closestTarget?.cellToAttack()).toBeUndefined();
-//         expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE);
-//     });
+    //     it("Should go close to target if cannot attack", () => {
+    //         const matrix: number[][] = [
+    //             [0, 0, 1, 0],
+    //             [0, 0, 0, 0],
+    //             [0, 0, 0, 0],
+    //             [0, 2, 0, 0],
+    //         ];
+    //         /**
+    //          * End matrix
+    //          * const matrix: number[][] = [
+    //             [0, 0, 0, 0],
+    //             [0, 0, 1, 0],
+    //             [0, 0, 0, 0],
+    //             [0, 2, 0, 0],
+    //         ];
+    //          */
+    //         const unit = new UnitRepr(
+    //             "id",
+    //             TeamType.UPPER,
+    //             1,
+    //             1,
+    //             1,
+    //             false,
+    //             true,
+    //             { x: 2, y: 0 },
+    //             getUnitConfig(TeamType.UPPER, "Life", "Peasant", 2),
+    //         );
+    //         const closestTarget = findTarget(unit, new Grid(4), matrix, pathHelper);
+    //         expect(closestTarget?.cellToMove()).toEqual({ x: 2, y: 1 });
+    //         expect(closestTarget?.cellToAttack()).toBeUndefined();
+    //         expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE);
+    //     });
 
-//     it("Should go close to target if cannot attack 2", () => {
-//         const matrix: number[][] = [
-//             [0, 0, 0, 0],
-//             [0, 0, 0, 1],
-//             [0, 0, 0, 0],
-//             [2, 0, 0, 0],
-//         ];
-//         /**
-//          * End matrix
-//          * const matrix: number[][] = [
-//             [0, 0, 0, 0],
-//             [0, 0, 1, 0],
-//             [0, 0, 0, 0],
-//             [2, 0, 0, 0],
-//         ];
-//          */
-//         const unit = new UnitRepr(
-//             "id", 
-//             TeamType.UPPER,
-//             1,
-//             1,
-//             1,
-//             false,
-//             true,
-//             { x: 3, y: 1 },
-//             getUnitConfig(TeamType.UPPER, "Life", "Peasant", 2),
-//         );
-//         const closestTarget = findTarget(unit, new Grid(4), matrix, pathHelper);
-//         expect(closestTarget?.cellToMove()).toEqual({ x: 2, y: 1 });
-//         expect(closestTarget?.cellToAttack()).toBeUndefined();
-//         expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE);
-//     });
+    //     it("Should go close to target if cannot attack 2", () => {
+    //         const matrix: number[][] = [
+    //             [0, 0, 0, 0],
+    //             [0, 0, 0, 1],
+    //             [0, 0, 0, 0],
+    //             [2, 0, 0, 0],
+    //         ];
+    //         /**
+    //          * End matrix
+    //          * const matrix: number[][] = [
+    //             [0, 0, 0, 0],
+    //             [0, 0, 1, 0],
+    //             [0, 0, 0, 0],
+    //             [2, 0, 0, 0],
+    //         ];
+    //          */
+    //         const unit = new UnitRepr(
+    //             "id",
+    //             TeamType.UPPER,
+    //             1,
+    //             1,
+    //             1,
+    //             false,
+    //             true,
+    //             { x: 3, y: 1 },
+    //             getUnitConfig(TeamType.UPPER, "Life", "Peasant", 2),
+    //         );
+    //         const closestTarget = findTarget(unit, new Grid(4), matrix, pathHelper);
+    //         expect(closestTarget?.cellToMove()).toEqual({ x: 2, y: 1 });
+    //         expect(closestTarget?.cellToAttack()).toBeUndefined();
+    //         expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE);
+    //     });
 
     // todo does not work because moves straig first and then by diagonal
     //
@@ -245,7 +244,7 @@ describe("MoveAndAttackForSmallUnit", () => {
     //         [0, 2, 0, 0],
     //     ];
     //     const unit = new UnitRepr(
-    //         "id", 
+    //         "id",
     //         TeamType.UPPER,
     //         2,
     //         1,
@@ -260,16 +259,16 @@ describe("MoveAndAttackForSmallUnit", () => {
     //     expect(closestTarget?.actionType()).toEqual(AIActionType.R_ATTACK);
     // });
 
-//     it("Should return null if no targets are reachable", () => {
-//         const matrix: number[][] = [
-//             [1, 1, 1],
-//             [1, 1, 1],
-//             [1, 1, 1],
-//         ];
-//         const unit = new UnitRepr("id", TeamType.UPPER, 1, 1, 1, false, true, { x: 1, y: 0 });
-//         const closestTarget = findTarget(unit, new Grid(3), matrix, pathHelper);
-//         expect(closestTarget?.cellToMove()).toBeUndefined();
-//     });
+    //     it("Should return null if no targets are reachable", () => {
+    //         const matrix: number[][] = [
+    //             [1, 1, 1],
+    //             [1, 1, 1],
+    //             [1, 1, 1],
+    //         ];
+    //         const unit = new UnitRepr("id", TeamType.UPPER, 1, 1, 1, false, true, { x: 1, y: 0 });
+    //         const closestTarget = findTarget(unit, new Grid(3), matrix, pathHelper);
+    //         expect(closestTarget?.cellToMove()).toBeUndefined();
+    //     });
 });
 
 // describe("GetCallsForAttackerReturnExpectedPositions", () => {

@@ -19,6 +19,7 @@ import {
     Grid,
     SpellHelper,
     SpellPowerType,
+    IWeightedRoute,
     Spell,
     HoCConstants,
     AbilityHelper,
@@ -33,7 +34,6 @@ import { processOneInTheFieldAbility } from "../abilities/one_in_the_field_abili
 import { processStunAbility } from "../abilities/stun_ability";
 import { Drawer } from "../draw/drawer";
 import { SceneLog } from "../menu/scene_log";
-import { IWeightedRoute } from "../path/path_helper";
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
@@ -52,6 +52,8 @@ import { processLuckyStrikeAbility } from "../abilities/lucky_strike_ability";
 import { processShatterArmorAbility } from "../abilities/shatter_armor_ability";
 import { processRapidChargeAbility } from "../abilities/rapid_charge_ability";
 import { processPenetratingBiteAbility } from "../abilities/penetrating_bite_ability";
+import { processPegasusLightAbility } from "../abilities/pegasus_light_ability";
+import { processParalysisAbility } from "../abilities/paralysis_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -273,7 +275,7 @@ export class AttackHandler {
         );
     }
 
-    public canBeAttackedByMelee(unitPosition: XY, isSmallUnit: boolean, aggrMatrix?: number[][]): boolean {
+    public canBeAttackedByMelee(unitPosition: XY, isSmallUnit: boolean, enemyAggrMatrix?: number[][]): boolean {
         let cells: XY[];
         if (isSmallUnit) {
             const cell = GridMath.getCellForPosition(this.gridSettings, unitPosition);
@@ -287,7 +289,7 @@ export class AttackHandler {
         }
 
         for (const cell of cells) {
-            if (aggrMatrix && aggrMatrix[cell.x][cell.y] > 1) {
+            if (enemyAggrMatrix && enemyAggrMatrix[cell.x][cell.y] > 1) {
                 return true;
             }
         }
@@ -509,7 +511,7 @@ export class AttackHandler {
         const rangeResponseUnit = rangeResponseUnits?.length ? rangeResponseUnits[0] : undefined;
 
         // response starts here
-        let damageFromRespose = 0;
+        let damageFromResponse = 0;
         let isResponseMissed = false;
         if (
             rangeResponseUnit &&
@@ -543,9 +545,19 @@ export class AttackHandler {
         } else if (isAttackMissed) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
         } else {
+            let abilityMultiplier = 1;
+            const paralysisAttackerEffect = attackerUnit.getEffect("Paralysis");
+            if (paralysisAttackerEffect) {
+                abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
+            }
             damageFromAttack = processLuckyStrikeAbility(
                 attackerUnit,
-                attackerUnit.calculateAttackDamage(targetUnit, AttackType.RANGE, hoverRangeAttackDivisor),
+                attackerUnit.calculateAttackDamage(
+                    targetUnit,
+                    AttackType.RANGE,
+                    hoverRangeAttackDivisor,
+                    abilityMultiplier,
+                ),
                 this.sceneLog,
             );
             this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
@@ -555,6 +567,10 @@ export class AttackHandler {
                 damage: damageFromAttack,
                 team: attackerUnit.getTeam(),
             });
+            const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
+            if (pegasusLightEffect) {
+                attackerUnit.increaseMorale(pegasusLightEffect.getPower());
+            }
         }
 
         // handle response damage
@@ -572,7 +588,7 @@ export class AttackHandler {
                 false,
             );
             if (aoeRangeResponseResult.landed) {
-                damageFromRespose = processLuckyStrikeAbility(
+                damageFromResponse = processLuckyStrikeAbility(
                     targetUnit,
                     aoeRangeResponseResult.maxDamage,
                     this.sceneLog,
@@ -580,22 +596,37 @@ export class AttackHandler {
             } else if (isResponseMissed) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} misses resp ${rangeResponseUnit.getName()}`);
             } else {
-                damageFromRespose = processLuckyStrikeAbility(
+                let abilityMultiplier = 1;
+                const paralysisTargetUnitEffect = targetUnit.getEffect("Paralysis");
+                if (paralysisTargetUnitEffect) {
+                    abilityMultiplier *= (100 - paralysisTargetUnitEffect.getPower()) / 100;
+                }
+
+                damageFromResponse = processLuckyStrikeAbility(
                     targetUnit,
-                    targetUnit.calculateAttackDamage(rangeResponseUnit, AttackType.RANGE, rangeResponseAttackDivisor),
+                    targetUnit.calculateAttackDamage(
+                        rangeResponseUnit,
+                        AttackType.RANGE,
+                        rangeResponseAttackDivisor,
+                        abilityMultiplier,
+                    ),
                     this.sceneLog,
                 );
 
                 this.sceneLog.updateLog(
-                    `${targetUnit.getName()} resp ${rangeResponseUnit.getName()} (${damageFromRespose})`,
+                    `${targetUnit.getName()} resp ${rangeResponseUnit.getName()} (${damageFromResponse})`,
                 );
 
-                rangeResponseUnit.applyDamage(damageFromRespose, sceneStepCount);
+                rangeResponseUnit.applyDamage(damageFromResponse, sceneStepCount);
                 DamageStatisticHolder.getInstance().add({
                     unitName: targetUnit.getName(),
-                    damage: damageFromRespose,
+                    damage: damageFromResponse,
                     team: targetUnit.getTeam(),
                 });
+                const pegasusLightEffect = rangeResponseUnit.getEffect("Pegasus Light");
+                if (pegasusLightEffect) {
+                    targetUnit.increaseMorale(pegasusLightEffect.getPower());
+                }
             }
 
             processOneInTheFieldAbility(targetUnit);
@@ -646,7 +677,7 @@ export class AttackHandler {
                     processPetrifyingGazeAbility(
                         targetUnit,
                         attackerUnit,
-                        damageFromRespose,
+                        damageFromResponse,
                         sceneStepCount,
                         this.sceneLog,
                     );
@@ -731,21 +762,18 @@ export class AttackHandler {
         moveHandler: MoveHandler,
         sceneStepCount: number,
         currentActiveKnownPaths?: Map<number, IWeightedRoute[]>,
-        currentActiveSpell?: Spell,
         attackerUnit?: Unit,
         targetUnit?: Unit,
         attackerBody?: b2Body,
         attackFromCell?: XY,
     ): boolean {
         if (
-            currentActiveSpell ||
             !attackerUnit ||
             attackerUnit.isDead() ||
             !targetUnit ||
             targetUnit.isDead() ||
             !attackFromCell ||
             !attackerBody ||
-            !currentActiveKnownPaths ||
             attackerUnit.getAttackTypeSelection() !== AttackType.MELEE ||
             attackerUnit.hasAbilityActive("No Melee") ||
             attackerUnit.getTeam() === targetUnit.getTeam() ||
@@ -840,6 +868,11 @@ export class AttackHandler {
         }
 
         let abilityMultiplier = processRapidChargeAbility(attackerUnit, distanceTravelled, this.gridSettings);
+        const paralysisAttackerEffect = attackerUnit.getEffect("Paralysis");
+        if (paralysisAttackerEffect) {
+            abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
+        }
+
         const abilitiesWithPositionCoeff = AbilityHelper.getAbilitiesWithPosisionCoefficient(
             attackerUnit.getAbilities(),
             attackFromCell,
@@ -957,6 +990,12 @@ export class AttackHandler {
                         abilityMultiplier *= targetUnit.calculateAbilityMultiplier(awpc);
                     }
                 }
+
+                const paralysisTargetUnitEffect = targetUnit.getEffect("Paralysis");
+                if (paralysisTargetUnitEffect) {
+                    abilityMultiplier *= (100 - paralysisTargetUnitEffect.getPower()) / 100;
+                }
+
                 const damageFromResponse =
                     processLuckyStrikeAbility(
                         targetUnit,
@@ -974,6 +1013,10 @@ export class AttackHandler {
                     damage: damageFromResponse,
                     team: targetUnit.getTeam(),
                 });
+                const pegasusLightEffect = attackerUnit.getEffect("Pegasus Light");
+                if (pegasusLightEffect) {
+                    targetUnit.increaseMorale(pegasusLightEffect.getPower());
+                }
 
                 processFireShieldAbility(
                     attackerUnit,
@@ -993,6 +1036,8 @@ export class AttackHandler {
                     this.sceneLog,
                 );
                 processBoarSalivaAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
+                processPegasusLightAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
+                processParalysisAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                 processBlindnessAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
             }
             processOneInTheFieldAbility(targetUnit);
@@ -1003,6 +1048,8 @@ export class AttackHandler {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
             processBoarSalivaAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processPegasusLightAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processParalysisAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processShatterArmorAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
 
             // this code has to be here to make sure that respond damage has been applied as well
@@ -1012,6 +1059,10 @@ export class AttackHandler {
                 damage: damageFromAttack,
                 team: attackerUnit.getTeam(),
             });
+            const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
+            if (pegasusLightEffect) {
+                attackerUnit.increaseMorale(pegasusLightEffect.getPower());
+            }
             // ~ already responded here
         }
 
@@ -1053,6 +1104,8 @@ export class AttackHandler {
                 this.sceneLog,
             );
             processBoarSalivaAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processPegasusLightAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processParalysisAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processShatterArmorAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
         }
 

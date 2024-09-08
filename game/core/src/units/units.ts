@@ -36,6 +36,7 @@ import {
     FactionType,
     ToFactionType,
     SpellHelper,
+    IWeightedRoute,
     GridMath,
     Spell,
     GridSettings,
@@ -55,7 +56,6 @@ import { RenderableSpell } from "../spells/renderable_spell";
 import { PreloadedTextures } from "../utils/gl/preload";
 
 export interface IAttackTargets {
-    units: Unit[];
     unitIds: Set<string>;
     attackCells: XY[];
     attackCellHashes: Set<number>;
@@ -1006,6 +1006,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.unitProperties.level;
     }
 
+    public canMove(): boolean {
+        return !this.hasEffectActive("Paralysis");
+    }
+
     public increaseAmountAlive(increaseBy: number): void {
         if (!this.isDead() && this.isSummoned()) {
             this.unitProperties.amount_alive += increaseBy;
@@ -1356,6 +1360,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     public calculateAuraPower(auraEffect: AuraEffect): number {
         let calculatedCoeff = 1;
 
+        if (auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_BASE_ATTACK_AND_ARMOR) {
+            return auraEffect.getPower();
+        }
+
         if (
             auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_MELEE_DAMAGE_PERCENTAGE ||
             auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_RANGE_ARMOR_PERCENTAGE ||
@@ -1383,6 +1391,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         let combinedPower = effect.getPower() + this.getLuck();
         if (combinedPower < 0) {
             combinedPower = 1;
+        }
+
+        if (effect.getName() === "Pegasus Light") {
+            return combinedPower;
         }
 
         calculatedCoeff *= (combinedPower / 100 / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower();
@@ -1839,6 +1851,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         // ARMOR
+        const pegasusMightAura = this.getAppliedAuraEffect("Pegasus Might Aura");
         this.unitProperties.base_armor = Number(
             (this.initialUnitProperties.base_armor + baseStatsDiff.baseStats.armor).toFixed(2),
         );
@@ -1847,6 +1860,9 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.unitProperties.armor_mod = -shatterArmorEffect.getPower();
         } else {
             this.unitProperties.armor_mod = this.initialUnitProperties.armor_mod;
+        }
+        if (pegasusMightAura) {
+            this.unitProperties.base_armor += pegasusMightAura.getPower();
         }
 
         const leatherArmorAbility = this.getAbility("Leather Armor");
@@ -1904,10 +1920,15 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.steps = Number((this.unitProperties.steps * stepsMultiplier).toFixed(2));
 
         // ATTACK
-        if (hasUnyieldingPower && !this.adjustedBaseStatsLaps.includes(currentLap)) {
-            this.initialUnitProperties.base_attack += 2;
+        if (!this.adjustedBaseStatsLaps.includes(currentLap)) {
+            if (hasUnyieldingPower) {
+                this.initialUnitProperties.base_attack += 2;
+            }
         }
         this.unitProperties.base_attack = this.initialUnitProperties.base_attack;
+        if (pegasusMightAura) {
+            this.unitProperties.base_attack += pegasusMightAura.getPower();
+        }
 
         let baseAttackMultiplier = 1;
         const sharpenedWeaponsAura = this.getAppliedAuraEffect("Sharpened Weapons Aura");
@@ -1957,7 +1978,9 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             baseArmorMultiplier = (100 - weakeningBeamDebuff.getPower()) / 100;
         }
 
-        this.adjustedBaseStatsLaps.push(currentLap);
+        if (!this.adjustedBaseStatsLaps.includes(currentLap)) {
+            this.adjustedBaseStatsLaps.push(currentLap);
+        }
 
         // ABILITIES DESCRIPTIONS
         // Heavy Armor
@@ -2295,6 +2318,26 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 penetratingBiteAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
+
+        // Pegasus Light
+        const pegasusLightAbility = this.getAbility("Pegasus Light");
+        if (pegasusLightAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(pegasusLightAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                pegasusLightAbility.getName(),
+                pegasusLightAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Paralysis
+        const paralysisAbility = this.getAbility("Paralysis");
+        if (paralysisAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(paralysisAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                paralysisAbility.getName(),
+                paralysisAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
     }
 
     public adjustRangeShotsNumber(force: boolean) {
@@ -2354,6 +2397,163 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         return this.unitProperties.max_hp;
+    }
+
+    public attackMeleeAllowed(
+        enemyTeam: Unit[],
+        positions: Map<string, HoCMath.XY>,
+        adjacentEnemies: Unit[],
+        fromPathCells?: HoCMath.XY[],
+        currentActiveKnownPaths?: Map<number, IWeightedRoute[]>,
+    ): IAttackTargets {
+        const canAttackUnitIds: Set<string> = new Set();
+        const possibleAttackCells: HoCMath.XY[] = [];
+        const possibleAttackCellHashes: Set<number> = new Set();
+        const possibleAttackCellHashesToLargeCells: Map<number, HoCMath.XY[]> = new Map();
+        const possibleFromPathCells: Denque<HoCMath.XY> = fromPathCells ? new Denque(fromPathCells) : new Denque();
+
+        let fromPathHashes: Set<number> | undefined;
+        let currentCells: HoCMath.XY[];
+        if (this.isSmallSize()) {
+            const currentCell = GridMath.getCellForPosition(this.gridSettings, this.getPosition());
+            if (currentCell) {
+                possibleFromPathCells.unshift(currentCell);
+                currentCells = [currentCell];
+            } else {
+                currentCells = [];
+            }
+        } else {
+            currentCells = GridMath.getCellsAroundPosition(this.gridSettings, this.getPosition());
+            for (const c of currentCells) {
+                possibleFromPathCells.unshift(c);
+            }
+            fromPathHashes = new Set();
+            for (let i = 0; i < possibleFromPathCells.length; i++) {
+                const fp = possibleFromPathCells.get(i);
+                if (!fp) {
+                    continue;
+                }
+                fromPathHashes.add((fp.x << 4) | fp.y);
+            }
+        }
+
+        let maxX = Number.MIN_SAFE_INTEGER;
+        let maxY = Number.MIN_SAFE_INTEGER;
+
+        for (const c of currentCells) {
+            maxX = Math.max(maxX, c.x);
+            maxY = Math.max(maxY, c.y);
+        }
+
+        if (this.canMove()) {
+            for (const u of enemyTeam) {
+                const position = positions.get(u.getId());
+                if (!position || !GridMath.isPositionWithinGrid(this.gridSettings, position)) {
+                    continue;
+                }
+
+                let bodyCells: HoCMath.XY[];
+                if (u.isSmallSize()) {
+                    const bodyCellPos = GridMath.getCellForPosition(this.gridSettings, position);
+                    if (!bodyCellPos) {
+                        continue;
+                    }
+                    bodyCells = [bodyCellPos];
+                } else {
+                    bodyCells = GridMath.getCellsAroundPosition(this.gridSettings, u.getPosition());
+                }
+
+                for (const bodyCell of bodyCells) {
+                    for (let i = 0; i < possibleFromPathCells.length; i++) {
+                        const pathCell = possibleFromPathCells.get(i);
+                        if (!pathCell) {
+                            continue;
+                        }
+
+                        if (
+                            Math.abs(bodyCell.x - pathCell.x) <= this.getAttackRange() &&
+                            Math.abs(bodyCell.y - pathCell.y) <= this.getAttackRange()
+                        ) {
+                            const posHash = (pathCell.x << 4) | pathCell.y;
+                            let addCell = false;
+                            if (this.isSmallSize()) {
+                                addCell = true;
+                            } else {
+                                const largeUnitAttackCells = GridMath.getLargeUnitAttackCells(
+                                    this.gridSettings,
+                                    pathCell,
+                                    { x: maxX, y: maxY },
+                                    bodyCell,
+                                    currentActiveKnownPaths,
+                                    fromPathHashes,
+                                );
+                                if (largeUnitAttackCells?.length) {
+                                    addCell = true;
+                                    possibleAttackCellHashesToLargeCells.set(posHash, largeUnitAttackCells);
+                                }
+                            }
+
+                            if (addCell) {
+                                if (!canAttackUnitIds.has(u.getId())) {
+                                    canAttackUnitIds.add(u.getId());
+                                }
+
+                                if (!possibleAttackCellHashes.has(posHash)) {
+                                    possibleAttackCells.push(pathCell);
+                                    possibleAttackCellHashes.add(posHash);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            const baseCell = this.getBaseCell();
+            if (baseCell) {
+                const posHash = (baseCell.x << 4) | baseCell.y;
+                for (const ae of adjacentEnemies) {
+                    canAttackUnitIds.add(ae.getId());
+                    for (const c of ae.getCells()) {
+                        let addPos = false;
+                        if (this.isSmallSize()) {
+                            addPos = true;
+                        } else {
+                            const largeUnitAttackCells = GridMath.getLargeUnitAttackCells(
+                                this.gridSettings,
+                                baseCell,
+                                { x: maxX, y: maxY },
+                                c,
+                                currentActiveKnownPaths,
+                                fromPathHashes,
+                            );
+
+                            if (largeUnitAttackCells?.length) {
+                                addPos = true;
+                                possibleAttackCellHashesToLargeCells.set(posHash, largeUnitAttackCells);
+                            }
+                        }
+
+                        if (addPos) {
+                            if (!canAttackUnitIds.has(ae.getId())) {
+                                canAttackUnitIds.add(ae.getId());
+                            }
+
+                            if (!possibleAttackCellHashes.has(posHash)) {
+                                possibleAttackCells.push(baseCell);
+                                possibleAttackCellHashes.add(posHash);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return {
+            unitIds: canAttackUnitIds,
+            attackCells: possibleAttackCells,
+            attackCellHashes: possibleAttackCellHashes,
+            attackCellHashesToLargeCells: possibleAttackCellHashesToLargeCells,
+        };
     }
 
     protected renderAmountSprites(

@@ -277,6 +277,47 @@ export class UnitsHolder {
         return closestDistance;
     }
 
+    public allEnemiesAroundUnit(attacker: Unit, isAttack: boolean, grid: Grid, attackFromCell?: XY): Unit[] {
+        const enemyList: Unit[] = [];
+        const firstCheckCell = isAttack ? attackFromCell : attacker.getBaseCell();
+
+        if (!firstCheckCell) {
+            return enemyList;
+        }
+
+        let checkCells: XY[];
+
+        if (attacker.isSmallSize()) {
+            // use either target move position on current
+            // depending on the action type (attack vs response)
+            checkCells = GridMath.getCellsAroundCell(this.gridSettings, firstCheckCell);
+        } else {
+            checkCells = [];
+            for (let i = -2; i <= 1; i++) {
+                for (let j = -2; j <= 1; j++) {
+                    checkCells.push({ x: firstCheckCell.x + i, y: firstCheckCell.y + j });
+                }
+            }
+        }
+
+        for (const c of checkCells) {
+            const checkUnitId = grid.getOccupantUnitId(c);
+            if (checkUnitId) {
+                const addUnit = this.getAllUnits().get(checkUnitId);
+                if (
+                    addUnit &&
+                    checkUnitId !== attacker.getId() &&
+                    !enemyList.includes(addUnit) &&
+                    !(attacker.getTeam() === addUnit.getTeam())
+                ) {
+                    enemyList.push(addUnit);
+                }
+            }
+        }
+
+        return enemyList;
+    }
+
     public refreshStackPowerForAllUnits(): void {
         FightStateManager.getInstance().setUnitsCalculatedStacksPower(this.gridSettings, this.allUnits);
         for (const u of this.getAllUnitsIterator()) {

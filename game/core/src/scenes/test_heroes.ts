@@ -27,6 +27,8 @@ import {
     SpellHelper,
     SpellPowerType,
     HoCMath,
+    IWeightedRoute,
+    PathHelper,
     TeamType,
     IAuraOnMap,
     UnitProperties,
@@ -37,7 +39,6 @@ import { v4 as uuidv4 } from "uuid";
 
 import { evaluateAffectedUnits } from "../abilities/aoe_range_ability";
 import { nextStandingTargets } from "../abilities/fire_breath_ability";
-import { allEnemiesAroundLargeUnit } from "../abilities/lightning_spin_ability";
 import { processPenetratingBiteAbility } from "../abilities/penetrating_bite_ability";
 import { processRapidChargeAbility } from "../abilities/rapid_charge_ability";
 import { AIActionType, findTarget } from "../ai/ai";
@@ -47,7 +48,6 @@ import { AttackHandler, IAttackObstacle } from "../handlers/attack_handler";
 import { MoveHandler } from "../handlers/move_handler";
 import { Button } from "../menu/button";
 import { ObstacleGenerator } from "../obstacles/obstacle_generator";
-import { IWeightedRoute, PathHelper } from "../path/path_helper";
 import { PlacementType, SquarePlacement } from "../placement/square_placement";
 import { Settings } from "../settings";
 import { RenderableSpell } from "../spells/renderable_spell";
@@ -267,7 +267,10 @@ class Sandbox extends GLScene {
         this.unitsHolder = new UnitsHolder(this.sc_world, this.sc_sceneSettings.getGridSettings(), this.unitsFactory);
 
         this.ground = this.sc_world.CreateBody();
-        this.grid = new Grid(GRID_SIZE, FightStateManager.getInstance().getFightProperties().getGridType());
+        this.grid = new Grid(
+            this.sc_sceneSettings.getGridSettings(),
+            FightStateManager.getInstance().getFightProperties().getGridType(),
+        );
         this.refreshVisibleStateIfNeeded();
         this.gridMatrix = this.grid.getMatrix();
         this.obstacleGenerator = new ObstacleGenerator(this.sc_world, textures);
@@ -666,7 +669,7 @@ class Sandbox extends GLScene {
                 if (log) {
                     logs.push(log);
                 }
-                this.grid.occupyByHole(this.sc_sceneSettings.getGridSettings(), cell);
+                this.grid.occupyByHole(cell);
             }
             for (let i = minCellX + prevLap; i < maxCellX - prevLap; i++) {
                 const cellX = i + maxCellX;
@@ -679,7 +682,7 @@ class Sandbox extends GLScene {
                 if (log) {
                     logs.push(log);
                 }
-                this.grid.occupyByHole(this.sc_sceneSettings.getGridSettings(), { x: cellX, y: cellY });
+                this.grid.occupyByHole({ x: cellX, y: cellY });
             }
             for (let i = minCellY + prevLap; i < maxCellY - prevLap; i++) {
                 const cellX = prevLap;
@@ -692,7 +695,7 @@ class Sandbox extends GLScene {
                 if (log) {
                     logs.push(log);
                 }
-                this.grid.occupyByHole(this.sc_sceneSettings.getGridSettings(), { x: cellX, y: cellY });
+                this.grid.occupyByHole({ x: cellX, y: cellY });
             }
             for (let i = minCellY + prevLap; i < maxCellY - prevLap; i++) {
                 const cellX = (maxCellX << 1) - laps;
@@ -705,7 +708,7 @@ class Sandbox extends GLScene {
                 if (log) {
                     logs.push(log);
                 }
-                this.grid.occupyByHole(this.sc_sceneSettings.getGridSettings(), { x: cellX, y: cellY });
+                this.grid.occupyByHole({ x: cellX, y: cellY });
             }
             laps--;
         }
@@ -853,15 +856,23 @@ class Sandbox extends GLScene {
         const divisorStr = hoverRangeAttackDivisor > 1 ? `1/${hoverRangeAttackDivisor} ` : "";
 
         if (hoverAttackUnit) {
+            let abilityMultiplier = 1;
+            const paralysisAttackerEffect = this.currentActiveUnit.getEffect("Paralysis");
+            if (paralysisAttackerEffect) {
+                abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
+            }
+
             const minDmg = this.currentActiveUnit.calculateAttackDamageMin(
                 hoverAttackUnit,
                 true,
                 hoverRangeAttackDivisor,
+                abilityMultiplier,
             );
             let maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
                 hoverAttackUnit,
                 true,
                 hoverRangeAttackDivisor,
+                abilityMultiplier,
             );
             const luckyStrikeAbility = this.currentActiveUnit.getAbility("Lucky Strike");
             if (luckyStrikeAbility) {
@@ -1078,7 +1089,7 @@ class Sandbox extends GLScene {
                         );
 
                         this.hoverSelectedCells = undefined;
-                        if (hoverUnitCell) {
+                        if (hoverUnitCell && this.hoverUnit.canMove()) {
                             this.hoverActivePath = this.pathHelper.getMovePath(
                                 hoverUnitCell,
                                 this.gridMatrix,
@@ -1089,6 +1100,8 @@ class Sandbox extends GLScene {
                                 this.hoverUnit.getCanFly(),
                                 this.hoverUnit.isSmallSize(),
                             ).cells;
+                        } else {
+                            this.hoverActivePath = undefined;
                         }
                     } else {
                         this.resetHover();
@@ -1228,7 +1241,8 @@ class Sandbox extends GLScene {
                                       ),
                                 this.currentActiveUnit.isSmallSize(),
                                 this.currentActiveUnit.getAttackRange(),
-                                hoverAttackUnit,
+                                hoverAttackUnit.isSmallSize(),
+                                hoverAttackUnit.getTeam(),
                                 this.canAttackByMeleeTargets.attackCellHashesToLargeCells,
                             );
                             this.hoverAttackIsSmallSize = undefined;
@@ -1270,6 +1284,11 @@ class Sandbox extends GLScene {
                                 this.currentActiveUnit.getAttackType() === AttackType.RANGE &&
                                 !this.currentActiveUnit.hasAbilityActive("Handyman");
 
+                            const paralysisAttackerEffect = this.currentActiveUnit.getEffect("Paralysis");
+                            if (paralysisAttackerEffect) {
+                                abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
+                            }
+
                             const minDmg =
                                 this.currentActiveUnit.calculateAttackDamageMin(
                                     hoverAttackUnit,
@@ -1300,16 +1319,20 @@ class Sandbox extends GLScene {
                             }
                             this.sc_hoverTextUpdateNeeded = true;
 
-                            this.hoverActivePath = this.pathHelper.getMovePath(
-                                unitCell,
-                                this.gridMatrix,
-                                hoverAttackUnit.getSteps(),
-                                this.grid.getAggrMatrixByTeam(
-                                    hoverAttackUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
-                                ),
-                                hoverAttackUnit.getCanFly(),
-                                hoverAttackUnit.isSmallSize(),
-                            ).cells;
+                            if (hoverAttackUnit.canMove()) {
+                                this.hoverActivePath = this.pathHelper.getMovePath(
+                                    unitCell,
+                                    this.gridMatrix,
+                                    hoverAttackUnit.getSteps(),
+                                    this.grid.getAggrMatrixByTeam(
+                                        hoverAttackUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
+                                    ),
+                                    hoverAttackUnit.getCanFly(),
+                                    hoverAttackUnit.isSmallSize(),
+                                ).cells;
+                            } else {
+                                this.hoverActivePath = undefined;
+                            }
                         }
                     } else {
                         this.hoverAttackUnits = undefined;
@@ -1328,16 +1351,20 @@ class Sandbox extends GLScene {
                             return;
                         }
 
-                        this.hoverActivePath = this.pathHelper.getMovePath(
-                            unitCell,
-                            this.gridMatrix,
-                            this.hoverUnit.getSteps(),
-                            this.grid.getAggrMatrixByTeam(
-                                this.hoverUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
-                            ),
-                            this.hoverUnit.getCanFly(),
-                            this.hoverUnit.isSmallSize(),
-                        ).cells;
+                        if (this.hoverUnit.canMove()) {
+                            this.hoverActivePath = this.pathHelper.getMovePath(
+                                unitCell,
+                                this.gridMatrix,
+                                this.hoverUnit.getSteps(),
+                                this.grid.getAggrMatrixByTeam(
+                                    this.hoverUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
+                                ),
+                                this.hoverUnit.getCanFly(),
+                                this.hoverUnit.isSmallSize(),
+                            ).cells;
+                        } else {
+                            this.hoverActivePath = undefined;
+                        }
                     }
                 } else if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE) {
                     this.hoverAOECells = undefined;
@@ -1594,7 +1621,7 @@ class Sandbox extends GLScene {
                         this.hoverSelectedCells = this.pathHelper.getClosestSquareCellIndices(
                             this.sc_mouseWorld,
                             this.allowedPlacementCellHashes,
-                            this.cellToUnitPreRound,
+                            this.cellToUnitPreRound ? Array.from(this.cellToUnitPreRound.keys()) : undefined,
                             GridMath.getCellsAroundPosition(
                                 this.sc_sceneSettings.getGridSettings(),
                                 this.currentActiveUnit.getPosition(),
@@ -1744,7 +1771,7 @@ class Sandbox extends GLScene {
                         this.hoverSelectedCells = this.pathHelper.getClosestSquareCellIndices(
                             this.sc_mouseWorld,
                             this.allowedPlacementCellHashes,
-                            this.cellToUnitPreRound,
+                            Array.from(this.cellToUnitPreRound.keys()),
                             this.unitIdToCellsPreRound?.get(selectedUnitProperties.id),
                         );
                         if (
@@ -1777,7 +1804,7 @@ class Sandbox extends GLScene {
                         this.hoverSelectedCells = this.pathHelper.getClosestSquareCellIndices(
                             this.sc_mouseWorld,
                             this.allowedPlacementCellHashes,
-                            this.cellToUnitPreRound,
+                            Array.from(this.cellToUnitPreRound.keys()),
                         );
                         if (
                             this.hoverSelectedCells?.length === 4 &&
@@ -2012,25 +2039,26 @@ class Sandbox extends GLScene {
     }
 
     protected landAttack(): boolean {
-        if (
-            this.attackHandler.handleMeleeAttack(
-                this.unitsHolder,
-                this.drawer,
-                this.grid,
-                this.moveHandler,
-                this.sc_stepCount,
-                this.currentActiveKnownPaths,
-                this.currentActiveSpell,
-                this.currentActiveUnit,
-                this.getHoverAttackUnit(),
-                this.sc_selectedBody,
-                this.hoverAttackFrom,
-            )
-        ) {
-            this.resetHover();
-            this.sc_damageStatsUpdateNeeded = true;
-            this.finishTurn();
-            return true;
+        if (!this.currentActiveSpell) {
+            if (
+                this.attackHandler.handleMeleeAttack(
+                    this.unitsHolder,
+                    this.drawer,
+                    this.grid,
+                    this.moveHandler,
+                    this.sc_stepCount,
+                    this.currentActiveKnownPaths,
+                    this.currentActiveUnit,
+                    this.getHoverAttackUnit(),
+                    this.sc_selectedBody,
+                    this.hoverAttackFrom,
+                )
+            ) {
+                this.resetHover();
+                this.sc_damageStatsUpdateNeeded = true;
+                this.finishTurn();
+                return true;
+            }
         }
 
         if (
@@ -2807,19 +2835,23 @@ class Sandbox extends GLScene {
             return;
         }
 
-        const movePath = this.pathHelper.getMovePath(
-            currentCell,
-            this.gridMatrix,
-            this.currentActiveUnit.getSteps(),
-            this.grid.getAggrMatrixByTeam(
-                this.currentActiveUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
-            ),
-            this.currentActiveUnit.getCanFly(),
-            this.currentActiveUnit.isSmallSize(),
-        );
-        this.currentActivePath = movePath.cells;
-        this.currentActiveKnownPaths = movePath.knownPaths;
-        this.currentActivePathHashes = movePath.hashes;
+        if (this.currentActiveUnit.canMove()) {
+            const movePath = this.pathHelper.getMovePath(
+                currentCell,
+                this.gridMatrix,
+                this.currentActiveUnit.getSteps(),
+                this.grid.getAggrMatrixByTeam(
+                    this.currentActiveUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
+                ),
+                this.currentActiveUnit.getCanFly(),
+                this.currentActiveUnit.isSmallSize(),
+            );
+            this.currentActivePath = movePath.cells;
+            this.currentActiveKnownPaths = movePath.knownPaths;
+            this.currentActivePathHashes = movePath.hashes;
+        } else {
+            this.cleanActivePaths();
+        }
     }
 
     public Step(settings: Settings, timeStep: number): number {
@@ -3345,13 +3377,21 @@ class Sandbox extends GLScene {
                                             this.currentActiveUnit.getTeam() === TeamType.LOWER
                                                 ? unitsUpper
                                                 : unitsLower;
-                                        if (this.currentActivePath && this.currentActiveKnownPaths) {
-                                            this.canAttackByMeleeTargets = this.pathHelper.attackMeleeAllowed(
-                                                this.currentActiveUnit,
-                                                this.currentActivePath,
-                                                this.currentActiveKnownPaths,
+                                        if (
+                                            (this.currentActivePath && this.currentActiveKnownPaths) ||
+                                            !this.currentActiveUnit.canMove()
+                                        ) {
+                                            this.canAttackByMeleeTargets = this.currentActiveUnit.attackMeleeAllowed(
                                                 enemyTeam,
                                                 positions,
+                                                this.unitsHolder.allEnemiesAroundUnit(
+                                                    this.currentActiveUnit,
+                                                    false,
+                                                    this.grid,
+                                                    this.hoverAttackFrom,
+                                                ),
+                                                this.currentActivePath,
+                                                this.currentActiveKnownPaths,
                                             );
                                         } else {
                                             this.canAttackByMeleeTargets = undefined;
@@ -3579,12 +3619,10 @@ class Sandbox extends GLScene {
                 }
             }
         } else if (this.hoverAttackUnits && this.currentActiveUnit?.hasAbilityActive("Lightning Spin")) {
-            for (const enemy of allEnemiesAroundLargeUnit(
+            for (const enemy of this.unitsHolder.allEnemiesAroundUnit(
                 this.currentActiveUnit,
                 true,
-                this.unitsHolder,
                 this.grid,
-                this.sc_sceneSettings.getGridSettings(),
                 this.hoverAttackFrom,
             )) {
                 this.drawer.drawAttackTo(settings.m_debugDraw, enemy.getPosition(), enemy.getSize());

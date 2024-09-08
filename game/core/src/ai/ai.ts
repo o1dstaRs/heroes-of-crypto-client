@@ -9,9 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, TeamType, Grid, ObstacleType, HoCMath } from "@heroesofcrypto/common";
+import { AttackType, TeamType, Grid, ObstacleType, HoCMath, PathHelper, IWeightedRoute } from "@heroesofcrypto/common";
 
-import { PathHelper, IWeightedRoute } from "../path/path_helper";
 import { Unit, IUnitAIRepr } from "../units/units";
 
 export interface IAI {
@@ -275,7 +274,7 @@ function doFindTarget(
 }
 
 function cellKey(xy: HoCMath.XY): number {
-    return (xy.x << 4) | xy.y; // TODO exact method in path_helper.js
+    return (xy.x << 4) | xy.y;
 }
 
 /*
