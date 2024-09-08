@@ -2399,10 +2399,11 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public attackMeleeAllowed(
-        fromPath: HoCMath.XY[],
+        fromPathCells: HoCMath.XY[],
         currentActiveKnownPaths: Map<number, IWeightedRoute[]>,
         enemyTeam: Unit[],
         positions: Map<string, HoCMath.XY>,
+        adjacentEnemies: Unit[],
     ): IAttackTargets {
         const canAttackUnitIds: Set<string> = new Set();
         const possibleAttackCells: HoCMath.XY[] = [];
@@ -2414,7 +2415,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (this.isSmallSize()) {
             const currentCell = GridMath.getCellForPosition(this.gridSettings, this.getPosition());
             if (currentCell) {
-                fromPath.unshift(currentCell);
+                fromPathCells.unshift(currentCell);
                 currentCells = [currentCell];
             } else {
                 currentCells = [];
@@ -2422,10 +2423,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         } else {
             currentCells = GridMath.getCellsAroundPosition(this.gridSettings, this.getPosition());
             for (const c of currentCells) {
-                fromPath.unshift(c);
+                fromPathCells.unshift(c);
             }
             fromPathHashes = new Set();
-            for (const fp of fromPath) {
+            for (const fp of fromPathCells) {
                 fromPathHashes.add((fp.x << 4) | fp.y);
             }
         }
@@ -2438,39 +2439,79 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             maxY = Math.max(maxY, c.y);
         }
 
-        for (const u of enemyTeam) {
-            const position = positions.get(u.getId());
-            if (!position || !GridMath.isPositionWithinGrid(this.gridSettings, position)) {
-                continue;
-            }
-
-            let bodyCells: HoCMath.XY[];
-            if (u.isSmallSize()) {
-                const bodyCellPos = GridMath.getCellForPosition(this.gridSettings, position);
-                if (!bodyCellPos) {
+        if (this.canMove()) {
+            for (const u of enemyTeam) {
+                const position = positions.get(u.getId());
+                if (!position || !GridMath.isPositionWithinGrid(this.gridSettings, position)) {
                     continue;
                 }
-                bodyCells = [bodyCellPos];
-            } else {
-                bodyCells = GridMath.getCellsAroundPosition(this.gridSettings, u.getPosition());
-            }
 
-            for (const bodyCellPos of bodyCells) {
-                for (const possiblePos of fromPath) {
-                    if (
-                        Math.abs(bodyCellPos.x - possiblePos.x) <= this.getAttackRange() &&
-                        Math.abs(bodyCellPos.y - possiblePos.y) <= this.getAttackRange()
-                    ) {
-                        const posHash = (possiblePos.x << 4) | possiblePos.y;
+                let bodyCells: HoCMath.XY[];
+                if (u.isSmallSize()) {
+                    const bodyCellPos = GridMath.getCellForPosition(this.gridSettings, position);
+                    if (!bodyCellPos) {
+                        continue;
+                    }
+                    bodyCells = [bodyCellPos];
+                } else {
+                    bodyCells = GridMath.getCellsAroundPosition(this.gridSettings, u.getPosition());
+                }
+
+                for (const bodyCell of bodyCells) {
+                    for (const possiblePos of fromPathCells) {
+                        if (
+                            Math.abs(bodyCell.x - possiblePos.x) <= this.getAttackRange() &&
+                            Math.abs(bodyCell.y - possiblePos.y) <= this.getAttackRange()
+                        ) {
+                            const posHash = (possiblePos.x << 4) | possiblePos.y;
+                            let addPos = false;
+                            if (this.isSmallSize()) {
+                                addPos = true;
+                            } else {
+                                const largeUnitAttackCells = GridMath.getLargeUnitAttackCells(
+                                    this.gridSettings,
+                                    possiblePos,
+                                    { x: maxX, y: maxY },
+                                    bodyCell,
+                                    currentActiveKnownPaths,
+                                    fromPathHashes,
+                                );
+                                if (largeUnitAttackCells?.length) {
+                                    addPos = true;
+                                    possibleAttackCellHashesToLargeCells.set(posHash, largeUnitAttackCells);
+                                }
+                            }
+
+                            if (addPos) {
+                                if (!canAttackUnitIds.has(u.getId())) {
+                                    canAttackUnitIds.add(u.getId());
+                                }
+
+                                if (!possibleAttackCellHashes.has(posHash)) {
+                                    possibleAttackCells.push(possiblePos);
+                                    possibleAttackCellHashes.add(posHash);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            const baseCell = this.getBaseCell();
+            if (baseCell) {
+                const posHash = (baseCell.x << 4) | baseCell.y;
+                for (const ae of adjacentEnemies) {
+                    canAttackUnitIds.add(ae.getId());
+                    for (const c of ae.getCells()) {
                         let addPos = false;
                         if (this.isSmallSize()) {
                             addPos = true;
                         } else {
                             const largeUnitAttackCells = GridMath.getLargeUnitAttackCells(
                                 this.gridSettings,
-                                possiblePos,
+                                baseCell,
                                 { x: maxX, y: maxY },
-                                bodyCellPos,
+                                c,
                                 currentActiveKnownPaths,
                                 fromPathHashes,
                             );
@@ -2481,12 +2522,12 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                         }
 
                         if (addPos) {
-                            if (!canAttackUnitIds.has(u.getId())) {
-                                canAttackUnitIds.add(u.getId());
+                            if (!canAttackUnitIds.has(ae.getId())) {
+                                canAttackUnitIds.add(ae.getId());
                             }
 
                             if (!possibleAttackCellHashes.has(posHash)) {
-                                possibleAttackCells.push(possiblePos);
+                                possibleAttackCells.push(baseCell);
                                 possibleAttackCellHashes.add(posHash);
                             }
                         }

@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, Grid, GridMath, GridSettings, HoCMath, HoCConstants } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, Grid, GridSettings, HoCMath, HoCConstants } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
@@ -29,47 +29,6 @@ import { processPenetratingBiteAbility } from "./penetrating_bite_ability";
 import { processPegasusLightAbility } from "./pegasus_light_ability";
 import { processParalysisAbility } from "./paralysis_ability";
 
-export function allEnemiesAroundLargeUnit(
-    attacker: Unit,
-    isAttack: boolean,
-    unitsHolder: UnitsHolder,
-    grid: Grid,
-    gridSettings: GridSettings,
-    targetMovePosition?: HoCMath.XY,
-): Unit[] {
-    const enemyList: Unit[] = [];
-    if (attacker && !attacker.isSmallSize()) {
-        // use either target move position on current
-        // depending on the action type (attack vs response)
-        const firstCheckCell = isAttack
-            ? targetMovePosition
-            : GridMath.getCellForPosition(gridSettings, attacker.getPosition());
-
-        if (!firstCheckCell) {
-            return enemyList;
-        }
-
-        for (let i = -2; i <= 1; i++) {
-            for (let j = -2; j <= 1; j++) {
-                const checkCell: HoCMath.XY = { x: firstCheckCell.x + i, y: firstCheckCell.y + j };
-                const checkUnitId = grid.getOccupantUnitId(checkCell);
-                if (checkUnitId) {
-                    const addUnit = unitsHolder.getAllUnits().get(checkUnitId);
-                    if (
-                        addUnit &&
-                        checkUnitId !== attacker.getId() &&
-                        !enemyList.includes(addUnit) &&
-                        !(attacker.getTeam() === addUnit?.getTeam())
-                    ) {
-                        enemyList.push(addUnit);
-                    }
-                }
-            }
-        }
-    }
-    return enemyList;
-}
-
 export function processLightningSpinAbility(
     fromUnit: Unit,
     sceneLog: SceneLog,
@@ -78,7 +37,7 @@ export function processLightningSpinAbility(
     grid: Grid,
     gridSettings: GridSettings,
     distanceTravelled: number,
-    targetMovePosition?: HoCMath.XY,
+    attackFromCell?: HoCMath.XY,
     isAttack = true,
 ): boolean {
     let lightningSpinLanded = false;
@@ -86,24 +45,20 @@ export function processLightningSpinAbility(
 
     if (lightningSpinAbility) {
         const unitsDead: Unit[] = [];
-        const enemyList = allEnemiesAroundLargeUnit(
-            fromUnit,
-            isAttack,
-            unitsHolder,
-            grid,
-            gridSettings,
-            targetMovePosition,
-        );
+        const wasDead: Unit[] = [];
+        const enemyList = unitsHolder.allEnemiesAroundUnit(fromUnit, isAttack, grid, attackFromCell);
         let actionString: string;
         if (isAttack) {
             actionString = "attk";
         } else {
             actionString = "resp";
         }
+        const enemyIdDamageFromAttack: Map<string, number> = new Map();
 
         const commonAbilityMultiplier = processRapidChargeAbility(fromUnit, distanceTravelled, gridSettings);
         for (const enemy of enemyList) {
             if (enemy.isDead()) {
+                wasDead.push(enemy);
                 continue;
             }
 
@@ -136,6 +91,7 @@ export function processLightningSpinAbility(
                 damage: damageFromAttack,
                 team: fromUnit.getTeam(),
             });
+            enemyIdDamageFromAttack.set(enemy.getId(), damageFromAttack);
             const pegasusLightEffect = enemy.getEffect("Pegasus Light");
             if (pegasusLightEffect) {
                 fromUnit.increaseMorale(pegasusLightEffect.getPower());
@@ -149,7 +105,6 @@ export function processLightningSpinAbility(
 
             // check all the possible modificators here
             // just in case if we have more inherited/stolen abilities
-            processFireShieldAbility(enemy, fromUnit, sceneLog, unitsHolder, damageFromAttack, sceneStepCount);
             processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
             processPetrifyingGazeAbility(fromUnit, enemy, damageFromAttack, sceneStepCount, sceneLog);
             processBoarSalivaAbility(fromUnit, enemy, fromUnit, sceneLog);
@@ -160,6 +115,15 @@ export function processLightningSpinAbility(
                 processShatterArmorAbility(fromUnit, enemy, fromUnit, sceneLog);
             } else {
                 processBlindnessAbility(fromUnit, enemy, fromUnit, sceneLog);
+            }
+        }
+
+        for (const enemy of enemyList) {
+            if (!wasDead.includes(enemy)) {
+                const damageFromAttack = enemyIdDamageFromAttack.get(enemy.getId());
+                if (damageFromAttack) {
+                    processFireShieldAbility(enemy, fromUnit, sceneLog, unitsHolder, damageFromAttack, sceneStepCount);
+                }
             }
         }
 

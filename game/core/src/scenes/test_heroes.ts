@@ -39,7 +39,6 @@ import { v4 as uuidv4 } from "uuid";
 
 import { evaluateAffectedUnits } from "../abilities/aoe_range_ability";
 import { nextStandingTargets } from "../abilities/fire_breath_ability";
-import { allEnemiesAroundLargeUnit } from "../abilities/lightning_spin_ability";
 import { processPenetratingBiteAbility } from "../abilities/penetrating_bite_ability";
 import { processRapidChargeAbility } from "../abilities/rapid_charge_ability";
 import { AIActionType, findTarget } from "../ai/ai";
@@ -1222,9 +1221,6 @@ class Sandbox extends GLScene {
                                 this.hoverAttackUnits = undefined;
                                 return;
                             }
-
-                            console.log("szzolotu");
-                            console.log(this.canAttackByMeleeTargets);
 
                             this.hoverAttackFrom = this.pathHelper.calculateClosestAttackFrom(
                                 this.sc_mouseWorld,
@@ -3373,6 +3369,12 @@ class Sandbox extends GLScene {
                                                 this.currentActiveKnownPaths,
                                                 enemyTeam,
                                                 positions,
+                                                this.unitsHolder.allEnemiesAroundUnit(
+                                                    this.currentActiveUnit,
+                                                    true,
+                                                    this.grid,
+                                                    this.hoverAttackFrom,
+                                                ),
                                             );
                                         } else {
                                             this.canAttackByMeleeTargets = undefined;
@@ -3600,12 +3602,10 @@ class Sandbox extends GLScene {
                 }
             }
         } else if (this.hoverAttackUnits && this.currentActiveUnit?.hasAbilityActive("Lightning Spin")) {
-            for (const enemy of allEnemiesAroundLargeUnit(
+            for (const enemy of this.unitsHolder.allEnemiesAroundUnit(
                 this.currentActiveUnit,
                 true,
-                this.unitsHolder,
                 this.grid,
-                this.sc_sceneSettings.getGridSettings(),
                 this.hoverAttackFrom,
             )) {
                 this.drawer.drawAttackTo(settings.m_debugDraw, enemy.getPosition(), enemy.getSize());
