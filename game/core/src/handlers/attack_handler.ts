@@ -762,21 +762,18 @@ export class AttackHandler {
         moveHandler: MoveHandler,
         sceneStepCount: number,
         currentActiveKnownPaths?: Map<number, IWeightedRoute[]>,
-        currentActiveSpell?: Spell,
         attackerUnit?: Unit,
         targetUnit?: Unit,
         attackerBody?: b2Body,
         attackFromCell?: XY,
     ): boolean {
         if (
-            currentActiveSpell ||
             !attackerUnit ||
             attackerUnit.isDead() ||
             !targetUnit ||
             targetUnit.isDead() ||
             !attackFromCell ||
             !attackerBody ||
-            !currentActiveKnownPaths ||
             attackerUnit.getAttackTypeSelection() !== AttackType.MELEE ||
             attackerUnit.hasAbilityActive("No Melee") ||
             attackerUnit.getTeam() === targetUnit.getTeam() ||

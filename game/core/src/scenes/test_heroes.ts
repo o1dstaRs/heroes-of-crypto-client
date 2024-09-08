@@ -856,15 +856,23 @@ class Sandbox extends GLScene {
         const divisorStr = hoverRangeAttackDivisor > 1 ? `1/${hoverRangeAttackDivisor} ` : "";
 
         if (hoverAttackUnit) {
+            let abilityMultiplier = 1;
+            const paralysisAttackerEffect = this.currentActiveUnit.getEffect("Paralysis");
+            if (paralysisAttackerEffect) {
+                abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
+            }
+
             const minDmg = this.currentActiveUnit.calculateAttackDamageMin(
                 hoverAttackUnit,
                 true,
                 hoverRangeAttackDivisor,
+                abilityMultiplier,
             );
             let maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
                 hoverAttackUnit,
                 true,
                 hoverRangeAttackDivisor,
+                abilityMultiplier,
             );
             const luckyStrikeAbility = this.currentActiveUnit.getAbility("Lucky Strike");
             if (luckyStrikeAbility) {
@@ -1275,6 +1283,11 @@ class Sandbox extends GLScene {
                             const isRangedAttacker =
                                 this.currentActiveUnit.getAttackType() === AttackType.RANGE &&
                                 !this.currentActiveUnit.hasAbilityActive("Handyman");
+
+                            const paralysisAttackerEffect = this.currentActiveUnit.getEffect("Paralysis");
+                            if (paralysisAttackerEffect) {
+                                abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
+                            }
 
                             const minDmg =
                                 this.currentActiveUnit.calculateAttackDamageMin(
@@ -2026,25 +2039,26 @@ class Sandbox extends GLScene {
     }
 
     protected landAttack(): boolean {
-        if (
-            this.attackHandler.handleMeleeAttack(
-                this.unitsHolder,
-                this.drawer,
-                this.grid,
-                this.moveHandler,
-                this.sc_stepCount,
-                this.currentActiveKnownPaths,
-                this.currentActiveSpell,
-                this.currentActiveUnit,
-                this.getHoverAttackUnit(),
-                this.sc_selectedBody,
-                this.hoverAttackFrom,
-            )
-        ) {
-            this.resetHover();
-            this.sc_damageStatsUpdateNeeded = true;
-            this.finishTurn();
-            return true;
+        if (!this.currentActiveSpell) {
+            if (
+                this.attackHandler.handleMeleeAttack(
+                    this.unitsHolder,
+                    this.drawer,
+                    this.grid,
+                    this.moveHandler,
+                    this.sc_stepCount,
+                    this.currentActiveKnownPaths,
+                    this.currentActiveUnit,
+                    this.getHoverAttackUnit(),
+                    this.sc_selectedBody,
+                    this.hoverAttackFrom,
+                )
+            ) {
+                this.resetHover();
+                this.sc_damageStatsUpdateNeeded = true;
+                this.finishTurn();
+                return true;
+            }
         }
 
         if (
@@ -3363,18 +3377,21 @@ class Sandbox extends GLScene {
                                             this.currentActiveUnit.getTeam() === TeamType.LOWER
                                                 ? unitsUpper
                                                 : unitsLower;
-                                        if (this.currentActivePath && this.currentActiveKnownPaths) {
+                                        if (
+                                            (this.currentActivePath && this.currentActiveKnownPaths) ||
+                                            !this.currentActiveUnit.canMove()
+                                        ) {
                                             this.canAttackByMeleeTargets = this.currentActiveUnit.attackMeleeAllowed(
-                                                this.currentActivePath,
-                                                this.currentActiveKnownPaths,
                                                 enemyTeam,
                                                 positions,
                                                 this.unitsHolder.allEnemiesAroundUnit(
                                                     this.currentActiveUnit,
-                                                    true,
+                                                    false,
                                                     this.grid,
                                                     this.hoverAttackFrom,
                                                 ),
+                                                this.currentActivePath,
+                                                this.currentActiveKnownPaths,
                                             );
                                         } else {
                                             this.canAttackByMeleeTargets = undefined;

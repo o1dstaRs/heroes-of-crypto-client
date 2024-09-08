@@ -1852,7 +1852,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         // ARMOR
         const pegasusMightAura = this.getAppliedAuraEffect("Pegasus Might Aura");
-        console.log(pegasusMightAura);
         this.unitProperties.base_armor = Number(
             (this.initialUnitProperties.base_armor + baseStatsDiff.baseStats.armor).toFixed(2),
         );
@@ -1979,7 +1978,9 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             baseArmorMultiplier = (100 - weakeningBeamDebuff.getPower()) / 100;
         }
 
-        this.adjustedBaseStatsLaps.push(currentLap);
+        if (!this.adjustedBaseStatsLaps.includes(currentLap)) {
+            this.adjustedBaseStatsLaps.push(currentLap);
+        }
 
         // ABILITIES DESCRIPTIONS
         // Heavy Armor
@@ -2399,23 +2400,24 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public attackMeleeAllowed(
-        fromPathCells: HoCMath.XY[],
-        currentActiveKnownPaths: Map<number, IWeightedRoute[]>,
         enemyTeam: Unit[],
         positions: Map<string, HoCMath.XY>,
         adjacentEnemies: Unit[],
+        fromPathCells?: HoCMath.XY[],
+        currentActiveKnownPaths?: Map<number, IWeightedRoute[]>,
     ): IAttackTargets {
         const canAttackUnitIds: Set<string> = new Set();
         const possibleAttackCells: HoCMath.XY[] = [];
         const possibleAttackCellHashes: Set<number> = new Set();
         const possibleAttackCellHashesToLargeCells: Map<number, HoCMath.XY[]> = new Map();
+        const possibleFromPathCells: Denque<HoCMath.XY> = fromPathCells ? new Denque(fromPathCells) : new Denque();
 
         let fromPathHashes: Set<number> | undefined;
         let currentCells: HoCMath.XY[];
         if (this.isSmallSize()) {
             const currentCell = GridMath.getCellForPosition(this.gridSettings, this.getPosition());
             if (currentCell) {
-                fromPathCells.unshift(currentCell);
+                possibleFromPathCells.unshift(currentCell);
                 currentCells = [currentCell];
             } else {
                 currentCells = [];
@@ -2423,10 +2425,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         } else {
             currentCells = GridMath.getCellsAroundPosition(this.gridSettings, this.getPosition());
             for (const c of currentCells) {
-                fromPathCells.unshift(c);
+                possibleFromPathCells.unshift(c);
             }
             fromPathHashes = new Set();
-            for (const fp of fromPathCells) {
+            for (let i = 0; i < possibleFromPathCells.length; i++) {
+                const fp = possibleFromPathCells.get(i);
+                if (!fp) {
+                    continue;
+                }
                 fromPathHashes.add((fp.x << 4) | fp.y);
             }
         }
@@ -2458,37 +2464,42 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 }
 
                 for (const bodyCell of bodyCells) {
-                    for (const possiblePos of fromPathCells) {
+                    for (let i = 0; i < possibleFromPathCells.length; i++) {
+                        const pathCell = possibleFromPathCells.get(i);
+                        if (!pathCell) {
+                            continue;
+                        }
+
                         if (
-                            Math.abs(bodyCell.x - possiblePos.x) <= this.getAttackRange() &&
-                            Math.abs(bodyCell.y - possiblePos.y) <= this.getAttackRange()
+                            Math.abs(bodyCell.x - pathCell.x) <= this.getAttackRange() &&
+                            Math.abs(bodyCell.y - pathCell.y) <= this.getAttackRange()
                         ) {
-                            const posHash = (possiblePos.x << 4) | possiblePos.y;
-                            let addPos = false;
+                            const posHash = (pathCell.x << 4) | pathCell.y;
+                            let addCell = false;
                             if (this.isSmallSize()) {
-                                addPos = true;
+                                addCell = true;
                             } else {
                                 const largeUnitAttackCells = GridMath.getLargeUnitAttackCells(
                                     this.gridSettings,
-                                    possiblePos,
+                                    pathCell,
                                     { x: maxX, y: maxY },
                                     bodyCell,
                                     currentActiveKnownPaths,
                                     fromPathHashes,
                                 );
                                 if (largeUnitAttackCells?.length) {
-                                    addPos = true;
+                                    addCell = true;
                                     possibleAttackCellHashesToLargeCells.set(posHash, largeUnitAttackCells);
                                 }
                             }
 
-                            if (addPos) {
+                            if (addCell) {
                                 if (!canAttackUnitIds.has(u.getId())) {
                                     canAttackUnitIds.add(u.getId());
                                 }
 
                                 if (!possibleAttackCellHashes.has(posHash)) {
-                                    possibleAttackCells.push(possiblePos);
+                                    possibleAttackCells.push(pathCell);
                                     possibleAttackCellHashes.add(posHash);
                                 }
                             }
@@ -2515,6 +2526,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                                 currentActiveKnownPaths,
                                 fromPathHashes,
                             );
+
                             if (largeUnitAttackCells?.length) {
                                 addPos = true;
                                 possibleAttackCellHashesToLargeCells.set(posHash, largeUnitAttackCells);
