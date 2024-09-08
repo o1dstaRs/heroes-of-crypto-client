@@ -27,6 +27,8 @@ import {
     SpellHelper,
     SpellPowerType,
     HoCMath,
+    IWeightedRoute,
+    PathHelper,
     TeamType,
     IAuraOnMap,
     UnitProperties,
@@ -47,7 +49,6 @@ import { AttackHandler, IAttackObstacle } from "../handlers/attack_handler";
 import { MoveHandler } from "../handlers/move_handler";
 import { Button } from "../menu/button";
 import { ObstacleGenerator } from "../obstacles/obstacle_generator";
-import { IWeightedRoute, PathHelper } from "../path/path_helper";
 import { PlacementType, SquarePlacement } from "../placement/square_placement";
 import { Settings } from "../settings";
 import { RenderableSpell } from "../spells/renderable_spell";
@@ -267,7 +268,10 @@ class Sandbox extends GLScene {
         this.unitsHolder = new UnitsHolder(this.sc_world, this.sc_sceneSettings.getGridSettings(), this.unitsFactory);
 
         this.ground = this.sc_world.CreateBody();
-        this.grid = new Grid(GRID_SIZE, FightStateManager.getInstance().getFightProperties().getGridType());
+        this.grid = new Grid(
+            this.sc_sceneSettings.getGridSettings(),
+            FightStateManager.getInstance().getFightProperties().getGridType(),
+        );
         this.refreshVisibleStateIfNeeded();
         this.gridMatrix = this.grid.getMatrix();
         this.obstacleGenerator = new ObstacleGenerator(this.sc_world, textures);
@@ -666,7 +670,7 @@ class Sandbox extends GLScene {
                 if (log) {
                     logs.push(log);
                 }
-                this.grid.occupyByHole(this.sc_sceneSettings.getGridSettings(), cell);
+                this.grid.occupyByHole(cell);
             }
             for (let i = minCellX + prevLap; i < maxCellX - prevLap; i++) {
                 const cellX = i + maxCellX;
@@ -679,7 +683,7 @@ class Sandbox extends GLScene {
                 if (log) {
                     logs.push(log);
                 }
-                this.grid.occupyByHole(this.sc_sceneSettings.getGridSettings(), { x: cellX, y: cellY });
+                this.grid.occupyByHole({ x: cellX, y: cellY });
             }
             for (let i = minCellY + prevLap; i < maxCellY - prevLap; i++) {
                 const cellX = prevLap;
@@ -692,7 +696,7 @@ class Sandbox extends GLScene {
                 if (log) {
                     logs.push(log);
                 }
-                this.grid.occupyByHole(this.sc_sceneSettings.getGridSettings(), { x: cellX, y: cellY });
+                this.grid.occupyByHole({ x: cellX, y: cellY });
             }
             for (let i = minCellY + prevLap; i < maxCellY - prevLap; i++) {
                 const cellX = (maxCellX << 1) - laps;
@@ -705,7 +709,7 @@ class Sandbox extends GLScene {
                 if (log) {
                     logs.push(log);
                 }
-                this.grid.occupyByHole(this.sc_sceneSettings.getGridSettings(), { x: cellX, y: cellY });
+                this.grid.occupyByHole({ x: cellX, y: cellY });
             }
             laps--;
         }
@@ -1608,7 +1612,7 @@ class Sandbox extends GLScene {
                         this.hoverSelectedCells = this.pathHelper.getClosestSquareCellIndices(
                             this.sc_mouseWorld,
                             this.allowedPlacementCellHashes,
-                            Array.from(this.cellToUnitPreRound.keys()),
+                            this.cellToUnitPreRound ? Array.from(this.cellToUnitPreRound.keys()) : undefined,
                             GridMath.getCellsAroundPosition(
                                 this.sc_sceneSettings.getGridSettings(),
                                 this.currentActiveUnit.getPosition(),
@@ -3364,8 +3368,7 @@ class Sandbox extends GLScene {
                                                 ? unitsUpper
                                                 : unitsLower;
                                         if (this.currentActivePath && this.currentActiveKnownPaths) {
-                                            this.canAttackByMeleeTargets = this.pathHelper.attackMeleeAllowed(
-                                                this.currentActiveUnit,
+                                            this.canAttackByMeleeTargets = this.currentActiveUnit.attackMeleeAllowed(
                                                 this.currentActivePath,
                                                 this.currentActiveKnownPaths,
                                                 enemyTeam,

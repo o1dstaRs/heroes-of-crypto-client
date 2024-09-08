@@ -19,6 +19,7 @@ import {
     Grid,
     SpellHelper,
     SpellPowerType,
+    IWeightedRoute,
     Spell,
     HoCConstants,
     AbilityHelper,
@@ -33,7 +34,6 @@ import { processOneInTheFieldAbility } from "../abilities/one_in_the_field_abili
 import { processStunAbility } from "../abilities/stun_ability";
 import { Drawer } from "../draw/drawer";
 import { SceneLog } from "../menu/scene_log";
-import { IWeightedRoute } from "../path/path_helper";
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
@@ -275,7 +275,7 @@ export class AttackHandler {
         );
     }
 
-    public canBeAttackedByMelee(unitPosition: XY, isSmallUnit: boolean, aggrMatrix?: number[][]): boolean {
+    public canBeAttackedByMelee(unitPosition: XY, isSmallUnit: boolean, enemyAggrMatrix?: number[][]): boolean {
         let cells: XY[];
         if (isSmallUnit) {
             const cell = GridMath.getCellForPosition(this.gridSettings, unitPosition);
@@ -289,7 +289,7 @@ export class AttackHandler {
         }
 
         for (const cell of cells) {
-            if (aggrMatrix && aggrMatrix[cell.x][cell.y] > 1) {
+            if (enemyAggrMatrix && enemyAggrMatrix[cell.x][cell.y] > 1) {
                 return true;
             }
         }

@@ -2466,16 +2466,17 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                         if (this.isSmallSize()) {
                             addPos = true;
                         } else {
-                            const getLargeUnitAttackCells = this.getLargeUnitAttackCells(
+                            const largeUnitAttackCells = GridMath.getLargeUnitAttackCells(
+                                this.gridSettings,
                                 possiblePos,
                                 { x: maxX, y: maxY },
                                 bodyCellPos,
                                 currentActiveKnownPaths,
                                 fromPathHashes,
                             );
-                            if (getLargeUnitAttackCells?.length) {
+                            if (largeUnitAttackCells?.length) {
                                 addPos = true;
-                                possibleAttackCellHashesToLargeCells.set(posHash, getLargeUnitAttackCells);
+                                possibleAttackCellHashesToLargeCells.set(posHash, largeUnitAttackCells);
                             }
                         }
 

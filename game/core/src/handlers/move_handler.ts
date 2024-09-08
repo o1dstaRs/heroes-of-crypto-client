@@ -10,10 +10,17 @@
  */
 
 import { b2Body, XY } from "@box2d/core";
-import { Grid, GridSettings, GridMath, GridConstants, TeamType, HoCConstants } from "@heroesofcrypto/common";
+import {
+    Grid,
+    GridSettings,
+    IWeightedRoute,
+    GridMath,
+    GridConstants,
+    TeamType,
+    HoCConstants,
+} from "@heroesofcrypto/common";
 
 import { Drawer } from "../draw/drawer";
-import { IWeightedRoute } from "../path/path_helper";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 
