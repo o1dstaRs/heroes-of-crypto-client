@@ -54,6 +54,7 @@ import { processRapidChargeAbility } from "../abilities/rapid_charge_ability";
 import { processPenetratingBiteAbility } from "../abilities/penetrating_bite_ability";
 import { processPegasusLightAbility } from "../abilities/pegasus_light_ability";
 import { processParalysisAbility } from "../abilities/paralysis_ability";
+import { processDeepWoundsAbility } from "../abilities/deep_wounds_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -887,6 +888,16 @@ export class AttackHandler {
             }
         }
 
+        const deepWoundsTargetEffect = targetUnit.getEffect("Deep Wounds");
+        if (
+            deepWoundsTargetEffect &&
+            (attackerUnit.hasAbilityActive("Deep Wounds Level 1") ||
+                attackerUnit.hasAbilityActive("Deep Wounds Level 2") ||
+                attackerUnit.hasAbilityActive("Deep Wounds Level 3"))
+        ) {
+            abilityMultiplier *= 1 + deepWoundsTargetEffect.getPower() / 100;
+        }
+
         const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(targetUnit);
         const damageFromAttack =
             processLuckyStrikeAbility(
@@ -996,6 +1007,16 @@ export class AttackHandler {
                     abilityMultiplier *= (100 - paralysisTargetUnitEffect.getPower()) / 100;
                 }
 
+                const deepWoundsAttackerEffect = attackerUnit.getEffect("Deep Wounds");
+                if (
+                    deepWoundsAttackerEffect &&
+                    (targetUnit.hasAbilityActive("Deep Wounds Level 1") ||
+                        targetUnit.hasAbilityActive("Deep Wounds Level 2") ||
+                        targetUnit.hasAbilityActive("Deep Wounds Level 3"))
+                ) {
+                    abilityMultiplier *= 1 + deepWoundsAttackerEffect.getPower() / 100;
+                }
+
                 const damageFromResponse =
                     processLuckyStrikeAbility(
                         targetUnit,
@@ -1036,6 +1057,7 @@ export class AttackHandler {
                     this.sceneLog,
                 );
                 processBoarSalivaAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
+                processDeepWoundsAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                 processPegasusLightAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                 processParalysisAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                 processBlindnessAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
@@ -1048,6 +1070,7 @@ export class AttackHandler {
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
             processBoarSalivaAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processDeepWoundsAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processPegasusLightAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processParalysisAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processShatterArmorAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
@@ -1104,6 +1127,7 @@ export class AttackHandler {
                 this.sceneLog,
             );
             processBoarSalivaAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processDeepWoundsAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processPegasusLightAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processParalysisAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processShatterArmorAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);

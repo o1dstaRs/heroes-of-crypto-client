@@ -1289,6 +1289,16 @@ class Sandbox extends GLScene {
                                 abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
                             }
 
+                            const deepWoundsEffect = hoverAttackUnit.getEffect("Deep Wounds");
+                            if (
+                                deepWoundsEffect &&
+                                (this.currentActiveUnit.hasAbilityActive("Deep Wounds Level 1") ||
+                                    this.currentActiveUnit.hasAbilityActive("Deep Wounds Level 2") ||
+                                    this.currentActiveUnit.hasAbilityActive("Deep Wounds Level 3"))
+                            ) {
+                                abilityMultiplier *= 1 + deepWoundsEffect.getPower() / 100;
+                            }
+
                             const minDmg =
                                 this.currentActiveUnit.calculateAttackDamageMin(
                                     hoverAttackUnit,

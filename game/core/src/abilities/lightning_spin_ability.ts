@@ -28,6 +28,7 @@ import { processRapidChargeAbility } from "./rapid_charge_ability";
 import { processPenetratingBiteAbility } from "./penetrating_bite_ability";
 import { processPegasusLightAbility } from "./pegasus_light_ability";
 import { processParalysisAbility } from "./paralysis_ability";
+import { processDeepWoundsAbility } from "./deep_wounds_ability";
 
 export function processLightningSpinAbility(
     fromUnit: Unit,
@@ -78,6 +79,17 @@ export function processLightningSpinAbility(
             if (paralysisAttackerEffect) {
                 abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
             }
+
+            const deepWoundsEffect = enemy.getEffect("Deep Wounds");
+            if (
+                deepWoundsEffect &&
+                (fromUnit.hasAbilityActive("Deep Wounds Level 1") ||
+                    fromUnit.hasAbilityActive("Deep Wounds Level 2") ||
+                    fromUnit.hasAbilityActive("Deep Wounds Level 3"))
+            ) {
+                abilityMultiplier *= 1 + deepWoundsEffect.getPower() / 100;
+            }
+
             const damageFromAttack =
                 processLuckyStrikeAbility(
                     fromUnit,
@@ -108,6 +120,7 @@ export function processLightningSpinAbility(
             processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
             processPetrifyingGazeAbility(fromUnit, enemy, damageFromAttack, sceneStepCount, sceneLog);
             processBoarSalivaAbility(fromUnit, enemy, fromUnit, sceneLog);
+            processDeepWoundsAbility(fromUnit, enemy, fromUnit, sceneLog);
             processPegasusLightAbility(fromUnit, enemy, fromUnit, sceneLog);
             processParalysisAbility(fromUnit, enemy, fromUnit, sceneLog);
             // works only on response

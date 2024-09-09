@@ -1,0 +1,63 @@
+/*
+ * -----------------------------------------------------------------------------
+ * This file is part of the browser implementation of the Heroes of Crypto game client.
+ *
+ * Heroes of Crypto and Heroes of Crypto AI are registered trademarks.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ * -----------------------------------------------------------------------------
+ */
+
+import { SceneLog } from "../menu/scene_log";
+import { Unit } from "../units/units";
+import { getLapString } from "../utils/strings";
+
+export function processDeepWoundsAbility(
+    fromUnit: Unit,
+    targetUnit: Unit,
+    currentActiveUnit: Unit,
+    sceneLog: SceneLog,
+): void {
+    if (targetUnit.isDead()) {
+        return;
+    }
+
+    const deepWoundsLevel1Ability = fromUnit.getAbility("Deep Wounds Level 1");
+    const deepWoundsLevel2Ability = fromUnit.getAbility("Deep Wounds Level 2");
+    const deepWoundsLevel3Ability = fromUnit.getAbility("Deep Wounds Level 3");
+    let powerSum = 0;
+    let deepWoundsEffect =
+        deepWoundsLevel1Ability?.getEffect() ??
+        deepWoundsLevel2Ability?.getEffect() ??
+        deepWoundsLevel3Ability?.getEffect() ??
+        null;
+    if (deepWoundsLevel1Ability && deepWoundsLevel1Ability.getEffect()) {
+        powerSum += fromUnit.calculateAbilityCount(deepWoundsLevel1Ability);
+    }
+    if (deepWoundsLevel2Ability && deepWoundsLevel2Ability.getEffect()) {
+        powerSum += fromUnit.calculateAbilityCount(deepWoundsLevel2Ability);
+    }
+    if (deepWoundsLevel3Ability && deepWoundsLevel3Ability.getEffect()) {
+        powerSum += fromUnit.calculateAbilityCount(deepWoundsLevel3Ability);
+    }
+
+    if (powerSum && deepWoundsEffect) {
+        const activeDeepWoundsEffect = targetUnit.getEffect("Deep Wounds");
+
+        // need to overwrite actual effect power here
+        deepWoundsEffect.setPower(Number(((activeDeepWoundsEffect?.getPower() ?? 0) + powerSum).toFixed(1)));
+
+        const laps = deepWoundsEffect.getLaps();
+
+        if (targetUnit.getId() === currentActiveUnit.getId()) {
+            deepWoundsEffect.extend();
+        }
+
+        if (targetUnit.applyEffect(deepWoundsEffect)) {
+            sceneLog.updateLog(
+                `${fromUnit.getName()} applied Deep Wounds on ${targetUnit.getName()} for ${getLapString(laps)}`,
+            );
+        }
+    }
+}
