@@ -1403,7 +1403,13 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public calculateAbilityCount(ability: Ability): number {
-        if (ability.getPowerType() !== AbilityPowerType.ADDITIONAL_STEPS && ability.getName() !== "Shatter Armor") {
+        if (
+            ability.getPowerType() !== AbilityPowerType.ADDITIONAL_STEPS &&
+            ability.getName() !== "Shatter Armor" &&
+            ability.getName() !== "Deep Wounds Level 1" &&
+            ability.getName() !== "Deep Wounds Level 2" &&
+            ability.getName() !== "Deep Wounds Level 3"
+        ) {
             return 0;
         }
 
@@ -1917,6 +1923,9 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (quagmireDebuff) {
             stepsMultiplier = (100 - quagmireDebuff.getPower()) / 100;
         }
+        if (hasUnyieldingPower && !this.adjustedBaseStatsLaps.includes(currentLap)) {
+            this.unitProperties.steps += 1;
+        }
         this.unitProperties.steps = Number((this.unitProperties.steps * stepsMultiplier).toFixed(2));
 
         // ATTACK
@@ -2336,6 +2345,42 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.refreshAbiltyDescription(
                 paralysisAbility.getName(),
                 paralysisAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Deep Wounds Level 1
+        const deepWoundsLevel1Ability = this.getAbility("Deep Wounds Level 1");
+        if (deepWoundsLevel1Ability) {
+            this.refreshAbiltyDescription(
+                deepWoundsLevel1Ability.getName(),
+                deepWoundsLevel1Ability
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateAbilityCount(deepWoundsLevel1Ability).toString()),
+            );
+        }
+
+        // Deep Wounds Level 2
+        const deepWoundsLevel2Ability = this.getAbility("Deep Wounds Level 2");
+        if (deepWoundsLevel2Ability) {
+            this.refreshAbiltyDescription(
+                deepWoundsLevel2Ability.getName(),
+                deepWoundsLevel2Ability
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateAbilityCount(deepWoundsLevel2Ability).toString()),
+            );
+        }
+
+        // Deep Wounds Level 3
+        const deepWoundsLevel3Ability = this.getAbility("Deep Wounds Level 3");
+        if (deepWoundsLevel3Ability) {
+            this.refreshAbiltyDescription(
+                deepWoundsLevel3Ability.getName(),
+                deepWoundsLevel3Ability
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateAbilityCount(deepWoundsLevel3Ability).toString()),
             );
         }
     }

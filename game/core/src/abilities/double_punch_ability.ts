@@ -50,6 +50,17 @@ export function processDoublePunchAbility(
         if (paralysisAttackerEffect) {
             abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
         }
+
+        const deepWoundsEffect = toUnit.getEffect("Deep Wounds");
+        if (
+            deepWoundsEffect &&
+            (fromUnit.hasAbilityActive("Deep Wounds Level 1") ||
+                fromUnit.hasAbilityActive("Deep Wounds Level 2") ||
+                fromUnit.hasAbilityActive("Deep Wounds Level 3"))
+        ) {
+            abilityMultiplier *= 1 + deepWoundsEffect.getPower() / 100;
+        }
+
         damageFromAttack =
             processLuckyStrikeAbility(
                 fromUnit,

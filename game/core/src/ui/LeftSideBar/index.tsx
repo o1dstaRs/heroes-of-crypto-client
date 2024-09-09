@@ -245,6 +245,12 @@ const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
 
 export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
     const [badgeVisible, setBadgeVisible] = useState(false);
+    const [buttonsVisible] = useState({
+        prediction: false,
+        terrain: false,
+        factory: false,
+        dashboard: false,
+    });
     const theme = useTheme();
 
     useEffect(() => {
@@ -316,61 +322,69 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
                     }}
                 >
                     <Box display="flex" width="100%">
-                        <ListItem sx={{ flexGrow: 1, flexBasis: 0, position: "relative" }}>
-                            <ListItemButton disabled>
-                                <DiceIcon />
-                            </ListItemButton>
-                            {badgeVisible && (
-                                <Box
-                                    sx={{
-                                        position: "absolute",
-                                        top: -17,
-                                        right: -32,
-                                        backgroundColor: "#FFD700",
-                                        color: "#000000",
-                                        borderRadius: "10px",
-                                        padding: "4px 8px",
-                                        fontSize: "0.7rem",
-                                        boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                                        zIndex: 3,
-                                        "&::after": {
-                                            content: '""',
+                        {buttonsVisible.prediction && (
+                            <ListItem sx={{ flexGrow: 1, flexBasis: 0, position: "relative" }}>
+                                <ListItemButton disabled>
+                                    <DiceIcon />
+                                </ListItemButton>
+                                {badgeVisible && (
+                                    <Box
+                                        sx={{
                                             position: "absolute",
-                                            bottom: -5,
-                                            left: 8,
-                                            width: 0,
-                                            height: 0,
-                                            borderLeft: "4px solid transparent",
-                                            borderRight: "4px solid transparent",
-                                            borderTop: "5px solid #FFD700",
-                                        },
-                                    }}
-                                >
-                                    Prediction
-                                </Box>
-                            )}
-                        </ListItem>
+                                            top: -17,
+                                            right: -32,
+                                            backgroundColor: "#FFD700",
+                                            color: "#000000",
+                                            borderRadius: "10px",
+                                            padding: "4px 8px",
+                                            fontSize: "0.7rem",
+                                            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                                            zIndex: 3,
+                                            "&::after": {
+                                                content: '""',
+                                                position: "absolute",
+                                                bottom: -5,
+                                                left: 8,
+                                                width: 0,
+                                                height: 0,
+                                                borderLeft: "4px solid transparent",
+                                                borderRight: "4px solid transparent",
+                                                borderTop: "5px solid #FFD700",
+                                            },
+                                        }}
+                                    >
+                                        Prediction
+                                    </Box>
+                                )}
+                            </ListItem>
+                        )}
 
-                        <ListItem sx={{ flexGrow: 1, flexBasis: 0 }}>
-                            <ListItemButton>
-                                <TerrainRoundedIcon />
-                            </ListItemButton>
-                        </ListItem>
+                        {buttonsVisible.terrain && (
+                            <ListItem sx={{ flexGrow: 1, flexBasis: 0 }}>
+                                <ListItemButton>
+                                    <TerrainRoundedIcon />
+                                </ListItemButton>
+                            </ListItem>
+                        )}
 
-                        <ListItem sx={{ flexGrow: 1, flexBasis: 0 }}>
-                            <ListItemButton>
-                                <FactoryRoundedIcon />
-                            </ListItemButton>
-                        </ListItem>
+                        {buttonsVisible.factory && (
+                            <ListItem sx={{ flexGrow: 1, flexBasis: 0 }}>
+                                <ListItemButton>
+                                    <FactoryRoundedIcon />
+                                </ListItemButton>
+                            </ListItem>
+                        )}
 
-                        <ListItem sx={{ flexGrow: 1, flexBasis: 0 }}>
-                            <ListItemButton selected>
-                                <DashboardRoundedIcon />
-                                <Box sx={{ marginLeft: 2 }}>
-                                    <Typography level="title-sm">Fight</Typography>
-                                </Box>
-                            </ListItemButton>
-                        </ListItem>
+                        {buttonsVisible.dashboard && (
+                            <ListItem sx={{ flexGrow: 1, flexBasis: 0 }}>
+                                <ListItemButton selected>
+                                    <DashboardRoundedIcon />
+                                    <Box sx={{ marginLeft: 2 }}>
+                                        <Typography level="title-sm">Fight</Typography>
+                                    </Box>
+                                </ListItemButton>
+                            </ListItem>
+                        )}
                     </Box>
 
                     <Divider />
