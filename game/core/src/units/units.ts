@@ -1910,6 +1910,9 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         // STEPS
         const skyRunnerAbility = this.getAbility("Sky Runner");
+        if (hasUnyieldingPower && !this.adjustedBaseStatsLaps.includes(currentLap)) {
+            this.initialUnitProperties.steps += 1;
+        }
         this.unitProperties.steps = this.initialUnitProperties.steps;
         if (skyRunnerAbility) {
             this.unitProperties.steps += this.calculateAbilityCount(skyRunnerAbility);
@@ -1922,9 +1925,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         let stepsMultiplier = 1;
         if (quagmireDebuff) {
             stepsMultiplier = (100 - quagmireDebuff.getPower()) / 100;
-        }
-        if (hasUnyieldingPower && !this.adjustedBaseStatsLaps.includes(currentLap)) {
-            this.unitProperties.steps += 1;
         }
         this.unitProperties.steps = Number((this.unitProperties.steps * stepsMultiplier).toFixed(2));
 
