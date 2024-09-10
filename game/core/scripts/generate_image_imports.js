@@ -13,7 +13,8 @@ const fs = require("fs");
 const path = require("path");
 
 const imageDir = path.resolve(__dirname, "../images");
-const outputFile = path.resolve(__dirname, "../src/generated/image_imports.ts");
+const generatedDir = path.resolve(__dirname, "../src/generated");
+const outputFile = path.join(generatedDir, "image_imports.ts");
 
 const SEGMENT_NAME_TO_IMPORT_NAME = {
     0: "zero",
@@ -27,6 +28,10 @@ const SEGMENT_NAME_TO_IMPORT_NAME = {
     8: "eight",
     9: "nine",
 };
+
+if (!fs.existsSync(generatedDir)) {
+    fs.mkdirSync(generatedDir, { recursive: true });
+}
 
 fs.readdir(imageDir, (err, files) => {
     if (err) {
@@ -43,7 +48,9 @@ fs.readdir(imageDir, (err, files) => {
             const fileNameSegments = file.split("_");
             if (fileNameSegments.length) {
                 const firstSegment = fileNameSegments[0];
-                const importNameBase = `${SEGMENT_NAME_TO_IMPORT_NAME[firstSegment] || firstSegment}_${fileNameSegments.slice(1, fileNameSegments.length).join("_")}`;
+                const importNameBase = `${SEGMENT_NAME_TO_IMPORT_NAME[firstSegment] || firstSegment}_${fileNameSegments
+                    .slice(1, fileNameSegments.length)
+                    .join("_")}`;
                 let cutBy = 5;
                 if (importNameBase.endsWith("_")) {
                     cutBy = 6;
