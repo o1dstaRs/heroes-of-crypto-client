@@ -306,6 +306,11 @@ export class AttackHandler {
         attackerUnit?: Unit,
         targetUnit?: Unit,
     ): boolean {
+        console.log("HANDLE MAGIC ATTACK");
+        console.log(currentActiveSpell);
+        console.log(attackerUnit);
+        console.log(targetUnit);
+
         if (!currentActiveSpell || !attackerUnit) {
             return false;
         }
@@ -319,6 +324,7 @@ export class AttackHandler {
                 targetUnit.getBuffs(),
                 currentActiveSpell,
                 attackerUnit.getSpells(),
+                targetUnit.getSpells(),
                 undefined,
                 attackerUnit.getId(),
                 targetUnit.getId(),
@@ -326,6 +332,7 @@ export class AttackHandler {
                 targetUnit.getTeam(),
                 attackerUnit.getName(),
                 targetUnit.getName(),
+                targetUnit.getLevel(),
                 targetUnit.getHp(),
                 targetUnit.getMaxHp(),
                 attackerUnit.getStackPower(),
@@ -335,13 +342,21 @@ export class AttackHandler {
             let applied = true;
             let mirroredStr = "";
             const laps = currentActiveSpell.getLapsTotal();
-            let clarifyingStr = getLapString(laps);
+            let clarifyingStr = `for ${getLapString(laps)}`;
             if (currentActiveSpell.isBuff()) {
                 if (currentActiveSpell.getPowerType() === SpellPowerType.HEAL) {
-                    const healPower = targetUnit.applyHeal(
-                        Math.floor(currentActiveSpell.getPower() * attackerUnit.getAmountAlive()),
-                    );
-                    clarifyingStr = `for ${healPower} hp`;
+                    if (currentActiveSpell.isGiftable()) {
+                        const deletedAbility = attackerUnit.deleteAbility(currentActiveSpell.getName());
+                        if (!targetUnit.hasAbilityActive(currentActiveSpell.getName()) && deletedAbility) {
+                            targetUnit.addAbility(deletedAbility);
+                        }
+                        clarifyingStr = `=> gifted`;
+                    } else {
+                        const healPower = targetUnit.applyHeal(
+                            Math.floor(currentActiveSpell.getPower() * attackerUnit.getAmountAlive()),
+                        );
+                        clarifyingStr = `for ${healPower} hp`;
+                    }
                 } else {
                     targetUnit.applyBuff(
                         currentActiveSpell,
@@ -403,9 +418,9 @@ export class AttackHandler {
             attackerUnit.useSpell(currentActiveSpell.getName());
             let newText = `${attackerUnit.getName()} cast ${currentActiveSpell.getName()}`;
             if (attackerUnit.getId() === targetUnit.getId()) {
-                newText += ` on themselves for ${clarifyingStr}`;
+                newText += ` on themselves ${clarifyingStr}`;
             } else {
-                newText += ` on ${targetUnit.getName()} for ${clarifyingStr}`;
+                newText += ` on ${targetUnit.getName()} ${clarifyingStr}`;
             }
             this.sceneLog.updateLog(newText);
             if (!applied) {
@@ -509,7 +524,7 @@ export class AttackHandler {
         let damageFromAttack = 0;
 
         const fightProperties = FightStateManager.getInstance().getFightProperties();
-        const rangeResponseUnit = rangeResponseUnits?.length ? rangeResponseUnits[0] : undefined;
+        let rangeResponseUnit = rangeResponseUnits?.length ? rangeResponseUnits[0] : undefined;
 
         // response starts here
         let damageFromResponse = 0;
@@ -518,7 +533,7 @@ export class AttackHandler {
             rangeResponseUnit &&
             !attackerUnit.canSkipResponse() &&
             !fightProperties.hasAlreadyRepliedAttack(targetUnit.getId()) &&
-            targetUnit.canRespond() &&
+            targetUnit.canRespond(AttackType.RANGE) &&
             this.canLandRangeAttack(targetUnit, grid.getEnemyAggrMatrixByUnitId(targetUnit.getId())) &&
             !(
                 targetUnit.hasDebuffActive("Cowardice") &&
@@ -527,6 +542,8 @@ export class AttackHandler {
         ) {
             isResponseMissed = HoCLib.getRandomInt(0, 100) < targetUnit.calculateMissChance(rangeResponseUnit);
             drawer.startBulletAnimation(targetUnit.getPosition(), attackerUnit.getPosition(), rangeResponseUnit);
+        } else {
+            rangeResponseUnit = undefined;
         }
 
         // handle attack damage
@@ -953,7 +970,7 @@ export class AttackHandler {
         // capture response
         if (
             !fightProperties.hasAlreadyRepliedAttack(targetUnit.getId()) &&
-            targetUnit.canRespond() &&
+            targetUnit.canRespond(AttackType.MELEE) &&
             !attackerUnit.canSkipResponse() &&
             !targetUnit.hasAbilityActive("No Melee") &&
             !(targetUnit.hasDebuffActive("Cowardice") && targetUnit.getCumulativeHp() < attackerUnit.getCumulativeHp())

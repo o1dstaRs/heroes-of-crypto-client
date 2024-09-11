@@ -940,7 +940,7 @@ class Sandbox extends GLScene {
     }
 
     private updateHoverInfoWithButtonAction(mouseCell: XY): void {
-        if (this.spellBookButton.isHover(mouseCell)) {
+        if (this.spellBookButton.isHover(mouseCell) && this.currentActiveUnit?.getSpellsCount()) {
             this.sc_hoverInfoArr = ["Select spell"];
             this.sc_hoverTextUpdateNeeded = true;
             return;
@@ -1117,15 +1117,17 @@ class Sandbox extends GLScene {
                     this.currentActiveUnit &&
                     (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MAGIC || this.currentActiveSpell)
                 ) {
-                    if (
-                        this.currentActiveUnit.getAttackTypeSelection() !== AttackType.MAGIC &&
-                        this.currentActiveSpell
-                    ) {
-                        this.selectAttack(AttackType.MAGIC, currentUnitCell, true);
-                        this.currentActiveUnitSwitchedAttackAuto = true;
-                        this.switchToSelectedAttackType = undefined;
-                        console.log("Switch to MAGIC");
-                    }
+                    // if (
+                    //     this.currentActiveUnit.getAttackTypeSelection() !== AttackType.MAGIC &&
+                    //     this.currentActiveSpell
+                    // ) {
+                    //     this.selectAttack(AttackType.MAGIC, currentUnitCell, true);
+                    //     this.currentActiveUnitSwitchedAttackAuto = true;
+                    //     this.switchToSelectedAttackType = undefined;
+                    //     console.log("Switch to MAGIC");
+                    //     console.log("this.currentActiveSpell");
+                    //     console.log(this.currentActiveSpell);
+                    // }
 
                     if (
                         this.currentActiveSpell &&
@@ -1136,6 +1138,7 @@ class Sandbox extends GLScene {
                             this.hoverUnit?.getBuffs(),
                             this.currentActiveSpell,
                             this.currentActiveUnit.getSpells(),
+                            this.hoverUnit?.getSpells(),
                             undefined,
                             this.currentActiveUnit.getId(),
                             this.hoverUnit?.getId(),
@@ -1143,6 +1146,7 @@ class Sandbox extends GLScene {
                             this.hoverUnit?.getTeam(),
                             this.currentActiveUnit.getName(),
                             this.hoverUnit?.getName(),
+                            this.hoverUnit?.getLevel(),
                             this.hoverUnit?.getHp(),
                             this.hoverUnit?.getMaxHp(),
                             this.currentActiveUnit.getStackPower(),
@@ -1170,6 +1174,7 @@ class Sandbox extends GLScene {
                 this.hoverSelectedCells = undefined;
 
                 if (
+                    !this.currentActiveSpell &&
                     !this.currentActiveUnitSwitchedAttackAuto &&
                     currentUnitCell &&
                     this.currentActiveUnit.getAttackType() === AttackType.RANGE &&
@@ -1603,11 +1608,13 @@ class Sandbox extends GLScene {
                             this.currentActiveSpell,
                             this.currentActiveUnit.getSpells(),
                             undefined,
+                            undefined,
                             this.currentActiveUnit.getId(),
                             undefined,
                             this.currentActiveUnit.getTeam(),
                             undefined,
                             this.currentActiveUnit.getName(),
+                            undefined,
                             undefined,
                             undefined,
                             undefined,
@@ -1659,11 +1666,13 @@ class Sandbox extends GLScene {
                         this.currentActiveSpell,
                         this.currentActiveUnit.getSpells(),
                         undefined,
+                        undefined,
                         this.currentActiveUnit.getId(),
                         undefined,
                         this.currentActiveUnit.getTeam(),
                         undefined,
                         this.currentActiveUnit.getName(),
+                        undefined,
                         undefined,
                         undefined,
                         undefined,
@@ -2126,6 +2135,7 @@ class Sandbox extends GLScene {
 
         // cleanup magic attack state
         this.hoveredSpell = undefined;
+        console.log("RESET SPELL 2");
         this.currentActiveSpell = undefined;
 
         // handle units state
@@ -2292,6 +2302,7 @@ class Sandbox extends GLScene {
                     this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE ||
                     this.currentActiveUnit.getAttackTypeSelection() === AttackType.MAGIC
                 ) {
+                    console.log("SELECT 1 or 2");
                     this.selectAttack(
                         this.currentActiveUnit.getAttackType() === AttackType.RANGE
                             ? AttackType.RANGE
@@ -2301,12 +2312,15 @@ class Sandbox extends GLScene {
                     );
                     this.sc_unitPropertiesUpdateNeeded = true;
                 } else {
+                    console.log("SELECT 0");
                     this.selectAttack(AttackType.MELEE, currentUnitCell, true);
                     this.sc_unitPropertiesUpdateNeeded = true;
                 }
                 this.currentActiveUnitSwitchedAttackAuto = true;
             }
         } else if (this.hoveredSpell) {
+            console.log("this.hoveredSpell");
+            console.log(this.hoveredSpell);
             if (
                 this.hoveredSpell.getSpellTargetType() === SpellTargetType.RANDOM_CLOSE_TO_CASTER ||
                 this.hoveredSpell.getSpellTargetType() === SpellTargetType.ALL_ALLIES ||
@@ -2462,11 +2476,25 @@ class Sandbox extends GLScene {
                         this.unitsHolder.refreshStackPowerForAllUnits();
                         this.finishTurn();
                     } else {
+                        console.log("RESET SPELL 3");
                         this.currentActiveSpell = undefined;
                     }
                 }
             } else {
+                console.log("SET SPELL");
                 this.currentActiveSpell = this.hoveredSpell;
+                if (
+                    this.currentActiveUnit &&
+                    this.currentActiveUnit.getAttackTypeSelection() !== AttackType.MAGIC &&
+                    this.currentActiveSpell
+                ) {
+                    this.selectAttack(AttackType.MAGIC, this.currentActiveUnit.getBaseCell(), true);
+                    this.currentActiveUnitSwitchedAttackAuto = true;
+                    this.switchToSelectedAttackType = undefined;
+                    console.log("Switch to MAGIC");
+                    console.log("this.currentActiveSpell");
+                    console.log(this.currentActiveSpell);
+                }
             }
             this.adjustSpellBookSprite();
             this.sc_renderSpellBookOverlay = false;
@@ -2630,6 +2658,7 @@ class Sandbox extends GLScene {
     }
 
     private selectAttack(selectedAttackType: AttackType, currentUnitCell?: XY, force = false): boolean {
+        // console.log(`SELECT ATTACK ${selectedAttackType}`);
         if (!this.currentActiveUnit || !currentUnitCell) {
             return false;
         }
@@ -2656,6 +2685,7 @@ class Sandbox extends GLScene {
                         new Sprite(this.gl, this.shader, this.textures.range_white_128.texture),
                         new Sprite(this.gl, this.shader, this.textures.range_black_128.texture),
                     );
+                    console.log("RESET SPELL 4");
                     this.currentActiveSpell = undefined;
                     this.adjustSpellBookSprite();
                 }
@@ -2692,6 +2722,7 @@ class Sandbox extends GLScene {
                 if (force) {
                     this.currentActiveUnit.selectAttackType(this.switchToSelectedAttackType);
                     if (this.switchToSelectedAttackType !== AttackType.MAGIC) {
+                        console.log("RESET SPELL 1");
                         this.currentActiveSpell = undefined;
                         this.adjustSpellBookSprite();
                     }
@@ -3306,6 +3337,7 @@ class Sandbox extends GLScene {
                         const nextUnit = nextUnitId ? this.unitsHolder.getAllUnits().get(nextUnitId) : undefined;
 
                         if (nextUnit) {
+                            console.log(nextUnit.getAbilities());
                             const unitsNext: IVisibleUnit[] = [];
                             for (const unitIdNext of FightStateManager.getInstance()
                                 .getFightProperties()
@@ -3735,13 +3767,21 @@ class Sandbox extends GLScene {
                     : !!this.currentActiveUnit?.isSmallSize(),
             );
         }
-        if (this.sc_started && this.currentActiveUnit && this.currentActiveUnit.getAttackType() !== AttackType.MELEE) {
+        if (
+            this.sc_started &&
+            this.currentActiveUnit &&
+            this.currentActiveUnit.getAttackType() !== AttackType.MELEE
+            // && this.currentActiveUnit.getAttackType() !== AttackType.RANGE
+        ) {
             const currentUnitCell = GridMath.getCellForPosition(
                 this.sc_sceneSettings.getGridSettings(),
                 this.currentActiveUnit.getPosition(),
             );
 
             let toSelectAttackType = AttackType.MELEE;
+            // if (this.currentActiveSpell) {
+            //     toSelectAttackType = AttackType.MAGIC;
+            // } else
             if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE) {
                 if (this.currentActiveUnit.getAttackType() === AttackType.MAGIC) {
                     toSelectAttackType = AttackType.MAGIC;
@@ -3749,6 +3789,7 @@ class Sandbox extends GLScene {
                     toSelectAttackType = AttackType.RANGE;
                 }
             }
+
             if (
                 !this.sc_renderSpellBookOverlay &&
                 this.selectAttack(toSelectAttackType, currentUnitCell) &&
@@ -3756,12 +3797,13 @@ class Sandbox extends GLScene {
             ) {
                 this.selectedAttackTypeButton.render(settings.m_debugDraw, isLightMode, 0.8);
             }
-            if (this.currentActiveUnit.getCanCastSpells()) {
-                this.spellBookButton.render(settings.m_debugDraw, isLightMode);
-            }
         }
 
         if (this.sc_started) {
+            if (this.currentActiveUnit?.getCanCastSpells()) {
+                this.spellBookButton.render(settings.m_debugDraw, isLightMode);
+            }
+
             if (this.sc_renderSpellBookOverlay) {
                 this.spellBookOverlay.setRect(
                     this.sc_sceneSettings.getGridSettings().getMinX(),
