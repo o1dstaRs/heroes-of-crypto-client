@@ -3,6 +3,9 @@ import CalendarTodayRoundedIcon from "@mui/icons-material/CalendarTodayRounded";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import QueryStatsRoundedIcon from "@mui/icons-material/QueryStatsRounded";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
+import Radio from "@mui/joy/Radio";
+import RadioGroup from "@mui/joy/RadioGroup";
+import FormControl from "@mui/joy/FormControl";
 import Box from "@mui/joy/Box";
 import Button from "@mui/joy/Button";
 import Divider from "@mui/joy/Divider";
@@ -17,7 +20,7 @@ import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useRef, useState } from "react";
 import Slider from "@mui/joy/Slider";
-import { UnitProperties } from "@heroesofcrypto/common";
+import { UnitProperties, GridType, ToGridType } from "@heroesofcrypto/common";
 
 import { useManager } from "../../manager";
 import { IDamageStatistic } from "../../stats/damage_stats";
@@ -58,6 +61,48 @@ const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
         </Toggler>
     </ListItem>
 );
+
+const MapSettingsRadioButtons = () => {
+    // const [mapSetting, setMapSetting] = useState<GridType>("normal");
+    const [gridType, setGridType] = useState<GridType>(GridType.NORMAL);
+
+    const manager = useManager();
+
+    useEffect(() => {
+        const connection = manager.onGridTypeChanged.connect((newGridType: GridType) => {
+            setGridType(newGridType);
+            // setMapSetting(newGridType); // Set default map setting to gridType
+        });
+
+        return () => {
+            connection.disconnect();
+        };
+    }, [manager]);
+
+    const handleMapSettingChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const newGridType = ToGridType[event.target.value.toString()];
+        setGridType(newGridType);
+        manager.SetGridType(newGridType);
+    };
+
+    return (
+        <Box sx={{ padding: 1 }}>
+            <FormControl>
+                <RadioGroup
+                    aria-label="map-settings"
+                    name="map-settings"
+                    value={gridType}
+                    onChange={handleMapSettingChange}
+                >
+                    <Radio value={GridType.NORMAL} label="Normal" />
+                    <Radio value={GridType.BLOCK_CENTER} label="Mountain" />
+                    <Radio value={GridType.WATER_CENTER} label="Water" />
+                    <Radio value={GridType.LAVA_CENTER} label="Lava" />
+                </RadioGroup>
+            </FormControl>
+        </Box>
+    );
+};
 
 const CalendarInfo: React.FC<ICalendarInfoProps> = ({ day, week, daysUntilNextFight }) => (
     <>
@@ -134,7 +179,7 @@ const UnitSplitter: React.FC<IUnitSplitterProps> = ({ totalUnits, onSplit }) => 
                     aria-label="Unit Split Slider"
                 />
             </Stack>
-            <Stack direction="row" spacing={2} sx={{ marginTop: 2 }}>
+            <Stack direction="row" spacing={2} sx={{ marginTop: 2, marginBottom: 2 }}>
                 <Button variant="solid" color="primary" onClick={handleAcceptSplit} sx={{ flexGrow: 1 }}>
                     Split
                 </Button>
@@ -228,8 +273,9 @@ const FightControlToggler: React.FC = () => {
     });
 
     const handleSplit = (group1: number, group2: number) => {
-        console.log(`Group 1: ${group1}, Group 2: ${group2}`);
-        // Handle split logic with manager or other business logic
+        if (group1 > 0 && group2 > 0) {
+            manager.Split(group1);
+        }
     };
 
     return (
@@ -249,6 +295,21 @@ const FightControlToggler: React.FC = () => {
                 <List>
                     <UnitInputAndActions selectedUnitCount={unitProperties.amount_alive || 0} />
                     <UnitSplitter totalUnits={unitProperties.amount_alive || 0} onSplit={handleSplit} />
+                </List>
+            </Toggler>
+            <Toggler
+                renderToggle={({ open, setOpen }) => (
+                    <ListItemButton onClick={() => setOpen(!open)}>
+                        <TuneRoundedIcon />
+                        <ListItemContent>
+                            <Typography level="title-sm">Map settings</Typography>
+                        </ListItemContent>
+                        <KeyboardArrowDownIcon sx={{ transform: open ? "rotate(180deg)" : "none" }} />
+                    </ListItemButton>
+                )}
+            >
+                <List>
+                    <MapSettingsRadioButtons />
                 </List>
             </Toggler>
         </ListItem>
