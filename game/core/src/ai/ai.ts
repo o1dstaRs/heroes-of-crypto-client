@@ -94,11 +94,16 @@ export function findTarget(
     matrix: number[][], // matrix for big unit has 4 cells filled
     pathHelper: PathHelper,
 ): BasicAIAction | undefined {
-    console.group("Start AI check");
-    console.time("AI step");
-    const action = doFindTarget(unit, grid, matrix, pathHelper);
-    console.timeEnd("AI step");
-    console.groupEnd();
+    const debug = process.env.DEBUG_AI === "true";
+    if (debug === true) {
+        console.group("Start AI check");
+        console.time("AI step");
+    }
+    const action = doFindTarget(unit, grid, matrix, pathHelper, debug);
+    if (debug === true) {
+        console.timeEnd("AI step");
+        console.groupEnd();
+    }
     return action;
 }
 
@@ -107,6 +112,7 @@ function doFindTarget(
     grid: Grid,
     matrix: number[][],
     pathHelper: PathHelper,
+    debug: boolean,
 ): BasicAIAction | undefined {
     if (unit.getBaseCell() === undefined) {
         return undefined;
@@ -146,7 +152,9 @@ function doFindTarget(
     |      | | | | | | |
     y/x->  0 1 2 3 4 5 6
     */
-    console.log("currentUnit is at: " + cellToString(unitCell));
+    if (debug) {
+        console.log("currentUnit is at: " + cellToString(unitCell));
+    }
     for (let i = 0; i < numRows; i++) {
         for (let j = 0; j < numCols; j++) {
             const element = HoCMath.matrixElementOrDefault(matrix, j, i, 0);
@@ -159,11 +167,15 @@ function doFindTarget(
                 ) {
                     continue;
                 }
-                console.log("checking possible target at x=" + j + ", i=" + i);
+                if (debug) {
+                    console.log("checking possible target at x=" + j + ", i=" + i);
+                }
                 // get the list of cells that atacker can go to in order to attack the unit
                 const neighbors = getCellsForAttacker({ x: j, y: i }, matrix, unit.isSmallSize(), true);
                 for (const elementNeighbor of neighbors) {
-                    console.log("checking a cellToMoveTo:" + cellToString(elementNeighbor));
+                    if (debug) {
+                        console.log("checking a cellToMoveTo:" + cellToString(elementNeighbor));
+                    }
                     if (unit.isSmallSize()) {
                         if (cellKey(elementNeighbor) === cellKey(unitCell)) {
                             return new BasicAIAction(
@@ -191,15 +203,19 @@ function doFindTarget(
                             continue;
                         }
                         if (weight < minDistance) {
-                            console.log(
-                                "New min distance: " + weight + " elementNeighbor:" + cellToString(elementNeighbor),
-                            );
+                            if (debug) {
+                                console.log(
+                                    "New min distance: " + weight + " elementNeighbor:" + cellToString(elementNeighbor),
+                                );
+                            }
                             minDistance = weight;
                             closestTarget = { x: j, y: i };
                             route = tmpRoute?.at(0);
                         }
                     } else {
-                        console.log("No known path to elementNeighbor:" + cellToString(elementNeighbor));
+                        if (debug) {
+                            console.log("No known path to elementNeighbor:" + cellToString(elementNeighbor));
+                        }
                     }
                 }
             }
@@ -209,7 +225,9 @@ function doFindTarget(
     if (closestTarget === undefined) {
         return undefined;
     }
-    console.log("СlosestTarget:" + cellToString(closestTarget));
+    if (debug) {
+        console.log("СlosestTarget:" + cellToString(closestTarget));
+    }
     if (unit.getAllProperties()?.attack_type === AttackType.RANGE) {
         return new BasicAIAction(AIActionType.RANGE_ATTACK, undefined, closestTarget, paths.knownPaths);
     }
@@ -259,7 +277,9 @@ function doFindTarget(
         return new BasicAIAction(AIActionType.MELEE_ATTACK, route?.route[routeIndex], closestTarget, paths.knownPaths);
     }
 
-    console.log("MinDistance=" + minDistance + " unit.steps=" + unit.getSteps());
+    if (debug) {
+        console.log("MinDistance=" + minDistance + " unit.steps=" + unit.getSteps());
+    }
     if (minDistance <= unit.getSteps()) {
         return new BasicAIAction(
             AIActionType.MOVE_AND_MELEE_ATTACK,
@@ -269,7 +289,9 @@ function doFindTarget(
         );
     }
     let toMoveTo = route?.route[routeIndex];
-    console.log("action MOVE with cell to move to x:" + toMoveTo?.x + " t:" + toMoveTo?.y);
+    if (debug) {
+        console.log("action MOVE with cell to move to x:" + toMoveTo?.x + " t:" + toMoveTo?.y);
+    }
     return new BasicAIAction(AIActionType.MOVE, route?.route[routeIndex], undefined, paths.knownPaths);
 }
 
