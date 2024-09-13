@@ -11,7 +11,7 @@
 
 import { b2Clamp, b2Vec2 } from "@box2d/core";
 import { DebugDraw } from "@box2d/debug-draw";
-import { UnitProperties } from "@heroesofcrypto/common";
+import { UnitProperties, GridType } from "@heroesofcrypto/common";
 import { createContext, useContext } from "react";
 import { Signal } from "typed-signals";
 
@@ -62,6 +62,8 @@ export class GameManager {
     private sceneTitle = "Heroes";
 
     public readonly onHasStarted = new Signal<(_started: boolean) => void>();
+
+    public readonly onGridTypeChanged = new Signal<(_gridType: GridType) => void>();
 
     public readonly onAttackLanded = new Signal<(_attackMessage: string) => void>();
 
@@ -286,7 +288,7 @@ export class GameManager {
     public StartGame(): void {
         this.started = true;
         if (this.m_scene) {
-            this.m_scene.switchStarted(this.started);
+            this.m_scene.startScene();
         }
         this.onHasStarted.emit(this.started);
     }
@@ -322,9 +324,9 @@ export class GameManager {
             textures: this.textures,
         });
 
-        if (this.m_scene) {
-            this.m_scene.switchStarted(this.started);
-        }
+        // if (this.m_scene) {
+        // this.m_scene.switchStarted(this.started);
+        // }
         this.m_scene.setupControls();
         this.sceneBaseHotKeys = this.m_scene.getBaseHotkeys();
         this.sceneHotKeys = this.m_scene.getHotkeys();
@@ -356,7 +358,7 @@ export class GameManager {
     }
 
     public Accept(): void {
-        if (this.m_scene?.sc_selectedBody && !this.m_scene.sc_started) {
+        if (this.m_scene?.sc_selectedBody && !this.started) {
             const userData = this.m_scene.sc_selectedBody.GetUserData();
             if (!userData || userData.unit_type !== 1) {
                 return;
@@ -371,8 +373,22 @@ export class GameManager {
     }
 
     public Clone(): void {
-        if (this.m_scene?.sc_selectedBody && !this.m_scene.sc_started) {
+        if (this.m_scene?.sc_selectedBody && !this.started) {
             this.m_scene.cloneObject();
+        }
+    }
+
+    public Split(newAmount: number): void {
+        if (this.m_scene?.sc_selectedBody && !this.started) {
+            this.m_scene.cloneObject(newAmount);
+
+            if (this.m_scene.sc_selectedBody.GetUserData().amount_alive) {
+                const secondPart = this.m_scene.sc_selectedBody.GetUserData().amount_alive - newAmount;
+                if (secondPart > 0) {
+                    this.m_settings.m_amountOfSelectedUnits = secondPart;
+                    this.Accept();
+                }
+            }
         }
     }
 
@@ -384,6 +400,10 @@ export class GameManager {
                 this.m_scene.resetRightControls();
             }
         }
+    }
+
+    public SetGridType(gridType: GridType): void {
+        this.m_scene?.setGridType(gridType);
     }
 
     public SimulationLoop(): void {
@@ -464,6 +484,11 @@ export class GameManager {
                 this.onVisibleStateUpdated.emit({} as IVisibleState);
             }
             this.m_scene.sc_visibleStateUpdateNeeded = false;
+        }
+
+        if (this.m_scene?.sc_gridTypeUpdateNeeded) {
+            this.onGridTypeChanged.emit(this.m_scene?.getGridType());
+            this.m_scene.sc_gridTypeUpdateNeeded = false;
         }
     }
 

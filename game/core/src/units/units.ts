@@ -228,11 +228,13 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected effects: Effect[];
 
-    protected readonly abilities: Ability[] = [];
+    protected abilities: Ability[] = [];
 
     protected readonly auraEffects: AuraEffect[] = [];
 
     protected readonly effectFactory: EffectFactory;
+
+    protected readonly abilityFactory: AbilityFactory;
 
     protected selectedAttackType: AttackType;
 
@@ -360,11 +362,12 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             };
         }
         this.spells = [];
-        this.parseSpells();
         this.buffs = [];
         this.debuffs = [];
         this.maxRangeShots = this.unitProperties.range_shots;
-        this.parseAbilities(abilityFactory);
+        this.abilityFactory = abilityFactory;
+        this.parseAbilities();
+        this.parseSpells();
         this.effects = [];
         this.parseAuraEffects();
     }
@@ -399,7 +402,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 continue;
             }
             // can return us undefined
-            const faction = ToFactionType[spArr[0] as AllFactionsType];
+            const faction = ToFactionType[spArr[0] as AllFactionsType] ?? FactionType.NO_TYPE;
             if (faction === undefined) {
                 continue;
             }
@@ -452,10 +455,68 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.debuffs;
     }
 
-    protected parseAbilities(abilityFactory: AbilityFactory): void {
+    protected parseAbilities(): boolean {
+        let spellAdded = false;
         for (const abilityName of this.unitProperties.abilities) {
-            const ability = abilityFactory.makeAbility(abilityName);
-            this.abilities.push(ability);
+            if (!this.hasAbilityActive(abilityName)) {
+                const ability = this.abilityFactory.makeAbility(abilityName);
+                this.abilities.push(ability);
+                const spell = ability.getSpell();
+                if (spell && !this.unitProperties.spells.includes(spell.getName())) {
+                    this.unitProperties.spells.push(`:${spell.getName()}`);
+                    this.unitProperties.can_cast_spells = true;
+                    spellAdded = true;
+                }
+            }
+        }
+
+        return spellAdded;
+    }
+
+    public deleteAbility(abilityName: string): Ability | undefined {
+        let abilityToDelete: Ability | undefined = undefined;
+        const updatedAbilities: Ability[] = [];
+        for (const a of this.abilities) {
+            if (a.getName() === abilityName) {
+                abilityToDelete = a;
+            } else {
+                updatedAbilities.push(a);
+            }
+        }
+        this.abilities = updatedAbilities;
+
+        for (let i = this.unitProperties.abilities.length - 1; i >= 0; i--) {
+            if (this.unitProperties.abilities[i] === abilityName) {
+                this.unitProperties.abilities.splice(i, 1);
+                this.unitProperties.abilities_descriptions.splice(i, 1);
+                this.unitProperties.abilities_stack_powered.splice(i, 1);
+                this.unitProperties.abilities_auras.splice(i, 1);
+            }
+        }
+
+        const spellName = abilityName.substring(1, abilityName.length);
+        this.spells = this.spells.filter((s: Spell) => s.getName() !== spellName);
+        for (let i = this.unitProperties.spells.length - 1; i >= 0; i--) {
+            if (this.unitProperties.spells[i] === spellName) {
+                this.unitProperties.spells.splice(i, 1);
+            }
+        }
+        if (!this.unitProperties.spells.length) {
+            this.unitProperties.can_cast_spells = false;
+        }
+
+        return abilityToDelete;
+    }
+
+    public addAbility(ability: Ability): void {
+        this.unitProperties.abilities.push(ability.getName());
+        this.unitProperties.abilities_descriptions.push(
+            ability.getDesc().join("\n").replace(/\{\}/g, ability.getPower().toString()),
+        );
+        this.unitProperties.abilities_stack_powered.push(ability.isStackPowered());
+        this.unitProperties.abilities_auras.push(!!ability.getAuraEffect());
+        if (this.parseAbilities()) {
+            this.parseSpells();
         }
     }
 
@@ -1572,7 +1633,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return false;
     }
 
-    public canRespond(): boolean {
+    public canRespond(attackType: AttackType): boolean {
         for (const e of this.effects) {
             if (e.getName() === "Stun" || e.getName() === "Blindness") {
                 return false;
@@ -1580,7 +1641,12 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         for (const a of this.abilities) {
-            if (a.getName() === "No Melee" || a.getName() === "Through Shot") {
+            console.log(a.getName());
+            if (
+                (a.getName() === "No Melee" && attackType === AttackType.MELEE) ||
+                (a.getName() === "Through Shot" && attackType === AttackType.RANGE)
+            ) {
+                console.log("RETURN FALSE");
                 return false;
             }
         }
@@ -1783,7 +1849,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     private refreshAbiltyDescription(abilityName: string, abilityDescription: string): void {
         if (
             this.unitProperties.abilities.length === this.unitProperties.abilities_descriptions.length &&
-            this.unitProperties.abilities.length === this.unitProperties.abilities_stack_powered.length
+            this.unitProperties.abilities.length === this.unitProperties.abilities_stack_powered.length &&
+            this.unitProperties.abilities.length === this.unitProperties.abilities_auras.length
         ) {
             for (let i = 0; i < this.unitProperties.abilities.length; i++) {
                 if (
@@ -1869,6 +1936,15 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
         if (pegasusMightAura) {
             this.unitProperties.base_armor += pegasusMightAura.getPower();
+        }
+        if (this.hasBuffActive("Spiritual Armor")) {
+            const spell = new Spell({
+                spellProperties: HoCConfig.getSpellConfig(FactionType.LIFE, "Spiritual Armor"),
+                amount: 1,
+            });
+            this.unitProperties.armor_mod = Number(
+                ((this.unitProperties.base_armor * spell.getPower()) / 100).toFixed(2),
+            );
         }
 
         const leatherArmorAbility = this.getAbility("Leather Armor");

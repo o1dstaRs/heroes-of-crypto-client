@@ -527,14 +527,20 @@ export class UnitsHolder {
         }
     }
 
-    public spawnSelected(grid: Grid, selectedUnitData: UnitProperties, cell: XY, summoned: boolean): boolean {
+    public spawnSelected(
+        grid: Grid,
+        selectedUnitData: UnitProperties,
+        cell: XY,
+        summoned: boolean,
+        newAmount?: number,
+    ): boolean {
         if (selectedUnitData.size === 1) {
             if (!grid.getOccupantUnitId(cell)) {
                 const cloned = this.unitsFactory.makeCreature(
                     selectedUnitData.faction,
                     selectedUnitData.name,
                     selectedUnitData.team,
-                    selectedUnitData.amount_alive,
+                    newAmount ? newAmount : selectedUnitData.amount_alive,
                     0,
                     summoned,
                 );
@@ -565,7 +571,7 @@ export class UnitsHolder {
                 selectedUnitData.faction,
                 selectedUnitData.name,
                 selectedUnitData.team,
-                selectedUnitData.amount_alive,
+                newAmount ? newAmount : selectedUnitData.amount_alive,
                 0,
                 summoned,
             );

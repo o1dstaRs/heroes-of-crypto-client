@@ -35,7 +35,15 @@ import {
     XY,
 } from "@box2d/core";
 import { b2ParticleGroup, DrawParticleSystems } from "@box2d/particles";
-import { AttackType, FactionType, HoCMath, IAuraOnMap, UnitProperties, AbilityHelper } from "@heroesofcrypto/common";
+import {
+    AttackType,
+    FactionType,
+    GridType,
+    HoCMath,
+    IAuraOnMap,
+    UnitProperties,
+    AbilityHelper,
+} from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { SceneControl } from "../sceneControls";
@@ -143,6 +151,8 @@ const formatValueAveMax = (step: number, ave: number, max: number) =>
     `${step.toFixed(2)} [${ave.toFixed(2)}] (${max.toFixed(2)})`;
 
 export abstract class Scene extends b2ContactListener {
+    private sceneStarted = false;
+
     public sc_world: b2World;
 
     public readonly sc_debugLines: Array<[string, string]> = [];
@@ -213,8 +223,6 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_testControlGroups: SceneControlGroup[] = [];
 
-    public sc_started = false;
-
     public sc_isSelection = false;
 
     public sc_mouseDropStep = 0;
@@ -230,6 +238,8 @@ export abstract class Scene extends b2ContactListener {
     public sc_factionNameUpdateNeeded = false;
 
     public sc_damageStatsUpdateNeeded = false;
+
+    public sc_gridTypeUpdateNeeded = false;
 
     public sc_moveBlocked = false;
 
@@ -274,7 +284,7 @@ export abstract class Scene extends b2ContactListener {
     protected abstract verifyButtonsTrigger(): void;
 
     protected deselect(onlyWhenNotStarted = false, refreshStats = true) {
-        if (this.sc_started && onlyWhenNotStarted) {
+        if (this.sceneStarted && onlyWhenNotStarted) {
             if (this.sc_selectedBody) {
                 this.sc_unitInfoLines.length = 0;
                 this.sc_selectedUnitProperties = undefined;
@@ -328,9 +338,15 @@ export abstract class Scene extends b2ContactListener {
         auraIsBuff: boolean[],
     ): void;
 
-    public abstract cloneObject(): void;
+    public abstract cloneObject(newAmount?: number): void;
+
+    public abstract deleteObject(): void;
 
     public abstract refreshScene(): void;
+
+    public abstract setGridType(gridType: GridType): void;
+
+    public abstract getGridType(): GridType;
 
     public PostSolve(_contact: b2Contact, _impulse: b2ContactImpulse): void {}
 
@@ -386,7 +402,7 @@ export abstract class Scene extends b2ContactListener {
             if (this.sc_isSelection) {
                 attackLanded = this.landAttack();
             } else {
-                if (this.sc_started) {
+                if (this.sceneStarted) {
                     if (!this.sc_isAIActive) {
                         attackLanded = this.landAttack();
                     }
@@ -414,7 +430,7 @@ export abstract class Scene extends b2ContactListener {
                     b2LinearStiffness(md, frequencyHz, dampingRatio, md.bodyA, md.bodyB);
                     this.sc_mouseJoint = this.sc_world.CreateJoint(md) as b2MouseJoint;
                     body.SetAwake(true);
-                } else if (!this.sc_started) {
+                } else if (!this.sceneStarted) {
                     body.SetIsActive(true);
                     const unitData = body.GetUserData();
                     this.selectUnitPreStart(
@@ -480,13 +496,11 @@ export abstract class Scene extends b2ContactListener {
 
     public abstract requestTime(team: number): void;
 
-    public switchStarted(hasStarted: boolean) {
-        if (this.sc_started !== hasStarted) {
-            this.sc_started = hasStarted;
-            if (this.sc_started) {
-                this.destroyTempFixtures();
-                this.sc_hoverUnitNameStr = "";
-            }
+    public startScene() {
+        if (!this.sceneStarted) {
+            this.sceneStarted = true;
+            this.destroyTempFixtures();
+            this.sc_hoverUnitNameStr = "";
         }
     }
 

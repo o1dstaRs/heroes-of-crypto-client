@@ -58,13 +58,17 @@ export class Drawer {
     public static COLOR_RED = new b2Color(1, 0, 0);
     public static COLOR_GREEN = new b2Color(0, 1, 0);
 
+    private readonly gl: WebGLRenderingContext;
+
+    private readonly shader: DefaultShader;
+
     private readonly gridSettings: GridSettings;
 
     private readonly world: b2World;
 
     private readonly holeLayersSprites: Sprite[] = new Array(MAX_HOLE_LAYERS);
 
-    private readonly terrainObstacles: Obstacle[];
+    private terrainObstacles: Obstacle[] = [];
 
     private readonly obstacleGenerator: ObstacleGenerator;
 
@@ -92,23 +96,26 @@ export class Drawer {
         gl: WebGLRenderingContext,
         shader: DefaultShader,
         textures: PreloadedTextures,
-        gridType: GridType,
         obstacleGenerator: ObstacleGenerator,
     ) {
+        this.gl = gl;
+        this.shader = shader;
         this.gridSettings = gridSettings;
         this.world = world;
         this.animating = false;
         this.animatingDoubleShot = false;
         this.onlyUniqueBulletSourcesRemaining = false;
-
         this.obstacleGenerator = obstacleGenerator;
+        this.initHoleLayers(gl, shader, textures);
+    }
 
+    public setGridType(gridType: GridType): void {
         const centerY = this.gridSettings.getMaxY() >> 1;
         if (gridType === GridType.WATER_CENTER) {
             this.terrainObstacles = [
                 this.obstacleGenerator.generateWater(
-                    gl,
-                    shader,
+                    this.gl,
+                    this.shader,
                     {
                         x: -this.gridSettings.getTwoSteps(),
                         y: centerY - this.gridSettings.getTwoSteps(),
@@ -120,8 +127,8 @@ export class Drawer {
         } else if (gridType === GridType.LAVA_CENTER) {
             this.terrainObstacles = [
                 this.obstacleGenerator.generateLava(
-                    gl,
-                    shader,
+                    this.gl,
+                    this.shader,
                     {
                         x: -this.gridSettings.getTwoSteps(),
                         y: centerY - this.gridSettings.getTwoSteps(),
@@ -133,8 +140,8 @@ export class Drawer {
         } else if (gridType === GridType.BLOCK_CENTER) {
             this.terrainObstacles = [
                 this.obstacleGenerator.generateMountain(
-                    gl,
-                    shader,
+                    this.gl,
+                    this.shader,
                     {
                         x: -this.gridSettings.getTwoSteps() - MOUNTAIN_ENLARGE_X,
                         y: centerY - this.gridSettings.getTwoSteps() - MOUNTAIN_ENLARGE_Y,
@@ -150,7 +157,6 @@ export class Drawer {
         } else {
             this.terrainObstacles = [];
         }
-        this.initHoleLayers(gl, shader, textures);
     }
 
     private initHoleLayers(gl: WebGLRenderingContext, shader: DefaultShader, textures: PreloadedTextures) {

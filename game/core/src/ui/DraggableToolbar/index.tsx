@@ -14,14 +14,14 @@ import luckShieldIconImage from "../../../images/icon_luck_shield.webp";
 import brownImage from "../../../images/overlay_brown.webp";
 import lightImage from "../../../images/overlay_light.webp";
 
-const INITIAL_POSITION_Y = window.innerHeight / 4;
-const INITIAL_POSITION_X = window.innerWidth - window.innerWidth / 9;
+const INITIAL_POSITION_Y = 6;
+const INITIAL_POSITION_X = window.innerWidth / 2 - 278;
 
 const DraggableToolbar = () => {
     const [position, setPosition] = useState({ x: INITIAL_POSITION_X, y: INITIAL_POSITION_Y });
     const [isDragging, setIsDragging] = useState(false);
     const [dragOffset, setDragOffset] = useState({ x: INITIAL_POSITION_X, y: INITIAL_POSITION_Y });
-    const [isVertical, setIsVertical] = useState(true);
+    const [isVertical, setIsVertical] = useState(false);
     const theme = useTheme();
 
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
