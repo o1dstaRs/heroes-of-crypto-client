@@ -1182,6 +1182,7 @@ class Sandbox extends GLScene {
                             this.currentActiveUnit.getStackPower(),
                             this.hoverUnit?.getMagicResist(),
                             this.hoverUnit?.hasMindAttackResistance(),
+                            this.hoverUnit?.canBeHealed(),
                         )
                     ) {
                         if (hoverUnitCell) {
@@ -1652,6 +1653,7 @@ class Sandbox extends GLScene {
                             this.currentActiveUnit.getStackPower(),
                             undefined,
                             undefined,
+                            undefined,
                             mouseCell,
                         ) &&
                         GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell)
@@ -1709,6 +1711,7 @@ class Sandbox extends GLScene {
                         undefined,
                         undefined,
                         this.currentActiveUnit.getStackPower(),
+                        undefined,
                         undefined,
                         undefined,
                         mouseCell,
@@ -2441,16 +2444,18 @@ class Sandbox extends GLScene {
                                 }
 
                                 if (isHeal) {
-                                    const healPower = u.applyHeal(
-                                        Math.floor(
-                                            this.hoveredSpell.getPower() * this.currentActiveUnit.getAmountAlive(),
-                                        ),
-                                    );
-                                    u.applyHeal(healPower);
-                                    if (healPower) {
-                                        this.sc_sceneLog.updateLog(
-                                            `${this.currentActiveUnit.getName()} mass healed ${u.getName()} for ${healPower} hp`,
+                                    if (u.canBeHealed()) {
+                                        const healPower = u.applyHeal(
+                                            Math.floor(
+                                                this.hoveredSpell.getPower() * this.currentActiveUnit.getAmountAlive(),
+                                            ),
                                         );
+                                        u.applyHeal(healPower);
+                                        if (healPower) {
+                                            this.sc_sceneLog.updateLog(
+                                                `${this.currentActiveUnit.getName()} mass healed ${u.getName()} for ${healPower} hp`,
+                                            );
+                                        }
                                     }
                                 } else {
                                     if (!hasAlreadyAppliedSpell(u, this.hoveredSpell)) {

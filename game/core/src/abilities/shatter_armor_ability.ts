@@ -9,6 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
+import { AbilityType } from "@heroesofcrypto/common";
+
 import { SceneLog } from "../menu/scene_log";
 import { Unit } from "../units/units";
 import { getLapString } from "../utils/strings";
@@ -31,10 +33,13 @@ export function processShatterArmorAbility(
         }
 
         const activeShatterArmorEffect = targetUnit.getEffect("Shatter Armor");
+        const amplifier =
+            shatterArmorAbility.getType() === AbilityType.STATUS && targetUnit.hasAbilityActive("Mechanism") ? 1.5 : 1;
 
         // need to overwrite actual effect power here
         shatterArmorEffect.setPower(
-            (activeShatterArmorEffect?.getPower() ?? 0) + fromUnit.calculateAbilityCount(shatterArmorAbility),
+            (activeShatterArmorEffect?.getPower() ?? 0) +
+                fromUnit.calculateAbilityCount(shatterArmorAbility) * amplifier,
         );
 
         const laps = shatterArmorEffect.getLaps();

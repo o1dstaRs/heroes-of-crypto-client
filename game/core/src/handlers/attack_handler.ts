@@ -334,6 +334,7 @@ export class AttackHandler {
                 attackerUnit.getStackPower(),
                 targetUnit.getMagicResist(),
                 targetUnit.hasMindAttackResistance(),
+                targetUnit.canBeHealed(),
             )
         ) {
             let applied = true;

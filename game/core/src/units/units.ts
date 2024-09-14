@@ -873,7 +873,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (morale < -HoCConstants.MORALE_MAX_VALUE_TOTAL) {
             return -HoCConstants.MORALE_MAX_VALUE_TOTAL;
         }
-        if (this.hasAbilityActive("Madness")) {
+        if (this.hasAbilityActive("Madness") || this.hasAbilityActive("Mechanism")) {
             return 0;
         }
 
@@ -1368,6 +1368,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     public increaseMorale(moraleAmount: number): void {
         if (
             this.hasAbilityActive("Madness") ||
+            this.hasAbilityActive("Mechanism") ||
             this.hasBuffActive("Courage") ||
             this.hasBuffActive("Morale") ||
             this.hasDebuffActive("Sadness") ||
@@ -1399,6 +1400,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     public decreaseMorale(moraleAmount: number): void {
         if (
             this.hasAbilityActive("Madness") ||
+            this.hasAbilityActive("Mechanism") ||
             this.hasBuffActive("Courage") ||
             this.hasBuffActive("Morale") ||
             this.hasDebuffActive("Sadness") ||
@@ -1483,7 +1485,11 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public hasMindAttackResistance(): boolean {
-        return this.hasAbilityActive("Madness");
+        return this.hasAbilityActive("Madness") || this.hasAbilityActive("Mechanism");
+    }
+
+    public canBeHealed(): boolean {
+        return !this.hasAbilityActive("Mechanism");
     }
 
     public calculateAbilityCount(ability: Ability): number {
@@ -1918,7 +1924,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         // MORALE
         this.unitProperties.attack_multiplier = 1;
         this.unitProperties.morale = this.initialUnitProperties.morale;
-        if (this.hasAbilityActive("Madness")) {
+        if (this.hasAbilityActive("Madness") || this.hasAbilityActive("Mechanism")) {
             this.unitProperties.morale = 0;
         } else {
             let lockedMorale = false;
