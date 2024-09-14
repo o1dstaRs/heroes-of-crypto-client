@@ -29,6 +29,7 @@ import { processPenetratingBiteAbility } from "./penetrating_bite_ability";
 import { processPegasusLightAbility } from "./pegasus_light_ability";
 import { processParalysisAbility } from "./paralysis_ability";
 import { processDeepWoundsAbility } from "./deep_wounds_ability";
+import { processMinerAbility } from "./miner_ability";
 
 export function processLightningSpinAbility(
     fromUnit: Unit,
@@ -117,6 +118,7 @@ export function processLightningSpinAbility(
 
             // check all the possible modificators here
             // just in case if we have more inherited/stolen abilities
+            processMinerAbility(fromUnit, enemy, sceneLog);
             processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
             processPetrifyingGazeAbility(fromUnit, enemy, damageFromAttack, sceneStepCount, sceneLog);
             processBoarSalivaAbility(fromUnit, enemy, fromUnit, sceneLog);

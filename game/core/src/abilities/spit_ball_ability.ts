@@ -9,7 +9,16 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, HoCConfig, ToFactionType, AllFactionsType, Grid, Spell } from "@heroesofcrypto/common";
+import {
+    AttackType,
+    HoCLib,
+    HoCConfig,
+    ToFactionType,
+    AllFactionsType,
+    Grid,
+    Spell,
+    SpellPowerType,
+} from "@heroesofcrypto/common";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 
 import { SceneLog } from "../menu/scene_log";
@@ -69,24 +78,26 @@ export function processSpitBallAbility(
     const randomDebuff = Array.from(debuffs)[HoCLib.getRandomInt(0, debuffs.size)];
 
     let applied = true;
-    if (HoCLib.getRandomInt(0, 100) < Math.floor(targetUnit.getMagicResist())) {
+    // can return us undefined
+    const faction =
+        ToFactionType[
+            POSSIBLE_DEBUFFS_TO_FACTIONS[randomDebuff as keyof typeof POSSIBLE_DEBUFFS_TO_FACTIONS] as AllFactionsType
+        ];
+
+    if (faction === undefined) {
+        return;
+    }
+
+    const debuff = new Spell({ spellProperties: HoCConfig.getSpellConfig(faction, randomDebuff), amount: 1 });
+
+    if (
+        HoCLib.getRandomInt(0, 100) < Math.floor(targetUnit.getMagicResist()) ||
+        (debuff.getPowerType() === SpellPowerType.MIND && targetUnit.hasMindAttackResistance())
+    ) {
         applied = false;
     }
 
     if (applied) {
-        // can return us undefined
-        const faction =
-            ToFactionType[
-                POSSIBLE_DEBUFFS_TO_FACTIONS[
-                    randomDebuff as keyof typeof POSSIBLE_DEBUFFS_TO_FACTIONS
-                ] as AllFactionsType
-            ];
-
-        if (faction === undefined) {
-            return;
-        }
-
-        const debuff = new Spell({ spellProperties: HoCConfig.getSpellConfig(faction, randomDebuff), amount: 1 });
         let laps = debuff.getLapsTotal();
 
         targetUnit.applyDebuff(debuff, undefined, undefined, targetUnit.getId() === currentActiveUnit.getId());
@@ -95,7 +106,10 @@ export function processSpitBallAbility(
         );
 
         // we already know it has not been applied already
-        if (isMirrored(targetUnit)) {
+        if (
+            isMirrored(targetUnit) &&
+            !(debuff.getPowerType() === SpellPowerType.MIND && fromUnit.hasMindAttackResistance())
+        ) {
             fromUnit.applyDebuff(debuff, undefined, undefined, fromUnit.getId() === currentActiveUnit.getId());
             sceneLog.updateLog(
                 `${targetUnit.getName()} mirrored ${randomDebuff} to ${fromUnit.getName()} for ${getLapString(laps)}`,
