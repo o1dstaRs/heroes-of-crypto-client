@@ -9,6 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
+import { AbilityType } from "@heroesofcrypto/common";
+
 import { SceneLog } from "../menu/scene_log";
 import { Unit } from "../units/units";
 import { getLapString } from "../utils/strings";
@@ -43,10 +45,15 @@ export function processBoarSalivaAbility(
             boarSalivaEffect.extend();
         }
 
-        if (targetUnit.applyEffect(boarSalivaEffect)) {
+        if (
+            !(boarSalivaAbility.getType() === AbilityType.MIND && targetUnit.hasMindAttackResistance()) &&
+            targetUnit.applyEffect(boarSalivaEffect)
+        ) {
             sceneLog.updateLog(
                 `${fromUnit.getName()} applied Boar Saliva on ${targetUnit.getName()} for ${getLapString(laps)}`,
             );
+        } else {
+            sceneLog.updateLog(`${targetUnit.getName()} resisted from Boar Saliva`);
         }
     }
 }

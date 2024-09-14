@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCLib } from "@heroesofcrypto/common";
+import { HoCLib, AbilityType } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { DamageStatisticHolder } from "../stats/damage_stats";
@@ -27,7 +27,10 @@ export function processPetrifyingGazeAbility(
     }
 
     const petrifyingGazeAbility = fromUnit.getAbility("Petrifying Gaze");
-    if (!petrifyingGazeAbility) {
+    if (
+        !petrifyingGazeAbility ||
+        (petrifyingGazeAbility.getType() === AbilityType.MIND && toUnit.hasMindAttackResistance())
+    ) {
         return;
     }
 

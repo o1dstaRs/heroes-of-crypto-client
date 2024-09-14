@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCLib } from "@heroesofcrypto/common";
+import { AbilityType, HoCLib } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { Unit } from "../units/units";
@@ -42,8 +42,13 @@ export function processBlindnessAbility(
             blindnessEffect.extend();
         }
 
-        if (targetUnit.applyEffect(blindnessEffect)) {
+        if (
+            !(blindnessAbility.getType() === AbilityType.MIND && targetUnit.hasMindAttackResistance()) &&
+            targetUnit.applyEffect(blindnessEffect)
+        ) {
             sceneLog.updateLog(`${targetUnit.getName()} is blind for ${getLapString(laps)}}`);
+        } else {
+            sceneLog.updateLog(`${targetUnit.getName()} resisted from blindness effect`);
         }
     }
 }

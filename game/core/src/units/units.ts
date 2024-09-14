@@ -873,6 +873,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (morale < -HoCConstants.MORALE_MAX_VALUE_TOTAL) {
             return -HoCConstants.MORALE_MAX_VALUE_TOTAL;
         }
+        if (this.hasAbilityActive("Madness")) {
+            return 0;
+        }
+
         return morale;
     }
 
@@ -1363,6 +1367,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public increaseMorale(moraleAmount: number): void {
         if (
+            this.hasAbilityActive("Madness") ||
             this.hasBuffActive("Courage") ||
             this.hasBuffActive("Morale") ||
             this.hasDebuffActive("Sadness") ||
@@ -1378,8 +1383,22 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.initialUnitProperties.morale = this.unitProperties.morale;
     }
 
+    public decreaseBaseArmor(armorAmount: number): void {
+        this.initialUnitProperties.base_armor = Math.max(
+            1,
+            Number((this.initialUnitProperties.base_armor - armorAmount).toFixed(2)),
+        );
+    }
+
+    public increaseBaseArmor(armorAmount: number): void {
+        this.initialUnitProperties.base_armor = Number(
+            (this.initialUnitProperties.base_armor + armorAmount).toFixed(2),
+        );
+    }
+
     public decreaseMorale(moraleAmount: number): void {
         if (
+            this.hasAbilityActive("Madness") ||
             this.hasBuffActive("Courage") ||
             this.hasBuffActive("Morale") ||
             this.hasDebuffActive("Sadness") ||
@@ -1463,9 +1482,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return calculatedCoeff;
     }
 
+    public hasMindAttackResistance(): boolean {
+        return this.hasAbilityActive("Madness");
+    }
+
     public calculateAbilityCount(ability: Ability): number {
         if (
             ability.getPowerType() !== AbilityPowerType.ADDITIONAL_STEPS &&
+            ability.getPowerType() !== AbilityPowerType.STEAL_ARMOR_ON_HIT &&
             ability.getName() !== "Shatter Armor" &&
             ability.getName() !== "Deep Wounds Level 1" &&
             ability.getName() !== "Deep Wounds Level 2" &&
@@ -1855,7 +1879,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             for (let i = 0; i < this.unitProperties.abilities.length; i++) {
                 if (
                     this.unitProperties.abilities[i] === abilityName &&
-                    this.unitProperties.abilities_stack_powered[i]
+                    (this.unitProperties.abilities_stack_powered[i] || abilityName === "Blind Fury")
                 ) {
                     this.unitProperties.abilities_descriptions[i] = abilityDescription;
                 }
@@ -1894,32 +1918,36 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         // MORALE
         this.unitProperties.attack_multiplier = 1;
         this.unitProperties.morale = this.initialUnitProperties.morale;
-        let lockedMorale = false;
-        if (this.hasDebuffActive("Sadness")) {
-            if (this.hasBuffActive("Courage")) {
-                this.unitProperties.morale = 0;
-                lockedMorale = true;
-            } else {
-                this.unitProperties.morale = -HoCConstants.MORALE_MAX_VALUE_TOTAL;
-            }
-        }
-        if (this.hasBuffActive("Courage")) {
+        if (this.hasAbilityActive("Madness")) {
+            this.unitProperties.morale = 0;
+        } else {
+            let lockedMorale = false;
             if (this.hasDebuffActive("Sadness")) {
-                this.unitProperties.morale = 0;
-                lockedMorale = true;
-            } else {
-                this.unitProperties.morale = HoCConstants.MORALE_MAX_VALUE_TOTAL;
+                if (this.hasBuffActive("Courage")) {
+                    this.unitProperties.morale = 0;
+                    lockedMorale = true;
+                } else {
+                    this.unitProperties.morale = -HoCConstants.MORALE_MAX_VALUE_TOTAL;
+                }
             }
-        }
-        if (this.hasBuffActive("Morale")) {
-            this.unitProperties.attack_multiplier = 1.25;
-            if (!lockedMorale) {
-                this.unitProperties.morale = HoCConstants.MORALE_MAX_VALUE_TOTAL;
+            if (this.hasBuffActive("Courage")) {
+                if (this.hasDebuffActive("Sadness")) {
+                    this.unitProperties.morale = 0;
+                    lockedMorale = true;
+                } else {
+                    this.unitProperties.morale = HoCConstants.MORALE_MAX_VALUE_TOTAL;
+                }
             }
-        } else if (this.hasDebuffActive("Dismorale")) {
-            this.unitProperties.attack_multiplier = 0.8;
-            if (!lockedMorale) {
-                this.unitProperties.morale = -HoCConstants.MORALE_MAX_VALUE_TOTAL;
+            if (this.hasBuffActive("Morale")) {
+                this.unitProperties.attack_multiplier = 1.25;
+                if (!lockedMorale) {
+                    this.unitProperties.morale = HoCConstants.MORALE_MAX_VALUE_TOTAL;
+                }
+            } else if (this.hasDebuffActive("Dismorale")) {
+                this.unitProperties.attack_multiplier = 0.8;
+                if (!lockedMorale) {
+                    this.unitProperties.morale = -HoCConstants.MORALE_MAX_VALUE_TOTAL;
+                }
             }
         }
 
@@ -2039,21 +2067,25 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 spellProperties: HoCConfig.getSpellConfig(FactionType.CHAOS, "Riot"),
                 amount: 1,
             });
-            this.unitProperties.attack_mod = Number(
-                ((this.unitProperties.base_attack * spell.getPower()) / 100).toFixed(2),
-            );
+            this.unitProperties.attack_mod = (this.unitProperties.base_attack * spell.getPower()) / 100;
         } else if (this.hasBuffActive("Mass Riot")) {
             const spell = new Spell({
                 spellProperties: HoCConfig.getSpellConfig(FactionType.CHAOS, "Mass Riot"),
                 amount: 1,
             });
-            this.unitProperties.attack_mod = Number(
-                ((this.unitProperties.base_attack * spell.getPower()) / 100).toFixed(2),
-            );
+            this.unitProperties.attack_mod = (this.unitProperties.base_attack * spell.getPower()) / 100;
         } else {
             this.unitProperties.attack_mod = this.initialUnitProperties.attack_mod;
         }
+        if (this.hasAbilityActive("Blind Fury")) {
+            this.unitProperties.attack_mod +=
+                (1 -
+                    this.unitProperties.amount_alive /
+                        (this.unitProperties.amount_alive + this.unitProperties.amount_died)) *
+                this.initialUnitProperties.base_attack;
+        }
 
+        this.unitProperties.attack_mod = Number(this.unitProperties.attack_mod.toFixed(2));
         this.unitProperties.base_attack = Number((this.unitProperties.base_attack * baseAttackMultiplier).toFixed(2));
 
         // BUFFS & DEBUFFS
@@ -2457,6 +2489,35 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                     .getDesc()
                     .join("\n")
                     .replace(/\{\}/g, this.calculateAbilityCount(deepWoundsLevel3Ability).toString()),
+            );
+        }
+
+        // Blind Fury
+        const blindFuryAbility = this.getAbility("Blind Fury");
+        if (blindFuryAbility) {
+            this.refreshAbiltyDescription(
+                blindFuryAbility.getName(),
+                blindFuryAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(
+                        /\{\}/g,
+                        (
+                            (1 -
+                                this.unitProperties.amount_alive /
+                                    (this.unitProperties.amount_alive + this.unitProperties.amount_died)) *
+                            100
+                        ).toFixed(1),
+                    ),
+            );
+        }
+
+        // Miner
+        const minerAbility = this.getAbility("Miner");
+        if (minerAbility) {
+            this.refreshAbiltyDescription(
+                minerAbility.getName(),
+                minerAbility.getDesc().join("\n").replace(/\{\}/g, this.calculateAbilityCount(minerAbility).toString()),
             );
         }
     }

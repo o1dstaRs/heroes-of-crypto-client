@@ -1181,6 +1181,7 @@ class Sandbox extends GLScene {
                             this.hoverUnit?.getMaxHp(),
                             this.currentActiveUnit.getStackPower(),
                             this.hoverUnit?.getMagicResist(),
+                            this.hoverUnit?.hasMindAttackResistance(),
                         )
                     ) {
                         if (hoverUnitCell) {
@@ -1650,6 +1651,7 @@ class Sandbox extends GLScene {
                             undefined,
                             this.currentActiveUnit.getStackPower(),
                             undefined,
+                            undefined,
                             mouseCell,
                         ) &&
                         GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell)
@@ -1707,6 +1709,7 @@ class Sandbox extends GLScene {
                         undefined,
                         undefined,
                         this.currentActiveUnit.getStackPower(),
+                        undefined,
                         undefined,
                         mouseCell,
                     ) &&
@@ -2169,7 +2172,6 @@ class Sandbox extends GLScene {
 
         // cleanup magic attack state
         this.hoveredSpell = undefined;
-        console.log("RESET SPELL 2");
         this.currentActiveSpell = undefined;
 
         // handle units state
@@ -2348,7 +2350,6 @@ class Sandbox extends GLScene {
                     this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE ||
                     this.currentActiveUnit.getAttackTypeSelection() === AttackType.MAGIC
                 ) {
-                    console.log("SELECT 1 or 2");
                     this.selectAttack(
                         this.currentActiveUnit.getAttackType() === AttackType.RANGE
                             ? AttackType.RANGE
@@ -2358,15 +2359,12 @@ class Sandbox extends GLScene {
                     );
                     this.sc_unitPropertiesUpdateNeeded = true;
                 } else {
-                    console.log("SELECT 0");
                     this.selectAttack(AttackType.MELEE, currentUnitCell, true);
                     this.sc_unitPropertiesUpdateNeeded = true;
                 }
                 this.currentActiveUnitSwitchedAttackAuto = true;
             }
         } else if (this.hoveredSpell) {
-            console.log("this.hoveredSpell");
-            console.log(this.hoveredSpell);
             if (
                 this.hoveredSpell.getSpellTargetType() === SpellTargetType.RANDOM_CLOSE_TO_CASTER ||
                 this.hoveredSpell.getSpellTargetType() === SpellTargetType.ALL_ALLIES ||
@@ -2490,7 +2488,13 @@ class Sandbox extends GLScene {
                                     continue;
                                 }
 
-                                if (!hasAlreadyAppliedSpell(debuffTarget, this.hoveredSpell)) {
+                                if (
+                                    !hasAlreadyAppliedSpell(debuffTarget, this.hoveredSpell) &&
+                                    !(
+                                        this.hoveredSpell.getPowerType() === SpellPowerType.MIND &&
+                                        debuffTarget.hasMindAttackResistance()
+                                    )
+                                ) {
                                     const laps = this.hoveredSpell.getLapsTotal();
                                     debuffTarget.applyDebuff(
                                         this.hoveredSpell,
@@ -2500,7 +2504,11 @@ class Sandbox extends GLScene {
                                     );
                                     if (
                                         isMirrored(debuffTarget) &&
-                                        !hasAlreadyAppliedSpell(this.currentActiveUnit, this.hoveredSpell)
+                                        !hasAlreadyAppliedSpell(this.currentActiveUnit, this.hoveredSpell) &&
+                                        !(
+                                            this.hoveredSpell.getPowerType() === SpellPowerType.MIND &&
+                                            this.currentActiveUnit.hasMindAttackResistance()
+                                        )
                                     ) {
                                         this.currentActiveUnit.applyDebuff(
                                             this.hoveredSpell,
@@ -2522,12 +2530,10 @@ class Sandbox extends GLScene {
                         this.unitsHolder.refreshStackPowerForAllUnits();
                         this.finishTurn();
                     } else {
-                        console.log("RESET SPELL 3");
                         this.currentActiveSpell = undefined;
                     }
                 }
             } else {
-                console.log("SET SPELL");
                 this.currentActiveSpell = this.hoveredSpell;
                 if (
                     this.currentActiveUnit &&
@@ -2538,8 +2544,6 @@ class Sandbox extends GLScene {
                     this.currentActiveUnitSwitchedAttackAuto = true;
                     this.switchToSelectedAttackType = undefined;
                     console.log("Switch to MAGIC");
-                    console.log("this.currentActiveSpell");
-                    console.log(this.currentActiveSpell);
                 }
             }
             this.adjustSpellBookSprite();
@@ -2731,7 +2735,6 @@ class Sandbox extends GLScene {
                         new Sprite(this.gl, this.shader, this.textures.range_white_128.texture),
                         new Sprite(this.gl, this.shader, this.textures.range_black_128.texture),
                     );
-                    console.log("RESET SPELL 4");
                     this.currentActiveSpell = undefined;
                     this.adjustSpellBookSprite();
                 }
@@ -2768,7 +2771,6 @@ class Sandbox extends GLScene {
                 if (force) {
                     this.currentActiveUnit.selectAttackType(this.switchToSelectedAttackType);
                     if (this.switchToSelectedAttackType !== AttackType.MAGIC) {
-                        console.log("RESET SPELL 1");
                         this.currentActiveSpell = undefined;
                         this.adjustSpellBookSprite();
                     }
@@ -3353,7 +3355,7 @@ class Sandbox extends GLScene {
                                 }
 
                                 const chance = HoCLib.getRandomInt(0, 100);
-                                if (chance < Math.abs(u.getMorale())) {
+                                if (chance < Math.abs(u.getMorale()) && !u.hasMindAttackResistance()) {
                                     if (isPlusMorale) {
                                         const buff = new Spell({
                                             spellProperties: HoCConfig.getSpellConfig(FactionType.NO_TYPE, "Morale"),
@@ -3387,7 +3389,6 @@ class Sandbox extends GLScene {
                         const nextUnit = nextUnitId ? this.unitsHolder.getAllUnits().get(nextUnitId) : undefined;
 
                         if (nextUnit) {
-                            console.log(nextUnit.getAbilities());
                             const unitsNext: IVisibleUnit[] = [];
                             for (const unitIdNext of FightStateManager.getInstance()
                                 .getFightProperties()
@@ -3458,7 +3459,7 @@ class Sandbox extends GLScene {
                                     this.currentActiveSpell = undefined;
                                     this.adjustSpellBookSprite();
                                     this.currentActiveUnitSwitchedAttackAuto = false;
-                                    this.grid.print(nextUnit.getId());
+                                    // this.grid.print(nextUnit.getId());
                                     const currentCell = GridMath.getCellForPosition(
                                         this.sc_sceneSettings.getGridSettings(),
                                         unitBody.GetPosition(),
