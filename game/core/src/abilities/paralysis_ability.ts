@@ -9,6 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
+import { AbilityType } from "@heroesofcrypto/common";
+
 import { SceneLog } from "../menu/scene_log";
 import { Unit } from "../units/units";
 import { getLapString } from "../utils/strings";
@@ -34,8 +36,13 @@ export function processParalysisAbility(
             return;
         }
 
+        const amplifier =
+            paralysisAbility.getType() === AbilityType.STATUS && targetUnit.hasAbilityActive("Mechanism") ? 1.5 : 1;
+
         // need to overwrite actual effect power here
-        paralysisEffect.setPower(Number((fromUnit.calculateEffectMultiplier(paralysisEffect) * 100).toFixed(2)));
+        paralysisEffect.setPower(
+            Number((fromUnit.calculateEffectMultiplier(paralysisEffect) * 100 * amplifier).toFixed(2)),
+        );
 
         const laps = paralysisEffect.getLaps();
 
