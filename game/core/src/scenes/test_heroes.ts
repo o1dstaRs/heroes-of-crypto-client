@@ -49,6 +49,7 @@ import { AttackHandler, IAttackObstacle } from "../handlers/attack_handler";
 import { MoveHandler } from "../handlers/move_handler";
 import { Button } from "../menu/button";
 import { ObstacleGenerator } from "../obstacles/obstacle_generator";
+import { DrawableSquarePlacement } from "../placement/drawable_square_placement";
 import { PlacementType, SquarePlacement } from "../placement/square_placement";
 import { Settings } from "../settings";
 import { RenderableSpell } from "../spells/renderable_spell";
@@ -148,9 +149,9 @@ class Sandbox extends GLScene {
 
     private readonly obstacleGenerator: ObstacleGenerator;
 
-    private readonly upperPlacement: SquarePlacement;
+    private readonly upperPlacement: DrawableSquarePlacement;
 
-    private readonly lowerPlacement: SquarePlacement;
+    private readonly lowerPlacement: DrawableSquarePlacement;
 
     private readonly unitsFactory: UnitsFactory;
 
@@ -286,8 +287,16 @@ class Sandbox extends GLScene {
         this.drawer.setGridType(this.grid.getGridType());
         this.sc_gridTypeUpdateNeeded = true;
 
-        this.lowerPlacement = new SquarePlacement(this.sc_sceneSettings.getGridSettings(), PlacementType.LOWER, 5);
-        this.upperPlacement = new SquarePlacement(this.sc_sceneSettings.getGridSettings(), PlacementType.UPPER, 5);
+        this.lowerPlacement = new DrawableSquarePlacement(
+            this.sc_sceneSettings.getGridSettings(),
+            PlacementType.LOWER_LEFT,
+            5,
+        );
+        this.upperPlacement = new DrawableSquarePlacement(
+            this.sc_sceneSettings.getGridSettings(),
+            PlacementType.UPPER_RIGHT,
+            5,
+        );
 
         this.allowedPlacementCellHashes = new Set([
             ...this.lowerPlacement.possibleCellHashes(),
@@ -787,7 +796,7 @@ class Sandbox extends GLScene {
     }
 
     protected destroyTempFixtures(): void {
-        this.destroyPlacements();
+        this.allowedPlacementCellHashes.clear();
         this.deselectRaceButtons();
         this.sc_selectedFactionName = FactionType.NO_TYPE;
         this.sc_factionNameUpdateNeeded = true;
@@ -1917,20 +1926,6 @@ class Sandbox extends GLScene {
         } else {
             this.resetHover();
         }
-    }
-
-    private destroyPlacements(): void {
-        const upperPlacementFixture = this.upperPlacement.getFixture();
-        const lowerPlacementFixture = this.lowerPlacement.getFixture();
-        if (upperPlacementFixture) {
-            this.ground.DestroyFixture(upperPlacementFixture);
-            this.upperPlacement.setDestroyed();
-        }
-        if (lowerPlacementFixture) {
-            this.ground.DestroyFixture(lowerPlacementFixture);
-            this.lowerPlacement.setDestroyed();
-        }
-        this.allowedPlacementCellHashes.clear();
     }
 
     public getViewportSize(): XY {

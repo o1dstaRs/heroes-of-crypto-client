@@ -9,46 +9,40 @@
  * -----------------------------------------------------------------------------
  */
 
-import { b2Vec2, b2Color, b2ChainShape, b2Fixture, b2Draw, XY } from "@box2d/core";
-import { GridSettings } from "@heroesofcrypto/common";
+import { HoCMath, GridSettings } from "@heroesofcrypto/common";
 
 export enum PlacementType {
-    UPPER = 1,
-    LOWER = 2,
+    NO_TYPE = 0,
+    UPPER_RIGHT = 1,
+    LOWER_LEFT = 2,
+    UPPER_LEFT = 3,
+    LOWER_RIGHT = 4,
 }
 
-export class SquarePlacement extends b2ChainShape {
+export class SquarePlacement {
     private readonly gridSettings: GridSettings;
 
     private readonly placementType: PlacementType;
 
     private readonly size: number;
 
-    private readonly verticles: XY[];
+    protected readonly xLeft: number;
 
-    private readonly xLeft: number;
+    protected readonly xRight: number;
 
-    private readonly xRight: number;
+    protected readonly yLower: number;
 
-    private readonly yLower: number;
-
-    private readonly yUpper: number;
+    protected readonly yUpper: number;
 
     private readonly possibleCellHashesSet: Set<number>;
 
-    private isDestroyed: boolean;
-
-    private fixture?: b2Fixture;
-
     public constructor(gridSettings: GridSettings, placementType: PlacementType, size = 3) {
-        super();
         this.gridSettings = gridSettings;
         this.placementType = placementType;
         this.size = size;
-        this.isDestroyed = false;
         this.possibleCellHashesSet = new Set();
 
-        if (placementType === PlacementType.LOWER) {
+        if (placementType === PlacementType.LOWER_LEFT) {
             this.xLeft = -gridSettings.getMaxX() + gridSettings.getStep();
             this.xRight = this.xLeft + this.size * gridSettings.getStep();
             this.yUpper = gridSettings.getStep() * this.size + gridSettings.getStep();
@@ -60,20 +54,6 @@ export class SquarePlacement extends b2ChainShape {
             this.yUpper = gridSettings.getMaxY() - gridSettings.getStep();
         }
 
-        this.CreateLoop([
-            new b2Vec2(this.xLeft, this.yUpper),
-            new b2Vec2(this.xRight, this.yUpper),
-            new b2Vec2(this.xRight, this.yLower),
-            new b2Vec2(this.xLeft, this.yLower),
-        ]);
-        // use 1 as a border to avoid collision with aura areas
-        this.verticles = [
-            { x: this.xLeft + 1, y: this.yUpper - 1 },
-            { x: this.xRight - 1, y: this.yUpper - 1 },
-            { x: this.xRight - 1, y: this.yLower + 1 },
-            { x: this.xLeft + 1, y: this.yLower + 1 },
-        ];
-
         const possibleCellPositions = this.possibleCellPositions();
         for (const c of possibleCellPositions) {
             this.possibleCellHashesSet.add((c.x << 4) | c.y);
@@ -84,31 +64,15 @@ export class SquarePlacement extends b2ChainShape {
         return this.size;
     }
 
-    public setFixture(fixture: b2Fixture): void {
-        this.fixture = fixture;
-    }
-
-    public getFixture(): b2Fixture | undefined {
-        return this.fixture;
-    }
-
-    public setDestroyed(): void {
-        this.isDestroyed = true;
-    }
-
-    public draw(drawInstance: b2Draw): void {
-        drawInstance.DrawSolidPolygon(this.verticles, 4, new b2Color(0.5, 0.5, 0.5));
-    }
-
-    public isAllowed(v: b2Vec2): boolean {
-        return !this.isDestroyed && v.x >= this.xLeft && v.x < this.xRight && v.y >= this.yLower && v.y < this.yUpper;
+    public isAllowed(v: HoCMath.XY): boolean {
+        return v.x >= this.xLeft && v.x < this.xRight && v.y >= this.yLower && v.y < this.yUpper;
     }
 
     public possibleCellHashes(): Set<number> {
         return this.possibleCellHashesSet;
     }
 
-    public possibleCellPositions(isSmallUnit = true): XY[] {
+    public possibleCellPositions(isSmallUnit = true): HoCMath.XY[] {
         let x;
         let y;
         let sx;
@@ -116,7 +80,7 @@ export class SquarePlacement extends b2ChainShape {
         let border;
         const diff = isSmallUnit ? 0 : 1;
 
-        if (this.placementType === PlacementType.LOWER) {
+        if (this.placementType === PlacementType.LOWER_LEFT) {
             x = 1 + diff;
             y = 1 + diff;
             sx = 1;
@@ -130,7 +94,7 @@ export class SquarePlacement extends b2ChainShape {
             border = x - this.size + diff;
         }
 
-        const possiblePositions: XY[] = new Array((this.size - diff) * (this.size - diff));
+        const possiblePositions: HoCMath.XY[] = new Array((this.size - diff) * (this.size - diff));
         let possiblePositionsIndex = 0;
 
         for (let px = x; px !== border; px += sx) {
