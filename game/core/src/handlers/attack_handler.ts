@@ -55,6 +55,7 @@ import { processPenetratingBiteAbility } from "../abilities/penetrating_bite_abi
 import { processPegasusLightAbility } from "../abilities/pegasus_light_ability";
 import { processParalysisAbility } from "../abilities/paralysis_ability";
 import { processDeepWoundsAbility } from "../abilities/deep_wounds_ability";
+import { processMinerAbility } from "../abilities/miner_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -306,11 +307,6 @@ export class AttackHandler {
         attackerUnit?: Unit,
         targetUnit?: Unit,
     ): boolean {
-        console.log("HANDLE MAGIC ATTACK");
-        console.log(currentActiveSpell);
-        console.log(attackerUnit);
-        console.log(targetUnit);
-
         if (!currentActiveSpell || !attackerUnit) {
             return false;
         }
@@ -337,6 +333,8 @@ export class AttackHandler {
                 targetUnit.getMaxHp(),
                 attackerUnit.getStackPower(),
                 targetUnit.getMagicResist(),
+                targetUnit.hasMindAttackResistance(),
+                targetUnit.canBeHealed(),
             )
         ) {
             let applied = true;
@@ -365,7 +363,10 @@ export class AttackHandler {
                         attackerUnit.getId() === targetUnit.getId(),
                     );
                 }
-            } else if (HoCLib.getRandomInt(0, 100) < Math.floor(targetUnit.getMagicResist())) {
+            } else if (
+                HoCLib.getRandomInt(0, 100) < Math.floor(targetUnit.getMagicResist()) ||
+                (currentActiveSpell.getPowerType() === SpellPowerType.MIND && targetUnit.hasMindAttackResistance())
+            ) {
                 applied = false;
             } else {
                 // effect can be absorbed
@@ -377,14 +378,28 @@ export class AttackHandler {
 
                 const laps = currentActiveSpell.getLapsTotal();
 
-                debuffTarget.applyDebuff(
-                    currentActiveSpell,
-                    undefined,
-                    undefined,
-                    attackerUnit.getId() === targetUnit.getId(),
-                );
+                if (
+                    !(
+                        currentActiveSpell.getPowerType() === SpellPowerType.MIND &&
+                        debuffTarget.hasMindAttackResistance()
+                    )
+                ) {
+                    debuffTarget.applyDebuff(
+                        currentActiveSpell,
+                        undefined,
+                        undefined,
+                        attackerUnit.getId() === targetUnit.getId(),
+                    );
+                }
 
-                if (isMirrored(debuffTarget) && !hasAlreadyAppliedSpell(debuffTarget, currentActiveSpell)) {
+                if (
+                    isMirrored(debuffTarget) &&
+                    !hasAlreadyAppliedSpell(debuffTarget, currentActiveSpell) &&
+                    !(
+                        currentActiveSpell.getPowerType() === SpellPowerType.MIND &&
+                        attackerUnit.hasMindAttackResistance()
+                    )
+                ) {
                     attackerUnit.applyDebuff(
                         currentActiveSpell,
                         undefined,
@@ -405,7 +420,13 @@ export class AttackHandler {
                     debuffTarget = absorptionTarget;
                 }
 
-                if (!hasAlreadyAppliedSpell(debuffTarget, currentActiveSpell)) {
+                if (
+                    !hasAlreadyAppliedSpell(debuffTarget, currentActiveSpell) &&
+                    !(
+                        currentActiveSpell.getPowerType() === SpellPowerType.MIND &&
+                        debuffTarget.hasMindAttackResistance()
+                    )
+                ) {
                     debuffTarget.applyDebuff(
                         currentActiveSpell,
                         attackerUnit.getAllProperties().max_hp,
@@ -1056,6 +1077,7 @@ export class AttackHandler {
                     targetUnit.increaseMorale(pegasusLightEffect.getPower());
                 }
 
+                processMinerAbility(targetUnit, attackerUnit, this.sceneLog);
                 processFireShieldAbility(
                     attackerUnit,
                     targetUnit,
@@ -1064,7 +1086,6 @@ export class AttackHandler {
                     damageFromResponse,
                     sceneStepCount,
                 );
-
                 processStunAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                 processPetrifyingGazeAbility(
                     targetUnit,
@@ -1083,7 +1104,7 @@ export class AttackHandler {
         }
 
         if (!hasLightningSpinAttackLanded && !isAttackMissed) {
-            // check for the stun here
+            processMinerAbility(attackerUnit, targetUnit, this.sceneLog);
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
             processBoarSalivaAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
@@ -1135,6 +1156,7 @@ export class AttackHandler {
             );
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
         } else if (secondPunchResult.applied) {
+            processMinerAbility(attackerUnit, targetUnit, this.sceneLog);
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processPetrifyingGazeAbility(
                 attackerUnit,

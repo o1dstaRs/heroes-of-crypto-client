@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCLib } from "@heroesofcrypto/common";
+import { AbilityType, HoCLib } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { Unit } from "../units/units";
@@ -26,7 +26,15 @@ export function processStunAbility(
     }
 
     const stunAbility = fromUnit.getAbility("Stun");
-    if (stunAbility && HoCLib.getRandomInt(0, 100) < fromUnit.calculateAbilityApplyChance(stunAbility)) {
+
+    if (!stunAbility) {
+        return;
+    }
+
+    const amplifier =
+        stunAbility.getType() === AbilityType.STATUS && targetUnit.hasAbilityActive("Mechanism") ? 1.5 : 1;
+
+    if (HoCLib.getRandomInt(0, 100) < Math.min(100, fromUnit.calculateAbilityApplyChance(stunAbility) * amplifier)) {
         const stunEffect = stunAbility.getEffect();
         if (!stunEffect) {
             return;
