@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { b2Color, b2Draw, b2FixtureDef } from "@box2d/core";
+import { b2FixtureDef } from "@box2d/core";
 import { AbilityFactory, TeamType, UnitProperties, GridSettings, UnitType } from "@heroesofcrypto/common";
 
 import { DAMAGE_ANIMATION_TICKS, MAX_FPS } from "../statics";
@@ -30,8 +30,6 @@ export class Hero extends Unit {
         smallSprite: Sprite,
         tagSprite: Sprite,
         hourglassSprite: Sprite,
-        greenSmallFlagSprite: Sprite,
-        redSmallFlagSprite: Sprite,
         abilityFactory: AbilityFactory,
         textures: PreloadedTextures,
     ) {
@@ -47,8 +45,6 @@ export class Hero extends Unit {
             smallSprite,
             tagSprite,
             hourglassSprite,
-            greenSmallFlagSprite,
-            redSmallFlagSprite,
             abilityFactory,
             abilityFactory.getEffectsFactory(),
             false,
@@ -58,40 +54,21 @@ export class Hero extends Unit {
         this.setStackPower(0);
     }
 
-    public render(
-        fps: number,
-        currentTick: number,
-        isLightMode: boolean,
-        isDamageAnimationLocked: boolean,
-        draw?: b2Draw,
-        upNextPosition = 0,
-        shift = 1,
-        isActive = false,
-    ) {
+    public render(fps: number, currentTick: number, isDamageAnimationLocked: boolean) {
+        if (!this.getAmountAlive() && this.hasAbilityActive("Resurrection") && !isDamageAnimationLocked) {
+            return;
+        }
+
         const halfUnitStep = this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep();
         const fourthUnitStep = this.isSmallSize()
             ? this.gridSettings.getQuarterStep()
             : this.gridSettings.getHalfStep();
         const fullUnitStep = this.isSmallSize() ? this.gridSettings.getStep() : this.gridSettings.getTwoSteps();
 
-        const position = upNextPosition
-            ? {
-                  x: this.gridSettings.getMinX() - this.gridSettings.getStep() * upNextPosition,
-                  y: this.gridSettings.getStep(),
-              }
-            : this.position;
-
-        let xShift = 0;
-        const yShift = this.isSmallSize() ? 0 : this.gridSettings.getStep();
-        if (upNextPosition) {
-            xShift = (this.isSmallSize() ? shift - 1 : shift) * this.gridSettings.getStep();
-        }
-
-        const spritePositionX = position.x - (upNextPosition ? xShift : halfUnitStep);
-        const spritePositionY = position.y - (upNextPosition ? yShift : halfUnitStep);
+        const spritePositionX = this.position.x - halfUnitStep;
+        const spritePositionY = this.position.y - halfUnitStep;
 
         this.smallSprite.setRect(spritePositionX, spritePositionY, fullUnitStep, fullUnitStep);
-
         this.smallSprite.render();
 
         const damageEntry = this.damageAnimationTicks.pop();
@@ -104,11 +81,7 @@ export class Hero extends Unit {
             this.renderAmountSprites(
                 this.digitNormalTextures,
                 this.unitProperties.amount_alive,
-                position,
-                upNextPosition,
-                xShift,
-                yShift,
-                fullUnitStep,
+                this.position,
                 halfUnitStep,
                 fifthStep,
                 sixthStep,
@@ -137,11 +110,7 @@ export class Hero extends Unit {
                 this.renderAmountSprites(
                     this.digitDamageTextures,
                     unitsDied,
-                    position,
-                    upNextPosition,
-                    xShift,
-                    yShift,
-                    fullUnitStep,
+                    this.position,
                     halfUnitStep,
                     fifthStep,
                     sixthStep,
@@ -152,8 +121,8 @@ export class Hero extends Unit {
                     for (let i = 1; i <= this.unitProperties.amount_alive.toString().length; i++) {
                         const sprite = new Sprite(this.gl, this.shader, texture);
                         sprite.setRect(
-                            position.x + (upNextPosition ? fullUnitStep - xShift : halfUnitStep) - sixthStep * i,
-                            position.y - (upNextPosition ? yShift : halfUnitStep),
+                            this.position.x + halfUnitStep - sixthStep * i,
+                            this.position.y - halfUnitStep,
                             sixthStep,
                             fifthStep,
                         );
@@ -161,66 +130,6 @@ export class Hero extends Unit {
                     }
                 }
             }
-        }
-
-        if (upNextPosition && isActive && draw) {
-            const start = {
-                x:
-                    spritePositionX -
-                    halfUnitStep +
-                    (this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep()),
-                y:
-                    spritePositionY -
-                    halfUnitStep +
-                    (this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep()),
-            };
-            const end = {
-                x:
-                    spritePositionX +
-                    halfUnitStep +
-                    (this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep()),
-                y:
-                    spritePositionY +
-                    halfUnitStep +
-                    (this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep()),
-            };
-
-            const color = isLightMode ? new b2Color(0, 0, 0, 0.8) : new b2Color(1, 1, 1, 0.8);
-            draw.DrawPolygon(
-                [
-                    { x: start.x, y: start.y },
-                    { x: start.x, y: end.y },
-                    { x: end.x, y: end.y },
-                    { x: end.x, y: start.y },
-                ],
-                4,
-                color,
-            );
-        }
-
-        if (upNextPosition) {
-            if (this.getTeam() === TeamType.LOWER) {
-                this.greenSmallFlagSprite.setRect(
-                    spritePositionX -
-                        halfUnitStep +
-                        (this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep()),
-                    spritePositionY + fourthUnitStep,
-                    fourthUnitStep + (fourthUnitStep >> 1),
-                    halfUnitStep + fourthUnitStep,
-                );
-                this.greenSmallFlagSprite.render();
-            } else {
-                this.redSmallFlagSprite.setRect(
-                    spritePositionX -
-                        halfUnitStep +
-                        (this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep()),
-                    spritePositionY + fourthUnitStep,
-                    fourthUnitStep + (fourthUnitStep >> 1),
-                    halfUnitStep + fourthUnitStep,
-                );
-                this.redSmallFlagSprite.render();
-            }
-            return;
         }
 
         if (!damageEntry || (damageEntry && !isDamageAnimationLocked)) {

@@ -11,7 +11,7 @@ import swordIconImage from "../../../images/icon_sword.webp";
 import aiIconImage from "../../../images/icon_ai.webp";
 import skipIconImage from "../../../images/icon_skip.webp";
 import luckShieldIconImage from "../../../images/icon_luck_shield.webp";
-import brownImage from "../../../images/overlay_brown.webp";
+import blackImage from "../../../images/overlay_black.webp";
 import lightImage from "../../../images/overlay_light.webp";
 
 const INITIAL_POSITION_Y = 6;
@@ -71,7 +71,7 @@ const DraggableToolbar = () => {
     };
 
     const StyledSheet = styled(Sheet)({
-        backgroundImage: `url(${isDark ? brownImage : lightImage})`,
+        backgroundImage: `url(${isDark ? blackImage : lightImage})`,
         backgroundSize: "cover",
         border: "1px solid",
         borderColor: isDark ? "black" : "black",

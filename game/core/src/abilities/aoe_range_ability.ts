@@ -92,7 +92,7 @@ export function processRangeAOEAbility(
         for (const unit of affectedUnits) {
             if (unit.isDead()) {
                 sceneLog.updateLog(`${unit.getName()} died`);
-                unitsHolder.deleteUnitById(grid, unit.getId());
+                unitsHolder.deleteUnitById(unit.getId(), true);
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unit);
                 attackerUnit.applyMoraleStepsModifier(
@@ -104,6 +104,7 @@ export function processRangeAOEAbility(
             }
         }
         attackerUnit.decreaseNumberOfShots();
+        unitsHolder.refreshStackPowerForAllUnits();
 
         return {
             landed: true,

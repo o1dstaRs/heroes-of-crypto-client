@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, Grid, GridSettings, HoCMath, HoCConstants } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, GridSettings, HoCMath, HoCConstants } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
@@ -30,13 +30,13 @@ import { processPegasusLightAbility } from "./pegasus_light_ability";
 import { processParalysisAbility } from "./paralysis_ability";
 import { processDeepWoundsAbility } from "./deep_wounds_ability";
 import { processMinerAbility } from "./miner_ability";
+import { processAggrAbility } from "./aggr_ability";
 
 export function processLightningSpinAbility(
     fromUnit: Unit,
     sceneLog: SceneLog,
     unitsHolder: UnitsHolder,
     sceneStepCount: number,
-    grid: Grid,
     gridSettings: GridSettings,
     distanceTravelled: number,
     attackFromCell?: HoCMath.XY,
@@ -48,7 +48,7 @@ export function processLightningSpinAbility(
     if (lightningSpinAbility) {
         const unitsDead: Unit[] = [];
         const wasDead: Unit[] = [];
-        const enemyList = unitsHolder.allEnemiesAroundUnit(fromUnit, isAttack, grid, attackFromCell);
+        const enemyList = unitsHolder.allEnemiesAroundUnit(fromUnit, isAttack, attackFromCell);
         let actionString: string;
         if (isAttack) {
             actionString = "attk";
@@ -122,10 +122,10 @@ export function processLightningSpinAbility(
             processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
             processPetrifyingGazeAbility(fromUnit, enemy, damageFromAttack, sceneStepCount, sceneLog);
             processBoarSalivaAbility(fromUnit, enemy, fromUnit, sceneLog);
+            processAggrAbility(fromUnit, enemy, fromUnit, sceneLog);
             processDeepWoundsAbility(fromUnit, enemy, fromUnit, sceneLog);
             processPegasusLightAbility(fromUnit, enemy, fromUnit, sceneLog);
             processParalysisAbility(fromUnit, enemy, fromUnit, sceneLog);
-            // works only on response
             if (isAttack) {
                 processShatterArmorAbility(fromUnit, enemy, fromUnit, sceneLog);
             } else {
@@ -142,11 +142,9 @@ export function processLightningSpinAbility(
             }
         }
 
-        unitsHolder.refreshStackPowerForAllUnits();
-
         for (const unitDead of unitsDead) {
             sceneLog.updateLog(`${unitDead.getName()} died`);
-            unitsHolder.deleteUnitById(grid, unitDead.getId());
+            unitsHolder.deleteUnitById(unitDead.getId(), true);
             fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             fromUnit.applyMoraleStepsModifier(
                 FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
@@ -157,6 +155,8 @@ export function processLightningSpinAbility(
         if (!isAttack) {
             processOneInTheFieldAbility(fromUnit);
         }
+
+        unitsHolder.refreshStackPowerForAllUnits();
 
         lightningSpinLanded = true;
     }

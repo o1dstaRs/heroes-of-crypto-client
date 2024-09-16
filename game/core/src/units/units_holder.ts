@@ -21,10 +21,10 @@ import {
     GridMath,
     EffectHelper,
     HoCLib,
+    SquarePlacement,
     HoCConstants,
 } from "@heroesofcrypto/common";
 
-import { SquarePlacement } from "../placement/square_placement";
 import { FightStateManager } from "../state/fight_state_manager";
 import {
     BASE_UNIT_STACK_TO_SPAWN_EXP,
@@ -36,11 +36,13 @@ import {
     STEP,
     UNIT_SIZE_DELTA,
 } from "../statics";
-import { Unit } from "./units";
+import { IUnitPropertiesProvider, Unit } from "./units";
 import { UnitsFactory } from "./units_factory";
 
 export class UnitsHolder {
     private readonly world: b2World;
+
+    private readonly grid: Grid;
 
     private readonly unitsFactory: UnitsFactory;
 
@@ -54,9 +56,10 @@ export class UnitsHolder {
 
     private teamsAuraEffects: Map<TeamType, Map<number, AppliedAuraEffectProperties[]>>;
 
-    public constructor(world: b2World, gridSettings: GridSettings, unitsFactory: UnitsFactory) {
+    public constructor(world: b2World, grid: Grid, unitsFactory: UnitsFactory) {
         this.world = world;
-        this.gridSettings = gridSettings;
+        this.grid = grid;
+        this.gridSettings = grid.getSettings();
         this.unitsFactory = unitsFactory;
         this.unitIdToBodyFixtures = new Map();
         this.allBodies = new Map();
@@ -97,10 +100,10 @@ export class UnitsHolder {
         return this.allUnits;
     }
 
-    public getAllEnemyUnits(teamType: TeamType): Unit[] {
+    public getAllEnemyUnits(myTeamType: TeamType): Unit[] {
         const enemyUnits: Unit[] = [];
         for (const unit of this.allUnits.values()) {
-            if (unit.getTeam() !== teamType) {
+            if (unit.getTeam() !== myTeamType) {
                 enemyUnits.push(unit);
             }
         }
@@ -210,45 +213,70 @@ export class UnitsHolder {
         return unitForAllTeams;
     }
 
-    public deleteUnitById(grid: Grid, unitId: string): void {
-        if (!unitId || !grid) {
+    public deleteUnitById(unitId: string, checkForResurrection = false): void {
+        if (!unitId) {
             return;
-        }
-        for (let b = this.world.GetBodyList(); b; b = b.GetNext()) {
-            if (!b) {
-                continue;
-            }
-            const unitProperties = b.GetUserData();
-            if (unitProperties && unitProperties.id === unitId) {
-                this.world.DestroyBody(b);
-                break;
-            }
         }
 
         const unitToDelete = this.allUnits.get(unitId);
-        if (unitToDelete) {
-            this.allUnits.delete(unitId);
-            grid.cleanupAll(unitId, unitToDelete.getAttackRange(), unitToDelete.isSmallSize());
-        }
-        this.allBodies.delete(unitId);
+        let considerResurrection = checkForResurrection && unitToDelete?.hasAbilityActive("Resurrection");
 
-        FightStateManager.getInstance().getFightProperties().removeFromHourGlassQueue(unitId);
-        FightStateManager.getInstance().getFightProperties().removeFromMoraleMinusQueue(unitId);
-        FightStateManager.getInstance().getFightProperties().removeFromMoralePlusQueue(unitId);
-
-        if (FightStateManager.getInstance().getFightProperties().removeFromUpNext(unitId)) {
-            const unitsUpper: Unit[] = [];
-            const unitsLower: Unit[] = [];
-            for (const u of this.getAllUnitsIterator()) {
-                if (u.getTeam() === TeamType.LOWER) {
-                    unitsLower.push(u);
+        if (considerResurrection) {
+            if (unitToDelete) {
+                const newAmountAlive = Math.floor((unitToDelete.getAmountDied() ?? 0) / 2);
+                if (newAmountAlive > 0) {
+                    unitToDelete.increaseAmountAlive(newAmountAlive);
+                    unitToDelete.decreaseAmountDied(newAmountAlive);
+                    unitToDelete.enqueueResurrectionAnimation();
+                    unitToDelete.deleteAllEffects();
+                    unitToDelete.deleteAllBuffs();
+                    unitToDelete.deleteAllDebuffs();
+                    unitToDelete.resetTarget();
+                    unitToDelete.deleteAbility("Resurrection");
                 } else {
-                    unitsUpper.push(u);
+                    considerResurrection = false;
+                }
+            } else {
+                considerResurrection = false;
+            }
+        }
+
+        if (!considerResurrection) {
+            for (let b = this.world.GetBodyList(); b; b = b.GetNext()) {
+                if (!b) {
+                    continue;
+                }
+                const unitProperties = b.GetUserData();
+                if (unitProperties && unitProperties.id === unitId) {
+                    this.world.DestroyBody(b);
+                    break;
                 }
             }
-            HoCLib.shuffle(unitsUpper);
-            HoCLib.shuffle(unitsLower);
-            FightStateManager.getInstance().prefetchNextUnitsToTurn(this.allUnits, unitsUpper, unitsLower);
+
+            if (unitToDelete) {
+                this.allUnits.delete(unitId);
+                this.grid.cleanupAll(unitId, unitToDelete.getAttackRange(), unitToDelete.isSmallSize());
+            }
+
+            this.allBodies.delete(unitId);
+            FightStateManager.getInstance().getFightProperties().removeFromHourGlassQueue(unitId);
+            FightStateManager.getInstance().getFightProperties().removeFromMoraleMinusQueue(unitId);
+            FightStateManager.getInstance().getFightProperties().removeFromMoralePlusQueue(unitId);
+
+            if (FightStateManager.getInstance().getFightProperties().removeFromUpNext(unitId)) {
+                const unitsUpper: Unit[] = [];
+                const unitsLower: Unit[] = [];
+                for (const u of this.getAllUnitsIterator()) {
+                    if (u.getTeam() === TeamType.LOWER) {
+                        unitsLower.push(u);
+                    } else {
+                        unitsUpper.push(u);
+                    }
+                }
+                HoCLib.shuffle(unitsUpper);
+                HoCLib.shuffle(unitsLower);
+                FightStateManager.getInstance().prefetchNextUnitsToTurn(this.allUnits, unitsUpper, unitsLower);
+            }
         }
     }
 
@@ -277,7 +305,7 @@ export class UnitsHolder {
         return closestDistance;
     }
 
-    public allEnemiesAroundUnit(attacker: Unit, isAttack: boolean, grid: Grid, attackFromCell?: XY): Unit[] {
+    public allEnemiesAroundUnit(attacker: Unit, isAttack: boolean, attackFromCell?: XY): Unit[] {
         const enemyList: Unit[] = [];
         const firstCheckCell = isAttack ? attackFromCell : attacker.getBaseCell();
 
@@ -301,7 +329,7 @@ export class UnitsHolder {
         }
 
         for (const c of checkCells) {
-            const checkUnitId = grid.getOccupantUnitId(c);
+            const checkUnitId = this.grid.getOccupantUnitId(c);
             if (checkUnitId) {
                 const addUnit = this.getAllUnits().get(checkUnitId);
                 if (
@@ -325,51 +353,33 @@ export class UnitsHolder {
                 continue;
             }
             u.adjustBaseStats(FightStateManager.getInstance().getFightProperties().getCurrentLap());
+
+            const warAngerAuraEffect = u.getAuraEffect("War Anger");
+            if (warAngerAuraEffect) {
+                const enemyIdsSpotted: string[] = [];
+                const enemyIds: string[] = [];
+                for (const e of this.getAllEnemyUnits(u.getTeam())) {
+                    enemyIds.push(e.getId());
+                }
+
+                for (const c of u.getCells()) {
+                    const auraCells = EffectHelper.getAuraCells(this.gridSettings, c, warAngerAuraEffect.getRange());
+                    for (const ac of auraCells) {
+                        const occupantId = this.grid.getOccupantUnitId(ac);
+                        if (!occupantId) {
+                            continue;
+                        }
+
+                        if (enemyIds.includes(occupantId) && !enemyIdsSpotted.includes(occupantId)) {
+                            enemyIdsSpotted.push(occupantId);
+                        }
+                    }
+                }
+            }
+
             u.adjustRangeShotsNumber(false);
             this.refreshBarFixtures(u);
         }
-    }
-
-    private getAuraCellKeys(cell: XY, auraRange: number): number[] {
-        const ret: number[] = [];
-        let cellsPool: XY[] = [cell];
-        const cellsCheckedAura: number[] = [];
-
-        if (auraRange >= 0) {
-            ret.push((cell.x << 4) | cell.y);
-        }
-
-        while (auraRange > 0) {
-            let nextPool: XY[] = [];
-            while (cellsPool.length) {
-                const cellToCheck = cellsPool.pop();
-                if (!cellToCheck) {
-                    continue;
-                }
-
-                const cellToCheckKey = (cellToCheck.x << 4) | cellToCheck.y;
-
-                if (cellsCheckedAura.includes(cellToCheckKey)) {
-                    continue;
-                }
-
-                const cells = GridMath.getCellsAroundCell(this.gridSettings, cellToCheck);
-                for (const c of cells) {
-                    nextPool.push(c);
-                    const cellKey = (c.x << 4) | c.y;
-                    if (!ret.includes(cellKey)) {
-                        ret.push(cellKey);
-                    }
-                }
-
-                cellsCheckedAura.push(cellToCheckKey);
-            }
-            cellsPool = nextPool;
-
-            auraRange--;
-        }
-
-        return ret;
     }
 
     public refreshAuraEffectsForAllUnits(): void {
@@ -408,7 +418,11 @@ export class UnitsHolder {
                         continue;
                     }
 
-                    const affectedCellKeys = this.getAuraCellKeys(c, unitAuraEffectProperties.range);
+                    const affectedCellKeys = EffectHelper.getAuraCellKeys(
+                        this.gridSettings,
+                        c,
+                        unitAuraEffectProperties.range,
+                    );
                     for (const ack of affectedCellKeys) {
                         if (!teamAuraEffects.has(ack)) {
                             teamAuraEffects.set(ack, []);
@@ -511,36 +525,40 @@ export class UnitsHolder {
     }
 
     public deleteUnitIfNotAllowed(
-        grid: Grid,
         enemyTeamType: TeamType,
-        lowerPlacement: SquarePlacement,
-        upperPlacement: SquarePlacement,
+        lowerLeftPlacement: SquarePlacement,
+        upperRightPlacement: SquarePlacement,
         body: b2Body,
+        lowerRightPlacement?: SquarePlacement,
+        upperLeftPlacement?: SquarePlacement,
     ): void {
         if (
-            (enemyTeamType === TeamType.LOWER && lowerPlacement.isAllowed(body.GetPosition())) ||
-            (enemyTeamType === TeamType.UPPER && upperPlacement.isAllowed(body.GetPosition())) ||
+            (enemyTeamType === TeamType.LOWER &&
+                (lowerLeftPlacement.isAllowed(body.GetPosition()) ||
+                    (lowerRightPlacement && lowerRightPlacement.isAllowed(body.GetPosition())))) ||
+            (enemyTeamType === TeamType.UPPER &&
+                (upperRightPlacement.isAllowed(body.GetPosition()) ||
+                    (upperLeftPlacement && upperLeftPlacement.isAllowed(body.GetPosition())))) ||
             !GridMath.isPositionWithinGrid(this.gridSettings, body.GetPosition())
         ) {
-            this.deleteUnitById(grid, body.GetUserData().id);
+            this.deleteUnitById(body.GetUserData().id);
             this.world.DestroyBody(body);
         }
     }
 
     public spawnSelected(
-        grid: Grid,
-        selectedUnitData: UnitProperties,
+        unitPropertiesProvider: IUnitPropertiesProvider,
         cell: XY,
         summoned: boolean,
         newAmount?: number,
     ): boolean {
-        if (selectedUnitData.size === 1) {
-            if (!grid.getOccupantUnitId(cell)) {
+        if (unitPropertiesProvider.getSize() === 1) {
+            if (!this.grid.getOccupantUnitId(cell)) {
                 const cloned = this.unitsFactory.makeCreature(
-                    selectedUnitData.faction,
-                    selectedUnitData.name,
-                    selectedUnitData.team,
-                    newAmount ? newAmount : selectedUnitData.amount_alive,
+                    unitPropertiesProvider.getFaction(),
+                    unitPropertiesProvider.getName(),
+                    unitPropertiesProvider.getTeam(),
+                    newAmount ? newAmount : unitPropertiesProvider.getAmountAlive(),
                     0,
                     summoned,
                 );
@@ -553,7 +571,7 @@ export class UnitsHolder {
                 cloned.setPosition(position.x, position.y);
                 this.positionBody(cloned);
 
-                return grid.occupyCell(cell, cloned.getId(), cloned.getTeam(), cloned.getAttackRange());
+                return this.grid.occupyCell(cell, cloned.getId(), cloned.getTeam(), cloned.getAttackRange());
             }
         } else {
             const cells = [
@@ -562,16 +580,16 @@ export class UnitsHolder {
                 { x: cell.x - 1, y: cell.y - 1 },
                 { x: cell.x, y: cell.y - 1 },
             ];
-            const allCellsAreEmpty = grid.areAllCellsEmpty(cells);
+            const allCellsAreEmpty = this.grid.areAllCellsEmpty(cells);
             if (!allCellsAreEmpty) {
                 return false;
             }
 
             const cloned = this.unitsFactory.makeCreature(
-                selectedUnitData.faction,
-                selectedUnitData.name,
-                selectedUnitData.team,
-                newAmount ? newAmount : selectedUnitData.amount_alive,
+                unitPropertiesProvider.getFaction(),
+                unitPropertiesProvider.getName(),
+                unitPropertiesProvider.getTeam(),
+                newAmount ? newAmount : unitPropertiesProvider.getAmountAlive(),
                 0,
                 summoned,
             );
@@ -585,7 +603,7 @@ export class UnitsHolder {
             cloned.setPosition(position.x - HALF_STEP, position.y - HALF_STEP);
             this.positionBody(cloned);
 
-            return grid.occupyCells(cells, cloned.getId(), cloned.getTeam(), cloned.getAttackRange());
+            return this.grid.occupyCells(cells, cloned.getId(), cloned.getTeam(), cloned.getAttackRange());
         }
 
         return false;

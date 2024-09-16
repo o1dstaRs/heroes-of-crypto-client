@@ -41,7 +41,12 @@ export function processDoubleShotAbility(
 
     let damageFromAttack = 0;
 
-    if (!doubleShotAbility || fromUnit.isDead() || toUnit.isDead()) {
+    if (
+        !doubleShotAbility ||
+        fromUnit.isDead() ||
+        toUnit.isDead() ||
+        (fromUnit.getTarget() && fromUnit.getTarget() !== toUnit.getId())
+    ) {
         return {
             applied: false,
             largeCaliberLanded: false,

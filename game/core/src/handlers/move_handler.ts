@@ -167,7 +167,7 @@ export class MoveHandler {
                 }
 
                 if (!movedUnit) {
-                    this.unitsHolder.deleteUnitById(this.grid, unit.getId());
+                    this.unitsHolder.deleteUnitById(unit.getId());
                     logs.push(`${unit.getName()} destroyed`);
                 }
             }
@@ -309,7 +309,7 @@ export class MoveHandler {
             deleteUnit = true;
         }
         if (deleteUnit) {
-            this.unitsHolder.deleteUnitById(this.grid, unit.getId());
+            this.unitsHolder.deleteUnitById(unit.getId());
             return `${unit.getId()} destroyed`;
         }
 

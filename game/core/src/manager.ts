@@ -380,9 +380,9 @@ export class GameManager {
 
     public Split(newAmount: number): void {
         if (this.m_scene?.sc_selectedBody && !this.started) {
-            this.m_scene.cloneObject(newAmount);
+            const isCloned = this.m_scene.cloneObject(newAmount);
 
-            if (this.m_scene.sc_selectedBody.GetUserData().amount_alive) {
+            if (isCloned && this.m_scene.sc_selectedBody.GetUserData().amount_alive) {
                 const secondPart = this.m_scene.sc_selectedBody.GetUserData().amount_alive - newAmount;
                 if (secondPart > 0) {
                     this.m_settings.m_amountOfSelectedUnits = secondPart;

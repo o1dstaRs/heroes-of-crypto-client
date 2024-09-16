@@ -26,6 +26,7 @@ export const HP_BAR_DELTA = 0.09;
 // animation
 export const MAX_FPS = 120;
 export const DAMAGE_ANIMATION_TICKS = 100;
+export const RESURRECTION_ANIMATION_TICKS = DAMAGE_ANIMATION_TICKS << 1;
 
 // sprite
 export const MOUNTAIN_ENLARGE_X = 185;
@@ -42,4 +43,4 @@ export const MAX_HOLE_LAYERS = 5;
 export const FIGHT_BUTTONS_RIGHT_POSITION_X = 1214;
 export const FIGHT_BUTTONS_LEFT_POSITION_X = -1086;
 export const FRAME_MAX_ELEMENTS_COUNT = 9;
-export const BAR_SIZE_PIXELS_STR = "280px";
+export const BAR_SIZE_PIXELS_STR = "220px";

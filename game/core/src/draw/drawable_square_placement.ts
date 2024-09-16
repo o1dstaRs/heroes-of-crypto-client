@@ -10,9 +10,7 @@
  */
 
 import { b2Color, b2Draw } from "@box2d/core";
-import { HoCMath, GridSettings } from "@heroesofcrypto/common";
-
-import { PlacementType, SquarePlacement } from "./square_placement";
+import { HoCMath, GridSettings, SquarePlacement, PlacementType } from "@heroesofcrypto/common";
 
 export class DrawableSquarePlacement extends SquarePlacement {
     private readonly verticles: HoCMath.XY[];
