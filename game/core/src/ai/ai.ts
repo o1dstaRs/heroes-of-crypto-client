@@ -101,10 +101,23 @@ export function findTarget(
     }
     const action = doFindTarget(unit, grid, matrix, pathHelper, debug);
     if (debug === true) {
+        logAction(action, debug);
         console.timeEnd("AI step");
         console.groupEnd();
     }
     return action;
+}
+
+function logAction(action: BasicAIAction | undefined, debug: boolean) {
+    if (!debug) {
+        return;
+    }
+    if (!action) {
+        console.log("Action is undefined");
+        return;
+    }
+    const actionType = action.actionType();
+    console.log("Do action:" + AIActionType[actionType] + " unit to move to " + cellToString(action.cellToMove()));
 }
 
 function doFindTarget(
@@ -171,11 +184,13 @@ function doFindTarget(
                     console.log("checking possible target at x=" + j + ", i=" + i);
                 }
                 // get the list of cells that atacker can go to in order to attack the unit
-                const neighbors = getCellsForAttacker({ x: j, y: i }, matrix, unit.isSmallSize(), true);
+                const neighbors = getCellsForAttacker({ x: j, y: i }, matrix, unit, unit.isSmallSize(), true);
+                if (debug) {
+                    let cellsStr = "";
+                    neighbors.forEach((cell) => (cellsStr = cellsStr + " [" + cellToString(cell) + "]"));
+                    console.log("checking cellsToMoveTo:" + cellsStr);
+                }
                 for (const elementNeighbor of neighbors) {
-                    if (debug) {
-                        console.log("checking a cellToMoveTo:" + cellToString(elementNeighbor));
-                    }
                     if (unit.isSmallSize()) {
                         if (cellKey(elementNeighbor) === cellKey(unitCell)) {
                             return new BasicAIAction(
@@ -333,10 +348,16 @@ Current big, Attacker Big
 export function getCellsForAttacker(
     cellToAttack: HoCMath.XY,
     matrix: number[][],
+    attacker: IUnitAIRepr,
     isCurrentUnitSmall = true,
     isTargetUnitSmall = true,
 ): HoCMath.XY[] {
-    const borderCells = filterCells(getBorderCells(cellToAttack, isCurrentUnitSmall), matrix, isCurrentUnitSmall);
+    const borderCells = filterCells(
+        getBorderCells(cellToAttack, isCurrentUnitSmall),
+        matrix,
+        isCurrentUnitSmall,
+        attacker,
+    );
     if (isTargetUnitSmall) {
         return borderCells;
     }
@@ -366,7 +387,7 @@ export function getCellsForAttacker(
             cellsForBigAttacker.push({ x: borderCell.x, y: borderCell.y + 1 });
         }
     }
-    return filterCells(cellsForBigAttacker, matrix, false);
+    return filterCells(cellsForBigAttacker, matrix, false, attacker);
 }
 
 // return border cells that the small or big unit has
@@ -403,16 +424,21 @@ function getBorderCells(currentCell: HoCMath.XY, isSmallUnit = true): HoCMath.XY
     return borderCells;
 }
 
-function filterCells(cells: HoCMath.XY[], matrix: number[][], isAttackerSmall = true): HoCMath.XY[] {
+function filterCells(
+    cells: HoCMath.XY[],
+    matrix: number[][],
+    isAttackerSmall = true,
+    attacker: IUnitAIRepr,
+): HoCMath.XY[] {
     const filtered = [];
     for (const cell of cells) {
-        if (isFree(cell, matrix)) {
+        if (isFree(cell, matrix, attacker)) {
             if (isAttackerSmall) {
                 filtered.push(cell);
             } else if (
-                isFree({ x: cell.x - 1, y: cell.y }, matrix) &&
-                isFree({ x: cell.x - 1, y: cell.y - 1 }, matrix) &&
-                isFree({ x: cell.x, y: cell.y - 1 }, matrix)
+                isFree({ x: cell.x - 1, y: cell.y }, matrix, attacker) &&
+                isFree({ x: cell.x - 1, y: cell.y - 1 }, matrix, attacker) &&
+                isFree({ x: cell.x, y: cell.y - 1 }, matrix, attacker)
             ) {
                 filtered.push(cell);
             }
@@ -421,11 +447,20 @@ function filterCells(cells: HoCMath.XY[], matrix: number[][], isAttackerSmall = 
     return filtered;
 }
 
-function isFree(cell: HoCMath.XY, matrix: number[][]): boolean {
+function isFree(cell: HoCMath.XY, matrix: number[][], attacker: IUnitAIRepr): boolean {
     if (HoCMath.matrixElementOrDefault(matrix, cell.x, cell.y, 0) != 0) {
+        for (const atCell of attacker.getCells()) {
+            if (isSameCell(atCell, cell)) {
+                return true;
+            }
+        }
         return false;
     }
     return cell.x >= 0 && cell.x < matrix[0].length && cell.y >= 0 && cell.y < matrix.length;
+}
+
+function isSameCell(first: HoCMath.XY, second: HoCMath.XY): boolean {
+    return first.x === second.x && first.y === second.y;
 }
 
 function cellToString(cell: HoCMath.XY | undefined): string {
