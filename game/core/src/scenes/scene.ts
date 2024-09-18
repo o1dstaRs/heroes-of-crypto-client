@@ -338,7 +338,7 @@ export abstract class Scene extends b2ContactListener {
         auraIsBuff: boolean[],
     ): void;
 
-    public abstract cloneObject(newAmount?: number): void;
+    public abstract cloneObject(newAmount?: number): boolean;
 
     public abstract deleteObject(): void;
 

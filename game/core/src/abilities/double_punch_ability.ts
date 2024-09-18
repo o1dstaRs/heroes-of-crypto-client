@@ -35,7 +35,12 @@ export function processDoublePunchAbility(
     let secondPunchLanded = false;
     let damageFromAttack = 0;
 
-    if (doublePunchAbility && !fromUnit.isDead() && !toUnit.isDead()) {
+    if (
+        doublePunchAbility &&
+        !fromUnit.isDead() &&
+        !toUnit.isDead() &&
+        (!fromUnit.getTarget() || fromUnit.getTarget() === toUnit.getId())
+    ) {
         if (HoCLib.getRandomInt(0, 100) < fromUnit.calculateMissChance(toUnit)) {
             sceneLog.updateLog(`${fromUnit.getName()} misses attk ${toUnit.getName()}`);
             return {

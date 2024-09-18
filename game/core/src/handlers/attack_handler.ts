@@ -56,6 +56,8 @@ import { processPegasusLightAbility } from "../abilities/pegasus_light_ability";
 import { processParalysisAbility } from "../abilities/paralysis_ability";
 import { processDeepWoundsAbility } from "../abilities/deep_wounds_ability";
 import { processMinerAbility } from "../abilities/miner_ability";
+import { processAggrAbility } from "../abilities/aggr_ability";
+import { processSkewerStrikeAbility } from "../abilities/skewer_strike_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -324,6 +326,7 @@ export class AttackHandler {
                 undefined,
                 attackerUnit.getId(),
                 targetUnit.getId(),
+                attackerUnit.getTarget(),
                 attackerUnit.getTeam(),
                 targetUnit.getTeam(),
                 attackerUnit.getName(),
@@ -358,8 +361,8 @@ export class AttackHandler {
                 } else {
                     targetUnit.applyBuff(
                         currentActiveSpell,
-                        attackerUnit.getAllProperties().max_hp,
-                        attackerUnit.getAllProperties().base_armor,
+                        attackerUnit.getMaxHp(),
+                        attackerUnit.getBaseArmor(),
                         attackerUnit.getId() === targetUnit.getId(),
                     );
                 }
@@ -429,8 +432,8 @@ export class AttackHandler {
                 ) {
                     debuffTarget.applyDebuff(
                         currentActiveSpell,
-                        attackerUnit.getAllProperties().max_hp,
-                        attackerUnit.getAllProperties().base_armor,
+                        attackerUnit.getMaxHp(),
+                        attackerUnit.getBaseArmor(),
                         true,
                     );
                 }
@@ -505,6 +508,12 @@ export class AttackHandler {
             return true;
         }
 
+        // check if unit is forced to attack certain enemy only
+        const forcedTargetUnitId = attackerUnit.getTarget();
+        if (targetUnit && forcedTargetUnitId && forcedTargetUnitId !== targetUnit.getId()) {
+            return false;
+        }
+
         const throughShotLanded = processThroughShotAbility(
             attackerUnit,
             targetUnits,
@@ -559,7 +568,8 @@ export class AttackHandler {
             !(
                 targetUnit.hasDebuffActive("Cowardice") &&
                 targetUnit.getCumulativeHp() < rangeResponseUnit.getCumulativeHp()
-            )
+            ) &&
+            (!targetUnit.getTarget() || targetUnit.getTarget() === attackerUnit.getId())
         ) {
             isResponseMissed = HoCLib.getRandomInt(0, 100) < targetUnit.calculateMissChance(rangeResponseUnit);
             drawer.startBulletAnimation(targetUnit.getPosition(), attackerUnit.getPosition(), rangeResponseUnit);
@@ -579,6 +589,7 @@ export class AttackHandler {
             this.sceneLog,
             true,
         );
+        let attackDamageApplied = true;
         if (aoeRangeAttackResult.landed) {
             damageFromAttack = processLuckyStrikeAbility(attackerUnit, aoeRangeAttackResult.maxDamage, this.sceneLog);
         } else if (isAttackMissed) {
@@ -600,16 +611,7 @@ export class AttackHandler {
                 this.sceneLog,
             );
             this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
-            targetUnit.applyDamage(damageFromAttack, sceneStepCount);
-            DamageStatisticHolder.getInstance().add({
-                unitName: attackerUnit.getName(),
-                damage: damageFromAttack,
-                team: attackerUnit.getTeam(),
-            });
-            const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
-            if (pegasusLightEffect) {
-                attackerUnit.increaseMorale(pegasusLightEffect.getPower());
-            }
+            attackDamageApplied = false;
         }
 
         // handle response damage
@@ -672,13 +674,26 @@ export class AttackHandler {
         }
 
         let switchTargetUnit = false;
-        if (targetUnit.isDead()) {
+        if (targetUnit.isDead() || isAOE) {
             switchTargetUnit = true;
         }
         if (!aoeRangeAttackResult?.landed) {
+            if (!attackDamageApplied) {
+                targetUnit.applyDamage(damageFromAttack, sceneStepCount);
+                DamageStatisticHolder.getInstance().add({
+                    unitName: attackerUnit.getName(),
+                    damage: damageFromAttack,
+                    team: attackerUnit.getTeam(),
+                });
+                const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
+                if (pegasusLightEffect) {
+                    attackerUnit.increaseMorale(pegasusLightEffect.getPower());
+                }
+            }
+
             if (targetUnit.isDead()) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
-                unitsHolder.deleteUnitById(grid, targetUnit.getId());
+                unitsHolder.deleteUnitById(targetUnit.getId(), true);
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
                 attackerUnit.applyMoraleStepsModifier(
@@ -699,7 +714,7 @@ export class AttackHandler {
             } else {
                 if (rangeResponseUnit.isDead()) {
                     this.sceneLog.updateLog(`${rangeResponseUnit.getName()} died`);
-                    unitsHolder.deleteUnitById(grid, rangeResponseUnit.getId());
+                    unitsHolder.deleteUnitById(rangeResponseUnit.getId(), true);
                     unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(rangeResponseUnit);
                     if (!targetUnit.isDead()) {
                         targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
@@ -741,11 +756,12 @@ export class AttackHandler {
             targetUnit = affectedUnits[0];
 
             if (
-                !targetUnit ||
-                targetUnit.getTeam() === attackerUnit.getTeam() ||
-                targetUnit.isDead() ||
-                (attackerUnit.hasDebuffActive("Cowardice") &&
-                    attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp())
+                !isAOE &&
+                (!targetUnit ||
+                    targetUnit.getTeam() === attackerUnit.getTeam() ||
+                    targetUnit.isDead() ||
+                    (attackerUnit.hasDebuffActive("Cowardice") &&
+                        attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp()))
             ) {
                 return true;
             }
@@ -767,12 +783,13 @@ export class AttackHandler {
             hoverRangeAttackDivisor,
             hoverRangeAttackPosition,
             sceneStepCount,
+            isAOE,
         );
 
-        if (!secondShotResult.largeCaliberLanded) {
+        if (!secondShotResult.aoeRangeAttackLanded) {
             if (targetUnit.isDead()) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
-                unitsHolder.deleteUnitById(grid, targetUnit.getId());
+                unitsHolder.deleteUnitById(targetUnit.getId(), true);
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
                 attackerUnit.applyMoraleStepsModifier(
@@ -821,6 +838,12 @@ export class AttackHandler {
             return false;
         }
 
+        // check if unit is forced to attack certain enemy only
+        const forcedTargetUnitId = attackerUnit.getTarget();
+        if (forcedTargetUnitId && forcedTargetUnitId !== targetUnit.getId()) {
+            return false;
+        }
+
         const currentCell = GridMath.getCellForPosition(this.gridSettings, attackerUnit.getPosition());
 
         if (!currentCell) {
@@ -828,7 +851,6 @@ export class AttackHandler {
         }
 
         const stationaryAttack = currentCell.x === attackFromCell.x && currentCell.y === attackFromCell.y;
-        let distanceTravelled = 0;
 
         if (attackerUnit.isSmallSize()) {
             if (
@@ -842,7 +864,6 @@ export class AttackHandler {
                     this.gridSettings.getHalfStep(),
                 );
 
-                distanceTravelled = HoCMath.getDistance(attackerUnit.getPosition(), position);
                 const moveStarted =
                     stationaryAttack ||
                     moveHandler.startMoving(
@@ -873,7 +894,6 @@ export class AttackHandler {
                 this.gridSettings.getStep(),
                 this.gridSettings.getHalfStep(),
             );
-            distanceTravelled = HoCMath.getDistance(attackerUnit.getPosition(), position);
             const cells = GridMath.getCellsAroundPosition(this.gridSettings, {
                 x: position.x - this.gridSettings.getHalfStep(),
                 y: position.y - this.gridSettings.getHalfStep(),
@@ -906,7 +926,16 @@ export class AttackHandler {
             }
         }
 
-        let abilityMultiplier = processRapidChargeAbility(attackerUnit, distanceTravelled, this.gridSettings);
+        let abilityMultiplier = 1;
+        let rapidChargeCellsNumber = 1;
+        if (currentActiveKnownPaths) {
+            const paths = currentActiveKnownPaths.get((attackFromCell.x << 4) | attackFromCell.y);
+            if (paths?.length) {
+                rapidChargeCellsNumber = paths[0].route.length;
+            }
+            abilityMultiplier = processRapidChargeAbility(attackerUnit, rapidChargeCellsNumber);
+        }
+
         const paralysisAttackerEffect = attackerUnit.getEffect("Paralysis");
         if (paralysisAttackerEffect) {
             abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
@@ -937,6 +966,10 @@ export class AttackHandler {
         }
 
         const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(targetUnit);
+
+        attackerUnit.cleanupAttackModIncrease();
+        attackerUnit.increaseAttackMod(unitsHolder.getUnitAuraAttackMod(attackerUnit));
+
         const damageFromAttack =
             processLuckyStrikeAbility(
                 attackerUnit,
@@ -950,9 +983,7 @@ export class AttackHandler {
             this.sceneLog,
             unitsHolder,
             sceneStepCount,
-            grid,
-            this.gridSettings,
-            distanceTravelled,
+            rapidChargeCellsNumber,
             attackFromCell,
             true,
         );
@@ -967,6 +998,18 @@ export class AttackHandler {
             this.gridSettings,
             "attk",
             attackFromCell,
+        );
+
+        processSkewerStrikeAbility(
+            attackerUnit,
+            targetUnit,
+            this.sceneLog,
+            unitsHolder,
+            sceneStepCount,
+            grid,
+            this.gridSettings,
+            attackFromCell,
+            true,
         );
 
         if (isAttackMissed) {
@@ -994,7 +1037,10 @@ export class AttackHandler {
             targetUnit.canRespond(AttackType.MELEE) &&
             !attackerUnit.canSkipResponse() &&
             !targetUnit.hasAbilityActive("No Melee") &&
-            !(targetUnit.hasDebuffActive("Cowardice") && targetUnit.getCumulativeHp() < attackerUnit.getCumulativeHp())
+            !(
+                targetUnit.hasDebuffActive("Cowardice") && targetUnit.getCumulativeHp() < attackerUnit.getCumulativeHp()
+            ) &&
+            (!targetUnit.getTarget() || targetUnit.getTarget() === attackerUnit.getId())
         ) {
             const isResponseMissed = HoCLib.getRandomInt(0, 100) < targetUnit.calculateMissChance(attackerUnit);
 
@@ -1010,14 +1056,24 @@ export class AttackHandler {
                 GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
             );
 
-            hasLightningSpinResponseLanded = processLightningSpinAbility(
+            processSkewerStrikeAbility(
                 targetUnit,
+                attackerUnit,
                 this.sceneLog,
                 unitsHolder,
                 sceneStepCount,
                 grid,
                 this.gridSettings,
-                0,
+                GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
+                false,
+            );
+
+            hasLightningSpinResponseLanded = processLightningSpinAbility(
+                targetUnit,
+                this.sceneLog,
+                unitsHolder,
+                sceneStepCount,
+                1,
                 attackFromCell,
                 false,
             );
@@ -1095,6 +1151,7 @@ export class AttackHandler {
                     this.sceneLog,
                 );
                 processBoarSalivaAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
+                processAggrAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                 processDeepWoundsAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                 processPegasusLightAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                 processParalysisAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
@@ -1104,15 +1161,6 @@ export class AttackHandler {
         }
 
         if (!hasLightningSpinAttackLanded && !isAttackMissed) {
-            processMinerAbility(attackerUnit, targetUnit, this.sceneLog);
-            processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-            processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
-            processBoarSalivaAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-            processDeepWoundsAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-            processPegasusLightAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-            processParalysisAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-            processShatterArmorAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-
             // this code has to be here to make sure that respond damage has been applied as well
             targetUnit.applyDamage(damageFromAttack, sceneStepCount);
             DamageStatisticHolder.getInstance().add({
@@ -1120,6 +1168,16 @@ export class AttackHandler {
                 damage: damageFromAttack,
                 team: attackerUnit.getTeam(),
             });
+
+            processMinerAbility(attackerUnit, targetUnit, this.sceneLog);
+            processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
+            processBoarSalivaAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processAggrAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processDeepWoundsAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processPegasusLightAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processParalysisAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processShatterArmorAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
             if (pegasusLightEffect) {
                 attackerUnit.increaseMorale(pegasusLightEffect.getPower());
@@ -1138,7 +1196,7 @@ export class AttackHandler {
         if (!hasLightningSpinResponseLanded && attackerUnit.isDead()) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} died`);
 
-            unitsHolder.deleteUnitById(grid, attackerUnit.getId());
+            unitsHolder.deleteUnitById(attackerUnit.getId(), true);
             targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             targetUnit.applyMoraleStepsModifier(
                 FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
@@ -1149,7 +1207,7 @@ export class AttackHandler {
         if (!hasLightningSpinAttackLanded && targetUnit.isDead()) {
             this.sceneLog.updateLog(`${targetUnit.getName()} died`);
 
-            unitsHolder.deleteUnitById(grid, targetUnit.getId());
+            unitsHolder.deleteUnitById(targetUnit.getId(), true);
             attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             attackerUnit.applyMoraleStepsModifier(
                 FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
@@ -1166,6 +1224,7 @@ export class AttackHandler {
                 this.sceneLog,
             );
             processBoarSalivaAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processAggrAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processDeepWoundsAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processPegasusLightAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processParalysisAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);

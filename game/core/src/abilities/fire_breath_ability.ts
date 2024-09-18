@@ -16,106 +16,7 @@ import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
-
-function getCoosCenter(start: HoCMath.XY): HoCMath.XY {
-    const coos: HoCMath.XY[] = [
-        start,
-        { x: start.x - 1, y: start.y },
-        { x: start.x - 1, y: start.y - 1 },
-        { x: start.x, y: start.y - 1 },
-    ];
-    let sum = { x: 0, y: 0 };
-    for (const coo of coos) {
-        sum = { x: sum.x + coo.x, y: sum.y + coo.y };
-    }
-
-    return { x: sum.x / coos.length, y: sum.y / coos.length };
-}
-
-function addingTargets(
-    ix: number,
-    iy: number,
-    targetList: Unit[],
-    target: Unit,
-    attacker: Unit,
-    grid: Grid,
-    unitsHolder: UnitsHolder,
-): Unit[] {
-    const nextTargetId = grid.getOccupantUnitId({ x: ix, y: iy });
-    if (nextTargetId) {
-        const addTarget = unitsHolder.getAllUnits().get(nextTargetId);
-        if (
-            addTarget &&
-            !targetList.includes(addTarget) &&
-            addTarget.getId() !== attacker.getId() &&
-            addTarget.getId() !== target.getId()
-        ) {
-            targetList.push(addTarget);
-        }
-    }
-    return targetList;
-}
-
-function addTargets(
-    startingPos: HoCMath.XY[],
-    bias: HoCMath.XY,
-    target: Unit,
-    attacker: Unit,
-    grid: Grid,
-    unitsHolder: UnitsHolder,
-): Unit[] {
-    let targetList: Unit[] = [];
-    const signX = Math.sign(bias.x);
-    const signY = Math.sign(bias.y);
-    const bX = Math.floor(Math.abs(bias.x));
-    const bY = Math.floor(Math.abs(bias.y));
-    for (const startingCell of startingPos) {
-        targetList = addingTargets(
-            startingCell.x + bX * signX,
-            startingCell.y + bY * signY,
-            targetList,
-            target,
-            attacker,
-            grid,
-            unitsHolder,
-        );
-    }
-    return targetList;
-}
-
-export function nextStandingTargets(
-    attacker: Unit,
-    target: Unit,
-    targetPos: HoCMath.XY,
-    grid: Grid,
-    unitsHolder: UnitsHolder,
-    attackerStartingPos?: HoCMath.XY,
-): Unit[] {
-    const targetCells: HoCMath.XY[] = [];
-    if (target.isSmallSize()) {
-        targetCells.push(targetPos);
-    } else {
-        for (let iy = -1; iy < 1; iy++) {
-            for (let ix = -1; ix < 1; ix++) {
-                targetCells.push({ x: targetPos.x + ix, y: targetPos.y + iy });
-            }
-        }
-    }
-    let targetList: Unit[] = [];
-    if (attackerStartingPos) {
-        const attackerPos = getCoosCenter(attackerStartingPos);
-        if (target.isSmallSize()) {
-            const bias = { x: targetPos.x - attackerPos.x, y: targetPos.y - attackerPos.y };
-            targetList = addTargets(targetCells, bias, target, attacker, grid, unitsHolder);
-        } else {
-            targetPos = getCoosCenter(targetPos);
-            const bias = { x: targetPos.x - attackerPos.x, y: targetPos.y - attackerPos.y };
-            targetList = addTargets(targetCells, bias, target, attacker, grid, unitsHolder);
-        }
-    }
-
-    return targetList;
-}
+import { nextStandingTargets } from "./abilities_helper";
 
 export function processFireBreathAbility(
     fromUnit: Unit,
@@ -138,7 +39,7 @@ export function processFireBreathAbility(
 
     if (targetPos) {
         const unitsDead: Unit[] = [];
-        const targets = nextStandingTargets(fromUnit, toUnit, targetPos, grid, unitsHolder, targetMovePosition);
+        const targets = nextStandingTargets(fromUnit, toUnit, grid, unitsHolder, targetMovePosition);
 
         for (const nextStandingTarget of targets) {
             if (
@@ -193,7 +94,7 @@ export function processFireBreathAbility(
 
         for (const unitDead of unitsDead) {
             sceneLog.updateLog(`${unitDead.getName()} died`);
-            unitsHolder.deleteUnitById(grid, unitDead.getId());
+            unitsHolder.deleteUnitById(unitDead.getId(), true);
             fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             fromUnit.applyMoraleStepsModifier(
                 FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
