@@ -26,6 +26,7 @@ export const HP_BAR_DELTA = 0.09;
 // animation
 export const MAX_FPS = 120;
 export const DAMAGE_ANIMATION_TICKS = 100;
+export const RESURRECTION_ANIMATION_TICKS = DAMAGE_ANIMATION_TICKS << 1;
 
 // sprite
 export const MOUNTAIN_ENLARGE_X = 185;

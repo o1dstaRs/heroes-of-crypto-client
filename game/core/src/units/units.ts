@@ -9,17 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import {
-    b2BodyDef,
-    b2BodyType,
-    b2ChainShape,
-    b2Color,
-    b2Draw,
-    b2FixtureDef,
-    b2PolygonShape,
-    b2Vec2,
-    XY,
-} from "@box2d/core";
+import { b2BodyDef, b2BodyType, b2ChainShape, b2Color, b2FixtureDef, b2PolygonShape, b2Vec2, XY } from "@box2d/core";
 import { removeFromArray } from "@box2d/lights/dist/utils/arrayUtils";
 import {
     AppliedSpell,
@@ -48,7 +38,7 @@ import {
 } from "@heroesofcrypto/common";
 import Denque from "denque";
 
-import { DAMAGE_ANIMATION_TICKS, HP_BAR_DELTA, MAX_FPS } from "../statics";
+import { DAMAGE_ANIMATION_TICKS, HP_BAR_DELTA, MAX_FPS, RESURRECTION_ANIMATION_TICKS } from "../statics";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { Sprite } from "../utils/gl/Sprite";
 import { SceneLog } from "../menu/scene_log";
@@ -68,11 +58,7 @@ export interface IUnitDistance {
 }
 
 export interface IUnitPropertiesProvider {
-    getAllProperties(): UnitProperties;
-
     getName(): string;
-
-    getFaction(): string;
 
     getHp(): number;
 
@@ -86,7 +72,11 @@ export interface IUnitPropertiesProvider {
 
     getSpeed(): number;
 
-    getArmor(): number;
+    getFaction(): FactionType;
+
+    getBaseArmor(): number;
+
+    getBaseAttack(): number;
 
     getAttackType(): AttackType;
 
@@ -112,6 +102,8 @@ export interface IUnitPropertiesProvider {
 
     getExp(): number;
 
+    getSize(): number;
+
     getAmountAlive(): number;
 
     getAmountDied(): number;
@@ -125,6 +117,10 @@ export interface IUnitPropertiesProvider {
     getSmallTextureName(): string;
 
     getLargeTextureName(): string;
+
+    getAuraRanges(): number[];
+
+    getAuraIsBuff(): boolean[];
 }
 
 export interface IUnitAIRepr {
@@ -137,7 +133,7 @@ export interface IUnitAIRepr {
     isSmallSize(): boolean;
     getBaseCell(): XY | undefined;
     getCells(): XY[];
-    getAllProperties(): UnitProperties | undefined;
+    getAttackType(): AttackType;
 }
 
 interface IDamageable {
@@ -150,6 +146,7 @@ interface IDamageable {
 
 interface IDamager {
     calculateAttackDamageMin(
+        attackRate: number,
         enemyUnit: Unit,
         isRangeAttack: boolean,
         divisor: number,
@@ -157,6 +154,7 @@ interface IDamager {
     ): number;
 
     calculateAttackDamageMax(
+        attackRate: number,
         enemyUnit: Unit,
         isRangeAttack: boolean,
         divisor: number,
@@ -200,10 +198,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected readonly hourglassSprite: Sprite;
 
-    protected readonly greenSmallFlagSprite: Sprite;
-
-    protected readonly redSmallFlagSprite: Sprite;
-
     protected readonly summoned: boolean;
 
     protected readonly textures: PreloadedTextures;
@@ -223,6 +217,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     protected readonly stackPowerBarBoundFixtureDefs: b2FixtureDef[];
 
     protected readonly damageAnimationTicks: Denque<IDamageTaken> = new Denque<IDamageTaken>();
+
+    protected resurrectionAnimationTick = 0;
 
     protected spells: RenderableSpell[];
 
@@ -244,6 +240,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected onHourglass = false;
 
+    protected lastKnownTick = 0;
+
+    protected currentAttackModIncrease = 0;
+
     protected adjustedBaseStatsLaps: number[] = [];
 
     public constructor(
@@ -258,8 +258,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         smallSprite: Sprite,
         tagSprite: Sprite,
         hourglassSprite: Sprite,
-        greenSmallFlagSprite: Sprite,
-        redSmallFlagSprite: Sprite,
         abilityFactory: AbilityFactory,
         effectFactory: EffectFactory,
         summoned: boolean,
@@ -277,8 +275,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.smallSprite = smallSprite;
         this.tagSprite = tagSprite;
         this.hourglassSprite = hourglassSprite;
-        this.greenSmallFlagSprite = greenSmallFlagSprite;
-        this.redSmallFlagSprite = redSmallFlagSprite;
         this.effectFactory = effectFactory;
         this.summoned = summoned;
         this.textures = textures;
@@ -529,6 +525,18 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
     }
 
+    public getTarget(): string {
+        return this.unitProperties.target;
+    }
+
+    public setTarget(targetUnitId: string): void {
+        this.unitProperties.target = targetUnitId;
+    }
+
+    public resetTarget(): void {
+        this.unitProperties.target = this.initialUnitProperties.target;
+    }
+
     public getAbilities(): Ability[] {
         return this.abilities;
     }
@@ -624,7 +632,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
     }
 
-    public deleteEffect(effectName: string) {
+    public deleteEffect(effectName: string): void {
         this.effects = this.effects.filter((e) => e.getName() !== effectName);
 
         if (
@@ -643,7 +651,24 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
     }
 
-    public deleteBuff(buffName: string) {
+    public deleteAllEffects(): void {
+        this.effects = [];
+
+        if (
+            this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_laps.length &&
+            this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_descriptions.length &&
+            this.unitProperties.applied_effects.length === this.unitProperties.applied_effects_powers.length
+        ) {
+            for (let i = this.unitProperties.applied_effects.length - 1; i >= 0; i--) {
+                this.unitProperties.applied_effects.splice(i, 1);
+                this.unitProperties.applied_effects_laps.splice(i, 1);
+                this.unitProperties.applied_effects_descriptions.splice(i, 1);
+                this.unitProperties.applied_effects_powers.splice(i, 1);
+            }
+        }
+    }
+
+    public deleteBuff(buffName: string): void {
         this.buffs = this.buffs.filter((b) => b.getName() !== buffName);
 
         if (
@@ -662,7 +687,24 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
     }
 
-    public deleteDebuff(debuffName: string) {
+    public deleteAllBuffs(): void {
+        this.buffs = [];
+
+        if (
+            this.unitProperties.applied_buffs.length === this.unitProperties.applied_buffs_laps.length &&
+            this.unitProperties.applied_buffs.length == this.unitProperties.applied_buffs_descriptions.length &&
+            this.unitProperties.applied_buffs.length == this.unitProperties.applied_buffs_powers.length
+        ) {
+            for (let i = this.unitProperties.applied_buffs.length - 1; i >= 0; i--) {
+                this.unitProperties.applied_buffs.splice(i, 1);
+                this.unitProperties.applied_buffs_laps.splice(i, 1);
+                this.unitProperties.applied_buffs_descriptions.splice(i, 1);
+                this.unitProperties.applied_buffs_powers.splice(i, 1);
+            }
+        }
+    }
+
+    public deleteDebuff(debuffName: string): void {
         this.debuffs = this.debuffs.filter((d) => d.getName() !== debuffName);
 
         if (
@@ -681,7 +723,24 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
     }
 
-    public minusLap() {
+    public deleteAllDebuffs(): void {
+        this.debuffs = [];
+
+        if (
+            this.unitProperties.applied_debuffs.length === this.unitProperties.applied_debuffs_laps.length &&
+            this.unitProperties.applied_debuffs.length == this.unitProperties.applied_debuffs_descriptions.length &&
+            this.unitProperties.applied_debuffs.length == this.unitProperties.applied_debuffs_powers.length
+        ) {
+            for (let i = this.unitProperties.applied_debuffs.length - 1; i >= 0; i--) {
+                this.unitProperties.applied_debuffs.splice(i, 1);
+                this.unitProperties.applied_debuffs_laps.splice(i, 1);
+                this.unitProperties.applied_debuffs_descriptions.splice(i, 1);
+                this.unitProperties.applied_debuffs_powers.splice(i, 1);
+            }
+        }
+    }
+
+    public minusLap(): void {
         const dismoraleDebuff = this.getDebuff("Dismorale");
         if (!dismoraleDebuff) {
             for (const ef of this.effects) {
@@ -841,10 +900,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return 0;
     }
 
-    public getAllProperties(): UnitProperties {
-        return this.unitProperties;
-    }
-
     public getFaction(): FactionType {
         return this.unitProperties.faction;
     }
@@ -893,6 +948,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public getSpeed(): number {
         return this.unitProperties.speed;
+    }
+
+    public getBaseArmor(): number {
+        return this.unitProperties.base_armor;
+    }
+
+    public getBaseAttack(): number {
+        return this.unitProperties.base_attack;
     }
 
     public getArmor(): number {
@@ -1011,6 +1074,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.unitProperties.amount_died;
     }
 
+    public getAuraRanges(): number[] {
+        return this.unitProperties.aura_ranges;
+    }
+
+    public getAuraIsBuff(): boolean[] {
+        return this.unitProperties.aura_is_buff;
+    }
+
     public getStackPower(): number {
         if (this.unitProperties.stack_power > HoCConstants.MAX_UNIT_STACK_POWER) {
             return HoCConstants.MAX_UNIT_STACK_POWER;
@@ -1076,45 +1147,64 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public increaseAmountAlive(increaseBy: number): void {
-        if (!this.isDead() && this.isSummoned()) {
+        if ((!this.isDead() && this.isSummoned()) || (this.isDead() && !this.isSummoned())) {
             this.unitProperties.amount_alive += increaseBy;
         }
     }
 
-    public render(
-        fps: number,
-        currentTick: number,
-        isLightMode: boolean,
-        isDamageAnimationLocked: boolean,
-        draw?: b2Draw,
-        upNextPosition = 0,
-        shift = 1,
-        isActive = false,
-    ) {
+    public increaseAttackMod(increaseBy: number): void {
+        if (increaseBy > 0) {
+            this.unitProperties.attack_mod = Number((this.unitProperties.attack_mod + increaseBy).toFixed(2));
+            this.currentAttackModIncrease = increaseBy;
+        } else {
+            this.currentAttackModIncrease = 0;
+        }
+    }
+
+    public cleanupAttackModIncrease(): void {
+        const newAttackMod = this.unitProperties.attack_mod - this.currentAttackModIncrease;
+        this.unitProperties.attack_mod = Math.max(0, newAttackMod);
+    }
+
+    public getCurrentAttackModIncrease(): number {
+        return this.currentAttackModIncrease;
+    }
+
+    public decreaseAmountDied(decreaseBy: number): void {
+        if (!this.isDead() && !this.isSummoned()) {
+            this.unitProperties.amount_died -= Math.min(this.unitProperties.amount_died, decreaseBy);
+        }
+    }
+
+    public enqueueResurrectionAnimation(): void {
+        this.resurrectionAnimationTick = Math.max(
+            this.resurrectionAnimationTick,
+            this.lastKnownTick + RESURRECTION_ANIMATION_TICKS,
+        );
+    }
+
+    public render(fps: number, currentTick: number, isDamageAnimationLocked: boolean, sceneLog: SceneLog) {
+        this.lastKnownTick = Math.max(currentTick, this.lastKnownTick);
+
+        if (this.lastKnownTick < this.resurrectionAnimationTick) {
+            return;
+        }
+
+        if (this.resurrectionAnimationTick) {
+            sceneLog.updateLog(`${this.getName()} resurrected as ${this.getAmountAlive()}`);
+            this.resurrectionAnimationTick = 0;
+        }
+
         const halfUnitStep = this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep();
         const fourthUnitStep = this.isSmallSize()
             ? this.gridSettings.getQuarterStep()
             : this.gridSettings.getHalfStep();
         const fullUnitStep = this.isSmallSize() ? this.gridSettings.getStep() : this.gridSettings.getTwoSteps();
 
-        const position = upNextPosition
-            ? {
-                  x: this.gridSettings.getMinX() - this.gridSettings.getStep() * upNextPosition,
-                  y: this.gridSettings.getStep(),
-              }
-            : this.position;
-
-        let xShift = 0;
-        const yShift = this.isSmallSize() ? 0 : this.gridSettings.getStep();
-        if (upNextPosition) {
-            xShift = (this.isSmallSize() ? shift - 1 : shift) * this.gridSettings.getStep();
-        }
-
-        const spritePositionX = position.x - (upNextPosition ? xShift : halfUnitStep);
-        const spritePositionY = position.y - (upNextPosition ? yShift : halfUnitStep);
+        const spritePositionX = this.position.x - halfUnitStep;
+        const spritePositionY = this.position.y - halfUnitStep;
 
         this.smallSprite.setRect(spritePositionX, spritePositionY, fullUnitStep, fullUnitStep);
-
         this.smallSprite.render();
 
         const damageEntry = this.damageAnimationTicks.pop();
@@ -1127,11 +1217,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.renderAmountSprites(
                 this.digitNormalTextures,
                 this.unitProperties.amount_alive,
-                position,
-                upNextPosition,
-                xShift,
-                yShift,
-                fullUnitStep,
+                this.position,
                 halfUnitStep,
                 fifthStep,
                 sixthStep,
@@ -1160,11 +1246,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 this.renderAmountSprites(
                     this.digitDamageTextures,
                     unitsDied,
-                    position,
-                    upNextPosition,
-                    xShift,
-                    yShift,
-                    fullUnitStep,
+                    this.position,
                     halfUnitStep,
                     fifthStep,
                     sixthStep,
@@ -1175,8 +1257,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                     for (let i = 1; i <= this.unitProperties.amount_alive.toString().length; i++) {
                         const sprite = new Sprite(this.gl, this.shader, texture);
                         sprite.setRect(
-                            position.x + (upNextPosition ? fullUnitStep - xShift : halfUnitStep) - sixthStep * i,
-                            position.y - (upNextPosition ? yShift : halfUnitStep),
+                            this.position.x + halfUnitStep - sixthStep * i,
+                            this.position.y - halfUnitStep,
                             sixthStep,
                             fifthStep,
                         );
@@ -1184,66 +1266,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                     }
                 }
             }
-        }
-
-        if (upNextPosition && isActive && draw) {
-            const start = {
-                x:
-                    spritePositionX -
-                    halfUnitStep +
-                    (this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep()),
-                y:
-                    spritePositionY -
-                    halfUnitStep +
-                    (this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep()),
-            };
-            const end = {
-                x:
-                    spritePositionX +
-                    halfUnitStep +
-                    (this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep()),
-                y:
-                    spritePositionY +
-                    halfUnitStep +
-                    (this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep()),
-            };
-
-            const color = isLightMode ? new b2Color(0, 0, 0, 0.8) : new b2Color(1, 1, 1, 0.8);
-            draw.DrawPolygon(
-                [
-                    { x: start.x, y: start.y },
-                    { x: start.x, y: end.y },
-                    { x: end.x, y: end.y },
-                    { x: end.x, y: start.y },
-                ],
-                4,
-                color,
-            );
-        }
-
-        if (upNextPosition) {
-            if (this.getTeam() === TeamType.LOWER) {
-                this.greenSmallFlagSprite.setRect(
-                    spritePositionX -
-                        halfUnitStep +
-                        (this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep()),
-                    spritePositionY + fourthUnitStep,
-                    fourthUnitStep + (fourthUnitStep >> 1),
-                    halfUnitStep + fourthUnitStep,
-                );
-                this.greenSmallFlagSprite.render();
-            } else {
-                this.redSmallFlagSprite.setRect(
-                    spritePositionX -
-                        halfUnitStep +
-                        (this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep()),
-                    spritePositionY + fourthUnitStep,
-                    fourthUnitStep + (fourthUnitStep >> 1),
-                    halfUnitStep + fourthUnitStep,
-                );
-                this.redSmallFlagSprite.render();
-            }
-            return;
         }
 
         if (!damageEntry || (damageEntry && !isDamageAnimationLocked)) {
@@ -1580,6 +1602,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public calculateAttackDamageMin(
+        attackRate: number,
         enemyUnit: Unit,
         isRangeAttack: boolean,
         divisor = 1,
@@ -1590,7 +1613,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         return Math.ceil(
-            ((((this.unitProperties.attack_damage_min * this.getAttack() * this.unitProperties.amount_alive) /
+            ((((this.unitProperties.attack_damage_min * attackRate * this.unitProperties.amount_alive) /
                 this.getEnemyArmor(enemyUnit, isRangeAttack)) *
                 (1 - enemyUnit.getLuck() / 100)) /
                 divisor) *
@@ -1600,6 +1623,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public calculateAttackDamageMax(
+        attackRate: number,
         enemyUnit: Unit,
         isRangeAttack: boolean,
         divisor = 1,
@@ -1609,7 +1633,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             divisor = 1;
         }
         return Math.ceil(
-            ((((this.unitProperties.attack_damage_max * this.getAttack() * this.unitProperties.amount_alive) /
+            ((((this.unitProperties.attack_damage_max * attackRate * this.unitProperties.amount_alive) /
                 this.getEnemyArmor(enemyUnit, isRangeAttack)) *
                 (1 - enemyUnit.getLuck() / 100)) /
                 divisor) *
@@ -1625,8 +1649,18 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         abilityMultiplier = 1,
         decreaseNumberOfShots = true,
     ): number {
-        const min = this.calculateAttackDamageMin(enemyUnit, attackType === AttackType.RANGE, divisor);
-        const max = this.calculateAttackDamageMax(enemyUnit, attackType === AttackType.RANGE, divisor);
+        const min = this.calculateAttackDamageMin(
+            this.getAttack(),
+            enemyUnit,
+            attackType === AttackType.RANGE,
+            divisor,
+        );
+        const max = this.calculateAttackDamageMax(
+            this.getAttack(),
+            enemyUnit,
+            attackType === AttackType.RANGE,
+            divisor,
+        );
         const attackingByMelee = attackType === AttackType.MELEE;
         if (!attackingByMelee && attackType === AttackType.RANGE) {
             if (this.getRangeShots() <= 0) {
@@ -1671,12 +1705,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         for (const a of this.abilities) {
-            console.log(a.getName());
             if (
                 (a.getName() === "No Melee" && attackType === AttackType.MELEE) ||
                 (a.getName() === "Through Shot" && attackType === AttackType.RANGE)
             ) {
-                console.log("RETURN FALSE");
                 return false;
             }
         }
@@ -1894,6 +1926,11 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public adjustBaseStats(currentLap: number) {
+        // target
+        if (!this.hasEffectActive("Aggr")) {
+            this.resetTarget();
+        }
+
         // HP
         const baseStatsDiff = SpellHelper.calculateBuffsDebuffsEffect(this.getBuffs(), this.getDebuffs());
         const hasUnyieldingPower = this.hasAbilityActive("Unyielding Power");
@@ -1962,14 +1999,19 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.base_armor = Number(
             (this.initialUnitProperties.base_armor + baseStatsDiff.baseStats.armor).toFixed(2),
         );
+        if (pegasusMightAura) {
+            this.unitProperties.base_armor += pegasusMightAura.getPower();
+        }
+        const windFlowBuff = this.getBuff("Wind Flow");
+        if (windFlowBuff) {
+            this.unitProperties.base_armor += windFlowBuff.getPower();
+        }
+        // mod
         const shatterArmorEffect = this.getEffect("Shatter Armor");
         if (shatterArmorEffect) {
             this.unitProperties.armor_mod = -shatterArmorEffect.getPower();
         } else {
             this.unitProperties.armor_mod = this.initialUnitProperties.armor_mod;
-        }
-        if (pegasusMightAura) {
-            this.unitProperties.base_armor += pegasusMightAura.getPower();
         }
         if (this.hasBuffActive("Spiritual Armor")) {
             const spell = new Spell({
@@ -2012,7 +2054,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         // SHOTS
-        this.adjustRangeShotsNumber(true);
+        if (this.hasAbilityActive("Limited Supply")) {
+            const actualStackPowerCoeff = this.getStackPower() / HoCConstants.MAX_UNIT_STACK_POWER;
+            this.unitProperties.range_shots = Math.min(
+                this.unitProperties.range_shots,
+                Math.floor(this.maxRangeShots * actualStackPowerCoeff),
+            );
+        }
+
         const endlessQuiverAbility = this.getAbility("Endless Quiver");
         if (endlessQuiverAbility) {
             this.unitProperties.range_shots_mod = endlessQuiverAbility.getPower();
@@ -2031,6 +2080,15 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (wolfTrailAuraEffect) {
             this.unitProperties.steps += wolfTrailAuraEffect.getPower();
         }
+        if (windFlowBuff) {
+            const newSteps = this.unitProperties.steps - windFlowBuff.getPower();
+            this.unitProperties.steps = Math.max(1, newSteps);
+        }
+        const battleRoarBuff = this.getBuff("Battle Roar");
+        if (battleRoarBuff) {
+            this.unitProperties.steps += battleRoarBuff.getPower();
+        }
+
         const quagmireDebuff = this.getDebuff("Quagmire");
         let stepsMultiplier = 1;
         if (quagmireDebuff) {
@@ -2151,6 +2209,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             );
         }
 
+        // Skewer Strike
+        const skewerStrikeAbility = this.getAbility("Skewer Strike");
+        if (skewerStrikeAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(skewerStrikeAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                skewerStrikeAbility.getName(),
+                skewerStrikeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
         // Fire Shield
         const fireShieldAbility = this.getAbility("Fire Shield");
         if (fireShieldAbility) {
@@ -2242,6 +2310,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             );
         }
 
+        // War Anger Aura
+        const warAngerAuraAbility = this.getAbility("War Anger Aura");
+        if (warAngerAuraAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(warAngerAuraAbility) * 100).toFixed(2)) - 100;
+            this.refreshAbiltyDescription(
+                warAngerAuraAbility.getName(),
+                warAngerAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
         // Arrows Wingshield Aura
         const arrowsWingshieldAuraAbility = this.getAbility("Arrows Wingshield Aura");
         if (arrowsWingshieldAuraAbility) {
@@ -2274,6 +2352,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.refreshAbiltyDescription(
                 boarSalivaAbility.getName(),
                 boarSalivaAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Aggr
+        const aggrAbility = this.getAbility("Aggr");
+        if (aggrAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(aggrAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                aggrAbility.getName(),
+                aggrAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -2528,18 +2616,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
     }
 
-    public adjustRangeShotsNumber(force: boolean) {
-        if (!force && !this.hasAbilityActive("Limited Supply")) {
-            return;
-        }
-
-        const actualStackPowerCoeff = this.getStackPower() / HoCConstants.MAX_UNIT_STACK_POWER;
-        this.unitProperties.range_shots = Math.min(
-            this.unitProperties.range_shots,
-            Math.floor(this.maxRangeShots * actualStackPowerCoeff),
-        );
-    }
-
     public setRangeShotDistance(distance: number) {
         this.unitProperties.shot_distance = distance;
     }
@@ -2748,10 +2824,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         digitTextures: Map<number, WebGLTexture>,
         amountToRender: number,
         position: XY,
-        upNextPosition: number,
-        xShift: number,
-        yShift: number,
-        fullUnitStep: number,
         halfUnitStep: number,
         fifthStep: number,
         sixthStep: number,
@@ -2787,12 +2859,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 continue;
             }
 
-            s.setRect(
-                position.x + (upNextPosition ? fullUnitStep - xShift : halfUnitStep) - sixthStep * i++,
-                position.y - (upNextPosition ? yShift : halfUnitStep),
-                sixthStep,
-                fifthStep,
-            );
+            s.setRect(position.x + halfUnitStep - sixthStep * i++, position.y - halfUnitStep, sixthStep, fifthStep);
             s.render();
         }
     }

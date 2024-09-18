@@ -44,7 +44,13 @@ export function processRangeAOEAbility(
 
     let maxDamage = 0;
     if (aoeAbility) {
+        const wasDead: Unit[] = [];
         for (const unit of affectedUnits) {
+            if (unit.isDead()) {
+                wasDead.push(unit);
+                continue;
+            }
+
             const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(unit);
             if (isAttackMissed) {
                 sceneLog.updateLog(`${attackerUnit.getName()} misses ${isAttack ? "attk" : "resp"} ${unit.getName()}`);
@@ -90,9 +96,9 @@ export function processRangeAOEAbility(
         }
 
         for (const unit of affectedUnits) {
-            if (unit.isDead()) {
+            if (unit.isDead() && !wasDead.includes(unit)) {
                 sceneLog.updateLog(`${unit.getName()} died`);
-                unitsHolder.deleteUnitById(grid, unit.getId());
+                unitsHolder.deleteUnitById(unit.getId(), true);
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unit);
                 attackerUnit.applyMoraleStepsModifier(
@@ -104,6 +110,7 @@ export function processRangeAOEAbility(
             }
         }
         attackerUnit.decreaseNumberOfShots();
+        unitsHolder.refreshStackPowerForAllUnits();
 
         return {
             landed: true,

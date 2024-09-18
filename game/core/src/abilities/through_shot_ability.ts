@@ -106,7 +106,7 @@ export function processThroughShotAbility(
     for (const unit of unitsDamaged) {
         if (unit.isDead()) {
             sceneLog.updateLog(`${unit.getName()} died`);
-            unitsHolder.deleteUnitById(grid, unit.getId());
+            unitsHolder.deleteUnitById(unit.getId(), true);
             attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unit);
             attackerUnit.applyMoraleStepsModifier(
@@ -122,6 +122,8 @@ export function processThroughShotAbility(
     if (targetUnit) {
         drawer.startBulletAnimation(attackerUnit.getPosition(), hoverRangeAttackPosition, targetUnit);
     }
+
+    unitsHolder.refreshStackPowerForAllUnits();
 
     return true;
 }

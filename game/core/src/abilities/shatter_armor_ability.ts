@@ -38,8 +38,12 @@ export function processShatterArmorAbility(
 
         // need to overwrite actual effect power here
         shatterArmorEffect.setPower(
-            (activeShatterArmorEffect?.getPower() ?? 0) +
-                fromUnit.calculateAbilityCount(shatterArmorAbility) * amplifier,
+            Number(
+                (
+                    (activeShatterArmorEffect?.getPower() ?? 0) +
+                    fromUnit.calculateAbilityCount(shatterArmorAbility) * amplifier
+                ).toFixed(2),
+            ),
         );
 
         const laps = shatterArmorEffect.getLaps();

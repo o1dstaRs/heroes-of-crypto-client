@@ -5,13 +5,13 @@ import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import RotateRightIcon from "@mui/icons-material/RotateRight";
 import { styled, keyframes } from "@mui/system";
 
-import spellbookIconImage from "../../../images/icon_spellbook.webp";
-import hourglassIconImage from "../../../images/icon_hourglass.webp";
-import swordIconImage from "../../../images/icon_sword.webp";
-import aiIconImage from "../../../images/icon_ai.webp";
-import skipIconImage from "../../../images/icon_skip.webp";
-import luckShieldIconImage from "../../../images/icon_luck_shield.webp";
-import brownImage from "../../../images/overlay_brown.webp";
+import spellbookIconImage from "../../../images/icon_spellbook_black.webp";
+import hourglassIconImage from "../../../images/icon_hourglass_black.webp";
+import swordIconImage from "../../../images/icon_sword_black.webp";
+import aiIconImage from "../../../images/icon_ai_black.webp";
+import skipIconImage from "../../../images/icon_skip_black.webp";
+import luckShieldIconImage from "../../../images/icon_luck_shield_black.webp";
+import blackImage from "../../../images/overlay_black.webp";
 import lightImage from "../../../images/overlay_light.webp";
 
 const INITIAL_POSITION_Y = 6;
@@ -71,7 +71,7 @@ const DraggableToolbar = () => {
     };
 
     const StyledSheet = styled(Sheet)({
-        backgroundImage: `url(${isDark ? brownImage : lightImage})`,
+        backgroundImage: `url(${isDark ? blackImage : lightImage})`,
         backgroundSize: "cover",
         border: "1px solid",
         borderColor: isDark ? "black" : "black",

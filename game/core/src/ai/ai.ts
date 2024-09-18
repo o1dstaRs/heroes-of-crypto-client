@@ -240,10 +240,12 @@ function doFindTarget(
     if (closestTarget === undefined) {
         return undefined;
     }
+
     if (debug) {
         console.log("СlosestTarget:" + cellToString(closestTarget));
     }
-    if (unit.getAllProperties()?.attack_type === AttackType.RANGE) {
+
+    if (unit.getAttackType() === AttackType.RANGE) {
         return new BasicAIAction(AIActionType.RANGE_ATTACK, undefined, closestTarget, paths.knownPaths);
     }
 

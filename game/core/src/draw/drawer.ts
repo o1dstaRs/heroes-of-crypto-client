@@ -21,7 +21,8 @@ import {
     b2World,
     XY,
 } from "@box2d/core";
-import { GridType, GridMath, GridSettings, ObstacleType } from "@heroesofcrypto/common";
+import { Grid, GridType, GridMath, GridSettings, ObstacleType } from "@heroesofcrypto/common";
+import { SceneLog } from "../menu/scene_log";
 
 import { Obstacle } from "../obstacles/obstacle";
 import { ObstacleGenerator } from "../obstacles/obstacle_generator";
@@ -34,6 +35,7 @@ import {
     MOUNTAIN_ENLARGE_Y,
 } from "../statics";
 import { Unit } from "../units/units";
+import { UnitsHolder } from "../units/units_holder";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
@@ -48,6 +50,11 @@ export interface IBullet {
     nextEnemyCellIndices: number[];
 }
 
+interface DrawablePosition {
+    position: XY;
+    size: number;
+}
+
 export class Drawer {
     public static COLOR_ORANGE = new b2Color(0.909803921568627, 0.282352941176471, 0.203921568627451);
     public static COLOR_YELLOW = new b2Color(1, 0.952941176470588, 0.427450980392157);
@@ -58,13 +65,15 @@ export class Drawer {
     public static COLOR_RED = new b2Color(1, 0, 0);
     public static COLOR_GREEN = new b2Color(0, 1, 0);
 
-    private readonly gl: WebGLRenderingContext;
-
-    private readonly shader: DefaultShader;
+    private readonly grid: Grid;
 
     private readonly gridSettings: GridSettings;
 
     private readonly world: b2World;
+
+    private readonly gl: WebGLRenderingContext;
+
+    private readonly shader: DefaultShader;
 
     private readonly holeLayersSprites: Sprite[] = new Array(MAX_HOLE_LAYERS);
 
@@ -91,21 +100,22 @@ export class Drawer {
     private holeLayers = 0;
 
     public constructor(
-        gridSettings: GridSettings,
+        grid: Grid,
         world: b2World,
         gl: WebGLRenderingContext,
         shader: DefaultShader,
         textures: PreloadedTextures,
         obstacleGenerator: ObstacleGenerator,
     ) {
+        this.grid = grid;
+        this.world = world;
         this.gl = gl;
         this.shader = shader;
-        this.gridSettings = gridSettings;
-        this.world = world;
         this.animating = false;
         this.animatingDoubleShot = false;
         this.onlyUniqueBulletSourcesRemaining = false;
         this.obstacleGenerator = obstacleGenerator;
+        this.gridSettings = this.grid.getSettings();
         this.initHoleLayers(gl, shader, textures);
     }
 
@@ -177,7 +187,7 @@ export class Drawer {
         }
     }
 
-    private moveUnit(fps: number, currentTick: number) {
+    private moveUnit(fps: number, currentTick: number, sceneLog: SceneLog) {
         const ratioToMaxFps = MAX_FPS / fps;
         if (
             !this.moveAnimationBody ||
@@ -188,7 +198,7 @@ export class Drawer {
             return;
         }
 
-        this.moveAnimationUnit.render(fps, currentTick, false /* not used */, true);
+        this.moveAnimationUnit.render(fps, currentTick, true, sceneLog);
         const isSmallUnit = this.moveAnimationUnit.isSmallSize();
 
         const movingTarget = GridMath.getPositionForCell(
@@ -444,7 +454,7 @@ export class Drawer {
         }
     }
 
-    public animate(fps: number, currentTick: number): void {
+    public animate(fps: number, currentTick: number, sceneLog: SceneLog): void {
         if (
             this.moveAnimationPath &&
             (this.moveAnimationIndex >= this.moveAnimationPath.length || this.moveAnimationIndex <= 0)
@@ -469,7 +479,93 @@ export class Drawer {
             return;
         }
 
-        this.moveUnit(fps, currentTick);
+        this.moveUnit(fps, currentTick, sceneLog);
+    }
+
+    public drawAOECells(draw: b2Draw, unitsHolder: UnitsHolder, hoverAOECells?: XY[]): void {
+        if (!hoverAOECells?.length) {
+            return;
+        }
+
+        const drawablePositions: DrawablePosition[] = [];
+        const cellKeys: number[] = [];
+
+        for (const c of hoverAOECells) {
+            const cellPosition = GridMath.getPositionForCell(
+                c,
+                this.gridSettings.getMinX(),
+                this.gridSettings.getStep(),
+                this.gridSettings.getHalfStep(),
+            );
+
+            if (!cellPosition) {
+                continue;
+            }
+
+            const cellKey = (c.x << 4) | c.y;
+            if (cellKeys.includes(cellKey)) {
+                continue;
+            }
+
+            const occupantId = this.grid.getOccupantUnitId(c);
+
+            if (occupantId) {
+                const occupantUnit = unitsHolder.getAllUnits().get(occupantId);
+                if (!occupantUnit) {
+                    continue;
+                }
+
+                for (const oc of occupantUnit.getCells()) {
+                    // const occupantCellPosition = GridMath.getPositionForCell(
+                    //     oc,
+                    //     this.gridSettings.getMinX(),
+                    //     this.gridSettings.getStep(),
+                    //     this.gridSettings.getHalfStep(),
+                    // );
+                    const occupantCellKey = (oc.x << 4) | oc.y;
+
+                    // if (occupantCellPosition && !cellKeys.includes(occupantCellKey)) {
+                    if (!cellKeys.includes(occupantCellKey)) {
+                        cellKeys.push(occupantCellKey);
+                    }
+                }
+
+                const baseCell = occupantUnit.getBaseCell();
+                if (!baseCell) {
+                    continue;
+                }
+
+                const baseCellPosition = GridMath.getPositionForCell(
+                    baseCell,
+                    this.gridSettings.getMinX(),
+                    this.gridSettings.getStep(),
+                    this.gridSettings.getHalfStep(),
+                );
+
+                if (!baseCellPosition) {
+                    continue;
+                }
+
+                drawablePositions.push({
+                    position: {
+                        x: baseCellPosition.x - (occupantUnit.isSmallSize() ? 0 : this.gridSettings.getHalfStep()),
+                        y: baseCellPosition.y - (occupantUnit.isSmallSize() ? 0 : this.gridSettings.getHalfStep()),
+                    },
+                    size: occupantUnit.getSize(),
+                });
+
+                continue;
+            }
+
+            drawablePositions.push({ position: cellPosition, size: 1 });
+            cellKeys.push(cellKey);
+        }
+
+        for (const p of drawablePositions) {
+            if (p.size <= 2 && p.size >= 1) {
+                this.drawAttackTo(draw, p.position, p.size);
+            }
+        }
     }
 
     public drawAttackTo(draw: b2Draw, targetPisition: XY, size: number): void {

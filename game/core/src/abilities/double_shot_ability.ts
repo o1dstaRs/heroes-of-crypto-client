@@ -21,7 +21,7 @@ import { processLuckyStrikeAbility } from "./lucky_strike_ability";
 
 export interface IDoubleShotResult {
     applied: boolean;
-    largeCaliberLanded: boolean;
+    aoeRangeAttackLanded: boolean;
     damage: number;
 }
 
@@ -36,15 +36,20 @@ export function processDoubleShotAbility(
     hoverRangeAttackDivisor: number,
     hoverRangeAttackPosition: HoCMath.XY,
     sceneStepCount: number,
+    isAOE: boolean,
 ): IDoubleShotResult {
     const doubleShotAbility = fromUnit.getAbility("Double Shot");
 
     let damageFromAttack = 0;
 
-    if (!doubleShotAbility || fromUnit.isDead() || toUnit.isDead()) {
+    if (
+        !doubleShotAbility ||
+        (!isAOE &&
+            (fromUnit.isDead() || toUnit.isDead() || (fromUnit.getTarget() && fromUnit.getTarget() !== toUnit.getId())))
+    ) {
         return {
             applied: false,
-            largeCaliberLanded: false,
+            aoeRangeAttackLanded: false,
             damage: damageFromAttack,
         };
     }
@@ -54,7 +59,7 @@ export function processDoubleShotAbility(
         sceneLog.updateLog(`${fromUnit.getName()} misses attk ${toUnit.getName()}`);
         return {
             applied: false,
-            largeCaliberLanded: false,
+            aoeRangeAttackLanded: false,
             damage: damageFromAttack,
         };
     }
@@ -101,7 +106,7 @@ export function processDoubleShotAbility(
 
     return {
         applied: true,
-        largeCaliberLanded: aoeRangeAttackResult.landed,
+        aoeRangeAttackLanded: aoeRangeAttackResult.landed,
         damage: damageFromAttack,
     };
 }
