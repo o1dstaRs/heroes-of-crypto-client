@@ -133,15 +133,48 @@ export class UnitsHolder {
         return teamUnitBuffs;
     }
 
-    public getAllEnemyUnitsDebuffs(teamType: TeamType): Map<string, AppliedSpell[]> {
+    public getAllEnemyUnitsBuffs(myTeamType: TeamType): Map<string, AppliedSpell[]> {
+        const enemyTeamUnitBuffs: Map<string, AppliedSpell[]> = new Map();
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() !== myTeamType) {
+                enemyTeamUnitBuffs.set(unit.getId(), unit.getBuffs());
+            }
+        }
+
+        return enemyTeamUnitBuffs;
+    }
+
+    public getAllEnemyUnitsDebuffs(myTeamType: TeamType): Map<string, AppliedSpell[]> {
         const teamUnitBuffs: Map<string, AppliedSpell[]> = new Map();
         for (const unit of this.allUnits.values()) {
-            if (unit.getTeam() !== teamType) {
+            if (unit.getTeam() !== myTeamType) {
                 teamUnitBuffs.set(unit.getId(), unit.getDebuffs());
             }
         }
 
         return teamUnitBuffs;
+    }
+
+    public getAllTeamUnitsCanFly(teamType: TeamType): Map<string, boolean> {
+        const teamUnitCanFly: Map<string, boolean> = new Map();
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() === teamType) {
+                teamUnitCanFly.set(unit.getId(), unit.getCanFly());
+            }
+        }
+
+        return teamUnitCanFly;
+    }
+
+    public getAllEnemyUnitsCanFly(teamType: TeamType): Map<string, boolean> {
+        const enemyTeamUnitCanFly: Map<string, boolean> = new Map();
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() !== teamType) {
+                enemyTeamUnitCanFly.set(unit.getId(), unit.getCanFly());
+            }
+        }
+
+        return enemyTeamUnitCanFly;
     }
 
     public getAllTeamUnitsMagicResist(teamType: TeamType): Map<string, number> {
@@ -177,10 +210,10 @@ export class UnitsHolder {
         return teamUnitMaxHp;
     }
 
-    public getAllEnemyUnitsMagicResist(teamType: TeamType): Map<string, number> {
+    public getAllEnemyUnitsMagicResist(myTeamType: TeamType): Map<string, number> {
         const enemyUnitMagicResist: Map<string, number> = new Map();
         for (const unit of this.allUnits.values()) {
-            if (unit.getTeam() !== teamType) {
+            if (unit.getTeam() !== myTeamType) {
                 enemyUnitMagicResist.set(unit.getId(), unit.getMagicResist());
             }
         }
@@ -353,33 +386,42 @@ export class UnitsHolder {
                 continue;
             }
             u.adjustBaseStats(FightStateManager.getInstance().getFightProperties().getCurrentLap());
+            u.increaseAttackMod(this.getUnitAuraAttackMod(u));
 
-            const warAngerAuraEffect = u.getAuraEffect("War Anger");
-            if (warAngerAuraEffect) {
-                const enemyIdsSpotted: string[] = [];
-                const enemyIds: string[] = [];
-                for (const e of this.getAllEnemyUnits(u.getTeam())) {
-                    enemyIds.push(e.getId());
-                }
+            this.refreshBarFixtures(u);
+        }
+    }
 
-                for (const c of u.getCells()) {
-                    const auraCells = EffectHelper.getAuraCells(this.gridSettings, c, warAngerAuraEffect.getRange());
-                    for (const ac of auraCells) {
-                        const occupantId = this.grid.getOccupantUnitId(ac);
-                        if (!occupantId) {
-                            continue;
-                        }
+    public getUnitAuraAttackMod(unit: Unit, cells?: XY[]): number {
+        let auraAttackMod = 0;
+        const warAngerAuraEffect = unit.getAuraEffect("War Anger");
+        if (warAngerAuraEffect) {
+            const enemyIdsSpotted: string[] = [];
+            const enemyIds: string[] = [];
+            for (const e of this.getAllEnemyUnits(unit.getTeam())) {
+                enemyIds.push(e.getId());
+            }
 
-                        if (enemyIds.includes(occupantId) && !enemyIdsSpotted.includes(occupantId)) {
-                            enemyIdsSpotted.push(occupantId);
-                        }
+            const unitCells = cells?.length ? cells : unit.getCells();
+
+            for (const c of unitCells) {
+                const auraCells = EffectHelper.getAuraCells(this.gridSettings, c, warAngerAuraEffect.getRange());
+                for (const ac of auraCells) {
+                    const occupantId = this.grid.getOccupantUnitId(ac);
+                    if (!occupantId) {
+                        continue;
+                    }
+
+                    if (enemyIds.includes(occupantId) && !enemyIdsSpotted.includes(occupantId)) {
+                        enemyIdsSpotted.push(occupantId);
                     }
                 }
             }
 
-            u.adjustRangeShotsNumber(false);
-            this.refreshBarFixtures(u);
+            return unit.getBaseAttack() * ((warAngerAuraEffect.getPower() * enemyIdsSpotted.length) / 100);
         }
+
+        return auraAttackMod;
     }
 
     public refreshAuraEffectsForAllUnits(): void {

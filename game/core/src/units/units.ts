@@ -146,6 +146,7 @@ interface IDamageable {
 
 interface IDamager {
     calculateAttackDamageMin(
+        attackRate: number,
         enemyUnit: Unit,
         isRangeAttack: boolean,
         divisor: number,
@@ -153,6 +154,7 @@ interface IDamager {
     ): number;
 
     calculateAttackDamageMax(
+        attackRate: number,
         enemyUnit: Unit,
         isRangeAttack: boolean,
         divisor: number,
@@ -239,6 +241,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     protected onHourglass = false;
 
     protected lastKnownTick = 0;
+
+    protected currentAttackModIncrease = 0;
 
     protected adjustedBaseStatsLaps: number[] = [];
 
@@ -1148,6 +1152,24 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
     }
 
+    public increaseAttackMod(increaseBy: number): void {
+        if (increaseBy > 0) {
+            this.unitProperties.attack_mod = Number((this.unitProperties.attack_mod + increaseBy).toFixed(2));
+            this.currentAttackModIncrease = increaseBy;
+        } else {
+            this.currentAttackModIncrease = 0;
+        }
+    }
+
+    public cleanupAttackModIncrease(): void {
+        const newAttackMod = this.unitProperties.attack_mod - this.currentAttackModIncrease;
+        this.unitProperties.attack_mod = Math.max(0, newAttackMod);
+    }
+
+    public getCurrentAttackModIncrease(): number {
+        return this.currentAttackModIncrease;
+    }
+
     public decreaseAmountDied(decreaseBy: number): void {
         if (!this.isDead() && !this.isSummoned()) {
             this.unitProperties.amount_died -= Math.min(this.unitProperties.amount_died, decreaseBy);
@@ -1580,6 +1602,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public calculateAttackDamageMin(
+        attackRate: number,
         enemyUnit: Unit,
         isRangeAttack: boolean,
         divisor = 1,
@@ -1590,7 +1613,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         return Math.ceil(
-            ((((this.unitProperties.attack_damage_min * this.getAttack() * this.unitProperties.amount_alive) /
+            ((((this.unitProperties.attack_damage_min * attackRate * this.unitProperties.amount_alive) /
                 this.getEnemyArmor(enemyUnit, isRangeAttack)) *
                 (1 - enemyUnit.getLuck() / 100)) /
                 divisor) *
@@ -1600,6 +1623,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public calculateAttackDamageMax(
+        attackRate: number,
         enemyUnit: Unit,
         isRangeAttack: boolean,
         divisor = 1,
@@ -1609,7 +1633,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             divisor = 1;
         }
         return Math.ceil(
-            ((((this.unitProperties.attack_damage_max * this.getAttack() * this.unitProperties.amount_alive) /
+            ((((this.unitProperties.attack_damage_max * attackRate * this.unitProperties.amount_alive) /
                 this.getEnemyArmor(enemyUnit, isRangeAttack)) *
                 (1 - enemyUnit.getLuck() / 100)) /
                 divisor) *
@@ -1625,8 +1649,18 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         abilityMultiplier = 1,
         decreaseNumberOfShots = true,
     ): number {
-        const min = this.calculateAttackDamageMin(enemyUnit, attackType === AttackType.RANGE, divisor);
-        const max = this.calculateAttackDamageMax(enemyUnit, attackType === AttackType.RANGE, divisor);
+        const min = this.calculateAttackDamageMin(
+            this.getAttack(),
+            enemyUnit,
+            attackType === AttackType.RANGE,
+            divisor,
+        );
+        const max = this.calculateAttackDamageMax(
+            this.getAttack(),
+            enemyUnit,
+            attackType === AttackType.RANGE,
+            divisor,
+        );
         const attackingByMelee = attackType === AttackType.MELEE;
         if (!attackingByMelee && attackType === AttackType.RANGE) {
             if (this.getRangeShots() <= 0) {
@@ -1965,14 +1999,19 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.base_armor = Number(
             (this.initialUnitProperties.base_armor + baseStatsDiff.baseStats.armor).toFixed(2),
         );
+        if (pegasusMightAura) {
+            this.unitProperties.base_armor += pegasusMightAura.getPower();
+        }
+        const windFlowBuff = this.getBuff("Wind Flow");
+        if (windFlowBuff) {
+            this.unitProperties.base_armor += windFlowBuff.getPower();
+        }
+        // mod
         const shatterArmorEffect = this.getEffect("Shatter Armor");
         if (shatterArmorEffect) {
             this.unitProperties.armor_mod = -shatterArmorEffect.getPower();
         } else {
             this.unitProperties.armor_mod = this.initialUnitProperties.armor_mod;
-        }
-        if (pegasusMightAura) {
-            this.unitProperties.base_armor += pegasusMightAura.getPower();
         }
         if (this.hasBuffActive("Spiritual Armor")) {
             const spell = new Spell({
@@ -2015,7 +2054,14 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         // SHOTS
-        this.adjustRangeShotsNumber(true);
+        if (this.hasAbilityActive("Limited Supply")) {
+            const actualStackPowerCoeff = this.getStackPower() / HoCConstants.MAX_UNIT_STACK_POWER;
+            this.unitProperties.range_shots = Math.min(
+                this.unitProperties.range_shots,
+                Math.floor(this.maxRangeShots * actualStackPowerCoeff),
+            );
+        }
+
         const endlessQuiverAbility = this.getAbility("Endless Quiver");
         if (endlessQuiverAbility) {
             this.unitProperties.range_shots_mod = endlessQuiverAbility.getPower();
@@ -2034,6 +2080,15 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (wolfTrailAuraEffect) {
             this.unitProperties.steps += wolfTrailAuraEffect.getPower();
         }
+        if (windFlowBuff) {
+            const newSteps = this.unitProperties.steps - windFlowBuff.getPower();
+            this.unitProperties.steps = Math.max(1, newSteps);
+        }
+        const battleRoarBuff = this.getBuff("Battle Roar");
+        if (battleRoarBuff) {
+            this.unitProperties.steps += battleRoarBuff.getPower();
+        }
+
         const quagmireDebuff = this.getDebuff("Quagmire");
         let stepsMultiplier = 1;
         if (quagmireDebuff) {
@@ -2559,18 +2614,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 minerAbility.getDesc().join("\n").replace(/\{\}/g, this.calculateAbilityCount(minerAbility).toString()),
             );
         }
-    }
-
-    public adjustRangeShotsNumber(force: boolean) {
-        if (!force && !this.hasAbilityActive("Limited Supply")) {
-            return;
-        }
-
-        const actualStackPowerCoeff = this.getStackPower() / HoCConstants.MAX_UNIT_STACK_POWER;
-        this.unitProperties.range_shots = Math.min(
-            this.unitProperties.range_shots,
-            Math.floor(this.maxRangeShots * actualStackPowerCoeff),
-        );
     }
 
     public setRangeShotDistance(distance: number) {

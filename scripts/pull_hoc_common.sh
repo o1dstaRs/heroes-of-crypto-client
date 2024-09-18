@@ -39,7 +39,7 @@ else
   git pull origin $1
 fi
 
-cat > "${DEST_DIR}/tsconfig.json" << EOL
+cat > "${OUT_DIR}/tsconfig.json" << EOL
 {
     "extends": "../../tsconfig.json",
     "compilerOptions": {

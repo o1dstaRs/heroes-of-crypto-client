@@ -674,7 +674,7 @@ export class AttackHandler {
         }
 
         let switchTargetUnit = false;
-        if (targetUnit.isDead()) {
+        if (targetUnit.isDead() || isAOE) {
             switchTargetUnit = true;
         }
         if (!aoeRangeAttackResult?.landed) {
@@ -756,11 +756,12 @@ export class AttackHandler {
             targetUnit = affectedUnits[0];
 
             if (
-                !targetUnit ||
-                targetUnit.getTeam() === attackerUnit.getTeam() ||
-                targetUnit.isDead() ||
-                (attackerUnit.hasDebuffActive("Cowardice") &&
-                    attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp())
+                !isAOE &&
+                (!targetUnit ||
+                    targetUnit.getTeam() === attackerUnit.getTeam() ||
+                    targetUnit.isDead() ||
+                    (attackerUnit.hasDebuffActive("Cowardice") &&
+                        attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp()))
             ) {
                 return true;
             }
@@ -782,9 +783,10 @@ export class AttackHandler {
             hoverRangeAttackDivisor,
             hoverRangeAttackPosition,
             sceneStepCount,
+            isAOE,
         );
 
-        if (!secondShotResult.largeCaliberLanded) {
+        if (!secondShotResult.aoeRangeAttackLanded) {
             if (targetUnit.isDead()) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
                 unitsHolder.deleteUnitById(targetUnit.getId(), true);
@@ -849,7 +851,6 @@ export class AttackHandler {
         }
 
         const stationaryAttack = currentCell.x === attackFromCell.x && currentCell.y === attackFromCell.y;
-        let distanceTravelled = 0;
 
         if (attackerUnit.isSmallSize()) {
             if (
@@ -863,7 +864,6 @@ export class AttackHandler {
                     this.gridSettings.getHalfStep(),
                 );
 
-                distanceTravelled = HoCMath.getDistance(attackerUnit.getPosition(), position);
                 const moveStarted =
                     stationaryAttack ||
                     moveHandler.startMoving(
@@ -894,7 +894,6 @@ export class AttackHandler {
                 this.gridSettings.getStep(),
                 this.gridSettings.getHalfStep(),
             );
-            distanceTravelled = HoCMath.getDistance(attackerUnit.getPosition(), position);
             const cells = GridMath.getCellsAroundPosition(this.gridSettings, {
                 x: position.x - this.gridSettings.getHalfStep(),
                 y: position.y - this.gridSettings.getHalfStep(),
@@ -927,7 +926,16 @@ export class AttackHandler {
             }
         }
 
-        let abilityMultiplier = processRapidChargeAbility(attackerUnit, distanceTravelled, this.gridSettings);
+        let abilityMultiplier = 1;
+        let rapidChargeCellsNumber = 1;
+        if (currentActiveKnownPaths) {
+            const paths = currentActiveKnownPaths.get((attackFromCell.x << 4) | attackFromCell.y);
+            if (paths?.length) {
+                rapidChargeCellsNumber = paths[0].route.length;
+            }
+            abilityMultiplier = processRapidChargeAbility(attackerUnit, rapidChargeCellsNumber);
+        }
+
         const paralysisAttackerEffect = attackerUnit.getEffect("Paralysis");
         if (paralysisAttackerEffect) {
             abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
@@ -958,6 +966,10 @@ export class AttackHandler {
         }
 
         const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(targetUnit);
+
+        attackerUnit.cleanupAttackModIncrease();
+        attackerUnit.increaseAttackMod(unitsHolder.getUnitAuraAttackMod(attackerUnit));
+
         const damageFromAttack =
             processLuckyStrikeAbility(
                 attackerUnit,
@@ -971,8 +983,7 @@ export class AttackHandler {
             this.sceneLog,
             unitsHolder,
             sceneStepCount,
-            this.gridSettings,
-            distanceTravelled,
+            rapidChargeCellsNumber,
             attackFromCell,
             true,
         );
@@ -1062,8 +1073,7 @@ export class AttackHandler {
                 this.sceneLog,
                 unitsHolder,
                 sceneStepCount,
-                this.gridSettings,
-                0,
+                1,
                 attackFromCell,
                 false,
             );

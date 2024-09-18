@@ -9,21 +9,10 @@
  * -----------------------------------------------------------------------------
  */
 
-import { GridSettings } from "@heroesofcrypto/common";
-
 import { Unit } from "../units/units";
 
-export function processRapidChargeAbility(
-    attackerUnit: Unit,
-    distanceTravelled: number,
-    gridSettings: GridSettings,
-): number {
+export function processRapidChargeAbility(attackerUnit: Unit, chargeDistanceCells: number): number {
     let abilityMultiplier = 1;
-    let chargeDistanceCells = Math.floor(distanceTravelled / gridSettings.getStep());
-    if (chargeDistanceCells <= 1) {
-        return abilityMultiplier;
-    }
-    chargeDistanceCells -= 1;
 
     const rapidChargeAbility = attackerUnit.getAbility("Rapid Charge");
     if (rapidChargeAbility) {

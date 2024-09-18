@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, GridSettings, HoCMath, HoCConstants } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, HoCMath, HoCConstants } from "@heroesofcrypto/common";
 
 import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
@@ -37,8 +37,7 @@ export function processLightningSpinAbility(
     sceneLog: SceneLog,
     unitsHolder: UnitsHolder,
     sceneStepCount: number,
-    gridSettings: GridSettings,
-    distanceTravelled: number,
+    rapidChargeCells: number,
     attackFromCell?: HoCMath.XY,
     isAttack = true,
 ): boolean {
@@ -57,7 +56,7 @@ export function processLightningSpinAbility(
         }
         const enemyIdDamageFromAttack: Map<string, number> = new Map();
 
-        const commonAbilityMultiplier = processRapidChargeAbility(fromUnit, distanceTravelled, gridSettings);
+        const commonAbilityMultiplier = processRapidChargeAbility(fromUnit, rapidChargeCells);
         for (const enemy of enemyList) {
             if (enemy.isDead()) {
                 wasDead.push(enemy);

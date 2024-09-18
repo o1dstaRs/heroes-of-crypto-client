@@ -56,7 +56,7 @@ export function processSkewerStrikeAbility(
         }
 
         const unitsDead: Unit[] = [];
-        const targets = nextStandingTargets(fromUnit, toUnit, grid, unitsHolder, targetMovePosition, false);
+        const targets = nextStandingTargets(fromUnit, toUnit, grid, unitsHolder, targetMovePosition, false, true);
 
         for (const nextStandingTarget of targets) {
             if (nextStandingTarget.isDead()) {

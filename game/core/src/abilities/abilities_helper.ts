@@ -22,17 +22,19 @@ function addToTargetList(
     attacker: Unit,
     grid: Grid,
     unitsHolder: UnitsHolder,
+    onlyOppositeTeam: boolean,
 ): Unit[] {
     const nextTargetId = grid.getOccupantUnitId({ x: ix, y: iy });
     if (nextTargetId) {
-        const addTarget = unitsHolder.getAllUnits().get(nextTargetId);
+        const nextStanding = unitsHolder.getAllUnits().get(nextTargetId);
         if (
-            addTarget &&
-            !targetList.includes(addTarget) &&
-            addTarget.getId() !== attacker.getId() &&
-            addTarget.getId() !== target.getId()
+            nextStanding &&
+            !targetList.includes(nextStanding) &&
+            nextStanding.getId() !== attacker.getId() &&
+            nextStanding.getId() !== target.getId() &&
+            (!onlyOppositeTeam || nextStanding.getTeam() !== attacker.getTeam())
         ) {
-            targetList.push(addTarget);
+            targetList.push(nextStanding);
         }
     }
     return targetList;
@@ -45,6 +47,7 @@ function getTargetList(
     attacker: Unit,
     grid: Grid,
     unitsHolder: UnitsHolder,
+    onlyOppositeTeam: boolean,
 ): Unit[] {
     let targetList: Unit[] = [];
     const signX = Math.sign(cellsDiff.x);
@@ -60,6 +63,7 @@ function getTargetList(
             attacker,
             grid,
             unitsHolder,
+            onlyOppositeTeam,
         );
     }
     return targetList;
@@ -72,6 +76,7 @@ export function nextStandingTargets(
     unitsHolder: UnitsHolder,
     attackFromCell?: HoCMath.XY,
     pierceLargeUnits = true,
+    onlyOppositeTeam = false,
 ): Unit[] {
     let targetList: Unit[] = [];
     const targetBaseCell = targetUnit.getBaseCell();
@@ -80,7 +85,15 @@ export function nextStandingTargets(
     if (targetBaseCell && attackerBaseCell) {
         const cellsDiff = { x: targetBaseCell.x - attackerBaseCell.x, y: targetBaseCell.y - attackerBaseCell.y };
         if (targetUnit.isSmallSize() || pierceLargeUnits) {
-            targetList = getTargetList(targetUnit.getCells(), cellsDiff, targetUnit, attackerUnit, grid, unitsHolder);
+            targetList = getTargetList(
+                targetUnit.getCells(),
+                cellsDiff,
+                targetUnit,
+                attackerUnit,
+                grid,
+                unitsHolder,
+                onlyOppositeTeam,
+            );
         }
     }
 
