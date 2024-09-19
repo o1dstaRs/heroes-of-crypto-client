@@ -63,15 +63,12 @@ const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
 );
 
 const MapSettingsRadioButtons = () => {
-    // const [mapSetting, setMapSetting] = useState<GridType>("normal");
     const [gridType, setGridType] = useState<GridType>(GridType.NORMAL);
-
     const manager = useManager();
 
     useEffect(() => {
         const connection = manager.onGridTypeChanged.connect((newGridType: GridType) => {
             setGridType(newGridType);
-            // setMapSetting(newGridType); // Set default map setting to gridType
         });
 
         return () => {
@@ -85,21 +82,52 @@ const MapSettingsRadioButtons = () => {
         manager.SetGridType(newGridType);
     };
 
+    const handleRandomButtonClick = () => {
+        // Filter out NO_TYPE from the grid types
+        const availableGridTypes = [
+            GridType.NORMAL,
+            GridType.BLOCK_CENTER,
+            GridType.WATER_CENTER,
+            GridType.LAVA_CENTER,
+        ];
+
+        // Randomly select a grid type from the filtered list
+        const randomGridType = availableGridTypes[Math.floor(Math.random() * availableGridTypes.length)];
+
+        setGridType(randomGridType);
+        manager.SetGridType(randomGridType);
+    };
+
     return (
-        <Box sx={{ padding: 1 }}>
-            <FormControl>
-                <RadioGroup
-                    aria-label="map-settings"
-                    name="map-settings"
-                    value={gridType}
-                    onChange={handleMapSettingChange}
+        <Box sx={{ padding: 1, display: "flex" }}>
+            {/* Left side: Radio buttons */}
+            <Box sx={{ flex: 1 }}>
+                <FormControl>
+                    <RadioGroup
+                        aria-label="map-settings"
+                        name="map-settings"
+                        value={gridType}
+                        onChange={handleMapSettingChange}
+                    >
+                        <Radio value={GridType.NORMAL} label="Normal" />
+                        <Radio value={GridType.BLOCK_CENTER} label="Mountain" />
+                        <Radio value={GridType.WATER_CENTER} label="Water" />
+                        <Radio value={GridType.LAVA_CENTER} label="Lava" />
+                    </RadioGroup>
+                </FormControl>
+            </Box>
+
+            {/* Right side: Random button */}
+            <Box sx={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}>
+                <Button
+                    variant="outlined"
+                    color="primary"
+                    onClick={handleRandomButtonClick}
+                    sx={{ height: "100%", width: "100%" }}
                 >
-                    <Radio value={GridType.NORMAL} label="Normal" />
-                    <Radio value={GridType.BLOCK_CENTER} label="Mountain" />
-                    <Radio value={GridType.WATER_CENTER} label="Water" />
-                    <Radio value={GridType.LAVA_CENTER} label="Lava" />
-                </RadioGroup>
-            </FormControl>
+                    Random
+                </Button>
+            </Box>
         </Box>
     );
 };
@@ -246,7 +274,7 @@ const UnitInputAndActions = ({ selectedUnitCount }: { selectedUnitCount: number 
                     </Button>
                     <Button
                         variant="outlined"
-                        color="neutral"
+                        color="primary"
                         onClick={() => {
                             manager.Clone();
                         }}

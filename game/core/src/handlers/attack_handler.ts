@@ -674,7 +674,7 @@ export class AttackHandler {
         }
 
         let switchTargetUnit = false;
-        if (targetUnit.isDead() || isAOE) {
+        if (targetUnit.isDead()) {
             switchTargetUnit = true;
         }
         if (!aoeRangeAttackResult?.landed) {
@@ -756,12 +756,11 @@ export class AttackHandler {
             targetUnit = affectedUnits[0];
 
             if (
-                !isAOE &&
-                (!targetUnit ||
-                    targetUnit.getTeam() === attackerUnit.getTeam() ||
-                    targetUnit.isDead() ||
-                    (attackerUnit.hasDebuffActive("Cowardice") &&
-                        attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp()))
+                !targetUnit ||
+                targetUnit.getTeam() === attackerUnit.getTeam() ||
+                targetUnit.isDead() ||
+                (attackerUnit.hasDebuffActive("Cowardice") &&
+                    attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp())
             ) {
                 return true;
             }
@@ -847,6 +846,19 @@ export class AttackHandler {
         const currentCell = GridMath.getCellForPosition(this.gridSettings, attackerUnit.getPosition());
 
         if (!currentCell) {
+            return false;
+        }
+
+        const attackFromCells = [attackFromCell];
+        if (!attackerUnit.isSmallSize()) {
+            attackFromCells.push(
+                { x: attackFromCell.x, y: attackFromCell.y - 1 },
+                { x: attackFromCell.x - 1, y: attackFromCell.y },
+                { x: attackFromCell.x - 1, y: attackFromCell.y - 1 },
+            );
+        }
+
+        if (!grid.areCellsAdjacent(attackFromCells, targetUnit.getCells())) {
             return false;
         }
 
