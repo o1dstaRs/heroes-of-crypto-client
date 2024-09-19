@@ -2113,11 +2113,11 @@ class Sandbox extends GLScene {
                 }
             } else {
                 moveStarted = true;
-                this.sc_selectedBody.SetTransformXY(
-                    positionToDropTo.x,
-                    positionToDropTo.y,
-                    this.sc_selectedBody.GetAngle(),
-                );
+                // this.sc_selectedBody.SetTransformXY(
+                //     positionToDropTo.x,
+                //     positionToDropTo.y,
+                //     this.sc_selectedBody.GetAngle(),
+                // );
             }
 
             if (!this.sc_moveBlocked || castStarted) {
@@ -2725,19 +2725,11 @@ class Sandbox extends GLScene {
                 }
 
                 if (refreshUnitPosition) {
-                    this.currentActiveUnit.setPosition(
-                        this.sc_selectedBody.GetPosition().x,
-                        this.sc_selectedBody.GetPosition().y,
-                    );
+                    this.currentActiveUnit.setPosition(positionToDropTo.x, positionToDropTo.y);
                 }
 
                 this.finishTurn();
-            } else if (
-                GridMath.isPositionWithinGrid(
-                    this.sc_sceneSettings.getGridSettings(),
-                    this.sc_selectedBody.GetPosition(),
-                )
-            ) {
+            } else if (GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), positionToDropTo)) {
                 const unitStats = this.sc_selectedBody.GetUserData();
                 if (unitStats) {
                     let refreshUnitPosition = false;
@@ -2745,7 +2737,7 @@ class Sandbox extends GLScene {
                     if (unitStats.size === 1) {
                         const cell = GridMath.getCellForPosition(
                             this.sc_sceneSettings.getGridSettings(),
-                            this.sc_selectedBody.GetPosition(),
+                            positionToDropTo,
                         );
                         if (cell) {
                             refreshUnitPosition = this.grid.occupyCell(
@@ -2757,10 +2749,7 @@ class Sandbox extends GLScene {
                         }
                     } else {
                         refreshUnitPosition = this.grid.occupyCells(
-                            GridMath.getCellsAroundPosition(
-                                this.sc_sceneSettings.getGridSettings(),
-                                this.sc_selectedBody.GetPosition(),
-                            ),
+                            GridMath.getCellsAroundPosition(this.sc_sceneSettings.getGridSettings(), positionToDropTo),
                             unitStats.id,
                             unitStats.team,
                             unitStats.attack_range,
@@ -2768,16 +2757,40 @@ class Sandbox extends GLScene {
                     }
                     const unit = this.unitsHolder.getAllUnits().get(unitStats.id);
                     if (unit && refreshUnitPosition) {
-                        unit.setPosition(this.sc_selectedBody.GetPosition().x, this.sc_selectedBody.GetPosition().y);
+                        this.sc_selectedBody.SetTransformXY(
+                            positionToDropTo.x,
+                            positionToDropTo.y,
+                            this.sc_selectedBody.GetAngle(),
+                        );
+
+                        unit.setPosition(positionToDropTo.x, positionToDropTo.y);
                     }
                 }
             } else {
                 const unitStats = this.sc_selectedBody.GetUserData();
-                if (unitStats) {
-                    this.grid.cleanupAll(unitStats.id, unitStats.attack_range, unitStats.size === 1);
-                    const unit = this.unitsHolder.getAllUnits().get(unitStats.id);
-                    if (unit) {
-                        unit.setPosition(this.sc_selectedBody.GetPosition().x, this.sc_selectedBody.GetPosition().y);
+                const preStartUnitCell = GridMath.getCellForPosition(
+                    this.sc_sceneSettings.getGridSettings(),
+                    positionToDropTo,
+                );
+
+                if (preStartUnitCell) {
+                    const cellKey = `${preStartUnitCell.x}:${preStartUnitCell.y}`;
+                    if (
+                        unitStats &&
+                        (!this.cellToUnitPreRound?.has(cellKey) ||
+                            this.cellToUnitPreRound?.get(cellKey)?.getId() === unitStats.id)
+                    ) {
+                        this.sc_selectedBody.SetTransformXY(
+                            positionToDropTo.x,
+                            positionToDropTo.y,
+                            this.sc_selectedBody.GetAngle(),
+                        );
+
+                        this.grid.cleanupAll(unitStats.id, unitStats.attack_range, unitStats.size === 1);
+                        const unit = this.unitsHolder.getAllUnits().get(unitStats.id);
+                        if (unit) {
+                            unit.setPosition(positionToDropTo.x, positionToDropTo.y);
+                        }
                     }
                 }
             }
@@ -3574,7 +3587,7 @@ class Sandbox extends GLScene {
                                     this.currentActiveSpell = undefined;
                                     this.adjustSpellBookSprite();
                                     this.currentActiveUnitSwitchedAttackAuto = false;
-                                    // this.grid.print(nextUnit.getId());
+                                    this.grid.print(nextUnit.getId());
                                     const currentCell = GridMath.getCellForPosition(
                                         this.sc_sceneSettings.getGridSettings(),
                                         unitBody.GetPosition(),
@@ -3636,9 +3649,9 @@ class Sandbox extends GLScene {
                     !this.performingAIAction
                 ) {
                     this.performingAIAction = true;
-                    const wasAIActive = this.sc_isAIActive;
-                    this.sc_isAIActive = true;
                     setTimeout(() => {
+                        const wasAIActive = this.sc_isAIActive;
+                        this.sc_isAIActive = true;
                         this.performAIAction(wasAIActive);
                     }, 750);
                 }
