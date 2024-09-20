@@ -79,11 +79,82 @@ export function nextStandingTargets(
     onlyOppositeTeam = false,
 ): Unit[] {
     let targetList: Unit[] = [];
-    const targetBaseCell = targetUnit.getBaseCell();
-    const attackerBaseCell = attackFromCell ? attackFromCell : attackerUnit.getBaseCell();
+    let targetBaseCell = targetUnit.getBaseCell();
+
+    const attackFromBaseCell = attackFromCell ? attackFromCell : attackerUnit.getBaseCell();
+
+    if (!attackFromBaseCell || !targetBaseCell) {
+        return targetList;
+    }
+
+    let attackerBaseCell = attackFromBaseCell;
+
+    if (!attackerUnit.isSmallSize()) {
+        const attackerCells = [
+            attackerBaseCell,
+            { x: attackerBaseCell.x - 1, y: attackerBaseCell.y },
+            { x: attackerBaseCell.x, y: attackerBaseCell.y - 1 },
+            { x: attackerBaseCell.x - 1, y: attackerBaseCell.y - 1 },
+        ];
+        let closestCell = attackerCells[0];
+        let minDistance = HoCMath.getDistance(closestCell, targetBaseCell);
+
+        for (const cell of attackerCells) {
+            const distance = HoCMath.getDistance(cell, targetBaseCell);
+            if (distance < minDistance) {
+                closestCell = cell;
+                minDistance = distance;
+            }
+        }
+
+        attackerBaseCell = closestCell;
+
+        if (!targetUnit.isSmallSize()) {
+            const targetCells = targetUnit.getCells();
+            let closestTargetCell = targetCells[0];
+            minDistance = HoCMath.getDistance(closestTargetCell, attackerBaseCell);
+
+            for (const cell of targetCells) {
+                const distance = HoCMath.getDistance(cell, attackerBaseCell);
+                if (distance < minDistance) {
+                    closestTargetCell = cell;
+                    minDistance = distance;
+                }
+            }
+
+            targetBaseCell = closestTargetCell;
+        }
+    }
+
+    const tbs = targetUnit.getBaseCell();
+    if (!tbs) {
+        return targetList;
+    }
+
+    let xCoefficient = 0;
+    let yCoefficient = 0;
+    if (!targetUnit.isSmallSize()) {
+        const baseCellDiffX = tbs.x - attackFromBaseCell.x;
+        const baseCellDiffY = tbs.y - attackFromBaseCell.y;
+        if (baseCellDiffX === 2) {
+            xCoefficient = 1;
+        } else if (baseCellDiffX === -2) {
+            xCoefficient = -1;
+        }
+        if (baseCellDiffY === 2) {
+            yCoefficient = 1;
+        } else if (baseCellDiffY === -2) {
+            yCoefficient = -1;
+        }
+        xCoefficient = tbs.x - attackFromBaseCell.x - xCoefficient;
+        yCoefficient = tbs.y - attackFromBaseCell.y - yCoefficient;
+    }
 
     if (targetBaseCell && attackerBaseCell) {
-        const cellsDiff = { x: targetBaseCell.x - attackerBaseCell.x, y: targetBaseCell.y - attackerBaseCell.y };
+        const cellsDiff = {
+            x: targetBaseCell.x - attackerBaseCell.x + xCoefficient,
+            y: targetBaseCell.y - attackerBaseCell.y + yCoefficient,
+        };
         if (targetUnit.isSmallSize() || pierceLargeUnits) {
             targetList = getTargetList(
                 targetUnit.getCells(),

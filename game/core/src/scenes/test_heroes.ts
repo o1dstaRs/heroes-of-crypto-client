@@ -1141,9 +1141,7 @@ class Sandbox extends GLScene {
                                 hoverUnitCell,
                                 this.gridMatrix,
                                 this.hoverUnit.getSteps(),
-                                this.grid.getAggrMatrixByTeam(
-                                    this.hoverUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
-                                ),
+                                this.grid.getAggrMatrixByTeam(this.hoverUnit.getOppositeTeam()),
                                 this.hoverUnit.getCanFly(),
                                 this.hoverUnit.isSmallSize(),
                             ).cells;
@@ -1164,18 +1162,6 @@ class Sandbox extends GLScene {
                     this.currentActiveUnit &&
                     (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MAGIC || this.currentActiveSpell)
                 ) {
-                    // if (
-                    //     this.currentActiveUnit.getAttackTypeSelection() !== AttackType.MAGIC &&
-                    //     this.currentActiveSpell
-                    // ) {
-                    //     this.selectAttack(AttackType.MAGIC, currentUnitCell, true);
-                    //     this.currentActiveUnitSwitchedAttackAuto = true;
-                    //     this.switchToSelectedAttackType = undefined;
-                    //     console.log("Switch to MAGIC");
-                    //     console.log("this.currentActiveSpell");
-                    //     console.log(this.currentActiveSpell);
-                    // }
-
                     if (
                         this.currentActiveSpell &&
                         SpellHelper.canCastSpell(
@@ -1414,9 +1400,7 @@ class Sandbox extends GLScene {
                                     unitCell,
                                     this.gridMatrix,
                                     hoverAttackUnit.getSteps(),
-                                    this.grid.getAggrMatrixByTeam(
-                                        hoverAttackUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
-                                    ),
+                                    this.grid.getAggrMatrixByTeam(hoverAttackUnit.getOppositeTeam()),
                                     hoverAttackUnit.getCanFly(),
                                     hoverAttackUnit.isSmallSize(),
                                 ).cells;
@@ -1448,9 +1432,7 @@ class Sandbox extends GLScene {
                                 unitCell,
                                 this.gridMatrix,
                                 this.hoverUnit.getSteps(),
-                                this.grid.getAggrMatrixByTeam(
-                                    this.hoverUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
-                                ),
+                                this.grid.getAggrMatrixByTeam(this.hoverUnit.getOppositeTeam()),
                                 this.hoverUnit.getCanFly(),
                                 this.hoverUnit.isSmallSize(),
                             ).cells;
@@ -1481,9 +1463,7 @@ class Sandbox extends GLScene {
                         unitCell,
                         this.gridMatrix,
                         this.hoverUnit.getSteps(),
-                        this.grid.getAggrMatrixByTeam(
-                            this.hoverUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
-                        ),
+                        this.grid.getAggrMatrixByTeam(this.hoverUnit.getOppositeTeam()),
                         this.hoverUnit.getCanFly(),
                         this.hoverUnit.isSmallSize(),
                     ).cells;
@@ -2641,15 +2621,23 @@ class Sandbox extends GLScene {
                 }
             } else {
                 this.currentActiveSpell = this.hoveredSpell;
-                if (
-                    this.currentActiveUnit &&
-                    this.currentActiveUnit.getAttackTypeSelection() !== AttackType.MAGIC &&
-                    this.currentActiveSpell
-                ) {
-                    this.selectAttack(AttackType.MAGIC, this.currentActiveUnit.getBaseCell(), true);
-                    this.currentActiveUnitSwitchedAttackAuto = true;
-                    this.switchToSelectedAttackType = undefined;
-                    console.log("Switch to MAGIC");
+                if (this.currentActiveUnit) {
+                    const currentCell = GridMath.getCellForPosition(
+                        this.sc_sceneSettings.getGridSettings(),
+                        this.currentActiveUnit.getPosition(),
+                    );
+                    if (currentCell) {
+                        this.updateCurrentMovePath(currentCell);
+                    }
+                    if (
+                        this.currentActiveUnit.getAttackTypeSelection() !== AttackType.MAGIC &&
+                        this.currentActiveSpell
+                    ) {
+                        this.selectAttack(AttackType.MAGIC, this.currentActiveUnit.getBaseCell(), true);
+                        this.currentActiveUnitSwitchedAttackAuto = true;
+                        this.switchToSelectedAttackType = undefined;
+                        console.log("Switch to MAGIC");
+                    }
                 }
             }
             this.adjustSpellBookSprite();
@@ -2928,7 +2916,7 @@ class Sandbox extends GLScene {
                 this.switchToSelectedAttackType = selectedAttackType;
             }
 
-            if (this.currentActiveUnit.hasAbilityActive("Area Throw")) {
+            if (this.currentActiveUnit.hasAbilityActive("Area Throw") || !this.currentActiveSpell) {
                 if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE) {
                     const currentCell = GridMath.getCellForPosition(
                         this.sc_sceneSettings.getGridSettings(),
@@ -3043,14 +3031,15 @@ class Sandbox extends GLScene {
             return;
         }
 
-        if (this.currentActiveUnit.canMove()) {
+        if (
+            this.currentActiveUnit.canMove() &&
+            this.currentActiveSpell?.getSpellTargetType() !== SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE
+        ) {
             const movePath = this.pathHelper.getMovePath(
                 currentCell,
                 this.gridMatrix,
                 this.currentActiveUnit.getSteps(),
-                this.grid.getAggrMatrixByTeam(
-                    this.currentActiveUnit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
-                ),
+                this.grid.getAggrMatrixByTeam(this.currentActiveUnit.getOppositeTeam()),
                 this.currentActiveUnit.getCanFly(),
                 this.currentActiveUnit.isSmallSize(),
             );
