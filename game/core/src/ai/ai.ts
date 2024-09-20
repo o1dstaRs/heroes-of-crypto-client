@@ -191,21 +191,7 @@ function doFindTarget(
                     console.log("checking cellsToMoveTo:" + cellsStr);
                 }
                 for (const elementNeighbor of neighbors) {
-                    if (unit.isSmallSize()) {
-                        if (cellKey(elementNeighbor) === cellKey(unitCell)) {
-                            return new BasicAIAction(
-                                AIActionType.MELEE_ATTACK,
-                                unitCell,
-                                { x: j, y: i },
-                                paths.knownPaths,
-                            );
-                        }
-                    } else if (
-                        cellKey(elementNeighbor) === cellKey(unitCell) ||
-                        cellKey(elementNeighbor) === cellKey({ x: unitCell.x - 1, y: unitCell.y }) ||
-                        cellKey(elementNeighbor) === cellKey({ x: unitCell.x - 1, y: unitCell.y - 1 }) ||
-                        cellKey(elementNeighbor) === cellKey({ x: unitCell.x, y: unitCell.y - 1 })
-                    ) {
+                    if (cellKey(elementNeighbor) === cellKey(unitCell)) {
                         return new BasicAIAction(AIActionType.MELEE_ATTACK, unitCell, { x: j, y: i }, paths.knownPaths);
                     }
 
@@ -270,16 +256,16 @@ function doFindTarget(
         const cellToGo = route?.route[routeIndex];
         if (cellToGo) {
             if (unit.isSmallSize()) {
-                if (HoCMath.matrixElementOrDefault(matrix, cellToGo.x, cellToGo.y, 0) !== 0) {
+                if (!isFree(cellToGo, matrix, unit)) {
                     routeIndex--;
                 } else {
                     break;
                 }
             } else if (
-                HoCMath.matrixElementOrDefault(matrix, cellToGo.x, cellToGo.y, 0) !== 0 ||
-                HoCMath.matrixElementOrDefault(matrix, cellToGo.x - 1, cellToGo.y, 0) !== 0 ||
-                HoCMath.matrixElementOrDefault(matrix, cellToGo.x, cellToGo.y - 1, 0) !== 0 ||
-                HoCMath.matrixElementOrDefault(matrix, cellToGo.x - 1, cellToGo.y - 1, 0) !== 0
+                !isFree(cellToGo, matrix, unit) ||
+                !isFree({ x: cellToGo.x - 1, y: cellToGo.y }, matrix, unit) ||
+                !isFree({ x: cellToGo.x - 1, y: cellToGo.y - 1 }, matrix, unit) ||
+                !isFree({ x: cellToGo.x, y: cellToGo.y - 1 }, matrix, unit)
             ) {
                 routeIndex--;
             } else {
@@ -295,7 +281,10 @@ function doFindTarget(
     }
 
     if (debug) {
-        console.log("MinDistance=" + minDistance + " unit.steps=" + unit.getSteps());
+        console.log("MinDistance=" + minDistance + ", unit.steps=" + unit.getSteps() + ", routeIndex=" + routeIndex);
+        let routeStr = "";
+        route?.route.forEach((cell) => (routeStr = routeStr + " [" + cellToString(cell) + "]"));
+        console.log("Route=" + routeStr);
     }
     if (minDistance <= unit.getSteps()) {
         return new BasicAIAction(
