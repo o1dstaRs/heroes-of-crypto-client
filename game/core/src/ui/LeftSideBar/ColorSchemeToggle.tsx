@@ -4,12 +4,24 @@ import IconButton, { IconButtonProps } from "@mui/joy/IconButton";
 import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
 import LightModeIcon from "@mui/icons-material/LightMode";
 
-export default function ColorSchemeToggle({ onClick, sx, ...props }: IconButtonProps) {
+interface ColorSchemeToggleProps extends IconButtonProps {
+    defaultMode?: "light" | "dark"; // Add defaultMode prop
+}
+
+export default function ColorSchemeToggle({ onClick, sx, defaultMode = "dark", ...props }: ColorSchemeToggleProps) {
     const { mode, setMode } = useColorScheme();
     const [mounted, setMounted] = React.useState(false);
+
+    // Sync mode with defaultMode on first mount
     React.useEffect(() => {
         setMounted(true);
-    }, []);
+
+        // Only set the mode if it hasn't been set yet
+        if (!mode && mounted) {
+            setMode(defaultMode); // Use defaultMode for the initial load
+        }
+    }, [mode, setMode, defaultMode, mounted]);
+
     if (!mounted) {
         return <IconButton size="sm" variant="outlined" color="neutral" {...props} sx={sx} disabled />;
     }

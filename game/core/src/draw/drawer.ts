@@ -22,7 +22,6 @@ import {
     XY,
 } from "@box2d/core";
 import { Grid, GridType, GridMath, GridSettings, ObstacleType } from "@heroesofcrypto/common";
-import { SceneLog } from "../menu/scene_log";
 
 import { Obstacle } from "../obstacles/obstacle";
 import { ObstacleGenerator } from "../obstacles/obstacle_generator";
@@ -39,7 +38,7 @@ import { UnitsHolder } from "../units/units_holder";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
-import { BULLET_ANIMATION_SPEED, MOVE_ANIMATION_SPEED } from "./animation_settings";
+import { BULLET_ANIMATION_SPEED, FLY_ANIMATION_SPEED, MOVE_ANIMATION_SPEED } from "./animation_settings";
 
 export interface IBullet {
     body: b2Body;
@@ -50,9 +49,15 @@ export interface IBullet {
     nextEnemyCellIndices: number[];
 }
 
-interface DrawablePosition {
+interface IDrawablePosition {
     position: XY;
     size: number;
+}
+
+interface IFlyingUnit {
+    body: b2Body;
+    unit: Unit;
+    targetPosition: XY;
 }
 
 export class Drawer {
@@ -74,6 +79,8 @@ export class Drawer {
     private readonly gl: WebGLRenderingContext;
 
     private readonly shader: DefaultShader;
+
+    private readonly textures: PreloadedTextures;
 
     private readonly holeLayersSprites: Sprite[] = new Array(MAX_HOLE_LAYERS);
 
@@ -99,6 +106,8 @@ export class Drawer {
 
     private holeLayers = 0;
 
+    private flyingUnits: IFlyingUnit[];
+
     public constructor(
         grid: Grid,
         world: b2World,
@@ -111,12 +120,14 @@ export class Drawer {
         this.world = world;
         this.gl = gl;
         this.shader = shader;
+        this.textures = textures;
         this.animating = false;
         this.animatingDoubleShot = false;
         this.onlyUniqueBulletSourcesRemaining = false;
         this.obstacleGenerator = obstacleGenerator;
         this.gridSettings = this.grid.getSettings();
-        this.initHoleLayers(gl, shader, textures);
+        this.initHoleLayers(gl, shader);
+        this.flyingUnits = [];
     }
 
     public setGridType(gridType: GridType): void {
@@ -169,12 +180,12 @@ export class Drawer {
         }
     }
 
-    private initHoleLayers(gl: WebGLRenderingContext, shader: DefaultShader, textures: PreloadedTextures) {
-        this.holeLayersSprites[0] = new Sprite(gl, shader, textures.spacehole_1.texture);
-        this.holeLayersSprites[1] = new Sprite(gl, shader, textures.spacehole_2.texture);
-        this.holeLayersSprites[2] = new Sprite(gl, shader, textures.spacehole_3.texture);
-        this.holeLayersSprites[3] = new Sprite(gl, shader, textures.spacehole_4.texture);
-        this.holeLayersSprites[4] = new Sprite(gl, shader, textures.spacehole_5.texture);
+    private initHoleLayers(gl: WebGLRenderingContext, shader: DefaultShader) {
+        this.holeLayersSprites[0] = new Sprite(gl, shader, this.textures.spacehole_1.texture);
+        this.holeLayersSprites[1] = new Sprite(gl, shader, this.textures.spacehole_2.texture);
+        this.holeLayersSprites[2] = new Sprite(gl, shader, this.textures.spacehole_3.texture);
+        this.holeLayersSprites[3] = new Sprite(gl, shader, this.textures.spacehole_4.texture);
+        this.holeLayersSprites[4] = new Sprite(gl, shader, this.textures.spacehole_5.texture);
 
         let i = 0;
         while (i < MAX_HOLE_LAYERS) {
@@ -187,18 +198,87 @@ export class Drawer {
         }
     }
 
-    private moveUnit(fps: number, currentTick: number, sceneLog: SceneLog) {
+    public switchToDryCenter(): void {
+        for (const to of this.terrainObstacles) {
+            if (to.getType() === ObstacleType.WATER) {
+                to.setLightSprite(new Sprite(this.gl, this.shader, this.textures.water_dry_256.texture));
+                to.setDarkSprite(new Sprite(this.gl, this.shader, this.textures.water_dry_256.texture));
+            } else if (to.getType() === ObstacleType.LAVA) {
+                to.setLightSprite(new Sprite(this.gl, this.shader, this.textures.lava_frozen_256.texture));
+                to.setDarkSprite(new Sprite(this.gl, this.shader, this.textures.lava_frozen_256.texture));
+            }
+        }
+    }
+
+    private flyUnits(fps: number) {
+        if (!this.flyingUnits.length) {
+            return;
+        }
+
+        const newFlyingUnits: IFlyingUnit[] = [];
+        const ratioToMaxFps = MAX_FPS / fps;
+        this.flyingUnits.forEach((flyingUnit: IFlyingUnit) => {
+            const moveAnimationBody = flyingUnit.body;
+            let allSet = true;
+            const movingTarget = flyingUnit.targetPosition;
+            const calculatedUpdateSpeed = ratioToMaxFps * FLY_ANIMATION_SPEED;
+            let nextX = moveAnimationBody.GetPosition().x;
+            let nextY = moveAnimationBody.GetPosition().y;
+            if (Math.abs(movingTarget.x - moveAnimationBody.GetPosition().x) > this.gridSettings.getMovementDelta()) {
+                if (movingTarget.x > moveAnimationBody.GetPosition().x) {
+                    nextX += calculatedUpdateSpeed;
+                    if (nextX > movingTarget.x) {
+                        nextX = movingTarget.x;
+                    }
+                    allSet = false;
+                } else if (movingTarget.x < moveAnimationBody.GetPosition().x) {
+                    nextX -= calculatedUpdateSpeed;
+                    if (nextX < movingTarget.x) {
+                        nextX = movingTarget.x;
+                    }
+                    allSet = false;
+                }
+            } else {
+                nextX = movingTarget.x;
+            }
+            if (Math.abs(movingTarget.y - moveAnimationBody.GetPosition().y) > this.gridSettings.getMovementDelta()) {
+                if (movingTarget.y > moveAnimationBody.GetPosition().y) {
+                    nextY += calculatedUpdateSpeed;
+                    if (nextY > movingTarget.y) {
+                        nextY = movingTarget.y;
+                    }
+                    allSet = false;
+                } else if (movingTarget.y < moveAnimationBody.GetPosition().y) {
+                    nextY -= calculatedUpdateSpeed;
+                    if (nextY < movingTarget.y) {
+                        nextY = movingTarget.y;
+                    }
+                    allSet = false;
+                }
+            } else {
+                nextY = movingTarget.y;
+            }
+            moveAnimationBody.SetTransformXY(nextX, nextY, moveAnimationBody.GetAngle());
+            flyingUnit.unit.setRenderPosition(nextX, nextY);
+            if (!allSet) {
+                newFlyingUnits.push(flyingUnit);
+            }
+        });
+        this.flyingUnits = newFlyingUnits;
+    }
+
+    private moveUnit(fps: number) {
         const ratioToMaxFps = MAX_FPS / fps;
         if (
             !this.moveAnimationBody ||
             !this.moveAnimationUnit ||
             !this.moveAnimationPath?.length ||
-            this.moveAnimationIndex >= this.moveAnimationPath.length
+            this.moveAnimationIndex >= this.moveAnimationPath.length ||
+            this.flyingUnits?.length
         ) {
             return;
         }
 
-        this.moveAnimationUnit.render(fps, currentTick, true, sceneLog);
         const isSmallUnit = this.moveAnimationUnit.isSmallSize();
 
         const movingTarget = GridMath.getPositionForCell(
@@ -255,7 +335,7 @@ export class Drawer {
                 nextY = movingTarget.y;
             }
             this.moveAnimationBody.SetTransformXY(nextX, nextY, this.moveAnimationBody.GetAngle());
-            this.moveAnimationUnit.setPosition(nextX, nextY);
+            this.moveAnimationUnit.setRenderPosition(nextX, nextY);
         }
         if (allSet) {
             this.moveAnimationIndex++;
@@ -363,6 +443,11 @@ export class Drawer {
         this.onlyUniqueBulletSourcesRemaining = false;
     }
 
+    public startFlyAnimation(body: b2Body, unit: Unit, targetPosition: XY): void {
+        this.animating = true;
+        this.flyingUnits.push({ body, unit, targetPosition });
+    }
+
     public startBulletAnimation(fromPosition: XY, toPosition: XY, affectedUnit: Unit): void {
         const shape = new b2CircleShape(16);
 
@@ -454,7 +539,7 @@ export class Drawer {
         }
     }
 
-    public animate(fps: number, currentTick: number, sceneLog: SceneLog): void {
+    public animate(fps: number): void {
         if (
             this.moveAnimationPath &&
             (this.moveAnimationIndex >= this.moveAnimationPath.length || this.moveAnimationIndex <= 0)
@@ -463,7 +548,7 @@ export class Drawer {
             this.moveAnimationPath = undefined;
         }
 
-        if (!this.moveAnimationPath && !this.bullets?.length) {
+        if (!this.moveAnimationPath && !this.bullets?.length && !this.flyingUnits?.length) {
             this.animating = false;
             this.animatingDoubleShot = false;
             this.onlyUniqueBulletSourcesRemaining = false;
@@ -472,14 +557,15 @@ export class Drawer {
 
         this.moveBullets(fps);
 
-        if (!this.moveAnimationPath && !this.bullets?.length) {
+        if (!this.moveAnimationPath && !this.bullets?.length && !this.flyingUnits?.length) {
             this.animating = false;
             this.animatingDoubleShot = false;
             this.onlyUniqueBulletSourcesRemaining = false;
             return;
         }
 
-        this.moveUnit(fps, currentTick, sceneLog);
+        this.moveUnit(fps);
+        this.flyUnits(fps);
     }
 
     public drawAOECells(draw: b2Draw, unitsHolder: UnitsHolder, hoverAOECells?: XY[]): void {
@@ -487,7 +573,7 @@ export class Drawer {
             return;
         }
 
-        const drawablePositions: DrawablePosition[] = [];
+        const drawablePositions: IDrawablePosition[] = [];
         const cellKeys: number[] = [];
 
         for (const c of hoverAOECells) {
@@ -649,6 +735,42 @@ export class Drawer {
             4,
             isBuff ? Drawer.COLOR_GREEN : Drawer.COLOR_RED,
         );
+    }
+
+    public drawHighlightedCells(draw: b2Draw, isLightMode: boolean, cells?: XY[]): void {
+        if (!cells?.length) {
+            return;
+        }
+
+        const color = isLightMode ? Drawer.COLOR_LIGHT_ORANGE : Drawer.COLOR_LIGHT_YELLOW;
+
+        for (const cell of cells) {
+            const position = GridMath.getPositionForCell(
+                cell,
+                this.gridSettings.getMinX(),
+                this.gridSettings.getStep(),
+                this.gridSettings.getHalfStep(),
+            );
+
+            const polygonStartingPosition: XY = {
+                x: position.x - this.gridSettings.getHalfStep(),
+                y: position.y - this.gridSettings.getHalfStep(),
+            };
+
+            draw.DrawSolidPolygon(
+                [
+                    { x: polygonStartingPosition.x, y: polygonStartingPosition.y },
+                    { x: polygonStartingPosition.x, y: polygonStartingPosition.y + this.gridSettings.getStep() },
+                    {
+                        x: polygonStartingPosition.x + this.gridSettings.getStep(),
+                        y: polygonStartingPosition.y + this.gridSettings.getStep(),
+                    },
+                    { x: polygonStartingPosition.x + this.gridSettings.getStep(), y: polygonStartingPosition.y },
+                ],
+                4,
+                color,
+            );
+        }
     }
 
     public drawHoverCells(

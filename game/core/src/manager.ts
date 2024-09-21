@@ -505,6 +505,8 @@ export class GameManager {
                 damageRangeDivisor: this.m_scene.sc_attackRangeDamageDivisorStr,
                 killsSpread: this.m_scene.sc_attackKillSpreadStr,
                 unitName: this.m_scene.sc_hoverUnitNameStr,
+                unitLevel: this.m_scene.sc_hoverUnitLevel,
+                unitMovementType: this.m_scene.sc_hoverUnitMovementType,
                 information: this.m_scene.sc_hoverInfoArr,
             });
         } else {

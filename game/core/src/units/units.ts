@@ -25,6 +25,7 @@ import {
     HoCConstants,
     FactionType,
     ToFactionType,
+    MovementType,
     SpellHelper,
     IWeightedRoute,
     GridMath,
@@ -98,7 +99,9 @@ export interface IUnitPropertiesProvider {
 
     getCanCastSpells(): boolean;
 
-    getCanFly(): boolean;
+    getMovementType(): MovementType;
+
+    canFly(): boolean;
 
     getExp(): number;
 
@@ -129,7 +132,7 @@ export interface IUnitAIRepr {
     getSteps(): number;
     getSpeed(): number;
     getSize(): number;
-    getCanFly(): boolean;
+    canFly(): boolean;
     isSmallSize(): boolean;
     getBaseCell(): XY | undefined;
     getCells(): XY[];
@@ -212,6 +215,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected readonly position: b2Vec2;
 
+    protected renderPosition: b2Vec2;
+
     protected readonly stackPowerBarFixtureDefs: b2FixtureDef[];
 
     protected readonly stackPowerBarBoundFixtureDefs: b2FixtureDef[];
@@ -287,6 +292,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.selectedAttackType = AttackType.MAGIC;
         }
 
+        this.renderPosition = new b2Vec2();
         const position = (this.position = new b2Vec2());
 
         this.bodyDef = {
@@ -1018,8 +1024,12 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.unitProperties.can_cast_spells;
     }
 
-    public getCanFly(): boolean {
-        return this.unitProperties.can_fly;
+    public getMovementType(): MovementType {
+        return this.unitProperties.movement_type;
+    }
+
+    public canFly(): boolean {
+        return this.unitProperties.movement_type === MovementType.FLY;
     }
 
     public getExp(): number {
@@ -1096,17 +1106,29 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.unitProperties.id;
     }
 
-    public setPosition(x: number, y: number) {
+    public setPosition(x: number, y: number, setRender = true) {
         if (this.hasAbilityActive("Sniper")) {
             this.setRangeShotDistance(
                 Number((this.getDistanceToFurthestCorner(this.getPosition()) / this.gridSettings.getStep()).toFixed(2)),
             );
         }
         this.position.Set(x, y);
+
+        if (setRender) {
+            this.renderPosition.Set(x, y);
+        }
+    }
+
+    public setRenderPosition(x: number, y: number) {
+        this.renderPosition.Set(x, y);
     }
 
     public getPosition(): b2Vec2 {
         return this.position;
+    }
+
+    public getRenderPosition(): b2Vec2 {
+        return this.renderPosition;
     }
 
     public getBaseCell(): XY | undefined {
@@ -1201,8 +1223,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             : this.gridSettings.getHalfStep();
         const fullUnitStep = this.isSmallSize() ? this.gridSettings.getStep() : this.gridSettings.getTwoSteps();
 
-        const spritePositionX = this.position.x - halfUnitStep;
-        const spritePositionY = this.position.y - halfUnitStep;
+        const spritePositionX = this.getRenderPosition().x - halfUnitStep;
+        const spritePositionY = this.getRenderPosition().y - halfUnitStep;
 
         this.smallSprite.setRect(spritePositionX, spritePositionY, fullUnitStep, fullUnitStep);
         this.smallSprite.render();
@@ -1217,7 +1239,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.renderAmountSprites(
                 this.digitNormalTextures,
                 this.unitProperties.amount_alive,
-                this.position,
+                this.getRenderPosition(),
                 halfUnitStep,
                 fifthStep,
                 sixthStep,
@@ -1246,7 +1268,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 this.renderAmountSprites(
                     this.digitDamageTextures,
                     unitsDied,
-                    this.position,
+                    this.getRenderPosition(),
                     halfUnitStep,
                     fifthStep,
                     sixthStep,
@@ -1257,8 +1279,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                     for (let i = 1; i <= this.unitProperties.amount_alive.toString().length; i++) {
                         const sprite = new Sprite(this.gl, this.shader, texture);
                         sprite.setRect(
-                            this.position.x + halfUnitStep - sixthStep * i,
-                            this.position.y - halfUnitStep,
+                            this.getRenderPosition().x + halfUnitStep - sixthStep * i,
+                            this.getRenderPosition().y - halfUnitStep,
                             sixthStep,
                             fifthStep,
                         );
@@ -1271,8 +1293,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (!damageEntry || (damageEntry && !isDamageAnimationLocked)) {
             if (this.responded) {
                 this.tagSprite.setRect(
-                    this.position.x + halfUnitStep - fourthUnitStep,
-                    this.position.y - fourthUnitStep - 6,
+                    this.getRenderPosition().x + halfUnitStep - fourthUnitStep,
+                    this.getRenderPosition().y - fourthUnitStep - 6,
                     fourthUnitStep,
                     fourthUnitStep,
                 );
@@ -1281,8 +1303,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
             if (this.onHourglass) {
                 this.hourglassSprite.setRect(
-                    this.position.x + halfUnitStep - fourthUnitStep + 6,
-                    this.position.y,
+                    this.getRenderPosition().x + halfUnitStep - fourthUnitStep + 6,
+                    this.getRenderPosition().y,
                     fourthUnitStep,
                     fourthUnitStep,
                 );
@@ -1340,6 +1362,28 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public cleanupLuckPerTurn(): void {
         this.unitProperties.luck_per_turn = 0;
+    }
+
+    public applyArmageddonDamage(armageddonWave: number, currentTick: number, sceneLog: SceneLog): void {
+        const aw = Math.floor(armageddonWave);
+        if (aw <= 0 || aw > HoCConstants.NUMBER_OF_ARMAGEDDON_WAVES) {
+            return;
+        }
+
+        const canHitPartially = aw === 1;
+        const part = aw / HoCConstants.NUMBER_OF_ARMAGEDDON_WAVES;
+        let armageddonDamage = 0;
+        const unitsTotal = this.unitProperties.amount_died + this.unitProperties.amount_alive;
+
+        if (canHitPartially) {
+            armageddonDamage = Math.floor(this.unitProperties.max_hp * unitsTotal * part);
+        } else {
+            const unitsDamaged = Math.ceil(unitsTotal * part);
+            armageddonDamage = unitsDamaged * this.unitProperties.max_hp;
+        }
+
+        sceneLog.updateLog(`${this.getName()} got hit by armageddon for ${armageddonDamage} damage`);
+        this.applyDamage(armageddonDamage, currentTick);
     }
 
     public applyDamage(minusHp: number, currentTick: number): void {

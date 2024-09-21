@@ -1,8 +1,24 @@
 import React, { useEffect, useState } from "react";
-import { AttackType } from "@heroesofcrypto/common";
+import { AttackType, MovementType } from "@heroesofcrypto/common";
 
 import { useManager } from "../../manager";
 import { IHoverInfo } from "../../stats/damage_stats";
+
+const getLevelEmoji = (hoverInfo: IHoverInfo): string => {
+    let levelEmoji = "";
+
+    if (hoverInfo.unitLevel === 1) {
+        levelEmoji = "1️⃣";
+    } else if (hoverInfo.unitLevel === 2) {
+        levelEmoji = "2️⃣";
+    } else if (hoverInfo.unitLevel === 3) {
+        levelEmoji = "3️⃣";
+    } else if (hoverInfo.unitLevel === 4) {
+        levelEmoji = "4️⃣";
+    }
+
+    return levelEmoji;
+};
 
 const getAttackEmojiByType = (hoverInfo: IHoverInfo): string => {
     let attackTypeEmoji = "🗡️";
@@ -13,6 +29,23 @@ const getAttackEmojiByType = (hoverInfo: IHoverInfo): string => {
     }
 
     return attackTypeEmoji;
+};
+
+const getMovementEmojiByType = (hoverInfo: IHoverInfo): string => {
+    let movementEmoji = "🦶";
+    if (hoverInfo.unitMovementType === MovementType.FLY) {
+        movementEmoji = "🪽";
+    }
+
+    return movementEmoji;
+};
+
+const toLevelString = (hoverInfo: IHoverInfo): string => {
+    if (!hoverInfo.unitLevel) {
+        return "";
+    }
+
+    return `${getLevelEmoji(hoverInfo)} Level`;
 };
 
 const toAttackString = (hoverInfo: IHoverInfo): string => {
@@ -75,11 +108,15 @@ const unitInfoElement = (hoverInfo: IHoverInfo): JSX.Element => {
 
     return (
         <>
-            <span>🐙 {hoverInfo.unitName}</span>
+            <span>
+                {getMovementEmojiByType(hoverInfo)} {hoverInfo.unitName}
+            </span>
             <br />
             <span>
                 {attackTypeEmoji} {attackTypeStr}
             </span>
+            <br />
+            <span>{toLevelString(hoverInfo)}</span>
         </>
     );
 };

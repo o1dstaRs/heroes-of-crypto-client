@@ -1,4 +1,4 @@
-import { AttackType, HoCConstants, TeamType, UnitProperties } from "@heroesofcrypto/common";
+import { AttackType, MovementType, HoCConstants, TeamType, UnitProperties } from "@heroesofcrypto/common";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { Box } from "@mui/joy";
 import Avatar from "@mui/joy/Avatar";
@@ -602,7 +602,11 @@ export const UnitStatsListItem: React.FC = () => {
                                             style={{ "--ButtonGroup-separatorSize": "0px" }}
                                         >
                                             <IconButton disabled>
-                                                {unitProperties.can_fly ? <WingIcon /> : <BootIcon />}
+                                                {unitProperties.movement_type === MovementType.FLY ? (
+                                                    <WingIcon />
+                                                ) : (
+                                                    <BootIcon />
+                                                )}
                                             </IconButton>
                                             <Button disabled>
                                                 {Number(

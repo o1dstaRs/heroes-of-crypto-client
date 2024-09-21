@@ -303,11 +303,14 @@ export class AttackHandler {
 
     public handleMagicAttack(
         gridMatrix: number[][],
+        drawer: Drawer,
         unitsHolder: UnitsHolder,
         grid: Grid,
+        moveHandler: MoveHandler,
         currentActiveSpell?: Spell,
         attackerUnit?: Unit,
         targetUnit?: Unit,
+        currentEnemiesCellsWithinMovementRange?: XY[],
     ): boolean {
         if (!currentActiveSpell || !attackerUnit) {
             return false;
@@ -323,7 +326,7 @@ export class AttackHandler {
                 currentActiveSpell,
                 attackerUnit.getSpells(),
                 targetUnit.getSpells(),
-                undefined,
+                targetUnit.getBaseCell(),
                 attackerUnit.getId(),
                 targetUnit.getId(),
                 attackerUnit.getTarget(),
@@ -334,10 +337,12 @@ export class AttackHandler {
                 targetUnit.getLevel(),
                 targetUnit.getHp(),
                 targetUnit.getMaxHp(),
+                targetUnit.isSmallSize(),
                 attackerUnit.getStackPower(),
                 targetUnit.getMagicResist(),
                 targetUnit.hasMindAttackResistance(),
                 targetUnit.canBeHealed(),
+                currentEnemiesCellsWithinMovementRange,
             )
         ) {
             let applied = true;
@@ -374,6 +379,7 @@ export class AttackHandler {
             } else {
                 // effect can be absorbed
                 let debuffTarget = targetUnit;
+
                 const absorptionTarget = getAbsorptionTarget(debuffTarget, grid, unitsHolder);
                 if (absorptionTarget) {
                     debuffTarget = absorptionTarget;
@@ -387,15 +393,79 @@ export class AttackHandler {
                         debuffTarget.hasMindAttackResistance()
                     )
                 ) {
-                    debuffTarget.applyDebuff(
-                        currentActiveSpell,
-                        undefined,
-                        undefined,
-                        attackerUnit.getId() === targetUnit.getId(),
-                    );
+                    if (currentActiveSpell.getPowerType() === SpellPowerType.POSITION_CHANGE) {
+                        const attackerBody = unitsHolder.getUnitBody(attackerUnit.getId());
+                        const targetBody = unitsHolder.getUnitBody(debuffTarget.getId());
+                        const attackerBaseCell = attackerUnit.getBaseCell();
+                        const debuffTargetBaseCell = debuffTarget.getBaseCell();
+                        if (attackerBody && targetBody && attackerBaseCell && debuffTargetBaseCell) {
+                            const initialAttackerCell = structuredClone(attackerBaseCell);
+                            const initialTargetUnitCell = structuredClone(debuffTargetBaseCell);
+
+                            const flyAttackerStarted = moveHandler.startFlying(
+                                structuredClone(debuffTarget.getPosition()),
+                                drawer,
+                                attackerBody,
+                            );
+                            const flyTargetStarted = moveHandler.startFlying(
+                                structuredClone(attackerUnit.getPosition()),
+                                drawer,
+                                targetBody,
+                            );
+
+                            if (flyAttackerStarted && flyTargetStarted) {
+                                this.grid.cleanupAll(
+                                    attackerUnit.getId(),
+                                    attackerUnit.getAttackRange(),
+                                    attackerUnit.isSmallSize(),
+                                );
+                                this.grid.cleanupAll(
+                                    debuffTarget.getId(),
+                                    debuffTarget.getAttackRange(),
+                                    debuffTarget.isSmallSize(),
+                                );
+
+                                const newAttackerPosition = GridMath.getPositionForCell(
+                                    initialTargetUnitCell,
+                                    this.gridSettings.getMinX(),
+                                    this.gridSettings.getStep(),
+                                    this.gridSettings.getHalfStep(),
+                                );
+                                attackerUnit.setPosition(newAttackerPosition.x, newAttackerPosition.y, false);
+                                this.grid.occupyCell(
+                                    initialTargetUnitCell,
+                                    attackerUnit.getId(),
+                                    attackerUnit.getTeam(),
+                                    attackerUnit.getAttackRange(),
+                                );
+
+                                const newTargetUnitPosition = GridMath.getPositionForCell(
+                                    initialAttackerCell,
+                                    this.gridSettings.getMinX(),
+                                    this.gridSettings.getStep(),
+                                    this.gridSettings.getHalfStep(),
+                                );
+                                debuffTarget.setPosition(newTargetUnitPosition.x, newTargetUnitPosition.y, false);
+                                this.grid.occupyCell(
+                                    initialAttackerCell,
+                                    debuffTarget.getId(),
+                                    debuffTarget.getTeam(),
+                                    debuffTarget.getAttackRange(),
+                                );
+                            }
+                        }
+                    } else {
+                        debuffTarget.applyDebuff(
+                            currentActiveSpell,
+                            undefined,
+                            undefined,
+                            attackerUnit.getId() === targetUnit.getId(),
+                        );
+                    }
                 }
 
                 if (
+                    currentActiveSpell.getPowerType() !== SpellPowerType.POSITION_CHANGE &&
                     isMirrored(debuffTarget) &&
                     !hasAlreadyAppliedSpell(debuffTarget, currentActiveSpell) &&
                     !(
@@ -889,7 +959,7 @@ export class AttackHandler {
                     return false;
                 }
 
-                attackerUnit.setPosition(position.x, position.y);
+                attackerUnit.setPosition(position.x, position.y, false);
                 grid.occupyCell(
                     attackFromCell,
                     attackerUnit.getId(),
@@ -930,6 +1000,7 @@ export class AttackHandler {
                 attackerUnit.setPosition(
                     position.x - this.gridSettings.getHalfStep(),
                     position.y - this.gridSettings.getHalfStep(),
+                    false,
                 );
 
                 grid.occupyCells(cells, attackerUnit.getId(), attackerUnit.getTeam(), attackerUnit.getAttackRange());
