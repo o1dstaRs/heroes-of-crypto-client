@@ -60,7 +60,11 @@ export class FightStateManager {
             if (nextUnitId) {
                 const unit = allUnits.get(nextUnitId);
 
-                if (unit && !this.fightProperties.upNextIncludes(nextUnitId)) {
+                if (
+                    unit &&
+                    !this.fightProperties.upNextIncludes(nextUnitId) &&
+                    !this.fightProperties.hasAlreadyMadeTurn(nextUnitId)
+                ) {
                     this.fightProperties.enqueueUpNext(nextUnitId);
                     this.fightProperties.updatePreviousTurnTeam(unit.getTeam());
                 }

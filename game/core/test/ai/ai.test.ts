@@ -401,14 +401,14 @@ class UnitRepr implements IUnitAIRepr {
         public steps: number, // distance the unit can travel
         public speed: number, // inititive
         public size: number,
-        public canFly: boolean,
+        public isFlying: boolean,
         public isSmall: boolean,
         public baseCell: HoCMath.XY,
         public cells: HoCMath.XY[],
         public attackType: AttackType,
         public unitProperties?: UnitProperties, // should not be nullable, just for tests
-        // public movePath?: IMovePath, // the IMovePath that is returned from PathHelper.getMovePath if provided
-    ) {}
+    ) // public movePath?: IMovePath, // the IMovePath that is returned from PathHelper.getMovePath if provided
+    {}
 
     public getId(): string {
         return this.id;
@@ -430,8 +430,8 @@ class UnitRepr implements IUnitAIRepr {
         return this.size;
     }
 
-    public getCanFly(): boolean {
-        return this.canFly;
+    public canFly(): boolean {
+        return this.isFlying;
     }
 
     public isSmallSize(): boolean {

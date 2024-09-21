@@ -38,6 +38,7 @@ import { b2ParticleGroup, DrawParticleSystems } from "@box2d/particles";
 import {
     AttackType,
     FactionType,
+    MovementType,
     GridType,
     HoCMath,
     IAuraOnMap,
@@ -190,6 +191,10 @@ export abstract class Scene extends b2ContactListener {
     public sc_hoverInfoArr: string[] = [];
 
     public sc_hoverUnitNameStr = "";
+
+    public sc_hoverUnitLevel = 0;
+
+    public sc_hoverUnitMovementType = MovementType.NO_TYPE;
 
     public sc_mouseJoint: b2MouseJoint | null = null;
 
@@ -501,6 +506,8 @@ export abstract class Scene extends b2ContactListener {
             this.sceneStarted = true;
             this.destroyTempFixtures();
             this.sc_hoverUnitNameStr = "";
+            this.sc_hoverUnitLevel = 0;
+            this.sc_hoverUnitMovementType = MovementType.NO_TYPE;
         }
     }
 

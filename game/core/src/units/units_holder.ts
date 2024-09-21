@@ -122,6 +122,33 @@ export class UnitsHolder {
         return allies;
     }
 
+    public getAllAlliesPlaced(
+        teamType: TeamType,
+        lowerLeftPlacement: SquarePlacement,
+        upperRightPlacement: SquarePlacement,
+        lowerRightPlacement?: SquarePlacement,
+        upperLeftPlacement?: SquarePlacement,
+    ): Unit[] {
+        const allies: Unit[] = [];
+        for (const unit of this.allUnits.values()) {
+            if (unit.getTeam() === teamType) {
+                if (
+                    ((teamType === TeamType.LOWER &&
+                        (lowerLeftPlacement.isAllowed(unit.getPosition()) ||
+                            (lowerRightPlacement && lowerRightPlacement.isAllowed(unit.getPosition())))) ||
+                        (teamType === TeamType.UPPER &&
+                            (upperRightPlacement.isAllowed(unit.getPosition()) ||
+                                (upperLeftPlacement && upperLeftPlacement.isAllowed(unit.getPosition()))))) &&
+                    GridMath.isPositionWithinGrid(this.gridSettings, unit.getPosition())
+                ) {
+                    allies.push(unit);
+                }
+            }
+        }
+
+        return allies;
+    }
+
     public getAllTeamUnitsBuffs(teamType: TeamType): Map<string, AppliedSpell[]> {
         const teamUnitBuffs: Map<string, AppliedSpell[]> = new Map();
         for (const unit of this.allUnits.values()) {
@@ -159,7 +186,7 @@ export class UnitsHolder {
         const teamUnitCanFly: Map<string, boolean> = new Map();
         for (const unit of this.allUnits.values()) {
             if (unit.getTeam() === teamType) {
-                teamUnitCanFly.set(unit.getId(), unit.getCanFly());
+                teamUnitCanFly.set(unit.getId(), unit.canFly());
             }
         }
 
@@ -170,7 +197,7 @@ export class UnitsHolder {
         const enemyTeamUnitCanFly: Map<string, boolean> = new Map();
         for (const unit of this.allUnits.values()) {
             if (unit.getTeam() !== teamType) {
-                enemyTeamUnitCanFly.set(unit.getId(), unit.getCanFly());
+                enemyTeamUnitCanFly.set(unit.getId(), unit.canFly());
             }
         }
 

@@ -149,7 +149,7 @@ function doFindTarget(
         matrix,
         max_steps + unit.getSteps(),
         grid.getAggrMatrixByTeam(unit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER),
-        unit.getCanFly(),
+        unit.canFly(),
         unit.isSmallSize(),
     );
     let route;

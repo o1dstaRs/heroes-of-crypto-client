@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, TeamType } from "@heroesofcrypto/common";
+import { AttackType, TeamType, MovementType } from "@heroesofcrypto/common";
 
 export interface IDamageStatistic {
     unitName: string;
@@ -23,6 +23,8 @@ export interface IHoverInfo {
     damageRangeDivisor: string;
     killsSpread: string;
     unitName: string;
+    unitLevel: number;
+    unitMovementType: MovementType;
     information: string[];
 }
 

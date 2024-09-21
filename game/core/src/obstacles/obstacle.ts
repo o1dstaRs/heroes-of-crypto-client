@@ -22,9 +22,9 @@ export class Obstacle {
 
     private readonly sizeY: number;
 
-    private readonly lightSprite?: Sprite;
+    private lightSprite?: Sprite;
 
-    private readonly darkSprite?: Sprite;
+    private darkSprite?: Sprite;
 
     public constructor(
         type: ObstacleType,
@@ -52,6 +52,14 @@ export class Obstacle {
 
     public getType(): ObstacleType {
         return this.type;
+    }
+
+    public setLightSprite(lightSprite: Sprite): void {
+        this.lightSprite = lightSprite;
+    }
+
+    public setDarkSprite(darkSprite: Sprite): void {
+        this.darkSprite = darkSprite;
     }
 
     public render(isLightMode: boolean): void {

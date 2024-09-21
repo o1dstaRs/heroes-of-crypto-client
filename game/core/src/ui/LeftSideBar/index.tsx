@@ -20,7 +20,7 @@ import ListItem from "@mui/joy/ListItem";
 import ListItemButton from "@mui/joy/ListItemButton";
 import Sheet from "@mui/joy/Sheet";
 import Stack from "@mui/joy/Stack";
-import { useTheme } from "@mui/joy/styles";
+import { useTheme, useColorScheme } from "@mui/joy/styles";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState } from "react";
 
@@ -251,6 +251,7 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
         factory: false,
         dashboard: false,
     });
+    const { setMode } = useColorScheme();
     const theme = useTheme();
 
     useEffect(() => {
@@ -264,6 +265,11 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
         return () => clearInterval(interval);
     }, []);
 
+    // Set the default mode to dark before rendering
+    useEffect(() => {
+        setMode("dark"); // Set dark mode by default
+    }, [setMode]);
+
     // @ts-ignore: skip styles
     return (
         <Sheet
@@ -276,14 +282,13 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
                 top: 0,
                 left: 0,
                 p: 2,
-                // flexShrink: 0,
                 display: "flex",
                 flexDirection: "column",
                 gap: 2,
                 borderRight: "1px solid",
                 borderColor: "divider",
-                overflowY: "auto", // Allow vertical scrolling
-                overflowX: "hidden", // Prevent horizontal scrolling
+                overflowY: "auto",
+                overflowX: "hidden",
             }}
         >
             <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
@@ -298,11 +303,11 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
                         sx={{
                             color: theme.palette.mode === "dark" ? "white" : "black",
                             fontSize: 16,
-                            ml: 0.5, // Add some margin to the left of the icon
+                            ml: 0.5,
                         }}
                     />
                 </a>
-                <ColorSchemeToggle sx={{ ml: "auto" }} />
+                <ColorSchemeToggle sx={{ ml: "auto" }} defaultMode="dark" />
             </Box>
             <Box
                 sx={{

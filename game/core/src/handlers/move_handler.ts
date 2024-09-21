@@ -176,6 +176,17 @@ export class MoveHandler {
         return logs.join("\n");
     }
 
+    public startFlying(toPosition: XY, drawer: Drawer, body: b2Body): boolean {
+        const unit = this.unitsHolder.getAllUnits().get(body.GetUserData().id);
+
+        if (!unit) {
+            return false;
+        }
+
+        drawer.startFlyAnimation(body, unit, toPosition);
+        return true;
+    }
+
     public startMoving(
         toCell: XY,
         drawer: Drawer,
