@@ -2,14 +2,14 @@ import { TextareaAutosize } from "@mui/base/TextareaAutosize";
 import CalendarTodayRoundedIcon from "@mui/icons-material/CalendarTodayRounded";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import QueryStatsRoundedIcon from "@mui/icons-material/QueryStatsRounded";
-import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
+import TerrainRoundedIcon from "@mui/icons-material/TerrainRounded";
+import GroupAddRoundedIcon from "@mui/icons-material/GroupAddRounded";
 import Radio from "@mui/joy/Radio";
 import RadioGroup from "@mui/joy/RadioGroup";
 import FormControl from "@mui/joy/FormControl";
 import Box from "@mui/joy/Box";
 import Button from "@mui/joy/Button";
 import Divider from "@mui/joy/Divider";
-import Input from "@mui/joy/Input";
 import LinearProgress from "@mui/joy/LinearProgress";
 import List from "@mui/joy/List";
 import ListItem from "@mui/joy/ListItem";
@@ -18,16 +18,18 @@ import ListItemContent from "@mui/joy/ListItemContent";
 import Sheet from "@mui/joy/Sheet";
 import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Slider from "@mui/joy/Slider";
-import { UnitProperties, GridType, ToGridType } from "@heroesofcrypto/common";
+import { UnitProperties, GridType, ToGridType, TeamType } from "@heroesofcrypto/common";
 
 import { useManager } from "../../manager";
 import { IDamageStatistic } from "../../stats/damage_stats";
 import Toggler from "../Toggler";
 import { BAR_SIZE_PIXELS_STR } from "../../statics";
-
-const DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT = 1;
+import SideToggleContainer from "./SideToggleContainer";
+import { RedFlagIcon } from "../svg/flag_red";
+import { GreenFlagIcon } from "../svg/flag_green";
+import UnitInputAndActions from "./UnitInputActions";
 
 interface IDamageStatsTogglerProps {
     unitStatsElements: React.ReactNode;
@@ -216,78 +218,6 @@ const UnitSplitter: React.FC<IUnitSplitterProps> = ({ totalUnits, onSplit }) => 
     );
 };
 
-const UnitInputAndActions = ({ selectedUnitCount }: { selectedUnitCount: number }) => {
-    const changedRef = useRef(false);
-    const [unitCount, setUnitCount] = useState("");
-
-    const changeUnitCount = (value: string) => {
-        changedRef.current = !!selectedUnitCount;
-        setUnitCount(value);
-    };
-
-    if (selectedUnitCount > 0) {
-        if (!changedRef.current) {
-            const selectedUnitCountString = selectedUnitCount.toString();
-            if (selectedUnitCountString !== unitCount) {
-                setUnitCount(selectedUnitCount.toString());
-            }
-        }
-    } else if (unitCount !== "") {
-        setUnitCount("");
-    }
-
-    const manager = useManager();
-
-    const handleAccept = (count: number) => {
-        if (!Number.isNaN(count) && count > 0) {
-            manager.m_settings.m_amountOfSelectedUnits = count;
-            manager.Accept();
-            setUnitCount(count.toString());
-            changedRef.current = false;
-        }
-    };
-
-    return (
-        <Box sx={{ width: "100%", maxWidth: 400, marginTop: 2 }}>
-            <Stack spacing={1}>
-                <Input
-                    type="number"
-                    value={unitCount}
-                    onChange={(e) => changeUnitCount(e.target.value)}
-                    placeholder="# of units"
-                    slotProps={{
-                        input: {
-                            min: DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT,
-                        },
-                    }}
-                />
-                <Stack direction="row" spacing={2}>
-                    <Button
-                        variant="solid"
-                        color="primary"
-                        onClick={() => {
-                            handleAccept(parseInt(unitCount) || DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT);
-                        }}
-                        sx={{ flexGrow: 1 }}
-                    >
-                        Accept
-                    </Button>
-                    <Button
-                        variant="outlined"
-                        color="primary"
-                        onClick={() => {
-                            manager.Clone();
-                        }}
-                        sx={{ flexGrow: 1 }}
-                    >
-                        Clone
-                    </Button>
-                </Stack>
-            </Stack>
-        </Box>
-    );
-};
-
 const FightControlToggler: React.FC = () => {
     const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
 
@@ -312,7 +242,7 @@ const FightControlToggler: React.FC = () => {
             <Toggler
                 renderToggle={({ open, setOpen }) => (
                     <ListItemButton onClick={() => setOpen(!open)}>
-                        <TuneRoundedIcon />
+                        <GroupAddRoundedIcon />
                         <ListItemContent>
                             <Typography level="title-sm">Army control</Typography>
                         </ListItemContent>
@@ -321,14 +251,17 @@ const FightControlToggler: React.FC = () => {
                 )}
             >
                 <List>
-                    <UnitInputAndActions selectedUnitCount={unitProperties.amount_alive || 0} />
+                    <UnitInputAndActions
+                        selectedUnitCount={unitProperties.amount_alive || 0}
+                        selectedTeamType={unitProperties.team}
+                    />
                     <UnitSplitter totalUnits={unitProperties.amount_alive || 0} onSplit={handleSplit} />
                 </List>
             </Toggler>
             <Toggler
                 renderToggle={({ open, setOpen }) => (
                     <ListItemButton onClick={() => setOpen(!open)}>
-                        <TuneRoundedIcon />
+                        <TerrainRoundedIcon />
                         <ListItemContent>
                             <Typography level="title-sm">Map settings</Typography>
                         </ListItemContent>
@@ -338,6 +271,38 @@ const FightControlToggler: React.FC = () => {
             >
                 <List>
                     <MapSettingsRadioButtons />
+                </List>
+            </Toggler>
+            <Toggler
+                renderToggle={({ open, setOpen }) => (
+                    <ListItemButton onClick={() => setOpen(!open)}>
+                        <RedFlagIcon />
+                        <ListItemContent>
+                            <Typography level="title-sm">Red side</Typography>
+                        </ListItemContent>
+                        <KeyboardArrowDownIcon sx={{ transform: open ? "rotate(180deg)" : "none" }} />
+                    </ListItemButton>
+                )}
+                defaultExpanded={false} // Close by default
+            >
+                <List>
+                    <SideToggleContainer side="red" teamType={TeamType.UPPER} />
+                </List>
+            </Toggler>
+            <Toggler
+                renderToggle={({ open, setOpen }) => (
+                    <ListItemButton onClick={() => setOpen(!open)}>
+                        <GreenFlagIcon />
+                        <ListItemContent>
+                            <Typography level="title-sm">Green side</Typography>
+                        </ListItemContent>
+                        <KeyboardArrowDownIcon sx={{ transform: open ? "rotate(180deg)" : "none" }} />
+                    </ListItemButton>
+                )}
+                defaultExpanded={false} // Close by default
+            >
+                <List>
+                    <SideToggleContainer side="green" teamType={TeamType.LOWER} />
                 </List>
             </Toggler>
         </ListItem>

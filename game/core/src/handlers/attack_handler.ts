@@ -58,6 +58,7 @@ import { processDeepWoundsAbility } from "../abilities/deep_wounds_ability";
 import { processMinerAbility } from "../abilities/miner_ability";
 import { processAggrAbility } from "../abilities/aggr_ability";
 import { processSkewerStrikeAbility } from "../abilities/skewer_strike_ability";
+import { IVisibleDamage } from "../state/visible_state";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -166,10 +167,6 @@ export class AttackHandler {
             affectedUnits.push(unitsThisShot);
             rangeAttackDivisors.push(this.getRangeAttackDivisor(attackerUnit, position));
         }
-
-        // if (!isAttackBlocked && !affectedUnitIds.includes(targetUnit.getId())) {
-        // affectedUnits.push(targetUnit);
-        // }
 
         return {
             rangeAttackDivisors,
@@ -535,6 +532,7 @@ export class AttackHandler {
         hoverRangeAttackDivisors: number[],
         rangeResponseAttackDivisor: number,
         sceneStepCount: number,
+        damageForAnimation: IVisibleDamage,
         attackerUnit?: Unit,
         targetUnits?: Array<Unit[]>,
         rangeResponseUnits?: Unit[],
@@ -744,12 +742,14 @@ export class AttackHandler {
         }
 
         let switchTargetUnit = false;
-        if (targetUnit.isDead()) {
-            switchTargetUnit = true;
-        }
         if (!aoeRangeAttackResult?.landed) {
             if (!attackDamageApplied) {
                 targetUnit.applyDamage(damageFromAttack, sceneStepCount);
+                damageForAnimation.render = true;
+                damageForAnimation.amount = damageFromAttack;
+                damageForAnimation.unitPosition = targetUnit.getPosition();
+                damageForAnimation.unitIsSmall = targetUnit.isSmallSize();
+
                 DamageStatisticHolder.getInstance().add({
                     unitName: attackerUnit.getName(),
                     damage: damageFromAttack,
@@ -762,6 +762,7 @@ export class AttackHandler {
             }
 
             if (targetUnit.isDead()) {
+                switchTargetUnit = true;
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
                 unitsHolder.deleteUnitById(targetUnit.getId(), true);
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
@@ -852,6 +853,7 @@ export class AttackHandler {
             hoverRangeAttackDivisor,
             hoverRangeAttackPosition,
             sceneStepCount,
+            damageForAnimation,
             isAOE,
         );
 
@@ -886,6 +888,7 @@ export class AttackHandler {
         grid: Grid,
         moveHandler: MoveHandler,
         sceneStepCount: number,
+        damageForAnimation: IVisibleDamage,
         currentActiveKnownPaths?: Map<number, IWeightedRoute[]>,
         attackerUnit?: Unit,
         targetUnit?: Unit,
@@ -1246,6 +1249,10 @@ export class AttackHandler {
         if (!hasLightningSpinAttackLanded && !isAttackMissed) {
             // this code has to be here to make sure that respond damage has been applied as well
             targetUnit.applyDamage(damageFromAttack, sceneStepCount);
+            damageForAnimation.render = true;
+            damageForAnimation.amount = damageFromAttack;
+            damageForAnimation.unitPosition = targetUnit.getPosition();
+            damageForAnimation.unitIsSmall = targetUnit.isSmallSize();
             DamageStatisticHolder.getInstance().add({
                 unitName: attackerUnit.getName(),
                 damage: damageFromAttack,

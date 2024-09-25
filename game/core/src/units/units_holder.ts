@@ -594,25 +594,44 @@ export class UnitsHolder {
     }
 
     public deleteUnitIfNotAllowed(
+        teamType: TeamType,
         enemyTeamType: TeamType,
-        lowerLeftPlacement: SquarePlacement,
-        upperRightPlacement: SquarePlacement,
         body: b2Body,
+        lowerLeftPlacement?: SquarePlacement,
+        upperRightPlacement?: SquarePlacement,
         lowerRightPlacement?: SquarePlacement,
         upperLeftPlacement?: SquarePlacement,
-    ): void {
+        verifyWithinGridPosition = true,
+    ): boolean {
+        const isLargeUnit = body.GetUserData().id;
+        const bodyPosition =
+            isLargeUnit && teamType === TeamType.UPPER
+                ? { x: body.GetPosition().x - 1, y: body.GetPosition().y - 1 }
+                : body.GetPosition();
+        const isWithinGrid = GridMath.isPositionWithinGrid(this.gridSettings, body.GetPosition());
         if (
             (enemyTeamType === TeamType.LOWER &&
-                (lowerLeftPlacement.isAllowed(body.GetPosition()) ||
-                    (lowerRightPlacement && lowerRightPlacement.isAllowed(body.GetPosition())))) ||
+                ((lowerLeftPlacement && lowerLeftPlacement.isAllowed(bodyPosition)) ||
+                    (lowerRightPlacement && lowerRightPlacement.isAllowed(bodyPosition)))) ||
             (enemyTeamType === TeamType.UPPER &&
-                (upperRightPlacement.isAllowed(body.GetPosition()) ||
-                    (upperLeftPlacement && upperLeftPlacement.isAllowed(body.GetPosition())))) ||
-            !GridMath.isPositionWithinGrid(this.gridSettings, body.GetPosition())
+                ((upperRightPlacement && upperRightPlacement.isAllowed(bodyPosition)) ||
+                    (upperLeftPlacement && upperLeftPlacement.isAllowed(bodyPosition)))) ||
+            (isWithinGrid &&
+                teamType === TeamType.LOWER &&
+                !lowerLeftPlacement?.isAllowed(bodyPosition) &&
+                !lowerRightPlacement?.isAllowed(bodyPosition)) ||
+            (isWithinGrid &&
+                teamType === TeamType.UPPER &&
+                !upperRightPlacement?.isAllowed(bodyPosition) &&
+                !upperLeftPlacement?.isAllowed(bodyPosition)) ||
+            (verifyWithinGridPosition && !isWithinGrid)
         ) {
             this.deleteUnitById(body.GetUserData().id);
             this.world.DestroyBody(body);
+            return true;
         }
+
+        return false;
     }
 
     public spawnSelected(
