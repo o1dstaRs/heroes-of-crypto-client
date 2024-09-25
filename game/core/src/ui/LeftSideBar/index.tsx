@@ -194,7 +194,8 @@ const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
         messageBoxVariant = "solid";
         messageBoxColor = "primary";
         messageBoxTitle = "To start";
-        messageBoxText = "Put both teams units into placements. At least one on each side.";
+        messageBoxText =
+            "Place the units from both teams on the board. Make sure to have at least one unit on both the top and bottom sides.";
         if (visibleState.canBeStarted) {
             messageBoxButtonText = "Start";
         } else {

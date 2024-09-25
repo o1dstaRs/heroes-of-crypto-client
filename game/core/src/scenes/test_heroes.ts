@@ -12,6 +12,7 @@
 import { b2Body, b2BodyType, b2EdgeShape, b2Fixture, b2Vec2, XY } from "@box2d/core";
 import {
     AttackType,
+    Augment,
     HoCConfig,
     AbilityFactory,
     FactionType,
@@ -156,9 +157,9 @@ class Sandbox extends GLScene {
 
     private readonly obstacleGenerator: ObstacleGenerator;
 
-    private readonly upperPlacements: [DrawableSquarePlacement, DrawableSquarePlacement];
+    private upperPlacements: [DrawableSquarePlacement?, DrawableSquarePlacement?];
 
-    private readonly lowerPlacements: [DrawableSquarePlacement, DrawableSquarePlacement];
+    private lowerPlacements: [DrawableSquarePlacement?, DrawableSquarePlacement?];
 
     private readonly unitsFactory: UnitsFactory;
 
@@ -286,21 +287,16 @@ class Sandbox extends GLScene {
         this.drawer.setGridType(this.grid.getGridType());
         this.sc_gridTypeUpdateNeeded = true;
 
-        this.lowerPlacements = [
-            new DrawableSquarePlacement(this.sc_sceneSettings.getGridSettings(), PlacementType.LOWER_LEFT, 5),
-            new DrawableSquarePlacement(this.sc_sceneSettings.getGridSettings(), PlacementType.LOWER_RIGHT, 5),
-        ];
-        this.upperPlacements = [
-            new DrawableSquarePlacement(this.sc_sceneSettings.getGridSettings(), PlacementType.UPPER_RIGHT, 5),
-            new DrawableSquarePlacement(this.sc_sceneSettings.getGridSettings(), PlacementType.UPPER_LEFT, 5),
-        ];
-
-        this.allowedPlacementCellHashes = new Set([
-            ...this.lowerPlacements[0].possibleCellHashes(),
-            ...this.lowerPlacements[1].possibleCellHashes(),
-            ...this.upperPlacements[0].possibleCellHashes(),
-            ...this.upperPlacements[1].possibleCellHashes(),
-        ]);
+        this.lowerPlacements = [];
+        this.upperPlacements = [];
+        this.allowedPlacementCellHashes = new Set();
+        FightStateManager.getInstance()
+            .getFightProperties()
+            .setDefaultPlacementPerTeam(TeamType.LOWER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+        FightStateManager.getInstance()
+            .getFightProperties()
+            .setDefaultPlacementPerTeam(TeamType.UPPER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+        this.initializePlacements(false);
 
         this.background = new Sprite(gl, shader, this.textures.background_dark.texture);
         this.spellBookOverlay = new Sprite(gl, shader, this.textures.book_1024.texture);
@@ -638,6 +634,80 @@ class Sandbox extends GLScene {
         HoCLib.interval(this.sendFightState, 1000000);
     }
 
+    public initializePlacements(initArrays = true): void {
+        if (initArrays) {
+            this.lowerPlacements = [];
+            this.upperPlacements = [];
+        }
+
+        const augmentPlacementsLowerTeam = FightStateManager.getInstance()
+            .getFightProperties()
+            .getAugmentPlacement(TeamType.LOWER);
+
+        if (0 in augmentPlacementsLowerTeam) {
+            this.lowerPlacements.push(
+                new DrawableSquarePlacement(
+                    this.sc_sceneSettings.getGridSettings(),
+                    PlacementType.LOWER_LEFT,
+                    augmentPlacementsLowerTeam[0],
+                ),
+            );
+        }
+        if (1 in augmentPlacementsLowerTeam) {
+            this.lowerPlacements.push(
+                new DrawableSquarePlacement(
+                    this.sc_sceneSettings.getGridSettings(),
+                    PlacementType.LOWER_RIGHT,
+                    augmentPlacementsLowerTeam[1],
+                ),
+            );
+        }
+
+        const augmentPlacementsUpperTeam = FightStateManager.getInstance()
+            .getFightProperties()
+            .getAugmentPlacement(TeamType.UPPER);
+        if (0 in augmentPlacementsUpperTeam) {
+            this.upperPlacements.push(
+                new DrawableSquarePlacement(
+                    this.sc_sceneSettings.getGridSettings(),
+                    PlacementType.UPPER_RIGHT,
+                    augmentPlacementsUpperTeam[0],
+                ),
+            );
+        }
+        if (1 in augmentPlacementsUpperTeam) {
+            this.upperPlacements.push(
+                new DrawableSquarePlacement(
+                    this.sc_sceneSettings.getGridSettings(),
+                    PlacementType.UPPER_LEFT,
+                    augmentPlacementsUpperTeam[1],
+                ),
+            );
+        }
+
+        this.allowedPlacementCellHashes.clear();
+        if (0 in this.lowerPlacements && this.lowerPlacements[0]) {
+            for (const hash of this.lowerPlacements[0].possibleCellHashes()) {
+                this.allowedPlacementCellHashes.add(hash);
+            }
+        }
+        if (0 in this.upperPlacements && this.upperPlacements[0]) {
+            for (const hash of this.upperPlacements[0].possibleCellHashes()) {
+                this.allowedPlacementCellHashes.add(hash);
+            }
+        }
+        if (1 in this.lowerPlacements && this.lowerPlacements[1]) {
+            for (const hash of this.lowerPlacements[1].possibleCellHashes()) {
+                this.allowedPlacementCellHashes.add(hash);
+            }
+        }
+        if (1 in this.upperPlacements && this.upperPlacements[1]) {
+            for (const hash of this.upperPlacements[1].possibleCellHashes()) {
+                this.allowedPlacementCellHashes.add(hash);
+            }
+        }
+    }
+
     private spawnObstacles(): string | undefined {
         if (
             FightStateManager.getInstance().getFightProperties().getCurrentLap() >=
@@ -802,7 +872,22 @@ class Sandbox extends GLScene {
         this.sc_factionNameUpdateNeeded = true;
     }
 
-    protected destroyNonPlacedUnits(): void {
+    public propagateAugmentation(teamType: TeamType, augmentType: Augment.AugmentType): boolean {
+        const canAugment = FightStateManager.getInstance().getFightProperties().canAugment(teamType, augmentType);
+        if (!canAugment) {
+            return false;
+        }
+
+        const augmented = FightStateManager.getInstance().getFightProperties().setAugmentPerTeam(teamType, augmentType);
+        if (augmentType.type === "Placement") {
+            this.initializePlacements();
+            this.destroyNonPlacedUnits(false);
+        }
+
+        return augmented;
+    }
+
+    protected destroyNonPlacedUnits(verifyWithinGridPosition = true): void {
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
             return;
         }
@@ -814,14 +899,23 @@ class Sandbox extends GLScene {
                     continue;
                 }
 
-                this.unitsHolder.deleteUnitIfNotAllowed(
-                    unitStats.team === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
-                    this.lowerPlacements[0],
-                    this.upperPlacements[0],
-                    b,
-                    this.lowerPlacements[1],
-                    this.upperPlacements[1],
-                );
+                if (
+                    this.unitsHolder.deleteUnitIfNotAllowed(
+                        unitStats.team,
+                        unitStats.team === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
+                        b,
+                        this.getPlacement(TeamType.LOWER, 0),
+                        this.getPlacement(TeamType.UPPER, 0),
+                        this.getPlacement(TeamType.LOWER, 1),
+                        this.getPlacement(TeamType.UPPER, 1),
+                        verifyWithinGridPosition,
+                    )
+                ) {
+                    if (b === this.sc_selectedBody) {
+                        b.SetIsActive(false);
+                        this.deselect();
+                    }
+                }
             }
         }
     }
@@ -855,6 +949,15 @@ class Sandbox extends GLScene {
         this.sc_isSelection = false;
     }
 
+    private getPlacement(teamType: TeamType, placementIndex: number): SquarePlacement | undefined {
+        const placements = teamType === TeamType.LOWER ? this.lowerPlacements : this.upperPlacements;
+        if (placementIndex in placements && placements[placementIndex]) {
+            return placements[placementIndex];
+        }
+
+        return undefined;
+    }
+
     public cloneObject(newAmount?: number): boolean {
         let cloned = false;
 
@@ -865,23 +968,33 @@ class Sandbox extends GLScene {
                 return cloned;
             }
 
+            const lowerLeftPlacement = this.getPlacement(TeamType.LOWER, 0);
+            const upperRightPlacement = this.getPlacement(TeamType.UPPER, 0);
+
+            if (!lowerLeftPlacement || !upperRightPlacement) {
+                return cloned;
+            }
+
             if (
                 this.unitsHolder.getAllAlliesPlaced(
                     selectedUnit.getTeam(),
-                    this.lowerPlacements[0],
-                    this.upperPlacements[0],
-                    this.lowerPlacements[1],
-                    this.upperPlacements[1],
-                ).length >= HoCConstants.MAX_UNITS_PER_TEAM
+                    lowerLeftPlacement,
+                    upperRightPlacement,
+                    this.getPlacement(TeamType.LOWER, 1),
+                    this.getPlacement(TeamType.UPPER, 1),
+                ).length >=
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getNumberOfUnitsAvailableForPlacement(selectedUnit.getTeam())
             ) {
                 return cloned;
             }
 
             let placement: SquarePlacement;
             if (selectedUnit.getTeam() === TeamType.LOWER) {
-                placement = this.lowerPlacements[0];
+                placement = lowerLeftPlacement;
             } else {
-                placement = this.upperPlacements[0];
+                placement = upperRightPlacement;
             }
 
             const isSmallUnit = selectedUnit.getSize() === 1;
@@ -1783,10 +1896,10 @@ class Sandbox extends GLScene {
                 }
             }
         } else if (
-            this.lowerPlacements[0].isAllowed(this.sc_mouseWorld) ||
-            this.lowerPlacements[1].isAllowed(this.sc_mouseWorld) ||
-            this.upperPlacements[0].isAllowed(this.sc_mouseWorld) ||
-            this.upperPlacements[1].isAllowed(this.sc_mouseWorld) ||
+            (this.lowerPlacements[0]?.isAllowed(this.sc_mouseWorld) ?? false) ||
+            (this.lowerPlacements[1]?.isAllowed(this.sc_mouseWorld) ?? false) ||
+            (this.upperPlacements[0]?.isAllowed(this.sc_mouseWorld) ?? false) ||
+            (this.upperPlacements[1]?.isAllowed(this.sc_mouseWorld) ?? false) ||
             this.isButtonHover(mouseCell) ||
             this.sc_selectedBody ||
             (mouseCell &&
@@ -1805,10 +1918,10 @@ class Sandbox extends GLScene {
             if (
                 !this.sc_selectedBody &&
                 !this.cellToUnitPreRound?.has(cellKey) &&
-                (this.lowerPlacements[0].isAllowed(this.sc_mouseWorld) ||
-                    this.lowerPlacements[1].isAllowed(this.sc_mouseWorld) ||
-                    this.upperPlacements[0].isAllowed(this.sc_mouseWorld) ||
-                    this.upperPlacements[1].isAllowed(this.sc_mouseWorld))
+                ((this.lowerPlacements[0]?.isAllowed(this.sc_mouseWorld) ?? false) ||
+                    (this.lowerPlacements[1]?.isAllowed(this.sc_mouseWorld) ?? false) ||
+                    (this.upperPlacements[0]?.isAllowed(this.sc_mouseWorld) ?? false) ||
+                    (this.upperPlacements[1]?.isAllowed(this.sc_mouseWorld) ?? false))
             ) {
                 this.resetHover();
                 return;
@@ -1993,22 +2106,39 @@ class Sandbox extends GLScene {
         };
     }
 
+    public getNumberOfUnitsAvailableForPlacement(teamType: TeamType): number {
+        return FightStateManager.getInstance().getFightProperties().getNumberOfUnitsAvailableForPlacement(teamType);
+    }
+
     protected isAllowedPreStartMousePosition(unit: Unit, checkUnitSize = false): boolean {
         if (!checkUnitSize || unit.isSmallSize()) {
+            const lowerLeftPlacement = this.getPlacement(TeamType.LOWER, 0);
+            const upperRightPlacement = this.getPlacement(TeamType.UPPER, 0);
+
+            if (!lowerLeftPlacement || !upperRightPlacement) {
+                return false;
+            }
+
+            const lowerRightPlacement = this.getPlacement(TeamType.LOWER, 1);
+            const upperLeftPlacement = this.getPlacement(TeamType.UPPER, 1);
+
             const isAllowed =
                 ((unit.getTeam() === TeamType.LOWER &&
-                    (this.lowerPlacements[0].isAllowed(this.sc_mouseWorld) ||
-                        this.lowerPlacements[1].isAllowed(this.sc_mouseWorld))) ||
+                    ((lowerLeftPlacement.isAllowed(this.sc_mouseWorld) ?? false) ||
+                        (this.lowerPlacements[1]?.isAllowed(this.sc_mouseWorld) ?? false))) ||
                     (unit.getTeam() === TeamType.UPPER &&
-                        (this.upperPlacements[0].isAllowed(this.sc_mouseWorld) ||
-                            this.upperPlacements[1].isAllowed(this.sc_mouseWorld)))) &&
+                        ((upperRightPlacement.isAllowed(this.sc_mouseWorld) ?? false) ||
+                            (this.upperPlacements[1]?.isAllowed(this.sc_mouseWorld) ?? false)))) &&
                 (this.unitsHolder.getAllAlliesPlaced(
                     unit.getTeam(),
-                    this.lowerPlacements[0],
-                    this.upperPlacements[0],
-                    this.lowerPlacements[1],
-                    this.upperPlacements[1],
-                ).length < HoCConstants.MAX_UNITS_PER_TEAM ||
+                    lowerLeftPlacement,
+                    upperRightPlacement,
+                    lowerRightPlacement,
+                    upperLeftPlacement,
+                ).length <
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getNumberOfUnitsAvailableForPlacement(unit.getTeam()) ||
                     GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), unit.getPosition()));
             return (
                 isAllowed ||
@@ -2166,6 +2296,7 @@ class Sandbox extends GLScene {
                     this.grid,
                     this.moveHandler,
                     this.sc_stepCount,
+                    this.sc_damageForAnimation,
                     this.currentActiveKnownPaths,
                     this.currentActiveUnit,
                     this.getHoverAttackUnit(),
@@ -2188,6 +2319,7 @@ class Sandbox extends GLScene {
                 this.hoverRangeAttackDivisors,
                 this.rangeResponseAttackDivisor,
                 this.sc_stepCount,
+                this.sc_damageForAnimation,
                 this.currentActiveUnit,
                 this.hoverAttackUnits,
                 this.rangeResponseUnits,
@@ -2218,8 +2350,17 @@ class Sandbox extends GLScene {
             this.finishTurn();
             return true;
         }
+        this.cleanupHoverText();
 
         return false;
+    }
+
+    protected cleanupHoverText(): void {
+        this.sc_attackDamageSpreadStr = "";
+        this.sc_attackRangeDamageDivisorStr = "";
+        this.sc_hoverUnitNameStr = "";
+        this.sc_hoverInfoArr = [];
+        this.sc_hoverTextUpdateNeeded = true;
     }
 
     protected finishTurn = (isHourGlass = false): void => {
@@ -3140,6 +3281,9 @@ class Sandbox extends GLScene {
 
     public Step(settings: Settings, timeStep: number): number {
         this.sc_isAnimating = this.drawer.isAnimating();
+        if (this.sc_isAnimating) {
+            this.cleanupHoverText();
+        }
         super.Step(settings, timeStep);
         this.background.setRect(
             this.sc_sceneSettings.getGridSettings().getMinX(),
@@ -3255,8 +3399,8 @@ class Sandbox extends GLScene {
                         if (unit) {
                             if (unitStats.team === TeamType.UPPER) {
                                 if (
-                                    this.upperPlacements[0].isAllowed(bodyPosition) ||
-                                    this.upperPlacements[1].isAllowed(bodyPosition) ||
+                                    (this.upperPlacements[0]?.isAllowed(bodyPosition) ?? false) ||
+                                    (this.upperPlacements[1]?.isAllowed(bodyPosition) ?? false) ||
                                     fightProperties.getFirstTurnMade()
                                 ) {
                                     units.push(unit);
@@ -3317,17 +3461,18 @@ class Sandbox extends GLScene {
                                     }
                                 } else {
                                     this.unitsHolder.deleteUnitIfNotAllowed(
+                                        TeamType.UPPER,
                                         TeamType.LOWER,
-                                        this.lowerPlacements[0],
-                                        this.upperPlacements[0],
                                         b,
-                                        this.lowerPlacements[1],
-                                        this.upperPlacements[1],
+                                        this.getPlacement(TeamType.LOWER, 0),
+                                        this.getPlacement(TeamType.UPPER, 0),
+                                        this.getPlacement(TeamType.LOWER, 1),
+                                        this.getPlacement(TeamType.UPPER, 1),
                                     );
                                 }
                             } else if (
-                                this.lowerPlacements[0].isAllowed(bodyPosition) ||
-                                this.lowerPlacements[1].isAllowed(bodyPosition) ||
+                                (this.lowerPlacements[0]?.isAllowed(bodyPosition) ?? false) ||
+                                (this.lowerPlacements[1]?.isAllowed(bodyPosition) ?? false) ||
                                 fightProperties.getFirstTurnMade()
                             ) {
                                 units.push(unit);
@@ -3387,12 +3532,13 @@ class Sandbox extends GLScene {
                                 }
                             } else {
                                 this.unitsHolder.deleteUnitIfNotAllowed(
+                                    TeamType.LOWER,
                                     TeamType.UPPER,
-                                    this.lowerPlacements[0],
-                                    this.upperPlacements[0],
                                     b,
-                                    this.lowerPlacements[1],
-                                    this.upperPlacements[1],
+                                    this.getPlacement(TeamType.LOWER, 0),
+                                    this.getPlacement(TeamType.UPPER, 0),
+                                    this.getPlacement(TeamType.LOWER, 1),
+                                    this.getPlacement(TeamType.UPPER, 1),
                                 );
                             }
                         }
@@ -3521,8 +3667,7 @@ class Sandbox extends GLScene {
 
                 if (FightStateManager.getInstance().getFightProperties().isNarrowingLap()) {
                     // spawn may actually delete units due to overlap with obstacles
-                    // so we have to refresh all the units here,
-                    // also armageddon can kill units
+                    // so we have to refresh all the units here
                     if (!gotArmageddonKills) {
                         const unitsForAllTeams = this.unitsHolder.refreshUnitsForAllTeams();
                         unitsLower = unitsForAllTeams[TeamType.LOWER - 1];
@@ -3640,6 +3785,7 @@ class Sandbox extends GLScene {
                         const nextUnit = nextUnitId ? this.unitsHolder.getAllUnits().get(nextUnitId) : undefined;
 
                         if (nextUnit) {
+                            this.cleanupHoverText();
                             const unitsNext: IVisibleUnit[] = [];
                             for (const unitIdNext of FightStateManager.getInstance()
                                 .getFightProperties()
@@ -3710,7 +3856,7 @@ class Sandbox extends GLScene {
                                     this.currentActiveSpell = undefined;
                                     this.adjustSpellBookSprite();
                                     this.currentActiveUnitSwitchedAttackAuto = false;
-                                    this.grid.print(nextUnit.getId());
+                                    // this.grid.print(nextUnit.getId());
                                     const currentCell = GridMath.getCellForPosition(
                                         this.sc_sceneSettings.getGridSettings(),
                                         unitBody.GetPosition(),
@@ -3792,15 +3938,15 @@ class Sandbox extends GLScene {
                 u.render(this.sc_fps, this.sc_stepCount, this.sc_isAnimating, this.sc_sceneLog);
                 if (
                     !upperAllowed &&
-                    (this.upperPlacements[0].isAllowed(u.getPosition()) ||
-                        this.upperPlacements[1].isAllowed(u.getPosition()))
+                    ((this.upperPlacements[0]?.isAllowed(u.getPosition()) ?? false) ||
+                        (this.upperPlacements[1]?.isAllowed(u.getPosition()) ?? false))
                 ) {
                     upperAllowed = true;
                 }
                 if (
                     !lowerAllowed &&
-                    (this.lowerPlacements[0].isAllowed(u.getPosition()) ||
-                        this.lowerPlacements[1].isAllowed(u.getPosition()))
+                    ((this.lowerPlacements[0]?.isAllowed(u.getPosition()) ?? false) ||
+                        (this.lowerPlacements[1]?.isAllowed(u.getPosition()) ?? false))
                 ) {
                     lowerAllowed = true;
                 }
@@ -3829,16 +3975,32 @@ class Sandbox extends GLScene {
             this.sc_isAIActive = false;
             const team = this.sc_selectedBody?.GetUserData()?.team;
             if (!team) {
-                this.lowerPlacements[0].draw(settings.m_debugDraw);
-                this.upperPlacements[0].draw(settings.m_debugDraw);
-                this.lowerPlacements[1].draw(settings.m_debugDraw);
-                this.upperPlacements[1].draw(settings.m_debugDraw);
+                if (0 in this.lowerPlacements && this.lowerPlacements[0]) {
+                    this.lowerPlacements[0].draw(settings.m_debugDraw);
+                }
+                if (0 in this.upperPlacements && this.upperPlacements[0]) {
+                    this.upperPlacements[0].draw(settings.m_debugDraw);
+                }
+                if (1 in this.lowerPlacements && this.lowerPlacements[1]) {
+                    this.lowerPlacements[1].draw(settings.m_debugDraw);
+                }
+                if (1 in this.upperPlacements && this.upperPlacements[1]) {
+                    this.upperPlacements[1].draw(settings.m_debugDraw);
+                }
             } else if (team === TeamType.LOWER) {
-                this.lowerPlacements[0].draw(settings.m_debugDraw);
-                this.lowerPlacements[1].draw(settings.m_debugDraw);
+                if (0 in this.lowerPlacements && this.lowerPlacements[0]) {
+                    this.lowerPlacements[0].draw(settings.m_debugDraw);
+                }
+                if (1 in this.lowerPlacements && this.lowerPlacements[1]) {
+                    this.lowerPlacements[1].draw(settings.m_debugDraw);
+                }
             } else if (team === TeamType.UPPER) {
-                this.upperPlacements[0].draw(settings.m_debugDraw);
-                this.upperPlacements[1].draw(settings.m_debugDraw);
+                if (0 in this.upperPlacements && this.upperPlacements[0]) {
+                    this.upperPlacements[0].draw(settings.m_debugDraw);
+                }
+                if (1 in this.upperPlacements && this.upperPlacements[1]) {
+                    this.upperPlacements[1].draw(settings.m_debugDraw);
+                }
             }
         } else {
             this.placementsCleanedUp = true;

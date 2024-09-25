@@ -41,6 +41,8 @@ import {
     MovementType,
     GridType,
     HoCMath,
+    TeamType,
+    Augment,
     IAuraOnMap,
     UnitProperties,
     AbilityHelper,
@@ -49,7 +51,7 @@ import {
 import { SceneLog } from "../menu/scene_log";
 import { SceneControl } from "../sceneControls";
 import { Settings } from "../settings";
-import { IVisibleImpact, IVisibleOverallImpact, IVisibleState } from "../state/visible_state";
+import { IVisibleDamage, IVisibleImpact, IVisibleOverallImpact, IVisibleState } from "../state/visible_state";
 import { MAX_FPS, MAX_X } from "../statics";
 import type { SceneControlGroup } from "../ui";
 import { g_camera } from "../utils/camera";
@@ -244,6 +246,8 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_damageStatsUpdateNeeded = false;
 
+    public sc_damageForAnimation: IVisibleDamage;
+
     public sc_gridTypeUpdateNeeded = false;
 
     public sc_moveBlocked = false;
@@ -267,6 +271,12 @@ export abstract class Scene extends b2ContactListener {
         this.sc_groundBody = this.sc_world.CreateBody();
         this.sc_visibleState = undefined;
         this.sc_selectedAttackType = AttackType.NO_TYPE;
+        this.sc_damageForAnimation = {
+            amount: 0,
+            render: false,
+            unitPosition: { x: 0, y: 0 },
+            unitIsSmall: true,
+        };
     }
 
     public setupControls() {}
@@ -287,6 +297,10 @@ export abstract class Scene extends b2ContactListener {
     }
 
     protected abstract verifyButtonsTrigger(): void;
+
+    public abstract propagateAugmentation(teamType: TeamType, augmentType: Augment.AugmentType): boolean;
+
+    public abstract getNumberOfUnitsAvailableForPlacement(teamType: TeamType): number;
 
     protected deselect(onlyWhenNotStarted = false, refreshStats = true) {
         if (this.sceneStarted && onlyWhenNotStarted) {

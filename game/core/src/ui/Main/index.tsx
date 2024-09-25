@@ -1,10 +1,11 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import type { SceneControlGroup } from "..";
 import { useManager } from "../../manager";
 import { SceneEntry } from "../../scenes/scene";
 import { getSceneLink } from "../../utils/reactUtils";
+import DamageBubble from "../DamageBubble";
 
 interface SceneComponentProps {
     entry: SceneEntry;
@@ -12,10 +13,53 @@ interface SceneComponentProps {
 }
 
 const GameScreen = ({ entry: { name, SceneClass }, setSceneControlGroups }: SceneComponentProps) => {
+    const [coordinates, setCoordinates] = useState({ x: 0, y: 0 });
+    const [damage, setDamage] = useState<number>(0);
+    const [started, setStarted] = useState(false);
+
+    const manager = useManager();
+
+    useEffect(() => {
+        const connection = manager.onHasStarted.connect((hasStarted) => {
+            setStarted(hasStarted);
+        });
+
+        return () => {
+            connection.disconnect();
+        };
+    }, [manager]);
+
+    useEffect(() => {
+        const connection2 = manager.onDamageReceived.connect((damage) => {
+            setDamage(damage);
+        });
+
+        return () => {
+            connection2.disconnect();
+        };
+    }, [manager]);
+
+    const handleMouseMove = (event: MouseEvent) => {
+        const { clientX, clientY } = event;
+        setCoordinates({ x: clientX, y: clientY });
+    };
+
+    useEffect(() => {
+        if (started) {
+            window.addEventListener("mousemove", handleMouseMove);
+        } else {
+            window.removeEventListener("mousemove", handleMouseMove);
+        }
+
+        // Cleanup function to ensure the event listener is removed if the component unmounts
+        return () => {
+            window.removeEventListener("mousemove", handleMouseMove);
+        };
+    }, [started]);
+
     const glCanvasRef = useRef<HTMLCanvasElement>(null);
     const debugCanvasRef = useRef<HTMLCanvasElement>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
-    const manager = useManager();
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -47,10 +91,13 @@ const GameScreen = ({ entry: { name, SceneClass }, setSceneControlGroups }: Scen
     }, [manager, SceneClass]);
 
     return (
-        <main ref={wrapperRef}>
-            <canvas ref={glCanvasRef} />
-            <canvas ref={debugCanvasRef} />
-        </main>
+        <>
+            <main ref={wrapperRef}>
+                <canvas ref={glCanvasRef} />
+                <canvas ref={debugCanvasRef} />
+            </main>
+            <DamageBubble damage={damage} coordinates={coordinates} />
+        </>
     );
 };
 

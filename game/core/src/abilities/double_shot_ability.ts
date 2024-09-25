@@ -13,6 +13,7 @@ import { AttackType, HoCLib, HoCMath, Grid } from "@heroesofcrypto/common";
 
 import { Drawer } from "../draw/drawer";
 import { SceneLog } from "../menu/scene_log";
+import { IVisibleDamage } from "../state/visible_state";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
@@ -36,6 +37,7 @@ export function processDoubleShotAbility(
     hoverRangeAttackDivisor: number,
     hoverRangeAttackPosition: HoCMath.XY,
     sceneStepCount: number,
+    damageForAnimation: IVisibleDamage,
     isAOE: boolean,
 ): IDoubleShotResult {
     const doubleShotAbility = fromUnit.getAbility("Double Shot");
@@ -92,6 +94,10 @@ export function processDoubleShotAbility(
             sceneLog,
         );
         toUnit.applyDamage(damageFromAttack, sceneStepCount);
+        damageForAnimation.render = true;
+        damageForAnimation.amount = damageFromAttack;
+        damageForAnimation.unitPosition = toUnit.getPosition();
+        damageForAnimation.unitIsSmall = toUnit.isSmallSize();
         DamageStatisticHolder.getInstance().add({
             unitName: fromUnit.getName(),
             damage: damageFromAttack,

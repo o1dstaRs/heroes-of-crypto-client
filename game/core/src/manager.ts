@@ -11,7 +11,7 @@
 
 import { b2Clamp, b2Vec2 } from "@box2d/core";
 import { DebugDraw } from "@box2d/debug-draw";
-import { UnitProperties, GridType } from "@heroesofcrypto/common";
+import { UnitProperties, HoCConstants, GridType, TeamType, Augment } from "@heroesofcrypto/common";
 import { createContext, useContext } from "react";
 import { Signal } from "typed-signals";
 
@@ -28,7 +28,7 @@ import { createDefaultShader } from "./utils/gl/defaultShader";
 import { clearGlCanvas, initGlCanvas, resizeGlCanvas } from "./utils/gl/glUtils";
 import { PreloadedTextures, preloadTextures } from "./utils/gl/preload";
 import { HotKey, hotKeyPress } from "./utils/hotkeys";
-import { FightStateManager } from "./state/fight_state_manager";
+// import { FightStateManager } from "./state/fight_state_manager";
 
 export class GameManager {
     public m_fpsCalculator = new FpsCalculator(200, 1000, MAX_FPS);
@@ -63,9 +63,13 @@ export class GameManager {
 
     public readonly onHasStarted = new Signal<(_started: boolean) => void>();
 
+    public readonly onPlacementChanged = new Signal<(_changed: boolean) => void>();
+
     public readonly onGridTypeChanged = new Signal<(_gridType: GridType) => void>();
 
     public readonly onAttackLanded = new Signal<(_attackMessage: string) => void>();
+
+    public readonly onDamageReceived = new Signal<(_attackDamage: number) => void>();
 
     public readonly onUnitSelected = new Signal<(_unitProperties: UnitProperties) => void>();
 
@@ -295,7 +299,7 @@ export class GameManager {
 
     public Uninitialize(): void {
         this.isInitialized = false;
-        FightStateManager.getInstance().reset();
+        // FightStateManager.getInstance().reset();
     }
 
     public RequestTime(team?: number): void {
@@ -392,6 +396,18 @@ export class GameManager {
         }
     }
 
+    public PropagateAugmentation(teamType: TeamType, augmentType: Augment.AugmentType): boolean {
+        const augmented = this.m_scene?.propagateAugmentation(teamType, augmentType);
+        if (augmented && augmentType.type === "Placement") {
+            this.onPlacementChanged.emit(true);
+        }
+        return augmented || false;
+    }
+
+    public GetNumberOfUnitsAvailableForPlacement(teamType: TeamType): number {
+        return this.m_scene?.getNumberOfUnitsAvailableForPlacement(teamType) ?? HoCConstants.MAX_UNITS_PER_TEAM;
+    }
+
     public SwitchRightSideControlGroup(renderControlsRightSide: boolean): void {
         if (this.m_scene?.sc_renderControlsRightSide !== undefined) {
             const currentSetting = this.m_scene.sc_renderControlsRightSide;
@@ -467,6 +483,14 @@ export class GameManager {
             }
 
             this.m_scene.sc_factionNameUpdateNeeded = false;
+        }
+
+        if (this.m_scene?.sc_damageForAnimation.render) {
+            this.onDamageReceived.emit(this.m_scene.sc_damageForAnimation.amount);
+            this.m_scene.sc_damageForAnimation.render = false;
+            this.m_scene.sc_damageForAnimation.amount = 0;
+            this.m_scene.sc_damageForAnimation.unitPosition = { x: 0, y: 0 };
+            this.m_scene.sc_damageForAnimation.unitIsSmall = true;
         }
 
         if (this.m_scene?.sc_damageStatsUpdateNeeded) {
