@@ -29,8 +29,8 @@ import { images } from "../../generated/image_imports";
 import { useManager } from "../../manager";
 import { IVisibleState, IVisibleUnit } from "../../state/visible_state";
 import { BAR_SIZE_PIXELS_STR } from "../../statics";
-import { UnitStatsListItem } from "../UnitStatsListItem";
 import ColorSchemeToggle from "./ColorSchemeToggle";
+import { UnitStatsListItem } from "./UnitStatsListItem";
 
 const UpNext: React.FC = () => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);

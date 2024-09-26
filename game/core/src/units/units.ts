@@ -765,7 +765,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                         for (let i = 0; i < this.unitProperties.applied_effects.length; i++) {
                             if (
                                 this.unitProperties.applied_effects[i] === ef.getName() &&
-                                this.unitProperties.applied_effects_laps[i] !== Number.MAX_SAFE_INTEGER
+                                this.unitProperties.applied_effects_laps[i] !== Number.MAX_SAFE_INTEGER &&
+                                this.unitProperties.applied_effects_laps[i] !== HoCConstants.NUMBER_OF_LAPS_TOTAL
                             ) {
                                 this.unitProperties.applied_effects_laps[i]--;
                             }
@@ -791,7 +792,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                         for (let i = 0; i < this.unitProperties.applied_buffs.length; i++) {
                             if (
                                 this.unitProperties.applied_buffs[i] === b.getName() &&
-                                this.unitProperties.applied_buffs_laps[i] !== Number.MAX_SAFE_INTEGER
+                                this.unitProperties.applied_buffs_laps[i] !== Number.MAX_SAFE_INTEGER &&
+                                this.unitProperties.applied_buffs_laps[i] !== HoCConstants.NUMBER_OF_LAPS_TOTAL
                             ) {
                                 this.unitProperties.applied_buffs_laps[i]--;
                             }
@@ -818,7 +820,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                         for (let i = 0; i < this.unitProperties.applied_debuffs.length; i++) {
                             if (
                                 this.unitProperties.applied_debuffs[i] === d.getName() &&
-                                this.unitProperties.applied_debuffs_laps[i] !== Number.MAX_SAFE_INTEGER
+                                this.unitProperties.applied_debuffs_laps[i] !== Number.MAX_SAFE_INTEGER &&
+                                this.unitProperties.applied_debuffs_laps[i] !== HoCConstants.NUMBER_OF_LAPS_TOTAL
                             ) {
                                 this.unitProperties.applied_debuffs_laps[i]--;
                             }
@@ -1936,6 +1939,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.spells = spellsUpdated;
     }
 
+    public getAllProperties(): UnitProperties {
+        return structuredClone(this.unitProperties);
+    }
+
     public applyHeal(healPower: number): number {
         if (healPower < 0) {
             return 0;
@@ -2049,6 +2056,12 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         const windFlowBuff = this.getBuff("Wind Flow");
         if (windFlowBuff) {
             this.unitProperties.base_armor += windFlowBuff.getPower();
+        }
+        const armorAugmentBuff = this.getBuff("Armor Augment");
+        if (armorAugmentBuff) {
+            this.unitProperties.base_armor += Number(
+                ((this.unitProperties.base_armor / 100) * armorAugmentBuff.getPower()).toFixed(2),
+            );
         }
         // mod
         const shatterArmorEffect = this.getEffect("Shatter Armor");

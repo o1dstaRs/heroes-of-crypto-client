@@ -38,6 +38,7 @@ import { b2ParticleGroup, DrawParticleSystems } from "@box2d/particles";
 import {
     AttackType,
     FactionType,
+    HoCConstants,
     MovementType,
     GridType,
     HoCMath,
@@ -251,6 +252,8 @@ export abstract class Scene extends b2ContactListener {
     public sc_gridTypeUpdateNeeded = false;
 
     public sc_moveBlocked = false;
+
+    public sc_augmentChanged = false;
 
     protected sc_isAnimating = false;
 
@@ -656,6 +659,9 @@ export abstract class Scene extends b2ContactListener {
                 });
             }
         }
+
+        visibleBuffsImpact.sort((a, b) => a.laps - b.laps || HoCConstants.NUMBER_OF_LAPS_TOTAL);
+        visibleDebuffsImpact.sort((a, b) => a.laps - b.laps || HoCConstants.NUMBER_OF_LAPS_TOTAL);
 
         this.sc_visibleOverallImpact = {
             abilities: visibleAbilitiesImpact,
