@@ -2164,6 +2164,13 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.unitProperties.base_attack += pegasusMightAura.getPower();
         }
 
+        const mightAugmentBuff = this.getBuff("Might Augment");
+        if (mightAugmentBuff) {
+            this.unitProperties.base_attack += Number(
+                ((this.unitProperties.base_attack / 100) * mightAugmentBuff.getPower()).toFixed(2),
+            );
+        }
+
         let baseAttackMultiplier = 1;
         const sharpenedWeaponsAura = this.getAppliedAuraEffect("Sharpened Weapons Aura");
 

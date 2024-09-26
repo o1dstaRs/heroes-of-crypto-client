@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { Radio, RadioGroup, FormControl, FormLabel, Sheet, Box, Typography, IconButton } from "@mui/joy";
+import { Radio, RadioGroup, FormControl, FormLabel, Sheet, Box, Typography, IconButton, Tooltip } from "@mui/joy";
 import { useManager } from "../../manager";
 import { Augment, TeamType, HoCConstants } from "@heroesofcrypto/common";
 import augmentBoard from "../../../images/board_augment_256.webp"; // Assuming you have these images
 import augmentArmor from "../../../images/armor_augment_256.webp"; // Assuming you have these images
+import augmentMight from "../../../images/might_augment_256.webp"; // Assuming you have these images
 
 const PlacementToggler = ({
     title,
@@ -124,7 +125,7 @@ const ArmorToggler = ({
                     >
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_1}
-                            label={`${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_1)}% Armor`}
+                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_1)}% Armor`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_1 &&
                                 currentSelection !== Augment.ArmorAugment.LEVEL_1
@@ -132,7 +133,7 @@ const ArmorToggler = ({
                         />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_2}
-                            label={`${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_2)}% Armor`}
+                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_2)}% Armor`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_2 &&
                                 currentSelection !== Augment.ArmorAugment.LEVEL_2
@@ -140,10 +141,85 @@ const ArmorToggler = ({
                         />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_3}
-                            label={`${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_3)}% Armor`}
+                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_3)}% Armor`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_3 &&
                                 currentSelection !== Augment.ArmorAugment.LEVEL_3
+                            }
+                        />
+                    </RadioGroup>
+                </FormControl>
+            </Sheet>
+        </Box>
+    );
+};
+
+const MightToggler = ({
+    title,
+    teamType,
+    totalPoints,
+    onLevelChange,
+    currentSelection,
+}: {
+    title: string;
+    teamType: TeamType;
+    totalPoints: number;
+    onLevelChange: (pointsUsed: number, previousPointsUsed: number) => void;
+    currentSelection: number | null;
+}) => {
+    const manager = useManager();
+
+    const handleSelectionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const augmentType = Augment.ToMightAugment[event.target.value.toString()];
+        if (manager.PropagateAugmentation(teamType, { type: "Might", value: augmentType })) {
+            onLevelChange(augmentType, currentSelection ?? 0);
+        }
+    };
+
+    return (
+        <Box sx={{ marginBottom: 2 }}>
+            {/* Remaining Points Text (Orange and Bold) */}
+            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
+                Remaining Points: {totalPoints}
+            </Typography>
+
+            {/* The Toggler Sheet */}
+            <Sheet
+                variant="outlined"
+                sx={{
+                    padding: 2,
+                    borderRadius: "md",
+                }}
+            >
+                <FormControl>
+                    <FormLabel>Might</FormLabel>
+                    <RadioGroup
+                        name={`${title}-might-type`}
+                        onChange={handleSelectionChange}
+                        value={currentSelection ?? 0}
+                    >
+                        <Radio
+                            value={Augment.MightAugment.LEVEL_1}
+                            label={`+${Augment.getMightPower(Augment.MightAugment.LEVEL_1)}% Melee attack`}
+                            disabled={
+                                totalPoints + (currentSelection ?? 0) < Augment.MightAugment.LEVEL_1 &&
+                                currentSelection !== Augment.MightAugment.LEVEL_1
+                            }
+                        />
+                        <Radio
+                            value={Augment.MightAugment.LEVEL_2}
+                            label={`+${Augment.getMightPower(Augment.MightAugment.LEVEL_2)}% Melee attack`}
+                            disabled={
+                                totalPoints + (currentSelection ?? 0) < Augment.MightAugment.LEVEL_2 &&
+                                currentSelection !== Augment.MightAugment.LEVEL_2
+                            }
+                        />
+                        <Radio
+                            value={Augment.MightAugment.LEVEL_3}
+                            label={`+${Augment.getMightPower(Augment.MightAugment.LEVEL_3)}% Melee attack`}
+                            disabled={
+                                totalPoints + (currentSelection ?? 0) < Augment.MightAugment.LEVEL_3 &&
+                                currentSelection !== Augment.MightAugment.LEVEL_3
                             }
                         />
                     </RadioGroup>
@@ -157,13 +233,16 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
     const [totalPoints, setTotalPoints] = useState(HoCConstants.MAX_AUGMENT_POINTS);
     const [placementSelection, setPlacementSelection] = useState<number | null>(null);
     const [armorSelection, setArmorSelection] = useState<number | null>(null);
-    const [togglerType, setTogglerType] = useState<"Placement" | "Armor">("Placement");
+    const [mightSelection, setMightSelection] = useState<number | null>(null);
+    const [togglerType, setTogglerType] = useState<"Placement" | "Armor" | "Might">("Placement");
 
     const handleLevelChange = (pointsUsed: number, previousPointsUsed: number) => {
         if (togglerType === "Placement") {
             setPlacementSelection(pointsUsed);
-        } else {
+        } else if (togglerType === "Armor") {
             setArmorSelection(pointsUsed);
+        } else {
+            setMightSelection(pointsUsed);
         }
         const remainingPoints = totalPoints + previousPointsUsed - pointsUsed;
         setTotalPoints(remainingPoints);
@@ -172,30 +251,48 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
     return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, paddingTop: 2 }}>
             <Box sx={{ display: "flex", justifyContent: "center", gap: 2 }}>
-                <IconButton onClick={() => setTogglerType("Placement")}>
-                    <img
-                        src={augmentBoard}
-                        alt="Placement Icon"
-                        style={{
-                            filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
-                            width: 48,
-                            height: 48,
-                            transform: "rotate(180deg)",
-                        }}
-                    />
-                </IconButton>
-                <IconButton onClick={() => setTogglerType("Armor")}>
-                    <img
-                        src={augmentArmor}
-                        alt="Armor Icon"
-                        style={{
-                            filter: togglerType === "Armor" ? "brightness(1.2)" : "brightness(0.6)",
-                            width: 48,
-                            height: 48,
-                            transform: "rotate(180deg)",
-                        }}
-                    />
-                </IconButton>
+                <Tooltip title="Augment board placements" style={{ zIndex: 3 }}>
+                    <IconButton onClick={() => setTogglerType("Placement")} title="Augment board placements">
+                        <img
+                            src={augmentBoard}
+                            alt="Placement Icon"
+                            style={{
+                                filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                width: 48,
+                                height: 48,
+                                transform: "rotate(180deg)",
+                            }}
+                        />
+                    </IconButton>
+                </Tooltip>
+                <Tooltip title="Augment armor" style={{ zIndex: 3 }}>
+                    <IconButton onClick={() => setTogglerType("Armor")} title="Augment armor">
+                        <img
+                            src={augmentArmor}
+                            alt="Armor Icon"
+                            style={{
+                                filter: togglerType === "Armor" ? "brightness(1.2)" : "brightness(0.6)",
+                                width: 48,
+                                height: 48,
+                                transform: "rotate(180deg)",
+                            }}
+                        />
+                    </IconButton>
+                </Tooltip>
+                <Tooltip title="Augment melee attack" style={{ zIndex: 3 }}>
+                    <IconButton onClick={() => setTogglerType("Might")} title="Augment melee attack">
+                        <img
+                            src={augmentMight}
+                            alt="Might Icon"
+                            style={{
+                                filter: togglerType === "Might" ? "brightness(1.2)" : "brightness(0.6)",
+                                width: 48,
+                                height: 48,
+                                transform: "rotate(180deg)",
+                            }}
+                        />
+                    </IconButton>
+                </Tooltip>
             </Box>
             {togglerType === "Placement" ? (
                 <PlacementToggler
@@ -206,7 +303,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                     onLevelChange={handleLevelChange}
                     currentSelection={placementSelection}
                 />
-            ) : (
+            ) : togglerType === "Armor" ? (
                 <ArmorToggler
                     key={teamType}
                     teamType={teamType}
@@ -214,6 +311,15 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                     totalPoints={totalPoints}
                     onLevelChange={handleLevelChange}
                     currentSelection={armorSelection}
+                />
+            ) : (
+                <MightToggler
+                    key={teamType}
+                    teamType={teamType}
+                    title={side}
+                    totalPoints={totalPoints}
+                    onLevelChange={handleLevelChange}
+                    currentSelection={mightSelection}
                 />
             )}
         </Box>

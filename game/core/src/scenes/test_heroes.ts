@@ -3283,6 +3283,7 @@ class Sandbox extends GLScene {
         const augmentArmor = FightStateManager.getInstance().getFightProperties().getAugmentArmor(unit.getTeam());
         const augmentArmorPower = Augment.getArmorPower(augmentArmor);
         unit.deleteBuff("Armor Augment");
+        let anyAugmentApplied = false;
         if (augmentArmor) {
             const augmentArmorBuff = new Spell({
                 spellProperties: HoCConfig.getSpellConfig(
@@ -3301,9 +3302,40 @@ class Sandbox extends GLScene {
             augmentArmorBuff.setDesc(infoArr);
             augmentArmorBuff.setPower(augmentArmorPower);
             unit.applyBuff(augmentArmorBuff);
-            if (!skipSelection && this.sc_selectedBody && this.sc_selectedBody.GetUserData().id === unit.getId()) {
-                this.setSelectedUnitProperties(unit.getAllProperties());
+            anyAugmentApplied = true;
+        }
+
+        const augmentMight = FightStateManager.getInstance().getFightProperties().getAugmentMight(unit.getTeam());
+        const augmentMightPower = Augment.getMightPower(augmentMight);
+        unit.deleteBuff("Might Augment");
+        if (augmentMight) {
+            const augmentMightBuff = new Spell({
+                spellProperties: HoCConfig.getSpellConfig(
+                    FactionType.NO_TYPE,
+                    "Might Augment",
+                    HoCConstants.NUMBER_OF_LAPS_TOTAL,
+                ),
+                amount: 1,
+            });
+            const infoArr: string[] = [];
+            for (const descStr of augmentMightBuff.getDesc()) {
+                infoArr.push(
+                    descStr.replace(/\{\}/g, augmentMightPower.toString()).replace(/\[\]/g, augmentMight.toString()),
+                );
             }
+            augmentMightBuff.setDesc(infoArr);
+            augmentMightBuff.setPower(augmentMightPower);
+            unit.applyBuff(augmentMightBuff);
+            anyAugmentApplied = true;
+        }
+
+        if (
+            anyAugmentApplied &&
+            !skipSelection &&
+            this.sc_selectedBody &&
+            this.sc_selectedBody.GetUserData().id === unit.getId()
+        ) {
+            this.setSelectedUnitProperties(unit.getAllProperties());
         }
     }
 
