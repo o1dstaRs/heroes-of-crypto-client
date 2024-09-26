@@ -3279,6 +3279,66 @@ class Sandbox extends GLScene {
         }
     }
 
+    protected applyAugments(unit: Unit, skipSelection = false): void {
+        const augmentArmor = FightStateManager.getInstance().getFightProperties().getAugmentArmor(unit.getTeam());
+        const augmentArmorPower = Augment.getArmorPower(augmentArmor);
+        unit.deleteBuff("Armor Augment");
+        let anyAugmentApplied = false;
+        if (augmentArmor) {
+            const augmentArmorBuff = new Spell({
+                spellProperties: HoCConfig.getSpellConfig(
+                    FactionType.NO_TYPE,
+                    "Armor Augment",
+                    HoCConstants.NUMBER_OF_LAPS_TOTAL,
+                ),
+                amount: 1,
+            });
+            const infoArr: string[] = [];
+            for (const descStr of augmentArmorBuff.getDesc()) {
+                infoArr.push(
+                    descStr.replace(/\{\}/g, augmentArmorPower.toString()).replace(/\[\]/g, augmentArmor.toString()),
+                );
+            }
+            augmentArmorBuff.setDesc(infoArr);
+            augmentArmorBuff.setPower(augmentArmorPower);
+            unit.applyBuff(augmentArmorBuff);
+            anyAugmentApplied = true;
+        }
+
+        const augmentMight = FightStateManager.getInstance().getFightProperties().getAugmentMight(unit.getTeam());
+        const augmentMightPower = Augment.getMightPower(augmentMight);
+        unit.deleteBuff("Might Augment");
+        if (augmentMight) {
+            const augmentMightBuff = new Spell({
+                spellProperties: HoCConfig.getSpellConfig(
+                    FactionType.NO_TYPE,
+                    "Might Augment",
+                    HoCConstants.NUMBER_OF_LAPS_TOTAL,
+                ),
+                amount: 1,
+            });
+            const infoArr: string[] = [];
+            for (const descStr of augmentMightBuff.getDesc()) {
+                infoArr.push(
+                    descStr.replace(/\{\}/g, augmentMightPower.toString()).replace(/\[\]/g, augmentMight.toString()),
+                );
+            }
+            augmentMightBuff.setDesc(infoArr);
+            augmentMightBuff.setPower(augmentMightPower);
+            unit.applyBuff(augmentMightBuff);
+            anyAugmentApplied = true;
+        }
+
+        if (
+            anyAugmentApplied &&
+            !skipSelection &&
+            this.sc_selectedBody &&
+            this.sc_selectedBody.GetUserData().id === unit.getId()
+        ) {
+            this.setSelectedUnitProperties(unit.getAllProperties());
+        }
+    }
+
     public Step(settings: Settings, timeStep: number): number {
         this.sc_isAnimating = this.drawer.isAnimating();
         if (this.sc_isAnimating) {
@@ -3391,6 +3451,9 @@ class Sandbox extends GLScene {
                     const unit = this.unitsHolder.getUnitByStats(unitStats as UnitProperties);
                     if (!unit) {
                         continue;
+                    }
+                    if (this.sc_augmentChanged) {
+                        this.applyAugments(unit);
                     }
 
                     this.moveHandler.updateLargeUnitsCache(bodyPosition);
@@ -3597,6 +3660,8 @@ class Sandbox extends GLScene {
                 }
             }
 
+            this.sc_augmentChanged = false;
+
             let turnFlipped =
                 fightProperties.getCurrentLap() === 1 &&
                 !FightStateManager.getInstance().getFightProperties().getAlreadyMadeTurnSize() &&
@@ -3786,6 +3851,7 @@ class Sandbox extends GLScene {
 
                         if (nextUnit) {
                             this.cleanupHoverText();
+                            // this.applyAugments(nextUnit, true);
                             const unitsNext: IVisibleUnit[] = [];
                             for (const unitIdNext of FightStateManager.getInstance()
                                 .getFightProperties()

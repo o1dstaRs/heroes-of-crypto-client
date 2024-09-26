@@ -65,6 +65,8 @@ export class GameManager {
 
     public readonly onPlacementChanged = new Signal<(_changed: boolean) => void>();
 
+    public readonly onAugmentChanged = new Signal<(_changed: boolean) => void>();
+
     public readonly onGridTypeChanged = new Signal<(_gridType: GridType) => void>();
 
     public readonly onAttackLanded = new Signal<(_attackMessage: string) => void>();
@@ -400,6 +402,12 @@ export class GameManager {
         const augmented = this.m_scene?.propagateAugmentation(teamType, augmentType);
         if (augmented && augmentType.type === "Placement") {
             this.onPlacementChanged.emit(true);
+        }
+        if (augmented) {
+            if (this.m_scene) {
+                this.m_scene.sc_augmentChanged = true;
+            }
+            this.onAugmentChanged.emit(augmented);
         }
         return augmented || false;
     }

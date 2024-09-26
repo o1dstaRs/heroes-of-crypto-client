@@ -212,7 +212,9 @@ const EffectColumn: React.FC<{ effects: IVisibleImpact[]; title: string }> = ({ 
                         <Tooltip
                             key={index}
                             title={`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${
-                                effect.laps > 0 && effect.laps !== Number.MAX_SAFE_INTEGER
+                                effect.laps > 0 &&
+                                effect.laps !== Number.MAX_SAFE_INTEGER &&
+                                effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL
                                     ? ` (remaining ${getLapString(effect.laps)})`
                                     : ""
                             }`}
@@ -240,6 +242,7 @@ const EffectColumn: React.FC<{ effects: IVisibleImpact[]; title: string }> = ({ 
 export const UnitStatsListItem: React.FC = () => {
     const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
     const [overallImpact, setVisibleOverallImpact] = useState({} as IVisibleOverallImpact);
+    const [, setAugmentChanged] = useState(false);
     const [raceName, setRaceName] = useState("");
     const theme = useTheme();
     const isDarkMode = theme.palette.mode === "dark";
@@ -266,6 +269,16 @@ export const UnitStatsListItem: React.FC = () => {
             connection3.disconnect();
         };
     });
+
+    useEffect(() => {
+        const connection = manager.onAugmentChanged.connect((hasChanged) => {
+            setAugmentChanged(hasChanged);
+        });
+
+        return () => {
+            connection.disconnect();
+        };
+    }, [manager]);
 
     const abilities: IVisibleImpact[] = overallImpact.abilities || [];
     const buffs: IVisibleImpact[] = overallImpact.buffs || [];
