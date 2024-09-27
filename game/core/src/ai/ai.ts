@@ -138,6 +138,7 @@ function doFindTarget(
     }
     let minDistance = Infinity;
     let closestTarget: HoCMath.XY | undefined;
+    let cellsByDistanceToTarget: HoCMath.XY[][];
 
     // if not range or spell type then add BFS, similar is in pathhelper
     // get the cell to go or cell to go and target to attack
@@ -184,13 +185,15 @@ function doFindTarget(
                     console.log("checking possible target at x=" + j + ", i=" + i);
                 }
                 // get the list of cells that atacker can go to in order to attack the unit
-                const neighbors = getCellsForAttacker({ x: j, y: i }, matrix, unit, unit.isSmallSize(), true);
+                cellsByDistanceToTarget = getLayersForAttacker({ x: j, y: i }, matrix, unit, unit.isSmallSize(), true);
                 if (debug) {
                     let cellsStr = "";
-                    neighbors.forEach((cell) => (cellsStr = cellsStr + " [" + cellToString(cell) + "]"));
+                    cellsByDistanceToTarget[0].forEach(
+                        (cell) => (cellsStr = cellsStr + " [" + cellToString(cell) + "]"),
+                    );
                     console.log("checking cellsToMoveTo:" + cellsStr);
                 }
-                for (const elementNeighbor of neighbors) {
+                for (const elementNeighbor of cellsByDistanceToTarget[0]) {
                     if (cellKey(elementNeighbor) === cellKey(unitCell)) {
                         return new BasicAIAction(AIActionType.MELEE_ATTACK, unitCell, { x: j, y: i }, paths.knownPaths);
                     }
@@ -381,18 +384,43 @@ export function getCellsForAttacker(
     return filterCells(cellsForBigAttacker, matrix, false, attacker);
 }
 
+//return cells by distance from the cell to attack
+function getLayersForAttacker(
+    cellToAttack: HoCMath.XY,
+    matrix: number[][],
+    attacker: IUnitAIRepr,
+    isCurrentUnitSmall = true,
+    isTargetUnitSmall = true,
+): HoCMath.XY[][] {
+    const result: HoCMath.XY[][] = [];
+    for (let i = 1; i < matrix.length / 2; i++) {
+        const borderCells = filterCells(
+            getBorderCells(cellToAttack, isCurrentUnitSmall, i),
+            matrix,
+            isCurrentUnitSmall,
+            attacker,
+        );
+        result[i - 1] = borderCells;
+    }
+    if (isTargetUnitSmall) {
+        return result;
+    } else {
+        return [];
+    }
+}
+
 // return border cells that the small or big unit has
-function getBorderCells(currentCell: HoCMath.XY, isSmallUnit = true): HoCMath.XY[] {
+function getBorderCells(currentCell: HoCMath.XY, isSmallUnit = true, distance = 1): HoCMath.XY[] {
     const borderCells = [];
-    borderCells.push({ x: currentCell.x - 1, y: currentCell.y + 1 });
-    borderCells.push({ x: currentCell.x - 1, y: currentCell.y });
-    borderCells.push({ x: currentCell.x - 1, y: currentCell.y - 1 });
-    borderCells.push({ x: currentCell.x, y: currentCell.y - 1 });
-    borderCells.push({ x: currentCell.x + 1, y: currentCell.y - 1 });
+    borderCells.push({ x: currentCell.x - distance, y: currentCell.y + distance });
+    borderCells.push({ x: currentCell.x - distance, y: currentCell.y });
+    borderCells.push({ x: currentCell.x - distance, y: currentCell.y - distance });
+    borderCells.push({ x: currentCell.x, y: currentCell.y - distance });
+    borderCells.push({ x: currentCell.x + distance, y: currentCell.y - distance });
     if (isSmallUnit) {
-        borderCells.push({ x: currentCell.x + 1, y: currentCell.y });
-        borderCells.push({ x: currentCell.x + 1, y: currentCell.y + 1 });
-        borderCells.push({ x: currentCell.x, y: currentCell.y + 1 });
+        borderCells.push({ x: currentCell.x + distance, y: currentCell.y });
+        borderCells.push({ x: currentCell.x + distance, y: currentCell.y + distance });
+        borderCells.push({ x: currentCell.x, y: currentCell.y + distance });
     } else {
         /*
         // big attacker
@@ -404,13 +432,13 @@ function getBorderCells(currentCell: HoCMath.XY, isSmallUnit = true): HoCMath.XY
         0 x c 0 x 0 0
         0 x x x x 0 0
         */
-        borderCells.push({ x: currentCell.x - 1, y: currentCell.y + 2 });
-        borderCells.push({ x: currentCell.x, y: currentCell.y + 2 });
-        borderCells.push({ x: currentCell.x + 1, y: currentCell.y + 2 });
-        borderCells.push({ x: currentCell.x + 2, y: currentCell.y + 2 });
-        borderCells.push({ x: currentCell.x + 2, y: currentCell.y + 1 });
-        borderCells.push({ x: currentCell.x + 2, y: currentCell.y });
-        borderCells.push({ x: currentCell.x + 2, y: currentCell.y - 1 });
+        borderCells.push({ x: currentCell.x - distance, y: currentCell.y + distance + 1 });
+        borderCells.push({ x: currentCell.x, y: currentCell.y + distance + 1 });
+        borderCells.push({ x: currentCell.x + distance, y: currentCell.y + distance + 1 });
+        borderCells.push({ x: currentCell.x + distance + 1, y: currentCell.y + distance + 1 });
+        borderCells.push({ x: currentCell.x + distance + 1, y: currentCell.y + distance });
+        borderCells.push({ x: currentCell.x + distance + 1, y: currentCell.y });
+        borderCells.push({ x: currentCell.x + distance + 1, y: currentCell.y - distance });
     }
     return borderCells;
 }

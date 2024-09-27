@@ -407,8 +407,9 @@ class UnitRepr implements IUnitAIRepr {
         public cells: HoCMath.XY[],
         public attackType: AttackType,
         public unitProperties?: UnitProperties, // should not be nullable, just for tests
-    ) // public movePath?: IMovePath, // the IMovePath that is returned from PathHelper.getMovePath if provided
-    {}
+    ) {
+        // public movePath?: IMovePath, // the IMovePath that is returned from PathHelper.getMovePath if provided
+    }
 
     public getId(): string {
         return this.id;
