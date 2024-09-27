@@ -3308,7 +3308,7 @@ class Sandbox extends GLScene {
         const augmentMight = FightStateManager.getInstance().getFightProperties().getAugmentMight(unit.getTeam());
         const augmentMightPower = Augment.getMightPower(augmentMight);
         unit.deleteBuff("Might Augment");
-        if (augmentMight) {
+        if (augmentMight && unit.getAttackType() !== AttackType.RANGE) {
             const augmentMightBuff = new Spell({
                 spellProperties: HoCConfig.getSpellConfig(
                     FactionType.NO_TYPE,
@@ -3326,6 +3326,59 @@ class Sandbox extends GLScene {
             augmentMightBuff.setDesc(infoArr);
             augmentMightBuff.setPower(augmentMightPower);
             unit.applyBuff(augmentMightBuff);
+            anyAugmentApplied = true;
+        }
+
+        const augmentSniper = FightStateManager.getInstance().getFightProperties().getAugmentSniper(unit.getTeam());
+        const augmentSniperPower = Augment.getSniperPower(augmentSniper);
+        unit.deleteBuff("Sniper Augment");
+        if (augmentSniper && unit.getAttackType() === AttackType.RANGE) {
+            const augmentSniperBuff = new Spell({
+                spellProperties: HoCConfig.getSpellConfig(
+                    FactionType.NO_TYPE,
+                    "Sniper Augment",
+                    HoCConstants.NUMBER_OF_LAPS_TOTAL,
+                ),
+                amount: 1,
+            });
+            const infoArr: string[] = [];
+            for (const descStr of augmentSniperBuff.getDesc()) {
+                infoArr.push(
+                    descStr
+                        .replace(/\{\}/, augmentSniperPower[0].toString())
+                        .replace(/\{\}/, augmentSniperPower[1].toString())
+                        .replace(/\[\]/g, augmentSniper.toString()),
+                );
+            }
+            augmentSniperBuff.setDesc(infoArr);
+            augmentSniperBuff.setPower(augmentSniperPower[0]);
+            unit.applyBuff(augmentSniperBuff, augmentSniperPower[0], augmentSniperPower[1]);
+            anyAugmentApplied = true;
+        }
+
+        const augmentMovement = FightStateManager.getInstance().getFightProperties().getAugmentMovement(unit.getTeam());
+        const augmentMovementPower = Augment.getMovementPower(augmentMovement);
+        unit.deleteBuff("Movement Augment");
+        if (augmentMovement) {
+            const augmentMovementBuff = new Spell({
+                spellProperties: HoCConfig.getSpellConfig(
+                    FactionType.NO_TYPE,
+                    "Movement Augment",
+                    HoCConstants.NUMBER_OF_LAPS_TOTAL,
+                ),
+                amount: 1,
+            });
+            const infoArr: string[] = [];
+            for (const descStr of augmentMovementBuff.getDesc()) {
+                infoArr.push(
+                    descStr
+                        .replace(/\{\}/g, augmentMovementPower.toString())
+                        .replace(/\[\]/g, augmentMovement.toString()),
+                );
+            }
+            augmentMovementBuff.setDesc(infoArr);
+            augmentMovementBuff.setPower(augmentMovementPower);
+            unit.applyBuff(augmentMovementBuff);
             anyAugmentApplied = true;
         }
 

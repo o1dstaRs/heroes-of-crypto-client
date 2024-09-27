@@ -1900,6 +1900,21 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.applied_buffs_powers.push(0);
     }
 
+    public getBuffProperties(buffName: string): [string, string] {
+        const buffProperties: [string, string] = ["", ""];
+        for (let i = 0; i < this.unitProperties.applied_buffs_descriptions.length; i++) {
+            const description = this.unitProperties.applied_buffs_descriptions[i];
+            const splitDescription = description.split(";");
+            if (splitDescription.length === 3 && buffName === this.unitProperties.applied_buffs[i]) {
+                buffProperties[0] = splitDescription[1];
+                buffProperties[1] = splitDescription[2];
+                break;
+            }
+        }
+
+        return buffProperties;
+    }
+
     public applyDebuff(
         debuff: Spell,
         firstDebuffProperty?: number,
@@ -2137,13 +2152,17 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (wolfTrailAuraEffect) {
             this.unitProperties.steps += wolfTrailAuraEffect.getPower();
         }
-        if (windFlowBuff) {
-            const newSteps = this.unitProperties.steps - windFlowBuff.getPower();
-            this.unitProperties.steps = Math.max(1, newSteps);
+        const movementAugmentBuff = this.getBuff("Movement Augment");
+        if (movementAugmentBuff) {
+            this.unitProperties.steps += movementAugmentBuff.getPower();
         }
         const battleRoarBuff = this.getBuff("Battle Roar");
         if (battleRoarBuff) {
             this.unitProperties.steps += battleRoarBuff.getPower();
+        }
+        if (windFlowBuff) {
+            const newSteps = this.unitProperties.steps - windFlowBuff.getPower();
+            this.unitProperties.steps = Math.max(1, newSteps);
         }
 
         const quagmireDebuff = this.getDebuff("Quagmire");
@@ -2160,15 +2179,29 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             }
         }
         this.unitProperties.base_attack = this.initialUnitProperties.base_attack;
+        this.unitProperties.shot_distance = this.initialUnitProperties.shot_distance;
         if (pegasusMightAura) {
             this.unitProperties.base_attack += pegasusMightAura.getPower();
         }
 
         const mightAugmentBuff = this.getBuff("Might Augment");
-        if (mightAugmentBuff) {
+        if (this.getAttackType() !== AttackType.RANGE && mightAugmentBuff) {
             this.unitProperties.base_attack += Number(
                 ((this.unitProperties.base_attack / 100) * mightAugmentBuff.getPower()).toFixed(2),
             );
+        }
+        const sniperAugmentBuff = this.getBuff("Sniper Augment");
+        if (this.getAttackType() === AttackType.RANGE && sniperAugmentBuff) {
+            const buffProperties = this.getBuffProperties(sniperAugmentBuff.getName());
+            if (buffProperties?.length === 2) {
+                this.unitProperties.base_attack += Number(
+                    ((this.unitProperties.base_attack / 100) * parseInt(buffProperties[0])).toFixed(2),
+                );
+                // SHOT DISTANCE
+                this.unitProperties.shot_distance += Number(
+                    ((this.unitProperties.shot_distance / 100) * parseInt(buffProperties[1])).toFixed(2),
+                );
+            }
         }
 
         let baseAttackMultiplier = 1;
@@ -2215,6 +2248,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         this.unitProperties.attack_mod = Number(this.unitProperties.attack_mod.toFixed(2));
         this.unitProperties.base_attack = Number((this.unitProperties.base_attack * baseAttackMultiplier).toFixed(2));
+        this.unitProperties.shot_distance = Number(this.unitProperties.shot_distance.toFixed(2));
 
         // BUFFS & DEBUFFS
         const weakeningBeamDebuff = this.getDebuff("Weakening Beam");
