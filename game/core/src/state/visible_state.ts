@@ -53,3 +53,17 @@ export interface IVisibleState {
     canRequestAdditionalTime: boolean;
     upNext: IVisibleUnit[];
 }
+
+export enum VisibleButtonState {
+    FIRST = 1,
+    SECOND = 2,
+    THIRD = 3,
+}
+
+export interface IVisibleButton {
+    name: string;
+    text: string;
+    state: VisibleButtonState;
+    isVisible: boolean;
+    isDisabled: boolean;
+}

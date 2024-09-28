@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Sheet, IconButton, Box, Divider } from "@mui/joy";
+import { Sheet, IconButton, Box, Divider, Tooltip } from "@mui/joy";
 import { useTheme } from "@mui/joy/styles";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import RotateRightIcon from "@mui/icons-material/RotateRight";
@@ -9,20 +9,53 @@ import spellbookIconImage from "../../../images/icon_spellbook_black.webp";
 import hourglassIconImage from "../../../images/icon_hourglass_black.webp";
 import swordIconImage from "../../../images/icon_sword_black.webp";
 import aiIconImage from "../../../images/icon_ai_black.webp";
+import aiOnIconImage from "../../../images/icon_ai_on_black.webp";
 import skipIconImage from "../../../images/icon_skip_black.webp";
 import luckShieldIconImage from "../../../images/icon_luck_shield_black.webp";
 import blackImage from "../../../images/overlay_black.webp";
 import lightImage from "../../../images/overlay_light.webp";
+import { useManager } from "../../manager";
+import { IVisibleButton, VisibleButtonState } from "../../state/visible_state";
 
 const INITIAL_POSITION_Y = 6;
 const INITIAL_POSITION_X = window.innerWidth / 2 - 278;
+
+const BUTTON_NAME_TO_ICON_IMAGE = {
+    [`Spellbook${VisibleButtonState.FIRST}`]: spellbookIconImage,
+    [`Hourglass${VisibleButtonState.FIRST}`]: hourglassIconImage,
+    [`AttackType${VisibleButtonState.FIRST}`]: swordIconImage,
+    [`AI${VisibleButtonState.FIRST}`]: aiIconImage,
+    [`AI${VisibleButtonState.SECOND}`]: aiOnIconImage,
+    [`Next${VisibleButtonState.FIRST}`]: skipIconImage,
+    [`LuckShield${VisibleButtonState.FIRST}`]: luckShieldIconImage,
+};
 
 const DraggableToolbar = () => {
     const [position, setPosition] = useState({ x: INITIAL_POSITION_X, y: INITIAL_POSITION_Y });
     const [isDragging, setIsDragging] = useState(false);
     const [dragOffset, setDragOffset] = useState({ x: INITIAL_POSITION_X, y: INITIAL_POSITION_Y });
     const [isVertical, setIsVertical] = useState(false);
+    const [buttonGroupChanged, setButtonGroupChanged] = useState(false);
+    const [buttonGroup, setButtonGroup] = useState<IVisibleButton[]>([]);
     const theme = useTheme();
+    const manager = useManager();
+
+    useEffect(() => {
+        const connection = manager.onHasButtonsGroupUpdate.connect((hasChanged) => {
+            setButtonGroupChanged(hasChanged);
+        });
+
+        return () => {
+            connection.disconnect();
+        };
+    }, [manager]);
+
+    useEffect(() => {
+        if (buttonGroupChanged) {
+            setButtonGroup(manager.GetButtonGroup());
+            setButtonGroupChanged(false); // Reset the state to re-render
+        }
+    }, [buttonGroupChanged, manager]);
 
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
         setIsDragging(true);
@@ -110,37 +143,67 @@ const DraggableToolbar = () => {
       }
     `;
 
-    const createIconButton = (iconImage: string) =>
-        styled(IconButton)({
-            width: 64,
-            height: 64,
-            padding: 0,
-            backgroundImage: `url(${iconImage})`,
-            backgroundSize: "cover",
-            transition: "all 0.3s ease",
-            "&:hover": {
-                animation: `${isDark ? shineEffectWhite : shineEffectRed} 1.5s infinite`,
-                transform: "scale(1.05)",
-                ...(!isDark && {
-                    backgroundColor: "darkred", // Change the background color to dark red
-                    boxShadow: "0 0 10px rgba(139, 0, 0, 0.5)",
-                    filter: "brightness(1.1) drop-shadow(0 0 5px rgba(139, 0, 0, 0.5))",
-                }),
-                ...(isDark && {
-                    boxShadow: "0 0 10px rgba(255, 255, 255, 0.5)",
-                    filter: "brightness(1.1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.5))",
-                }),
-            },
-        });
+    const createIconButton = (
+        iconImage: string,
+        text: string,
+        isVisible: boolean,
+        isDisabled: boolean,
+        onClick?: () => void,
+    ) => (
+        <Tooltip title={isVisible ? text : "Hidden"} style={{ zIndex: 5 }}>
+            <IconButton
+                sx={{
+                    width: 64,
+                    height: 64,
+                    padding: 0,
+                    backgroundImage: `url(${iconImage})`,
+                    backgroundSize: "cover",
+                    transition: "all 0.3s ease",
+                    display: isVisible ? "block" : "none",
+                    opacity: isDisabled ? 0.5 : 1,
+                    pointerEvents: isDisabled ? "none" : "auto",
+                    position: "relative",
+                    "&:hover": {
+                        animation: `${isDark ? shineEffectWhite : shineEffectRed} 1.5s infinite`,
+                        transform: "scale(1.05)",
+                        ...(!isDark && {
+                            backgroundColor: "darkred",
+                            boxShadow: "0 0 10px rgba(139, 0, 0, 0.5)",
+                            filter: "brightness(1.1) drop-shadow(0 0 5px rgba(139, 0, 0, 0.5))",
+                        }),
+                        ...(isDark && {
+                            boxShadow: "0 0 10px rgba(255, 255, 255, 0.5)",
+                            filter: "brightness(1.1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.5))",
+                        }),
+                    },
+                    "&::after": {
+                        display: "block",
+                        textAlign: "center",
+                        marginTop: "0.5rem",
+                        color: isDark ? "lightgrey" : "black",
+                        fontSize: "0.75rem",
+                    },
+                }}
+                onClick={onClick}
+            />
+        </Tooltip>
+    );
 
-    const SpellbookButton = createIconButton(spellbookIconImage);
-    const HourglassButton = createIconButton(hourglassIconImage);
-    const SwordButton = createIconButton(swordIconImage);
-    const SkipButton = createIconButton(skipIconImage);
-    const AIButton = createIconButton(aiIconImage);
-    const LuckShieldButton = createIconButton(luckShieldIconImage);
+    const buttonNameToIconButton: { [key: string]: JSX.Element } = {};
+    const buttonNameToState: { [key: string]: VisibleButtonState } = {};
+    for (const b of buttonGroup) {
+        const newIconButton = createIconButton(
+            BUTTON_NAME_TO_ICON_IMAGE[`${b.name as keyof typeof BUTTON_NAME_TO_ICON_IMAGE}${b.state}`] as string,
+            b.text,
+            b.isVisible,
+            b.isDisabled,
+            () => manager.PropagateButtonClicked(b.name, b.state),
+        );
+        buttonNameToIconButton[b.name] = newIconButton;
+        buttonNameToState[b.name] = b.state;
+    }
 
-    return (
+    return Object.keys(buttonNameToIconButton).length > 0 ? (
         <StyledSheet
             sx={{
                 position: "absolute",
@@ -196,20 +259,16 @@ const DraggableToolbar = () => {
                     />
                 </IconButton>
             </Box>
-
             <Divider
                 orientation={isVertical ? "horizontal" : "vertical"}
                 sx={{ bgcolor: isDark ? "#ff9e76" : "#352100" }}
             />
-
-            <HourglassButton onClick={() => console.log("Spell Book 1 clicked")} />
-            <LuckShieldButton onClick={() => console.log("Spell Book 2 clicked")} />
-            <SkipButton onClick={() => console.log("Spell Book 3 clicked")} />
-            <AIButton onClick={() => console.log("Spell Book 4 clicked")} />
-            <SwordButton onClick={() => console.log("Spell Book 5 clicked")} />
-            <SpellbookButton onClick={() => console.log("Spell Book 6 clicked")} />
+            {Object.keys(buttonNameToIconButton).map((buttonName, index) => {
+                const ButtonComponent = buttonNameToIconButton[buttonName];
+                return <React.Fragment key={index}>{ButtonComponent}</React.Fragment>;
+            })}
         </StyledSheet>
-    );
+    ) : null;
 };
 
 export default DraggableToolbar;

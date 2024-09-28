@@ -59,7 +59,7 @@ import { Settings } from "../settings";
 import { RenderableSpell } from "../spells/renderable_spell";
 import { hasAlreadyAppliedSpell, isMirrored } from "../spells/spells_helper";
 import { FightStateManager } from "../state/fight_state_manager";
-import { IVisibleUnit } from "../state/visible_state";
+import { IVisibleButton, IVisibleUnit, VisibleButtonState } from "../state/visible_state";
 import {
     FIGHT_BUTTONS_LEFT_POSITION_X,
     FIGHT_BUTTONS_RIGHT_POSITION_X,
@@ -201,15 +201,25 @@ class Sandbox extends GLScene {
 
     public readonly spellBookButton: Button;
 
+    public readonly spellBookButtonNew: IVisibleButton;
+
     public readonly selectedAttackTypeButton: Button;
+
+    public readonly selectedAttackTypeButtonNew: IVisibleButton;
 
     public readonly hourGlassButton: Button;
 
+    public readonly hourGlassButtonNew: IVisibleButton;
+
     public readonly shieldButton: Button;
+
+    public readonly shieldButtonNew: IVisibleButton;
 
     public readonly nextButton: Button;
 
-    public readonly aiButton: Button;
+    public readonly nextButtonNew: IVisibleButton;
+
+    public readonly aiButtonNew: IVisibleButton;
 
     public readonly lifeButton: Button;
 
@@ -336,13 +346,6 @@ class Sandbox extends GLScene {
             new Sprite(gl, shader, this.textures.next_white_128.texture),
             new b2Vec2(fightButtonsPositionX, 832),
             new Sprite(gl, shader, this.textures.next_black_128.texture),
-        );
-        this.aiButton = new Button(
-            this.sc_sceneSettings.getGridSettings(),
-            new Sprite(gl, shader, this.textures.ai_white_128.texture),
-            new b2Vec2(fightButtonsPositionX, 704),
-            new Sprite(gl, shader, this.textures.ai_black_128.texture),
-            new Sprite(gl, shader, this.textures.ai_active_128.texture),
         );
         this.lifeButton = new Button(
             this.sc_sceneSettings.getGridSettings(),
@@ -605,6 +608,7 @@ class Sandbox extends GLScene {
             // finish turn
             this.finishTurn();
             this.sc_isAIActive = wasAIActive;
+            this.refreshButtons();
             this.performingAIAction = false;
         };
 
@@ -630,8 +634,87 @@ class Sandbox extends GLScene {
             }
         };
 
+        this.hourGlassButtonNew = {
+            name: "Hourglass",
+            text: "Wait",
+            state: VisibleButtonState.FIRST,
+            isVisible: true,
+            isDisabled: true,
+        };
+        this.shieldButtonNew = {
+            name: "LuckShield",
+            text: "Cleanup randomized luck and skip turn",
+            state: VisibleButtonState.FIRST,
+            isVisible: true,
+            isDisabled: true,
+        };
+        this.nextButtonNew = {
+            name: "Next",
+            text: "SKip",
+            state: VisibleButtonState.FIRST,
+            isVisible: true,
+            isDisabled: true,
+        };
+        this.aiButtonNew = {
+            name: "AI",
+            text: "Switch AI state",
+            state: this.sc_isAIActive ? VisibleButtonState.SECOND : VisibleButtonState.FIRST,
+            isVisible: true,
+            isDisabled: false,
+        };
+        this.selectedAttackTypeButtonNew = {
+            name: "AttackType",
+            text: "Switch attack type",
+            state: VisibleButtonState.FIRST,
+            isVisible: true,
+            isDisabled: true,
+        };
+        this.spellBookButtonNew = {
+            name: "Spellbook",
+            text: "Select spell",
+            state: VisibleButtonState.FIRST,
+            isVisible: true,
+            isDisabled: true,
+        };
+
+        this.sc_visibleButtonGroup = [
+            this.hourGlassButtonNew,
+            this.shieldButtonNew,
+            this.nextButtonNew,
+            this.aiButtonNew,
+            this.selectedAttackTypeButtonNew,
+            this.spellBookButtonNew,
+        ];
+
         HoCLib.interval(this.visibleStateUpdate, 500);
         HoCLib.interval(this.sendFightState, 1000000);
+    }
+
+    private refreshButtons(): void {
+        console.log("REFRESH BUTTONS");
+        if (this.sc_isAIActive) {
+            this.aiButtonNew.state = VisibleButtonState.SECOND;
+            console.log("SWITCH TO SECOND");
+        } else {
+            this.aiButtonNew.state = VisibleButtonState.FIRST;
+            console.log("SWITCH TO FIRST");
+        }
+
+        this.sc_buttonGroupUpdated = true;
+    }
+
+    public propagateButtonClicked(buttonName: string, buttonState: VisibleButtonState): void {
+        console.log(`button clicked: ${buttonName} ${buttonState}`);
+        if (buttonName === "AI") {
+            this.sc_isAIActive = buttonState === VisibleButtonState.FIRST;
+            this.refreshButtons();
+            this.resetHover();
+            // if (this.sc_isAIActive) {
+            //     this.aiButtonNew.state = VisibleButtonState.SECOND;
+            // } else {
+            //     this.aiButtonNew.state = VisibleButtonState.FIRST;
+            // }
+        }
     }
 
     public initializePlacements(initArrays = true): void {
@@ -814,6 +897,7 @@ class Sandbox extends GLScene {
     public startScene() {
         super.startScene();
         FightStateManager.getInstance().getFightProperties().startFight();
+        this.refreshButtons();
     }
 
     public setGridType(gridType: GridType): void {
@@ -841,7 +925,6 @@ class Sandbox extends GLScene {
         this.hourGlassButton.setPosition(new b2Vec2(fightButtonsPositionX, 1088));
         this.shieldButton.setPosition(new b2Vec2(fightButtonsPositionX, 960));
         this.nextButton.setPosition(new b2Vec2(fightButtonsPositionX, 832));
-        this.aiButton.setPosition(new b2Vec2(fightButtonsPositionX, 704));
     }
 
     private deselectRaceButtons(): void {
@@ -1120,16 +1203,6 @@ class Sandbox extends GLScene {
     private updateHoverInfoWithButtonAction(mouseCell: XY): void {
         if (this.spellBookButton.isHover(mouseCell) && this.currentActiveUnit?.getSpellsCount()) {
             this.sc_hoverInfoArr = ["Select spell"];
-            this.sc_hoverTextUpdateNeeded = true;
-            return;
-        }
-
-        if (this.aiButton.isHover(mouseCell)) {
-            if (this.sc_isAIActive) {
-                this.sc_hoverInfoArr = ["Turn off AI"];
-            } else {
-                this.sc_hoverInfoArr = ["Turn on AI"];
-            }
             this.sc_hoverTextUpdateNeeded = true;
             return;
         }
@@ -1776,8 +1849,7 @@ class Sandbox extends GLScene {
                                 this.hourGlassButton.isHover(mouseCell) &&
                                 !fightProperties.hourGlassIncludes(this.currentActiveUnit.getId()) &&
                                 !fightProperties.hasAlreadyHourGlass(this.currentActiveUnit.getId())) ||
-                            (this.selectedAttackTypeButton.isHover(mouseCell) && this.switchToSelectedAttackType))) ||
-                    this.aiButton.isHover(mouseCell)
+                            (this.selectedAttackTypeButton.isHover(mouseCell) && this.switchToSelectedAttackType)))
                 ) {
                     this.updateHoverInfoWithButtonAction(mouseCell);
 
@@ -1785,7 +1857,6 @@ class Sandbox extends GLScene {
                         this.selectedAttackTypeButton.isHover(mouseCell) ||
                         this.shieldButton.isHover(mouseCell) ||
                         this.nextButton.isHover(mouseCell) ||
-                        this.aiButton.isHover(mouseCell) ||
                         this.hourGlassButton.isHover(mouseCell) ||
                         (this.spellBookButton.isHover(mouseCell) && this.currentActiveUnit.getSpellsCount())
                     ) {
@@ -2415,10 +2486,7 @@ class Sandbox extends GLScene {
             return;
         }
 
-        if (this.aiButton.isHover(cell)) {
-            this.sc_isAIActive = !this.sc_isAIActive;
-            this.resetHover();
-        } else if (this.spellBookButton.isHover(cell) && !this.sc_isAIActive) {
+        if (this.spellBookButton.isHover(cell) && !this.sc_isAIActive) {
             if (this.currentActiveUnit?.getCanCastSpells()) {
                 this.sc_renderSpellBookOverlay = !this.sc_renderSpellBookOverlay;
             } else {
@@ -3818,6 +3886,7 @@ class Sandbox extends GLScene {
                         this.finishFight();
                         fightFinished = true;
                         this.sc_isAIActive = false;
+                        this.refreshButtons();
                     }
 
                     if (!fightFinished) {
@@ -3904,7 +3973,7 @@ class Sandbox extends GLScene {
 
                         if (nextUnit) {
                             this.cleanupHoverText();
-                            // this.applyAugments(nextUnit, true);
+                            this.applyAugments(nextUnit, true);
                             const unitsNext: IVisibleUnit[] = [];
                             for (const unitIdNext of FightStateManager.getInstance()
                                 .getFightProperties()
@@ -4040,6 +4109,7 @@ class Sandbox extends GLScene {
                     setTimeout(() => {
                         const wasAIActive = this.sc_isAIActive;
                         this.sc_isAIActive = true;
+                        this.refreshButtons();
                         this.performAIAction(wasAIActive);
                     }, 750);
                 }
@@ -4388,7 +4458,6 @@ class Sandbox extends GLScene {
                 this.hourGlassButton.render(settings.m_debugDraw, isLightMode);
                 this.shieldButton.render(settings.m_debugDraw, isLightMode);
                 this.nextButton.render(settings.m_debugDraw, isLightMode);
-                this.aiButton.render(settings.m_debugDraw, isLightMode, 1, this.sc_isAIActive);
                 this.drawer.renderTerrainSpritesFront(isLightMode);
                 if (this.currentEnemiesCellsWithinMovementRange && !this.hoverAttackUnits?.length) {
                     this.drawer.drawHighlightedCells(
