@@ -199,8 +199,6 @@ class Sandbox extends GLScene {
 
     public readonly spellBookBlackSprite: Sprite;
 
-    public readonly spellBookButton: Button;
-
     public readonly spellBookButtonNew: IVisibleButton;
 
     public readonly selectedAttackTypeButton: Button;
@@ -311,12 +309,6 @@ class Sandbox extends GLScene {
             ? FIGHT_BUTTONS_RIGHT_POSITION_X
             : FIGHT_BUTTONS_LEFT_POSITION_X;
 
-        this.spellBookButton = new Button(
-            this.sc_sceneSettings.getGridSettings(),
-            this.spellBookWhiteSprite,
-            new b2Vec2(fightButtonsPositionX, 1344),
-            this.spellBookBlackSprite,
-        );
         this.selectedAttackTypeButton = new Button(
             this.sc_sceneSettings.getGridSettings(),
             new Sprite(gl, shader, this.textures.melee_white_128.texture),
@@ -690,6 +682,18 @@ class Sandbox extends GLScene {
         return false;
     }
 
+    private checkCastCondition(): boolean {
+        if (!this.currentActiveUnit) {
+            return false;
+        }
+
+        return (
+            this.currentActiveUnit &&
+            this.currentActiveUnit.getSpellsCount() > 0 &&
+            this.currentActiveUnit.getCanCastSpells()
+        );
+    }
+
     private refreshButtons(forceUpdate = false): void {
         if (this.sc_visibleState && this.sc_visibleState.hasFinished) {
             this.hourGlassButtonNew.isDisabled = true;
@@ -704,6 +708,9 @@ class Sandbox extends GLScene {
 
         const previousAIButtonState = this.aiButtonNew.state;
         const previousHourGlassButtonState = this.hourGlassButtonNew.state;
+        const previousNextButtonState = this.nextButtonNew.state;
+        const previousShieldButtonState = this.shieldButtonNew.state;
+        const previousSpellBookButtonState = this.spellBookButtonNew.state;
         if (this.sc_isAIActive) {
             this.aiButtonNew.state = VisibleButtonState.SECOND;
             this.hourGlassButtonNew.isDisabled = true;
@@ -711,7 +718,15 @@ class Sandbox extends GLScene {
             this.nextButtonNew.isDisabled = true;
             this.selectedAttackTypeButtonNew.isDisabled = true;
             this.spellBookButtonNew.isDisabled = true;
+        } else if (this.sc_renderSpellBookOverlay) {
+            console.log("SSSSSS");
+            this.hourGlassButtonNew.isDisabled = true;
+            this.shieldButtonNew.isDisabled = true;
+            this.nextButtonNew.isDisabled = true;
+            this.selectedAttackTypeButtonNew.isDisabled = true;
+            this.spellBookButtonNew.isDisabled = false;
         } else {
+            console.log("SSSSSS2");
             this.aiButtonNew.state = VisibleButtonState.FIRST;
             this.shieldButtonNew.isDisabled = false;
             this.nextButtonNew.isDisabled = false;
@@ -723,12 +738,21 @@ class Sandbox extends GLScene {
             } else {
                 this.hourGlassButtonNew.isDisabled = true;
             }
+
+            if (this.checkCastCondition()) {
+                this.spellBookButtonNew.isDisabled = false;
+            } else {
+                this.spellBookButtonNew.isDisabled = true;
+            }
         }
 
         this.sc_buttonGroupUpdated =
             forceUpdate ||
             previousAIButtonState !== this.aiButtonNew.state ||
-            previousHourGlassButtonState !== this.hourGlassButtonNew.state;
+            previousHourGlassButtonState !== this.hourGlassButtonNew.state ||
+            previousSpellBookButtonState !== this.spellBookButtonNew.state ||
+            previousShieldButtonState !== this.shieldButtonNew.state ||
+            previousNextButtonState !== this.nextButtonNew.state;
         console.log(`sc_buttonGroupUpdated ${this.sc_buttonGroupUpdated}`);
     }
 
@@ -740,7 +764,6 @@ class Sandbox extends GLScene {
             return;
         }
 
-        console.log(`button clicked: ${buttonName} ${buttonState}`);
         if (buttonName === "AI") {
             this.sc_isAIActive = buttonState === VisibleButtonState.FIRST;
             this.refreshButtons();
@@ -770,6 +793,14 @@ class Sandbox extends GLScene {
                 );
                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} shield turn`);
                 this.finishTurn();
+            } else if (buttonName === "Spellbook" && this.checkCastCondition()) {
+                this.sc_renderSpellBookOverlay = !this.sc_renderSpellBookOverlay;
+                if (!this.sc_renderSpellBookOverlay) {
+                    this.hoveredSpell = undefined;
+                }
+                this.adjustSpellBookSprite();
+                // this.spellBookButtonNew.customSpriteName = undefined;
+                // this.refreshButtons(true);
             }
         }
     }
@@ -977,7 +1008,6 @@ class Sandbox extends GLScene {
             ? FIGHT_BUTTONS_RIGHT_POSITION_X
             : FIGHT_BUTTONS_LEFT_POSITION_X;
 
-        this.spellBookButton.setPosition(new b2Vec2(fightButtonsPositionX, 1344));
         this.selectedAttackTypeButton.setPosition(new b2Vec2(fightButtonsPositionX, 1216));
     }
 
@@ -1255,12 +1285,6 @@ class Sandbox extends GLScene {
     }
 
     private updateHoverInfoWithButtonAction(mouseCell: XY): void {
-        if (this.spellBookButton.isHover(mouseCell) && this.currentActiveUnit?.getSpellsCount()) {
-            this.sc_hoverInfoArr = ["Select spell"];
-            this.sc_hoverTextUpdateNeeded = true;
-            return;
-        }
-
         if (this.selectedAttackTypeButton.isHover(mouseCell)) {
             this.sc_hoverInfoArr = ["Switch attack type"];
             this.sc_hoverTextUpdateNeeded = true;
@@ -1871,15 +1895,12 @@ class Sandbox extends GLScene {
                     (GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell) &&
                         this.currentActivePathHashes?.has((mouseCell.x << 4) | mouseCell.y)) ||
                     (!this.sc_isAIActive &&
-                        ((this.spellBookButton.isHover(mouseCell) && this.currentActiveUnit.getSpellsCount()) ||
-                            (this.selectedAttackTypeButton.isHover(mouseCell) && this.switchToSelectedAttackType)))
+                        this.selectedAttackTypeButton.isHover(mouseCell) &&
+                        this.switchToSelectedAttackType)
                 ) {
                     this.updateHoverInfoWithButtonAction(mouseCell);
 
-                    if (
-                        this.selectedAttackTypeButton.isHover(mouseCell) ||
-                        (this.spellBookButton.isHover(mouseCell) && this.currentActiveUnit.getSpellsCount())
-                    ) {
+                    if (this.selectedAttackTypeButton.isHover(mouseCell)) {
                         this.hoverSelectedCells = [mouseCell];
                         this.hoverSelectedCellsSwitchToRed = false;
                         this.resetHover(false);
@@ -2511,19 +2532,7 @@ class Sandbox extends GLScene {
             return;
         }
 
-        if (this.spellBookButton.isHover(cell) && !this.sc_isAIActive) {
-            if (this.currentActiveUnit?.getCanCastSpells()) {
-                this.sc_renderSpellBookOverlay = !this.sc_renderSpellBookOverlay;
-            } else {
-                this.sc_renderSpellBookOverlay = false;
-            }
-            if (!this.sc_renderSpellBookOverlay) {
-                this.hoveredSpell = undefined;
-            }
-        } else if (
-            !FightStateManager.getInstance().getFightProperties().hasFightStarted() &&
-            this.lifeButton.isHover(cell)
-        ) {
+        if (!FightStateManager.getInstance().getFightProperties().hasFightStarted() && this.lifeButton.isHover(cell)) {
             this.deselectRaceButtons();
             this.lifeButton.setIsSelected(true);
             this.destroyNonPlacedUnits();
@@ -2917,22 +2926,22 @@ class Sandbox extends GLScene {
                     }
                 }
             }
-            this.adjustSpellBookSprite();
             this.sc_renderSpellBookOverlay = false;
+            this.adjustSpellBookSprite();
             this.hoveredSpell = undefined;
         }
     }
 
     protected adjustSpellBookSprite(): void {
         if (this.currentActiveSpell) {
-            this.spellBookButton.switchSprites(
-                this.currentActiveSpell.getSprite(),
-                this.currentActiveSpell.getSprite(),
-                false,
-            );
+            this.spellBookButtonNew.customSpriteName = SpellHelper.spellToTextureNames(
+                this.currentActiveSpell.getName(),
+            )[0];
+            console.log(this.spellBookButtonNew.customSpriteName);
         } else {
-            this.spellBookButton.switchSprites(this.spellBookWhiteSprite, this.spellBookBlackSprite, false);
+            this.spellBookButtonNew.customSpriteName = undefined;
         }
+        this.refreshButtons(true);
     }
 
     protected cleanActivePaths(): void {
@@ -4362,12 +4371,7 @@ class Sandbox extends GLScene {
             );
         }
 
-        if (
-            !this.sc_renderSpellBookOverlay ||
-            this.spellBookButton.isHover(
-                GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld),
-            )
-        ) {
+        if (!this.sc_renderSpellBookOverlay) {
             if (this.hoverSelectedCellsSwitchToRed && this.hoverSelectedCells) {
                 this.hoverSelectedCells = this.getAvailableCells(this.hoverSelectedCells);
             }
@@ -4426,10 +4430,6 @@ class Sandbox extends GLScene {
         }
 
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
-            if (this.currentActiveUnit?.getCanCastSpells()) {
-                this.spellBookButton.render(settings.m_debugDraw, isLightMode);
-            }
-
             if (this.sc_renderSpellBookOverlay) {
                 this.spellBookOverlay.setRect(
                     this.sc_sceneSettings.getGridSettings().getMinX(),
