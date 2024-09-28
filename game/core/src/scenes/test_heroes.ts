@@ -207,15 +207,9 @@ class Sandbox extends GLScene {
 
     public readonly selectedAttackTypeButtonNew: IVisibleButton;
 
-    public readonly hourGlassButton: Button;
-
     public readonly hourGlassButtonNew: IVisibleButton;
 
-    public readonly shieldButton: Button;
-
     public readonly shieldButtonNew: IVisibleButton;
-
-    public readonly nextButton: Button;
 
     public readonly nextButtonNew: IVisibleButton;
 
@@ -328,24 +322,6 @@ class Sandbox extends GLScene {
             new Sprite(gl, shader, this.textures.melee_white_128.texture),
             new b2Vec2(fightButtonsPositionX, 1216),
             new Sprite(gl, shader, this.textures.melee_black_128.texture),
-        );
-        this.hourGlassButton = new Button(
-            this.sc_sceneSettings.getGridSettings(),
-            new Sprite(gl, shader, this.textures.hourglass_white_128.texture),
-            new b2Vec2(fightButtonsPositionX, 1088),
-            new Sprite(gl, shader, this.textures.hourglass_black_128.texture),
-        );
-        this.shieldButton = new Button(
-            this.sc_sceneSettings.getGridSettings(),
-            new Sprite(gl, shader, this.textures.shield_white_128.texture),
-            new b2Vec2(fightButtonsPositionX, 960),
-            new Sprite(gl, shader, this.textures.shield_black_128.texture),
-        );
-        this.nextButton = new Button(
-            this.sc_sceneSettings.getGridSettings(),
-            new Sprite(gl, shader, this.textures.next_white_128.texture),
-            new b2Vec2(fightButtonsPositionX, 832),
-            new Sprite(gl, shader, this.textures.next_black_128.texture),
         );
         this.lifeButton = new Button(
             this.sc_sceneSettings.getGridSettings(),
@@ -608,7 +584,6 @@ class Sandbox extends GLScene {
             // finish turn
             this.finishTurn();
             this.sc_isAIActive = wasAIActive;
-            this.refreshButtons();
             this.performingAIAction = false;
         };
 
@@ -650,7 +625,7 @@ class Sandbox extends GLScene {
         };
         this.nextButtonNew = {
             name: "Next",
-            text: "SKip",
+            text: "Skip turn",
             state: VisibleButtonState.FIRST,
             isVisible: true,
             isDisabled: true,
@@ -690,30 +665,112 @@ class Sandbox extends GLScene {
         HoCLib.interval(this.sendFightState, 1000000);
     }
 
-    private refreshButtons(): void {
-        console.log("REFRESH BUTTONS");
-        if (this.sc_isAIActive) {
-            this.aiButtonNew.state = VisibleButtonState.SECOND;
-            console.log("SWITCH TO SECOND");
-        } else {
-            this.aiButtonNew.state = VisibleButtonState.FIRST;
-            console.log("SWITCH TO FIRST");
+    private checkHourGlassCondition(): boolean {
+        if (!this.currentActiveUnit) {
+            return false;
         }
 
-        this.sc_buttonGroupUpdated = true;
+        const fightState = FightStateManager.getInstance().getFightProperties();
+
+        const lowerTeamUnitsAlive = fightState.getTeamUnitsAlive(TeamType.LOWER);
+        const upperTeamUnitsAlive = fightState.getTeamUnitsAlive(TeamType.UPPER);
+
+        const moreThanOneUnitAlive =
+            (this.currentActiveUnit.getTeam() === TeamType.LOWER && lowerTeamUnitsAlive > 1) ||
+            (this.currentActiveUnit.getTeam() === TeamType.UPPER && upperTeamUnitsAlive > 1);
+        if (
+            moreThanOneUnitAlive &&
+            !fightState.hourGlassIncludes(this.currentActiveUnit.getId()) &&
+            !fightState.hasAlreadyMadeTurn(this.currentActiveUnit.getId()) &&
+            !fightState.hasAlreadyHourGlass(this.currentActiveUnit.getId())
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private refreshButtons(forceUpdate = false): void {
+        if (this.sc_visibleState && this.sc_visibleState.hasFinished) {
+            this.hourGlassButtonNew.isDisabled = true;
+            this.shieldButtonNew.isDisabled = true;
+            this.nextButtonNew.isDisabled = true;
+            this.aiButtonNew.isDisabled = true;
+            this.selectedAttackTypeButtonNew.isDisabled = true;
+            this.spellBookButtonNew.isDisabled = true;
+            this.sc_buttonGroupUpdated = true;
+            return;
+        }
+
+        const previousAIButtonState = this.aiButtonNew.state;
+        const previousHourGlassButtonState = this.hourGlassButtonNew.state;
+        if (this.sc_isAIActive) {
+            this.aiButtonNew.state = VisibleButtonState.SECOND;
+            this.hourGlassButtonNew.isDisabled = true;
+            this.shieldButtonNew.isDisabled = true;
+            this.nextButtonNew.isDisabled = true;
+            this.selectedAttackTypeButtonNew.isDisabled = true;
+            this.spellBookButtonNew.isDisabled = true;
+        } else {
+            this.aiButtonNew.state = VisibleButtonState.FIRST;
+            this.shieldButtonNew.isDisabled = false;
+            this.nextButtonNew.isDisabled = false;
+            this.selectedAttackTypeButtonNew.isDisabled = false;
+            this.spellBookButtonNew.isDisabled = false;
+
+            if (this.checkHourGlassCondition()) {
+                this.hourGlassButtonNew.isDisabled = false;
+            } else {
+                this.hourGlassButtonNew.isDisabled = true;
+            }
+        }
+
+        this.sc_buttonGroupUpdated =
+            forceUpdate ||
+            previousAIButtonState !== this.aiButtonNew.state ||
+            previousHourGlassButtonState !== this.hourGlassButtonNew.state;
+        console.log(`sc_buttonGroupUpdated ${this.sc_buttonGroupUpdated}`);
     }
 
     public propagateButtonClicked(buttonName: string, buttonState: VisibleButtonState): void {
+        if (
+            !this.currentActiveUnit ||
+            (this.currentActiveUnit && this.currentActiveUnit.hasAbilityActive("AI Driven"))
+        ) {
+            return;
+        }
+
         console.log(`button clicked: ${buttonName} ${buttonState}`);
         if (buttonName === "AI") {
             this.sc_isAIActive = buttonState === VisibleButtonState.FIRST;
             this.refreshButtons();
             this.resetHover();
-            // if (this.sc_isAIActive) {
-            //     this.aiButtonNew.state = VisibleButtonState.SECOND;
-            // } else {
-            //     this.aiButtonNew.state = VisibleButtonState.FIRST;
-            // }
+        } else if (!this.sc_isAIActive) {
+            if (buttonName === "Hourglass" && this.checkHourGlassCondition()) {
+                this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK);
+                this.currentActiveUnit.setOnHourglass(true);
+                FightStateManager.getInstance().getFightProperties().enqueueHourGlass(this.currentActiveUnit.getId());
+                this.currentActiveUnit.applyMoraleStepsModifier(
+                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                );
+                this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} wait turn`);
+                this.finishTurn(true); // hourglass finish
+            } else if (buttonName === "Next" && this.currentActiveUnit) {
+                this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SKIP);
+                this.currentActiveUnit.applyMoraleStepsModifier(
+                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                );
+                this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
+                this.finishTurn();
+            } else if (buttonName === "LuckShield" && this.currentActiveUnit) {
+                this.currentActiveUnit.cleanupLuckPerTurn();
+                this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK);
+                this.currentActiveUnit.applyMoraleStepsModifier(
+                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                );
+                this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} shield turn`);
+                this.finishTurn();
+            }
         }
     }
 
@@ -895,9 +952,9 @@ class Sandbox extends GLScene {
     }
 
     public startScene() {
+        this.sc_buttonGroupUpdated = true;
         super.startScene();
         FightStateManager.getInstance().getFightProperties().startFight();
-        this.refreshButtons();
     }
 
     public setGridType(gridType: GridType): void {
@@ -922,9 +979,6 @@ class Sandbox extends GLScene {
 
         this.spellBookButton.setPosition(new b2Vec2(fightButtonsPositionX, 1344));
         this.selectedAttackTypeButton.setPosition(new b2Vec2(fightButtonsPositionX, 1216));
-        this.hourGlassButton.setPosition(new b2Vec2(fightButtonsPositionX, 1088));
-        this.shieldButton.setPosition(new b2Vec2(fightButtonsPositionX, 960));
-        this.nextButton.setPosition(new b2Vec2(fightButtonsPositionX, 832));
     }
 
     private deselectRaceButtons(): void {
@@ -1203,24 +1257,6 @@ class Sandbox extends GLScene {
     private updateHoverInfoWithButtonAction(mouseCell: XY): void {
         if (this.spellBookButton.isHover(mouseCell) && this.currentActiveUnit?.getSpellsCount()) {
             this.sc_hoverInfoArr = ["Select spell"];
-            this.sc_hoverTextUpdateNeeded = true;
-            return;
-        }
-
-        if (this.shieldButton.isHover(mouseCell)) {
-            this.sc_hoverInfoArr = ["Clean up randomized luck", "and skip turn"];
-            this.sc_hoverTextUpdateNeeded = true;
-            return;
-        }
-
-        if (this.nextButton.isHover(mouseCell)) {
-            this.sc_hoverInfoArr = ["Skip turn"];
-            this.sc_hoverTextUpdateNeeded = true;
-            return;
-        }
-
-        if (this.hourGlassButton.isHover(mouseCell)) {
-            this.sc_hoverInfoArr = ["Wait"];
             this.sc_hoverTextUpdateNeeded = true;
             return;
         }
@@ -1831,33 +1867,17 @@ class Sandbox extends GLScene {
                 this.resetHover(false);
                 this.hoverUnit = undefined;
 
-                const fightProperties = FightStateManager.getInstance().getFightProperties();
-                const lowerTeamUnitsAlive = fightProperties.getTeamUnitsAlive(TeamType.UPPER);
-                const upperTeamUnitsAlive = fightProperties.getTeamUnitsAlive(TeamType.LOWER);
-
-                const moreThanOneUnitAlive =
-                    (this.currentActiveUnit.getTeam() === TeamType.LOWER && lowerTeamUnitsAlive > 1) ||
-                    (this.currentActiveUnit.getTeam() === TeamType.UPPER && upperTeamUnitsAlive > 1);
                 if (
                     (GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell) &&
                         this.currentActivePathHashes?.has((mouseCell.x << 4) | mouseCell.y)) ||
                     (!this.sc_isAIActive &&
                         ((this.spellBookButton.isHover(mouseCell) && this.currentActiveUnit.getSpellsCount()) ||
-                            this.shieldButton.isHover(mouseCell) ||
-                            this.nextButton.isHover(mouseCell) ||
-                            (moreThanOneUnitAlive &&
-                                this.hourGlassButton.isHover(mouseCell) &&
-                                !fightProperties.hourGlassIncludes(this.currentActiveUnit.getId()) &&
-                                !fightProperties.hasAlreadyHourGlass(this.currentActiveUnit.getId())) ||
                             (this.selectedAttackTypeButton.isHover(mouseCell) && this.switchToSelectedAttackType)))
                 ) {
                     this.updateHoverInfoWithButtonAction(mouseCell);
 
                     if (
                         this.selectedAttackTypeButton.isHover(mouseCell) ||
-                        this.shieldButton.isHover(mouseCell) ||
-                        this.nextButton.isHover(mouseCell) ||
-                        this.hourGlassButton.isHover(mouseCell) ||
                         (this.spellBookButton.isHover(mouseCell) && this.currentActiveUnit.getSpellsCount())
                     ) {
                         this.hoverSelectedCells = [mouseCell];
@@ -2466,6 +2486,11 @@ class Sandbox extends GLScene {
                 .getFightProperties()
                 .addAlreadyMadeTurn(this.currentActiveUnit.getTeam(), this.currentActiveUnit.getId());
             this.currentActiveUnit.setOnHourglass(false);
+            console.log(
+                `Finished turn ${this.currentActiveUnit.getName()} lap ${FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getCurrentLap()}`,
+            );
         }
         this.currentActiveUnit = undefined;
         this.sc_selectedAttackType = AttackType.NO_TYPE;
@@ -2495,25 +2520,6 @@ class Sandbox extends GLScene {
             if (!this.sc_renderSpellBookOverlay) {
                 this.hoveredSpell = undefined;
             }
-        } else if (this.nextButton.isHover(cell) && !this.sc_renderSpellBookOverlay && !this.sc_isAIActive) {
-            if (this.currentActiveUnit) {
-                this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SKIP);
-                this.currentActiveUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                );
-                this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
-            }
-            this.finishTurn();
-        } else if (this.shieldButton.isHover(cell) && !this.sc_renderSpellBookOverlay && !this.sc_isAIActive) {
-            if (this.currentActiveUnit) {
-                this.currentActiveUnit.cleanupLuckPerTurn();
-                this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK);
-                this.currentActiveUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                );
-                this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} shield turn`);
-            }
-            this.finishTurn();
         } else if (
             !FightStateManager.getInstance().getFightProperties().hasFightStarted() &&
             this.lifeButton.isHover(cell)
@@ -2591,29 +2597,7 @@ class Sandbox extends GLScene {
             //     this.resetHover();
             //     this.m_selectedBody = undefined;
         } else if (this.currentActiveUnit && !this.sc_renderSpellBookOverlay && !this.sc_isAIActive) {
-            const fightState = FightStateManager.getInstance().getFightProperties();
-
-            const lowerTeamUnitsAlive = fightState.getTeamUnitsAlive(TeamType.UPPER);
-            const upperTeamUnitsAlive = fightState.getTeamUnitsAlive(TeamType.LOWER);
-
-            const moreThanOneUnitAlive =
-                (this.currentActiveUnit.getTeam() === TeamType.LOWER && lowerTeamUnitsAlive > 1) ||
-                (this.currentActiveUnit.getTeam() === TeamType.UPPER && upperTeamUnitsAlive > 1);
             if (
-                moreThanOneUnitAlive &&
-                this.hourGlassButton.isHover(cell) &&
-                !fightState.hourGlassIncludes(this.currentActiveUnit.getId()) &&
-                !fightState.hasAlreadyHourGlass(this.currentActiveUnit.getId())
-            ) {
-                this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK);
-                this.currentActiveUnit.setOnHourglass(true);
-                FightStateManager.getInstance().getFightProperties().enqueueHourGlass(this.currentActiveUnit.getId());
-                this.currentActiveUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                );
-                this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} clock turn`);
-                this.finishTurn(true); // hourglass finish
-            } else if (
                 this.selectedAttackTypeButton.isHover(cell) &&
                 (this.currentActiveUnit.getAttackType() === AttackType.RANGE ||
                     this.currentActiveUnit.getAttackType() === AttackType.MAGIC)
@@ -2973,7 +2957,7 @@ class Sandbox extends GLScene {
         if (this.sc_selectedBody) {
             if (this.currentActiveUnit) {
                 if (!this.currentActivePath) {
-                    this.currentActiveUnit = undefined;
+                    // this.currentActiveUnit = undefined;
                     this.sc_selectedAttackType = AttackType.NO_TYPE;
                     return;
                 }
@@ -3080,7 +3064,7 @@ class Sandbox extends GLScene {
             this.finishFight();
         }
 
-        this.currentActiveUnit = undefined;
+        // this.currentActiveUnit = undefined;
         this.sc_selectedAttackType = AttackType.NO_TYPE;
     }
 
@@ -3967,6 +3951,7 @@ class Sandbox extends GLScene {
                             unitsUpper,
                             unitsLower,
                         );
+                        this.refreshButtons(true);
 
                         const nextUnitId = FightStateManager.getInstance().getFightProperties().dequeueNextUnitId();
                         const nextUnit = nextUnitId ? this.unitsHolder.getAllUnits().get(nextUnitId) : undefined;
@@ -4001,6 +3986,7 @@ class Sandbox extends GLScene {
 
                             if (nextUnit.isSkippingThisTurn()) {
                                 this.currentActiveUnit = nextUnit;
+                                this.refreshButtons(true);
                                 this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                                 this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SKIP);
                                 this.currentActiveUnit.applyMoraleStepsModifier(
@@ -4040,6 +4026,7 @@ class Sandbox extends GLScene {
                                     this.sc_hoverTextUpdateNeeded = true;
                                     this.sc_selectedBody = unitBody;
                                     this.currentActiveUnit = nextUnit;
+                                    this.refreshButtons(true);
                                     this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                                     this.currentActiveSpell = undefined;
                                     this.adjustSpellBookSprite();
@@ -4455,9 +4442,6 @@ class Sandbox extends GLScene {
                     this.currentActiveUnit.renderSpells(1);
                 }
             } else {
-                this.hourGlassButton.render(settings.m_debugDraw, isLightMode);
-                this.shieldButton.render(settings.m_debugDraw, isLightMode);
-                this.nextButton.render(settings.m_debugDraw, isLightMode);
                 this.drawer.renderTerrainSpritesFront(isLightMode);
                 if (this.currentEnemiesCellsWithinMovementRange && !this.hoverAttackUnits?.length) {
                     this.drawer.drawHighlightedCells(
