@@ -13,6 +13,8 @@ import aiIconImage from "../../../images/icon_ai_black.webp";
 import aiOnIconImage from "../../../images/icon_ai_on_black.webp";
 import skipIconImage from "../../../images/icon_skip_black.webp";
 import luckShieldIconImage from "../../../images/icon_luck_shield_black.webp";
+import activeOptionIconImage from "../../../images/icon_active_option.webp";
+import inactiveOptionIconImage from "../../../images/icon_inactive_option.webp";
 import blackImage from "../../../images/overlay_black.webp";
 import lightImage from "../../../images/overlay_light.webp";
 import { useManager } from "../../manager";
@@ -53,37 +55,48 @@ const StyledSheet = styled(Sheet)(({ theme }) => ({
 
 const StyledIconButton = styled("button", {
     shouldForwardProp: (prop) => typeof prop === "string" && !["rotationDegrees", "isDark"].includes(prop),
-})<{ rotationDegrees: number; isDark: boolean }>(({ rotationDegrees, isDark }) => ({
-    width: 64,
-    height: 64,
-    padding: 0,
-    border: "none",
-    borderRadius: "50%",
-    backgroundSize: "contain",
-    backgroundRepeat: "no-repeat",
-    backgroundPosition: "center",
-    transition: "all 0.3s ease",
-    position: "relative",
-    cursor: "pointer",
-    transform: `rotate(${rotationDegrees}deg)`,
-    "&:hover": {
-        transform: `scale(1.05) rotate(${rotationDegrees}deg)`,
-        ...(isDark
-            ? {
-                  boxShadow: "0 0 10px rgba(255, 255, 255, 0.5)",
-                  filter: "brightness(1.1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.5))",
-              }
-            : {
-                  backgroundColor: "darkred",
-                  boxShadow: "0 0 10px rgba(139, 0, 0, 0.5)",
-                  filter: "brightness(1.1) drop-shadow(0 0 5px rgba(139, 0, 0, 0.5))",
-              }),
-    },
-    "&:disabled": {
-        opacity: 0.5,
-        cursor: "not-allowed",
-    },
-}));
+})<{ rotationDegrees: number; isDark: boolean; clickEffectNeeded?: boolean }>(
+    ({ rotationDegrees, isDark, clickEffectNeeded }) => ({
+        width: 64,
+        height: 64,
+        padding: 0,
+        border: "none",
+        borderRadius: "50%",
+        backgroundSize: "contain",
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+        transition: "all 0.3s ease",
+        position: "relative",
+        cursor: "pointer",
+        transform: `rotate(${rotationDegrees}deg)`,
+        backgroundColor: "transparent",
+        "&:hover": {
+            transform: `scale(1.05) rotate(${rotationDegrees}deg)`,
+            ...(isDark
+                ? {
+                      boxShadow: "0 0 10px rgba(255, 255, 255, 0.5)",
+                      filter: "brightness(1.1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.5))",
+                  }
+                : {
+                      backgroundColor: "darkred",
+                      boxShadow: "0 0 10px rgba(139, 0, 0, 0.5)",
+                      filter: "brightness(1.1) drop-shadow(0 0 5px rgba(139, 0, 0, 0.5))",
+                  }),
+        },
+        "&:disabled": {
+            opacity: 0.5,
+            cursor: "not-allowed",
+        },
+        "&:active": {
+            ...(clickEffectNeeded
+                ? {
+                      transform: `scale(0.95) rotate(${rotationDegrees}deg)`,
+                      boxShadow: "0 0 15px rgba(0, 0, 0, 0.2)",
+                  }
+                : {}),
+        },
+    }),
+);
 
 interface ButtonComponentProps {
     iconImage: string;
@@ -94,17 +107,8 @@ interface ButtonComponentProps {
     onClick?: () => void;
     isHourglass?: boolean;
     customSpriteName?: string;
-}
-
-interface ButtonComponentProps {
-    iconImage: string;
-    text: string;
-    isVisible: boolean;
-    isDisabled: boolean;
-    isDark: boolean;
-    onClick?: () => void;
-    isHourglass?: boolean;
-    customSpriteName?: string;
+    numberOfOptions?: number;
+    selectedOption?: number;
 }
 
 const ButtonComponent: React.FC<ButtonComponentProps> = ({
@@ -116,6 +120,8 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     onClick,
     isHourglass = false,
     customSpriteName,
+    numberOfOptions = 1,
+    selectedOption = 1,
 }) => {
     const [rotationDegrees, setRotationDegrees] = useState(0);
 
@@ -140,17 +146,60 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     const initialRotation = needRotate ? 180 : 0;
 
     return (
-        <Tooltip title={text} placement="top">
-            <StyledIconButton
-                onClick={handleClick}
-                disabled={isDisabled}
-                rotationDegrees={isHourglass ? rotationDegrees : initialRotation}
-                isDark={isDark}
-                style={{
-                    backgroundImage: `url(${iconImage})`,
-                }}
-            />
-        </Tooltip>
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <Box sx={{ display: "flex", alignItems: "center", height: 64 }}>
+                <Tooltip title={text} placement="top">
+                    <StyledIconButton
+                        onClick={handleClick}
+                        disabled={isDisabled}
+                        rotationDegrees={isHourglass ? rotationDegrees : initialRotation}
+                        isDark={isDark}
+                        style={{
+                            backgroundImage: `url(${iconImage})`,
+                            width: 64,
+                            height: 64,
+                        }}
+                        clickEffectNeeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
+                    />
+                </Tooltip>
+            </Box>
+            {numberOfOptions > 1 && (
+                <Box
+                    sx={{
+                        display: "flex",
+                        justifyContent: "center",
+                        marginTop: "0.5rem",
+                        position: "relative",
+                        width: 64,
+                        height: 13,
+                    }}
+                >
+                    {Array.from({ length: numberOfOptions }, (_, index) => {
+                        const angle = (index / (numberOfOptions - 1)) * Math.PI;
+                        const x = 18 + 18 * Math.cos(angle) - 6.5; // 6.5 is half the width of the icon (13/2)
+                        const y = 8 * Math.sin(angle) - 6.5; // 6.5 is half the height of the icon (13/2)
+                        return (
+                            <img
+                                key={index}
+                                src={
+                                    numberOfOptions - index - 1 === selectedOption - 1
+                                        ? activeOptionIconImage
+                                        : inactiveOptionIconImage
+                                }
+                                alt={`Option ${index + 1}`}
+                                style={{
+                                    width: 13,
+                                    height: 13,
+                                    position: "absolute",
+                                    left: `${x + 13}px`,
+                                    top: `${y}px`,
+                                }}
+                            />
+                        );
+                    })}
+                </Box>
+            )}
+        </Box>
     );
 };
 
@@ -247,7 +296,9 @@ const DraggableToolbar: React.FC = () => {
                 }}
             >
                 <Box onMouseDown={handleMouseDown} sx={{ cursor: "move", display: "flex", alignItems: "center" }}>
-                    <DragIndicatorIcon sx={{ color: isDark ? "#ff9e76" : "#352100", width: "auto", height: 32 }} />
+                    <DragIndicatorIcon
+                        sx={{ color: isDark ? "rgb(131, 112, 106)" : "#352100", width: "auto", height: 32 }}
+                    />
                 </Box>
                 <button
                     onClick={handleRotate}
@@ -264,14 +315,14 @@ const DraggableToolbar: React.FC = () => {
                         sx={{
                             width: "auto",
                             height: 32,
-                            color: isDark ? "lightgrey" : "black",
+                            color: isDark ? "rgb(230, 220, 212)" : "black",
                         }}
                     />
                 </button>
             </Box>
             <Divider
                 orientation={isVertical ? "horizontal" : "vertical"}
-                sx={{ bgcolor: isDark ? "#ff9e76" : "#352100" }}
+                sx={{ bgcolor: isDark ? "rgb(131, 112, 106)" : "#352100" }}
             />
             {buttonGroup.map((button) => {
                 const iconImage = button.customSpriteName
@@ -293,6 +344,8 @@ const DraggableToolbar: React.FC = () => {
                         }}
                         isHourglass={button.name === "Hourglass"}
                         customSpriteName={button.customSpriteName}
+                        numberOfOptions={button.numberOfOptions}
+                        selectedOption={button.selectedOption}
                     />
                 );
             })}

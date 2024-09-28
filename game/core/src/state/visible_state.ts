@@ -66,5 +66,7 @@ export interface IVisibleButton {
     state: VisibleButtonState;
     isVisible: boolean;
     isDisabled: boolean;
+    numberOfOptions: number;
+    selectedOption: number;
     customSpriteName?: string;
 }

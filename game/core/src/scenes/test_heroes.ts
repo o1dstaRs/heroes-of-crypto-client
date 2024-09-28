@@ -607,6 +607,8 @@ class Sandbox extends GLScene {
             state: VisibleButtonState.FIRST,
             isVisible: true,
             isDisabled: true,
+            numberOfOptions: 1,
+            selectedOption: 1,
         };
         this.shieldButtonNew = {
             name: "LuckShield",
@@ -614,6 +616,8 @@ class Sandbox extends GLScene {
             state: VisibleButtonState.FIRST,
             isVisible: true,
             isDisabled: true,
+            numberOfOptions: 1,
+            selectedOption: 1,
         };
         this.nextButtonNew = {
             name: "Next",
@@ -621,6 +625,8 @@ class Sandbox extends GLScene {
             state: VisibleButtonState.FIRST,
             isVisible: true,
             isDisabled: true,
+            numberOfOptions: 1,
+            selectedOption: 1,
         };
         this.aiButtonNew = {
             name: "AI",
@@ -628,6 +634,8 @@ class Sandbox extends GLScene {
             state: this.sc_isAIActive ? VisibleButtonState.SECOND : VisibleButtonState.FIRST,
             isVisible: true,
             isDisabled: false,
+            numberOfOptions: 1,
+            selectedOption: 1,
         };
         this.selectedAttackTypeButtonNew = {
             name: "AttackType",
@@ -635,6 +643,8 @@ class Sandbox extends GLScene {
             state: VisibleButtonState.FIRST,
             isVisible: true,
             isDisabled: true,
+            numberOfOptions: 3,
+            selectedOption: 1,
         };
         this.spellBookButtonNew = {
             name: "Spellbook",
@@ -642,6 +652,8 @@ class Sandbox extends GLScene {
             state: VisibleButtonState.FIRST,
             isVisible: true,
             isDisabled: true,
+            numberOfOptions: 1,
+            selectedOption: 1,
         };
 
         this.sc_visibleButtonGroup = [
@@ -719,14 +731,12 @@ class Sandbox extends GLScene {
             this.selectedAttackTypeButtonNew.isDisabled = true;
             this.spellBookButtonNew.isDisabled = true;
         } else if (this.sc_renderSpellBookOverlay) {
-            console.log("SSSSSS");
             this.hourGlassButtonNew.isDisabled = true;
             this.shieldButtonNew.isDisabled = true;
             this.nextButtonNew.isDisabled = true;
             this.selectedAttackTypeButtonNew.isDisabled = true;
             this.spellBookButtonNew.isDisabled = false;
         } else {
-            console.log("SSSSSS2");
             this.aiButtonNew.state = VisibleButtonState.FIRST;
             this.shieldButtonNew.isDisabled = false;
             this.nextButtonNew.isDisabled = false;
