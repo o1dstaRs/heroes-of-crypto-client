@@ -9,6 +9,8 @@ import { images } from "../../generated/image_imports";
 import spellbookIconImage from "../../../images/icon_spellbook_black.webp";
 import hourglassIconImage from "../../../images/icon_hourglass_black.webp";
 import swordIconImage from "../../../images/icon_sword_black.webp";
+import bowIconImage from "../../../images/icon_bow_black.webp";
+import scepterIconImage from "../../../images/icon_scepter_black.webp";
 import aiIconImage from "../../../images/icon_ai_black.webp";
 import aiOnIconImage from "../../../images/icon_ai_on_black.webp";
 import skipIconImage from "../../../images/icon_skip_black.webp";
@@ -20,13 +22,15 @@ import lightImage from "../../../images/overlay_light.webp";
 import { useManager } from "../../manager";
 import { IVisibleButton, VisibleButtonState } from "../../state/visible_state";
 
-const INITIAL_POSITION_Y = 6;
+const INITIAL_POSITION_Y = 0;
 const INITIAL_POSITION_X = window.innerWidth / 2 - 278;
 
 const BUTTON_NAME_TO_ICON_IMAGE: Record<string, string> = {
     [`Spellbook${VisibleButtonState.FIRST}`]: spellbookIconImage,
     [`Hourglass${VisibleButtonState.FIRST}`]: hourglassIconImage,
     [`AttackType${VisibleButtonState.FIRST}`]: swordIconImage,
+    [`AttackType${VisibleButtonState.SECOND}`]: bowIconImage,
+    [`AttackType${VisibleButtonState.THIRD}`]: scepterIconImage,
     [`AI${VisibleButtonState.FIRST}`]: aiIconImage,
     [`AI${VisibleButtonState.SECOND}`]: aiOnIconImage,
     [`Next${VisibleButtonState.FIRST}`]: skipIconImage,
@@ -37,6 +41,7 @@ const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
     [spellbookIconImage]: false,
     [hourglassIconImage]: true,
     [swordIconImage]: false,
+    [scepterIconImage]: false,
     [aiIconImage]: false,
     [aiOnIconImage]: false,
     [skipIconImage]: false,
@@ -54,7 +59,8 @@ const StyledSheet = styled(Sheet)(({ theme }) => ({
 }));
 
 const StyledIconButton = styled("button", {
-    shouldForwardProp: (prop) => typeof prop === "string" && !["rotationDegrees", "isDark"].includes(prop),
+    shouldForwardProp: (prop) =>
+        typeof prop === "string" && !["rotationDegrees", "isDark", "clickEffectNeeded"].includes(prop),
 })<{ rotationDegrees: number; isDark: boolean; clickEffectNeeded?: boolean }>(
     ({ rotationDegrees, isDark, clickEffectNeeded }) => ({
         width: 64,
@@ -70,24 +76,25 @@ const StyledIconButton = styled("button", {
         cursor: "pointer",
         transform: `rotate(${rotationDegrees}deg)`,
         backgroundColor: "transparent",
-        "&:hover": {
+        "&:hover:not(:disabled)": {
             transform: `scale(1.05) rotate(${rotationDegrees}deg)`,
             ...(isDark
                 ? {
                       boxShadow: "0 0 10px rgba(255, 255, 255, 0.5)",
                       filter: "brightness(1.1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.5))",
+                      backgroundColor: "rgba(255, 255, 255, 0.2)",
                   }
                 : {
-                      backgroundColor: "darkred",
-                      boxShadow: "0 0 10px rgba(139, 0, 0, 0.5)",
-                      filter: "brightness(1.1) drop-shadow(0 0 5px rgba(139, 0, 0, 0.5))",
+                      boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)",
+                      filter: "brightness(1.1) drop-shadow(0 0 5px rgba(255, 0, 0, 0.5))",
+                      backgroundColor: "rgba(255, 0, 0, 0.2)",
                   }),
         },
         "&:disabled": {
             opacity: 0.5,
             cursor: "not-allowed",
         },
-        "&:active": {
+        "&:active:not(:disabled)": {
             ...(clickEffectNeeded
                 ? {
                       transform: `scale(0.95) rotate(${rotationDegrees}deg)`,
@@ -124,6 +131,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     selectedOption = 1,
 }) => {
     const [rotationDegrees, setRotationDegrees] = useState(0);
+    const [transfusionEffect, setTransfusionEffect] = useState(false);
 
     const handleClick = useCallback(() => {
         if (isHourglass) {
@@ -137,6 +145,17 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
             onClick();
         }
     }, [isHourglass, customSpriteName, onClick]);
+
+    useEffect(() => {
+        if (iconImage === spellbookIconImage && !isDisabled && !customSpriteName) {
+            const interval = setInterval(() => {
+                setTransfusionEffect(true);
+                setTimeout(() => setTransfusionEffect(false), 1500);
+            }, 4000);
+            return () => clearInterval(interval);
+        }
+        return undefined;
+    }, [iconImage, isDisabled, customSpriteName]);
 
     if (!isVisible) {
         return null;
@@ -158,8 +177,11 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                             backgroundImage: `url(${iconImage})`,
                             width: 64,
                             height: 64,
+                            filter: transfusionEffect ? "brightness(1.2)" : "none",
+                            animation: transfusionEffect ? "transfusion 1.5s linear" : "none",
+                            boxShadow: transfusionEffect ? "0 0 20px rgba(255, 255, 255, 0.7)" : "none",
                         }}
-                        clickEffectNeeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
+                        data-clickeffectneeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
                     />
                 </Tooltip>
             </Box>

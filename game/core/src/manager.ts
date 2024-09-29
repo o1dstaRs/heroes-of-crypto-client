@@ -426,16 +426,6 @@ export class GameManager {
         return this.m_scene?.getNumberOfUnitsAvailableForPlacement(teamType) ?? HoCConstants.MAX_UNITS_PER_TEAM;
     }
 
-    public SwitchRightSideControlGroup(renderControlsRightSide: boolean): void {
-        if (this.m_scene?.sc_renderControlsRightSide !== undefined) {
-            const currentSetting = this.m_scene.sc_renderControlsRightSide;
-            this.m_scene.sc_renderControlsRightSide = renderControlsRightSide;
-            if (currentSetting !== renderControlsRightSide) {
-                this.m_scene.resetRightControls();
-            }
-        }
-    }
-
     public SetGridType(gridType: GridType): void {
         this.m_scene?.setGridType(gridType);
     }

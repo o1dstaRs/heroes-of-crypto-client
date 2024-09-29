@@ -212,8 +212,6 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_destructionListener: DestructionListener;
 
-    public sc_renderControlsRightSide = window.innerWidth / window.innerHeight >= 1.75;
-
     public sc_mouseTracing = false;
 
     public sc_calculatingPlacement = true;

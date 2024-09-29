@@ -315,8 +315,6 @@ export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) 
 
     useEffect(() => {
         const handleResize = () => {
-            const ratio = window.innerWidth / window.innerHeight;
-            manager.SwitchRightSideControlGroup(ratio >= 1.75);
             manager.HomeCamera();
         };
 

@@ -61,8 +61,6 @@ import { hasAlreadyAppliedSpell, isMirrored } from "../spells/spells_helper";
 import { FightStateManager } from "../state/fight_state_manager";
 import { IVisibleButton, IVisibleUnit, VisibleButtonState } from "../state/visible_state";
 import {
-    FIGHT_BUTTONS_LEFT_POSITION_X,
-    FIGHT_BUTTONS_RIGHT_POSITION_X,
     GRID_SIZE,
     HALF_STEP,
     MAX_X,
@@ -201,8 +199,6 @@ class Sandbox extends GLScene {
 
     public readonly spellBookButtonNew: IVisibleButton;
 
-    public readonly selectedAttackTypeButton: Button;
-
     public readonly selectedAttackTypeButtonNew: IVisibleButton;
 
     public readonly hourGlassButtonNew: IVisibleButton;
@@ -305,16 +301,6 @@ class Sandbox extends GLScene {
         this.spellBookWhiteSprite = new Sprite(gl, shader, this.textures.spellbook_white_128.texture);
         this.spellBookBlackSprite = new Sprite(gl, shader, this.textures.spellbook_black_128.texture);
 
-        const fightButtonsPositionX = this.sc_renderControlsRightSide
-            ? FIGHT_BUTTONS_RIGHT_POSITION_X
-            : FIGHT_BUTTONS_LEFT_POSITION_X;
-
-        this.selectedAttackTypeButton = new Button(
-            this.sc_sceneSettings.getGridSettings(),
-            new Sprite(gl, shader, this.textures.melee_white_128.texture),
-            new b2Vec2(fightButtonsPositionX, 1216),
-            new Sprite(gl, shader, this.textures.melee_black_128.texture),
-        );
         this.lifeButton = new Button(
             this.sc_sceneSettings.getGridSettings(),
             new Sprite(gl, shader, this.textures.life_128.texture),
@@ -405,7 +391,9 @@ class Sandbox extends GLScene {
 
             const action = findTarget(this.currentActiveUnit, this.grid, this.gridMatrix, this.pathHelper);
             if (action?.actionType() === AIActionType.MOVE_AND_MELEE_ATTACK) {
-                this.currentActiveUnit.selectAttackType(AttackType.MELEE);
+                if (this.currentActiveUnit.selectAttackType(AttackType.MELEE)) {
+                    this.refreshButtons(true);
+                }
                 if (
                     this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE &&
                     this.currentActiveUnit.hasAbilityActive("Area Throw")
@@ -453,7 +441,9 @@ class Sandbox extends GLScene {
                 }
                 this.landAttack();
             } else if (action?.actionType() === AIActionType.MELEE_ATTACK) {
-                this.currentActiveUnit.selectAttackType(AttackType.MELEE);
+                if (this.currentActiveUnit.selectAttackType(AttackType.MELEE)) {
+                    this.refreshButtons(true);
+                }
                 if (
                     this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE &&
                     this.currentActiveUnit.hasAbilityActive("Area Throw")
@@ -483,7 +473,9 @@ class Sandbox extends GLScene {
                 }
                 this.landAttack();
             } else if (action?.actionType() === AIActionType.RANGE_ATTACK) {
-                this.currentActiveUnit.selectAttackType(AttackType.RANGE);
+                if (this.currentActiveUnit.selectAttackType(AttackType.RANGE)) {
+                    this.refreshButtons(true);
+                }
                 if (
                     this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE &&
                     this.currentActiveUnit.hasAbilityActive("Area Throw")
@@ -723,6 +715,7 @@ class Sandbox extends GLScene {
         const previousNextButtonState = this.nextButtonNew.state;
         const previousShieldButtonState = this.shieldButtonNew.state;
         const previousSpellBookButtonState = this.spellBookButtonNew.state;
+        const previousSelectedAttackTypeButtonNew = this.selectedAttackTypeButtonNew.state;
         if (this.sc_isAIActive) {
             this.aiButtonNew.state = VisibleButtonState.SECOND;
             this.hourGlassButtonNew.isDisabled = true;
@@ -756,14 +749,51 @@ class Sandbox extends GLScene {
             }
         }
 
+        if (this.currentActiveUnit) {
+            const attackTypeSelectionIndex = this.currentActiveUnit.getAttackTypeSelectionIndex();
+            const currentIdx = attackTypeSelectionIndex[0] + 1;
+            const numberOfOptions = attackTypeSelectionIndex[1];
+            if (currentIdx <= 0) {
+                this.selectedAttackTypeButtonNew.numberOfOptions = 1;
+                this.selectedAttackTypeButtonNew.isDisabled = true;
+            } else {
+                const currentCell = GridMath.getCellForPosition(
+                    this.sc_sceneSettings.getGridSettings(),
+                    this.currentActiveUnit.getPosition(),
+                );
+                switch (this.currentActiveUnit.getAttackTypeSelection()) {
+                    case AttackType.RANGE:
+                        this.currentActiveSpell = undefined;
+                        this.spellBookButtonNew.customSpriteName = undefined;
+                        this.selectedAttackTypeButtonNew.state = VisibleButtonState.SECOND;
+                        break;
+                    case AttackType.MAGIC:
+                        this.selectedAttackTypeButtonNew.state = VisibleButtonState.THIRD;
+                        break;
+                    default:
+                        this.currentActiveSpell = undefined;
+                        this.spellBookButtonNew.customSpriteName = undefined;
+                        this.selectedAttackTypeButtonNew.state = VisibleButtonState.FIRST;
+                        if (currentCell) {
+                            this.updateCurrentMovePath(currentCell);
+                        }
+                }
+                this.selectedAttackTypeButtonNew.numberOfOptions = attackTypeSelectionIndex[1];
+                this.selectedAttackTypeButtonNew.selectedOption = currentIdx;
+                if (numberOfOptions <= 1) {
+                    this.selectedAttackTypeButtonNew.isDisabled = true;
+                }
+            }
+        }
+
         this.sc_buttonGroupUpdated =
             forceUpdate ||
             previousAIButtonState !== this.aiButtonNew.state ||
             previousHourGlassButtonState !== this.hourGlassButtonNew.state ||
             previousSpellBookButtonState !== this.spellBookButtonNew.state ||
             previousShieldButtonState !== this.shieldButtonNew.state ||
+            previousSelectedAttackTypeButtonNew !== this.selectedAttackTypeButtonNew.state ||
             previousNextButtonState !== this.nextButtonNew.state;
-        console.log(`sc_buttonGroupUpdated ${this.sc_buttonGroupUpdated}`);
     }
 
     public propagateButtonClicked(buttonName: string, buttonState: VisibleButtonState): void {
@@ -811,6 +841,13 @@ class Sandbox extends GLScene {
                 this.adjustSpellBookSprite();
                 // this.spellBookButtonNew.customSpriteName = undefined;
                 // this.refreshButtons(true);
+            } else if (buttonName === "AttackType" && this.currentActiveUnit) {
+                if (this.currentActiveUnit.selectNextAttackType()) {
+                    this.currentEnemiesCellsWithinMovementRange = undefined;
+                    this.currentActiveUnitSwitchedAttackAuto = true;
+                    this.sc_unitPropertiesUpdateNeeded = true;
+                    this.refreshButtons(true);
+                }
             }
         }
     }
@@ -1011,14 +1048,6 @@ class Sandbox extends GLScene {
 
     public getGridType(): GridType {
         return FightStateManager.getInstance().getFightProperties().getGridType();
-    }
-
-    public resetRightControls(): void {
-        const fightButtonsPositionX = this.sc_renderControlsRightSide
-            ? FIGHT_BUTTONS_RIGHT_POSITION_X
-            : FIGHT_BUTTONS_LEFT_POSITION_X;
-
-        this.selectedAttackTypeButton.setPosition(new b2Vec2(fightButtonsPositionX, 1216));
     }
 
     private deselectRaceButtons(): void {
@@ -1295,12 +1324,6 @@ class Sandbox extends GLScene {
     }
 
     private updateHoverInfoWithButtonAction(mouseCell: XY): void {
-        if (this.selectedAttackTypeButton.isHover(mouseCell)) {
-            this.sc_hoverInfoArr = ["Switch attack type"];
-            this.sc_hoverTextUpdateNeeded = true;
-            return;
-        }
-
         if (this.lifeButton.isHover(mouseCell)) {
             this.sc_hoverInfoArr = ["Load Life faction units"];
             this.sc_hoverTextUpdateNeeded = true;
@@ -1505,7 +1528,7 @@ class Sandbox extends GLScene {
                     !this.currentActiveUnit.hasDebuffActive("Range Null Field Aura") &&
                     !this.currentActiveUnit.hasDebuffActive("Rangebane")
                 ) {
-                    this.selectAttack(AttackType.RANGE, currentUnitCell, true);
+                    this.selectAttack(AttackType.RANGE, true);
                     this.currentActiveUnitSwitchedAttackAuto = true;
                     this.switchToSelectedAttackType = undefined;
 
@@ -1902,20 +1925,10 @@ class Sandbox extends GLScene {
                 this.hoverUnit = undefined;
 
                 if (
-                    (GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell) &&
-                        this.currentActivePathHashes?.has((mouseCell.x << 4) | mouseCell.y)) ||
-                    (!this.sc_isAIActive &&
-                        this.selectedAttackTypeButton.isHover(mouseCell) &&
-                        this.switchToSelectedAttackType)
+                    GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell) &&
+                    this.currentActivePathHashes?.has((mouseCell.x << 4) | mouseCell.y)
                 ) {
                     this.updateHoverInfoWithButtonAction(mouseCell);
-
-                    if (this.selectedAttackTypeButton.isHover(mouseCell)) {
-                        this.hoverSelectedCells = [mouseCell];
-                        this.hoverSelectedCellsSwitchToRed = false;
-                        this.resetHover(false);
-                        return;
-                    }
 
                     if (
                         this.currentActiveSpell &&
@@ -2615,35 +2628,6 @@ class Sandbox extends GLScene {
             //     this.spawnUnits();
             //     this.resetHover();
             //     this.m_selectedBody = undefined;
-        } else if (this.currentActiveUnit && !this.sc_renderSpellBookOverlay && !this.sc_isAIActive) {
-            if (
-                this.selectedAttackTypeButton.isHover(cell) &&
-                (this.currentActiveUnit.getAttackType() === AttackType.RANGE ||
-                    this.currentActiveUnit.getAttackType() === AttackType.MAGIC)
-            ) {
-                const currentUnitCell = GridMath.getCellForPosition(
-                    this.sc_sceneSettings.getGridSettings(),
-                    this.currentActiveUnit.getPosition(),
-                );
-                if (
-                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE ||
-                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.MAGIC
-                ) {
-                    this.selectAttack(
-                        this.currentActiveUnit.getAttackType() === AttackType.RANGE
-                            ? AttackType.RANGE
-                            : AttackType.MAGIC,
-                        currentUnitCell,
-                        true,
-                    );
-                    this.sc_unitPropertiesUpdateNeeded = true;
-                } else {
-                    this.selectAttack(AttackType.MELEE, currentUnitCell, true);
-                    this.sc_unitPropertiesUpdateNeeded = true;
-                }
-                this.currentEnemiesCellsWithinMovementRange = undefined;
-                this.currentActiveUnitSwitchedAttackAuto = true;
-            }
         } else if (this.hoveredSpell) {
             if (
                 this.hoveredSpell.getSpellTargetType() === SpellTargetType.RANDOM_CLOSE_TO_CASTER ||
@@ -2887,7 +2871,7 @@ class Sandbox extends GLScene {
                         this.currentActiveUnit.getAttackTypeSelection() !== AttackType.MAGIC &&
                         this.currentActiveSpell
                     ) {
-                        this.selectAttack(AttackType.MAGIC, this.currentActiveUnit.getBaseCell(), true);
+                        this.selectAttack(AttackType.MAGIC, true);
                         this.currentActiveUnitSwitchedAttackAuto = true;
                         this.switchToSelectedAttackType = undefined;
                         console.log("Switch to MAGIC");
@@ -2947,7 +2931,6 @@ class Sandbox extends GLScene {
             this.spellBookButtonNew.customSpriteName = SpellHelper.spellToTextureNames(
                 this.currentActiveSpell.getName(),
             )[0];
-            console.log(this.spellBookButtonNew.customSpriteName);
         } else {
             this.spellBookButtonNew.customSpriteName = undefined;
         }
@@ -3110,9 +3093,9 @@ class Sandbox extends GLScene {
         }
     }
 
-    private selectAttack(selectedAttackType: AttackType, currentUnitCell?: XY, force = false): boolean {
+    private selectAttack(selectedAttackType: AttackType, force = false): boolean {
         // console.log(`SELECT ATTACK ${selectedAttackType}`);
-        if (!this.currentActiveUnit || !currentUnitCell) {
+        if (!this.currentActiveUnit) {
             return false;
         }
 
@@ -3120,7 +3103,7 @@ class Sandbox extends GLScene {
         const isRange = this.currentActiveUnit.getAttackType() === AttackType.RANGE;
         const isMagic = this.currentActiveUnit.getAttackType() === AttackType.MAGIC;
 
-        if (currentUnitCell && (isRange || isMagic)) {
+        if (isRange || isMagic) {
             if (
                 isRange &&
                 (this.attackHandler.canBeAttackedByMelee(
@@ -3134,34 +3117,12 @@ class Sandbox extends GLScene {
             ) {
                 hasOption = false;
                 if (this.currentActiveUnit.selectAttackType(AttackType.MELEE)) {
-                    this.selectedAttackTypeButton.switchSprites(
-                        new Sprite(this.gl, this.shader, this.textures.range_white_128.texture),
-                        new Sprite(this.gl, this.shader, this.textures.range_black_128.texture),
-                    );
                     this.currentActiveSpell = undefined;
                     this.adjustSpellBookSprite();
                 }
                 this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
             } else if (isMagic && !this.currentActiveUnit.getCanCastSpells()) {
                 hasOption = false;
-            } else if (
-                this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE ||
-                this.currentActiveUnit.getAttackTypeSelection() === AttackType.MAGIC
-            ) {
-                this.selectedAttackTypeButton.switchSprites(
-                    new Sprite(this.gl, this.shader, this.textures.melee_white_128.texture),
-                    new Sprite(this.gl, this.shader, this.textures.melee_black_128.texture),
-                );
-            } else if (this.currentActiveUnit.getAttackType() === AttackType.RANGE) {
-                this.selectedAttackTypeButton.switchSprites(
-                    new Sprite(this.gl, this.shader, this.textures.range_white_128.texture),
-                    new Sprite(this.gl, this.shader, this.textures.range_black_128.texture),
-                );
-            } else {
-                this.selectedAttackTypeButton.switchSprites(
-                    new Sprite(this.gl, this.shader, this.textures.magic_white_128.texture),
-                    new Sprite(this.gl, this.shader, this.textures.magic_black_128.texture),
-                );
             }
         }
 
@@ -3172,7 +3133,9 @@ class Sandbox extends GLScene {
         ) {
             if (this.switchToSelectedAttackType) {
                 if (force) {
-                    this.currentActiveUnit.selectAttackType(this.switchToSelectedAttackType);
+                    if (this.currentActiveUnit.selectAttackType(this.switchToSelectedAttackType)) {
+                        this.refreshButtons(true);
+                    }
                     if (this.switchToSelectedAttackType !== AttackType.MAGIC) {
                         this.currentActiveSpell = undefined;
                         this.adjustSpellBookSprite();
@@ -3185,31 +3148,17 @@ class Sandbox extends GLScene {
                     } else {
                         this.sc_currentActiveShotRange = undefined;
                     }
-                    if (this.switchToSelectedAttackType === AttackType.MELEE) {
-                        if (this.currentActiveUnit.getAttackType() === AttackType.RANGE) {
-                            this.selectedAttackTypeButton.switchSprites(
-                                new Sprite(this.gl, this.shader, this.textures.range_white_128.texture),
-                                new Sprite(this.gl, this.shader, this.textures.range_black_128.texture),
-                            );
-                        } else {
-                            this.selectedAttackTypeButton.switchSprites(
-                                new Sprite(this.gl, this.shader, this.textures.magic_white_128.texture),
-                                new Sprite(this.gl, this.shader, this.textures.magic_black_128.texture),
-                            );
-                        }
-                    } else if (
-                        this.switchToSelectedAttackType === AttackType.RANGE ||
-                        this.switchToSelectedAttackType === AttackType.MAGIC
-                    ) {
-                        this.selectedAttackTypeButton.switchSprites(
-                            new Sprite(this.gl, this.shader, this.textures.melee_white_128.texture),
-                            new Sprite(this.gl, this.shader, this.textures.melee_black_128.texture),
-                        );
-                    }
                     this.switchToSelectedAttackType = undefined;
                 }
             } else {
                 this.switchToSelectedAttackType = selectedAttackType;
+            }
+
+            if (this.switchToSelectedAttackType) {
+                if (this.currentActiveUnit.selectAttackType(this.switchToSelectedAttackType)) {
+                    this.refreshButtons(true);
+                    return true;
+                }
             }
 
             if (this.currentActiveUnit.hasAbilityActive("Area Throw") || !this.currentActiveSpell) {
@@ -3230,6 +3179,7 @@ class Sandbox extends GLScene {
             }
 
             this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
+            this.refreshButtons(true);
             return true;
         }
         return false;
@@ -3970,7 +3920,7 @@ class Sandbox extends GLScene {
                             unitsUpper,
                             unitsLower,
                         );
-                        this.refreshButtons(true);
+                        this.refreshButtons();
 
                         const nextUnitId = FightStateManager.getInstance().getFightProperties().dequeueNextUnitId();
                         const nextUnit = nextUnitId ? this.unitsHolder.getAllUnits().get(nextUnitId) : undefined;
@@ -3998,6 +3948,13 @@ class Sandbox extends GLScene {
                                     teamType: nextUnit.getTeam(),
                                 });
                             }
+
+                            nextUnit.refreshPossibleAttackTypes(
+                                this.attackHandler.canLandRangeAttack(
+                                    nextUnit,
+                                    this.grid.getEnemyAggrMatrixByUnitId(nextUnit.getId()),
+                                ),
+                            );
 
                             if (this.sc_visibleState) {
                                 this.sc_visibleState.upNext = unitsNext;
@@ -4407,37 +4364,34 @@ class Sandbox extends GLScene {
                     : !!this.currentActiveUnit?.isSmallSize(),
             );
         }
-        if (
-            FightStateManager.getInstance().getFightProperties().hasFightStarted() &&
-            this.currentActiveUnit &&
-            this.currentActiveUnit.getAttackType() !== AttackType.MELEE
-            // && this.currentActiveUnit.getAttackType() !== AttackType.RANGE
-        ) {
-            const currentUnitCell = GridMath.getCellForPosition(
-                this.sc_sceneSettings.getGridSettings(),
-                this.currentActiveUnit.getPosition(),
-            );
+        // if (
+        //     FightStateManager.getInstance().getFightProperties().hasFightStarted() &&
+        //     this.currentActiveUnit &&
+        //     this.currentActiveUnit.getAttackType() !== AttackType.MELEE
+        //     // && this.currentActiveUnit.getAttackType() !== AttackType.RANGE
+        // ) {
+        // const currentUnitCell = GridMath.getCellForPosition(
+        //     this.sc_sceneSettings.getGridSettings(),
+        //     this.currentActiveUnit.getPosition(),
+        // );
 
-            let toSelectAttackType = AttackType.MELEE;
-            // if (this.currentActiveSpell) {
-            //     toSelectAttackType = AttackType.MAGIC;
-            // } else
-            if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE) {
-                if (this.currentActiveUnit.getAttackType() === AttackType.MAGIC) {
-                    toSelectAttackType = AttackType.MAGIC;
-                } else if (this.currentActiveUnit.getAttackType() === AttackType.RANGE) {
-                    toSelectAttackType = AttackType.RANGE;
-                }
-            }
+        // let toSelectAttackType = AttackType.MELEE;
+        // if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE) {
+        //     if (this.currentActiveUnit.getAttackType() === AttackType.MAGIC) {
+        //         toSelectAttackType = AttackType.MAGIC;
+        //     } else if (this.currentActiveUnit.getAttackType() === AttackType.RANGE) {
+        //         toSelectAttackType = AttackType.RANGE;
+        //     }
+        // }
 
-            if (
-                !this.sc_renderSpellBookOverlay &&
-                this.selectAttack(toSelectAttackType, currentUnitCell) &&
-                !this.currentActiveUnit.hasAbilityActive("No Melee")
-            ) {
-                this.selectedAttackTypeButton.render(settings.m_debugDraw, isLightMode, 0.8);
-            }
-        }
+        // if (
+        //     !this.sc_renderSpellBookOverlay &&
+        //     this.selectAttack(toSelectAttackType, currentUnitCell) &&
+        //     !this.currentActiveUnit.hasAbilityActive("No Melee")
+        // ) {
+        //     this.selectedAttackTypeButton.render(settings.m_debugDraw, isLightMode, 0.8);
+        // }
+        // }
 
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
             if (this.sc_renderSpellBookOverlay) {
