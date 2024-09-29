@@ -288,6 +288,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         if (this.unitProperties.attack_type === AttackType.MELEE) {
             this.selectedAttackType = AttackType.MELEE;
+        } else if (this.unitProperties.attack_type === AttackType.MELEE_MAGIC) {
+            this.selectedAttackType = AttackType.MELEE_MAGIC;
         } else if (this.unitProperties.attack_type === AttackType.RANGE) {
             this.selectedAttackType = AttackType.RANGE;
         } else {
@@ -1710,7 +1712,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             attackType === AttackType.RANGE,
             divisor,
         );
-        const attackingByMelee = attackType === AttackType.MELEE;
+        const attackingByMelee = attackType === AttackType.MELEE || attackType === AttackType.MELEE_MAGIC;
         if (!attackingByMelee && attackType === AttackType.RANGE) {
             if (this.getRangeShots() <= 0) {
                 return 0;
@@ -1755,7 +1757,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         for (const a of this.abilities) {
             if (
-                (a.getName() === "No Melee" && attackType === AttackType.MELEE) ||
+                (a.getName() === "No Melee" &&
+                    (attackType === AttackType.MELEE || attackType === AttackType.MELEE_MAGIC)) ||
                 (a.getName() === "Through Shot" && attackType === AttackType.RANGE)
             ) {
                 return false;
@@ -1782,7 +1785,11 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         if (!this.hasAbilityActive("No Melee")) {
-            this.possibleAttackTypes.push(AttackType.MELEE);
+            if (this.getAttackType() === AttackType.MELEE_MAGIC) {
+                this.possibleAttackTypes.push(AttackType.MELEE_MAGIC);
+            } else {
+                this.possibleAttackTypes.push(AttackType.MELEE);
+            }
         }
 
         if (
@@ -1827,12 +1834,19 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public selectAttackType(selectedAttackType: AttackType): boolean {
         if (
-            selectedAttackType === AttackType.MELEE &&
             this.selectedAttackType !== selectedAttackType &&
-            this.possibleAttackTypes.includes(AttackType.MELEE)
+            ((selectedAttackType === AttackType.MELEE && this.possibleAttackTypes.includes(AttackType.MELEE)) ||
+                (selectedAttackType === AttackType.MELEE_MAGIC &&
+                    this.possibleAttackTypes.includes(AttackType.MELEE_MAGIC)))
         ) {
-            this.selectedAttackType = selectedAttackType;
-            this.unitProperties.attack_type_selected = AttackType.MELEE;
+            if (this.possibleAttackTypes.includes(AttackType.MELEE_MAGIC)) {
+                this.selectedAttackType = AttackType.MELEE_MAGIC;
+                this.unitProperties.attack_type_selected = AttackType.MELEE_MAGIC;
+            } else {
+                this.selectedAttackType = AttackType.MELEE;
+                this.unitProperties.attack_type_selected = AttackType.MELEE;
+            }
+
             return true;
         }
 
@@ -1850,8 +1864,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         if (
             selectedAttackType === AttackType.MAGIC &&
-            this.unitProperties.attack_type === AttackType.MAGIC &&
             this.unitProperties.spells.length &&
+            this.unitProperties.can_cast_spells &&
             this.selectedAttackType !== selectedAttackType &&
             this.possibleAttackTypes.includes(AttackType.MAGIC)
         ) {

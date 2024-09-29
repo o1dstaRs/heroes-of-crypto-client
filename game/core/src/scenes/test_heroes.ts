@@ -395,7 +395,8 @@ class Sandbox extends GLScene {
                     this.refreshButtons(true);
                 }
                 if (
-                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE &&
+                    (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE ||
+                        this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE_MAGIC) &&
                     this.currentActiveUnit.hasAbilityActive("Area Throw")
                 ) {
                     const currentCell = GridMath.getCellForPosition(
@@ -445,7 +446,8 @@ class Sandbox extends GLScene {
                     this.refreshButtons(true);
                 }
                 if (
-                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE &&
+                    (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE ||
+                        this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE_MAGIC) &&
                     this.currentActiveUnit.hasAbilityActive("Area Throw")
                 ) {
                     const currentCell = GridMath.getCellForPosition(
@@ -1536,7 +1538,8 @@ class Sandbox extends GLScene {
                 }
 
                 if (
-                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE &&
+                    (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE ||
+                        this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE_MAGIC) &&
                     !this.currentActiveUnit.hasAbilityActive("No Melee")
                 ) {
                     if (this.hoverRangeAttackLine) {
@@ -2943,11 +2946,17 @@ class Sandbox extends GLScene {
         this.currentActivePathHashes = undefined;
     }
 
-    protected finishFight(): void {
+    protected finishFight(unitsLower?: Unit[], unitsUpper?: Unit[]): void {
         this.canAttackByMeleeTargets = undefined;
+        let result = "Draw!";
+        if (unitsUpper?.length && !unitsLower?.length) {
+            result = "Red team wins!";
+        } else if (!unitsUpper?.length && unitsLower?.length) {
+            result = "Green team wins!";
+        }
         FightStateManager.getInstance().getFightProperties().finishFight();
         this.cleanActivePaths();
-        this.sc_sceneLog.updateLog(`Fight finished!`);
+        this.sc_sceneLog.updateLog(`Fight finished! ${result}`);
         this.refreshVisibleStateIfNeeded();
         if (this.sc_visibleState) {
             this.sc_visibleState.hasFinished = true;
@@ -3101,7 +3110,7 @@ class Sandbox extends GLScene {
 
         let hasOption = true;
         const isRange = this.currentActiveUnit.getAttackType() === AttackType.RANGE;
-        const isMagic = this.currentActiveUnit.getAttackType() === AttackType.MAGIC;
+        const isMagic = this.currentActiveUnit.getCanCastSpells() && this.currentActiveUnit.getSpellsCount() > 0;
 
         if (isRange || isMagic) {
             if (
@@ -3121,16 +3130,10 @@ class Sandbox extends GLScene {
                     this.adjustSpellBookSprite();
                 }
                 this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
-            } else if (isMagic && !this.currentActiveUnit.getCanCastSpells()) {
-                hasOption = false;
             }
         }
 
-        if (
-            hasOption &&
-            (this.currentActiveUnit.getAttackType() === AttackType.RANGE ||
-                this.currentActiveUnit.getAttackType() === AttackType.MAGIC)
-        ) {
+        if (hasOption && (this.currentActiveUnit.getAttackType() === AttackType.RANGE || isMagic)) {
             if (this.switchToSelectedAttackType) {
                 if (force) {
                     if (this.currentActiveUnit.selectAttackType(this.switchToSelectedAttackType)) {
@@ -3162,7 +3165,10 @@ class Sandbox extends GLScene {
             }
 
             if (this.currentActiveUnit.hasAbilityActive("Area Throw") || !this.currentActiveSpell) {
-                if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE) {
+                if (
+                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE ||
+                    this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE_MAGIC
+                ) {
                     const currentCell = GridMath.getCellForPosition(
                         this.sc_sceneSettings.getGridSettings(),
                         this.currentActiveUnit.getPosition(),
@@ -3775,24 +3781,32 @@ class Sandbox extends GLScene {
                     unitsLower = unitsForAllTeams[TeamType.LOWER - 1];
                     unitsUpper = unitsForAllTeams[TeamType.UPPER - 1];
                     this.unitsHolder.refreshStackPowerForAllUnits();
-                    if (unitsLower) {
-                        for (const ul of unitsLower) {
-                            ul.applyArmageddonDamage(this.armageddonWave, this.sc_stepCount, this.sc_sceneLog);
-                            if (ul.isDead()) {
-                                gotArmageddonKills = true;
-                                this.sc_sceneLog.updateLog(`${ul.getName()} died`);
-                                this.unitsHolder.deleteUnitById(ul.getId(), this.armageddonWave === 1);
+
+                    if (!unitsLower?.length || !unitsUpper?.length) {
+                        fightFinished = true;
+                        this.finishFight(unitsLower, unitsUpper);
+                        this.sc_isAIActive = false;
+                        this.refreshButtons();
+                    } else {
+                        if (unitsLower) {
+                            for (const ul of unitsLower) {
+                                ul.applyArmageddonDamage(this.armageddonWave, this.sc_stepCount, this.sc_sceneLog);
+                                if (ul.isDead()) {
+                                    gotArmageddonKills = true;
+                                    this.sc_sceneLog.updateLog(`${ul.getName()} died`);
+                                    this.unitsHolder.deleteUnitById(ul.getId(), this.armageddonWave === 1);
+                                }
                             }
                         }
-                    }
 
-                    if (unitsUpper) {
-                        for (const uu of unitsUpper) {
-                            uu.applyArmageddonDamage(this.armageddonWave, this.sc_stepCount, this.sc_sceneLog);
-                            if (uu.isDead()) {
-                                gotArmageddonKills = true;
-                                this.sc_sceneLog.updateLog(`${uu.getName()} died`);
-                                this.unitsHolder.deleteUnitById(uu.getId(), this.armageddonWave === 1);
+                        if (unitsUpper) {
+                            for (const uu of unitsUpper) {
+                                uu.applyArmageddonDamage(this.armageddonWave, this.sc_stepCount, this.sc_sceneLog);
+                                if (uu.isDead()) {
+                                    gotArmageddonKills = true;
+                                    this.sc_sceneLog.updateLog(`${uu.getName()} died`);
+                                    this.unitsHolder.deleteUnitById(uu.getId(), this.armageddonWave === 1);
+                                }
                             }
                         }
                     }
@@ -3802,9 +3816,16 @@ class Sandbox extends GLScene {
                     const unitsForAllTeams = this.unitsHolder.refreshUnitsForAllTeams();
                     unitsLower = unitsForAllTeams[TeamType.LOWER - 1];
                     unitsUpper = unitsForAllTeams[TeamType.UPPER - 1];
+
+                    if (!unitsLower?.length || !unitsUpper?.length) {
+                        fightFinished = true;
+                        this.finishFight(unitsLower, unitsUpper);
+                        this.sc_isAIActive = false;
+                        this.refreshButtons();
+                    }
                 }
 
-                if (FightStateManager.getInstance().getFightProperties().isNarrowingLap()) {
+                if (!fightFinished && FightStateManager.getInstance().getFightProperties().isNarrowingLap()) {
                     // spawn may actually delete units due to overlap with obstacles
                     // so we have to refresh all the units here
                     if (!gotArmageddonKills) {
@@ -3836,7 +3857,7 @@ class Sandbox extends GLScene {
             if (FightStateManager.getInstance().getFightProperties().hasFightStarted() && !fightFinished) {
                 if (!this.currentActiveUnit) {
                     if (!unitsLower?.length || !unitsUpper?.length) {
-                        this.finishFight();
+                        this.finishFight(unitsLower, unitsUpper);
                         fightFinished = true;
                         this.sc_isAIActive = false;
                         this.refreshButtons();
@@ -4057,7 +4078,7 @@ class Sandbox extends GLScene {
                                 }
                             }
                         } else {
-                            this.finishFight();
+                            this.finishFight(unitsLower, unitsUpper);
                         }
                     }
                 }
@@ -4364,34 +4385,6 @@ class Sandbox extends GLScene {
                     : !!this.currentActiveUnit?.isSmallSize(),
             );
         }
-        // if (
-        //     FightStateManager.getInstance().getFightProperties().hasFightStarted() &&
-        //     this.currentActiveUnit &&
-        //     this.currentActiveUnit.getAttackType() !== AttackType.MELEE
-        //     // && this.currentActiveUnit.getAttackType() !== AttackType.RANGE
-        // ) {
-        // const currentUnitCell = GridMath.getCellForPosition(
-        //     this.sc_sceneSettings.getGridSettings(),
-        //     this.currentActiveUnit.getPosition(),
-        // );
-
-        // let toSelectAttackType = AttackType.MELEE;
-        // if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE) {
-        //     if (this.currentActiveUnit.getAttackType() === AttackType.MAGIC) {
-        //         toSelectAttackType = AttackType.MAGIC;
-        //     } else if (this.currentActiveUnit.getAttackType() === AttackType.RANGE) {
-        //         toSelectAttackType = AttackType.RANGE;
-        //     }
-        // }
-
-        // if (
-        //     !this.sc_renderSpellBookOverlay &&
-        //     this.selectAttack(toSelectAttackType, currentUnitCell) &&
-        //     !this.currentActiveUnit.hasAbilityActive("No Melee")
-        // ) {
-        //     this.selectedAttackTypeButton.render(settings.m_debugDraw, isLightMode, 0.8);
-        // }
-        // }
 
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
             if (this.sc_renderSpellBookOverlay) {

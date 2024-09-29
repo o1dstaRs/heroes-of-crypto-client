@@ -46,7 +46,7 @@ export function processBlindnessAbility(
             !(blindnessAbility.getType() === AbilityType.MIND && targetUnit.hasMindAttackResistance()) &&
             targetUnit.applyEffect(blindnessEffect)
         ) {
-            sceneLog.updateLog(`${targetUnit.getName()} is blind for ${getLapString(laps)}}`);
+            sceneLog.updateLog(`${targetUnit.getName()} is blind for ${getLapString(laps)}`);
         } else {
             sceneLog.updateLog(`${targetUnit.getName()} resisted from blindness effect`);
         }
