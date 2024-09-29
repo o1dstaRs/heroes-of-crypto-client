@@ -502,6 +502,7 @@ export class Drawer {
         currentActivePath?: XY[],
         currentActiveUnitPositions?: XY[],
         hoverAttackFromHashes?: Set<number>,
+        drawSolid = true,
     ): void {
         if (currentActivePath?.length) {
             for (const p of currentActivePath) {
@@ -525,16 +526,49 @@ export class Drawer {
                 };
                 const newX = polygonStartingPosition.x + this.gridSettings.getStep();
                 const newY = polygonStartingPosition.y + this.gridSettings.getStep();
-                draw.DrawSolidPolygon(
-                    [
-                        { x: polygonStartingPosition.x, y: polygonStartingPosition.y },
-                        { x: polygonStartingPosition.x, y: newY },
-                        { x: newX, y: newY },
-                        { x: newX, y: polygonStartingPosition.y },
-                    ],
-                    4,
-                    color,
-                );
+                if (drawSolid) {
+                    draw.DrawSolidPolygon(
+                        [
+                            { x: polygonStartingPosition.x, y: polygonStartingPosition.y },
+                            { x: polygonStartingPosition.x, y: newY },
+                            { x: newX, y: newY },
+                            { x: newX, y: polygonStartingPosition.y },
+                        ],
+                        4,
+                        color,
+                    );
+                } else {
+                    draw.DrawPolygon(
+                        [
+                            { x: polygonStartingPosition.x, y: polygonStartingPosition.y },
+                            { x: polygonStartingPosition.x, y: newY },
+                            { x: newX, y: newY },
+                            { x: newX, y: polygonStartingPosition.y },
+                        ],
+                        4,
+                        color,
+                    );
+                    draw.DrawPolygon(
+                        [
+                            { x: polygonStartingPosition.x + 1, y: polygonStartingPosition.y + 1 },
+                            { x: polygonStartingPosition.x + 1, y: newY + 1 },
+                            { x: newX + 1, y: newY + 1 },
+                            { x: newX + 1, y: polygonStartingPosition.y + 1 },
+                        ],
+                        4,
+                        color,
+                    );
+                    draw.DrawPolygon(
+                        [
+                            { x: polygonStartingPosition.x - 1, y: polygonStartingPosition.y - 1 },
+                            { x: polygonStartingPosition.x - 1, y: newY - 1 },
+                            { x: newX - 1, y: newY - 1 },
+                            { x: newX - 1, y: polygonStartingPosition.y - 1 },
+                        ],
+                        4,
+                        color,
+                    );
+                }
             }
         }
     }

@@ -2046,10 +2046,11 @@ class Sandbox extends GLScene {
                 this.cellToUnitPreRound &&
                 this.cellToUnitPreRound.has(`${mouseCell.x}:${mouseCell.y}`))
         ) {
+            this.resetHover();
             if (!mouseCell) {
-                this.resetHover();
                 return;
             }
+            this.hoverUnit = undefined;
 
             const cellKey = `${mouseCell.x}:${mouseCell.y}`;
 
@@ -2061,7 +2062,6 @@ class Sandbox extends GLScene {
                     (this.upperPlacements[0]?.isAllowed(this.sc_mouseWorld) ?? false) ||
                     (this.upperPlacements[1]?.isAllowed(this.sc_mouseWorld) ?? false))
             ) {
-                this.resetHover();
                 return;
             }
 
@@ -2069,7 +2069,6 @@ class Sandbox extends GLScene {
                 this.updateHoverInfoWithButtonAction(mouseCell);
                 this.hoverSelectedCells = [mouseCell];
                 this.hoverSelectedCellsSwitchToRed = false;
-                this.resetHover(false);
                 return;
             }
 
@@ -2077,7 +2076,6 @@ class Sandbox extends GLScene {
             if (selectedUnitProperties) {
                 const selectedUnit = this.unitsHolder.getAllUnits().get(selectedUnitProperties.id);
                 if (!selectedUnit) {
-                    this.resetHover(true);
                     return;
                 }
 
@@ -2096,38 +2094,120 @@ class Sandbox extends GLScene {
                 }
 
                 if (!this.isAllowedPreStartMousePosition(selectedUnit)) {
-                    this.resetHover(true);
                     return;
                 }
 
                 if (selectedUnitProperties.size === 1) {
                     if (this.cellToUnitPreRound) {
-                        const unit = this.cellToUnitPreRound.get(cellKey);
-                        if (!unit) {
+                        const hoverUnit = this.cellToUnitPreRound.get(cellKey);
+                        if (!hoverUnit) {
                             this.hoverSelectedCells = [mouseCell];
                             if (this.grid.areAllCellsEmpty(this.hoverSelectedCells)) {
                                 this.hoverSelectedCellsSwitchToRed = false;
                             } else {
                                 this.hoverSelectedCellsSwitchToRed = true;
                             }
-                            this.resetHover(false);
                             return;
                         }
 
-                        if (unit.getId() === selectedUnitProperties.id) {
-                            this.resetHover();
+                        if (hoverUnit.getId() === selectedUnitProperties.id) {
+                            if (
+                                GridMath.isPositionWithinGrid(
+                                    this.sc_sceneSettings.getGridSettings(),
+                                    hoverUnit.getPosition(),
+                                )
+                            ) {
+                                this.hoverActivePath = this.pathHelper.getMovePath(
+                                    hoverUnit.getBaseCell(),
+                                    this.gridMatrix,
+                                    hoverUnit.getSteps(),
+                                    undefined,
+                                    hoverUnit.canFly(),
+                                    hoverUnit.isSmallSize(),
+                                ).cells;
+                                this.hoverUnit = hoverUnit;
+                            }
+
+                            this.fillActiveAuraRanges(
+                                hoverUnit.isSmallSize(),
+                                hoverUnit.getPosition(),
+                                hoverUnit.getAuraRanges(),
+                                hoverUnit.getAuraIsBuff(),
+                                true,
+                            );
+                            this.hoverActiveShotRange = {
+                                xy: hoverUnit.getPosition(),
+                                distance: hoverUnit.getRangeShotDistance() * STEP,
+                            };
                             return;
                         }
 
-                        if (this.unitIdToCellsPreRound && !unit.isSmallSize()) {
-                            this.hoverSelectedCells = this.unitIdToCellsPreRound.get(unit.getId());
+                        if (this.unitIdToCellsPreRound && !hoverUnit.isSmallSize()) {
+                            this.hoverSelectedCells = this.unitIdToCellsPreRound.get(hoverUnit.getId());
                             this.hoverSelectedCellsSwitchToRed = false;
-                            this.resetHover(false);
+
+                            if (
+                                GridMath.isPositionWithinGrid(
+                                    this.sc_sceneSettings.getGridSettings(),
+                                    hoverUnit.getPosition(),
+                                )
+                            ) {
+                                this.hoverActivePath = this.pathHelper.getMovePath(
+                                    hoverUnit.getBaseCell(),
+                                    this.gridMatrix,
+                                    hoverUnit.getSteps(),
+                                    undefined,
+                                    hoverUnit.canFly(),
+                                    hoverUnit.isSmallSize(),
+                                ).cells;
+                                this.hoverUnit = hoverUnit;
+                            }
+
+                            this.fillActiveAuraRanges(
+                                hoverUnit.isSmallSize(),
+                                hoverUnit.getPosition(),
+                                hoverUnit.getAuraRanges(),
+                                hoverUnit.getAuraIsBuff(),
+                                true,
+                            );
+                            this.hoverActiveShotRange = {
+                                xy: hoverUnit.getPosition(),
+                                distance: hoverUnit.getRangeShotDistance() * STEP,
+                            };
                             return;
                         }
 
                         this.hoverSelectedCells = [mouseCell];
                         this.hoverSelectedCellsSwitchToRed = false;
+                        if (
+                            GridMath.isPositionWithinGrid(
+                                this.sc_sceneSettings.getGridSettings(),
+                                hoverUnit.getPosition(),
+                            )
+                        ) {
+                            this.hoverActivePath = this.pathHelper.getMovePath(
+                                hoverUnit.getBaseCell(),
+                                this.gridMatrix,
+                                hoverUnit.getSteps(),
+                                undefined,
+                                hoverUnit.canFly(),
+                                hoverUnit.isSmallSize(),
+                            ).cells;
+                            this.hoverUnit = hoverUnit;
+                        }
+
+                        this.fillActiveAuraRanges(
+                            hoverUnit.isSmallSize(),
+                            hoverUnit.getPosition(),
+                            hoverUnit.getAuraRanges(),
+                            hoverUnit.getAuraIsBuff(),
+                            true,
+                        );
+
+                        this.hoverActiveShotRange = {
+                            xy: hoverUnit.getPosition(),
+                            distance: hoverUnit.getRangeShotDistance() * STEP,
+                        };
                     } else {
                         this.hoverSelectedCells = [mouseCell];
                         if (this.grid.areAllCellsEmpty(this.hoverSelectedCells)) {
@@ -2153,20 +2233,63 @@ class Sandbox extends GLScene {
                         } else {
                             this.hoverSelectedCellsSwitchToRed = true;
                         }
-                        this.resetHover(false);
                         return;
                     }
 
                     if (unit.getId() === selectedUnitProperties.id) {
-                        this.resetHover();
+                        if (
+                            GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), unit.getPosition())
+                        ) {
+                            this.hoverActivePath = this.pathHelper.getMovePath(
+                                unit.getBaseCell(),
+                                this.gridMatrix,
+                                unit.getSteps(),
+                                undefined,
+                                unit.canFly(),
+                                unit.isSmallSize(),
+                            ).cells;
+                            this.hoverUnit = unit;
+                        }
+                        this.fillActiveAuraRanges(
+                            unit.isSmallSize(),
+                            unit.getPosition(),
+                            unit.getAuraRanges(),
+                            unit.getAuraIsBuff(),
+                            true,
+                        );
+                        this.hoverActiveShotRange = {
+                            xy: unit.getPosition(),
+                            distance: unit.getRangeShotDistance() * STEP,
+                        };
                         return;
                     }
 
                     if (this.unitIdToCellsPreRound) {
+                        if (
+                            GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), unit.getPosition())
+                        ) {
+                            this.hoverActivePath = this.pathHelper.getMovePath(
+                                unit.getBaseCell(),
+                                this.gridMatrix,
+                                unit.getSteps(),
+                                undefined,
+                                unit.canFly(),
+                                unit.isSmallSize(),
+                            ).cells;
+                            this.hoverUnit = unit;
+                        }
+
+                        this.fillActiveAuraRanges(
+                            unit.isSmallSize(),
+                            unit.getPosition(),
+                            unit.getAuraRanges(),
+                            unit.getAuraIsBuff(),
+                            true,
+                        );
+
                         if (unit.isSmallSize()) {
                             this.hoverSelectedCells = [mouseCell];
                             this.hoverSelectedCellsSwitchToRed = false;
-                            this.resetHover(false);
                             return;
                         }
                         this.hoverSelectedCells = this.unitIdToCellsPreRound.get(unit.getId());
@@ -2197,7 +2320,6 @@ class Sandbox extends GLScene {
                         this.hoverSelectedCellsSwitchToRed = true;
                     }
                 }
-                this.resetHover(false);
             } else if (this.cellToUnitPreRound && this.unitIdToCellsPreRound) {
                 const unit = this.cellToUnitPreRound.get(cellKey);
                 if (unit) {
@@ -2207,7 +2329,30 @@ class Sandbox extends GLScene {
                         this.sc_hoverUnitMovementType = unit.getMovementType();
                         this.sc_selectedAttackType = unit.getAttackType();
                         this.sc_hoverTextUpdateNeeded = true;
+                    } else {
+                        this.hoverActivePath = this.pathHelper.getMovePath(
+                            unit.getBaseCell(),
+                            this.gridMatrix,
+                            unit.getSteps(),
+                            undefined,
+                            unit.canFly(),
+                            unit.isSmallSize(),
+                        ).cells;
+                        this.hoverUnit = unit;
                     }
+
+                    this.fillActiveAuraRanges(
+                        unit.isSmallSize(),
+                        unit.getPosition(),
+                        unit.getAuraRanges(),
+                        unit.getAuraIsBuff(),
+                        true,
+                    );
+
+                    this.hoverActiveShotRange = {
+                        xy: unit.getPosition(),
+                        distance: unit.getRangeShotDistance() * STEP,
+                    };
 
                     this.hoverSelectedCells = this.unitIdToCellsPreRound.get(unit.getId());
                     this.hoverSelectedCellsSwitchToRed = false;
@@ -2231,7 +2376,6 @@ class Sandbox extends GLScene {
                     }
                 }
             }
-            this.resetHover(false);
         } else {
             this.resetHover();
         }
@@ -2350,6 +2494,7 @@ class Sandbox extends GLScene {
         if (
             !FightStateManager.getInstance().getFightProperties().hasFightStarted() &&
             mouseCell &&
+            this.hoverSelectedCells &&
             this.isAllowedPreStartMousePosition(unit, true)
         ) {
             if (unit.isSmallSize()) {
@@ -2909,10 +3054,6 @@ class Sandbox extends GLScene {
                             }
 
                             const enemyBaseCell = possibleEnemyUnit.getBaseCell();
-                            if (!enemyBaseCell) {
-                                continue;
-                            }
-
                             if (!this.currentEnemiesCellsWithinMovementRange) {
                                 this.currentEnemiesCellsWithinMovementRange = [];
                             }
@@ -4253,13 +4394,14 @@ class Sandbox extends GLScene {
                     y: this.hoverUnit.getPosition().y + HALF_STEP,
                 });
             }
-
             if (!this.sc_renderSpellBookOverlay) {
                 this.drawer.drawPath(
                     settings.m_debugDraw,
                     isEnemy ? themeLightColor : themeMainColor,
                     this.hoverActivePath,
                     hoverUnitCellPositions,
+                    undefined,
+                    FightStateManager.getInstance().getFightProperties().hasFightStarted(),
                 );
             }
         }

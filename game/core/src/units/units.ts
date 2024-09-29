@@ -1138,7 +1138,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.renderPosition;
     }
 
-    public getBaseCell(): XY | undefined {
+    public getBaseCell(): XY {
         return GridMath.getCellForPosition(this.gridSettings, this.getPosition());
     }
 
