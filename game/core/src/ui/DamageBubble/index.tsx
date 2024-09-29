@@ -22,7 +22,7 @@ const DamageBubble: React.FC<DamageBubbleProps> = ({ damage, coordinates }) => {
 
     if (!visible) return null;
 
-    console.log(`Render Damage ${damage}`);
+    // console.log(`Render Damage ${damage}`);
 
     return (
         <div

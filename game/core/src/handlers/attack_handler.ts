@@ -801,7 +801,7 @@ export class AttackHandler {
                     processStunAbility(targetUnit, rangeResponseUnit, attackerUnit, this.sceneLog);
                     processPetrifyingGazeAbility(
                         targetUnit,
-                        attackerUnit,
+                        rangeResponseUnit,
                         damageFromResponse,
                         sceneStepCount,
                         this.sceneLog,

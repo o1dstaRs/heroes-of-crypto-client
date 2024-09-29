@@ -239,6 +239,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected selectedAttackType: AttackType;
 
+    protected possibleAttackTypes: AttackType[] = [];
+
     protected maxRangeShots = 0;
 
     protected responded = false;
@@ -1771,20 +1773,64 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.onHourglass = onHourglass;
     }
 
-    public getAttackTypeSelection(): AttackType {
-        if (this.selectedAttackType === AttackType.RANGE && this.getRangeShots() <= 0) {
-            this.selectedAttackType = AttackType.MELEE;
-            this.unitProperties.attack_type_selected = AttackType.MELEE;
-        } else if (this.selectedAttackType === AttackType.MAGIC && this.unitProperties.spells.length <= 0) {
-            this.selectedAttackType = AttackType.MELEE;
-            this.unitProperties.attack_type_selected = AttackType.MELEE;
+    public refreshPossibleAttackTypes(canLandRangeAttack: boolean) {
+        this.possibleAttackTypes = [];
+        if (this.getAttackType() === AttackType.MAGIC && this.getSpellsCount() > 0 && this.getCanCastSpells()) {
+            this.possibleAttackTypes.push(AttackType.MAGIC);
+        } else if (this.getAttackType() === AttackType.RANGE && this.getRangeShots() > 0 && canLandRangeAttack) {
+            this.possibleAttackTypes.push(AttackType.RANGE);
         }
 
+        if (!this.hasAbilityActive("No Melee")) {
+            this.possibleAttackTypes.push(AttackType.MELEE);
+        }
+
+        if (
+            this.getSpellsCount() > 0 &&
+            this.getCanCastSpells() &&
+            !this.possibleAttackTypes.includes(AttackType.MAGIC)
+        ) {
+            this.possibleAttackTypes.push(AttackType.MAGIC);
+        }
+
+        if (!this.possibleAttackTypes.length) {
+            this.possibleAttackTypes.push(AttackType.NO_TYPE);
+        }
+
+        this.unitProperties.attack_type_selected = this.possibleAttackTypes[0];
+        this.selectedAttackType = this.possibleAttackTypes[0];
+    }
+
+    public getAttackTypeSelection(): AttackType {
         return this.selectedAttackType;
     }
 
+    public getPossibleAttackTypes(): AttackType[] {
+        return this.possibleAttackTypes;
+    }
+
+    public getAttackTypeSelectionIndex(): [number, number] {
+        return [this.possibleAttackTypes.indexOf(this.selectedAttackType), this.possibleAttackTypes.length];
+    }
+
+    public selectNextAttackType(): boolean {
+        let index = this.possibleAttackTypes.indexOf(this.selectedAttackType);
+        let initialIndex = index;
+        do {
+            index = (index + 1) % this.possibleAttackTypes.length;
+            if (this.selectAttackType(this.possibleAttackTypes[index])) {
+                return true;
+            }
+        } while (index !== initialIndex);
+        return false;
+    }
+
     public selectAttackType(selectedAttackType: AttackType): boolean {
-        if (selectedAttackType === AttackType.MELEE && this.selectedAttackType !== selectedAttackType) {
+        if (
+            selectedAttackType === AttackType.MELEE &&
+            this.selectedAttackType !== selectedAttackType &&
+            this.possibleAttackTypes.includes(AttackType.MELEE)
+        ) {
             this.selectedAttackType = selectedAttackType;
             this.unitProperties.attack_type_selected = AttackType.MELEE;
             return true;
@@ -1794,7 +1840,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             selectedAttackType === AttackType.RANGE &&
             this.unitProperties.attack_type === AttackType.RANGE &&
             this.getRangeShots() &&
-            this.selectedAttackType !== selectedAttackType
+            this.selectedAttackType !== selectedAttackType &&
+            this.possibleAttackTypes.includes(AttackType.RANGE)
         ) {
             this.selectedAttackType = selectedAttackType;
             this.unitProperties.attack_type_selected = AttackType.RANGE;
@@ -1805,7 +1852,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             selectedAttackType === AttackType.MAGIC &&
             this.unitProperties.attack_type === AttackType.MAGIC &&
             this.unitProperties.spells.length &&
-            this.selectedAttackType !== selectedAttackType
+            this.selectedAttackType !== selectedAttackType &&
+            this.possibleAttackTypes.includes(AttackType.MAGIC)
         ) {
             this.selectedAttackType = selectedAttackType;
             this.unitProperties.attack_type_selected = AttackType.MAGIC;

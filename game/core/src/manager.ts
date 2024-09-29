@@ -18,7 +18,7 @@ import { Signal } from "typed-signals";
 import "./scenes";
 import { getScenesGrouped, Scene, SceneConstructor, SceneEntry } from "./scenes/scene";
 import { Settings } from "./settings";
-import { IVisibleOverallImpact, IVisibleState } from "./state/visible_state";
+import { IVisibleButton, IVisibleOverallImpact, IVisibleState, VisibleButtonState } from "./state/visible_state";
 import { MAX_FPS } from "./statics";
 import { DamageStatisticHolder, IDamageStatistic, IHoverInfo } from "./stats/damage_stats";
 import type { SceneControlGroup } from "./ui";
@@ -62,6 +62,8 @@ export class GameManager {
     private sceneTitle = "Heroes";
 
     public readonly onHasStarted = new Signal<(_started: boolean) => void>();
+
+    public readonly onHasButtonsGroupUpdate = new Signal<(_updated: boolean) => void>();
 
     public readonly onPlacementChanged = new Signal<(_changed: boolean) => void>();
 
@@ -310,6 +312,14 @@ export class GameManager {
         }
     }
 
+    public GetButtonGroup(): IVisibleButton[] {
+        return this.m_scene?.sc_visibleButtonGroup ?? [];
+    }
+
+    public PropagateButtonClicked(buttonName: string, buttonState: VisibleButtonState): void {
+        this.m_scene?.propagateButtonClicked(buttonName, buttonState);
+    }
+
     public LoadGame(restartScene = false): void {
         const SceneClass = this.sceneConstructor;
         if (
@@ -416,16 +426,6 @@ export class GameManager {
         return this.m_scene?.getNumberOfUnitsAvailableForPlacement(teamType) ?? HoCConstants.MAX_UNITS_PER_TEAM;
     }
 
-    public SwitchRightSideControlGroup(renderControlsRightSide: boolean): void {
-        if (this.m_scene?.sc_renderControlsRightSide !== undefined) {
-            const currentSetting = this.m_scene.sc_renderControlsRightSide;
-            this.m_scene.sc_renderControlsRightSide = renderControlsRightSide;
-            if (currentSetting !== renderControlsRightSide) {
-                this.m_scene.resetRightControls();
-            }
-        }
-    }
-
     public SetGridType(gridType: GridType): void {
         this.m_scene?.setGridType(gridType);
     }
@@ -521,6 +521,11 @@ export class GameManager {
         if (this.m_scene?.sc_gridTypeUpdateNeeded) {
             this.onGridTypeChanged.emit(this.m_scene?.getGridType());
             this.m_scene.sc_gridTypeUpdateNeeded = false;
+        }
+
+        if (this.m_scene?.sc_buttonGroupUpdated) {
+            this.onHasButtonsGroupUpdate.emit(true);
+            this.m_scene.sc_buttonGroupUpdated = false;
         }
     }
 
