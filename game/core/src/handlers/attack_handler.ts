@@ -59,6 +59,7 @@ import { processMinerAbility } from "../abilities/miner_ability";
 import { processAggrAbility } from "../abilities/aggr_ability";
 import { processSkewerStrikeAbility } from "../abilities/skewer_strike_ability";
 import { IVisibleDamage } from "../state/visible_state";
+import { processChainLightingAbility } from "../abilities/chain_lighting_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -90,6 +91,7 @@ export class AttackHandler {
         allUnits: Map<string, Unit>,
         cellsToPositions: [XY, XY][],
         attackerUnit: Unit,
+        isThroughShot = false,
     ): IRangeAttackEvaluation {
         const affectedUnitIds: string[] = [];
         const affectedUnits: Array<Unit[]> = [];
@@ -166,6 +168,10 @@ export class AttackHandler {
 
             affectedUnits.push(unitsThisShot);
             rangeAttackDivisors.push(this.getRangeAttackDivisor(attackerUnit, position));
+
+            if (isThroughShot && possibleUnit.hasAbilityActive("Arrows Wingshield Aura")) {
+                break;
+            }
         }
 
         return {
@@ -258,12 +264,13 @@ export class AttackHandler {
         fromUnit: Unit,
         fromPosition: XY,
         toPosition: XY,
+        isThroughShot = false,
     ): IRangeAttackEvaluation {
         const intersectedCellsToPositions = this.getCellsToPositions(
             this.getIntersectedPositions(fromPosition, toPosition),
         );
 
-        return this.getAffectedUnitsAndObstacles(allUnits, intersectedCellsToPositions, fromUnit);
+        return this.getAffectedUnitsAndObstacles(allUnits, intersectedCellsToPositions, fromUnit, isThroughShot);
     }
 
     public canLandRangeAttack(unit: Unit, aggrMatrix?: number[][]): boolean {
@@ -1245,6 +1252,15 @@ export class AttackHandler {
                     processPegasusLightAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                     processParalysisAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                     processBlindnessAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
+                    processChainLightingAbility(
+                        targetUnit,
+                        attackerUnit,
+                        damageFromResponse,
+                        this.grid,
+                        unitsHolder,
+                        sceneStepCount,
+                        this.sceneLog,
+                    );
                 }
                 processOneInTheFieldAbility(targetUnit);
             }
@@ -1275,6 +1291,15 @@ export class AttackHandler {
             processPegasusLightAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processParalysisAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processShatterArmorAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processChainLightingAbility(
+                attackerUnit,
+                targetUnit,
+                damageFromAttack,
+                this.grid,
+                unitsHolder,
+                sceneStepCount,
+                this.sceneLog,
+            );
             const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
             if (pegasusLightEffect) {
                 attackerUnit.increaseMorale(pegasusLightEffect.getPower());

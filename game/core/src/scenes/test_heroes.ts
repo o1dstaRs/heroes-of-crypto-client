@@ -193,21 +193,17 @@ class Sandbox extends GLScene {
 
     public readonly spellBookOverlay: Sprite;
 
-    public readonly spellBookWhiteSprite: Sprite;
+    public readonly spellBookButton: IVisibleButton;
 
-    public readonly spellBookBlackSprite: Sprite;
+    public readonly selectedAttackTypeButton: IVisibleButton;
 
-    public readonly spellBookButtonNew: IVisibleButton;
+    public readonly hourGlassButton: IVisibleButton;
 
-    public readonly selectedAttackTypeButtonNew: IVisibleButton;
+    public readonly shieldButton: IVisibleButton;
 
-    public readonly hourGlassButtonNew: IVisibleButton;
+    public readonly nextButton: IVisibleButton;
 
-    public readonly shieldButtonNew: IVisibleButton;
-
-    public readonly nextButtonNew: IVisibleButton;
-
-    public readonly aiButtonNew: IVisibleButton;
+    public readonly aiButton: IVisibleButton;
 
     public readonly lifeButton: Button;
 
@@ -298,8 +294,6 @@ class Sandbox extends GLScene {
 
         this.background = new Sprite(gl, shader, this.textures.background_dark.texture);
         this.spellBookOverlay = new Sprite(gl, shader, this.textures.book_1024.texture);
-        this.spellBookWhiteSprite = new Sprite(gl, shader, this.textures.spellbook_white_128.texture);
-        this.spellBookBlackSprite = new Sprite(gl, shader, this.textures.spellbook_black_128.texture);
 
         this.lifeButton = new Button(
             this.sc_sceneSettings.getGridSettings(),
@@ -595,7 +589,7 @@ class Sandbox extends GLScene {
             }
         };
 
-        this.hourGlassButtonNew = {
+        this.hourGlassButton = {
             name: "Hourglass",
             text: "Wait",
             state: VisibleButtonState.FIRST,
@@ -604,7 +598,7 @@ class Sandbox extends GLScene {
             numberOfOptions: 1,
             selectedOption: 1,
         };
-        this.shieldButtonNew = {
+        this.shieldButton = {
             name: "LuckShield",
             text: "Cleanup randomized luck and skip turn",
             state: VisibleButtonState.FIRST,
@@ -613,7 +607,7 @@ class Sandbox extends GLScene {
             numberOfOptions: 1,
             selectedOption: 1,
         };
-        this.nextButtonNew = {
+        this.nextButton = {
             name: "Next",
             text: "Skip turn",
             state: VisibleButtonState.FIRST,
@@ -622,7 +616,7 @@ class Sandbox extends GLScene {
             numberOfOptions: 1,
             selectedOption: 1,
         };
-        this.aiButtonNew = {
+        this.aiButton = {
             name: "AI",
             text: "Switch AI state",
             state: this.sc_isAIActive ? VisibleButtonState.SECOND : VisibleButtonState.FIRST,
@@ -631,7 +625,7 @@ class Sandbox extends GLScene {
             numberOfOptions: 1,
             selectedOption: 1,
         };
-        this.selectedAttackTypeButtonNew = {
+        this.selectedAttackTypeButton = {
             name: "AttackType",
             text: "Switch attack type",
             state: VisibleButtonState.FIRST,
@@ -640,7 +634,7 @@ class Sandbox extends GLScene {
             numberOfOptions: 3,
             selectedOption: 1,
         };
-        this.spellBookButtonNew = {
+        this.spellBookButton = {
             name: "Spellbook",
             text: "Select spell",
             state: VisibleButtonState.FIRST,
@@ -651,12 +645,12 @@ class Sandbox extends GLScene {
         };
 
         this.sc_visibleButtonGroup = [
-            this.hourGlassButtonNew,
-            this.shieldButtonNew,
-            this.nextButtonNew,
-            this.aiButtonNew,
-            this.selectedAttackTypeButtonNew,
-            this.spellBookButtonNew,
+            this.hourGlassButton,
+            this.shieldButton,
+            this.nextButton,
+            this.aiButton,
+            this.selectedAttackTypeButton,
+            this.spellBookButton,
         ];
 
         HoCLib.interval(this.visibleStateUpdate, 500);
@@ -702,52 +696,52 @@ class Sandbox extends GLScene {
 
     private refreshButtons(forceUpdate = false): void {
         if (this.sc_visibleState && this.sc_visibleState.hasFinished) {
-            this.hourGlassButtonNew.isDisabled = true;
-            this.shieldButtonNew.isDisabled = true;
-            this.nextButtonNew.isDisabled = true;
-            this.aiButtonNew.isDisabled = true;
-            this.selectedAttackTypeButtonNew.isDisabled = true;
-            this.spellBookButtonNew.isDisabled = true;
+            this.hourGlassButton.isDisabled = true;
+            this.shieldButton.isDisabled = true;
+            this.nextButton.isDisabled = true;
+            this.aiButton.isDisabled = true;
+            this.selectedAttackTypeButton.isDisabled = true;
+            this.spellBookButton.isDisabled = true;
             this.sc_buttonGroupUpdated = true;
             return;
         }
 
-        const previousAIButtonState = this.aiButtonNew.state;
-        const previousHourGlassButtonState = this.hourGlassButtonNew.state;
-        const previousNextButtonState = this.nextButtonNew.state;
-        const previousShieldButtonState = this.shieldButtonNew.state;
-        const previousSpellBookButtonState = this.spellBookButtonNew.state;
-        const previousSelectedAttackTypeButtonNew = this.selectedAttackTypeButtonNew.state;
+        const previousAIButtonState = this.aiButton.state;
+        const previousHourGlassButtonState = this.hourGlassButton.state;
+        const previousNextButtonState = this.nextButton.state;
+        const previousShieldButtonState = this.shieldButton.state;
+        const previousSpellBookButtonState = this.spellBookButton.state;
+        const previousSelectedAttackTypeButtonNew = this.selectedAttackTypeButton.state;
         if (this.sc_isAIActive) {
-            this.aiButtonNew.state = VisibleButtonState.SECOND;
-            this.hourGlassButtonNew.isDisabled = true;
-            this.shieldButtonNew.isDisabled = true;
-            this.nextButtonNew.isDisabled = true;
-            this.selectedAttackTypeButtonNew.isDisabled = true;
-            this.spellBookButtonNew.isDisabled = true;
+            this.aiButton.state = VisibleButtonState.SECOND;
+            this.hourGlassButton.isDisabled = true;
+            this.shieldButton.isDisabled = true;
+            this.nextButton.isDisabled = true;
+            this.selectedAttackTypeButton.isDisabled = true;
+            this.spellBookButton.isDisabled = true;
         } else if (this.sc_renderSpellBookOverlay) {
-            this.hourGlassButtonNew.isDisabled = true;
-            this.shieldButtonNew.isDisabled = true;
-            this.nextButtonNew.isDisabled = true;
-            this.selectedAttackTypeButtonNew.isDisabled = true;
-            this.spellBookButtonNew.isDisabled = false;
+            this.hourGlassButton.isDisabled = true;
+            this.shieldButton.isDisabled = true;
+            this.nextButton.isDisabled = true;
+            this.selectedAttackTypeButton.isDisabled = true;
+            this.spellBookButton.isDisabled = false;
         } else {
-            this.aiButtonNew.state = VisibleButtonState.FIRST;
-            this.shieldButtonNew.isDisabled = false;
-            this.nextButtonNew.isDisabled = false;
-            this.selectedAttackTypeButtonNew.isDisabled = false;
-            this.spellBookButtonNew.isDisabled = false;
+            this.aiButton.state = VisibleButtonState.FIRST;
+            this.shieldButton.isDisabled = false;
+            this.nextButton.isDisabled = false;
+            this.selectedAttackTypeButton.isDisabled = false;
+            this.spellBookButton.isDisabled = false;
 
             if (this.checkHourGlassCondition()) {
-                this.hourGlassButtonNew.isDisabled = false;
+                this.hourGlassButton.isDisabled = false;
             } else {
-                this.hourGlassButtonNew.isDisabled = true;
+                this.hourGlassButton.isDisabled = true;
             }
 
             if (this.checkCastCondition()) {
-                this.spellBookButtonNew.isDisabled = false;
+                this.spellBookButton.isDisabled = false;
             } else {
-                this.spellBookButtonNew.isDisabled = true;
+                this.spellBookButton.isDisabled = true;
             }
         }
 
@@ -756,8 +750,8 @@ class Sandbox extends GLScene {
             const currentIdx = attackTypeSelectionIndex[0] + 1;
             const numberOfOptions = attackTypeSelectionIndex[1];
             if (currentIdx <= 0) {
-                this.selectedAttackTypeButtonNew.numberOfOptions = 1;
-                this.selectedAttackTypeButtonNew.isDisabled = true;
+                this.selectedAttackTypeButton.numberOfOptions = 1;
+                this.selectedAttackTypeButton.isDisabled = true;
             } else {
                 const currentCell = GridMath.getCellForPosition(
                     this.sc_sceneSettings.getGridSettings(),
@@ -766,36 +760,36 @@ class Sandbox extends GLScene {
                 switch (this.currentActiveUnit.getAttackTypeSelection()) {
                     case AttackType.RANGE:
                         this.currentActiveSpell = undefined;
-                        this.spellBookButtonNew.customSpriteName = undefined;
-                        this.selectedAttackTypeButtonNew.state = VisibleButtonState.SECOND;
+                        this.spellBookButton.customSpriteName = undefined;
+                        this.selectedAttackTypeButton.state = VisibleButtonState.SECOND;
                         break;
                     case AttackType.MAGIC:
-                        this.selectedAttackTypeButtonNew.state = VisibleButtonState.THIRD;
+                        this.selectedAttackTypeButton.state = VisibleButtonState.THIRD;
                         break;
                     default:
                         this.currentActiveSpell = undefined;
-                        this.spellBookButtonNew.customSpriteName = undefined;
-                        this.selectedAttackTypeButtonNew.state = VisibleButtonState.FIRST;
+                        this.spellBookButton.customSpriteName = undefined;
+                        this.selectedAttackTypeButton.state = VisibleButtonState.FIRST;
                         if (currentCell) {
                             this.updateCurrentMovePath(currentCell);
                         }
                 }
-                this.selectedAttackTypeButtonNew.numberOfOptions = attackTypeSelectionIndex[1];
-                this.selectedAttackTypeButtonNew.selectedOption = currentIdx;
+                this.selectedAttackTypeButton.numberOfOptions = attackTypeSelectionIndex[1];
+                this.selectedAttackTypeButton.selectedOption = currentIdx;
                 if (numberOfOptions <= 1) {
-                    this.selectedAttackTypeButtonNew.isDisabled = true;
+                    this.selectedAttackTypeButton.isDisabled = true;
                 }
             }
         }
 
         this.sc_buttonGroupUpdated =
             forceUpdate ||
-            previousAIButtonState !== this.aiButtonNew.state ||
-            previousHourGlassButtonState !== this.hourGlassButtonNew.state ||
-            previousSpellBookButtonState !== this.spellBookButtonNew.state ||
-            previousShieldButtonState !== this.shieldButtonNew.state ||
-            previousSelectedAttackTypeButtonNew !== this.selectedAttackTypeButtonNew.state ||
-            previousNextButtonState !== this.nextButtonNew.state;
+            previousAIButtonState !== this.aiButton.state ||
+            previousHourGlassButtonState !== this.hourGlassButton.state ||
+            previousSpellBookButtonState !== this.spellBookButton.state ||
+            previousShieldButtonState !== this.shieldButton.state ||
+            previousSelectedAttackTypeButtonNew !== this.selectedAttackTypeButton.state ||
+            previousNextButtonState !== this.nextButton.state;
     }
 
     public propagateButtonClicked(buttonName: string, buttonState: VisibleButtonState): void {
@@ -1823,6 +1817,7 @@ class Sandbox extends GLScene {
                                 this.currentActiveUnit,
                                 this.currentActiveUnit.getPosition(),
                                 this.hoverRangeAttackPosition,
+                                isThroughShot,
                             );
                             this.hoverRangeAttackDivisors = evaluatedRangeAttack.rangeAttackDivisors;
                             this.hoverAttackUnits = evaluatedRangeAttack.affectedUnits;
@@ -3072,11 +3067,11 @@ class Sandbox extends GLScene {
 
     protected adjustSpellBookSprite(): void {
         if (this.currentActiveSpell) {
-            this.spellBookButtonNew.customSpriteName = SpellHelper.spellToTextureNames(
+            this.spellBookButton.customSpriteName = SpellHelper.spellToTextureNames(
                 this.currentActiveSpell.getName(),
             )[0];
         } else {
-            this.spellBookButtonNew.customSpriteName = undefined;
+            this.spellBookButton.customSpriteName = undefined;
         }
         this.refreshButtons(true);
     }
