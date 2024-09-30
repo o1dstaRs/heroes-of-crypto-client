@@ -516,9 +516,20 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public addAbility(ability: Ability): void {
         this.unitProperties.abilities.push(ability.getName());
-        this.unitProperties.abilities_descriptions.push(
-            ability.getDesc().join("\n").replace(/\{\}/g, ability.getPower().toString()),
-        );
+        if (ability.getName() === "Chain Lightning") {
+            const percentage = Number((this.calculateAbilityMultiplier(ability) * 100).toFixed(2));
+            const description = ability.getDesc().join("\n");
+            const updatedDescription = description
+                .replace("{}", percentage.toFixed())
+                .replace("{}", ((percentage * 7) / 8).toFixed())
+                .replace("{}", ((percentage * 6) / 8).toFixed())
+                .replace("{}", ((percentage * 5) / 8).toFixed());
+            this.unitProperties.abilities_descriptions.push(updatedDescription);
+        } else {
+            this.unitProperties.abilities_descriptions.push(
+                ability.getDesc().join("\n").replace(/\{\}/g, ability.getPower().toString()),
+            );
+        }
         this.unitProperties.abilities_stack_powered.push(ability.isStackPowered());
         this.unitProperties.abilities_auras.push(!!ability.getAuraEffect());
         if (this.parseAbilities()) {
@@ -1589,6 +1600,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         let calculatedCoeff = 1;
         if (
             ability.getPowerType() === AbilityPowerType.TOTAL_DAMAGE_PERCENTAGE ||
+            ability.getPowerType() === AbilityPowerType.MAGIC_DAMAGE ||
             ability.getPowerType() === AbilityPowerType.KILL_RANDOM_AMOUNT ||
             ability.getPowerType() === AbilityPowerType.IGNORE_ARMOR ||
             ability.getPowerType() === AbilityPowerType.MAGIC_RESIST_50 ||
@@ -2773,6 +2785,19 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 minerAbility.getName(),
                 minerAbility.getDesc().join("\n").replace(/\{\}/g, this.calculateAbilityCount(minerAbility).toString()),
             );
+        }
+
+        // Chain Lightning
+        const chainLightningAbility = this.getAbility("Chain Lightning");
+        if (chainLightningAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(chainLightningAbility) * 100).toFixed(2));
+            const description = chainLightningAbility.getDesc().join("\n");
+            const updatedDescription = description
+                .replace("{}", percentage.toFixed())
+                .replace("{}", ((percentage * 7) / 8).toFixed())
+                .replace("{}", ((percentage * 6) / 8).toFixed())
+                .replace("{}", ((percentage * 5) / 8).toFixed());
+            this.refreshAbiltyDescription(chainLightningAbility.getName(), updatedDescription);
         }
     }
 
