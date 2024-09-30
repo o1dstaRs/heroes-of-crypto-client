@@ -21,6 +21,7 @@ import { processPenetratingBiteAbility } from "./penetrating_bite_ability";
 
 export interface IDoublePunchResult {
     applied: boolean;
+    missed: boolean;
     damage: number;
 }
 
@@ -38,13 +39,16 @@ export function processDoublePunchAbility(
     if (
         doublePunchAbility &&
         !fromUnit.isDead() &&
+        !fromUnit.hasAbilityActive("No Melee") &&
+        !fromUnit.isSkippingThisTurn() &&
         !toUnit.isDead() &&
         (!fromUnit.getTarget() || fromUnit.getTarget() === toUnit.getId())
     ) {
         if (HoCLib.getRandomInt(0, 100) < fromUnit.calculateMissChance(toUnit)) {
             sceneLog.updateLog(`${fromUnit.getName()} misses attk ${toUnit.getName()}`);
             return {
-                applied: secondPunchLanded,
+                applied: true,
+                missed: true,
                 damage: damageFromAttack,
             };
         }
@@ -72,7 +76,9 @@ export function processDoublePunchAbility(
                 fromUnit.calculateAttackDamage(toUnit, AttackType.MELEE, 1, abilityMultiplier),
                 sceneLog,
             ) + processPenetratingBiteAbility(fromUnit, toUnit);
-        toUnit.applyDamage(damageFromAttack, sceneStepCount);
+        // do not actually apply the damage, just calculate it
+        // it will be applied outside on a client side
+        // to make sure that possible response is also captured
         DamageStatisticHolder.getInstance().add({
             unitName: fromUnit.getName(),
             damage: damageFromAttack,
@@ -90,6 +96,7 @@ export function processDoublePunchAbility(
 
     return {
         applied: secondPunchLanded,
+        missed: false,
         damage: damageFromAttack,
     };
 }
