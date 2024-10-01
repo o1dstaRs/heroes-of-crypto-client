@@ -91,7 +91,7 @@ class Sandbox extends GLScene {
 
     private currentActiveUnit?: Unit;
 
-    private currentActiveUnitSwitchedAttackAuto = false;
+    // private currentActiveUnitSwitchedAttackAuto = false;
 
     private currentActivePath?: XY[];
 
@@ -840,7 +840,7 @@ class Sandbox extends GLScene {
             } else if (buttonName === "AttackType" && this.currentActiveUnit) {
                 if (this.currentActiveUnit.selectNextAttackType()) {
                     this.currentEnemiesCellsWithinMovementRange = undefined;
-                    this.currentActiveUnitSwitchedAttackAuto = true;
+                    // this.currentActiveUnitSwitchedAttackAuto = true;
                     this.sc_unitPropertiesUpdateNeeded = true;
                     this.refreshButtons(true);
                 }
@@ -1457,10 +1457,10 @@ class Sandbox extends GLScene {
                     }
                 }
 
-                const currentUnitCell = GridMath.getCellForPosition(
-                    this.sc_sceneSettings.getGridSettings(),
-                    this.currentActiveUnit.getPosition(),
-                );
+                // const currentUnitCell = GridMath.getCellForPosition(
+                //     this.sc_sceneSettings.getGridSettings(),
+                //     this.currentActiveUnit.getPosition(),
+                // );
 
                 if (
                     this.currentActiveUnit &&
@@ -1515,27 +1515,27 @@ class Sandbox extends GLScene {
 
                 this.hoverSelectedCells = undefined;
 
-                if (
-                    !this.currentActiveSpell &&
-                    !this.currentActiveUnitSwitchedAttackAuto &&
-                    currentUnitCell &&
-                    this.currentActiveUnit.getAttackType() === AttackType.RANGE &&
-                    this.currentActiveUnit.getAttackTypeSelection() !== AttackType.RANGE &&
-                    !this.attackHandler.canBeAttackedByMelee(
-                        this.currentActiveUnit.getPosition(),
-                        this.currentActiveUnit.isSmallSize(),
-                        this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
-                    ) &&
-                    this.currentActiveUnit.getRangeShots() > 0 &&
-                    !this.currentActiveUnit.hasDebuffActive("Range Null Field Aura") &&
-                    !this.currentActiveUnit.hasDebuffActive("Rangebane")
-                ) {
-                    this.selectAttack(AttackType.RANGE, true);
-                    this.currentActiveUnitSwitchedAttackAuto = true;
-                    this.switchToSelectedAttackType = undefined;
+                // if (
+                //     !this.currentActiveSpell &&
+                //     !this.currentActiveUnitSwitchedAttackAuto &&
+                //     currentUnitCell &&
+                //     this.currentActiveUnit.getAttackType() === AttackType.RANGE &&
+                //     this.currentActiveUnit.getAttackTypeSelection() !== AttackType.RANGE &&
+                //     !this.attackHandler.canBeAttackedByMelee(
+                //         this.currentActiveUnit.getPosition(),
+                //         this.currentActiveUnit.isSmallSize(),
+                //         this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
+                //     ) &&
+                //     this.currentActiveUnit.getRangeShots() > 0 &&
+                //     !this.currentActiveUnit.hasDebuffActive("Range Null Field Aura") &&
+                //     !this.currentActiveUnit.hasDebuffActive("Rangebane")
+                // ) {
+                //     this.selectAttack(AttackType.RANGE, true);
+                //     this.currentActiveUnitSwitchedAttackAuto = true;
+                //     this.switchToSelectedAttackType = undefined;
 
-                    console.log("Switch to RANGE");
-                }
+                //     console.log("Switch to RANGE");
+                // }
 
                 if (
                     (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE ||
@@ -3021,7 +3021,7 @@ class Sandbox extends GLScene {
                         this.currentActiveSpell
                     ) {
                         this.selectAttack(AttackType.MAGIC, true);
-                        this.currentActiveUnitSwitchedAttackAuto = true;
+                        // this.currentActiveUnitSwitchedAttackAuto = true;
                         this.switchToSelectedAttackType = undefined;
                         console.log("Switch to MAGIC");
                     }
@@ -4145,13 +4145,6 @@ class Sandbox extends GLScene {
                                 });
                             }
 
-                            nextUnit.refreshPossibleAttackTypes(
-                                this.attackHandler.canLandRangeAttack(
-                                    nextUnit,
-                                    this.grid.getEnemyAggrMatrixByUnitId(nextUnit.getId()),
-                                ),
-                            );
-
                             if (this.sc_visibleState) {
                                 this.sc_visibleState.upNext = unitsNext;
                             }
@@ -4195,10 +4188,16 @@ class Sandbox extends GLScene {
                                     this.sc_selectedBody = unitBody;
                                     this.currentActiveUnit = nextUnit;
                                     this.refreshButtons(true);
+                                    nextUnit.refreshPossibleAttackTypes(
+                                        this.attackHandler.canLandRangeAttack(
+                                            nextUnit,
+                                            this.grid.getEnemyAggrMatrixByUnitId(nextUnit.getId()),
+                                        ),
+                                    );
                                     this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                                     this.currentActiveSpell = undefined;
                                     this.adjustSpellBookSprite();
-                                    this.currentActiveUnitSwitchedAttackAuto = false;
+                                    // this.currentActiveUnitSwitchedAttackAuto = false;
                                     // this.grid.print(nextUnit.getId());
                                     const currentCell = GridMath.getCellForPosition(
                                         this.sc_sceneSettings.getGridSettings(),

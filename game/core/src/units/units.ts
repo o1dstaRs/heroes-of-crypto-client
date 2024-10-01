@@ -2474,11 +2474,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         // Sharpened Weapons Aura
         const sharpenedWeaponsAuraAbility = this.getAbility("Sharpened Weapons Aura");
         if (sharpenedWeaponsAuraAbility) {
-            const percentage =
-                Number((this.calculateAbilityMultiplier(sharpenedWeaponsAuraAbility) * 100).toFixed(2)) - 100;
+            const percentage = (this.calculateAbilityMultiplier(sharpenedWeaponsAuraAbility) * 100 - 100).toFixed(2);
             this.refreshAbiltyDescription(
                 sharpenedWeaponsAuraAbility.getName(),
-                sharpenedWeaponsAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+                sharpenedWeaponsAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage),
             );
         }
 

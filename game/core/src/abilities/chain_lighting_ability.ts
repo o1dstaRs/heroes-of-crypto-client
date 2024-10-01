@@ -70,9 +70,25 @@ function attackEnemiesAndGetLayerImpact(
             continue;
         }
 
+        const heavyArmorAbilityEnemy = e1.getAbility("Heavy Armor");
+        let heavyArmorMultiplierEnemy = 1;
+        if (heavyArmorAbilityEnemy) {
+            heavyArmorMultiplierEnemy = Number(
+                (
+                    ((heavyArmorAbilityEnemy.getPower() + e1.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
+                        e1.getStackPower() +
+                    1
+                ).toFixed(2),
+            );
+        }
+
         const targetEnemyLightningDamage = Math.floor(
-            ((abilityMultiplier * multiplier) / 8) * attackDamage * (1 - enemyMagicResist / 100),
+            ((abilityMultiplier * multiplier) / 8) *
+                attackDamage *
+                (1 - enemyMagicResist / 100) *
+                heavyArmorMultiplierEnemy,
         );
+
         fullLayerImpact.push({
             cells: e1.getCells(),
             damage: targetEnemyLightningDamage,
@@ -122,8 +138,23 @@ export function processChainLightingAbility(
         return;
     }
 
+    const heavyArmorAbilityTarget = targetUnit.getAbility("Heavy Armor");
+    let heavyArmorMultiplierTarget = 1;
+    if (heavyArmorAbilityTarget) {
+        heavyArmorMultiplierTarget = Number(
+            (
+                ((heavyArmorAbilityTarget.getPower() + targetUnit.getLuck()) /
+                    100 /
+                    HoCConstants.MAX_UNIT_STACK_POWER) *
+                    targetUnit.getStackPower() +
+                1
+            ).toFixed(2),
+        );
+    }
+
     const abilityMultiplier = fromUnit.calculateAbilityMultiplier(chainLightingAbility);
-    const targetEnemyLightningDamage = Math.floor(abilityMultiplier * attackDamage * (1 - targetMagicResist / 100));
+    const targetEnemyLightningDamage =
+        Math.floor(abilityMultiplier * attackDamage * (1 - targetMagicResist / 100)) * heavyArmorMultiplierTarget;
     if (targetEnemyLightningDamage && !targetUnit.isDead()) {
         targetUnit.applyDamage(targetEnemyLightningDamage, sceneStepCount);
         DamageStatisticHolder.getInstance().add({
