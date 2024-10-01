@@ -200,6 +200,7 @@ function Heroes() {
         const connection2 = manager.onHasStarted.connect((hasStarted) => {
             setStarted(hasStarted);
             if (hasStarted) {
+                console.log("zzzz");
                 manager.HomeCamera();
             }
         });

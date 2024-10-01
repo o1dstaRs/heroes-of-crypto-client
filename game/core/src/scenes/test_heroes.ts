@@ -1085,6 +1085,12 @@ class Sandbox extends GLScene {
             this.initializePlacements();
             this.destroyNonPlacedUnits(false);
         }
+        if (augmented) {
+            if (this.sc_selectedBody) {
+                this.setSelectedUnitProperties(this.sc_selectedBody.GetUserData());
+            }
+            this.sc_unitPropertiesUpdateNeeded = true;
+        }
 
         return augmented;
     }
@@ -3176,6 +3182,8 @@ class Sandbox extends GLScene {
                         );
 
                         unit.setPosition(positionToDropTo.x, positionToDropTo.y);
+                        this.applyAugments(unit, false, true);
+                        this.refreshUnits();
                     }
                 }
             } else {
@@ -3202,6 +3210,8 @@ class Sandbox extends GLScene {
                         const unit = this.unitsHolder.getAllUnits().get(unitStats.id);
                         if (unit) {
                             unit.setPosition(positionToDropTo.x, positionToDropTo.y);
+                            this.applyAugments(unit, false, true);
+                            this.refreshUnits();
                         }
                     }
                 }
@@ -3442,12 +3452,15 @@ class Sandbox extends GLScene {
         }
     }
 
-    protected applyAugments(unit: Unit, skipSelection = false): void {
+    protected applyAugments(unit: Unit, skipSelection = false, force = false): void {
         const augmentArmor = FightStateManager.getInstance().getFightProperties().getAugmentArmor(unit.getTeam());
         const augmentArmorPower = Augment.getArmorPower(augmentArmor);
         unit.deleteBuff("Armor Augment");
         let anyAugmentApplied = false;
-        if (augmentArmor) {
+        if (
+            augmentArmor &&
+            GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), unit.getPosition())
+        ) {
             const augmentArmorBuff = new Spell({
                 spellProperties: HoCConfig.getSpellConfig(
                     FactionType.NO_TYPE,
@@ -3471,7 +3484,11 @@ class Sandbox extends GLScene {
         const augmentMight = FightStateManager.getInstance().getFightProperties().getAugmentMight(unit.getTeam());
         const augmentMightPower = Augment.getMightPower(augmentMight);
         unit.deleteBuff("Might Augment");
-        if (augmentMight && unit.getAttackType() !== AttackType.RANGE) {
+        if (
+            augmentMight &&
+            unit.getAttackType() !== AttackType.RANGE &&
+            GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), unit.getPosition())
+        ) {
             const augmentMightBuff = new Spell({
                 spellProperties: HoCConfig.getSpellConfig(
                     FactionType.NO_TYPE,
@@ -3495,7 +3512,11 @@ class Sandbox extends GLScene {
         const augmentSniper = FightStateManager.getInstance().getFightProperties().getAugmentSniper(unit.getTeam());
         const augmentSniperPower = Augment.getSniperPower(augmentSniper);
         unit.deleteBuff("Sniper Augment");
-        if (augmentSniper && unit.getAttackType() === AttackType.RANGE) {
+        if (
+            augmentSniper &&
+            unit.getAttackType() === AttackType.RANGE &&
+            GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), unit.getPosition())
+        ) {
             const augmentSniperBuff = new Spell({
                 spellProperties: HoCConfig.getSpellConfig(
                     FactionType.NO_TYPE,
@@ -3522,7 +3543,10 @@ class Sandbox extends GLScene {
         const augmentMovement = FightStateManager.getInstance().getFightProperties().getAugmentMovement(unit.getTeam());
         const augmentMovementPower = Augment.getMovementPower(augmentMovement);
         unit.deleteBuff("Movement Augment");
-        if (augmentMovement) {
+        if (
+            augmentMovement &&
+            GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), unit.getPosition())
+        ) {
             const augmentMovementBuff = new Spell({
                 spellProperties: HoCConfig.getSpellConfig(
                     FactionType.NO_TYPE,
@@ -3546,13 +3570,28 @@ class Sandbox extends GLScene {
         }
 
         if (
-            anyAugmentApplied &&
-            !skipSelection &&
+            (force || (anyAugmentApplied && !skipSelection)) &&
             this.sc_selectedBody &&
             this.sc_selectedBody.GetUserData().id === unit.getId()
         ) {
+            this.refreshUnits();
             this.setSelectedUnitProperties(unit.getAllProperties());
+            this.sc_unitPropertiesUpdateNeeded = true;
+            if (unit.getRangeShotDistance()) {
+                this.sc_currentActiveShotRange = {
+                    xy: unit.getPosition(),
+                    distance: unit.getRangeShotDistance() * STEP,
+                };
+            }
         }
+    }
+
+    public refreshUnits(): void {
+        this.unitsHolder.refreshAuraEffectsForAllUnits();
+        this.unitsHolder.refreshStackPowerForAllUnits();
+        // need to call it twice to make sure aura effects are applied
+        this.unitsHolder.refreshAuraEffectsForAllUnits();
+        this.unitsHolder.refreshStackPowerForAllUnits();
     }
 
     public Step(settings: Settings, timeStep: number): number {
@@ -3669,7 +3708,7 @@ class Sandbox extends GLScene {
                         continue;
                     }
                     if (this.sc_augmentChanged) {
-                        this.applyAugments(unit);
+                        this.applyAugments(unit, false, true);
                     }
 
                     this.moveHandler.updateLargeUnitsCache(bodyPosition);
@@ -4129,11 +4168,7 @@ class Sandbox extends GLScene {
                                 this.finishTurn();
                             } else {
                                 this.sc_moveBlocked = false;
-                                this.unitsHolder.refreshAuraEffectsForAllUnits();
-                                this.unitsHolder.refreshStackPowerForAllUnits();
-                                // need to call it twice to make sure aura effects are applied
-                                this.unitsHolder.refreshAuraEffectsForAllUnits();
-                                this.unitsHolder.refreshStackPowerForAllUnits();
+                                this.refreshUnits();
 
                                 this.gridMatrix = this.grid.getMatrix();
                                 this.refreshVisibleStateIfNeeded();

@@ -19,7 +19,7 @@ import "./scenes";
 import { getScenesGrouped, Scene, SceneConstructor, SceneEntry } from "./scenes/scene";
 import { Settings } from "./settings";
 import { IVisibleButton, IVisibleOverallImpact, IVisibleState, VisibleButtonState } from "./state/visible_state";
-import { MAX_FPS } from "./statics";
+import { EDGES_SIZE, MAX_FPS } from "./statics";
 import { DamageStatisticHolder, IDamageStatistic, IHoverInfo } from "./stats/damage_stats";
 import type { SceneControlGroup } from "./ui";
 import { g_camera } from "./utils/camera";
@@ -185,7 +185,7 @@ export class GameManager {
     }
 
     public HomeCamera(): void {
-        let edgesSize = 256;
+        let edgesSize = EDGES_SIZE;
         if (this.started) {
             edgesSize = 0;
         }
