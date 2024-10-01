@@ -285,7 +285,7 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
 
                     <Divider />
 
-                    <UnitStatsListItem />
+                    <UnitStatsListItem barSize={barSize} />
 
                     <Box sx={{ flexGrow: 1 }} />
 
