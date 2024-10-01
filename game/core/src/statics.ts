@@ -41,4 +41,4 @@ export const MAX_HOLE_LAYERS = 5;
 
 // ui
 export const FRAME_MAX_ELEMENTS_COUNT = 9;
-export const BAR_SIZE_PIXELS_STR = "280px";
+export const EDGES_SIZE = 256;

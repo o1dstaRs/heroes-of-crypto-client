@@ -74,11 +74,10 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
                     sx={{
                         position: "absolute",
                         bottom: `${isAura ? 90 : 0}%`,
-                        right: isAura ? "40%" : 0, // Center the stack horizontally
-                        width: isAura ? "20px" : "100%", // Width of each rectangle
-                        // height: "12px", // Height of each rectangle
+                        left: isAura ? "30%" : 0, // Move the stack to the left side
+                        width: isAura ? "30px" : "100%", // Enlarge width of each rectangle for aura
                         height: isAura
-                            ? `${index * (index / 3) + 15}px`
+                            ? `${index * (index / 3) + 20}px` // Enlarge height of each rectangle for aura
                             : `${((index + 1) / HoCConstants.MAX_UNIT_STACK_POWER) * 100}%`,
                         transform: isAura
                             ? `rotate(${index * 41}deg) translateX(-20%) translateY(200%)` // Rotate each rectangle to form a half-circle
@@ -105,7 +104,7 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
             {[
                 ...Array(Math.ceil(abilities.filter((ability) => ability.laps > 0).length / ABILITIES_FIT_IN_ONE_ROW)),
             ].map((_, rowIndex) => (
-                <Stack key={`row_${rowIndex}`} direction="row" spacing={2}>
+                <Stack key={`row_${rowIndex}`} direction="row" spacing={2} sx={{ width: "100%" }}>
                     {abilities
                         .filter((ability) => ability.laps > 0)
                         .slice(rowIndex * ABILITIES_FIT_IN_ONE_ROW, (rowIndex + 1) * ABILITIES_FIT_IN_ONE_ROW)
@@ -114,8 +113,8 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
                                 title={
                                     <>
                                         {ability.name}:&nbsp;
-                                        {ability.description.split("\n").map((line, index) => (
-                                            <React.Fragment key={index}>
+                                        {ability.description.split("\n").map((line, idx) => (
+                                            <React.Fragment key={idx}>
                                                 {line}
                                                 <br />
                                             </React.Fragment>
@@ -128,8 +127,8 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
                                 <Box
                                     sx={{
                                         position: "relative",
-                                        width: "28%",
-                                        paddingBottom: "28%",
+                                        width: "30%", // Force each ability to take 1/3 of row width
+                                        paddingBottom: "30%", // Forces a square aspect ratio
                                         overflow: "hidden",
                                         borderRadius: ability.isAura ? "50%" : "15%", // Circle if aura, rounded corners otherwise
                                         "&::before": {
@@ -191,7 +190,7 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
 
 const EffectColumn: React.FC<{ effects: IVisibleImpact[]; title: string }> = ({ effects, title }) => {
     return (
-        <Box sx={{ width: "30px", height: "100%", display: "flex", flexDirection: "column" }}>
+        <Box sx={{ display: "flex", flexDirection: "column", width: "100%" }}>
             <Typography level="body-sm" sx={{ textAlign: "center", fontSize: 9 }}>
                 {title}
             </Typography>
@@ -205,9 +204,7 @@ const EffectColumn: React.FC<{ effects: IVisibleImpact[]; title: string }> = ({ 
                     "&::-webkit-scrollbar-thumb:hover": { background: "#555" },
                 }}
             >
-                <Box sx={{ height: "120px" }}>
-                    {" "}
-                    {/* Container to limit visible height */}
+                <Box sx={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
                     {effects.map((effect, index) => (
                         <Tooltip
                             key={index}
@@ -224,8 +221,10 @@ const EffectColumn: React.FC<{ effects: IVisibleImpact[]; title: string }> = ({ 
                                 // @ts-ignore: src params
                                 src={images[effect.smallTextureName]}
                                 sx={{
-                                    width: "100%",
-                                    height: "30px",
+                                    width: "auto",
+                                    maxWidth: "100%",
+                                    height: "auto",
+                                    aspectRatio: "1", // Maintain width=height ratio
                                     objectFit: "contain",
                                     transform: "rotateX(-180deg)",
                                     zIndex: "modal",
@@ -239,7 +238,7 @@ const EffectColumn: React.FC<{ effects: IVisibleImpact[]; title: string }> = ({ 
     );
 };
 
-export const UnitStatsListItem: React.FC = () => {
+export const UnitStatsListItem: React.FC<{ barSize: number }> = ({ barSize }) => {
     const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
     const [overallImpact, setVisibleOverallImpact] = useState({} as IVisibleOverallImpact);
     const [, setAugmentChanged] = useState(false);
@@ -686,7 +685,9 @@ export const UnitStatsListItem: React.FC = () => {
                             </List>
                         </Box>
                         {hasBuffsOrDebuffs && (
-                            <Box sx={{ width: "15%", display: "flex", flexDirection: "column" }}>
+                            <Box
+                                sx={{ width: barSize > 256 ? "20%" : "15%", display: "flex", flexDirection: "column" }}
+                            >
                                 <EffectColumn effects={buffs} title="Buffs" />
                                 <EffectColumn effects={debuffs} title="Debuffs" />
                             </Box>

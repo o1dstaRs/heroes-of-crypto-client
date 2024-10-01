@@ -60,7 +60,7 @@ import {
     IVisibleState,
     VisibleButtonState,
 } from "../state/visible_state";
-import { MAX_FPS, MAX_X } from "../statics";
+import { EDGES_SIZE, MAX_FPS, MAX_X } from "../statics";
 import type { SceneControlGroup } from "../ui";
 import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
@@ -867,7 +867,7 @@ export abstract class Scene extends b2ContactListener {
         }
     }
 
-    public GetDefaultViewZoom(edgesSize = 256) {
+    public GetDefaultViewZoom(edgesSize = EDGES_SIZE) {
         const widthRatio = window.innerWidth / (2048 + edgesSize);
         const heightRatio = window.innerHeight / (2048 + edgesSize);
         return Math.min(widthRatio, heightRatio);
