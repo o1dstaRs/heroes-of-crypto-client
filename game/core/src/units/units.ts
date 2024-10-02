@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { b2BodyDef, b2BodyType, b2ChainShape, b2Color, b2FixtureDef, b2PolygonShape, b2Vec2, XY } from "@box2d/core";
+import { b2BodyDef, b2BodyType, b2ChainShape, b2Color, b2FixtureDef, b2PolygonShape, b2Vec2 } from "@box2d/core";
 import { removeFromArray } from "@box2d/lights/dist/utils/arrayUtils";
 import {
     AppliedSpell,
@@ -48,9 +48,9 @@ import { PreloadedTextures } from "../utils/gl/preload";
 
 export interface IAttackTargets {
     unitIds: Set<string>;
-    attackCells: XY[];
+    attackCells: HoCMath.XY[];
     attackCellHashes: Set<number>;
-    attackCellHashesToLargeCells: Map<number, XY[]>;
+    attackCellHashesToLargeCells: Map<number, HoCMath.XY[]>;
 }
 
 export interface IUnitDistance {
@@ -134,8 +134,8 @@ export interface IUnitAIRepr {
     getSize(): number;
     canFly(): boolean;
     isSmallSize(): boolean;
-    getBaseCell(): XY | undefined;
-    getCells(): XY[];
+    getBaseCell(): HoCMath.XY | undefined;
+    getCells(): HoCMath.XY[];
     getAttackType(): AttackType;
 }
 
@@ -378,7 +378,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.parseAuraEffects();
     }
 
-    protected getDistanceToFurthestCorner(position: XY): number {
+    protected getDistanceToFurthestCorner(position: HoCMath.XY): number {
         return Math.max(
             b2Vec2.Distance(position, { x: this.gridSettings.getMinX(), y: this.gridSettings.getMinY() }),
             b2Vec2.Distance(position, { x: this.gridSettings.getMinX(), y: this.gridSettings.getMaxY() }),
@@ -1149,11 +1149,11 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.renderPosition;
     }
 
-    public getBaseCell(): XY {
+    public getBaseCell(): HoCMath.XY {
         return GridMath.getCellForPosition(this.gridSettings, this.getPosition());
     }
 
-    public getCells(): XY[] {
+    public getCells(): HoCMath.XY[] {
         if (this.isSmallSize()) {
             const bodyCellPos = GridMath.getCellForPosition(this.gridSettings, this.getPosition());
             if (!bodyCellPos) {
@@ -1331,7 +1331,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
     }
 
-    public getHoveredSpell(mousePosition: XY): RenderableSpell | undefined {
+    public getHoveredSpell(mousePosition: HoCMath.XY): RenderableSpell | undefined {
         for (const s of this.spells) {
             if (s.isHover(mousePosition)) {
                 return s;
@@ -3007,7 +3007,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     protected renderAmountSprites(
         digitTextures: Map<number, WebGLTexture>,
         amountToRender: number,
-        position: XY,
+        position: HoCMath.XY,
         halfUnitStep: number,
         fifthStep: number,
         sixthStep: number,
