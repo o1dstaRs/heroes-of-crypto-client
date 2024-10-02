@@ -1,28 +1,259 @@
-import React, { useState, useEffect } from "react";
-import { Sheet, IconButton, Box, Divider } from "@mui/joy";
+import React, { useState, useEffect, useCallback } from "react";
+import { Sheet, Box, Divider, Tooltip } from "@mui/joy";
 import { useTheme } from "@mui/joy/styles";
+import { styled } from "@mui/system";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import RotateRightIcon from "@mui/icons-material/RotateRight";
-import { styled, keyframes } from "@mui/system";
 
+import { images } from "../../generated/image_imports";
 import spellbookIconImage from "../../../images/icon_spellbook_black.webp";
 import hourglassIconImage from "../../../images/icon_hourglass_black.webp";
 import swordIconImage from "../../../images/icon_sword_black.webp";
+import bowIconImage from "../../../images/icon_bow_black.webp";
+import scepterIconImage from "../../../images/icon_scepter_black.webp";
 import aiIconImage from "../../../images/icon_ai_black.webp";
+import aiOnIconImage from "../../../images/icon_ai_on_black.webp";
 import skipIconImage from "../../../images/icon_skip_black.webp";
 import luckShieldIconImage from "../../../images/icon_luck_shield_black.webp";
+import activeOptionIconImage from "../../../images/icon_active_option.webp";
+import inactiveOptionIconImage from "../../../images/icon_inactive_option.webp";
 import blackImage from "../../../images/overlay_black.webp";
 import lightImage from "../../../images/overlay_light.webp";
+import { useManager } from "../../manager";
+import { IVisibleButton, VisibleButtonState } from "../../state/visible_state";
 
-const INITIAL_POSITION_Y = 6;
+const INITIAL_POSITION_Y = 0;
 const INITIAL_POSITION_X = window.innerWidth / 2 - 278;
 
-const DraggableToolbar = () => {
-    const [position, setPosition] = useState({ x: INITIAL_POSITION_X, y: INITIAL_POSITION_Y });
-    const [isDragging, setIsDragging] = useState(false);
-    const [dragOffset, setDragOffset] = useState({ x: INITIAL_POSITION_X, y: INITIAL_POSITION_Y });
-    const [isVertical, setIsVertical] = useState(false);
+const BUTTON_NAME_TO_ICON_IMAGE: Record<string, string> = {
+    [`Spellbook${VisibleButtonState.FIRST}`]: spellbookIconImage,
+    [`Hourglass${VisibleButtonState.FIRST}`]: hourglassIconImage,
+    [`AttackType${VisibleButtonState.FIRST}`]: swordIconImage,
+    [`AttackType${VisibleButtonState.SECOND}`]: bowIconImage,
+    [`AttackType${VisibleButtonState.THIRD}`]: scepterIconImage,
+    [`AI${VisibleButtonState.FIRST}`]: aiIconImage,
+    [`AI${VisibleButtonState.SECOND}`]: aiOnIconImage,
+    [`Next${VisibleButtonState.FIRST}`]: skipIconImage,
+    [`LuckShield${VisibleButtonState.FIRST}`]: luckShieldIconImage,
+};
+
+const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
+    [spellbookIconImage]: false,
+    [hourglassIconImage]: true,
+    [swordIconImage]: false,
+    [scepterIconImage]: false,
+    [aiIconImage]: false,
+    [aiOnIconImage]: false,
+    [skipIconImage]: false,
+    [luckShieldIconImage]: false,
+};
+
+const StyledSheet = styled(Sheet)(({ theme }) => ({
+    backgroundImage: `url(${theme.palette.mode === "dark" ? blackImage : lightImage})`,
+    backgroundSize: "cover",
+    border: "1px solid",
+    borderColor: theme.palette.mode === "dark" ? "black" : "black",
+    borderRadius: "10px",
+    padding: "1rem",
+    boxShadow: "0 0 10px rgba(0,0,0,0.5)",
+}));
+
+const StyledIconButton = styled("button", {
+    shouldForwardProp: (prop) =>
+        typeof prop === "string" && !["rotationDegrees", "isDark", "clickEffectNeeded"].includes(prop),
+})<{ rotationDegrees: number; isDark: boolean; clickEffectNeeded?: boolean }>(
+    ({ rotationDegrees, isDark, clickEffectNeeded }) => ({
+        width: 64,
+        height: 64,
+        padding: 0,
+        border: "none",
+        borderRadius: "50%",
+        backgroundSize: "contain",
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+        transition: "all 0.3s ease",
+        position: "relative",
+        cursor: "pointer",
+        transform: `rotate(${rotationDegrees}deg)`,
+        backgroundColor: "transparent",
+        "&:hover:not(:disabled)": {
+            transform: `scale(1.05) rotate(${rotationDegrees}deg)`,
+            ...(isDark
+                ? {
+                      boxShadow: "0 0 10px rgba(255, 255, 255, 0.5)",
+                      filter: "brightness(1.1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.5))",
+                      backgroundColor: "rgba(255, 255, 255, 0.2)",
+                  }
+                : {
+                      boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)",
+                      filter: "brightness(1.1) drop-shadow(0 0 5px rgba(255, 0, 0, 0.5))",
+                      backgroundColor: "rgba(255, 0, 0, 0.2)",
+                  }),
+        },
+        "&:disabled": {
+            opacity: 0.5,
+            cursor: "not-allowed",
+        },
+        "&:active:not(:disabled)": {
+            ...(clickEffectNeeded
+                ? {
+                      transform: `scale(0.95) rotate(${rotationDegrees}deg)`,
+                      boxShadow: "0 0 15px rgba(0, 0, 0, 0.2)",
+                  }
+                : {}),
+        },
+    }),
+);
+
+interface ButtonComponentProps {
+    iconImage: string;
+    text: string;
+    isVisible: boolean;
+    isDisabled: boolean;
+    isDark: boolean;
+    onClick?: () => void;
+    isHourglass?: boolean;
+    customSpriteName?: string;
+    numberOfOptions?: number;
+    selectedOption?: number;
+}
+
+const ButtonComponent: React.FC<ButtonComponentProps> = ({
+    iconImage,
+    text,
+    isVisible,
+    isDisabled,
+    isDark,
+    onClick,
+    isHourglass = false,
+    customSpriteName,
+    numberOfOptions = 1,
+    selectedOption = 1,
+}) => {
+    const [rotationDegrees, setRotationDegrees] = useState(0);
+    const [transfusionEffect, setTransfusionEffect] = useState(false);
+
+    const handleClick = useCallback(() => {
+        if (isHourglass) {
+            setRotationDegrees((prev) => prev + 180);
+        } else if (customSpriteName) {
+            setRotationDegrees(180);
+        } else {
+            setRotationDegrees(0);
+        }
+        if (onClick) {
+            onClick();
+        }
+    }, [isHourglass, customSpriteName, onClick]);
+
+    useEffect(() => {
+        if (iconImage === spellbookIconImage && !isDisabled && !customSpriteName) {
+            const interval = setInterval(() => {
+                setTransfusionEffect(true);
+                setTimeout(() => setTransfusionEffect(false), 1500);
+            }, 4000);
+            return () => clearInterval(interval);
+        }
+        return undefined;
+    }, [iconImage, isDisabled, customSpriteName]);
+
+    if (!isVisible) {
+        return null;
+    }
+
+    const needRotate = ICON_IMAGE_NEED_ROTATE[iconImage] || !!customSpriteName;
+    const initialRotation = needRotate ? 180 : 0;
+
+    return (
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <Box sx={{ display: "flex", alignItems: "center", height: 64 }}>
+                <Tooltip title={text} placement="top">
+                    <StyledIconButton
+                        onClick={handleClick}
+                        disabled={isDisabled}
+                        rotationDegrees={isHourglass ? rotationDegrees : initialRotation}
+                        isDark={isDark}
+                        style={{
+                            backgroundImage: `url(${iconImage})`,
+                            width: 64,
+                            height: 64,
+                            filter: transfusionEffect ? "brightness(1.2)" : "none",
+                            animation: transfusionEffect ? "transfusion 1.5s linear" : "none",
+                            boxShadow: transfusionEffect ? "0 0 20px rgba(255, 255, 255, 0.7)" : "none",
+                        }}
+                        data-clickeffectneeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
+                    />
+                </Tooltip>
+            </Box>
+            {numberOfOptions > 1 && (
+                <Box
+                    sx={{
+                        display: "flex",
+                        justifyContent: "center",
+                        marginTop: "0.5rem",
+                        position: "relative",
+                        width: 64,
+                        height: 13,
+                    }}
+                >
+                    {Array.from({ length: numberOfOptions }, (_, index) => {
+                        const angle = (index / (numberOfOptions - 1)) * Math.PI;
+                        const x = 18 + 18 * Math.cos(angle) - 6.5; // 6.5 is half the width of the icon (13/2)
+                        const y = 8 * Math.sin(angle) - 6.5; // 6.5 is half the height of the icon (13/2)
+                        return (
+                            <img
+                                key={index}
+                                src={
+                                    numberOfOptions - index - 1 === selectedOption - 1
+                                        ? activeOptionIconImage
+                                        : inactiveOptionIconImage
+                                }
+                                alt={`Option ${index + 1}`}
+                                style={{
+                                    width: 13,
+                                    height: 13,
+                                    position: "absolute",
+                                    left: `${x + 13}px`,
+                                    top: `${y}px`,
+                                }}
+                            />
+                        );
+                    })}
+                </Box>
+            )}
+        </Box>
+    );
+};
+
+const DraggableToolbar: React.FC = () => {
+    const [position, setPosition] = useState<{ x: number; y: number }>({
+        x: INITIAL_POSITION_X,
+        y: INITIAL_POSITION_Y,
+    });
+    const [isDragging, setIsDragging] = useState<boolean>(false);
+    const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+    const [isVertical, setIsVertical] = useState<boolean>(false);
+    const [buttonGroupChanged, setButtonGroupChanged] = useState<boolean>(false);
+    const [buttonGroup, setButtonGroup] = useState<IVisibleButton[]>([]);
     const theme = useTheme();
+    const manager = useManager();
+
+    useEffect(() => {
+        const connection = manager.onHasButtonsGroupUpdate.connect((hasChanged) => {
+            setButtonGroupChanged(hasChanged);
+        });
+
+        return () => {
+            connection.disconnect();
+        };
+    }, [manager]);
+
+    useEffect(() => {
+        if (buttonGroupChanged) {
+            setButtonGroup(manager.GetButtonGroup());
+            setButtonGroupChanged(false);
+        }
+    }, [buttonGroupChanged, manager]);
 
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
         setIsDragging(true);
@@ -32,22 +263,21 @@ const DraggableToolbar = () => {
         });
     };
 
-    const handleMouseMove = (e: MouseEvent) => {
-        if (isDragging) {
-            setPosition({
-                x: e.clientX - dragOffset.x,
-                y: e.clientY - dragOffset.y,
-            });
-        }
-    };
+    const handleMouseMove = useCallback(
+        (e: MouseEvent) => {
+            if (isDragging) {
+                setPosition({
+                    x: e.clientX - dragOffset.x,
+                    y: e.clientY - dragOffset.y,
+                });
+            }
+        },
+        [isDragging, dragOffset],
+    );
 
-    const handleMouseUp = () => {
+    const handleMouseUp = useCallback(() => {
         setIsDragging(false);
-    };
-
-    const handleRotate = () => {
-        setIsVertical(!isVertical);
-    };
+    }, []);
 
     useEffect(() => {
         document.addEventListener("mousemove", handleMouseMove);
@@ -56,91 +286,15 @@ const DraggableToolbar = () => {
             document.removeEventListener("mousemove", handleMouseMove);
             document.removeEventListener("mouseup", handleMouseUp);
         };
-    }, [isDragging]);
+    }, [handleMouseMove, handleMouseUp]);
+
+    const handleRotate = () => {
+        setIsVertical(!isVertical);
+    };
 
     const isDark = theme.palette.mode === "dark";
 
-    const frameStyle = {
-        position: "absolute",
-        content: '""',
-        top: -4,
-        left: -4,
-        right: -4,
-        bottom: -4,
-        pointerEvents: "none",
-    };
-
-    const StyledSheet = styled(Sheet)({
-        backgroundImage: `url(${isDark ? blackImage : lightImage})`,
-        backgroundSize: "cover",
-        border: "1px solid",
-        borderColor: isDark ? "black" : "black",
-        borderRadius: "10px",
-        padding: "1rem",
-        boxShadow: "0 0 10px rgba(0,0,0,0.5)",
-    });
-
-    const shineEffectWhite = keyframes`
-      0% {
-        box-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
-        filter: brightness(1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.3));
-      }
-      50% {
-        box-shadow: 0 0 20px rgba(255, 255, 255, 0.7), 0 0 30px rgba(255, 255, 255, 0.5);
-        filter: brightness(1.2) drop-shadow(0 0 10px rgba(255, 255, 255, 0.5));
-      }
-      100% {
-        box-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
-        filter: brightness(1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.3));
-      }
-    `;
-
-    const shineEffectRed = keyframes`
-      0% {
-        box-shadow: 0 0 5px rgba(139, 0, 0, 0.3);
-        filter: brightness(1) drop-shadow(0 0 5px rgba(139, 0, 0, 0.3));
-      }
-      50% {
-        box-shadow: 0 0 20px rgba(139, 0, 0, 0.7), 0 0 30px rgba(139, 0, 0, 0.5);
-        filter: brightness(1.2) drop-shadow(0 0 10px rgba(139, 0, 0, 0.5));
-      }
-      100% {
-        box-shadow: 0 0 5px rgba(139, 0, 0, 0.3);
-        filter: brightness(1) drop-shadow(0 0 5px rgba(139, 0, 0, 0.3));
-      }
-    `;
-
-    const createIconButton = (iconImage: string) =>
-        styled(IconButton)({
-            width: 64,
-            height: 64,
-            padding: 0,
-            backgroundImage: `url(${iconImage})`,
-            backgroundSize: "cover",
-            transition: "all 0.3s ease",
-            "&:hover": {
-                animation: `${isDark ? shineEffectWhite : shineEffectRed} 1.5s infinite`,
-                transform: "scale(1.05)",
-                ...(!isDark && {
-                    backgroundColor: "darkred", // Change the background color to dark red
-                    boxShadow: "0 0 10px rgba(139, 0, 0, 0.5)",
-                    filter: "brightness(1.1) drop-shadow(0 0 5px rgba(139, 0, 0, 0.5))",
-                }),
-                ...(isDark && {
-                    boxShadow: "0 0 10px rgba(255, 255, 255, 0.5)",
-                    filter: "brightness(1.1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.5))",
-                }),
-            },
-        });
-
-    const SpellbookButton = createIconButton(spellbookIconImage);
-    const HourglassButton = createIconButton(hourglassIconImage);
-    const SwordButton = createIconButton(swordIconImage);
-    const SkipButton = createIconButton(skipIconImage);
-    const AIButton = createIconButton(aiIconImage);
-    const LuckShieldButton = createIconButton(luckShieldIconImage);
-
-    return (
+    return buttonGroup.length > 0 ? (
         <StyledSheet
             sx={{
                 position: "absolute",
@@ -151,12 +305,6 @@ const DraggableToolbar = () => {
                 alignItems: "center",
                 gap: 1,
                 zIndex: 4,
-                "&::before": frameStyle,
-                "&::after": {
-                    ...frameStyle,
-                    filter: "blur(4px)",
-                    opacity: 0.7,
-                },
             }}
         >
             <Box
@@ -170,46 +318,61 @@ const DraggableToolbar = () => {
                 }}
             >
                 <Box onMouseDown={handleMouseDown} sx={{ cursor: "move", display: "flex", alignItems: "center" }}>
-                    <DragIndicatorIcon sx={{ color: isDark ? "#ff9e76" : "#352100", width: "auto", height: 32 }} />
+                    <DragIndicatorIcon
+                        sx={{ color: isDark ? "rgb(131, 112, 106)" : "#352100", width: "auto", height: 32 }}
+                    />
                 </Box>
-                <IconButton
-                    size="sm"
-                    variant="plain"
+                <button
                     onClick={handleRotate}
-                    sx={{
-                        width: "auto",
-                        height: 32,
+                    style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
                         padding: 0,
-                        margin: 0,
-                        color: isDark ? "lightgrey" : "black",
-                        "&:hover": {
-                            backgroundColor: isDark ? "default" : "#8B0000",
-                        },
+                        display: "flex",
+                        alignItems: "center",
                     }}
                 >
                     <RotateRightIcon
                         sx={{
                             width: "auto",
                             height: 32,
-                            color: isDark ? "lightgrey" : "black",
+                            color: isDark ? "rgb(230, 220, 212)" : "black",
                         }}
                     />
-                </IconButton>
+                </button>
             </Box>
-
             <Divider
                 orientation={isVertical ? "horizontal" : "vertical"}
-                sx={{ bgcolor: isDark ? "#ff9e76" : "#352100" }}
+                sx={{ bgcolor: isDark ? "rgb(131, 112, 106)" : "#352100" }}
             />
-
-            <HourglassButton onClick={() => console.log("Spell Book 1 clicked")} />
-            <LuckShieldButton onClick={() => console.log("Spell Book 2 clicked")} />
-            <SkipButton onClick={() => console.log("Spell Book 3 clicked")} />
-            <AIButton onClick={() => console.log("Spell Book 4 clicked")} />
-            <SwordButton onClick={() => console.log("Spell Book 5 clicked")} />
-            <SpellbookButton onClick={() => console.log("Spell Book 6 clicked")} />
+            {buttonGroup.map((button) => {
+                const iconImage = button.customSpriteName
+                    ? // @ts-ignore: src params
+                      images[button.customSpriteName]
+                    : BUTTON_NAME_TO_ICON_IMAGE[`${button.name}${button.state}`];
+                return (
+                    <ButtonComponent
+                        key={button.name}
+                        iconImage={iconImage}
+                        text={button.text}
+                        isVisible={button.isVisible}
+                        isDisabled={button.isDisabled}
+                        isDark={isDark}
+                        onClick={() => {
+                            manager.PropagateButtonClicked(button.name, button.state);
+                            // If you need to perform any additional actions when the hourglass is clicked,
+                            // you can add them here
+                        }}
+                        isHourglass={button.name === "Hourglass"}
+                        customSpriteName={button.customSpriteName}
+                        numberOfOptions={button.numberOfOptions}
+                        selectedOption={button.selectedOption}
+                    />
+                );
+            })}
         </StyledSheet>
-    );
+    ) : null;
 };
 
 export default DraggableToolbar;

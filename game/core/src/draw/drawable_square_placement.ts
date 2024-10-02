@@ -27,6 +27,11 @@ export class DrawableSquarePlacement extends SquarePlacement {
     }
 
     public draw(drawInstance: b2Draw): void {
-        drawInstance.DrawSolidPolygon(this.verticles, 4, new b2Color(0.5, 0.5, 0.5));
+        // drawInstance.DrawSolidPolygon(this.verticles, 4, new b2Color(0.5, 0.5, 0.5));
+        if (this.placementType === PlacementType.LOWER_RIGHT || this.placementType === PlacementType.LOWER_LEFT) {
+            drawInstance.DrawSolidPolygon(this.verticles, 4, new b2Color(75 / 255, 100 / 255, 54 / 255));
+        } else {
+            drawInstance.DrawSolidPolygon(this.verticles, 4, new b2Color(194 / 255, 97 / 255, 73 / 255));
+        }
     }
 }

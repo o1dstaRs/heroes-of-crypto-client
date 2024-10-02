@@ -127,10 +127,6 @@ export function nextStandingTargets(
     }
 
     const tbs = targetUnit.getBaseCell();
-    if (!tbs) {
-        return targetList;
-    }
-
     let xCoefficient = 0;
     let yCoefficient = 0;
     if (!targetUnit.isSmallSize()) {

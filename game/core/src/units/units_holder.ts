@@ -867,9 +867,9 @@ export class UnitsHolder {
             units.push(
                 this.unitsFactory.makeCreature(FactionType.MIGHT, "Cyclops", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );
-            // units.push(
-            //     this.unitsFactory.makeCreature(FactionType.MIGHT, "Thunderbird", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            // );
+            units.push(
+                this.unitsFactory.makeCreature(FactionType.MIGHT, "Thunderbird", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
+            );
             units.push(
                 this.unitsFactory.makeCreature(FactionType.MIGHT, "Behemoth", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
             );

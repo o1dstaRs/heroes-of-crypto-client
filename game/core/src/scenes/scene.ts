@@ -52,8 +52,15 @@ import {
 import { SceneLog } from "../menu/scene_log";
 import { SceneControl } from "../sceneControls";
 import { Settings } from "../settings";
-import { IVisibleDamage, IVisibleImpact, IVisibleOverallImpact, IVisibleState } from "../state/visible_state";
-import { MAX_FPS, MAX_X } from "../statics";
+import {
+    IVisibleButton,
+    IVisibleDamage,
+    IVisibleImpact,
+    IVisibleOverallImpact,
+    IVisibleState,
+    VisibleButtonState,
+} from "../state/visible_state";
+import { EDGES_SIZE, MAX_FPS, MAX_X } from "../statics";
 import type { SceneControlGroup } from "../ui";
 import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
@@ -205,8 +212,6 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_destructionListener: DestructionListener;
 
-    public sc_renderControlsRightSide = window.innerWidth / window.innerHeight >= 1.75;
-
     public sc_mouseTracing = false;
 
     public sc_calculatingPlacement = true;
@@ -241,6 +246,8 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_visibleStateUpdateNeeded = false;
 
+    public sc_visibleButtonGroup: IVisibleButton[] = [];
+
     public sc_unitPropertiesUpdateNeeded = false;
 
     public sc_factionNameUpdateNeeded = false;
@@ -254,6 +261,8 @@ export abstract class Scene extends b2ContactListener {
     public sc_moveBlocked = false;
 
     public sc_augmentChanged = false;
+
+    public sc_buttonGroupUpdated = false;
 
     protected sc_isAnimating = false;
 
@@ -304,6 +313,8 @@ export abstract class Scene extends b2ContactListener {
     public abstract propagateAugmentation(teamType: TeamType, augmentType: Augment.AugmentType): boolean;
 
     public abstract getNumberOfUnitsAvailableForPlacement(teamType: TeamType): number;
+
+    public abstract propagateButtonClicked(buttonName: string, buttonState: VisibleButtonState): void;
 
     protected deselect(onlyWhenNotStarted = false, refreshStats = true) {
         if (this.sceneStarted && onlyWhenNotStarted) {
@@ -856,7 +867,7 @@ export abstract class Scene extends b2ContactListener {
         }
     }
 
-    public GetDefaultViewZoom(edgesSize = 256) {
+    public GetDefaultViewZoom(edgesSize = EDGES_SIZE) {
         const widthRatio = window.innerWidth / (2048 + edgesSize);
         const heightRatio = window.innerHeight / (2048 + edgesSize);
         return Math.min(widthRatio, heightRatio);

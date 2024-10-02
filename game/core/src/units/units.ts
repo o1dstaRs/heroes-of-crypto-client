@@ -239,6 +239,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected selectedAttackType: AttackType;
 
+    protected possibleAttackTypes: AttackType[] = [];
+
     protected maxRangeShots = 0;
 
     protected responded = false;
@@ -286,6 +288,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         if (this.unitProperties.attack_type === AttackType.MELEE) {
             this.selectedAttackType = AttackType.MELEE;
+        } else if (this.unitProperties.attack_type === AttackType.MELEE_MAGIC) {
+            this.selectedAttackType = AttackType.MELEE_MAGIC;
         } else if (this.unitProperties.attack_type === AttackType.RANGE) {
             this.selectedAttackType = AttackType.RANGE;
         } else {
@@ -512,9 +516,20 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public addAbility(ability: Ability): void {
         this.unitProperties.abilities.push(ability.getName());
-        this.unitProperties.abilities_descriptions.push(
-            ability.getDesc().join("\n").replace(/\{\}/g, ability.getPower().toString()),
-        );
+        if (ability.getName() === "Chain Lightning") {
+            const percentage = Number((this.calculateAbilityMultiplier(ability) * 100).toFixed(2));
+            const description = ability.getDesc().join("\n");
+            const updatedDescription = description
+                .replace("{}", percentage.toFixed())
+                .replace("{}", ((percentage * 7) / 8).toFixed())
+                .replace("{}", ((percentage * 6) / 8).toFixed())
+                .replace("{}", ((percentage * 5) / 8).toFixed());
+            this.unitProperties.abilities_descriptions.push(updatedDescription);
+        } else {
+            this.unitProperties.abilities_descriptions.push(
+                ability.getDesc().join("\n").replace(/\{\}/g, ability.getPower().toString()),
+            );
+        }
         this.unitProperties.abilities_stack_powered.push(ability.isStackPowered());
         this.unitProperties.abilities_auras.push(!!ability.getAuraEffect());
         if (this.parseAbilities()) {
@@ -1134,7 +1149,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.renderPosition;
     }
 
-    public getBaseCell(): XY | undefined {
+    public getBaseCell(): XY {
         return GridMath.getCellForPosition(this.gridSettings, this.getPosition());
     }
 
@@ -1585,6 +1600,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         let calculatedCoeff = 1;
         if (
             ability.getPowerType() === AbilityPowerType.TOTAL_DAMAGE_PERCENTAGE ||
+            ability.getPowerType() === AbilityPowerType.MAGIC_DAMAGE ||
             ability.getPowerType() === AbilityPowerType.KILL_RANDOM_AMOUNT ||
             ability.getPowerType() === AbilityPowerType.IGNORE_ARMOR ||
             ability.getPowerType() === AbilityPowerType.MAGIC_RESIST_50 ||
@@ -1708,7 +1724,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             attackType === AttackType.RANGE,
             divisor,
         );
-        const attackingByMelee = attackType === AttackType.MELEE;
+        const attackingByMelee = attackType === AttackType.MELEE || attackType === AttackType.MELEE_MAGIC;
         if (!attackingByMelee && attackType === AttackType.RANGE) {
             if (this.getRangeShots() <= 0) {
                 return 0;
@@ -1753,7 +1769,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         for (const a of this.abilities) {
             if (
-                (a.getName() === "No Melee" && attackType === AttackType.MELEE) ||
+                (a.getName() === "No Melee" &&
+                    (attackType === AttackType.MELEE || attackType === AttackType.MELEE_MAGIC)) ||
                 (a.getName() === "Through Shot" && attackType === AttackType.RANGE)
             ) {
                 return false;
@@ -1771,22 +1788,77 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.onHourglass = onHourglass;
     }
 
-    public getAttackTypeSelection(): AttackType {
-        if (this.selectedAttackType === AttackType.RANGE && this.getRangeShots() <= 0) {
-            this.selectedAttackType = AttackType.MELEE;
-            this.unitProperties.attack_type_selected = AttackType.MELEE;
-        } else if (this.selectedAttackType === AttackType.MAGIC && this.unitProperties.spells.length <= 0) {
-            this.selectedAttackType = AttackType.MELEE;
-            this.unitProperties.attack_type_selected = AttackType.MELEE;
+    public refreshPossibleAttackTypes(canLandRangeAttack: boolean) {
+        this.possibleAttackTypes = [];
+        if (this.getAttackType() === AttackType.MAGIC && this.getSpellsCount() > 0 && this.getCanCastSpells()) {
+            this.possibleAttackTypes.push(AttackType.MAGIC);
+        } else if (this.getAttackType() === AttackType.RANGE && this.getRangeShots() > 0 && canLandRangeAttack) {
+            this.possibleAttackTypes.push(AttackType.RANGE);
         }
 
+        if (!this.hasAbilityActive("No Melee")) {
+            if (this.getAttackType() === AttackType.MELEE_MAGIC) {
+                this.possibleAttackTypes.push(AttackType.MELEE_MAGIC);
+            } else {
+                this.possibleAttackTypes.push(AttackType.MELEE);
+            }
+        }
+
+        if (
+            this.getSpellsCount() > 0 &&
+            this.getCanCastSpells() &&
+            !this.possibleAttackTypes.includes(AttackType.MAGIC)
+        ) {
+            this.possibleAttackTypes.push(AttackType.MAGIC);
+        }
+
+        if (!this.possibleAttackTypes.length) {
+            this.possibleAttackTypes.push(AttackType.NO_TYPE);
+        }
+
+        this.unitProperties.attack_type_selected = this.possibleAttackTypes[0];
+        this.selectedAttackType = this.possibleAttackTypes[0];
+    }
+
+    public getAttackTypeSelection(): AttackType {
         return this.selectedAttackType;
     }
 
+    public getPossibleAttackTypes(): AttackType[] {
+        return this.possibleAttackTypes;
+    }
+
+    public getAttackTypeSelectionIndex(): [number, number] {
+        return [this.possibleAttackTypes.indexOf(this.selectedAttackType), this.possibleAttackTypes.length];
+    }
+
+    public selectNextAttackType(): boolean {
+        let index = this.possibleAttackTypes.indexOf(this.selectedAttackType);
+        let initialIndex = index;
+        do {
+            index = (index + 1) % this.possibleAttackTypes.length;
+            if (this.selectAttackType(this.possibleAttackTypes[index])) {
+                return true;
+            }
+        } while (index !== initialIndex);
+        return false;
+    }
+
     public selectAttackType(selectedAttackType: AttackType): boolean {
-        if (selectedAttackType === AttackType.MELEE && this.selectedAttackType !== selectedAttackType) {
-            this.selectedAttackType = selectedAttackType;
-            this.unitProperties.attack_type_selected = AttackType.MELEE;
+        if (
+            this.selectedAttackType !== selectedAttackType &&
+            ((selectedAttackType === AttackType.MELEE && this.possibleAttackTypes.includes(AttackType.MELEE)) ||
+                (selectedAttackType === AttackType.MELEE_MAGIC &&
+                    this.possibleAttackTypes.includes(AttackType.MELEE_MAGIC)))
+        ) {
+            if (this.possibleAttackTypes.includes(AttackType.MELEE_MAGIC)) {
+                this.selectedAttackType = AttackType.MELEE_MAGIC;
+                this.unitProperties.attack_type_selected = AttackType.MELEE_MAGIC;
+            } else {
+                this.selectedAttackType = AttackType.MELEE;
+                this.unitProperties.attack_type_selected = AttackType.MELEE;
+            }
+
             return true;
         }
 
@@ -1794,7 +1866,8 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             selectedAttackType === AttackType.RANGE &&
             this.unitProperties.attack_type === AttackType.RANGE &&
             this.getRangeShots() &&
-            this.selectedAttackType !== selectedAttackType
+            this.selectedAttackType !== selectedAttackType &&
+            this.possibleAttackTypes.includes(AttackType.RANGE)
         ) {
             this.selectedAttackType = selectedAttackType;
             this.unitProperties.attack_type_selected = AttackType.RANGE;
@@ -1803,9 +1876,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
         if (
             selectedAttackType === AttackType.MAGIC &&
-            this.unitProperties.attack_type === AttackType.MAGIC &&
             this.unitProperties.spells.length &&
-            this.selectedAttackType !== selectedAttackType
+            this.unitProperties.can_cast_spells &&
+            this.selectedAttackType !== selectedAttackType &&
+            this.possibleAttackTypes.includes(AttackType.MAGIC)
         ) {
             this.selectedAttackType = selectedAttackType;
             this.unitProperties.attack_type_selected = AttackType.MAGIC;
@@ -2711,6 +2785,19 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 minerAbility.getName(),
                 minerAbility.getDesc().join("\n").replace(/\{\}/g, this.calculateAbilityCount(minerAbility).toString()),
             );
+        }
+
+        // Chain Lightning
+        const chainLightningAbility = this.getAbility("Chain Lightning");
+        if (chainLightningAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(chainLightningAbility) * 100).toFixed(2));
+            const description = chainLightningAbility.getDesc().join("\n");
+            const updatedDescription = description
+                .replace("{}", percentage.toFixed())
+                .replace("{}", ((percentage * 7) / 8).toFixed())
+                .replace("{}", ((percentage * 6) / 8).toFixed())
+                .replace("{}", ((percentage * 5) / 8).toFixed());
+            this.refreshAbiltyDescription(chainLightningAbility.getName(), updatedDescription);
         }
     }
 

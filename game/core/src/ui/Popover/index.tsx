@@ -104,6 +104,9 @@ const unitInfoElement = (hoverInfo: IHoverInfo): JSX.Element => {
     } else if (hoverInfo.attackType === AttackType.MAGIC) {
         attackTypeEmoji = "💥";
         attackTypeStr = "Magic";
+    } else if (hoverInfo.attackType === AttackType.MELEE_MAGIC) {
+        attackTypeEmoji = "🗡️💥";
+        attackTypeStr = "Melee magic";
     }
 
     return (

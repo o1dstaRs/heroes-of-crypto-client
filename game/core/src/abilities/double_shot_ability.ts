@@ -47,7 +47,10 @@ export function processDoubleShotAbility(
     if (
         !doubleShotAbility ||
         (!isAOE &&
-            (fromUnit.isDead() || toUnit.isDead() || (fromUnit.getTarget() && fromUnit.getTarget() !== toUnit.getId())))
+            (fromUnit.isDead() ||
+                toUnit.isDead() ||
+                fromUnit.isSkippingThisTurn() ||
+                (fromUnit.getTarget() && fromUnit.getTarget() !== toUnit.getId())))
     ) {
         return {
             applied: false,

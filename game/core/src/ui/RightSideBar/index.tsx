@@ -25,7 +25,7 @@ import { UnitProperties, GridType, ToGridType, TeamType } from "@heroesofcrypto/
 import { useManager } from "../../manager";
 import { IDamageStatistic } from "../../stats/damage_stats";
 import Toggler from "../Toggler";
-import { BAR_SIZE_PIXELS_STR } from "../../statics";
+import { EDGES_SIZE } from "../../statics";
 import SideToggleContainer from "./SideToggleContainer";
 import { RedFlagIcon } from "../svg/flag_red";
 import { GreenFlagIcon } from "../svg/flag_green";
@@ -312,12 +312,28 @@ const FightControlToggler: React.FC = () => {
 export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) {
     const [unitDamageStatistics, setUnitDamageStatistics] = useState([] as IDamageStatistic[]);
     const manager = useManager();
+    const [barSize, setBarSize] = useState(280);
+
+    const adjustBarSize = () => {
+        const additionalBoardPixels = gameStarted ? 0 : 512;
+        const edgesSize = gameStarted ? 0 : EDGES_SIZE;
+        const widthRatio = window.innerWidth / (2048 + edgesSize + additionalBoardPixels);
+        const heightRatio = window.innerHeight / (2048 + edgesSize);
+
+        const scaleRatio = Math.min(widthRatio, heightRatio);
+        const scaledBoardSize = (2048 + additionalBoardPixels) * scaleRatio;
+
+        const edgeSizeWidth = gameStarted ? 0 : edgesSize / 2;
+        const rightBarEndAtBoard = (window.innerWidth - scaledBoardSize) / 2;
+        setBarSize(rightBarEndAtBoard > edgeSizeWidth ? rightBarEndAtBoard : edgeSizeWidth);
+    };
 
     useEffect(() => {
+        adjustBarSize();
+        manager.HomeCamera();
+
         const handleResize = () => {
-            const ratio = window.innerWidth / window.innerHeight;
-            manager.SwitchRightSideControlGroup(ratio >= 1.75);
-            manager.HomeCamera();
+            adjustBarSize();
         };
 
         window.addEventListener("resize", handleResize);
@@ -325,7 +341,7 @@ export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) 
         return () => {
             window.removeEventListener("resize", handleResize);
         };
-    }, []);
+    }, [gameStarted]);
 
     const [attackText, setAttackText] = useState("");
 
@@ -389,8 +405,6 @@ export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) 
         </Box>
     ));
 
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
     return (
         <Sheet
             className="Sidebar"
@@ -398,7 +412,7 @@ export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) 
                 position: "fixed",
                 zIndex: 1,
                 height: "100dvh",
-                width: BAR_SIZE_PIXELS_STR,
+                width: `${barSize}px`,
                 top: 0,
                 right: 0,
                 p: 2,
