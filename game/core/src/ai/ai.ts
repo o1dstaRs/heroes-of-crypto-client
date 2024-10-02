@@ -205,7 +205,7 @@ function doFindTarget(
                 }
                 // go through all cells in a layer, check the actual min distance for attcker unit and save
                 for (let depth = 0; depth < cellsByDistanceFromTarget.length; depth++) {
-                    let layerRouteIndiciesLeft : number = Infinity;
+                    let layerRouteIndiciesLeft: number = Infinity;
                     for (const elementNeighbor of cellsByDistanceFromTarget[depth]) {
                         if (depth === 0 && cellKey(elementNeighbor) === cellKey(unitCell)) {
                             return new BasicAIAction(
@@ -237,7 +237,7 @@ function doFindTarget(
                                 closestTarget = { x: j, y: i };
                                 let currentRoute = tmpRoute?.at(0);
 
-                                if(!currentRoute) {
+                                if (!currentRoute) {
                                     continue;
                                 }
 
@@ -246,7 +246,7 @@ function doFindTarget(
                                  * since the "paths" take into account aggro board
                                  */
                                 let currentRouteIndex = 0;
-                                let nextCellDistance : number | undefined;
+                                let nextCellDistance: number | undefined;
                                 do {
                                     const cell = currentRoute.route[currentRouteIndex];
                                     const nextCell = currentRoute.route[currentRouteIndex + 1];
@@ -262,10 +262,14 @@ function doFindTarget(
                                         console.log("nextCellDistance: " + nextCellDistance);
                                     }
                                     if (nextCellDistance !== undefined && nextCellDistance > unit.getSteps()) {
-                                        break
+                                        break;
                                     }
                                     currentRouteIndex += 1;
-                                } while (nextCellDistance !== undefined && nextCellDistance <= unit.getSteps() && currentRouteIndex < currentRoute.route.length);
+                                } while (
+                                    nextCellDistance !== undefined &&
+                                    nextCellDistance <= unit.getSteps() &&
+                                    currentRouteIndex < currentRoute.route.length
+                                );
 
                                 if (debug) {
                                     console.log("Set currentRouteIndex: " + currentRouteIndex);
@@ -306,13 +310,14 @@ function doFindTarget(
                                     );
                                 }
 
-                                if(!currentDistance) {
+                                if (!currentDistance) {
                                     continue;
                                 }
                                 // if same indicies left till the target but clsoer then prev cell then update the route and hte cell to move to
                                 if (
-                                    (currentRouteIndiciesLeft < layerRouteIndiciesLeft) ||
-                                    (currentRouteIndiciesLeft === layerRouteIndiciesLeft && currentDistance < resultMovementDistance)
+                                    currentRouteIndiciesLeft < layerRouteIndiciesLeft ||
+                                    (currentRouteIndiciesLeft === layerRouteIndiciesLeft &&
+                                        currentDistance < resultMovementDistance)
                                 ) {
                                     resultRoute = currentRoute;
                                     resultRouteIndex = currentRouteIndex;

@@ -6,7 +6,7 @@ import {
     // AttackType,
     TeamType,
     Grid,
-    // ObstacleType,
+    ObstacleType,
     HoCMath,
     PathHelper,
     // IWeightedRoute,
@@ -148,6 +148,26 @@ describe("MoveAndAttackForSmallUnit", () => {
         const unit = stubSmallUnit(1, { x: 3, y: 1 });
         const closestTarget = findTarget(unit, new Grid(gridSettings, GridType.NORMAL), matrix, pathHelper);
         expect(closestTarget?.cellToMove()).toEqual({ x: 2, y: 1 });
+        expect(closestTarget?.cellToAttack()).toBeUndefined();
+        expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE);
+    });
+
+    it("Should go around if cannot fly over water obstacle ", () => {
+        const matrix: number[][] = new Array();
+        matrix[3] = [2, 0, 0, 0];
+        matrix[2] = [0, ObstacleType.WATER, ObstacleType.WATER, 0];
+        matrix[1] = [0, ObstacleType.WATER, ObstacleType.WATER, 0];
+        matrix[0] = [0, 0, 0, 1];
+        /**
+           End matrix
+           [0, 0, 0, 0],
+           [2, 0, 0, 0],
+           [0, 0, 1, 0],
+           [0, 0, 0, 0],
+        */
+        const unit = stubSmallUnit(1, { x: 3, y: 0 });
+        const closestTarget = findTarget(unit, new Grid(gridSettings, GridType.NORMAL), matrix, pathHelper);
+        expect(closestTarget?.cellToMove()).toEqual({ x: 2, y: 0 });
         expect(closestTarget?.cellToAttack()).toBeUndefined();
         expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE);
     });
@@ -371,7 +391,7 @@ describe("MoveAndAttackForBigUnit", () => {
 });
 
 function stubSmallUnit(steps: number, baseCell: HoCMath.XY): UnitRepr {
-    return new UnitRepr("id", TeamType.UPPER, steps, 1, 1, false, true, baseCell, [baseCell], AttackType.MELEE);
+    return new UnitRepr("id", TeamType.UPPER, steps, 1, 1, true, true, baseCell, [baseCell], AttackType.MELEE);
 }
 
 function stubBigUnit(steps: number, baseCell: HoCMath.XY): UnitRepr {
@@ -381,7 +401,7 @@ function stubBigUnit(steps: number, baseCell: HoCMath.XY): UnitRepr {
         steps,
         1,
         1,
-        false,
+        true,
         true,
         baseCell,
         [
