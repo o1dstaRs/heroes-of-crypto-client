@@ -413,6 +413,17 @@ export class AttackHandler {
                             const initialAttackerCell = structuredClone(attackerBaseCell);
                             const initialTargetUnitCell = structuredClone(debuffTargetBaseCell);
 
+                            drawer.startFlyAnimation(
+                                attackerBody,
+                                attackerUnit,
+                                structuredClone(debuffTarget.getPosition()),
+                            );
+                            drawer.startFlyAnimation(
+                                targetBody,
+                                debuffTarget,
+                                structuredClone(attackerUnit.getPosition()),
+                            );
+
                             this.grid.cleanupAll(
                                 attackerUnit.getId(),
                                 attackerUnit.getAttackRange(),
@@ -451,9 +462,6 @@ export class AttackHandler {
                                 debuffTarget.getTeam(),
                                 debuffTarget.getAttackRange(),
                             );
-
-                            drawer.startFlyAnimation(attackerBody, attackerUnit, debuffTarget.getPosition());
-                            drawer.startFlyAnimation(targetBody, debuffTarget, attackerUnit.getPosition());
                         }
                     } else {
                         debuffTarget.applyDebuff(
