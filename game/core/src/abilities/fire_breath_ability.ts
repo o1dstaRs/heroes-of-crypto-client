@@ -23,16 +23,16 @@ export function processFireBreathAbility(
     toUnit: Unit,
     sceneLog: SceneLog,
     unitsHolder: UnitsHolder,
-    sceneStepCount: number,
     grid: Grid,
     gridSettings: GridSettings,
     attackTypeString: string,
     targetMovePosition?: HoCMath.XY,
-): void {
+): string[] {
+    const unitIdsDied: string[] = [];
     const fireBreathAbility = fromUnit.getAbility("Fire Breath");
 
     if (!fireBreathAbility) {
-        return;
+        return unitIdsDied;
     }
 
     const targetPos = GridMath.getCellForPosition(gridSettings, toUnit.getPosition());
@@ -76,7 +76,7 @@ export function processFireBreathAbility(
                     multiplier,
             );
 
-            nextStandingTarget.applyDamage(fireBreathAttackDamage, sceneStepCount);
+            nextStandingTarget.applyDamage(fireBreathAttackDamage);
             DamageStatisticHolder.getInstance().add({
                 unitName: fromUnit.getName(),
                 damage: fireBreathAttackDamage,
@@ -94,14 +94,15 @@ export function processFireBreathAbility(
 
         for (const unitDead of unitsDead) {
             sceneLog.updateLog(`${unitDead.getName()} died`);
-            unitsHolder.deleteUnitById(unitDead.getId(), true);
+            // unitsHolder.deleteUnitById(unitDead.getId(), true);
+            unitIdsDied.push(unitDead.getId());
             fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             fromUnit.applyMoraleStepsModifier(
                 FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
             );
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unitDead);
         }
-
-        unitsHolder.refreshStackPowerForAllUnits();
     }
+
+    return unitIdsDied;
 }

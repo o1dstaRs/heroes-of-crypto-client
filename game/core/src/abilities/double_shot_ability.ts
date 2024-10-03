@@ -24,6 +24,7 @@ export interface IDoubleShotResult {
     applied: boolean;
     aoeRangeAttackLanded: boolean;
     damage: number;
+    unitIdsDied: string[];
 }
 
 export function processDoubleShotAbility(
@@ -36,11 +37,11 @@ export function processDoubleShotAbility(
     grid: Grid,
     hoverRangeAttackDivisor: number,
     hoverRangeAttackPosition: HoCMath.XY,
-    sceneStepCount: number,
     damageForAnimation: IVisibleDamage,
     isAOE: boolean,
 ): IDoubleShotResult {
     const doubleShotAbility = fromUnit.getAbility("Double Shot");
+    const unitIdsDied: string[] = [];
 
     let damageFromAttack = 0;
 
@@ -56,6 +57,7 @@ export function processDoubleShotAbility(
             applied: false,
             aoeRangeAttackLanded: false,
             damage: damageFromAttack,
+            unitIdsDied,
         };
     }
 
@@ -66,10 +68,10 @@ export function processDoubleShotAbility(
             applied: false,
             aoeRangeAttackLanded: false,
             damage: damageFromAttack,
+            unitIdsDied,
         };
     }
 
-    unitsHolder.refreshStackPowerForAllUnits();
     drawer.startBulletAnimation(fromUnit.getPosition(), hoverRangeAttackPosition, toUnit);
 
     let aoeRangeAttackResult = processRangeAOEAbility(
@@ -77,7 +79,6 @@ export function processDoubleShotAbility(
         affectedUnits,
         fromUnit,
         hoverRangeAttackDivisor,
-        sceneStepCount,
         unitsHolder,
         grid,
         sceneLog,
@@ -96,7 +97,7 @@ export function processDoubleShotAbility(
             fromUnit.calculateAttackDamage(toUnit, AttackType.RANGE, hoverRangeAttackDivisor, abilityMultiplier),
             sceneLog,
         );
-        toUnit.applyDamage(damageFromAttack, sceneStepCount);
+        toUnit.applyDamage(damageFromAttack);
         damageForAnimation.render = true;
         damageForAnimation.amount = damageFromAttack;
         damageForAnimation.unitPosition = toUnit.getPosition();
@@ -117,5 +118,6 @@ export function processDoubleShotAbility(
         applied: true,
         aoeRangeAttackLanded: aoeRangeAttackResult.landed,
         damage: damageFromAttack,
+        unitIdsDied: aoeRangeAttackResult.unitIdsDied,
     };
 }

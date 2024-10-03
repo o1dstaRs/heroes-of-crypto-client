@@ -30,7 +30,6 @@ export function processDoublePunchAbility(
     toUnit: Unit,
     sceneLog: SceneLog,
     unitsHolder: UnitsHolder,
-    sceneStepCount: number,
 ): IDoublePunchResult {
     const doublePunchAbility = fromUnit.getAbility("Double Punch");
     let secondPunchLanded = false;
@@ -53,7 +52,6 @@ export function processDoublePunchAbility(
             };
         }
 
-        unitsHolder.refreshStackPowerForAllUnits();
         let abilityMultiplier = fromUnit.calculateAbilityMultiplier(doublePunchAbility);
         const paralysisAttackerEffect = fromUnit.getEffect("Paralysis");
         if (paralysisAttackerEffect) {
@@ -90,7 +88,7 @@ export function processDoublePunchAbility(
         }
         sceneLog.updateLog(`${fromUnit.getName()} attk ${toUnit.getName()} (${damageFromAttack})`);
 
-        processFireShieldAbility(toUnit, fromUnit, sceneLog, unitsHolder, damageFromAttack, sceneStepCount);
+        processFireShieldAbility(toUnit, fromUnit, sceneLog, unitsHolder, damageFromAttack);
         secondPunchLanded = true;
     }
 

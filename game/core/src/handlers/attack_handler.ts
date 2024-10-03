@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { b2Body, XY } from "@box2d/core";
+import { b2Body } from "@box2d/core";
 import {
     AttackType,
     HoCLib,
@@ -59,17 +59,23 @@ import { processMinerAbility } from "../abilities/miner_ability";
 import { processAggrAbility } from "../abilities/aggr_ability";
 import { processSkewerStrikeAbility } from "../abilities/skewer_strike_ability";
 import { IVisibleDamage } from "../state/visible_state";
-import { processChainLightingAbility } from "../abilities/chain_lighting_ability";
+import { processChainLightningAbility } from "../abilities/chain_lightning_ability";
+import { UnitsFactory } from "../units/units_factory";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
     affectedUnits: Array<Unit[]>;
-    affectedCells: Array<XY[]>;
+    affectedCells: Array<HoCMath.XY[]>;
     attackObstacle?: IAttackObstacle;
 }
 
+export interface IAttackResult {
+    completed: boolean;
+    unitIdsDied: string[];
+}
+
 export interface IAttackObstacle {
-    position: XY;
+    position: HoCMath.XY;
     size: number;
     distance: number;
 }
@@ -89,13 +95,13 @@ export class AttackHandler {
 
     private getAffectedUnitsAndObstacles(
         allUnits: Map<string, Unit>,
-        cellsToPositions: [XY, XY][],
+        cellsToPositions: [HoCMath.XY, HoCMath.XY][],
         attackerUnit: Unit,
         isThroughShot = false,
     ): IRangeAttackEvaluation {
         const affectedUnitIds: string[] = [];
         const affectedUnits: Array<Unit[]> = [];
-        const affectedCells: Array<XY[]> = [];
+        const affectedCells: Array<HoCMath.XY[]> = [];
         const rangeAttackDivisors: number[] = [];
         let attackObstacle: IAttackObstacle | undefined;
 
@@ -182,8 +188,8 @@ export class AttackHandler {
         };
     }
 
-    private getCellsToPositions(positions: XY[]): Array<[XY, XY]> {
-        const cells: Array<[XY, XY]> = [];
+    private getCellsToPositions(positions: HoCMath.XY[]): Array<[HoCMath.XY, HoCMath.XY]> {
+        const cells: Array<[HoCMath.XY, HoCMath.XY]> = [];
         const cellKeys: number[] = [];
 
         for (const position of positions) {
@@ -201,8 +207,8 @@ export class AttackHandler {
         return cells;
     }
 
-    private getIntersectedPositions(start: XY, end: XY): XY[] {
-        const positions: XY[] = [];
+    private getIntersectedPositions(start: HoCMath.XY, end: HoCMath.XY): HoCMath.XY[] {
+        const positions: HoCMath.XY[] = [];
 
         // Convert world coordinates to grid coordinates
         const gridStart = start;
@@ -238,7 +244,7 @@ export class AttackHandler {
         return positions;
     }
 
-    public getRangeAttackDivisor(attackerUnit: Unit, attackPosition: XY): number {
+    public getRangeAttackDivisor(attackerUnit: Unit, attackPosition: HoCMath.XY): number {
         let rangeAttackDivisor = 1;
 
         if (!attackerUnit.hasAbilityActive("Sniper")) {
@@ -262,8 +268,8 @@ export class AttackHandler {
     public evaluateRangeAttack(
         allUnits: Map<string, Unit>,
         fromUnit: Unit,
-        fromPosition: XY,
-        toPosition: XY,
+        fromPosition: HoCMath.XY,
+        toPosition: HoCMath.XY,
         isThroughShot = false,
     ): IRangeAttackEvaluation {
         const intersectedCellsToPositions = this.getCellsToPositions(
@@ -283,8 +289,8 @@ export class AttackHandler {
         );
     }
 
-    public canBeAttackedByMelee(unitPosition: XY, isSmallUnit: boolean, enemyAggrMatrix?: number[][]): boolean {
-        let cells: XY[];
+    public canBeAttackedByMelee(unitPosition: HoCMath.XY, isSmallUnit: boolean, enemyAggrMatrix?: number[][]): boolean {
+        let cells: HoCMath.XY[];
         if (isSmallUnit) {
             const cell = GridMath.getCellForPosition(this.gridSettings, unitPosition);
             if (cell) {
@@ -309,15 +315,16 @@ export class AttackHandler {
         gridMatrix: number[][],
         drawer: Drawer,
         unitsHolder: UnitsHolder,
+        unitsFactory: UnitsFactory,
         grid: Grid,
-        moveHandler: MoveHandler,
         currentActiveSpell?: Spell,
         attackerUnit?: Unit,
         targetUnit?: Unit,
-        currentEnemiesCellsWithinMovementRange?: XY[],
-    ): boolean {
+        currentEnemiesCellsWithinMovementRange?: HoCMath.XY[],
+    ): IAttackResult {
+        const unitIdsDied: string[] = [];
         if (!currentActiveSpell || !attackerUnit) {
-            return false;
+            return { completed: false, unitIdsDied };
         }
 
         if (
@@ -398,65 +405,55 @@ export class AttackHandler {
                     )
                 ) {
                     if (currentActiveSpell.getPowerType() === SpellPowerType.POSITION_CHANGE) {
-                        const attackerBody = unitsHolder.getUnitBody(attackerUnit.getId());
-                        const targetBody = unitsHolder.getUnitBody(debuffTarget.getId());
+                        const attackerBody = unitsFactory.getUnitBody(attackerUnit.getId());
+                        const targetBody = unitsFactory.getUnitBody(debuffTarget.getId());
                         const attackerBaseCell = attackerUnit.getBaseCell();
                         const debuffTargetBaseCell = debuffTarget.getBaseCell();
                         if (attackerBody && targetBody && attackerBaseCell && debuffTargetBaseCell) {
                             const initialAttackerCell = structuredClone(attackerBaseCell);
                             const initialTargetUnitCell = structuredClone(debuffTargetBaseCell);
 
-                            const flyAttackerStarted = moveHandler.startFlying(
-                                structuredClone(debuffTarget.getPosition()),
-                                drawer,
-                                attackerBody,
+                            this.grid.cleanupAll(
+                                attackerUnit.getId(),
+                                attackerUnit.getAttackRange(),
+                                attackerUnit.isSmallSize(),
                             );
-                            const flyTargetStarted = moveHandler.startFlying(
-                                structuredClone(attackerUnit.getPosition()),
-                                drawer,
-                                targetBody,
+                            this.grid.cleanupAll(
+                                debuffTarget.getId(),
+                                debuffTarget.getAttackRange(),
+                                debuffTarget.isSmallSize(),
                             );
 
-                            if (flyAttackerStarted && flyTargetStarted) {
-                                this.grid.cleanupAll(
-                                    attackerUnit.getId(),
-                                    attackerUnit.getAttackRange(),
-                                    attackerUnit.isSmallSize(),
-                                );
-                                this.grid.cleanupAll(
-                                    debuffTarget.getId(),
-                                    debuffTarget.getAttackRange(),
-                                    debuffTarget.isSmallSize(),
-                                );
+                            const newAttackerPosition = GridMath.getPositionForCell(
+                                initialTargetUnitCell,
+                                this.gridSettings.getMinX(),
+                                this.gridSettings.getStep(),
+                                this.gridSettings.getHalfStep(),
+                            );
+                            attackerUnit.setPosition(newAttackerPosition.x, newAttackerPosition.y, false);
+                            this.grid.occupyCell(
+                                initialTargetUnitCell,
+                                attackerUnit.getId(),
+                                attackerUnit.getTeam(),
+                                attackerUnit.getAttackRange(),
+                            );
 
-                                const newAttackerPosition = GridMath.getPositionForCell(
-                                    initialTargetUnitCell,
-                                    this.gridSettings.getMinX(),
-                                    this.gridSettings.getStep(),
-                                    this.gridSettings.getHalfStep(),
-                                );
-                                attackerUnit.setPosition(newAttackerPosition.x, newAttackerPosition.y, false);
-                                this.grid.occupyCell(
-                                    initialTargetUnitCell,
-                                    attackerUnit.getId(),
-                                    attackerUnit.getTeam(),
-                                    attackerUnit.getAttackRange(),
-                                );
+                            const newTargetUnitPosition = GridMath.getPositionForCell(
+                                initialAttackerCell,
+                                this.gridSettings.getMinX(),
+                                this.gridSettings.getStep(),
+                                this.gridSettings.getHalfStep(),
+                            );
+                            debuffTarget.setPosition(newTargetUnitPosition.x, newTargetUnitPosition.y, false);
+                            this.grid.occupyCell(
+                                initialAttackerCell,
+                                debuffTarget.getId(),
+                                debuffTarget.getTeam(),
+                                debuffTarget.getAttackRange(),
+                            );
 
-                                const newTargetUnitPosition = GridMath.getPositionForCell(
-                                    initialAttackerCell,
-                                    this.gridSettings.getMinX(),
-                                    this.gridSettings.getStep(),
-                                    this.gridSettings.getHalfStep(),
-                                );
-                                debuffTarget.setPosition(newTargetUnitPosition.x, newTargetUnitPosition.y, false);
-                                this.grid.occupyCell(
-                                    initialAttackerCell,
-                                    debuffTarget.getId(),
-                                    debuffTarget.getTeam(),
-                                    debuffTarget.getAttackRange(),
-                                );
-                            }
+                            drawer.startFlyAnimation(attackerBody, attackerUnit, debuffTarget.getPosition());
+                            drawer.startFlyAnimation(targetBody, debuffTarget, attackerUnit.getPosition());
                         }
                     } else {
                         debuffTarget.applyDebuff(
@@ -526,10 +523,10 @@ export class AttackHandler {
             }
             this.sceneLog.updateLog(mirroredStr);
 
-            return true;
+            return { completed: true, unitIdsDied };
         }
 
-        return false;
+        return { completed: false, unitIdsDied };
     }
 
     public handleRangeAttack(
@@ -538,14 +535,14 @@ export class AttackHandler {
         grid: Grid,
         hoverRangeAttackDivisors: number[],
         rangeResponseAttackDivisor: number,
-        sceneStepCount: number,
         damageForAnimation: IVisibleDamage,
         attackerUnit?: Unit,
         targetUnits?: Array<Unit[]>,
         rangeResponseUnits?: Unit[],
-        hoverRangeAttackPosition?: XY,
+        hoverRangeAttackPosition?: HoCMath.XY,
         isAOE = false,
-    ): boolean {
+    ): IAttackResult {
+        const unitIdsDied: string[] = [];
         if (
             !attackerUnit ||
             attackerUnit.isDead() ||
@@ -556,40 +553,40 @@ export class AttackHandler {
             attackerUnit.getAttackTypeSelection() !== AttackType.RANGE ||
             !this.canLandRangeAttack(attackerUnit, grid.getEnemyAggrMatrixByUnitId(attackerUnit.getId()))
         ) {
-            return false;
+            return { completed: false, unitIdsDied };
         }
 
         if (!targetUnits) {
             if (isAOE) {
                 this.sceneLog.updateLog(`${attackerUnit.getName()} miss aoe`);
             }
-            return isAOE;
+            return { completed: isAOE, unitIdsDied };
         }
 
         if (targetUnits.length !== hoverRangeAttackDivisors.length) {
-            return false;
+            return { completed: false, unitIdsDied };
         }
 
         let targetUnitUndex = 0;
         const affectedUnits = targetUnits.at(targetUnitUndex);
         if (!affectedUnits?.length) {
-            return false;
+            return { completed: false, unitIdsDied };
         }
 
         let targetUnit = affectedUnits[0];
 
         if (!targetUnit && isAOE) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} miss aoe`);
-            return true;
+            return { completed: true, unitIdsDied };
         }
 
         // check if unit is forced to attack certain enemy only
         const forcedTargetUnitId = attackerUnit.getTarget();
         if (targetUnit && forcedTargetUnitId && forcedTargetUnitId !== targetUnit.getId()) {
-            return false;
+            return { completed: false, unitIdsDied };
         }
 
-        const throughShotLanded = processThroughShotAbility(
+        const throughShotResult = processThroughShotAbility(
             attackerUnit,
             targetUnits,
             attackerUnit,
@@ -598,11 +595,15 @@ export class AttackHandler {
             unitsHolder,
             grid,
             drawer,
-            sceneStepCount,
             this.sceneLog,
         );
-        if (throughShotLanded) {
-            return true;
+        for (const uId of throughShotResult.unitIdsDied) {
+            unitIdsDied.push(uId);
+        }
+
+        if (throughShotResult.landed) {
+            unitsHolder.refreshStackPowerForAllUnits();
+            return { completed: true, unitIdsDied };
         }
 
         if (
@@ -613,12 +614,12 @@ export class AttackHandler {
                 (attackerUnit.hasDebuffActive("Cowardice") &&
                     attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp()))
         ) {
-            return false;
+            return { completed: false, unitIdsDied };
         }
 
         let hoverRangeAttackDivisor: number | undefined = hoverRangeAttackDivisors.at(targetUnitUndex);
         if (!hoverRangeAttackDivisor) {
-            return false;
+            return { completed: false, unitIdsDied };
         }
 
         targetUnitUndex++;
@@ -658,7 +659,6 @@ export class AttackHandler {
             affectedUnits,
             attackerUnit,
             hoverRangeAttackDivisor,
-            sceneStepCount,
             unitsHolder,
             grid,
             this.sceneLog,
@@ -697,7 +697,6 @@ export class AttackHandler {
                 rangeResponseUnits,
                 targetUnit,
                 rangeResponseAttackDivisor,
-                sceneStepCount,
                 unitsHolder,
                 grid,
                 this.sceneLog,
@@ -733,7 +732,7 @@ export class AttackHandler {
                     `${targetUnit.getName()} resp ${rangeResponseUnit.getName()} (${damageFromResponse})`,
                 );
 
-                rangeResponseUnit.applyDamage(damageFromResponse, sceneStepCount);
+                rangeResponseUnit.applyDamage(damageFromResponse);
                 DamageStatisticHolder.getInstance().add({
                     unitName: targetUnit.getName(),
                     damage: damageFromResponse,
@@ -751,7 +750,7 @@ export class AttackHandler {
         let switchTargetUnit = false;
         if (!aoeRangeAttackResult?.landed) {
             if (!attackDamageApplied) {
-                targetUnit.applyDamage(damageFromAttack, sceneStepCount);
+                targetUnit.applyDamage(damageFromAttack);
                 damageForAnimation.render = true;
                 damageForAnimation.amount = damageFromAttack;
                 damageForAnimation.unitPosition = targetUnit.getPosition();
@@ -771,7 +770,8 @@ export class AttackHandler {
             if (targetUnit.isDead()) {
                 switchTargetUnit = true;
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
-                unitsHolder.deleteUnitById(targetUnit.getId(), true);
+                // unitsHolder.deleteUnitById(targetUnit.getId(), true);
+                unitIdsDied.push(targetUnit.getId());
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
                 attackerUnit.applyMoraleStepsModifier(
@@ -779,7 +779,7 @@ export class AttackHandler {
                 );
             } else {
                 processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-                processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
+                processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, this.sceneLog);
                 processSpitBallAbility(attackerUnit, targetUnit, attackerUnit, unitsHolder, grid, this.sceneLog);
             }
         }
@@ -787,12 +787,13 @@ export class AttackHandler {
         if (rangeResponseUnit) {
             if (aoeRangeResponseResult?.landed) {
                 if (rangeResponseUnit.isDead() && attackerUnit.getId() === rangeResponseUnit.getId()) {
-                    return true;
+                    return { completed: true, unitIdsDied };
                 }
             } else {
                 if (rangeResponseUnit.isDead()) {
                     this.sceneLog.updateLog(`${rangeResponseUnit.getName()} died`);
-                    unitsHolder.deleteUnitById(rangeResponseUnit.getId(), true);
+                    // unitsHolder.deleteUnitById(rangeResponseUnit.getId(), true);
+                    unitIdsDied.push(rangeResponseUnit.getId());
                     unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(rangeResponseUnit);
                     if (!targetUnit.isDead()) {
                         targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
@@ -802,17 +803,11 @@ export class AttackHandler {
                     }
 
                     if (attackerUnit.getId() === rangeResponseUnit.getId()) {
-                        return true;
+                        return { completed: true, unitIdsDied };
                     }
                 } else {
                     processStunAbility(targetUnit, rangeResponseUnit, attackerUnit, this.sceneLog);
-                    processPetrifyingGazeAbility(
-                        targetUnit,
-                        rangeResponseUnit,
-                        damageFromResponse,
-                        sceneStepCount,
-                        this.sceneLog,
-                    );
+                    processPetrifyingGazeAbility(targetUnit, rangeResponseUnit, damageFromResponse, this.sceneLog);
                     processSpitBallAbility(
                         targetUnit,
                         rangeResponseUnit,
@@ -825,10 +820,12 @@ export class AttackHandler {
             }
         }
 
+        unitsHolder.refreshStackPowerForAllUnits();
+
         if (switchTargetUnit) {
             const affectedUnits = targetUnits.at(targetUnitUndex);
             if (!affectedUnits?.length) {
-                return true;
+                return { completed: true, unitIdsDied };
             }
 
             targetUnit = affectedUnits[0];
@@ -840,11 +837,11 @@ export class AttackHandler {
                 (attackerUnit.hasDebuffActive("Cowardice") &&
                     attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp())
             ) {
-                return true;
+                return { completed: true, unitIdsDied };
             }
             hoverRangeAttackDivisor = hoverRangeAttackDivisors.at(targetUnitUndex);
             if (!hoverRangeAttackDivisor) {
-                return true;
+                return { completed: true, unitIdsDied };
             }
         }
 
@@ -859,15 +856,19 @@ export class AttackHandler {
             grid,
             hoverRangeAttackDivisor,
             hoverRangeAttackPosition,
-            sceneStepCount,
             damageForAnimation,
             isAOE,
         );
 
+        for (const uId of secondShotResult.unitIdsDied) {
+            unitIdsDied.push(uId);
+        }
+
         if (!secondShotResult.aoeRangeAttackLanded) {
             if (targetUnit.isDead()) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
-                unitsHolder.deleteUnitById(targetUnit.getId(), true);
+                // unitsHolder.deleteUnitById(targetUnit.getId(), true);
+                unitIdsDied.push(targetUnit.getId());
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
                 attackerUnit.applyMoraleStepsModifier(
@@ -875,18 +876,14 @@ export class AttackHandler {
                 );
             } else if (secondShotResult.applied) {
                 processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-                processPetrifyingGazeAbility(
-                    attackerUnit,
-                    targetUnit,
-                    secondShotResult.damage,
-                    sceneStepCount,
-                    this.sceneLog,
-                );
+                processPetrifyingGazeAbility(attackerUnit, targetUnit, secondShotResult.damage, this.sceneLog);
                 processSpitBallAbility(attackerUnit, targetUnit, attackerUnit, unitsHolder, grid, this.sceneLog);
             }
         }
 
-        return true;
+        unitsHolder.refreshStackPowerForAllUnits();
+
+        return { completed: true, unitIdsDied };
     }
 
     public handleMeleeAttack(
@@ -894,14 +891,21 @@ export class AttackHandler {
         drawer: Drawer,
         grid: Grid,
         moveHandler: MoveHandler,
-        sceneStepCount: number,
         damageForAnimation: IVisibleDamage,
         currentActiveKnownPaths?: Map<number, IWeightedRoute[]>,
         attackerUnit?: Unit,
         targetUnit?: Unit,
         attackerBody?: b2Body,
-        attackFromCell?: XY,
-    ): boolean {
+        attackFromCell?: HoCMath.XY,
+    ): IAttackResult {
+        const unitIdsDied: string[] = [];
+
+        const updateUnitsDied = (updateBy: string[]): void => {
+            for (const s of updateBy) {
+                unitIdsDied.push(s);
+            }
+        };
+
         if (
             !attackerUnit ||
             attackerUnit.isDead() ||
@@ -915,19 +919,19 @@ export class AttackHandler {
             attackerUnit.getTeam() === targetUnit.getTeam() ||
             (attackerUnit.hasDebuffActive("Cowardice") && attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp())
         ) {
-            return false;
+            return { completed: false, unitIdsDied };
         }
 
         // check if unit is forced to attack certain enemy only
         const forcedTargetUnitId = attackerUnit.getTarget();
         if (forcedTargetUnitId && forcedTargetUnitId !== targetUnit.getId()) {
-            return false;
+            return { completed: false, unitIdsDied };
         }
 
         const currentCell = GridMath.getCellForPosition(this.gridSettings, attackerUnit.getPosition());
 
         if (!currentCell) {
-            return false;
+            return { completed: false, unitIdsDied };
         }
 
         const attackFromCells = [attackFromCell];
@@ -940,7 +944,7 @@ export class AttackHandler {
         }
 
         if (!grid.areCellsAdjacent(attackFromCells, targetUnit.getCells())) {
-            return false;
+            return { completed: false, unitIdsDied };
         }
 
         const stationaryAttack = currentCell.x === attackFromCell.x && currentCell.y === attackFromCell.y;
@@ -957,17 +961,16 @@ export class AttackHandler {
                     this.gridSettings.getHalfStep(),
                 );
 
-                const moveStarted =
+                const moveInitiated =
                     stationaryAttack ||
-                    moveHandler.startMoving(
+                    moveHandler.applyMoveModifiers(
                         attackFromCell,
-                        drawer,
                         FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                        attackerBody,
+                        attackerUnit,
                         currentActiveKnownPaths,
                     );
-                if (!moveStarted) {
-                    return false;
+                if (!moveInitiated) {
+                    return { completed: false, unitIdsDied };
                 }
 
                 attackerUnit.setPosition(position.x, position.y, false);
@@ -977,8 +980,14 @@ export class AttackHandler {
                     attackerUnit.getTeam(),
                     attackerUnit.getAttackRange(),
                 );
+
+                const movePaths = currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y);
+                if (movePaths?.length) {
+                    const path = movePaths[0].route;
+                    drawer.startMoveAnimation(attackerBody, attackerUnit, path);
+                }
             } else {
-                return false;
+                return { completed: false, unitIdsDied };
             }
         } else {
             const position = GridMath.getPositionForCell(
@@ -995,17 +1004,16 @@ export class AttackHandler {
                 grid.areAllCellsEmpty(cells, attackerUnit.getId()) &&
                 (stationaryAttack || currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y)?.length)
             ) {
-                const moveStarted =
+                const moveInitiated =
                     stationaryAttack ||
-                    moveHandler.startMoving(
+                    moveHandler.applyMoveModifiers(
                         attackFromCell,
-                        drawer,
                         FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                        attackerBody,
+                        attackerUnit,
                         currentActiveKnownPaths,
                     );
-                if (!moveStarted) {
-                    return false;
+                if (!moveInitiated) {
+                    return { completed: false, unitIdsDied };
                 }
 
                 attackerUnit.setPosition(
@@ -1015,8 +1023,14 @@ export class AttackHandler {
                 );
 
                 grid.occupyCells(cells, attackerUnit.getId(), attackerUnit.getTeam(), attackerUnit.getAttackRange());
+
+                const movePaths = currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y);
+                if (movePaths?.length) {
+                    const path = movePaths[0].route;
+                    drawer.startMoveAnimation(attackerBody, attackerUnit, path);
+                }
             } else {
-                return false;
+                return { completed: false, unitIdsDied };
             }
         }
 
@@ -1072,38 +1086,42 @@ export class AttackHandler {
             ) + processPenetratingBiteAbility(attackerUnit, targetUnit);
 
         const fightProperties = FightStateManager.getInstance().getFightProperties();
-        const hasLightningSpinAttackLanded = processLightningSpinAbility(
+
+        const lightningSpinAttackResult = processLightningSpinAbility(
             attackerUnit,
             this.sceneLog,
             unitsHolder,
-            sceneStepCount,
             rapidChargeCellsNumber,
             attackFromCell,
             true,
         );
+        const hasLightningSpinAttackLanded = lightningSpinAttackResult.landed;
+        updateUnitsDied(lightningSpinAttackResult.unitIdsDied);
 
-        processFireBreathAbility(
-            attackerUnit,
-            targetUnit,
-            this.sceneLog,
-            unitsHolder,
-            sceneStepCount,
-            grid,
-            this.gridSettings,
-            "attk",
-            attackFromCell,
+        updateUnitsDied(
+            processFireBreathAbility(
+                attackerUnit,
+                targetUnit,
+                this.sceneLog,
+                unitsHolder,
+                grid,
+                this.gridSettings,
+                "attk",
+                attackFromCell,
+            ),
         );
 
-        processSkewerStrikeAbility(
-            attackerUnit,
-            targetUnit,
-            this.sceneLog,
-            unitsHolder,
-            sceneStepCount,
-            grid,
-            this.gridSettings,
-            attackFromCell,
-            true,
+        updateUnitsDied(
+            processSkewerStrikeAbility(
+                attackerUnit,
+                targetUnit,
+                this.sceneLog,
+                unitsHolder,
+                grid,
+                this.gridSettings,
+                attackFromCell,
+                true,
+            ),
         );
 
         if (isAttackMissed) {
@@ -1113,14 +1131,7 @@ export class AttackHandler {
             // to make sure that logs are in chronological order
             this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
 
-            processFireShieldAbility(
-                targetUnit,
-                attackerUnit,
-                this.sceneLog,
-                unitsHolder,
-                damageFromAttack,
-                sceneStepCount,
-            );
+            processFireShieldAbility(targetUnit, attackerUnit, this.sceneLog, unitsHolder, damageFromAttack);
         }
 
         let hasLightningSpinResponseLanded = false;
@@ -1140,39 +1151,42 @@ export class AttackHandler {
             ) {
                 const isResponseMissed = HoCLib.getRandomInt(0, 100) < targetUnit.calculateMissChance(attackerUnit);
 
-                processFireBreathAbility(
-                    targetUnit,
-                    attackerUnit,
-                    this.sceneLog,
-                    unitsHolder,
-                    sceneStepCount,
-                    grid,
-                    this.gridSettings,
-                    "resp",
-                    GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
+                updateUnitsDied(
+                    processFireBreathAbility(
+                        targetUnit,
+                        attackerUnit,
+                        this.sceneLog,
+                        unitsHolder,
+                        grid,
+                        this.gridSettings,
+                        "resp",
+                        GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
+                    ),
                 );
 
-                processSkewerStrikeAbility(
-                    targetUnit,
-                    attackerUnit,
-                    this.sceneLog,
-                    unitsHolder,
-                    sceneStepCount,
-                    grid,
-                    this.gridSettings,
-                    GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
-                    false,
+                updateUnitsDied(
+                    processSkewerStrikeAbility(
+                        targetUnit,
+                        attackerUnit,
+                        this.sceneLog,
+                        unitsHolder,
+                        grid,
+                        this.gridSettings,
+                        GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
+                        false,
+                    ),
                 );
 
-                hasLightningSpinResponseLanded = processLightningSpinAbility(
+                const lightningSpinResponseResult = processLightningSpinAbility(
                     targetUnit,
                     this.sceneLog,
                     unitsHolder,
-                    sceneStepCount,
                     1,
                     attackFromCell,
                     false,
                 );
+                hasLightningSpinResponseLanded = lightningSpinResponseResult.landed;
+                updateUnitsDied(lightningSpinResponseResult.unitIdsDied);
 
                 if (isResponseMissed) {
                     this.sceneLog.updateLog(`${targetUnit.getName()} misses resp ${attackerUnit.getName()}`);
@@ -1218,7 +1232,7 @@ export class AttackHandler {
                         `${targetUnit.getName()} resp ${attackerUnit.getName()} (${damageFromResponse})`,
                     );
 
-                    attackerUnit.applyDamage(damageFromResponse, sceneStepCount);
+                    attackerUnit.applyDamage(damageFromResponse);
                     DamageStatisticHolder.getInstance().add({
                         unitName: targetUnit.getName(),
                         damage: damageFromResponse,
@@ -1230,36 +1244,24 @@ export class AttackHandler {
                     }
 
                     processMinerAbility(targetUnit, attackerUnit, this.sceneLog);
-                    processFireShieldAbility(
-                        attackerUnit,
-                        targetUnit,
-                        this.sceneLog,
-                        unitsHolder,
-                        damageFromResponse,
-                        sceneStepCount,
-                    );
+                    processFireShieldAbility(attackerUnit, targetUnit, this.sceneLog, unitsHolder, damageFromResponse);
                     processStunAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
-                    processPetrifyingGazeAbility(
-                        targetUnit,
-                        attackerUnit,
-                        damageFromResponse,
-                        sceneStepCount,
-                        this.sceneLog,
-                    );
+                    processPetrifyingGazeAbility(targetUnit, attackerUnit, damageFromResponse, this.sceneLog);
                     processBoarSalivaAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                     processAggrAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                     processDeepWoundsAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                     processPegasusLightAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                     processParalysisAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                     processBlindnessAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
-                    processChainLightingAbility(
-                        targetUnit,
-                        attackerUnit,
-                        damageFromResponse,
-                        this.grid,
-                        unitsHolder,
-                        sceneStepCount,
-                        this.sceneLog,
+                    updateUnitsDied(
+                        processChainLightningAbility(
+                            targetUnit,
+                            attackerUnit,
+                            damageFromResponse,
+                            this.grid,
+                            unitsHolder,
+                            this.sceneLog,
+                        ),
                     );
                 }
                 processOneInTheFieldAbility(targetUnit);
@@ -1271,7 +1273,7 @@ export class AttackHandler {
 
         if (!hasLightningSpinAttackLanded && !isAttackMissed) {
             // this code has to be here to make sure that respond damage has been applied as well
-            targetUnit.applyDamage(damageFromAttack, sceneStepCount);
+            targetUnit.applyDamage(damageFromAttack);
             damageForAnimation.render = true;
             damageForAnimation.amount = damageFromAttack;
             damageForAnimation.unitPosition = targetUnit.getPosition();
@@ -1284,21 +1286,22 @@ export class AttackHandler {
 
             processMinerAbility(attackerUnit, targetUnit, this.sceneLog);
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-            processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, this.sceneLog);
+            processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, this.sceneLog);
             processBoarSalivaAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processAggrAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processDeepWoundsAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processPegasusLightAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processParalysisAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             processShatterArmorAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-            processChainLightingAbility(
-                attackerUnit,
-                targetUnit,
-                damageFromAttack,
-                this.grid,
-                unitsHolder,
-                sceneStepCount,
-                this.sceneLog,
+            updateUnitsDied(
+                processChainLightningAbility(
+                    attackerUnit,
+                    targetUnit,
+                    damageFromAttack,
+                    this.grid,
+                    unitsHolder,
+                    this.sceneLog,
+                ),
             );
             const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
             if (pegasusLightEffect) {
@@ -1306,19 +1309,15 @@ export class AttackHandler {
             }
             // ~ already responded here
         }
+        unitsHolder.refreshStackPowerForAllUnits();
 
-        const secondPunchResult = processDoublePunchAbility(
-            attackerUnit,
-            targetUnit,
-            this.sceneLog,
-            unitsHolder,
-            sceneStepCount,
-        );
+        const secondPunchResult = processDoublePunchAbility(attackerUnit, targetUnit, this.sceneLog, unitsHolder);
 
         if (!hasLightningSpinResponseLanded && attackerUnit.isDead()) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} died`);
 
-            unitsHolder.deleteUnitById(attackerUnit.getId(), true);
+            // unitsHolder.deleteUnitById(attackerUnit.getId(), true);
+            unitIdsDied.push(attackerUnit.getId());
             targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             targetUnit.applyMoraleStepsModifier(
                 FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
@@ -1329,7 +1328,8 @@ export class AttackHandler {
         if (!hasLightningSpinAttackLanded && targetUnit.isDead()) {
             this.sceneLog.updateLog(`${targetUnit.getName()} died`);
 
-            unitsHolder.deleteUnitById(targetUnit.getId(), true);
+            // unitsHolder.deleteUnitById(targetUnit.getId(), true);
+            unitIdsDied.push(targetUnit.getId());
             attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             attackerUnit.applyMoraleStepsModifier(
                 FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
@@ -1338,18 +1338,12 @@ export class AttackHandler {
         } else if (secondPunchResult.applied) {
             captureResponse();
             if (secondPunchResult.damage > 0) {
-                targetUnit.applyDamage(secondPunchResult.damage, sceneStepCount);
+                targetUnit.applyDamage(secondPunchResult.damage);
             }
             if (!secondPunchResult.missed) {
                 processMinerAbility(attackerUnit, targetUnit, this.sceneLog);
                 processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
-                processPetrifyingGazeAbility(
-                    attackerUnit,
-                    targetUnit,
-                    secondPunchResult.damage,
-                    sceneStepCount,
-                    this.sceneLog,
-                );
+                processPetrifyingGazeAbility(attackerUnit, targetUnit, secondPunchResult.damage, this.sceneLog);
                 processBoarSalivaAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
                 processAggrAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
                 processDeepWoundsAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
@@ -1361,7 +1355,8 @@ export class AttackHandler {
             if (!hasLightningSpinResponseLanded && attackerUnit.isDead()) {
                 this.sceneLog.updateLog(`${attackerUnit.getName()} died`);
 
-                unitsHolder.deleteUnitById(attackerUnit.getId(), true);
+                // unitsHolder.deleteUnitById(attackerUnit.getId(), true);
+                unitIdsDied.push(attackerUnit.getId());
                 targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 targetUnit.applyMoraleStepsModifier(
                     FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
@@ -1372,7 +1367,8 @@ export class AttackHandler {
             if (!hasLightningSpinAttackLanded && targetUnit.isDead()) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
 
-                unitsHolder.deleteUnitById(targetUnit.getId(), true);
+                // unitsHolder.deleteUnitById(targetUnit.getId(), true);
+                unitIdsDied.push(targetUnit.getId());
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 attackerUnit.applyMoraleStepsModifier(
                     FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
@@ -1381,6 +1377,8 @@ export class AttackHandler {
             }
         }
 
-        return true;
+        unitsHolder.refreshStackPowerForAllUnits();
+
+        return { completed: true, unitIdsDied };
     }
 }

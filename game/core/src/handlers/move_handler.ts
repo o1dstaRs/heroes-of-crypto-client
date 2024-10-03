@@ -9,20 +9,25 @@
  * -----------------------------------------------------------------------------
  */
 
-import { b2Body, XY } from "@box2d/core";
 import {
     Grid,
     GridSettings,
     IWeightedRoute,
     GridMath,
+    HoCMath,
     GridConstants,
     TeamType,
     HoCConstants,
 } from "@heroesofcrypto/common";
 
-import { Drawer } from "../draw/drawer";
 import { Unit } from "../units/units";
+import { UnitsFactory } from "../units/units_factory";
 import { UnitsHolder } from "../units/units_holder";
+
+export interface ISystemMoveResult {
+    log: string;
+    unitIdsDestroyed: string[];
+}
 
 export class MoveHandler {
     public readonly gridSettings: GridSettings;
@@ -31,31 +36,39 @@ export class MoveHandler {
 
     private readonly unitsHolder: UnitsHolder;
 
+    private readonly unitsFactory: UnitsFactory;
+
     private readonly largeUnitsXtoY: Map<number, number[]>;
 
     private readonly largeUnitsYtoX: Map<number, number[]>;
 
-    public constructor(gridSettings: GridSettings, grid: Grid, unitsHolder: UnitsHolder) {
+    public constructor(gridSettings: GridSettings, grid: Grid, unitsHolder: UnitsHolder, unitsFactory: UnitsFactory) {
         this.gridSettings = gridSettings;
         this.grid = grid;
         this.unitsHolder = unitsHolder;
+        this.unitsFactory = unitsFactory;
         this.largeUnitsXtoY = new Map();
         this.largeUnitsYtoX = new Map();
     }
 
-    public moveUnitTowardsCenter(cell: XY, updatePositionMask: number, lapsNarrowed: number): string {
+    public moveUnitTowardsCenter(
+        cell: HoCMath.XY,
+        updatePositionMask: number,
+        lapsNarrowed: number,
+    ): ISystemMoveResult {
         const possibleUnitId = this.grid.getOccupantUnitId(cell);
         const logs: string[] = [];
+        const unitIdsDestroyed: string[] = [];
 
         if (possibleUnitId) {
             const unit = this.unitsHolder.getAllUnits().get(possibleUnitId);
             // nothing to move
             if (!unit) {
-                return "";
+                return { log: "", unitIdsDestroyed };
             }
 
             const currentPosition = unit.getPosition();
-            let cells: XY[];
+            let cells: HoCMath.XY[];
             if (unit.isSmallSize()) {
                 cells = [cell];
             } else {
@@ -76,9 +89,12 @@ export class MoveHandler {
             }
 
             if (this.grid.areAllCellsEmpty(targetCells, unit.getId())) {
-                const log = this.finishDirectedUnitMove(unit, targetCells, undefined, updatePositionMask);
-                if (log) {
-                    logs.push(log);
+                const systemMoveResult = this.finishDirectedUnitMove(unit, targetCells, undefined, updatePositionMask);
+                if (systemMoveResult.log) {
+                    logs.push(systemMoveResult.log);
+                }
+                for (const uId in systemMoveResult.unitIdsDestroyed) {
+                    unitIdsDestroyed.push(uId);
                 }
             } else {
                 let moveX = false;
@@ -111,14 +127,17 @@ export class MoveHandler {
                                     targetCells = shiftedCells;
                                     continue;
                                 }
-                                const log = this.finishDirectedUnitMove(
+                                const systemMoveResult = this.finishDirectedUnitMove(
                                     unit,
                                     shiftedCells,
                                     position,
                                     GridConstants.NO_UPDATE,
                                 );
-                                if (log) {
-                                    logs.push(log);
+                                if (systemMoveResult.log) {
+                                    logs.push(systemMoveResult.log);
+                                }
+                                for (const uId in systemMoveResult.unitIdsDestroyed) {
+                                    unitIdsDestroyed.push(uId);
                                 }
                                 priorityShift = 0;
                                 movedUnit = true;
@@ -142,14 +161,17 @@ export class MoveHandler {
                                     targetCells = shiftedCells;
                                     continue;
                                 }
-                                const log = this.finishDirectedUnitMove(
+                                const systemMoveResult = this.finishDirectedUnitMove(
                                     unit,
                                     shiftedCells,
                                     position,
                                     GridConstants.NO_UPDATE,
                                 );
-                                if (log) {
-                                    logs.push(log);
+                                if (systemMoveResult.log) {
+                                    logs.push(systemMoveResult.log);
+                                }
+                                for (const uId in systemMoveResult.unitIdsDestroyed) {
+                                    unitIdsDestroyed.push(uId);
                                 }
                                 priorityShift = 0;
                                 movedUnit = true;
@@ -167,38 +189,26 @@ export class MoveHandler {
                 }
 
                 if (!movedUnit) {
-                    this.unitsHolder.deleteUnitById(unit.getId());
+                    unitIdsDestroyed.push(unit.getId());
                     logs.push(`${unit.getName()} destroyed`);
                 }
             }
         }
 
-        return logs.join("\n");
+        return { log: logs.join("\n"), unitIdsDestroyed };
     }
 
-    public startFlying(toPosition: XY, drawer: Drawer, body: b2Body): boolean {
-        const unit = this.unitsHolder.getAllUnits().get(body.GetUserData().id);
-
-        if (!unit) {
-            return false;
-        }
-
-        drawer.startFlyAnimation(body, unit, toPosition);
-        return true;
-    }
-
-    public startMoving(
-        toCell: XY,
-        drawer: Drawer,
+    public applyMoveModifiers(
+        toCell: HoCMath.XY,
         stepsMoraleMultiplier: number,
-        body?: b2Body,
+        unit: Unit,
         currentActiveKnownPaths?: Map<number, IWeightedRoute[]>,
     ): boolean {
-        if (!currentActiveKnownPaths || !body) {
+        if (!currentActiveKnownPaths) {
             return false;
         }
 
-        const bodyPosition = body.GetPosition();
+        const bodyPosition = unit.getPosition();
 
         const yPositions = this.largeUnitsXtoY.get(bodyPosition.x);
         const yPositionUpdated = [];
@@ -231,15 +241,8 @@ export class MoveHandler {
                 this.gridSettings.getStep(),
                 this.gridSettings.getHalfStep(),
             );
-            const distanceBefore = this.unitsHolder.getDistanceToClosestEnemy(body.GetUserData(), bodyPosition);
-            const unit = this.unitsHolder.getAllUnits().get(body.GetUserData().id);
-
-            if (!unit) {
-                return false;
-            }
-
-            drawer.startMoveAnimation(body, unit, path);
-            const distanceAfter = this.unitsHolder.getDistanceToClosestEnemy(body.GetUserData(), targetPos);
+            const distanceBefore = this.unitsHolder.getDistanceToClosestEnemy(unit.getOppositeTeam(), bodyPosition);
+            const distanceAfter = this.unitsHolder.getDistanceToClosestEnemy(unit.getOppositeTeam(), targetPos);
             if (distanceAfter < distanceBefore) {
                 unit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_DISTANCE);
                 unit.applyMoraleStepsModifier(stepsMoraleMultiplier);
@@ -259,7 +262,7 @@ export class MoveHandler {
         this.largeUnitsYtoX.clear();
     }
 
-    public updateLargeUnitsCache(bodyPosition: XY): void {
+    public updateLargeUnitsCache(bodyPosition: HoCMath.XY): void {
         const existingArrayXtoY = this.largeUnitsXtoY.get(bodyPosition.x);
         if (existingArrayXtoY) {
             existingArrayXtoY.push(bodyPosition.y);
@@ -281,12 +284,16 @@ export class MoveHandler {
 
     public finishDirectedUnitMove(
         unit: Unit,
-        targetCells: XY[],
-        bodyNewPosition?: XY,
+        targetCells: HoCMath.XY[],
+        bodyNewPosition?: HoCMath.XY,
         updatePositionMask: number = GridConstants.NO_UPDATE,
-    ): string | undefined {
+    ): ISystemMoveResult {
+        const unitIdsDestroyed: string[] = [];
         if (!targetCells?.length) {
-            return undefined;
+            return {
+                log: "",
+                unitIdsDestroyed,
+            };
         }
 
         // this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
@@ -295,7 +302,7 @@ export class MoveHandler {
         } else {
             this.grid.occupyCells(targetCells, unit.getId(), unit.getTeam(), unit.getAttackRange());
         }
-        const body = this.unitsHolder.getUnitBody(unit.getId());
+        const body = this.unitsFactory.getUnitBody(unit.getId());
         let deleteUnit = false;
         if (body) {
             const bodyPosition = body.GetPosition();
@@ -320,20 +327,20 @@ export class MoveHandler {
             deleteUnit = true;
         }
         if (deleteUnit) {
-            this.unitsHolder.deleteUnitById(unit.getId());
-            return `${unit.getId()} destroyed`;
+            unitIdsDestroyed.push(unit.getId());
+            return { log: `${unit.getId()} destroyed`, unitIdsDestroyed };
         }
 
-        return undefined;
+        return { log: "", unitIdsDestroyed };
     }
 
     private getShiftedCells(
-        cells: XY[],
+        cells: HoCMath.XY[],
         shiftFactor: number,
         lapsNarrowed: number,
         isMovingX = true,
-    ): XY[] | undefined {
-        const shiftedCells: XY[] = new Array(cells.length);
+    ): HoCMath.XY[] | undefined {
+        const shiftedCells: HoCMath.XY[] = new Array(cells.length);
         for (let i = 0; i < cells.length; i++) {
             const cell = cells[i];
             if (isMovingX) {

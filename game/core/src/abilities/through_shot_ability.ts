@@ -22,6 +22,11 @@ import { processPetrifyingGazeAbility } from "./petrifying_gaze_ability";
 import { processSpitBallAbility } from "./spit_ball_ability";
 import { processStunAbility } from "./stun_ability";
 
+export interface IThroughShotResult {
+    landed: boolean;
+    unitIdsDied: string[];
+}
+
 export function processThroughShotAbility(
     attackerUnit: Unit,
     targetUnits: Array<Unit[]>,
@@ -31,12 +36,12 @@ export function processThroughShotAbility(
     unitsHolder: UnitsHolder,
     grid: Grid,
     drawer: Drawer,
-    sceneStepCount: number,
     sceneLog: SceneLog,
-): boolean {
+): IThroughShotResult {
+    const unitIdsDied: string[] = [];
     const throughShotAbility = attackerUnit.getAbility("Through Shot");
     if (!throughShotAbility) {
-        return false;
+        return { landed: false, unitIdsDied };
     }
 
     let targetUnitUndex = 0;
@@ -85,7 +90,7 @@ export function processThroughShotAbility(
                 sceneLog,
             );
             sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
-            targetUnit.applyDamage(damageFromAttack, sceneStepCount);
+            targetUnit.applyDamage(damageFromAttack);
             DamageStatisticHolder.getInstance().add({
                 unitName: attackerUnit.getName(),
                 damage: damageFromAttack,
@@ -98,7 +103,7 @@ export function processThroughShotAbility(
             unitsDamaged.push(targetUnit);
 
             if (!targetUnit.isDead()) {
-                processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneStepCount, sceneLog);
+                processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneLog);
             }
         }
     }
@@ -106,7 +111,8 @@ export function processThroughShotAbility(
     for (const unit of unitsDamaged) {
         if (unit.isDead()) {
             sceneLog.updateLog(`${unit.getName()} died`);
-            unitsHolder.deleteUnitById(unit.getId(), true);
+            // unitsHolder.deleteUnitById(unit.getId(), true);
+            unitIdsDied.push(unit.getId());
             attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unit);
             attackerUnit.applyMoraleStepsModifier(
@@ -123,7 +129,5 @@ export function processThroughShotAbility(
         drawer.startBulletAnimation(attackerUnit.getPosition(), hoverRangeAttackPosition, targetUnit);
     }
 
-    unitsHolder.refreshStackPowerForAllUnits();
-
-    return true;
+    return { landed: true, unitIdsDied };
 }

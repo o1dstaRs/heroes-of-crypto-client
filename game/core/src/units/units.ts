@@ -9,8 +9,6 @@
  * -----------------------------------------------------------------------------
  */
 
-import { b2BodyDef, b2BodyType, b2ChainShape, b2Color, b2FixtureDef, b2PolygonShape, b2Vec2, XY } from "@box2d/core";
-import { removeFromArray } from "@box2d/lights/dist/utils/arrayUtils";
 import {
     AppliedSpell,
     AbilityPowerType,
@@ -39,18 +37,13 @@ import {
 } from "@heroesofcrypto/common";
 import Denque from "denque";
 
-import { DAMAGE_ANIMATION_TICKS, HP_BAR_DELTA, MAX_FPS, RESURRECTION_ANIMATION_TICKS } from "../statics";
-import { DefaultShader } from "../utils/gl/defaultShader";
-import { Sprite } from "../utils/gl/Sprite";
 import { SceneLog } from "../menu/scene_log";
-import { RenderableSpell } from "../spells/renderable_spell";
-import { PreloadedTextures } from "../utils/gl/preload";
 
 export interface IAttackTargets {
     unitIds: Set<string>;
-    attackCells: XY[];
+    attackCells: HoCMath.XY[];
     attackCellHashes: Set<number>;
-    attackCellHashesToLargeCells: Map<number, XY[]>;
+    attackCellHashesToLargeCells: Map<number, HoCMath.XY[]>;
 }
 
 export interface IUnitDistance {
@@ -134,8 +127,8 @@ export interface IUnitAIRepr {
     getSize(): number;
     canFly(): boolean;
     isSmallSize(): boolean;
-    getBaseCell(): XY | undefined;
-    getCells(): XY[];
+    getBaseCell(): HoCMath.XY | undefined;
+    getCells(): HoCMath.XY[];
     getAttackType(): AttackType;
 }
 
@@ -171,20 +164,7 @@ interface IDamager {
     selectAttackType(selectedAttackType: AttackType): boolean;
 }
 
-interface IDamageTaken {
-    animationTicks: number;
-    unitsDied: number;
-}
-
 export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUnitAIRepr {
-    protected readonly gl: WebGLRenderingContext;
-
-    protected readonly shader: DefaultShader;
-
-    protected readonly digitNormalTextures: Map<number, WebGLTexture>;
-
-    protected readonly digitDamageTextures: Map<number, WebGLTexture>;
-
     protected readonly unitProperties: UnitProperties;
 
     protected readonly initialUnitProperties: UnitProperties;
@@ -195,37 +175,17 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected readonly unitType: UnitType;
 
-    protected readonly smallSprite: Sprite;
-
-    protected readonly tagSprite: Sprite;
-
-    protected readonly hourglassSprite: Sprite;
-
     protected readonly summoned: boolean;
-
-    protected readonly textures: PreloadedTextures;
-
-    protected readonly bodyDef: b2BodyDef;
-
-    protected readonly fixtureDef: b2FixtureDef;
 
     protected buffs: AppliedSpell[];
 
     protected debuffs: AppliedSpell[];
 
-    protected readonly position: b2Vec2;
+    protected readonly position: HoCMath.XY;
 
-    protected renderPosition: b2Vec2;
+    protected renderPosition: HoCMath.XY;
 
-    protected readonly stackPowerBarFixtureDefs: b2FixtureDef[];
-
-    protected readonly stackPowerBarBoundFixtureDefs: b2FixtureDef[];
-
-    protected readonly damageAnimationTicks: Denque<IDamageTaken> = new Denque<IDamageTaken>();
-
-    protected resurrectionAnimationTick = 0;
-
-    protected spells: RenderableSpell[];
+    protected spells: Spell[];
 
     protected effects: Effect[];
 
@@ -253,38 +213,22 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     protected adjustedBaseStatsLaps: number[] = [];
 
-    public constructor(
-        gl: WebGLRenderingContext,
-        shader: DefaultShader,
-        digitNormalTextures: Map<number, WebGLTexture>,
-        digitDamageTextures: Map<number, WebGLTexture>,
+    protected constructor(
         unitProperties: UnitProperties,
         gridSettings: GridSettings,
         teamType: TeamType,
         unitType: UnitType,
-        smallSprite: Sprite,
-        tagSprite: Sprite,
-        hourglassSprite: Sprite,
         abilityFactory: AbilityFactory,
         effectFactory: EffectFactory,
         summoned: boolean,
-        textures: PreloadedTextures,
     ) {
-        this.gl = gl;
-        this.shader = shader;
-        this.digitNormalTextures = digitNormalTextures;
-        this.digitDamageTextures = digitDamageTextures;
         this.unitProperties = unitProperties;
         this.initialUnitProperties = structuredClone(unitProperties);
         this.gridSettings = gridSettings;
         this.teamType = teamType;
         this.unitType = unitType;
-        this.smallSprite = smallSprite;
-        this.tagSprite = tagSprite;
-        this.hourglassSprite = hourglassSprite;
         this.effectFactory = effectFactory;
         this.summoned = summoned;
-        this.textures = textures;
 
         if (this.unitProperties.attack_type === AttackType.MELEE) {
             this.selectedAttackType = AttackType.MELEE;
@@ -296,140 +240,41 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             this.selectedAttackType = AttackType.MAGIC;
         }
 
-        this.renderPosition = new b2Vec2();
-        const position = (this.position = new b2Vec2());
-
-        this.bodyDef = {
-            type: b2BodyType.b2_dynamicBody,
-            position,
-            fixedRotation: true,
-            userData: unitProperties,
-        };
-
-        const unitShape = new b2PolygonShape();
-        this.fixtureDef = {
-            shape: unitShape,
-            density: 1,
-            friction: 0,
-            restitution: 0.0,
-        };
-        unitShape.SetAsBox(
-            this.gridSettings.getUnitSize() * this.unitProperties.size,
-            this.gridSettings.getUnitSize() * this.unitProperties.size,
-        );
-
-        const halfUnitStep = this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep();
-        const fullUnitStep = this.isSmallSize() ? this.gridSettings.getStep() : this.gridSettings.getTwoSteps();
-
-        this.stackPowerBarBoundFixtureDefs = new Array(5);
-        let i = 0;
-        while (i < this.stackPowerBarBoundFixtureDefs.length) {
-            const hpBoundShape = new b2ChainShape(b2Color.WHITE);
-            const step = fullUnitStep / this.stackPowerBarBoundFixtureDefs.length;
-            const yOffset = i * step;
-            const yBottom = this.position.y - halfUnitStep + yOffset;
-            const yTop = yBottom + step;
-            hpBoundShape.CreateLoop([
-                new b2Vec2(this.position.x - halfUnitStep, yTop),
-                new b2Vec2(this.position.x - halfUnitStep + fullUnitStep / 7, yTop),
-                new b2Vec2(this.position.x - halfUnitStep + fullUnitStep / 7, yBottom),
-                new b2Vec2(this.position.x - halfUnitStep, yBottom),
-            ]);
-            this.stackPowerBarBoundFixtureDefs[i++] = {
-                shape: hpBoundShape,
-                density: 1,
-                friction: 0,
-                restitution: 0.0,
-                isSensor: true,
-            };
-        }
-
-        this.stackPowerBarFixtureDefs = new Array(5);
-        let j = 0;
-        while (j < this.stackPowerBarFixtureDefs.length) {
-            const hpBarShape = new b2PolygonShape();
-            const step = fullUnitStep / this.stackPowerBarBoundFixtureDefs.length;
-            const yOffset = j * step;
-            const yBottom = this.position.y - halfUnitStep + yOffset + HP_BAR_DELTA;
-            const yTop = yBottom + step - HP_BAR_DELTA;
-            hpBarShape.Set([
-                new b2Vec2(this.position.x - halfUnitStep + HP_BAR_DELTA, yTop),
-                new b2Vec2(this.position.x - halfUnitStep + fullUnitStep / 7 - HP_BAR_DELTA, yTop),
-                new b2Vec2(this.position.x - halfUnitStep + HP_BAR_DELTA, yBottom),
-                new b2Vec2(this.position.x - halfUnitStep + fullUnitStep / 7 - HP_BAR_DELTA, yBottom),
-            ]);
-            this.stackPowerBarFixtureDefs[j++] = {
-                shape: hpBarShape,
-                density: 1,
-                friction: 0,
-                restitution: 0.0,
-                isSensor: true,
-                userData: { team: this.teamType },
-            };
-        }
+        this.renderPosition = { x: 0, y: 0 };
+        this.position = { x: 0, y: 0 };
         this.spells = [];
         this.buffs = [];
         this.debuffs = [];
         this.maxRangeShots = this.unitProperties.range_shots;
         this.abilityFactory = abilityFactory;
         this.parseAbilities();
-        this.parseSpells();
         this.effects = [];
         this.parseAuraEffects();
     }
 
-    protected getDistanceToFurthestCorner(position: XY): number {
-        return Math.max(
-            b2Vec2.Distance(position, { x: this.gridSettings.getMinX(), y: this.gridSettings.getMinY() }),
-            b2Vec2.Distance(position, { x: this.gridSettings.getMinX(), y: this.gridSettings.getMaxY() }),
-            b2Vec2.Distance(position, { x: this.gridSettings.getMaxX(), y: this.gridSettings.getMinY() }),
-            b2Vec2.Distance(position, { x: this.gridSettings.getMaxX(), y: this.gridSettings.getMaxY() }),
+    public static createUnit(
+        unitProperties: UnitProperties,
+        gridSettings: GridSettings,
+        teamType: TeamType,
+        unitType: UnitType,
+        abilityFactory: AbilityFactory,
+        effectFactory: EffectFactory,
+        summoned: boolean,
+    ): Unit {
+        const unit = new Unit(
+            unitProperties,
+            gridSettings,
+            teamType,
+            unitType,
+            abilityFactory,
+            effectFactory,
+            summoned,
         );
+        unit.parseSpells();
+        return unit;
     }
 
-    protected parseSpells(): void {
-        const spells: Map<string, number> = new Map();
-        for (const sp of this.unitProperties.spells) {
-            if (!spells.has(sp)) {
-                spells.set(sp, 1);
-            } else {
-                const amount = spells.get(sp);
-                if (amount) {
-                    spells.set(sp, amount + 1);
-                } else {
-                    spells.set(sp, 1);
-                }
-            }
-        }
-
-        for (const [k, v] of spells.entries()) {
-            const spArr = k.split(":");
-            if (spArr.length !== 2) {
-                continue;
-            }
-            // can return us undefined
-            const faction = ToFactionType[spArr[0] as AllFactionsType] ?? FactionType.NO_TYPE;
-            if (faction === undefined) {
-                continue;
-            }
-
-            const spellName = spArr[1];
-            const spellProperties = HoCConfig.getSpellConfig(faction, spellName);
-            const textureNames = SpellHelper.spellToTextureNames(spellName);
-            this.spells.push(
-                new RenderableSpell(
-                    { spellProperties: spellProperties, amount: v },
-                    this.gl,
-                    this.shader,
-                    new Sprite(this.gl, this.shader, this.textures[textureNames[0] as keyof PreloadedTextures].texture),
-                    new Sprite(this.gl, this.shader, this.textures[textureNames[1] as keyof PreloadedTextures].texture),
-                    this.digitNormalTextures,
-                ),
-            );
-        }
-    }
-
-    public getSpells(): RenderableSpell[] {
+    public getSpells(): Spell[] {
         return this.spells;
     }
 
@@ -459,24 +304,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public getDebuffs(): AppliedSpell[] {
         return this.debuffs;
-    }
-
-    protected parseAbilities(): boolean {
-        let spellAdded = false;
-        for (const abilityName of this.unitProperties.abilities) {
-            if (!this.hasAbilityActive(abilityName)) {
-                const ability = this.abilityFactory.makeAbility(abilityName);
-                this.abilities.push(ability);
-                const spell = ability.getSpell();
-                if (spell && !this.unitProperties.spells.includes(spell.getName())) {
-                    this.unitProperties.spells.push(`:${spell.getName()}`);
-                    this.unitProperties.can_cast_spells = true;
-                    spellAdded = true;
-                }
-            }
-        }
-
-        return spellAdded;
     }
 
     public deleteAbility(abilityName: string): Ability | undefined {
@@ -534,15 +361,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.abilities_auras.push(!!ability.getAuraEffect());
         if (this.parseAbilities()) {
             this.parseSpells();
-        }
-    }
-
-    protected parseAuraEffects(): void {
-        for (const auraEffectName of this.unitProperties.aura_effects) {
-            const auraEffect = this.effectFactory.makeAuraEffect(auraEffectName);
-            if (auraEffect) {
-                this.auraEffects.push(auraEffect);
-            }
         }
     }
 
@@ -1054,22 +872,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return this.unitProperties.exp;
     }
 
-    public getBodyDef(): b2BodyDef {
-        return this.bodyDef;
-    }
-
-    public getFixtureDef(): b2FixtureDef {
-        return this.fixtureDef;
-    }
-
-    public getHpBarBoundFixtureDefs(): b2FixtureDef[] {
-        return this.stackPowerBarBoundFixtureDefs.slice(0, this.getStackPower());
-    }
-
-    public getHpBarFixtureDefs(): b2FixtureDef[] {
-        return this.stackPowerBarFixtureDefs.slice(0, this.getStackPower());
-    }
-
     public getTeam(): TeamType {
         return this.teamType;
     }
@@ -1130,30 +932,28 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 Number((this.getDistanceToFurthestCorner(this.getPosition()) / this.gridSettings.getStep()).toFixed(2)),
             );
         }
-        this.position.Set(x, y);
+        this.position.x = x;
+        this.position.y = y;
 
         if (setRender) {
-            this.renderPosition.Set(x, y);
+            this.setRenderPosition(x, y);
         }
     }
 
     public setRenderPosition(x: number, y: number) {
-        this.renderPosition.Set(x, y);
+        this.renderPosition.x = x;
+        this.renderPosition.y = y;
     }
 
-    public getPosition(): b2Vec2 {
+    public getPosition(): HoCMath.XY {
         return this.position;
     }
 
-    public getRenderPosition(): b2Vec2 {
-        return this.renderPosition;
-    }
-
-    public getBaseCell(): XY {
+    public getBaseCell(): HoCMath.XY {
         return GridMath.getCellForPosition(this.gridSettings, this.getPosition());
     }
 
-    public getCells(): XY[] {
+    public getCells(): HoCMath.XY[] {
         if (this.isSmallSize()) {
             const bodyCellPos = GridMath.getCellForPosition(this.gridSettings, this.getPosition());
             if (!bodyCellPos) {
@@ -1216,155 +1016,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
     }
 
-    public enqueueResurrectionAnimation(): void {
-        this.resurrectionAnimationTick = Math.max(
-            this.resurrectionAnimationTick,
-            this.lastKnownTick + RESURRECTION_ANIMATION_TICKS,
-        );
-    }
-
-    public render(fps: number, currentTick: number, isDamageAnimationLocked: boolean, sceneLog: SceneLog) {
-        this.lastKnownTick = Math.max(currentTick, this.lastKnownTick);
-
-        if (this.lastKnownTick < this.resurrectionAnimationTick) {
-            return;
-        }
-
-        if (this.resurrectionAnimationTick) {
-            sceneLog.updateLog(`${this.getName()} resurrected as ${this.getAmountAlive()}`);
-            this.resurrectionAnimationTick = 0;
-        }
-
-        const halfUnitStep = this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep();
-        const fourthUnitStep = this.isSmallSize()
-            ? this.gridSettings.getQuarterStep()
-            : this.gridSettings.getHalfStep();
-        const fullUnitStep = this.isSmallSize() ? this.gridSettings.getStep() : this.gridSettings.getTwoSteps();
-
-        const spritePositionX = this.getRenderPosition().x - halfUnitStep;
-        const spritePositionY = this.getRenderPosition().y - halfUnitStep;
-
-        this.smallSprite.setRect(spritePositionX, spritePositionY, fullUnitStep, fullUnitStep);
-        this.smallSprite.render();
-
-        const damageEntry = this.damageAnimationTicks.pop();
-        let finishDamageTick = damageEntry?.animationTicks;
-
-        const sixthStep = fullUnitStep / 6;
-        const fifthStep = fullUnitStep / 5;
-
-        if (isDamageAnimationLocked || !finishDamageTick || currentTick > finishDamageTick) {
-            this.renderAmountSprites(
-                this.digitNormalTextures,
-                this.unitProperties.amount_alive,
-                this.getRenderPosition(),
-                halfUnitStep,
-                fifthStep,
-                sixthStep,
-            );
-            if (isDamageAnimationLocked && damageEntry) {
-                this.damageAnimationTicks.push({
-                    animationTicks: currentTick + DAMAGE_ANIMATION_TICKS,
-                    unitsDied: damageEntry?.unitsDied ?? 0,
-                });
-            }
-        } else {
-            const ratioToMaxFps = Math.floor(MAX_FPS / fps);
-
-            if (ratioToMaxFps) {
-                finishDamageTick -= Math.sqrt(ratioToMaxFps - 1);
-            }
-
-            const unitsDied = damageEntry?.unitsDied ?? 0;
-
-            this.damageAnimationTicks.push({
-                animationTicks: finishDamageTick,
-                unitsDied: damageEntry?.unitsDied ?? 0,
-            });
-
-            if (unitsDied) {
-                this.renderAmountSprites(
-                    this.digitDamageTextures,
-                    unitsDied,
-                    this.getRenderPosition(),
-                    halfUnitStep,
-                    fifthStep,
-                    sixthStep,
-                );
-            } else {
-                const texture = this.digitNormalTextures.get(-1);
-                if (texture) {
-                    for (let i = 1; i <= this.unitProperties.amount_alive.toString().length; i++) {
-                        const sprite = new Sprite(this.gl, this.shader, texture);
-                        sprite.setRect(
-                            this.getRenderPosition().x + halfUnitStep - sixthStep * i,
-                            this.getRenderPosition().y - halfUnitStep,
-                            sixthStep,
-                            fifthStep,
-                        );
-                        sprite.render();
-                    }
-                }
-            }
-        }
-
-        if (!damageEntry || (damageEntry && !isDamageAnimationLocked)) {
-            if (this.responded) {
-                this.tagSprite.setRect(
-                    this.getRenderPosition().x + halfUnitStep - fourthUnitStep,
-                    this.getRenderPosition().y - fourthUnitStep - 6,
-                    fourthUnitStep,
-                    fourthUnitStep,
-                );
-                this.tagSprite.render();
-            }
-
-            if (this.onHourglass) {
-                this.hourglassSprite.setRect(
-                    this.getRenderPosition().x + halfUnitStep - fourthUnitStep + 6,
-                    this.getRenderPosition().y,
-                    fourthUnitStep,
-                    fourthUnitStep,
-                );
-                this.hourglassSprite.render();
-            }
-        }
-    }
-
-    public getHoveredSpell(mousePosition: XY): RenderableSpell | undefined {
-        for (const s of this.spells) {
-            if (s.isHover(mousePosition)) {
-                return s;
-            }
-        }
-
-        return undefined;
-    }
-
-    public renderSpells(pageNumber: number): void {
-        const windowLeft = (pageNumber - 1) * 6;
-        const windowRight = (pageNumber - 1) * 6 + 6;
-        let bookPosition = 1;
-        const rendered: number[] = [];
-        for (let i = windowLeft; i < windowRight; i++) {
-            if (
-                i in this.spells &&
-                this.spells[i] &&
-                this.spells[i].isRemaining() &&
-                this.spells[i].getMinimalCasterStackPower() <= this.getStackPower()
-            ) {
-                this.spells[i].renderOnPage(bookPosition++);
-                rendered.push(i);
-            }
-        }
-
-        for (let i = 0; i < this.spells.length; i++) {
-            if (!rendered.includes(i)) {
-                this.spells[i].cleanupPagePosition();
-            }
-        }
-    }
-
     public randomizeLuckPerTurn(): void {
         let calculatedLuck = HoCLib.getRandomInt(
             -HoCConstants.LUCK_MAX_CHANGE_FOR_TURN,
@@ -1382,7 +1033,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.luck_per_turn = 0;
     }
 
-    public applyArmageddonDamage(armageddonWave: number, currentTick: number, sceneLog: SceneLog): void {
+    public applyArmageddonDamage(armageddonWave: number, sceneLog: SceneLog): void {
         const aw = Math.floor(armageddonWave);
         if (aw <= 0 || aw > HoCConstants.NUMBER_OF_ARMAGEDDON_WAVES) {
             return;
@@ -1401,18 +1052,13 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         sceneLog.updateLog(`${this.getName()} got hit by armageddon for ${armageddonDamage} damage`);
-        this.applyDamage(armageddonDamage, currentTick);
+        this.applyDamage(armageddonDamage);
     }
 
-    public applyDamage(minusHp: number, currentTick: number): void {
-        const damageTakenEntry = this.damageAnimationTicks.peekFront();
-        const nextAnimationTick = damageTakenEntry?.animationTicks ?? 0;
+    public applyDamage(minusHp: number): void {
         if (minusHp < this.unitProperties.hp) {
             this.unitProperties.hp -= minusHp;
-            this.damageAnimationTicks.unshift({
-                animationTicks: Math.max(currentTick, nextAnimationTick) + DAMAGE_ANIMATION_TICKS,
-                unitsDied: 0,
-            });
+            this.handleDamageAnimation(0); // Trigger animation hook with no deaths
             return;
         }
 
@@ -1426,17 +1072,17 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         if (amountDied >= this.unitProperties.amount_alive) {
             this.unitProperties.amount_died += this.unitProperties.amount_alive;
             this.unitProperties.amount_alive = 0;
+            this.handleDamageAnimation(this.unitProperties.amount_alive); // Trigger animation hook with all deaths
             return;
         }
 
         this.unitProperties.amount_died += amountDied;
         this.unitProperties.amount_alive -= amountDied;
         this.unitProperties.hp -= minusHp % this.unitProperties.max_hp;
-        this.damageAnimationTicks.unshift({
-            animationTicks: Math.max(currentTick, nextAnimationTick) + DAMAGE_ANIMATION_TICKS,
-            unitsDied: amountDied + 1,
-        });
 
+        this.handleDamageAnimation(amountDied + 1); // Trigger animation hook with the number of deaths
+
+        // Apply "Bitter Experience" if available
         if (this.hasAbilityActive("Bitter Experience")) {
             this.unitProperties.base_armor += 1;
             this.initialUnitProperties.base_armor += 1;
@@ -2015,11 +1661,16 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     }
 
     public useSpell(spellName: string): void {
-        const spellsUpdated: RenderableSpell[] = [];
+        const spellsUpdated: Spell[] = [];
         for (const s of this.spells) {
             if (s.getName() === spellName) {
                 s.decreaseAmount();
-                removeFromArray(this.unitProperties.spells, `${s.getFaction()}:${s.getName()}`);
+                const fullSpellName = `${s.getFaction()}:${s.getName()}`;
+                for (let i = this.unitProperties.spells.length - 1; i >= 0; i--) {
+                    if (this.unitProperties.spells[i] === fullSpellName) {
+                        this.unitProperties.spells.splice(i, 1);
+                    }
+                }
             }
             if (s.isRemaining()) {
                 spellsUpdated.push(s);
@@ -2046,23 +1697,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         return healedFor;
-    }
-
-    private refreshAbiltyDescription(abilityName: string, abilityDescription: string): void {
-        if (
-            this.unitProperties.abilities.length === this.unitProperties.abilities_descriptions.length &&
-            this.unitProperties.abilities.length === this.unitProperties.abilities_stack_powered.length &&
-            this.unitProperties.abilities.length === this.unitProperties.abilities_auras.length
-        ) {
-            for (let i = 0; i < this.unitProperties.abilities.length; i++) {
-                if (
-                    this.unitProperties.abilities[i] === abilityName &&
-                    (this.unitProperties.abilities_stack_powered[i] || abilityName === "Blind Fury")
-                ) {
-                    this.unitProperties.abilities_descriptions[i] = abilityDescription;
-                }
-            }
-        }
     }
 
     public adjustBaseStats(currentLap: number) {
@@ -2339,6 +1973,18 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         // Heavy Armor
         const heavyArmorAbility = this.getAbility("Heavy Armor");
         if (heavyArmorAbility) {
+            baseArmorMultiplier =
+                baseArmorMultiplier *
+                (1 +
+                    ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
+                        this.getStackPower());
+        }
+
+        this.unitProperties.base_armor = Number((this.unitProperties.base_armor * baseArmorMultiplier).toFixed(2));
+        this.unitProperties.range_armor = Number((this.unitProperties.base_armor * rangeArmorMultiplier).toFixed(2));
+
+        // Heavy Armor
+        if (heavyArmorAbility) {
             const percentage = Number(
                 (
                     ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
@@ -2350,16 +1996,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
                 heavyArmorAbility.getName(),
                 heavyArmorAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
-
-            baseArmorMultiplier =
-                baseArmorMultiplier *
-                (1 +
-                    ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
-                        this.getStackPower());
         }
-
-        this.unitProperties.base_armor = Number((this.unitProperties.base_armor * baseArmorMultiplier).toFixed(2));
-        this.unitProperties.range_armor = Number((this.unitProperties.base_armor * rangeArmorMultiplier).toFixed(2));
 
         // Lightning Spin
         const lightningSpinAbility = this.getAbility("Lightning Spin");
@@ -2474,11 +2111,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         // Sharpened Weapons Aura
         const sharpenedWeaponsAuraAbility = this.getAbility("Sharpened Weapons Aura");
         if (sharpenedWeaponsAuraAbility) {
-            const percentage =
-                Number((this.calculateAbilityMultiplier(sharpenedWeaponsAuraAbility) * 100).toFixed(2)) - 100;
+            const percentage = (this.calculateAbilityMultiplier(sharpenedWeaponsAuraAbility) * 100 - 100).toFixed(2);
             this.refreshAbiltyDescription(
                 sharpenedWeaponsAuraAbility.getName(),
-                sharpenedWeaponsAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+                sharpenedWeaponsAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage),
             );
         }
 
@@ -2809,45 +2445,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.stack_power = stackPower;
     }
 
-    protected getEnemyArmor(enemyUnit: Unit, isRangeAttack: boolean): number {
-        const piercingSpearAbility = this.getAbility("Piercing Spear");
-        const armor = isRangeAttack ? enemyUnit.getRangeArmor() : enemyUnit.getArmor();
-        if (piercingSpearAbility) {
-            return armor * (1 - this.calculateAbilityMultiplier(piercingSpearAbility));
-        }
-
-        return armor;
-    }
-
-    protected refreshAndGetAdjustedMaxHp(currentLap: number): number {
-        const hasUnyieldingPower = this.hasAbilityActive("Unyielding Power");
-        if (hasUnyieldingPower) {
-            this.unitProperties.max_hp = this.initialUnitProperties.max_hp + currentLap * 5;
-        } else {
-            this.unitProperties.max_hp = this.initialUnitProperties.max_hp;
-        }
-
-        const boostHealthAbility = this.getAbility("Boost Health");
-        if (boostHealthAbility) {
-            const multiplier = this.calculateAbilityMultiplier(boostHealthAbility);
-
-            let adjustActualHp = false;
-            if (this.unitProperties.hp === this.unitProperties.max_hp) {
-                adjustActualHp = true;
-            }
-
-            this.unitProperties.max_hp = Math.round(
-                this.unitProperties.max_hp + this.unitProperties.max_hp * multiplier,
-            );
-            if (adjustActualHp) {
-                this.unitProperties.hp = this.unitProperties.max_hp;
-            }
-            return this.unitProperties.max_hp;
-        }
-
-        return this.unitProperties.max_hp;
-    }
-
     public attackMeleeAllowed(
         enemyTeam: Unit[],
         positions: Map<string, HoCMath.XY>,
@@ -3005,47 +2602,116 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         };
     }
 
-    protected renderAmountSprites(
-        digitTextures: Map<number, WebGLTexture>,
-        amountToRender: number,
-        position: XY,
-        halfUnitStep: number,
-        fifthStep: number,
-        sixthStep: number,
-    ): void {
-        const isDamage = digitTextures === this.digitDamageTextures;
-        const amountSprites: Sprite[] = new Array(amountToRender.toString().length + (isDamage ? 1 : 0));
-        let index = 0;
-        if (amountToRender < 10) {
-            const texture = digitTextures.get(amountToRender);
-            if (texture) {
-                amountSprites[index] = new Sprite(this.gl, this.shader, texture);
-            }
-        } else {
-            while (amountToRender) {
-                const digit = amountToRender % 10;
-                const texture = digitTextures.get(digit);
-                if (texture) {
-                    amountSprites[index++] = new Sprite(this.gl, this.shader, texture);
+    protected parseAbilities(): boolean {
+        let spellAdded = false;
+        for (const abilityName of this.unitProperties.abilities) {
+            if (!this.hasAbilityActive(abilityName)) {
+                const ability = this.abilityFactory.makeAbility(abilityName);
+                this.abilities.push(ability);
+                const spell = ability.getSpell();
+                if (spell && !this.unitProperties.spells.includes(spell.getName())) {
+                    this.unitProperties.spells.push(`:${spell.getName()}`);
+                    this.unitProperties.can_cast_spells = true;
+                    spellAdded = true;
                 }
-                amountToRender = Math.floor(amountToRender / 10);
-            }
-        }
-        if (isDamage) {
-            const texture = digitTextures.get(-1);
-            if (texture) {
-                amountSprites[index + 1] = new Sprite(this.gl, this.shader, texture);
             }
         }
 
-        let i = 1;
-        for (const s of amountSprites) {
-            if (!s) {
+        return spellAdded;
+    }
+
+    protected getDistanceToFurthestCorner(position: HoCMath.XY): number {
+        return Math.max(
+            HoCMath.getDistance(position, { x: this.gridSettings.getMinX(), y: this.gridSettings.getMinY() }),
+            HoCMath.getDistance(position, { x: this.gridSettings.getMinX(), y: this.gridSettings.getMaxY() }),
+            HoCMath.getDistance(position, { x: this.gridSettings.getMaxX(), y: this.gridSettings.getMinY() }),
+            HoCMath.getDistance(position, { x: this.gridSettings.getMaxX(), y: this.gridSettings.getMaxY() }),
+        );
+    }
+
+    protected parseSpellData(spellData: string[]): Map<string, number> {
+        const spells: Map<string, number> = new Map();
+
+        for (const sp of spellData) {
+            if (!spells.has(sp)) {
+                spells.set(sp, 1);
+            } else {
+                const amount = spells.get(sp);
+                spells.set(sp, (amount || 0) + 1);
+            }
+        }
+
+        return spells;
+    }
+
+    protected parseSpells(): void {
+        const spells: Map<string, number> = this.parseSpellData(this.unitProperties.spells);
+
+        for (const [k, v] of spells.entries()) {
+            const spArr = k.split(":");
+            if (spArr.length !== 2) {
+                continue;
+            }
+            // can return us undefined
+            const faction = ToFactionType[spArr[0] as AllFactionsType] ?? FactionType.NO_TYPE;
+            if (faction === undefined) {
                 continue;
             }
 
-            s.setRect(position.x + halfUnitStep - sixthStep * i++, position.y - halfUnitStep, sixthStep, fifthStep);
-            s.render();
+            const spellProperties = HoCConfig.getSpellConfig(faction, spArr[1]);
+            this.spells.push(new Spell({ spellProperties: spellProperties, amount: v }));
         }
+    }
+
+    protected parseAuraEffects(): void {
+        for (const auraEffectName of this.unitProperties.aura_effects) {
+            const auraEffect = this.effectFactory.makeAuraEffect(auraEffectName);
+            if (auraEffect) {
+                this.auraEffects.push(auraEffect);
+            }
+        }
+    }
+
+    protected handleDamageAnimation(_unitsDied: number): void {}
+
+    protected refreshAbiltyDescription(_abilityName: string, _abilityDescription: string): void {}
+
+    protected getEnemyArmor(enemyUnit: Unit, isRangeAttack: boolean): number {
+        const piercingSpearAbility = this.getAbility("Piercing Spear");
+        const armor = isRangeAttack ? enemyUnit.getRangeArmor() : enemyUnit.getArmor();
+        if (piercingSpearAbility) {
+            return armor * (1 - this.calculateAbilityMultiplier(piercingSpearAbility));
+        }
+
+        return armor;
+    }
+
+    protected refreshAndGetAdjustedMaxHp(currentLap: number): number {
+        const hasUnyieldingPower = this.hasAbilityActive("Unyielding Power");
+        if (hasUnyieldingPower) {
+            this.unitProperties.max_hp = this.initialUnitProperties.max_hp + currentLap * 5;
+        } else {
+            this.unitProperties.max_hp = this.initialUnitProperties.max_hp;
+        }
+
+        const boostHealthAbility = this.getAbility("Boost Health");
+        if (boostHealthAbility) {
+            const multiplier = this.calculateAbilityMultiplier(boostHealthAbility);
+
+            let adjustActualHp = false;
+            if (this.unitProperties.hp === this.unitProperties.max_hp) {
+                adjustActualHp = true;
+            }
+
+            this.unitProperties.max_hp = Math.round(
+                this.unitProperties.max_hp + this.unitProperties.max_hp * multiplier,
+            );
+            if (adjustActualHp) {
+                this.unitProperties.hp = this.unitProperties.max_hp;
+            }
+            return this.unitProperties.max_hp;
+        }
+
+        return this.unitProperties.max_hp;
     }
 }
