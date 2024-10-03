@@ -19,7 +19,6 @@ export function processPetrifyingGazeAbility(
     fromUnit: Unit,
     toUnit: Unit,
     damageFromAttack: number,
-    sceneStepCount: number,
     sceneLog: SceneLog,
 ): void {
     if (toUnit.isDead() || damageFromAttack <= 0) {
@@ -65,7 +64,7 @@ export function processPetrifyingGazeAbility(
         damageFromAbility += amountOfUnitsKilled * toUnit.getMaxHp();
 
         // apply the ability damage
-        toUnit.applyDamage(damageFromAbility, sceneStepCount);
+        toUnit.applyDamage(damageFromAbility);
         DamageStatisticHolder.getInstance().add({
             unitName: fromUnit.getName(),
             damage: damageFromAbility,

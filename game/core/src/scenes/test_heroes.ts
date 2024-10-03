@@ -83,15 +83,14 @@ import { getLapString } from "../utils/strings";
 import { GLScene } from "./gl_scene";
 import { registerScene, SceneContext } from "./scene";
 import { SceneSettings } from "./scene_settings";
+import { RenderableUnit } from "../units/renderable_unit";
 
 class Sandbox extends GLScene {
     private ground: b2Body;
 
     private placementsCleanedUp = false;
 
-    private currentActiveUnit?: Unit;
-
-    // private currentActiveUnitSwitchedAttackAuto = false;
+    private currentActiveUnit?: RenderableUnit;
 
     private currentActivePath?: XY[];
 
@@ -258,6 +257,13 @@ class Sandbox extends GLScene {
             [-1, textures.m_damage.texture],
         ]);
 
+        this.ground = this.sc_world.CreateBody();
+        this.grid = new Grid(
+            this.sc_sceneSettings.getGridSettings(),
+            FightStateManager.getInstance().getFightProperties().getGridType(),
+        );
+
+        this.unitsHolder = new UnitsHolder(this.grid);
         this.unitsFactory = new UnitsFactory(
             this.sc_world,
             this.gl,
@@ -265,15 +271,13 @@ class Sandbox extends GLScene {
             this.digitNormalTextures,
             this.digitDamageTextures,
             this.sc_sceneSettings.getGridSettings(),
+            this.sc_stepCount,
             textures,
+            this.grid,
+            this.unitsHolder,
             new AbilityFactory(new EffectFactory()),
         );
-        this.ground = this.sc_world.CreateBody();
-        this.grid = new Grid(
-            this.sc_sceneSettings.getGridSettings(),
-            FightStateManager.getInstance().getFightProperties().getGridType(),
-        );
-        this.unitsHolder = new UnitsHolder(this.sc_world, this.grid, this.unitsFactory);
+
         this.refreshVisibleStateIfNeeded();
         this.gridMatrix = this.grid.getMatrix();
         this.obstacleGenerator = new ObstacleGenerator(this.sc_world, textures);
@@ -363,7 +367,12 @@ class Sandbox extends GLScene {
 
         this.spawnUnits();
         this.attackHandler = new AttackHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.sc_sceneLog);
-        this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
+        this.moveHandler = new MoveHandler(
+            this.sc_sceneSettings.getGridSettings(),
+            this.grid,
+            this.unitsHolder,
+            this.unitsFactory,
+        );
 
         // update remaining time every half a second
         this.visibleStateUpdate = () => {
@@ -502,14 +511,13 @@ class Sandbox extends GLScene {
                 if (cellToMove) {
                     if (this.currentActiveUnit.isSmallSize()) {
                         this.hoverSelectedCells = [cellToMove];
-                        const moveStarted = this.moveHandler.startMoving(
+                        const moveInitiated = this.moveHandler.applyMoveModifiers(
                             cellToMove,
-                            this.drawer,
                             FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                            this.sc_selectedBody,
+                            this.currentActiveUnit,
                             action?.currentActiveKnownPaths(),
                         );
-                        if (moveStarted) {
+                        if (moveInitiated) {
                             const position = GridMath.getPositionForCell(
                                 cellToMove,
                                 this.sc_sceneSettings.getGridSettings().getMinX(),
@@ -523,6 +531,13 @@ class Sandbox extends GLScene {
                                 this.currentActiveUnit.getTeam(),
                                 this.currentActiveUnit.getAttackRange(),
                             );
+                            const movePaths = action
+                                ?.currentActiveKnownPaths()
+                                ?.get((cellToMove.x << 4) | cellToMove.y);
+                            if (movePaths?.length && this.sc_selectedBody) {
+                                const path = movePaths[0].route;
+                                this.drawer.startMoveAnimation(this.sc_selectedBody, this.currentActiveUnit, path);
+                            }
                         }
                     } else {
                         const position = GridMath.getPositionForCell(
@@ -536,14 +551,13 @@ class Sandbox extends GLScene {
                             y: position.y - this.sc_sceneSettings.getGridSettings().getHalfStep(),
                         });
                         this.hoverSelectedCells = cells;
-                        const moveStarted = this.moveHandler.startMoving(
+                        const moveInitiated = this.moveHandler.applyMoveModifiers(
                             cellToMove,
-                            this.drawer,
                             FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                            this.sc_selectedBody,
+                            this.currentActiveUnit,
                             action?.currentActiveKnownPaths(),
                         );
-                        if (moveStarted) {
+                        if (moveInitiated) {
                             this.currentActiveUnit.setPosition(
                                 position.x - this.sc_sceneSettings.getGridSettings().getHalfStep(),
                                 position.y - this.sc_sceneSettings.getGridSettings().getHalfStep(),
@@ -556,6 +570,14 @@ class Sandbox extends GLScene {
                                 this.currentActiveUnit.getTeam(),
                                 this.currentActiveUnit.getAttackRange(),
                             );
+
+                            const movePaths = action
+                                ?.currentActiveKnownPaths()
+                                ?.get((cellToMove.x << 4) | cellToMove.y);
+                            if (movePaths?.length && this.sc_selectedBody) {
+                                const path = movePaths[0].route;
+                                this.drawer.startMoveAnimation(this.sc_selectedBody, this.currentActiveUnit, path);
+                            }
                         }
                     }
                 }
@@ -960,9 +982,18 @@ class Sandbox extends GLScene {
                     this.obstacleGenerator.generateHole({ x: i * STEP, y: prevLap * STEP }, STEP, STEP),
                 );
                 const cell = { x: cellX, y: cellY };
-                const log = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_UP, laps);
-                if (log) {
-                    logs.push(log);
+                const systemMoveResult = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_UP, laps);
+                if (systemMoveResult.log) {
+                    logs.push(systemMoveResult.log);
+                }
+                for (const uId in systemMoveResult.unitIdsDestroyed) {
+                    if (this.unitsHolder.deleteUnitById(uId)) {
+                        const unitBody = this.unitsFactory.getUnitBody(uId);
+                        if (unitBody) {
+                            this.sc_world.DestroyBody(unitBody);
+                        }
+                        this.unitsFactory.deleteUnitBody(uId);
+                    }
                 }
                 this.grid.occupyByHole(cell);
             }
@@ -973,9 +1004,18 @@ class Sandbox extends GLScene {
                     this.obstacleGenerator.generateHole({ x: i * STEP, y: (maxCellY - laps) * STEP }, STEP, STEP),
                 );
                 const cell = { x: cellX, y: cellY };
-                const log = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_DOWN, laps);
-                if (log) {
-                    logs.push(log);
+                const systemMoveResult = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_DOWN, laps);
+                if (systemMoveResult.log) {
+                    logs.push(systemMoveResult.log);
+                }
+                for (const uId in systemMoveResult.unitIdsDestroyed) {
+                    if (this.unitsHolder.deleteUnitById(uId)) {
+                        const unitBody = this.unitsFactory.getUnitBody(uId);
+                        if (unitBody) {
+                            this.sc_world.DestroyBody(unitBody);
+                        }
+                        this.unitsFactory.deleteUnitBody(uId);
+                    }
                 }
                 this.grid.occupyByHole({ x: cellX, y: cellY });
             }
@@ -986,9 +1026,18 @@ class Sandbox extends GLScene {
                     this.obstacleGenerator.generateHole({ x: (minCellX + prevLap) * STEP, y: i * STEP }, STEP, STEP),
                 );
                 const cell = { x: cellX, y: cellY };
-                const log = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_RIGHT, laps);
-                if (log) {
-                    logs.push(log);
+                const systemMoveResult = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_RIGHT, laps);
+                if (systemMoveResult.log) {
+                    logs.push(systemMoveResult.log);
+                }
+                for (const uId in systemMoveResult.unitIdsDestroyed) {
+                    if (this.unitsHolder.deleteUnitById(uId)) {
+                        const unitBody = this.unitsFactory.getUnitBody(uId);
+                        if (unitBody) {
+                            this.sc_world.DestroyBody(unitBody);
+                        }
+                        this.unitsFactory.deleteUnitBody(uId);
+                    }
                 }
                 this.grid.occupyByHole({ x: cellX, y: cellY });
             }
@@ -999,9 +1048,18 @@ class Sandbox extends GLScene {
                     this.obstacleGenerator.generateHole({ x: (maxCellX - laps) * STEP, y: i * STEP }, STEP, STEP),
                 );
                 const cell = { x: cellX, y: cellY };
-                const log = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_LEFT, laps);
-                if (log) {
-                    logs.push(log);
+                const systemMoveResult = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_LEFT, laps);
+                if (systemMoveResult.log) {
+                    logs.push(systemMoveResult.log);
+                }
+                for (const uId in systemMoveResult.unitIdsDestroyed) {
+                    if (this.unitsHolder.deleteUnitById(uId)) {
+                        const unitBody = this.unitsFactory.getUnitBody(uId);
+                        if (unitBody) {
+                            this.sc_world.DestroyBody(unitBody);
+                        }
+                        this.unitsFactory.deleteUnitBody(uId);
+                    }
                 }
                 this.grid.occupyByHole({ x: cellX, y: cellY });
             }
@@ -1013,8 +1071,8 @@ class Sandbox extends GLScene {
     }
 
     private spawnUnits(): void {
-        this.unitsHolder.spawn(TeamType.LOWER, this.sc_selectedFactionName);
-        this.unitsHolder.spawn(TeamType.UPPER, this.sc_selectedFactionName);
+        this.unitsFactory.spawn(TeamType.LOWER, this.sc_selectedFactionName);
+        this.unitsFactory.spawn(TeamType.UPPER, this.sc_selectedFactionName);
     }
 
     public requestTime(team: number): void {
@@ -1111,7 +1169,8 @@ class Sandbox extends GLScene {
                     this.unitsHolder.deleteUnitIfNotAllowed(
                         unitStats.team,
                         unitStats.team === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
-                        b,
+                        unitStats,
+                        b.GetPosition(),
                         this.getPlacement(TeamType.LOWER, 0),
                         this.getPlacement(TeamType.UPPER, 0),
                         this.getPlacement(TeamType.LOWER, 1),
@@ -1123,6 +1182,8 @@ class Sandbox extends GLScene {
                         b.SetIsActive(false);
                         this.deselect();
                     }
+                    this.sc_world.DestroyBody(b);
+                    this.unitsFactory.deleteUnitBody(unitStats.id);
                 }
             }
         }
@@ -1210,8 +1271,9 @@ class Sandbox extends GLScene {
             HoCLib.shuffle(allowedCells);
 
             for (const cell of allowedCells) {
-                if (this.unitsHolder.spawnSelected(selectedUnit, cell, false, newAmount)) {
+                if (this.unitsFactory.spawnSelected(selectedUnit, cell, false, newAmount)) {
                     this.unitsHolder.refreshStackPowerForAllUnits();
+                    this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
                     cloned = true;
                     break;
                 }
@@ -1224,8 +1286,11 @@ class Sandbox extends GLScene {
     public deleteObject() {
         if (this.sc_selectedBody) {
             const selectedUnitData = this.sc_selectedBody.GetUserData();
-            this.unitsHolder.deleteUnitById(selectedUnitData.id);
             this.deselect();
+            if (this.unitsHolder.deleteUnitById(selectedUnitData.id)) {
+                this.sc_world.DestroyBody(this.sc_selectedBody);
+                this.unitsFactory.deleteUnitBody(selectedUnitData.id);
+            }
         }
     }
 
@@ -2518,43 +2583,50 @@ class Sandbox extends GLScene {
             return;
         }
 
-        this.sc_mouseDropStep = this.sc_stepCount;
+        this.sc_mouseDropStep = this.sc_stepCount.getValue();
         const positionToDropTo = this.getPositionToDropTo(this.sc_selectedBody);
 
         if (positionToDropTo && !this.sc_isAIActive) {
             let castStarted = false;
-            let moveStarted = false;
+            let moveInitiated = false;
+            const cellIndices = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), positionToDropTo);
             if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
                 if (this.sc_moveBlocked) {
                     castStarted = this.cast();
-                    moveStarted = true;
+                    moveInitiated = true;
                 } else {
-                    const cellIndices = GridMath.getCellForPosition(
-                        this.sc_sceneSettings.getGridSettings(),
-                        positionToDropTo,
-                    );
+                    const selectedUnitData = this.sc_selectedBody.GetUserData();
+                    const selectedUnit = this.unitsHolder.getAllUnits().get(selectedUnitData.id);
                     if (
-                        cellIndices &&
-                        this.currentActiveKnownPaths?.get((cellIndices.x << 4) | cellIndices.y)?.length
+                        this.currentActiveKnownPaths?.get((cellIndices.x << 4) | cellIndices.y)?.length &&
+                        selectedUnit
                     ) {
-                        moveStarted = this.moveHandler.startMoving(
+                        moveInitiated = this.moveHandler.applyMoveModifiers(
                             cellIndices,
-                            this.drawer,
                             FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                            this.sc_selectedBody,
+                            selectedUnit,
                             this.currentActiveKnownPaths,
                         );
                     }
                 }
             } else {
-                moveStarted = true;
+                moveInitiated = true;
             }
 
             if (!this.sc_moveBlocked || castStarted) {
-                if (moveStarted) {
+                if (moveInitiated) {
                     if (!this.sc_sceneSettings.isDraggable()) {
                         this.sc_selectedBody.SetIsActive(false);
                     }
+                    const selectedUnitData = this.sc_selectedBody.GetUserData();
+
+                    const movePaths = this.currentActiveKnownPaths?.get((cellIndices.x << 4) | cellIndices.y);
+                    const selectedUnit = this.unitsHolder.getAllUnits().get(selectedUnitData.id);
+                    if (movePaths?.length && selectedUnit) {
+                        const path = movePaths[0].route;
+                        this.drawer.startMoveAnimation(this.sc_selectedBody, selectedUnit, path);
+                    }
+
                     if (!this.sc_moveBlocked) {
                         this.finishDrop(positionToDropTo);
                     }
@@ -2569,25 +2641,34 @@ class Sandbox extends GLScene {
 
     public refreshScene(): void {
         this.unitsHolder.refreshStackPowerForAllUnits();
+        this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
     }
 
     protected landAttack(): boolean {
         if (!this.currentActiveSpell) {
-            if (
-                this.attackHandler.handleMeleeAttack(
-                    this.unitsHolder,
-                    this.drawer,
-                    this.grid,
-                    this.moveHandler,
-                    this.sc_stepCount,
-                    this.sc_damageForAnimation,
-                    this.currentActiveKnownPaths,
-                    this.currentActiveUnit,
-                    this.getHoverAttackUnit(),
-                    this.sc_selectedBody,
-                    this.hoverAttackFromCell,
-                )
-            ) {
+            const meleeAttackResult = this.attackHandler.handleMeleeAttack(
+                this.unitsHolder,
+                this.drawer,
+                this.grid,
+                this.moveHandler,
+                this.sc_damageForAnimation,
+                this.currentActiveKnownPaths,
+                this.currentActiveUnit,
+                this.getHoverAttackUnit(),
+                this.sc_selectedBody,
+                this.hoverAttackFromCell,
+            );
+            if (meleeAttackResult.completed) {
+                for (const uId of meleeAttackResult.unitIdsDied) {
+                    if (this.unitsHolder.deleteUnitById(uId, true /* check for resurrection */)) {
+                        const unitBody = this.unitsFactory.getUnitBody(uId);
+                        if (unitBody) {
+                            this.sc_world.DestroyBody(unitBody);
+                        }
+                        this.unitsFactory.deleteUnitBody(uId);
+                    }
+                }
+                this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
                 this.resetHover();
                 this.sc_damageStatsUpdateNeeded = true;
                 this.finishTurn();
@@ -2595,41 +2676,58 @@ class Sandbox extends GLScene {
             }
         }
 
-        if (
-            this.attackHandler.handleRangeAttack(
-                this.unitsHolder,
-                this.drawer,
-                this.grid,
-                this.hoverRangeAttackDivisors,
-                this.rangeResponseAttackDivisor,
-                this.sc_stepCount,
-                this.sc_damageForAnimation,
-                this.currentActiveUnit,
-                this.hoverAttackUnits,
-                this.rangeResponseUnits,
-                this.hoverRangeAttackPosition,
-                this.sc_isSelection,
-            )
-        ) {
+        const rangeAttackResult = this.attackHandler.handleRangeAttack(
+            this.unitsHolder,
+            this.drawer,
+            this.grid,
+            this.hoverRangeAttackDivisors,
+            this.rangeResponseAttackDivisor,
+            this.sc_damageForAnimation,
+            this.currentActiveUnit,
+            this.hoverAttackUnits,
+            this.rangeResponseUnits,
+            this.hoverRangeAttackPosition,
+            this.sc_isSelection,
+        );
+        if (rangeAttackResult.completed) {
+            for (const uId of rangeAttackResult.unitIdsDied) {
+                if (this.unitsHolder.deleteUnitById(uId, true /* check for resurrection */)) {
+                    const unitBody = this.unitsFactory.getUnitBody(uId);
+                    if (unitBody) {
+                        this.sc_world.DestroyBody(unitBody);
+                    }
+                    this.unitsFactory.deleteUnitBody(uId);
+                }
+            }
+            this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
             this.resetHover();
             this.sc_damageStatsUpdateNeeded = true;
             this.finishTurn();
             return true;
         }
 
-        if (
-            this.attackHandler.handleMagicAttack(
-                this.gridMatrix,
-                this.drawer,
-                this.unitsHolder,
-                this.grid,
-                this.moveHandler,
-                this.currentActiveSpell,
-                this.currentActiveUnit,
-                this.hoverUnit,
-                this.currentEnemiesCellsWithinMovementRange,
-            )
-        ) {
+        const magicAttackResult = this.attackHandler.handleMagicAttack(
+            this.gridMatrix,
+            this.drawer,
+            this.unitsHolder,
+            this.unitsFactory,
+            this.grid,
+            this.currentActiveSpell,
+            this.currentActiveUnit,
+            this.hoverUnit,
+            this.currentEnemiesCellsWithinMovementRange,
+        );
+        if (magicAttackResult.completed) {
+            for (const uId of magicAttackResult.unitIdsDied) {
+                if (this.unitsHolder.deleteUnitById(uId, true /* check for resurrection */)) {
+                    const unitBody = this.unitsFactory.getUnitBody(uId);
+                    if (unitBody) {
+                        this.sc_world.DestroyBody(unitBody);
+                    }
+                    this.unitsFactory.deleteUnitBody(uId);
+                }
+            }
+            this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
             this.resetHover();
             this.finishTurn();
             return true;
@@ -2692,6 +2790,7 @@ class Sandbox extends GLScene {
         this.sc_renderSpellBookOverlay = false;
         this.adjustSpellBookSprite();
         this.unitsHolder.refreshStackPowerForAllUnits();
+        this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
     };
 
     protected verifyButtonsTrigger() {
@@ -2809,8 +2908,9 @@ class Sandbox extends GLScene {
                                 this.currentActiveUnit.getTeam(),
                                 amountToSummon,
                             );
-                            if (randomCell && this.unitsHolder.spawnSelected(unitToSummon, randomCell, true)) {
+                            if (randomCell && this.unitsFactory.spawnSelected(unitToSummon, randomCell, true)) {
                                 this.unitsHolder.refreshStackPowerForAllUnits();
+                                this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
                             }
                         }
 
@@ -3000,6 +3100,7 @@ class Sandbox extends GLScene {
 
                         this.currentActiveUnit.useSpell(this.hoveredSpell.getName());
                         this.unitsHolder.refreshStackPowerForAllUnits();
+                        this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
                         this.finishTurn();
                     } else {
                         this.currentActiveSpell = undefined;
@@ -3217,6 +3318,7 @@ class Sandbox extends GLScene {
                 }
             }
             this.unitsHolder.refreshStackPowerForAllUnits();
+            this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
         } else {
             this.finishFight();
         }
@@ -3592,6 +3694,7 @@ class Sandbox extends GLScene {
         // need to call it twice to make sure aura effects are applied
         this.unitsHolder.refreshAuraEffectsForAllUnits();
         this.unitsHolder.refreshStackPowerForAllUnits();
+        this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
     }
 
     public Step(settings: Settings, timeStep: number): number {
@@ -3777,16 +3880,20 @@ class Sandbox extends GLScene {
                                     if (allUnitsMadeTurn && !fightProperties.hasAlreadyMadeTurn(unit.getId())) {
                                         allUnitsMadeTurn = false;
                                     }
-                                } else {
+                                } else if (
                                     this.unitsHolder.deleteUnitIfNotAllowed(
                                         TeamType.UPPER,
                                         TeamType.LOWER,
-                                        b,
+                                        unitStats,
+                                        b.GetPosition(),
                                         this.getPlacement(TeamType.LOWER, 0),
                                         this.getPlacement(TeamType.UPPER, 0),
                                         this.getPlacement(TeamType.LOWER, 1),
                                         this.getPlacement(TeamType.UPPER, 1),
-                                    );
+                                    )
+                                ) {
+                                    this.sc_world.DestroyBody(b);
+                                    this.unitsFactory.deleteUnitBody(unitStats.id);
                                 }
                             } else if (
                                 (this.lowerPlacements[0]?.isAllowed(bodyPosition) ?? false) ||
@@ -3837,7 +3944,6 @@ class Sandbox extends GLScene {
                                     if (occupiedCells) {
                                         unit.setPosition(bodyPosition.x, bodyPosition.y);
                                     }
-                                    // unit.randomizeLuckPerTurn();
                                     unit.setResponded(false);
                                     unit.setOnHourglass(false);
                                     unit.applyMoraleStepsModifier(
@@ -3848,16 +3954,20 @@ class Sandbox extends GLScene {
                                 if (allUnitsMadeTurn && !fightProperties.hasAlreadyMadeTurn(unit.getId())) {
                                     allUnitsMadeTurn = false;
                                 }
-                            } else {
+                            } else if (
                                 this.unitsHolder.deleteUnitIfNotAllowed(
                                     TeamType.LOWER,
                                     TeamType.UPPER,
-                                    b,
+                                    unitStats,
+                                    b.GetPosition(),
                                     this.getPlacement(TeamType.LOWER, 0),
                                     this.getPlacement(TeamType.UPPER, 0),
                                     this.getPlacement(TeamType.LOWER, 1),
                                     this.getPlacement(TeamType.UPPER, 1),
-                                );
+                                )
+                            ) {
+                                this.sc_world.DestroyBody(b);
+                                this.unitsFactory.deleteUnitBody(unitStats.id);
                             }
                         }
                     } else if (this.cellToUnitPreRound && this.unitIdToCellsPreRound) {
@@ -3956,6 +4066,7 @@ class Sandbox extends GLScene {
                     unitsLower = unitsForAllTeams[TeamType.LOWER - 1];
                     unitsUpper = unitsForAllTeams[TeamType.UPPER - 1];
                     this.unitsHolder.refreshStackPowerForAllUnits();
+                    this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
 
                     if (!unitsLower?.length || !unitsUpper?.length) {
                         fightFinished = true;
@@ -3965,22 +4076,34 @@ class Sandbox extends GLScene {
                     } else {
                         if (unitsLower) {
                             for (const ul of unitsLower) {
-                                ul.applyArmageddonDamage(this.armageddonWave, this.sc_stepCount, this.sc_sceneLog);
+                                ul.applyArmageddonDamage(this.armageddonWave, this.sc_sceneLog);
                                 if (ul.isDead()) {
                                     gotArmageddonKills = true;
                                     this.sc_sceneLog.updateLog(`${ul.getName()} died`);
-                                    this.unitsHolder.deleteUnitById(ul.getId(), this.armageddonWave === 1);
+                                    if (this.unitsHolder.deleteUnitById(ul.getId(), this.armageddonWave === 1)) {
+                                        const unitBody = this.unitsFactory.getUnitBody(ul.getId());
+                                        if (unitBody) {
+                                            this.sc_world.DestroyBody(unitBody);
+                                        }
+                                        this.unitsFactory.deleteUnitBody(ul.getId());
+                                    }
                                 }
                             }
                         }
 
                         if (unitsUpper) {
                             for (const uu of unitsUpper) {
-                                uu.applyArmageddonDamage(this.armageddonWave, this.sc_stepCount, this.sc_sceneLog);
+                                uu.applyArmageddonDamage(this.armageddonWave, this.sc_sceneLog);
                                 if (uu.isDead()) {
                                     gotArmageddonKills = true;
                                     this.sc_sceneLog.updateLog(`${uu.getName()} died`);
-                                    this.unitsHolder.deleteUnitById(uu.getId(), this.armageddonWave === 1);
+                                    if (this.unitsHolder.deleteUnitById(uu.getId(), this.armageddonWave === 1)) {
+                                        const unitBody = this.unitsFactory.getUnitBody(uu.getId());
+                                        if (unitBody) {
+                                            this.sc_world.DestroyBody(unitBody);
+                                        }
+                                        this.unitsFactory.deleteUnitBody(uu.getId());
+                                    }
                                 }
                             }
                         }
@@ -4010,6 +4133,7 @@ class Sandbox extends GLScene {
                     }
 
                     this.unitsHolder.refreshStackPowerForAllUnits();
+                    this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
                     if (unitsLower) {
                         for (const ul of unitsLower) {
                             ul.applyMoraleStepsModifier(
@@ -4150,7 +4274,7 @@ class Sandbox extends GLScene {
                             }
 
                             if (nextUnit.isSkippingThisTurn()) {
-                                this.currentActiveUnit = nextUnit;
+                                this.currentActiveUnit = nextUnit as RenderableUnit;
                                 this.refreshButtons(true);
                                 this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                                 this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SKIP);
@@ -4186,7 +4310,7 @@ class Sandbox extends GLScene {
                                     nextUnit.refreshPreTurnState(this.sc_sceneLog);
                                     this.sc_hoverTextUpdateNeeded = true;
                                     this.sc_selectedBody = unitBody;
-                                    this.currentActiveUnit = nextUnit;
+                                    this.currentActiveUnit = nextUnit as RenderableUnit;
                                     this.refreshButtons(true);
                                     nextUnit.refreshPossibleAttackTypes(
                                         this.attackHandler.canLandRangeAttack(
@@ -4278,7 +4402,11 @@ class Sandbox extends GLScene {
         let upperAllowed = false;
         if (!this.sc_renderSpellBookOverlay) {
             for (const u of this.unitsHolder.getAllUnitsIterator()) {
-                u.render(this.sc_fps, this.sc_stepCount, this.sc_isAnimating, this.sc_sceneLog);
+                if (u instanceof RenderableUnit) {
+                    // Since u is a RenderableUnit, we can safely call render()
+                    (u as RenderableUnit).render(this.sc_fps, this.sc_isAnimating, this.sc_sceneLog);
+                }
+                // u.render(this.sc_fps, this.sc_isAnimating, this.sc_sceneLog);
                 if (
                     !upperAllowed &&
                     ((this.upperPlacements[0]?.isAllowed(u.getPosition()) ?? false) ||

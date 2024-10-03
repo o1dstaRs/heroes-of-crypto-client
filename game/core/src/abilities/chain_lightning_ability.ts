@@ -20,6 +20,7 @@ import { UnitsHolder } from "../units/units_holder";
 interface ILayerImpact {
     cells: HoCMath.XY[];
     damage: number;
+    unitIdsDied: string[];
 }
 
 function getEnemiesForCells(
@@ -60,7 +61,6 @@ function attackEnemiesAndGetLayerImpact(
     abilityMultiplier: number,
     alreadyAffectedIds: string[],
     unitsHolder: UnitsHolder,
-    sceneStepCount: number,
     sceneLog: SceneLog,
 ): ILayerImpact[] {
     const fullLayerImpact: ILayerImpact[] = [];
@@ -89,13 +89,10 @@ function attackEnemiesAndGetLayerImpact(
                 heavyArmorMultiplierEnemy,
         );
 
-        fullLayerImpact.push({
-            cells: e1.getCells(),
-            damage: targetEnemyLightningDamage,
-        });
+        const unitIdsDied: string[] = [];
         alreadyAffectedIds.push(e1.getId());
         if (targetEnemyLightningDamage && !e1.isDead()) {
-            e1.applyDamage(targetEnemyLightningDamage, sceneStepCount);
+            e1.applyDamage(targetEnemyLightningDamage);
             DamageStatisticHolder.getInstance().add({
                 unitName: fromUnit.getName(),
                 damage: targetEnemyLightningDamage,
@@ -105,7 +102,8 @@ function attackEnemiesAndGetLayerImpact(
 
             if (e1.isDead()) {
                 sceneLog.updateLog(`${e1.getName()} died`);
-                unitsHolder.deleteUnitById(e1.getId(), true);
+                // unitsHolder.deleteUnitById(e1.getId(), true);
+                unitIdsDied.push(e1.getId());
                 fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 fromUnit.applyMoraleStepsModifier(
                     FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
@@ -113,29 +111,35 @@ function attackEnemiesAndGetLayerImpact(
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(e1);
             }
         }
+
+        fullLayerImpact.push({
+            cells: e1.getCells(),
+            damage: targetEnemyLightningDamage,
+            unitIdsDied: unitIdsDied,
+        });
     }
 
     return fullLayerImpact;
 }
 
-export function processChainLightingAbility(
+export function processChainLightningAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     attackDamage: number,
     grid: Grid,
     unitsHolder: UnitsHolder,
-    sceneStepCount: number,
     sceneLog: SceneLog,
-): void {
-    const chainLightingAbility = fromUnit.getAbility("Chain Lightning");
-    if (!chainLightingAbility || !attackDamage) {
-        return;
+): string[] {
+    const unitIdsDied: string[] = [];
+    const chainLightningAbility = fromUnit.getAbility("Chain Lightning");
+    if (!chainLightningAbility || !attackDamage) {
+        return unitIdsDied;
     }
 
     const targetMagicResist = targetUnit.getMagicResist();
     if (targetMagicResist === 100 || targetUnit.hasAbilityActive("Wind Element")) {
         sceneLog.updateLog(`${targetUnit.getName()} resisted from Chain Lightning`);
-        return;
+        return unitIdsDied;
     }
 
     const heavyArmorAbilityTarget = targetUnit.getAbility("Heavy Armor");
@@ -152,11 +156,11 @@ export function processChainLightingAbility(
         );
     }
 
-    const abilityMultiplier = fromUnit.calculateAbilityMultiplier(chainLightingAbility);
+    const abilityMultiplier = fromUnit.calculateAbilityMultiplier(chainLightningAbility);
     const targetEnemyLightningDamage =
         Math.floor(abilityMultiplier * attackDamage * (1 - targetMagicResist / 100)) * heavyArmorMultiplierTarget;
     if (targetEnemyLightningDamage && !targetUnit.isDead()) {
-        targetUnit.applyDamage(targetEnemyLightningDamage, sceneStepCount);
+        targetUnit.applyDamage(targetEnemyLightningDamage);
         DamageStatisticHolder.getInstance().add({
             unitName: fromUnit.getName(),
             damage: targetEnemyLightningDamage,
@@ -167,7 +171,8 @@ export function processChainLightingAbility(
 
     if (targetUnit.isDead()) {
         sceneLog.updateLog(`${targetUnit.getName()} died`);
-        unitsHolder.deleteUnitById(targetUnit.getId(), true);
+        // unitsHolder.deleteUnitById(targetUnit.getId(), true);
+        unitIdsDied.push(targetUnit.getId());
         fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
         fromUnit.applyMoraleStepsModifier(
             FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
@@ -177,8 +182,6 @@ export function processChainLightingAbility(
 
     const affectedEnemiesIds: string[] = [targetUnit.getId()];
 
-    unitsHolder.refreshStackPowerForAllUnits();
-
     const enemiesLayer1: Unit[] = getEnemiesForCells(
         targetUnit.getCells(),
         targetUnit.getTeam(),
@@ -187,7 +190,7 @@ export function processChainLightingAbility(
         affectedEnemiesIds,
     );
     if (!enemiesLayer1.length) {
-        return;
+        return unitIdsDied;
     }
 
     const layer1Impact = attackEnemiesAndGetLayerImpact(
@@ -198,12 +201,13 @@ export function processChainLightingAbility(
         abilityMultiplier,
         affectedEnemiesIds,
         unitsHolder,
-        sceneStepCount,
         sceneLog,
     );
-    unitsHolder.refreshStackPowerForAllUnits();
 
     for (const impact of layer1Impact) {
+        for (const uId of impact.unitIdsDied) {
+            unitIdsDied.push(uId);
+        }
         const enemiesLayer2: Unit[] = getEnemiesForCells(
             impact.cells,
             targetUnit.getTeam(),
@@ -223,12 +227,13 @@ export function processChainLightingAbility(
             abilityMultiplier,
             affectedEnemiesIds,
             unitsHolder,
-            sceneStepCount,
             sceneLog,
         );
-        unitsHolder.refreshStackPowerForAllUnits();
 
         for (const impact2 of layer2Impact) {
+            for (const uId of impact2.unitIdsDied) {
+                unitIdsDied.push(uId);
+            }
             const enemiesLayer3: Unit[] = getEnemiesForCells(
                 impact2.cells,
                 targetUnit.getTeam(),
@@ -248,10 +253,10 @@ export function processChainLightingAbility(
                 abilityMultiplier,
                 affectedEnemiesIds,
                 unitsHolder,
-                sceneStepCount,
                 sceneLog,
             );
-            unitsHolder.refreshStackPowerForAllUnits();
         }
     }
+
+    return unitIdsDied;
 }

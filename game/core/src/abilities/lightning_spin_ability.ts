@@ -32,15 +32,20 @@ import { processDeepWoundsAbility } from "./deep_wounds_ability";
 import { processMinerAbility } from "./miner_ability";
 import { processAggrAbility } from "./aggr_ability";
 
+export interface ILightningSpinResult {
+    landed: boolean;
+    unitIdsDied: string[];
+}
+
 export function processLightningSpinAbility(
     fromUnit: Unit,
     sceneLog: SceneLog,
     unitsHolder: UnitsHolder,
-    sceneStepCount: number,
     rapidChargeCells: number,
     attackFromCell?: HoCMath.XY,
     isAttack = true,
-): boolean {
+): ILightningSpinResult {
+    const unitIdsDied: string[] = [];
     let lightningSpinLanded = false;
     const lightningSpinAbility = fromUnit.getAbility("Lightning Spin");
 
@@ -97,7 +102,7 @@ export function processLightningSpinAbility(
                     sceneLog,
                 ) + processPenetratingBiteAbility(fromUnit, enemy);
 
-            enemy.applyDamage(damageFromAttack, sceneStepCount);
+            enemy.applyDamage(damageFromAttack);
             DamageStatisticHolder.getInstance().add({
                 unitName: fromUnit.getName(),
                 damage: damageFromAttack,
@@ -119,7 +124,7 @@ export function processLightningSpinAbility(
             // just in case if we have more inherited/stolen abilities
             processMinerAbility(fromUnit, enemy, sceneLog);
             processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
-            processPetrifyingGazeAbility(fromUnit, enemy, damageFromAttack, sceneStepCount, sceneLog);
+            processPetrifyingGazeAbility(fromUnit, enemy, damageFromAttack, sceneLog);
             processBoarSalivaAbility(fromUnit, enemy, fromUnit, sceneLog);
             processAggrAbility(fromUnit, enemy, fromUnit, sceneLog);
             processDeepWoundsAbility(fromUnit, enemy, fromUnit, sceneLog);
@@ -136,14 +141,15 @@ export function processLightningSpinAbility(
             if (!wasDead.includes(enemy)) {
                 const damageFromAttack = enemyIdDamageFromAttack.get(enemy.getId());
                 if (damageFromAttack) {
-                    processFireShieldAbility(enemy, fromUnit, sceneLog, unitsHolder, damageFromAttack, sceneStepCount);
+                    processFireShieldAbility(enemy, fromUnit, sceneLog, unitsHolder, damageFromAttack);
                 }
             }
         }
 
         for (const unitDead of unitsDead) {
             sceneLog.updateLog(`${unitDead.getName()} died`);
-            unitsHolder.deleteUnitById(unitDead.getId(), true);
+            // unitsHolder.deleteUnitById(unitDead.getId(), true);
+            unitIdsDied.push(unitDead.getId());
             fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             fromUnit.applyMoraleStepsModifier(
                 FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
@@ -155,10 +161,8 @@ export function processLightningSpinAbility(
             processOneInTheFieldAbility(fromUnit);
         }
 
-        unitsHolder.refreshStackPowerForAllUnits();
-
         lightningSpinLanded = true;
     }
 
-    return lightningSpinLanded;
+    return { landed: lightningSpinLanded, unitIdsDied };
 }
