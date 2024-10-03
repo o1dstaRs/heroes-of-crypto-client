@@ -9,11 +9,10 @@
  * -----------------------------------------------------------------------------
  */
 
-import { b2Body, b2Fixture, b2Vec2, b2World, XY } from "@box2d/core";
 import {
     AppliedSpell,
     AppliedAuraEffectProperties,
-    FactionType,
+    HoCMath,
     TeamType,
     UnitProperties,
     Grid,
@@ -26,70 +25,22 @@ import {
 } from "@heroesofcrypto/common";
 
 import { FightStateManager } from "../state/fight_state_manager";
-import {
-    BASE_UNIT_STACK_TO_SPAWN_EXP,
-    DOUBLE_STEP,
-    HALF_STEP,
-    MAX_X,
-    MAX_Y,
-    SHIFT_UNITS_POSITION_Y,
-    STEP,
-    UNIT_SIZE_DELTA,
-} from "../statics";
-import { IUnitPropertiesProvider, Unit } from "./units";
-import { UnitsFactory } from "./units_factory";
+import { RenderableUnit } from "./renderable_unit";
+import { Unit } from "./units";
 
 export class UnitsHolder {
-    private readonly world: b2World;
-
     private readonly grid: Grid;
-
-    private readonly unitsFactory: UnitsFactory;
 
     private readonly allUnits: Map<string, Unit> = new Map();
 
-    private readonly allBodies: Map<string, b2Body>;
-
     private readonly gridSettings: GridSettings;
-
-    private readonly unitIdToBodyFixtures: Map<string, b2Fixture[]>;
 
     private teamsAuraEffects: Map<TeamType, Map<number, AppliedAuraEffectProperties[]>>;
 
-    public constructor(world: b2World, grid: Grid, unitsFactory: UnitsFactory) {
-        this.world = world;
+    public constructor(grid: Grid) {
         this.grid = grid;
         this.gridSettings = grid.getSettings();
-        this.unitsFactory = unitsFactory;
-        this.unitIdToBodyFixtures = new Map();
-        this.allBodies = new Map();
         this.teamsAuraEffects = new Map();
-    }
-
-    public refreshBarFixtures(unit: Unit, body?: b2Body): void {
-        let bodyToUse = body;
-        if (!bodyToUse) {
-            bodyToUse = this.allBodies.get(unit.getId());
-        }
-        if (!bodyToUse) {
-            return;
-        }
-
-        this.destroyBodyFixtures(unit.getId(), bodyToUse);
-        for (const f of unit.getHpBarBoundFixtureDefs()) {
-            if (GridMath.isPositionWithinGrid(this.gridSettings, bodyToUse.GetPosition())) {
-                this.addBodyFixture(unit.getId(), bodyToUse.CreateFixture(f));
-            }
-        }
-        for (const f of unit.getHpBarFixtureDefs()) {
-            if (GridMath.isPositionWithinGrid(this.gridSettings, bodyToUse.GetPosition())) {
-                this.addBodyFixture(unit.getId(), bodyToUse.CreateFixture(f));
-            }
-        }
-    }
-
-    public getUnitBody(unitId: string): b2Body | undefined {
-        return this.allBodies.get(unitId);
     }
 
     public getAllUnitsIterator(): IterableIterator<Unit> {
@@ -273,9 +224,9 @@ export class UnitsHolder {
         return unitForAllTeams;
     }
 
-    public deleteUnitById(unitId: string, checkForResurrection = false): void {
+    public deleteUnitById(unitId: string, checkForResurrection = false): boolean {
         if (!unitId) {
-            return;
+            return false;
         }
 
         const unitToDelete = this.allUnits.get(unitId);
@@ -287,7 +238,7 @@ export class UnitsHolder {
                 if (newAmountAlive > 0) {
                     unitToDelete.increaseAmountAlive(newAmountAlive);
                     unitToDelete.decreaseAmountDied(newAmountAlive);
-                    unitToDelete.enqueueResurrectionAnimation();
+                    (unitToDelete as RenderableUnit).enqueueResurrectionAnimation();
                     unitToDelete.deleteAllEffects();
                     unitToDelete.deleteAllBuffs();
                     unitToDelete.deleteAllDebuffs();
@@ -302,23 +253,11 @@ export class UnitsHolder {
         }
 
         if (!considerResurrection) {
-            for (let b = this.world.GetBodyList(); b; b = b.GetNext()) {
-                if (!b) {
-                    continue;
-                }
-                const unitProperties = b.GetUserData();
-                if (unitProperties && unitProperties.id === unitId) {
-                    this.world.DestroyBody(b);
-                    break;
-                }
-            }
-
             if (unitToDelete) {
                 this.allUnits.delete(unitId);
                 this.grid.cleanupAll(unitId, unitToDelete.getAttackRange(), unitToDelete.isSmallSize());
             }
 
-            this.allBodies.delete(unitId);
             FightStateManager.getInstance().getFightProperties().removeFromHourGlassQueue(unitId);
             FightStateManager.getInstance().getFightProperties().removeFromMoraleMinusQueue(unitId);
             FightStateManager.getInstance().getFightProperties().removeFromMoralePlusQueue(unitId);
@@ -337,7 +276,11 @@ export class UnitsHolder {
                 HoCLib.shuffle(unitsLower);
                 FightStateManager.getInstance().prefetchNextUnitsToTurn(this.allUnits, unitsUpper, unitsLower);
             }
+
+            return true;
         }
+
+        return false;
     }
 
     public getSummonedUnitByName(teamType: TeamType, unitName: string): Unit | undefined {
@@ -354,18 +297,18 @@ export class UnitsHolder {
         return undefined;
     }
 
-    public getDistanceToClosestEnemy(unitProperties: UnitProperties, position: XY): number {
+    public getDistanceToClosestEnemy(enemyTeam: TeamType, position: HoCMath.XY): number {
         let closestDistance = Number.MAX_SAFE_INTEGER;
         for (const u of this.getAllUnitsIterator()) {
-            if (u.getTeam() !== unitProperties.team) {
-                closestDistance = Math.min(closestDistance, b2Vec2.Distance(position, u.getPosition()));
+            if (u.getTeam() === enemyTeam) {
+                closestDistance = Math.min(closestDistance, HoCMath.getDistance(position, u.getPosition()));
             }
         }
 
         return closestDistance;
     }
 
-    public allEnemiesAroundUnit(attacker: Unit, isAttack: boolean, attackFromCell?: XY): Unit[] {
+    public allEnemiesAroundUnit(attacker: Unit, isAttack: boolean, attackFromCell?: HoCMath.XY): Unit[] {
         const enemyList: Unit[] = [];
         const firstCheckCell = isAttack ? attackFromCell : attacker.getBaseCell();
 
@@ -373,7 +316,7 @@ export class UnitsHolder {
             return enemyList;
         }
 
-        let checkCells: XY[];
+        let checkCells: HoCMath.XY[];
 
         if (attacker.isSmallSize()) {
             // use either target move position on current
@@ -414,12 +357,10 @@ export class UnitsHolder {
             }
             u.adjustBaseStats(FightStateManager.getInstance().getFightProperties().getCurrentLap());
             u.increaseAttackMod(this.getUnitAuraAttackMod(u));
-
-            this.refreshBarFixtures(u);
         }
     }
 
-    public getUnitAuraAttackMod(unit: Unit, cells?: XY[]): number {
+    public getUnitAuraAttackMod(unit: Unit, cells?: HoCMath.XY[]): number {
         let auraAttackMod = 0;
         const warAngerAuraEffect = unit.getAuraEffect("War Anger");
         if (warAngerAuraEffect) {
@@ -582,6 +523,10 @@ export class UnitsHolder {
         }
     }
 
+    public addUnit(unit: Unit): void {
+        this.allUnits.set(unit.getId(), unit);
+    }
+
     public decreaseMoraleForTheSameUnitsOfTheTeam(unit: Unit): void {
         for (const u of this.getAllUnitsIterator()) {
             if (u.getTeam() === unit.getTeam() && u.getName() === unit.getName()) {
@@ -596,19 +541,20 @@ export class UnitsHolder {
     public deleteUnitIfNotAllowed(
         teamType: TeamType,
         enemyTeamType: TeamType,
-        body: b2Body,
+        unitProperties: UnitProperties,
+        unitPosition: HoCMath.XY,
         lowerLeftPlacement?: SquarePlacement,
         upperRightPlacement?: SquarePlacement,
         lowerRightPlacement?: SquarePlacement,
         upperLeftPlacement?: SquarePlacement,
         verifyWithinGridPosition = true,
     ): boolean {
-        const isLargeUnit = body.GetUserData().id;
+        const isLargeUnit = unitProperties.size === 2;
         const bodyPosition =
             isLargeUnit && teamType === TeamType.UPPER
-                ? { x: body.GetPosition().x - 1, y: body.GetPosition().y - 1 }
-                : body.GetPosition();
-        const isWithinGrid = GridMath.isPositionWithinGrid(this.gridSettings, body.GetPosition());
+                ? { x: unitPosition.x - 1, y: unitPosition.y - 1 }
+                : unitPosition;
+        const isWithinGrid = GridMath.isPositionWithinGrid(this.gridSettings, unitPosition);
         if (
             (enemyTeamType === TeamType.LOWER &&
                 ((lowerLeftPlacement && lowerLeftPlacement.isAllowed(bodyPosition)) ||
@@ -626,366 +572,9 @@ export class UnitsHolder {
                 !upperLeftPlacement?.isAllowed(bodyPosition)) ||
             (verifyWithinGridPosition && !isWithinGrid)
         ) {
-            this.deleteUnitById(body.GetUserData().id);
-            this.world.DestroyBody(body);
-            return true;
+            return this.deleteUnitById(unitProperties.id);
         }
 
         return false;
-    }
-
-    public spawnSelected(
-        unitPropertiesProvider: IUnitPropertiesProvider,
-        cell: XY,
-        summoned: boolean,
-        newAmount?: number,
-    ): boolean {
-        if (unitPropertiesProvider.getSize() === 1) {
-            if (!this.grid.getOccupantUnitId(cell)) {
-                const cloned = this.unitsFactory.makeCreature(
-                    unitPropertiesProvider.getFaction(),
-                    unitPropertiesProvider.getName(),
-                    unitPropertiesProvider.getTeam(),
-                    newAmount ? newAmount : unitPropertiesProvider.getAmountAlive(),
-                    0,
-                    summoned,
-                );
-                const position = GridMath.getPositionForCell(
-                    cell,
-                    this.gridSettings.getMinX(),
-                    this.gridSettings.getStep(),
-                    this.gridSettings.getHalfStep(),
-                );
-                cloned.setPosition(position.x, position.y);
-                this.positionBody(cloned);
-
-                return this.grid.occupyCell(cell, cloned.getId(), cloned.getTeam(), cloned.getAttackRange());
-            }
-        } else {
-            const cells = [
-                { x: cell.x - 1, y: cell.y },
-                { x: cell.x, y: cell.y },
-                { x: cell.x - 1, y: cell.y - 1 },
-                { x: cell.x, y: cell.y - 1 },
-            ];
-            const allCellsAreEmpty = this.grid.areAllCellsEmpty(cells);
-            if (!allCellsAreEmpty) {
-                return false;
-            }
-
-            const cloned = this.unitsFactory.makeCreature(
-                unitPropertiesProvider.getFaction(),
-                unitPropertiesProvider.getName(),
-                unitPropertiesProvider.getTeam(),
-                newAmount ? newAmount : unitPropertiesProvider.getAmountAlive(),
-                0,
-                summoned,
-            );
-
-            const position = GridMath.getPositionForCell(
-                cell,
-                this.gridSettings.getMinX(),
-                this.gridSettings.getStep(),
-                this.gridSettings.getHalfStep(),
-            );
-            cloned.setPosition(position.x - HALF_STEP, position.y - HALF_STEP);
-            this.positionBody(cloned);
-
-            return this.grid.occupyCells(cells, cloned.getId(), cloned.getTeam(), cloned.getAttackRange());
-        }
-
-        return false;
-    }
-
-    public spawn(team: TeamType, faction?: FactionType) {
-        const units: Unit[] = [];
-        const heroes: Unit[] = [];
-
-        if (faction === FactionType.LIFE) {
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.LIFE, "Squire", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.LIFE, "Peasant", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.LIFE, "Arbalester", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.LIFE, "Pikeman", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.LIFE, "Valkyrie", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.LIFE, "Healer", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.LIFE, "Crusader", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.LIFE, "Griffin", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.LIFE, "Tsar Cannon", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.LIFE, "Angel", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-        } else if (faction === FactionType.NATURE) {
-            // heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
-            // heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
-            // heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.NATURE, "Fairy", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.NATURE, "Wolf", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.NATURE, "Leprechaun", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(
-                    FactionType.NATURE,
-                    "White Tiger",
-                    team,
-                    0,
-                    BASE_UNIT_STACK_TO_SPAWN_EXP,
-                ),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.NATURE, "Elf", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.NATURE, "Satyr", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.NATURE, "Unicorn", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.NATURE, "Mantis", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            // units.push(
-            //     this.unitsFactory.makeCreature(
-            //         FactionType.NATURE,
-            //         "Faerie Dragon",
-            //         team,
-            //         0,
-            //         BASE_UNIT_STACK_TO_SPAWN_EXP,
-            //     ),
-            // );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.NATURE, "Gargantuan", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.NATURE, "Pegasus", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-        } else if (faction === FactionType.CHAOS) {
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.CHAOS, "Scavenger", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(this.unitsFactory.makeCreature(FactionType.CHAOS, "Orc", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.CHAOS, "Troglodyte", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.CHAOS, "Medusa", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.CHAOS, "Troll", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.CHAOS, "Beholder", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.CHAOS, "Efreet", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(
-                    FactionType.CHAOS,
-                    "Goblin Knight",
-                    team,
-                    0,
-                    BASE_UNIT_STACK_TO_SPAWN_EXP,
-                ),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(
-                    FactionType.CHAOS,
-                    "Black Dragon",
-                    team,
-                    0,
-                    BASE_UNIT_STACK_TO_SPAWN_EXP,
-                ),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.CHAOS, "Hydra", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            // units.push(
-            //     this.unitsFactory.makeCreature(FactionType.CHAOS, "Abomination", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            // );
-        } else if (faction === FactionType.DEATH) {
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.DEATH, "Skeleton", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(this.unitsFactory.makeCreature(FactionType.DEATH, "Imp", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.DEATH, "Zombie", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(
-                    FactionType.DEATH,
-                    "Dark Champion",
-                    team,
-                    0,
-                    BASE_UNIT_STACK_TO_SPAWN_EXP,
-                ),
-            );
-        } else if (faction === FactionType.MIGHT) {
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.MIGHT, "Berserker", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.MIGHT, "Centaur", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.MIGHT, "Wolf Rider", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.MIGHT, "Nomad", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.MIGHT, "Harpy", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.MIGHT, "Hyena", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.MIGHT, "Ogre Mage", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.MIGHT, "Cyclops", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.MIGHT, "Thunderbird", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(FactionType.MIGHT, "Behemoth", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP),
-            );
-            units.push(
-                this.unitsFactory.makeCreature(
-                    FactionType.MIGHT,
-                    "Frenzied Boar",
-                    team,
-                    0,
-                    BASE_UNIT_STACK_TO_SPAWN_EXP,
-                ),
-            );
-        }
-
-        let posIndex = SHIFT_UNITS_POSITION_Y;
-
-        // spawn small units
-        let subtrahend = 0;
-        let foundSomeSmallUnits = false;
-        let prevUnitLevel = 0;
-        let j = 0;
-        let yDiff = 0;
-        for (let i = 0; i < units.length; i++) {
-            const u = units[i];
-            if (!u.isSmallSize()) {
-                subtrahend++;
-                continue;
-            }
-
-            if (prevUnitLevel === u.getLevel()) {
-                if (j > 1) {
-                    j -= 2;
-                    yDiff -= 1;
-                }
-            } else {
-                if (prevUnitLevel && j === 2) {
-                    yDiff -= 1;
-                }
-                j = 0;
-            }
-
-            posIndex = i - subtrahend + yDiff - j + SHIFT_UNITS_POSITION_Y;
-            if (team === TeamType.LOWER) {
-                u.setPosition(-MAX_X - HALF_STEP - STEP * j, posIndex * STEP + HALF_STEP);
-            } else {
-                u.setPosition(
-                    MAX_X + HALF_STEP - UNIT_SIZE_DELTA + STEP * j,
-                    MAX_Y - posIndex * STEP - UNIT_SIZE_DELTA - HALF_STEP,
-                );
-            }
-            foundSomeSmallUnits = true;
-            this.positionBody(u);
-            prevUnitLevel = u.getLevel();
-            j++;
-        }
-
-        if (foundSomeSmallUnits) {
-            posIndex++;
-        }
-
-        let heroPosIndex = 0;
-        for (const h of heroes) {
-            if (team === TeamType.LOWER) {
-                h.setPosition(-MAX_X - STEP * heroPosIndex - HALF_STEP, DOUBLE_STEP + HALF_STEP);
-            } else {
-                h.setPosition(MAX_X + STEP * heroPosIndex + HALF_STEP, MAX_Y - DOUBLE_STEP - HALF_STEP);
-            }
-            heroPosIndex++;
-
-            this.positionBody(h);
-        }
-
-        for (const u of units) {
-            if (u.isSmallSize()) {
-                continue;
-            }
-
-            if (team === TeamType.LOWER) {
-                u.setPosition(-MAX_X - STEP, posIndex * STEP + STEP);
-            } else {
-                u.setPosition(MAX_X + STEP, MAX_Y - posIndex * STEP - STEP);
-            }
-            posIndex += 2;
-
-            this.positionBody(u);
-        }
-    }
-
-    private addBodyFixture(unitId: string, fixture: b2Fixture): void {
-        const fixtures = this.unitIdToBodyFixtures.get(unitId);
-        if (fixtures) {
-            fixtures.push(fixture);
-        } else {
-            this.unitIdToBodyFixtures.set(unitId, [fixture]);
-        }
-    }
-
-    private destroyBodyFixtures(unitId: string, body: b2Body) {
-        const fixtures = this.unitIdToBodyFixtures.get(unitId);
-        if (fixtures) {
-            for (const f of fixtures) {
-                body.DestroyFixture(f);
-            }
-        }
-        this.unitIdToBodyFixtures.delete(unitId);
-    }
-
-    private positionBody(unit: Unit): void {
-        if (this.allBodies.get(unit.getId())) {
-            return;
-        }
-
-        const body = this.world.CreateBody(unit.getBodyDef());
-        body.CreateFixture(unit.getFixtureDef());
-        this.refreshBarFixtures(unit, body);
-        this.allUnits.set(unit.getId(), unit);
-        this.allBodies.set(unit.getId(), body);
     }
 }

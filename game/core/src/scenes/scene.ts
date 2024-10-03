@@ -42,6 +42,7 @@ import {
     MovementType,
     GridType,
     HoCMath,
+    HoCLib,
     TeamType,
     Augment,
     IAuraOnMap,
@@ -216,7 +217,7 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_calculatingPlacement = true;
 
-    public sc_stepCount = 0;
+    public sc_stepCount: HoCLib.RefNumber = new HoCLib.RefNumber(0);
 
     public sc_fps = MAX_FPS;
 
@@ -404,10 +405,10 @@ export abstract class Scene extends b2ContactListener {
             return;
         }
 
-        if (this.sc_stepCount - this.sc_mouseDownStep < STEPS_BETWEEN_MOUSE_ACTIONS_MIN) {
+        if (this.sc_stepCount.getValue() - this.sc_mouseDownStep < STEPS_BETWEEN_MOUSE_ACTIONS_MIN) {
             return;
         }
-        this.sc_mouseDownStep = this.sc_stepCount;
+        this.sc_mouseDownStep = this.sc_stepCount.getValue();
 
         let hit_fixture: b2Fixture | undefined;
 
@@ -425,7 +426,7 @@ export abstract class Scene extends b2ContactListener {
         });
 
         if (hit_fixture || this.sc_isSelection) {
-            if (this.sc_mouseDropStep === this.sc_stepCount) {
+            if (this.sc_mouseDropStep === this.sc_stepCount.getValue()) {
                 return;
             }
 
@@ -487,11 +488,11 @@ export abstract class Scene extends b2ContactListener {
             return;
         }
 
-        if (this.sc_stepCount - this.sc_mouseDownStep < STEPS_BETWEEN_MOUSE_ACTIONS_MIN) {
-            this.sc_mouseDownStep = this.sc_stepCount;
+        if (this.sc_stepCount.getValue() - this.sc_mouseDownStep < STEPS_BETWEEN_MOUSE_ACTIONS_MIN) {
+            this.sc_mouseDownStep = this.sc_stepCount.getValue();
             return;
         }
-        this.sc_mouseDownStep = this.sc_stepCount;
+        this.sc_mouseDownStep = this.sc_stepCount.getValue();
 
         let hit_fixture: b2Fixture | undefined;
 
@@ -740,7 +741,7 @@ export abstract class Scene extends b2ContactListener {
         }
 
         if (timeStep > 0) {
-            ++this.sc_stepCount;
+            this.sc_stepCount.increment();
         }
 
         if (settings.m_drawStats) {
@@ -779,8 +780,8 @@ export abstract class Scene extends b2ContactListener {
             const p = this.sc_world.GetProfile();
 
             const aveProfile = new b2Profile();
-            if (this.sc_stepCount > 0) {
-                const scale = 1 / this.sc_stepCount;
+            if (this.sc_stepCount.getValue() > 0) {
+                const scale = 1 / this.sc_stepCount.getValue();
                 aveProfile.step = scale * this.sc_totalProfile.step;
                 aveProfile.collide = scale * this.sc_totalProfile.collide;
                 aveProfile.solve = scale * this.sc_totalProfile.solve;

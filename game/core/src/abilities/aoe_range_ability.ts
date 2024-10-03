@@ -24,6 +24,7 @@ import { processStunAbility } from "./stun_ability";
 export interface IAOERangeAttackResult {
     landed: boolean;
     maxDamage: number;
+    unitIdsDied: string[];
 }
 
 export function processRangeAOEAbility(
@@ -31,12 +32,12 @@ export function processRangeAOEAbility(
     affectedUnits: Unit[],
     currentActiveUnit: Unit,
     rangeAttackDivisor: number,
-    sceneStepCount: number,
     unitsHolder: UnitsHolder,
     grid: Grid,
     sceneLog: SceneLog,
     isAttack = true,
 ): IAOERangeAttackResult {
+    const unitIdsDied: string[] = [];
     let aoeAbility = attackerUnit.getAbility("Area Throw");
     if (!aoeAbility) {
         aoeAbility = attackerUnit.getAbility("Large Caliber");
@@ -74,7 +75,7 @@ export function processRangeAOEAbility(
                     sceneLog,
                 );
 
-                unit.applyDamage(damageFromAttack, sceneStepCount);
+                unit.applyDamage(damageFromAttack);
                 DamageStatisticHolder.getInstance().add({
                     unitName: attackerUnit.getName(),
                     damage: damageFromAttack,
@@ -90,7 +91,7 @@ export function processRangeAOEAbility(
                 maxDamage = Math.max(maxDamage, damageFromAttack);
 
                 if (!unit.isDead()) {
-                    processPetrifyingGazeAbility(attackerUnit, unit, damageFromAttack, sceneStepCount, sceneLog);
+                    processPetrifyingGazeAbility(attackerUnit, unit, damageFromAttack, sceneLog);
                 }
             }
         }
@@ -98,7 +99,8 @@ export function processRangeAOEAbility(
         for (const unit of affectedUnits) {
             if (unit.isDead() && !wasDead.includes(unit)) {
                 sceneLog.updateLog(`${unit.getName()} died`);
-                unitsHolder.deleteUnitById(unit.getId(), true);
+                // unitsHolder.deleteUnitById(unit.getId(), true);
+                unitIdsDied.push(unit.getId());
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unit);
                 attackerUnit.applyMoraleStepsModifier(
@@ -110,17 +112,18 @@ export function processRangeAOEAbility(
             }
         }
         attackerUnit.decreaseNumberOfShots();
-        unitsHolder.refreshStackPowerForAllUnits();
 
         return {
             landed: true,
             maxDamage,
+            unitIdsDied,
         };
     }
 
     return {
         landed: false,
         maxDamage,
+        unitIdsDied,
     };
 }
 

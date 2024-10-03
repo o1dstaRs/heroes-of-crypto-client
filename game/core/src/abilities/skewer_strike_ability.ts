@@ -33,16 +33,16 @@ export function processSkewerStrikeAbility(
     toUnit: Unit,
     sceneLog: SceneLog,
     unitsHolder: UnitsHolder,
-    sceneStepCount: number,
     grid: Grid,
     gridSettings: GridSettings,
     targetMovePosition?: HoCMath.XY,
     isAttack = true,
-): void {
+): string[] {
+    const unitIdsDied: string[] = [];
     const skewerStrikeAbility = fromUnit.getAbility("Skewer Strike");
 
     if (!skewerStrikeAbility) {
-        return;
+        return unitIdsDied;
     }
 
     const targetPos = GridMath.getCellForPosition(gridSettings, toUnit.getPosition());
@@ -70,7 +70,7 @@ export function processSkewerStrikeAbility(
                 fromUnit.calculateAbilityMultiplier(skewerStrikeAbility),
             );
 
-            nextStandingTarget.applyDamage(damageFromAttack, sceneStepCount);
+            nextStandingTarget.applyDamage(damageFromAttack);
             DamageStatisticHolder.getInstance().add({
                 unitName: fromUnit.getName(),
                 damage: damageFromAttack,
@@ -89,7 +89,7 @@ export function processSkewerStrikeAbility(
             // just in case if we have more inherited/stolen abilities
             processMinerAbility(fromUnit, nextStandingTarget, sceneLog);
             processStunAbility(fromUnit, nextStandingTarget, fromUnit, sceneLog);
-            processPetrifyingGazeAbility(fromUnit, nextStandingTarget, damageFromAttack, sceneStepCount, sceneLog);
+            processPetrifyingGazeAbility(fromUnit, nextStandingTarget, damageFromAttack, sceneLog);
             processBoarSalivaAbility(fromUnit, nextStandingTarget, fromUnit, sceneLog);
             processAggrAbility(fromUnit, nextStandingTarget, fromUnit, sceneLog);
             processDeepWoundsAbility(fromUnit, nextStandingTarget, fromUnit, sceneLog);
@@ -104,14 +104,15 @@ export function processSkewerStrikeAbility(
 
         for (const unitDead of unitsDead) {
             sceneLog.updateLog(`${unitDead.getName()} died`);
-            unitsHolder.deleteUnitById(unitDead.getId(), true);
+            // unitsHolder.deleteUnitById(unitDead.getId(), true);
+            unitIdsDied.push(unitDead.getId());
             fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             fromUnit.applyMoraleStepsModifier(
                 FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
             );
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unitDead);
         }
-
-        unitsHolder.refreshStackPowerForAllUnits();
     }
+
+    return unitIdsDied;
 }
