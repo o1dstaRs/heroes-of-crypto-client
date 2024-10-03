@@ -136,8 +136,13 @@ function doFindTarget(
     if (numRows !== numCols) {
         return undefined;
     }
-    let minDistance = Infinity;
+    // closest enemy unit
     let closestTarget: HoCMath.XY | undefined;
+    let closestTargetDistance = Infinity;
+    let cellsByDistanceFromTarget: HoCMath.XY[][];
+    let resultRoute: IWeightedRoute | undefined;
+    let resultRouteIndex: number | undefined;
+    let resultMovementDistance: number = Infinity;
 
     // if not range or spell type then add BFS, similar is in pathhelper
     // get the cell to go or cell to go and target to attack
@@ -152,7 +157,6 @@ function doFindTarget(
         unit.canFly(),
         unit.isSmallSize(),
     );
-    let route;
 
     /*
     Note:
@@ -168,6 +172,7 @@ function doFindTarget(
     if (debug) {
         console.log("currentUnit is at: " + cellToString(unitCell));
     }
+    // go through every cell and check is it an enemy
     for (let i = 0; i < numRows; i++) {
         for (let j = 0; j < numCols; j++) {
             const element = HoCMath.matrixElementOrDefault(matrix, j, i, 0);
@@ -183,122 +188,208 @@ function doFindTarget(
                 if (debug) {
                     console.log("checking possible target at x=" + j + ", i=" + i);
                 }
-                // get the list of cells that atacker can go to in order to attack the unit
-                const neighbors = getCellsForAttacker({ x: j, y: i }, matrix, unit, unit.isSmallSize(), true);
+                // get the list of cells that atacker can go to in order to attack the unit, return the layers, i.e bfs cells
+                cellsByDistanceFromTarget = getLayersForAttacker(
+                    { x: j, y: i },
+                    matrix,
+                    unit,
+                    unit.isSmallSize(),
+                    true,
+                );
                 if (debug) {
                     let cellsStr = "";
-                    neighbors.forEach((cell) => (cellsStr = cellsStr + " [" + cellToString(cell) + "]"));
+                    cellsByDistanceFromTarget[0].forEach(
+                        (cell) => (cellsStr = cellsStr + " [" + cellToString(cell) + "]"),
+                    );
                     console.log("checking cellsToMoveTo:" + cellsStr);
                 }
-                for (const elementNeighbor of neighbors) {
-                    if (cellKey(elementNeighbor) === cellKey(unitCell)) {
-                        return new BasicAIAction(AIActionType.MELEE_ATTACK, unitCell, { x: j, y: i }, paths.knownPaths);
-                    }
+                // go through all cells in a layer, check the actual min distance for attcker unit and save
+                for (let depth = 0; depth < cellsByDistanceFromTarget.length; depth++) {
+                    let layerRouteIndiciesLeft: number = Infinity;
+                    for (const elementNeighbor of cellsByDistanceFromTarget[depth]) {
+                        if (depth === 0 && cellKey(elementNeighbor) === cellKey(unitCell)) {
+                            return new BasicAIAction(
+                                AIActionType.MELEE_ATTACK,
+                                unitCell,
+                                { x: j, y: i },
+                                paths.knownPaths,
+                            );
+                        }
 
-                    const cellK = cellKey(elementNeighbor);
-                    const { knownPaths } = paths;
-                    if (knownPaths.has(cellK)) {
-                        const tmpRoute = knownPaths.get(cellK);
-                        const weight = tmpRoute?.at(0)?.weight;
-                        if (weight === undefined) {
-                            continue;
-                        }
-                        if (weight < minDistance) {
-                            if (debug) {
-                                console.log(
-                                    "New min distance: " + weight + " elementNeighbor:" + cellToString(elementNeighbor),
-                                );
+                        const cellK = cellKey(elementNeighbor);
+                        const { knownPaths } = paths;
+                        if (knownPaths.has(cellK)) {
+                            const tmpRoute = knownPaths.get(cellK);
+                            const weight = tmpRoute?.at(0)?.weight;
+                            if (weight === undefined) {
+                                continue;
                             }
-                            minDistance = weight;
-                            closestTarget = { x: j, y: i };
-                            route = tmpRoute?.at(0);
+                            if (weight < closestTargetDistance) {
+                                if (debug) {
+                                    console.log(
+                                        "New min distance: " +
+                                            weight +
+                                            " elementNeighbor:" +
+                                            cellToString(elementNeighbor),
+                                    );
+                                }
+                                closestTargetDistance = weight;
+                                closestTarget = { x: j, y: i };
+                                let currentRoute = tmpRoute?.at(0);
+
+                                if (!currentRoute) {
+                                    continue;
+                                }
+
+                                /**
+                                 * Use "paths" to go through the board and calculate the end cell
+                                 * since the "paths" take into account aggro board
+                                 */
+                                let currentRouteIndex = 0;
+                                let nextCellDistance: number | undefined;
+                                do {
+                                    const cell = currentRoute.route[currentRouteIndex];
+                                    const nextCell = currentRoute.route[currentRouteIndex + 1];
+                                    if (nextCell === undefined) {
+                                        break;
+                                    }
+                                    if (isSameCell(cell, elementNeighbor)) {
+                                        break;
+                                    }
+                                    nextCellDistance = paths.knownPaths?.get(cellKey(nextCell))?.at(0)?.weight;
+
+                                    if (debug) {
+                                        console.log("nextCellDistance: " + nextCellDistance);
+                                    }
+                                    if (nextCellDistance !== undefined && nextCellDistance > unit.getSteps()) {
+                                        break;
+                                    }
+                                    currentRouteIndex += 1;
+                                } while (
+                                    nextCellDistance !== undefined &&
+                                    nextCellDistance <= unit.getSteps() &&
+                                    currentRouteIndex < currentRoute.route.length
+                                );
+
+                                if (debug) {
+                                    console.log("Set currentRouteIndex: " + currentRouteIndex);
+                                }
+
+                                while (currentRouteIndex >= 0) {
+                                    const cellToGo = currentRoute?.route[currentRouteIndex];
+                                    if (cellToGo) {
+                                        if (unit.isSmallSize()) {
+                                            if (!isFree(cellToGo, matrix, unit)) {
+                                                currentRouteIndex--;
+                                            } else {
+                                                break;
+                                            }
+                                        } else if (
+                                            !isFree(cellToGo, matrix, unit) ||
+                                            !isFree({ x: cellToGo.x - 1, y: cellToGo.y }, matrix, unit) ||
+                                            !isFree({ x: cellToGo.x - 1, y: cellToGo.y - 1 }, matrix, unit) ||
+                                            !isFree({ x: cellToGo.x, y: cellToGo.y - 1 }, matrix, unit)
+                                        ) {
+                                            currentRouteIndex--;
+                                        } else {
+                                            break;
+                                        }
+                                    } else {
+                                        break;
+                                    }
+                                }
+                                let currentRouteIndiciesLeft = currentRoute.route.length - 1 - currentRouteIndex;
+                                let cellToMoveTo = currentRoute.route[currentRouteIndex];
+                                let currentDistance = paths.knownPaths?.get(cellKey(cellToMoveTo))?.at(0)?.weight;
+                                if (debug) {
+                                    console.log(
+                                        "Cell to move :" +
+                                            cellToString(cellToMoveTo) +
+                                            " elementNeighbor:" +
+                                            cellToString(elementNeighbor),
+                                    );
+                                }
+
+                                if (!currentDistance) {
+                                    continue;
+                                }
+                                // if same indicies left till the target but clsoer then prev cell then update the route and hte cell to move to
+                                if (
+                                    currentRouteIndiciesLeft < layerRouteIndiciesLeft ||
+                                    (currentRouteIndiciesLeft === layerRouteIndiciesLeft &&
+                                        currentDistance < resultMovementDistance)
+                                ) {
+                                    resultRoute = currentRoute;
+                                    resultRouteIndex = currentRouteIndex;
+                                    resultMovementDistance = currentDistance;
+                                    layerRouteIndiciesLeft = currentRouteIndiciesLeft;
+                                    if (debug) {
+                                        console.log("Set new resultMovementDistance:" + resultMovementDistance);
+                                    }
+                                }
+                            }
+                        } else {
+                            if (debug) {
+                                console.log("No known path to elementNeighbor:" + cellToString(elementNeighbor));
+                            }
                         }
-                    } else {
-                        if (debug) {
-                            console.log("No known path to elementNeighbor:" + cellToString(elementNeighbor));
-                        }
+                    }
+                    // in current layer we found a cell to go to, use it
+                    if (resultMovementDistance) {
+                        break;
                     }
                 }
             }
         }
-    }
-
-    if (closestTarget === undefined) {
-        return undefined;
     }
 
     if (debug) {
         console.log("СlosestTarget:" + cellToString(closestTarget));
     }
 
+    if (closestTarget === undefined || resultRouteIndex === undefined) {
+        return undefined;
+    }
+
     if (unit.getAttackType() === AttackType.RANGE) {
         return new BasicAIAction(AIActionType.RANGE_ATTACK, undefined, closestTarget, paths.knownPaths);
     }
 
-    /**
-     * Use "paths" to go through the board and calculate the end cell
-     * since the "paths" take into account aggro board
-     */
-    let routeIndex = 0;
-    let currentDistance: number | undefined = 0;
-    do {
-        const nextCell = route?.route[routeIndex + 1];
-        if (nextCell === undefined || (nextCell?.x === closestTarget.x && nextCell?.y === closestTarget.y)) {
-            break;
-        }
-        currentDistance = paths.knownPaths?.get(cellKey(nextCell))?.at(0)?.weight;
-        if (currentDistance !== undefined && currentDistance <= unit.getSteps()) {
-            routeIndex += 1;
-        }
-    } while (currentDistance !== undefined && currentDistance < unit.getSteps());
-
-    while (routeIndex >= 0) {
-        const cellToGo = route?.route[routeIndex];
-        if (cellToGo) {
-            if (unit.isSmallSize()) {
-                if (!isFree(cellToGo, matrix, unit)) {
-                    routeIndex--;
-                } else {
-                    break;
-                }
-            } else if (
-                !isFree(cellToGo, matrix, unit) ||
-                !isFree({ x: cellToGo.x - 1, y: cellToGo.y }, matrix, unit) ||
-                !isFree({ x: cellToGo.x - 1, y: cellToGo.y - 1 }, matrix, unit) ||
-                !isFree({ x: cellToGo.x, y: cellToGo.y - 1 }, matrix, unit)
-            ) {
-                routeIndex--;
-            } else {
-                break;
-            }
-        } else {
-            break;
-        }
-    }
-
-    if (routeIndex === 0) {
-        return new BasicAIAction(AIActionType.MELEE_ATTACK, route?.route[routeIndex], closestTarget, paths.knownPaths);
-    }
-
-    if (debug) {
-        console.log("MinDistance=" + minDistance + ", unit.steps=" + unit.getSteps() + ", routeIndex=" + routeIndex);
-        let routeStr = "";
-        route?.route.forEach((cell) => (routeStr = routeStr + " [" + cellToString(cell) + "]"));
-        console.log("Route=" + routeStr);
-    }
-    if (minDistance <= unit.getSteps()) {
+    if (resultRouteIndex === 0) {
         return new BasicAIAction(
-            AIActionType.MOVE_AND_MELEE_ATTACK,
-            route?.route[routeIndex],
+            AIActionType.MELEE_ATTACK,
+            resultRoute?.route[resultRouteIndex],
             closestTarget,
             paths.knownPaths,
         );
     }
-    let toMoveTo = route?.route[routeIndex];
+
+    if (debug) {
+        console.log(
+            "closestTargetDistance=" +
+                closestTargetDistance +
+                ", unit.steps=" +
+                unit.getSteps() +
+                ", routeIndex=" +
+                resultRouteIndex,
+        );
+        let routeStr = "";
+        resultRoute?.route.forEach((cell) => (routeStr = routeStr + " [" + cellToString(cell) + "]"));
+        console.log("Route=" + routeStr);
+    }
+    if (closestTargetDistance <= unit.getSteps()) {
+        return new BasicAIAction(
+            AIActionType.MOVE_AND_MELEE_ATTACK,
+            resultRoute?.route[resultRouteIndex],
+            closestTarget,
+            paths.knownPaths,
+        );
+    }
+    let toMoveTo = resultRoute?.route[resultRouteIndex];
     if (debug) {
         console.log("action MOVE with cell to move to x:" + toMoveTo?.x + " t:" + toMoveTo?.y);
     }
-    return new BasicAIAction(AIActionType.MOVE, route?.route[routeIndex], undefined, paths.knownPaths);
+    return new BasicAIAction(AIActionType.MOVE, resultRoute?.route[resultRouteIndex], undefined, paths.knownPaths);
 }
 
 function cellKey(xy: HoCMath.XY): number {
@@ -381,18 +472,43 @@ export function getCellsForAttacker(
     return filterCells(cellsForBigAttacker, matrix, false, attacker);
 }
 
+//return cells by distance from the cell to attack
+function getLayersForAttacker(
+    cellToAttack: HoCMath.XY,
+    matrix: number[][],
+    attacker: IUnitAIRepr,
+    isCurrentUnitSmall = true,
+    isTargetUnitSmall = true,
+): HoCMath.XY[][] {
+    const result: HoCMath.XY[][] = [];
+    for (let i = 1; i < matrix.length / 2; i++) {
+        const borderCells = filterCells(
+            getBorderCells(cellToAttack, isCurrentUnitSmall, i),
+            matrix,
+            isCurrentUnitSmall,
+            attacker,
+        );
+        result[i - 1] = borderCells;
+    }
+    if (isTargetUnitSmall) {
+        return result;
+    } else {
+        return [];
+    }
+}
+
 // return border cells that the small or big unit has
-function getBorderCells(currentCell: HoCMath.XY, isSmallUnit = true): HoCMath.XY[] {
+function getBorderCells(currentCell: HoCMath.XY, isSmallUnit = true, distance = 1): HoCMath.XY[] {
     const borderCells = [];
-    borderCells.push({ x: currentCell.x - 1, y: currentCell.y + 1 });
-    borderCells.push({ x: currentCell.x - 1, y: currentCell.y });
-    borderCells.push({ x: currentCell.x - 1, y: currentCell.y - 1 });
-    borderCells.push({ x: currentCell.x, y: currentCell.y - 1 });
-    borderCells.push({ x: currentCell.x + 1, y: currentCell.y - 1 });
+    borderCells.push({ x: currentCell.x - distance, y: currentCell.y + distance });
+    borderCells.push({ x: currentCell.x - distance, y: currentCell.y });
+    borderCells.push({ x: currentCell.x - distance, y: currentCell.y - distance });
+    borderCells.push({ x: currentCell.x, y: currentCell.y - distance });
+    borderCells.push({ x: currentCell.x + distance, y: currentCell.y - distance });
     if (isSmallUnit) {
-        borderCells.push({ x: currentCell.x + 1, y: currentCell.y });
-        borderCells.push({ x: currentCell.x + 1, y: currentCell.y + 1 });
-        borderCells.push({ x: currentCell.x, y: currentCell.y + 1 });
+        borderCells.push({ x: currentCell.x + distance, y: currentCell.y });
+        borderCells.push({ x: currentCell.x + distance, y: currentCell.y + distance });
+        borderCells.push({ x: currentCell.x, y: currentCell.y + distance });
     } else {
         /*
         // big attacker
@@ -404,13 +520,13 @@ function getBorderCells(currentCell: HoCMath.XY, isSmallUnit = true): HoCMath.XY
         0 x c 0 x 0 0
         0 x x x x 0 0
         */
-        borderCells.push({ x: currentCell.x - 1, y: currentCell.y + 2 });
-        borderCells.push({ x: currentCell.x, y: currentCell.y + 2 });
-        borderCells.push({ x: currentCell.x + 1, y: currentCell.y + 2 });
-        borderCells.push({ x: currentCell.x + 2, y: currentCell.y + 2 });
-        borderCells.push({ x: currentCell.x + 2, y: currentCell.y + 1 });
-        borderCells.push({ x: currentCell.x + 2, y: currentCell.y });
-        borderCells.push({ x: currentCell.x + 2, y: currentCell.y - 1 });
+        borderCells.push({ x: currentCell.x - distance, y: currentCell.y + distance + 1 });
+        borderCells.push({ x: currentCell.x, y: currentCell.y + distance + 1 });
+        borderCells.push({ x: currentCell.x + distance, y: currentCell.y + distance + 1 });
+        borderCells.push({ x: currentCell.x + distance + 1, y: currentCell.y + distance + 1 });
+        borderCells.push({ x: currentCell.x + distance + 1, y: currentCell.y + distance });
+        borderCells.push({ x: currentCell.x + distance + 1, y: currentCell.y });
+        borderCells.push({ x: currentCell.x + distance + 1, y: currentCell.y - distance });
     }
     return borderCells;
 }
