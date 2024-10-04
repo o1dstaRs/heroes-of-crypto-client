@@ -1180,6 +1180,10 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
     public calculateAuraPower(auraEffect: AuraEffect): number {
         let calculatedCoeff = 1;
 
+        if (auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_STEPS_WALK) {
+            return auraEffect.getPower();
+        }
+
         if (auraEffect.getPowerType() === AbilityPowerType.ADDITIONAL_BASE_ATTACK_AND_ARMOR) {
             return auraEffect.getPower();
         }
@@ -1867,6 +1871,12 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         const wolfTrailAuraEffect = this.getAppliedAuraEffect("Wolf Trail Aura");
         if (wolfTrailAuraEffect) {
             this.unitProperties.steps += wolfTrailAuraEffect.getPower();
+        }
+        if (!this.canFly()) {
+            const tieUpTheHorsesAuraEffect = this.getAppliedAuraEffect("Tie up the Horses Aura");
+            if (tieUpTheHorsesAuraEffect) {
+                this.unitProperties.steps += tieUpTheHorsesAuraEffect.getPower();
+            }
         }
         const movementAugmentBuff = this.getBuff("Movement Augment");
         if (movementAugmentBuff) {

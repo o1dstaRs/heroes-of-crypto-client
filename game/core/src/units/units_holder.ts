@@ -510,7 +510,7 @@ export class UnitsHolder {
             for (let i = 0; i < unitAppliedAuraEffectProperties.length; i++) {
                 const appliedAuraEffectProperties = unitAppliedAuraEffectProperties[i];
                 const auraEffectProperties = appliedAuraEffectProperties.getAuraEffectProperties();
-                if (EffectHelper.canApplyAuraEffect(u.getAttackType(), auraEffectProperties)) {
+                if (EffectHelper.canApplyAuraEffect(u.getAttackType(), u.canFly(), auraEffectProperties)) {
                     u.applyAuraEffect(
                         `${auraEffectProperties.name} Aura`,
                         auraEffectProperties.desc.replace(/\{\}/g, auraEffectProperties.power.toString()),

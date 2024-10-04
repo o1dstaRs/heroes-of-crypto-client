@@ -1416,6 +1416,10 @@ class Sandbox extends GLScene {
     }
 
     protected hover(): void {
+        if (this.currentActiveUnit && this.currentActiveUnit.hasAbilityActive("AI Driven")) {
+            return;
+        }
+
         if (this.sc_isAnimating || !this.sc_mouseWorld) {
             this.resetHover();
             return;
@@ -2796,6 +2800,10 @@ class Sandbox extends GLScene {
 
     protected verifyButtonsTrigger() {
         if (!this.sc_mouseWorld) {
+            return;
+        }
+
+        if (this.currentActiveUnit && this.currentActiveUnit.hasAbilityActive("AI Driven")) {
             return;
         }
 
