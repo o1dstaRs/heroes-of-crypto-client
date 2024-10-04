@@ -414,6 +414,7 @@ export class UnitsFactory {
             units.push(this.makeCreature(FactionType.LIFE, "Griffin", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
             units.push(this.makeCreature(FactionType.LIFE, "Tsar Cannon", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
             units.push(this.makeCreature(FactionType.LIFE, "Angel", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature(FactionType.LIFE, "Champion", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
         } else if (faction === FactionType.NATURE) {
             // heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
             // heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
