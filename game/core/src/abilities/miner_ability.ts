@@ -9,10 +9,10 @@
  * -----------------------------------------------------------------------------
  */
 
-import { SceneLog } from "../menu/scene_log";
+import { HoCScene } from "@heroesofcrypto/common";
 import { Unit } from "../units/units";
 
-export function processMinerAbility(attackerUnit: Unit, targetUnit: Unit, sceneLog: SceneLog) {
+export function processMinerAbility(attackerUnit: Unit, targetUnit: Unit, sceneLog: HoCScene.SceneLog) {
     const minerAbility = attackerUnit.getAbility("Miner");
 
     if (!minerAbility || attackerUnit.isDead()) {

@@ -9,9 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, Grid, HoCConstants, HoCMath, HoCLib } from "@heroesofcrypto/common";
+import { AttackType, Grid, HoCConstants, HoCMath, HoCLib, HoCScene } from "@heroesofcrypto/common";
 
-import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
@@ -34,7 +33,7 @@ export function processRangeAOEAbility(
     rangeAttackDivisor: number,
     unitsHolder: UnitsHolder,
     grid: Grid,
-    sceneLog: SceneLog,
+    sceneLog: HoCScene.SceneLog,
     isAttack = true,
 ): IAOERangeAttackResult {
     const unitIdsDied: string[] = [];
@@ -48,6 +47,7 @@ export function processRangeAOEAbility(
         const wasDead: Unit[] = [];
         for (const unit of affectedUnits) {
             if (unit.isDead()) {
+                unitIdsDied.push(unit.getId());
                 wasDead.push(unit);
                 continue;
             }
@@ -99,13 +99,15 @@ export function processRangeAOEAbility(
         for (const unit of affectedUnits) {
             if (unit.isDead() && !wasDead.includes(unit)) {
                 sceneLog.updateLog(`${unit.getName()} died`);
-                // unitsHolder.deleteUnitById(unit.getId(), true);
-                unitIdsDied.push(unit.getId());
+                if (!unitIdsDied.includes(unit.getId())) {
+                    unitIdsDied.push(unit.getId());
+                }
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unit);
                 attackerUnit.applyMoraleStepsModifier(
                     FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                 );
+                wasDead.push(unit);
             } else {
                 processStunAbility(attackerUnit, unit, attackerUnit, sceneLog);
                 processSpitBallAbility(attackerUnit, unit, currentActiveUnit, unitsHolder, grid, sceneLog);

@@ -9,9 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCConstants } from "@heroesofcrypto/common";
+import { HoCConstants, HoCScene } from "@heroesofcrypto/common";
 
-import { SceneLog } from "../menu/scene_log";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
@@ -19,7 +18,7 @@ import { UnitsHolder } from "../units/units_holder";
 export function processFireShieldAbility(
     fromUnit: Unit,
     toUnit: Unit,
-    sceneLog: SceneLog,
+    sceneLog: HoCScene.SceneLog,
     unitsHolder: UnitsHolder,
     damageFromAttack: number,
 ): void {

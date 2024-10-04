@@ -48,9 +48,9 @@ import {
     IAuraOnMap,
     UnitProperties,
     AbilityHelper,
+    HoCScene,
 } from "@heroesofcrypto/common";
 
-import { SceneLog } from "../menu/scene_log";
 import { SceneControl } from "../sceneControls";
 import { Settings } from "../settings";
 import {
@@ -179,7 +179,7 @@ export abstract class Scene extends b2ContactListener {
 
     public readonly sc_mouseWorld = new b2Vec2();
 
-    public readonly sc_sceneLog = new SceneLog();
+    public readonly sc_sceneLog = new HoCScene.SceneLog();
 
     public readonly sc_maxProfile = new b2Profile();
 

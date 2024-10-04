@@ -9,10 +9,9 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, HoCMath, HoCConstants, Grid } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, HoCMath, HoCConstants, Grid, HoCScene } from "@heroesofcrypto/common";
 
 import { Drawer } from "../draw/drawer";
-import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
@@ -36,7 +35,7 @@ export function processThroughShotAbility(
     unitsHolder: UnitsHolder,
     grid: Grid,
     drawer: Drawer,
-    sceneLog: SceneLog,
+    sceneLog: HoCScene.SceneLog,
 ): IThroughShotResult {
     const unitIdsDied: string[] = [];
     const throughShotAbility = attackerUnit.getAbility("Through Shot");
@@ -111,7 +110,6 @@ export function processThroughShotAbility(
     for (const unit of unitsDamaged) {
         if (unit.isDead()) {
             sceneLog.updateLog(`${unit.getName()} died`);
-            // unitsHolder.deleteUnitById(unit.getId(), true);
             unitIdsDied.push(unit.getId());
             attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unit);

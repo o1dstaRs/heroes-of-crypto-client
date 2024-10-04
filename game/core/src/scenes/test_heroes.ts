@@ -1813,6 +1813,7 @@ class Sandbox extends GLScene {
                         }
                     }
                 } else if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE) {
+                    this.sc_isSelection = false;
                     this.hoverAOECells = undefined;
 
                     if (!this.hoverUnit) {
@@ -1889,6 +1890,7 @@ class Sandbox extends GLScene {
                                 this.currentActiveUnit.getPosition(),
                                 this.hoverRangeAttackPosition,
                                 isThroughShot,
+                                this.sc_isSelection,
                             );
                             this.hoverRangeAttackDivisors = evaluatedRangeAttack.rangeAttackDivisors;
                             this.hoverAttackUnits = evaluatedRangeAttack.affectedUnits;
@@ -1955,7 +1957,6 @@ class Sandbox extends GLScene {
                     this.hoverRangeAttackDivisors = evaluatedRangeAttack.rangeAttackDivisors;
                     this.hoverAttackUnits = evaluatedRangeAttack.affectedUnits;
                     this.hoverRangeAttackObstacle = evaluatedRangeAttack.attackObstacle;
-                    this.sc_isSelection = false;
 
                     const hoverAttackUnit = this.getHoverAttackUnit();
                     if (hoverAttackUnit) {
@@ -1969,7 +1970,7 @@ class Sandbox extends GLScene {
                             // it has to response back
                             this.initializePossibleRangeResponse(hoverAttackUnit, this.currentActiveUnit.getPosition());
                             this.fillRangeAttackInfo(hoverAttackUnit);
-                            this.sc_isSelection = true;
+                            // this.sc_isSelection = false;
                         }
                     } else if (!this.hoverRangeAttackObstacle) {
                         this.hoverRangeAttackDivisors = [

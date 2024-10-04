@@ -9,9 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, Grid, GridSettings, GridMath, HoCMath, HoCConstants } from "@heroesofcrypto/common";
+import { AttackType, Grid, GridSettings, GridMath, HoCMath, HoCConstants, HoCScene } from "@heroesofcrypto/common";
 
-import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
@@ -21,7 +20,7 @@ import { nextStandingTargets } from "./abilities_helper";
 export function processFireBreathAbility(
     fromUnit: Unit,
     toUnit: Unit,
-    sceneLog: SceneLog,
+    sceneLog: HoCScene.SceneLog,
     unitsHolder: UnitsHolder,
     grid: Grid,
     gridSettings: GridSettings,
