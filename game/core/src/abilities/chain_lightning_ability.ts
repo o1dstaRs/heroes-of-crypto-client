@@ -9,9 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { EffectHelper, HoCConstants, Grid, HoCMath, TeamType } from "@heroesofcrypto/common";
+import { EffectHelper, HoCConstants, Grid, HoCMath, TeamType, HoCScene } from "@heroesofcrypto/common";
 
-import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
@@ -61,7 +60,7 @@ function attackEnemiesAndGetLayerImpact(
     abilityMultiplier: number,
     alreadyAffectedIds: string[],
     unitsHolder: UnitsHolder,
-    sceneLog: SceneLog,
+    sceneLog: HoCScene.SceneLog,
 ): ILayerImpact[] {
     const fullLayerImpact: ILayerImpact[] = [];
     for (const e1 of enemies) {
@@ -102,7 +101,6 @@ function attackEnemiesAndGetLayerImpact(
 
             if (e1.isDead()) {
                 sceneLog.updateLog(`${e1.getName()} died`);
-                // unitsHolder.deleteUnitById(e1.getId(), true);
                 unitIdsDied.push(e1.getId());
                 fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 fromUnit.applyMoraleStepsModifier(
@@ -128,7 +126,7 @@ export function processChainLightningAbility(
     attackDamage: number,
     grid: Grid,
     unitsHolder: UnitsHolder,
-    sceneLog: SceneLog,
+    sceneLog: HoCScene.SceneLog,
 ): string[] {
     const unitIdsDied: string[] = [];
     const chainLightningAbility = fromUnit.getAbility("Chain Lightning");

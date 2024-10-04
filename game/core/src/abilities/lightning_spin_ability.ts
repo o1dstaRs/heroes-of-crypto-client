@@ -9,9 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, HoCMath, HoCConstants } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, HoCMath, HoCConstants, HoCScene } from "@heroesofcrypto/common";
 
-import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
@@ -39,7 +38,7 @@ export interface ILightningSpinResult {
 
 export function processLightningSpinAbility(
     fromUnit: Unit,
-    sceneLog: SceneLog,
+    sceneLog: HoCScene.SceneLog,
     unitsHolder: UnitsHolder,
     rapidChargeCells: number,
     attackFromCell?: HoCMath.XY,
@@ -148,7 +147,6 @@ export function processLightningSpinAbility(
 
         for (const unitDead of unitsDead) {
             sceneLog.updateLog(`${unitDead.getName()} died`);
-            // unitsHolder.deleteUnitById(unitDead.getId(), true);
             unitIdsDied.push(unitDead.getId());
             fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             fromUnit.applyMoraleStepsModifier(

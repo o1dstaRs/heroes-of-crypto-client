@@ -18,10 +18,10 @@ import {
     Grid,
     Spell,
     SpellPowerType,
+    HoCScene,
 } from "@heroesofcrypto/common";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 
-import { SceneLog } from "../menu/scene_log";
 import { isMirrored } from "../spells/spells_helper";
 import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
@@ -42,7 +42,7 @@ export function processSpitBallAbility(
     currentActiveUnit: Unit,
     unitsHolder: UnitsHolder,
     grid: Grid,
-    sceneLog: SceneLog,
+    sceneLog: HoCScene.SceneLog,
 ): void {
     // effect can be absorbed
     const absorptionTarget = getAbsorptionTarget(targetUnit, grid, unitsHolder);

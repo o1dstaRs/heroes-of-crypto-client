@@ -9,9 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, Grid, GridSettings, GridMath, HoCMath, HoCConstants } from "@heroesofcrypto/common";
+import { AttackType, Grid, GridSettings, GridMath, HoCMath, HoCConstants, HoCScene } from "@heroesofcrypto/common";
 
-import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
@@ -31,7 +30,7 @@ import { processStunAbility } from "./stun_ability";
 export function processSkewerStrikeAbility(
     fromUnit: Unit,
     toUnit: Unit,
-    sceneLog: SceneLog,
+    sceneLog: HoCScene.SceneLog,
     unitsHolder: UnitsHolder,
     grid: Grid,
     gridSettings: GridSettings,
@@ -104,7 +103,6 @@ export function processSkewerStrikeAbility(
 
         for (const unitDead of unitsDead) {
             sceneLog.updateLog(`${unitDead.getName()} died`);
-            // unitsHolder.deleteUnitById(unitDead.getId(), true);
             unitIdsDied.push(unitDead.getId());
             fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             fromUnit.applyMoraleStepsModifier(

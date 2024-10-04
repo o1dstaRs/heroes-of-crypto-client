@@ -23,6 +23,7 @@ import {
     Spell,
     HoCConstants,
     AbilityHelper,
+    HoCScene,
 } from "@heroesofcrypto/common";
 
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
@@ -33,7 +34,6 @@ import { processLightningSpinAbility } from "../abilities/lightning_spin_ability
 import { processOneInTheFieldAbility } from "../abilities/one_in_the_field_ability";
 import { processStunAbility } from "../abilities/stun_ability";
 import { Drawer } from "../draw/drawer";
-import { SceneLog } from "../menu/scene_log";
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
@@ -85,9 +85,9 @@ export class AttackHandler {
 
     public readonly grid: Grid;
 
-    public readonly sceneLog: SceneLog;
+    public readonly sceneLog: HoCScene.SceneLog;
 
-    public constructor(gridSettings: GridSettings, grid: Grid, sceneLog: SceneLog) {
+    public constructor(gridSettings: GridSettings, grid: Grid, sceneLog: HoCScene.SceneLog) {
         this.gridSettings = gridSettings;
         this.grid = grid;
         this.sceneLog = sceneLog;
@@ -98,6 +98,7 @@ export class AttackHandler {
         cellsToPositions: [HoCMath.XY, HoCMath.XY][],
         attackerUnit: Unit,
         isThroughShot = false,
+        isSelection = false,
     ): IRangeAttackEvaluation {
         const affectedUnitIds: string[] = [];
         const affectedUnits: Array<Unit[]> = [];
@@ -146,28 +147,41 @@ export class AttackHandler {
 
             if (attackerUnit.hasAbilityActive("Large Caliber") || attackerUnit.hasAbilityActive("Area Throw")) {
                 const unitIds: string[] = [possibleUnitId];
-                const cells = GridMath.getCellsAroundCell(this.gridSettings, cell);
 
-                for (const c of cells) {
-                    const possibleUnitId = this.grid.getOccupantUnitId(c);
-                    if (!possibleUnitId) {
-                        continue;
+                let isCellOccupied = false;
+                const possibleOccupantId = this.grid.getOccupantUnitId(cell);
+                if (possibleOccupantId) {
+                    if (allUnits.get(possibleOccupantId)) {
+                        isCellOccupied = true;
                     }
-                    if (unitIds.includes(possibleUnitId)) {
-                        continue;
-                    }
-
-                    const possibleUnit = allUnits.get(possibleUnitId);
-                    if (!possibleUnit) {
-                        continue;
-                    }
-
-                    unitsThisShot.push(possibleUnit);
-                    unitIds.push(possibleUnitId);
                 }
 
-                cells.push(cell);
-                affectedCells.push(cells);
+                if (isSelection || isCellOccupied) {
+                    const cells = GridMath.getCellsAroundCell(this.gridSettings, cell);
+
+                    for (const c of cells) {
+                        const possibleUnitId = this.grid.getOccupantUnitId(c);
+                        if (!possibleUnitId) {
+                            continue;
+                        }
+                        if (unitIds.includes(possibleUnitId)) {
+                            continue;
+                        }
+
+                        const possibleUnit = allUnits.get(possibleUnitId);
+                        if (!possibleUnit) {
+                            continue;
+                        }
+
+                        unitsThisShot.push(possibleUnit);
+                        unitIds.push(possibleUnitId);
+                    }
+
+                    cells.push(cell);
+                    affectedCells.push(cells);
+                } else {
+                    affectedCells.push([cell]);
+                }
             } else {
                 affectedCells.push([cell]);
             }
@@ -271,12 +285,19 @@ export class AttackHandler {
         fromPosition: HoCMath.XY,
         toPosition: HoCMath.XY,
         isThroughShot = false,
+        isSelection = false,
     ): IRangeAttackEvaluation {
         const intersectedCellsToPositions = this.getCellsToPositions(
             this.getIntersectedPositions(fromPosition, toPosition),
         );
 
-        return this.getAffectedUnitsAndObstacles(allUnits, intersectedCellsToPositions, fromUnit, isThroughShot);
+        return this.getAffectedUnitsAndObstacles(
+            allUnits,
+            intersectedCellsToPositions,
+            fromUnit,
+            isThroughShot,
+            isSelection,
+        );
     }
 
     public canLandRangeAttack(unit: Unit, aggrMatrix?: number[][]): boolean {
@@ -576,7 +597,7 @@ export class AttackHandler {
         }
 
         let targetUnitUndex = 0;
-        const affectedUnits = targetUnits.at(targetUnitUndex);
+        let affectedUnits = targetUnits.at(targetUnitUndex);
         if (!affectedUnits?.length) {
             return { completed: false, unitIdsDied };
         }
@@ -675,6 +696,9 @@ export class AttackHandler {
         let attackDamageApplied = true;
         if (aoeRangeAttackResult.landed) {
             damageFromAttack = processLuckyStrikeAbility(attackerUnit, aoeRangeAttackResult.maxDamage, this.sceneLog);
+            for (const uId of aoeRangeAttackResult.unitIdsDied) {
+                unitIdsDied.push(uId);
+            }
         } else if (isAttackMissed) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
         } else {
@@ -716,6 +740,9 @@ export class AttackHandler {
                     aoeRangeResponseResult.maxDamage,
                     this.sceneLog,
                 );
+                for (const uId of aoeRangeResponseResult.unitIdsDied) {
+                    unitIdsDied.push(uId);
+                }
             } else if (isResponseMissed) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} misses resp ${rangeResponseUnit.getName()}`);
             } else {
@@ -756,7 +783,7 @@ export class AttackHandler {
         }
 
         let switchTargetUnit = false;
-        if (!aoeRangeAttackResult?.landed) {
+        if (!aoeRangeAttackResult?.landed || !isAOE) {
             if (!attackDamageApplied) {
                 targetUnit.applyDamage(damageFromAttack);
                 damageForAnimation.render = true;
@@ -777,14 +804,15 @@ export class AttackHandler {
 
             if (targetUnit.isDead()) {
                 switchTargetUnit = true;
-                this.sceneLog.updateLog(`${targetUnit.getName()} died`);
-                // unitsHolder.deleteUnitById(targetUnit.getId(), true);
-                unitIdsDied.push(targetUnit.getId());
-                attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-                unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
-                attackerUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                );
+                if (!unitIdsDied.includes(targetUnit.getId())) {
+                    this.sceneLog.updateLog(`${targetUnit.getName()} died`);
+                    unitIdsDied.push(targetUnit.getId());
+                    attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
+                    unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
+                    attackerUnit.applyMoraleStepsModifier(
+                        FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                    );
+                }
             } else {
                 processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
                 processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, this.sceneLog);
@@ -799,15 +827,16 @@ export class AttackHandler {
                 }
             } else {
                 if (rangeResponseUnit.isDead()) {
-                    this.sceneLog.updateLog(`${rangeResponseUnit.getName()} died`);
-                    // unitsHolder.deleteUnitById(rangeResponseUnit.getId(), true);
-                    unitIdsDied.push(rangeResponseUnit.getId());
-                    unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(rangeResponseUnit);
-                    if (!targetUnit.isDead()) {
-                        targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-                        targetUnit.applyMoraleStepsModifier(
-                            FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                        );
+                    if (!unitIdsDied.includes(rangeResponseUnit.getId())) {
+                        this.sceneLog.updateLog(`${rangeResponseUnit.getName()} died`);
+                        unitIdsDied.push(rangeResponseUnit.getId());
+                        unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(rangeResponseUnit);
+                        if (!targetUnit.isDead()) {
+                            targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
+                            targetUnit.applyMoraleStepsModifier(
+                                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                            );
+                        }
                     }
 
                     if (attackerUnit.getId() === rangeResponseUnit.getId()) {
@@ -831,7 +860,25 @@ export class AttackHandler {
         unitsHolder.refreshStackPowerForAllUnits();
 
         if (switchTargetUnit) {
-            const affectedUnits = targetUnits.at(targetUnitUndex);
+            while (targetUnitUndex < targetUnits.length) {
+                affectedUnits = targetUnits.at(targetUnitUndex);
+                if (!affectedUnits?.length) {
+                    break;
+                }
+
+                let allDead = true;
+                for (const au of affectedUnits) {
+                    if (!au.isDead()) {
+                        allDead = false;
+                        break;
+                    }
+                }
+                if (!allDead) {
+                    break;
+                }
+                targetUnitUndex++;
+            }
+
             if (!affectedUnits?.length) {
                 return { completed: true, unitIdsDied };
             }
@@ -875,7 +922,6 @@ export class AttackHandler {
         if (!secondShotResult.aoeRangeAttackLanded) {
             if (targetUnit.isDead()) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
-                // unitsHolder.deleteUnitById(targetUnit.getId(), true);
                 unitIdsDied.push(targetUnit.getId());
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
@@ -1361,7 +1407,7 @@ export class AttackHandler {
             }
 
             if (!hasLightningSpinResponseLanded && attackerUnit.isDead()) {
-                this.sceneLog.updateLog(`${attackerUnit.getName()} died`);
+                this.sceneLog.updateLog(`${attackerUnit.getName()} eee2 ied`);
 
                 // unitsHolder.deleteUnitById(attackerUnit.getId(), true);
                 unitIdsDied.push(attackerUnit.getId());

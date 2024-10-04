@@ -9,9 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType } from "@heroesofcrypto/common";
+import { AbilityType, HoCScene, HoCLib } from "@heroesofcrypto/common";
 
-import { SceneLog } from "../menu/scene_log";
 import { Unit } from "../units/units";
 import { getLapString } from "../utils/strings";
 
@@ -19,14 +18,14 @@ export function processParalysisAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     currentActiveUnit: Unit,
-    sceneLog: SceneLog,
+    sceneLog: HoCScene.SceneLog,
 ): void {
     if (targetUnit.isDead()) {
         return;
     }
 
     const paralysisAbility = fromUnit.getAbility("Paralysis");
-    if (paralysisAbility) {
+    if (paralysisAbility && HoCLib.getRandomInt(0, 100) < fromUnit.calculateAbilityApplyChance(paralysisAbility) * 2) {
         const paralysisEffect = paralysisAbility.getEffect();
         if (!paralysisEffect) {
             return;

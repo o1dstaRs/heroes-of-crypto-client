@@ -9,10 +9,9 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, HoCMath, Grid } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, HoCMath, Grid, HoCScene } from "@heroesofcrypto/common";
 
 import { Drawer } from "../draw/drawer";
-import { SceneLog } from "../menu/scene_log";
 import { IVisibleDamage } from "../state/visible_state";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { Unit } from "../units/units";
@@ -31,7 +30,7 @@ export function processDoubleShotAbility(
     fromUnit: Unit,
     toUnit: Unit,
     affectedUnits: Unit[],
-    sceneLog: SceneLog,
+    sceneLog: HoCScene.SceneLog,
     drawer: Drawer,
     unitsHolder: UnitsHolder,
     grid: Grid,
@@ -86,6 +85,11 @@ export function processDoubleShotAbility(
     );
     if (aoeRangeAttackResult.landed) {
         damageFromAttack = processLuckyStrikeAbility(fromUnit, aoeRangeAttackResult.maxDamage, sceneLog);
+        for (const uId of aoeRangeAttackResult.unitIdsDied) {
+            if (!unitIdsDied.includes(uId)) {
+                unitIdsDied.push(uId);
+            }
+        }
     } else {
         let abilityMultiplier = fromUnit.calculateAbilityMultiplier(doubleShotAbility);
         const paralysisAttackerEffect = fromUnit.getEffect("Paralysis");

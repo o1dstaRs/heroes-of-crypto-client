@@ -9,7 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { SceneLog } from "../menu/scene_log";
+import { HoCScene } from "@heroesofcrypto/common";
+
 import { Unit } from "../units/units";
 import { getLapString } from "../utils/strings";
 
@@ -17,7 +18,7 @@ export function processPegasusLightAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     currentActiveUnit: Unit,
-    sceneLog: SceneLog,
+    sceneLog: HoCScene.SceneLog,
 ): void {
     if (targetUnit.isDead()) {
         return;

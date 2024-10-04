@@ -9,9 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, HoCLib } from "@heroesofcrypto/common";
+import { AbilityType, HoCLib, HoCScene } from "@heroesofcrypto/common";
 
-import { SceneLog } from "../menu/scene_log";
 import { Unit } from "../units/units";
 import { getLapString } from "../utils/strings";
 
@@ -19,7 +18,7 @@ export function processAggrAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     currentActiveUnit: Unit,
-    sceneLog: SceneLog,
+    sceneLog: HoCScene.SceneLog,
 ): void {
     if (targetUnit.isDead()) {
         return;

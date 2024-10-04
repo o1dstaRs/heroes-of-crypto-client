@@ -25,6 +25,7 @@ import {
     AbilityFactory,
     SpellHelper,
     EffectFactory,
+    HoCScene,
 } from "@heroesofcrypto/common";
 
 import { DAMAGE_ANIMATION_TICKS, HP_BAR_DELTA, MAX_FPS, RESURRECTION_ANIMATION_TICKS } from "../statics";
@@ -32,7 +33,6 @@ import { Unit } from "./units";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
 import { DefaultShader } from "../utils/gl/defaultShader";
-import { SceneLog } from "../menu/scene_log";
 import { RenderableSpell } from "../spells/renderable_spell";
 
 interface IDamageTaken {
@@ -267,7 +267,7 @@ export class RenderableUnit extends Unit {
         this.lastKnownTick = currentTick;
     }
 
-    public render(fps: number, isDamageAnimationLocked: boolean, sceneLog: SceneLog) {
+    public render(fps: number, isDamageAnimationLocked: boolean, sceneLog: HoCScene.SceneLog) {
         this.lastKnownTick = Math.max(this.sceneStepCount.getValue(), this.lastKnownTick);
 
         if (this.lastKnownTick < this.resurrectionAnimationTick) {

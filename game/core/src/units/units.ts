@@ -34,10 +34,9 @@ import {
     HoCMath,
     TeamType,
     UnitType,
+    HoCScene,
 } from "@heroesofcrypto/common";
 import Denque from "denque";
-
-import { SceneLog } from "../menu/scene_log";
 
 export interface IAttackTargets {
     unitIds: Set<string>;
@@ -347,10 +346,19 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = Number((this.calculateAbilityMultiplier(ability) * 100).toFixed(2));
             const description = ability.getDesc().join("\n");
             const updatedDescription = description
-                .replace("{}", percentage.toFixed())
-                .replace("{}", ((percentage * 7) / 8).toFixed())
-                .replace("{}", ((percentage * 6) / 8).toFixed())
-                .replace("{}", ((percentage * 5) / 8).toFixed());
+                .replace("{}", Number(percentage.toFixed()).toString())
+                .replace("{}", Number(((percentage * 7) / 8).toFixed()).toString())
+                .replace("{}", Number(((percentage * 6) / 8).toFixed()).toString())
+                .replace("{}", Number(((percentage * 5) / 8).toFixed()).toString());
+            this.unitProperties.abilities_descriptions.push(updatedDescription);
+        }
+        if (ability.getName() === "Paralysis") {
+            const description = ability.getDesc().join("\n");
+            const reduction = this.calculateAbilityApplyChance(ability);
+            const chance = Math.min(100, reduction * 2);
+            const updatedDescription = description
+                .replace("{}", Number(chance.toFixed(2)).toString())
+                .replace("{}", Number(reduction.toFixed(2)).toString());
             this.unitProperties.abilities_descriptions.push(updatedDescription);
         } else {
             this.unitProperties.abilities_descriptions.push(
@@ -463,7 +471,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         return false;
     }
 
-    public refreshPreTurnState(sceneLog: SceneLog) {
+    public refreshPreTurnState(sceneLog: HoCScene.SceneLog) {
         if (this.unitProperties.hp !== this.unitProperties.max_hp && this.hasAbilityActive("Wild Regeneration")) {
             const healedHp = this.unitProperties.max_hp - this.unitProperties.hp;
             this.unitProperties.hp = this.unitProperties.max_hp;
@@ -1033,7 +1041,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.luck_per_turn = 0;
     }
 
-    public applyArmageddonDamage(armageddonWave: number, sceneLog: SceneLog): void {
+    public applyArmageddonDamage(armageddonWave: number, sceneLog: HoCScene.SceneLog): void {
         const aw = Math.floor(armageddonWave);
         if (aw <= 0 || aw > HoCConstants.NUMBER_OF_ARMAGEDDON_WAVES) {
             return;
@@ -1925,7 +1933,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         const blessingBuff = this.getBuff("Blessing");
-        if (blessingBuff) {
+        if (blessingBuff || battleRoarBuff) {
             this.unitProperties.attack_damage_min = this.unitProperties.attack_damage_max;
         } else {
             this.unitProperties.attack_damage_min = this.initialUnitProperties.attack_damage_min;
@@ -2351,11 +2359,11 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         // Paralysis
         const paralysisAbility = this.getAbility("Paralysis");
         if (paralysisAbility) {
-            const percentage = Number(this.calculateAbilityApplyChance(paralysisAbility).toFixed(2));
-            this.refreshAbiltyDescription(
-                paralysisAbility.getName(),
-                paralysisAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
+            const description = paralysisAbility.getDesc().join("\n");
+            const reduction = this.calculateAbilityApplyChance(paralysisAbility);
+            const chance = Math.min(100, reduction * 2);
+            const updatedDescription = description.replace("{}", chance.toFixed(2)).replace("{}", reduction.toFixed(2));
+            this.refreshAbiltyDescription(paralysisAbility.getName(), updatedDescription);
         }
 
         // Deep Wounds Level 1
@@ -2426,7 +2434,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         // Chain Lightning
         const chainLightningAbility = this.getAbility("Chain Lightning");
         if (chainLightningAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(chainLightningAbility) * 100).toFixed(2));
+            const percentage = this.calculateAbilityMultiplier(chainLightningAbility) * 100;
             const description = chainLightningAbility.getDesc().join("\n");
             const updatedDescription = description
                 .replace("{}", percentage.toFixed())

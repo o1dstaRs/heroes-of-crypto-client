@@ -515,7 +515,7 @@ export class UnitsHolder {
                         `${auraEffectProperties.name} Aura`,
                         auraEffectProperties.desc.replace(/\{\}/g, auraEffectProperties.power.toString()),
                         auraEffectProperties.is_buff,
-                        auraEffectProperties.power,
+                        Number(auraEffectProperties.power.toFixed(1)),
                         appliedAuraEffectProperties.getSourceCellAsString(),
                     );
                 }
