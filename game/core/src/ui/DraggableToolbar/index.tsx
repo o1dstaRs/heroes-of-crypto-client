@@ -157,6 +157,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
             }, 4000);
             return () => clearInterval(interval);
         }
+        return undefined;
     }, [iconImage, isDisabled, customSpriteName]);
 
     if (!isVisible) {
@@ -373,7 +374,8 @@ const DraggableToolbar: React.FC = () => {
             />
             {buttonGroup.map((button) => {
                 const iconImage = button.customSpriteName
-                    ? images[button.customSpriteName]
+                    ? // @ts-ignore: src params
+                      images[button.customSpriteName]
                     : BUTTON_NAME_TO_ICON_IMAGE[`${button.name}${button.state}`];
                 return (
                     <ButtonComponent

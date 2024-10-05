@@ -1,10 +1,7 @@
 import { AttackType, MovementType, HoCConstants, TeamType, UnitProperties } from "@heroesofcrypto/common";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import { Box } from "@mui/joy";
+import { Box, Badge } from "@mui/joy";
 import Avatar from "@mui/joy/Avatar";
-import Button from "@mui/joy/Button";
-import ButtonGroup from "@mui/joy/ButtonGroup";
-import IconButton from "@mui/joy/IconButton";
 import List from "@mui/joy/List";
 import ListItem from "@mui/joy/ListItem";
 import ListItemButton from "@mui/joy/ListItemButton";
@@ -242,16 +239,69 @@ const StatGroup: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-start", gap: 0.5, mb: 1 }}>{children}</Box>
 );
 
-const StatItem: React.FC<{ icon: React.ReactElement; value: string | number; tooltip: string; color: string }> = ({
-    icon,
-    value,
-    tooltip,
-    color,
-}) => (
+const StatItem: React.FC<{
+    icon: React.ReactElement;
+    value: string | number;
+    tooltip: string;
+    color: string;
+    badgeContent?: string;
+    badgeColor?: string;
+    positiveFrame?: boolean; // New flag for positive frame
+    negativeFrame?: boolean; // New flag for negative frame
+}> = ({ icon, value, tooltip, color, badgeContent, badgeColor, positiveFrame, negativeFrame }) => (
     <Tooltip title={tooltip}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, minWidth: "45%" }}>
+        <Box
+            sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.25,
+                minWidth: "45%",
+                backgroundColor: positiveFrame
+                    ? "rgba(0, 255, 0, 0.3)"
+                    : negativeFrame
+                    ? "rgba(255, 0, 0, 0.3)"
+                    : "transparent", // Add light effect inside the box
+                ...(positiveFrame
+                    ? { boxShadow: "0 0 5px 5px green", borderRadius: "20px" } // Apply borderRadius for circular corners
+                    : negativeFrame
+                    ? { boxShadow: "0 0 5px 5px red", borderRadius: "20px" } // Apply borderRadius for circular corners
+                    : {}),
+            }}
+        >
             {React.cloneElement(icon, { sx: { color, fontSize: "1.25rem" } })}
-            <Typography fontSize="0.65rem">{value}</Typography>
+            {badgeContent ? (
+                <Box sx={{ position: "relative", display: "inline-flex" }}>
+                    <Typography
+                        fontSize="0.65rem"
+                        sx={{
+                            ...(positiveFrame || negativeFrame ? { fontWeight: "bold", fontSize: "0.75rem" } : {}),
+                        }}
+                    >
+                        {value}
+                    </Typography>
+                    <Badge
+                        badgeContent={badgeContent}
+                        // @ts-ignore: style params
+                        color={badgeColor}
+                        sx={{
+                            position: "absolute",
+                            bottom: 8.5,
+                            right: -15 - 2.5 * value.toString().length,
+                            transform: "scale(0.8) translate(50%, 50%)",
+                            opacity: 0.75,
+                        }}
+                    />
+                </Box>
+            ) : (
+                <Typography
+                    fontSize="0.65rem"
+                    sx={{
+                        ...(positiveFrame || negativeFrame ? { fontWeight: "bold", fontSize: "0.75rem" } : {}),
+                    }}
+                >
+                    {value}
+                </Typography>
+            )}
         </Box>
     </Tooltip>
 );
@@ -263,7 +313,7 @@ const UnitStatsLayout: React.FC<{
     attackDamage: number;
     meleeArmor: number;
     rangeArmor: number;
-    armorMod: string;
+    armorMod: number;
     hasDifferentRangeArmor: boolean;
     isDarkMode: boolean;
     columnize: boolean;
@@ -287,6 +337,21 @@ const UnitStatsLayout: React.FC<{
     redFlagImage,
     greenFlagImage,
 }) => {
+    const attackSign = attackDamage > 0 ? "+" : "";
+    const attackModBadgeValue = `${unitProperties.attack_mod > 0 ? `${attackSign}${unitProperties.attack_mod}` : ""}${
+        unitProperties.attack_multiplier !== 1 ? ` x${unitProperties.attack_multiplier}` : ""
+    }`;
+    const armorSign = armorMod > 0 ? "+" : "";
+    const armorModBadgeValue = armorMod ? `${armorSign}${armorMod}` : "";
+    const luckSign = unitProperties.luck_per_turn > 0 ? "+" : "";
+    const luckBadgeValue = unitProperties.luck_per_turn ? `${luckSign}${unitProperties.luck_per_turn}` : "";
+    let attackColor = "success";
+    if (unitProperties.attack_multiplier < 1) {
+        attackColor = "danger";
+    } else if (unitProperties.attack_multiplier === 1 && unitProperties.attack_mod < 0) {
+        attackColor = "danger";
+    }
+
     const content = (
         <>
             <StatGroup>
@@ -305,42 +370,47 @@ const UnitStatsLayout: React.FC<{
                     />
                 )}
             </StatGroup>
-
             <StatGroup>
                 <StatItem icon={<FistIcon />} value={damageRange} tooltip="Attack spread" color="#c0c0c0" />
                 <StatItem
                     icon={attackTypeSelected === AttackType.RANGE ? <BowIcon /> : <SwordIcon />}
-                    value={`${Number(attackDamage.toFixed(2))}${
-                        unitProperties.attack_mod > 0 ? ` (+${unitProperties.attack_mod})` : ""
-                    }${unitProperties.attack_multiplier !== 1 ? ` x${unitProperties.attack_multiplier}` : ""}`}
+                    value={Number(attackDamage.toFixed(2))}
                     tooltip="Attack type and multiplier"
                     color={attackTypeSelected === AttackType.RANGE ? "#ffd700" : "#a52a2a"}
+                    badgeContent={attackModBadgeValue}
+                    badgeColor={attackColor}
+                    positiveFrame={unitProperties.attack_multiplier > 1}
+                    negativeFrame={unitProperties.attack_multiplier < 1}
                 />
             </StatGroup>
-
-            <StatGroup>
-                {unitProperties.attack_type === AttackType.RANGE && (
+            {unitProperties.attack_type === AttackType.RANGE && (
+                <StatGroup>
                     <StatItem
                         icon={<ShotRangeIcon />}
                         value={unitProperties.shot_distance}
                         tooltip="Ranged shot distance in cells"
                         color="#ffff00"
                     />
-                )}
-                <StatItem
-                    icon={<QuiverIcon />}
-                    value={unitProperties.range_shots_mod || unitProperties.range_shots}
-                    tooltip="Number of ranged shots"
-                    color="#cd5c5c"
-                />
-            </StatGroup>
-
+                    {(unitProperties.range_shots_mod || unitProperties.range_shots) && (
+                        <StatItem
+                            icon={<QuiverIcon />}
+                            value={unitProperties.range_shots_mod || unitProperties.range_shots}
+                            tooltip="Number of ranged shots"
+                            color="#cd5c5c"
+                        />
+                    )}
+                </StatGroup>
+            )}
             <StatGroup>
                 <StatItem
                     icon={<ShieldIcon />}
-                    value={`${Number(meleeArmor.toFixed(2))}${armorMod ? ` (${armorMod})` : ""}`}
+                    value={Number(meleeArmor.toFixed(2))}
                     tooltip="Base armor"
                     color="#4682b4"
+                    badgeContent={armorModBadgeValue}
+                    badgeColor={unitProperties.armor_mod > 0 ? "success" : "danger"}
+                    positiveFrame={unitProperties.armor_mod > 0}
+                    negativeFrame={unitProperties.armor_mod < 0}
                 />
                 <StatItem
                     icon={<MagicShieldIcon />}
@@ -351,13 +421,14 @@ const UnitStatsLayout: React.FC<{
                 {hasDifferentRangeArmor && (
                     <StatItem
                         icon={<ArrowShieldIcon />}
-                        value={`${Number(rangeArmor.toFixed(2))}${armorMod ? ` (${armorMod})` : ""}`}
+                        value={Number(rangeArmor.toFixed(2))}
                         tooltip="Range armor"
                         color="#f4a460"
+                        badgeContent={armorModBadgeValue}
+                        badgeColor={unitProperties.armor_mod > 0 ? "success" : "danger"}
                     />
                 )}
             </StatGroup>
-
             <StatGroup>
                 <StatItem
                     icon={unitProperties.movement_type === MovementType.FLY ? <WingIcon /> : <BootIcon />}
@@ -372,21 +443,34 @@ const UnitStatsLayout: React.FC<{
                     color="#adff2f"
                 />
             </StatGroup>
-
             <StatGroup>
                 <StatItem
                     icon={<MoraleIcon />}
                     value={unitProperties.morale}
                     tooltip="The morale parameter affects the chance of an out of regular order action depending on whether it is positive or negative"
                     color={isDarkMode ? "#ffff00" : "#DC4D01"}
+                    positiveFrame={
+                        unitProperties.morale >= HoCConstants.MORALE_MAX_VALUE_TOTAL &&
+                        unitProperties.attack_multiplier > 1
+                    }
+                    negativeFrame={
+                        unitProperties.morale <= -HoCConstants.MORALE_MAX_VALUE_TOTAL &&
+                        unitProperties.attack_multiplier < 1
+                    }
                 />
                 <StatItem
                     icon={<LuckIcon />}
-                    value={`${unitProperties.luck + unitProperties.luck_per_turn}${
-                        unitProperties.luck_per_turn ? ` (${unitProperties.luck_per_turn})` : ""
-                    }`}
+                    value={unitProperties.luck + unitProperties.luck_per_turn}
                     tooltip="Dealing extra damage or reducing damage taken in combat. Also affecting abilities chance"
                     color="#ff4040"
+                    badgeContent={luckBadgeValue}
+                    badgeColor={unitProperties.luck_per_turn > 0 ? "success" : "danger"}
+                    positiveFrame={
+                        unitProperties.luck + unitProperties.luck_per_turn >= HoCConstants.LUCK_MAX_VALUE_TOTAL
+                    }
+                    negativeFrame={
+                        unitProperties.luck + unitProperties.luck_per_turn <= -HoCConstants.LUCK_MAX_VALUE_TOTAL
+                    }
                 />
             </StatGroup>
         </>
@@ -558,69 +642,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean }
     if (unitProperties && Object.keys(unitProperties).length) {
         const stackName = `${unitProperties.name} x${unitProperties.amount_alive}`;
         const damageRange = `${unitProperties.attack_damage_min} - ${unitProperties.attack_damage_max}`;
-        const luckPerTurn = unitProperties.luck_per_turn
-            ? `${unitProperties.luck_per_turn >= 0 ? "+" : ""}${unitProperties.luck_per_turn}`
-            : "";
-        const armorMod = unitProperties.armor_mod
-            ? `${unitProperties.armor_mod >= 0 ? "+" : ""}${Number(unitProperties.armor_mod.toFixed(2))}`
-            : "";
-
-        let luckButtonStyle;
-        if (unitProperties.luck_per_turn > 0 || (!unitProperties.luck_per_turn && unitProperties.luck === 10)) {
-            luckButtonStyle = {
-                "--ButtonGroup-separatorSize": "0px",
-                backgroundColor: "#D0FFBC",
-                border:
-                    unitProperties.luck_per_turn === 10 || (!unitProperties.luck_per_turn && unitProperties.luck === 10)
-                        ? "2px solid green"
-                        : "none",
-            };
-        } else if (unitProperties.luck_per_turn < 0 || (!unitProperties.luck_per_turn && unitProperties.luck === -10)) {
-            luckButtonStyle = {
-                "--ButtonGroup-separatorSize": "0px",
-                backgroundColor: "#FFC6C6",
-                border:
-                    unitProperties.luck_per_turn === -10 ||
-                    (!unitProperties.luck_per_turn && unitProperties.luck === -10)
-                        ? "2px solid red"
-                        : "none",
-            };
-        } else {
-            luckButtonStyle = { "--ButtonGroup-separatorSize": "0px" };
-        }
-
-        let attackButtonStyle;
-        if (unitProperties.attack_multiplier > 1) {
-            attackButtonStyle = {
-                "--ButtonGroup-separatorSize": "0px",
-                backgroundColor: "#D0FFBC",
-                border: "2px solid green",
-            };
-        } else if (unitProperties.attack_multiplier < 1) {
-            attackButtonStyle = {
-                "--ButtonGroup-separatorSize": "0px",
-                backgroundColor: "#FFC6C6",
-                border: "2px solid red",
-            };
-        } else {
-            attackButtonStyle = {
-                "--ButtonGroup-separatorSize": "0px",
-            };
-        }
-
-        let armorButtonStyle;
-        if (unitProperties.armor_mod < 0) {
-            armorButtonStyle = {
-                "--ButtonGroup-separatorSize": "0px",
-                backgroundColor: "#FFC6C6",
-                border: "2px solid red",
-            };
-        } else {
-            armorButtonStyle = {
-                "--ButtonGroup-separatorSize": "0px",
-            };
-        }
-
+        const armorMod = Number(unitProperties.armor_mod.toFixed(2));
         const attackTypeSelected = unitProperties.attack_type_selected;
         let attackDamage = (unitProperties.base_attack + unitProperties.attack_mod) * unitProperties.attack_multiplier;
         if (attackTypeSelected === AttackType.MELEE && unitProperties.attack_type === AttackType.RANGE) {

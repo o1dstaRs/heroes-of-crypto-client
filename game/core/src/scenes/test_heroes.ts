@@ -1084,18 +1084,25 @@ class Sandbox extends GLScene {
     }
 
     public startScene() {
+        const lowerLeftPlacement = this.getPlacement(TeamType.LOWER, 0);
+        const upperRightPlacement = this.getPlacement(TeamType.UPPER, 0);
+
+        if (!lowerLeftPlacement || !upperRightPlacement) {
+            return false;
+        }
+
         if (
             this.unitsHolder.getAllAlliesPlaced(
                 TeamType.LOWER,
-                this.getPlacement(TeamType.LOWER, 0),
-                this.getPlacement(TeamType.UPPER, 0),
+                lowerLeftPlacement,
+                upperRightPlacement,
                 this.getPlacement(TeamType.LOWER, 1),
                 this.getPlacement(TeamType.UPPER, 1),
             ).length &&
             this.unitsHolder.getAllAlliesPlaced(
                 TeamType.UPPER,
-                this.getPlacement(TeamType.LOWER, 0),
-                this.getPlacement(TeamType.UPPER, 0),
+                lowerLeftPlacement,
+                upperRightPlacement,
                 this.getPlacement(TeamType.LOWER, 1),
                 this.getPlacement(TeamType.UPPER, 1),
             ).length
