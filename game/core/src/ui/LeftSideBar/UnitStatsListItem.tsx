@@ -91,7 +91,11 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     );
 };
 
-const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => {
+const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean }> = ({
+    abilities,
+    teamType,
+    isWidescreen,
+}) => {
     const theme = useTheme();
     const isDarkMode = theme.palette.mode === "dark";
     const auraColor = isDarkMode ? "rgba(255, 255, 255, 0.75)" : "rgba(0, 0, 0, 0.75)";
@@ -124,8 +128,8 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
                                 <Box
                                     sx={{
                                         position: "relative",
-                                        width: "30%", // Force each ability to take 1/3 of row width
-                                        paddingBottom: "30%", // Forces a square aspect ratio
+                                        width: isWidescreen ? "22%" : "30%", // Force each ability to take 1/3 of row width
+                                        paddingBottom: isWidescreen ? "22%" : "30%", // Forces a square aspect ratio
                                         overflow: "hidden",
                                         borderRadius: ability.isAura ? "50%" : "15%", // Circle if aura, rounded corners otherwise
                                         "&::before": {
@@ -185,51 +189,76 @@ const AbilityStack: React.FC<IAbilityStackProps> = ({ abilities, teamType }) => 
     );
 };
 
-const EffectColumn: React.FC<{ effects: IVisibleImpact[]; title: string }> = ({ effects, title }) => {
+const EffectColumnOrRow: React.FC<{ effects: IVisibleImpact[]; title: string; isHorizontalLayout?: boolean }> = ({
+    effects,
+    title,
+    isHorizontalLayout = false,
+}) => {
+    if (!effects.length) return <Box sx={{ marginBottom: 2 }} />;
+
     return (
-        <Box sx={{ display: "flex", flexDirection: "column", width: "100%" }}>
-            <Typography level="body-sm" sx={{ textAlign: "center", fontSize: 9 }}>
+        <Box
+            sx={{
+                display: "flex",
+                flexDirection: "column",
+                width: "100%",
+                alignItems: isHorizontalLayout ? "left" : "center",
+                marginBottom: title === "Debuffs" ? 2 : 0,
+                ...(isHorizontalLayout ? {} : { paddingLeft: "2px" }), // Add 2px padding on the left side if not horizontal layout
+            }}
+        >
+            <Typography
+                level="title-sm"
+                sx={{
+                    textAlign: isHorizontalLayout ? "left" : "center",
+                    fontSize: 9, // Fixed size for consistent element size
+                    width: "8ch", // Fixed width for 8 symbols
+                    marginBottom: 0,
+                }}
+            >
                 {title}
             </Typography>
             <Box
                 sx={{
                     flex: 1,
                     overflow: "auto",
+                    display: "flex",
+                    flexDirection: isHorizontalLayout ? "row" : "column",
+                    flexWrap: isHorizontalLayout ? "wrap" : "nowrap",
                     "&::-webkit-scrollbar": { width: "4px" },
                     "&::-webkit-scrollbar-track": { background: "#f1f1f1" },
                     "&::-webkit-scrollbar-thumb": { background: "#888" },
                     "&::-webkit-scrollbar-thumb:hover": { background: "#555" },
                 }}
             >
-                <Box sx={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                    {effects.map((effect, index) => (
-                        <Tooltip
-                            key={index}
-                            title={`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${
-                                effect.laps > 0 &&
-                                effect.laps !== Number.MAX_SAFE_INTEGER &&
-                                effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL
-                                    ? ` (remaining ${getLapString(effect.laps)})`
-                                    : ""
-                            }`}
-                        >
-                            <Box
-                                component="img"
-                                // @ts-ignore: src params
-                                src={images[effect.smallTextureName]}
-                                sx={{
-                                    width: "auto",
-                                    maxWidth: "100%",
-                                    height: "auto",
-                                    aspectRatio: "1", // Maintain width=height ratio
-                                    objectFit: "contain",
-                                    transform: "rotateX(-180deg)",
-                                    zIndex: "modal",
-                                }}
-                            />
-                        </Tooltip>
-                    ))}
-                </Box>
+                {effects.map((effect, index) => (
+                    <Tooltip
+                        key={index}
+                        title={`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${
+                            effect.laps > 0 &&
+                            effect.laps !== Number.MAX_SAFE_INTEGER &&
+                            effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL
+                                ? ` (remaining ${getLapString(effect.laps)})`
+                                : ""
+                        }`}
+                    >
+                        <Box
+                            component="img"
+                            // @ts-ignore: src params
+                            src={images[effect.smallTextureName]}
+                            sx={{
+                                width: isHorizontalLayout ? "13%" : "auto",
+                                maxWidth: "100%",
+                                height: "auto",
+                                aspectRatio: "1", // Maintain width=height ratio
+                                objectFit: "contain",
+                                transform: "rotateX(-180deg)",
+                                zIndex: "modal",
+                                margin: isHorizontalLayout && index !== 0 ? "0 2px" : "1px", // Add margin between elements in horizontal layout
+                            }}
+                        />
+                    </Tooltip>
+                ))}
             </Box>
         </Box>
     );
@@ -268,11 +297,11 @@ const StatItem: React.FC<{
                     : {}),
             }}
         >
-            {React.cloneElement(icon, { sx: { color, fontSize: "1.25rem" } })}
+            {React.cloneElement(icon, { sx: { color, fontSize: "1.25rem", pr: "4px" } })}
             {badgeContent ? (
                 <Box sx={{ position: "relative", display: "inline-flex" }}>
                     <Typography
-                        fontSize="0.65rem"
+                        fontSize="0.75rem"
                         sx={{
                             ...(positiveFrame || negativeFrame ? { fontWeight: "bold", fontSize: "0.75rem" } : {}),
                         }}
@@ -294,7 +323,7 @@ const StatItem: React.FC<{
                 </Box>
             ) : (
                 <Typography
-                    fontSize="0.65rem"
+                    fontSize="0.75rem"
                     sx={{
                         ...(positiveFrame || negativeFrame ? { fontWeight: "bold", fontSize: "0.75rem" } : {}),
                     }}
@@ -440,7 +469,7 @@ const UnitStatsLayout: React.FC<{
                     icon={<SpeedIcon />}
                     value={unitProperties.speed}
                     tooltip="Units with higher speed turn first on the battlefield"
-                    color="#adff2f"
+                    color={isDarkMode ? "#f5fefd" : "#000000"}
                 />
             </StatGroup>
             <StatGroup>
@@ -501,7 +530,7 @@ const UnitStatsLayout: React.FC<{
                             height: "auto",
                             position: "absolute",
                             top: 0,
-                            left: 0,
+                            left: -8,
                             overflow: "visible",
                         }}
                     />
@@ -667,7 +696,20 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean }
                         </ListItemButton>
                     )}
                 >
-                    <Box sx={{ width: "100%", overflow: "visible" }}>
+                    <Box
+                        sx={{
+                            width: "100%",
+                            overflow: "visible",
+                            display: "flex",
+                            flexDirection: columnize ? "column" : "row",
+                        }}
+                    >
+                        {hasBuffsOrDebuffs && columnize && (
+                            <Box sx={{ width: "100%", display: "flex", flexDirection: "column" }}>
+                                <EffectColumnOrRow effects={buffs} title="Buffs" isHorizontalLayout={true} />
+                                <EffectColumnOrRow effects={debuffs} title="Debuffs" isHorizontalLayout={true} />
+                            </Box>
+                        )}
                         <UnitStatsLayout
                             unitProperties={unitProperties}
                             damageRange={damageRange}
@@ -684,12 +726,12 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean }
                             redFlagImage={redFlagImage}
                             greenFlagImage={greenFlagImage}
                         />
-                        {hasBuffsOrDebuffs && (
+                        {hasBuffsOrDebuffs && !columnize && (
                             <Box
                                 sx={{ width: barSize > 256 ? "20%" : "15%", display: "flex", flexDirection: "column" }}
                             >
-                                <EffectColumn effects={buffs} title="Buffs" />
-                                <EffectColumn effects={debuffs} title="Debuffs" />
+                                <EffectColumnOrRow effects={buffs} title="Buffs" />
+                                <EffectColumnOrRow effects={debuffs} title="Debuffs" />
                             </Box>
                         )}
                     </Box>
@@ -697,7 +739,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean }
                         <Typography level="title-sm" sx={{ marginTop: columnize ? 1.5 : 0 }}>
                             Abilities
                         </Typography>
-                        <AbilityStack abilities={abilities} teamType={unitProperties.team} />
+                        <AbilityStack abilities={abilities} teamType={unitProperties.team} isWidescreen={columnize} />
                     </Box>
                 </Toggler>
             </ListItem>

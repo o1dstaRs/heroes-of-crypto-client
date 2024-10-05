@@ -162,10 +162,7 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
     }, [gameStarted]);
 
     const shouldColumnize = () => {
-        const aspectRatio = window.innerWidth / window.innerHeight;
-        console.log(`aspectRatio ${aspectRatio}`);
-        console.log(16 / 9);
-        return aspectRatio >= 16 / 9;
+        return window.innerWidth / window.innerHeight >= 16 / 9;
     };
 
     // @ts-ignore: skip styles

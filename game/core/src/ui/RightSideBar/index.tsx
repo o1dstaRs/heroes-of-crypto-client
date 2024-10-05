@@ -334,12 +334,20 @@ export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) 
 
         const handleResize = () => {
             adjustBarSize();
+            manager.HomeCamera();
+        };
+
+        const handleZoom = () => {
+            adjustBarSize();
+            manager.HomeCamera();
         };
 
         window.addEventListener("resize", handleResize);
+        window.addEventListener("wheel", handleZoom);
 
         return () => {
             window.removeEventListener("resize", handleResize);
+            window.removeEventListener("wheel", handleZoom);
         };
     }, [gameStarted]);
 
