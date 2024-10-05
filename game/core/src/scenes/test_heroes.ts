@@ -1084,9 +1084,28 @@ class Sandbox extends GLScene {
     }
 
     public startScene() {
-        this.sc_buttonGroupUpdated = true;
-        super.startScene();
-        FightStateManager.getInstance().getFightProperties().startFight();
+        if (
+            this.unitsHolder.getAllAlliesPlaced(
+                TeamType.LOWER,
+                this.getPlacement(TeamType.LOWER, 0),
+                this.getPlacement(TeamType.UPPER, 0),
+                this.getPlacement(TeamType.LOWER, 1),
+                this.getPlacement(TeamType.UPPER, 1),
+            ).length &&
+            this.unitsHolder.getAllAlliesPlaced(
+                TeamType.UPPER,
+                this.getPlacement(TeamType.LOWER, 0),
+                this.getPlacement(TeamType.UPPER, 0),
+                this.getPlacement(TeamType.LOWER, 1),
+                this.getPlacement(TeamType.UPPER, 1),
+            ).length
+        ) {
+            this.sc_buttonGroupUpdated = true;
+            FightStateManager.getInstance().getFightProperties().startFight();
+            return super.startScene();
+        }
+
+        return false;
     }
 
     public setGridType(gridType: GridType): void {

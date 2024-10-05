@@ -1158,6 +1158,23 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         this.unitProperties.steps_morale = Number((stepsMoraleMultiplier * this.getMorale()).toFixed(2));
     }
 
+    public applyTravelledDistanceModifier(cellsTravelled: number): void {
+        const cruradeAbility = this.getAbility("Crusade");
+        if (cruradeAbility) {
+            const additionalAttackAndArmor = this.calculateAbilityCount(cruradeAbility) * cellsTravelled;
+            this.initialUnitProperties.base_attack = Number(
+                (this.initialUnitProperties.base_attack + additionalAttackAndArmor).toFixed(2),
+            );
+
+            this.initialUnitProperties.base_armor = Number(
+                (this.initialUnitProperties.base_armor + additionalAttackAndArmor).toFixed(2),
+            );
+
+            this.initialUnitProperties.base_attack = Math.min(50, this.initialUnitProperties.base_attack);
+            this.initialUnitProperties.base_armor = Math.min(50, this.initialUnitProperties.base_armor);
+        }
+    }
+
     public calculatePossibleLosses(minusHp: number): number {
         let amountDied = 0;
         const currentHp = this.unitProperties.hp;
@@ -1236,6 +1253,7 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
 
     public calculateAbilityCount(ability: Ability): number {
         if (
+            ability.getPowerType() !== AbilityPowerType.GAIN_ATTACK_AND_ARMOR_EACH_STEP &&
             ability.getPowerType() !== AbilityPowerType.ADDITIONAL_STEPS &&
             ability.getPowerType() !== AbilityPowerType.STEAL_ARMOR_ON_HIT &&
             ability.getName() !== "Shatter Armor" &&
@@ -1244,6 +1262,13 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             ability.getName() !== "Deep Wounds Level 3"
         ) {
             return 0;
+        }
+
+        if (ability.getPowerType() !== AbilityPowerType.GAIN_ATTACK_AND_ARMOR_EACH_STEP) {
+            console.log(ability.getPower() / HoCConstants.MAX_UNIT_STACK_POWER);
+            return (
+                (ability.getPower() / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower() + this.getLuck() / 10
+            );
         }
 
         return Number(
@@ -2372,7 +2397,9 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const description = paralysisAbility.getDesc().join("\n");
             const reduction = this.calculateAbilityApplyChance(paralysisAbility);
             const chance = Math.min(100, reduction * 2);
-            const updatedDescription = description.replace("{}", chance.toFixed(2)).replace("{}", reduction.toFixed(2));
+            const updatedDescription = description
+                .replace("{}", Number(chance.toFixed(2)).toString())
+                .replace("{}", Number(reduction.toFixed(2)).toString());
             this.refreshAbiltyDescription(paralysisAbility.getName(), updatedDescription);
         }
 
@@ -2447,11 +2474,23 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
             const percentage = this.calculateAbilityMultiplier(chainLightningAbility) * 100;
             const description = chainLightningAbility.getDesc().join("\n");
             const updatedDescription = description
-                .replace("{}", percentage.toFixed())
-                .replace("{}", ((percentage * 7) / 8).toFixed())
-                .replace("{}", ((percentage * 6) / 8).toFixed())
-                .replace("{}", ((percentage * 5) / 8).toFixed());
+                .replace("{}", Number(percentage.toFixed()).toString())
+                .replace("{}", Number(((percentage * 7) / 8).toFixed()).toString())
+                .replace("{}", Number(((percentage * 6) / 8).toFixed()).toString())
+                .replace("{}", Number(((percentage * 5) / 8).toFixed()).toString());
             this.refreshAbiltyDescription(chainLightningAbility.getName(), updatedDescription);
+        }
+
+        // Crusade
+        const crusadeAbility = this.getAbility("Crusade");
+        if (crusadeAbility) {
+            this.refreshAbiltyDescription(
+                crusadeAbility.getName(),
+                crusadeAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, Number(this.calculateAbilityCount(crusadeAbility).toFixed(2)).toString()),
+            );
         }
     }
 

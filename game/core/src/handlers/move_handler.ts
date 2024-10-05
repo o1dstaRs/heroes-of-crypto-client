@@ -245,11 +245,11 @@ export class MoveHandler {
             const distanceAfter = this.unitsHolder.getDistanceToClosestEnemy(unit.getOppositeTeam(), targetPos);
             if (distanceAfter < distanceBefore) {
                 unit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_DISTANCE);
-                unit.applyMoraleStepsModifier(stepsMoraleMultiplier);
             } else if (distanceAfter > distanceBefore) {
                 unit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_DISTANCE);
-                unit.applyMoraleStepsModifier(stepsMoraleMultiplier);
             }
+            unit.applyMoraleStepsModifier(stepsMoraleMultiplier);
+            unit.applyTravelledDistanceModifier(path.length);
         } else {
             return false;
         }

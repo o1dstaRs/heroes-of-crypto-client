@@ -530,7 +530,7 @@ export abstract class Scene extends b2ContactListener {
 
     public abstract requestTime(team: number): void;
 
-    public startScene() {
+    public startScene(): boolean {
         if (!this.sceneStarted) {
             this.sceneStarted = true;
             this.destroyTempFixtures();
@@ -538,6 +538,8 @@ export abstract class Scene extends b2ContactListener {
             this.sc_hoverUnitLevel = 0;
             this.sc_hoverUnitMovementType = MovementType.NO_TYPE;
         }
+
+        return this.sceneStarted;
     }
 
     protected abstract destroyTempFixtures(): void;

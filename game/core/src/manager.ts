@@ -294,9 +294,10 @@ export class GameManager {
     }
 
     public StartGame(): void {
-        this.started = true;
         if (this.m_scene) {
-            this.m_scene.startScene();
+            if (this.m_scene.startScene()) {
+                this.started = true;
+            }
         }
         this.onHasStarted.emit(this.started);
     }
