@@ -317,14 +317,15 @@ export abstract class Scene extends b2ContactListener {
 
     public abstract propagateButtonClicked(buttonName: string, buttonState: VisibleButtonState): void;
 
-    protected deselect(onlyWhenNotStarted = false, refreshStats = true) {
-        if (this.sceneStarted && onlyWhenNotStarted) {
+    protected deselect(_onlyWhenNotStarted = false, _refreshStats = true) {
+        if (this.sceneStarted && _onlyWhenNotStarted) {
             if (this.sc_selectedBody) {
                 this.sc_unitInfoLines.length = 0;
                 this.sc_selectedUnitProperties = undefined;
                 this.sc_visibleOverallImpact = undefined;
                 this.setSelectedUnitProperties(this.sc_selectedBody.GetUserData());
             }
+            this.sc_renderSpellBookOverlay = false;
             return;
         }
 
@@ -333,14 +334,13 @@ export abstract class Scene extends b2ContactListener {
             this.sc_selectedBody = undefined;
         }
         this.sc_unitInfoLines.length = 0;
-        if (refreshStats) {
+        if (_refreshStats) {
             this.sc_selectedUnitProperties = undefined;
             this.sc_visibleOverallImpact = undefined;
             this.sc_unitPropertiesUpdateNeeded = true;
         }
         this.sc_currentActiveShotRange = undefined;
         this.sc_currentActiveAuraRanges = [];
-        this.sc_renderSpellBookOverlay = false;
     }
 
     public getBaseHotkeys(): HotKey[] {

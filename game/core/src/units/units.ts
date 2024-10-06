@@ -1265,7 +1265,6 @@ export class Unit implements IUnitPropertiesProvider, IDamageable, IDamager, IUn
         }
 
         if (ability.getPowerType() !== AbilityPowerType.GAIN_ATTACK_AND_ARMOR_EACH_STEP) {
-            console.log(ability.getPower() / HoCConstants.MAX_UNIT_STACK_POWER);
             return (
                 (ability.getPower() / HoCConstants.MAX_UNIT_STACK_POWER) * this.getStackPower() + this.getLuck() / 10
             );
