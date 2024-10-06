@@ -2768,14 +2768,6 @@ class Sandbox extends GLScene {
         return false;
     }
 
-    protected cleanupHoverText(): void {
-        this.sc_attackDamageSpreadStr = "";
-        this.sc_attackRangeDamageDivisorStr = "";
-        this.sc_hoverUnitNameStr = "";
-        this.sc_hoverInfoArr = [];
-        this.sc_hoverTextUpdateNeeded = true;
-    }
-
     protected finishTurn = (isHourGlass = false): void => {
         if (!isHourGlass && this.currentActiveUnit) {
             this.currentActiveUnit.minusLap();
