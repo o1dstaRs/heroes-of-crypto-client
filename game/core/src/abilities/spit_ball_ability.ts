@@ -21,10 +21,10 @@ import {
     HoCScene,
     Unit,
     SpellHelper,
+    UnitsHolder,
 } from "@heroesofcrypto/common";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 
-import { UnitsHolder } from "../units/units_holder";
 import { getLapString } from "../utils/strings";
 
 const POSSIBLE_DEBUFFS_TO_FACTIONS = {

@@ -9,9 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Grid, HoCLib, Unit } from "@heroesofcrypto/common";
-
-import { UnitsHolder } from "../units/units_holder";
+import { Grid, HoCLib, Unit, UnitsHolder } from "@heroesofcrypto/common";
 
 export const getAbsorptionTarget = (forUnit: Unit, grid: Grid, unitsHolder: UnitsHolder): Unit | undefined => {
     const absorbPenaltiesAura = forUnit.getBuff("Absorb Penalties Aura");

@@ -24,6 +24,7 @@ import {
     HoCConfig,
     IUnitPropertiesProvider,
     Unit,
+    UnitsHolder,
 } from "@heroesofcrypto/common";
 
 import { DefaultShader } from "../utils/gl/defaultShader";
@@ -41,7 +42,6 @@ import {
     STEP,
     UNIT_SIZE_DELTA,
 } from "../statics";
-import { UnitsHolder } from "./units_holder";
 
 export enum HeroType {
     NO_TYPE = 0,

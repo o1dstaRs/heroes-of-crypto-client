@@ -9,11 +9,18 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, HoCMath, HoCConstants, HoCScene, Unit } from "@heroesofcrypto/common";
+import {
+    AttackType,
+    HoCLib,
+    HoCMath,
+    HoCConstants,
+    HoCScene,
+    Unit,
+    FightStateManager,
+    UnitsHolder,
+} from "@heroesofcrypto/common";
 
-import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { UnitsHolder } from "../units/units_holder";
 import { processFireShieldAbility } from "./fire_shield_ability";
 import { processOneInTheFieldAbility } from "./one_in_the_field_ability";
 import { processStunAbility } from "./stun_ability";
