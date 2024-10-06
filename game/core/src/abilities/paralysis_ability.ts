@@ -9,9 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, HoCScene, HoCLib } from "@heroesofcrypto/common";
+import { AbilityType, HoCScene, HoCLib, Unit } from "@heroesofcrypto/common";
 
-import { Unit } from "../units/units";
 import { getLapString } from "../utils/strings";
 
 export function processParalysisAbility(

@@ -9,9 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCLib, HoCScene } from "@heroesofcrypto/common";
-
-import { Unit } from "../units/units";
+import { HoCLib, HoCScene, Unit } from "@heroesofcrypto/common";
 
 export function processLuckyStrikeAbility(
     attackerUnit: Unit,

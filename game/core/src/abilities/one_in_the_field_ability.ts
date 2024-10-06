@@ -9,8 +9,9 @@
  * -----------------------------------------------------------------------------
  */
 
+import { Unit } from "@heroesofcrypto/common";
+
 import { FightStateManager } from "../state/fight_state_manager";
-import { Unit } from "../units/units";
 
 export function processOneInTheFieldAbility(unit: Unit): void {
     if (!unit.hasAbilityActive("One in the Field")) {

@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Unit } from "../units/units";
+import { Unit } from "@heroesofcrypto/common";
 
 export function processPenetratingBiteAbility(fromUnit: Unit, toUnit: Unit): number {
     const penetratingBiteAbility = fromUnit.getAbility("Penetrating Bite");

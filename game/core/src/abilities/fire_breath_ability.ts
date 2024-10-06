@@ -9,11 +9,19 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, Grid, GridSettings, GridMath, HoCMath, HoCConstants, HoCScene } from "@heroesofcrypto/common";
+import {
+    AttackType,
+    Grid,
+    GridSettings,
+    GridMath,
+    HoCMath,
+    HoCConstants,
+    HoCScene,
+    Unit,
+} from "@heroesofcrypto/common";
 
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { nextStandingTargets } from "./abilities_helper";
 
@@ -93,7 +101,6 @@ export function processFireBreathAbility(
 
         for (const unitDead of unitsDead) {
             sceneLog.updateLog(`${unitDead.getName()} died`);
-            // unitsHolder.deleteUnitById(unitDead.getId(), true);
             unitIdsDied.push(unitDead.getId());
             fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             fromUnit.applyMoraleStepsModifier(

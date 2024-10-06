@@ -18,9 +18,9 @@ import {
     GridConstants,
     TeamType,
     HoCConstants,
+    Unit,
 } from "@heroesofcrypto/common";
 
-import { Unit } from "../units/units";
 import { UnitsFactory } from "../units/units_factory";
 import { UnitsHolder } from "../units/units_holder";
 

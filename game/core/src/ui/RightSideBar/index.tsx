@@ -342,12 +342,19 @@ export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) 
             manager.HomeCamera();
         };
 
+        const handleFullscreenChange = () => {
+            adjustBarSize();
+            manager.HomeCamera();
+        };
+
         window.addEventListener("resize", handleResize);
         window.addEventListener("wheel", handleZoom);
+        document.addEventListener("fullscreenchange", handleFullscreenChange);
 
         return () => {
             window.removeEventListener("resize", handleResize);
             window.removeEventListener("wheel", handleZoom);
+            document.removeEventListener("fullscreenchange", handleFullscreenChange);
         };
     }, [gameStarted]);
 

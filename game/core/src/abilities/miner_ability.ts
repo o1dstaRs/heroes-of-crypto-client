@@ -9,8 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCScene } from "@heroesofcrypto/common";
-import { Unit } from "../units/units";
+import { HoCScene, Unit } from "@heroesofcrypto/common";
 
 export function processMinerAbility(attackerUnit: Unit, targetUnit: Unit, sceneLog: HoCScene.SceneLog) {
     const minerAbility = attackerUnit.getAbility("Miner");

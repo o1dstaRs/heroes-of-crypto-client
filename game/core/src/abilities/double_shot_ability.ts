@@ -9,12 +9,11 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, HoCMath, Grid, HoCScene } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, HoCMath, Grid, HoCScene, Unit } from "@heroesofcrypto/common";
 
 import { Drawer } from "../draw/drawer";
 import { IVisibleDamage } from "../state/visible_state";
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { processRangeAOEAbility } from "./aoe_range_ability";
 import { processLuckyStrikeAbility } from "./lucky_strike_ability";

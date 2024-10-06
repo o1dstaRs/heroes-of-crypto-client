@@ -9,21 +9,22 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCConstants, HoCScene } from "@heroesofcrypto/common";
+import { HoCConstants, HoCScene, Unit } from "@heroesofcrypto/common";
+import { FightStateManager } from "../state/fight_state_manager";
 
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 
 export function processFireShieldAbility(
     fromUnit: Unit,
     toUnit: Unit,
     sceneLog: HoCScene.SceneLog,
-    unitsHolder: UnitsHolder,
     damageFromAttack: number,
-): void {
+    unitsHolder: UnitsHolder,
+): string[] {
+    const unitIdsDied: string[] = [];
     if (toUnit.isDead()) {
-        return;
+        return unitIdsDied;
     }
 
     const fireShieldAbility = fromUnit.getAbility("Fire Shield");
@@ -53,5 +54,17 @@ export function processFireShieldAbility(
             team: fromUnit.getTeam(),
         });
         sceneLog.updateLog(`${toUnit.getName()} received (${fireShieldDmg}) from Fire Shield`);
+
+        if (toUnit.isDead()) {
+            sceneLog.updateLog(`${toUnit.getName()} died`);
+            unitIdsDied.push(toUnit.getId());
+            fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
+            fromUnit.applyMoraleStepsModifier(
+                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+            );
+            unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(toUnit);
+        }
     }
+
+    return unitIdsDied;
 }

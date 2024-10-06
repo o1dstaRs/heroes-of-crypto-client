@@ -1,6 +1,5 @@
 import { AIActionType, findTarget } from "../../src/ai/ai";
 
-import { IUnitAIRepr } from "../../src/units/units";
 import { GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA } from "../../src/statics";
 import {
     // AttackType,
@@ -14,6 +13,7 @@ import {
     GridSettings,
     GridType,
     AttackType,
+    IUnitAIRepr,
 } from "@heroesofcrypto/common";
 
 /**

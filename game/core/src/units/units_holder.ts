@@ -21,12 +21,11 @@ import {
     EffectHelper,
     HoCLib,
     SquarePlacement,
+    Unit,
     HoCConstants,
 } from "@heroesofcrypto/common";
 
 import { FightStateManager } from "../state/fight_state_manager";
-import { RenderableUnit } from "./renderable_unit";
-import { Unit } from "./units";
 
 export class UnitsHolder {
     private readonly grid: Grid;
@@ -238,7 +237,7 @@ export class UnitsHolder {
                 if (newAmountAlive > 0) {
                     unitToDelete.increaseAmountAlive(newAmountAlive);
                     unitToDelete.decreaseAmountDied(newAmountAlive);
-                    (unitToDelete as RenderableUnit).enqueueResurrectionAnimation();
+                    unitToDelete.handleResurrectionAnimation();
                     unitToDelete.deleteAllEffects();
                     unitToDelete.deleteAllBuffs();
                     unitToDelete.deleteAllDebuffs();
@@ -266,6 +265,9 @@ export class UnitsHolder {
                 const unitsUpper: Unit[] = [];
                 const unitsLower: Unit[] = [];
                 for (const u of this.getAllUnitsIterator()) {
+                    if (u.isDead()) {
+                        continue;
+                    }
                     if (u.getTeam() === TeamType.LOWER) {
                         unitsLower.push(u);
                     } else {

@@ -22,12 +22,13 @@ import {
     GridSettings,
     UnitType,
     HoCConfig,
+    IUnitPropertiesProvider,
+    Unit,
 } from "@heroesofcrypto/common";
 
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
-import { IUnitPropertiesProvider, Unit } from "./units";
 import { Hero } from "./heroes";
 import { RenderableUnit } from "./renderable_unit";
 import {
