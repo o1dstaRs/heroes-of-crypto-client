@@ -294,9 +294,10 @@ export class GameManager {
     }
 
     public StartGame(): void {
-        this.started = true;
         if (this.m_scene) {
-            this.m_scene.startScene();
+            if (this.m_scene.startScene()) {
+                this.started = true;
+            }
         }
         this.onHasStarted.emit(this.started);
     }
@@ -449,6 +450,11 @@ export class GameManager {
             for (const hk of this.stepHotKeys) {
                 if (this.m_keyMap[hk.key]) hk.callback(true);
             }
+        } else {
+            if (this.sceneHasHoverInfo()) {
+                this.onHoverInfoUpdated.emit({} as IHoverInfo);
+                this.m_scene?.cleanupHoverText();
+            }
         }
 
         draw.Finish();
@@ -529,13 +535,17 @@ export class GameManager {
         }
     }
 
+    private sceneHasHoverInfo(): boolean {
+        return (
+            !!this.m_scene?.sc_attackDamageSpreadStr ||
+            !!this.m_scene?.sc_attackRangeDamageDivisorStr ||
+            !!this.m_scene?.sc_hoverUnitNameStr ||
+            !!this.m_scene?.sc_hoverInfoArr?.length
+        );
+    }
+
     public UpdateHoverInfo() {
-        if (
-            this.m_scene?.sc_attackDamageSpreadStr ||
-            this.m_scene?.sc_attackRangeDamageDivisorStr ||
-            this.m_scene?.sc_hoverUnitNameStr ||
-            this.m_scene?.sc_hoverInfoArr?.length
-        ) {
+        if (this.sceneHasHoverInfo() && this.m_scene) {
             this.onHoverInfoUpdated.emit({
                 attackType: this.m_scene.sc_selectedAttackType,
                 damageSpread: this.m_scene.sc_attackDamageSpreadStr,

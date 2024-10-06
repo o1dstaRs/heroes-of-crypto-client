@@ -161,6 +161,10 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
         return () => window.removeEventListener("resize", adjustBarSize);
     }, [gameStarted]);
 
+    const shouldColumnize = () => {
+        return window.innerWidth / window.innerHeight >= 16 / 9;
+    };
+
     // @ts-ignore: skip styles
     return (
         <Sheet
@@ -285,7 +289,7 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
 
                     <Divider />
 
-                    <UnitStatsListItem barSize={barSize} />
+                    <UnitStatsListItem barSize={barSize} columnize={shouldColumnize()} />
 
                     <Box sx={{ flexGrow: 1 }} />
 

@@ -39,28 +39,43 @@ export function processPetrifyingGazeAbility(
     const randomAdditionalDamage = damageFromAttack * randomCoeff;
     const unitsKilled = randomAdditionalDamage / toUnit.getMaxHp();
     let amountOfUnitsKilled = Math.min(Math.floor(unitsKilled), toUnit.getAmountAlive() - 1);
+    let damageFromAbility = amountOfUnitsKilled * toUnit.getMaxHp();
 
-    let damageFromAbility = 0;
+    let proc = false;
     if (amountOfUnitsKilled < toUnit.getAmountAlive()) {
         const coeff1 = toUnit.getHp() / toUnit.getMaxHp();
-        const coeff2 = 1 - (unitsKilled - Math.floor(unitsKilled));
+        const coeff2 = (1 - (unitsKilled - Math.floor(unitsKilled))) / 2;
 
         if (fromUnit.getStackPower() > coeff1 * 100) {
-            damageFromAbility = toUnit.getHp();
+            damageFromAbility += toUnit.getHp();
+            proc = true;
         } else {
-            const startSpread = toUnit.getLevel() === 3 ? fromUnit.getStackPower() : 1;
-            const chanceToKillLastUnit =
-                HoCLib.getRandomInt(startSpread, fromUnit.getStackPower() + 1) * (toUnit.getLevel() === 3 ? 2 : 1);
-            if (HoCLib.getRandomInt(0, Math.floor(coeff2 * 100)) < chanceToKillLastUnit) {
-                damageFromAbility = toUnit.getHp();
+            const startSpread = toUnit.getLevel() === 3 ? fromUnit.getStackPower() * 3 : fromUnit.getStackPower();
+            const chanceToKillLastUnit = HoCLib.getRandomInt(fromUnit.getStackPower(), startSpread + 1);
+            const coeff2Int = Math.floor((coeff2 * 100) / (toUnit.getLevel() === 3 ? 2 : 1));
+            if (chanceToKillLastUnit >= coeff2Int) {
+                damageFromAbility += toUnit.getHp();
+                proc = true;
+            } else {
+                const rnd = HoCLib.getRandomInt(0, coeff2Int);
+                if (rnd < chanceToKillLastUnit) {
+                    damageFromAbility += toUnit.getHp();
+                    proc = true;
+                }
             }
         }
     } else {
         amountOfUnitsKilled = toUnit.getAmountAlive();
     }
 
-    if (amountOfUnitsKilled) {
-        damageFromAbility += amountOfUnitsKilled * toUnit.getMaxHp();
+    if (amountOfUnitsKilled || proc) {
+        let damageFromAbilityTmp = damageFromAbility;
+
+        if (damageFromAbility >= toUnit.getHp()) {
+            amountOfUnitsKilled = 1;
+            damageFromAbilityTmp -= toUnit.getHp();
+        }
+        amountOfUnitsKilled += Math.floor(damageFromAbilityTmp / toUnit.getMaxHp());
 
         // apply the ability damage
         toUnit.applyDamage(damageFromAbility);

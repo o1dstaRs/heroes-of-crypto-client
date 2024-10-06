@@ -22,8 +22,10 @@ import lightImage from "../../../images/overlay_light.webp";
 import { useManager } from "../../manager";
 import { IVisibleButton, VisibleButtonState } from "../../state/visible_state";
 
+let SCREEN_RATIO = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
+
 const INITIAL_POSITION_Y = 0;
-const INITIAL_POSITION_X = window.innerWidth / 2 - 278;
+const INITIAL_POSITION_X = (window.innerWidth * SCREEN_RATIO) / 2 - 278 * SCREEN_RATIO;
 
 const BUTTON_NAME_TO_ICON_IMAGE: Record<string, string> = {
     [`Spellbook${VisibleButtonState.FIRST}`]: spellbookIconImage,
@@ -53,9 +55,9 @@ const StyledSheet = styled(Sheet)(({ theme }) => ({
     backgroundSize: "cover",
     border: "1px solid",
     borderColor: theme.palette.mode === "dark" ? "black" : "black",
-    borderRadius: "10px",
-    padding: "1rem",
-    boxShadow: "0 0 10px rgba(0,0,0,0.5)",
+    borderRadius: `${7 * SCREEN_RATIO}px`,
+    padding: `${0.7 * SCREEN_RATIO}rem`,
+    boxShadow: `0 0 ${7 * SCREEN_RATIO}px rgba(0,0,0,0.5)`,
 }));
 
 const StyledIconButton = styled("button", {
@@ -63,8 +65,8 @@ const StyledIconButton = styled("button", {
         typeof prop === "string" && !["rotationDegrees", "isDark", "clickEffectNeeded"].includes(prop),
 })<{ rotationDegrees: number; isDark: boolean; clickEffectNeeded?: boolean }>(
     ({ rotationDegrees, isDark, clickEffectNeeded }) => ({
-        width: 64,
-        height: 64,
+        width: 45 * SCREEN_RATIO,
+        height: 45 * SCREEN_RATIO,
         padding: 0,
         border: "none",
         borderRadius: "50%",
@@ -77,17 +79,17 @@ const StyledIconButton = styled("button", {
         transform: `rotate(${rotationDegrees}deg)`,
         backgroundColor: "transparent",
         "&:hover:not(:disabled)": {
-            transform: `scale(1.05) rotate(${rotationDegrees}deg)`,
+            transform: `scale(1.15) rotate(${rotationDegrees}deg)`,
             ...(isDark
                 ? {
-                      boxShadow: "0 0 10px rgba(255, 255, 255, 0.5)",
-                      filter: "brightness(1.1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.5))",
-                      backgroundColor: "rgba(255, 255, 255, 0.2)",
+                      boxShadow: `0 0 ${7 * SCREEN_RATIO}px rgba(255, 255, 255, 0.5)`,
+                      filter: "brightness(1.1) drop-shadow(0 0 3.5px rgba(255, 255, 255, 0.5))",
+                      backgroundColor: "rgba(255, 255, 255, 0.14)",
                   }
                 : {
-                      boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)",
-                      filter: "brightness(1.1) drop-shadow(0 0 5px rgba(255, 0, 0, 0.5))",
-                      backgroundColor: "rgba(255, 0, 0, 0.2)",
+                      boxShadow: `0 0 ${7 * SCREEN_RATIO}px rgba(255, 0, 0, 0.5)`,
+                      filter: "brightness(1.1) drop-shadow(0 0 3.5px rgba(255, 0, 0, 0.5))",
+                      backgroundColor: "rgba(255, 0, 0, 0.14)",
                   }),
         },
         "&:disabled": {
@@ -98,7 +100,7 @@ const StyledIconButton = styled("button", {
             ...(clickEffectNeeded
                 ? {
                       transform: `scale(0.95) rotate(${rotationDegrees}deg)`,
-                      boxShadow: "0 0 15px rgba(0, 0, 0, 0.2)",
+                      boxShadow: `0 0 ${10.5 * SCREEN_RATIO}px rgba(0, 0, 0, 0.2)`,
                   }
                 : {}),
         },
@@ -166,7 +168,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
 
     return (
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <Box sx={{ display: "flex", alignItems: "center", height: 64 }}>
+            <Box sx={{ display: "flex", alignItems: "center", height: 45 * SCREEN_RATIO }}>
                 <Tooltip title={text} placement="top">
                     <StyledIconButton
                         onClick={handleClick}
@@ -175,11 +177,13 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                         isDark={isDark}
                         style={{
                             backgroundImage: `url(${iconImage})`,
-                            width: 64,
-                            height: 64,
+                            width: 45 * SCREEN_RATIO,
+                            height: 45 * SCREEN_RATIO,
                             filter: transfusionEffect ? "brightness(1.2)" : "none",
                             animation: transfusionEffect ? "transfusion 1.5s linear" : "none",
-                            boxShadow: transfusionEffect ? "0 0 20px rgba(255, 255, 255, 0.7)" : "none",
+                            boxShadow: transfusionEffect
+                                ? `0 0 ${14 * SCREEN_RATIO}px rgba(255, 255, 255, 0.7)`
+                                : "none",
                         }}
                         data-clickeffectneeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
                     />
@@ -190,16 +194,16 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                     sx={{
                         display: "flex",
                         justifyContent: "center",
-                        marginTop: "0.5rem",
+                        marginTop: `${0.35 * SCREEN_RATIO}rem`,
                         position: "relative",
-                        width: 64,
-                        height: 13,
+                        width: 45 * SCREEN_RATIO,
+                        height: 9.1 * SCREEN_RATIO,
                     }}
                 >
                     {Array.from({ length: numberOfOptions }, (_, index) => {
                         const angle = (index / (numberOfOptions - 1)) * Math.PI;
-                        const x = 18 + 18 * Math.cos(angle) - 6.5; // 6.5 is half the width of the icon (13/2)
-                        const y = 8 * Math.sin(angle) - 6.5; // 6.5 is half the height of the icon (13/2)
+                        const x = (12.6 + 12.6 * Math.cos(angle) - 4.55) * SCREEN_RATIO;
+                        const y = (5.6 * Math.sin(angle) - 4.55) * SCREEN_RATIO;
                         return (
                             <img
                                 key={index}
@@ -210,10 +214,10 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                                 }
                                 alt={`Option ${index + 1}`}
                                 style={{
-                                    width: 13,
-                                    height: 13,
+                                    width: 9.1 * SCREEN_RATIO,
+                                    height: 9.1 * SCREEN_RATIO,
                                     position: "absolute",
-                                    left: `${x + 13}px`,
+                                    left: `${x + 9.1 * SCREEN_RATIO}px`,
                                     top: `${y}px`,
                                 }}
                             />
@@ -238,13 +242,29 @@ const DraggableToolbar: React.FC = () => {
     const theme = useTheme();
     const manager = useManager();
 
+    const updateScreenRatios = useCallback(() => {
+        SCREEN_RATIO = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
+    }, []);
+
     useEffect(() => {
-        const connection = manager.onHasButtonsGroupUpdate.connect((hasChanged) => {
-            setButtonGroupChanged(hasChanged);
-        });
+        const handleResize = () => {
+            updateScreenRatios();
+        };
+
+        window.addEventListener("resize", handleResize);
+        window.addEventListener("zoom", handleResize);
 
         return () => {
-            connection.disconnect();
+            window.removeEventListener("resize", handleResize);
+            window.removeEventListener("zoom", handleResize);
+        };
+    }, [updateScreenRatios]);
+
+    useEffect(() => {
+        manager.onHasButtonsGroupUpdate.connect(setButtonGroupChanged);
+
+        return () => {
+            manager.onHasButtonsGroupUpdate.disconnect(setButtonGroupChanged);
         };
     }, [manager]);
 
@@ -303,7 +323,7 @@ const DraggableToolbar: React.FC = () => {
                 display: "flex",
                 flexDirection: isVertical ? "column" : "row",
                 alignItems: "center",
-                gap: 1,
+                gap: 0.7 * SCREEN_RATIO,
                 zIndex: 4,
             }}
         >
@@ -311,15 +331,19 @@ const DraggableToolbar: React.FC = () => {
                 sx={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 1,
+                    gap: 0.7 * SCREEN_RATIO,
                     bgcolor: isDark ? "rgba(255, 215, 0, 0.1)" : "rgba(53, 33, 0, 0.3)",
                     borderRadius: "sm",
-                    p: 0.5,
+                    p: 0.35 * SCREEN_RATIO,
                 }}
             >
                 <Box onMouseDown={handleMouseDown} sx={{ cursor: "move", display: "flex", alignItems: "center" }}>
                     <DragIndicatorIcon
-                        sx={{ color: isDark ? "rgb(131, 112, 106)" : "#352100", width: "auto", height: 32 }}
+                        sx={{
+                            color: isDark ? "rgb(131, 112, 106)" : "#352100",
+                            width: "auto",
+                            height: 22.4 * SCREEN_RATIO,
+                        }}
                     />
                 </Box>
                 <button
@@ -336,7 +360,7 @@ const DraggableToolbar: React.FC = () => {
                     <RotateRightIcon
                         sx={{
                             width: "auto",
-                            height: 32,
+                            height: 22.4 * SCREEN_RATIO,
                             color: isDark ? "rgb(230, 220, 212)" : "black",
                         }}
                     />
@@ -361,8 +385,6 @@ const DraggableToolbar: React.FC = () => {
                         isDark={isDark}
                         onClick={() => {
                             manager.PropagateButtonClicked(button.name, button.state);
-                            // If you need to perform any additional actions when the hourglass is clicked,
-                            // you can add them here
                         }}
                         isHourglass={button.name === "Hourglass"}
                         customSpriteName={button.customSpriteName}

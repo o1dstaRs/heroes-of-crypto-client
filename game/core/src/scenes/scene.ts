@@ -340,6 +340,7 @@ export abstract class Scene extends b2ContactListener {
         }
         this.sc_currentActiveShotRange = undefined;
         this.sc_currentActiveAuraRanges = [];
+        this.sc_renderSpellBookOverlay = false;
     }
 
     public getBaseHotkeys(): HotKey[] {
@@ -530,7 +531,7 @@ export abstract class Scene extends b2ContactListener {
 
     public abstract requestTime(team: number): void;
 
-    public startScene() {
+    public startScene(): boolean {
         if (!this.sceneStarted) {
             this.sceneStarted = true;
             this.destroyTempFixtures();
@@ -538,6 +539,8 @@ export abstract class Scene extends b2ContactListener {
             this.sc_hoverUnitLevel = 0;
             this.sc_hoverUnitMovementType = MovementType.NO_TYPE;
         }
+
+        return this.sceneStarted;
     }
 
     protected abstract destroyTempFixtures(): void;
@@ -566,6 +569,18 @@ export abstract class Scene extends b2ContactListener {
 
     public addDebug(label: string, value: string | number | boolean): void {
         this.sc_debugLines.push([label, `${value}`]);
+    }
+
+    public cleanupHoverText(updateNeeded = true): void {
+        this.sc_attackDamageSpreadStr = "";
+        this.sc_attackRangeDamageDivisorStr = "";
+        this.sc_hoverUnitNameStr = "";
+        this.sc_hoverInfoArr = [];
+        this.sc_selectedAttackType = AttackType.NO_TYPE;
+        this.sc_attackKillSpreadStr = "";
+        this.sc_hoverUnitLevel = 0;
+        this.sc_hoverUnitMovementType = MovementType.NO_TYPE;
+        this.sc_hoverTextUpdateNeeded = updateNeeded;
     }
 
     protected setSelectedUnitProperties(unitProperties: UnitProperties): void {

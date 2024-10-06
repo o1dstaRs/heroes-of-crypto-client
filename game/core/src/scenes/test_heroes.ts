@@ -1084,9 +1084,35 @@ class Sandbox extends GLScene {
     }
 
     public startScene() {
-        this.sc_buttonGroupUpdated = true;
-        super.startScene();
-        FightStateManager.getInstance().getFightProperties().startFight();
+        const lowerLeftPlacement = this.getPlacement(TeamType.LOWER, 0);
+        const upperRightPlacement = this.getPlacement(TeamType.UPPER, 0);
+
+        if (!lowerLeftPlacement || !upperRightPlacement) {
+            return false;
+        }
+
+        if (
+            this.unitsHolder.getAllAlliesPlaced(
+                TeamType.LOWER,
+                lowerLeftPlacement,
+                upperRightPlacement,
+                this.getPlacement(TeamType.LOWER, 1),
+                this.getPlacement(TeamType.UPPER, 1),
+            ).length &&
+            this.unitsHolder.getAllAlliesPlaced(
+                TeamType.UPPER,
+                lowerLeftPlacement,
+                upperRightPlacement,
+                this.getPlacement(TeamType.LOWER, 1),
+                this.getPlacement(TeamType.UPPER, 1),
+            ).length
+        ) {
+            this.sc_buttonGroupUpdated = true;
+            FightStateManager.getInstance().getFightProperties().startFight();
+            return super.startScene();
+        }
+
+        return false;
     }
 
     public setGridType(gridType: GridType): void {
@@ -2740,14 +2766,6 @@ class Sandbox extends GLScene {
         this.cleanupHoverText();
 
         return false;
-    }
-
-    protected cleanupHoverText(): void {
-        this.sc_attackDamageSpreadStr = "";
-        this.sc_attackRangeDamageDivisorStr = "";
-        this.sc_hoverUnitNameStr = "";
-        this.sc_hoverInfoArr = [];
-        this.sc_hoverTextUpdateNeeded = true;
     }
 
     protected finishTurn = (isHourGlass = false): void => {
