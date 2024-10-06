@@ -72,6 +72,8 @@ export class RenderableUnit extends Unit {
 
     protected readonly stackPowerBarBoundFixtureDefs: b2FixtureDef[];
 
+    protected lastKnownTick = 0;
+
     protected constructor(
         unitProperties: UnitProperties,
         gridSettings: GridSettings,
@@ -376,7 +378,7 @@ export class RenderableUnit extends Unit {
         }
     }
 
-    public enqueueResurrectionAnimation(): void {
+    public handleResurrectionAnimation(): void {
         this.resurrectionAnimationTick = Math.max(
             this.resurrectionAnimationTick,
             this.lastKnownTick + RESURRECTION_ANIMATION_TICKS,

@@ -52,7 +52,6 @@ export class FightStateManager {
                 if (
                     unit &&
                     !unit.isDead() &&
-                    !unit.isSkippingThisTurn() &&
                     !this.fightProperties.upNextIncludes(nextUnitId) &&
                     !this.fightProperties.hasAlreadyMadeTurn(nextUnitId)
                 ) {

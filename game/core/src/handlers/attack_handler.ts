@@ -45,7 +45,6 @@ import { processSpitBallAbility } from "../abilities/spit_ball_ability";
 import { processPetrifyingGazeAbility } from "../abilities/petrifying_gaze_ability";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 import { getLapString } from "../utils/strings";
-import { hasAlreadyAppliedSpell, isMirrored } from "../spells/spells_helper";
 import { IAOERangeAttackResult, processRangeAOEAbility } from "../abilities/aoe_range_ability";
 import { processThroughShotAbility } from "../abilities/through_shot_ability";
 import { processLuckyStrikeAbility } from "../abilities/lucky_strike_ability";
@@ -496,8 +495,8 @@ export class AttackHandler {
 
                 if (
                     currentActiveSpell.getPowerType() !== SpellPowerType.POSITION_CHANGE &&
-                    isMirrored(debuffTarget) &&
-                    !hasAlreadyAppliedSpell(debuffTarget, currentActiveSpell) &&
+                    SpellHelper.isMirrored(debuffTarget) &&
+                    !SpellHelper.hasAlreadyAppliedSpell(debuffTarget, currentActiveSpell) &&
                     !(
                         currentActiveSpell.getPowerType() === SpellPowerType.MIND &&
                         attackerUnit.hasMindAttackResistance()
@@ -524,7 +523,7 @@ export class AttackHandler {
                 }
 
                 if (
-                    !hasAlreadyAppliedSpell(debuffTarget, currentActiveSpell) &&
+                    !SpellHelper.hasAlreadyAppliedSpell(debuffTarget, currentActiveSpell) &&
                     !(
                         currentActiveSpell.getPowerType() === SpellPowerType.MIND &&
                         debuffTarget.hasMindAttackResistance()
@@ -924,7 +923,7 @@ export class AttackHandler {
         }
 
         if (!secondShotResult.aoeRangeAttackLanded) {
-            if (targetUnit.isDead()) {
+            if (targetUnit.isDead() && !unitIdsDied.includes(targetUnit.getId())) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
                 unitIdsDied.push(targetUnit.getId());
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
@@ -1189,7 +1188,9 @@ export class AttackHandler {
             // to make sure that logs are in chronological order
             this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
 
-            processFireShieldAbility(targetUnit, attackerUnit, this.sceneLog, damageFromAttack, unitsHolder);
+            updateUnitsDied(
+                processFireShieldAbility(targetUnit, attackerUnit, this.sceneLog, damageFromAttack, unitsHolder),
+            );
         }
 
         let hasLightningSpinResponseLanded = false;
@@ -1302,7 +1303,15 @@ export class AttackHandler {
                     }
 
                     processMinerAbility(targetUnit, attackerUnit, this.sceneLog);
-                    processFireShieldAbility(attackerUnit, targetUnit, this.sceneLog, damageFromResponse, unitsHolder);
+                    updateUnitsDied(
+                        processFireShieldAbility(
+                            attackerUnit,
+                            targetUnit,
+                            this.sceneLog,
+                            damageFromResponse,
+                            unitsHolder,
+                        ),
+                    );
                     processStunAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                     processPetrifyingGazeAbility(targetUnit, attackerUnit, damageFromResponse, this.sceneLog);
                     processBoarSalivaAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
@@ -1369,12 +1378,11 @@ export class AttackHandler {
         }
         unitsHolder.refreshStackPowerForAllUnits();
 
-        const secondPunchResult = processDoublePunchAbility(attackerUnit, targetUnit, this.sceneLog, unitsHolder);
+        const secondPunchResult = processDoublePunchAbility(attackerUnit, targetUnit, this.sceneLog);
 
-        if (!hasLightningSpinResponseLanded && attackerUnit.isDead()) {
+        if (!hasLightningSpinResponseLanded && attackerUnit.isDead() && !unitIdsDied.includes(attackerUnit.getId())) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} died`);
 
-            // unitsHolder.deleteUnitById(attackerUnit.getId(), true);
             unitIdsDied.push(attackerUnit.getId());
             targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             targetUnit.applyMoraleStepsModifier(
@@ -1383,10 +1391,9 @@ export class AttackHandler {
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(attackerUnit);
         }
 
-        if (!hasLightningSpinAttackLanded && targetUnit.isDead()) {
+        if (!hasLightningSpinAttackLanded && targetUnit.isDead() && !unitIdsDied.includes(targetUnit.getId())) {
             this.sceneLog.updateLog(`${targetUnit.getName()} died`);
 
-            // unitsHolder.deleteUnitById(targetUnit.getId(), true);
             unitIdsDied.push(targetUnit.getId());
             attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             attackerUnit.applyMoraleStepsModifier(
@@ -1398,6 +1405,15 @@ export class AttackHandler {
             if (secondPunchResult.damage > 0) {
                 targetUnit.applyDamage(secondPunchResult.damage);
             }
+            updateUnitsDied(
+                processFireShieldAbility(
+                    targetUnit,
+                    attackerUnit,
+                    this.sceneLog,
+                    secondPunchResult.damage,
+                    unitsHolder,
+                ),
+            );
             if (!secondPunchResult.missed) {
                 processMinerAbility(attackerUnit, targetUnit, this.sceneLog);
                 processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);

@@ -59,7 +59,6 @@ import { ObstacleGenerator } from "../obstacles/obstacle_generator";
 import { DrawableSquarePlacement } from "../draw/drawable_square_placement";
 import { Settings } from "../settings";
 import { RenderableSpell } from "../spells/renderable_spell";
-import { hasAlreadyAppliedSpell, isMirrored } from "../spells/spells_helper";
 import { FightStateManager } from "../state/fight_state_manager";
 import { IVisibleButton, IVisibleUnit, VisibleButtonState } from "../state/visible_state";
 import {
@@ -2691,13 +2690,19 @@ class Sandbox extends GLScene {
                 this.hoverAttackFromCell,
             );
             if (meleeAttackResult.completed) {
+                console.log(meleeAttackResult.unitIdsDied);
+                const alreadyProcessed: string[] = [];
                 for (const uId of meleeAttackResult.unitIdsDied) {
+                    if (alreadyProcessed.includes(uId)) {
+                        continue;
+                    }
                     if (this.unitsHolder.deleteUnitById(uId, true /* check for resurrection */)) {
                         const unitBody = this.unitsFactory.getUnitBody(uId);
                         if (unitBody) {
                             this.sc_world.DestroyBody(unitBody);
                         }
                         this.unitsFactory.deleteUnitBody(uId);
+                        alreadyProcessed.push(uId);
                     }
                 }
                 this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
@@ -2722,13 +2727,18 @@ class Sandbox extends GLScene {
             this.sc_isSelection,
         );
         if (rangeAttackResult.completed) {
+            const alreadyProcessed: string[] = [];
             for (const uId of rangeAttackResult.unitIdsDied) {
+                if (alreadyProcessed.includes(uId)) {
+                    continue;
+                }
                 if (this.unitsHolder.deleteUnitById(uId, true /* check for resurrection */)) {
                     const unitBody = this.unitsFactory.getUnitBody(uId);
                     if (unitBody) {
                         this.sc_world.DestroyBody(unitBody);
                     }
                     this.unitsFactory.deleteUnitBody(uId);
+                    alreadyProcessed.push(uId);
                 }
             }
             this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
@@ -2750,13 +2760,18 @@ class Sandbox extends GLScene {
             this.currentEnemiesCellsWithinMovementRange,
         );
         if (magicAttackResult.completed) {
+            const alreadyProcessed: string[] = [];
             for (const uId of magicAttackResult.unitIdsDied) {
+                if (alreadyProcessed.includes(uId)) {
+                    continue;
+                }
                 if (this.unitsHolder.deleteUnitById(uId, true /* check for resurrection */)) {
                     const unitBody = this.unitsFactory.getUnitBody(uId);
                     if (unitBody) {
                         this.sc_world.DestroyBody(unitBody);
                     }
                     this.unitsFactory.deleteUnitBody(uId);
+                    alreadyProcessed.push(uId);
                 }
             }
             this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
@@ -2998,7 +3013,7 @@ class Sandbox extends GLScene {
                                     continue;
                                 }
 
-                                if (!hasAlreadyAppliedSpell(u, this.hoveredSpell)) {
+                                if (!SpellHelper.hasAlreadyAppliedSpell(u, this.hoveredSpell)) {
                                     u.applyBuff(
                                         this.hoveredSpell,
                                         undefined,
@@ -3013,7 +3028,7 @@ class Sandbox extends GLScene {
                                     continue;
                                 }
 
-                                if (!hasAlreadyAppliedSpell(u, this.hoveredSpell)) {
+                                if (!SpellHelper.hasAlreadyAppliedSpell(u, this.hoveredSpell)) {
                                     u.applyBuff(
                                         this.hoveredSpell,
                                         undefined,
@@ -3050,7 +3065,7 @@ class Sandbox extends GLScene {
                                         }
                                     }
                                 } else {
-                                    if (!hasAlreadyAppliedSpell(u, this.hoveredSpell)) {
+                                    if (!SpellHelper.hasAlreadyAppliedSpell(u, this.hoveredSpell)) {
                                         if (this.hoveredSpell.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT) {
                                             const newSpell = new Spell({
                                                 spellProperties: this.hoveredSpell.getSpellProperties(),
@@ -3117,7 +3132,7 @@ class Sandbox extends GLScene {
                                 }
 
                                 if (
-                                    !hasAlreadyAppliedSpell(debuffTarget, this.hoveredSpell) &&
+                                    !SpellHelper.hasAlreadyAppliedSpell(debuffTarget, this.hoveredSpell) &&
                                     !(
                                         this.hoveredSpell.getPowerType() === SpellPowerType.MIND &&
                                         debuffTarget.hasMindAttackResistance()
@@ -3131,8 +3146,11 @@ class Sandbox extends GLScene {
                                         debuffTarget.getId() === this.currentActiveUnit.getId(),
                                     );
                                     if (
-                                        isMirrored(debuffTarget) &&
-                                        !hasAlreadyAppliedSpell(this.currentActiveUnit, this.hoveredSpell) &&
+                                        SpellHelper.isMirrored(debuffTarget) &&
+                                        !SpellHelper.hasAlreadyAppliedSpell(
+                                            this.currentActiveUnit,
+                                            this.hoveredSpell,
+                                        ) &&
                                         !(
                                             this.hoveredSpell.getPowerType() === SpellPowerType.MIND &&
                                             this.currentActiveUnit.hasMindAttackResistance()

@@ -18,7 +18,6 @@ import { UnitsHolder } from "../units/units_holder";
 interface ILayerImpact {
     cells: HoCMath.XY[];
     damage: number;
-    unitIdsDied: string[];
 }
 
 function getEnemiesForCells(
@@ -60,6 +59,7 @@ function attackEnemiesAndGetLayerImpact(
     alreadyAffectedIds: string[],
     unitsHolder: UnitsHolder,
     sceneLog: HoCScene.SceneLog,
+    unitIdsDied: string[],
 ): ILayerImpact[] {
     const fullLayerImpact: ILayerImpact[] = [];
     for (const e1 of enemies) {
@@ -87,7 +87,6 @@ function attackEnemiesAndGetLayerImpact(
                 heavyArmorMultiplierEnemy,
         );
 
-        const unitIdsDied: string[] = [];
         alreadyAffectedIds.push(e1.getId());
         if (targetEnemyLightningDamage && !e1.isDead()) {
             e1.applyDamage(targetEnemyLightningDamage);
@@ -112,7 +111,6 @@ function attackEnemiesAndGetLayerImpact(
         fullLayerImpact.push({
             cells: e1.getCells(),
             damage: targetEnemyLightningDamage,
-            unitIdsDied: unitIdsDied,
         });
     }
 
@@ -198,12 +196,10 @@ export function processChainLightningAbility(
         affectedEnemiesIds,
         unitsHolder,
         sceneLog,
+        unitIdsDied,
     );
 
     for (const impact of layer1Impact) {
-        for (const uId of impact.unitIdsDied) {
-            unitIdsDied.push(uId);
-        }
         const enemiesLayer2: Unit[] = getEnemiesForCells(
             impact.cells,
             targetUnit.getTeam(),
@@ -224,12 +220,10 @@ export function processChainLightningAbility(
             affectedEnemiesIds,
             unitsHolder,
             sceneLog,
+            unitIdsDied,
         );
 
         for (const impact2 of layer2Impact) {
-            for (const uId of impact2.unitIdsDied) {
-                unitIdsDied.push(uId);
-            }
             const enemiesLayer3: Unit[] = getEnemiesForCells(
                 impact2.cells,
                 targetUnit.getTeam(),
@@ -250,6 +244,7 @@ export function processChainLightningAbility(
                 affectedEnemiesIds,
                 unitsHolder,
                 sceneLog,
+                unitIdsDied,
             );
         }
     }

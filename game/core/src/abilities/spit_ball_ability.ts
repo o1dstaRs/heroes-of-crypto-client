@@ -20,10 +20,10 @@ import {
     SpellPowerType,
     HoCScene,
     Unit,
+    SpellHelper,
 } from "@heroesofcrypto/common";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 
-import { isMirrored } from "../spells/spells_helper";
 import { UnitsHolder } from "../units/units_holder";
 import { getLapString } from "../utils/strings";
 
@@ -107,7 +107,7 @@ export function processSpitBallAbility(
 
         // we already know it has not been applied already
         if (
-            isMirrored(targetUnit) &&
+            SpellHelper.isMirrored(targetUnit) &&
             !(debuff.getPowerType() === SpellPowerType.MIND && fromUnit.hasMindAttackResistance())
         ) {
             fromUnit.applyDebuff(debuff, undefined, undefined, fromUnit.getId() === currentActiveUnit.getId());

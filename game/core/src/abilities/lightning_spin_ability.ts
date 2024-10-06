@@ -139,7 +139,16 @@ export function processLightningSpinAbility(
             if (!wasDead.includes(enemy)) {
                 const damageFromAttack = enemyIdDamageFromAttack.get(enemy.getId());
                 if (damageFromAttack) {
-                    processFireShieldAbility(enemy, fromUnit, sceneLog, damageFromAttack, unitsHolder);
+                    const unitIdsDiedFromFireShield = processFireShieldAbility(
+                        enemy,
+                        fromUnit,
+                        sceneLog,
+                        damageFromAttack,
+                        unitsHolder,
+                    );
+                    for (const uId in unitIdsDiedFromFireShield) {
+                        unitIdsDied.push(uId);
+                    }
                 }
             }
         }

@@ -12,8 +12,6 @@
 import { AttackType, HoCLib, HoCScene, Unit } from "@heroesofcrypto/common";
 
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { UnitsHolder } from "../units/units_holder";
-import { processFireShieldAbility } from "./fire_shield_ability";
 import { processLuckyStrikeAbility } from "./lucky_strike_ability";
 import { processPenetratingBiteAbility } from "./penetrating_bite_ability";
 
@@ -27,7 +25,6 @@ export function processDoublePunchAbility(
     fromUnit: Unit,
     toUnit: Unit,
     sceneLog: HoCScene.SceneLog,
-    unitsHolder: UnitsHolder,
 ): IDoublePunchResult {
     const doublePunchAbility = fromUnit.getAbility("Double Punch");
     let secondPunchLanded = false;
@@ -86,7 +83,6 @@ export function processDoublePunchAbility(
         }
         sceneLog.updateLog(`${fromUnit.getName()} attk ${toUnit.getName()} (${damageFromAttack})`);
 
-        processFireShieldAbility(toUnit, fromUnit, sceneLog, damageFromAttack, unitsHolder);
         secondPunchLanded = true;
     }
 
