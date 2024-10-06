@@ -2768,6 +2768,34 @@ class Sandbox extends GLScene {
         return false;
     }
 
+    protected deselect(_onlyWhenNotStarted = false, _refreshStats = true) {
+        super.deselect(_onlyWhenNotStarted, _refreshStats);
+        // close spellbook
+        if (
+            this.currentActiveUnit &&
+            _onlyWhenNotStarted &&
+            this.currentActiveUnit.getAttackTypeSelection() === AttackType.MAGIC
+        ) {
+            if (!this.sc_renderSpellBookOverlay) {
+                this.hoveredSpell = undefined;
+            }
+            this.adjustSpellBookSprite();
+            this.refreshButtons(true);
+        }
+        // try to fix buttons state
+        if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            if (this.currentActiveUnit) {
+                this.currentActiveUnit.refreshPossibleAttackTypes(
+                    this.attackHandler.canLandRangeAttack(
+                        this.currentActiveUnit,
+                        this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
+                    ),
+                );
+            }
+            this.refreshButtons(true);
+        }
+    }
+
     protected finishTurn = (isHourGlass = false): void => {
         if (!isHourGlass && this.currentActiveUnit) {
             this.currentActiveUnit.minusLap();
