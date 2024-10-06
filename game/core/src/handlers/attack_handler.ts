@@ -24,6 +24,7 @@ import {
     HoCConstants,
     AbilityHelper,
     HoCScene,
+    Unit,
 } from "@heroesofcrypto/common";
 
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
@@ -36,7 +37,6 @@ import { processStunAbility } from "../abilities/stun_ability";
 import { Drawer } from "../draw/drawer";
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { MoveHandler } from "./move_handler";
 import { processBlindnessAbility } from "../abilities/blindness_ability";
@@ -823,6 +823,7 @@ export class AttackHandler {
         if (rangeResponseUnit) {
             if (aoeRangeResponseResult?.landed) {
                 if (rangeResponseUnit.isDead() && attackerUnit.getId() === rangeResponseUnit.getId()) {
+                    unitIdsDied.push(rangeResponseUnit.getId());
                     return { completed: true, unitIdsDied };
                 }
             } else {
@@ -892,6 +893,9 @@ export class AttackHandler {
                 (attackerUnit.hasDebuffActive("Cowardice") &&
                     attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp())
             ) {
+                if (targetUnit.isDead()) {
+                    unitIdsDied.push(targetUnit.getId());
+                }
                 return { completed: true, unitIdsDied };
             }
             hoverRangeAttackDivisor = hoverRangeAttackDivisors.at(targetUnitUndex);
@@ -1185,7 +1189,7 @@ export class AttackHandler {
             // to make sure that logs are in chronological order
             this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
 
-            processFireShieldAbility(targetUnit, attackerUnit, this.sceneLog, unitsHolder, damageFromAttack);
+            processFireShieldAbility(targetUnit, attackerUnit, this.sceneLog, damageFromAttack, unitsHolder);
         }
 
         let hasLightningSpinResponseLanded = false;
@@ -1298,7 +1302,7 @@ export class AttackHandler {
                     }
 
                     processMinerAbility(targetUnit, attackerUnit, this.sceneLog);
-                    processFireShieldAbility(attackerUnit, targetUnit, this.sceneLog, unitsHolder, damageFromResponse);
+                    processFireShieldAbility(attackerUnit, targetUnit, this.sceneLog, damageFromResponse, unitsHolder);
                     processStunAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                     processPetrifyingGazeAbility(targetUnit, attackerUnit, damageFromResponse, this.sceneLog);
                     processBoarSalivaAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
@@ -1406,10 +1410,13 @@ export class AttackHandler {
                 processShatterArmorAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
             }
 
-            if (!hasLightningSpinResponseLanded && attackerUnit.isDead()) {
+            if (
+                !hasLightningSpinResponseLanded &&
+                attackerUnit.isDead() &&
+                !unitIdsDied.includes(attackerUnit.getId())
+            ) {
                 this.sceneLog.updateLog(`${attackerUnit.getName()} eee2 ied`);
 
-                // unitsHolder.deleteUnitById(attackerUnit.getId(), true);
                 unitIdsDied.push(attackerUnit.getId());
                 targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 targetUnit.applyMoraleStepsModifier(
@@ -1418,10 +1425,9 @@ export class AttackHandler {
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(attackerUnit);
             }
 
-            if (!hasLightningSpinAttackLanded && targetUnit.isDead()) {
+            if (!hasLightningSpinAttackLanded && targetUnit.isDead() && !unitIdsDied.includes(targetUnit.getId())) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
 
-                // unitsHolder.deleteUnitById(targetUnit.getId(), true);
                 unitIdsDied.push(targetUnit.getId());
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 attackerUnit.applyMoraleStepsModifier(

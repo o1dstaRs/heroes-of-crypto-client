@@ -387,7 +387,7 @@ const UnitStatsLayout: React.FC<{
                 <StatItem
                     icon={<HeartIcon />}
                     value={`${unitProperties.hp}/${unitProperties.max_hp}`}
-                    tooltip="Health points"
+                    tooltip="Current/max Health Points"
                     color="#ff4d4d"
                 />
                 {unitProperties.can_cast_spells && (
@@ -490,7 +490,7 @@ const UnitStatsLayout: React.FC<{
                 <StatItem
                     icon={<LuckIcon />}
                     value={unitProperties.luck + unitProperties.luck_per_turn}
-                    tooltip="Dealing extra damage or reducing damage taken in combat. Also affecting abilities chance"
+                    tooltip="Luck: Increases or decreases damage received in combat, while also affecting the probability or power of abilities"
                     color="#ff4040"
                     badgeContent={luckBadgeValue}
                     badgeColor={unitProperties.luck_per_turn > 0 ? "success" : "danger"}

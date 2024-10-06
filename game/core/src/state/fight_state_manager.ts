@@ -9,9 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { GridMath, GridSettings, TeamType, FightProperties, HoCConstants } from "@heroesofcrypto/common";
-
-import { Unit } from "../units/units";
+import { GridMath, GridSettings, TeamType, FightProperties, Unit } from "@heroesofcrypto/common";
 
 export class FightStateManager {
     private static instance: FightStateManager;
@@ -39,16 +37,8 @@ export class FightStateManager {
     }
 
     // TODO: move all that into FightProperties. That requires Unit to be ported into Common code
-    public prefetchNextUnitsToTurn(
-        allUnits: Map<string, Unit>,
-        unitsUpper: Unit[],
-        unitsLower: Unit[],
-        upNextUnitsCount = HoCConstants.UP_NEXT_UNITS_COUNT,
-    ): void {
-        if (upNextUnitsCount < 1) {
-            upNextUnitsCount = 1;
-        }
-        upNextUnitsCount = Math.floor(upNextUnitsCount);
+    public prefetchNextUnitsToTurn(allUnits: Map<string, Unit>, unitsUpper: Unit[], unitsLower: Unit[]): void {
+        const upNextUnitsCount = unitsUpper.length + unitsLower.length;
 
         if (this.fightProperties.getUpNextQueueSize() >= upNextUnitsCount) {
             return;
@@ -59,9 +49,10 @@ export class FightStateManager {
 
             if (nextUnitId) {
                 const unit = allUnits.get(nextUnitId);
-
                 if (
                     unit &&
+                    !unit.isDead() &&
+                    !unit.isSkippingThisTurn() &&
                     !this.fightProperties.upNextIncludes(nextUnitId) &&
                     !this.fightProperties.hasAlreadyMadeTurn(nextUnitId)
                 ) {

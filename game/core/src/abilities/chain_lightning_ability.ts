@@ -9,11 +9,10 @@
  * -----------------------------------------------------------------------------
  */
 
-import { EffectHelper, HoCConstants, Grid, HoCMath, TeamType, HoCScene } from "@heroesofcrypto/common";
+import { EffectHelper, HoCConstants, Grid, HoCMath, TeamType, HoCScene, Unit } from "@heroesofcrypto/common";
 
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 
 interface ILayerImpact {
@@ -169,7 +168,6 @@ export function processChainLightningAbility(
 
     if (targetUnit.isDead()) {
         sceneLog.updateLog(`${targetUnit.getName()} died`);
-        // unitsHolder.deleteUnitById(targetUnit.getId(), true);
         unitIdsDied.push(targetUnit.getId());
         fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
         fromUnit.applyMoraleStepsModifier(

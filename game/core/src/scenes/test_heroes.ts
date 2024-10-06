@@ -39,6 +39,8 @@ import {
     AbilityHelper,
     PlacementType,
     SquarePlacement,
+    Unit,
+    IAttackTargets,
 } from "@heroesofcrypto/common";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
@@ -72,7 +74,6 @@ import {
     STEP,
     UNIT_SIZE_DELTA,
 } from "../statics";
-import { IAttackTargets, Unit } from "../units/units";
 import { UnitsFactory } from "../units/units_factory";
 import { UnitsHolder } from "../units/units_holder";
 import { g_camera } from "../utils/camera";

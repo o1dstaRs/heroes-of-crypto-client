@@ -9,9 +9,17 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, TeamType, Grid, ObstacleType, HoCMath, PathHelper, IWeightedRoute } from "@heroesofcrypto/common";
-
-import { Unit, IUnitAIRepr } from "../units/units";
+import {
+    AttackType,
+    TeamType,
+    Grid,
+    ObstacleType,
+    HoCMath,
+    PathHelper,
+    IWeightedRoute,
+    Unit,
+    IUnitAIRepr,
+} from "@heroesofcrypto/common";
 
 export interface IAI {
     nextMovingTarget(): HoCMath.XY | undefined;

@@ -9,11 +9,10 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, HoCMath, HoCConstants, HoCScene } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, HoCMath, HoCConstants, HoCScene, Unit } from "@heroesofcrypto/common";
 
 import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { processFireShieldAbility } from "./fire_shield_ability";
 import { processOneInTheFieldAbility } from "./one_in_the_field_ability";
@@ -117,22 +116,22 @@ export function processLightningSpinAbility(
 
             if (enemy.isDead()) {
                 unitsDead.push(enemy);
-            }
-
-            // check all the possible modificators here
-            // just in case if we have more inherited/stolen abilities
-            processMinerAbility(fromUnit, enemy, sceneLog);
-            processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
-            processPetrifyingGazeAbility(fromUnit, enemy, damageFromAttack, sceneLog);
-            processBoarSalivaAbility(fromUnit, enemy, fromUnit, sceneLog);
-            processAggrAbility(fromUnit, enemy, fromUnit, sceneLog);
-            processDeepWoundsAbility(fromUnit, enemy, fromUnit, sceneLog);
-            processPegasusLightAbility(fromUnit, enemy, fromUnit, sceneLog);
-            processParalysisAbility(fromUnit, enemy, fromUnit, sceneLog);
-            if (isAttack) {
-                processShatterArmorAbility(fromUnit, enemy, fromUnit, sceneLog);
             } else {
-                processBlindnessAbility(fromUnit, enemy, fromUnit, sceneLog);
+                // check all the possible modificators here
+                // just in case if we have more inherited/stolen abilities
+                processMinerAbility(fromUnit, enemy, sceneLog);
+                processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
+                processPetrifyingGazeAbility(fromUnit, enemy, damageFromAttack, sceneLog);
+                processBoarSalivaAbility(fromUnit, enemy, fromUnit, sceneLog);
+                processAggrAbility(fromUnit, enemy, fromUnit, sceneLog);
+                processDeepWoundsAbility(fromUnit, enemy, fromUnit, sceneLog);
+                processPegasusLightAbility(fromUnit, enemy, fromUnit, sceneLog);
+                processParalysisAbility(fromUnit, enemy, fromUnit, sceneLog);
+                if (isAttack) {
+                    processShatterArmorAbility(fromUnit, enemy, fromUnit, sceneLog);
+                } else {
+                    processBlindnessAbility(fromUnit, enemy, fromUnit, sceneLog);
+                }
             }
         }
 
@@ -140,7 +139,7 @@ export function processLightningSpinAbility(
             if (!wasDead.includes(enemy)) {
                 const damageFromAttack = enemyIdDamageFromAttack.get(enemy.getId());
                 if (damageFromAttack) {
-                    processFireShieldAbility(enemy, fromUnit, sceneLog, unitsHolder, damageFromAttack);
+                    processFireShieldAbility(enemy, fromUnit, sceneLog, damageFromAttack, unitsHolder);
                 }
             }
         }

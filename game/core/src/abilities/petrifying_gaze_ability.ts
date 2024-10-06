@@ -9,10 +9,9 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCLib, AbilityType, HoCScene } from "@heroesofcrypto/common";
+import { HoCLib, AbilityType, HoCScene, Unit } from "@heroesofcrypto/common";
 
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { Unit } from "../units/units";
 
 export function processPetrifyingGazeAbility(
     fromUnit: Unit,

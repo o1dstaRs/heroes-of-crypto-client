@@ -9,10 +9,9 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, HoCScene } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, HoCScene, Unit } from "@heroesofcrypto/common";
 
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { processFireShieldAbility } from "./fire_shield_ability";
 import { processLuckyStrikeAbility } from "./lucky_strike_ability";
@@ -87,7 +86,7 @@ export function processDoublePunchAbility(
         }
         sceneLog.updateLog(`${fromUnit.getName()} attk ${toUnit.getName()} (${damageFromAttack})`);
 
-        processFireShieldAbility(toUnit, fromUnit, sceneLog, unitsHolder, damageFromAttack);
+        processFireShieldAbility(toUnit, fromUnit, sceneLog, damageFromAttack, unitsHolder);
         secondPunchLanded = true;
     }
 

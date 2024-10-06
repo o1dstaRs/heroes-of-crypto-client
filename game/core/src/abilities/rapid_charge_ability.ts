@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Unit } from "../units/units";
+import { Unit } from "@heroesofcrypto/common";
 
 export function processRapidChargeAbility(attackerUnit: Unit, chargeDistanceCells: number): number {
     let abilityMultiplier = 1;

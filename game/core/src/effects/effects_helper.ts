@@ -9,9 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Grid, HoCLib } from "@heroesofcrypto/common";
+import { Grid, HoCLib, Unit } from "@heroesofcrypto/common";
 
-import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 
 export const getAbsorptionTarget = (forUnit: Unit, grid: Grid, unitsHolder: UnitsHolder): Unit | undefined => {

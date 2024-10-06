@@ -9,9 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCScene } from "@heroesofcrypto/common";
+import { HoCScene, Unit } from "@heroesofcrypto/common";
 
-import { Unit } from "../units/units";
 import { getLapString } from "../utils/strings";
 
 export function processDeepWoundsAbility(

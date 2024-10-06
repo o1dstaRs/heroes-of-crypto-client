@@ -19,11 +19,11 @@ import {
     Spell,
     SpellPowerType,
     HoCScene,
+    Unit,
 } from "@heroesofcrypto/common";
 import { getAbsorptionTarget } from "../effects/effects_helper";
 
 import { isMirrored } from "../spells/spells_helper";
-import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { getLapString } from "../utils/strings";
 

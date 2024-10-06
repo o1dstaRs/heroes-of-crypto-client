@@ -21,7 +21,7 @@ import {
     b2World,
     XY,
 } from "@box2d/core";
-import { Grid, GridType, GridMath, GridSettings, ObstacleType } from "@heroesofcrypto/common";
+import { Grid, GridType, GridMath, GridSettings, ObstacleType, Unit } from "@heroesofcrypto/common";
 
 import { Obstacle } from "../obstacles/obstacle";
 import { ObstacleGenerator } from "../obstacles/obstacle_generator";
@@ -33,7 +33,6 @@ import {
     MOUNTAIN_ENLARGE_X,
     MOUNTAIN_ENLARGE_Y,
 } from "../statics";
-import { Unit } from "../units/units";
 import { UnitsHolder } from "../units/units_holder";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";

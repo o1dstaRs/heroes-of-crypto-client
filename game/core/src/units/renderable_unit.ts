@@ -26,10 +26,11 @@ import {
     SpellHelper,
     EffectFactory,
     HoCScene,
+    HoCConstants,
+    Unit,
 } from "@heroesofcrypto/common";
 
 import { DAMAGE_ANIMATION_TICKS, HP_BAR_DELTA, MAX_FPS, RESURRECTION_ANIMATION_TICKS } from "../statics";
-import { Unit } from "./units";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
 import { DefaultShader } from "../utils/gl/defaultShader";
@@ -382,7 +383,481 @@ export class RenderableUnit extends Unit {
         );
     }
 
-    protected refreshAbiltyDescription(_abilityName: string, _abilityDescription: string): void {
+    /**
+     * Refreshes the abilities descriptions for the UI, according to current unit stats.
+     **/
+    protected refreshAbilitiesDescriptions(): void {
+        // Heavy Armor
+        const heavyArmorAbility = this.getAbility("Heavy Armor");
+        if (heavyArmorAbility) {
+            const percentage = Number(
+                (
+                    ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
+                    this.getStackPower() *
+                    100
+                ).toFixed(2),
+            );
+            this.refreshAbiltyDescription(
+                heavyArmorAbility.getName(),
+                heavyArmorAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Lightning Spin
+        const lightningSpinAbility = this.getAbility("Lightning Spin");
+        if (lightningSpinAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(lightningSpinAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                lightningSpinAbility.getName(),
+                lightningSpinAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Fire Breath
+        const fireBreathAbility = this.getAbility("Fire Breath");
+        if (fireBreathAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(fireBreathAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                fireBreathAbility.getName(),
+                fireBreathAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Skewer Strike
+        const skewerStrikeAbility = this.getAbility("Skewer Strike");
+        if (skewerStrikeAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(skewerStrikeAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                skewerStrikeAbility.getName(),
+                skewerStrikeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Fire Shield
+        const fireShieldAbility = this.getAbility("Fire Shield");
+        if (fireShieldAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(fireShieldAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                fireShieldAbility.getName(),
+                fireShieldAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Backstab
+        const backstabAbility = this.getAbility("Backstab");
+        if (backstabAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(backstabAbility) * 100).toFixed(2)) - 100;
+            this.refreshAbiltyDescription(
+                backstabAbility.getName(),
+                backstabAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Stun
+        const stunAbility = this.getAbility("Stun");
+        if (stunAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(stunAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                stunAbility.getName(),
+                stunAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Double Punch
+        const doublePunchAbility = this.getAbility("Double Punch");
+        if (doublePunchAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(doublePunchAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                doublePunchAbility.getName(),
+                doublePunchAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Piercing Spear
+        const piercingSpearAbility = this.getAbility("Piercing Spear");
+        if (piercingSpearAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(piercingSpearAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                piercingSpearAbility.getName(),
+                piercingSpearAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Boost Health
+        const boostHealthAbility = this.getAbility("Boost Health");
+        if (boostHealthAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(boostHealthAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                boostHealthAbility.getName(),
+                boostHealthAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Double Shot
+        const doubleShotAbility = this.getAbility("Double Shot");
+        if (doubleShotAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(doubleShotAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                doubleShotAbility.getName(),
+                doubleShotAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Blindness
+        const blindnessAbility = this.getAbility("Blindness");
+        if (blindnessAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(blindnessAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                blindnessAbility.getName(),
+                blindnessAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Sharpened Weapons Aura
+        const sharpenedWeaponsAuraAbility = this.getAbility("Sharpened Weapons Aura");
+        if (sharpenedWeaponsAuraAbility) {
+            const percentage = (this.calculateAbilityMultiplier(sharpenedWeaponsAuraAbility) * 100 - 100).toFixed(2);
+            this.refreshAbiltyDescription(
+                sharpenedWeaponsAuraAbility.getName(),
+                sharpenedWeaponsAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage),
+            );
+        }
+
+        // War Anger Aura
+        const warAngerAuraAbility = this.getAbility("War Anger Aura");
+        if (warAngerAuraAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(warAngerAuraAbility) * 100).toFixed(2)) - 100;
+            this.refreshAbiltyDescription(
+                warAngerAuraAbility.getName(),
+                warAngerAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Arrows Wingshield Aura
+        const arrowsWingshieldAuraAbility = this.getAbility("Arrows Wingshield Aura");
+        if (arrowsWingshieldAuraAbility) {
+            const percentage =
+                Number((this.calculateAbilityMultiplier(arrowsWingshieldAuraAbility) * 100).toFixed(2)) - 100;
+            this.refreshAbiltyDescription(
+                arrowsWingshieldAuraAbility.getName(),
+                arrowsWingshieldAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Limited Supply
+        const limitedSupplyAbility = this.getAbility("Limited Supply");
+        if (limitedSupplyAbility) {
+            const percentage = Number(
+                ((this.getStackPower() / HoCConstants.MAX_UNIT_STACK_POWER) * limitedSupplyAbility.getPower()).toFixed(
+                    2,
+                ),
+            );
+            this.refreshAbiltyDescription(
+                limitedSupplyAbility.getName(),
+                limitedSupplyAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Boar Saliva
+        const boarSalivaAbility = this.getAbility("Boar Saliva");
+        if (boarSalivaAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(boarSalivaAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                boarSalivaAbility.getName(),
+                boarSalivaAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Aggr
+        const aggrAbility = this.getAbility("Aggr");
+        if (aggrAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(aggrAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                aggrAbility.getName(),
+                aggrAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Wardguard
+        const wardguardAbility = this.getAbility("Wardguard");
+        if (wardguardAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(wardguardAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                wardguardAbility.getName(),
+                wardguardAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Magic Shield
+        const magicShieldAbility = this.getAbility("Magic Shield");
+        if (magicShieldAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(magicShieldAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                magicShieldAbility.getName(),
+                magicShieldAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Dodge
+        const dodgeAbility = this.getAbility("Dodge");
+        if (dodgeAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(dodgeAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                dodgeAbility.getName(),
+                dodgeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Small Specie
+        const smallSpecieAbility = this.getAbility("Small Specie");
+        if (smallSpecieAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(smallSpecieAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                smallSpecieAbility.getName(),
+                smallSpecieAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Absorb Penalties Aura
+        const absorbPenaltiesAuraAbility = this.getAbility("Absorb Penalties Aura");
+        if (absorbPenaltiesAuraAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(absorbPenaltiesAuraAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                absorbPenaltiesAuraAbility.getName(),
+                absorbPenaltiesAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Petrifying Gaze
+        const petrifyingGazeAbility = this.getAbility("Petrifying Gaze");
+        if (petrifyingGazeAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(petrifyingGazeAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                petrifyingGazeAbility.getName(),
+                petrifyingGazeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Spit Ball
+        const spitBallAbility = this.getAbility("Spit Ball");
+        if (spitBallAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(spitBallAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                spitBallAbility.getName(),
+                spitBallAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Large Caliber
+        const largeCaliberAbility = this.getAbility("Large Caliber");
+        if (largeCaliberAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(largeCaliberAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                largeCaliberAbility.getName(),
+                largeCaliberAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Area Throw
+        const areaThrowAbility = this.getAbility("Area Throw");
+        if (areaThrowAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(areaThrowAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                areaThrowAbility.getName(),
+                areaThrowAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Through Shot
+        const throughShotAbility = this.getAbility("Through Shot");
+        if (throughShotAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(throughShotAbility) * 100).toFixed(2));
+            this.refreshAbiltyDescription(
+                throughShotAbility.getName(),
+                throughShotAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Sky Runner
+        const skyRunnerAbility = this.getAbility("Sky Runner");
+        if (skyRunnerAbility) {
+            this.refreshAbiltyDescription(
+                skyRunnerAbility.getName(),
+                skyRunnerAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateAbilityCount(skyRunnerAbility).toString()),
+            );
+        }
+
+        // Lucky Strike
+        const luckyStrikeAbility = this.getAbility("Lucky Strike");
+        if (luckyStrikeAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(luckyStrikeAbility) * 100).toFixed(2)) - 100;
+            this.refreshAbiltyDescription(
+                luckyStrikeAbility.getName(),
+                luckyStrikeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Shatter Armor
+        const shatterArmorAbility = this.getAbility("Shatter Armor");
+        if (shatterArmorAbility) {
+            this.refreshAbiltyDescription(
+                shatterArmorAbility.getName(),
+                shatterArmorAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateAbilityCount(shatterArmorAbility).toString()),
+            );
+        }
+
+        // Rapid Charge
+        const rapidChargeAbility = this.getAbility("Rapid Charge");
+        if (rapidChargeAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(rapidChargeAbility) * 100).toFixed(2)) - 100;
+            this.refreshAbiltyDescription(
+                rapidChargeAbility.getName(),
+                rapidChargeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Wolf Trail Aura
+        const wolfTrailAuraAbility = this.getAbility("Wolf Trail Aura");
+        if (wolfTrailAuraAbility) {
+            this.refreshAbiltyDescription(
+                wolfTrailAuraAbility.getName(),
+                wolfTrailAuraAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateAbilityCount(wolfTrailAuraAbility).toString()),
+            );
+        }
+
+        // Penetrating Bite
+        const penetratingBiteAbility = this.getAbility("Penetrating Bite");
+        if (penetratingBiteAbility) {
+            const percentage = Number((this.calculateAbilityMultiplier(penetratingBiteAbility) * 100).toFixed(2)) - 100;
+            this.refreshAbiltyDescription(
+                penetratingBiteAbility.getName(),
+                penetratingBiteAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Pegasus Light
+        const pegasusLightAbility = this.getAbility("Pegasus Light");
+        if (pegasusLightAbility) {
+            const percentage = Number(this.calculateAbilityApplyChance(pegasusLightAbility).toFixed(2));
+            this.refreshAbiltyDescription(
+                pegasusLightAbility.getName(),
+                pegasusLightAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Paralysis
+        const paralysisAbility = this.getAbility("Paralysis");
+        if (paralysisAbility) {
+            const description = paralysisAbility.getDesc().join("\n");
+            const reduction = this.calculateAbilityApplyChance(paralysisAbility);
+            const chance = Math.min(100, reduction * 2);
+            const updatedDescription = description
+                .replace("{}", Number(chance.toFixed(2)).toString())
+                .replace("{}", Number(reduction.toFixed(2)).toString());
+            this.refreshAbiltyDescription(paralysisAbility.getName(), updatedDescription);
+        }
+
+        // Deep Wounds Level 1
+        const deepWoundsLevel1Ability = this.getAbility("Deep Wounds Level 1");
+        if (deepWoundsLevel1Ability) {
+            this.refreshAbiltyDescription(
+                deepWoundsLevel1Ability.getName(),
+                deepWoundsLevel1Ability
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateAbilityCount(deepWoundsLevel1Ability).toString()),
+            );
+        }
+
+        // Deep Wounds Level 2
+        const deepWoundsLevel2Ability = this.getAbility("Deep Wounds Level 2");
+        if (deepWoundsLevel2Ability) {
+            this.refreshAbiltyDescription(
+                deepWoundsLevel2Ability.getName(),
+                deepWoundsLevel2Ability
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateAbilityCount(deepWoundsLevel2Ability).toString()),
+            );
+        }
+
+        // Deep Wounds Level 3
+        const deepWoundsLevel3Ability = this.getAbility("Deep Wounds Level 3");
+        if (deepWoundsLevel3Ability) {
+            this.refreshAbiltyDescription(
+                deepWoundsLevel3Ability.getName(),
+                deepWoundsLevel3Ability
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateAbilityCount(deepWoundsLevel3Ability).toString()),
+            );
+        }
+
+        // Blind Fury
+        const blindFuryAbility = this.getAbility("Blind Fury");
+        if (blindFuryAbility) {
+            this.refreshAbiltyDescription(
+                blindFuryAbility.getName(),
+                blindFuryAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(
+                        /\{\}/g,
+                        (
+                            (1 -
+                                this.unitProperties.amount_alive /
+                                    (this.unitProperties.amount_alive + this.unitProperties.amount_died)) *
+                            100
+                        ).toFixed(1),
+                    ),
+            );
+        }
+
+        // Miner
+        const minerAbility = this.getAbility("Miner");
+        if (minerAbility) {
+            this.refreshAbiltyDescription(
+                minerAbility.getName(),
+                minerAbility.getDesc().join("\n").replace(/\{\}/g, this.calculateAbilityCount(minerAbility).toString()),
+            );
+        }
+
+        // Chain Lightning
+        const chainLightningAbility = this.getAbility("Chain Lightning");
+        if (chainLightningAbility) {
+            const percentage = this.calculateAbilityMultiplier(chainLightningAbility) * 100;
+            const description = chainLightningAbility.getDesc().join("\n");
+            const updatedDescription = description
+                .replace("{}", Number(percentage.toFixed()).toString())
+                .replace("{}", Number(((percentage * 7) / 8).toFixed()).toString())
+                .replace("{}", Number(((percentage * 6) / 8).toFixed()).toString())
+                .replace("{}", Number(((percentage * 5) / 8).toFixed()).toString());
+            this.refreshAbiltyDescription(chainLightningAbility.getName(), updatedDescription);
+        }
+
+        // Crusade
+        const crusadeAbility = this.getAbility("Crusade");
+        if (crusadeAbility) {
+            this.refreshAbiltyDescription(
+                crusadeAbility.getName(),
+                crusadeAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, Number(this.calculateAbilityCount(crusadeAbility).toFixed(2)).toString()),
+            );
+        }
+    }
+
+    private refreshAbiltyDescription(abilityName: string, abilityDescription: string): void {
         if (
             this.unitProperties.abilities.length === this.unitProperties.abilities_descriptions.length &&
             this.unitProperties.abilities.length === this.unitProperties.abilities_stack_powered.length &&
@@ -390,10 +865,10 @@ export class RenderableUnit extends Unit {
         ) {
             for (let i = 0; i < this.unitProperties.abilities.length; i++) {
                 if (
-                    this.unitProperties.abilities[i] === _abilityName &&
-                    (this.unitProperties.abilities_stack_powered[i] || _abilityName === "Blind Fury")
+                    this.unitProperties.abilities[i] === abilityName &&
+                    (this.unitProperties.abilities_stack_powered[i] || abilityName === "Blind Fury")
                 ) {
-                    this.unitProperties.abilities_descriptions[i] = _abilityDescription;
+                    this.unitProperties.abilities_descriptions[i] = abilityDescription;
                 }
             }
         }
