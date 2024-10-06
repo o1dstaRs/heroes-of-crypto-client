@@ -9,11 +9,9 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCConstants, HoCScene, Unit } from "@heroesofcrypto/common";
-import { FightStateManager } from "../state/fight_state_manager";
+import { HoCConstants, HoCScene, Unit, FightStateManager, UnitsHolder } from "@heroesofcrypto/common";
 
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { UnitsHolder } from "../units/units_holder";
 
 export function processFireShieldAbility(
     fromUnit: Unit,

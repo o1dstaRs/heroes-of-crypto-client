@@ -19,10 +19,10 @@ import {
     TeamType,
     HoCConstants,
     Unit,
+    UnitsHolder,
 } from "@heroesofcrypto/common";
 
 import { UnitsFactory } from "../units/units_factory";
-import { UnitsHolder } from "../units/units_holder";
 
 export interface ISystemMoveResult {
     log: string;

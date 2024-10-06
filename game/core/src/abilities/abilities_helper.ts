@@ -9,9 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCMath, Grid, Unit } from "@heroesofcrypto/common";
-
-import { UnitsHolder } from "../units/units_holder";
+import { HoCMath, Grid, Unit, UnitsHolder } from "@heroesofcrypto/common";
 
 function addToTargetList(
     ix: number,

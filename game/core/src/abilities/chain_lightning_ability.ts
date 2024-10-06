@@ -9,11 +9,19 @@
  * -----------------------------------------------------------------------------
  */
 
-import { EffectHelper, HoCConstants, Grid, HoCMath, TeamType, HoCScene, Unit } from "@heroesofcrypto/common";
+import {
+    EffectHelper,
+    HoCConstants,
+    Grid,
+    HoCMath,
+    TeamType,
+    HoCScene,
+    Unit,
+    FightStateManager,
+    UnitsHolder,
+} from "@heroesofcrypto/common";
 
-import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { UnitsHolder } from "../units/units_holder";
 
 interface ILayerImpact {
     cells: HoCMath.XY[];

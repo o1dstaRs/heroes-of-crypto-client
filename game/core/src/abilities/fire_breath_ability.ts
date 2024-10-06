@@ -18,11 +18,11 @@ import {
     HoCConstants,
     HoCScene,
     Unit,
+    FightStateManager,
+    UnitsHolder,
 } from "@heroesofcrypto/common";
 
-import { FightStateManager } from "../state/fight_state_manager";
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { UnitsHolder } from "../units/units_holder";
 import { nextStandingTargets } from "./abilities_helper";
 
 export function processFireBreathAbility(

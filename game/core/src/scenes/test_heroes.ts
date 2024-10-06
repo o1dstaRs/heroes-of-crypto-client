@@ -41,6 +41,8 @@ import {
     SquarePlacement,
     Unit,
     IAttackTargets,
+    FightStateManager,
+    UnitsHolder,
 } from "@heroesofcrypto/common";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
@@ -59,7 +61,6 @@ import { ObstacleGenerator } from "../obstacles/obstacle_generator";
 import { DrawableSquarePlacement } from "../draw/drawable_square_placement";
 import { Settings } from "../settings";
 import { RenderableSpell } from "../spells/renderable_spell";
-import { FightStateManager } from "../state/fight_state_manager";
 import { IVisibleButton, IVisibleUnit, VisibleButtonState } from "../state/visible_state";
 import {
     GRID_SIZE,
@@ -74,7 +75,6 @@ import {
     UNIT_SIZE_DELTA,
 } from "../statics";
 import { UnitsFactory } from "../units/units_factory";
-import { UnitsHolder } from "../units/units_holder";
 import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
@@ -499,11 +499,7 @@ class Sandbox extends GLScene {
                         }
                     }
                 }
-                // for (const unit of this.unitsHolder.getAllUnits().values()) {
-                //    if(unit.getCell() !== undefined && unit.getCell() === action.cellToAttack()) {
-                //        this.rangeResponseUnit = unit;
-                //    }
-                // }
+
                 this.landAttack();
             } else {
                 // from attack_handler:405 moveHandler.startMoving() refactor for small and big units
@@ -857,8 +853,6 @@ class Sandbox extends GLScene {
                     this.hoveredSpell = undefined;
                 }
                 this.adjustSpellBookSprite();
-                // this.spellBookButtonNew.customSpriteName = undefined;
-                // this.refreshButtons(true);
             } else if (buttonName === "AttackType" && this.currentActiveUnit) {
                 if (this.currentActiveUnit.selectNextAttackType()) {
                     this.currentEnemiesCellsWithinMovementRange = undefined;
@@ -1552,11 +1546,6 @@ class Sandbox extends GLScene {
                     }
                 }
 
-                // const currentUnitCell = GridMath.getCellForPosition(
-                //     this.sc_sceneSettings.getGridSettings(),
-                //     this.currentActiveUnit.getPosition(),
-                // );
-
                 if (
                     this.currentActiveUnit &&
                     (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MAGIC || this.currentActiveSpell)
@@ -1609,28 +1598,6 @@ class Sandbox extends GLScene {
                 }
 
                 this.hoverSelectedCells = undefined;
-
-                // if (
-                //     !this.currentActiveSpell &&
-                //     !this.currentActiveUnitSwitchedAttackAuto &&
-                //     currentUnitCell &&
-                //     this.currentActiveUnit.getAttackType() === AttackType.RANGE &&
-                //     this.currentActiveUnit.getAttackTypeSelection() !== AttackType.RANGE &&
-                //     !this.attackHandler.canBeAttackedByMelee(
-                //         this.currentActiveUnit.getPosition(),
-                //         this.currentActiveUnit.isSmallSize(),
-                //         this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
-                //     ) &&
-                //     this.currentActiveUnit.getRangeShots() > 0 &&
-                //     !this.currentActiveUnit.hasDebuffActive("Range Null Field Aura") &&
-                //     !this.currentActiveUnit.hasDebuffActive("Rangebane")
-                // ) {
-                //     this.selectAttack(AttackType.RANGE, true);
-                //     this.currentActiveUnitSwitchedAttackAuto = true;
-                //     this.switchToSelectedAttackType = undefined;
-
-                //     console.log("Switch to RANGE");
-                // }
 
                 if (
                     (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE ||
@@ -2706,9 +2673,9 @@ class Sandbox extends GLScene {
                     }
                 }
                 this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
-                this.resetHover();
                 this.sc_damageStatsUpdateNeeded = true;
                 this.finishTurn();
+                this.resetHover();
                 return true;
             }
         }
@@ -2742,9 +2709,9 @@ class Sandbox extends GLScene {
                 }
             }
             this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
-            this.resetHover();
             this.sc_damageStatsUpdateNeeded = true;
             this.finishTurn();
+            this.resetHover();
             return true;
         }
 
@@ -2775,8 +2742,8 @@ class Sandbox extends GLScene {
                 }
             }
             this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
-            this.resetHover();
             this.finishTurn();
+            this.resetHover();
             return true;
         }
         this.cleanupHoverText();
@@ -2843,6 +2810,7 @@ class Sandbox extends GLScene {
             FightStateManager.getInstance()
                 .getFightProperties()
                 .addAlreadyMadeTurn(this.currentActiveUnit.getTeam(), this.currentActiveUnit.getId());
+            FightStateManager.getInstance().getFightProperties().removeFromUpNext(this.currentActiveUnit.getId());
             this.currentActiveUnit.setOnHourglass(false);
             console.log(
                 `Finished turn ${this.currentActiveUnit.getName()} lap ${FightStateManager.getInstance()
@@ -3941,7 +3909,6 @@ class Sandbox extends GLScene {
                                         if (occupiedCells) {
                                             unit.setPosition(bodyPosition.x, bodyPosition.y);
                                         }
-                                        // unit.randomizeLuckPerTurn();
                                         unit.setResponded(false);
                                         unit.setOnHourglass(false);
                                         unit.applyMoraleStepsModifier(
@@ -4114,7 +4081,6 @@ class Sandbox extends GLScene {
                 !fightFinished
             ) {
                 for (const u of units) {
-                    // u.randomizeLuckPerTurn();
                     u.setResponded(false);
                     u.setOnHourglass(false);
                     u.applyMoraleStepsModifier(
@@ -4309,11 +4275,9 @@ class Sandbox extends GLScene {
                             }
                         }
 
-                        FightStateManager.getInstance().prefetchNextUnitsToTurn(
-                            this.unitsHolder.getAllUnits(),
-                            unitsUpper,
-                            unitsLower,
-                        );
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .prefetchNextUnitsToTurn(this.unitsHolder.getAllUnits(), unitsUpper, unitsLower);
                         this.refreshButtons();
 
                         const nextUnitId = FightStateManager.getInstance().getFightProperties().dequeueNextUnitId();
@@ -4395,7 +4359,6 @@ class Sandbox extends GLScene {
                                     this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                                     this.currentActiveSpell = undefined;
                                     this.adjustSpellBookSprite();
-                                    // this.currentActiveUnitSwitchedAttackAuto = false;
                                     // this.grid.print(nextUnit.getId());
                                     const currentCell = GridMath.getCellForPosition(
                                         this.sc_sceneSettings.getGridSettings(),
