@@ -50,7 +50,7 @@ export const UpNext: React.FC = () => {
                         }}
                     >
                         {visibleUnits.length > 0 &&
-                            visibleUnits.map((unit, index) => (
+                            [...visibleUnits].reverse().map((unit, index) => (
                                 <Box key={index} sx={{ position: "relative" }}>
                                     <Avatar
                                         // @ts-ignore: src params
@@ -58,10 +58,10 @@ export const UpNext: React.FC = () => {
                                         variant="plain"
                                         sx={{
                                             transform: "rotateX(-180deg)",
-                                            width: index === visibleUnits.length - 1 ? "84px" : "72px",
-                                            height: index === visibleUnits.length - 1 ? "84px" : "72px",
+                                            width: index === 0 ? "84px" : "72px",
+                                            height: index === 0 ? "84px" : "72px",
                                             flexShrink: 0,
-                                            boxShadow: index === visibleUnits.length - 1 ? boxShadow : "none",
+                                            boxShadow: index === 0 ? boxShadow : "none",
                                         }}
                                     />
                                     <Badge
@@ -70,8 +70,8 @@ export const UpNext: React.FC = () => {
                                         color="#ff0000"
                                         sx={{
                                             position: "absolute",
-                                            bottom: index === visibleUnits.length - 1 ? 12 : 18,
-                                            right: index === visibleUnits.length - 1 ? 21 : 16,
+                                            bottom: index === 0 ? 12 : 18,
+                                            right: index === 0 ? 21 : 16,
                                             zIndex: 1,
                                             "& .MuiBadge-badge": {
                                                 fontSize: "0.9rem",
@@ -80,12 +80,8 @@ export const UpNext: React.FC = () => {
                                                 color: "white",
                                                 backgroundColor:
                                                     unit.teamType === TeamType.UPPER
-                                                        ? `rgba(244, 67, 54, ${
-                                                              index === visibleUnits.length - 1 ? 1 : 0.6
-                                                          })`
-                                                        : `rgba(76, 175, 80, ${
-                                                              index === visibleUnits.length - 1 ? 1 : 0.6
-                                                          })`,
+                                                        ? `rgba(244, 67, 54, ${index === 0 ? 1 : 0.6})`
+                                                        : `rgba(76, 175, 80, ${index === 0 ? 1 : 0.6})`,
                                             },
                                         }}
                                     />
