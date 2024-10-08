@@ -417,9 +417,9 @@ export class UnitsFactory {
             units.push(this.makeCreature(FactionType.LIFE, "Angel", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
             units.push(this.makeCreature(FactionType.LIFE, "Champion", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
         } else if (faction === FactionType.NATURE) {
-            // heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
-            // heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
-            // heroes.push(this.unitsFactory.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
+            // heroes.push(this.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
+            // heroes.push(this.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
+            // heroes.push(this.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
             units.push(this.makeCreature(FactionType.NATURE, "Fairy", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
             units.push(this.makeCreature(FactionType.NATURE, "Wolf", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
             units.push(this.makeCreature(FactionType.NATURE, "Leprechaun", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
@@ -589,7 +589,7 @@ export class UnitsFactory {
         );
     }
 
-    public makeHero(faction: FactionType, team: TeamType, heroType: HeroType, gender: HeroGender): Unit {
+    public makeHero(faction: FactionType, team: TeamType, heroType: HeroType, gender: HeroGender): RenderableUnit {
         const heroKey = generateHeroKey(faction, heroType, gender);
 
         const textureWithNamePair = this.getRandomHeroTexture(heroKey);

@@ -9,15 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCScene, Unit } from "@heroesofcrypto/common";
-
-import { getLapString } from "../utils/strings";
+import { ISceneLog, Unit, HoCLib } from "@heroesofcrypto/common";
 
 export function processPegasusLightAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     currentActiveUnit: Unit,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): void {
     if (targetUnit.isDead()) {
         return;
@@ -45,7 +43,9 @@ export function processPegasusLightAbility(
 
         if (targetUnit.applyEffect(pegasusLightEffect)) {
             sceneLog.updateLog(
-                `${fromUnit.getName()} applied Pegasus Light on ${targetUnit.getName()} for ${getLapString(laps)}`,
+                `${fromUnit.getName()} applied Pegasus Light on ${targetUnit.getName()} for ${HoCLib.getLapString(
+                    laps,
+                )}`,
             );
         }
     }

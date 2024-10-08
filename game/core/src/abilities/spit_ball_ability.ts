@@ -18,14 +18,12 @@ import {
     Grid,
     Spell,
     SpellPowerType,
-    HoCScene,
+    ISceneLog,
     Unit,
     SpellHelper,
     UnitsHolder,
+    EffectHelper,
 } from "@heroesofcrypto/common";
-import { getAbsorptionTarget } from "../effects/effects_helper";
-
-import { getLapString } from "../utils/strings";
 
 const POSSIBLE_DEBUFFS_TO_FACTIONS = {
     Sadness: "Death",
@@ -42,10 +40,10 @@ export function processSpitBallAbility(
     currentActiveUnit: Unit,
     unitsHolder: UnitsHolder,
     grid: Grid,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): void {
     // effect can be absorbed
-    const absorptionTarget = getAbsorptionTarget(targetUnit, grid, unitsHolder);
+    const absorptionTarget = EffectHelper.getAbsorptionTarget(targetUnit, grid, unitsHolder);
     if (absorptionTarget) {
         targetUnit = absorptionTarget;
     }
@@ -102,7 +100,7 @@ export function processSpitBallAbility(
 
         targetUnit.applyDebuff(debuff, undefined, undefined, targetUnit.getId() === currentActiveUnit.getId());
         sceneLog.updateLog(
-            `${fromUnit.getName()} applied ${randomDebuff} on ${targetUnit.getName()} for ${getLapString(laps)}`,
+            `${fromUnit.getName()} applied ${randomDebuff} on ${targetUnit.getName()} for ${HoCLib.getLapString(laps)}`,
         );
 
         // we already know it has not been applied already
@@ -112,7 +110,9 @@ export function processSpitBallAbility(
         ) {
             fromUnit.applyDebuff(debuff, undefined, undefined, fromUnit.getId() === currentActiveUnit.getId());
             sceneLog.updateLog(
-                `${targetUnit.getName()} mirrored ${randomDebuff} to ${fromUnit.getName()} for ${getLapString(laps)}`,
+                `${targetUnit.getName()} mirrored ${randomDebuff} to ${fromUnit.getName()} for ${HoCLib.getLapString(
+                    laps,
+                )}`,
             );
         }
     } else {

@@ -9,15 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, HoCLib, HoCScene, Unit } from "@heroesofcrypto/common";
-
-import { getLapString } from "../utils/strings";
+import { AbilityType, HoCLib, ISceneLog, Unit } from "@heroesofcrypto/common";
 
 export function processStunAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     currentActiveUnit: Unit,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): void {
     if (targetUnit.isDead()) {
         return;
@@ -49,7 +47,7 @@ export function processStunAbility(
         }
 
         if (targetUnit.applyEffect(stunEffect)) {
-            sceneLog.updateLog(`${targetUnit.getName()} got stunned for ${getLapString(laps)}`);
+            sceneLog.updateLog(`${targetUnit.getName()} got stunned for ${HoCLib.getLapString(laps)}`);
         }
     }
 }

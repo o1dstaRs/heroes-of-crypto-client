@@ -25,7 +25,7 @@ import {
     AbilityFactory,
     SpellHelper,
     EffectFactory,
-    HoCScene,
+    ISceneLog,
     HoCConstants,
     Unit,
 } from "@heroesofcrypto/common";
@@ -270,7 +270,7 @@ export class RenderableUnit extends Unit {
         this.lastKnownTick = currentTick;
     }
 
-    public render(fps: number, isDamageAnimationLocked: boolean, sceneLog: HoCScene.SceneLog) {
+    public render(fps: number, isDamageAnimationLocked: boolean, sceneLog: ISceneLog) {
         this.lastKnownTick = Math.max(this.sceneStepCount.getValue(), this.lastKnownTick);
 
         if (this.lastKnownTick < this.resurrectionAnimationTick) {
@@ -898,6 +898,7 @@ export class RenderableUnit extends Unit {
                     { spellProperties: spellProperties, amount: v },
                     this.gl,
                     this.shader,
+                    this.textures,
                     new Sprite(this.gl, this.shader, this.textures[textureNames[0] as keyof PreloadedTextures].texture),
                     new Sprite(this.gl, this.shader, this.textures[textureNames[1] as keyof PreloadedTextures].texture),
                     this.digitNormalTextures,

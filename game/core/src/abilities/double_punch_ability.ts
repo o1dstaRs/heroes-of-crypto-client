@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, HoCScene, Unit } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, Unit, ISceneLog } from "@heroesofcrypto/common";
 
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { processLuckyStrikeAbility } from "./lucky_strike_ability";
@@ -21,11 +21,7 @@ export interface IDoublePunchResult {
     damage: number;
 }
 
-export function processDoublePunchAbility(
-    fromUnit: Unit,
-    toUnit: Unit,
-    sceneLog: HoCScene.SceneLog,
-): IDoublePunchResult {
+export function processDoublePunchAbility(fromUnit: Unit, toUnit: Unit, sceneLog: ISceneLog): IDoublePunchResult {
     const doublePunchAbility = fromUnit.getAbility("Double Punch");
     let secondPunchLanded = false;
     let damageFromAttack = 0;

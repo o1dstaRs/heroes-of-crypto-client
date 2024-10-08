@@ -12,6 +12,7 @@
 import { HoCMath, ISpellParams, Spell } from "@heroesofcrypto/common";
 
 import { DefaultShader } from "../utils/gl/defaultShader";
+import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
 
 export enum BookPosition {
@@ -23,10 +24,11 @@ export enum BookPosition {
     SIX = 6,
 }
 
-const BOOK_POSITION_LEFT_X = -516;
-const BOOK_POSITION_RIGHT_X = 256;
-const BOOK_POSITION_Y = 1328;
-const BOOK_SPELL_SIZE = 256;
+const BOOK_POSITION_LEFT_X = -530;
+const BOOK_POSITION_RIGHT_X = 286;
+const BOOK_POSITION_Y = 1380;
+const BOOK_SPELL_SIZE = 320;
+const BOOK_CELL_SIZE = 500;
 
 export class RenderableSpell extends Spell {
     private readonly gl: WebGLRenderingContext;
@@ -38,6 +40,8 @@ export class RenderableSpell extends Spell {
     private readonly fontSprite: Sprite;
 
     private readonly texturesByDigit: Map<number, WebGLTexture>;
+
+    private readonly spellBackground: Sprite;
 
     private xMin: number = 0;
 
@@ -51,6 +55,7 @@ export class RenderableSpell extends Spell {
         spellParams: ISpellParams,
         gl: WebGLRenderingContext,
         shader: DefaultShader,
+        textures: PreloadedTextures,
         sprite: Sprite,
         fontSprite: Sprite,
         texturesByDigit: Map<number, WebGLTexture>,
@@ -61,6 +66,7 @@ export class RenderableSpell extends Spell {
         this.sprite = sprite;
         this.fontSprite = fontSprite;
         this.texturesByDigit = texturesByDigit;
+        this.spellBackground = new Sprite(gl, shader, textures.spell_cell_260.texture);
     }
 
     public getSprite(): Sprite {
@@ -99,8 +105,9 @@ export class RenderableSpell extends Spell {
 
         const xPos = page === 1 ? BOOK_POSITION_LEFT_X : BOOK_POSITION_RIGHT_X;
         const yPos =
-            BOOK_POSITION_Y - (pagePosition - 1) * BOOK_SPELL_SIZE - 0.25 * (pagePosition - 1) * BOOK_SPELL_SIZE;
+            BOOK_POSITION_Y - (pagePosition - 1) * BOOK_SPELL_SIZE - 0.4 * (pagePosition - 1) * BOOK_SPELL_SIZE;
 
+        this.spellBackground.setRect(xPos - 54, yPos - 112, BOOK_CELL_SIZE, BOOK_CELL_SIZE);
         this.sprite.setRect(xPos, yPos, BOOK_SPELL_SIZE, BOOK_SPELL_SIZE);
 
         this.xMin = xPos;
@@ -110,8 +117,9 @@ export class RenderableSpell extends Spell {
 
         const fifthStep = BOOK_SPELL_SIZE / 5;
 
-        this.fontSprite.setRect(xPos, yPos - 46, BOOK_SPELL_SIZE, fifthStep);
+        this.fontSprite.setRect(xPos, yPos - 70, BOOK_SPELL_SIZE, fifthStep);
 
+        this.spellBackground.render();
         this.sprite.render();
         this.fontSprite.render();
 

@@ -9,15 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, HoCLib, HoCScene, Unit } from "@heroesofcrypto/common";
-
-import { getLapString } from "../utils/strings";
+import { AbilityType, HoCLib, Unit, ISceneLog } from "@heroesofcrypto/common";
 
 export function processBlindnessAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     currentActiveUnit: Unit,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): void {
     if (targetUnit.isDead()) {
         return;
@@ -44,7 +42,7 @@ export function processBlindnessAbility(
             !(blindnessAbility.getType() === AbilityType.MIND && targetUnit.hasMindAttackResistance()) &&
             targetUnit.applyEffect(blindnessEffect)
         ) {
-            sceneLog.updateLog(`${targetUnit.getName()} is blind for ${getLapString(laps)}`);
+            sceneLog.updateLog(`${targetUnit.getName()} is blind for ${HoCLib.getLapString(laps)}`);
         } else {
             sceneLog.updateLog(`${targetUnit.getName()} resisted from blindness effect`);
         }

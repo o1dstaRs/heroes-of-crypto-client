@@ -9,15 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, HoCScene, HoCLib, Unit } from "@heroesofcrypto/common";
-
-import { getLapString } from "../utils/strings";
+import { AbilityType, ISceneLog, HoCLib, Unit } from "@heroesofcrypto/common";
 
 export function processParalysisAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     currentActiveUnit: Unit,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): void {
     if (targetUnit.isDead()) {
         return;
@@ -50,7 +48,7 @@ export function processParalysisAbility(
 
         if (targetUnit.applyEffect(paralysisEffect)) {
             sceneLog.updateLog(
-                `${fromUnit.getName()} applied Paralysis on ${targetUnit.getName()} for ${getLapString(laps)}`,
+                `${fromUnit.getName()} applied Paralysis on ${targetUnit.getName()} for ${HoCLib.getLapString(laps)}`,
             );
         }
     }

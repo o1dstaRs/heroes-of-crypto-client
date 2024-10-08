@@ -14,7 +14,7 @@ import {
     HoCLib,
     HoCMath,
     HoCConstants,
-    HoCScene,
+    ISceneLog,
     Unit,
     FightStateManager,
     UnitsHolder,
@@ -44,7 +44,7 @@ export interface ILightningSpinResult {
 
 export function processLightningSpinAbility(
     fromUnit: Unit,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
     unitsHolder: UnitsHolder,
     rapidChargeCells: number,
     attackFromCell?: HoCMath.XY,

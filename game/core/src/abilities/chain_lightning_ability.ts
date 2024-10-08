@@ -15,8 +15,8 @@ import {
     Grid,
     HoCMath,
     TeamType,
-    HoCScene,
     Unit,
+    ISceneLog,
     FightStateManager,
     UnitsHolder,
 } from "@heroesofcrypto/common";
@@ -66,7 +66,7 @@ function attackEnemiesAndGetLayerImpact(
     abilityMultiplier: number,
     alreadyAffectedIds: string[],
     unitsHolder: UnitsHolder,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
     unitIdsDied: string[],
 ): ILayerImpact[] {
     const fullLayerImpact: ILayerImpact[] = [];
@@ -131,7 +131,7 @@ export function processChainLightningAbility(
     attackDamage: number,
     grid: Grid,
     unitsHolder: UnitsHolder,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): string[] {
     const unitIdsDied: string[] = [];
     const chainLightningAbility = fromUnit.getAbility("Chain Lightning");

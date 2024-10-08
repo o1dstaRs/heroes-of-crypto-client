@@ -9,15 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, HoCLib, HoCScene, Unit } from "@heroesofcrypto/common";
-
-import { getLapString } from "../utils/strings";
+import { AbilityType, HoCLib, ISceneLog, Unit } from "@heroesofcrypto/common";
 
 export function processAggrAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     currentActiveUnit: Unit,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): void {
     if (targetUnit.isDead()) {
         return;
@@ -45,7 +43,7 @@ export function processAggrAbility(
             targetUnit.applyEffect(aggrEffect)
         ) {
             sceneLog.updateLog(
-                `${fromUnit.getName()} applied Aggr on ${targetUnit.getName()} for ${getLapString(laps)}`,
+                `${fromUnit.getName()} applied Aggr on ${targetUnit.getName()} for ${HoCLib.getLapString(laps)}`,
             );
             targetUnit.setTarget(fromUnit.getId());
         } else {

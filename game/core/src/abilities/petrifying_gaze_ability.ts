@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCLib, AbilityType, HoCScene, Unit } from "@heroesofcrypto/common";
+import { HoCLib, AbilityType, ISceneLog, Unit } from "@heroesofcrypto/common";
 
 import { DamageStatisticHolder } from "../stats/damage_stats";
 
@@ -17,7 +17,7 @@ export function processPetrifyingGazeAbility(
     fromUnit: Unit,
     toUnit: Unit,
     damageFromAttack: number,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): void {
     if (toUnit.isDead() || damageFromAttack <= 0) {
         return;
@@ -43,7 +43,7 @@ export function processPetrifyingGazeAbility(
     let proc = false;
     if (amountOfUnitsKilled < toUnit.getAmountAlive()) {
         const coeff1 = toUnit.getHp() / toUnit.getMaxHp();
-        const coeff2 = (1 - (unitsKilled - Math.floor(unitsKilled))) / 2;
+        const coeff2 = 1 - (unitsKilled - Math.floor(unitsKilled));
 
         if (fromUnit.getStackPower() > coeff1 * 100) {
             damageFromAbility += toUnit.getHp();

@@ -23,10 +23,12 @@ import {
     Spell,
     HoCConstants,
     AbilityHelper,
-    HoCScene,
+    ISceneLog,
     Unit,
     FightStateManager,
     UnitsHolder,
+    EffectHelper,
+    MoveHandler,
 } from "@heroesofcrypto/common";
 
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
@@ -38,13 +40,10 @@ import { processOneInTheFieldAbility } from "../abilities/one_in_the_field_abili
 import { processStunAbility } from "../abilities/stun_ability";
 import { Drawer } from "../draw/drawer";
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { MoveHandler } from "./move_handler";
 import { processBlindnessAbility } from "../abilities/blindness_ability";
 import { processBoarSalivaAbility } from "../abilities/boar_saliva_ability";
 import { processSpitBallAbility } from "../abilities/spit_ball_ability";
 import { processPetrifyingGazeAbility } from "../abilities/petrifying_gaze_ability";
-import { getAbsorptionTarget } from "../effects/effects_helper";
-import { getLapString } from "../utils/strings";
 import { IAOERangeAttackResult, processRangeAOEAbility } from "../abilities/aoe_range_ability";
 import { processThroughShotAbility } from "../abilities/through_shot_ability";
 import { processLuckyStrikeAbility } from "../abilities/lucky_strike_ability";
@@ -84,9 +83,9 @@ export class AttackHandler {
 
     public readonly grid: Grid;
 
-    public readonly sceneLog: HoCScene.SceneLog;
+    public readonly sceneLog: ISceneLog;
 
-    public constructor(gridSettings: GridSettings, grid: Grid, sceneLog: HoCScene.SceneLog) {
+    public constructor(gridSettings: GridSettings, grid: Grid, sceneLog: ISceneLog) {
         this.gridSettings = gridSettings;
         this.grid = grid;
         this.sceneLog = sceneLog;
@@ -379,7 +378,7 @@ export class AttackHandler {
             let applied = true;
             let mirroredStr = "";
             const laps = currentActiveSpell.getLapsTotal();
-            let clarifyingStr = `for ${getLapString(laps)}`;
+            let clarifyingStr = `for ${HoCLib.getLapString(laps)}`;
             if (currentActiveSpell.isBuff()) {
                 if (currentActiveSpell.getPowerType() === SpellPowerType.HEAL) {
                     if (currentActiveSpell.isGiftable()) {
@@ -411,7 +410,7 @@ export class AttackHandler {
                 // effect can be absorbed
                 let debuffTarget = targetUnit;
 
-                const absorptionTarget = getAbsorptionTarget(debuffTarget, grid, unitsHolder);
+                const absorptionTarget = EffectHelper.getAbsorptionTarget(debuffTarget, grid, unitsHolder);
                 if (absorptionTarget) {
                     debuffTarget = absorptionTarget;
                 }
@@ -508,7 +507,7 @@ export class AttackHandler {
                         undefined,
                         attackerUnit.getId() === targetUnit.getId(),
                     );
-                    mirroredStr = `${debuffTarget.getName()} mirrored ${currentActiveSpell.getName()} to ${attackerUnit.getName()} for ${getLapString(
+                    mirroredStr = `${debuffTarget.getName()} mirrored ${currentActiveSpell.getName()} to ${attackerUnit.getName()} for ${HoCLib.getLapString(
                         laps,
                     )}`;
                 }
@@ -517,7 +516,7 @@ export class AttackHandler {
             if (currentActiveSpell.isSelfDebuffApplicable()) {
                 // effect can be absorbed
                 let debuffTarget = attackerUnit;
-                const absorptionTarget = getAbsorptionTarget(debuffTarget, grid, unitsHolder);
+                const absorptionTarget = EffectHelper.getAbsorptionTarget(debuffTarget, grid, unitsHolder);
                 if (absorptionTarget) {
                     debuffTarget = absorptionTarget;
                 }

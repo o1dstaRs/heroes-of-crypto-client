@@ -9,15 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, HoCScene, Unit } from "@heroesofcrypto/common";
-
-import { getLapString } from "../utils/strings";
+import { AbilityType, ISceneLog, Unit, HoCLib } from "@heroesofcrypto/common";
 
 export function processShatterArmorAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     currentActiveUnit: Unit,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): void {
     if (targetUnit.isDead()) {
         return;
@@ -52,7 +50,9 @@ export function processShatterArmorAbility(
 
         if (targetUnit.applyEffect(shatterArmorEffect)) {
             sceneLog.updateLog(
-                `${fromUnit.getName()} applied Shatter Armor on ${targetUnit.getName()} for ${getLapString(laps)}`,
+                `${fromUnit.getName()} applied Shatter Armor on ${targetUnit.getName()} for ${HoCLib.getLapString(
+                    laps,
+                )}`,
             );
         }
     }

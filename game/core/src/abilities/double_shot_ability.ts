@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, HoCMath, Grid, HoCScene, Unit, UnitsHolder } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, HoCMath, ISceneLog, Grid, Unit, UnitsHolder } from "@heroesofcrypto/common";
 
 import { Drawer } from "../draw/drawer";
 import { IVisibleDamage } from "../state/visible_state";
@@ -28,7 +28,7 @@ export function processDoubleShotAbility(
     fromUnit: Unit,
     toUnit: Unit,
     affectedUnits: Unit[],
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
     drawer: Drawer,
     unitsHolder: UnitsHolder,
     grid: Grid,

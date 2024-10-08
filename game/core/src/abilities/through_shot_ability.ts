@@ -15,7 +15,7 @@ import {
     HoCMath,
     HoCConstants,
     Grid,
-    HoCScene,
+    ISceneLog,
     Unit,
     FightStateManager,
     UnitsHolder,
@@ -42,7 +42,7 @@ export function processThroughShotAbility(
     unitsHolder: UnitsHolder,
     grid: Grid,
     drawer: Drawer,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): IThroughShotResult {
     const unitIdsDied: string[] = [];
     const throughShotAbility = attackerUnit.getAbility("Through Shot");

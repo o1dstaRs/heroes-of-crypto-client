@@ -48,7 +48,6 @@ import {
     IAuraOnMap,
     UnitProperties,
     AbilityHelper,
-    HoCScene,
 } from "@heroesofcrypto/common";
 
 import { SceneControl } from "../sceneControls";
@@ -67,6 +66,7 @@ import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
+import { SceneLog } from "./scene_log";
 import { SceneSettings } from "./scene_settings";
 
 const temp = {
@@ -179,7 +179,7 @@ export abstract class Scene extends b2ContactListener {
 
     public readonly sc_mouseWorld = new b2Vec2();
 
-    public readonly sc_sceneLog = new HoCScene.SceneLog();
+    public readonly sc_sceneLog = new SceneLog();
 
     public readonly sc_maxProfile = new b2Profile();
 
