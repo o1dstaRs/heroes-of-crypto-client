@@ -44,6 +44,7 @@ import {
     FightStateManager,
     UnitsHolder,
     EffectHelper,
+    MoveHandler,
 } from "@heroesofcrypto/common";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
@@ -54,7 +55,6 @@ import { processRapidChargeAbility } from "../abilities/rapid_charge_ability";
 import { AIActionType, findTarget } from "../ai/ai";
 import { Drawer } from "../draw/drawer";
 import { AttackHandler, IAttackObstacle } from "../handlers/attack_handler";
-import { MoveHandler } from "../handlers/move_handler";
 import { Button } from "../menu/button";
 import { ObstacleGenerator } from "../obstacles/obstacle_generator";
 import { DrawableSquarePlacement } from "../draw/drawable_square_placement";

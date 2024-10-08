@@ -28,6 +28,7 @@ import {
     FightStateManager,
     UnitsHolder,
     EffectHelper,
+    MoveHandler,
 } from "@heroesofcrypto/common";
 
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
@@ -39,7 +40,6 @@ import { processOneInTheFieldAbility } from "../abilities/one_in_the_field_abili
 import { processStunAbility } from "../abilities/stun_ability";
 import { Drawer } from "../draw/drawer";
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { MoveHandler } from "./move_handler";
 import { processBlindnessAbility } from "../abilities/blindness_ability";
 import { processBoarSalivaAbility } from "../abilities/boar_saliva_ability";
 import { processSpitBallAbility } from "../abilities/spit_ball_ability";
