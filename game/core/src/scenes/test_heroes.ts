@@ -78,7 +78,6 @@ import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
-import { getLapString } from "../utils/strings";
 import { GLScene } from "./gl_scene";
 import { registerScene, SceneContext } from "./scene";
 import { SceneSettings } from "./scene_settings";
@@ -3169,7 +3168,7 @@ class Sandbox extends GLScene {
                                             true,
                                         );
                                         this.sc_sceneLog.updateLog(
-                                            `${debuffTarget.getName()} mirrored ${this.hoveredSpell.getName()} to ${this.currentActiveUnit.getName()} for ${getLapString(
+                                            `${debuffTarget.getName()} mirrored ${this.hoveredSpell.getName()} to ${this.currentActiveUnit.getName()} for ${HoCLib.getLapString(
                                                 laps,
                                             )}`,
                                         );

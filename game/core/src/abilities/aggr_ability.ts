@@ -11,8 +11,6 @@
 
 import { AbilityType, HoCLib, HoCScene, Unit } from "@heroesofcrypto/common";
 
-import { getLapString } from "../utils/strings";
-
 export function processAggrAbility(
     fromUnit: Unit,
     targetUnit: Unit,
@@ -45,7 +43,7 @@ export function processAggrAbility(
             targetUnit.applyEffect(aggrEffect)
         ) {
             sceneLog.updateLog(
-                `${fromUnit.getName()} applied Aggr on ${targetUnit.getName()} for ${getLapString(laps)}`,
+                `${fromUnit.getName()} applied Aggr on ${targetUnit.getName()} for ${HoCLib.getLapString(laps)}`,
             );
             targetUnit.setTarget(fromUnit.getId());
         } else {

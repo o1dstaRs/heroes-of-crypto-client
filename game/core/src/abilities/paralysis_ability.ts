@@ -11,8 +11,6 @@
 
 import { AbilityType, HoCScene, HoCLib, Unit } from "@heroesofcrypto/common";
 
-import { getLapString } from "../utils/strings";
-
 export function processParalysisAbility(
     fromUnit: Unit,
     targetUnit: Unit,
@@ -50,7 +48,7 @@ export function processParalysisAbility(
 
         if (targetUnit.applyEffect(paralysisEffect)) {
             sceneLog.updateLog(
-                `${fromUnit.getName()} applied Paralysis on ${targetUnit.getName()} for ${getLapString(laps)}`,
+                `${fromUnit.getName()} applied Paralysis on ${targetUnit.getName()} for ${HoCLib.getLapString(laps)}`,
             );
         }
     }

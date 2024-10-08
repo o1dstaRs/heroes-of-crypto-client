@@ -25,8 +25,6 @@ import {
     EffectHelper,
 } from "@heroesofcrypto/common";
 
-import { getLapString } from "../utils/strings";
-
 const POSSIBLE_DEBUFFS_TO_FACTIONS = {
     Sadness: "Death",
     Quagmire: "Death",
@@ -102,7 +100,7 @@ export function processSpitBallAbility(
 
         targetUnit.applyDebuff(debuff, undefined, undefined, targetUnit.getId() === currentActiveUnit.getId());
         sceneLog.updateLog(
-            `${fromUnit.getName()} applied ${randomDebuff} on ${targetUnit.getName()} for ${getLapString(laps)}`,
+            `${fromUnit.getName()} applied ${randomDebuff} on ${targetUnit.getName()} for ${HoCLib.getLapString(laps)}`,
         );
 
         // we already know it has not been applied already
@@ -112,7 +110,9 @@ export function processSpitBallAbility(
         ) {
             fromUnit.applyDebuff(debuff, undefined, undefined, fromUnit.getId() === currentActiveUnit.getId());
             sceneLog.updateLog(
-                `${targetUnit.getName()} mirrored ${randomDebuff} to ${fromUnit.getName()} for ${getLapString(laps)}`,
+                `${targetUnit.getName()} mirrored ${randomDebuff} to ${fromUnit.getName()} for ${HoCLib.getLapString(
+                    laps,
+                )}`,
             );
         }
     } else {

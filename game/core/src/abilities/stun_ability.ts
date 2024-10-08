@@ -11,8 +11,6 @@
 
 import { AbilityType, HoCLib, HoCScene, Unit } from "@heroesofcrypto/common";
 
-import { getLapString } from "../utils/strings";
-
 export function processStunAbility(
     fromUnit: Unit,
     targetUnit: Unit,
@@ -49,7 +47,7 @@ export function processStunAbility(
         }
 
         if (targetUnit.applyEffect(stunEffect)) {
-            sceneLog.updateLog(`${targetUnit.getName()} got stunned for ${getLapString(laps)}`);
+            sceneLog.updateLog(`${targetUnit.getName()} got stunned for ${HoCLib.getLapString(laps)}`);
         }
     }
 }

@@ -44,7 +44,6 @@ import { processBlindnessAbility } from "../abilities/blindness_ability";
 import { processBoarSalivaAbility } from "../abilities/boar_saliva_ability";
 import { processSpitBallAbility } from "../abilities/spit_ball_ability";
 import { processPetrifyingGazeAbility } from "../abilities/petrifying_gaze_ability";
-import { getLapString } from "../utils/strings";
 import { IAOERangeAttackResult, processRangeAOEAbility } from "../abilities/aoe_range_ability";
 import { processThroughShotAbility } from "../abilities/through_shot_ability";
 import { processLuckyStrikeAbility } from "../abilities/lucky_strike_ability";
@@ -379,7 +378,7 @@ export class AttackHandler {
             let applied = true;
             let mirroredStr = "";
             const laps = currentActiveSpell.getLapsTotal();
-            let clarifyingStr = `for ${getLapString(laps)}`;
+            let clarifyingStr = `for ${HoCLib.getLapString(laps)}`;
             if (currentActiveSpell.isBuff()) {
                 if (currentActiveSpell.getPowerType() === SpellPowerType.HEAL) {
                     if (currentActiveSpell.isGiftable()) {
@@ -508,7 +507,7 @@ export class AttackHandler {
                         undefined,
                         attackerUnit.getId() === targetUnit.getId(),
                     );
-                    mirroredStr = `${debuffTarget.getName()} mirrored ${currentActiveSpell.getName()} to ${attackerUnit.getName()} for ${getLapString(
+                    mirroredStr = `${debuffTarget.getName()} mirrored ${currentActiveSpell.getName()} to ${attackerUnit.getName()} for ${HoCLib.getLapString(
                         laps,
                     )}`;
                 }

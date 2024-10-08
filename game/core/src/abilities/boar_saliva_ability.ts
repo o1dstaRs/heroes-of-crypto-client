@@ -9,9 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, HoCScene, Unit } from "@heroesofcrypto/common";
-
-import { getLapString } from "../utils/strings";
+import { AbilityType, HoCScene, Unit, HoCLib } from "@heroesofcrypto/common";
 
 export function processBoarSalivaAbility(
     fromUnit: Unit,
@@ -48,7 +46,7 @@ export function processBoarSalivaAbility(
             targetUnit.applyEffect(boarSalivaEffect)
         ) {
             sceneLog.updateLog(
-                `${fromUnit.getName()} applied Boar Saliva on ${targetUnit.getName()} for ${getLapString(laps)}`,
+                `${fromUnit.getName()} applied Boar Saliva on ${targetUnit.getName()} for ${HoCLib.getLapString(laps)}`,
             );
         } else {
             sceneLog.updateLog(`${targetUnit.getName()} resisted from Boar Saliva`);

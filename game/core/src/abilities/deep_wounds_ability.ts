@@ -9,9 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCScene, Unit } from "@heroesofcrypto/common";
-
-import { getLapString } from "../utils/strings";
+import { HoCScene, Unit, HoCLib } from "@heroesofcrypto/common";
 
 export function processDeepWoundsAbility(
     fromUnit: Unit,
@@ -56,7 +54,7 @@ export function processDeepWoundsAbility(
 
         if (targetUnit.applyEffect(deepWoundsEffect)) {
             sceneLog.updateLog(
-                `${fromUnit.getName()} applied Deep Wounds on ${targetUnit.getName()} for ${getLapString(laps)}`,
+                `${fromUnit.getName()} applied Deep Wounds on ${targetUnit.getName()} for ${HoCLib.getLapString(laps)}`,
             );
         }
     }

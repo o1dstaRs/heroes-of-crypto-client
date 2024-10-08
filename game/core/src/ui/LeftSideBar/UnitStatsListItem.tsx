@@ -1,4 +1,4 @@
-import { AttackType, MovementType, HoCConstants, TeamType, UnitProperties } from "@heroesofcrypto/common";
+import { AttackType, MovementType, HoCConstants, TeamType, UnitProperties, HoCLib } from "@heroesofcrypto/common";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { Box, Badge } from "@mui/joy";
 import Avatar from "@mui/joy/Avatar";
@@ -17,7 +17,6 @@ import redFlagImage from "../../../images/red_flag_128.webp";
 import { images } from "../../generated/image_imports";
 import { useManager } from "../../manager";
 import { IVisibleImpact, IVisibleOverallImpact } from "../../state/visible_state";
-import { getLapString } from "../../utils/strings";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
 import { BootIcon } from "../svg/boot";
 import { BowIcon } from "../svg/bow";
@@ -238,7 +237,7 @@ const EffectColumnOrRow: React.FC<{ effects: IVisibleImpact[]; title: string; is
                             effect.laps > 0 &&
                             effect.laps !== Number.MAX_SAFE_INTEGER &&
                             effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL
-                                ? ` (remaining ${getLapString(effect.laps)})`
+                                ? ` (remaining ${HoCLib.getLapString(effect.laps)})`
                                 : ""
                         }`}
                     >
