@@ -22,11 +22,16 @@ import {
     UnitsHolder,
 } from "@heroesofcrypto/common";
 
-import { UnitsFactory } from "../units/units_factory";
-
 export interface ISystemMoveResult {
     log: string;
     unitIdsDestroyed: string[];
+    unitIdToNewPosition: Map<string, HoCMath.XY>;
+}
+
+export interface IDirectedMoveResult {
+    log: string;
+    deleteUnit: boolean;
+    newPosition?: HoCMath.XY;
 }
 
 export class MoveHandler {
@@ -36,17 +41,14 @@ export class MoveHandler {
 
     private readonly unitsHolder: UnitsHolder;
 
-    private readonly unitsFactory: UnitsFactory;
-
     private readonly largeUnitsXtoY: Map<number, number[]>;
 
     private readonly largeUnitsYtoX: Map<number, number[]>;
 
-    public constructor(gridSettings: GridSettings, grid: Grid, unitsHolder: UnitsHolder, unitsFactory: UnitsFactory) {
+    public constructor(gridSettings: GridSettings, grid: Grid, unitsHolder: UnitsHolder) {
         this.gridSettings = gridSettings;
         this.grid = grid;
         this.unitsHolder = unitsHolder;
-        this.unitsFactory = unitsFactory;
         this.largeUnitsXtoY = new Map();
         this.largeUnitsYtoX = new Map();
     }
@@ -59,12 +61,13 @@ export class MoveHandler {
         const possibleUnitId = this.grid.getOccupantUnitId(cell);
         const logs: string[] = [];
         const unitIdsDestroyed: string[] = [];
+        const unitIdToNewPosition = new Map<string, HoCMath.XY>();
 
         if (possibleUnitId) {
             const unit = this.unitsHolder.getAllUnits().get(possibleUnitId);
             // nothing to move
             if (!unit) {
-                return { log: "", unitIdsDestroyed };
+                return { log: "", unitIdsDestroyed, unitIdToNewPosition };
             }
 
             const currentPosition = unit.getPosition();
@@ -93,15 +96,17 @@ export class MoveHandler {
                 if (systemMoveResult.log) {
                     logs.push(systemMoveResult.log);
                 }
-                for (const uId in systemMoveResult.unitIdsDestroyed) {
-                    unitIdsDestroyed.push(uId);
+                if (systemMoveResult.deleteUnit) {
+                    unitIdsDestroyed.push(unit.getId());
+                }
+                if (systemMoveResult.newPosition) {
+                    unitIdToNewPosition.set(unit.getId(), systemMoveResult.newPosition);
                 }
             } else {
                 let moveX = false;
                 let moveY = false;
                 let priorityShift = 0;
                 if (updatePositionMask & GridConstants.UPDATE_UP) {
-                    // bodyNewPosition = { x: bodyPosition.x, y: bodyPosition.y + STEP };
                     priorityShift = unit.getTeam() === TeamType.LOWER ? 1 : -1;
                     moveX = true;
                 } else if (updatePositionMask & GridConstants.UPDATE_DOWN) {
@@ -136,8 +141,11 @@ export class MoveHandler {
                                 if (systemMoveResult.log) {
                                     logs.push(systemMoveResult.log);
                                 }
-                                for (const uId in systemMoveResult.unitIdsDestroyed) {
-                                    unitIdsDestroyed.push(uId);
+                                if (systemMoveResult.deleteUnit) {
+                                    unitIdsDestroyed.push(unit.getId());
+                                }
+                                if (systemMoveResult.newPosition) {
+                                    unitIdToNewPosition.set(unit.getId(), systemMoveResult.newPosition);
                                 }
                                 priorityShift = 0;
                                 movedUnit = true;
@@ -170,8 +178,11 @@ export class MoveHandler {
                                 if (systemMoveResult.log) {
                                     logs.push(systemMoveResult.log);
                                 }
-                                for (const uId in systemMoveResult.unitIdsDestroyed) {
-                                    unitIdsDestroyed.push(uId);
+                                if (systemMoveResult.deleteUnit) {
+                                    unitIdsDestroyed.push(unit.getId());
+                                }
+                                if (systemMoveResult.newPosition) {
+                                    unitIdToNewPosition.set(unit.getId(), systemMoveResult.newPosition);
                                 }
                                 priorityShift = 0;
                                 movedUnit = true;
@@ -195,7 +206,7 @@ export class MoveHandler {
             }
         }
 
-        return { log: logs.join("\n"), unitIdsDestroyed };
+        return { log: logs.join("\n"), unitIdsDestroyed, unitIdToNewPosition };
     }
 
     public applyMoveModifiers(
@@ -287,12 +298,13 @@ export class MoveHandler {
         targetCells: HoCMath.XY[],
         bodyNewPosition?: HoCMath.XY,
         updatePositionMask: number = GridConstants.NO_UPDATE,
-    ): ISystemMoveResult {
+    ): IDirectedMoveResult {
         const unitIdsDestroyed: string[] = [];
         if (!targetCells?.length) {
             return {
                 log: "",
-                unitIdsDestroyed,
+                deleteUnit: false,
+                newPosition: undefined,
             };
         }
 
@@ -302,36 +314,34 @@ export class MoveHandler {
         } else {
             this.grid.occupyCells(targetCells, unit.getId(), unit.getTeam(), unit.getAttackRange());
         }
-        const body = this.unitsFactory.getUnitBody(unit.getId());
         let deleteUnit = false;
-        if (body) {
-            const bodyPosition = body.GetPosition();
-            if (!bodyNewPosition) {
-                if (updatePositionMask & GridConstants.UPDATE_UP) {
-                    bodyNewPosition = { x: bodyPosition.x, y: bodyPosition.y + this.gridSettings.getStep() };
-                } else if (updatePositionMask & GridConstants.UPDATE_DOWN) {
-                    bodyNewPosition = { x: bodyPosition.x, y: bodyPosition.y - this.gridSettings.getStep() };
-                } else if (updatePositionMask & GridConstants.UPDATE_LEFT) {
-                    bodyNewPosition = { x: bodyPosition.x - this.gridSettings.getStep(), y: bodyPosition.y };
-                } else if (updatePositionMask & GridConstants.UPDATE_RIGHT) {
-                    bodyNewPosition = { x: bodyPosition.x + this.gridSettings.getStep(), y: bodyPosition.y };
-                }
+        const bodyPosition = unit.getPosition();
+        if (!bodyNewPosition) {
+            if (updatePositionMask & GridConstants.UPDATE_UP) {
+                bodyNewPosition = { x: bodyPosition.x, y: bodyPosition.y + this.gridSettings.getStep() };
+            } else if (updatePositionMask & GridConstants.UPDATE_DOWN) {
+                bodyNewPosition = { x: bodyPosition.x, y: bodyPosition.y - this.gridSettings.getStep() };
+            } else if (updatePositionMask & GridConstants.UPDATE_LEFT) {
+                bodyNewPosition = { x: bodyPosition.x - this.gridSettings.getStep(), y: bodyPosition.y };
+            } else if (updatePositionMask & GridConstants.UPDATE_RIGHT) {
+                bodyNewPosition = { x: bodyPosition.x + this.gridSettings.getStep(), y: bodyPosition.y };
             }
-            if (bodyNewPosition) {
-                unit.setPosition(bodyNewPosition.x, bodyNewPosition.y);
-                body.SetTransformXY(bodyNewPosition.x, bodyNewPosition.y, body.GetAngle());
-            } else {
-                deleteUnit = true;
-            }
+        }
+        if (bodyNewPosition) {
+            unit.setPosition(bodyNewPosition.x, bodyNewPosition.y);
         } else {
             deleteUnit = true;
         }
         if (deleteUnit) {
             unitIdsDestroyed.push(unit.getId());
-            return { log: `${unit.getId()} destroyed`, unitIdsDestroyed };
+            return {
+                log: `${unit.getId()} destroyed`,
+                newPosition: undefined,
+                deleteUnit: deleteUnit,
+            };
         }
 
-        return { log: "", unitIdsDestroyed };
+        return { log: "", newPosition: bodyNewPosition, deleteUnit: deleteUnit };
     }
 
     private getShiftedCells(

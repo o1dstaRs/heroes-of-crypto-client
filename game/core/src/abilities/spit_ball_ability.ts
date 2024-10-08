@@ -22,8 +22,8 @@ import {
     Unit,
     SpellHelper,
     UnitsHolder,
+    EffectHelper,
 } from "@heroesofcrypto/common";
-import { getAbsorptionTarget } from "../effects/effects_helper";
 
 import { getLapString } from "../utils/strings";
 
@@ -45,7 +45,7 @@ export function processSpitBallAbility(
     sceneLog: HoCScene.SceneLog,
 ): void {
     // effect can be absorbed
-    const absorptionTarget = getAbsorptionTarget(targetUnit, grid, unitsHolder);
+    const absorptionTarget = EffectHelper.getAbsorptionTarget(targetUnit, grid, unitsHolder);
     if (absorptionTarget) {
         targetUnit = absorptionTarget;
     }

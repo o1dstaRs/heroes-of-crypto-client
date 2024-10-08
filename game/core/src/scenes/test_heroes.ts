@@ -43,17 +43,16 @@ import {
     IAttackTargets,
     FightStateManager,
     UnitsHolder,
+    EffectHelper,
 } from "@heroesofcrypto/common";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 
 import { evaluateAffectedUnits } from "../abilities/aoe_range_ability";
-import { nextStandingTargets } from "../abilities/abilities_helper";
 import { processPenetratingBiteAbility } from "../abilities/penetrating_bite_ability";
 import { processRapidChargeAbility } from "../abilities/rapid_charge_ability";
 import { AIActionType, findTarget } from "../ai/ai";
 import { Drawer } from "../draw/drawer";
-import { getAbsorptionTarget } from "../effects/effects_helper";
 import { AttackHandler, IAttackObstacle } from "../handlers/attack_handler";
 import { MoveHandler } from "../handlers/move_handler";
 import { Button } from "../menu/button";
@@ -367,12 +366,7 @@ class Sandbox extends GLScene {
 
         this.spawnUnits();
         this.attackHandler = new AttackHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.sc_sceneLog);
-        this.moveHandler = new MoveHandler(
-            this.sc_sceneSettings.getGridSettings(),
-            this.grid,
-            this.unitsHolder,
-            this.unitsFactory,
-        );
+        this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
 
         // update remaining time every half a second
         this.visibleStateUpdate = () => {
@@ -980,6 +974,16 @@ class Sandbox extends GLScene {
                 if (systemMoveResult.log) {
                     logs.push(systemMoveResult.log);
                 }
+                for (const [uId, newPosition] of systemMoveResult.unitIdToNewPosition.entries()) {
+                    const body = this.unitsFactory.getUnitBody(uId);
+                    if (body) {
+                        body.SetTransformXY(newPosition.x, newPosition.y, body.GetAngle());
+                    } else {
+                        if (!(uId in systemMoveResult.unitIdsDestroyed)) {
+                            systemMoveResult.unitIdsDestroyed.push(uId);
+                        }
+                    }
+                }
                 for (const uId in systemMoveResult.unitIdsDestroyed) {
                     if (this.unitsHolder.deleteUnitById(uId)) {
                         const unitBody = this.unitsFactory.getUnitBody(uId);
@@ -1001,6 +1005,16 @@ class Sandbox extends GLScene {
                 const systemMoveResult = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_DOWN, laps);
                 if (systemMoveResult.log) {
                     logs.push(systemMoveResult.log);
+                }
+                for (const [uId, newPosition] of systemMoveResult.unitIdToNewPosition.entries()) {
+                    const body = this.unitsFactory.getUnitBody(uId);
+                    if (body) {
+                        body.SetTransformXY(newPosition.x, newPosition.y, body.GetAngle());
+                    } else {
+                        if (!(uId in systemMoveResult.unitIdsDestroyed)) {
+                            systemMoveResult.unitIdsDestroyed.push(uId);
+                        }
+                    }
                 }
                 for (const uId in systemMoveResult.unitIdsDestroyed) {
                     if (this.unitsHolder.deleteUnitById(uId)) {
@@ -1024,6 +1038,16 @@ class Sandbox extends GLScene {
                 if (systemMoveResult.log) {
                     logs.push(systemMoveResult.log);
                 }
+                for (const [uId, newPosition] of systemMoveResult.unitIdToNewPosition.entries()) {
+                    const body = this.unitsFactory.getUnitBody(uId);
+                    if (body) {
+                        body.SetTransformXY(newPosition.x, newPosition.y, body.GetAngle());
+                    } else {
+                        if (!(uId in systemMoveResult.unitIdsDestroyed)) {
+                            systemMoveResult.unitIdsDestroyed.push(uId);
+                        }
+                    }
+                }
                 for (const uId in systemMoveResult.unitIdsDestroyed) {
                     if (this.unitsHolder.deleteUnitById(uId)) {
                         const unitBody = this.unitsFactory.getUnitBody(uId);
@@ -1045,6 +1069,16 @@ class Sandbox extends GLScene {
                 const systemMoveResult = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_LEFT, laps);
                 if (systemMoveResult.log) {
                     logs.push(systemMoveResult.log);
+                }
+                for (const [uId, newPosition] of systemMoveResult.unitIdToNewPosition.entries()) {
+                    const body = this.unitsFactory.getUnitBody(uId);
+                    if (body) {
+                        body.SetTransformXY(newPosition.x, newPosition.y, body.GetAngle());
+                    } else {
+                        if (!(uId in systemMoveResult.unitIdsDestroyed)) {
+                            systemMoveResult.unitIdsDestroyed.push(uId);
+                        }
+                    }
                 }
                 for (const uId in systemMoveResult.unitIdsDestroyed) {
                     if (this.unitsHolder.deleteUnitById(uId)) {
@@ -3083,7 +3117,11 @@ class Sandbox extends GLScene {
                                 let debuffTarget = u;
 
                                 // effect can be absorbed
-                                const absorptionTarget = getAbsorptionTarget(u, this.grid, this.unitsHolder);
+                                const absorptionTarget = EffectHelper.getAbsorptionTarget(
+                                    u,
+                                    this.grid,
+                                    this.unitsHolder,
+                                );
                                 if (absorptionTarget) {
                                     debuffTarget = absorptionTarget;
                                 }
@@ -4629,7 +4667,7 @@ class Sandbox extends GLScene {
                 hoverAttackUnit.getPosition(),
             );
             if (targetPos) {
-                const targetList = nextStandingTargets(
+                const targetList = AbilityHelper.nextStandingTargets(
                     this.currentActiveUnit,
                     hoverAttackUnit,
                     this.grid,
@@ -4652,7 +4690,7 @@ class Sandbox extends GLScene {
                 hoverAttackUnit.getPosition(),
             );
             if (targetPos) {
-                const targetList = nextStandingTargets(
+                const targetList = AbilityHelper.nextStandingTargets(
                     this.currentActiveUnit,
                     hoverAttackUnit,
                     this.grid,

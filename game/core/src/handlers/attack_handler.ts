@@ -27,6 +27,7 @@ import {
     Unit,
     FightStateManager,
     UnitsHolder,
+    EffectHelper,
 } from "@heroesofcrypto/common";
 
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
@@ -43,7 +44,6 @@ import { processBlindnessAbility } from "../abilities/blindness_ability";
 import { processBoarSalivaAbility } from "../abilities/boar_saliva_ability";
 import { processSpitBallAbility } from "../abilities/spit_ball_ability";
 import { processPetrifyingGazeAbility } from "../abilities/petrifying_gaze_ability";
-import { getAbsorptionTarget } from "../effects/effects_helper";
 import { getLapString } from "../utils/strings";
 import { IAOERangeAttackResult, processRangeAOEAbility } from "../abilities/aoe_range_ability";
 import { processThroughShotAbility } from "../abilities/through_shot_ability";
@@ -411,7 +411,7 @@ export class AttackHandler {
                 // effect can be absorbed
                 let debuffTarget = targetUnit;
 
-                const absorptionTarget = getAbsorptionTarget(debuffTarget, grid, unitsHolder);
+                const absorptionTarget = EffectHelper.getAbsorptionTarget(debuffTarget, grid, unitsHolder);
                 if (absorptionTarget) {
                     debuffTarget = absorptionTarget;
                 }
@@ -517,7 +517,7 @@ export class AttackHandler {
             if (currentActiveSpell.isSelfDebuffApplicable()) {
                 // effect can be absorbed
                 let debuffTarget = attackerUnit;
-                const absorptionTarget = getAbsorptionTarget(debuffTarget, grid, unitsHolder);
+                const absorptionTarget = EffectHelper.getAbsorptionTarget(debuffTarget, grid, unitsHolder);
                 if (absorptionTarget) {
                     debuffTarget = absorptionTarget;
                 }

@@ -898,6 +898,7 @@ export class RenderableUnit extends Unit {
                     { spellProperties: spellProperties, amount: v },
                     this.gl,
                     this.shader,
+                    this.textures,
                     new Sprite(this.gl, this.shader, this.textures[textureNames[0] as keyof PreloadedTextures].texture),
                     new Sprite(this.gl, this.shader, this.textures[textureNames[1] as keyof PreloadedTextures].texture),
                     this.digitNormalTextures,

@@ -20,10 +20,10 @@ import {
     Unit,
     FightStateManager,
     UnitsHolder,
+    AbilityHelper,
 } from "@heroesofcrypto/common";
 
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { nextStandingTargets } from "./abilities_helper";
 
 export function processFireBreathAbility(
     fromUnit: Unit,
@@ -46,7 +46,7 @@ export function processFireBreathAbility(
 
     if (targetPos) {
         const unitsDead: Unit[] = [];
-        const targets = nextStandingTargets(fromUnit, toUnit, grid, unitsHolder, targetMovePosition);
+        const targets = AbilityHelper.nextStandingTargets(fromUnit, toUnit, grid, unitsHolder, targetMovePosition);
 
         for (const nextStandingTarget of targets) {
             if (

@@ -43,7 +43,7 @@ export function processPetrifyingGazeAbility(
     let proc = false;
     if (amountOfUnitsKilled < toUnit.getAmountAlive()) {
         const coeff1 = toUnit.getHp() / toUnit.getMaxHp();
-        const coeff2 = (1 - (unitsKilled - Math.floor(unitsKilled))) / 2;
+        const coeff2 = 1 - (unitsKilled - Math.floor(unitsKilled));
 
         if (fromUnit.getStackPower() > coeff1 * 100) {
             damageFromAbility += toUnit.getHp();

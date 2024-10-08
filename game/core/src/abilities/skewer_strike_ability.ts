@@ -20,10 +20,10 @@ import {
     Unit,
     FightStateManager,
     UnitsHolder,
+    AbilityHelper,
 } from "@heroesofcrypto/common";
 
 import { DamageStatisticHolder } from "../stats/damage_stats";
-import { nextStandingTargets } from "./abilities_helper";
 import { processAggrAbility } from "./aggr_ability";
 import { processBlindnessAbility } from "./blindness_ability";
 import { processBoarSalivaAbility } from "./boar_saliva_ability";
@@ -63,7 +63,15 @@ export function processSkewerStrikeAbility(
         }
 
         const unitsDead: Unit[] = [];
-        const targets = nextStandingTargets(fromUnit, toUnit, grid, unitsHolder, targetMovePosition, false, true);
+        const targets = AbilityHelper.nextStandingTargets(
+            fromUnit,
+            toUnit,
+            grid,
+            unitsHolder,
+            targetMovePosition,
+            false,
+            true,
+        );
 
         for (const nextStandingTarget of targets) {
             if (nextStandingTarget.isDead()) {
