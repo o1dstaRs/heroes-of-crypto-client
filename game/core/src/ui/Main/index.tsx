@@ -96,7 +96,7 @@ const GameScreen = ({ entry: { name, SceneClass }, setSceneControlGroups }: Scen
                 <canvas ref={glCanvasRef} />
                 <canvas ref={debugCanvasRef} />
             </main>
-            <DamageBubble damage={damage} coordinates={coordinates} />
+            <DamageBubble damages={[damage]} coordinates={coordinates} />
         </>
     );
 };

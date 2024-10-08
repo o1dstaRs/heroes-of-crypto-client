@@ -2679,18 +2679,37 @@ class Sandbox extends GLScene {
         if (!this.currentActiveSpell) {
             const meleeAttackResult = this.attackHandler.handleMeleeAttack(
                 this.unitsHolder,
-                this.drawer,
                 this.grid,
                 this.moveHandler,
                 this.sc_damageForAnimation,
                 this.currentActiveKnownPaths,
                 this.currentActiveUnit,
                 this.getHoverAttackUnit(),
-                this.sc_selectedBody,
                 this.hoverAttackFromCell,
             );
+
+            if (this.hoverAttackFromCell) {
+                const movePaths = this.currentActiveKnownPaths?.get(
+                    (this.hoverAttackFromCell.x << 4) | this.hoverAttackFromCell.y,
+                );
+                if (movePaths?.length) {
+                    if (meleeAttackResult.animationData) {
+                        for (const ad of meleeAttackResult.animationData) {
+                            if (!ad.bodyUnit) {
+                                continue;
+                            }
+                            const body = this.unitsFactory.getUnitBody(ad.bodyUnit.getId());
+                            if (!body) {
+                                continue;
+                            }
+
+                            this.drawer.startMoveAnimation(body, ad.affectedUnit, movePaths[0].route);
+                        }
+                    }
+                }
+            }
+
             if (meleeAttackResult.completed) {
-                console.log(meleeAttackResult.unitIdsDied);
                 const alreadyProcessed: string[] = [];
                 for (const uId of meleeAttackResult.unitIdsDied) {
                     if (alreadyProcessed.includes(uId)) {
@@ -2715,7 +2734,6 @@ class Sandbox extends GLScene {
 
         const rangeAttackResult = this.attackHandler.handleRangeAttack(
             this.unitsHolder,
-            this.drawer,
             this.grid,
             this.hoverRangeAttackDivisors,
             this.rangeResponseAttackDivisor,
@@ -2726,6 +2744,13 @@ class Sandbox extends GLScene {
             this.hoverRangeAttackPosition,
             this.sc_isSelection,
         );
+        if (rangeAttackResult.animationData) {
+            for (const ad of rangeAttackResult.animationData) {
+                if (ad.fromPosition) {
+                    this.drawer.startBulletAnimation(ad.fromPosition, ad.toPosition, ad.affectedUnit);
+                }
+            }
+        }
         if (rangeAttackResult.completed) {
             const alreadyProcessed: string[] = [];
             for (const uId of rangeAttackResult.unitIdsDied) {
@@ -2750,15 +2775,26 @@ class Sandbox extends GLScene {
 
         const magicAttackResult = this.attackHandler.handleMagicAttack(
             this.gridMatrix,
-            this.drawer,
             this.unitsHolder,
-            this.unitsFactory,
             this.grid,
             this.currentActiveSpell,
             this.currentActiveUnit,
             this.hoverUnit,
             this.currentEnemiesCellsWithinMovementRange,
         );
+        if (magicAttackResult.animationData) {
+            for (const ad of magicAttackResult.animationData) {
+                if (!ad.bodyUnit) {
+                    continue;
+                }
+                const body = this.unitsFactory.getUnitBody(ad.bodyUnit.getId());
+                if (!body) {
+                    continue;
+                }
+
+                this.drawer.startFlyAnimation(body, ad.affectedUnit, ad.toPosition);
+            }
+        }
         if (magicAttackResult.completed) {
             const alreadyProcessed: string[] = [];
             for (const uId of magicAttackResult.unitIdsDied) {

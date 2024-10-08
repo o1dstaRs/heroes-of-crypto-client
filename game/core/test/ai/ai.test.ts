@@ -459,7 +459,7 @@ class UnitRepr implements IUnitAIRepr {
         return this.isSmall;
     }
 
-    public getBaseCell(): HoCMath.XY | undefined {
+    public getBaseCell(): HoCMath.XY {
         return this.baseCell;
     }
 

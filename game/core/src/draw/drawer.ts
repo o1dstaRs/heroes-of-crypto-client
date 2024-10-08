@@ -378,16 +378,31 @@ export class Drawer {
                         body.GetAngle(),
                     );
 
-                    const bodyCell = GridMath.getCellForPosition(this.gridSettings, body.GetPosition());
+                    const bodyPosition = body.GetPosition();
+                    const bodyCell = GridMath.getCellForPosition(this.gridSettings, bodyPosition);
                     if (!bodyCell) {
                         bulletsToDestroy.push(b);
                         continue;
                     }
 
+                    const pastAllTargets = b.nextEnemyCellIndices.every((cellIndex) => {
+                        const cellX = cellIndex >> 4;
+                        const cellY = cellIndex & 0xf;
+                        return (
+                            (direction.x < 0
+                                ? bodyPosition.x <= cellX * this.gridSettings.getStep()
+                                : bodyPosition.x >= (cellX + 1) * this.gridSettings.getStep()) &&
+                            (direction.y < 0
+                                ? bodyPosition.y <= cellY * this.gridSettings.getStep()
+                                : bodyPosition.y >= (cellY + 1) * this.gridSettings.getStep())
+                        );
+                    });
+
                     const toPositionCell = GridMath.getCellForPosition(this.gridSettings, b.toPosition);
                     const bodyCellIndex = (bodyCell.x << 4) | bodyCell.y;
 
                     if (
+                        pastAllTargets ||
                         (toPositionCell && bodyCell.x === toPositionCell.x && bodyCell.y === toPositionCell.y) ||
                         b.nextEnemyCellIndices.includes(bodyCellIndex) ||
                         body.GetPosition().x < this.gridSettings.getMinX() ||
