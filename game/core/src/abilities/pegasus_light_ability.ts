@@ -9,13 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCScene, Unit, HoCLib } from "@heroesofcrypto/common";
+import { ISceneLog, Unit, HoCLib } from "@heroesofcrypto/common";
 
 export function processPegasusLightAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     currentActiveUnit: Unit,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): void {
     if (targetUnit.isDead()) {
         return;

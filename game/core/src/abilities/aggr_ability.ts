@@ -9,13 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, HoCLib, HoCScene, Unit } from "@heroesofcrypto/common";
+import { AbilityType, HoCLib, ISceneLog, Unit } from "@heroesofcrypto/common";
 
 export function processAggrAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     currentActiveUnit: Unit,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): void {
     if (targetUnit.isDead()) {
         return;

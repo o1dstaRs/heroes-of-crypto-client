@@ -16,7 +16,7 @@ import {
     GridMath,
     HoCMath,
     HoCConstants,
-    HoCScene,
+    ISceneLog,
     Unit,
     FightStateManager,
     UnitsHolder,
@@ -38,7 +38,7 @@ import { processStunAbility } from "./stun_ability";
 export function processSkewerStrikeAbility(
     fromUnit: Unit,
     toUnit: Unit,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
     unitsHolder: UnitsHolder,
     grid: Grid,
     gridSettings: GridSettings,

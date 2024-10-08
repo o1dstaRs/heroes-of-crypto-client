@@ -15,9 +15,9 @@ import {
     HoCConstants,
     HoCMath,
     HoCLib,
-    HoCScene,
     Unit,
     FightStateManager,
+    ISceneLog,
     UnitsHolder,
 } from "@heroesofcrypto/common";
 
@@ -40,7 +40,7 @@ export function processRangeAOEAbility(
     rangeAttackDivisor: number,
     unitsHolder: UnitsHolder,
     grid: Grid,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
     isAttack = true,
 ): IAOERangeAttackResult {
     const unitIdsDied: string[] = [];

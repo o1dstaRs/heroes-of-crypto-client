@@ -23,7 +23,7 @@ import {
     Spell,
     HoCConstants,
     AbilityHelper,
-    HoCScene,
+    ISceneLog,
     Unit,
     FightStateManager,
     UnitsHolder,
@@ -83,9 +83,9 @@ export class AttackHandler {
 
     public readonly grid: Grid;
 
-    public readonly sceneLog: HoCScene.SceneLog;
+    public readonly sceneLog: ISceneLog;
 
-    public constructor(gridSettings: GridSettings, grid: Grid, sceneLog: HoCScene.SceneLog) {
+    public constructor(gridSettings: GridSettings, grid: Grid, sceneLog: ISceneLog) {
         this.gridSettings = gridSettings;
         this.grid = grid;
         this.sceneLog = sceneLog;

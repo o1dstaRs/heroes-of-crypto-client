@@ -16,7 +16,7 @@ import {
     GridMath,
     HoCMath,
     HoCConstants,
-    HoCScene,
+    ISceneLog,
     Unit,
     FightStateManager,
     UnitsHolder,
@@ -28,7 +28,7 @@ import { DamageStatisticHolder } from "../stats/damage_stats";
 export function processFireBreathAbility(
     fromUnit: Unit,
     toUnit: Unit,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
     unitsHolder: UnitsHolder,
     grid: Grid,
     gridSettings: GridSettings,

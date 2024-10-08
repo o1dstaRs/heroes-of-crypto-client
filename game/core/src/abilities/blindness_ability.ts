@@ -9,13 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, HoCLib, HoCScene, Unit } from "@heroesofcrypto/common";
+import { AbilityType, HoCLib, Unit, ISceneLog } from "@heroesofcrypto/common";
 
 export function processBlindnessAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     currentActiveUnit: Unit,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): void {
     if (targetUnit.isDead()) {
         return;

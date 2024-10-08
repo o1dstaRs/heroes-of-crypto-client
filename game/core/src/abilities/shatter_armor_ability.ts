@@ -9,13 +9,13 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, HoCScene, Unit, HoCLib } from "@heroesofcrypto/common";
+import { AbilityType, ISceneLog, Unit, HoCLib } from "@heroesofcrypto/common";
 
 export function processShatterArmorAbility(
     fromUnit: Unit,
     targetUnit: Unit,
     currentActiveUnit: Unit,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): void {
     if (targetUnit.isDead()) {
         return;

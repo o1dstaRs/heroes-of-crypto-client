@@ -9,13 +9,9 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCLib, HoCScene, Unit } from "@heroesofcrypto/common";
+import { HoCLib, ISceneLog, Unit } from "@heroesofcrypto/common";
 
-export function processLuckyStrikeAbility(
-    attackerUnit: Unit,
-    damageFromAttack: number,
-    sceneLog: HoCScene.SceneLog,
-): number {
+export function processLuckyStrikeAbility(attackerUnit: Unit, damageFromAttack: number, sceneLog: ISceneLog): number {
     const luckyStrikeAbility = attackerUnit.getAbility("Lucky Strike");
 
     if (!luckyStrikeAbility) {

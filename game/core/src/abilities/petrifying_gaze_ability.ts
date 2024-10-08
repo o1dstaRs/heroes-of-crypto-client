@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCLib, AbilityType, HoCScene, Unit } from "@heroesofcrypto/common";
+import { HoCLib, AbilityType, ISceneLog, Unit } from "@heroesofcrypto/common";
 
 import { DamageStatisticHolder } from "../stats/damage_stats";
 
@@ -17,7 +17,7 @@ export function processPetrifyingGazeAbility(
     fromUnit: Unit,
     toUnit: Unit,
     damageFromAttack: number,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): void {
     if (toUnit.isDead() || damageFromAttack <= 0) {
         return;

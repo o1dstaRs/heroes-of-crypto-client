@@ -18,7 +18,7 @@ import {
     Grid,
     Spell,
     SpellPowerType,
-    HoCScene,
+    ISceneLog,
     Unit,
     SpellHelper,
     UnitsHolder,
@@ -40,7 +40,7 @@ export function processSpitBallAbility(
     currentActiveUnit: Unit,
     unitsHolder: UnitsHolder,
     grid: Grid,
-    sceneLog: HoCScene.SceneLog,
+    sceneLog: ISceneLog,
 ): void {
     // effect can be absorbed
     const absorptionTarget = EffectHelper.getAbsorptionTarget(targetUnit, grid, unitsHolder);
