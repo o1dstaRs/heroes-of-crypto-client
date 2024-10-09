@@ -337,6 +337,7 @@ export class GameManager {
             gl: this.gl,
             shader: this.defaultShader,
             textures: this.textures,
+            draw: this.m_settings.m_debugDraw,
         });
 
         // if (this.m_scene) {

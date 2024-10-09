@@ -52,11 +52,6 @@ export function processSpitBallAbility(
         return;
     }
 
-    const spilBallAbility = fromUnit.getAbility("Spit Ball");
-    if (!spilBallAbility || HoCLib.getRandomInt(0, 100) >= fromUnit.calculateAbilityApplyChance(spilBallAbility)) {
-        return;
-    }
-
     const debuffsNames = Object.keys(POSSIBLE_DEBUFFS_TO_FACTIONS);
     const debuffs = new Set(debuffsNames);
     if (targetUnit.getAttackType() !== AttackType.RANGE) {
@@ -73,49 +68,55 @@ export function processSpitBallAbility(
         return;
     }
 
-    const randomDebuff = Array.from(debuffs)[HoCLib.getRandomInt(0, debuffs.size)];
+    for (const debuffName of debuffs) {
+        const spilBallAbility = fromUnit.getAbility("Spit Ball");
+        if (!spilBallAbility || HoCLib.getRandomInt(0, 100) >= fromUnit.calculateAbilityApplyChance(spilBallAbility)) {
+            continue;
+        }
 
-    let applied = true;
-    // can return us undefined
-    const faction =
-        ToFactionType[
-            POSSIBLE_DEBUFFS_TO_FACTIONS[randomDebuff as keyof typeof POSSIBLE_DEBUFFS_TO_FACTIONS] as AllFactionsType
-        ];
+        let applied = true;
+        const faction =
+            ToFactionType[
+                POSSIBLE_DEBUFFS_TO_FACTIONS[debuffName as keyof typeof POSSIBLE_DEBUFFS_TO_FACTIONS] as AllFactionsType
+            ];
 
-    if (faction === undefined) {
-        return;
-    }
+        if (faction === undefined) {
+            continue;
+        }
 
-    const debuff = new Spell({ spellProperties: HoCConfig.getSpellConfig(faction, randomDebuff), amount: 1 });
+        const debuff = new Spell({ spellProperties: HoCConfig.getSpellConfig(faction, debuffName), amount: 1 });
 
-    if (
-        HoCLib.getRandomInt(0, 100) < Math.floor(targetUnit.getMagicResist()) ||
-        (debuff.getPowerType() === SpellPowerType.MIND && targetUnit.hasMindAttackResistance())
-    ) {
-        applied = false;
-    }
-
-    if (applied) {
-        let laps = debuff.getLapsTotal();
-
-        targetUnit.applyDebuff(debuff, undefined, undefined, targetUnit.getId() === currentActiveUnit.getId());
-        sceneLog.updateLog(
-            `${fromUnit.getName()} applied ${randomDebuff} on ${targetUnit.getName()} for ${HoCLib.getLapString(laps)}`,
-        );
-
-        // we already know it has not been applied already
         if (
-            SpellHelper.isMirrored(targetUnit) &&
-            !(debuff.getPowerType() === SpellPowerType.MIND && fromUnit.hasMindAttackResistance())
+            HoCLib.getRandomInt(0, 100) < Math.floor(targetUnit.getMagicResist()) ||
+            (debuff.getPowerType() === SpellPowerType.MIND && targetUnit.hasMindAttackResistance())
         ) {
-            fromUnit.applyDebuff(debuff, undefined, undefined, fromUnit.getId() === currentActiveUnit.getId());
+            applied = false;
+        }
+
+        if (applied) {
+            let laps = debuff.getLapsTotal();
+
+            targetUnit.applyDebuff(debuff, undefined, undefined, targetUnit.getId() === currentActiveUnit.getId());
             sceneLog.updateLog(
-                `${targetUnit.getName()} mirrored ${randomDebuff} to ${fromUnit.getName()} for ${HoCLib.getLapString(
+                `${fromUnit.getName()} applied ${debuffName} on ${targetUnit.getName()} for ${HoCLib.getLapString(
                     laps,
                 )}`,
             );
+
+            // we already know it has not been applied already
+            if (
+                SpellHelper.isMirrored(targetUnit) &&
+                !(debuff.getPowerType() === SpellPowerType.MIND && fromUnit.hasMindAttackResistance())
+            ) {
+                fromUnit.applyDebuff(debuff, undefined, undefined, fromUnit.getId() === currentActiveUnit.getId());
+                sceneLog.updateLog(
+                    `${targetUnit.getName()} mirrored ${debuffName} to ${fromUnit.getName()} for ${HoCLib.getLapString(
+                        laps,
+                    )}`,
+                );
+            }
+        } else {
+            sceneLog.updateLog(`${targetUnit.getName()} resisted from ${debuffName}`);
         }
-    } else {
-        sceneLog.updateLog(`${targetUnit.getName()} resisted from ${randomDebuff}`);
     }
 }

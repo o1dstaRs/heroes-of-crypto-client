@@ -96,6 +96,7 @@ export class AttackHandler {
         attackerUnit: Unit,
         isThroughShot = false,
         isSelection = false,
+        isAOEShot = false,
     ): IRangeAttackEvaluation {
         const affectedUnitIds: string[] = [];
         const affectedUnits: Array<Unit[]> = [];
@@ -108,7 +109,7 @@ export class AttackHandler {
             const position = cellToPosition[1];
 
             const possibleUnitId = this.grid.getOccupantUnitId(cell);
-            if (possibleUnitId === "B") {
+            if (possibleUnitId === "B" && !isSelection && !isAOEShot) {
                 const obstablePosition = {
                     x: (this.gridSettings.getMinX() + this.gridSettings.getMaxX()) / 2,
                     y: (this.gridSettings.getMinY() + this.gridSettings.getMaxY()) / 2,
@@ -283,6 +284,7 @@ export class AttackHandler {
         toPosition: HoCMath.XY,
         isThroughShot = false,
         isSelection = false,
+        isAOEShot = false,
     ): IRangeAttackEvaluation {
         const intersectedCellsToPositions = this.getCellsToPositions(
             this.getIntersectedPositions(fromPosition, toPosition),
@@ -294,6 +296,7 @@ export class AttackHandler {
             fromUnit,
             isThroughShot,
             isSelection,
+            isAOEShot,
         );
     }
 
@@ -350,13 +353,11 @@ export class AttackHandler {
                 false,
                 this.gridSettings,
                 gridMatrix,
-                targetUnit.getBuffs(),
+                attackerUnit,
+                targetUnit,
                 currentActiveSpell,
                 attackerUnit.getSpells(),
-                targetUnit.getSpells(),
                 targetUnit.getBaseCell(),
-                attackerUnit.getId(),
-                targetUnit.getId(),
                 attackerUnit.getTarget(),
                 attackerUnit.getTeam(),
                 targetUnit.getTeam(),
@@ -608,8 +609,15 @@ export class AttackHandler {
         }
 
         // check if unit is forced to attack certain enemy only
+        // if so, check if the forced target is still alive
         const forcedTargetUnitId = attackerUnit.getTarget();
-        if (targetUnit && forcedTargetUnitId && forcedTargetUnitId !== targetUnit.getId()) {
+        const forcedTargetUnit = unitsHolder.getAllUnits().get(forcedTargetUnitId);
+        if (
+            forcedTargetUnit &&
+            !forcedTargetUnit.isDead() &&
+            forcedTargetUnitId &&
+            forcedTargetUnitId !== targetUnit.getId()
+        ) {
             return { completed: false, unitIdsDied, animationData };
         }
 

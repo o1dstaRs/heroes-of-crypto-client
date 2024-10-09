@@ -54,6 +54,8 @@ export class RenderableUnit extends Unit {
 
     protected readonly digitDamageTextures: Map<number, WebGLTexture>;
 
+    protected readonly digitScrollTextures: Map<number, WebGLTexture>;
+
     protected readonly smallSprite: Sprite;
 
     protected readonly tagSprite: Sprite;
@@ -88,6 +90,7 @@ export class RenderableUnit extends Unit {
         shader: DefaultShader,
         digitNormalTextures: Map<number, WebGLTexture>,
         digitDamageTextures: Map<number, WebGLTexture>,
+        digitScrollTextures: Map<number, WebGLTexture>,
         smallSprite: Sprite,
         tagSprite: Sprite,
         hourglassSprite: Sprite,
@@ -100,6 +103,7 @@ export class RenderableUnit extends Unit {
         this.shader = shader;
         this.digitNormalTextures = digitNormalTextures;
         this.digitDamageTextures = digitDamageTextures;
+        this.digitScrollTextures = digitScrollTextures;
         this.smallSprite = smallSprite;
         this.tagSprite = tagSprite;
         this.hourglassSprite = hourglassSprite;
@@ -188,6 +192,7 @@ export class RenderableUnit extends Unit {
         shader: DefaultShader,
         digitNormalTextures: Map<number, WebGLTexture>,
         digitDamageTextures: Map<number, WebGLTexture>,
+        digitScrollTextures: Map<number, WebGLTexture>,
         smallSprite: Sprite,
         tagSprite: Sprite,
         hourglassSprite: Sprite,
@@ -206,6 +211,7 @@ export class RenderableUnit extends Unit {
             shader,
             digitNormalTextures,
             digitDamageTextures,
+            digitScrollTextures,
             smallSprite,
             tagSprite,
             hourglassSprite,
@@ -218,7 +224,7 @@ export class RenderableUnit extends Unit {
     public getHoveredSpell(mousePosition: HoCMath.XY): RenderableSpell | undefined {
         for (const s of this.spells) {
             const renderableSpell = s as RenderableSpell;
-            if (renderableSpell.isHover(mousePosition)) {
+            if (renderableSpell.isHover(mousePosition, this.getStackPower())) {
                 return renderableSpell;
             }
         }
@@ -234,11 +240,11 @@ export class RenderableUnit extends Unit {
         for (let i = windowLeft; i < windowRight; i++) {
             if (
                 i in this.spells &&
-                this.spells[i] &&
-                this.spells[i].isRemaining() &&
-                this.spells[i].getMinimalCasterStackPower() <= this.getStackPower()
+                this.spells[i] // &&
+                // this.spells[i].isRemaining() &&
+                // this.spells[i].getMinimalCasterStackPower() <= this.getStackPower()
             ) {
-                (this.spells[i] as RenderableSpell).renderOnPage(bookPosition++);
+                (this.spells[i] as RenderableSpell).renderOnPage(bookPosition++, this.getStackPower());
                 rendered.push(i);
             }
         }
@@ -878,6 +884,7 @@ export class RenderableUnit extends Unit {
 
     protected parseSpells(): void {
         const spells: Map<string, number> = this.parseSpellData(this.unitProperties.spells);
+        const newSpells: RenderableSpell[] = [];
 
         for (const [k, v] of spells.entries()) {
             const spArr = k.split(":");
@@ -893,7 +900,7 @@ export class RenderableUnit extends Unit {
             const spellName = spArr[1];
             const spellProperties = HoCConfig.getSpellConfig(faction, spellName);
             const textureNames = SpellHelper.spellToTextureNames(spellName);
-            this.spells.push(
+            newSpells.push(
                 new RenderableSpell(
                     { spellProperties: spellProperties, amount: v },
                     this.gl,
@@ -901,10 +908,12 @@ export class RenderableUnit extends Unit {
                     this.textures,
                     new Sprite(this.gl, this.shader, this.textures[textureNames[0] as keyof PreloadedTextures].texture),
                     new Sprite(this.gl, this.shader, this.textures[textureNames[1] as keyof PreloadedTextures].texture),
-                    this.digitNormalTextures,
+                    this.digitScrollTextures,
                 ),
             );
         }
+
+        this.spells = newSpells;
     }
 
     protected handleDamageAnimation(unitsDied: number): void {

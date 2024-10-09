@@ -9,7 +9,9 @@
  * -----------------------------------------------------------------------------
  */
 
-import { ObstacleType, HoCMath } from "@heroesofcrypto/common";
+import { b2Draw, b2Color } from "@box2d/core";
+
+import { ObstacleType, HoCMath, GridSettings, HoCConstants } from "@heroesofcrypto/common";
 
 import { Sprite } from "../utils/gl/Sprite";
 
@@ -22,6 +24,10 @@ export class Obstacle {
 
     private readonly sizeY: number;
 
+    private readonly draw: b2Draw;
+
+    private readonly gridSettings: GridSettings;
+
     private lightSprite?: Sprite;
 
     private darkSprite?: Sprite;
@@ -31,6 +37,8 @@ export class Obstacle {
         position: HoCMath.XY,
         sizeX: number,
         sizeY: number,
+        draw: b2Draw,
+        gridSettings: GridSettings,
         lightSprite?: Sprite,
         darkSprite?: Sprite,
     ) {
@@ -38,6 +46,8 @@ export class Obstacle {
         this.position = position;
         this.sizeX = sizeX;
         this.sizeY = sizeY;
+        this.draw = draw;
+        this.gridSettings = gridSettings;
         this.lightSprite = lightSprite;
         this.darkSprite = darkSprite;
     }
@@ -62,7 +72,59 @@ export class Obstacle {
         this.darkSprite = darkSprite;
     }
 
-    public render(isLightMode: boolean): void {
+    private drawHitbar(hitsRemaining: number): void {
+        const startingPositionX =
+            ((this.gridSettings.getMinX() + this.gridSettings.getMaxX()) >> 1) - this.gridSettings.getTwoSteps();
+        const shiftX = Math.floor(
+            (this.gridSettings.getStep() / HoCConstants.MAX_HITS_MOUNTAIN) * (HoCConstants.MAX_HITS_MOUNTAIN - 1),
+        );
+        while (hitsRemaining--) {
+            const polygonStartingPositionX =
+                startingPositionX + shiftX * (HoCConstants.MAX_HITS_MOUNTAIN - (hitsRemaining + 1));
+
+            const polygonStartingPositionY =
+                ((this.gridSettings.getMinY() + this.gridSettings.getMaxY()) >> 1) - this.gridSettings.getTwoSteps();
+            const newX = polygonStartingPositionX + shiftX;
+            const newY = polygonStartingPositionY + 40;
+
+            this.draw.DrawPolygon(
+                [
+                    { x: polygonStartingPositionX, y: polygonStartingPositionY },
+                    { x: polygonStartingPositionX, y: newY },
+                    { x: newX, y: newY },
+                    { x: newX, y: polygonStartingPositionY },
+                ],
+                4,
+                new b2Color(1, 1, 1, 0.8),
+            );
+
+            this.draw.DrawPolygon(
+                [
+                    { x: polygonStartingPositionX + 1, y: polygonStartingPositionY + 1 },
+                    { x: polygonStartingPositionX + 1, y: newY - 1 },
+                    { x: newX - 1, y: newY - 1 },
+                    { x: newX - 1, y: polygonStartingPositionY + 1 },
+                ],
+                4,
+                new b2Color(1, 1, 1, 0.8),
+            );
+
+            this.draw.DrawSolidPolygon(
+                [
+                    { x: polygonStartingPositionX + 2, y: polygonStartingPositionY + 2 },
+                    { x: polygonStartingPositionX + 2, y: newY - 2 },
+                    { x: newX - 2, y: newY - 2 },
+                    { x: newX - 2, y: polygonStartingPositionY + 2 },
+                ],
+                4,
+                new b2Color(255 / 255, 226 / 255, 5 / 255, 0.8),
+            );
+
+            // previousX = polygonStartingPositionX;
+        }
+    }
+
+    public render(isLightMode: boolean, hitsRemaining = 0): void {
         let sprite: Sprite | undefined;
         if (isLightMode) {
             sprite = this.lightSprite;
@@ -74,6 +136,9 @@ export class Obstacle {
             sprite.setRect(this.position.x, this.position.y, this.sizeX, this.sizeY);
 
             sprite.render();
+        }
+        if (this.type === ObstacleType.BLOCK && hitsRemaining) {
+            this.drawHitbar(hitsRemaining);
         }
     }
 }
