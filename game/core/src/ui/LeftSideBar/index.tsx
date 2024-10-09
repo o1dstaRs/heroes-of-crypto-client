@@ -64,10 +64,17 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
 
     // Adjust bar size on window resize
     useEffect(() => {
-        window.addEventListener("resize", adjustBarSize);
         adjustBarSize(); // Initial call to set the size based on the initial window dimensions
 
-        return () => window.removeEventListener("resize", adjustBarSize);
+        window.addEventListener("resize", adjustBarSize);
+        window.addEventListener("wheel", adjustBarSize);
+        document.addEventListener("fullscreenchange", adjustBarSize);
+
+        return () => {
+            window.removeEventListener("resize", adjustBarSize);
+            window.removeEventListener("wheel", adjustBarSize);
+            document.removeEventListener("fullscreenchange", adjustBarSize);
+        };
     }, [gameStarted]);
 
     const shouldColumnize = () => {

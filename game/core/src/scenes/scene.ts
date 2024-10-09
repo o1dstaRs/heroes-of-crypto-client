@@ -13,6 +13,7 @@ import { DrawControllers } from "@box2d/controllers";
 import {
     b2AABB,
     b2Body,
+    b2Draw,
     b2BodyType,
     b2Color,
     b2Contact,
@@ -80,6 +81,7 @@ export interface SceneContext {
     gl: WebGLRenderingContext;
     shader: DefaultShader;
     textures: PreloadedTextures;
+    draw: b2Draw;
 }
 
 export interface SceneConstructor {

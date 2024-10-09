@@ -9,8 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
-import { XY, b2World, b2BodyType, b2PolygonShape } from "@box2d/core";
-import { ObstacleType } from "@heroesofcrypto/common";
+import { XY, b2World, b2BodyType, b2PolygonShape, b2Draw } from "@box2d/core";
+import { GridSettings, ObstacleType } from "@heroesofcrypto/common";
 
 import { Obstacle } from "./obstacle";
 import { Sprite } from "../utils/gl/Sprite";
@@ -22,9 +22,15 @@ export class ObstacleGenerator {
 
     private readonly textures: PreloadedTextures;
 
-    public constructor(world: b2World, textures: PreloadedTextures) {
+    private readonly draw: b2Draw;
+
+    private readonly gridSettings: GridSettings;
+
+    public constructor(world: b2World, textures: PreloadedTextures, draw: b2Draw, gridSettings: GridSettings) {
         this.world = world;
         this.textures = textures;
+        this.draw = draw;
+        this.gridSettings = gridSettings;
     }
 
     public generateHole(position: XY, sizePixels: number, sizeCells: number): Obstacle {
@@ -50,7 +56,7 @@ export class ObstacleGenerator {
         unitShape.SetAsBox(halfSize, halfSize);
         body.CreateFixture(fixtureDef);
 
-        return new Obstacle(ObstacleType.BLOCK, position, sizePixels, sizePixels);
+        return new Obstacle(ObstacleType.BLOCK, position, sizePixels, sizePixels, this.draw, this.gridSettings);
     }
 
     public generateLava(
@@ -65,6 +71,8 @@ export class ObstacleGenerator {
             position,
             sizeX,
             sizeY,
+            this.draw,
+            this.gridSettings,
             new Sprite(gl, shader, this.textures.lava_256.texture),
             new Sprite(gl, shader, this.textures.lava_256.texture),
         );
@@ -106,6 +114,8 @@ export class ObstacleGenerator {
             position,
             spriteSizeX,
             spriteSizeY,
+            this.draw,
+            this.gridSettings,
             new Sprite(gl, shader, this.textures.mountain_432_412.texture),
             new Sprite(gl, shader, this.textures.mountain_432_412.texture),
         );
@@ -123,6 +133,8 @@ export class ObstacleGenerator {
             position,
             sizeX,
             sizeY,
+            this.draw,
+            this.gridSettings,
             new Sprite(gl, shader, this.textures.water_256.texture),
             new Sprite(gl, shader, this.textures.water_256.texture),
         );

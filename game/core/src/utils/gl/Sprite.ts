@@ -70,7 +70,7 @@ export class Sprite {
         this.vertBuffer.setData(setRotatedRect(tempArray, x, y, width, height, rotation, centerX, centerY, scale));
     }
 
-    public render() {
+    public render(opacity = 1) {
         this.vertBuffer.bind();
         this.shader.position.enable();
         this.shader.position.set(2, this.gl.FLOAT, false, 0, 0);
@@ -83,7 +83,7 @@ export class Sprite {
         this.shader.uv.set(2, this.gl.FLOAT, false, 0, 0);
         this.uvBuffer.unbind();
 
-        this.shader.opacity.set(1);
+        this.shader.opacity.set(opacity);
         this.shader.uvOffset.set(this.uvOffsetX, this.uvOffsetY);
         this.shader.textureID.set(0);
         this.gl.drawArrays(this.gl.TRIANGLES, 0, 6);

@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCMath, ISpellParams, Spell } from "@heroesofcrypto/common";
+import { HoCConstants, HoCMath, ISpellParams, Spell } from "@heroesofcrypto/common";
 
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
@@ -41,7 +41,11 @@ export class RenderableSpell extends Spell {
 
     private readonly texturesByDigit: Map<number, WebGLTexture>;
 
-    private readonly spellBackground: Sprite;
+    private readonly spellBackgroundSprite: Sprite;
+
+    private readonly greenStackSprite: Sprite;
+
+    private readonly redStackSprite: Sprite;
 
     private xMin: number = 0;
 
@@ -66,7 +70,9 @@ export class RenderableSpell extends Spell {
         this.sprite = sprite;
         this.fontSprite = fontSprite;
         this.texturesByDigit = texturesByDigit;
-        this.spellBackground = new Sprite(gl, shader, textures.spell_cell_260.texture);
+        this.spellBackgroundSprite = new Sprite(gl, shader, textures.spell_cell_260.texture);
+        this.greenStackSprite = new Sprite(gl, shader, textures.stack_green.texture);
+        this.redStackSprite = new Sprite(gl, shader, textures.stack_red.texture);
     }
 
     public getSprite(): Sprite {
@@ -80,8 +86,10 @@ export class RenderableSpell extends Spell {
         this.yMax = 0;
     }
 
-    public isHover(mousePosition: HoCMath.XY): boolean {
+    public isHover(mousePosition: HoCMath.XY, ownerStackPower: number): boolean {
         return (
+            this.amountRemaining > 0 &&
+            ownerStackPower >= this.getMinimalCasterStackPower() &&
             this.xMin !== this.xMax &&
             this.yMin !== this.yMax &&
             mousePosition.x >= this.xMin &&
@@ -98,7 +106,7 @@ export class RenderableSpell extends Spell {
         ];
     }
 
-    public renderOnPage(bookPosition: BookPosition): void {
+    public renderOnPage(bookPosition: BookPosition, ownerStackPower: number): void {
         const page = Math.ceil(bookPosition / 3);
         const mod = bookPosition % 3;
         const pagePosition = mod || 3;
@@ -107,7 +115,7 @@ export class RenderableSpell extends Spell {
         const yPos =
             BOOK_POSITION_Y - (pagePosition - 1) * BOOK_SPELL_SIZE - 0.4 * (pagePosition - 1) * BOOK_SPELL_SIZE;
 
-        this.spellBackground.setRect(xPos - 54, yPos - 112, BOOK_CELL_SIZE, BOOK_CELL_SIZE);
+        this.spellBackgroundSprite.setRect(xPos - 54, yPos - 112, BOOK_CELL_SIZE, BOOK_CELL_SIZE);
         this.sprite.setRect(xPos, yPos, BOOK_SPELL_SIZE, BOOK_SPELL_SIZE);
 
         this.xMin = xPos;
@@ -119,12 +127,16 @@ export class RenderableSpell extends Spell {
 
         this.fontSprite.setRect(xPos, yPos - 70, BOOK_SPELL_SIZE, fifthStep);
 
-        this.spellBackground.render();
-        this.sprite.render();
-        this.fontSprite.render();
+        this.spellBackgroundSprite.render();
+        let allowedRender = true;
+        if (this.amountRemaining <= 0 || ownerStackPower < this.getMinimalCasterStackPower()) {
+            allowedRender = false;
+        }
+        this.sprite.render(allowedRender ? 1 : 0.4);
+        this.fontSprite.render(allowedRender ? 1 : 0.4);
+        let numberOfScrolls = this.amountRemaining;
 
         let index = 0;
-        let numberOfScrolls = this.amountRemaining;
         const amountSprites: Sprite[] = new Array(numberOfScrolls.toString().length);
 
         if (numberOfScrolls < 10) {
@@ -144,11 +156,31 @@ export class RenderableSpell extends Spell {
         }
 
         const sixthStep = BOOK_SPELL_SIZE / 6;
-
         let i = 1;
         for (const s of amountSprites) {
-            s.setRect(xPos + BOOK_SPELL_SIZE - sixthStep * i++, yPos, sixthStep, fifthStep);
+            s.setRect(xPos + 106 + BOOK_SPELL_SIZE - sixthStep * i++, yPos + 110, fifthStep, BOOK_SPELL_SIZE / 3);
             s.render();
+        }
+
+        // render stack column
+        let stackIndex = 1;
+        let yShift = 0;
+        while (stackIndex <= this.getMinimalCasterStackPower()) {
+            let sprite: Sprite;
+            if (stackIndex <= ownerStackPower) {
+                sprite = this.greenStackSprite;
+            } else {
+                sprite = this.redStackSprite;
+            }
+            sprite.setRect(
+                xPos - 312 + BOOK_SPELL_SIZE - sixthStep,
+                yPos + yShift,
+                sixthStep - 8,
+                BOOK_SPELL_SIZE / HoCConstants.MAX_UNIT_STACK_POWER,
+            );
+            sprite.render();
+            stackIndex++;
+            yShift = yShift + BOOK_SPELL_SIZE / 5;
         }
     }
 }

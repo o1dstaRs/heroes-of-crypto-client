@@ -208,6 +208,8 @@ export class UnitsFactory {
 
     protected readonly digitDamageTextures: Map<number, WebGLTexture>;
 
+    protected readonly digitScrollTextures: Map<number, WebGLTexture>;
+
     protected readonly abilityFactory: AbilityFactory;
 
     protected readonly grid: Grid;
@@ -222,6 +224,7 @@ export class UnitsFactory {
         shader: DefaultShader,
         digitNormalTextures: Map<number, WebGLTexture>,
         digitDamageTextures: Map<number, WebGLTexture>,
+        digitScrollTextures: Map<number, WebGLTexture>,
         gridSettings: GridSettings,
         sceneStepCount: HoCLib.RefNumber,
         textures: PreloadedTextures,
@@ -234,6 +237,7 @@ export class UnitsFactory {
         this.shader = shader;
         this.digitNormalTextures = digitNormalTextures;
         this.digitDamageTextures = digitDamageTextures;
+        this.digitScrollTextures = digitScrollTextures;
         this.unitSize = gridSettings.getUnitSize();
         this.gridSettings = gridSettings;
         this.sceneStepCount = sceneStepCount;
@@ -583,6 +587,7 @@ export class UnitsFactory {
             this.shader,
             this.digitNormalTextures,
             this.digitDamageTextures,
+            this.digitScrollTextures,
             new Sprite(this.gl, this.shader, texture),
             new Sprite(this.gl, this.shader, this.textures.tag.texture),
             new Sprite(this.gl, this.shader, this.textures.hourglass.texture),
@@ -613,6 +618,7 @@ export class UnitsFactory {
             this.shader,
             this.digitNormalTextures,
             this.digitDamageTextures,
+            this.digitScrollTextures,
             HoCConfig.getHeroConfig(team, faction, heroName, largeTextureName),
             this.gridSettings,
             team,

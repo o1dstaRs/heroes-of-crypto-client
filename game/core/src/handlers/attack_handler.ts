@@ -9,7 +9,6 @@
  * -----------------------------------------------------------------------------
  */
 
-import { b2Body } from "@box2d/core";
 import {
     AttackType,
     HoCLib,
@@ -29,6 +28,7 @@ import {
     UnitsHolder,
     EffectHelper,
     MoveHandler,
+    IAnimationData,
 } from "@heroesofcrypto/common";
 
 import { processDoublePunchAbility } from "../abilities/double_punch_ability";
@@ -38,7 +38,6 @@ import { processFireShieldAbility } from "../abilities/fire_shield_ability";
 import { processLightningSpinAbility } from "../abilities/lightning_spin_ability";
 import { processOneInTheFieldAbility } from "../abilities/one_in_the_field_ability";
 import { processStunAbility } from "../abilities/stun_ability";
-import { Drawer } from "../draw/drawer";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { processBlindnessAbility } from "../abilities/blindness_ability";
 import { processBoarSalivaAbility } from "../abilities/boar_saliva_ability";
@@ -58,7 +57,6 @@ import { processAggrAbility } from "../abilities/aggr_ability";
 import { processSkewerStrikeAbility } from "../abilities/skewer_strike_ability";
 import { IVisibleDamage } from "../state/visible_state";
 import { processChainLightningAbility } from "../abilities/chain_lightning_ability";
-import { UnitsFactory } from "../units/units_factory";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -70,6 +68,7 @@ export interface IRangeAttackEvaluation {
 export interface IAttackResult {
     completed: boolean;
     unitIdsDied: string[];
+    animationData?: IAnimationData[];
 }
 
 export interface IAttackObstacle {
@@ -92,11 +91,12 @@ export class AttackHandler {
     }
 
     private getAffectedUnitsAndObstacles(
-        allUnits: Map<string, Unit>,
+        allUnits: ReadonlyMap<string, Unit>,
         cellsToPositions: [HoCMath.XY, HoCMath.XY][],
         attackerUnit: Unit,
         isThroughShot = false,
         isSelection = false,
+        isAOEShot = false,
     ): IRangeAttackEvaluation {
         const affectedUnitIds: string[] = [];
         const affectedUnits: Array<Unit[]> = [];
@@ -109,7 +109,7 @@ export class AttackHandler {
             const position = cellToPosition[1];
 
             const possibleUnitId = this.grid.getOccupantUnitId(cell);
-            if (possibleUnitId === "B") {
+            if (possibleUnitId === "B" && !isSelection && !isAOEShot) {
                 const obstablePosition = {
                     x: (this.gridSettings.getMinX() + this.gridSettings.getMaxX()) / 2,
                     y: (this.gridSettings.getMinY() + this.gridSettings.getMaxY()) / 2,
@@ -278,12 +278,13 @@ export class AttackHandler {
     }
 
     public evaluateRangeAttack(
-        allUnits: Map<string, Unit>,
+        allUnits: ReadonlyMap<string, Unit>,
         fromUnit: Unit,
         fromPosition: HoCMath.XY,
         toPosition: HoCMath.XY,
         isThroughShot = false,
         isSelection = false,
+        isAOEShot = false,
     ): IRangeAttackEvaluation {
         const intersectedCellsToPositions = this.getCellsToPositions(
             this.getIntersectedPositions(fromPosition, toPosition),
@@ -295,6 +296,7 @@ export class AttackHandler {
             fromUnit,
             isThroughShot,
             isSelection,
+            isAOEShot,
         );
     }
 
@@ -332,18 +334,17 @@ export class AttackHandler {
 
     public handleMagicAttack(
         gridMatrix: number[][],
-        drawer: Drawer,
         unitsHolder: UnitsHolder,
-        unitsFactory: UnitsFactory,
         grid: Grid,
         currentActiveSpell?: Spell,
         attackerUnit?: Unit,
         targetUnit?: Unit,
         currentEnemiesCellsWithinMovementRange?: HoCMath.XY[],
     ): IAttackResult {
+        const animationData: IAnimationData[] = [];
         const unitIdsDied: string[] = [];
         if (!currentActiveSpell || !attackerUnit) {
-            return { completed: false, unitIdsDied };
+            return { completed: false, unitIdsDied, animationData };
         }
 
         if (
@@ -352,13 +353,11 @@ export class AttackHandler {
                 false,
                 this.gridSettings,
                 gridMatrix,
-                targetUnit.getBuffs(),
+                attackerUnit,
+                targetUnit,
                 currentActiveSpell,
                 attackerUnit.getSpells(),
-                targetUnit.getSpells(),
                 targetUnit.getBaseCell(),
-                attackerUnit.getId(),
-                targetUnit.getId(),
                 attackerUnit.getTarget(),
                 attackerUnit.getTeam(),
                 targetUnit.getTeam(),
@@ -424,24 +423,13 @@ export class AttackHandler {
                     )
                 ) {
                     if (currentActiveSpell.getPowerType() === SpellPowerType.POSITION_CHANGE) {
-                        const attackerBody = unitsFactory.getUnitBody(attackerUnit.getId());
-                        const targetBody = unitsFactory.getUnitBody(debuffTarget.getId());
+                        const attackerUnitPosition = structuredClone(attackerUnit.getPosition());
+                        const targetUnitPosition = structuredClone(debuffTarget.getPosition());
                         const attackerBaseCell = attackerUnit.getBaseCell();
                         const debuffTargetBaseCell = debuffTarget.getBaseCell();
-                        if (attackerBody && targetBody && attackerBaseCell && debuffTargetBaseCell) {
+                        if (attackerBaseCell && debuffTargetBaseCell) {
                             const initialAttackerCell = structuredClone(attackerBaseCell);
                             const initialTargetUnitCell = structuredClone(debuffTargetBaseCell);
-
-                            drawer.startFlyAnimation(
-                                attackerBody,
-                                attackerUnit,
-                                structuredClone(debuffTarget.getPosition()),
-                            );
-                            drawer.startFlyAnimation(
-                                targetBody,
-                                debuffTarget,
-                                structuredClone(attackerUnit.getPosition()),
-                            );
 
                             this.grid.cleanupAll(
                                 attackerUnit.getId(),
@@ -480,6 +468,19 @@ export class AttackHandler {
                                 debuffTarget.getId(),
                                 debuffTarget.getTeam(),
                                 debuffTarget.getAttackRange(),
+                            );
+
+                            animationData.push(
+                                {
+                                    toPosition: targetUnitPosition,
+                                    affectedUnit: attackerUnit,
+                                    bodyUnit: attackerUnit,
+                                },
+                                {
+                                    toPosition: attackerUnitPosition,
+                                    affectedUnit: debuffTarget,
+                                    bodyUnit: debuffTarget,
+                                },
                             );
                         }
                     } else {
@@ -550,15 +551,14 @@ export class AttackHandler {
             }
             this.sceneLog.updateLog(mirroredStr);
 
-            return { completed: true, unitIdsDied };
+            return { completed: true, unitIdsDied, animationData };
         }
 
-        return { completed: false, unitIdsDied };
+        return { completed: false, unitIdsDied, animationData };
     }
 
     public handleRangeAttack(
         unitsHolder: UnitsHolder,
-        drawer: Drawer,
         grid: Grid,
         hoverRangeAttackDivisors: number[],
         rangeResponseAttackDivisor: number,
@@ -570,6 +570,7 @@ export class AttackHandler {
         isAOE = false,
     ): IAttackResult {
         const unitIdsDied: string[] = [];
+        const animationData: IAnimationData[] = [];
         if (
             !attackerUnit ||
             attackerUnit.isDead() ||
@@ -580,37 +581,44 @@ export class AttackHandler {
             attackerUnit.getAttackTypeSelection() !== AttackType.RANGE ||
             !this.canLandRangeAttack(attackerUnit, grid.getEnemyAggrMatrixByUnitId(attackerUnit.getId()))
         ) {
-            return { completed: false, unitIdsDied };
+            return { completed: false, unitIdsDied, animationData };
         }
 
         if (!targetUnits) {
             if (isAOE) {
                 this.sceneLog.updateLog(`${attackerUnit.getName()} miss aoe`);
             }
-            return { completed: isAOE, unitIdsDied };
+            return { completed: isAOE, unitIdsDied, animationData };
         }
 
         if (targetUnits.length !== hoverRangeAttackDivisors.length) {
-            return { completed: false, unitIdsDied };
+            return { completed: false, unitIdsDied, animationData };
         }
 
         let targetUnitUndex = 0;
         let affectedUnits = targetUnits.at(targetUnitUndex);
         if (!affectedUnits?.length) {
-            return { completed: false, unitIdsDied };
+            return { completed: false, unitIdsDied, animationData };
         }
 
         let targetUnit = affectedUnits[0];
 
         if (!targetUnit && isAOE) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} miss aoe`);
-            return { completed: true, unitIdsDied };
+            return { completed: true, unitIdsDied, animationData };
         }
 
         // check if unit is forced to attack certain enemy only
+        // if so, check if the forced target is still alive
         const forcedTargetUnitId = attackerUnit.getTarget();
-        if (targetUnit && forcedTargetUnitId && forcedTargetUnitId !== targetUnit.getId()) {
-            return { completed: false, unitIdsDied };
+        const forcedTargetUnit = unitsHolder.getAllUnits().get(forcedTargetUnitId);
+        if (
+            forcedTargetUnit &&
+            !forcedTargetUnit.isDead() &&
+            forcedTargetUnitId &&
+            forcedTargetUnitId !== targetUnit.getId()
+        ) {
+            return { completed: false, unitIdsDied, animationData };
         }
 
         const throughShotResult = processThroughShotAbility(
@@ -621,16 +629,18 @@ export class AttackHandler {
             hoverRangeAttackPosition,
             unitsHolder,
             grid,
-            drawer,
             this.sceneLog,
         );
         for (const uId of throughShotResult.unitIdsDied) {
             unitIdsDied.push(uId);
         }
+        for (const ad of throughShotResult.animationData) {
+            animationData.push(ad);
+        }
 
         if (throughShotResult.landed) {
             unitsHolder.refreshStackPowerForAllUnits();
-            return { completed: true, unitIdsDied };
+            return { completed: true, unitIdsDied, animationData };
         }
 
         if (
@@ -641,17 +651,21 @@ export class AttackHandler {
                 (attackerUnit.hasDebuffActive("Cowardice") &&
                     attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp()))
         ) {
-            return { completed: false, unitIdsDied };
+            return { completed: false, unitIdsDied, animationData };
         }
 
         let hoverRangeAttackDivisor: number | undefined = hoverRangeAttackDivisors.at(targetUnitUndex);
         if (!hoverRangeAttackDivisor) {
-            return { completed: false, unitIdsDied };
+            return { completed: false, unitIdsDied, animationData };
         }
 
         targetUnitUndex++;
 
-        drawer.startBulletAnimation(attackerUnit.getPosition(), hoverRangeAttackPosition, targetUnit);
+        animationData.push({
+            fromPosition: attackerUnit.getPosition(),
+            toPosition: hoverRangeAttackPosition,
+            affectedUnit: targetUnit,
+        });
 
         const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(targetUnit);
         let damageFromAttack = 0;
@@ -675,7 +689,11 @@ export class AttackHandler {
             (!targetUnit.getTarget() || targetUnit.getTarget() === attackerUnit.getId())
         ) {
             isResponseMissed = HoCLib.getRandomInt(0, 100) < targetUnit.calculateMissChance(rangeResponseUnit);
-            drawer.startBulletAnimation(targetUnit.getPosition(), attackerUnit.getPosition(), rangeResponseUnit);
+            animationData.push({
+                fromPosition: targetUnit.getPosition(),
+                toPosition: attackerUnit.getPosition(),
+                affectedUnit: rangeResponseUnit,
+            });
         } else {
             rangeResponseUnit = undefined;
         }
@@ -822,7 +840,7 @@ export class AttackHandler {
             if (aoeRangeResponseResult?.landed) {
                 if (rangeResponseUnit.isDead() && attackerUnit.getId() === rangeResponseUnit.getId()) {
                     unitIdsDied.push(rangeResponseUnit.getId());
-                    return { completed: true, unitIdsDied };
+                    return { completed: true, unitIdsDied, animationData };
                 }
             } else {
                 if (rangeResponseUnit.isDead()) {
@@ -839,7 +857,7 @@ export class AttackHandler {
                     }
 
                     if (attackerUnit.getId() === rangeResponseUnit.getId()) {
-                        return { completed: true, unitIdsDied };
+                        return { completed: true, unitIdsDied, animationData };
                     }
                 } else {
                     processStunAbility(targetUnit, rangeResponseUnit, attackerUnit, this.sceneLog);
@@ -879,7 +897,7 @@ export class AttackHandler {
             }
 
             if (!affectedUnits?.length) {
-                return { completed: true, unitIdsDied };
+                return { completed: true, unitIdsDied, animationData };
             }
 
             targetUnit = affectedUnits[0];
@@ -894,11 +912,11 @@ export class AttackHandler {
                 if (targetUnit.isDead()) {
                     unitIdsDied.push(targetUnit.getId());
                 }
-                return { completed: true, unitIdsDied };
+                return { completed: true, unitIdsDied, animationData };
             }
             hoverRangeAttackDivisor = hoverRangeAttackDivisors.at(targetUnitUndex);
             if (!hoverRangeAttackDivisor) {
-                return { completed: true, unitIdsDied };
+                return { completed: true, unitIdsDied, animationData };
             }
         }
 
@@ -908,7 +926,6 @@ export class AttackHandler {
             targetUnit,
             affectedUnits,
             this.sceneLog,
-            drawer,
             unitsHolder,
             grid,
             hoverRangeAttackDivisor,
@@ -916,6 +933,10 @@ export class AttackHandler {
             damageForAnimation,
             isAOE,
         );
+
+        for (const ad of secondShotResult.animationData) {
+            animationData.push(ad);
+        }
 
         for (const uId of secondShotResult.unitIdsDied) {
             unitIdsDied.push(uId);
@@ -939,21 +960,20 @@ export class AttackHandler {
 
         unitsHolder.refreshStackPowerForAllUnits();
 
-        return { completed: true, unitIdsDied };
+        return { completed: true, unitIdsDied, animationData };
     }
 
     public handleMeleeAttack(
         unitsHolder: UnitsHolder,
-        drawer: Drawer,
         grid: Grid,
         moveHandler: MoveHandler,
         damageForAnimation: IVisibleDamage,
         currentActiveKnownPaths?: Map<number, IWeightedRoute[]>,
         attackerUnit?: Unit,
         targetUnit?: Unit,
-        attackerBody?: b2Body,
         attackFromCell?: HoCMath.XY,
     ): IAttackResult {
+        const animationData: IAnimationData[] = [];
         const unitIdsDied: string[] = [];
 
         const updateUnitsDied = (updateBy: string[]): void => {
@@ -968,26 +988,32 @@ export class AttackHandler {
             !targetUnit ||
             targetUnit.isDead() ||
             !attackFromCell ||
-            !attackerBody ||
             (attackerUnit.getAttackTypeSelection() !== AttackType.MELEE &&
                 attackerUnit.getAttackTypeSelection() !== AttackType.MELEE_MAGIC) ||
             attackerUnit.hasAbilityActive("No Melee") ||
             attackerUnit.getTeam() === targetUnit.getTeam() ||
             (attackerUnit.hasDebuffActive("Cowardice") && attackerUnit.getCumulativeHp() < targetUnit.getCumulativeHp())
         ) {
-            return { completed: false, unitIdsDied };
+            return { completed: false, unitIdsDied, animationData };
         }
 
         // check if unit is forced to attack certain enemy only
+        // if so, check if the forced target is still alive
         const forcedTargetUnitId = attackerUnit.getTarget();
-        if (forcedTargetUnitId && forcedTargetUnitId !== targetUnit.getId()) {
-            return { completed: false, unitIdsDied };
+        const forcedTargetUnit = unitsHolder.getAllUnits().get(forcedTargetUnitId);
+        if (
+            forcedTargetUnit &&
+            !forcedTargetUnit.isDead() &&
+            forcedTargetUnitId &&
+            forcedTargetUnitId !== targetUnit.getId()
+        ) {
+            return { completed: false, unitIdsDied, animationData };
         }
 
         const currentCell = GridMath.getCellForPosition(this.gridSettings, attackerUnit.getPosition());
 
         if (!currentCell) {
-            return { completed: false, unitIdsDied };
+            return { completed: false, unitIdsDied, animationData };
         }
 
         const attackFromCells = [attackFromCell];
@@ -1000,7 +1026,7 @@ export class AttackHandler {
         }
 
         if (!grid.areCellsAdjacent(attackFromCells, targetUnit.getCells())) {
-            return { completed: false, unitIdsDied };
+            return { completed: false, unitIdsDied, animationData };
         }
 
         const stationaryAttack = currentCell.x === attackFromCell.x && currentCell.y === attackFromCell.y;
@@ -1026,7 +1052,7 @@ export class AttackHandler {
                         currentActiveKnownPaths,
                     );
                 if (!moveInitiated) {
-                    return { completed: false, unitIdsDied };
+                    return { completed: false, unitIdsDied, animationData };
                 }
 
                 attackerUnit.setPosition(position.x, position.y, false);
@@ -1037,13 +1063,13 @@ export class AttackHandler {
                     attackerUnit.getAttackRange(),
                 );
 
-                const movePaths = currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y);
-                if (movePaths?.length) {
-                    const path = movePaths[0].route;
-                    drawer.startMoveAnimation(attackerBody, attackerUnit, path);
-                }
+                animationData.push({
+                    toPosition: attackerUnit.getPosition(),
+                    affectedUnit: attackerUnit,
+                    bodyUnit: attackerUnit,
+                });
             } else {
-                return { completed: false, unitIdsDied };
+                return { completed: false, unitIdsDied, animationData };
             }
         } else {
             const position = GridMath.getPositionForCell(
@@ -1069,7 +1095,7 @@ export class AttackHandler {
                         currentActiveKnownPaths,
                     );
                 if (!moveInitiated) {
-                    return { completed: false, unitIdsDied };
+                    return { completed: false, unitIdsDied, animationData };
                 }
 
                 attackerUnit.setPosition(
@@ -1080,13 +1106,13 @@ export class AttackHandler {
 
                 grid.occupyCells(cells, attackerUnit.getId(), attackerUnit.getTeam(), attackerUnit.getAttackRange());
 
-                const movePaths = currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y);
-                if (movePaths?.length) {
-                    const path = movePaths[0].route;
-                    drawer.startMoveAnimation(attackerBody, attackerUnit, path);
-                }
+                animationData.push({
+                    toPosition: attackerUnit.getPosition(),
+                    affectedUnit: attackerUnit,
+                    bodyUnit: attackerUnit,
+                });
             } else {
-                return { completed: false, unitIdsDied };
+                return { completed: false, unitIdsDied, animationData };
             }
         }
 
@@ -1454,6 +1480,6 @@ export class AttackHandler {
 
         unitsHolder.refreshStackPowerForAllUnits();
 
-        return { completed: true, unitIdsDied };
+        return { completed: true, unitIdsDied, animationData };
     }
 }

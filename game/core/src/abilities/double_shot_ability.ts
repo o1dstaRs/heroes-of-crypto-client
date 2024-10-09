@@ -9,9 +9,17 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, HoCMath, ISceneLog, Grid, Unit, UnitsHolder } from "@heroesofcrypto/common";
+import {
+    AttackType,
+    HoCLib,
+    HoCMath,
+    ISceneLog,
+    Grid,
+    Unit,
+    UnitsHolder,
+    IAnimationData,
+} from "@heroesofcrypto/common";
 
-import { Drawer } from "../draw/drawer";
 import { IVisibleDamage } from "../state/visible_state";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { processRangeAOEAbility } from "./aoe_range_ability";
@@ -22,6 +30,7 @@ export interface IDoubleShotResult {
     aoeRangeAttackLanded: boolean;
     damage: number;
     unitIdsDied: string[];
+    animationData: IAnimationData[];
 }
 
 export function processDoubleShotAbility(
@@ -29,7 +38,6 @@ export function processDoubleShotAbility(
     toUnit: Unit,
     affectedUnits: Unit[],
     sceneLog: ISceneLog,
-    drawer: Drawer,
     unitsHolder: UnitsHolder,
     grid: Grid,
     hoverRangeAttackDivisor: number,
@@ -37,6 +45,7 @@ export function processDoubleShotAbility(
     damageForAnimation: IVisibleDamage,
     isAOE: boolean,
 ): IDoubleShotResult {
+    const animationData: IAnimationData[] = [];
     const doubleShotAbility = fromUnit.getAbility("Double Shot");
     const unitIdsDied: string[] = [];
 
@@ -55,6 +64,7 @@ export function processDoubleShotAbility(
             aoeRangeAttackLanded: false,
             damage: damageFromAttack,
             unitIdsDied,
+            animationData,
         };
     }
 
@@ -66,11 +76,15 @@ export function processDoubleShotAbility(
             aoeRangeAttackLanded: false,
             damage: damageFromAttack,
             unitIdsDied,
+            animationData,
         };
     }
 
-    drawer.startBulletAnimation(fromUnit.getPosition(), hoverRangeAttackPosition, toUnit);
-
+    animationData.push({
+        fromPosition: fromUnit.getPosition(),
+        toPosition: hoverRangeAttackPosition,
+        affectedUnit: toUnit,
+    });
     let aoeRangeAttackResult = processRangeAOEAbility(
         fromUnit,
         affectedUnits,
@@ -121,5 +135,6 @@ export function processDoubleShotAbility(
         aoeRangeAttackLanded: aoeRangeAttackResult.landed,
         damage: damageFromAttack,
         unitIdsDied: aoeRangeAttackResult.unitIdsDied,
+        animationData,
     };
 }

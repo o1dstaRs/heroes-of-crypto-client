@@ -339,6 +339,7 @@ const UnitStatsLayout: React.FC<{
     damageRange: string;
     attackTypeSelected: AttackType;
     attackDamage: number;
+    attackMod: number;
     meleeArmor: number;
     rangeArmor: number;
     armorMod: number;
@@ -354,6 +355,7 @@ const UnitStatsLayout: React.FC<{
     damageRange,
     attackTypeSelected,
     attackDamage,
+    attackMod,
     meleeArmor,
     rangeArmor,
     armorMod,
@@ -365,8 +367,8 @@ const UnitStatsLayout: React.FC<{
     redFlagImage,
     greenFlagImage,
 }) => {
-    const attackSign = attackDamage > 0 ? "+" : "";
-    const attackModBadgeValue = `${unitProperties.attack_mod > 0 ? `${attackSign}${unitProperties.attack_mod}` : ""}${
+    const attackSign = attackMod > 0 ? "+" : "";
+    const attackModBadgeValue = `${attackMod ? `${attackSign}${unitProperties.attack_mod}` : ""}${
         unitProperties.attack_multiplier !== 1 ? ` x${unitProperties.attack_multiplier}` : ""
     }`;
     const armorSign = armorMod > 0 ? "+" : "";
@@ -671,6 +673,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean }
         const stackName = `${unitProperties.name} x${unitProperties.amount_alive}`;
         const damageRange = `${unitProperties.attack_damage_min} - ${unitProperties.attack_damage_max}`;
         const armorMod = Number(unitProperties.armor_mod.toFixed(2));
+        const attackMod = Number(unitProperties.attack_mod.toFixed(2));
         const attackTypeSelected = unitProperties.attack_type_selected;
         let attackDamage = (unitProperties.base_attack + unitProperties.attack_mod) * unitProperties.attack_multiplier;
         if (attackTypeSelected === AttackType.MELEE && unitProperties.attack_type === AttackType.RANGE) {
@@ -714,6 +717,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean }
                             damageRange={damageRange}
                             attackTypeSelected={attackTypeSelected}
                             attackDamage={attackDamage}
+                            attackMod={attackMod}
                             meleeArmor={meleeArmor}
                             rangeArmor={rangeArmor}
                             armorMod={armorMod}

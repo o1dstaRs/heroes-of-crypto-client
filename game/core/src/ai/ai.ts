@@ -135,10 +135,7 @@ function doFindTarget(
     pathHelper: PathHelper,
     debug: boolean,
 ): BasicAIAction | undefined {
-    if (unit.getBaseCell() === undefined) {
-        return undefined;
-    }
-    const unitCell = unit.getBaseCell() ?? { x: -1, y: -1 }; // pos = XY
+    const unitCell = unit.getBaseCell();
     const numRows = matrix.length;
     const numCols = matrix[0].length;
     if (numRows !== numCols) {

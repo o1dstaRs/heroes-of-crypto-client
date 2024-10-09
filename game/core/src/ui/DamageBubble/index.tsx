@@ -1,36 +1,46 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 
 interface DamageBubbleProps {
+    damages: number[];
+    coordinates: { x: number; y: number };
+}
+
+const DamageBubble: React.FC<DamageBubbleProps> = ({ damages, coordinates }) => {
+    return (
+        <>
+            {damages.map((damage, index) => {
+                return <SingleDamageBubble key={`${damage}-${index}`} damage={damage} coordinates={coordinates} />;
+            })}
+        </>
+    );
+};
+
+interface SingleDamageBubbleProps {
     damage: number;
     coordinates: { x: number; y: number };
 }
 
-const DamageBubble: React.FC<DamageBubbleProps> = ({ damage, coordinates }) => {
-    const [visible, setVisible] = useState(true);
-    const [key, setKey] = useState(0);
+const SingleDamageBubble: React.FC<SingleDamageBubbleProps> = ({ damage, coordinates }) => {
+    const [visible, setVisible] = React.useState(true);
 
     useEffect(() => {
-        setVisible(true); // Reset visibility when damage is received
-        setKey((prevKey) => prevKey + 1); // Increment key to trigger new animation
-
         const timer = setTimeout(() => {
             setVisible(false);
-        }, 3000); // Make the bubble disappear after 3 seconds
+        }, 3000);
 
-        return () => clearTimeout(timer); // Cleanup the timer when the component is unmounted
-    }, [damage]); // Re-run the effect when damage changes
+        return () => clearTimeout(timer);
+    }, []);
 
-    if (!visible) return null;
-
-    // console.log(`Render Damage ${damage}`);
+    if (!visible) {
+        return null;
+    }
 
     return (
         <div
-            key={key} // Use key to trigger new animation
             style={{
                 position: "absolute",
-                top: coordinates.y - 80, // Adjust the bubble above the cursor
-                left: coordinates.x + 40, // Slightly right of the cursor
+                top: coordinates.y - 80,
+                left: coordinates.x + 40,
                 backgroundColor: "red",
                 color: "white",
                 padding: "10px",
@@ -38,7 +48,7 @@ const DamageBubble: React.FC<DamageBubbleProps> = ({ damage, coordinates }) => {
                 fontSize: "20px",
                 transform: "scale(1)",
                 animation: "enlarge 2s forwards",
-                pointerEvents: "none", // Ensure the bubble doesn't interfere with mouse events
+                pointerEvents: "none",
                 zIndex: 1000,
             }}
         >

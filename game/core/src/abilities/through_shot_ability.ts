@@ -19,9 +19,9 @@ import {
     Unit,
     FightStateManager,
     UnitsHolder,
+    IAnimationData,
 } from "@heroesofcrypto/common";
 
-import { Drawer } from "../draw/drawer";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { processLuckyStrikeAbility } from "./lucky_strike_ability";
 import { processPetrifyingGazeAbility } from "./petrifying_gaze_ability";
@@ -31,6 +31,7 @@ import { processStunAbility } from "./stun_ability";
 export interface IThroughShotResult {
     landed: boolean;
     unitIdsDied: string[];
+    animationData: IAnimationData[];
 }
 
 export function processThroughShotAbility(
@@ -41,13 +42,13 @@ export function processThroughShotAbility(
     hoverRangeAttackPosition: HoCMath.XY,
     unitsHolder: UnitsHolder,
     grid: Grid,
-    drawer: Drawer,
     sceneLog: ISceneLog,
 ): IThroughShotResult {
+    const animationData: IAnimationData[] = [];
     const unitIdsDied: string[] = [];
     const throughShotAbility = attackerUnit.getAbility("Through Shot");
     if (!throughShotAbility) {
-        return { landed: false, unitIdsDied };
+        return { landed: false, unitIdsDied, animationData };
     }
 
     let targetUnitUndex = 0;
@@ -131,8 +132,12 @@ export function processThroughShotAbility(
 
     attackerUnit.decreaseNumberOfShots();
     if (targetUnit) {
-        drawer.startBulletAnimation(attackerUnit.getPosition(), hoverRangeAttackPosition, targetUnit);
+        animationData.push({
+            fromPosition: attackerUnit.getPosition(),
+            toPosition: hoverRangeAttackPosition,
+            affectedUnit: targetUnit,
+        });
     }
 
-    return { landed: true, unitIdsDied };
+    return { landed: true, unitIdsDied, animationData };
 }
