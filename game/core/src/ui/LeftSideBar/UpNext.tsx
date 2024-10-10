@@ -6,7 +6,6 @@ import Box from "@mui/joy/Box";
 import Divider from "@mui/joy/Divider";
 import Stack from "@mui/joy/Stack";
 import Tooltip from "@mui/joy/Tooltip";
-import { useTheme } from "@mui/joy/styles";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState } from "react";
 
@@ -16,7 +15,6 @@ import { IVisibleState, IVisibleUnit } from "../../state/visible_state";
 
 export const UpNext: React.FC = () => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
-    const theme = useTheme();
 
     const manager = useManager();
 
@@ -28,10 +26,6 @@ export const UpNext: React.FC = () => {
     }, [manager]);
 
     const visibleUnits: IVisibleUnit[] = visibleState.upNext ?? [];
-    const boxShadow =
-        theme.palette.mode === "dark"
-            ? "-100px 15px 15px 50px rgba(0, 0, 0, 0.3)"
-            : "-100px 15px 15px 50px rgba(255, 255, 255, 0.3)";
 
     return (
         <>
@@ -63,7 +57,6 @@ export const UpNext: React.FC = () => {
                                                 width: index === 0 ? "84px" : "72px",
                                                 height: index === 0 ? "84px" : "72px",
                                                 flexShrink: 0,
-                                                boxShadow: index === 0 ? boxShadow : "none",
                                             }}
                                         />
                                         <Badge

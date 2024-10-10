@@ -8,12 +8,10 @@ import Typography from "@mui/joy/Typography";
 import { images } from "../../generated/image_imports";
 import { IVisibleState, IVisibleUnit } from "../../state/visible_state";
 import { useManager } from "../../manager";
-import { useTheme } from "@mui/joy";
 
 export const UpNextOverlay: React.FC = () => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [altPressed, setAltPressed] = useState<boolean>(false);
-    const theme = useTheme();
 
     const manager = useManager();
 
@@ -47,12 +45,10 @@ export const UpNextOverlay: React.FC = () => {
     }, []);
 
     const visibleUnits: IVisibleUnit[] = visibleState.upNext ?? [];
-    const boxShadow =
-        theme.palette.mode === "dark"
-            ? "-100px 15px 15px 50px rgba(0, 0, 0, 0.3)"
-            : "-100px 15px 15px 50px rgba(255, 255, 255, 0.3)";
 
     if (!altPressed || visibleState.lapNumber <= 0) return null;
+
+    const maxVisibleUnits = Math.floor(window.innerWidth / 90); // Estimate based on each unit and space
 
     return (
         <Box
@@ -90,41 +86,47 @@ export const UpNextOverlay: React.FC = () => {
                     justifyContent: "center",
                 }}
             >
-                {[...visibleUnits].reverse().map((unit, index) => (
-                    <Box key={index} sx={{ position: "relative" }}>
-                        <Avatar
-                            // @ts-ignore: src params
-                            src={images[unit.smallTextureName]}
-                            variant="plain"
-                            sx={{
-                                width: index === 0 ? "86.4px" : "72px",
-                                height: index === 0 ? "86.4px" : "72px",
-                                flexShrink: 0,
-                                transform: "rotateX(-180deg)",
-                                boxShadow: index === 0 ? boxShadow : "none",
-                            }}
-                        />
-                        <Badge
-                            badgeContent={unit.amount.toString()}
-                            sx={{
-                                position: "absolute",
-                                bottom: 18,
-                                right: 16,
-                                zIndex: 1,
-                                "& .MuiBadge-badge": {
-                                    fontSize: "0.9rem",
-                                    height: "22px",
-                                    minWidth: "22px",
-                                    color: "white",
-                                    backgroundColor:
-                                        unit.teamType === TeamType.UPPER
-                                            ? `rgba(244, 67, 54, 0.6)`
-                                            : `rgba(76, 175, 80, 0.6)`,
-                                },
-                            }}
-                        />
-                    </Box>
-                ))}
+                {[...visibleUnits]
+                    .slice(-maxVisibleUnits)
+                    .reverse()
+                    .map((unit, index) => (
+                        <Box key={index} sx={{ position: "relative" }}>
+                            <Avatar
+                                // @ts-ignore: src params
+                                src={images[unit.smallTextureName]}
+                                variant="plain"
+                                sx={{
+                                    width: index === 0 ? "86.4px" : "72px",
+                                    height: index === 0 ? "86.4px" : "72px",
+                                    flexShrink: 0,
+                                    transform: "rotateX(-180deg)",
+                                }}
+                            />
+                            <Badge
+                                badgeContent={unit.amount.toString()}
+                                sx={{
+                                    position: "absolute",
+                                    bottom: 18,
+                                    right: 16,
+                                    zIndex: 1,
+                                    "& .MuiBadge-badge": {
+                                        fontSize: "0.9rem",
+                                        height: "22px",
+                                        minWidth: "22px",
+                                        color: "white",
+                                        backgroundColor:
+                                            index === 0
+                                                ? unit.teamType === TeamType.UPPER
+                                                    ? "rgba(244, 67, 54, 1)"
+                                                    : "rgba(76, 175, 80, 1)"
+                                                : unit.teamType === TeamType.UPPER
+                                                ? "rgba(244, 67, 54, 0.6)"
+                                                : "rgba(76, 175, 80, 0.6)",
+                                    },
+                                }}
+                            />
+                        </Box>
+                    ))}
             </Stack>
         </Box>
     );
