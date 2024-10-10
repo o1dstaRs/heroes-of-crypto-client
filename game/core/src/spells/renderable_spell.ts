@@ -165,13 +165,13 @@ export class RenderableSpell extends Spell {
         // render stack column
         let stackIndex = 1;
         let yShift = 0;
+        let sprite: Sprite;
+        if (ownerStackPower < this.getMinimalCasterStackPower()) {
+            sprite = this.redStackSprite;
+        } else {
+            sprite = this.greenStackSprite;
+        }
         while (stackIndex <= this.getMinimalCasterStackPower()) {
-            let sprite: Sprite;
-            if (stackIndex <= ownerStackPower) {
-                sprite = this.greenStackSprite;
-            } else {
-                sprite = this.redStackSprite;
-            }
             sprite.setRect(
                 xPos - 312 + BOOK_SPELL_SIZE - sixthStep,
                 yPos + yShift,

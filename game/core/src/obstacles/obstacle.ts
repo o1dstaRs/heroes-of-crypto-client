@@ -32,6 +32,8 @@ export class Obstacle {
 
     private darkSprite?: Sprite;
 
+    private readonly monitorHits: boolean;
+
     public constructor(
         type: ObstacleType,
         position: HoCMath.XY,
@@ -41,6 +43,7 @@ export class Obstacle {
         gridSettings: GridSettings,
         lightSprite?: Sprite,
         darkSprite?: Sprite,
+        monitorHits: boolean = false,
     ) {
         this.type = type;
         this.position = position;
@@ -50,6 +53,7 @@ export class Obstacle {
         this.gridSettings = gridSettings;
         this.lightSprite = lightSprite;
         this.darkSprite = darkSprite;
+        this.monitorHits = monitorHits;
     }
 
     public getSizeX(): number {
@@ -119,8 +123,6 @@ export class Obstacle {
                 4,
                 new b2Color(255 / 255, 226 / 255, 5 / 255, 0.8),
             );
-
-            // previousX = polygonStartingPositionX;
         }
     }
 
@@ -137,7 +139,7 @@ export class Obstacle {
 
             sprite.render();
         }
-        if (this.type === ObstacleType.BLOCK && hitsRemaining) {
+        if (this.monitorHits && this.type === ObstacleType.BLOCK && hitsRemaining) {
             this.drawHitbar(hitsRemaining);
         }
     }

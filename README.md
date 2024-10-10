@@ -28,7 +28,8 @@ Most important commands to execute from the root folder (you need [yarn](https:/
 -   `yarn build:engine` -> build only box2d engine and lights
 -   `yarn build:game` -> build the game code without its engine
 -   `yarn start` -> Run game locally
--   `yarn start:fresh` -> Run game locally after building all libraries
+-   `yarn start:fresh` -> Run game locally after building client libraries
+-   `yarn start:all` -> Run game locally after building all libraries
 -   `yarn lint` -> Run linters, formatters, etc.
 -   `yarn lint:fix` -> Run linters, formatters, etc. and autofix if possible
 

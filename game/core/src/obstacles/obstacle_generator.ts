@@ -56,7 +56,17 @@ export class ObstacleGenerator {
         unitShape.SetAsBox(halfSize, halfSize);
         body.CreateFixture(fixtureDef);
 
-        return new Obstacle(ObstacleType.BLOCK, position, sizePixels, sizePixels, this.draw, this.gridSettings);
+        return new Obstacle(
+            ObstacleType.BLOCK,
+            position,
+            sizePixels,
+            sizePixels,
+            this.draw,
+            this.gridSettings,
+            undefined,
+            undefined,
+            false,
+        );
     }
 
     public generateLava(
@@ -118,6 +128,7 @@ export class ObstacleGenerator {
             this.gridSettings,
             new Sprite(gl, shader, this.textures.mountain_432_412.texture),
             new Sprite(gl, shader, this.textures.mountain_432_412.texture),
+            true,
         );
     }
 

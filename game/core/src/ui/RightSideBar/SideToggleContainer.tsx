@@ -413,7 +413,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
     return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, paddingTop: 2 }}>
             <Box sx={{ display: "flex", justifyContent: "center", gap: 2 }}>
-                <Tooltip title="Augment board placements" style={{ zIndex: 3 }}>
+                <Tooltip title="Augment board placements" style={{ zIndex: 1 }}>
                     <IconButton onClick={() => setTogglerType("Placement")} title="Augment board placements">
                         <img
                             src={augmentBoard}
@@ -427,7 +427,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                         />
                     </IconButton>
                 </Tooltip>
-                <Tooltip title="Augment armor" style={{ zIndex: 3 }}>
+                <Tooltip title="Augment armor" style={{ zIndex: 1 }}>
                     <IconButton onClick={() => setTogglerType("Armor")} title="Augment armor">
                         <img
                             src={augmentArmor}
@@ -441,7 +441,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                         />
                     </IconButton>
                 </Tooltip>
-                <Tooltip title="Augment melee attack" style={{ zIndex: 3 }}>
+                <Tooltip title="Augment melee attack" style={{ zIndex: 1 }}>
                     <IconButton onClick={() => setTogglerType("Might")} title="Augment melee attack">
                         <img
                             src={augmentMight}
@@ -455,7 +455,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                         />
                     </IconButton>
                 </Tooltip>
-                <Tooltip title="Augment ranged attack" style={{ zIndex: 3 }}>
+                <Tooltip title="Augment ranged attack" style={{ zIndex: 1 }}>
                     <IconButton onClick={() => setTogglerType("Sniper")} title="Augment ranged attack">
                         <img
                             src={augmentSniper}
@@ -469,7 +469,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                         />
                     </IconButton>
                 </Tooltip>
-                <Tooltip title="Augment movement" style={{ zIndex: 3 }}>
+                <Tooltip title="Augment movement" style={{ zIndex: 1 }}>
                     <IconButton onClick={() => setTogglerType("Movement")} title="Augment movement">
                         <img
                             src={augmentMovement}
