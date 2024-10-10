@@ -1397,6 +1397,21 @@ class Sandbox extends GLScene {
                 abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
             }
 
+            const throughShotAbility = this.currentActiveUnit.getAbility("Through Shot");
+            if (throughShotAbility) {
+                abilityMultiplier *= this.currentActiveUnit.calculateAbilityMultiplier(throughShotAbility);
+            }
+
+            const largeCaliberAbility = this.currentActiveUnit.getAbility("Large Caliber");
+            if (largeCaliberAbility) {
+                abilityMultiplier *= this.currentActiveUnit.calculateAbilityMultiplier(largeCaliberAbility);
+            }
+
+            const areaThrowAbility = this.currentActiveUnit.getAbility("Area Throw");
+            if (areaThrowAbility) {
+                abilityMultiplier *= this.currentActiveUnit.calculateAbilityMultiplier(areaThrowAbility);
+            }
+
             const minDmg = this.currentActiveUnit.calculateAttackDamageMin(
                 this.currentActiveUnit.getAttack(),
                 hoverAttackUnit,
@@ -1836,6 +1851,7 @@ class Sandbox extends GLScene {
                             }
                             this.sc_hoverTextUpdateNeeded = true;
                             this.sc_attackRangeDamageDivisorStr = "";
+                            this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
 
                             if (hoverAttackUnit.canMove()) {
                                 this.hoverActivePath = this.pathHelper.getMovePath(

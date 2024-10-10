@@ -252,7 +252,7 @@ const EffectColumnOrRow: React.FC<{ effects: IVisibleImpact[]; title: string; is
                                 aspectRatio: "1", // Maintain width=height ratio
                                 objectFit: "contain",
                                 transform: "rotateX(-180deg)",
-                                zIndex: "modal",
+                                zIndex: 3,
                                 margin: isHorizontalLayout && index !== 0 ? "0 2px" : "1px", // Add margin between elements in horizontal layout
                             }}
                         />
@@ -515,6 +515,7 @@ const UnitStatsLayout: React.FC<{
                         variant="plain"
                         sx={{
                             width: "100%",
+                            zIndex: 5,
                             height: "auto",
                             transform: "rotateX(-180deg)",
                             objectFit: "contain",
@@ -526,7 +527,7 @@ const UnitStatsLayout: React.FC<{
                         variant="plain"
                         sx={{
                             transform: "rotateX(-180deg)",
-                            zIndex: 1,
+                            zIndex: 5,
                             width: "30%",
                             height: "auto",
                             position: "absolute",
@@ -550,6 +551,7 @@ const UnitStatsLayout: React.FC<{
                     variant="plain"
                     sx={{
                         transform: "rotateX(-180deg)",
+                        zIndex: 5,
                         width: "auto", // Removes fixed width
                         height: "auto", // Removes fixed height, letting the image maintain its natural size
                         maxWidth: "100%", // Ensures the image does not overflow its container
@@ -563,7 +565,7 @@ const UnitStatsLayout: React.FC<{
                     variant="plain"
                     sx={{
                         transform: "rotateX(-180deg)",
-                        zIndex: 1,
+                        zIndex: 5,
                         width: "40px",
                         height: "100px",
                         position: "absolute",

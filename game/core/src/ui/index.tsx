@@ -17,6 +17,7 @@ import { Main, useActiveTestEntry } from "./Main";
 import RightSideBar from "./RightSideBar";
 import "./style.scss";
 import Popover from "./Popover";
+import { UpNextOverlay } from "./UpNextOverlay";
 
 // based on the overlays width ratio
 // do not change
@@ -215,6 +216,7 @@ function Heroes() {
                 <CssBaseline />
                 <LeftSideBar gameStarted={started} />
                 <RightSideBar gameStarted={started} />
+                <UpNextOverlay />
                 <DraggableToolbar />
             </CssVarsProvider>
             <Main setSceneControlGroups={setSceneControls} />

@@ -425,7 +425,7 @@ export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) 
             className="Sidebar"
             sx={{
                 position: "fixed",
-                zIndex: 1,
+                zIndex: 1, // Lower z-index to allow overlays on top
                 height: "100dvh",
                 width: `${barSize}px`,
                 top: 0,
@@ -473,17 +473,6 @@ export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) 
                     />
                     <CalendarInfo day={1} week={1} daysUntilNextFight={2} />
                 </List>
-
-                {/* <List
-                    size="sm"
-                    sx={{
-                        mt: "auto",
-                        flexGrow: 0,
-                        "--ListItem-radius": (theme) => theme.vars.radius.sm,
-                        "--List-gap": "8px",
-                        mb: 2,
-                    }}
-                /> */}
             </Box>
         </Sheet>
     );
