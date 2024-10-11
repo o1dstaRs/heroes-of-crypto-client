@@ -43,6 +43,7 @@ export function processDoubleShotAbility(
     hoverRangeAttackDivisor: number,
     hoverRangeAttackPosition: HoCMath.XY,
     damageForAnimation: IVisibleDamage,
+    damageStatisticHolder: DamageStatisticHolder,
     isAOE: boolean,
 ): IDoubleShotResult {
     const animationData: IAnimationData[] = [];
@@ -93,6 +94,7 @@ export function processDoubleShotAbility(
         unitsHolder,
         grid,
         sceneLog,
+        damageStatisticHolder,
         true,
     );
     if (aoeRangeAttackResult.landed) {
@@ -113,14 +115,13 @@ export function processDoubleShotAbility(
             fromUnit.calculateAttackDamage(toUnit, AttackType.RANGE, hoverRangeAttackDivisor, abilityMultiplier),
             sceneLog,
         );
-        toUnit.applyDamage(damageFromAttack);
         damageForAnimation.render = true;
         damageForAnimation.amount = damageFromAttack;
         damageForAnimation.unitPosition = toUnit.getPosition();
         damageForAnimation.unitIsSmall = toUnit.isSmallSize();
-        DamageStatisticHolder.getInstance().add({
+        damageStatisticHolder.add({
             unitName: fromUnit.getName(),
-            damage: damageFromAttack,
+            damage: toUnit.applyDamage(damageFromAttack),
             team: fromUnit.getTeam(),
         });
         const pegasusLightEffect = toUnit.getEffect("Pegasus Light");

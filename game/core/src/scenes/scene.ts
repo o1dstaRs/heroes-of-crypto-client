@@ -62,6 +62,7 @@ import {
     VisibleButtonState,
 } from "../state/visible_state";
 import { EDGES_SIZE, MAX_FPS, MAX_X } from "../statics";
+import { IDamageStatistic } from "../stats/damage_stats";
 import type { SceneControlGroup } from "../ui";
 import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
@@ -241,6 +242,8 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_isSelection = false;
 
+    public sc_hoverRangeAttackISTargetingObstacle = false;
+
     public sc_mouseDropStep = 0;
 
     public sc_mouseDownStep = 0;
@@ -318,6 +321,10 @@ export abstract class Scene extends b2ContactListener {
     public abstract getNumberOfUnitsAvailableForPlacement(teamType: TeamType): number;
 
     public abstract propagateButtonClicked(buttonName: string, buttonState: VisibleButtonState): void;
+
+    public getDamageStatisics(): IDamageStatistic[] {
+        return [];
+    }
 
     protected deselect(_onlyWhenNotStarted = false, _refreshStats = true) {
         if (this.sceneStarted && _onlyWhenNotStarted) {
@@ -428,7 +435,7 @@ export abstract class Scene extends b2ContactListener {
             return true; // Continue the query.
         });
 
-        if (hit_fixture || this.sc_isSelection) {
+        if (hit_fixture || this.sc_isSelection || this.sc_hoverRangeAttackISTargetingObstacle) {
             if (this.sc_mouseDropStep === this.sc_stepCount.getValue()) {
                 return;
             }
@@ -436,7 +443,7 @@ export abstract class Scene extends b2ContactListener {
             let attackLanded = false;
             const body = hit_fixture?.GetBody();
 
-            if (this.sc_isSelection) {
+            if (this.sc_isSelection || this.sc_hoverRangeAttackISTargetingObstacle) {
                 attackLanded = this.landAttack();
             } else {
                 if (this.sceneStarted) {

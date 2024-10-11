@@ -18,9 +18,15 @@ import { Signal } from "typed-signals";
 import "./scenes";
 import { getScenesGrouped, Scene, SceneConstructor, SceneEntry } from "./scenes/scene";
 import { Settings } from "./settings";
-import { IVisibleButton, IVisibleOverallImpact, IVisibleState, VisibleButtonState } from "./state/visible_state";
+import {
+    IHoverInfo,
+    IVisibleButton,
+    IVisibleOverallImpact,
+    IVisibleState,
+    VisibleButtonState,
+} from "./state/visible_state";
 import { EDGES_SIZE, MAX_FPS } from "./statics";
-import { DamageStatisticHolder, IDamageStatistic, IHoverInfo } from "./stats/damage_stats";
+import { IDamageStatistic } from "./stats/damage_stats";
 import type { SceneControlGroup } from "./ui";
 import { g_camera } from "./utils/camera";
 import { FpsCalculator } from "./utils/FpsCalculator";
@@ -491,7 +497,6 @@ export class GameManager {
             if (this.m_scene?.sc_selectedFactionName) {
                 this.onRaceSelected.emit(this.m_scene?.sc_selectedFactionName ?? "");
             } else {
-                // this.onUnitSelected.emit(structuredClone(this.m_scene?.sc_selectedUnitProperties));
                 this.onRaceSelected.emit("");
             }
 
@@ -507,15 +512,12 @@ export class GameManager {
         }
 
         if (this.m_scene?.sc_damageStatsUpdateNeeded) {
-            // this.onDamageStatisticsUpdated.emit([] as IDamageStatistic[]);
-            this.onDamageStatisticsUpdated.emit(structuredClone(DamageStatisticHolder.getInstance().get()));
-
+            this.onDamageStatisticsUpdated.emit(structuredClone(this.m_scene.getDamageStatisics()));
             this.m_scene.sc_damageStatsUpdateNeeded = false;
         }
 
         if (this.m_scene?.sc_visibleStateUpdateNeeded) {
             if (this.m_scene?.sc_visibleState) {
-                // this.onVisibleStateUpdated.emit({} as IVisibleState);
                 this.onVisibleStateUpdated.emit(structuredClone(this.m_scene?.sc_visibleState as IVisibleState));
             } else {
                 this.onVisibleStateUpdated.emit({} as IVisibleState);

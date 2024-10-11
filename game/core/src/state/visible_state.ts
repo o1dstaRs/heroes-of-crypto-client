@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { TeamType, HoCMath } from "@heroesofcrypto/common";
+import { TeamType, HoCMath, AttackType, MovementType } from "@heroesofcrypto/common";
 
 export interface IVisibleUnit {
     amount: number;
@@ -69,4 +69,15 @@ export interface IVisibleButton {
     numberOfOptions: number;
     selectedOption: number;
     customSpriteName?: string;
+}
+
+export interface IHoverInfo {
+    attackType: AttackType;
+    damageSpread: string;
+    damageRangeDivisor: string;
+    killsSpread: string;
+    unitName: string;
+    unitLevel: number;
+    unitMovementType: MovementType;
+    information: string[];
 }

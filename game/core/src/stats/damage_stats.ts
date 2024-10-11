@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, TeamType, MovementType } from "@heroesofcrypto/common";
+import { TeamType, IStatisticHolder } from "@heroesofcrypto/common";
 
 export interface IDamageStatistic {
     unitName: string;
@@ -17,32 +17,11 @@ export interface IDamageStatistic {
     team: TeamType;
 }
 
-export interface IHoverInfo {
-    attackType: AttackType;
-    damageSpread: string;
-    damageRangeDivisor: string;
-    killsSpread: string;
-    unitName: string;
-    unitLevel: number;
-    unitMovementType: MovementType;
-    information: string[];
-}
-
-export class DamageStatisticHolder {
-    private static instance: DamageStatisticHolder;
-
+export class DamageStatisticHolder implements IStatisticHolder<IDamageStatistic> {
     private readonly damageStatistics: IDamageStatistic[];
 
-    private constructor() {
+    public constructor() {
         this.damageStatistics = [];
-    }
-
-    public static getInstance(): DamageStatisticHolder {
-        if (!DamageStatisticHolder.instance) {
-            DamageStatisticHolder.instance = new DamageStatisticHolder();
-        }
-
-        return DamageStatisticHolder.instance;
     }
 
     public add(singleDamageStatistic: IDamageStatistic) {

@@ -19,6 +19,7 @@ export function processFireShieldAbility(
     sceneLog: ISceneLog,
     damageFromAttack: number,
     unitsHolder: UnitsHolder,
+    damageStatisticHolder: DamageStatisticHolder,
 ): string[] {
     const unitIdsDied: string[] = [];
     if (toUnit.isDead()) {
@@ -45,10 +46,9 @@ export function processFireShieldAbility(
                 (1 - toUnit.getMagicResist() / 100) *
                 multiplier,
         );
-        toUnit.applyDamage(fireShieldDmg);
-        DamageStatisticHolder.getInstance().add({
+        damageStatisticHolder.add({
             unitName: fromUnit.getName(),
-            damage: fireShieldDmg,
+            damage: toUnit.applyDamage(fireShieldDmg),
             team: fromUnit.getTeam(),
         });
         sceneLog.updateLog(`${toUnit.getName()} received (${fireShieldDmg}) from Fire Shield`);

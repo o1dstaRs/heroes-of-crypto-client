@@ -43,6 +43,8 @@ export function processThroughShotAbility(
     unitsHolder: UnitsHolder,
     grid: Grid,
     sceneLog: ISceneLog,
+    damageStatisticHolder: DamageStatisticHolder,
+    decreaseNumberOfShots = true,
 ): IThroughShotResult {
     const animationData: IAnimationData[] = [];
     const unitIdsDied: string[] = [];
@@ -97,10 +99,9 @@ export function processThroughShotAbility(
                 sceneLog,
             );
             sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
-            targetUnit.applyDamage(damageFromAttack);
-            DamageStatisticHolder.getInstance().add({
+            damageStatisticHolder.add({
                 unitName: attackerUnit.getName(),
-                damage: damageFromAttack,
+                damage: targetUnit.applyDamage(damageFromAttack),
                 team: attackerUnit.getTeam(),
             });
             const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
@@ -110,7 +111,13 @@ export function processThroughShotAbility(
             unitsDamaged.push(targetUnit);
 
             if (!targetUnit.isDead()) {
-                processPetrifyingGazeAbility(attackerUnit, targetUnit, damageFromAttack, sceneLog);
+                processPetrifyingGazeAbility(
+                    attackerUnit,
+                    targetUnit,
+                    damageFromAttack,
+                    sceneLog,
+                    damageStatisticHolder,
+                );
             }
         }
     }
@@ -130,7 +137,9 @@ export function processThroughShotAbility(
         }
     }
 
-    attackerUnit.decreaseNumberOfShots();
+    if (decreaseNumberOfShots) {
+        attackerUnit.decreaseNumberOfShots();
+    }
     if (targetUnit) {
         animationData.push({
             fromPosition: attackerUnit.getPosition(),

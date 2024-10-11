@@ -11,7 +11,6 @@
 
 import { AttackType, HoCLib, Unit, ISceneLog } from "@heroesofcrypto/common";
 
-import { DamageStatisticHolder } from "../stats/damage_stats";
 import { processLuckyStrikeAbility } from "./lucky_strike_ability";
 import { processPenetratingBiteAbility } from "./penetrating_bite_ability";
 
@@ -65,14 +64,6 @@ export function processDoublePunchAbility(fromUnit: Unit, toUnit: Unit, sceneLog
                 fromUnit.calculateAttackDamage(toUnit, AttackType.MELEE, 1, abilityMultiplier),
                 sceneLog,
             ) + processPenetratingBiteAbility(fromUnit, toUnit);
-        // do not actually apply the damage, just calculate it
-        // it will be applied outside on a client side
-        // to make sure that possible response is also captured
-        DamageStatisticHolder.getInstance().add({
-            unitName: fromUnit.getName(),
-            damage: damageFromAttack,
-            team: fromUnit.getTeam(),
-        });
         const pegasusLightEffect = toUnit.getEffect("Pegasus Light");
         if (pegasusLightEffect) {
             fromUnit.increaseMorale(pegasusLightEffect.getPower());
