@@ -68,6 +68,7 @@ function attackEnemiesAndGetLayerImpact(
     unitsHolder: UnitsHolder,
     sceneLog: ISceneLog,
     unitIdsDied: string[],
+    damageStatisticHolder: DamageStatisticHolder,
 ): ILayerImpact[] {
     const fullLayerImpact: ILayerImpact[] = [];
     for (const e1 of enemies) {
@@ -97,10 +98,9 @@ function attackEnemiesAndGetLayerImpact(
 
         alreadyAffectedIds.push(e1.getId());
         if (targetEnemyLightningDamage && !e1.isDead()) {
-            e1.applyDamage(targetEnemyLightningDamage);
-            DamageStatisticHolder.getInstance().add({
+            damageStatisticHolder.add({
                 unitName: fromUnit.getName(),
-                damage: targetEnemyLightningDamage,
+                damage: e1.applyDamage(targetEnemyLightningDamage),
                 team: fromUnit.getTeam(),
             });
             sceneLog.updateLog(`${e1.getName()} got hit ${targetEnemyLightningDamage} by Chain Lightning`);
@@ -132,6 +132,7 @@ export function processChainLightningAbility(
     grid: Grid,
     unitsHolder: UnitsHolder,
     sceneLog: ISceneLog,
+    damageStatisticHolder: DamageStatisticHolder,
 ): string[] {
     const unitIdsDied: string[] = [];
     const chainLightningAbility = fromUnit.getAbility("Chain Lightning");
@@ -163,10 +164,9 @@ export function processChainLightningAbility(
     const targetEnemyLightningDamage =
         Math.floor(abilityMultiplier * attackDamage * (1 - targetMagicResist / 100)) * heavyArmorMultiplierTarget;
     if (targetEnemyLightningDamage && !targetUnit.isDead()) {
-        targetUnit.applyDamage(targetEnemyLightningDamage);
-        DamageStatisticHolder.getInstance().add({
+        damageStatisticHolder.add({
             unitName: fromUnit.getName(),
-            damage: targetEnemyLightningDamage,
+            damage: targetUnit.applyDamage(targetEnemyLightningDamage),
             team: fromUnit.getTeam(),
         });
         sceneLog.updateLog(`${targetUnit.getName()} got hit ${targetEnemyLightningDamage} by Chain Lightning`);
@@ -205,6 +205,7 @@ export function processChainLightningAbility(
         unitsHolder,
         sceneLog,
         unitIdsDied,
+        damageStatisticHolder,
     );
 
     for (const impact of layer1Impact) {
@@ -229,6 +230,7 @@ export function processChainLightningAbility(
             unitsHolder,
             sceneLog,
             unitIdsDied,
+            damageStatisticHolder,
         );
 
         for (const impact2 of layer2Impact) {
@@ -253,6 +255,7 @@ export function processChainLightningAbility(
                 unitsHolder,
                 sceneLog,
                 unitIdsDied,
+                damageStatisticHolder,
             );
         }
     }

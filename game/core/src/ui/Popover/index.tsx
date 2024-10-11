@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { AttackType, MovementType } from "@heroesofcrypto/common";
 
 import { useManager } from "../../manager";
-import { IHoverInfo } from "../../stats/damage_stats";
+import { IHoverInfo } from "../../state/visible_state";
 
 const getLevelEmoji = (hoverInfo: IHoverInfo): string => {
     let levelEmoji = "";

@@ -21,7 +21,7 @@ import {
     b2World,
     XY,
 } from "@box2d/core";
-import { Grid, GridType, GridMath, GridSettings, ObstacleType, Unit, UnitsHolder } from "@heroesofcrypto/common";
+import { Grid, GridType, GridMath, GridSettings, ObstacleType, UnitsHolder, IBoardObj } from "@heroesofcrypto/common";
 
 import { Obstacle } from "../obstacles/obstacle";
 import { ObstacleGenerator } from "../obstacles/obstacle_generator";
@@ -54,7 +54,7 @@ interface IDrawablePosition {
 
 interface IFlyingUnit {
     body: b2Body;
-    unit: Unit;
+    unit: IBoardObj;
     targetPosition: XY;
 }
 
@@ -100,7 +100,7 @@ export class Drawer {
 
     private moveAnimationBody?: b2Body;
 
-    private moveAnimationUnit?: Unit;
+    private moveAnimationUnit?: IBoardObj;
 
     private bullets?: IBullet[];
 
@@ -208,6 +208,9 @@ export class Drawer {
             } else if (to.getType() === ObstacleType.LAVA) {
                 to.setLightSprite(new Sprite(this.gl, this.shader, this.textures.lava_frozen_256.texture));
                 to.setDarkSprite(new Sprite(this.gl, this.shader, this.textures.lava_frozen_256.texture));
+            } else if (to.getType() === ObstacleType.BLOCK) {
+                to.setLightSprite(undefined);
+                to.setDarkSprite(undefined);
             }
         }
     }
@@ -450,7 +453,7 @@ export class Drawer {
         );
     }
 
-    public startMoveAnimation(body: b2Body, unit: Unit, path: XY[]): void {
+    public startMoveAnimation(body: b2Body, unit: IBoardObj, path: XY[]): void {
         this.moveAnimationBody = body;
         this.moveAnimationUnit = unit;
         this.moveAnimationPath = path;
@@ -460,12 +463,12 @@ export class Drawer {
         this.onlyUniqueBulletSourcesRemaining = false;
     }
 
-    public startFlyAnimation(body: b2Body, unit: Unit, targetPosition: XY): void {
+    public startFlyAnimation(body: b2Body, unit: IBoardObj, targetPosition: XY): void {
         this.animating = true;
         this.flyingUnits.push({ body, unit, targetPosition });
     }
 
-    public startBulletAnimation(fromPosition: XY, toPosition: XY, affectedUnit: Unit): void {
+    public startBulletAnimation(fromPosition: XY, toPosition: XY, affectedUnit: IBoardObj): void {
         const shape = new b2CircleShape(16);
 
         const bodyDef: b2BodyDef = {

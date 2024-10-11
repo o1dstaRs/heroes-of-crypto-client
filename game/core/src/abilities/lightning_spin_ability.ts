@@ -47,6 +47,7 @@ export function processLightningSpinAbility(
     sceneLog: ISceneLog,
     unitsHolder: UnitsHolder,
     rapidChargeCells: number,
+    damageStatisticHolder: DamageStatisticHolder,
     attackFromCell?: HoCMath.XY,
     isAttack = true,
 ): ILightningSpinResult {
@@ -107,10 +108,9 @@ export function processLightningSpinAbility(
                     sceneLog,
                 ) + processPenetratingBiteAbility(fromUnit, enemy);
 
-            enemy.applyDamage(damageFromAttack);
-            DamageStatisticHolder.getInstance().add({
+            damageStatisticHolder.add({
                 unitName: fromUnit.getName(),
-                damage: damageFromAttack,
+                damage: enemy.applyDamage(damageFromAttack),
                 team: fromUnit.getTeam(),
             });
             enemyIdDamageFromAttack.set(enemy.getId(), damageFromAttack);
@@ -128,7 +128,7 @@ export function processLightningSpinAbility(
                 // just in case if we have more inherited/stolen abilities
                 processMinerAbility(fromUnit, enemy, sceneLog);
                 processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
-                processPetrifyingGazeAbility(fromUnit, enemy, damageFromAttack, sceneLog);
+                processPetrifyingGazeAbility(fromUnit, enemy, damageFromAttack, sceneLog, damageStatisticHolder);
                 processBoarSalivaAbility(fromUnit, enemy, fromUnit, sceneLog);
                 processAggrAbility(fromUnit, enemy, fromUnit, sceneLog);
                 processDeepWoundsAbility(fromUnit, enemy, fromUnit, sceneLog);
@@ -152,6 +152,7 @@ export function processLightningSpinAbility(
                         sceneLog,
                         damageFromAttack,
                         unitsHolder,
+                        damageStatisticHolder,
                     );
                     for (const uId in unitIdsDiedFromFireShield) {
                         unitIdsDied.push(uId);

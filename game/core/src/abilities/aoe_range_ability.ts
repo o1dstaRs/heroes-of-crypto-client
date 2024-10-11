@@ -41,6 +41,7 @@ export function processRangeAOEAbility(
     unitsHolder: UnitsHolder,
     grid: Grid,
     sceneLog: ISceneLog,
+    damageStatisticHolder: DamageStatisticHolder,
     isAttack = true,
 ): IAOERangeAttackResult {
     const unitIdsDied: string[] = [];
@@ -82,10 +83,9 @@ export function processRangeAOEAbility(
                     sceneLog,
                 );
 
-                unit.applyDamage(damageFromAttack);
-                DamageStatisticHolder.getInstance().add({
+                damageStatisticHolder.add({
                     unitName: attackerUnit.getName(),
-                    damage: damageFromAttack,
+                    damage: unit.applyDamage(damageFromAttack),
                     team: attackerUnit.getTeam(),
                 });
                 const pegasusLightEffect = unit.getEffect("Pegasus Light");
@@ -98,7 +98,7 @@ export function processRangeAOEAbility(
                 maxDamage = Math.max(maxDamage, damageFromAttack);
 
                 if (!unit.isDead()) {
-                    processPetrifyingGazeAbility(attackerUnit, unit, damageFromAttack, sceneLog);
+                    processPetrifyingGazeAbility(attackerUnit, unit, damageFromAttack, sceneLog, damageStatisticHolder);
                 }
             }
         }

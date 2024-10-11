@@ -127,13 +127,11 @@ export class RenderableSpell extends Spell {
 
         this.fontSprite.setRect(xPos, yPos - 70, BOOK_SPELL_SIZE, fifthStep);
 
-        this.spellBackgroundSprite.render();
-        let allowedRender = true;
-        if (this.amountRemaining <= 0 || ownerStackPower < this.getMinimalCasterStackPower()) {
-            allowedRender = false;
-        }
-        this.sprite.render(allowedRender ? 1 : 0.4);
-        this.fontSprite.render(allowedRender ? 1 : 0.4);
+        let allowedRenderStack = this.amountRemaining > 0;
+        let allowedRenderNumber = ownerStackPower >= this.getMinimalCasterStackPower();
+        this.spellBackgroundSprite.render(allowedRenderNumber ? 1 : 0.4);
+        this.sprite.render(allowedRenderStack && allowedRenderNumber ? 1 : 0.4);
+        this.fontSprite.render(allowedRenderStack && allowedRenderNumber ? 1 : 0.4);
         let numberOfScrolls = this.amountRemaining;
 
         let index = 0;
@@ -159,7 +157,7 @@ export class RenderableSpell extends Spell {
         let i = 1;
         for (const s of amountSprites) {
             s.setRect(xPos + 106 + BOOK_SPELL_SIZE - sixthStep * i++, yPos + 110, fifthStep, BOOK_SPELL_SIZE / 3);
-            s.render();
+            s.render(allowedRenderNumber ? 1 : 0.4);
         }
 
         // render stack column
@@ -178,7 +176,12 @@ export class RenderableSpell extends Spell {
                 sixthStep - 8,
                 BOOK_SPELL_SIZE / HoCConstants.MAX_UNIT_STACK_POWER,
             );
-            sprite.render();
+            if (allowedRenderStack) {
+                sprite.render();
+            } else {
+                sprite.render(0.4);
+            }
+
             stackIndex++;
             yShift = yShift + BOOK_SPELL_SIZE / 5;
         }

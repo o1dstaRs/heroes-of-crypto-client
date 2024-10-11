@@ -68,11 +68,11 @@ export class Obstacle {
         return this.type;
     }
 
-    public setLightSprite(lightSprite: Sprite): void {
+    public setLightSprite(lightSprite?: Sprite): void {
         this.lightSprite = lightSprite;
     }
 
-    public setDarkSprite(darkSprite: Sprite): void {
+    public setDarkSprite(darkSprite?: Sprite): void {
         this.darkSprite = darkSprite;
     }
 
@@ -83,45 +83,45 @@ export class Obstacle {
             (this.gridSettings.getStep() / HoCConstants.MAX_HITS_MOUNTAIN) * (HoCConstants.MAX_HITS_MOUNTAIN - 1),
         );
         while (hitsRemaining--) {
-            const polygonStartingPositionX =
-                startingPositionX + shiftX * (HoCConstants.MAX_HITS_MOUNTAIN - (hitsRemaining + 1));
+            const polygonStartingPositionX = startingPositionX;
 
             const polygonStartingPositionY =
                 ((this.gridSettings.getMinY() + this.gridSettings.getMaxY()) >> 1) - this.gridSettings.getTwoSteps();
-            const newX = polygonStartingPositionX + shiftX;
+            const currentShiftX = shiftX * hitsRemaining;
+            const newX = polygonStartingPositionX + currentShiftX + shiftX;
             const newY = polygonStartingPositionY + 40;
 
             this.draw.DrawPolygon(
                 [
-                    { x: polygonStartingPositionX, y: polygonStartingPositionY },
-                    { x: polygonStartingPositionX, y: newY },
+                    { x: polygonStartingPositionX + currentShiftX, y: polygonStartingPositionY },
+                    { x: polygonStartingPositionX + currentShiftX, y: newY },
                     { x: newX, y: newY },
                     { x: newX, y: polygonStartingPositionY },
                 ],
                 4,
-                new b2Color(1, 1, 1, 0.8),
+                new b2Color(1, 1, 1, 1),
             );
 
             this.draw.DrawPolygon(
                 [
-                    { x: polygonStartingPositionX + 1, y: polygonStartingPositionY + 1 },
-                    { x: polygonStartingPositionX + 1, y: newY - 1 },
+                    { x: polygonStartingPositionX + currentShiftX + 1, y: polygonStartingPositionY + 1 },
+                    { x: polygonStartingPositionX + currentShiftX + 1, y: newY - 1 },
                     { x: newX - 1, y: newY - 1 },
                     { x: newX - 1, y: polygonStartingPositionY + 1 },
                 ],
                 4,
-                new b2Color(1, 1, 1, 0.8),
+                new b2Color(1, 1, 1, 1),
             );
 
             this.draw.DrawSolidPolygon(
                 [
-                    { x: polygonStartingPositionX + 2, y: polygonStartingPositionY + 2 },
-                    { x: polygonStartingPositionX + 2, y: newY - 2 },
+                    { x: polygonStartingPositionX + currentShiftX + 2, y: polygonStartingPositionY + 2 },
+                    { x: polygonStartingPositionX + currentShiftX + 2, y: newY - 2 },
                     { x: newX - 2, y: newY - 2 },
                     { x: newX - 2, y: polygonStartingPositionY + 2 },
                 ],
                 4,
-                new b2Color(255 / 255, 226 / 255, 5 / 255, 0.8),
+                new b2Color(253 / 255, 250 / 255, 112 / 255, 1),
             );
         }
     }
@@ -136,7 +136,6 @@ export class Obstacle {
 
         if (sprite) {
             sprite.setRect(this.position.x, this.position.y, this.sizeX, this.sizeY);
-
             sprite.render();
         }
         if (this.monitorHits && this.type === ObstacleType.BLOCK && hitsRemaining) {
