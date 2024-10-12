@@ -19,9 +19,10 @@ import {
     FightStateManager,
     ISceneLog,
     UnitsHolder,
+    IStatisticHolder,
+    IDamageStatistic,
 } from "@heroesofcrypto/common";
 
-import { DamageStatisticHolder } from "../stats/damage_stats";
 import { processLuckyStrikeAbility } from "./lucky_strike_ability";
 import { processPetrifyingGazeAbility } from "./petrifying_gaze_ability";
 import { processSpitBallAbility } from "./spit_ball_ability";
@@ -41,7 +42,7 @@ export function processRangeAOEAbility(
     unitsHolder: UnitsHolder,
     grid: Grid,
     sceneLog: ISceneLog,
-    damageStatisticHolder: DamageStatisticHolder,
+    damageStatisticHolder: IStatisticHolder<IDamageStatistic>,
     isAttack = true,
 ): IAOERangeAttackResult {
     const unitIdsDied: string[] = [];

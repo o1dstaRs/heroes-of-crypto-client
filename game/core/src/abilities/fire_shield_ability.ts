@@ -9,9 +9,15 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCConstants, ISceneLog, Unit, FightStateManager, UnitsHolder } from "@heroesofcrypto/common";
-
-import { DamageStatisticHolder } from "../stats/damage_stats";
+import {
+    HoCConstants,
+    ISceneLog,
+    Unit,
+    FightStateManager,
+    UnitsHolder,
+    IStatisticHolder,
+    IDamageStatistic,
+} from "@heroesofcrypto/common";
 
 export function processFireShieldAbility(
     fromUnit: Unit,
@@ -19,7 +25,7 @@ export function processFireShieldAbility(
     sceneLog: ISceneLog,
     damageFromAttack: number,
     unitsHolder: UnitsHolder,
-    damageStatisticHolder: DamageStatisticHolder,
+    damageStatisticHolder: IStatisticHolder<IDamageStatistic>,
 ): string[] {
     const unitIdsDied: string[] = [];
     if (toUnit.isDead()) {

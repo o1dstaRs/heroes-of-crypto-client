@@ -49,6 +49,7 @@ import {
     IAuraOnMap,
     UnitProperties,
     AbilityHelper,
+    IDamageStatistic,
 } from "@heroesofcrypto/common";
 
 import { SceneControl } from "../sceneControls";
@@ -62,7 +63,6 @@ import {
     VisibleButtonState,
 } from "../state/visible_state";
 import { EDGES_SIZE, MAX_FPS, MAX_X } from "../statics";
-import { IDamageStatistic } from "../stats/damage_stats";
 import type { SceneControlGroup } from "../ui";
 import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
@@ -242,7 +242,7 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_isSelection = false;
 
-    public sc_hoverRangeAttackISTargetingObstacle = false;
+    public sc_hoverAttackIsTargetingObstacle = false;
 
     public sc_mouseDropStep = 0;
 
@@ -435,7 +435,7 @@ export abstract class Scene extends b2ContactListener {
             return true; // Continue the query.
         });
 
-        if (hit_fixture || this.sc_isSelection || this.sc_hoverRangeAttackISTargetingObstacle) {
+        if (hit_fixture || this.sc_isSelection || this.sc_hoverAttackIsTargetingObstacle) {
             if (this.sc_mouseDropStep === this.sc_stepCount.getValue()) {
                 return;
             }
@@ -443,7 +443,7 @@ export abstract class Scene extends b2ContactListener {
             let attackLanded = false;
             const body = hit_fixture?.GetBody();
 
-            if (this.sc_isSelection || this.sc_hoverRangeAttackISTargetingObstacle) {
+            if (this.sc_isSelection || this.sc_hoverAttackIsTargetingObstacle) {
                 attackLanded = this.landAttack();
             } else {
                 if (this.sceneStarted) {

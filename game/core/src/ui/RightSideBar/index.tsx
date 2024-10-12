@@ -20,10 +20,9 @@ import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState } from "react";
 import Slider from "@mui/joy/Slider";
-import { UnitProperties, GridType, ToGridType, TeamType } from "@heroesofcrypto/common";
+import { UnitProperties, GridType, ToGridType, TeamType, IDamageStatistic } from "@heroesofcrypto/common";
 
 import { useManager } from "../../manager";
-import { IDamageStatistic } from "../../stats/damage_stats";
 import Toggler from "../Toggler";
 import { EDGES_SIZE } from "../../statics";
 import SideToggleContainer from "./SideToggleContainer";

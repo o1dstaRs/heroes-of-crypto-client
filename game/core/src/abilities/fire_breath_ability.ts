@@ -19,9 +19,9 @@ import {
     FightStateManager,
     UnitsHolder,
     AbilityHelper,
+    IStatisticHolder,
+    IDamageStatistic,
 } from "@heroesofcrypto/common";
-
-import { DamageStatisticHolder } from "../stats/damage_stats";
 
 export function processFireBreathAbility(
     fromUnit: Unit,
@@ -30,7 +30,7 @@ export function processFireBreathAbility(
     unitsHolder: UnitsHolder,
     grid: Grid,
     attackTypeString: string,
-    damageStatisticHolder: DamageStatisticHolder,
+    damageStatisticHolder: IStatisticHolder<IDamageStatistic>,
     targetMovePosition?: HoCMath.XY,
 ): string[] {
     const unitIdsDied: string[] = [];

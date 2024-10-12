@@ -19,9 +19,10 @@ import {
     FightStateManager,
     UnitsHolder,
     AbilityHelper,
+    IStatisticHolder,
+    IDamageStatistic,
 } from "@heroesofcrypto/common";
 
-import { DamageStatisticHolder } from "../stats/damage_stats";
 import { processAggrAbility } from "./aggr_ability";
 import { processBlindnessAbility } from "./blindness_ability";
 import { processBoarSalivaAbility } from "./boar_saliva_ability";
@@ -39,7 +40,7 @@ export function processSkewerStrikeAbility(
     sceneLog: ISceneLog,
     unitsHolder: UnitsHolder,
     grid: Grid,
-    damageStatisticHolder: DamageStatisticHolder,
+    damageStatisticHolder: IStatisticHolder<IDamageStatistic>,
     targetMovePosition?: HoCMath.XY,
     isAttack = true,
 ): string[] {

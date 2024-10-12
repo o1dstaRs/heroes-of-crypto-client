@@ -18,10 +18,11 @@ import {
     Unit,
     UnitsHolder,
     IAnimationData,
+    IStatisticHolder,
+    IDamageStatistic,
 } from "@heroesofcrypto/common";
 
 import { IVisibleDamage } from "../state/visible_state";
-import { DamageStatisticHolder } from "../stats/damage_stats";
 import { processRangeAOEAbility } from "./aoe_range_ability";
 import { processLuckyStrikeAbility } from "./lucky_strike_ability";
 
@@ -43,7 +44,7 @@ export function processDoubleShotAbility(
     hoverRangeAttackDivisor: number,
     hoverRangeAttackPosition: HoCMath.XY,
     damageForAnimation: IVisibleDamage,
-    damageStatisticHolder: DamageStatisticHolder,
+    damageStatisticHolder: IStatisticHolder<IDamageStatistic>,
     isAOE: boolean,
 ): IDoubleShotResult {
     const animationData: IAnimationData[] = [];
