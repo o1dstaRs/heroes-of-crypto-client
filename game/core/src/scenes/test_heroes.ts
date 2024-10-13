@@ -1640,6 +1640,7 @@ class Sandbox extends GLScene {
                                 this.grid.getAggrMatrixByTeam(this.hoverUnit.getOppositeTeam()),
                                 this.hoverUnit.canFly(),
                                 this.hoverUnit.isSmallSize(),
+                                this.hoverUnit.hasAbilityActive("Made of Fire"),
                             ).cells;
                         } else {
                             this.hoverActivePath = undefined;
@@ -1818,39 +1819,44 @@ class Sandbox extends GLScene {
                                 attackRate = Math.max(1, newAttackRate);
                             }
 
-                            const minDmg =
-                                this.currentActiveUnit.calculateAttackDamageMin(
-                                    attackRate,
-                                    hoverAttackUnit,
-                                    false,
-                                    isRangedAttacker ? 2 : 1,
-                                    abilityMultiplier,
-                                ) + processPenetratingBiteAbility(this.currentActiveUnit, hoverAttackUnit);
-                            let maxDmg =
-                                this.currentActiveUnit.calculateAttackDamageMax(
-                                    attackRate,
-                                    hoverAttackUnit,
-                                    false,
-                                    isRangedAttacker ? 2 : 1,
-                                    abilityMultiplier,
-                                ) + processPenetratingBiteAbility(this.currentActiveUnit, hoverAttackUnit);
-                            const luckyStrikeAbility = this.currentActiveUnit.getAbility("Lucky Strike");
-                            if (luckyStrikeAbility) {
-                                maxDmg = Math.floor(
-                                    maxDmg * this.currentActiveUnit.calculateAbilityMultiplier(luckyStrikeAbility),
-                                );
+                            if (this.hoverAttackFromCell) {
+                                const minDmg =
+                                    this.currentActiveUnit.calculateAttackDamageMin(
+                                        attackRate,
+                                        hoverAttackUnit,
+                                        false,
+                                        isRangedAttacker ? 2 : 1,
+                                        abilityMultiplier,
+                                    ) + processPenetratingBiteAbility(this.currentActiveUnit, hoverAttackUnit);
+                                let maxDmg =
+                                    this.currentActiveUnit.calculateAttackDamageMax(
+                                        attackRate,
+                                        hoverAttackUnit,
+                                        false,
+                                        isRangedAttacker ? 2 : 1,
+                                        abilityMultiplier,
+                                    ) + processPenetratingBiteAbility(this.currentActiveUnit, hoverAttackUnit);
+                                const luckyStrikeAbility = this.currentActiveUnit.getAbility("Lucky Strike");
+                                if (luckyStrikeAbility) {
+                                    maxDmg = Math.floor(
+                                        maxDmg * this.currentActiveUnit.calculateAbilityMultiplier(luckyStrikeAbility),
+                                    );
+                                }
+                                const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
+                                const maxDied = hoverAttackUnit.calculatePossibleLosses(maxDmg);
+                                this.sc_hoverInfoArr = [];
+                                this.sc_attackDamageSpreadStr = `${minDmg}-${maxDmg}`;
+                                if (minDied !== maxDied) {
+                                    this.sc_attackKillSpreadStr = `${minDied}-${maxDied}`;
+                                } else if (minDied) {
+                                    this.sc_attackKillSpreadStr = minDied.toString();
+                                }
+                                this.sc_hoverTextUpdateNeeded = true;
+                                this.sc_attackRangeDamageDivisorStr = "";
+                            } else {
+                                this.resetHoverInfo();
                             }
-                            const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
-                            const maxDied = hoverAttackUnit.calculatePossibleLosses(maxDmg);
-                            this.sc_hoverInfoArr = [];
-                            this.sc_attackDamageSpreadStr = `${minDmg}-${maxDmg}`;
-                            if (minDied !== maxDied) {
-                                this.sc_attackKillSpreadStr = `${minDied}-${maxDied}`;
-                            } else if (minDied) {
-                                this.sc_attackKillSpreadStr = minDied.toString();
-                            }
-                            this.sc_hoverTextUpdateNeeded = true;
-                            this.sc_attackRangeDamageDivisorStr = "";
+
                             this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
 
                             if (hoverAttackUnit.canMove()) {
@@ -1861,6 +1867,7 @@ class Sandbox extends GLScene {
                                     this.grid.getAggrMatrixByTeam(hoverAttackUnit.getOppositeTeam()),
                                     hoverAttackUnit.canFly(),
                                     hoverAttackUnit.isSmallSize(),
+                                    hoverAttackUnit.hasAbilityActive("Made of Fire"),
                                 ).cells;
                             } else {
                                 this.hoverActivePath = undefined;
@@ -1893,6 +1900,7 @@ class Sandbox extends GLScene {
                                 this.grid.getAggrMatrixByTeam(this.hoverUnit.getOppositeTeam()),
                                 this.hoverUnit.canFly(),
                                 this.hoverUnit.isSmallSize(),
+                                this.hoverUnit.hasAbilityActive("Made of Fire"),
                             ).cells;
                         } else {
                             this.hoverActivePath = undefined;
@@ -1926,6 +1934,7 @@ class Sandbox extends GLScene {
                         this.grid.getAggrMatrixByTeam(this.hoverUnit.getOppositeTeam()),
                         this.hoverUnit.canFly(),
                         this.hoverUnit.isSmallSize(),
+                        this.hoverUnit.hasAbilityActive("Made of Fire"),
                     ).cells;
 
                     if (previousHover !== this.hoverActivePath) {
@@ -2397,6 +2406,7 @@ class Sandbox extends GLScene {
                                     undefined,
                                     hoverUnit.canFly(),
                                     hoverUnit.isSmallSize(),
+                                    hoverUnit.hasAbilityActive("Made of Fire"),
                                 ).cells;
                                 this.hoverUnit = hoverUnit;
                             }
@@ -2432,6 +2442,7 @@ class Sandbox extends GLScene {
                                     undefined,
                                     hoverUnit.canFly(),
                                     hoverUnit.isSmallSize(),
+                                    hoverUnit.hasAbilityActive("Made of Fire"),
                                 ).cells;
                                 this.hoverUnit = hoverUnit;
                             }
@@ -2465,6 +2476,7 @@ class Sandbox extends GLScene {
                                 undefined,
                                 hoverUnit.canFly(),
                                 hoverUnit.isSmallSize(),
+                                hoverUnit.hasAbilityActive("Made of Fire"),
                             ).cells;
                             this.hoverUnit = hoverUnit;
                         }
@@ -2520,6 +2532,7 @@ class Sandbox extends GLScene {
                                 undefined,
                                 unit.canFly(),
                                 unit.isSmallSize(),
+                                unit.hasAbilityActive("Made of Fire"),
                             ).cells;
                             this.hoverUnit = unit;
                         }
@@ -2548,6 +2561,7 @@ class Sandbox extends GLScene {
                                 undefined,
                                 unit.canFly(),
                                 unit.isSmallSize(),
+                                unit.hasAbilityActive("Made of Fire"),
                             ).cells;
                             this.hoverUnit = unit;
                         }
@@ -2610,6 +2624,7 @@ class Sandbox extends GLScene {
                             undefined,
                             unit.canFly(),
                             unit.isSmallSize(),
+                            unit.hasAbilityActive("Made of Fire"),
                         ).cells;
                         this.hoverUnit = unit;
                     }
@@ -2920,10 +2935,8 @@ class Sandbox extends GLScene {
             this.hoverAttackFromCell,
             this.currentActiveKnownPaths,
         );
-        console.log(obstacleAttackResult);
         if (obstacleAttackResult.animationData) {
             for (const ad of obstacleAttackResult.animationData) {
-                console.log(ad);
                 if (ad.bodyUnit && this.hoverAttackFromCell) {
                     const body = this.unitsFactory.getUnitBody(ad.bodyUnit.getId());
                     if (!body) {
@@ -3484,6 +3497,7 @@ class Sandbox extends GLScene {
                             undefined,
                             this.currentActiveUnit.canFly(),
                             this.currentActiveUnit.isSmallSize(),
+                            this.currentActiveUnit.hasAbilityActive("Made of Fire"),
                         ).cells;
                         for (const c of movementCells) {
                             const possibleEnemyId = this.grid.getOccupantUnitId(c);
@@ -3890,6 +3904,7 @@ class Sandbox extends GLScene {
                 this.grid.getAggrMatrixByTeam(this.currentActiveUnit.getOppositeTeam()),
                 this.currentActiveUnit.canFly(),
                 this.currentActiveUnit.isSmallSize(),
+                this.currentActiveUnit.hasAbilityActive("Made of Fire"),
             );
             this.currentActivePath = movePath.cells;
             this.currentActiveKnownPaths = movePath.knownPaths;

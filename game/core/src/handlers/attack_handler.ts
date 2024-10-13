@@ -1539,7 +1539,6 @@ export class AttackHandler {
                 }
             }
 
-            console.log(`isAdjacentToCenter ${isAdjacentToCenter}`);
             if (!isAdjacentToCenter) {
                 return { completed: rangeLanded, unitIdsDied: [], animationData };
             }

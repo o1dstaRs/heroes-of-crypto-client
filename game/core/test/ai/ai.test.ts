@@ -152,11 +152,11 @@ describe("MoveAndAttackForSmallUnit", () => {
         expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE);
     });
 
-    it("Should go around if cannot fly over water obstacle ", () => {
+    it("Should go around if cannot fly over lava obstacle ", () => {
         const matrix: number[][] = new Array();
         matrix[3] = [2, 0, 0, 0];
-        matrix[2] = [0, ObstacleType.WATER, ObstacleType.WATER, 0];
-        matrix[1] = [0, ObstacleType.WATER, ObstacleType.WATER, 0];
+        matrix[2] = [0, ObstacleType.LAVA, ObstacleType.LAVA, 0];
+        matrix[1] = [0, ObstacleType.LAVA, ObstacleType.LAVA, 0];
         matrix[0] = [0, 0, 0, 1];
         /**
            End matrix
@@ -470,7 +470,12 @@ class UnitRepr implements IUnitAIRepr {
     public getAllProperties(): UnitProperties | undefined {
         return this.unitProperties;
     }
+
     public getAttackType(): AttackType {
         return this.attackType;
+    }
+
+    public hasAbilityActive(abilityName: string): boolean {
+        return false;
     }
 }

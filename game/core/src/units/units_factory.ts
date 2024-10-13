@@ -443,6 +443,7 @@ export class UnitsFactory {
             // );
             units.push(this.makeCreature(FactionType.NATURE, "Gargantuan", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
             units.push(this.makeCreature(FactionType.NATURE, "Pegasus", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature(FactionType.NATURE, "Arachna Queen", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
         } else if (faction === FactionType.CHAOS) {
             units.push(this.makeCreature(FactionType.CHAOS, "Scavenger", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
             units.push(this.makeCreature(FactionType.CHAOS, "Orc", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));

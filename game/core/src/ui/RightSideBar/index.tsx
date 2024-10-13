@@ -87,9 +87,9 @@ const MapSettingsRadioButtons = () => {
         // Filter out NO_TYPE from the grid types
         const availableGridTypes = [
             GridType.NORMAL,
-            GridType.BLOCK_CENTER,
-            GridType.WATER_CENTER,
             GridType.LAVA_CENTER,
+            GridType.BLOCK_CENTER,
+            // GridType.WATER_CENTER,
         ];
 
         // Randomly select a grid type from the filtered list
@@ -111,9 +111,9 @@ const MapSettingsRadioButtons = () => {
                         onChange={handleMapSettingChange}
                     >
                         <Radio value={GridType.NORMAL} label="Normal" />
-                        <Radio value={GridType.BLOCK_CENTER} label="Mountain" />
-                        <Radio value={GridType.WATER_CENTER} label="Water" />
                         <Radio value={GridType.LAVA_CENTER} label="Lava" />
+                        <Radio value={GridType.BLOCK_CENTER} label="Mountain" />
+                        {/* <Radio value={GridType.WATER_CENTER} label="Water" /> */}
                     </RadioGroup>
                 </FormControl>
             </Box>
