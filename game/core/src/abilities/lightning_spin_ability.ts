@@ -18,9 +18,10 @@ import {
     Unit,
     FightStateManager,
     UnitsHolder,
+    IStatisticHolder,
+    IDamageStatistic,
 } from "@heroesofcrypto/common";
 
-import { DamageStatisticHolder } from "../stats/damage_stats";
 import { processFireShieldAbility } from "./fire_shield_ability";
 import { processOneInTheFieldAbility } from "./one_in_the_field_ability";
 import { processStunAbility } from "./stun_ability";
@@ -47,7 +48,7 @@ export function processLightningSpinAbility(
     sceneLog: ISceneLog,
     unitsHolder: UnitsHolder,
     rapidChargeCells: number,
-    damageStatisticHolder: DamageStatisticHolder,
+    damageStatisticHolder: IStatisticHolder<IDamageStatistic>,
     attackFromCell?: HoCMath.XY,
     isAttack = true,
 ): ILightningSpinResult {

@@ -19,9 +19,9 @@ import {
     ISceneLog,
     FightStateManager,
     UnitsHolder,
+    IStatisticHolder,
+    IDamageStatistic,
 } from "@heroesofcrypto/common";
-
-import { DamageStatisticHolder } from "../stats/damage_stats";
 
 interface ILayerImpact {
     cells: HoCMath.XY[];
@@ -68,7 +68,7 @@ function attackEnemiesAndGetLayerImpact(
     unitsHolder: UnitsHolder,
     sceneLog: ISceneLog,
     unitIdsDied: string[],
-    damageStatisticHolder: DamageStatisticHolder,
+    damageStatisticHolder: IStatisticHolder<IDamageStatistic>,
 ): ILayerImpact[] {
     const fullLayerImpact: ILayerImpact[] = [];
     for (const e1 of enemies) {
@@ -132,7 +132,7 @@ export function processChainLightningAbility(
     grid: Grid,
     unitsHolder: UnitsHolder,
     sceneLog: ISceneLog,
-    damageStatisticHolder: DamageStatisticHolder,
+    damageStatisticHolder: IStatisticHolder<IDamageStatistic>,
 ): string[] {
     const unitIdsDied: string[] = [];
     const chainLightningAbility = fromUnit.getAbility("Chain Lightning");

@@ -22,6 +22,8 @@ export function processMinerAbility(attackerUnit: Unit, targetUnit: Unit, sceneL
     if (armorAmount > 0) {
         attackerUnit.increaseBaseArmor(armorAmount);
         targetUnit.decreaseBaseArmor(armorAmount);
-        sceneLog.updateLog(`${attackerUnit.getName()} mined ${armorAmount} armor from ${targetUnit.getName()}`);
+        sceneLog.updateLog(
+            `${attackerUnit.getName()} mined ${armorAmount.toFixed(2)} armor from ${targetUnit.getName()}`,
+        );
     }
 }

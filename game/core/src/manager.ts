@@ -11,7 +11,7 @@
 
 import { b2Clamp, b2Vec2 } from "@box2d/core";
 import { DebugDraw } from "@box2d/debug-draw";
-import { UnitProperties, HoCConstants, GridType, TeamType, Augment } from "@heroesofcrypto/common";
+import { UnitProperties, HoCConstants, GridType, TeamType, Augment, IDamageStatistic } from "@heroesofcrypto/common";
 import { createContext, useContext } from "react";
 import { Signal } from "typed-signals";
 
@@ -26,7 +26,6 @@ import {
     VisibleButtonState,
 } from "./state/visible_state";
 import { EDGES_SIZE, MAX_FPS } from "./statics";
-import { IDamageStatistic } from "./stats/damage_stats";
 import type { SceneControlGroup } from "./ui";
 import { g_camera } from "./utils/camera";
 import { FpsCalculator } from "./utils/FpsCalculator";

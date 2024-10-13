@@ -1415,7 +1415,14 @@ export class AttackHandler {
         return { completed: true, unitIdsDied, animationData };
     }
 
-    public handleObstacleAttack(targetPosition: HoCMath.XY, attackerUnit?: Unit): IAttackResult {
+    public handleObstacleAttack(
+        targetPosition: HoCMath.XY,
+        unitsHolder: UnitsHolder,
+        moveHandler: MoveHandler,
+        attackerUnit?: Unit,
+        attackFromCell?: HoCMath.XY,
+        currentActiveKnownPaths?: Map<number, IWeightedRoute[]>,
+    ): IAttackResult {
         const targetCell = GridMath.getCellForPosition(this.gridSettings, targetPosition);
         const animationData: IAnimationData[] = [];
         if (
@@ -1423,8 +1430,18 @@ export class AttackHandler {
             FightStateManager.getInstance().getFightProperties().getGridType() !== GridType.BLOCK_CENTER ||
             FightStateManager.getInstance().getFightProperties().getObstacleHitsLeft() <= 0 ||
             !attackerUnit ||
-            attackerUnit.isDead()
+            attackerUnit.isDead() ||
+            !GridMath.isPositionWithinGrid(this.gridSettings, targetPosition) ||
+            !GridMath.isPositionWithinGrid(this.gridSettings, attackerUnit.getPosition())
         ) {
+            return { completed: false, unitIdsDied: [], animationData };
+        }
+
+        // check if unit is forced to attack certain enemy only
+        // if so, check if the forced target is still alive
+        const forcedTargetUnitId = attackerUnit.getTarget();
+        const forcedTargetUnit = unitsHolder.getAllUnits().get(forcedTargetUnitId);
+        if (forcedTargetUnit && !forcedTargetUnit.isDead()) {
             return { completed: false, unitIdsDied: [], animationData };
         }
 
@@ -1442,6 +1459,7 @@ export class AttackHandler {
         }
 
         // range attack
+        let rangeLanded = false;
         if (
             attackerUnit.getAttackTypeSelection() === AttackType.RANGE &&
             this.canLandRangeAttack(attackerUnit, this.grid.getEnemyAggrMatrixByUnitId(attackerUnit.getId()))
@@ -1454,6 +1472,7 @@ export class AttackHandler {
             FightStateManager.getInstance().getFightProperties().encointerObstacleHit();
             attackerUnit.decreaseNumberOfShots();
             this.sceneLog.updateLog(`${attackerUnit.getName()} hit mountain`);
+            rangeLanded = true;
         }
 
         // range second attack
@@ -1472,6 +1491,171 @@ export class AttackHandler {
                 FightStateManager.getInstance().getFightProperties().encointerObstacleHit();
                 attackerUnit.decreaseNumberOfShots();
                 this.sceneLog.updateLog(`${attackerUnit.getName()} hit mountain`);
+                rangeLanded = true;
+            }
+        }
+
+        // land melee attack
+        if (!rangeLanded && attackFromCell) {
+            let isAdjacentToCenter = false;
+            const excludeCells: number[] = [];
+            excludeCells.push(
+                ((this.gridSettings.getGridSize() / 2) << 4) | (this.gridSettings.getGridSize() / 2),
+                ((this.gridSettings.getGridSize() / 2 - 1) << 4) | (this.gridSettings.getGridSize() / 2 - 1),
+                ((this.gridSettings.getGridSize() / 2) << 4) | (this.gridSettings.getGridSize() / 2 - 1),
+                ((this.gridSettings.getGridSize() / 2 - 1) << 4) | (this.gridSettings.getGridSize() / 2),
+            );
+
+            const currentCell = GridMath.getCellForPosition(this.gridSettings, attackerUnit.getPosition());
+
+            if (!currentCell) {
+                return { completed: rangeLanded, unitIdsDied: [], animationData };
+            }
+
+            const attackFromCells = [attackFromCell];
+            if (!attackerUnit.isSmallSize()) {
+                attackFromCells.push(
+                    { x: attackFromCell.x, y: attackFromCell.y - 1 },
+                    { x: attackFromCell.x - 1, y: attackFromCell.y },
+                    { x: attackFromCell.x - 1, y: attackFromCell.y - 1 },
+                );
+            }
+
+            for (const c of attackFromCells) {
+                if (excludeCells.includes((c.x << 4) | c.y)) {
+                    break;
+                }
+
+                let centerCells = this.grid.getCenterCells(true);
+                for (const centerCell of centerCells) {
+                    if (Math.abs(c.x - centerCell.x) <= 1 && Math.abs(c.y - centerCell.y) <= 1) {
+                        isAdjacentToCenter = true;
+                        break;
+                    }
+                }
+
+                if (isAdjacentToCenter) {
+                    break;
+                }
+            }
+
+            if (!isAdjacentToCenter) {
+                return { completed: rangeLanded, unitIdsDied: [], animationData };
+            }
+
+            const stationaryAttack = currentCell.x === attackFromCell.x && currentCell.y === attackFromCell.y;
+
+            if (attackerUnit.isSmallSize()) {
+                if (
+                    this.grid.areAllCellsEmpty([attackFromCell], attackerUnit.getId()) &&
+                    (stationaryAttack ||
+                        currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y)?.length)
+                ) {
+                    const position = GridMath.getPositionForCell(
+                        attackFromCell,
+                        this.gridSettings.getMinX(),
+                        this.gridSettings.getStep(),
+                        this.gridSettings.getHalfStep(),
+                    );
+
+                    const moveInitiated =
+                        stationaryAttack ||
+                        moveHandler.applyMoveModifiers(
+                            attackFromCell,
+                            FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                            attackerUnit,
+                            currentActiveKnownPaths,
+                        );
+                    if (!moveInitiated) {
+                        return { completed: rangeLanded, unitIdsDied: [], animationData };
+                    }
+
+                    attackerUnit.setPosition(position.x, position.y, false);
+                    this.grid.occupyCell(
+                        attackFromCell,
+                        attackerUnit.getId(),
+                        attackerUnit.getTeam(),
+                        attackerUnit.getAttackRange(),
+                    );
+
+                    animationData.push({
+                        toPosition: attackerUnit.getPosition(),
+                        affectedUnit: attackerUnit,
+                        bodyUnit: attackerUnit,
+                    });
+
+                    FightStateManager.getInstance().getFightProperties().encointerObstacleHit();
+                    this.sceneLog.updateLog(`${attackerUnit.getName()} hit mountain`);
+                    if (
+                        FightStateManager.getInstance().getFightProperties().getObstacleHitsLeft() &&
+                        attackerUnit.getAbility("Double Punch")
+                    ) {
+                        FightStateManager.getInstance().getFightProperties().encointerObstacleHit();
+                        this.sceneLog.updateLog(`${attackerUnit.getName()} hit mountain`);
+                    }
+                } else {
+                    return { completed: rangeLanded, unitIdsDied: [], animationData };
+                }
+            } else {
+                const position = GridMath.getPositionForCell(
+                    attackFromCell,
+                    this.gridSettings.getMinX(),
+                    this.gridSettings.getStep(),
+                    this.gridSettings.getHalfStep(),
+                );
+                const cells = GridMath.getCellsAroundPosition(this.gridSettings, {
+                    x: position.x - this.gridSettings.getHalfStep(),
+                    y: position.y - this.gridSettings.getHalfStep(),
+                });
+                if (
+                    this.grid.areAllCellsEmpty(cells, attackerUnit.getId()) &&
+                    (stationaryAttack ||
+                        currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y)?.length)
+                ) {
+                    const moveInitiated =
+                        stationaryAttack ||
+                        moveHandler.applyMoveModifiers(
+                            attackFromCell,
+                            FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
+                            attackerUnit,
+                            currentActiveKnownPaths,
+                        );
+                    if (!moveInitiated) {
+                        return { completed: rangeLanded, unitIdsDied: [], animationData };
+                    }
+
+                    attackerUnit.setPosition(
+                        position.x - this.gridSettings.getHalfStep(),
+                        position.y - this.gridSettings.getHalfStep(),
+                        false,
+                    );
+
+                    this.grid.occupyCells(
+                        cells,
+                        attackerUnit.getId(),
+                        attackerUnit.getTeam(),
+                        attackerUnit.getAttackRange(),
+                    );
+
+                    animationData.push({
+                        toPosition: attackerUnit.getPosition(),
+                        affectedUnit: attackerUnit,
+                        bodyUnit: attackerUnit,
+                    });
+
+                    FightStateManager.getInstance().getFightProperties().encointerObstacleHit();
+                    this.sceneLog.updateLog(`${attackerUnit.getName()} hit mountain`);
+
+                    if (
+                        FightStateManager.getInstance().getFightProperties().getObstacleHitsLeft() &&
+                        attackerUnit.getAbility("Double Punch")
+                    ) {
+                        FightStateManager.getInstance().getFightProperties().encointerObstacleHit();
+                        this.sceneLog.updateLog(`${attackerUnit.getName()} hit mountain`);
+                    }
+                } else {
+                    return { completed: rangeLanded, unitIdsDied: [], animationData };
+                }
             }
         }
 

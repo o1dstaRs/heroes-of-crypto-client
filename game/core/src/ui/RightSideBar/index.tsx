@@ -20,10 +20,9 @@ import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState } from "react";
 import Slider from "@mui/joy/Slider";
-import { UnitProperties, GridType, ToGridType, TeamType } from "@heroesofcrypto/common";
+import { UnitProperties, GridType, ToGridType, TeamType, IDamageStatistic } from "@heroesofcrypto/common";
 
 import { useManager } from "../../manager";
-import { IDamageStatistic } from "../../stats/damage_stats";
 import Toggler from "../Toggler";
 import { EDGES_SIZE } from "../../statics";
 import SideToggleContainer from "./SideToggleContainer";
@@ -88,9 +87,9 @@ const MapSettingsRadioButtons = () => {
         // Filter out NO_TYPE from the grid types
         const availableGridTypes = [
             GridType.NORMAL,
-            GridType.BLOCK_CENTER,
-            GridType.WATER_CENTER,
             GridType.LAVA_CENTER,
+            GridType.BLOCK_CENTER,
+            // GridType.WATER_CENTER,
         ];
 
         // Randomly select a grid type from the filtered list
@@ -112,9 +111,9 @@ const MapSettingsRadioButtons = () => {
                         onChange={handleMapSettingChange}
                     >
                         <Radio value={GridType.NORMAL} label="Normal" />
-                        <Radio value={GridType.BLOCK_CENTER} label="Mountain" />
-                        <Radio value={GridType.WATER_CENTER} label="Water" />
                         <Radio value={GridType.LAVA_CENTER} label="Lava" />
+                        <Radio value={GridType.BLOCK_CENTER} label="Mountain" />
+                        {/* <Radio value={GridType.WATER_CENTER} label="Water" /> */}
                     </RadioGroup>
                 </FormControl>
             </Box>

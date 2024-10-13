@@ -161,6 +161,7 @@ function doFindTarget(
         grid.getAggrMatrixByTeam(unit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER),
         unit.canFly(),
         unit.isSmallSize(),
+        unit.hasAbilityActive("Made of Fire"),
     );
 
     /*

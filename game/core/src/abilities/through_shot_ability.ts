@@ -20,9 +20,10 @@ import {
     FightStateManager,
     UnitsHolder,
     IAnimationData,
+    IStatisticHolder,
+    IDamageStatistic,
 } from "@heroesofcrypto/common";
 
-import { DamageStatisticHolder } from "../stats/damage_stats";
 import { processLuckyStrikeAbility } from "./lucky_strike_ability";
 import { processPetrifyingGazeAbility } from "./petrifying_gaze_ability";
 import { processSpitBallAbility } from "./spit_ball_ability";
@@ -43,7 +44,7 @@ export function processThroughShotAbility(
     unitsHolder: UnitsHolder,
     grid: Grid,
     sceneLog: ISceneLog,
-    damageStatisticHolder: DamageStatisticHolder,
+    damageStatisticHolder: IStatisticHolder<IDamageStatistic>,
     decreaseNumberOfShots = true,
 ): IThroughShotResult {
     const animationData: IAnimationData[] = [];

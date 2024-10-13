@@ -9,13 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { TeamType, IStatisticHolder } from "@heroesofcrypto/common";
-
-export interface IDamageStatistic {
-    unitName: string;
-    damage: number;
-    team: TeamType;
-}
+import { IStatisticHolder, IDamageStatistic } from "@heroesofcrypto/common";
 
 export class DamageStatisticHolder implements IStatisticHolder<IDamageStatistic> {
     private readonly damageStatistics: IDamageStatistic[];
@@ -24,8 +18,9 @@ export class DamageStatisticHolder implements IStatisticHolder<IDamageStatistic>
         this.damageStatistics = [];
     }
 
-    public add(singleDamageStatistic: IDamageStatistic) {
+    public add(singleDamageStatistic: IDamageStatistic): void {
         let added = false;
+
         for (const ds of this.damageStatistics) {
             if (ds.unitName === singleDamageStatistic.unitName && ds.team === singleDamageStatistic.team) {
                 ds.damage += singleDamageStatistic.damage;
@@ -33,21 +28,15 @@ export class DamageStatisticHolder implements IStatisticHolder<IDamageStatistic>
                 break;
             }
         }
+
         if (!added) {
             this.damageStatistics.push(singleDamageStatistic);
         }
     }
 
     public get(): IDamageStatistic[] {
-        this.damageStatistics.sort((a: IDamageStatistic, b: IDamageStatistic) => {
-            if (a.damage > b.damage) {
-                return -1;
-            }
-            if (b.damage > a.damage) {
-                return 1;
-            }
-            return 0;
-        });
+        this.damageStatistics.sort((a, b) => b.damage - a.damage);
+
         return this.damageStatistics;
     }
 }
