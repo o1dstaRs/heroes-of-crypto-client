@@ -358,7 +358,14 @@ export class UnitsFactory {
                 cloned.setPosition(position.x, position.y);
                 this.positionBody(cloned);
 
-                return this.grid.occupyCell(cell, cloned.getId(), cloned.getTeam(), cloned.getAttackRange());
+                return this.grid.occupyCell(
+                    cell,
+                    cloned.getId(),
+                    cloned.getTeam(),
+                    cloned.getAttackRange(),
+                    cloned.hasAbilityActive("Made of Fire"),
+                    cloned.hasAbilityActive("Made of Water"),
+                );
             }
         } else {
             const cells = [
@@ -390,7 +397,14 @@ export class UnitsFactory {
             cloned.setPosition(position.x - HALF_STEP, position.y - HALF_STEP);
             this.positionBody(cloned);
 
-            return this.grid.occupyCells(cells, cloned.getId(), cloned.getTeam(), cloned.getAttackRange());
+            return this.grid.occupyCells(
+                cells,
+                cloned.getId(),
+                cloned.getTeam(),
+                cloned.getAttackRange(),
+                cloned.hasAbilityActive("Made of Fire"),
+                cloned.hasAbilityActive("Made of Water"),
+            );
         }
 
         return false;

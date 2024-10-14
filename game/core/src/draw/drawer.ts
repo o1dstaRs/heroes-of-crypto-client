@@ -648,7 +648,7 @@ export class Drawer {
 
             const occupantId = this.grid.getOccupantUnitId(c);
 
-            if (occupantId) {
+            if (occupantId && occupantId !== "L" && occupantId !== "W") {
                 const occupantUnit = unitsHolder.getAllUnits().get(occupantId);
                 if (!occupantUnit) {
                     continue;
@@ -685,6 +685,7 @@ export class Drawer {
                     },
                     size: occupantUnit.getSize(),
                 });
+                cellKeys.push(cellKey);
 
                 continue;
             }

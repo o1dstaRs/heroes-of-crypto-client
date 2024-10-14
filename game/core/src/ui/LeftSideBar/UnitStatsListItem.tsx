@@ -287,13 +287,13 @@ const StatItem: React.FC<{
                 backgroundColor: positiveFrame
                     ? "rgba(0, 255, 0, 0.3)"
                     : negativeFrame
-                    ? "rgba(255, 0, 0, 0.3)"
-                    : "transparent", // Add light effect inside the box
+                      ? "rgba(255, 0, 0, 0.3)"
+                      : "transparent", // Add light effect inside the box
                 ...(positiveFrame
                     ? { boxShadow: "0 0 5px 5px green", borderRadius: "20px" } // Apply borderRadius for circular corners
                     : negativeFrame
-                    ? { boxShadow: "0 0 5px 5px red", borderRadius: "20px" } // Apply borderRadius for circular corners
-                    : {}),
+                      ? { boxShadow: "0 0 5px 5px red", borderRadius: "20px" } // Apply borderRadius for circular corners
+                      : {}),
             }}
         >
             {React.cloneElement(icon, { sx: { color, fontSize: "1.25rem", pr: "4px" } })}
