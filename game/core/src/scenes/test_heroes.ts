@@ -1392,7 +1392,7 @@ class Sandbox extends GLScene {
         }
 
         const hoverRangeAttackDivisor = this.hoverRangeAttackDivisors.length
-            ? (this.hoverRangeAttackDivisors[0] ?? 1)
+            ? this.hoverRangeAttackDivisors[0] ?? 1
             : 1;
         const divisorStr = hoverRangeAttackDivisor > 1 ? `1/${hoverRangeAttackDivisor} ` : "";
 
@@ -2221,7 +2221,6 @@ class Sandbox extends GLScene {
                     GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell) &&
                     this.currentActivePathHashes?.has((mouseCell.x << 4) | mouseCell.y)
                 ) {
-                    // console.log("ssss1");
                     this.updateHoverInfoWithButtonAction(mouseCell);
 
                     if (
@@ -2257,7 +2256,15 @@ class Sandbox extends GLScene {
                         this.sc_moveBlocked = true;
                     } else if (this.currentActiveUnit.isSmallSize()) {
                         this.hoverSelectedCells = [mouseCell];
-                        if (!this.hoverSelectedCells || this.grid.areAllCellsEmpty(this.hoverSelectedCells)) {
+                        if (
+                            !this.hoverSelectedCells ||
+                            this.grid.areAllCellsEmpty(this.hoverSelectedCells, this.currentActiveUnit.getId()) ||
+                            this.grid.canOccupyCells(
+                                this.hoverSelectedCells,
+                                this.currentActiveUnit.hasAbilityActive("Made of Fire"),
+                                this.currentActiveUnit.hasAbilityActive("Made of Water"),
+                            )
+                        ) {
                             this.hoverSelectedCellsSwitchToRed = false;
                         } else {
                             this.hoverSelectedCellsSwitchToRed = true;
@@ -2277,7 +2284,12 @@ class Sandbox extends GLScene {
                         );
                         if (
                             this.hoverSelectedCells?.length === 4 &&
-                            this.grid.areAllCellsEmpty(this.hoverSelectedCells) &&
+                            (this.grid.areAllCellsEmpty(this.hoverSelectedCells, this.currentActiveUnit.getId()) ||
+                                this.grid.canOccupyCells(
+                                    this.hoverSelectedCells,
+                                    this.currentActiveUnit.hasAbilityActive("Made of Fire"),
+                                    this.currentActiveUnit.hasAbilityActive("Made of Water"),
+                                )) &&
                             this.currentActiveKnownPaths?.has((mouseCell.x << 4) | mouseCell.y)
                         ) {
                             this.hoverSelectedCellsSwitchToRed = false;
@@ -2317,7 +2329,6 @@ class Sandbox extends GLScene {
                     this.hoverAttackFromCell = mouseCell;
                     this.sc_moveBlocked = true;
                 } else {
-                    // console.log("ssss2");
                     this.resetHover();
                 }
             }
@@ -2747,6 +2758,16 @@ class Sandbox extends GLScene {
             return undefined;
         }
 
+        let hasMadeOfFire = false;
+        let hasMadeOfWater = false;
+        for (const abilityName of unitStats.abilities) {
+            if (abilityName === "Made of Fire") {
+                hasMadeOfFire = true;
+            } else if (abilityName === "Made of Water") {
+                hasMadeOfWater = true;
+            }
+        }
+
         // game has started
         const mouseCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
         if (
@@ -2760,7 +2781,11 @@ class Sandbox extends GLScene {
                     this.currentActiveSpell.getSpellTargetType() === SpellTargetType.FREE_CELL))
         ) {
             if (unitStats.size === 1 || this.currentActiveSpell) {
-                if (this.grid.areAllCellsEmpty([mouseCell])) {
+                const cells = [mouseCell];
+                if (
+                    this.grid.areAllCellsEmpty(cells) ||
+                    this.grid.canOccupyCells(cells, hasMadeOfFire, hasMadeOfWater)
+                ) {
                     return GridMath.getPositionForCell(
                         mouseCell,
                         this.sc_sceneSettings.getGridSettings().getMinX(),
@@ -2770,16 +2795,6 @@ class Sandbox extends GLScene {
                 }
 
                 return undefined;
-            }
-
-            let hasMadeOfFire = false;
-            let hasMadeOfWater = false;
-            for (const abilityName of unitStats.abilities) {
-                if (abilityName === "Made of Fire") {
-                    hasMadeOfFire = true;
-                } else if (abilityName === "Made of Water") {
-                    hasMadeOfWater = true;
-                }
             }
 
             if (
@@ -3501,7 +3516,6 @@ class Sandbox extends GLScene {
                         this.selectAttack(AttackType.MAGIC, true);
                         // this.currentActiveUnitSwitchedAttackAuto = true;
                         this.switchToSelectedAttackType = undefined;
-                        console.log("Switch to MAGIC");
                     }
 
                     if (
@@ -3763,7 +3777,6 @@ class Sandbox extends GLScene {
     }
 
     private selectAttack(selectedAttackType: AttackType, force = false): boolean {
-        // console.log(`SELECT ATTACK ${selectedAttackType}`);
         if (!this.currentActiveUnit) {
             return false;
         }
@@ -3888,7 +3901,10 @@ class Sandbox extends GLScene {
                 (!this.unitIdToCellsPreRound && occupiedCells.includes(cellKey)) ||
                 (this.unitIdToCellsPreRound && !this.unitIdToCellsPreRound.has(cellKey)) ||
                 !occupant ||
-                (this.currentActiveUnit && occupant === "L" && this.currentActiveUnit.hasAbilityActive("Made of Fire"))
+                (this.currentActiveUnit &&
+                    occupant === "L" &&
+                    this.currentActiveUnit.hasAbilityActive("Made of Fire")) ||
+                (this.currentActiveUnit && occupant === "W" && this.currentActiveUnit.hasAbilityActive("Made of Water"))
             ) {
                 cells.push(c);
             }
@@ -4746,7 +4762,7 @@ class Sandbox extends GLScene {
                                     this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                                     this.currentActiveSpell = undefined;
                                     this.adjustSpellBookSprite();
-                                    // this.grid.print(nextUnit.getId());
+                                    this.grid.print(nextUnit.getId());
                                     const currentCell = GridMath.getCellForPosition(
                                         this.sc_sceneSettings.getGridSettings(),
                                         unitBody.GetPosition(),
