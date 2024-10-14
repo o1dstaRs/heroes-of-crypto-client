@@ -229,9 +229,7 @@ export class AttackHandler {
                 attackerUnit,
                 targetUnit,
                 currentActiveSpell,
-                attackerUnit.getSpells(),
                 targetUnit.getBaseCell(),
-                attackerUnit.getTarget(),
                 attackerUnit.getTeam(),
                 targetUnit.getTeam(),
                 attackerUnit.getName(),
@@ -265,6 +263,15 @@ export class AttackHandler {
                         );
                         clarifyingStr = `for ${healPower} hp`;
                     }
+                } else if (currentActiveSpell.getPowerType() === SpellPowerType.RESURRECT) {
+                    const wasHp = targetUnit.getHp();
+                    const resurrectedAmount = targetUnit.applyResurrection(attackerUnit.getCumulativeMaxHp());
+                    if (resurrectedAmount) {
+                        clarifyingStr = `for ${resurrectedAmount} units`;
+                    } else {
+                        clarifyingStr = `for ${targetUnit.getHp() - wasHp} hp`;
+                    }
+                    unitsHolder.refreshStackPowerForAllUnits();
                 } else {
                     targetUnit.applyBuff(
                         currentActiveSpell,

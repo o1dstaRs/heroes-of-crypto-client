@@ -1392,7 +1392,7 @@ class Sandbox extends GLScene {
         }
 
         const hoverRangeAttackDivisor = this.hoverRangeAttackDivisors.length
-            ? this.hoverRangeAttackDivisors[0] ?? 1
+            ? (this.hoverRangeAttackDivisors[0] ?? 1)
             : 1;
         const divisorStr = hoverRangeAttackDivisor > 1 ? `1/${hoverRangeAttackDivisor} ` : "";
 
@@ -1579,16 +1579,20 @@ class Sandbox extends GLScene {
                 this.hoveredSpell = this.currentActiveUnit.getHoveredSpell(this.sc_mouseWorld);
                 if (this.hoveredSpell) {
                     const infoArr: string[] = [];
+                    let stringToReplaceBy;
+                    if (this.hoveredSpell.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT) {
+                        stringToReplaceBy = this.currentActiveUnit.getAmountAlive().toString();
+                    } else if (this.hoveredSpell.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT_POWER) {
+                        stringToReplaceBy = Math.ceil(
+                            this.currentActiveUnit.getAmountAlive() * this.hoveredSpell.getPower(),
+                        ).toString();
+                    } else if (this.hoveredSpell.getMultiplierType() === SpellMultiplierType.UNIT_CUMULATIVE_MAX_HP) {
+                        stringToReplaceBy = this.currentActiveUnit.getCumulativeMaxHp().toString();
+                    } else {
+                        stringToReplaceBy = "";
+                    }
                     for (const descStr of this.hoveredSpell.getDesc()) {
-                        infoArr.push(
-                            descStr.replace(
-                                /\{\}/g,
-                                (this.hoveredSpell.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT
-                                    ? this.currentActiveUnit.getAmountAlive()
-                                    : this.currentActiveUnit.getAmountAlive() * this.hoveredSpell.getPower()
-                                ).toString(),
-                            ),
-                        );
+                        infoArr.push(descStr.replace(/\{\}/g, stringToReplaceBy));
                     }
                     this.sc_hoverInfoArr = infoArr;
                     this.sc_hoverTextUpdateNeeded = true;
@@ -1667,9 +1671,7 @@ class Sandbox extends GLScene {
                             this.currentActiveUnit,
                             this.hoverUnit,
                             this.currentActiveSpell,
-                            this.currentActiveUnit.getSpells(),
                             this.hoverUnit?.getBaseCell(),
-                            this.currentActiveUnit.getTarget(),
                             this.currentActiveUnit.getTeam(),
                             this.hoverUnit?.getTeam(),
                             this.currentActiveUnit.getName(),
@@ -2232,9 +2234,7 @@ class Sandbox extends GLScene {
                             this.currentActiveUnit,
                             undefined,
                             this.currentActiveSpell,
-                            this.currentActiveUnit.getSpells(),
                             undefined,
-                            this.currentActiveUnit.getTarget(),
                             this.currentActiveUnit.getTeam(),
                             undefined,
                             this.currentActiveUnit.getName(),
@@ -2254,7 +2254,7 @@ class Sandbox extends GLScene {
                     ) {
                         this.hoverAttackFromCell = mouseCell;
                         this.sc_moveBlocked = true;
-                    } else if (this.currentActiveUnit.isSmallSize()) {
+                    } else if (this.currentActiveUnit.isSmallSize() || this.currentActiveSpell) {
                         this.hoverSelectedCells = [mouseCell];
                         if (
                             !this.hoverSelectedCells ||
@@ -2306,9 +2306,7 @@ class Sandbox extends GLScene {
                         this.currentActiveUnit,
                         undefined,
                         this.currentActiveSpell,
-                        this.currentActiveUnit.getSpells(),
                         undefined,
-                        this.currentActiveUnit.getTarget(),
                         this.currentActiveUnit.getTeam(),
                         undefined,
                         this.currentActiveUnit.getName(),
@@ -2949,8 +2947,8 @@ class Sandbox extends GLScene {
                             this.sc_world.DestroyBody(unitBody);
                         }
                         this.unitsFactory.deleteUnitBody(uId);
-                        alreadyProcessed.push(uId);
                     }
+                    alreadyProcessed.push(uId);
                 }
                 this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
                 this.sc_damageStatsUpdateNeeded = true;
@@ -3034,8 +3032,8 @@ class Sandbox extends GLScene {
                         this.sc_world.DestroyBody(unitBody);
                     }
                     this.unitsFactory.deleteUnitBody(uId);
-                    alreadyProcessed.push(uId);
                 }
+                alreadyProcessed.push(uId);
             }
             this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
             this.sc_damageStatsUpdateNeeded = true;
@@ -3083,8 +3081,8 @@ class Sandbox extends GLScene {
                         this.sc_world.DestroyBody(unitBody);
                     }
                     this.unitsFactory.deleteUnitBody(uId);
-                    alreadyProcessed.push(uId);
                 }
+                alreadyProcessed.push(uId);
             }
             this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
             this.finishTurn();
