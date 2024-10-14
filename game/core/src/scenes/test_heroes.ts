@@ -4762,7 +4762,7 @@ class Sandbox extends GLScene {
                                     this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                                     this.currentActiveSpell = undefined;
                                     this.adjustSpellBookSprite();
-                                    this.grid.print(nextUnit.getId());
+                                    // this.grid.print(nextUnit.getId());
                                     const currentCell = GridMath.getCellForPosition(
                                         this.sc_sceneSettings.getGridSettings(),
                                         unitBody.GetPosition(),
