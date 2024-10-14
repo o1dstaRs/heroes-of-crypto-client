@@ -120,8 +120,8 @@ export const UpNextOverlay: React.FC = () => {
                                                     ? "rgba(244, 67, 54, 1)"
                                                     : "rgba(76, 175, 80, 1)"
                                                 : unit.teamType === TeamType.UPPER
-                                                ? "rgba(244, 67, 54, 0.6)"
-                                                : "rgba(76, 175, 80, 0.6)",
+                                                  ? "rgba(244, 67, 54, 0.6)"
+                                                  : "rgba(76, 175, 80, 0.6)",
                                     },
                                 }}
                             />

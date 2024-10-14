@@ -327,6 +327,8 @@ export class AttackHandler {
                                 attackerUnit.getId(),
                                 attackerUnit.getTeam(),
                                 attackerUnit.getAttackRange(),
+                                attackerUnit.hasAbilityActive("Made of Fire"),
+                                attackerUnit.hasAbilityActive("Made of Water"),
                             );
 
                             const newTargetUnitPosition = GridMath.getPositionForCell(
@@ -341,6 +343,8 @@ export class AttackHandler {
                                 debuffTarget.getId(),
                                 debuffTarget.getTeam(),
                                 debuffTarget.getAttackRange(),
+                                debuffTarget.hasAbilityActive("Made of Fire"),
+                                debuffTarget.hasAbilityActive("Made of Water"),
                             );
 
                             animationData.push(
@@ -926,8 +930,14 @@ export class AttackHandler {
         const stationaryAttack = currentCell.x === attackFromCell.x && currentCell.y === attackFromCell.y;
 
         if (attackerUnit.isSmallSize()) {
+            const attackFromCells = [attackFromCell];
             if (
-                this.grid.areAllCellsEmpty([attackFromCell], attackerUnit.getId()) &&
+                (this.grid.areAllCellsEmpty(attackFromCells, attackerUnit.getId()) ||
+                    this.grid.canOccupyCells(
+                        attackFromCells,
+                        attackerUnit.hasAbilityActive("Made of Fire"),
+                        attackerUnit.hasAbilityActive("Made of Water"),
+                    )) &&
                 (stationaryAttack || currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y)?.length)
             ) {
                 const position = GridMath.getPositionForCell(
@@ -955,6 +965,8 @@ export class AttackHandler {
                     attackerUnit.getId(),
                     attackerUnit.getTeam(),
                     attackerUnit.getAttackRange(),
+                    attackerUnit.hasAbilityActive("Made of Fire"),
+                    attackerUnit.hasAbilityActive("Made of Water"),
                 );
 
                 animationData.push({
@@ -977,7 +989,12 @@ export class AttackHandler {
                 y: position.y - this.gridSettings.getHalfStep(),
             });
             if (
-                this.grid.areAllCellsEmpty(cells, attackerUnit.getId()) &&
+                (this.grid.areAllCellsEmpty(cells, attackerUnit.getId()) ||
+                    this.grid.canOccupyCells(
+                        attackFromCells,
+                        attackerUnit.hasAbilityActive("Made of Fire"),
+                        attackerUnit.hasAbilityActive("Made of Water"),
+                    )) &&
                 (stationaryAttack || currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y)?.length)
             ) {
                 const moveInitiated =
@@ -1003,6 +1020,8 @@ export class AttackHandler {
                     attackerUnit.getId(),
                     attackerUnit.getTeam(),
                     attackerUnit.getAttackRange(),
+                    attackerUnit.hasAbilityActive("Made of Fire"),
+                    attackerUnit.hasAbilityActive("Made of Water"),
                 );
 
                 animationData.push({
@@ -1547,7 +1566,12 @@ export class AttackHandler {
 
             if (attackerUnit.isSmallSize()) {
                 if (
-                    this.grid.areAllCellsEmpty([attackFromCell], attackerUnit.getId()) &&
+                    (this.grid.areAllCellsEmpty(attackFromCells, attackerUnit.getId()) ||
+                        this.grid.canOccupyCells(
+                            attackFromCells,
+                            attackerUnit.hasAbilityActive("Made of Fire"),
+                            attackerUnit.hasAbilityActive("Made of Water"),
+                        )) &&
                     (stationaryAttack ||
                         currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y)?.length)
                 ) {
@@ -1576,6 +1600,8 @@ export class AttackHandler {
                         attackerUnit.getId(),
                         attackerUnit.getTeam(),
                         attackerUnit.getAttackRange(),
+                        attackerUnit.hasAbilityActive("Made of Fire"),
+                        attackerUnit.hasAbilityActive("Made of Water"),
                     );
 
                     animationData.push({
@@ -1608,7 +1634,12 @@ export class AttackHandler {
                     y: position.y - this.gridSettings.getHalfStep(),
                 });
                 if (
-                    this.grid.areAllCellsEmpty(cells, attackerUnit.getId()) &&
+                    (this.grid.areAllCellsEmpty(cells, attackerUnit.getId()) ||
+                        this.grid.canOccupyCells(
+                            cells,
+                            attackerUnit.hasAbilityActive("Made of Fire"),
+                            attackerUnit.hasAbilityActive("Made of Water"),
+                        )) &&
                     (stationaryAttack ||
                         currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y)?.length)
                 ) {
@@ -1635,6 +1666,8 @@ export class AttackHandler {
                         attackerUnit.getId(),
                         attackerUnit.getTeam(),
                         attackerUnit.getAttackRange(),
+                        attackerUnit.hasAbilityActive("Made of Fire"),
+                        attackerUnit.hasAbilityActive("Made of Water"),
                     );
 
                     animationData.push({
@@ -1697,11 +1730,15 @@ export class AttackHandler {
             if (!possibleUnitId) {
                 continue;
             }
+
             if ((attackerUnit && attackerUnit.getId() === possibleUnitId) || affectedUnitIds.includes(possibleUnitId)) {
                 continue;
             }
             const possibleUnit = allUnits.get(possibleUnitId);
             if (!possibleUnit) {
+                if (possibleUnitId === "L" || possibleUnitId === "W") {
+                    affectedCells.push([cell]);
+                }
                 continue;
             }
 

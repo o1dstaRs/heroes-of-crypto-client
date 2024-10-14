@@ -34,7 +34,10 @@ export abstract class GLScene extends Scene {
 
     public gl_blendMode: BlendMode = "Default";
 
-    protected constructor(public readonly gl: WebGLRenderingContext, sceneSettings: SceneSettings) {
+    protected constructor(
+        public readonly gl: WebGLRenderingContext,
+        sceneSettings: SceneSettings,
+    ) {
         super(sceneSettings, { x: 0, y: 0 });
         this.gl_blendFunc = new BlendFunc(gl, gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 

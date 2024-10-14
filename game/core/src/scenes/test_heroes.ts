@@ -552,6 +552,8 @@ class Sandbox extends GLScene {
                                 this.currentActiveUnit.getId(),
                                 this.currentActiveUnit.getTeam(),
                                 this.currentActiveUnit.getAttackRange(),
+                                this.currentActiveUnit.hasAbilityActive("Made of Fire"),
+                                this.currentActiveUnit.hasAbilityActive("Made of Water"),
                             );
                             const movePaths = action
                                 ?.currentActiveKnownPaths()
@@ -591,6 +593,8 @@ class Sandbox extends GLScene {
                                 this.currentActiveUnit.getId(),
                                 this.currentActiveUnit.getTeam(),
                                 this.currentActiveUnit.getAttackRange(),
+                                this.currentActiveUnit.hasAbilityActive("Made of Fire"),
+                                this.currentActiveUnit.hasAbilityActive("Made of Water"),
                             );
 
                             const movePaths = action
@@ -2024,7 +2028,7 @@ class Sandbox extends GLScene {
                 this.currentActiveUnit.hasAbilityActive("Area Throw") &&
                 this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE &&
                 GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), mouseCell) &&
-                !this.grid.getOccupantUnitId(mouseCell)
+                (!unitId || unitId === "L" || unitId === "W")
             ) {
                 this.resetHover(false);
 
@@ -2252,7 +2256,15 @@ class Sandbox extends GLScene {
                         this.sc_moveBlocked = true;
                     } else if (this.currentActiveUnit.isSmallSize()) {
                         this.hoverSelectedCells = [mouseCell];
-                        if (!this.hoverSelectedCells || this.grid.areAllCellsEmpty(this.hoverSelectedCells)) {
+                        if (
+                            !this.hoverSelectedCells ||
+                            this.grid.areAllCellsEmpty(this.hoverSelectedCells, this.currentActiveUnit.getId()) ||
+                            this.grid.canOccupyCells(
+                                this.hoverSelectedCells,
+                                this.currentActiveUnit.hasAbilityActive("Made of Fire"),
+                                this.currentActiveUnit.hasAbilityActive("Made of Water"),
+                            )
+                        ) {
                             this.hoverSelectedCellsSwitchToRed = false;
                         } else {
                             this.hoverSelectedCellsSwitchToRed = true;
@@ -2272,7 +2284,12 @@ class Sandbox extends GLScene {
                         );
                         if (
                             this.hoverSelectedCells?.length === 4 &&
-                            this.grid.areAllCellsEmpty(this.hoverSelectedCells) &&
+                            (this.grid.areAllCellsEmpty(this.hoverSelectedCells, this.currentActiveUnit.getId()) ||
+                                this.grid.canOccupyCells(
+                                    this.hoverSelectedCells,
+                                    this.currentActiveUnit.hasAbilityActive("Made of Fire"),
+                                    this.currentActiveUnit.hasAbilityActive("Made of Water"),
+                                )) &&
                             this.currentActiveKnownPaths?.has((mouseCell.x << 4) | mouseCell.y)
                         ) {
                             this.hoverSelectedCellsSwitchToRed = false;
@@ -2741,6 +2758,16 @@ class Sandbox extends GLScene {
             return undefined;
         }
 
+        let hasMadeOfFire = false;
+        let hasMadeOfWater = false;
+        for (const abilityName of unitStats.abilities) {
+            if (abilityName === "Made of Fire") {
+                hasMadeOfFire = true;
+            } else if (abilityName === "Made of Water") {
+                hasMadeOfWater = true;
+            }
+        }
+
         // game has started
         const mouseCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
         if (
@@ -2754,7 +2781,11 @@ class Sandbox extends GLScene {
                     this.currentActiveSpell.getSpellTargetType() === SpellTargetType.FREE_CELL))
         ) {
             if (unitStats.size === 1 || this.currentActiveSpell) {
-                if (this.grid.areAllCellsEmpty([mouseCell])) {
+                const cells = [mouseCell];
+                if (
+                    this.grid.areAllCellsEmpty(cells) ||
+                    this.grid.canOccupyCells(cells, hasMadeOfFire, hasMadeOfWater)
+                ) {
                     return GridMath.getPositionForCell(
                         mouseCell,
                         this.sc_sceneSettings.getGridSettings().getMinX(),
@@ -2769,7 +2800,10 @@ class Sandbox extends GLScene {
             if (
                 !this.hoverSelectedCells ||
                 !this.pathHelper.areCellsFormingSquare(false, this.hoverSelectedCells) ||
-                !this.grid.areAllCellsEmpty(this.hoverSelectedCells, unitStats.id)
+                !(
+                    this.grid.areAllCellsEmpty(this.hoverSelectedCells, unitStats.id) ||
+                    this.grid.canOccupyCells(this.hoverSelectedCells, hasMadeOfFire, hasMadeOfWater)
+                )
             ) {
                 return undefined;
             }
@@ -3482,7 +3516,6 @@ class Sandbox extends GLScene {
                         this.selectAttack(AttackType.MAGIC, true);
                         // this.currentActiveUnitSwitchedAttackAuto = true;
                         this.switchToSelectedAttackType = undefined;
-                        console.log("Switch to MAGIC");
                     }
 
                     if (
@@ -3579,12 +3612,23 @@ class Sandbox extends GLScene {
 
                 if (this.currentActiveUnit.isSmallSize()) {
                     const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), positionToDropTo);
-                    if (cell && this.grid.areAllCellsEmpty([cell], this.currentActiveUnit.getId())) {
+                    const cells = [cell];
+                    if (
+                        cell &&
+                        (this.grid.areAllCellsEmpty(cells, this.currentActiveUnit.getId()) ||
+                            this.grid.canOccupyCells(
+                                cells,
+                                this.currentActiveUnit.hasAbilityActive("Made of Fire"),
+                                this.currentActiveUnit.hasAbilityActive("Made of Water"),
+                            ))
+                    ) {
                         refreshUnitPosition = this.grid.occupyCell(
                             cell,
                             this.currentActiveUnit.getId(),
                             this.currentActiveUnit.getTeam(),
                             this.currentActiveUnit.getAttackRange(),
+                            this.currentActiveUnit.hasAbilityActive("Made of Fire"),
+                            this.currentActiveUnit.hasAbilityActive("Made of Water"),
                         );
                     }
                 } else {
@@ -3592,12 +3636,21 @@ class Sandbox extends GLScene {
                         this.sc_sceneSettings.getGridSettings(),
                         positionToDropTo,
                     );
-                    if (this.grid.areAllCellsEmpty(cells, this.currentActiveUnit.getId())) {
+                    if (
+                        this.grid.areAllCellsEmpty(cells, this.currentActiveUnit.getId()) ||
+                        this.grid.canOccupyCells(
+                            cells,
+                            this.currentActiveUnit.hasAbilityActive("Made of Fire"),
+                            this.currentActiveUnit.hasAbilityActive("Made of Water"),
+                        )
+                    ) {
                         refreshUnitPosition = this.grid.occupyCells(
                             cells,
                             this.currentActiveUnit.getId(),
                             this.currentActiveUnit.getTeam(),
                             this.currentActiveUnit.getAttackRange(),
+                            this.currentActiveUnit.hasAbilityActive("Made of Fire"),
+                            this.currentActiveUnit.hasAbilityActive("Made of Water"),
                         );
                     }
                 }
@@ -3612,6 +3665,16 @@ class Sandbox extends GLScene {
                 if (unitStats) {
                     let refreshUnitPosition = false;
 
+                    let hasMadeOfFire = false;
+                    let hasMadeOfWater = false;
+                    for (const abilityName of unitStats.abilities) {
+                        if (abilityName === "Made of Fire") {
+                            hasMadeOfFire = true;
+                        } else if (abilityName === "Made of Water") {
+                            hasMadeOfWater = true;
+                        }
+                    }
+
                     if (unitStats.size === 1) {
                         const cell = GridMath.getCellForPosition(
                             this.sc_sceneSettings.getGridSettings(),
@@ -3623,6 +3686,8 @@ class Sandbox extends GLScene {
                                 unitStats.id,
                                 unitStats.team,
                                 unitStats.attack_range,
+                                hasMadeOfFire,
+                                hasMadeOfWater,
                             );
                         }
                     } else {
@@ -3631,6 +3696,8 @@ class Sandbox extends GLScene {
                             unitStats.id,
                             unitStats.team,
                             unitStats.attack_range,
+                            hasMadeOfFire,
+                            hasMadeOfWater,
                         );
                     }
                     const unit = this.unitsHolder.getAllUnits().get(unitStats.id);
@@ -3710,7 +3777,6 @@ class Sandbox extends GLScene {
     }
 
     private selectAttack(selectedAttackType: AttackType, force = false): boolean {
-        // console.log(`SELECT ATTACK ${selectedAttackType}`);
         if (!this.currentActiveUnit) {
             return false;
         }
@@ -3829,11 +3895,16 @@ class Sandbox extends GLScene {
         }
 
         for (const c of cellsToPickFrom) {
+            const occupant = this.grid.getOccupantUnitId(c);
             const cellKey = `${c.x}:${c.y}`;
             if (
                 (!this.unitIdToCellsPreRound && occupiedCells.includes(cellKey)) ||
                 (this.unitIdToCellsPreRound && !this.unitIdToCellsPreRound.has(cellKey)) ||
-                !this.grid.getOccupantUnitId(c)
+                !occupant ||
+                (this.currentActiveUnit &&
+                    occupant === "L" &&
+                    this.currentActiveUnit.hasAbilityActive("Made of Fire")) ||
+                (this.currentActiveUnit && occupant === "W" && this.currentActiveUnit.hasAbilityActive("Made of Water"))
             ) {
                 cells.push(c);
             }
@@ -4174,6 +4245,16 @@ class Sandbox extends GLScene {
 
                     if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
                         if (unit) {
+                            let hasMadeOfFire = false;
+                            let hasMadeOfWater = false;
+                            for (const abilityName of unitStats.abilities) {
+                                if (abilityName === "Made of Fire") {
+                                    hasMadeOfFire = true;
+                                } else if (abilityName === "Made of Water") {
+                                    hasMadeOfWater = true;
+                                }
+                            }
+
                             if (unitStats.team === TeamType.UPPER) {
                                 if (
                                     (this.upperPlacements[0]?.isAllowed(bodyPosition) ?? false) ||
@@ -4199,6 +4280,8 @@ class Sandbox extends GLScene {
                                                         unitStats.id,
                                                         unitStats.team,
                                                         unitStats.attack_range,
+                                                        hasMadeOfFire,
+                                                        hasMadeOfWater,
                                                     );
                                                 }
                                             }
@@ -4216,6 +4299,8 @@ class Sandbox extends GLScene {
                                                     unitStats.id,
                                                     unitStats.team,
                                                     unitStats.attack_range,
+                                                    hasMadeOfFire,
+                                                    hasMadeOfWater,
                                                 );
                                             }
                                         }
@@ -4274,6 +4359,8 @@ class Sandbox extends GLScene {
                                                     unitStats.id,
                                                     unitStats.team,
                                                     unitStats.attack_range,
+                                                    hasMadeOfFire,
+                                                    hasMadeOfWater,
                                                 );
                                             }
                                         }
@@ -4292,6 +4379,8 @@ class Sandbox extends GLScene {
                                                 unitStats.id,
                                                 unitStats.team,
                                                 unitStats.attack_range,
+                                                hasMadeOfFire,
+                                                hasMadeOfWater,
                                             );
                                         }
                                     }
