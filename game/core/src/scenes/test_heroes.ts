@@ -1398,7 +1398,11 @@ class Sandbox extends GLScene {
 
         this.sc_hoverInfoArr = [];
 
-        if (hoverAttackUnit) {
+        let hiddenUnit = false;
+        if (
+            hoverAttackUnit &&
+            (!hoverAttackUnit.hasBuffActive("Hidden") || hoverAttackUnit.getTeam() === this.currentActiveUnit.getTeam())
+        ) {
             let abilityMultiplier = 1;
             const paralysisAttackerEffect = this.currentActiveUnit.getEffect("Paralysis");
             if (paralysisAttackerEffect) {
@@ -1450,12 +1454,22 @@ class Sandbox extends GLScene {
 
             this.sc_attackDamageSpreadStr = `${minDmg}-${maxDmg}`;
         } else {
-            this.sc_attackKillSpreadStr = "";
-            this.sc_attackDamageSpreadStr = "";
+            this.resetHoverInfo();
+            if (
+                hoverAttackUnit &&
+                hoverAttackUnit.hasBuffActive("Hidden") &&
+                hoverAttackUnit.getTeam() !== this.currentActiveUnit.getTeam()
+            ) {
+                this.sc_hoverInfoArr = ["Hidden"];
+                this.sc_hoverTextUpdateNeeded = true;
+                hiddenUnit = true;
+            }
         }
 
-        this.sc_attackRangeDamageDivisorStr = divisorStr;
-        this.sc_hoverTextUpdateNeeded = true;
+        if (!hiddenUnit) {
+            this.sc_attackRangeDamageDivisorStr = divisorStr;
+            this.sc_hoverTextUpdateNeeded = true;
+        }
         this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
     }
 
@@ -1612,7 +1626,7 @@ class Sandbox extends GLScene {
                 this.hoverSelectedCellsSwitchToRed = false;
 
                 this.hoverActiveShotRange = undefined;
-                if (this.hoverUnit) {
+                if (this.hoverUnit && !this.hoverUnit.isDead()) {
                     hoverUnitCell = GridMath.getCellForPosition(
                         this.sc_sceneSettings.getGridSettings(),
                         this.hoverUnit.getPosition(),
@@ -1825,7 +1839,11 @@ class Sandbox extends GLScene {
                                 attackRate = Math.max(1, newAttackRate);
                             }
 
-                            if (this.hoverAttackFromCell) {
+                            if (
+                                this.hoverAttackFromCell &&
+                                (!hoverAttackUnit.hasBuffActive("Hidden") ||
+                                    hoverAttackUnit.getTeam() === this.currentActiveUnit.getTeam())
+                            ) {
                                 const minDmg =
                                     this.currentActiveUnit.calculateAttackDamageMin(
                                         attackRate,
@@ -1861,6 +1879,13 @@ class Sandbox extends GLScene {
                                 this.sc_attackRangeDamageDivisorStr = "";
                             } else {
                                 this.resetHoverInfo();
+                                if (
+                                    hoverAttackUnit.hasBuffActive("Hidden") &&
+                                    hoverAttackUnit.getTeam() !== this.currentActiveUnit.getTeam()
+                                ) {
+                                    this.sc_hoverInfoArr = ["Hidden"];
+                                    this.sc_hoverTextUpdateNeeded = true;
+                                }
                             }
 
                             this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();

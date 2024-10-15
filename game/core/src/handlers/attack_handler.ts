@@ -220,6 +220,10 @@ export class AttackHandler {
             return { completed: false, unitIdsDied, animationData };
         }
 
+        if (targetUnit && targetUnit.hasBuffActive("Hidden")) {
+            return { completed: false, unitIdsDied, animationData };
+        }
+
         if (
             targetUnit &&
             SpellHelper.canCastSpell(
@@ -490,6 +494,10 @@ export class AttackHandler {
         if (!targetUnit && isAOE) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} miss aoe`);
             return { completed: true, unitIdsDied, animationData };
+        }
+
+        if (targetUnits.length === 1 && targetUnit && targetUnit.hasBuffActive("Hidden")) {
+            return { completed: false, unitIdsDied, animationData };
         }
 
         // check if unit is forced to attack certain enemy only
@@ -912,6 +920,10 @@ export class AttackHandler {
             forcedTargetUnitId &&
             forcedTargetUnitId !== targetUnit.getId()
         ) {
+            return { completed: false, unitIdsDied, animationData };
+        }
+
+        if (targetUnit && targetUnit.hasBuffActive("Hidden")) {
             return { completed: false, unitIdsDied, animationData };
         }
 

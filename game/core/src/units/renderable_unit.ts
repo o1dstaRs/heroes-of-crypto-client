@@ -298,7 +298,7 @@ export class RenderableUnit extends Unit {
         const spritePositionY = this.renderPosition.y - halfUnitStep;
 
         this.smallSprite.setRect(spritePositionX, spritePositionY, fullUnitStep, fullUnitStep);
-        this.smallSprite.render();
+        this.smallSprite.render(this.hasBuffActive("Hidden") ? 0.6 : 1);
 
         const damageEntry = this.damageAnimationTicks.pop();
         let finishDamageTick = damageEntry?.animationTicks;
