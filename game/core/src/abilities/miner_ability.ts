@@ -23,7 +23,7 @@ export function processMinerAbility(attackerUnit: Unit, targetUnit: Unit, sceneL
         attackerUnit.increaseBaseArmor(armorAmount);
         targetUnit.decreaseBaseArmor(armorAmount);
         sceneLog.updateLog(
-            `${attackerUnit.getName()} mined ${armorAmount.toFixed(2)} armor from ${targetUnit.getName()}`,
+            `${attackerUnit.getName()} mined ${Number(armorAmount.toFixed(2))} armor from ${targetUnit.getName()}`,
         );
     }
 }
