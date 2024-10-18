@@ -210,9 +210,10 @@ const EffectColumnOrRow: React.FC<{ effects: IVisibleImpact[]; title: string; is
                 level="title-sm"
                 sx={{
                     textAlign: isHorizontalLayout ? "left" : "center",
-                    fontSize: 9, // Fixed size for consistent element size
+                    ...(isHorizontalLayout ? {} : { fontSize: 9 }), // Conditional fontSize based on layout
                     width: "8ch", // Fixed width for 8 symbols
-                    marginBottom: 0,
+                    marginBottom: isHorizontalLayout ? 1 : 0,
+                    ...(isHorizontalLayout ? { marginTop: 2 } : {}),
                 }}
             >
                 {title}
@@ -287,13 +288,13 @@ const StatItem: React.FC<{
                 backgroundColor: positiveFrame
                     ? "rgba(0, 255, 0, 0.3)"
                     : negativeFrame
-                      ? "rgba(255, 0, 0, 0.3)"
-                      : "transparent", // Add light effect inside the box
+                    ? "rgba(255, 0, 0, 0.3)"
+                    : "transparent", // Add light effect inside the box
                 ...(positiveFrame
                     ? { boxShadow: "0 0 5px 5px green", borderRadius: "20px" } // Apply borderRadius for circular corners
                     : negativeFrame
-                      ? { boxShadow: "0 0 5px 5px red", borderRadius: "20px" } // Apply borderRadius for circular corners
-                      : {}),
+                    ? { boxShadow: "0 0 5px 5px red", borderRadius: "20px" } // Apply borderRadius for circular corners
+                    : {}),
             }}
         >
             {React.cloneElement(icon, { sx: { color, fontSize: "1.25rem", pr: "4px" } })}
@@ -708,12 +709,6 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean }
                             flexDirection: columnize ? "column" : "row",
                         }}
                     >
-                        {hasBuffsOrDebuffs && columnize && (
-                            <Box sx={{ width: "100%", display: "flex", flexDirection: "column" }}>
-                                <EffectColumnOrRow effects={buffs} title="Buffs" isHorizontalLayout={true} />
-                                <EffectColumnOrRow effects={debuffs} title="Debuffs" isHorizontalLayout={true} />
-                            </Box>
-                        )}
                         <UnitStatsLayout
                             unitProperties={unitProperties}
                             damageRange={damageRange}
@@ -746,6 +741,12 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean }
                         </Typography>
                         <AbilityStack abilities={abilities} teamType={unitProperties.team} isWidescreen={columnize} />
                     </Box>
+                    {hasBuffsOrDebuffs && columnize && (
+                        <Box sx={{ width: "100%", display: "flex", flexDirection: "column" }}>
+                            <EffectColumnOrRow effects={buffs} title="Buffs" isHorizontalLayout={true} />
+                            <EffectColumnOrRow effects={debuffs} title="Debuffs" isHorizontalLayout={true} />
+                        </Box>
+                    )}
                 </Toggler>
             </ListItem>
         );
