@@ -12,8 +12,6 @@ import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState } from "react";
 
-import greenFlagImage from "../../../images/green_flag_128.webp";
-import redFlagImage from "../../../images/red_flag_128.webp";
 import { images } from "../../generated/image_imports";
 import { useManager } from "../../manager";
 import { IVisibleImpact, IVisibleOverallImpact } from "../../state/visible_state";
@@ -288,13 +286,13 @@ const StatItem: React.FC<{
                 backgroundColor: positiveFrame
                     ? "rgba(0, 255, 0, 0.3)"
                     : negativeFrame
-                    ? "rgba(255, 0, 0, 0.3)"
-                    : "transparent", // Add light effect inside the box
+                      ? "rgba(255, 0, 0, 0.3)"
+                      : "transparent", // Add light effect inside the box
                 ...(positiveFrame
                     ? { boxShadow: "0 0 5px 5px green", borderRadius: "20px" } // Apply borderRadius for circular corners
                     : negativeFrame
-                    ? { boxShadow: "0 0 5px 5px red", borderRadius: "20px" } // Apply borderRadius for circular corners
-                    : {}),
+                      ? { boxShadow: "0 0 5px 5px red", borderRadius: "20px" } // Apply borderRadius for circular corners
+                      : {}),
             }}
         >
             {React.cloneElement(icon, { sx: { color, fontSize: "1.25rem", pr: "4px" } })}
@@ -349,8 +347,6 @@ const UnitStatsLayout: React.FC<{
     columnize: boolean;
     largeTextureName: string;
     images: { [key: string]: string };
-    redFlagImage: string;
-    greenFlagImage: string;
 }> = ({
     unitProperties,
     damageRange,
@@ -365,8 +361,6 @@ const UnitStatsLayout: React.FC<{
     columnize,
     largeTextureName,
     images,
-    redFlagImage,
-    greenFlagImage,
 }) => {
     const attackSign = attackMod > 0 ? "+" : "";
     const attackModBadgeValue = `${attackMod ? `${attackSign}${unitProperties.attack_mod}` : ""}${
@@ -523,20 +517,6 @@ const UnitStatsLayout: React.FC<{
                             overflow: "visible",
                         }}
                     />
-                    <Avatar
-                        src={unitProperties.team === TeamType.UPPER ? redFlagImage : greenFlagImage}
-                        variant="plain"
-                        sx={{
-                            transform: "rotateX(-180deg)",
-                            zIndex: 5,
-                            width: "30%",
-                            height: "auto",
-                            position: "absolute",
-                            top: 0,
-                            left: -8,
-                            overflow: "visible",
-                        }}
-                    />
                 </Box>
                 <Box sx={{ width: "40%", display: "flex", flexDirection: "column", justifyContent: "center", pl: 1 }}>
                     {content}
@@ -561,20 +541,6 @@ const UnitStatsLayout: React.FC<{
                         overflow: "visible",
                     }}
                 />
-                <Avatar
-                    src={unitProperties.team === 1 ? redFlagImage : greenFlagImage}
-                    variant="plain"
-                    sx={{
-                        transform: "rotateX(-180deg)",
-                        zIndex: 5,
-                        width: "40px",
-                        height: "100px",
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        overflow: "visible",
-                    }}
-                />
                 <Box
                     sx={{
                         width: "72%", // Increased from 60% to 72%
@@ -593,8 +559,11 @@ const UnitStatsLayout: React.FC<{
     }
 };
 
-export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean }> = ({ barSize, columnize }) => {
-    const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
+export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; unitProperties: UnitProperties }> = ({
+    barSize,
+    columnize,
+    unitProperties,
+}) => {
     const [overallImpact, setVisibleOverallImpact] = useState({} as IVisibleOverallImpact);
     const [, setAugmentChanged] = useState(false);
     const [raceName, setRaceName] = useState("");
@@ -602,13 +571,6 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean }
     const isDarkMode = theme.palette.mode === "dark";
 
     const manager = useManager();
-
-    useEffect(() => {
-        const connection1 = manager.onUnitSelected.connect(setUnitProperties);
-        return () => {
-            connection1.disconnect();
-        };
-    });
 
     useEffect(() => {
         const connection2 = manager.onRaceSelected.connect(setRaceName);
@@ -701,52 +663,60 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean }
                         </ListItemButton>
                     )}
                 >
-                    <Box
-                        sx={{
-                            width: "100%",
-                            overflow: "visible",
-                            display: "flex",
-                            flexDirection: columnize ? "column" : "row",
-                        }}
-                    >
-                        <UnitStatsLayout
-                            unitProperties={unitProperties}
-                            damageRange={damageRange}
-                            attackTypeSelected={attackTypeSelected}
-                            attackDamage={attackDamage}
-                            attackMod={attackMod}
-                            meleeArmor={meleeArmor}
-                            rangeArmor={rangeArmor}
-                            armorMod={armorMod}
-                            hasDifferentRangeArmor={hasDifferentRangeArmor}
-                            isDarkMode={isDarkMode}
-                            columnize={columnize}
-                            largeTextureName={largeTextureName}
-                            images={images}
-                            redFlagImage={redFlagImage}
-                            greenFlagImage={greenFlagImage}
-                        />
-                        {hasBuffsOrDebuffs && !columnize && (
-                            <Box
-                                sx={{ width: barSize > 256 ? "20%" : "15%", display: "flex", flexDirection: "column" }}
-                            >
-                                <EffectColumnOrRow effects={buffs} title="Buffs" />
-                                <EffectColumnOrRow effects={debuffs} title="Debuffs" />
+                    <List>
+                        <Box
+                            sx={{
+                                width: "100%",
+                                overflow: "visible",
+                                display: "flex",
+                                flexDirection: columnize ? "column" : "row",
+                            }}
+                        >
+                            <UnitStatsLayout
+                                unitProperties={unitProperties}
+                                damageRange={damageRange}
+                                attackTypeSelected={attackTypeSelected}
+                                attackDamage={attackDamage}
+                                attackMod={attackMod}
+                                meleeArmor={meleeArmor}
+                                rangeArmor={rangeArmor}
+                                armorMod={armorMod}
+                                hasDifferentRangeArmor={hasDifferentRangeArmor}
+                                isDarkMode={isDarkMode}
+                                columnize={columnize}
+                                largeTextureName={largeTextureName}
+                                images={images}
+                            />
+                            {hasBuffsOrDebuffs && !columnize && (
+                                <Box
+                                    sx={{
+                                        width: barSize > 256 ? "20%" : "15%",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                    }}
+                                >
+                                    <EffectColumnOrRow effects={buffs} title="Buffs" />
+                                    <EffectColumnOrRow effects={debuffs} title="Debuffs" />
+                                </Box>
+                            )}
+                        </Box>
+                        <Box sx={{ width: columnize ? "100%" : "auto" }}>
+                            <Typography level="title-sm" sx={{ marginTop: columnize ? 1.5 : 0 }}>
+                                Abilities
+                            </Typography>
+                            <AbilityStack
+                                abilities={abilities}
+                                teamType={unitProperties.team}
+                                isWidescreen={columnize}
+                            />
+                        </Box>
+                        {hasBuffsOrDebuffs && columnize && (
+                            <Box sx={{ width: "100%", display: "flex", flexDirection: "column" }}>
+                                <EffectColumnOrRow effects={buffs} title="Buffs" isHorizontalLayout={true} />
+                                <EffectColumnOrRow effects={debuffs} title="Debuffs" isHorizontalLayout={true} />
                             </Box>
                         )}
-                    </Box>
-                    <Box sx={{ width: columnize ? "100%" : "auto" }}>
-                        <Typography level="title-sm" sx={{ marginTop: columnize ? 1.5 : 0 }}>
-                            Abilities
-                        </Typography>
-                        <AbilityStack abilities={abilities} teamType={unitProperties.team} isWidescreen={columnize} />
-                    </Box>
-                    {hasBuffsOrDebuffs && columnize && (
-                        <Box sx={{ width: "100%", display: "flex", flexDirection: "column" }}>
-                            <EffectColumnOrRow effects={buffs} title="Buffs" isHorizontalLayout={true} />
-                            <EffectColumnOrRow effects={debuffs} title="Debuffs" isHorizontalLayout={true} />
-                        </Box>
-                    )}
+                    </List>
                 </Toggler>
             </ListItem>
         );

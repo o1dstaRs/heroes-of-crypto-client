@@ -1,3 +1,4 @@
+import { UnitProperties } from "@heroesofcrypto/common";
 import DiceIcon from "@mui/icons-material/Casino";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import FactoryRoundedIcon from "@mui/icons-material/FactoryRounded";
@@ -17,6 +18,9 @@ import * as packageJson from "../../../package.json";
 import { EDGES_SIZE } from "../../statics";
 import ColorSchemeToggle from "./ColorSchemeToggle";
 import { MessageBox } from "./MessageBox";
+import { useManager } from "../../manager";
+import greenOverlayImage from "../../../images/overlay_green.webp";
+import redOverlayImage from "../../../images/overlay_red.webp";
 import { UnitStatsListItem } from "./UnitStatsListItem";
 import { UpNext } from "./UpNext";
 
@@ -29,8 +33,11 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
         factory: false,
         dashboard: false,
     });
+    const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
+
     const { setMode } = useColorScheme();
     const theme = useTheme();
+    const manager = useManager();
 
     const adjustBarSize = () => {
         const additionalBoardPixels = gameStarted ? 0 : 512;
@@ -56,6 +63,13 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
 
         return () => clearInterval(interval);
     }, []);
+
+    useEffect(() => {
+        const connection1 = manager.onUnitSelected.connect(setUnitProperties);
+        return () => {
+            connection1.disconnect();
+        };
+    });
 
     // Set the default mode to dark before rendering
     useEffect(() => {
@@ -102,6 +116,23 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
                 overflowX: "hidden",
             }}
         >
+            {unitProperties.team && (
+                <Box
+                    component="img"
+                    src={unitProperties.team === 2 ? greenOverlayImage : redOverlayImage} // Update path as needed
+                    sx={{
+                        position: "absolute",
+                        width: "350px", // Stripe width
+                        height: "100%",
+                        top: 0, // Set y position to the top of the screen
+                        right: -350, // Set y position to the top of the screen
+                        transform: "rotate(65deg)", // Rotate to make the stripe go from bottom left to top right
+                        transformOrigin: "top left",
+                        opacity: 1,
+                        zIndex: 0, // Ensure it is behind other content
+                    }}
+                />
+            )}
             <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
                 <a
                     href="https://heroesofcrypto.io/patches"
@@ -205,7 +236,11 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
 
                     <Divider />
 
-                    <UnitStatsListItem barSize={barSize} columnize={shouldColumnize()} />
+                    <UnitStatsListItem
+                        barSize={barSize}
+                        columnize={shouldColumnize()}
+                        unitProperties={unitProperties}
+                    />
 
                     <Box sx={{ flexGrow: 1 }} />
 
