@@ -948,6 +948,10 @@ export class AttackHandler {
 
         const stationaryAttack = currentCell.x === attackFromCell.x && currentCell.y === attackFromCell.y;
 
+        if (!stationaryAttack && !attackerUnit.canMove()) {
+            return { completed: false, unitIdsDied, animationData };
+        }
+
         if (attackerUnit.isSmallSize()) {
             const attackFromCells = [attackFromCell];
             if (

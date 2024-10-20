@@ -16,9 +16,11 @@ import {
     ObstacleType,
     HoCMath,
     PathHelper,
+    GridMath,
     IWeightedRoute,
     Unit,
     IUnitAIRepr,
+    UnitsHolder,
 } from "@heroesofcrypto/common";
 
 export interface IAI {
@@ -42,6 +44,8 @@ export interface IAI {
 
     action(unit: Unit, grid: Grid, matrix: number[][]): IAIAction;
 }
+
+const previousTargets: Map<string, string> = new Map<string, string>();
 
 export enum AIActionType {
     MELEE_ATTACK,
@@ -100,6 +104,7 @@ export function findTarget(
     unit: IUnitAIRepr,
     grid: Grid,
     matrix: number[][], // matrix for big unit has 4 cells filled
+    unitsHolder: UnitsHolder,
     pathHelper: PathHelper,
 ): BasicAIAction | undefined {
     const debug = process.env.DEBUG_AI === "true";
@@ -107,7 +112,50 @@ export function findTarget(
         console.group("Start AI check");
         console.time("AI step");
     }
-    const action = doFindTarget(unit, grid, matrix, pathHelper, debug);
+
+    let action: BasicAIAction | undefined = undefined;
+    let selectedEnemy: Unit | undefined = undefined;
+    const enemiesAround = unitsHolder.allEnemiesAroundUnit(unit, false);
+    for (const e of enemiesAround) {
+        if (e.isDead()) {
+            continue;
+        }
+
+        if (!GridMath.isPositionWithinGrid(grid.getSettings(), e.getPosition())) {
+            continue;
+        }
+
+        if (unit.getTarget() && unit.getTarget() === e.getId()) {
+            selectedEnemy = e;
+            break;
+        }
+
+        const previousTarget = previousTargets.get(unit.getId());
+        if (previousTarget && previousTarget === e.getId()) {
+            selectedEnemy = e;
+            break;
+        }
+    }
+
+    if (selectedEnemy) {
+        for (const ec of selectedEnemy.getCells()) {
+            for (const uc of unit.getCells()) {
+                if (Math.abs(ec.x - uc.x) <= 1 && Math.abs(ec.y - uc.y) <= 1) {
+                    action = new BasicAIAction(AIActionType.MELEE_ATTACK, uc, { x: ec.x, y: ec.y }, new Map());
+                    break;
+                }
+            }
+            if (action) {
+                break;
+            }
+        }
+    }
+
+    if (!unit.canMove()) {
+        return undefined;
+    }
+
+    action = doFindTarget(unit, unitsHolder, grid, matrix, pathHelper, debug);
     if (debug === true) {
         logAction(action, debug);
         console.timeEnd("AI step");
@@ -130,6 +178,7 @@ function logAction(action: BasicAIAction | undefined, debug: boolean) {
 
 function doFindTarget(
     unit: IUnitAIRepr,
+    unitsHolder: UnitsHolder,
     grid: Grid,
     matrix: number[][],
     pathHelper: PathHelper,
@@ -154,7 +203,7 @@ function doFindTarget(
     // to see grid use grid.print(unit.getId());
 
     const max_steps = 100; // unit.steps
-    const paths = pathHelper.getMovePath(
+    const movePath = pathHelper.getMovePath(
         unitCell,
         matrix,
         max_steps + unit.getSteps(),
@@ -179,174 +228,212 @@ function doFindTarget(
         console.log("currentUnit is at: " + cellToString(unitCell));
     }
     // go through every cell and check is it an enemy
-    for (let i = 0; i < numRows; i++) {
-        for (let j = 0; j < numCols; j++) {
-            const element = HoCMath.matrixElementOrDefault(matrix, j, i, 0);
-            if (element !== unit.getTeam() && element !== 0) {
-                if (
-                    element === ObstacleType.BLOCK ||
-                    element === ObstacleType.HOLE ||
-                    element === ObstacleType.WATER ||
-                    element === ObstacleType.LAVA
-                ) {
-                    continue;
-                }
-                if (debug) {
-                    console.log("checking possible target at x=" + j + ", i=" + i);
-                }
-                // get the list of cells that atacker can go to in order to attack the unit, return the layers, i.e bfs cells
-                cellsByDistanceFromTarget = getLayersForAttacker(
-                    { x: j, y: i },
-                    matrix,
-                    unit,
-                    unit.isSmallSize(),
-                    true,
-                );
-                if (debug) {
-                    let cellsStr = "";
-                    cellsByDistanceFromTarget[0].forEach(
-                        (cell) => (cellsStr = cellsStr + " [" + cellToString(cell) + "]"),
+    const pickTarget = (): BasicAIAction | undefined => {
+        for (let y = 0; y < numRows; y++) {
+            for (let x = 0; x < numCols; x++) {
+                const element = HoCMath.matrixElementOrDefault(matrix, x, y, 0);
+                if (element !== unit.getTeam() && element !== 0) {
+                    if (
+                        element === ObstacleType.BLOCK ||
+                        element === ObstacleType.HOLE ||
+                        element === ObstacleType.WATER ||
+                        element === ObstacleType.LAVA
+                    ) {
+                        continue;
+                    }
+
+                    const occupantUnitId = grid.getOccupantUnitId({ x: x, y: y });
+                    if (!occupantUnitId) {
+                        continue;
+                    }
+
+                    // const targetUnit = unitsHolder.getAllUnits().get(occupantUnitId);
+                    // if (
+                    //     !targetUnit ||
+                    //     targetUnit.isDead() ||
+                    //     targetUnit.hasBuffActive("Hidden") ||
+                    //     !GridMath.isPositionWithinGrid(grid.getSettings(), targetUnit.getPosition())
+                    // ) {
+                    //     continue;
+                    // }
+
+                    // if (debug) {
+                    //     console.log(`Checking possible target at ${x}:${y} occupantUnitId: ${occupantUnitId}`);
+                    // }
+
+                    // if (unit.getTarget() && unit.getTarget() !== occupantUnitId) {
+                    //     continue;
+                    // }
+
+                    // get the list of cells that atacker can go to in order to attack the unit, return the layers, i.e bfs cells
+                    cellsByDistanceFromTarget = getLayersForAttacker(
+                        { x: x, y: y },
+                        matrix,
+                        unit,
+                        unit.isSmallSize(),
+                        true,
                     );
-                    console.log("checking cellsToMoveTo:" + cellsStr);
-                }
-                // go through all cells in a layer, check the actual min distance for attcker unit and save
-                for (let depth = 0; depth < cellsByDistanceFromTarget.length; depth++) {
-                    let layerRouteIndiciesLeft: number = Infinity;
-                    for (const elementNeighbor of cellsByDistanceFromTarget[depth]) {
-                        if (depth === 0 && cellKey(elementNeighbor) === cellKey(unitCell)) {
-                            return new BasicAIAction(
-                                AIActionType.MELEE_ATTACK,
-                                unitCell,
-                                { x: j, y: i },
-                                paths.knownPaths,
-                            );
-                        }
+                    if (debug) {
+                        let cellsStr = "";
+                        cellsByDistanceFromTarget[0].forEach(
+                            (cell) => (cellsStr = cellsStr + " [" + cellToString(cell) + "]"),
+                        );
+                        console.log("checking cellsToMoveTo:" + cellsStr);
+                    }
+                    // go through all cells in a layer, check the actual min distance for attcker unit and save
+                    for (let depth = 0; depth < cellsByDistanceFromTarget.length; depth++) {
+                        let layerRouteIndiciesLeft: number = Infinity;
+                        for (const elementNeighbor of cellsByDistanceFromTarget[depth]) {
+                            const { knownPaths } = movePath;
 
-                        const cellK = cellKey(elementNeighbor);
-                        const { knownPaths } = paths;
-                        if (knownPaths.has(cellK)) {
-                            const tmpRoute = knownPaths.get(cellK);
-                            const weight = tmpRoute?.at(0)?.weight;
-                            if (weight === undefined) {
-                                continue;
-                            }
-                            if (weight < closestTargetDistance) {
-                                if (debug) {
-                                    console.log(
-                                        "New min distance: " +
-                                            weight +
-                                            " elementNeighbor:" +
-                                            cellToString(elementNeighbor),
-                                    );
+                            if (depth === 0 && cellKey(elementNeighbor) === cellKey(unitCell)) {
+                                const occupantUnitId = grid.getOccupantUnitId({ x: x, y: y });
+                                if (occupantUnitId) {
+                                    previousTargets.set(unit.getId(), occupantUnitId);
                                 }
-                                closestTargetDistance = weight;
-                                closestTarget = { x: j, y: i };
-                                let currentRoute = tmpRoute?.at(0);
+                                return new BasicAIAction(
+                                    AIActionType.MELEE_ATTACK,
+                                    unitCell,
+                                    { x: x, y: y },
+                                    knownPaths,
+                                );
+                            }
 
-                                if (!currentRoute) {
+                            const cellK = cellKey(elementNeighbor);
+
+                            if (knownPaths.has(cellK)) {
+                                const tmpRoute = knownPaths.get(cellK);
+                                const weight = tmpRoute?.at(0)?.weight;
+                                if (weight === undefined) {
                                     continue;
                                 }
+                                if (weight < closestTargetDistance) {
+                                    if (debug) {
+                                        console.log(
+                                            "New min distance: " +
+                                                weight +
+                                                " elementNeighbor:" +
+                                                cellToString(elementNeighbor),
+                                        );
+                                    }
+                                    closestTargetDistance = weight;
+                                    closestTarget = { x: x, y: y };
+                                    let currentRoute = tmpRoute?.at(0);
 
-                                /**
-                                 * Use "paths" to go through the board and calculate the end cell
-                                 * since the "paths" take into account aggro board
-                                 */
-                                let currentRouteIndex = 0;
-                                let nextCellDistance: number | undefined;
-                                do {
-                                    const cell = currentRoute.route[currentRouteIndex];
-                                    const nextCell = currentRoute.route[currentRouteIndex + 1];
-                                    if (nextCell === undefined) {
-                                        break;
+                                    if (!currentRoute) {
+                                        continue;
                                     }
-                                    if (isSameCell(cell, elementNeighbor)) {
-                                        break;
-                                    }
-                                    nextCellDistance = paths.knownPaths?.get(cellKey(nextCell))?.at(0)?.weight;
+
+                                    /**
+                                     * Use "paths" to go through the board and calculate the end cell
+                                     * since the "paths" take into account aggro board
+                                     */
+                                    let currentRouteIndex = 0;
+                                    let nextCellDistance: number | undefined;
+                                    do {
+                                        const cell = currentRoute.route[currentRouteIndex];
+                                        const nextCell = currentRoute.route[currentRouteIndex + 1];
+                                        if (nextCell === undefined) {
+                                            break;
+                                        }
+                                        if (isSameCell(cell, elementNeighbor)) {
+                                            break;
+                                        }
+                                        nextCellDistance = movePath.knownPaths?.get(cellKey(nextCell))?.at(0)?.weight;
+
+                                        if (debug) {
+                                            console.log("nextCellDistance: " + nextCellDistance);
+                                        }
+                                        if (nextCellDistance !== undefined && nextCellDistance > unit.getSteps()) {
+                                            break;
+                                        }
+                                        currentRouteIndex += 1;
+                                    } while (
+                                        nextCellDistance !== undefined &&
+                                        nextCellDistance <= unit.getSteps() &&
+                                        currentRouteIndex < currentRoute.route.length
+                                    );
 
                                     if (debug) {
-                                        console.log("nextCellDistance: " + nextCellDistance);
+                                        console.log("Set currentRouteIndex: " + currentRouteIndex);
                                     }
-                                    if (nextCellDistance !== undefined && nextCellDistance > unit.getSteps()) {
-                                        break;
-                                    }
-                                    currentRouteIndex += 1;
-                                } while (
-                                    nextCellDistance !== undefined &&
-                                    nextCellDistance <= unit.getSteps() &&
-                                    currentRouteIndex < currentRoute.route.length
-                                );
 
-                                if (debug) {
-                                    console.log("Set currentRouteIndex: " + currentRouteIndex);
-                                }
-
-                                while (currentRouteIndex >= 0) {
-                                    const cellToGo = currentRoute?.route[currentRouteIndex];
-                                    if (cellToGo) {
-                                        if (unit.isSmallSize()) {
-                                            if (!isFree(cellToGo, matrix, unit)) {
+                                    while (currentRouteIndex >= 0) {
+                                        const cellToGo = currentRoute?.route[currentRouteIndex];
+                                        if (cellToGo) {
+                                            if (unit.isSmallSize()) {
+                                                if (!isFree(cellToGo, matrix, unit)) {
+                                                    currentRouteIndex--;
+                                                } else {
+                                                    break;
+                                                }
+                                            } else if (
+                                                !isFree(cellToGo, matrix, unit) ||
+                                                !isFree({ x: cellToGo.x - 1, y: cellToGo.y }, matrix, unit) ||
+                                                !isFree({ x: cellToGo.x - 1, y: cellToGo.y - 1 }, matrix, unit) ||
+                                                !isFree({ x: cellToGo.x, y: cellToGo.y - 1 }, matrix, unit)
+                                            ) {
                                                 currentRouteIndex--;
                                             } else {
                                                 break;
                                             }
-                                        } else if (
-                                            !isFree(cellToGo, matrix, unit) ||
-                                            !isFree({ x: cellToGo.x - 1, y: cellToGo.y }, matrix, unit) ||
-                                            !isFree({ x: cellToGo.x - 1, y: cellToGo.y - 1 }, matrix, unit) ||
-                                            !isFree({ x: cellToGo.x, y: cellToGo.y - 1 }, matrix, unit)
-                                        ) {
-                                            currentRouteIndex--;
                                         } else {
                                             break;
                                         }
-                                    } else {
-                                        break;
                                     }
-                                }
-                                let currentRouteIndiciesLeft = currentRoute.route.length - 1 - currentRouteIndex;
-                                let cellToMoveTo = currentRoute.route[currentRouteIndex];
-                                let currentDistance = paths.knownPaths?.get(cellKey(cellToMoveTo))?.at(0)?.weight;
-                                if (debug) {
-                                    console.log(
-                                        "Cell to move :" +
-                                            cellToString(cellToMoveTo) +
-                                            " elementNeighbor:" +
-                                            cellToString(elementNeighbor),
-                                    );
-                                }
-
-                                if (!currentDistance) {
-                                    continue;
-                                }
-                                // if same indicies left till the target but clsoer then prev cell then update the route and hte cell to move to
-                                if (
-                                    currentRouteIndiciesLeft < layerRouteIndiciesLeft ||
-                                    (currentRouteIndiciesLeft === layerRouteIndiciesLeft &&
-                                        currentDistance < resultMovementDistance)
-                                ) {
-                                    resultRoute = currentRoute;
-                                    resultRouteIndex = currentRouteIndex;
-                                    resultMovementDistance = currentDistance;
-                                    layerRouteIndiciesLeft = currentRouteIndiciesLeft;
+                                    let currentRouteIndiciesLeft = currentRoute.route.length - 1 - currentRouteIndex;
+                                    let cellToMoveTo = currentRoute.route[currentRouteIndex];
+                                    let currentDistance = movePath.knownPaths
+                                        ?.get(cellKey(cellToMoveTo))
+                                        ?.at(0)?.weight;
                                     if (debug) {
-                                        console.log("Set new resultMovementDistance:" + resultMovementDistance);
+                                        console.log(
+                                            "Cell to move :" +
+                                                cellToString(cellToMoveTo) +
+                                                " elementNeighbor:" +
+                                                cellToString(elementNeighbor),
+                                        );
+                                    }
+
+                                    if (!currentDistance) {
+                                        continue;
+                                    }
+                                    // if same indicies left till the target but clooser then prev cell then update the route and hte cell to move to
+                                    if (
+                                        currentRouteIndiciesLeft < layerRouteIndiciesLeft ||
+                                        (currentRouteIndiciesLeft === layerRouteIndiciesLeft &&
+                                            currentDistance < resultMovementDistance)
+                                    ) {
+                                        resultRoute = currentRoute;
+                                        resultRouteIndex = currentRouteIndex;
+                                        resultMovementDistance = currentDistance;
+                                        layerRouteIndiciesLeft = currentRouteIndiciesLeft;
+                                        if (debug) {
+                                            console.log("Set new resultMovementDistance:" + resultMovementDistance);
+                                        }
                                     }
                                 }
-                            }
-                        } else {
-                            if (debug) {
-                                console.log("No known path to elementNeighbor:" + cellToString(elementNeighbor));
+                            } else {
+                                if (debug) {
+                                    console.log("No known path to elementNeighbor:" + cellToString(elementNeighbor));
+                                }
                             }
                         }
-                    }
-                    // in current layer we found a cell to go to, use it
-                    if (resultMovementDistance) {
-                        break;
+                        // in current layer we found a cell to go to, use it
+                        if (resultMovementDistance) {
+                            break;
+                        }
                     }
                 }
             }
         }
+
+        return undefined;
+    };
+
+    let actionDetermined = pickTarget();
+    if (actionDetermined) {
+        return actionDetermined;
     }
 
     if (debug) {
@@ -358,15 +445,23 @@ function doFindTarget(
     }
 
     if (unit.getAttackType() === AttackType.RANGE) {
-        return new BasicAIAction(AIActionType.RANGE_ATTACK, undefined, closestTarget, paths.knownPaths);
+        const occupantUnitId = grid.getOccupantUnitId({ x: closestTarget.x, y: closestTarget.y });
+        if (occupantUnitId) {
+            previousTargets.set(unit.getId(), occupantUnitId);
+        }
+        return new BasicAIAction(AIActionType.RANGE_ATTACK, undefined, closestTarget, movePath.knownPaths);
     }
 
     if (resultRouteIndex === 0) {
+        const occupantUnitId = grid.getOccupantUnitId({ x: closestTarget.x, y: closestTarget.y });
+        if (occupantUnitId) {
+            previousTargets.set(unit.getId(), occupantUnitId);
+        }
         return new BasicAIAction(
             AIActionType.MELEE_ATTACK,
             resultRoute?.route[resultRouteIndex],
             closestTarget,
-            paths.knownPaths,
+            movePath.knownPaths,
         );
     }
 
@@ -380,22 +475,30 @@ function doFindTarget(
                 resultRouteIndex,
         );
         let routeStr = "";
-        resultRoute?.route.forEach((cell) => (routeStr = routeStr + " [" + cellToString(cell) + "]"));
+        resultRoute?.route.forEach(
+            (cell: HoCMath.XY | undefined) => (routeStr = routeStr + " [" + cellToString(cell) + "]"),
+        );
         console.log("Route=" + routeStr);
     }
     if (closestTargetDistance <= unit.getSteps()) {
+        const occupantUnitId = grid.getOccupantUnitId({ x: closestTarget.x, y: closestTarget.y });
+        if (occupantUnitId) {
+            previousTargets.set(unit.getId(), occupantUnitId);
+        }
         return new BasicAIAction(
             AIActionType.MOVE_AND_MELEE_ATTACK,
             resultRoute?.route[resultRouteIndex],
             closestTarget,
-            paths.knownPaths,
+            movePath.knownPaths,
         );
     }
     let toMoveTo = resultRoute?.route[resultRouteIndex];
     if (debug) {
         console.log("action MOVE with cell to move to x:" + toMoveTo?.x + " t:" + toMoveTo?.y);
     }
-    return new BasicAIAction(AIActionType.MOVE, resultRoute?.route[resultRouteIndex], undefined, paths.knownPaths);
+    previousTargets.delete(unit.getId());
+
+    return new BasicAIAction(AIActionType.MOVE, resultRoute?.route[resultRouteIndex], undefined, movePath.knownPaths);
 }
 
 function cellKey(xy: HoCMath.XY): number {

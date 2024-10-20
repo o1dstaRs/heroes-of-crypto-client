@@ -8,13 +8,15 @@ import Card from "@mui/joy/Card";
 import LinearProgress from "@mui/joy/LinearProgress";
 import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 import { useManager } from "../../manager";
 import { IVisibleState } from "../../state/visible_state";
 
 export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
+    const [countdown, setCountdown] = useState<number | null>(null);
+    const countdownInterval = useRef<NodeJS.Timeout | null>(null);
 
     const manager = useManager();
 
@@ -36,6 +38,40 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     if (visibleState.secondsMax) {
         messageBoxProgressValue = 100 - (visibleState.secondsRemaining / visibleState.secondsMax) * 100;
     }
+
+    useEffect(() => {
+        if (visibleState.secondsRemaining > 0) {
+            if (visibleState.secondsRemaining <= 5) {
+                setCountdown(Math.ceil(visibleState.secondsRemaining));
+                if (countdownInterval.current) {
+                    clearInterval(countdownInterval.current);
+                }
+                countdownInterval.current = setInterval(() => {
+                    setCountdown((prevCountdown) => {
+                        if (prevCountdown && prevCountdown > 1) {
+                            return prevCountdown - 1;
+                        }
+                        clearInterval(countdownInterval.current!);
+                        countdownInterval.current = null;
+                        return null;
+                    });
+                }, 1000);
+            } else {
+                if (countdownInterval.current) {
+                    clearInterval(countdownInterval.current);
+                    countdownInterval.current = null;
+                }
+                setCountdown(null);
+            }
+        } else {
+            if (countdownInterval.current) {
+                clearInterval(countdownInterval.current);
+                countdownInterval.current = null;
+            }
+            setCountdown(null);
+        }
+    }, [messageBoxProgressValue, visibleState.secondsRemaining]);
+
     const progress = (
         <LinearProgress
             variant="outlined"
@@ -62,10 +98,10 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
             messageBoxButtonText = "";
             messageBoxProgressBar = <span />;
         } else {
-            if (messageBoxProgressValue <= 45) {
+            if (messageBoxProgressValue <= 45 && !countdown) {
                 messageBoxColor = "success";
                 messageBoxButtonText = "";
-            } else if (messageBoxProgressValue <= 70) {
+            } else if (messageBoxProgressValue <= 70 && !countdown) {
                 messageBoxColor = "warning";
                 messageBoxButtonText = "";
             } else {
@@ -100,42 +136,81 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     }
 
     return (
-        <Card invertedColors variant={messageBoxVariant} color={messageBoxColor} size="sm" sx={{ boxShadow: "none" }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography level="title-sm">{messageBoxTitle}</Typography>
-                {(() => {
-                    if (gameStarted) {
-                        if (visibleState.hasFinished) {
-                            return <RefreshRoundedIcon />;
-                        }
-                        return defaultIcon;
-                    }
-                    return <InfoRoundedIcon />;
-                })()}
-            </Stack>
-            <Typography level="body-xs">{messageBoxText}</Typography>
-            {messageBoxProgressBar}
-
-            {messageBoxButtonText ? (
-                <Button
-                    onClick={() =>
-                        messageBoxRequestAdditionalTimeButtonRendered
-                            ? manager.RequestTime(visibleState.teamTypeTurn)
-                            : manager.StartGame()
-                    }
-                    onMouseDown={() =>
-                        messageBoxRequestAdditionalTimeButtonRendered
-                            ? manager.RequestTime(visibleState.teamTypeTurn)
-                            : manager.StartGame()
-                    }
-                    size="sm"
-                    variant="solid"
+        <>
+            {countdown !== null && (
+                <div
+                    style={{
+                        position: "fixed",
+                        top: "50%",
+                        left: "50%",
+                        transform: "translate(-50%, -50%)",
+                        width: "100vh",
+                        height: "100%",
+                        backgroundColor: "rgba(255, 0, 0, 0.2)",
+                        color: "#fff",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        zIndex: 0,
+                        pointerEvents: "none",
+                    }}
                 >
-                    {messageBoxButtonText}
-                </Button>
-            ) : (
-                <span />
+                    <Typography
+                        fontSize="43vw"
+                        style={{
+                            lineHeight: 1,
+                            margin: 0,
+                            color: "white",
+                            opacity: 0.55,
+                        }}
+                    >
+                        {countdown}
+                    </Typography>
+                </div>
             )}
-        </Card>
+            <Card
+                invertedColors
+                variant={messageBoxVariant}
+                color={messageBoxColor}
+                size="sm"
+                sx={{ boxShadow: "none" }}
+            >
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography level="title-sm">{messageBoxTitle}</Typography>
+                    {(() => {
+                        if (gameStarted) {
+                            if (visibleState.hasFinished) {
+                                return <RefreshRoundedIcon />;
+                            }
+                            return defaultIcon;
+                        }
+                        return <InfoRoundedIcon />;
+                    })()}
+                </Stack>
+                <Typography level="body-xs">{messageBoxText}</Typography>
+                {messageBoxProgressBar}
+
+                {messageBoxButtonText ? (
+                    <Button
+                        onClick={() =>
+                            messageBoxRequestAdditionalTimeButtonRendered
+                                ? manager.RequestTime(visibleState.teamTypeTurn)
+                                : manager.StartGame()
+                        }
+                        onMouseDown={() =>
+                            messageBoxRequestAdditionalTimeButtonRendered
+                                ? manager.RequestTime(visibleState.teamTypeTurn)
+                                : manager.StartGame()
+                        }
+                        size="sm"
+                        variant="solid"
+                    >
+                        {messageBoxButtonText}
+                    </Button>
+                ) : (
+                    <span />
+                )}
+            </Card>
+        </>
     );
 };
