@@ -117,7 +117,7 @@ export function findTarget(
     let selectedEnemy: Unit | undefined = undefined;
     const enemiesAround = unitsHolder.allEnemiesAroundUnit(unit, false);
     for (const e of enemiesAround) {
-        if (e.isDead()) {
+        if (e.isDead() || e.hasBuffActive("Hidden")) {
             continue;
         }
 
@@ -151,11 +151,14 @@ export function findTarget(
         }
     }
 
-    if (!unit.canMove()) {
-        return undefined;
+    if (!action) {
+        if (!unit.canMove()) {
+            return undefined;
+        }
+
+        action = doFindTarget(unit, unitsHolder, grid, matrix, pathHelper, debug);
     }
 
-    action = doFindTarget(unit, unitsHolder, grid, matrix, pathHelper, debug);
     if (debug === true) {
         logAction(action, debug);
         console.timeEnd("AI step");
