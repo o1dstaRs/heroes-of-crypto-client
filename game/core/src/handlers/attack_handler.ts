@@ -59,6 +59,7 @@ import { processAggrAbility } from "../abilities/aggr_ability";
 import { processSkewerStrikeAbility } from "../abilities/skewer_strike_ability";
 import { IVisibleDamage } from "../state/visible_state";
 import { processChainLightningAbility } from "../abilities/chain_lightning_ability";
+import { processDullingDefenseAblity } from "../abilities/dulling_defense_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -1288,6 +1289,7 @@ export class AttackHandler {
                         ),
                     );
                     processStunAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
+                    processDullingDefenseAblity(attackerUnit, targetUnit, this.sceneLog);
                     processPetrifyingGazeAbility(
                         targetUnit,
                         attackerUnit,
@@ -1334,6 +1336,7 @@ export class AttackHandler {
 
             processMinerAbility(attackerUnit, targetUnit, this.sceneLog);
             processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+            processDullingDefenseAblity(targetUnit, attackerUnit, this.sceneLog);
             processPetrifyingGazeAbility(
                 attackerUnit,
                 targetUnit,
@@ -1410,6 +1413,7 @@ export class AttackHandler {
             if (!secondPunchResult.missed) {
                 processMinerAbility(attackerUnit, targetUnit, this.sceneLog);
                 processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
+                processDullingDefenseAblity(targetUnit, attackerUnit, this.sceneLog);
                 processPetrifyingGazeAbility(
                     attackerUnit,
                     targetUnit,
