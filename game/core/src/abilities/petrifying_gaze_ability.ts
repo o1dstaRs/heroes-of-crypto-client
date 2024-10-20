@@ -48,8 +48,11 @@ export function processPetrifyingGazeAbility(
             damageFromAbility += toUnit.getHp();
             proc = true;
         } else {
-            const startSpread = toUnit.getLevel() === 3 ? fromUnit.getStackPower() * 3 : fromUnit.getStackPower();
-            const chanceToKillLastUnit = HoCLib.getRandomInt(fromUnit.getStackPower(), startSpread + 1);
+            const startSpread =
+                (toUnit.getLevel() === 3 ? fromUnit.getStackPower() * 3 : fromUnit.getStackPower()) +
+                fromUnit.getLuck();
+            const minimumSpread = Math.min(0, fromUnit.getStackPower() + fromUnit.getLuck());
+            const chanceToKillLastUnit = HoCLib.getRandomInt(minimumSpread, Math.max(startSpread + 1, 1));
             const coeff2Int = Math.floor((coeff2 * 100) / (toUnit.getLevel() === 3 ? 2 : 1));
             if (chanceToKillLastUnit >= coeff2Int) {
                 damageFromAbility += toUnit.getHp();

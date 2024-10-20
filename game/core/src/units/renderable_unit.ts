@@ -863,6 +863,18 @@ export class RenderableUnit extends Unit {
                     .replace(/\{\}/g, Number(this.calculateAbilityCount(crusadeAbility).toFixed(2)).toString()),
             );
         }
+
+        // Dulling Defense
+        const dullingDefenseAbility = this.getAbility("Dulling Defense");
+        if (dullingDefenseAbility) {
+            this.refreshAbiltyDescription(
+                dullingDefenseAbility.getName(),
+                dullingDefenseAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, Number(this.calculateAbilityCount(dullingDefenseAbility).toFixed(1)).toString()),
+            );
+        }
     }
 
     private refreshAbiltyDescription(abilityName: string, abilityDescription: string): void {

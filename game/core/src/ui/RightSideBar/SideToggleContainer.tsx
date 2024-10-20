@@ -52,7 +52,7 @@ const PlacementToggler = ({
                     >
                         <Radio
                             value={Augment.PlacementAugment.LEVEL_1}
-                            label="3x3"
+                            label="Height 3 partial"
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.PlacementAugment.LEVEL_1 &&
                                 currentSelection !== Augment.PlacementAugment.LEVEL_1
@@ -60,7 +60,7 @@ const PlacementToggler = ({
                         />
                         <Radio
                             value={Augment.PlacementAugment.LEVEL_2}
-                            label="5x5"
+                            label="Height 4 full"
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.PlacementAugment.LEVEL_2 &&
                                 currentSelection !== Augment.PlacementAugment.LEVEL_2
@@ -68,7 +68,7 @@ const PlacementToggler = ({
                         />
                         <Radio
                             value={Augment.PlacementAugment.LEVEL_3}
-                            label="Two placements 5x5"
+                            label="Height 5 full"
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.PlacementAugment.LEVEL_3 &&
                                 currentSelection !== Augment.PlacementAugment.LEVEL_3

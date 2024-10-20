@@ -37,6 +37,7 @@ import { processParalysisAbility } from "./paralysis_ability";
 import { processDeepWoundsAbility } from "./deep_wounds_ability";
 import { processMinerAbility } from "./miner_ability";
 import { processAggrAbility } from "./aggr_ability";
+import { processDullingDefenseAblity } from "./dulling_defense_ability";
 
 export interface ILightningSpinResult {
     landed: boolean;
@@ -129,6 +130,7 @@ export function processLightningSpinAbility(
                 // just in case if we have more inherited/stolen abilities
                 processMinerAbility(fromUnit, enemy, sceneLog);
                 processStunAbility(fromUnit, enemy, fromUnit, sceneLog);
+                processDullingDefenseAblity(enemy, fromUnit, sceneLog);
                 processPetrifyingGazeAbility(fromUnit, enemy, damageFromAttack, sceneLog, damageStatisticHolder);
                 processBoarSalivaAbility(fromUnit, enemy, fromUnit, sceneLog);
                 processAggrAbility(fromUnit, enemy, fromUnit, sceneLog);

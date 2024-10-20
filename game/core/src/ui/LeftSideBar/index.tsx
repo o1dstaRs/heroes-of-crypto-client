@@ -119,7 +119,7 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
             {unitProperties.team && (
                 <Box
                     component="img"
-                    src={unitProperties.team === 2 ? greenOverlayImage : redOverlayImage} // Update path as needed
+                    src={unitProperties.team === 2 ? greenOverlayImage : redOverlayImage}
                     sx={{
                         position: "absolute",
                         width: "350px", // Stripe width

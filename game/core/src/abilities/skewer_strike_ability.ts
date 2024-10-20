@@ -27,6 +27,7 @@ import { processAggrAbility } from "./aggr_ability";
 import { processBlindnessAbility } from "./blindness_ability";
 import { processBoarSalivaAbility } from "./boar_saliva_ability";
 import { processDeepWoundsAbility } from "./deep_wounds_ability";
+import { processDullingDefenseAblity } from "./dulling_defense_ability";
 import { processMinerAbility } from "./miner_ability";
 import { processParalysisAbility } from "./paralysis_ability";
 import { processPegasusLightAbility } from "./pegasus_light_ability";
@@ -99,6 +100,7 @@ export function processSkewerStrikeAbility(
         // just in case if we have more inherited/stolen abilities
         processMinerAbility(fromUnit, nextStandingTarget, sceneLog);
         processStunAbility(fromUnit, nextStandingTarget, fromUnit, sceneLog);
+        processDullingDefenseAblity(nextStandingTarget, fromUnit, sceneLog);
         processPetrifyingGazeAbility(fromUnit, nextStandingTarget, damageFromAttack, sceneLog, damageStatisticHolder);
         processBoarSalivaAbility(fromUnit, nextStandingTarget, fromUnit, sceneLog);
         processAggrAbility(fromUnit, nextStandingTarget, fromUnit, sceneLog);
