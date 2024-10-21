@@ -3,10 +3,19 @@ import {
     TeamType,
     HoCConstants,
     SynergyWithLevel,
+    SpecificSynergy,
     LifeSynergyNames,
     ChaosSynergyNames,
     MightSynergyNames,
     NatureSynergyNames,
+    getLifeSynergyByName,
+    getChaosSynergyByName,
+    getMightSynergyByName,
+    getNatureSynergyByName,
+    LifeSynergy,
+    ChaosSynergy,
+    MightSynergy,
+    NatureSynergy,
 } from "@heroesofcrypto/common";
 import React, { useEffect, useState } from "react";
 import {
@@ -45,6 +54,12 @@ const SYNERGY_NAME_TO_IMAGE = {
     [MightSynergyNames.PLUS_STACK_ABILITIES_POWER]: synergyAbilitiesPowerImg,
     [NatureSynergyNames.INCREASE_BOARD_UNITS]: synergyIncreaseBoardUnitsImg,
     [NatureSynergyNames.PLUS_FLY_ARMOR]: synergyPlusFlyArmorImg,
+};
+
+type SelectedSynergy = {
+    faction: "Life" | "Chaos" | "Might" | "Nature";
+    synergy: keyof typeof SYNERGY_NAME_TO_IMAGE;
+    level: 1 | 2 | 3;
 };
 
 const PlacementToggler = ({
@@ -433,7 +448,10 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
     const [togglerType, setTogglerType] = useState<"Placement" | "Armor" | "Might" | "Sniper" | "Movement">(
         "Placement",
     );
-    const [synergyPair, setSynergyPairType] = useState<"Chaos" | "Might" | "Nature" | "Life" | "">("");
+    const [synergyPairLife, setSynergyPairTypeLife] = useState<SelectedSynergy | null>(null);
+    const [synergyPairChaos, setSynergyPairTypeChaos] = useState<SelectedSynergy | null>(null);
+    const [synergyPairMight, setSynergyPairTypeMight] = useState<SelectedSynergy | null>(null);
+    const [synergyPairNature, setSynergyPairTypeNature] = useState<SelectedSynergy | null>(null);
 
     const handleLevelChange = (pointsUsed: number, previousPointsUsed: number) => {
         if (togglerType === "Placement") {
@@ -450,6 +468,8 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
         const remainingPoints = totalPoints + previousPointsUsed - pointsUsed;
         setTotalPoints(remainingPoints);
     };
+
+    console.log(synergyPairLife);
 
     const manager = useManager();
 
@@ -545,12 +565,24 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
             <Box sx={{ display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
                 <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexBasis: { xs: "100%", sm: "auto" } }}>
                     <Tooltip title="Pick Supply synergy" style={{ zIndex: 1 }}>
-                        <IconButton onClick={() => setSynergyPairType("Life")} title="Supply synergy">
+                        <IconButton
+                            onClick={() =>
+                                setSynergyPairTypeLife({
+                                    faction: "Life",
+                                    synergy: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
+                                    level: 1,
+                                })
+                            }
+                            title="Supply synergy"
+                        >
                             <img
                                 src={synergySupplyImg}
                                 alt="Supply Icon"
                                 style={{
-                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    filter:
+                                        synergyPairLife?.synergy === LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE
+                                            ? "brightness(1.2)"
+                                            : "brightness(0.6)",
                                     width: 45,
                                     height: 45,
                                 }}
@@ -558,12 +590,24 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                         </IconButton>
                     </Tooltip>
                     <Tooltip title="Pick Morale synergy" style={{ zIndex: 1 }}>
-                        <IconButton onClick={() => setSynergyPairType("Life")} title="Morale synergy">
+                        <IconButton
+                            onClick={() =>
+                                setSynergyPairTypeLife({
+                                    faction: "Life",
+                                    synergy: LifeSynergyNames.PLUS_MORALE,
+                                    level: 1,
+                                })
+                            }
+                            title="Morale synergy"
+                        >
                             <img
                                 src={synergyMoraleImg}
                                 alt="Morale Icon"
                                 style={{
-                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    filter:
+                                        synergyPairLife?.synergy === LifeSynergyNames.PLUS_MORALE
+                                            ? "brightness(1.2)"
+                                            : "brightness(0.6)",
                                     width: 45,
                                     height: 45,
                                 }}
@@ -573,12 +617,24 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                 </Box>
                 <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexBasis: { xs: "100%", sm: "auto" } }}>
                     <Tooltip title="Pick Slow on Shot synergy" style={{ zIndex: 1 }}>
-                        <IconButton onClick={() => setSynergyPairType("Chaos")} title="Slow on Shot synergy">
+                        <IconButton
+                            onClick={() =>
+                                setSynergyPairTypeChaos({
+                                    faction: "Chaos",
+                                    synergy: ChaosSynergyNames.SLOW_ON_SHOT,
+                                    level: 1,
+                                })
+                            }
+                            title="Slow on Shot synergy"
+                        >
                             <img
                                 src={synergySlowOnShotImg}
                                 alt="Slow on Shot Icon"
                                 style={{
-                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    filter:
+                                        synergyPairChaos?.synergy === ChaosSynergyNames.SLOW_ON_SHOT
+                                            ? "brightness(1.2)"
+                                            : "brightness(0.6)",
                                     width: 45,
                                     height: 45,
                                 }}
@@ -586,12 +642,24 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                         </IconButton>
                     </Tooltip>
                     <Tooltip title="Pick Break on Attack synergy" style={{ zIndex: 1 }}>
-                        <IconButton onClick={() => setSynergyPairType("Chaos")} title="Break on Attack synergy">
+                        <IconButton
+                            onClick={() =>
+                                setSynergyPairTypeChaos({
+                                    faction: "Chaos",
+                                    synergy: ChaosSynergyNames.BREAK_ON_ATTACK,
+                                    level: 1,
+                                })
+                            }
+                            title="Break on Attack synergy"
+                        >
                             <img
                                 src={synergyBreakOnAttackImg}
                                 alt="Break on Attack Icon"
                                 style={{
-                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    filter:
+                                        synergyPairChaos?.synergy === ChaosSynergyNames.BREAK_ON_ATTACK
+                                            ? "brightness(1.2)"
+                                            : "brightness(0.6)",
                                     width: 45,
                                     height: 45,
                                 }}
@@ -601,12 +669,24 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                 </Box>
                 <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexBasis: { xs: "100%", sm: "auto" } }}>
                     <Tooltip title="Pick Auras Range synergy" style={{ zIndex: 1 }}>
-                        <IconButton onClick={() => setSynergyPairType("Might")} title="Auras Range synergy">
+                        <IconButton
+                            onClick={() =>
+                                setSynergyPairTypeMight({
+                                    faction: "Might",
+                                    synergy: MightSynergyNames.PLUS_AURAS_RANGE,
+                                    level: 1,
+                                })
+                            }
+                            title="Auras Range synergy"
+                        >
                             <img
                                 src={synergyAurasRangeImg}
                                 alt="Auras Range Icon"
                                 style={{
-                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    filter:
+                                        synergyPairMight?.synergy === MightSynergyNames.PLUS_AURAS_RANGE
+                                            ? "brightness(1.2)"
+                                            : "brightness(0.6)",
                                     width: 45,
                                     height: 45,
                                 }}
@@ -614,12 +694,24 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                         </IconButton>
                     </Tooltip>
                     <Tooltip title="Pick Abilities Power synergy" style={{ zIndex: 1 }}>
-                        <IconButton onClick={() => setSynergyPairType("Might")} title="Abilities Power synergy">
+                        <IconButton
+                            onClick={() =>
+                                setSynergyPairTypeMight({
+                                    faction: "Might",
+                                    synergy: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
+                                    level: 1,
+                                })
+                            }
+                            title="Abilities Power synergy"
+                        >
                             <img
                                 src={synergyAbilitiesPowerImg}
                                 alt="Abilities Power Icon"
                                 style={{
-                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    filter:
+                                        synergyPairMight?.synergy === MightSynergyNames.PLUS_STACK_ABILITIES_POWER
+                                            ? "brightness(1.2)"
+                                            : "brightness(0.6)",
                                     width: 45,
                                     height: 45,
                                 }}
@@ -629,12 +721,24 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                 </Box>
                 <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexBasis: { xs: "100%", sm: "auto" } }}>
                     <Tooltip title="Pick Board Units synergy" style={{ zIndex: 1 }}>
-                        <IconButton onClick={() => setSynergyPairType("Might")} title="Board Units synergy">
+                        <IconButton
+                            onClick={() =>
+                                setSynergyPairTypeNature({
+                                    faction: "Nature",
+                                    synergy: NatureSynergyNames.INCREASE_BOARD_UNITS,
+                                    level: 1,
+                                })
+                            }
+                            title="Board Units synergy"
+                        >
                             <img
                                 src={synergyIncreaseBoardUnitsImg}
                                 alt="Board Units Icon"
                                 style={{
-                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    filter:
+                                        synergyPairNature?.synergy === NatureSynergyNames.INCREASE_BOARD_UNITS
+                                            ? "brightness(1.2)"
+                                            : "brightness(0.6)",
                                     width: 45,
                                     height: 45,
                                 }}
@@ -642,12 +746,24 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                         </IconButton>
                     </Tooltip>
                     <Tooltip title="Pick Fly Armor synergy" style={{ zIndex: 1 }}>
-                        <IconButton onClick={() => setSynergyPairType("Might")} title="Fly Armor synergy">
+                        <IconButton
+                            onClick={() =>
+                                setSynergyPairTypeNature({
+                                    faction: "Nature",
+                                    synergy: NatureSynergyNames.PLUS_FLY_ARMOR,
+                                    level: 1,
+                                })
+                            }
+                            title="Fly Armor synergy"
+                        >
                             <img
                                 src={synergyPlusFlyArmorImg}
                                 alt="Fly Armor Icon"
                                 style={{
-                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    filter:
+                                        synergyPairNature?.synergy === NatureSynergyNames.PLUS_FLY_ARMOR
+                                            ? "brightness(1.2)"
+                                            : "brightness(0.6)",
                                     width: 45,
                                     height: 45,
                                 }}
