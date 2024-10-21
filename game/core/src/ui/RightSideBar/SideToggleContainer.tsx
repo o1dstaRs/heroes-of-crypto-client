@@ -3,19 +3,10 @@ import {
     TeamType,
     HoCConstants,
     SynergyWithLevel,
-    SpecificSynergy,
     LifeSynergyNames,
     ChaosSynergyNames,
     MightSynergyNames,
     NatureSynergyNames,
-    getLifeSynergyByName,
-    getChaosSynergyByName,
-    getMightSynergyByName,
-    getNatureSynergyByName,
-    LifeSynergy,
-    ChaosSynergy,
-    MightSynergy,
-    NatureSynergy,
 } from "@heroesofcrypto/common";
 import React, { useEffect, useState } from "react";
 import {
@@ -311,12 +302,10 @@ const SniperToggler = ({
 
     return (
         <Box sx={{ marginBottom: 2 }}>
-            {/* Remaining Points Text (Orange and Bold) */}
             <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
                 Remaining Points: {totalPoints}
             </Typography>
 
-            {/* The Toggler Sheet */}
             <Sheet
                 variant="outlined"
                 sx={{
@@ -393,12 +382,10 @@ const MovementToggler = ({
 
     return (
         <Box sx={{ marginBottom: 2 }}>
-            {/* Remaining Points Text (Orange and Bold) */}
             <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
                 Remaining Points: {totalPoints}
             </Typography>
 
-            {/* The Toggler Sheet */}
             <Sheet
                 variant="outlined"
                 sx={{
@@ -445,7 +432,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
     const [sniperSelection, setSniperSelection] = useState<number | null>(null);
     const [movementSelection, setMovementSelection] = useState<number | null>(null);
     const [possibleSynergies, setPossibleSynergies] = useState<SynergyWithLevel[]>([]);
-    const [togglerType, setTogglerType] = useState<"Placement" | "Armor" | "Might" | "Sniper" | "Movement">(
+    const [togglerType, setTogglerType] = useState<"Placement" | "Armor" | "Might" | "Sniper" | "Movement" | "None">(
         "Placement",
     );
     const [synergyPairLife, setSynergyPairTypeLife] = useState<SelectedSynergy | null>(null);
@@ -469,7 +456,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
         setTotalPoints(remainingPoints);
     };
 
-    console.log(synergyPairLife);
+    console.log(possibleSynergies);
 
     const manager = useManager();
 
@@ -483,8 +470,13 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
         };
     }, [manager]);
 
-    console.log("UI possibleSynergies");
-    console.log(possibleSynergies);
+    const handleSynergySelect = (
+        setSynergy: React.Dispatch<React.SetStateAction<SelectedSynergy | null>>,
+        synergy: SelectedSynergy,
+    ) => {
+        setSynergy(synergy);
+        setTogglerType("None");
+    };
 
     return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, paddingTop: 2 }}>
@@ -567,7 +559,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                     <Tooltip title="Pick Supply synergy" style={{ zIndex: 1 }}>
                         <IconButton
                             onClick={() =>
-                                setSynergyPairTypeLife({
+                                handleSynergySelect(setSynergyPairTypeLife, {
                                     faction: "Life",
                                     synergy: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
                                     level: 1,
@@ -592,7 +584,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                     <Tooltip title="Pick Morale synergy" style={{ zIndex: 1 }}>
                         <IconButton
                             onClick={() =>
-                                setSynergyPairTypeLife({
+                                handleSynergySelect(setSynergyPairTypeLife, {
                                     faction: "Life",
                                     synergy: LifeSynergyNames.PLUS_MORALE,
                                     level: 1,
@@ -619,7 +611,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                     <Tooltip title="Pick Slow on Shot synergy" style={{ zIndex: 1 }}>
                         <IconButton
                             onClick={() =>
-                                setSynergyPairTypeChaos({
+                                handleSynergySelect(setSynergyPairTypeChaos, {
                                     faction: "Chaos",
                                     synergy: ChaosSynergyNames.SLOW_ON_SHOT,
                                     level: 1,
@@ -644,7 +636,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                     <Tooltip title="Pick Break on Attack synergy" style={{ zIndex: 1 }}>
                         <IconButton
                             onClick={() =>
-                                setSynergyPairTypeChaos({
+                                handleSynergySelect(setSynergyPairTypeChaos, {
                                     faction: "Chaos",
                                     synergy: ChaosSynergyNames.BREAK_ON_ATTACK,
                                     level: 1,
@@ -671,7 +663,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                     <Tooltip title="Pick Auras Range synergy" style={{ zIndex: 1 }}>
                         <IconButton
                             onClick={() =>
-                                setSynergyPairTypeMight({
+                                handleSynergySelect(setSynergyPairTypeMight, {
                                     faction: "Might",
                                     synergy: MightSynergyNames.PLUS_AURAS_RANGE,
                                     level: 1,
@@ -696,7 +688,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                     <Tooltip title="Pick Abilities Power synergy" style={{ zIndex: 1 }}>
                         <IconButton
                             onClick={() =>
-                                setSynergyPairTypeMight({
+                                handleSynergySelect(setSynergyPairTypeMight, {
                                     faction: "Might",
                                     synergy: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
                                     level: 1,
@@ -723,7 +715,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                     <Tooltip title="Pick Board Units synergy" style={{ zIndex: 1 }}>
                         <IconButton
                             onClick={() =>
-                                setSynergyPairTypeNature({
+                                handleSynergySelect(setSynergyPairTypeNature, {
                                     faction: "Nature",
                                     synergy: NatureSynergyNames.INCREASE_BOARD_UNITS,
                                     level: 1,
@@ -748,7 +740,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                     <Tooltip title="Pick Fly Armor synergy" style={{ zIndex: 1 }}>
                         <IconButton
                             onClick={() =>
-                                setSynergyPairTypeNature({
+                                handleSynergySelect(setSynergyPairTypeNature, {
                                     faction: "Nature",
                                     synergy: NatureSynergyNames.PLUS_FLY_ARMOR,
                                     level: 1,
@@ -772,51 +764,55 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                     </Tooltip>
                 </Box>
             </Box>
-            {togglerType === "Placement" ? (
-                <PlacementToggler
-                    key={teamType}
-                    teamType={teamType}
-                    title={side}
-                    totalPoints={totalPoints}
-                    onLevelChange={handleLevelChange}
-                    currentSelection={placementSelection}
-                />
-            ) : togglerType === "Armor" ? (
-                <ArmorToggler
-                    key={teamType}
-                    teamType={teamType}
-                    title={side}
-                    totalPoints={totalPoints}
-                    onLevelChange={handleLevelChange}
-                    currentSelection={armorSelection}
-                />
-            ) : togglerType === "Might" ? (
-                <MightToggler
-                    key={teamType}
-                    teamType={teamType}
-                    title={side}
-                    totalPoints={totalPoints}
-                    onLevelChange={handleLevelChange}
-                    currentSelection={mightSelection}
-                />
-            ) : togglerType === "Sniper" ? (
-                <SniperToggler
-                    key={teamType}
-                    teamType={teamType}
-                    title={side}
-                    totalPoints={totalPoints}
-                    onLevelChange={handleLevelChange}
-                    currentSelection={sniperSelection}
-                />
-            ) : (
-                <MovementToggler
-                    key={teamType}
-                    teamType={teamType}
-                    title={side}
-                    totalPoints={totalPoints}
-                    onLevelChange={handleLevelChange}
-                    currentSelection={movementSelection}
-                />
+            {togglerType !== "None" && (
+                <>
+                    {togglerType === "Placement" ? (
+                        <PlacementToggler
+                            key={teamType}
+                            teamType={teamType}
+                            title={side}
+                            totalPoints={totalPoints}
+                            onLevelChange={handleLevelChange}
+                            currentSelection={placementSelection}
+                        />
+                    ) : togglerType === "Armor" ? (
+                        <ArmorToggler
+                            key={teamType}
+                            teamType={teamType}
+                            title={side}
+                            totalPoints={totalPoints}
+                            onLevelChange={handleLevelChange}
+                            currentSelection={armorSelection}
+                        />
+                    ) : togglerType === "Might" ? (
+                        <MightToggler
+                            key={teamType}
+                            teamType={teamType}
+                            title={side}
+                            totalPoints={totalPoints}
+                            onLevelChange={handleLevelChange}
+                            currentSelection={mightSelection}
+                        />
+                    ) : togglerType === "Sniper" ? (
+                        <SniperToggler
+                            key={teamType}
+                            teamType={teamType}
+                            title={side}
+                            totalPoints={totalPoints}
+                            onLevelChange={handleLevelChange}
+                            currentSelection={sniperSelection}
+                        />
+                    ) : (
+                        <MovementToggler
+                            key={teamType}
+                            teamType={teamType}
+                            title={side}
+                            totalPoints={totalPoints}
+                            onLevelChange={handleLevelChange}
+                            currentSelection={movementSelection}
+                        />
+                    )}
+                </>
             )}
         </Box>
     );
