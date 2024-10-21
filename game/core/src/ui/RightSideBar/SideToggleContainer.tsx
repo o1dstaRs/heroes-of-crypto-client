@@ -28,7 +28,7 @@ import augmentMightImg from "../../../images/might_augment_256.webp";
 import augmentSniperImg from "../../../images/sniper_augment_256.webp";
 import augmentMovementImg from "../../../images/movement_augment_256.webp";
 import synergyAbilitiesPowerImg from "../../../images/synergy_abilities_power_256.webp";
-import synergyAuraRangeImg from "../../../images/synergy_aura_range_256.webp";
+import synergyAurasRangeImg from "../../../images/synergy_auras_range_256.webp";
 import synergyBreakOnAttackImg from "../../../images/synergy_break_on_attack_256.webp";
 import synergyIncreaseBoardUnitsImg from "../../../images/synergy_increase_board_units_256.webp";
 import synergyMoraleImg from "../../../images/synergy_morale_256.webp";
@@ -41,7 +41,7 @@ const SYNERGY_NAME_TO_IMAGE = {
     [LifeSynergyNames.PLUS_MORALE]: synergyMoraleImg,
     [ChaosSynergyNames.SLOW_ON_SHOT]: synergySlowOnShotImg,
     [ChaosSynergyNames.BREAK_ON_ATTACK]: synergyBreakOnAttackImg,
-    [MightSynergyNames.PLUS_AURA_RANGE]: synergyAuraRangeImg,
+    [MightSynergyNames.PLUS_AURAS_RANGE]: synergyAurasRangeImg,
     [MightSynergyNames.PLUS_STACK_ABILITIES_POWER]: synergyAbilitiesPowerImg,
     [NatureSynergyNames.INCREASE_BOARD_UNITS]: synergyIncreaseBoardUnitsImg,
     [NatureSynergyNames.PLUS_FLY_ARMOR]: synergyPlusFlyArmorImg,
@@ -433,6 +433,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
     const [togglerType, setTogglerType] = useState<"Placement" | "Armor" | "Might" | "Sniper" | "Movement">(
         "Placement",
     );
+    const [synergyPair, setSynergyPairType] = useState<"Chaos" | "Might" | "Nature" | "Life" | "">("");
 
     const handleLevelChange = (pointsUsed: number, previousPointsUsed: number) => {
         if (togglerType === "Placement") {
@@ -539,7 +540,122 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                     </IconButton>
                 </Tooltip>
             </Box>
-            <Divider variant="middle" />
+            <Divider />
+
+            <Box sx={{ display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
+                <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexBasis: { xs: "100%", sm: "auto" } }}>
+                    <Tooltip title="Pick Supply synergy" style={{ zIndex: 1 }}>
+                        <IconButton onClick={() => setSynergyPairType("Life")} title="Supply synergy">
+                            <img
+                                src={synergySupplyImg}
+                                alt="Supply Icon"
+                                style={{
+                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    width: 45,
+                                    height: 45,
+                                }}
+                            />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Pick Morale synergy" style={{ zIndex: 1 }}>
+                        <IconButton onClick={() => setSynergyPairType("Life")} title="Morale synergy">
+                            <img
+                                src={synergyMoraleImg}
+                                alt="Morale Icon"
+                                style={{
+                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    width: 45,
+                                    height: 45,
+                                }}
+                            />
+                        </IconButton>
+                    </Tooltip>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexBasis: { xs: "100%", sm: "auto" } }}>
+                    <Tooltip title="Pick Slow on Shot synergy" style={{ zIndex: 1 }}>
+                        <IconButton onClick={() => setSynergyPairType("Chaos")} title="Slow on Shot synergy">
+                            <img
+                                src={synergySlowOnShotImg}
+                                alt="Slow on Shot Icon"
+                                style={{
+                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    width: 45,
+                                    height: 45,
+                                }}
+                            />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Pick Break on Attack synergy" style={{ zIndex: 1 }}>
+                        <IconButton onClick={() => setSynergyPairType("Chaos")} title="Break on Attack synergy">
+                            <img
+                                src={synergyBreakOnAttackImg}
+                                alt="Break on Attack Icon"
+                                style={{
+                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    width: 45,
+                                    height: 45,
+                                }}
+                            />
+                        </IconButton>
+                    </Tooltip>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexBasis: { xs: "100%", sm: "auto" } }}>
+                    <Tooltip title="Pick Auras Range synergy" style={{ zIndex: 1 }}>
+                        <IconButton onClick={() => setSynergyPairType("Might")} title="Auras Range synergy">
+                            <img
+                                src={synergyAurasRangeImg}
+                                alt="Auras Range Icon"
+                                style={{
+                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    width: 45,
+                                    height: 45,
+                                }}
+                            />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Pick Abilities Power synergy" style={{ zIndex: 1 }}>
+                        <IconButton onClick={() => setSynergyPairType("Might")} title="Abilities Power synergy">
+                            <img
+                                src={synergyAbilitiesPowerImg}
+                                alt="Abilities Power Icon"
+                                style={{
+                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    width: 45,
+                                    height: 45,
+                                }}
+                            />
+                        </IconButton>
+                    </Tooltip>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexBasis: { xs: "100%", sm: "auto" } }}>
+                    <Tooltip title="Pick Board Units synergy" style={{ zIndex: 1 }}>
+                        <IconButton onClick={() => setSynergyPairType("Might")} title="Board Units synergy">
+                            <img
+                                src={synergyIncreaseBoardUnitsImg}
+                                alt="Board Units Icon"
+                                style={{
+                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    width: 45,
+                                    height: 45,
+                                }}
+                            />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Pick Fly Armor synergy" style={{ zIndex: 1 }}>
+                        <IconButton onClick={() => setSynergyPairType("Might")} title="Fly Armor synergy">
+                            <img
+                                src={synergyPlusFlyArmorImg}
+                                alt="Fly Armor Icon"
+                                style={{
+                                    filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
+                                    width: 45,
+                                    height: 45,
+                                }}
+                            />
+                        </IconButton>
+                    </Tooltip>
+                </Box>
+            </Box>
             {togglerType === "Placement" ? (
                 <PlacementToggler
                     key={teamType}
