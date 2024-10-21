@@ -456,7 +456,16 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
         setTotalPoints(remainingPoints);
     };
 
-    console.log(possibleSynergies);
+    const possibleSynergiesObj: Record<string, number> = {};
+    for (const ps of possibleSynergies) {
+        if (ps.synergy in possibleSynergiesObj) {
+            const elem = possibleSynergiesObj[ps.synergy];
+            possibleSynergiesObj[ps.synergy] = Math.max(ps.level, elem);
+        } else if (ps.level) {
+            possibleSynergiesObj[ps.synergy] = ps.level;
+        }
+    }
+    console.log(possibleSynergiesObj);
 
     const manager = useManager();
 
@@ -555,214 +564,255 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
             <Divider />
 
             <Box sx={{ display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
-                <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexBasis: { xs: "100%", sm: "auto" } }}>
-                    <Tooltip title="Pick Supply synergy" style={{ zIndex: 1 }}>
-                        <IconButton
-                            onClick={() =>
-                                handleSynergySelect(setSynergyPairTypeLife, {
-                                    faction: "Life",
-                                    synergy: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
-                                    level: 1,
-                                })
-                            }
-                            title="Supply synergy"
+                {possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] &&
+                    possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE] && (
+                        <Box
+                            sx={{
+                                display: "flex",
+                                justifyContent: "center",
+                                gap: 0,
+                                flexBasis: { xs: "100%", sm: "auto" },
+                            }}
                         >
-                            <img
-                                src={synergySupplyImg}
-                                alt="Supply Icon"
-                                style={{
-                                    filter:
-                                        synergyPairLife?.synergy === LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE
-                                            ? "brightness(1.2)"
-                                            : "brightness(0.6)",
-                                    width: 45,
-                                    height: 45,
-                                }}
-                            />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Pick Morale synergy" style={{ zIndex: 1 }}>
-                        <IconButton
-                            onClick={() =>
-                                handleSynergySelect(setSynergyPairTypeLife, {
-                                    faction: "Life",
-                                    synergy: LifeSynergyNames.PLUS_MORALE,
-                                    level: 1,
-                                })
-                            }
-                            title="Morale synergy"
+                            <Tooltip title="Pick Supply synergy" style={{ zIndex: 1 }}>
+                                <IconButton
+                                    onClick={() =>
+                                        handleSynergySelect(setSynergyPairTypeLife, {
+                                            faction: "Life",
+                                            synergy: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
+                                            level: 1,
+                                        })
+                                    }
+                                    title="Supply synergy"
+                                >
+                                    <img
+                                        src={synergySupplyImg}
+                                        alt="Supply Icon"
+                                        style={{
+                                            filter:
+                                                synergyPairLife?.synergy === LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE
+                                                    ? "brightness(1.2)"
+                                                    : "brightness(0.6)",
+                                            width: 45,
+                                            height: 45,
+                                        }}
+                                    />
+                                </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Pick Morale synergy" style={{ zIndex: 1 }}>
+                                <IconButton
+                                    onClick={() =>
+                                        handleSynergySelect(setSynergyPairTypeLife, {
+                                            faction: "Life",
+                                            synergy: LifeSynergyNames.PLUS_MORALE,
+                                            level: 1,
+                                        })
+                                    }
+                                    title="Morale synergy"
+                                >
+                                    <img
+                                        src={synergyMoraleImg}
+                                        alt="Morale Icon"
+                                        style={{
+                                            filter:
+                                                synergyPairLife?.synergy === LifeSynergyNames.PLUS_MORALE
+                                                    ? "brightness(1.2)"
+                                                    : "brightness(0.6)",
+                                            width: 45,
+                                            height: 45,
+                                        }}
+                                    />
+                                </IconButton>
+                            </Tooltip>
+                        </Box>
+                    )}
+                {possibleSynergiesObj[ChaosSynergyNames.SLOW_ON_SHOT] &&
+                    possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] && (
+                        <Box
+                            sx={{
+                                display: "flex",
+                                justifyContent: "center",
+                                gap: 0,
+                                flexBasis: { xs: "100%", sm: "auto" },
+                            }}
                         >
-                            <img
-                                src={synergyMoraleImg}
-                                alt="Morale Icon"
-                                style={{
-                                    filter:
-                                        synergyPairLife?.synergy === LifeSynergyNames.PLUS_MORALE
-                                            ? "brightness(1.2)"
-                                            : "brightness(0.6)",
-                                    width: 45,
-                                    height: 45,
-                                }}
-                            />
-                        </IconButton>
-                    </Tooltip>
-                </Box>
-                <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexBasis: { xs: "100%", sm: "auto" } }}>
-                    <Tooltip title="Pick Slow on Shot synergy" style={{ zIndex: 1 }}>
-                        <IconButton
-                            onClick={() =>
-                                handleSynergySelect(setSynergyPairTypeChaos, {
-                                    faction: "Chaos",
-                                    synergy: ChaosSynergyNames.SLOW_ON_SHOT,
-                                    level: 1,
-                                })
-                            }
-                            title="Slow on Shot synergy"
+                            <Tooltip title="Pick Slow on Shot synergy" style={{ zIndex: 1 }}>
+                                <IconButton
+                                    onClick={() =>
+                                        handleSynergySelect(setSynergyPairTypeChaos, {
+                                            faction: "Chaos",
+                                            synergy: ChaosSynergyNames.SLOW_ON_SHOT,
+                                            level: 1,
+                                        })
+                                    }
+                                    title="Slow on Shot synergy"
+                                >
+                                    <img
+                                        src={synergySlowOnShotImg}
+                                        alt="Slow on Shot Icon"
+                                        style={{
+                                            filter:
+                                                synergyPairChaos?.synergy === ChaosSynergyNames.SLOW_ON_SHOT
+                                                    ? "brightness(1.2)"
+                                                    : "brightness(0.6)",
+                                            width: 45,
+                                            height: 45,
+                                        }}
+                                    />
+                                </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Pick Break on Attack synergy" style={{ zIndex: 1 }}>
+                                <IconButton
+                                    onClick={() =>
+                                        handleSynergySelect(setSynergyPairTypeChaos, {
+                                            faction: "Chaos",
+                                            synergy: ChaosSynergyNames.BREAK_ON_ATTACK,
+                                            level: 1,
+                                        })
+                                    }
+                                    title="Break on Attack synergy"
+                                >
+                                    <img
+                                        src={synergyBreakOnAttackImg}
+                                        alt="Break on Attack Icon"
+                                        style={{
+                                            filter:
+                                                synergyPairChaos?.synergy === ChaosSynergyNames.BREAK_ON_ATTACK
+                                                    ? "brightness(1.2)"
+                                                    : "brightness(0.6)",
+                                            width: 45,
+                                            height: 45,
+                                        }}
+                                    />
+                                </IconButton>
+                            </Tooltip>
+                        </Box>
+                    )}
+                {possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] &&
+                    possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] && (
+                        <Box
+                            sx={{
+                                display: "flex",
+                                justifyContent: "center",
+                                gap: 0,
+                                flexBasis: { xs: "100%", sm: "auto" },
+                            }}
                         >
-                            <img
-                                src={synergySlowOnShotImg}
-                                alt="Slow on Shot Icon"
-                                style={{
-                                    filter:
-                                        synergyPairChaos?.synergy === ChaosSynergyNames.SLOW_ON_SHOT
-                                            ? "brightness(1.2)"
-                                            : "brightness(0.6)",
-                                    width: 45,
-                                    height: 45,
-                                }}
-                            />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Pick Break on Attack synergy" style={{ zIndex: 1 }}>
-                        <IconButton
-                            onClick={() =>
-                                handleSynergySelect(setSynergyPairTypeChaos, {
-                                    faction: "Chaos",
-                                    synergy: ChaosSynergyNames.BREAK_ON_ATTACK,
-                                    level: 1,
-                                })
-                            }
-                            title="Break on Attack synergy"
+                            <Tooltip title="Pick Auras Range synergy" style={{ zIndex: 1 }}>
+                                <IconButton
+                                    onClick={() =>
+                                        handleSynergySelect(setSynergyPairTypeMight, {
+                                            faction: "Might",
+                                            synergy: MightSynergyNames.PLUS_AURAS_RANGE,
+                                            level: 1,
+                                        })
+                                    }
+                                    title="Auras Range synergy"
+                                >
+                                    <img
+                                        src={synergyAurasRangeImg}
+                                        alt="Auras Range Icon"
+                                        style={{
+                                            filter:
+                                                synergyPairMight?.synergy === MightSynergyNames.PLUS_AURAS_RANGE
+                                                    ? "brightness(1.2)"
+                                                    : "brightness(0.6)",
+                                            width: 45,
+                                            height: 45,
+                                        }}
+                                    />
+                                </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Pick Abilities Power synergy" style={{ zIndex: 1 }}>
+                                <IconButton
+                                    onClick={() =>
+                                        handleSynergySelect(setSynergyPairTypeMight, {
+                                            faction: "Might",
+                                            synergy: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
+                                            level: 1,
+                                        })
+                                    }
+                                    title="Abilities Power synergy"
+                                >
+                                    <img
+                                        src={synergyAbilitiesPowerImg}
+                                        alt="Abilities Power Icon"
+                                        style={{
+                                            filter:
+                                                synergyPairMight?.synergy ===
+                                                MightSynergyNames.PLUS_STACK_ABILITIES_POWER
+                                                    ? "brightness(1.2)"
+                                                    : "brightness(0.6)",
+                                            width: 45,
+                                            height: 45,
+                                        }}
+                                    />
+                                </IconButton>
+                            </Tooltip>
+                        </Box>
+                    )}
+                {possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] &&
+                    possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] && (
+                        <Box
+                            sx={{
+                                display: "flex",
+                                justifyContent: "center",
+                                gap: 0,
+                                flexBasis: { xs: "100%", sm: "auto" },
+                            }}
                         >
-                            <img
-                                src={synergyBreakOnAttackImg}
-                                alt="Break on Attack Icon"
-                                style={{
-                                    filter:
-                                        synergyPairChaos?.synergy === ChaosSynergyNames.BREAK_ON_ATTACK
-                                            ? "brightness(1.2)"
-                                            : "brightness(0.6)",
-                                    width: 45,
-                                    height: 45,
-                                }}
-                            />
-                        </IconButton>
-                    </Tooltip>
-                </Box>
-                <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexBasis: { xs: "100%", sm: "auto" } }}>
-                    <Tooltip title="Pick Auras Range synergy" style={{ zIndex: 1 }}>
-                        <IconButton
-                            onClick={() =>
-                                handleSynergySelect(setSynergyPairTypeMight, {
-                                    faction: "Might",
-                                    synergy: MightSynergyNames.PLUS_AURAS_RANGE,
-                                    level: 1,
-                                })
-                            }
-                            title="Auras Range synergy"
-                        >
-                            <img
-                                src={synergyAurasRangeImg}
-                                alt="Auras Range Icon"
-                                style={{
-                                    filter:
-                                        synergyPairMight?.synergy === MightSynergyNames.PLUS_AURAS_RANGE
-                                            ? "brightness(1.2)"
-                                            : "brightness(0.6)",
-                                    width: 45,
-                                    height: 45,
-                                }}
-                            />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Pick Abilities Power synergy" style={{ zIndex: 1 }}>
-                        <IconButton
-                            onClick={() =>
-                                handleSynergySelect(setSynergyPairTypeMight, {
-                                    faction: "Might",
-                                    synergy: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
-                                    level: 1,
-                                })
-                            }
-                            title="Abilities Power synergy"
-                        >
-                            <img
-                                src={synergyAbilitiesPowerImg}
-                                alt="Abilities Power Icon"
-                                style={{
-                                    filter:
-                                        synergyPairMight?.synergy === MightSynergyNames.PLUS_STACK_ABILITIES_POWER
-                                            ? "brightness(1.2)"
-                                            : "brightness(0.6)",
-                                    width: 45,
-                                    height: 45,
-                                }}
-                            />
-                        </IconButton>
-                    </Tooltip>
-                </Box>
-                <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexBasis: { xs: "100%", sm: "auto" } }}>
-                    <Tooltip title="Pick Board Units synergy" style={{ zIndex: 1 }}>
-                        <IconButton
-                            onClick={() =>
-                                handleSynergySelect(setSynergyPairTypeNature, {
-                                    faction: "Nature",
-                                    synergy: NatureSynergyNames.INCREASE_BOARD_UNITS,
-                                    level: 1,
-                                })
-                            }
-                            title="Board Units synergy"
-                        >
-                            <img
-                                src={synergyIncreaseBoardUnitsImg}
-                                alt="Board Units Icon"
-                                style={{
-                                    filter:
-                                        synergyPairNature?.synergy === NatureSynergyNames.INCREASE_BOARD_UNITS
-                                            ? "brightness(1.2)"
-                                            : "brightness(0.6)",
-                                    width: 45,
-                                    height: 45,
-                                }}
-                            />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Pick Fly Armor synergy" style={{ zIndex: 1 }}>
-                        <IconButton
-                            onClick={() =>
-                                handleSynergySelect(setSynergyPairTypeNature, {
-                                    faction: "Nature",
-                                    synergy: NatureSynergyNames.PLUS_FLY_ARMOR,
-                                    level: 1,
-                                })
-                            }
-                            title="Fly Armor synergy"
-                        >
-                            <img
-                                src={synergyPlusFlyArmorImg}
-                                alt="Fly Armor Icon"
-                                style={{
-                                    filter:
-                                        synergyPairNature?.synergy === NatureSynergyNames.PLUS_FLY_ARMOR
-                                            ? "brightness(1.2)"
-                                            : "brightness(0.6)",
-                                    width: 45,
-                                    height: 45,
-                                }}
-                            />
-                        </IconButton>
-                    </Tooltip>
-                </Box>
+                            <Tooltip title="Pick Board Units synergy" style={{ zIndex: 1 }}>
+                                <IconButton
+                                    onClick={() =>
+                                        handleSynergySelect(setSynergyPairTypeNature, {
+                                            faction: "Nature",
+                                            synergy: NatureSynergyNames.INCREASE_BOARD_UNITS,
+                                            level: 1,
+                                        })
+                                    }
+                                    title="Board Units synergy"
+                                >
+                                    <img
+                                        src={synergyIncreaseBoardUnitsImg}
+                                        alt="Board Units Icon"
+                                        style={{
+                                            filter:
+                                                synergyPairNature?.synergy === NatureSynergyNames.INCREASE_BOARD_UNITS
+                                                    ? "brightness(1.2)"
+                                                    : "brightness(0.6)",
+                                            width: 45,
+                                            height: 45,
+                                        }}
+                                    />
+                                </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Pick Fly Armor synergy" style={{ zIndex: 1 }}>
+                                <IconButton
+                                    onClick={() =>
+                                        handleSynergySelect(setSynergyPairTypeNature, {
+                                            faction: "Nature",
+                                            synergy: NatureSynergyNames.PLUS_FLY_ARMOR,
+                                            level: 1,
+                                        })
+                                    }
+                                    title="Fly Armor synergy"
+                                >
+                                    <img
+                                        src={synergyPlusFlyArmorImg}
+                                        alt="Fly Armor Icon"
+                                        style={{
+                                            filter:
+                                                synergyPairNature?.synergy === NatureSynergyNames.PLUS_FLY_ARMOR
+                                                    ? "brightness(1.2)"
+                                                    : "brightness(0.6)",
+                                            width: 45,
+                                            height: 45,
+                                        }}
+                                    />
+                                </IconButton>
+                            </Tooltip>
+                        </Box>
+                    )}
             </Box>
             {togglerType !== "None" && (
                 <>
