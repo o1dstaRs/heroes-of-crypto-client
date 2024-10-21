@@ -1383,7 +1383,10 @@ class Sandbox extends GLScene {
                 uniqueNamesNature.length,
             );
 
-        console.log(FightStateManager.getInstance().getFightProperties().getPossibleSynergies(teamType));
+        const previousSynergies = this.sc_possibleSynergies;
+        this.sc_possibleSynergies = FightStateManager.getInstance().getFightProperties().getPossibleSynergies(teamType);
+        this.sc_possibleSynergiesUpdateNeeded = previousSynergies !== this.sc_possibleSynergies;
+        console.log(this.sc_possibleSynergies);
     }
 
     private resetHover(resetSelectedCells = true): void {

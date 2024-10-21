@@ -11,7 +11,15 @@
 
 import { b2Clamp, b2Vec2 } from "@box2d/core";
 import { DebugDraw } from "@box2d/debug-draw";
-import { UnitProperties, HoCConstants, GridType, TeamType, Augment, IDamageStatistic } from "@heroesofcrypto/common";
+import {
+    UnitProperties,
+    HoCConstants,
+    GridType,
+    TeamType,
+    Augment,
+    IDamageStatistic,
+    SynergyWithLevel,
+} from "@heroesofcrypto/common";
 import { createContext, useContext } from "react";
 import { Signal } from "typed-signals";
 
@@ -82,6 +90,8 @@ export class GameManager {
     public readonly onUnitSelected = new Signal<(_unitProperties: UnitProperties) => void>();
 
     public readonly onDamageStatisticsUpdated = new Signal<(_damageStats: IDamageStatistic[]) => void>();
+
+    public readonly onPossibleSynergiesUpdated = new Signal<(_possibleSynergies: SynergyWithLevel[]) => void>();
 
     public readonly onRaceSelected = new Signal<(_raceName: string) => void>();
 
@@ -513,6 +523,11 @@ export class GameManager {
         if (this.m_scene?.sc_damageStatsUpdateNeeded) {
             this.onDamageStatisticsUpdated.emit(structuredClone(this.m_scene.getDamageStatisics()));
             this.m_scene.sc_damageStatsUpdateNeeded = false;
+        }
+
+        if (this.m_scene?.sc_possibleSynergiesUpdateNeeded) {
+            this.onPossibleSynergiesUpdated.emit(this.m_scene?.sc_possibleSynergies);
+            this.m_scene.sc_possibleSynergiesUpdateNeeded = false;
         }
 
         if (this.m_scene?.sc_visibleStateUpdateNeeded) {

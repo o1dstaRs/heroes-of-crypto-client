@@ -1,12 +1,51 @@
-import React, { useState } from "react";
-import { Radio, RadioGroup, FormControl, FormLabel, Sheet, Box, Typography, IconButton, Tooltip } from "@mui/joy";
+import {
+    Augment,
+    TeamType,
+    HoCConstants,
+    SynergyWithLevel,
+    LifeSynergyNames,
+    ChaosSynergyNames,
+    MightSynergyNames,
+    NatureSynergyNames,
+} from "@heroesofcrypto/common";
+import React, { useEffect, useState } from "react";
+import {
+    Radio,
+    RadioGroup,
+    FormControl,
+    FormLabel,
+    Sheet,
+    Box,
+    Typography,
+    IconButton,
+    Tooltip,
+    Divider,
+} from "@mui/joy";
 import { useManager } from "../../manager";
-import { Augment, TeamType, HoCConstants } from "@heroesofcrypto/common";
-import augmentBoard from "../../../images/board_augment_256.webp"; // Assuming you have these images
-import augmentArmor from "../../../images/armor_augment_256.webp"; // Assuming you have these images
-import augmentMight from "../../../images/might_augment_256.webp"; // Assuming you have these images
-import augmentSniper from "../../../images/sniper_augment_256.webp"; // Assuming you have these images
-import augmentMovement from "../../../images/movement_augment_256.webp"; // Assuming you have these images
+import augmentBoardImg from "../../../images/board_augment_256.webp";
+import augmentArmorImg from "../../../images/armor_augment_256.webp";
+import augmentMightImg from "../../../images/might_augment_256.webp";
+import augmentSniperImg from "../../../images/sniper_augment_256.webp";
+import augmentMovementImg from "../../../images/movement_augment_256.webp";
+import synergyAbilitiesPowerImg from "../../../images/synergy_abilities_power_256.webp";
+import synergyAuraRangeImg from "../../../images/synergy_aura_range_256.webp";
+import synergyBreakOnAttackImg from "../../../images/synergy_break_on_attack_256.webp";
+import synergyIncreaseBoardUnitsImg from "../../../images/synergy_increase_board_units_256.webp";
+import synergyMoraleImg from "../../../images/synergy_morale_256.webp";
+import synergyPlusFlyArmorImg from "../../../images/synergy_plus_fly_armor_256.webp";
+import synergySlowOnShotImg from "../../../images/synergy_slow_on_shot_256.webp";
+import synergySupplyImg from "../../../images/synergy_supply_256.webp";
+
+const SYNERGY_NAME_TO_IMAGE = {
+    [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: synergySupplyImg,
+    [LifeSynergyNames.PLUS_MORALE]: synergyMoraleImg,
+    [ChaosSynergyNames.SLOW_ON_SHOT]: synergySlowOnShotImg,
+    [ChaosSynergyNames.BREAK_ON_ATTACK]: synergyBreakOnAttackImg,
+    [MightSynergyNames.PLUS_AURA_RANGE]: synergyAuraRangeImg,
+    [MightSynergyNames.PLUS_STACK_ABILITIES_POWER]: synergyAbilitiesPowerImg,
+    [NatureSynergyNames.INCREASE_BOARD_UNITS]: synergyIncreaseBoardUnitsImg,
+    [NatureSynergyNames.PLUS_FLY_ARMOR]: synergyPlusFlyArmorImg,
+};
 
 const PlacementToggler = ({
     title,
@@ -390,6 +429,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
     const [mightSelection, setMightSelection] = useState<number | null>(null);
     const [sniperSelection, setSniperSelection] = useState<number | null>(null);
     const [movementSelection, setMovementSelection] = useState<number | null>(null);
+    const [possibleSynergies, setPossibleSynergies] = useState<SynergyWithLevel[]>([]);
     const [togglerType, setTogglerType] = useState<"Placement" | "Armor" | "Might" | "Sniper" | "Movement">(
         "Placement",
     );
@@ -410,13 +450,28 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
         setTotalPoints(remainingPoints);
     };
 
+    const manager = useManager();
+
+    useEffect(() => {
+        const connection = manager.onPossibleSynergiesUpdated.connect((sArray: SynergyWithLevel[]) => {
+            setPossibleSynergies(sArray);
+        });
+
+        return () => {
+            connection.disconnect();
+        };
+    }, [manager]);
+
+    console.log("UI possibleSynergies");
+    console.log(possibleSynergies);
+
     return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, paddingTop: 2 }}>
-            <Box sx={{ display: "flex", justifyContent: "center", gap: 2 }}>
+            <Box sx={{ display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
                 <Tooltip title="Augment board placements" style={{ zIndex: 1 }}>
                     <IconButton onClick={() => setTogglerType("Placement")} title="Augment board placements">
                         <img
-                            src={augmentBoard}
+                            src={augmentBoardImg}
                             alt="Placement Icon"
                             style={{
                                 filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
@@ -430,7 +485,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                 <Tooltip title="Augment armor" style={{ zIndex: 1 }}>
                     <IconButton onClick={() => setTogglerType("Armor")} title="Augment armor">
                         <img
-                            src={augmentArmor}
+                            src={augmentArmorImg}
                             alt="Armor Icon"
                             style={{
                                 filter: togglerType === "Armor" ? "brightness(1.2)" : "brightness(0.6)",
@@ -444,7 +499,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                 <Tooltip title="Augment melee attack" style={{ zIndex: 1 }}>
                     <IconButton onClick={() => setTogglerType("Might")} title="Augment melee attack">
                         <img
-                            src={augmentMight}
+                            src={augmentMightImg}
                             alt="Might Icon"
                             style={{
                                 filter: togglerType === "Might" ? "brightness(1.2)" : "brightness(0.6)",
@@ -458,7 +513,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                 <Tooltip title="Augment ranged attack" style={{ zIndex: 1 }}>
                     <IconButton onClick={() => setTogglerType("Sniper")} title="Augment ranged attack">
                         <img
-                            src={augmentSniper}
+                            src={augmentSniperImg}
                             alt="Sniper Icon"
                             style={{
                                 filter: togglerType === "Sniper" ? "brightness(1.2)" : "brightness(0.6)",
@@ -472,7 +527,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                 <Tooltip title="Augment movement" style={{ zIndex: 1 }}>
                     <IconButton onClick={() => setTogglerType("Movement")} title="Augment movement">
                         <img
-                            src={augmentMovement}
+                            src={augmentMovementImg}
                             alt="Movement Icon"
                             style={{
                                 filter: togglerType === "Movement" ? "brightness(1.2)" : "brightness(0.6)",
@@ -484,6 +539,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                     </IconButton>
                 </Tooltip>
             </Box>
+            <Divider variant="middle" />
             {togglerType === "Placement" ? (
                 <PlacementToggler
                     key={teamType}
