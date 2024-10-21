@@ -8,6 +8,7 @@ import Radio from "@mui/joy/Radio";
 import RadioGroup from "@mui/joy/RadioGroup";
 import FormControl from "@mui/joy/FormControl";
 import Box from "@mui/joy/Box";
+import { useTheme } from "@mui/joy/styles";
 import Button from "@mui/joy/Button";
 import Divider from "@mui/joy/Divider";
 import LinearProgress from "@mui/joy/LinearProgress";
@@ -221,6 +222,7 @@ const FightControlToggler: React.FC = () => {
     const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
 
     const manager = useManager();
+    const theme = useTheme();
 
     useEffect(() => {
         const connection = manager.onUnitSelected.connect(setUnitProperties);
@@ -240,7 +242,17 @@ const FightControlToggler: React.FC = () => {
         <ListItem style={{ "--List-nestedInsetStart": "0px" }} nested>
             <Toggler
                 renderToggle={({ open, setOpen }) => (
-                    <ListItemButton onClick={() => setOpen(!open)}>
+                    <ListItemButton
+                        onClick={() => setOpen(!open)}
+                        sx={{
+                            backgroundColor: open
+                                ? theme.palette.mode === "dark"
+                                    ? "rgba(255, 255, 255, 0.1)"
+                                    : "rgba(0, 0, 0, 0.1)"
+                                : "inherit",
+                            transition: "background-color 0.3s",
+                        }}
+                    >
                         <GroupAddRoundedIcon />
                         <ListItemContent>
                             <Typography level="title-sm">Army control</Typography>
@@ -259,7 +271,17 @@ const FightControlToggler: React.FC = () => {
             </Toggler>
             <Toggler
                 renderToggle={({ open, setOpen }) => (
-                    <ListItemButton onClick={() => setOpen(!open)}>
+                    <ListItemButton
+                        onClick={() => setOpen(!open)}
+                        sx={{
+                            backgroundColor: open
+                                ? theme.palette.mode === "dark"
+                                    ? "rgba(255, 255, 255, 0.1)"
+                                    : "rgba(0, 0, 0, 0.1)"
+                                : "inherit",
+                            transition: "background-color 0.3s",
+                        }}
+                    >
                         <TerrainRoundedIcon />
                         <ListItemContent>
                             <Typography level="title-sm">Map settings</Typography>
@@ -274,7 +296,17 @@ const FightControlToggler: React.FC = () => {
             </Toggler>
             <Toggler
                 renderToggle={({ open, setOpen }) => (
-                    <ListItemButton onClick={() => setOpen(!open)}>
+                    <ListItemButton
+                        onClick={() => setOpen(!open)}
+                        sx={{
+                            backgroundColor: open
+                                ? theme.palette.mode === "dark"
+                                    ? "rgba(255, 255, 255, 0.1)"
+                                    : "rgba(0, 0, 0, 0.1)"
+                                : "inherit",
+                            transition: "background-color 0.3s",
+                        }}
+                    >
                         <RedFlagIcon />
                         <ListItemContent>
                             <Typography level="title-sm">Red side</Typography>
@@ -290,7 +322,17 @@ const FightControlToggler: React.FC = () => {
             </Toggler>
             <Toggler
                 renderToggle={({ open, setOpen }) => (
-                    <ListItemButton onClick={() => setOpen(!open)}>
+                    <ListItemButton
+                        onClick={() => setOpen(!open)}
+                        sx={{
+                            backgroundColor: open
+                                ? theme.palette.mode === "dark"
+                                    ? "rgba(255, 255, 255, 0.1)"
+                                    : "rgba(0, 0, 0, 0.1)"
+                                : "inherit",
+                            transition: "background-color 0.3s",
+                        }}
+                    >
                         <GreenFlagIcon />
                         <ListItemContent>
                             <Typography level="title-sm">Green side</Typography>

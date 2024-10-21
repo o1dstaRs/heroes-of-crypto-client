@@ -21,6 +21,7 @@ import {
     Unit,
     IUnitAIRepr,
     UnitsHolder,
+    HoCLib,
 } from "@heroesofcrypto/common";
 
 export interface IAI {
@@ -137,11 +138,21 @@ export function findTarget(
         }
     }
 
+    if (!selectedEnemy && enemiesAround.length) {
+        // pick random enemy
+        selectedEnemy = enemiesAround[HoCLib.getRandomInt(0, enemiesAround.length)];
+    }
+
     if (selectedEnemy) {
         for (const ec of selectedEnemy.getCells()) {
             for (const uc of unit.getCells()) {
                 if (Math.abs(ec.x - uc.x) <= 1 && Math.abs(ec.y - uc.y) <= 1) {
-                    action = new BasicAIAction(AIActionType.MELEE_ATTACK, uc, { x: ec.x, y: ec.y }, new Map());
+                    action = new BasicAIAction(
+                        AIActionType.MELEE_ATTACK,
+                        unit.getBaseCell(),
+                        { x: ec.x, y: ec.y },
+                        new Map(),
+                    );
                     break;
                 }
             }

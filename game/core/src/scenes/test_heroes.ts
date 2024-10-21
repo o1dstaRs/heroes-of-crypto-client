@@ -1333,6 +1333,59 @@ class Sandbox extends GLScene {
         }
     }
 
+    protected refreshSynergyNumbers(teamType: TeamType): void {
+        const lowerLeftPlacement = this.getPlacement(TeamType.LOWER, 0);
+        const upperRightPlacement = this.getPlacement(TeamType.UPPER, 0);
+
+        if (!lowerLeftPlacement || !upperRightPlacement) {
+            return;
+        }
+
+        const teamUnits = this.unitsHolder.getAllAlliesPlaced(
+            teamType,
+            lowerLeftPlacement,
+            upperRightPlacement,
+            this.getPlacement(TeamType.LOWER, 1),
+            this.getPlacement(TeamType.UPPER, 1),
+        );
+
+        let uniqueNamesLife: string[] = [];
+        let uniqueNamesChaos: string[] = [];
+        let uniqueNamesMight: string[] = [];
+        let uniqueNamesNature: string[] = [];
+        for (const ltu of teamUnits) {
+            if (ltu.getFaction() === FactionType.LIFE) {
+                if (!uniqueNamesLife.includes(ltu.getName())) {
+                    uniqueNamesLife.push(ltu.getName());
+                }
+            } else if (ltu.getFaction() === FactionType.CHAOS) {
+                if (!uniqueNamesChaos.includes(ltu.getName())) {
+                    uniqueNamesChaos.push(ltu.getName());
+                }
+            } else if (ltu.getFaction() === FactionType.MIGHT) {
+                if (!uniqueNamesMight.includes(ltu.getName())) {
+                    uniqueNamesMight.push(ltu.getName());
+                }
+            } else if (ltu.getFaction() === FactionType.NATURE) {
+                if (!uniqueNamesNature.includes(ltu.getName())) {
+                    uniqueNamesNature.push(ltu.getName());
+                }
+            }
+        }
+
+        FightStateManager.getInstance()
+            .getFightProperties()
+            .setSynergyUnitsPerFactions(
+                teamType,
+                uniqueNamesLife.length,
+                uniqueNamesChaos.length,
+                uniqueNamesMight.length,
+                uniqueNamesNature.length,
+            );
+
+        console.log(FightStateManager.getInstance().getFightProperties().getPossibleSynergies(teamType));
+    }
+
     private resetHover(resetSelectedCells = true): void {
         if (resetSelectedCells) {
             this.sc_hoverUnitNameStr = "";
@@ -1420,6 +1473,7 @@ class Sandbox extends GLScene {
                     this.unitsHolder.refreshStackPowerForAllUnits();
                     this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
                     cloned = true;
+                    this.refreshSynergyNumbers(selectedUnit.getTeam());
                     break;
                 }
             }
@@ -3820,6 +3874,7 @@ class Sandbox extends GLScene {
                         unit.setPosition(positionToDropTo.x, positionToDropTo.y);
                         this.applyAugments(unit, false, true);
                         this.refreshUnits();
+                        this.refreshSynergyNumbers(unit.getTeam());
                     }
                 }
             } else {
@@ -3848,6 +3903,7 @@ class Sandbox extends GLScene {
                             unit.setPosition(positionToDropTo.x, positionToDropTo.y);
                             this.applyAugments(unit, false, true);
                             this.refreshUnits();
+                            this.refreshSynergyNumbers(unit.getTeam());
                         }
                     }
                 }
