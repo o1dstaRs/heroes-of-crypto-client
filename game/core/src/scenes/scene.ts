@@ -50,6 +50,7 @@ import {
     UnitProperties,
     AbilityHelper,
     IDamageStatistic,
+    SynergyWithLevel,
 } from "@heroesofcrypto/common";
 
 import { SceneControl } from "../sceneControls";
@@ -240,6 +241,8 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_testControlGroups: SceneControlGroup[] = [];
 
+    public sc_possibleSynergiesPerTeam: Map<TeamType, SynergyWithLevel[]> = new Map();
+
     public sc_isSelection = false;
 
     public sc_hoverAttackIsTargetingObstacle = false;
@@ -259,6 +262,8 @@ export abstract class Scene extends b2ContactListener {
     public sc_factionNameUpdateNeeded = false;
 
     public sc_damageStatsUpdateNeeded = false;
+
+    public sc_possibleSynergiesUpdateNeeded = false;
 
     public sc_damageForAnimation: IVisibleDamage;
 
@@ -317,6 +322,13 @@ export abstract class Scene extends b2ContactListener {
     protected abstract verifyButtonsTrigger(): void;
 
     public abstract propagateAugmentation(teamType: TeamType, augmentType: Augment.AugmentType): boolean;
+
+    public abstract propagateSynergy(
+        teamType: TeamType,
+        faction: FactionType,
+        synergyName: string,
+        synergyLevel: number,
+    ): boolean;
 
     public abstract getNumberOfUnitsAvailableForPlacement(teamType: TeamType): number;
 

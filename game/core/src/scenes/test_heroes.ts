@@ -47,6 +47,11 @@ import {
     MoveHandler,
     IDamageStatistic,
     PlacementType,
+    SpecificSynergy,
+    ToLifeSynergy,
+    ToChaosSynergy,
+    ToMightSynergy,
+    ToNatureSynergy,
 } from "@heroesofcrypto/common";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
@@ -761,6 +766,31 @@ class Sandbox extends GLScene {
         );
     }
 
+    public propagateSynergy(
+        teamType: TeamType,
+        faction: FactionType,
+        synergyName: string,
+        synergyLevel: number,
+    ): boolean {
+        let specificSynergy: SpecificSynergy | undefined = undefined;
+        if (faction === FactionType.LIFE) {
+            specificSynergy = ToLifeSynergy[synergyName];
+        } else if (faction === FactionType.CHAOS) {
+            specificSynergy = ToChaosSynergy[synergyName];
+        } else if (faction === FactionType.MIGHT) {
+            specificSynergy = ToMightSynergy[synergyName];
+        } else if (faction === FactionType.NATURE) {
+            specificSynergy = ToNatureSynergy[synergyName];
+        }
+        if (specificSynergy) {
+            return FightStateManager.getInstance()
+                .getFightProperties()
+                .updateSynergyPerTeam(teamType, faction, specificSynergy, synergyLevel);
+        }
+
+        return false;
+    }
+
     private refreshButtons(forceUpdate = false): void {
         if (this.sc_visibleState && this.sc_visibleState.hasFinished) {
             this.hourGlassButton.isDisabled = true;
@@ -1333,6 +1363,62 @@ class Sandbox extends GLScene {
         }
     }
 
+    protected refreshSynergyNumbers(teamType: TeamType): void {
+        const lowerLeftPlacement = this.getPlacement(TeamType.LOWER, 0);
+        const upperRightPlacement = this.getPlacement(TeamType.UPPER, 0);
+
+        if (!lowerLeftPlacement || !upperRightPlacement) {
+            return;
+        }
+
+        const teamUnits = this.unitsHolder.getAllAlliesPlaced(
+            teamType,
+            lowerLeftPlacement,
+            upperRightPlacement,
+            this.getPlacement(TeamType.LOWER, 1),
+            this.getPlacement(TeamType.UPPER, 1),
+        );
+
+        let uniqueNamesLife: string[] = [];
+        let uniqueNamesChaos: string[] = [];
+        let uniqueNamesMight: string[] = [];
+        let uniqueNamesNature: string[] = [];
+        for (const ltu of teamUnits) {
+            if (ltu.getFaction() === FactionType.LIFE) {
+                if (!uniqueNamesLife.includes(ltu.getName())) {
+                    uniqueNamesLife.push(ltu.getName());
+                }
+            } else if (ltu.getFaction() === FactionType.CHAOS) {
+                if (!uniqueNamesChaos.includes(ltu.getName())) {
+                    uniqueNamesChaos.push(ltu.getName());
+                }
+            } else if (ltu.getFaction() === FactionType.MIGHT) {
+                if (!uniqueNamesMight.includes(ltu.getName())) {
+                    uniqueNamesMight.push(ltu.getName());
+                }
+            } else if (ltu.getFaction() === FactionType.NATURE) {
+                if (!uniqueNamesNature.includes(ltu.getName())) {
+                    uniqueNamesNature.push(ltu.getName());
+                }
+            }
+        }
+
+        FightStateManager.getInstance()
+            .getFightProperties()
+            .setSynergyUnitsPerFactions(
+                teamType,
+                uniqueNamesLife.length,
+                uniqueNamesChaos.length,
+                uniqueNamesMight.length,
+                uniqueNamesNature.length,
+            );
+
+        const synergies = this.sc_possibleSynergiesPerTeam.get(teamType);
+        const newSynergies = FightStateManager.getInstance().getFightProperties().getPossibleSynergies(teamType);
+        this.sc_possibleSynergiesPerTeam.set(teamType, newSynergies);
+        this.sc_possibleSynergiesUpdateNeeded = synergies !== newSynergies;
+    }
+
     private resetHover(resetSelectedCells = true): void {
         if (resetSelectedCells) {
             this.sc_hoverUnitNameStr = "";
@@ -1420,6 +1506,7 @@ class Sandbox extends GLScene {
                     this.unitsHolder.refreshStackPowerForAllUnits();
                     this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
                     cloned = true;
+                    this.refreshSynergyNumbers(selectedUnit.getTeam());
                     break;
                 }
             }
@@ -1739,15 +1826,6 @@ class Sandbox extends GLScene {
                             this.hoverUnit,
                             this.currentActiveSpell,
                             this.hoverUnit?.getBaseCell(),
-                            this.currentActiveUnit.getTeam(),
-                            this.hoverUnit?.getTeam(),
-                            this.currentActiveUnit.getName(),
-                            this.hoverUnit?.getName(),
-                            this.hoverUnit?.getLevel(),
-                            this.hoverUnit?.getHp(),
-                            this.hoverUnit?.getMaxHp(),
-                            this.hoverUnit?.isSmallSize(),
-                            this.currentActiveUnit.getStackPower(),
                             this.hoverUnit?.getMagicResist(),
                             this.hoverUnit?.hasMindAttackResistance(),
                             this.hoverUnit?.canBeHealed(),
@@ -2319,15 +2397,6 @@ class Sandbox extends GLScene {
                             undefined,
                             this.currentActiveSpell,
                             undefined,
-                            this.currentActiveUnit.getTeam(),
-                            undefined,
-                            this.currentActiveUnit.getName(),
-                            undefined,
-                            undefined,
-                            undefined,
-                            undefined,
-                            undefined,
-                            this.currentActiveUnit.getStackPower(),
                             undefined,
                             undefined,
                             undefined,
@@ -2391,15 +2460,6 @@ class Sandbox extends GLScene {
                         undefined,
                         this.currentActiveSpell,
                         undefined,
-                        this.currentActiveUnit.getTeam(),
-                        undefined,
-                        this.currentActiveUnit.getName(),
-                        undefined,
-                        undefined,
-                        undefined,
-                        undefined,
-                        undefined,
-                        this.currentActiveUnit.getStackPower(),
                         undefined,
                         undefined,
                         undefined,
@@ -3820,6 +3880,7 @@ class Sandbox extends GLScene {
                         unit.setPosition(positionToDropTo.x, positionToDropTo.y);
                         this.applyAugments(unit, false, true);
                         this.refreshUnits();
+                        this.refreshSynergyNumbers(unit.getTeam());
                     }
                 }
             } else {
@@ -3848,6 +3909,7 @@ class Sandbox extends GLScene {
                             unit.setPosition(positionToDropTo.x, positionToDropTo.y);
                             this.applyAugments(unit, false, true);
                             this.refreshUnits();
+                            this.refreshSynergyNumbers(unit.getTeam());
                         }
                     }
                 }

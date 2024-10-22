@@ -44,7 +44,12 @@ fs.readdir(imageDir, (err, files) => {
 
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        if (file.endsWith(".webp") && !file.startsWith("overlay") && !file.startsWith("icon")) {
+        if (
+            file.endsWith(".webp") &&
+            !file.startsWith("synergy_") &&
+            !file.startsWith("overlay_") &&
+            !file.startsWith("icon_")
+        ) {
             const fileNameSegments = file.split("_");
             if (fileNameSegments.length) {
                 const firstSegment = fileNameSegments[0];
