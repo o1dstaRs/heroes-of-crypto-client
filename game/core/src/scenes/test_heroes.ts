@@ -47,6 +47,11 @@ import {
     MoveHandler,
     IDamageStatistic,
     PlacementType,
+    SpecificSynergy,
+    ToLifeSynergy,
+    ToChaosSynergy,
+    ToMightSynergy,
+    ToNatureSynergy,
 } from "@heroesofcrypto/common";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
@@ -761,6 +766,31 @@ class Sandbox extends GLScene {
         );
     }
 
+    public propagateSynergy(
+        teamType: TeamType,
+        faction: FactionType,
+        synergyName: string,
+        synergyLevel: number,
+    ): boolean {
+        let specificSynergy: SpecificSynergy | undefined = undefined;
+        if (faction === FactionType.LIFE) {
+            specificSynergy = ToLifeSynergy[synergyName];
+        } else if (faction === FactionType.CHAOS) {
+            specificSynergy = ToChaosSynergy[synergyName];
+        } else if (faction === FactionType.MIGHT) {
+            specificSynergy = ToMightSynergy[synergyName];
+        } else if (faction === FactionType.NATURE) {
+            specificSynergy = ToNatureSynergy[synergyName];
+        }
+        if (specificSynergy) {
+            return FightStateManager.getInstance()
+                .getFightProperties()
+                .updateSynergyPerTeam(teamType, faction, specificSynergy, synergyLevel);
+        }
+
+        return false;
+    }
+
     private refreshButtons(forceUpdate = false): void {
         if (this.sc_visibleState && this.sc_visibleState.hasFinished) {
             this.hourGlassButton.isDisabled = true;
@@ -1383,10 +1413,10 @@ class Sandbox extends GLScene {
                 uniqueNamesNature.length,
             );
 
-        const previousSynergies = this.sc_possibleSynergies;
-        this.sc_possibleSynergies = FightStateManager.getInstance().getFightProperties().getPossibleSynergies(teamType);
-        this.sc_possibleSynergiesUpdateNeeded = previousSynergies !== this.sc_possibleSynergies;
-        console.log(this.sc_possibleSynergies);
+        const synergies = this.sc_possibleSynergiesPerTeam.get(teamType);
+        const newSynergies = FightStateManager.getInstance().getFightProperties().getPossibleSynergies(teamType);
+        this.sc_possibleSynergiesPerTeam.set(teamType, newSynergies);
+        this.sc_possibleSynergiesUpdateNeeded = synergies !== newSynergies;
     }
 
     private resetHover(resetSelectedCells = true): void {

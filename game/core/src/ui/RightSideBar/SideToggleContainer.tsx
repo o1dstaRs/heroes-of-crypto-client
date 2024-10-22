@@ -6,6 +6,7 @@ import {
     LifeSynergyNames,
     ChaosSynergyNames,
     MightSynergyNames,
+    FactionType,
     NatureSynergyNames,
 } from "@heroesofcrypto/common";
 import React, { useEffect, useState } from "react";
@@ -47,10 +48,12 @@ const SYNERGY_NAME_TO_IMAGE = {
     [NatureSynergyNames.PLUS_FLY_ARMOR]: synergyPlusFlyArmorImg,
 };
 
+type PossibleSynergyLevel = 0 | 1 | 2 | 3;
+
 type SelectedSynergy = {
-    faction: "Life" | "Chaos" | "Might" | "Nature";
+    faction: FactionType;
     synergy: keyof typeof SYNERGY_NAME_TO_IMAGE;
-    level: 1 | 2 | 3;
+    level: PossibleSynergyLevel;
 };
 
 const PlacementToggler = ({
@@ -431,7 +434,7 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
     const [mightSelection, setMightSelection] = useState<number | null>(null);
     const [sniperSelection, setSniperSelection] = useState<number | null>(null);
     const [movementSelection, setMovementSelection] = useState<number | null>(null);
-    const [possibleSynergies, setPossibleSynergies] = useState<SynergyWithLevel[]>([]);
+    const [possibleSynergies, setPossibleSynergies] = useState<Map<TeamType, SynergyWithLevel[]>>(new Map());
     const [togglerType, setTogglerType] = useState<"Placement" | "Armor" | "Might" | "Sniper" | "Movement" | "None">(
         "Placement",
     );
@@ -456,22 +459,24 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
         setTotalPoints(remainingPoints);
     };
 
-    const possibleSynergiesObj: Record<string, number> = {};
-    for (const ps of possibleSynergies) {
-        if (ps.synergy in possibleSynergiesObj) {
-            const elem = possibleSynergiesObj[ps.synergy];
-            possibleSynergiesObj[ps.synergy] = Math.max(ps.level, elem);
-        } else if (ps.level) {
-            possibleSynergiesObj[ps.synergy] = ps.level;
+    const possibleSynergiesObj: Record<string, PossibleSynergyLevel> = {};
+    const possibleSynergiesPerTeam = possibleSynergies.get(teamType);
+    if (possibleSynergiesPerTeam) {
+        for (const ps of possibleSynergiesPerTeam) {
+            if (ps.synergy in possibleSynergiesObj) {
+                const elem = possibleSynergiesObj[ps.synergy];
+                possibleSynergiesObj[ps.synergy] = Math.max(ps.level, elem) as PossibleSynergyLevel;
+            } else if (ps.level) {
+                possibleSynergiesObj[ps.synergy] = ps.level as PossibleSynergyLevel;
+            }
         }
     }
-    console.log(possibleSynergiesObj);
 
     const manager = useManager();
 
     useEffect(() => {
-        const connection = manager.onPossibleSynergiesUpdated.connect((sArray: SynergyWithLevel[]) => {
-            setPossibleSynergies(sArray);
+        const connection = manager.onPossibleSynergiesUpdated.connect((sMap: Map<TeamType, SynergyWithLevel[]>) => {
+            setPossibleSynergies(sMap);
         });
 
         return () => {
@@ -483,8 +488,10 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
         setSynergy: React.Dispatch<React.SetStateAction<SelectedSynergy | null>>,
         synergy: SelectedSynergy,
     ) => {
-        setSynergy(synergy);
-        setTogglerType("None");
+        if (synergy.level >= 1 && manager.PropagateSynergy(teamType, synergy.faction, synergy.synergy, synergy.level)) {
+            setSynergy(synergy);
+            setTogglerType("None");
+        }
     };
 
     return (
@@ -578,9 +585,9 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                                 <IconButton
                                     onClick={() =>
                                         handleSynergySelect(setSynergyPairTypeLife, {
-                                            faction: "Life",
+                                            faction: "Life" as FactionType,
                                             synergy: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
-                                            level: 1,
+                                            level: possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] ?? 0,
                                         })
                                     }
                                     title="Supply synergy"
@@ -603,9 +610,9 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                                 <IconButton
                                     onClick={() =>
                                         handleSynergySelect(setSynergyPairTypeLife, {
-                                            faction: "Life",
+                                            faction: "Life" as FactionType,
                                             synergy: LifeSynergyNames.PLUS_MORALE,
-                                            level: 1,
+                                            level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE] ?? 0,
                                         })
                                     }
                                     title="Morale synergy"
@@ -640,9 +647,9 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                                 <IconButton
                                     onClick={() =>
                                         handleSynergySelect(setSynergyPairTypeChaos, {
-                                            faction: "Chaos",
+                                            faction: "Chaos" as FactionType,
                                             synergy: ChaosSynergyNames.SLOW_ON_SHOT,
-                                            level: 1,
+                                            level: possibleSynergiesObj[ChaosSynergyNames.SLOW_ON_SHOT] ?? 0,
                                         })
                                     }
                                     title="Slow on Shot synergy"
@@ -665,9 +672,9 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                                 <IconButton
                                     onClick={() =>
                                         handleSynergySelect(setSynergyPairTypeChaos, {
-                                            faction: "Chaos",
+                                            faction: "Chaos" as FactionType,
                                             synergy: ChaosSynergyNames.BREAK_ON_ATTACK,
-                                            level: 1,
+                                            level: possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] ?? 0,
                                         })
                                     }
                                     title="Break on Attack synergy"
@@ -702,9 +709,9 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                                 <IconButton
                                     onClick={() =>
                                         handleSynergySelect(setSynergyPairTypeMight, {
-                                            faction: "Might",
+                                            faction: "Might" as FactionType,
                                             synergy: MightSynergyNames.PLUS_AURAS_RANGE,
-                                            level: 1,
+                                            level: possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] ?? 0,
                                         })
                                     }
                                     title="Auras Range synergy"
@@ -727,9 +734,10 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                                 <IconButton
                                     onClick={() =>
                                         handleSynergySelect(setSynergyPairTypeMight, {
-                                            faction: "Might",
+                                            faction: "Might" as FactionType,
                                             synergy: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
-                                            level: 1,
+                                            level:
+                                                possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] ?? 0,
                                         })
                                     }
                                     title="Abilities Power synergy"
@@ -765,9 +773,9 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                                 <IconButton
                                     onClick={() =>
                                         handleSynergySelect(setSynergyPairTypeNature, {
-                                            faction: "Nature",
+                                            faction: "Nature" as FactionType,
                                             synergy: NatureSynergyNames.INCREASE_BOARD_UNITS,
-                                            level: 1,
+                                            level: possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] ?? 0,
                                         })
                                     }
                                     title="Board Units synergy"
@@ -790,9 +798,9 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                                 <IconButton
                                     onClick={() =>
                                         handleSynergySelect(setSynergyPairTypeNature, {
-                                            faction: "Nature",
+                                            faction: "Nature" as FactionType,
                                             synergy: NatureSynergyNames.PLUS_FLY_ARMOR,
-                                            level: 1,
+                                            level: possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] ?? 0,
                                         })
                                     }
                                     title="Fly Armor synergy"

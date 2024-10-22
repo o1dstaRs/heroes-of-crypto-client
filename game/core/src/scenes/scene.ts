@@ -241,7 +241,7 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_testControlGroups: SceneControlGroup[] = [];
 
-    public sc_possibleSynergies: SynergyWithLevel[] = [];
+    public sc_possibleSynergiesPerTeam: Map<TeamType, SynergyWithLevel[]> = new Map();
 
     public sc_isSelection = false;
 
@@ -322,6 +322,13 @@ export abstract class Scene extends b2ContactListener {
     protected abstract verifyButtonsTrigger(): void;
 
     public abstract propagateAugmentation(teamType: TeamType, augmentType: Augment.AugmentType): boolean;
+
+    public abstract propagateSynergy(
+        teamType: TeamType,
+        faction: FactionType,
+        synergyName: string,
+        synergyLevel: number,
+    ): boolean;
 
     public abstract getNumberOfUnitsAvailableForPlacement(teamType: TeamType): number;
 

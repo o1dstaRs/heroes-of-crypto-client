@@ -19,6 +19,7 @@ import {
     Augment,
     IDamageStatistic,
     SynergyWithLevel,
+    FactionType,
 } from "@heroesofcrypto/common";
 import { createContext, useContext } from "react";
 import { Signal } from "typed-signals";
@@ -91,7 +92,9 @@ export class GameManager {
 
     public readonly onDamageStatisticsUpdated = new Signal<(_damageStats: IDamageStatistic[]) => void>();
 
-    public readonly onPossibleSynergiesUpdated = new Signal<(_possibleSynergies: SynergyWithLevel[]) => void>();
+    public readonly onPossibleSynergiesUpdated = new Signal<
+        (_possibleSynergies: Map<TeamType, SynergyWithLevel[]>) => void
+    >();
 
     public readonly onRaceSelected = new Signal<(_raceName: string) => void>();
 
@@ -437,6 +440,15 @@ export class GameManager {
         return augmented || false;
     }
 
+    public PropagateSynergy(
+        teamType: TeamType,
+        faction: FactionType,
+        synergyName: string,
+        synergyLevel: number,
+    ): boolean {
+        return this.m_scene?.propagateSynergy(teamType, faction, synergyName, synergyLevel) || false;
+    }
+
     public GetNumberOfUnitsAvailableForPlacement(teamType: TeamType): number {
         return this.m_scene?.getNumberOfUnitsAvailableForPlacement(teamType) ?? HoCConstants.MAX_UNITS_PER_TEAM;
     }
@@ -526,7 +538,7 @@ export class GameManager {
         }
 
         if (this.m_scene?.sc_possibleSynergiesUpdateNeeded) {
-            this.onPossibleSynergiesUpdated.emit(this.m_scene?.sc_possibleSynergies);
+            this.onPossibleSynergiesUpdated.emit(this.m_scene?.sc_possibleSynergiesPerTeam);
             this.m_scene.sc_possibleSynergiesUpdateNeeded = false;
         }
 
