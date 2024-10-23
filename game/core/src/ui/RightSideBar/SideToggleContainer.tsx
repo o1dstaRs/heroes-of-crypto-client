@@ -34,18 +34,29 @@ import synergyBreakOnAttackImg from "../../../images/synergy_break_on_attack_256
 import synergyIncreaseBoardUnitsImg from "../../../images/synergy_increase_board_units_256.webp";
 import synergyMoraleImg from "../../../images/synergy_morale_256.webp";
 import synergyPlusFlyArmorImg from "../../../images/synergy_plus_fly_armor_256.webp";
-import synergySlowOnShotImg from "../../../images/synergy_slow_on_shot_256.webp";
+import synergyMovementImg from "../../../images/synergy_movement_256.webp";
 import synergySupplyImg from "../../../images/synergy_supply_256.webp";
 
 const SYNERGY_NAME_TO_IMAGE = {
     [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: synergySupplyImg,
     [LifeSynergyNames.PLUS_MORALE]: synergyMoraleImg,
-    [ChaosSynergyNames.SLOW_ON_SHOT]: synergySlowOnShotImg,
+    [ChaosSynergyNames.MOVEMENT]: synergyMovementImg,
     [ChaosSynergyNames.BREAK_ON_ATTACK]: synergyBreakOnAttackImg,
     [MightSynergyNames.PLUS_AURAS_RANGE]: synergyAurasRangeImg,
     [MightSynergyNames.PLUS_STACK_ABILITIES_POWER]: synergyAbilitiesPowerImg,
     [NatureSynergyNames.INCREASE_BOARD_UNITS]: synergyIncreaseBoardUnitsImg,
     [NatureSynergyNames.PLUS_FLY_ARMOR]: synergyPlusFlyArmorImg,
+};
+
+const SYNERGY_NAME_TO_FACTION = {
+    [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: "Life",
+    [LifeSynergyNames.PLUS_MORALE]: "Life",
+    [ChaosSynergyNames.MOVEMENT]: "Chaos",
+    [ChaosSynergyNames.BREAK_ON_ATTACK]: "Chaos",
+    [MightSynergyNames.PLUS_AURAS_RANGE]: "Might",
+    [MightSynergyNames.PLUS_STACK_ABILITIES_POWER]: "Might",
+    [NatureSynergyNames.INCREASE_BOARD_UNITS]: "Nature",
+    [NatureSynergyNames.PLUS_FLY_ARMOR]: "Nature",
 };
 
 type PossibleSynergyLevel = 0 | 1 | 2 | 3;
@@ -466,8 +477,30 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
             if (ps.synergy in possibleSynergiesObj) {
                 const elem = possibleSynergiesObj[ps.synergy];
                 possibleSynergiesObj[ps.synergy] = Math.max(ps.level, elem) as PossibleSynergyLevel;
-            } else if (ps.level) {
+            } else {
                 possibleSynergiesObj[ps.synergy] = ps.level as PossibleSynergyLevel;
+            }
+        }
+    }
+
+    for (const [synergyName, synergyLevel] of Object.entries(possibleSynergiesObj)) {
+        if (synergyLevel <= 0) {
+            if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_IMAGE] === "Life") {
+                if (synergyPairLife !== null) {
+                    setSynergyPairTypeLife(null);
+                }
+            } else if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_IMAGE] === "Chaos") {
+                if (synergyPairChaos !== null) {
+                    setSynergyPairTypeChaos(null);
+                }
+            } else if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_IMAGE] === "Might") {
+                if (synergyPairMight !== null) {
+                    setSynergyPairTypeMight(null);
+                }
+            } else if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_IMAGE] === "Nature") {
+                if (synergyPairNature !== null) {
+                    setSynergyPairTypeNature(null);
+                }
             }
         }
     }
@@ -571,8 +604,8 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
             <Divider />
 
             <Box sx={{ display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
-                {possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] &&
-                    possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE] && (
+                {possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] > 0 &&
+                    possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE] > 0 && (
                         <Box
                             sx={{
                                 display: "flex",
@@ -633,8 +666,8 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                             </Tooltip>
                         </Box>
                     )}
-                {possibleSynergiesObj[ChaosSynergyNames.SLOW_ON_SHOT] &&
-                    possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] && (
+                {possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] > 0 &&
+                    possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] > 0 && (
                         <Box
                             sx={{
                                 display: "flex",
@@ -643,23 +676,23 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                                 flexBasis: { xs: "100%", sm: "auto" },
                             }}
                         >
-                            <Tooltip title="Pick Slow on Shot synergy" style={{ zIndex: 1 }}>
+                            <Tooltip title="Pick Movement synergy" style={{ zIndex: 1 }}>
                                 <IconButton
                                     onClick={() =>
                                         handleSynergySelect(setSynergyPairTypeChaos, {
                                             faction: "Chaos" as FactionType,
-                                            synergy: ChaosSynergyNames.SLOW_ON_SHOT,
-                                            level: possibleSynergiesObj[ChaosSynergyNames.SLOW_ON_SHOT] ?? 0,
+                                            synergy: ChaosSynergyNames.MOVEMENT,
+                                            level: possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] ?? 0,
                                         })
                                     }
-                                    title="Slow on Shot synergy"
+                                    title="Movement synergy"
                                 >
                                     <img
-                                        src={synergySlowOnShotImg}
-                                        alt="Slow on Shot Icon"
+                                        src={synergyMovementImg}
+                                        alt="Movement Icon"
                                         style={{
                                             filter:
-                                                synergyPairChaos?.synergy === ChaosSynergyNames.SLOW_ON_SHOT
+                                                synergyPairChaos?.synergy === ChaosSynergyNames.MOVEMENT
                                                     ? "brightness(1.2)"
                                                     : "brightness(0.6)",
                                             width: 45,
@@ -695,8 +728,8 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                             </Tooltip>
                         </Box>
                     )}
-                {possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] &&
-                    possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] && (
+                {possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] > 0 &&
+                    possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] > 0 && (
                         <Box
                             sx={{
                                 display: "flex",
@@ -759,8 +792,8 @@ const SideToggleContainer = ({ side, teamType }: { side: string; teamType: TeamT
                             </Tooltip>
                         </Box>
                     )}
-                {possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] &&
-                    possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] && (
+                {possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] > 0 &&
+                    possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] > 0 && (
                         <Box
                             sx={{
                                 display: "flex",

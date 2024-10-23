@@ -387,6 +387,7 @@ export abstract class Scene extends b2ContactListener {
     protected abstract handleMouseDownForSelectedBody(): void;
 
     protected abstract selectUnitPreStart(
+        team: TeamType,
         isSmallUnit: boolean,
         position: XY,
         rangeShotDistance: number,
@@ -490,6 +491,7 @@ export abstract class Scene extends b2ContactListener {
                     body.SetIsActive(true);
                     const unitData = body.GetUserData();
                     this.selectUnitPreStart(
+                        unitData.team,
                         unitData.size === 1,
                         body.GetPosition(),
                         unitData.shot_distance,
