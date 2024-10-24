@@ -87,7 +87,9 @@ type SelectedSynergy = {
 };
 
 const SynergyToggler = ({ selectedSynergy }: { selectedSynergy: SelectedSynergy | null }) => {
-    if (!selectedSynergy) return null;
+    if (!selectedSynergy) {
+        return null;
+    }
 
     const selectedSynergyKey = `${selectedSynergy.faction}:${selectedSynergy.synergyValue}:${selectedSynergy.level}`;
 
@@ -498,7 +500,7 @@ const SideToggleContainer = ({
 }: {
     side: string;
     teamType: TeamType;
-    unitFaction: FactionType;
+    unitFaction?: FactionType;
 }) => {
     const [totalPoints, setTotalPoints] = useState(HoCConstants.MAX_AUGMENT_POINTS);
     const [placementSelection, setPlacementSelection] = useState<number | null>(null);
@@ -515,6 +517,7 @@ const SideToggleContainer = ({
     const [synergyPairChaos, setSynergyPairTypeChaos] = useState<SelectedSynergy | null>(null);
     const [synergyPairMight, setSynergyPairTypeMight] = useState<SelectedSynergy | null>(null);
     const [synergyPairNature, setSynergyPairTypeNature] = useState<SelectedSynergy | null>(null);
+    const [synergyTogglerKey, setSynergyTogglerKey] = useState(0);
 
     // Function to handle augment button clicks
     const handleAugmentClick = (type: "Placement" | "Armor" | "Might" | "Sniper" | "Movement") => {
@@ -556,32 +559,48 @@ const SideToggleContainer = ({
             if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_IMAGE] === "Life") {
                 if (synergyPairLife !== null) {
                     setSynergyPairTypeLife(null);
-                    if (togglerType === "Synergy" && unitFaction === FactionType.LIFE) {
+                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionType.LIFE)) {
                         setTogglerType("None");
                     }
                 }
             } else if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_IMAGE] === "Chaos") {
                 if (synergyPairChaos !== null) {
                     setSynergyPairTypeChaos(null);
-                    if (togglerType === "Synergy" && unitFaction === FactionType.CHAOS) {
+                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionType.CHAOS)) {
                         setTogglerType("None");
                     }
                 }
             } else if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_IMAGE] === "Might") {
                 if (synergyPairMight !== null) {
                     setSynergyPairTypeMight(null);
-                    if (togglerType === "Synergy" && unitFaction === FactionType.MIGHT) {
+                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionType.MIGHT)) {
                         setTogglerType("None");
                     }
                 }
             } else if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_IMAGE] === "Nature") {
                 if (synergyPairNature !== null) {
                     setSynergyPairTypeNature(null);
-                    if (togglerType === "Synergy" && unitFaction === FactionType.NATURE) {
+                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionType.NATURE)) {
                         setTogglerType("None");
                     }
                 }
             }
+        } else if (
+            togglerType === "Synergy" &&
+            selectedSynergy &&
+            synergyName === selectedSynergy.synergyName &&
+            selectedSynergy.level &&
+            selectedSynergy.level !== synergyLevel
+        ) {
+            setSelectedSynergy({
+                faction: selectedSynergy.faction,
+                synergyName: selectedSynergy.synergyName,
+                synergyValue: selectedSynergy.synergyValue,
+                level: synergyLevel,
+                name: selectedSynergy.name,
+            });
+            // Force a re-render of the SynergyToggler by updating its key
+            setSynergyTogglerKey((prev) => prev + 1);
         }
     }
 
@@ -906,7 +925,7 @@ const SideToggleContainer = ({
                                             synergyName: NatureSynergyNames.INCREASE_BOARD_UNITS,
                                             synergyValue: NatureSynergy.INCREASE_BOARD_UNITS,
                                             level: possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] ?? 0,
-                                            name: "+Board Units Synergy",
+                                            name: "Board Units Synergy",
                                         })
                                     }
                                     title="Board Units synergy"
@@ -957,7 +976,7 @@ const SideToggleContainer = ({
                     )}
             </Box>
             {togglerType === "Synergy" ? (
-                <SynergyToggler selectedSynergy={selectedSynergy} />
+                <SynergyToggler key={synergyTogglerKey} selectedSynergy={selectedSynergy} />
             ) : (
                 togglerType !== "None" && (
                     <>
