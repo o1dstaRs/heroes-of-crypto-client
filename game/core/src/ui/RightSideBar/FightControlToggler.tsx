@@ -118,7 +118,7 @@ const FightControlToggler: React.FC = () => {
                 defaultExpanded={false} // Close by default
             >
                 <List>
-                    <SideToggleContainer side="red" teamType={TeamType.UPPER} />
+                    <SideToggleContainer side="red" teamType={TeamType.UPPER} unitFaction={unitProperties.faction} />
                 </List>
             </Toggler>
             <Toggler
@@ -144,7 +144,7 @@ const FightControlToggler: React.FC = () => {
                 defaultExpanded={false} // Close by default
             >
                 <List>
-                    <SideToggleContainer side="green" teamType={TeamType.LOWER} />
+                    <SideToggleContainer side="green" teamType={TeamType.LOWER} unitFaction={unitProperties.faction} />
                 </List>
             </Toggler>
         </ListItem>

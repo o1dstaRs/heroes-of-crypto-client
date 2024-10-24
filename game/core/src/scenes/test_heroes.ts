@@ -1403,10 +1403,6 @@ class Sandbox extends GLScene {
             }
         }
 
-        console.log(
-            `Life ${uniqueNamesLife.length} Chaos ${uniqueNamesChaos.length} Might ${uniqueNamesMight.length} Nature ${uniqueNamesNature.length}`,
-        );
-
         FightStateManager.getInstance()
             .getFightProperties()
             .setSynergyUnitsPerFactions(
@@ -1420,8 +1416,6 @@ class Sandbox extends GLScene {
         const synergies = this.sc_possibleSynergiesPerTeam.get(teamType);
         const newSynergies = FightStateManager.getInstance().getFightProperties().getPossibleSynergies(teamType);
         this.sc_possibleSynergiesPerTeam.set(teamType, newSynergies);
-        console.log("newSynergies for update");
-        console.log(newSynergies);
         this.sc_possibleSynergiesUpdateNeeded = synergies !== newSynergies;
     }
 
