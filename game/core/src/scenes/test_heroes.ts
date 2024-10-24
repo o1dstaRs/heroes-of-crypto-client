@@ -1507,6 +1507,7 @@ class Sandbox extends GLScene {
                     this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
                     cloned = true;
                     this.refreshSynergyNumbers(selectedUnit.getTeam());
+                    this.refreshUnits();
                     break;
                 }
             }
@@ -1786,6 +1787,7 @@ class Sandbox extends GLScene {
                         }
 
                         this.fillActiveAuraRanges(
+                            this.hoverUnit.getTeam(),
                             this.hoverUnit.isSmallSize(),
                             this.hoverUnit.getPosition(),
                             this.hoverUnit.getAuraRanges(),
@@ -2576,6 +2578,7 @@ class Sandbox extends GLScene {
                             }
 
                             this.fillActiveAuraRanges(
+                                hoverUnit.getTeam(),
                                 hoverUnit.isSmallSize(),
                                 hoverUnit.getPosition(),
                                 hoverUnit.getAuraRanges(),
@@ -2616,6 +2619,7 @@ class Sandbox extends GLScene {
                             }
 
                             this.fillActiveAuraRanges(
+                                hoverUnit.getTeam(),
                                 hoverUnit.isSmallSize(),
                                 hoverUnit.getPosition(),
                                 hoverUnit.getAuraRanges(),
@@ -2654,6 +2658,7 @@ class Sandbox extends GLScene {
                         }
 
                         this.fillActiveAuraRanges(
+                            hoverUnit.getTeam(),
                             hoverUnit.isSmallSize(),
                             hoverUnit.getPosition(),
                             hoverUnit.getAuraRanges(),
@@ -2714,6 +2719,7 @@ class Sandbox extends GLScene {
                             this.hoverUnit = unit;
                         }
                         this.fillActiveAuraRanges(
+                            unit.getTeam(),
                             unit.isSmallSize(),
                             unit.getPosition(),
                             unit.getAuraRanges(),
@@ -2748,6 +2754,7 @@ class Sandbox extends GLScene {
                         }
 
                         this.fillActiveAuraRanges(
+                            unit.getTeam(),
                             unit.isSmallSize(),
                             unit.getPosition(),
                             unit.getAuraRanges(),
@@ -2815,6 +2822,7 @@ class Sandbox extends GLScene {
                     }
 
                     this.fillActiveAuraRanges(
+                        unit.getTeam(),
                         unit.isSmallSize(),
                         unit.getPosition(),
                         unit.getAuraRanges(),
@@ -3881,6 +3889,7 @@ class Sandbox extends GLScene {
                         this.applyAugments(unit, false, true);
                         this.refreshUnits();
                         this.refreshSynergyNumbers(unit.getTeam());
+                        this.refreshUnits();
                     }
                 }
             } else {
@@ -3910,6 +3919,7 @@ class Sandbox extends GLScene {
                             this.applyAugments(unit, false, true);
                             this.refreshUnits();
                             this.refreshSynergyNumbers(unit.getTeam());
+                            this.refreshUnits();
                         }
                     }
                 }
@@ -4085,6 +4095,7 @@ class Sandbox extends GLScene {
     }
 
     private fillActiveAuraRanges(
+        teamType: TeamType,
         isSmallUnit: boolean,
         position: XY,
         auraRanges: number[] = [],
@@ -4100,11 +4111,20 @@ class Sandbox extends GLScene {
             auraMapRanges = this.sc_currentActiveAuraRanges;
         }
 
-        if (auraRanges.length === auraIsBuff.length) {
+        if (auraRanges.length && auraRanges.length === auraIsBuff.length) {
             for (let i = 0; i < auraRanges.length; i++) {
+                if (auraRanges[i] <= 0) {
+                    continue;
+                }
+
                 auraMapRanges.push({
                     xy: position,
-                    range: auraRanges[i] * STEP,
+                    range:
+                        (auraRanges[i] +
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getAuraAdditionalAuraRangePerTeam(teamType)) *
+                        STEP,
                     isBuff: auraIsBuff[i],
                     isSmallUnit: isSmallUnit,
                 });
@@ -4113,6 +4133,7 @@ class Sandbox extends GLScene {
     }
 
     protected selectUnitPreStart(
+        teamType: TeamType,
         isSmallUnit: boolean,
         position: XY,
         rangeShotDistance = 0,
@@ -4127,7 +4148,7 @@ class Sandbox extends GLScene {
         } else {
             this.sc_currentActiveShotRange = undefined;
         }
-        this.fillActiveAuraRanges(isSmallUnit, position, auraRanges, auraIsBuff);
+        this.fillActiveAuraRanges(teamType, isSmallUnit, position, auraRanges, auraIsBuff);
     }
 
     protected updateCurrentMovePath(currentCell: XY): void {
@@ -4978,6 +4999,7 @@ class Sandbox extends GLScene {
                                         this.sc_currentActiveShotRange = undefined;
                                     }
                                     this.fillActiveAuraRanges(
+                                        nextUnit.getTeam(),
                                         nextUnit.isSmallSize(),
                                         nextUnit.getPosition(),
                                         nextUnit.getAuraRanges(),
