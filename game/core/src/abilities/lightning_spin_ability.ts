@@ -125,7 +125,11 @@ export function processLightningSpinAbility(
 
             damageStatisticHolder.add({
                 unitName: fromUnit.getName(),
-                damage: enemy.applyDamage(damageFromAttack),
+                damage: enemy.applyDamage(
+                    damageFromAttack,
+                    FightStateManager.getInstance().getFightProperties().getBreakChancePerTeam(fromUnit.getTeam()),
+                    sceneLog,
+                ),
                 team: fromUnit.getTeam(),
             });
             enemyIdDamageFromAttack.set(enemy.getId(), damageFromAttack);
@@ -181,9 +185,7 @@ export function processLightningSpinAbility(
             sceneLog.updateLog(`${unitDead.getName()} died`);
             unitIdsDied.push(unitDead.getId());
             fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-            fromUnit.applyMoraleStepsModifier(
-                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-            );
+
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unitDead);
         }
 

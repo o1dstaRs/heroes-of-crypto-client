@@ -11,6 +11,8 @@ import React, { useEffect, useState } from "react";
 
 import { images } from "../../generated/image_imports";
 import { useManager } from "../../manager";
+import stopImg from "../../../images/stop.webp";
+import hourglassImg from "../../../images/hourglass.webp";
 import { IVisibleState, IVisibleUnit } from "../../state/visible_state";
 
 export const UpNext: React.FC = () => {
@@ -59,6 +61,35 @@ export const UpNext: React.FC = () => {
                                                 flexShrink: 0,
                                             }}
                                         />
+                                        {unit.isSkipping ? (
+                                            <img
+                                                src={stopImg}
+                                                alt="Skipping"
+                                                style={{
+                                                    position: "absolute",
+                                                    top: 0,
+                                                    right: index === 0 ? 10.5 : 8,
+                                                    width: "20px",
+                                                    height: "20px",
+                                                    zIndex: 2,
+                                                    transform: "rotate(180deg)",
+                                                }}
+                                            />
+                                        ) : unit.isOnHourglass ? (
+                                            <img
+                                                src={hourglassImg}
+                                                alt="On Hourglass"
+                                                style={{
+                                                    position: "absolute",
+                                                    top: 0,
+                                                    right: index === 0 ? 10.5 : 8,
+                                                    width: "20px",
+                                                    height: "20px",
+                                                    zIndex: 2,
+                                                    transform: "rotate(180deg)",
+                                                }}
+                                            />
+                                        ) : null}
                                         <Badge
                                             badgeContent={unit.amount.toString()}
                                             // @ts-ignore: style params

@@ -15,6 +15,7 @@ import {
     HoCMath,
     HoCConstants,
     ISceneLog,
+    HoCLib,
     Unit,
     FightStateManager,
     UnitsHolder,
@@ -75,6 +76,21 @@ export function processSkewerStrikeAbility(
             continue;
         }
 
+        if (
+            HoCLib.getRandomInt(0, 100) <
+            fromUnit.calculateMissChance(
+                nextStandingTarget,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAbilityPowerPerTeam(nextStandingTarget.getTeam()),
+            )
+        ) {
+            sceneLog.updateLog(
+                `${fromUnit.getName()} misses Skewer Strike ${isAttack ? "attk" : "resp"} on ${nextStandingTarget.getName()}`,
+            );
+            continue;
+        }
+
         const damageFromAttack = fromUnit.calculateAttackDamage(
             nextStandingTarget,
             AttackType.MELEE,
@@ -90,7 +106,11 @@ export function processSkewerStrikeAbility(
 
         damageStatisticHolder.add({
             unitName: fromUnit.getName(),
-            damage: nextStandingTarget.applyDamage(damageFromAttack),
+            damage: nextStandingTarget.applyDamage(
+                damageFromAttack,
+                FightStateManager.getInstance().getFightProperties().getBreakChancePerTeam(fromUnit.getTeam()),
+                sceneLog,
+            ),
             team: fromUnit.getTeam(),
         });
 
@@ -124,9 +144,7 @@ export function processSkewerStrikeAbility(
         sceneLog.updateLog(`${unitDead.getName()} died`);
         unitIdsDied.push(unitDead.getId());
         fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-        fromUnit.applyMoraleStepsModifier(
-            FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-        );
+
         unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unitDead);
     }
 

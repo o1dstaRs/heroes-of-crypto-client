@@ -100,7 +100,7 @@ function attackEnemiesAndGetLayerImpact(
         if (targetEnemyLightningDamage && !e1.isDead()) {
             damageStatisticHolder.add({
                 unitName: fromUnit.getName(),
-                damage: e1.applyDamage(targetEnemyLightningDamage),
+                damage: e1.applyDamage(targetEnemyLightningDamage, 0 /* magic attack */, sceneLog),
                 team: fromUnit.getTeam(),
             });
             sceneLog.updateLog(`${e1.getName()} got hit ${targetEnemyLightningDamage} by Chain Lightning`);
@@ -109,9 +109,7 @@ function attackEnemiesAndGetLayerImpact(
                 sceneLog.updateLog(`${e1.getName()} died`);
                 unitIdsDied.push(e1.getId());
                 fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-                fromUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                );
+
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(e1);
             }
         }
@@ -169,7 +167,7 @@ export function processChainLightningAbility(
     if (targetEnemyLightningDamage && !targetUnit.isDead()) {
         damageStatisticHolder.add({
             unitName: fromUnit.getName(),
-            damage: targetUnit.applyDamage(targetEnemyLightningDamage),
+            damage: targetUnit.applyDamage(targetEnemyLightningDamage, 0 /* magic attack */, sceneLog),
             team: fromUnit.getTeam(),
         });
         sceneLog.updateLog(`${targetUnit.getName()} got hit ${targetEnemyLightningDamage} by Chain Lightning`);
@@ -179,9 +177,7 @@ export function processChainLightningAbility(
         sceneLog.updateLog(`${targetUnit.getName()} died`);
         unitIdsDied.push(targetUnit.getId());
         fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-        fromUnit.applyMoraleStepsModifier(
-            FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-        );
+
         unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
     }
 

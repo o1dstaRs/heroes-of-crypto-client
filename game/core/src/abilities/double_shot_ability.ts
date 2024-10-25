@@ -139,7 +139,11 @@ export function processDoubleShotAbility(
         damageForAnimation.unitIsSmall = toUnit.isSmallSize();
         damageStatisticHolder.add({
             unitName: fromUnit.getName(),
-            damage: toUnit.applyDamage(damageFromAttack),
+            damage: toUnit.applyDamage(
+                damageFromAttack,
+                FightStateManager.getInstance().getFightProperties().getBreakChancePerTeam(fromUnit.getTeam()),
+                sceneLog,
+            ),
             team: fromUnit.getTeam(),
         });
         const pegasusLightEffect = toUnit.getEffect("Pegasus Light");

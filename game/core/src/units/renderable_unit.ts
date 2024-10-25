@@ -62,6 +62,8 @@ export class RenderableUnit extends Unit {
 
     protected readonly hourglassSprite: Sprite;
 
+    protected readonly stopSprite: Sprite;
+
     protected readonly damageAnimationTicks: Denque<IDamageTaken> = new Denque<IDamageTaken>();
 
     protected resurrectionAnimationTick = 0;
@@ -94,6 +96,7 @@ export class RenderableUnit extends Unit {
         smallSprite: Sprite,
         tagSprite: Sprite,
         hourglassSprite: Sprite,
+        stopSprite: Sprite,
     ) {
         super(unitProperties, gridSettings, teamType, unitType, abilityFactory, effectFactory, summoned);
         this.damageAnimationTicks = new Denque();
@@ -107,6 +110,7 @@ export class RenderableUnit extends Unit {
         this.smallSprite = smallSprite;
         this.tagSprite = tagSprite;
         this.hourglassSprite = hourglassSprite;
+        this.stopSprite = stopSprite;
 
         this.bodyDef = {
             type: b2BodyType.b2_dynamicBody,
@@ -196,6 +200,7 @@ export class RenderableUnit extends Unit {
         smallSprite: Sprite,
         tagSprite: Sprite,
         hourglassSprite: Sprite,
+        stopSprite: Sprite,
     ): RenderableUnit {
         const renderableUnit = new RenderableUnit(
             unitProperties,
@@ -215,6 +220,7 @@ export class RenderableUnit extends Unit {
             smallSprite,
             tagSprite,
             hourglassSprite,
+            stopSprite,
         );
 
         renderableUnit.parseSpells();
@@ -372,9 +378,17 @@ export class RenderableUnit extends Unit {
                 this.tagSprite.render();
             }
 
-            if (this.onHourglass) {
+            if (this.isSkippingThisTurn()) {
+                this.stopSprite.setRect(
+                    this.renderPosition.x + halfUnitStep - fourthUnitStep,
+                    this.renderPosition.y,
+                    fourthUnitStep,
+                    fourthUnitStep,
+                );
+                this.stopSprite.render();
+            } else if (this.onHourglass) {
                 this.hourglassSprite.setRect(
-                    this.renderPosition.x + halfUnitStep - fourthUnitStep + 6,
+                    this.renderPosition.x + halfUnitStep - fourthUnitStep,
                     this.renderPosition.y,
                     fourthUnitStep,
                     fourthUnitStep,
@@ -549,13 +563,15 @@ export class RenderableUnit extends Unit {
         // Sharpened Weapons Aura
         const sharpenedWeaponsAuraAbility = this.getAbility("Sharpened Weapons Aura");
         if (sharpenedWeaponsAuraAbility) {
-            const percentage = (
-                this.calculateAbilityMultiplier(sharpenedWeaponsAuraAbility, _synergyAbilityPowerIncrease) * 100 -
-                100
-            ).toFixed(2);
+            const percentage = Number(
+                (
+                    this.calculateAbilityMultiplier(sharpenedWeaponsAuraAbility, _synergyAbilityPowerIncrease) * 100 -
+                    100
+                ).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 sharpenedWeaponsAuraAbility.getName(),
-                sharpenedWeaponsAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage),
+                sharpenedWeaponsAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 

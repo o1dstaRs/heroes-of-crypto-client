@@ -15,6 +15,8 @@ export interface IVisibleUnit {
     amount: number;
     smallTextureName: string;
     teamType: TeamType;
+    isOnHourglass: boolean;
+    isSkipping: boolean;
 }
 
 export interface IVisibleImpact {

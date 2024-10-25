@@ -62,7 +62,7 @@ export function processFireShieldAbility(
         );
         damageStatisticHolder.add({
             unitName: fromUnit.getName(),
-            damage: toUnit.applyDamage(fireShieldDmg),
+            damage: toUnit.applyDamage(fireShieldDmg, 0 /* magic attack */, sceneLog),
             team: fromUnit.getTeam(),
         });
         sceneLog.updateLog(`${toUnit.getName()} received (${fireShieldDmg}) from Fire Shield`);
@@ -71,9 +71,7 @@ export function processFireShieldAbility(
             sceneLog.updateLog(`${toUnit.getName()} died`);
             unitIdsDied.push(toUnit.getId());
             fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-            fromUnit.applyMoraleStepsModifier(
-                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-            );
+
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(toUnit);
         }
     }
