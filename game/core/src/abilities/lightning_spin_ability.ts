@@ -76,7 +76,14 @@ export function processLightningSpinAbility(
                 continue;
             }
 
-            const isAttackMissed = HoCLib.getRandomInt(0, 100) < fromUnit.calculateMissChance(enemy);
+            const isAttackMissed =
+                HoCLib.getRandomInt(0, 100) <
+                fromUnit.calculateMissChance(
+                    enemy,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(enemy.getTeam()),
+                );
 
             if (fromUnit.hasDebuffActive("Cowardice") && fromUnit.getCumulativeHp() < enemy.getCumulativeHp()) {
                 continue;
@@ -87,7 +94,13 @@ export function processLightningSpinAbility(
                 continue;
             }
 
-            let abilityMultiplier = fromUnit.calculateAbilityMultiplier(lightningSpinAbility) * commonAbilityMultiplier;
+            let abilityMultiplier =
+                fromUnit.calculateAbilityMultiplier(
+                    lightningSpinAbility,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+                ) * commonAbilityMultiplier;
             const paralysisAttackerEffect = fromUnit.getEffect("Paralysis");
             if (paralysisAttackerEffect) {
                 abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;

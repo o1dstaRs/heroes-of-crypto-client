@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, ISceneLog, Unit, HoCLib } from "@heroesofcrypto/common";
+import { AbilityType, ISceneLog, Unit, HoCLib, FightStateManager } from "@heroesofcrypto/common";
 
 export function processShatterArmorAbility(
     fromUnit: Unit,
@@ -37,7 +37,13 @@ export function processShatterArmorAbility(
             Number(
                 (
                     (activeShatterArmorEffect?.getPower() ?? 0) +
-                    fromUnit.calculateAbilityCount(shatterArmorAbility) * amplifier
+                    fromUnit.calculateAbilityCount(
+                        shatterArmorAbility,
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+                    ) *
+                        amplifier
                 ).toFixed(2),
             ),
         );

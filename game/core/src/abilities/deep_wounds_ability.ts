@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { ISceneLog, Unit, HoCLib } from "@heroesofcrypto/common";
+import { ISceneLog, Unit, HoCLib, FightStateManager } from "@heroesofcrypto/common";
 
 export function processDeepWoundsAbility(
     fromUnit: Unit,
@@ -31,13 +31,22 @@ export function processDeepWoundsAbility(
         deepWoundsLevel3Ability?.getEffect() ??
         null;
     if (deepWoundsLevel1Ability && deepWoundsLevel1Ability.getEffect()) {
-        powerSum += fromUnit.calculateAbilityCount(deepWoundsLevel1Ability);
+        powerSum += fromUnit.calculateAbilityCount(
+            deepWoundsLevel1Ability,
+            FightStateManager.getInstance().getFightProperties().getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+        );
     }
     if (deepWoundsLevel2Ability && deepWoundsLevel2Ability.getEffect()) {
-        powerSum += fromUnit.calculateAbilityCount(deepWoundsLevel2Ability);
+        powerSum += fromUnit.calculateAbilityCount(
+            deepWoundsLevel2Ability,
+            FightStateManager.getInstance().getFightProperties().getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+        );
     }
     if (deepWoundsLevel3Ability && deepWoundsLevel3Ability.getEffect()) {
-        powerSum += fromUnit.calculateAbilityCount(deepWoundsLevel3Ability);
+        powerSum += fromUnit.calculateAbilityCount(
+            deepWoundsLevel3Ability,
+            FightStateManager.getInstance().getFightProperties().getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+        );
     }
 
     if (powerSum && deepWoundsEffect) {

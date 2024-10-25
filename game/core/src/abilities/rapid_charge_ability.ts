@@ -9,14 +9,19 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Unit } from "@heroesofcrypto/common";
+import { Unit, FightStateManager } from "@heroesofcrypto/common";
 
 export function processRapidChargeAbility(attackerUnit: Unit, chargeDistanceCells: number): number {
     let abilityMultiplier = 1;
 
     const rapidChargeAbility = attackerUnit.getAbility("Rapid Charge");
     if (rapidChargeAbility) {
-        let rapidChargeMultiplier = attackerUnit.calculateAbilityMultiplier(rapidChargeAbility);
+        let rapidChargeMultiplier = attackerUnit.calculateAbilityMultiplier(
+            rapidChargeAbility,
+            FightStateManager.getInstance()
+                .getFightProperties()
+                .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
+        );
         if (rapidChargeMultiplier < abilityMultiplier) {
             return abilityMultiplier;
         }

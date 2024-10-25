@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, ISceneLog, HoCLib, Unit } from "@heroesofcrypto/common";
+import { AbilityType, ISceneLog, HoCLib, Unit, FightStateManager } from "@heroesofcrypto/common";
 
 export function processParalysisAbility(
     fromUnit: Unit,
@@ -22,7 +22,17 @@ export function processParalysisAbility(
     }
 
     const paralysisAbility = fromUnit.getAbility("Paralysis");
-    if (paralysisAbility && HoCLib.getRandomInt(0, 100) < fromUnit.calculateAbilityApplyChance(paralysisAbility) * 2) {
+    if (
+        paralysisAbility &&
+        HoCLib.getRandomInt(0, 100) <
+            fromUnit.calculateAbilityApplyChance(
+                paralysisAbility,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+            ) *
+                2
+    ) {
         const paralysisEffect = paralysisAbility.getEffect();
         if (!paralysisEffect) {
             return;
@@ -37,7 +47,18 @@ export function processParalysisAbility(
 
         // need to overwrite actual effect power here
         paralysisEffect.setPower(
-            Number((fromUnit.calculateEffectMultiplier(paralysisEffect) * 100 * amplifier).toFixed(2)),
+            Number(
+                (
+                    fromUnit.calculateEffectMultiplier(
+                        paralysisEffect,
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+                    ) *
+                    100 *
+                    amplifier
+                ).toFixed(2),
+            ),
         );
 
         const laps = paralysisEffect.getLaps();

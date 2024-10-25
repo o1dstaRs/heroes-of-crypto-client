@@ -160,7 +160,10 @@ export function processChainLightningAbility(
         );
     }
 
-    const abilityMultiplier = fromUnit.calculateAbilityMultiplier(chainLightningAbility);
+    const abilityMultiplier = fromUnit.calculateAbilityMultiplier(
+        chainLightningAbility,
+        FightStateManager.getInstance().getFightProperties().getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+    );
     const targetEnemyLightningDamage =
         Math.floor(abilityMultiplier * attackDamage * (1 - targetMagicResist / 100)) * heavyArmorMultiplierTarget;
     if (targetEnemyLightningDamage && !targetUnit.isDead()) {

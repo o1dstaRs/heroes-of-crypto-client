@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { ISceneLog, Unit, HoCLib } from "@heroesofcrypto/common";
+import { ISceneLog, Unit, HoCLib, FightStateManager } from "@heroesofcrypto/common";
 
 export function processPegasusLightAbility(
     fromUnit: Unit,
@@ -33,7 +33,14 @@ export function processPegasusLightAbility(
         }
 
         // need to overwrite actual effect power here
-        pegasusLightEffect.setPower(fromUnit.calculateEffectMultiplier(pegasusLightEffect));
+        pegasusLightEffect.setPower(
+            fromUnit.calculateEffectMultiplier(
+                pegasusLightEffect,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+            ),
+        );
 
         const laps = pegasusLightEffect.getLaps();
 

@@ -71,8 +71,16 @@ export function processFireBreathAbility(
             fromUnit.calculateAttackDamage(
                 nextStandingTarget,
                 AttackType.MELEE,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
                 1,
-                fromUnit.calculateAbilityMultiplier(fireBreathAbility),
+                fromUnit.calculateAbilityMultiplier(
+                    fireBreathAbility,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+                ),
             ) *
                 (1 - nextStandingTarget.getMagicResist() / 100) *
                 multiplier,

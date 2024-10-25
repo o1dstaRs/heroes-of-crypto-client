@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { ISceneLog, Unit } from "@heroesofcrypto/common";
+import { ISceneLog, Unit, FightStateManager } from "@heroesofcrypto/common";
 
 export function processMinerAbility(attackerUnit: Unit, targetUnit: Unit, sceneLog: ISceneLog) {
     const minerAbility = attackerUnit.getAbility("Miner");
@@ -18,7 +18,10 @@ export function processMinerAbility(attackerUnit: Unit, targetUnit: Unit, sceneL
         return;
     }
 
-    const armorAmount = attackerUnit.calculateAbilityCount(minerAbility);
+    const armorAmount = attackerUnit.calculateAbilityCount(
+        minerAbility,
+        FightStateManager.getInstance().getFightProperties().getAdditionalAbilityPowerPerTeam(targetUnit.getTeam()),
+    );
     if (armorAmount > 0) {
         attackerUnit.increaseBaseArmor(armorAmount);
         targetUnit.decreaseBaseArmor(armorAmount);

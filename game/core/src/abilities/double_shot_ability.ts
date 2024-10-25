@@ -20,6 +20,7 @@ import {
     IAnimationData,
     IStatisticHolder,
     IDamageStatistic,
+    FightStateManager,
 } from "@heroesofcrypto/common";
 
 import { IVisibleDamage } from "../state/visible_state";
@@ -70,7 +71,12 @@ export function processDoubleShotAbility(
         };
     }
 
-    const isSecondAttackMissed = HoCLib.getRandomInt(0, 100) < fromUnit.calculateMissChance(toUnit);
+    const isSecondAttackMissed =
+        HoCLib.getRandomInt(0, 100) <
+        fromUnit.calculateMissChance(
+            toUnit,
+            FightStateManager.getInstance().getFightProperties().getAdditionalAbilityPowerPerTeam(toUnit.getTeam()),
+        );
     if (isSecondAttackMissed) {
         sceneLog.updateLog(`${fromUnit.getName()} misses attk ${toUnit.getName()}`);
         return {
@@ -106,14 +112,25 @@ export function processDoubleShotAbility(
             }
         }
     } else {
-        let abilityMultiplier = fromUnit.calculateAbilityMultiplier(doubleShotAbility);
+        let abilityMultiplier = fromUnit.calculateAbilityMultiplier(
+            doubleShotAbility,
+            FightStateManager.getInstance().getFightProperties().getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+        );
         const paralysisAttackerEffect = fromUnit.getEffect("Paralysis");
         if (paralysisAttackerEffect) {
             abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
         }
         damageFromAttack = processLuckyStrikeAbility(
             fromUnit,
-            fromUnit.calculateAttackDamage(toUnit, AttackType.RANGE, hoverRangeAttackDivisor, abilityMultiplier),
+            fromUnit.calculateAttackDamage(
+                toUnit,
+                AttackType.RANGE,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+                hoverRangeAttackDivisor,
+                abilityMultiplier,
+            ),
             sceneLog,
         );
         damageForAnimation.render = true;

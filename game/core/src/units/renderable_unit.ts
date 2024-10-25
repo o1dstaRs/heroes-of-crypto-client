@@ -394,13 +394,15 @@ export class RenderableUnit extends Unit {
     /**
      * Refreshes the abilities descriptions for the UI, according to current unit stats.
      **/
-    protected refreshAbilitiesDescriptions(): void {
+    protected refreshAbilitiesDescriptions(_synergyAbilityPowerIncrease: number): void {
         // Heavy Armor
         const heavyArmorAbility = this.getAbility("Heavy Armor");
         if (heavyArmorAbility) {
             const percentage = Number(
                 (
-                    ((heavyArmorAbility.getPower() + this.getLuck()) / 100 / HoCConstants.MAX_UNIT_STACK_POWER) *
+                    ((heavyArmorAbility.getPower() + this.getLuck() + _synergyAbilityPowerIncrease) /
+                        100 /
+                        HoCConstants.MAX_UNIT_STACK_POWER) *
                     this.getStackPower() *
                     100
                 ).toFixed(2),
@@ -414,7 +416,9 @@ export class RenderableUnit extends Unit {
         // Lightning Spin
         const lightningSpinAbility = this.getAbility("Lightning Spin");
         if (lightningSpinAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(lightningSpinAbility) * 100).toFixed(2));
+            const percentage = Number(
+                (this.calculateAbilityMultiplier(lightningSpinAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 lightningSpinAbility.getName(),
                 lightningSpinAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -424,7 +428,9 @@ export class RenderableUnit extends Unit {
         // Fire Breath
         const fireBreathAbility = this.getAbility("Fire Breath");
         if (fireBreathAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(fireBreathAbility) * 100).toFixed(2));
+            const percentage = Number(
+                (this.calculateAbilityMultiplier(fireBreathAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 fireBreathAbility.getName(),
                 fireBreathAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -434,7 +440,9 @@ export class RenderableUnit extends Unit {
         // Skewer Strike
         const skewerStrikeAbility = this.getAbility("Skewer Strike");
         if (skewerStrikeAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(skewerStrikeAbility) * 100).toFixed(2));
+            const percentage = Number(
+                (this.calculateAbilityMultiplier(skewerStrikeAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 skewerStrikeAbility.getName(),
                 skewerStrikeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -444,7 +452,9 @@ export class RenderableUnit extends Unit {
         // Fire Shield
         const fireShieldAbility = this.getAbility("Fire Shield");
         if (fireShieldAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(fireShieldAbility) * 100).toFixed(2));
+            const percentage = Number(
+                (this.calculateAbilityMultiplier(fireShieldAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 fireShieldAbility.getName(),
                 fireShieldAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -454,7 +464,10 @@ export class RenderableUnit extends Unit {
         // Backstab
         const backstabAbility = this.getAbility("Backstab");
         if (backstabAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(backstabAbility) * 100).toFixed(2)) - 100;
+            const percentage =
+                Number(
+                    (this.calculateAbilityMultiplier(backstabAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+                ) - 100;
             this.refreshAbiltyDescription(
                 backstabAbility.getName(),
                 backstabAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -464,7 +477,9 @@ export class RenderableUnit extends Unit {
         // Stun
         const stunAbility = this.getAbility("Stun");
         if (stunAbility) {
-            const percentage = Number(this.calculateAbilityApplyChance(stunAbility).toFixed(2));
+            const percentage = Number(
+                this.calculateAbilityApplyChance(stunAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 stunAbility.getName(),
                 stunAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -474,7 +489,9 @@ export class RenderableUnit extends Unit {
         // Double Punch
         const doublePunchAbility = this.getAbility("Double Punch");
         if (doublePunchAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(doublePunchAbility) * 100).toFixed(2));
+            const percentage = Number(
+                (this.calculateAbilityMultiplier(doublePunchAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 doublePunchAbility.getName(),
                 doublePunchAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -484,7 +501,9 @@ export class RenderableUnit extends Unit {
         // Piercing Spear
         const piercingSpearAbility = this.getAbility("Piercing Spear");
         if (piercingSpearAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(piercingSpearAbility) * 100).toFixed(2));
+            const percentage = Number(
+                (this.calculateAbilityMultiplier(piercingSpearAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 piercingSpearAbility.getName(),
                 piercingSpearAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -494,7 +513,9 @@ export class RenderableUnit extends Unit {
         // Boost Health
         const boostHealthAbility = this.getAbility("Boost Health");
         if (boostHealthAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(boostHealthAbility) * 100).toFixed(2));
+            const percentage = Number(
+                (this.calculateAbilityMultiplier(boostHealthAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 boostHealthAbility.getName(),
                 boostHealthAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -504,7 +525,9 @@ export class RenderableUnit extends Unit {
         // Double Shot
         const doubleShotAbility = this.getAbility("Double Shot");
         if (doubleShotAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(doubleShotAbility) * 100).toFixed(2));
+            const percentage = Number(
+                (this.calculateAbilityMultiplier(doubleShotAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 doubleShotAbility.getName(),
                 doubleShotAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -514,7 +537,9 @@ export class RenderableUnit extends Unit {
         // Blindness
         const blindnessAbility = this.getAbility("Blindness");
         if (blindnessAbility) {
-            const percentage = Number(this.calculateAbilityApplyChance(blindnessAbility).toFixed(2));
+            const percentage = Number(
+                this.calculateAbilityApplyChance(blindnessAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 blindnessAbility.getName(),
                 blindnessAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -524,7 +549,10 @@ export class RenderableUnit extends Unit {
         // Sharpened Weapons Aura
         const sharpenedWeaponsAuraAbility = this.getAbility("Sharpened Weapons Aura");
         if (sharpenedWeaponsAuraAbility) {
-            const percentage = (this.calculateAbilityMultiplier(sharpenedWeaponsAuraAbility) * 100 - 100).toFixed(2);
+            const percentage = (
+                this.calculateAbilityMultiplier(sharpenedWeaponsAuraAbility, _synergyAbilityPowerIncrease) * 100 -
+                100
+            ).toFixed(2);
             this.refreshAbiltyDescription(
                 sharpenedWeaponsAuraAbility.getName(),
                 sharpenedWeaponsAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage),
@@ -534,7 +562,12 @@ export class RenderableUnit extends Unit {
         // War Anger Aura
         const warAngerAuraAbility = this.getAbility("War Anger Aura");
         if (warAngerAuraAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(warAngerAuraAbility) * 100).toFixed(2)) - 100;
+            const percentage =
+                Number(
+                    (this.calculateAbilityMultiplier(warAngerAuraAbility, _synergyAbilityPowerIncrease) * 100).toFixed(
+                        2,
+                    ),
+                ) - 100;
             this.refreshAbiltyDescription(
                 warAngerAuraAbility.getName(),
                 warAngerAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -545,7 +578,11 @@ export class RenderableUnit extends Unit {
         const arrowsWingshieldAuraAbility = this.getAbility("Arrows Wingshield Aura");
         if (arrowsWingshieldAuraAbility) {
             const percentage =
-                Number((this.calculateAbilityMultiplier(arrowsWingshieldAuraAbility) * 100).toFixed(2)) - 100;
+                Number(
+                    (
+                        this.calculateAbilityMultiplier(arrowsWingshieldAuraAbility, _synergyAbilityPowerIncrease) * 100
+                    ).toFixed(2),
+                ) - 100;
             this.refreshAbiltyDescription(
                 arrowsWingshieldAuraAbility.getName(),
                 arrowsWingshieldAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -569,7 +606,9 @@ export class RenderableUnit extends Unit {
         // Boar Saliva
         const boarSalivaAbility = this.getAbility("Boar Saliva");
         if (boarSalivaAbility) {
-            const percentage = Number(this.calculateAbilityApplyChance(boarSalivaAbility).toFixed(2));
+            const percentage = Number(
+                this.calculateAbilityApplyChance(boarSalivaAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 boarSalivaAbility.getName(),
                 boarSalivaAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -579,7 +618,9 @@ export class RenderableUnit extends Unit {
         // Aggr
         const aggrAbility = this.getAbility("Aggr");
         if (aggrAbility) {
-            const percentage = Number(this.calculateAbilityApplyChance(aggrAbility).toFixed(2));
+            const percentage = Number(
+                this.calculateAbilityApplyChance(aggrAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 aggrAbility.getName(),
                 aggrAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -589,7 +630,9 @@ export class RenderableUnit extends Unit {
         // Wardguard
         const wardguardAbility = this.getAbility("Wardguard");
         if (wardguardAbility) {
-            const percentage = Number(this.calculateAbilityApplyChance(wardguardAbility).toFixed(2));
+            const percentage = Number(
+                this.calculateAbilityApplyChance(wardguardAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 wardguardAbility.getName(),
                 wardguardAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -599,7 +642,9 @@ export class RenderableUnit extends Unit {
         // Magic Shield
         const magicShieldAbility = this.getAbility("Magic Shield");
         if (magicShieldAbility) {
-            const percentage = Number(this.calculateAbilityApplyChance(magicShieldAbility).toFixed(2));
+            const percentage = Number(
+                this.calculateAbilityApplyChance(magicShieldAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 magicShieldAbility.getName(),
                 magicShieldAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -609,7 +654,9 @@ export class RenderableUnit extends Unit {
         // Dodge
         const dodgeAbility = this.getAbility("Dodge");
         if (dodgeAbility) {
-            const percentage = Number(this.calculateAbilityApplyChance(dodgeAbility).toFixed(2));
+            const percentage = Number(
+                this.calculateAbilityApplyChance(dodgeAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 dodgeAbility.getName(),
                 dodgeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -619,7 +666,9 @@ export class RenderableUnit extends Unit {
         // Small Specie
         const smallSpecieAbility = this.getAbility("Small Specie");
         if (smallSpecieAbility) {
-            const percentage = Number(this.calculateAbilityApplyChance(smallSpecieAbility).toFixed(2));
+            const percentage = Number(
+                this.calculateAbilityApplyChance(smallSpecieAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 smallSpecieAbility.getName(),
                 smallSpecieAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -629,7 +678,11 @@ export class RenderableUnit extends Unit {
         // Absorb Penalties Aura
         const absorbPenaltiesAuraAbility = this.getAbility("Absorb Penalties Aura");
         if (absorbPenaltiesAuraAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(absorbPenaltiesAuraAbility) * 100).toFixed(2));
+            const percentage = Number(
+                (
+                    this.calculateAbilityMultiplier(absorbPenaltiesAuraAbility, _synergyAbilityPowerIncrease) * 100
+                ).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 absorbPenaltiesAuraAbility.getName(),
                 absorbPenaltiesAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -639,7 +692,9 @@ export class RenderableUnit extends Unit {
         // Petrifying Gaze
         const petrifyingGazeAbility = this.getAbility("Petrifying Gaze");
         if (petrifyingGazeAbility) {
-            const percentage = Number(this.calculateAbilityApplyChance(petrifyingGazeAbility).toFixed(2));
+            const percentage = Number(
+                this.calculateAbilityApplyChance(petrifyingGazeAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 petrifyingGazeAbility.getName(),
                 petrifyingGazeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -649,7 +704,9 @@ export class RenderableUnit extends Unit {
         // Spit Ball
         const spitBallAbility = this.getAbility("Spit Ball");
         if (spitBallAbility) {
-            const percentage = Number(this.calculateAbilityApplyChance(spitBallAbility).toFixed(2));
+            const percentage = Number(
+                this.calculateAbilityApplyChance(spitBallAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 spitBallAbility.getName(),
                 spitBallAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -659,7 +716,9 @@ export class RenderableUnit extends Unit {
         // Large Caliber
         const largeCaliberAbility = this.getAbility("Large Caliber");
         if (largeCaliberAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(largeCaliberAbility) * 100).toFixed(2));
+            const percentage = Number(
+                (this.calculateAbilityMultiplier(largeCaliberAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 largeCaliberAbility.getName(),
                 largeCaliberAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -669,7 +728,9 @@ export class RenderableUnit extends Unit {
         // Area Throw
         const areaThrowAbility = this.getAbility("Area Throw");
         if (areaThrowAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(areaThrowAbility) * 100).toFixed(2));
+            const percentage = Number(
+                (this.calculateAbilityMultiplier(areaThrowAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 areaThrowAbility.getName(),
                 areaThrowAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -679,7 +740,9 @@ export class RenderableUnit extends Unit {
         // Through Shot
         const throughShotAbility = this.getAbility("Through Shot");
         if (throughShotAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(throughShotAbility) * 100).toFixed(2));
+            const percentage = Number(
+                (this.calculateAbilityMultiplier(throughShotAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 throughShotAbility.getName(),
                 throughShotAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -694,14 +757,22 @@ export class RenderableUnit extends Unit {
                 skyRunnerAbility
                     .getDesc()
                     .join("\n")
-                    .replace(/\{\}/g, this.calculateAbilityCount(skyRunnerAbility).toString()),
+                    .replace(
+                        /\{\}/g,
+                        this.calculateAbilityCount(skyRunnerAbility, _synergyAbilityPowerIncrease).toString(),
+                    ),
             );
         }
 
         // Lucky Strike
         const luckyStrikeAbility = this.getAbility("Lucky Strike");
         if (luckyStrikeAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(luckyStrikeAbility) * 100).toFixed(2)) - 100;
+            const percentage =
+                Number(
+                    (this.calculateAbilityMultiplier(luckyStrikeAbility, _synergyAbilityPowerIncrease) * 100).toFixed(
+                        2,
+                    ),
+                ) - 100;
             this.refreshAbiltyDescription(
                 luckyStrikeAbility.getName(),
                 luckyStrikeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -716,14 +787,22 @@ export class RenderableUnit extends Unit {
                 shatterArmorAbility
                     .getDesc()
                     .join("\n")
-                    .replace(/\{\}/g, this.calculateAbilityCount(shatterArmorAbility).toString()),
+                    .replace(
+                        /\{\}/g,
+                        this.calculateAbilityCount(shatterArmorAbility, _synergyAbilityPowerIncrease).toString(),
+                    ),
             );
         }
 
         // Rapid Charge
         const rapidChargeAbility = this.getAbility("Rapid Charge");
         if (rapidChargeAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(rapidChargeAbility) * 100).toFixed(2)) - 100;
+            const percentage =
+                Number(
+                    (this.calculateAbilityMultiplier(rapidChargeAbility, _synergyAbilityPowerIncrease) * 100).toFixed(
+                        2,
+                    ),
+                ) - 100;
             this.refreshAbiltyDescription(
                 rapidChargeAbility.getName(),
                 rapidChargeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -731,21 +810,28 @@ export class RenderableUnit extends Unit {
         }
 
         // Wolf Trail Aura
-        const wolfTrailAuraAbility = this.getAbility("Wolf Trail Aura");
-        if (wolfTrailAuraAbility) {
-            this.refreshAbiltyDescription(
-                wolfTrailAuraAbility.getName(),
-                wolfTrailAuraAbility
-                    .getDesc()
-                    .join("\n")
-                    .replace(/\{\}/g, this.calculateAbilityCount(wolfTrailAuraAbility).toString()),
-            );
+        const wolfTrailAuraEffect = this.getAuraEffect("Wolf Trail");
+        if (wolfTrailAuraEffect) {
+            const auraEffect = this.effectFactory.makeAuraEffect("Wolf Trail");
+            if (auraEffect) {
+                this.refreshAbiltyDescription(
+                    "Wolf Trail Aura",
+                    wolfTrailAuraEffect
+                        .getDesc()
+                        .replace(/\{\}/g, this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease).toString()),
+                );
+            }
         }
 
         // Penetrating Bite
         const penetratingBiteAbility = this.getAbility("Penetrating Bite");
         if (penetratingBiteAbility) {
-            const percentage = Number((this.calculateAbilityMultiplier(penetratingBiteAbility) * 100).toFixed(2)) - 100;
+            const percentage =
+                Number(
+                    (
+                        this.calculateAbilityMultiplier(penetratingBiteAbility, _synergyAbilityPowerIncrease) * 100
+                    ).toFixed(2),
+                ) - 100;
             this.refreshAbiltyDescription(
                 penetratingBiteAbility.getName(),
                 penetratingBiteAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -755,7 +841,9 @@ export class RenderableUnit extends Unit {
         // Pegasus Light
         const pegasusLightAbility = this.getAbility("Pegasus Light");
         if (pegasusLightAbility) {
-            const percentage = Number(this.calculateAbilityApplyChance(pegasusLightAbility).toFixed(2));
+            const percentage = Number(
+                this.calculateAbilityApplyChance(pegasusLightAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 pegasusLightAbility.getName(),
                 pegasusLightAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -766,7 +854,7 @@ export class RenderableUnit extends Unit {
         const paralysisAbility = this.getAbility("Paralysis");
         if (paralysisAbility) {
             const description = paralysisAbility.getDesc().join("\n");
-            const reduction = this.calculateAbilityApplyChance(paralysisAbility);
+            const reduction = this.calculateAbilityApplyChance(paralysisAbility, _synergyAbilityPowerIncrease);
             const chance = Math.min(100, reduction * 2);
             const updatedDescription = description
                 .replace("{}", Number(chance.toFixed(2)).toString())
@@ -782,7 +870,10 @@ export class RenderableUnit extends Unit {
                 deepWoundsLevel1Ability
                     .getDesc()
                     .join("\n")
-                    .replace(/\{\}/g, this.calculateAbilityCount(deepWoundsLevel1Ability).toString()),
+                    .replace(
+                        /\{\}/g,
+                        this.calculateAbilityCount(deepWoundsLevel1Ability, _synergyAbilityPowerIncrease).toString(),
+                    ),
             );
         }
 
@@ -794,7 +885,10 @@ export class RenderableUnit extends Unit {
                 deepWoundsLevel2Ability
                     .getDesc()
                     .join("\n")
-                    .replace(/\{\}/g, this.calculateAbilityCount(deepWoundsLevel2Ability).toString()),
+                    .replace(
+                        /\{\}/g,
+                        this.calculateAbilityCount(deepWoundsLevel2Ability, _synergyAbilityPowerIncrease).toString(),
+                    ),
             );
         }
 
@@ -806,7 +900,10 @@ export class RenderableUnit extends Unit {
                 deepWoundsLevel3Ability
                     .getDesc()
                     .join("\n")
-                    .replace(/\{\}/g, this.calculateAbilityCount(deepWoundsLevel3Ability).toString()),
+                    .replace(
+                        /\{\}/g,
+                        this.calculateAbilityCount(deepWoundsLevel3Ability, _synergyAbilityPowerIncrease).toString(),
+                    ),
             );
         }
 
@@ -835,14 +932,21 @@ export class RenderableUnit extends Unit {
         if (minerAbility) {
             this.refreshAbiltyDescription(
                 minerAbility.getName(),
-                minerAbility.getDesc().join("\n").replace(/\{\}/g, this.calculateAbilityCount(minerAbility).toString()),
+                minerAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(
+                        /\{\}/g,
+                        this.calculateAbilityCount(minerAbility, _synergyAbilityPowerIncrease).toString(),
+                    ),
             );
         }
 
         // Chain Lightning
         const chainLightningAbility = this.getAbility("Chain Lightning");
         if (chainLightningAbility) {
-            const percentage = this.calculateAbilityMultiplier(chainLightningAbility) * 100;
+            const percentage =
+                this.calculateAbilityMultiplier(chainLightningAbility, _synergyAbilityPowerIncrease) * 100;
             const description = chainLightningAbility.getDesc().join("\n");
             const updatedDescription = description
                 .replace("{}", Number(percentage.toFixed()).toString())
@@ -860,7 +964,12 @@ export class RenderableUnit extends Unit {
                 crusadeAbility
                     .getDesc()
                     .join("\n")
-                    .replace(/\{\}/g, Number(this.calculateAbilityCount(crusadeAbility).toFixed(2)).toString()),
+                    .replace(
+                        /\{\}/g,
+                        Number(
+                            this.calculateAbilityCount(crusadeAbility, _synergyAbilityPowerIncrease).toFixed(2),
+                        ).toString(),
+                    ),
             );
         }
 
@@ -872,7 +981,12 @@ export class RenderableUnit extends Unit {
                 dullingDefenseAbility
                     .getDesc()
                     .join("\n")
-                    .replace(/\{\}/g, Number(this.calculateAbilityCount(dullingDefenseAbility).toFixed(1)).toString()),
+                    .replace(
+                        /\{\}/g,
+                        Number(
+                            this.calculateAbilityCount(dullingDefenseAbility, _synergyAbilityPowerIncrease).toFixed(1),
+                        ).toString(),
+                    ),
             );
         }
     }

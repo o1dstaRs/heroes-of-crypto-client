@@ -553,7 +553,14 @@ export class AttackHandler {
             affectedUnit: targetUnit,
         });
 
-        const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(targetUnit);
+        const isAttackMissed =
+            HoCLib.getRandomInt(0, 100) <
+            attackerUnit.calculateMissChance(
+                targetUnit,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAbilityPowerPerTeam(targetUnit.getTeam()),
+            );
         let damageFromAttack = 0;
 
         const fightProperties = FightStateManager.getInstance().getFightProperties();
@@ -574,7 +581,14 @@ export class AttackHandler {
             ) &&
             (!targetUnit.getTarget() || targetUnit.getTarget() === attackerUnit.getId())
         ) {
-            isResponseMissed = HoCLib.getRandomInt(0, 100) < targetUnit.calculateMissChance(rangeResponseUnit);
+            isResponseMissed =
+                HoCLib.getRandomInt(0, 100) <
+                targetUnit.calculateMissChance(
+                    rangeResponseUnit,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(rangeResponseUnit.getTeam()),
+                );
             animationData.push({
                 fromPosition: targetUnit.getPosition(),
                 toPosition: attackerUnit.getPosition(),
@@ -615,6 +629,9 @@ export class AttackHandler {
                 attackerUnit.calculateAttackDamage(
                     targetUnit,
                     AttackType.RANGE,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
                     hoverRangeAttackDivisor,
                     abilityMultiplier,
                     decreaseNumberOfShots,
@@ -662,6 +679,9 @@ export class AttackHandler {
                     targetUnit.calculateAttackDamage(
                         rangeResponseUnit,
                         AttackType.RANGE,
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getAdditionalAbilityPowerPerTeam(targetUnit.getTeam()),
                         rangeResponseAttackDivisor,
                         abilityMultiplier,
                     ),
@@ -968,6 +988,9 @@ export class AttackHandler {
                         attackFromCell,
                         FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                         attackerUnit,
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
                         currentActiveKnownPaths,
                     );
                 if (!moveInitiated) {
@@ -1018,6 +1041,9 @@ export class AttackHandler {
                         attackFromCell,
                         FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                         attackerUnit,
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
                         currentActiveKnownPaths,
                     );
                 if (!moveInitiated) {
@@ -1074,7 +1100,12 @@ export class AttackHandler {
 
         if (abilitiesWithPositionCoeff.length) {
             for (const awpc of abilitiesWithPositionCoeff) {
-                abilityMultiplier *= attackerUnit.calculateAbilityMultiplier(awpc);
+                abilityMultiplier *= attackerUnit.calculateAbilityMultiplier(
+                    awpc,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
+                );
             }
         }
 
@@ -1088,7 +1119,14 @@ export class AttackHandler {
             abilityMultiplier *= 1 + deepWoundsTargetEffect.getPower() / 100;
         }
 
-        const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(targetUnit);
+        const isAttackMissed =
+            HoCLib.getRandomInt(0, 100) <
+            attackerUnit.calculateMissChance(
+                targetUnit,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAbilityPowerPerTeam(targetUnit.getTeam()),
+            );
 
         attackerUnit.cleanupAttackModIncrease();
         attackerUnit.increaseAttackMod(unitsHolder.getUnitAuraAttackMod(attackerUnit));
@@ -1096,7 +1134,15 @@ export class AttackHandler {
         const damageFromAttack =
             processLuckyStrikeAbility(
                 attackerUnit,
-                attackerUnit.calculateAttackDamage(targetUnit, AttackType.MELEE, 1, abilityMultiplier),
+                attackerUnit.calculateAttackDamage(
+                    targetUnit,
+                    AttackType.MELEE,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
+                    1,
+                    abilityMultiplier,
+                ),
                 this.sceneLog,
             ) + processPenetratingBiteAbility(attackerUnit, targetUnit);
 
@@ -1174,7 +1220,14 @@ export class AttackHandler {
                 ) &&
                 (!targetUnit.getTarget() || targetUnit.getTarget() === attackerUnit.getId())
             ) {
-                const isResponseMissed = HoCLib.getRandomInt(0, 100) < targetUnit.calculateMissChance(attackerUnit);
+                const isResponseMissed =
+                    HoCLib.getRandomInt(0, 100) <
+                    targetUnit.calculateMissChance(
+                        attackerUnit,
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
+                    );
 
                 updateUnitsDied(
                     processFireBreathAbility(
@@ -1228,7 +1281,12 @@ export class AttackHandler {
 
                     if (abilitiesWithPositionCoeffResp.length) {
                         for (const awpc of abilitiesWithPositionCoeffResp) {
-                            abilityMultiplier *= targetUnit.calculateAbilityMultiplier(awpc);
+                            abilityMultiplier *= targetUnit.calculateAbilityMultiplier(
+                                awpc,
+                                FightStateManager.getInstance()
+                                    .getFightProperties()
+                                    .getAdditionalAbilityPowerPerTeam(targetUnit.getTeam()),
+                            );
                         }
                     }
 
@@ -1250,7 +1308,15 @@ export class AttackHandler {
                     const damageFromResponse =
                         processLuckyStrikeAbility(
                             targetUnit,
-                            targetUnit.calculateAttackDamage(attackerUnit, AttackType.MELEE, 1, abilityMultiplier),
+                            targetUnit.calculateAttackDamage(
+                                attackerUnit,
+                                AttackType.MELEE,
+                                FightStateManager.getInstance()
+                                    .getFightProperties()
+                                    .getAdditionalAbilityPowerPerTeam(targetUnit.getTeam()),
+                                1,
+                                abilityMultiplier,
+                            ),
                             this.sceneLog,
                         ) + processPenetratingBiteAbility(targetUnit, attackerUnit);
 
@@ -1606,6 +1672,9 @@ export class AttackHandler {
                             attackFromCell,
                             FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                             attackerUnit,
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
                             currentActiveKnownPaths,
                         );
                     if (!moveInitiated) {
@@ -1667,6 +1736,9 @@ export class AttackHandler {
                             attackFromCell,
                             FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                             attackerUnit,
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
                             currentActiveKnownPaths,
                         );
                     if (!moveInitiated) {

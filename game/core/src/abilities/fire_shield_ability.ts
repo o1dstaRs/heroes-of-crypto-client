@@ -48,7 +48,15 @@ export function processFireShieldAbility(
 
         // take magic resist into account
         const fireShieldDmg = Math.floor(
-            Math.ceil(damageFromAttack * fromUnit.calculateAbilityMultiplier(fireShieldAbility)) *
+            Math.ceil(
+                damageFromAttack *
+                    fromUnit.calculateAbilityMultiplier(
+                        fireShieldAbility,
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+                    ),
+            ) *
                 (1 - toUnit.getMagicResist() / 100) *
                 multiplier,
         );

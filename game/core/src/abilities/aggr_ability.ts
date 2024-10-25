@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, HoCLib, ISceneLog, Unit } from "@heroesofcrypto/common";
+import { AbilityType, HoCLib, ISceneLog, Unit, FightStateManager } from "@heroesofcrypto/common";
 
 export function processAggrAbility(
     fromUnit: Unit,
@@ -22,7 +22,16 @@ export function processAggrAbility(
     }
 
     const aggrAbility = fromUnit.getAbility("Aggr");
-    if (aggrAbility && HoCLib.getRandomInt(0, 100) < fromUnit.calculateAbilityApplyChance(aggrAbility)) {
+    if (
+        aggrAbility &&
+        HoCLib.getRandomInt(0, 100) <
+            fromUnit.calculateAbilityApplyChance(
+                aggrAbility,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+            )
+    ) {
         const aggrEffect = aggrAbility.getEffect();
         if (!aggrEffect) {
             return;

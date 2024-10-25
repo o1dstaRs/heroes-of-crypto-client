@@ -23,6 +23,7 @@ import {
     SpellHelper,
     UnitsHolder,
     EffectHelper,
+    FightStateManager,
 } from "@heroesofcrypto/common";
 
 const POSSIBLE_DEBUFFS_TO_FACTIONS = {
@@ -70,7 +71,16 @@ export function processSpitBallAbility(
 
     for (const debuffName of debuffs) {
         const spilBallAbility = fromUnit.getAbility("Spit Ball");
-        if (!spilBallAbility || HoCLib.getRandomInt(0, 100) >= fromUnit.calculateAbilityApplyChance(spilBallAbility)) {
+        if (
+            !spilBallAbility ||
+            HoCLib.getRandomInt(0, 100) >=
+                fromUnit.calculateAbilityApplyChance(
+                    spilBallAbility,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+                )
+        ) {
             continue;
         }
 

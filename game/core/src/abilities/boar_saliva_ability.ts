@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, Unit, HoCLib, ISceneLog } from "@heroesofcrypto/common";
+import { AbilityType, Unit, HoCLib, ISceneLog, FightStateManager } from "@heroesofcrypto/common";
 
 export function processBoarSalivaAbility(
     fromUnit: Unit,
@@ -33,7 +33,18 @@ export function processBoarSalivaAbility(
         }
 
         // need to overwrite actual effect power here
-        boarSalivaEffect.setPower(Number((fromUnit.calculateEffectMultiplier(boarSalivaEffect) * 100).toFixed(2)));
+        boarSalivaEffect.setPower(
+            Number(
+                (
+                    fromUnit.calculateEffectMultiplier(
+                        boarSalivaEffect,
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+                    ) * 100
+                ).toFixed(2),
+            ),
+        );
 
         const laps = boarSalivaEffect.getLaps();
 

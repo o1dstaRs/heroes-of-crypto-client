@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCLib, ISceneLog, Unit } from "@heroesofcrypto/common";
+import { HoCLib, ISceneLog, Unit, FightStateManager } from "@heroesofcrypto/common";
 
 export function processLuckyStrikeAbility(attackerUnit: Unit, damageFromAttack: number, sceneLog: ISceneLog): number {
     const luckyStrikeAbility = attackerUnit.getAbility("Lucky Strike");
@@ -18,9 +18,25 @@ export function processLuckyStrikeAbility(attackerUnit: Unit, damageFromAttack: 
         return damageFromAttack;
     }
 
-    if (HoCLib.getRandomInt(0, 100) < attackerUnit.calculateAbilityApplyChance(luckyStrikeAbility)) {
+    if (
+        HoCLib.getRandomInt(0, 100) <
+        attackerUnit.calculateAbilityApplyChance(
+            luckyStrikeAbility,
+            FightStateManager.getInstance()
+                .getFightProperties()
+                .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
+        )
+    ) {
         sceneLog.updateLog(`${attackerUnit.getName()} activates Lucky Strike`);
-        damageFromAttack = Math.floor(damageFromAttack * attackerUnit.calculateAbilityMultiplier(luckyStrikeAbility));
+        damageFromAttack = Math.floor(
+            damageFromAttack *
+                attackerUnit.calculateAbilityMultiplier(
+                    luckyStrikeAbility,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
+                ),
+        );
     }
 
     return damageFromAttack;

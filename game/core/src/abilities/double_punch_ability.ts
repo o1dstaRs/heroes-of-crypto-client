@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AttackType, HoCLib, Unit, ISceneLog } from "@heroesofcrypto/common";
+import { AttackType, HoCLib, Unit, ISceneLog, FightStateManager } from "@heroesofcrypto/common";
 
 import { processLuckyStrikeAbility } from "./lucky_strike_ability";
 import { processPenetratingBiteAbility } from "./penetrating_bite_ability";
@@ -33,7 +33,13 @@ export function processDoublePunchAbility(fromUnit: Unit, toUnit: Unit, sceneLog
         !toUnit.isDead() &&
         (!fromUnit.getTarget() || fromUnit.getTarget() === toUnit.getId())
     ) {
-        if (HoCLib.getRandomInt(0, 100) < fromUnit.calculateMissChance(toUnit)) {
+        if (
+            HoCLib.getRandomInt(0, 100) <
+            fromUnit.calculateMissChance(
+                toUnit,
+                FightStateManager.getInstance().getFightProperties().getAdditionalAbilityPowerPerTeam(toUnit.getTeam()),
+            )
+        ) {
             sceneLog.updateLog(`${fromUnit.getName()} misses attk ${toUnit.getName()}`);
             return {
                 applied: true,
@@ -42,7 +48,10 @@ export function processDoublePunchAbility(fromUnit: Unit, toUnit: Unit, sceneLog
             };
         }
 
-        let abilityMultiplier = fromUnit.calculateAbilityMultiplier(doublePunchAbility);
+        let abilityMultiplier = fromUnit.calculateAbilityMultiplier(
+            doublePunchAbility,
+            FightStateManager.getInstance().getFightProperties().getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+        );
         const paralysisAttackerEffect = fromUnit.getEffect("Paralysis");
         if (paralysisAttackerEffect) {
             abilityMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
@@ -61,7 +70,15 @@ export function processDoublePunchAbility(fromUnit: Unit, toUnit: Unit, sceneLog
         damageFromAttack =
             processLuckyStrikeAbility(
                 fromUnit,
-                fromUnit.calculateAttackDamage(toUnit, AttackType.MELEE, 1, abilityMultiplier),
+                fromUnit.calculateAttackDamage(
+                    toUnit,
+                    AttackType.MELEE,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+                    1,
+                    abilityMultiplier,
+                ),
                 sceneLog,
             ) + processPenetratingBiteAbility(fromUnit, toUnit);
         const pegasusLightEffect = toUnit.getEffect("Pegasus Light");

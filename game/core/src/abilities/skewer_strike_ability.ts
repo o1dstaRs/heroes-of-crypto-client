@@ -78,8 +78,14 @@ export function processSkewerStrikeAbility(
         const damageFromAttack = fromUnit.calculateAttackDamage(
             nextStandingTarget,
             AttackType.MELEE,
+            FightStateManager.getInstance().getFightProperties().getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
             1,
-            fromUnit.calculateAbilityMultiplier(skewerStrikeAbility),
+            fromUnit.calculateAbilityMultiplier(
+                skewerStrikeAbility,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+            ),
         );
 
         damageStatisticHolder.add({
