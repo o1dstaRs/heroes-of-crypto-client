@@ -94,7 +94,11 @@ export function processPetrifyingGazeAbility(
         // apply the ability damage
         damageStatisticHolder.add({
             unitName: fromUnit.getName(),
-            damage: toUnit.applyDamage(damageFromAbility),
+            damage: toUnit.applyDamage(
+                damageFromAbility,
+                FightStateManager.getInstance().getFightProperties().getBreakChancePerTeam(fromUnit.getTeam()),
+                sceneLog,
+            ),
             team: fromUnit.getTeam(),
         });
 

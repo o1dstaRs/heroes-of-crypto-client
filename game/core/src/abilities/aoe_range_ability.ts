@@ -101,7 +101,13 @@ export function processRangeAOEAbility(
 
                 damageStatisticHolder.add({
                     unitName: attackerUnit.getName(),
-                    damage: unit.applyDamage(damageFromAttack),
+                    damage: unit.applyDamage(
+                        damageFromAttack,
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getBreakChancePerTeam(attackerUnit.getTeam()),
+                        sceneLog,
+                    ),
                     team: attackerUnit.getTeam(),
                 });
                 const pegasusLightEffect = unit.getEffect("Pegasus Light");
@@ -127,9 +133,7 @@ export function processRangeAOEAbility(
                 }
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unit);
-                attackerUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                );
+
                 wasDead.push(unit);
             } else {
                 processStunAbility(attackerUnit, unit, attackerUnit, sceneLog);

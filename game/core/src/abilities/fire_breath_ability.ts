@@ -88,7 +88,7 @@ export function processFireBreathAbility(
 
         damageStatisticHolder.add({
             unitName: fromUnit.getName(),
-            damage: nextStandingTarget.applyDamage(fireBreathAttackDamage),
+            damage: nextStandingTarget.applyDamage(fireBreathAttackDamage, 0 /* magic attack */, sceneLog),
             team: fromUnit.getTeam(),
         });
 
@@ -105,9 +105,7 @@ export function processFireBreathAbility(
         sceneLog.updateLog(`${unitDead.getName()} died`);
         unitIdsDied.push(unitDead.getId());
         fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-        fromUnit.applyMoraleStepsModifier(
-            FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-        );
+
         unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unitDead);
     }
 

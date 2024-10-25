@@ -221,7 +221,7 @@ export class AttackHandler {
             return { completed: false, unitIdsDied, animationData };
         }
 
-        if (targetUnit && targetUnit.hasBuffActive("Hidden")) {
+        if (targetUnit && targetUnit.getTeam() !== attackerUnit.getTeam() && targetUnit.hasBuffActive("Hidden")) {
             return { completed: false, unitIdsDied, animationData };
         }
 
@@ -694,7 +694,14 @@ export class AttackHandler {
 
                 this.damageStatisticHolder.add({
                     unitName: targetUnit.getName(),
-                    damage: rangeResponseUnit.applyDamage(damageFromResponse),
+                    damage: rangeResponseUnit.applyDamage(
+                        damageFromResponse,
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getBreakChancePerTeam(targetUnit.getTeam()),
+                        this.sceneLog,
+                        true,
+                    ),
                     team: targetUnit.getTeam(),
                 });
                 const pegasusLightEffect = rangeResponseUnit.getEffect("Pegasus Light");
@@ -716,7 +723,13 @@ export class AttackHandler {
 
                 this.damageStatisticHolder.add({
                     unitName: attackerUnit.getName(),
-                    damage: targetUnit.applyDamage(damageFromAttack),
+                    damage: targetUnit.applyDamage(
+                        damageFromAttack,
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getBreakChancePerTeam(attackerUnit.getTeam()),
+                        this.sceneLog,
+                    ),
                     team: attackerUnit.getTeam(),
                 });
                 const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
@@ -732,9 +745,6 @@ export class AttackHandler {
                     unitIdsDied.push(targetUnit.getId());
                     attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                     unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
-                    attackerUnit.applyMoraleStepsModifier(
-                        FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                    );
                 }
             } else {
                 processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
@@ -763,9 +773,6 @@ export class AttackHandler {
                         unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(rangeResponseUnit);
                         if (!targetUnit.isDead()) {
                             targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-                            targetUnit.applyMoraleStepsModifier(
-                                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                            );
                         }
                     }
 
@@ -868,9 +875,6 @@ export class AttackHandler {
                 unitIdsDied.push(targetUnit.getId());
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
-                attackerUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                );
             } else if (secondShotResult.applied) {
                 processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
                 processPetrifyingGazeAbility(
@@ -1326,7 +1330,14 @@ export class AttackHandler {
 
                     this.damageStatisticHolder.add({
                         unitName: targetUnit.getName(),
-                        damage: attackerUnit.applyDamage(damageFromResponse),
+                        damage: attackerUnit.applyDamage(
+                            damageFromResponse,
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getBreakChancePerTeam(targetUnit.getTeam()),
+                            this.sceneLog,
+                            true,
+                        ),
                         team: targetUnit.getTeam(),
                     });
                     const pegasusLightEffect = attackerUnit.getEffect("Pegasus Light");
@@ -1387,7 +1398,11 @@ export class AttackHandler {
             damageForAnimation.unitIsSmall = targetUnit.isSmallSize();
             this.damageStatisticHolder.add({
                 unitName: attackerUnit.getName(),
-                damage: targetUnit.applyDamage(damageFromAttack),
+                damage: targetUnit.applyDamage(
+                    damageFromAttack,
+                    FightStateManager.getInstance().getFightProperties().getBreakChancePerTeam(attackerUnit.getTeam()),
+                    this.sceneLog,
+                ),
                 team: attackerUnit.getTeam(),
             });
 
@@ -1433,9 +1448,7 @@ export class AttackHandler {
 
             unitIdsDied.push(attackerUnit.getId());
             targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-            targetUnit.applyMoraleStepsModifier(
-                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-            );
+
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(attackerUnit);
         }
 
@@ -1444,16 +1457,20 @@ export class AttackHandler {
 
             unitIdsDied.push(targetUnit.getId());
             attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-            attackerUnit.applyMoraleStepsModifier(
-                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-            );
+
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
         } else if (secondPunchResult.applied) {
             captureResponse();
             if (secondPunchResult.damage > 0) {
                 this.damageStatisticHolder.add({
                     unitName: attackerUnit.getName(),
-                    damage: targetUnit.applyDamage(secondPunchResult.damage),
+                    damage: targetUnit.applyDamage(
+                        secondPunchResult.damage,
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getBreakChancePerTeam(attackerUnit.getTeam()),
+                        this.sceneLog,
+                    ),
                     team: attackerUnit.getTeam(),
                 });
             }
@@ -1495,9 +1512,7 @@ export class AttackHandler {
 
                 unitIdsDied.push(attackerUnit.getId());
                 targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-                targetUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                );
+
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(attackerUnit);
             }
 
@@ -1506,9 +1521,7 @@ export class AttackHandler {
 
                 unitIdsDied.push(targetUnit.getId());
                 attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-                attackerUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                );
+
                 unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
             }
         }

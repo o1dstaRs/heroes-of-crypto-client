@@ -17,7 +17,6 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [countdown, setCountdown] = useState<number | null>(null);
     const countdownInterval = useRef<NodeJS.Timeout | null>(null);
-
     const manager = useManager();
 
     useEffect(() => {
@@ -77,7 +76,10 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
             variant="outlined"
             determinate={gameStarted}
             value={messageBoxProgressValue}
-            sx={{ my: 1, overflow: "hidden" }}
+            sx={{
+                my: 1,
+                overflow: "hidden",
+            }}
         />
     );
     const defaultIcon =
@@ -99,9 +101,9 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
             messageBoxProgressBar = <span />;
         } else {
             if (messageBoxProgressValue <= 45 && !countdown) {
-                messageBoxColor = "success";
+                messageBoxColor = "neutral";
                 messageBoxButtonText = "";
-            } else if (messageBoxProgressValue <= 70 && !countdown) {
+            } else if (messageBoxProgressValue <= 80 && !countdown) {
                 messageBoxColor = "warning";
                 messageBoxButtonText = "";
             } else {

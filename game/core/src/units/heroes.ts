@@ -30,6 +30,7 @@ export class Hero extends RenderableUnit {
         smallSprite: Sprite,
         tagSprite: Sprite,
         hourglassSprite: Sprite,
+        stopSprite: Sprite,
         abilityFactory: AbilityFactory,
         textures: PreloadedTextures,
         sceneStepCount: HoCLib.RefNumber,
@@ -52,6 +53,7 @@ export class Hero extends RenderableUnit {
             smallSprite,
             tagSprite,
             hourglassSprite,
+            stopSprite,
         );
 
         this.setStackPower(0);

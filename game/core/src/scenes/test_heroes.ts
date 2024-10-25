@@ -205,7 +205,7 @@ class Sandbox extends GLScene {
 
     public readonly selectedAttackTypeButton: IVisibleButton;
 
-    public readonly hourGlassButton: IVisibleButton;
+    public readonly hourglassButton: IVisibleButton;
 
     public readonly shieldButton: IVisibleButton;
 
@@ -635,9 +635,7 @@ class Sandbox extends GLScene {
             // finish turn
             if (!actionPerformed) {
                 this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SKIP);
-                this.currentActiveUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                );
+
                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
             }
             this.finishTurn();
@@ -667,7 +665,7 @@ class Sandbox extends GLScene {
             }
         };
 
-        this.hourGlassButton = {
+        this.hourglassButton = {
             name: "Hourglass",
             text: "Wait",
             state: VisibleButtonState.FIRST,
@@ -723,7 +721,7 @@ class Sandbox extends GLScene {
         };
 
         this.sc_visibleButtonGroup = [
-            this.hourGlassButton,
+            this.hourglassButton,
             this.shieldButton,
             this.nextButton,
             this.aiButton,
@@ -735,7 +733,7 @@ class Sandbox extends GLScene {
         HoCLib.interval(this.sendFightState, 1000000);
     }
 
-    private checkHourGlassCondition(): boolean {
+    private checkHourglassCondition(): boolean {
         if (!this.currentActiveUnit) {
             return false;
         }
@@ -750,9 +748,9 @@ class Sandbox extends GLScene {
             (this.currentActiveUnit.getTeam() === TeamType.UPPER && upperTeamUnitsAlive > 1);
         if (
             moreThanOneUnitAlive &&
-            !fightState.hourGlassIncludes(this.currentActiveUnit.getId()) &&
+            !fightState.hourglassIncludes(this.currentActiveUnit.getId()) &&
             !fightState.hasAlreadyMadeTurn(this.currentActiveUnit.getId()) &&
-            !fightState.hasAlreadyHourGlass(this.currentActiveUnit.getId())
+            !fightState.hasAlreadyHourglass(this.currentActiveUnit.getId())
         ) {
             return true;
         }
@@ -802,7 +800,7 @@ class Sandbox extends GLScene {
 
     private refreshButtons(forceUpdate = false): void {
         if (this.sc_visibleState && this.sc_visibleState.hasFinished) {
-            this.hourGlassButton.isDisabled = true;
+            this.hourglassButton.isDisabled = true;
             this.shieldButton.isDisabled = true;
             this.nextButton.isDisabled = true;
             this.aiButton.isDisabled = true;
@@ -813,20 +811,20 @@ class Sandbox extends GLScene {
         }
 
         const previousAIButtonState = this.aiButton.state;
-        const previousHourGlassButtonState = this.hourGlassButton.state;
+        const previousHourglassButtonState = this.hourglassButton.state;
         const previousNextButtonState = this.nextButton.state;
         const previousShieldButtonState = this.shieldButton.state;
         const previousSpellBookButtonState = this.spellBookButton.state;
         const previousSelectedAttackTypeButtonNew = this.selectedAttackTypeButton.state;
         if (this.sc_isAIActive) {
             this.aiButton.state = VisibleButtonState.SECOND;
-            this.hourGlassButton.isDisabled = true;
+            this.hourglassButton.isDisabled = true;
             this.shieldButton.isDisabled = true;
             this.nextButton.isDisabled = true;
             this.selectedAttackTypeButton.isDisabled = true;
             this.spellBookButton.isDisabled = true;
         } else if (this.sc_renderSpellBookOverlay) {
-            this.hourGlassButton.isDisabled = true;
+            this.hourglassButton.isDisabled = true;
             this.shieldButton.isDisabled = true;
             this.nextButton.isDisabled = true;
             this.selectedAttackTypeButton.isDisabled = true;
@@ -838,10 +836,10 @@ class Sandbox extends GLScene {
             this.selectedAttackTypeButton.isDisabled = false;
             this.spellBookButton.isDisabled = false;
 
-            if (this.checkHourGlassCondition()) {
-                this.hourGlassButton.isDisabled = false;
+            if (this.checkHourglassCondition()) {
+                this.hourglassButton.isDisabled = false;
             } else {
-                this.hourGlassButton.isDisabled = true;
+                this.hourglassButton.isDisabled = true;
             }
 
             if (this.checkCastCondition()) {
@@ -891,7 +889,7 @@ class Sandbox extends GLScene {
         this.sc_buttonGroupUpdated =
             forceUpdate ||
             previousAIButtonState !== this.aiButton.state ||
-            previousHourGlassButtonState !== this.hourGlassButton.state ||
+            previousHourglassButtonState !== this.hourglassButton.state ||
             previousSpellBookButtonState !== this.spellBookButton.state ||
             previousShieldButtonState !== this.shieldButton.state ||
             previousSelectedAttackTypeButtonNew !== this.selectedAttackTypeButton.state ||
@@ -911,28 +909,22 @@ class Sandbox extends GLScene {
             this.refreshButtons();
             this.resetHover();
         } else if (!this.sc_isAIActive) {
-            if (buttonName === "Hourglass" && this.checkHourGlassCondition()) {
+            if (buttonName === "Hourglass" && this.checkHourglassCondition()) {
                 this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK);
                 this.currentActiveUnit.setOnHourglass(true);
-                FightStateManager.getInstance().getFightProperties().enqueueHourGlass(this.currentActiveUnit.getId());
-                this.currentActiveUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                );
+                FightStateManager.getInstance().getFightProperties().enqueueHourglass(this.currentActiveUnit.getId());
+
                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} wait turn`);
                 this.finishTurn(true); // hourglass finish
             } else if (buttonName === "Next" && this.currentActiveUnit) {
                 this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SKIP);
-                this.currentActiveUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                );
+
                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
                 this.finishTurn();
             } else if (buttonName === "LuckShield" && this.currentActiveUnit) {
                 this.currentActiveUnit.cleanupLuckPerTurn();
                 this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK);
-                this.currentActiveUnit.applyMoraleStepsModifier(
-                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                );
+
                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} shield turn`);
                 this.finishTurn();
             } else if (buttonName === "Spellbook" && this.checkCastCondition()) {
@@ -3380,8 +3372,8 @@ class Sandbox extends GLScene {
         this.resetHover(true);
     }
 
-    protected finishTurn = (isHourGlass = false): void => {
-        if (!isHourGlass && this.currentActiveUnit) {
+    protected finishTurn = (isHourglass = false): void => {
+        if (!isHourglass && this.currentActiveUnit) {
             this.currentActiveUnit.minusLap();
         }
 
@@ -3407,7 +3399,7 @@ class Sandbox extends GLScene {
             this.sc_selectedBody.SetIsActive(false);
             this.sc_selectedBody = undefined;
         }
-        if (!isHourGlass && this.currentActiveUnit) {
+        if (!isHourglass && this.currentActiveUnit) {
             FightStateManager.getInstance()
                 .getFightProperties()
                 .addAlreadyMadeTurn(this.currentActiveUnit.getTeam(), this.currentActiveUnit.getId());
@@ -4450,7 +4442,6 @@ class Sandbox extends GLScene {
                 if (HoCLib.getTimeMillis() >= fightProperties.getCurrentTurnEnd()) {
                     if (this.currentActiveUnit) {
                         this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SKIP);
-                        this.currentActiveUnit.applyMoraleStepsModifier(fightProperties.getStepsMoraleMultiplier());
                         this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
                     }
                     this.finishTurn();
@@ -4581,11 +4572,6 @@ class Sandbox extends GLScene {
                                         }
                                         unit.setResponded(false);
                                         unit.setOnHourglass(false);
-                                        unit.applyMoraleStepsModifier(
-                                            FightStateManager.getInstance()
-                                                .getFightProperties()
-                                                .getStepsMoraleMultiplier(),
-                                        );
                                     }
 
                                     if (allUnitsMadeTurn && !fightProperties.hasAlreadyMadeTurn(unit.getId())) {
@@ -4661,9 +4647,6 @@ class Sandbox extends GLScene {
                                     }
                                     unit.setResponded(false);
                                     unit.setOnHourglass(false);
-                                    unit.applyMoraleStepsModifier(
-                                        FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                                    );
                                 }
 
                                 if (allUnitsMadeTurn && !fightProperties.hasAlreadyMadeTurn(unit.getId())) {
@@ -4745,7 +4728,7 @@ class Sandbox extends GLScene {
             let turnFlipped =
                 fightProperties.getCurrentLap() === 1 &&
                 !FightStateManager.getInstance().getFightProperties().getAlreadyMadeTurnSize() &&
-                !FightStateManager.getInstance().getFightProperties().getHourGlassQueueSize();
+                !FightStateManager.getInstance().getFightProperties().getHourglassQueueSize();
 
             let fightFinished = fightProperties.getFightFinished();
 
@@ -4757,9 +4740,6 @@ class Sandbox extends GLScene {
                 for (const u of units) {
                     u.setResponded(false);
                     u.setOnHourglass(false);
-                    u.applyMoraleStepsModifier(
-                        FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                    );
                 }
                 FightStateManager.getInstance().getFightProperties().flipLap();
                 if (FightStateManager.getInstance().getFightProperties().isTimeToDryCenter()) {
@@ -4848,21 +4828,6 @@ class Sandbox extends GLScene {
 
                     this.unitsHolder.refreshStackPowerForAllUnits();
                     this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
-                    if (unitsLower) {
-                        for (const ul of unitsLower) {
-                            ul.applyMoraleStepsModifier(
-                                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                            );
-                        }
-                    }
-
-                    if (unitsUpper) {
-                        for (const uu of unitsUpper) {
-                            uu.applyMoraleStepsModifier(
-                                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                            );
-                        }
-                    }
                 }
                 turnFlipped = true;
             }
@@ -4970,6 +4935,8 @@ class Sandbox extends GLScene {
                                         amount: unitNext.getAmountAlive(),
                                         smallTextureName: unitNext.getSmallTextureName(),
                                         teamType: unitNext.getTeam(),
+                                        isOnHourglass: unitNext.isOnHourglass(),
+                                        isSkipping: unitNext.isSkippingThisTurn(),
                                     });
                                 }
                             }
@@ -4978,6 +4945,8 @@ class Sandbox extends GLScene {
                                     amount: nextUnit.getAmountAlive(),
                                     smallTextureName: nextUnit.getSmallTextureName(),
                                     teamType: nextUnit.getTeam(),
+                                    isOnHourglass: nextUnit.isOnHourglass(),
+                                    isSkipping: nextUnit.isSkippingThisTurn(),
                                 });
                             }
 
@@ -4990,9 +4959,7 @@ class Sandbox extends GLScene {
                                 this.refreshButtons(true);
                                 this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                                 this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SKIP);
-                                this.currentActiveUnit.applyMoraleStepsModifier(
-                                    FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-                                );
+
                                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
                                 this.finishTurn();
                             } else {

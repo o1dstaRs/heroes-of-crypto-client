@@ -8,6 +8,8 @@ import Typography from "@mui/joy/Typography";
 import { images } from "../../generated/image_imports";
 import { IVisibleState, IVisibleUnit } from "../../state/visible_state";
 import { useManager } from "../../manager";
+import stopImg from "../../../images/stop.webp";
+import hourglassImg from "../../../images/hourglass.webp";
 
 export const UpNextOverlay: React.FC = () => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
@@ -102,12 +104,41 @@ export const UpNextOverlay: React.FC = () => {
                                     transform: "rotateX(-180deg)",
                                 }}
                             />
+                            {unit.isSkipping ? (
+                                <img
+                                    src={stopImg}
+                                    alt="Skipping"
+                                    style={{
+                                        position: "absolute",
+                                        top: 0,
+                                        right: index === 0 ? 10.5 : 8,
+                                        width: "20px",
+                                        height: "20px",
+                                        zIndex: 2,
+                                        transform: "rotate(180deg)",
+                                    }}
+                                />
+                            ) : unit.isOnHourglass ? (
+                                <img
+                                    src={hourglassImg}
+                                    alt="On Hourglass"
+                                    style={{
+                                        position: "absolute",
+                                        top: 0,
+                                        right: index === 0 ? 10.5 : 8,
+                                        width: "20px",
+                                        height: "20px",
+                                        zIndex: 2,
+                                        transform: "rotate(180deg)",
+                                    }}
+                                />
+                            ) : null}
                             <Badge
                                 badgeContent={unit.amount.toString()}
                                 sx={{
                                     position: "absolute",
-                                    bottom: 18,
-                                    right: 16,
+                                    bottom: index === 0 ? 12 : 18,
+                                    right: index === 0 ? 21 : 16,
                                     zIndex: 1,
                                     "& .MuiBadge-badge": {
                                         fontSize: "0.9rem",

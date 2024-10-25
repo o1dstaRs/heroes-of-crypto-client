@@ -606,6 +606,7 @@ export class UnitsFactory {
             new Sprite(this.gl, this.shader, texture),
             new Sprite(this.gl, this.shader, this.textures.tag.texture),
             new Sprite(this.gl, this.shader, this.textures.hourglass.texture),
+            new Sprite(this.gl, this.shader, this.textures.stop.texture),
         );
     }
 
@@ -640,6 +641,7 @@ export class UnitsFactory {
             new Sprite(this.gl, this.shader, texture),
             new Sprite(this.gl, this.shader, this.textures.tag.texture),
             new Sprite(this.gl, this.shader, this.textures.hourglass.texture),
+            new Sprite(this.gl, this.shader, this.textures.stop.texture),
             this.abilityFactory,
             this.textures,
             this.sceneStepCount,

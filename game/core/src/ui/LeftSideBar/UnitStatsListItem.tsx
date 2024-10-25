@@ -88,10 +88,11 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     );
 };
 
-const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean }> = ({
+const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean; hasBreakApplied: boolean }> = ({
     abilities,
     teamType,
     isWidescreen,
+    hasBreakApplied,
 }) => {
     const theme = useTheme();
     const isDarkMode = theme.palette.mode === "dark";
@@ -110,6 +111,7 @@ const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean }> = (
                             <Tooltip
                                 title={
                                     <>
+                                        {hasBreakApplied && "BREAK APPLIED!\n"}
                                         {ability.name}:&nbsp;
                                         {ability.description.split("\n").map((line, idx) => (
                                             <React.Fragment key={idx}>
@@ -172,6 +174,7 @@ const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean }> = (
                                             zIndex: 1,
                                         }}
                                     />
+                                    {hasBreakApplied && <BreakOverlay />}
                                     <StackPowerOverlay
                                         stackPower={ability.isStackPowered ? ability.stackPower : 0}
                                         teamType={teamType}
@@ -186,11 +189,11 @@ const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean }> = (
     );
 };
 
-const EffectColumnOrRow: React.FC<{ effects: IVisibleImpact[]; title: string; isHorizontalLayout?: boolean }> = ({
-    effects,
-    title,
-    isHorizontalLayout = false,
-}) => {
+const EffectColumnOrRow: React.FC<{
+    effects: IVisibleImpact[];
+    title: string;
+    isHorizontalLayout?: boolean;
+}> = ({ effects, title, isHorizontalLayout = false }) => {
     if (!effects.length) return <Box sx={{ marginBottom: 2 }} />;
 
     return (
@@ -342,6 +345,7 @@ const UnitStatsLayout: React.FC<{
     meleeArmor: number;
     rangeArmor: number;
     armorMod: number;
+    stepsMod: number;
     hasDifferentRangeArmor: boolean;
     isDarkMode: boolean;
     columnize: boolean;
@@ -356,6 +360,7 @@ const UnitStatsLayout: React.FC<{
     meleeArmor,
     rangeArmor,
     armorMod,
+    stepsMod,
     hasDifferentRangeArmor,
     isDarkMode,
     columnize,
@@ -368,6 +373,8 @@ const UnitStatsLayout: React.FC<{
     }`;
     const armorSign = armorMod > 0 ? "+" : "";
     const armorModBadgeValue = armorMod ? `${armorSign}${armorMod}` : "";
+    const stepsSign = stepsMod > 0 ? "+" : "";
+    const stepsModBadgeValue = stepsMod ? `${stepsSign}${stepsMod}` : "";
     const luckSign = unitProperties.luck_per_turn > 0 ? "+" : "";
     const luckBadgeValue = unitProperties.luck_per_turn ? `${luckSign}${unitProperties.luck_per_turn}` : "";
     let attackColor = "success";
@@ -457,9 +464,11 @@ const UnitStatsLayout: React.FC<{
             <StatGroup>
                 <StatItem
                     icon={unitProperties.movement_type === MovementType.FLY ? <WingIcon /> : <BootIcon />}
-                    value={Number((unitProperties.steps + unitProperties.steps_morale).toFixed(2))}
+                    value={Number((unitProperties.steps + stepsMod).toFixed(1))}
                     tooltip="Movement type and number of steps in cells"
                     color={unitProperties.movement_type === MovementType.FLY ? "#00ff7f" : "#8b4513"}
+                    badgeContent={stepsModBadgeValue}
+                    badgeColor={stepsMod > 0 ? "success" : "danger"}
                 />
                 <StatItem
                     icon={<SpeedIcon />}
@@ -518,7 +527,18 @@ const UnitStatsLayout: React.FC<{
                         }}
                     />
                 </Box>
-                <Box sx={{ width: "40%", display: "flex", flexDirection: "column", justifyContent: "center", pl: 1 }}>
+                <Box
+                    sx={{
+                        width: "40%",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                        pl: 3,
+                        pt: 2,
+                        pb: 2,
+                        transform: "scale(1.2)",
+                    }}
+                >
                     {content}
                 </Box>
             </Box>
@@ -543,11 +563,11 @@ const UnitStatsLayout: React.FC<{
                 />
                 <Box
                     sx={{
-                        width: "72%", // Increased from 60% to 72%
+                        width: "90%",
                         display: "flex",
                         flexDirection: "column",
                         justifyContent: "center",
-                        pl: 2,
+                        pl: 4,
                         py: 4,
                         transform: "scale(1.2)", // Enlarges all elements by 20%
                     }}
@@ -558,6 +578,38 @@ const UnitStatsLayout: React.FC<{
         );
     }
 };
+
+const BreakOverlay: React.FC = () => (
+    <Box
+        sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(255, 255, 255, 0.6)",
+            zIndex: 4,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "hidden",
+        }}
+    >
+        <Box
+            sx={{
+                color: "#ff0000",
+                fontWeight: "bold",
+                transform: "rotate(-45deg)",
+                fontSize: "1.2em",
+                textShadow: "1px 1px 2px rgba(0, 0, 0, 0.5)",
+                whiteSpace: "nowrap",
+                userSelect: "none",
+            }}
+        >
+            BREAK
+        </Box>
+    </Box>
+);
 
 export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; unitProperties: UnitProperties }> = ({
     barSize,
@@ -601,6 +653,13 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
     const debuffs: IVisibleImpact[] = overallImpact.debuffs || [];
 
     const hasBuffsOrDebuffs = buffs.length > 0 || debuffs.length > 0;
+    let hasBreakApplied = false;
+    for (const d of debuffs) {
+        if (d.name === "Break" && d.laps > 0) {
+            hasBreakApplied = true;
+            break;
+        }
+    }
 
     // @ts-ignore: style params
     if (raceName) {
@@ -638,6 +697,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
         const stackName = `${unitProperties.name} x${unitProperties.amount_alive}`;
         const damageRange = `${unitProperties.attack_damage_min} - ${unitProperties.attack_damage_max}`;
         const armorMod = Number(unitProperties.armor_mod.toFixed(2));
+        const stepsMod = Number(unitProperties.steps_mod.toFixed(1));
         const attackMod = Number(unitProperties.attack_mod.toFixed(2));
         const attackTypeSelected = unitProperties.attack_type_selected;
         let attackDamage = (unitProperties.base_attack + unitProperties.attack_mod) * unitProperties.attack_multiplier;
@@ -681,6 +741,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
                                 meleeArmor={meleeArmor}
                                 rangeArmor={rangeArmor}
                                 armorMod={armorMod}
+                                stepsMod={stepsMod}
                                 hasDifferentRangeArmor={hasDifferentRangeArmor}
                                 isDarkMode={isDarkMode}
                                 columnize={columnize}
@@ -695,8 +756,8 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
                                         flexDirection: "column",
                                     }}
                                 >
-                                    <EffectColumnOrRow effects={buffs} title="Buffs" />
-                                    <EffectColumnOrRow effects={debuffs} title="Debuffs" />
+                                    {buffs.length > 0 && <EffectColumnOrRow effects={buffs} title="Buffs" />}
+                                    {debuffs.length > 0 && <EffectColumnOrRow effects={debuffs} title="Debuffs" />}
                                 </Box>
                             )}
                         </Box>
@@ -708,6 +769,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
                                 abilities={abilities}
                                 teamType={unitProperties.team}
                                 isWidescreen={columnize}
+                                hasBreakApplied={hasBreakApplied}
                             />
                         </Box>
                         {hasBuffsOrDebuffs && columnize && (

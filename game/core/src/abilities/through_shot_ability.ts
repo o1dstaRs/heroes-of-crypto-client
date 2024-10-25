@@ -117,7 +117,11 @@ export function processThroughShotAbility(
             sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
             damageStatisticHolder.add({
                 unitName: attackerUnit.getName(),
-                damage: targetUnit.applyDamage(damageFromAttack),
+                damage: targetUnit.applyDamage(
+                    damageFromAttack,
+                    FightStateManager.getInstance().getFightProperties().getBreakChancePerTeam(attackerUnit.getTeam()),
+                    sceneLog,
+                ),
                 team: attackerUnit.getTeam(),
             });
             const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
@@ -144,9 +148,6 @@ export function processThroughShotAbility(
             unitIdsDied.push(unit.getId());
             attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
             unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unit);
-            attackerUnit.applyMoraleStepsModifier(
-                FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
-            );
         } else {
             processStunAbility(attackerUnit, unit, attackerUnit, sceneLog);
             processSpitBallAbility(attackerUnit, unit, currentActiveUnit, unitsHolder, grid, sceneLog);
