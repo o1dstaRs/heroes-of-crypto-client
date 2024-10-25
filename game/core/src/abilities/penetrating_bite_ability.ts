@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Unit } from "@heroesofcrypto/common";
+import { Unit, FightStateManager } from "@heroesofcrypto/common";
 
 export function processPenetratingBiteAbility(fromUnit: Unit, toUnit: Unit): number {
     const penetratingBiteAbility = fromUnit.getAbility("Penetrating Bite");
@@ -18,7 +18,12 @@ export function processPenetratingBiteAbility(fromUnit: Unit, toUnit: Unit): num
     }
 
     const biteDamage = Math.floor(
-        (fromUnit.calculateAbilityMultiplier(penetratingBiteAbility) - 1) * toUnit.getMaxHp(),
+        (fromUnit.calculateAbilityMultiplier(
+            penetratingBiteAbility,
+            FightStateManager.getInstance().getFightProperties().getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+        ) -
+            1) *
+            toUnit.getMaxHp(),
     );
 
     return biteDamage;

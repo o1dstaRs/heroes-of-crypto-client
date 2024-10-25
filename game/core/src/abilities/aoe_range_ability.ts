@@ -61,11 +61,23 @@ export function processRangeAOEAbility(
                 continue;
             }
 
-            const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(unit);
+            const isAttackMissed =
+                HoCLib.getRandomInt(0, 100) <
+                attackerUnit.calculateMissChance(
+                    unit,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(unit.getTeam()),
+                );
             if (isAttackMissed) {
                 sceneLog.updateLog(`${attackerUnit.getName()} misses ${isAttack ? "attk" : "resp"} ${unit.getName()}`);
             } else {
-                let abilityMultiplier = attackerUnit.calculateAbilityMultiplier(aoeAbility);
+                let abilityMultiplier = attackerUnit.calculateAbilityMultiplier(
+                    aoeAbility,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
+                );
 
                 const paralysisAttackerEffect = attackerUnit.getEffect("Paralysis");
                 if (paralysisAttackerEffect) {
@@ -77,6 +89,9 @@ export function processRangeAOEAbility(
                     attackerUnit.calculateAttackDamage(
                         unit,
                         AttackType.RANGE,
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
                         rangeAttackDivisor,
                         abilityMultiplier,
                         false,

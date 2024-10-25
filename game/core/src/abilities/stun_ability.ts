@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, HoCLib, ISceneLog, Unit } from "@heroesofcrypto/common";
+import { AbilityType, HoCLib, ISceneLog, Unit, FightStateManager } from "@heroesofcrypto/common";
 
 export function processStunAbility(
     fromUnit: Unit,
@@ -30,7 +30,18 @@ export function processStunAbility(
     const amplifier =
         stunAbility.getType() === AbilityType.STATUS && targetUnit.hasAbilityActive("Mechanism") ? 1.5 : 1;
 
-    if (HoCLib.getRandomInt(0, 100) < Math.min(100, fromUnit.calculateAbilityApplyChance(stunAbility) * amplifier)) {
+    if (
+        HoCLib.getRandomInt(0, 100) <
+        Math.min(
+            100,
+            fromUnit.calculateAbilityApplyChance(
+                stunAbility,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+            ) * amplifier,
+        )
+    ) {
         const stunEffect = stunAbility.getEffect();
         if (!stunEffect) {
             return;

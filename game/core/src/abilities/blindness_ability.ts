@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { AbilityType, HoCLib, Unit, ISceneLog } from "@heroesofcrypto/common";
+import { AbilityType, HoCLib, Unit, ISceneLog, FightStateManager } from "@heroesofcrypto/common";
 
 export function processBlindnessAbility(
     fromUnit: Unit,
@@ -22,7 +22,16 @@ export function processBlindnessAbility(
     }
 
     const blindnessAbility = fromUnit.getAbility("Blindness");
-    if (blindnessAbility && HoCLib.getRandomInt(0, 100) < fromUnit.calculateAbilityApplyChance(blindnessAbility)) {
+    if (
+        blindnessAbility &&
+        HoCLib.getRandomInt(0, 100) <
+            fromUnit.calculateAbilityApplyChance(
+                blindnessAbility,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+            )
+    ) {
         const blindnessEffect = blindnessAbility.getEffect();
         if (!blindnessEffect) {
             return;

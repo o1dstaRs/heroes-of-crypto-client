@@ -79,11 +79,23 @@ export function processThroughShotAbility(
         }
         targetUnitUndex++;
 
-        const isAttackMissed = HoCLib.getRandomInt(0, 100) < attackerUnit.calculateMissChance(targetUnit);
+        const isAttackMissed =
+            HoCLib.getRandomInt(0, 100) <
+            attackerUnit.calculateMissChance(
+                targetUnit,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAbilityPowerPerTeam(targetUnit.getTeam()),
+            );
         if (isAttackMissed) {
             sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
         } else {
-            let throughShotMultiplier = attackerUnit.calculateAbilityMultiplier(throughShotAbility);
+            let throughShotMultiplier = attackerUnit.calculateAbilityMultiplier(
+                throughShotAbility,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
+            );
             const paralysisAttackerEffect = attackerUnit.getEffect("Paralysis");
             if (paralysisAttackerEffect) {
                 throughShotMultiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
@@ -93,6 +105,9 @@ export function processThroughShotAbility(
                 attackerUnit.calculateAttackDamage(
                     targetUnit,
                     AttackType.RANGE,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(targetUnit.getTeam()),
                     hoverRangeAttackDivisor,
                     throughShotMultiplier,
                     false,

@@ -551,6 +551,9 @@ class Sandbox extends GLScene {
                             cellToMove,
                             FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                             this.currentActiveUnit,
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
                             action?.currentActiveKnownPaths(),
                         );
                         if (moveInitiated) {
@@ -595,6 +598,9 @@ class Sandbox extends GLScene {
                             cellToMove,
                             FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                             this.currentActiveUnit,
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
                             action?.currentActiveKnownPaths(),
                         );
                         if (moveInitiated) {
@@ -783,9 +789,12 @@ class Sandbox extends GLScene {
             specificSynergy = ToNatureSynergy[synergyName];
         }
         if (specificSynergy) {
-            return FightStateManager.getInstance()
+            const hasUpdated = FightStateManager.getInstance()
                 .getFightProperties()
                 .updateSynergyPerTeam(teamType, faction, specificSynergy, synergyLevel);
+            this.refreshUnits();
+            this.refreshSynergyVisualEffect();
+            return hasUpdated;
         }
 
         return false;
@@ -1419,6 +1428,20 @@ class Sandbox extends GLScene {
         this.sc_possibleSynergiesUpdateNeeded = synergies !== newSynergies;
     }
 
+    private refreshSynergyVisualEffect(): void {
+        if (this.sc_selectedBody) {
+            const unitData = this.sc_selectedBody.GetUserData();
+            this.fillActiveAuraRanges(
+                unitData.team,
+                unitData.size === 1,
+                this.sc_selectedBody.GetPosition(),
+                unitData.aura_ranges,
+                unitData.aura_is_buff,
+                false,
+            );
+        }
+    }
+
     private resetHover(resetSelectedCells = true): void {
         if (resetSelectedCells) {
             this.sc_hoverUnitNameStr = "";
@@ -1506,6 +1529,7 @@ class Sandbox extends GLScene {
                     this.unitsHolder.refreshStackPowerForAllUnits();
                     this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
                     cloned = true;
+                    // this.refreshUnits();
                     this.refreshSynergyNumbers(selectedUnit.getTeam());
                     this.refreshUnits();
                     break;
@@ -1552,23 +1576,41 @@ class Sandbox extends GLScene {
 
             const throughShotAbility = this.currentActiveUnit.getAbility("Through Shot");
             if (throughShotAbility) {
-                abilityMultiplier *= this.currentActiveUnit.calculateAbilityMultiplier(throughShotAbility);
+                abilityMultiplier *= this.currentActiveUnit.calculateAbilityMultiplier(
+                    throughShotAbility,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
+                );
             }
 
             const largeCaliberAbility = this.currentActiveUnit.getAbility("Large Caliber");
             if (largeCaliberAbility) {
-                abilityMultiplier *= this.currentActiveUnit.calculateAbilityMultiplier(largeCaliberAbility);
+                abilityMultiplier *= this.currentActiveUnit.calculateAbilityMultiplier(
+                    largeCaliberAbility,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
+                );
             }
 
             const areaThrowAbility = this.currentActiveUnit.getAbility("Area Throw");
             if (areaThrowAbility) {
-                abilityMultiplier *= this.currentActiveUnit.calculateAbilityMultiplier(areaThrowAbility);
+                abilityMultiplier *= this.currentActiveUnit.calculateAbilityMultiplier(
+                    areaThrowAbility,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
+                );
             }
 
             const minDmg = this.currentActiveUnit.calculateAttackDamageMin(
                 this.currentActiveUnit.getAttack(),
                 hoverAttackUnit,
                 true,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
                 hoverRangeAttackDivisor,
                 abilityMultiplier,
             );
@@ -1576,12 +1618,23 @@ class Sandbox extends GLScene {
                 this.currentActiveUnit.getAttack(),
                 hoverAttackUnit,
                 true,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
                 hoverRangeAttackDivisor,
                 abilityMultiplier,
             );
             const luckyStrikeAbility = this.currentActiveUnit.getAbility("Lucky Strike");
             if (luckyStrikeAbility) {
-                maxDmg = Math.floor(maxDmg * this.currentActiveUnit.calculateAbilityMultiplier(luckyStrikeAbility));
+                maxDmg = Math.floor(
+                    maxDmg *
+                        this.currentActiveUnit.calculateAbilityMultiplier(
+                            luckyStrikeAbility,
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
+                        ),
+                );
             }
             const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
             const maxDied = hoverAttackUnit.calculatePossibleLosses(maxDmg);
@@ -1768,6 +1821,12 @@ class Sandbox extends GLScene {
 
                 this.hoverActiveShotRange = undefined;
                 if (this.hoverUnit && !this.hoverUnit.isDead()) {
+                    if (!FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+                        this.refreshSynergyNumbers(this.hoverUnit.getTeam());
+                        this.refreshUnits();
+                        this.refreshSynergyVisualEffect();
+                    }
+
                     hoverUnitCell = GridMath.getCellForPosition(
                         this.sc_sceneSettings.getGridSettings(),
                         this.hoverUnit.getPosition(),
@@ -1912,7 +1971,12 @@ class Sandbox extends GLScene {
 
                             if (abilitiesWithPositionCoeff.length) {
                                 for (const awpc of abilitiesWithPositionCoeff) {
-                                    abilityMultiplier *= this.currentActiveUnit.calculateAbilityMultiplier(awpc);
+                                    abilityMultiplier *= this.currentActiveUnit.calculateAbilityMultiplier(
+                                        awpc,
+                                        FightStateManager.getInstance()
+                                            .getFightProperties()
+                                            .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
+                                    );
                                 }
                             }
 
@@ -1982,6 +2046,9 @@ class Sandbox extends GLScene {
                                         attackRate,
                                         hoverAttackUnit,
                                         false,
+                                        FightStateManager.getInstance()
+                                            .getFightProperties()
+                                            .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
                                         isRangedAttacker ? 2 : 1,
                                         abilityMultiplier,
                                     ) + processPenetratingBiteAbility(this.currentActiveUnit, hoverAttackUnit);
@@ -1990,13 +2057,22 @@ class Sandbox extends GLScene {
                                         attackRate,
                                         hoverAttackUnit,
                                         false,
+                                        FightStateManager.getInstance()
+                                            .getFightProperties()
+                                            .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
                                         isRangedAttacker ? 2 : 1,
                                         abilityMultiplier,
                                     ) + processPenetratingBiteAbility(this.currentActiveUnit, hoverAttackUnit);
                                 const luckyStrikeAbility = this.currentActiveUnit.getAbility("Lucky Strike");
                                 if (luckyStrikeAbility) {
                                     maxDmg = Math.floor(
-                                        maxDmg * this.currentActiveUnit.calculateAbilityMultiplier(luckyStrikeAbility),
+                                        maxDmg *
+                                            this.currentActiveUnit.calculateAbilityMultiplier(
+                                                luckyStrikeAbility,
+                                                FightStateManager.getInstance()
+                                                    .getFightProperties()
+                                                    .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
+                                            ),
                                     );
                                 }
                                 const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
@@ -2944,7 +3020,7 @@ class Sandbox extends GLScene {
             }
         }
 
-        // game has started
+        // fight has started
         const mouseCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
         if (
             FightStateManager.getInstance().getFightProperties().hasFightStarted() &&
@@ -3041,6 +3117,9 @@ class Sandbox extends GLScene {
                             cellIndices,
                             FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                             selectedUnit,
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getAdditionalAbilityPowerPerTeam(selectedUnit.getTeam()),
                             this.currentActiveKnownPaths,
                         );
                     }
@@ -3887,7 +3966,7 @@ class Sandbox extends GLScene {
 
                         unit.setPosition(positionToDropTo.x, positionToDropTo.y);
                         this.applyAugments(unit, false, true);
-                        this.refreshUnits();
+                        // this.refreshUnits();
                         this.refreshSynergyNumbers(unit.getTeam());
                         this.refreshUnits();
                     }
@@ -3917,7 +3996,7 @@ class Sandbox extends GLScene {
                         if (unit) {
                             unit.setPosition(positionToDropTo.x, positionToDropTo.y);
                             this.applyAugments(unit, false, true);
-                            this.refreshUnits();
+                            // this.refreshUnits();
                             this.refreshSynergyNumbers(unit.getTeam());
                             this.refreshUnits();
                         }
@@ -4123,7 +4202,7 @@ class Sandbox extends GLScene {
                         (auraRanges[i] +
                             FightStateManager.getInstance()
                                 .getFightProperties()
-                                .getAuraAdditionalAuraRangePerTeam(teamType)) *
+                                .getAdditionalAuraRangePerTeam(teamType)) *
                         STEP,
                     isBuff: auraIsBuff[i],
                     isSmallUnit: isSmallUnit,

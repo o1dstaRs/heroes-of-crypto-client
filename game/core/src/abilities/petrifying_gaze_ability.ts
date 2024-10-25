@@ -9,7 +9,15 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCLib, AbilityType, ISceneLog, Unit, IStatisticHolder, IDamageStatistic } from "@heroesofcrypto/common";
+import {
+    HoCLib,
+    AbilityType,
+    ISceneLog,
+    Unit,
+    IStatisticHolder,
+    IDamageStatistic,
+    FightStateManager,
+} from "@heroesofcrypto/common";
 
 export function processPetrifyingGazeAbility(
     fromUnit: Unit,
@@ -30,7 +38,12 @@ export function processPetrifyingGazeAbility(
         return;
     }
 
-    const percentageMax = Math.floor(fromUnit.calculateAbilityApplyChance(petrifyingGazeAbility));
+    const percentageMax = Math.floor(
+        fromUnit.calculateAbilityApplyChance(
+            petrifyingGazeAbility,
+            FightStateManager.getInstance().getFightProperties().getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
+        ),
+    );
     const percentageMin = Math.floor(percentageMax / 2);
 
     const randomCoeff = HoCLib.getRandomInt(percentageMin, percentageMax) / 100;
