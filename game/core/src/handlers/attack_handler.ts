@@ -644,6 +644,17 @@ export class AttackHandler {
 
         // handle response damage
         let aoeRangeResponseResult: IAOERangeAttackResult | undefined = undefined;
+        let targetUnitPlusMorale = 0;
+
+        const increaseUnitMorale = (unitToIncreaseMoraleTo: Unit, increaseMoraleBy: number): void => {
+            unitToIncreaseMoraleTo.increaseMorale(
+                increaseMoraleBy,
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalMoralePerTeam(unitToIncreaseMoraleTo.getTeam()),
+            );
+        };
+
         if (rangeResponseUnit && rangeResponseUnits) {
             aoeRangeResponseResult = processRangeAOEAbility(
                 targetUnit,
@@ -706,12 +717,15 @@ export class AttackHandler {
                 });
                 const pegasusLightEffect = rangeResponseUnit.getEffect("Pegasus Light");
                 if (pegasusLightEffect) {
-                    targetUnit.increaseMorale(pegasusLightEffect.getPower());
+                    targetUnitPlusMorale += pegasusLightEffect.getPower();
                 }
             }
 
             processOneInTheFieldAbility(targetUnit);
         }
+
+        let attackerUnitPlusMorale = 0;
+        const moraleDecreaseForTheUnitTeam: Record<string, number> = {};
 
         let switchTargetUnit = false;
         if (!aoeRangeAttackResult?.landed || !isAOE) {
@@ -734,7 +748,7 @@ export class AttackHandler {
                 });
                 const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
                 if (pegasusLightEffect) {
-                    attackerUnit.increaseMorale(pegasusLightEffect.getPower());
+                    attackerUnitPlusMorale += pegasusLightEffect.getPower();
                 }
             }
 
@@ -743,8 +757,10 @@ export class AttackHandler {
                 if (!unitIdsDied.includes(targetUnit.getId())) {
                     this.sceneLog.updateLog(`${targetUnit.getName()} died`);
                     unitIdsDied.push(targetUnit.getId());
-                    attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-                    unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
+                    attackerUnitPlusMorale += HoCConstants.MORALE_CHANGE_FOR_KILL;
+                    this.updateMoraleDecreaseForTheUnitTeam(moraleDecreaseForTheUnitTeam, {
+                        [`${targetUnit.getName()}:${targetUnit.getTeam()}`]: HoCConstants.MORALE_CHANGE_FOR_KILL,
+                    });
                 }
             } else {
                 processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
@@ -763,6 +779,9 @@ export class AttackHandler {
             if (aoeRangeResponseResult?.landed) {
                 if (rangeResponseUnit.isDead() && attackerUnit.getId() === rangeResponseUnit.getId()) {
                     unitIdsDied.push(rangeResponseUnit.getId());
+                    increaseUnitMorale(attackerUnit, attackerUnitPlusMorale);
+                    increaseUnitMorale(targetUnit, targetUnitPlusMorale);
+                    unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(moraleDecreaseForTheUnitTeam);
                     return { completed: true, unitIdsDied, animationData };
                 }
             } else {
@@ -770,13 +789,19 @@ export class AttackHandler {
                     if (!unitIdsDied.includes(rangeResponseUnit.getId())) {
                         this.sceneLog.updateLog(`${rangeResponseUnit.getName()} died`);
                         unitIdsDied.push(rangeResponseUnit.getId());
-                        unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(rangeResponseUnit);
+                        this.updateMoraleDecreaseForTheUnitTeam(moraleDecreaseForTheUnitTeam, {
+                            [`${rangeResponseUnit.getName()}:${rangeResponseUnit.getTeam()}`]:
+                                HoCConstants.MORALE_CHANGE_FOR_KILL,
+                        });
                         if (!targetUnit.isDead()) {
-                            targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
+                            targetUnitPlusMorale += HoCConstants.MORALE_CHANGE_FOR_KILL;
                         }
                     }
 
                     if (attackerUnit.getId() === rangeResponseUnit.getId()) {
+                        increaseUnitMorale(attackerUnit, attackerUnitPlusMorale);
+                        increaseUnitMorale(targetUnit, targetUnitPlusMorale);
+                        unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(moraleDecreaseForTheUnitTeam);
                         return { completed: true, unitIdsDied, animationData };
                     }
                 } else {
@@ -823,10 +848,19 @@ export class AttackHandler {
             }
 
             if (!affectedUnits?.length) {
+                increaseUnitMorale(attackerUnit, attackerUnitPlusMorale);
+                increaseUnitMorale(targetUnit, targetUnitPlusMorale);
+                unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(moraleDecreaseForTheUnitTeam);
                 return { completed: true, unitIdsDied, animationData };
             }
 
+            const previousTargetUnit = targetUnit;
             targetUnit = affectedUnits[0];
+
+            if (previousTargetUnit !== targetUnit) {
+                // last chance to increase morale as we just switched target unit
+                increaseUnitMorale(targetUnit, targetUnitPlusMorale);
+            }
 
             if (
                 !targetUnit ||
@@ -838,10 +872,14 @@ export class AttackHandler {
                 if (targetUnit.isDead()) {
                     unitIdsDied.push(targetUnit.getId());
                 }
+                increaseUnitMorale(attackerUnit, attackerUnitPlusMorale);
+                unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(moraleDecreaseForTheUnitTeam);
                 return { completed: true, unitIdsDied, animationData };
             }
             hoverRangeAttackDivisor = hoverRangeAttackDivisors.at(targetUnitUndex);
             if (!hoverRangeAttackDivisor) {
+                increaseUnitMorale(attackerUnit, attackerUnitPlusMorale);
+                unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(moraleDecreaseForTheUnitTeam);
                 return { completed: true, unitIdsDied, animationData };
             }
         }
@@ -873,8 +911,10 @@ export class AttackHandler {
             if (targetUnit.isDead() && !unitIdsDied.includes(targetUnit.getId())) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
                 unitIdsDied.push(targetUnit.getId());
-                attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-                unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
+                attackerUnitPlusMorale += HoCConstants.MORALE_CHANGE_FOR_KILL;
+                this.updateMoraleDecreaseForTheUnitTeam(moraleDecreaseForTheUnitTeam, {
+                    [`${targetUnit.getName()}:${targetUnit.getTeam()}`]: HoCConstants.MORALE_CHANGE_FOR_KILL,
+                });
             } else if (secondShotResult.applied) {
                 processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
                 processPetrifyingGazeAbility(
@@ -887,6 +927,12 @@ export class AttackHandler {
                 processSpitBallAbility(attackerUnit, targetUnit, attackerUnit, unitsHolder, this.grid, this.sceneLog);
             }
         }
+
+        attackerUnit.increaseMorale(
+            attackerUnitPlusMorale + secondShotResult.moraleIncrease,
+            FightStateManager.getInstance().getFightProperties().getAdditionalMoralePerTeam(attackerUnit.getTeam()),
+        );
+        unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(moraleDecreaseForTheUnitTeam);
 
         unitsHolder.refreshStackPowerForAllUnits();
 
@@ -968,6 +1014,10 @@ export class AttackHandler {
             return { completed: false, unitIdsDied, animationData };
         }
 
+        let attackerUnitPlusMorale = 0;
+        let targetUnitPlusMorale = 0;
+        const moraleDecreaseForTheUnitTeam: Record<string, number> = {};
+
         if (attackerUnit.isSmallSize()) {
             const attackFromCells = [attackFromCell];
             if (
@@ -990,11 +1040,13 @@ export class AttackHandler {
                     stationaryAttack ||
                     moveHandler.applyMoveModifiers(
                         attackFromCell,
-                        FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                         attackerUnit,
                         FightStateManager.getInstance()
                             .getFightProperties()
                             .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getAdditionalMoralePerTeam(attackerUnit.getTeam()),
                         currentActiveKnownPaths,
                     );
                 if (!moveInitiated) {
@@ -1043,11 +1095,13 @@ export class AttackHandler {
                     stationaryAttack ||
                     moveHandler.applyMoveModifiers(
                         attackFromCell,
-                        FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                         attackerUnit,
                         FightStateManager.getInstance()
                             .getFightProperties()
                             .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getAdditionalMoralePerTeam(attackerUnit.getTeam()),
                         currentActiveKnownPaths,
                     );
                 if (!moveInitiated) {
@@ -1164,31 +1218,39 @@ export class AttackHandler {
         const hasLightningSpinAttackLanded = lightningSpinAttackResult.landed;
         updateUnitsDied(lightningSpinAttackResult.unitIdsDied);
 
-        updateUnitsDied(
-            processFireBreathAbility(
-                attackerUnit,
-                targetUnit,
-                this.sceneLog,
-                unitsHolder,
-                this.grid,
-                "attk",
-                this.damageStatisticHolder,
-                attackFromCell,
-            ),
+        const fireBreathAttackResult = processFireBreathAbility(
+            attackerUnit,
+            targetUnit,
+            this.sceneLog,
+            unitsHolder,
+            this.grid,
+            "attk",
+            this.damageStatisticHolder,
+            attackFromCell,
         );
+        updateUnitsDied(fireBreathAttackResult.unitIdsDied);
+        this.updateMoraleDecreaseForTheUnitTeam(
+            moraleDecreaseForTheUnitTeam,
+            fireBreathAttackResult.moraleDecreaseForTheUnitTeam,
+        );
+        attackerUnitPlusMorale += fireBreathAttackResult.increaseMorale;
 
-        updateUnitsDied(
-            processSkewerStrikeAbility(
-                attackerUnit,
-                targetUnit,
-                this.sceneLog,
-                unitsHolder,
-                this.grid,
-                this.damageStatisticHolder,
-                attackFromCell,
-                true,
-            ),
+        const skewerStrikeAttackResult = processSkewerStrikeAbility(
+            attackerUnit,
+            targetUnit,
+            this.sceneLog,
+            unitsHolder,
+            this.grid,
+            this.damageStatisticHolder,
+            attackFromCell,
+            true,
         );
+        updateUnitsDied(skewerStrikeAttackResult.unitIdsDied);
+        this.updateMoraleDecreaseForTheUnitTeam(
+            moraleDecreaseForTheUnitTeam,
+            skewerStrikeAttackResult.moraleDecreaseForTheUnitTeam,
+        );
+        attackerUnitPlusMorale += skewerStrikeAttackResult.increaseMorale;
 
         if (isAttackMissed) {
             this.sceneLog.updateLog(`${attackerUnit.getName()} misses attk ${targetUnit.getName()}`);
@@ -1197,15 +1259,19 @@ export class AttackHandler {
             // to make sure that logs are in chronological order
             this.sceneLog.updateLog(`${attackerUnit.getName()} attk ${targetUnit.getName()} (${damageFromAttack})`);
 
-            updateUnitsDied(
-                processFireShieldAbility(
-                    targetUnit,
-                    attackerUnit,
-                    this.sceneLog,
-                    damageFromAttack,
-                    unitsHolder,
-                    this.damageStatisticHolder,
-                ),
+            const fireShieldReflectResult = processFireShieldAbility(
+                targetUnit,
+                attackerUnit,
+                this.sceneLog,
+                damageFromAttack,
+                unitsHolder,
+                this.damageStatisticHolder,
+            );
+
+            updateUnitsDied(fireShieldReflectResult.unitIdsDied);
+            this.updateMoraleDecreaseForTheUnitTeam(
+                moraleDecreaseForTheUnitTeam,
+                fireShieldReflectResult.moraleDecreaseForTheUnitTeam,
             );
         }
 
@@ -1233,30 +1299,36 @@ export class AttackHandler {
                             .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
                     );
 
-                updateUnitsDied(
-                    processFireBreathAbility(
-                        targetUnit,
-                        attackerUnit,
-                        this.sceneLog,
-                        unitsHolder,
-                        this.grid,
-                        "resp",
-                        this.damageStatisticHolder,
-                        GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
-                    ),
+                const fireBreathResponseResult = processFireBreathAbility(
+                    targetUnit,
+                    attackerUnit,
+                    this.sceneLog,
+                    unitsHolder,
+                    this.grid,
+                    "resp",
+                    this.damageStatisticHolder,
+                    GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
+                );
+                updateUnitsDied(fireBreathResponseResult.unitIdsDied);
+                this.updateMoraleDecreaseForTheUnitTeam(
+                    moraleDecreaseForTheUnitTeam,
+                    fireBreathResponseResult.moraleDecreaseForTheUnitTeam,
                 );
 
-                updateUnitsDied(
-                    processSkewerStrikeAbility(
-                        targetUnit,
-                        attackerUnit,
-                        this.sceneLog,
-                        unitsHolder,
-                        this.grid,
-                        this.damageStatisticHolder,
-                        GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
-                        false,
-                    ),
+                const skewerStrikeResponseResult = processSkewerStrikeAbility(
+                    targetUnit,
+                    attackerUnit,
+                    this.sceneLog,
+                    unitsHolder,
+                    this.grid,
+                    this.damageStatisticHolder,
+                    GridMath.getCellForPosition(this.gridSettings, targetUnit.getPosition()),
+                    false,
+                );
+                updateUnitsDied(skewerStrikeResponseResult.unitIdsDied);
+                this.updateMoraleDecreaseForTheUnitTeam(
+                    moraleDecreaseForTheUnitTeam,
+                    skewerStrikeResponseResult.moraleDecreaseForTheUnitTeam,
                 );
 
                 const lightningSpinResponseResult = processLightningSpinAbility(
@@ -1342,19 +1414,22 @@ export class AttackHandler {
                     });
                     const pegasusLightEffect = attackerUnit.getEffect("Pegasus Light");
                     if (pegasusLightEffect) {
-                        targetUnit.increaseMorale(pegasusLightEffect.getPower());
+                        targetUnitPlusMorale += pegasusLightEffect.getPower();
                     }
 
                     processMinerAbility(targetUnit, attackerUnit, this.sceneLog);
-                    updateUnitsDied(
-                        processFireShieldAbility(
-                            attackerUnit,
-                            targetUnit,
-                            this.sceneLog,
-                            damageFromResponse,
-                            unitsHolder,
-                            this.damageStatisticHolder,
-                        ),
+                    const fireShieldFromAttackerResult = processFireShieldAbility(
+                        attackerUnit,
+                        targetUnit,
+                        this.sceneLog,
+                        damageFromResponse,
+                        unitsHolder,
+                        this.damageStatisticHolder,
+                    );
+                    updateUnitsDied(fireShieldFromAttackerResult.unitIdsDied);
+                    this.updateMoraleDecreaseForTheUnitTeam(
+                        moraleDecreaseForTheUnitTeam,
+                        fireShieldFromAttackerResult.moraleDecreaseForTheUnitTeam,
                     );
                     processStunAbility(targetUnit, attackerUnit, attackerUnit, this.sceneLog);
                     processDullingDefenseAblity(attackerUnit, targetUnit, this.sceneLog);
@@ -1435,7 +1510,7 @@ export class AttackHandler {
             );
             const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
             if (pegasusLightEffect) {
-                attackerUnit.increaseMorale(pegasusLightEffect.getPower());
+                attackerUnitPlusMorale += pegasusLightEffect.getPower();
             }
             // ~ already responded here
         }
@@ -1447,18 +1522,20 @@ export class AttackHandler {
             this.sceneLog.updateLog(`${attackerUnit.getName()} died`);
 
             unitIdsDied.push(attackerUnit.getId());
-            targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-
-            unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(attackerUnit);
+            targetUnitPlusMorale += HoCConstants.MORALE_CHANGE_FOR_KILL;
+            this.updateMoraleDecreaseForTheUnitTeam(moraleDecreaseForTheUnitTeam, {
+                [`${attackerUnit.getName()}:${attackerUnit.getTeam()}`]: HoCConstants.MORALE_CHANGE_FOR_KILL,
+            });
         }
 
         if (!hasLightningSpinAttackLanded && targetUnit.isDead() && !unitIdsDied.includes(targetUnit.getId())) {
             this.sceneLog.updateLog(`${targetUnit.getName()} died`);
 
             unitIdsDied.push(targetUnit.getId());
-            attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-
-            unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
+            attackerUnitPlusMorale += HoCConstants.MORALE_CHANGE_FOR_KILL;
+            this.updateMoraleDecreaseForTheUnitTeam(moraleDecreaseForTheUnitTeam, {
+                [`${targetUnit.getName()}:${targetUnit.getTeam()}`]: HoCConstants.MORALE_CHANGE_FOR_KILL,
+            });
         } else if (secondPunchResult.applied) {
             captureResponse();
             if (secondPunchResult.damage > 0) {
@@ -1474,16 +1551,21 @@ export class AttackHandler {
                     team: attackerUnit.getTeam(),
                 });
             }
-            updateUnitsDied(
-                processFireShieldAbility(
-                    targetUnit,
-                    attackerUnit,
-                    this.sceneLog,
-                    secondPunchResult.damage,
-                    unitsHolder,
-                    this.damageStatisticHolder,
-                ),
+
+            const secondFireShieldResult = processFireShieldAbility(
+                targetUnit,
+                attackerUnit,
+                this.sceneLog,
+                secondPunchResult.damage,
+                unitsHolder,
+                this.damageStatisticHolder,
             );
+            updateUnitsDied(secondFireShieldResult.unitIdsDied);
+            this.updateMoraleDecreaseForTheUnitTeam(
+                moraleDecreaseForTheUnitTeam,
+                secondFireShieldResult.moraleDecreaseForTheUnitTeam,
+            );
+
             if (!secondPunchResult.missed) {
                 processMinerAbility(attackerUnit, targetUnit, this.sceneLog);
                 processStunAbility(attackerUnit, targetUnit, attackerUnit, this.sceneLog);
@@ -1508,24 +1590,36 @@ export class AttackHandler {
                 attackerUnit.isDead() &&
                 !unitIdsDied.includes(attackerUnit.getId())
             ) {
-                this.sceneLog.updateLog(`${attackerUnit.getName()} eee2 ied`);
+                this.sceneLog.updateLog(`${attackerUnit.getName()} died`);
 
                 unitIdsDied.push(attackerUnit.getId());
-                targetUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-
-                unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(attackerUnit);
+                targetUnitPlusMorale += HoCConstants.MORALE_CHANGE_FOR_KILL;
+                this.updateMoraleDecreaseForTheUnitTeam(moraleDecreaseForTheUnitTeam, {
+                    [`${attackerUnit.getName()}:${attackerUnit.getTeam()}`]: HoCConstants.MORALE_CHANGE_FOR_KILL,
+                });
             }
 
             if (!hasLightningSpinAttackLanded && targetUnit.isDead() && !unitIdsDied.includes(targetUnit.getId())) {
                 this.sceneLog.updateLog(`${targetUnit.getName()} died`);
 
                 unitIdsDied.push(targetUnit.getId());
-                attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-
-                unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
+                attackerUnitPlusMorale += HoCConstants.MORALE_CHANGE_FOR_KILL;
+                this.updateMoraleDecreaseForTheUnitTeam(moraleDecreaseForTheUnitTeam, {
+                    [`${targetUnit.getName()}:${targetUnit.getTeam()}`]: HoCConstants.MORALE_CHANGE_FOR_KILL,
+                });
             }
         }
 
+        targetUnit.increaseMorale(
+            targetUnitPlusMorale,
+            FightStateManager.getInstance().getFightProperties().getAdditionalMoralePerTeam(attackerUnit.getTeam()),
+        );
+
+        attackerUnit.increaseMorale(
+            attackerUnitPlusMorale + secondPunchResult.moraleIncrease,
+            FightStateManager.getInstance().getFightProperties().getAdditionalMoralePerTeam(attackerUnit.getTeam()),
+        );
+        unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(moraleDecreaseForTheUnitTeam);
         unitsHolder.refreshStackPowerForAllUnits();
 
         return { completed: true, unitIdsDied, animationData };
@@ -1683,11 +1777,13 @@ export class AttackHandler {
                         stationaryAttack ||
                         moveHandler.applyMoveModifiers(
                             attackFromCell,
-                            FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                             attackerUnit,
                             FightStateManager.getInstance()
                                 .getFightProperties()
                                 .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getAdditionalMoralePerTeam(attackerUnit.getTeam()),
                             currentActiveKnownPaths,
                         );
                     if (!moveInitiated) {
@@ -1747,11 +1843,13 @@ export class AttackHandler {
                         stationaryAttack ||
                         moveHandler.applyMoveModifiers(
                             attackFromCell,
-                            FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                             attackerUnit,
                             FightStateManager.getInstance()
                                 .getFightProperties()
                                 .getAdditionalAbilityPowerPerTeam(attackerUnit.getTeam()),
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getAdditionalMoralePerTeam(attackerUnit.getTeam()),
                             currentActiveKnownPaths,
                         );
                     if (!moveInitiated) {
@@ -1969,5 +2067,17 @@ export class AttackHandler {
         }
 
         return positions;
+    }
+
+    private updateMoraleDecreaseForTheUnitTeam(
+        initialRecord: Record<string, number>,
+        updateBy: Record<string, number>,
+    ): void {
+        for (const updateByKey of Object.keys(updateBy)) {
+            const updateByValue = updateBy[updateByKey];
+            if (updateByValue > 0) {
+                initialRecord[updateByKey] = (initialRecord[updateByKey] || 0) + updateByValue;
+            }
+        }
     }
 }

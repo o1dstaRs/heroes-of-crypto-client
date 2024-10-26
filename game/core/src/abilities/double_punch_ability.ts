@@ -18,12 +18,14 @@ export interface IDoublePunchResult {
     applied: boolean;
     missed: boolean;
     damage: number;
+    moraleIncrease: number;
 }
 
 export function processDoublePunchAbility(fromUnit: Unit, toUnit: Unit, sceneLog: ISceneLog): IDoublePunchResult {
     const doublePunchAbility = fromUnit.getAbility("Double Punch");
     let secondPunchLanded = false;
     let damageFromAttack = 0;
+    let moraleIncrease = 0;
 
     if (
         doublePunchAbility &&
@@ -45,6 +47,7 @@ export function processDoublePunchAbility(fromUnit: Unit, toUnit: Unit, sceneLog
                 applied: true,
                 missed: true,
                 damage: damageFromAttack,
+                moraleIncrease,
             };
         }
 
@@ -83,7 +86,7 @@ export function processDoublePunchAbility(fromUnit: Unit, toUnit: Unit, sceneLog
             ) + processPenetratingBiteAbility(fromUnit, toUnit);
         const pegasusLightEffect = toUnit.getEffect("Pegasus Light");
         if (pegasusLightEffect) {
-            fromUnit.increaseMorale(pegasusLightEffect.getPower());
+            moraleIncrease = pegasusLightEffect.getPower();
         }
         sceneLog.updateLog(`${fromUnit.getName()} attk ${toUnit.getName()} (${damageFromAttack})`);
 
@@ -94,5 +97,6 @@ export function processDoublePunchAbility(fromUnit: Unit, toUnit: Unit, sceneLog
         applied: secondPunchLanded,
         missed: false,
         damage: damageFromAttack,
+        moraleIncrease,
     };
 }

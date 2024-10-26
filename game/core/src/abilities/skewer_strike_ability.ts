@@ -36,6 +36,12 @@ import { processPetrifyingGazeAbility } from "./petrifying_gaze_ability";
 import { processShatterArmorAbility } from "./shatter_armor_ability";
 import { processStunAbility } from "./stun_ability";
 
+export interface ISkewerStrikeResult {
+    increaseMorale: number;
+    unitIdsDied: string[];
+    moraleDecreaseForTheUnitTeam: Record<string, number>;
+}
+
 export function processSkewerStrikeAbility(
     fromUnit: Unit,
     toUnit: Unit,
@@ -45,12 +51,14 @@ export function processSkewerStrikeAbility(
     damageStatisticHolder: IStatisticHolder<IDamageStatistic>,
     targetMovePosition?: HoCMath.XY,
     isAttack = true,
-): string[] {
+): ISkewerStrikeResult {
     const unitIdsDied: string[] = [];
     const skewerStrikeAbility = fromUnit.getAbility("Skewer Strike");
+    const moraleDecreaseForTheUnitTeam: Record<string, number> = {};
+    let increaseMoraleTotal = 0;
 
     if (!skewerStrikeAbility) {
-        return unitIdsDied;
+        return { increaseMorale: increaseMoraleTotal, unitIdsDied, moraleDecreaseForTheUnitTeam };
     }
 
     let actionString: string;
@@ -143,10 +151,11 @@ export function processSkewerStrikeAbility(
     for (const unitDead of unitsDead) {
         sceneLog.updateLog(`${unitDead.getName()} died`);
         unitIdsDied.push(unitDead.getId());
-        fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-
-        unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unitDead);
+        increaseMoraleTotal += HoCConstants.MORALE_CHANGE_FOR_KILL;
+        const unitNameKey = `${unitDead.getName()}:${unitDead.getTeam()}`;
+        moraleDecreaseForTheUnitTeam[unitNameKey] =
+            (moraleDecreaseForTheUnitTeam[unitNameKey] || 0) + HoCConstants.MORALE_CHANGE_FOR_KILL;
     }
 
-    return unitIdsDied;
+    return { increaseMorale: increaseMoraleTotal, unitIdsDied, moraleDecreaseForTheUnitTeam };
 }

@@ -437,7 +437,7 @@ const UnitStatsLayout: React.FC<{
                 <StatItem
                     icon={<ShieldIcon />}
                     value={Number(meleeArmor.toFixed(2))}
-                    tooltip="Base armor"
+                    tooltip="Armor"
                     color="#4682b4"
                     badgeContent={armorModBadgeValue}
                     badgeColor={unitProperties.armor_mod > 0 ? "success" : "danger"}

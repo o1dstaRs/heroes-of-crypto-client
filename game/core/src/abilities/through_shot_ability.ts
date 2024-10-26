@@ -126,7 +126,12 @@ export function processThroughShotAbility(
             });
             const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
             if (pegasusLightEffect) {
-                attackerUnit.increaseMorale(pegasusLightEffect.getPower());
+                attackerUnit.increaseMorale(
+                    pegasusLightEffect.getPower(),
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalMoralePerTeam(attackerUnit.getTeam()),
+                );
             }
             unitsDamaged.push(targetUnit);
 
@@ -142,17 +147,28 @@ export function processThroughShotAbility(
         }
     }
 
+    let moraleIncreaseTotal = 0;
+    let moraleDecreaseForTheUnitTeam: Record<string, number> = {};
+
     for (const unit of unitsDamaged) {
         if (unit.isDead()) {
             sceneLog.updateLog(`${unit.getName()} died`);
             unitIdsDied.push(unit.getId());
-            attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-            unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unit);
+            moraleIncreaseTotal += HoCConstants.MORALE_CHANGE_FOR_KILL;
+            const unitNameKey = `${unit.getName()}:${unit.getTeam()}`;
+            moraleDecreaseForTheUnitTeam[unitNameKey] =
+                (moraleDecreaseForTheUnitTeam[unitNameKey] || 0) + HoCConstants.MORALE_CHANGE_FOR_KILL;
         } else {
             processStunAbility(attackerUnit, unit, attackerUnit, sceneLog);
             processSpitBallAbility(attackerUnit, unit, currentActiveUnit, unitsHolder, grid, sceneLog);
         }
     }
+
+    attackerUnit.increaseMorale(
+        moraleIncreaseTotal,
+        FightStateManager.getInstance().getFightProperties().getAdditionalMoralePerTeam(attackerUnit.getTeam()),
+    );
+    unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(moraleDecreaseForTheUnitTeam);
 
     if (decreaseNumberOfShots) {
         attackerUnit.decreaseNumberOfShots();

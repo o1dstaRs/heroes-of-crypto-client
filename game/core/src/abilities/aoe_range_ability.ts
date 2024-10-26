@@ -54,6 +54,7 @@ export function processRangeAOEAbility(
     let maxDamage = 0;
     if (aoeAbility) {
         const wasDead: Unit[] = [];
+        let increaseMoraleTotal = 0;
         for (const unit of affectedUnits) {
             if (unit.isDead()) {
                 unitIdsDied.push(unit.getId());
@@ -112,7 +113,7 @@ export function processRangeAOEAbility(
                 });
                 const pegasusLightEffect = unit.getEffect("Pegasus Light");
                 if (pegasusLightEffect) {
-                    attackerUnit.increaseMorale(pegasusLightEffect.getPower());
+                    increaseMoraleTotal += pegasusLightEffect.getPower();
                 }
                 sceneLog.updateLog(
                     `${attackerUnit.getName()} ${isAttack ? "attk" : "resp"} ${unit.getName()} (${damageFromAttack})`,
@@ -125,21 +126,28 @@ export function processRangeAOEAbility(
             }
         }
 
+        const moraleDecreaseForTheUnitTeam: Record<string, number> = {};
         for (const unit of affectedUnits) {
             if (unit.isDead() && !wasDead.includes(unit)) {
                 sceneLog.updateLog(`${unit.getName()} died`);
                 if (!unitIdsDied.includes(unit.getId())) {
                     unitIdsDied.push(unit.getId());
                 }
-                attackerUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-                unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unit);
-
+                increaseMoraleTotal += HoCConstants.MORALE_CHANGE_FOR_KILL;
+                const unitNameKey = `${unit.getName()}:${unit.getTeam()}`;
+                moraleDecreaseForTheUnitTeam[unitNameKey] =
+                    (moraleDecreaseForTheUnitTeam[unitNameKey] || 0) + HoCConstants.MORALE_CHANGE_FOR_KILL;
                 wasDead.push(unit);
             } else {
                 processStunAbility(attackerUnit, unit, attackerUnit, sceneLog);
                 processSpitBallAbility(attackerUnit, unit, currentActiveUnit, unitsHolder, grid, sceneLog);
             }
         }
+        attackerUnit.increaseMorale(
+            increaseMoraleTotal,
+            FightStateManager.getInstance().getFightProperties().getAdditionalMoralePerTeam(attackerUnit.getTeam()),
+        );
+        unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(moraleDecreaseForTheUnitTeam);
         attackerUnit.decreaseNumberOfShots();
 
         return {
