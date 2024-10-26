@@ -549,11 +549,13 @@ class Sandbox extends GLScene {
                         this.hoverSelectedCells = [cellToMove];
                         const moveInitiated = this.moveHandler.applyMoveModifiers(
                             cellToMove,
-                            FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                             this.currentActiveUnit,
                             FightStateManager.getInstance()
                                 .getFightProperties()
                                 .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getAdditionalMoralePerTeam(this.currentActiveUnit.getTeam()),
                             action?.currentActiveKnownPaths(),
                         );
                         if (moveInitiated) {
@@ -596,11 +598,13 @@ class Sandbox extends GLScene {
                         this.hoverSelectedCells = cells;
                         const moveInitiated = this.moveHandler.applyMoveModifiers(
                             cellToMove,
-                            FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                             this.currentActiveUnit,
                             FightStateManager.getInstance()
                                 .getFightProperties()
                                 .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getAdditionalMoralePerTeam(this.currentActiveUnit.getTeam()),
                             action?.currentActiveKnownPaths(),
                         );
                         if (moveInitiated) {
@@ -634,7 +638,12 @@ class Sandbox extends GLScene {
 
             // finish turn
             if (!actionPerformed) {
-                this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SKIP);
+                this.currentActiveUnit.decreaseMorale(
+                    HoCConstants.MORALE_CHANGE_FOR_SKIP,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalMoralePerTeam(this.currentActiveUnit.getTeam()),
+                );
 
                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
             }
@@ -910,20 +919,35 @@ class Sandbox extends GLScene {
             this.resetHover();
         } else if (!this.sc_isAIActive) {
             if (buttonName === "Hourglass" && this.checkHourglassCondition()) {
-                this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK);
+                this.currentActiveUnit.decreaseMorale(
+                    HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalMoralePerTeam(this.currentActiveUnit.getTeam()),
+                );
                 this.currentActiveUnit.setOnHourglass(true);
                 FightStateManager.getInstance().getFightProperties().enqueueHourglass(this.currentActiveUnit.getId());
 
                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} wait turn`);
                 this.finishTurn(true); // hourglass finish
             } else if (buttonName === "Next" && this.currentActiveUnit) {
-                this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SKIP);
+                this.currentActiveUnit.decreaseMorale(
+                    HoCConstants.MORALE_CHANGE_FOR_SKIP,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalMoralePerTeam(this.currentActiveUnit.getTeam()),
+                );
 
                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
                 this.finishTurn();
             } else if (buttonName === "LuckShield" && this.currentActiveUnit) {
                 this.currentActiveUnit.cleanupLuckPerTurn();
-                this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK);
+                this.currentActiveUnit.decreaseMorale(
+                    HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK,
+                    FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalMoralePerTeam(this.currentActiveUnit.getTeam()),
+                );
 
                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} shield turn`);
                 this.finishTurn();
@@ -1257,6 +1281,8 @@ class Sandbox extends GLScene {
             ).length
         ) {
             this.sc_buttonGroupUpdated = true;
+            this.unitsHolder.increaseUnitsSupplyIfNeededPerTeam(TeamType.LOWER);
+            this.unitsHolder.increaseUnitsSupplyIfNeededPerTeam(TeamType.UPPER);
             FightStateManager.getInstance().getFightProperties().startFight();
             return super.startScene();
         }
@@ -3107,11 +3133,13 @@ class Sandbox extends GLScene {
                     ) {
                         moveInitiated = this.moveHandler.applyMoveModifiers(
                             cellIndices,
-                            FightStateManager.getInstance().getFightProperties().getStepsMoraleMultiplier(),
                             selectedUnit,
                             FightStateManager.getInstance()
                                 .getFightProperties()
                                 .getAdditionalAbilityPowerPerTeam(selectedUnit.getTeam()),
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getAdditionalMoralePerTeam(selectedUnit.getTeam()),
                             this.currentActiveKnownPaths,
                         );
                     }
@@ -4441,7 +4469,12 @@ class Sandbox extends GLScene {
             if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
                 if (HoCLib.getTimeMillis() >= fightProperties.getCurrentTurnEnd()) {
                     if (this.currentActiveUnit) {
-                        this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SKIP);
+                        this.currentActiveUnit.decreaseMorale(
+                            HoCConstants.MORALE_CHANGE_FOR_SKIP,
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getAdditionalMoralePerTeam(this.currentActiveUnit.getTeam()),
+                        );
                         this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
                     }
                     this.finishTurn();
@@ -4730,7 +4763,7 @@ class Sandbox extends GLScene {
                 !FightStateManager.getInstance().getFightProperties().getAlreadyMadeTurnSize() &&
                 !FightStateManager.getInstance().getFightProperties().getHourglassQueueSize();
 
-            let fightFinished = fightProperties.getFightFinished();
+            let fightFinished = fightProperties.hasFightFinished();
 
             if (
                 FightStateManager.getInstance().getFightProperties().hasFightStarted() &&
@@ -4958,7 +4991,12 @@ class Sandbox extends GLScene {
                                 this.currentActiveUnit = nextUnit as RenderableUnit;
                                 this.refreshButtons(true);
                                 this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
-                                this.currentActiveUnit.decreaseMorale(HoCConstants.MORALE_CHANGE_FOR_SKIP);
+                                this.currentActiveUnit.decreaseMorale(
+                                    HoCConstants.MORALE_CHANGE_FOR_SKIP,
+                                    FightStateManager.getInstance()
+                                        .getFightProperties()
+                                        .getAdditionalMoralePerTeam(this.currentActiveUnit.getTeam()),
+                                );
 
                                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
                                 this.finishTurn();

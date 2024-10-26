@@ -23,6 +23,12 @@ import {
     IDamageStatistic,
 } from "@heroesofcrypto/common";
 
+export interface IFireBreathResult {
+    increaseMorale: number;
+    unitIdsDied: string[];
+    moraleDecreaseForTheUnitTeam: Record<string, number>;
+}
+
 export function processFireBreathAbility(
     fromUnit: Unit,
     toUnit: Unit,
@@ -32,12 +38,18 @@ export function processFireBreathAbility(
     attackTypeString: string,
     damageStatisticHolder: IStatisticHolder<IDamageStatistic>,
     targetMovePosition?: HoCMath.XY,
-): string[] {
+): IFireBreathResult {
     const unitIdsDied: string[] = [];
+    const moraleDecreaseForTheUnitTeam: Record<string, number> = {};
     const fireBreathAbility = fromUnit.getAbility("Fire Breath");
+    let increaseMoraleTotal = 0;
 
     if (!fireBreathAbility) {
-        return unitIdsDied;
+        return {
+            increaseMorale: increaseMoraleTotal,
+            moraleDecreaseForTheUnitTeam,
+            unitIdsDied,
+        };
     }
 
     const unitsDead: Unit[] = [];
@@ -104,10 +116,15 @@ export function processFireBreathAbility(
     for (const unitDead of unitsDead) {
         sceneLog.updateLog(`${unitDead.getName()} died`);
         unitIdsDied.push(unitDead.getId());
-        fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-
-        unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unitDead);
+        increaseMoraleTotal += HoCConstants.MORALE_CHANGE_FOR_KILL;
+        const unitNameKey = `${unitDead.getName()}:${unitDead.getTeam()}`;
+        moraleDecreaseForTheUnitTeam[unitNameKey] =
+            (moraleDecreaseForTheUnitTeam[unitNameKey] || 0) + HoCConstants.MORALE_CHANGE_FOR_KILL;
     }
 
-    return unitIdsDied;
+    return {
+        increaseMorale: increaseMoraleTotal,
+        moraleDecreaseForTheUnitTeam,
+        unitIdsDied,
+    };
 }

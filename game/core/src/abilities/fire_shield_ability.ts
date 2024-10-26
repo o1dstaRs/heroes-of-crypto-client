@@ -19,6 +19,12 @@ import {
     IDamageStatistic,
 } from "@heroesofcrypto/common";
 
+export interface IFireShieldResult {
+    increaseMorale: number;
+    unitIdsDied: string[];
+    moraleDecreaseForTheUnitTeam: Record<string, number>;
+}
+
 export function processFireShieldAbility(
     fromUnit: Unit,
     toUnit: Unit,
@@ -26,10 +32,12 @@ export function processFireShieldAbility(
     damageFromAttack: number,
     unitsHolder: UnitsHolder,
     damageStatisticHolder: IStatisticHolder<IDamageStatistic>,
-): string[] {
+): IFireShieldResult {
     const unitIdsDied: string[] = [];
+    let increaseMorale = 0;
+    let moraleDecreaseForTheUnitTeam: Record<string, number> = {};
     if (toUnit.isDead()) {
-        return unitIdsDied;
+        return { increaseMorale, unitIdsDied, moraleDecreaseForTheUnitTeam };
     }
 
     const fireShieldAbility = fromUnit.getAbility("Fire Shield");
@@ -67,14 +75,15 @@ export function processFireShieldAbility(
         });
         sceneLog.updateLog(`${toUnit.getName()} received (${fireShieldDmg}) from Fire Shield`);
 
-        if (toUnit.isDead()) {
+        if (toUnit.isDead() && !unitIdsDied.includes(toUnit.getId())) {
             sceneLog.updateLog(`${toUnit.getName()} died`);
             unitIdsDied.push(toUnit.getId());
-            fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-
-            unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(toUnit);
+            increaseMorale = HoCConstants.MORALE_CHANGE_FOR_KILL;
+            moraleDecreaseForTheUnitTeam = {
+                [`${toUnit.getName()}:${toUnit.getTeam()}`]: HoCConstants.MORALE_CHANGE_FOR_KILL,
+            };
         }
     }
 
-    return unitIdsDied;
+    return { increaseMorale, unitIdsDied, moraleDecreaseForTheUnitTeam };
 }

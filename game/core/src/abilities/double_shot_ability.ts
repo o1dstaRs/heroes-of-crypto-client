@@ -33,6 +33,7 @@ export interface IDoubleShotResult {
     damage: number;
     unitIdsDied: string[];
     animationData: IAnimationData[];
+    moraleIncrease: number;
 }
 
 export function processDoubleShotAbility(
@@ -53,6 +54,7 @@ export function processDoubleShotAbility(
     const unitIdsDied: string[] = [];
 
     let damageFromAttack = 0;
+    let moraleIncrease = 0;
 
     if (
         !doubleShotAbility ||
@@ -68,6 +70,7 @@ export function processDoubleShotAbility(
             damage: damageFromAttack,
             unitIdsDied,
             animationData,
+            moraleIncrease,
         };
     }
 
@@ -85,6 +88,7 @@ export function processDoubleShotAbility(
             damage: damageFromAttack,
             unitIdsDied,
             animationData,
+            moraleIncrease,
         };
     }
 
@@ -148,7 +152,7 @@ export function processDoubleShotAbility(
         });
         const pegasusLightEffect = toUnit.getEffect("Pegasus Light");
         if (pegasusLightEffect) {
-            fromUnit.increaseMorale(pegasusLightEffect.getPower());
+            moraleIncrease += pegasusLightEffect.getPower();
         }
         sceneLog.updateLog(`${fromUnit.getName()} attk ${toUnit.getName()} (${damageFromAttack})`);
     }
@@ -159,5 +163,6 @@ export function processDoubleShotAbility(
         damage: damageFromAttack,
         unitIdsDied: aoeRangeAttackResult.unitIdsDied,
         animationData,
+        moraleIncrease,
     };
 }

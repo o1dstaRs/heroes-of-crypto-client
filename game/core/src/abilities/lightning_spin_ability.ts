@@ -70,6 +70,10 @@ export function processLightningSpinAbility(
         const enemyIdDamageFromAttack: Map<string, number> = new Map();
 
         const commonAbilityMultiplier = processRapidChargeAbility(fromUnit, rapidChargeCells);
+        let increaseMoraleTotal = 0;
+
+        let moraleDecreaseForTheUnitTeam: Record<string, number> = {};
+
         for (const enemy of enemyList) {
             if (enemy.isDead()) {
                 wasDead.push(enemy);
@@ -135,7 +139,7 @@ export function processLightningSpinAbility(
             enemyIdDamageFromAttack.set(enemy.getId(), damageFromAttack);
             const pegasusLightEffect = enemy.getEffect("Pegasus Light");
             if (pegasusLightEffect) {
-                fromUnit.increaseMorale(pegasusLightEffect.getPower());
+                increaseMoraleTotal += pegasusLightEffect.getPower();
             }
 
             sceneLog.updateLog(`${fromUnit.getName()} ${actionString} ${enemy.getName()} (${damageFromAttack})`);
@@ -166,7 +170,7 @@ export function processLightningSpinAbility(
             if (!wasDead.includes(enemy)) {
                 const damageFromAttack = enemyIdDamageFromAttack.get(enemy.getId());
                 if (damageFromAttack) {
-                    const unitIdsDiedFromFireShield = processFireShieldAbility(
+                    const fireShieldResult = processFireShieldAbility(
                         enemy,
                         fromUnit,
                         sceneLog,
@@ -174,8 +178,24 @@ export function processLightningSpinAbility(
                         unitsHolder,
                         damageStatisticHolder,
                     );
-                    for (const uId in unitIdsDiedFromFireShield) {
-                        unitIdsDied.push(uId);
+
+                    if (fireShieldResult.increaseMorale) {
+                        enemy.increaseMorale(
+                            fireShieldResult.increaseMorale,
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getAdditionalMoralePerTeam(enemy.getTeam()),
+                        );
+                    }
+
+                    if (Object.keys(fireShieldResult.moraleDecreaseForTheUnitTeam).length) {
+                        moraleDecreaseForTheUnitTeam = fireShieldResult.moraleDecreaseForTheUnitTeam;
+                    }
+
+                    for (const uId in fireShieldResult.unitIdsDied) {
+                        if (!unitIdsDied.includes(uId)) {
+                            unitIdsDied.push(uId);
+                        }
                     }
                 }
             }
@@ -184,9 +204,10 @@ export function processLightningSpinAbility(
         for (const unitDead of unitsDead) {
             sceneLog.updateLog(`${unitDead.getName()} died`);
             unitIdsDied.push(unitDead.getId());
-            fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-
-            unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(unitDead);
+            increaseMoraleTotal += HoCConstants.MORALE_CHANGE_FOR_KILL;
+            const unitNameKey = `${unitDead.getName()}:${unitDead.getTeam()}`;
+            moraleDecreaseForTheUnitTeam[unitNameKey] =
+                (moraleDecreaseForTheUnitTeam[unitNameKey] || 0) + HoCConstants.MORALE_CHANGE_FOR_KILL;
         }
 
         if (!isAttack) {
@@ -194,6 +215,15 @@ export function processLightningSpinAbility(
         }
 
         lightningSpinLanded = true;
+
+        if (!fromUnit.isDead()) {
+            fromUnit.increaseMorale(
+                increaseMoraleTotal,
+                FightStateManager.getInstance().getFightProperties().getAdditionalMoralePerTeam(fromUnit.getTeam()),
+            );
+        }
+
+        unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(moraleDecreaseForTheUnitTeam);
     }
 
     return { landed: lightningSpinLanded, unitIdsDied };

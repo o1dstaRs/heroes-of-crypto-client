@@ -26,6 +26,9 @@ import {
 interface ILayerImpact {
     cells: HoCMath.XY[];
     damage: number;
+    moraleIncrease: number;
+    enemyName: string;
+    enemyMinusMorale: number;
 }
 
 function getEnemiesForCells(
@@ -72,6 +75,7 @@ function attackEnemiesAndGetLayerImpact(
 ): ILayerImpact[] {
     const fullLayerImpact: ILayerImpact[] = [];
     for (const e1 of enemies) {
+        let moraleIncrease = 0;
         const enemyMagicResist = e1.getMagicResist();
         if (enemyMagicResist === 100 || e1.hasAbilityActive("Wind Element")) {
             continue;
@@ -97,6 +101,7 @@ function attackEnemiesAndGetLayerImpact(
         );
 
         alreadyAffectedIds.push(e1.getId());
+        let enemyMinusMorale = 0;
         if (targetEnemyLightningDamage && !e1.isDead()) {
             damageStatisticHolder.add({
                 unitName: fromUnit.getName(),
@@ -105,18 +110,20 @@ function attackEnemiesAndGetLayerImpact(
             });
             sceneLog.updateLog(`${e1.getName()} got hit ${targetEnemyLightningDamage} by Chain Lightning`);
 
-            if (e1.isDead()) {
+            if (e1.isDead() && !unitIdsDied.includes(e1.getId())) {
                 sceneLog.updateLog(`${e1.getName()} died`);
                 unitIdsDied.push(e1.getId());
-                fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-
-                unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(e1);
+                moraleIncrease += HoCConstants.MORALE_CHANGE_FOR_KILL;
+                enemyMinusMorale = HoCConstants.MORALE_CHANGE_FOR_KILL;
             }
         }
 
         fullLayerImpact.push({
             cells: e1.getCells(),
             damage: targetEnemyLightningDamage,
+            moraleIncrease,
+            enemyName: e1.getName(),
+            enemyMinusMorale,
         });
     }
 
@@ -173,12 +180,15 @@ export function processChainLightningAbility(
         sceneLog.updateLog(`${targetUnit.getName()} got hit ${targetEnemyLightningDamage} by Chain Lightning`);
     }
 
+    const moraleDecreaseForTheUnitTeam: Record<string, number> = {};
+    let totalMoraleIncrease = 0;
+
     if (targetUnit.isDead()) {
         sceneLog.updateLog(`${targetUnit.getName()} died`);
         unitIdsDied.push(targetUnit.getId());
-        fromUnit.increaseMorale(HoCConstants.MORALE_CHANGE_FOR_KILL);
-
-        unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(targetUnit);
+        totalMoraleIncrease += HoCConstants.MORALE_CHANGE_FOR_KILL;
+        moraleDecreaseForTheUnitTeam[`${targetUnit.getName()}:${targetUnit.getTeam()}`] =
+            HoCConstants.MORALE_CHANGE_FOR_KILL;
     }
 
     const affectedEnemiesIds: string[] = [targetUnit.getId()];
@@ -208,6 +218,7 @@ export function processChainLightningAbility(
     );
 
     for (const impact of layer1Impact) {
+        totalMoraleIncrease += impact.moraleIncrease;
         const enemiesLayer2: Unit[] = getEnemiesForCells(
             impact.cells,
             targetUnit.getTeam(),
@@ -215,6 +226,11 @@ export function processChainLightningAbility(
             unitsHolder,
             affectedEnemiesIds,
         );
+
+        const unitNameKeyL1 = `${impact.enemyName}:${fromUnit.getOppositeTeam()}`;
+        moraleDecreaseForTheUnitTeam[unitNameKeyL1] =
+            (moraleDecreaseForTheUnitTeam[unitNameKeyL1] || 0) + impact.enemyMinusMorale;
+
         if (!enemiesLayer2.length) {
             continue;
         }
@@ -233,6 +249,7 @@ export function processChainLightningAbility(
         );
 
         for (const impact2 of layer2Impact) {
+            totalMoraleIncrease += impact.moraleIncrease;
             const enemiesLayer3: Unit[] = getEnemiesForCells(
                 impact2.cells,
                 targetUnit.getTeam(),
@@ -240,6 +257,11 @@ export function processChainLightningAbility(
                 unitsHolder,
                 affectedEnemiesIds,
             );
+
+            const unitNameKeyL2 = `${impact2.enemyName}:${fromUnit.getOppositeTeam()}`;
+            moraleDecreaseForTheUnitTeam[unitNameKeyL2] =
+                (moraleDecreaseForTheUnitTeam[unitNameKeyL2] || 0) + impact2.enemyMinusMorale;
+
             if (!enemiesLayer2.length) {
                 continue;
             }
@@ -258,6 +280,12 @@ export function processChainLightningAbility(
             );
         }
     }
+
+    fromUnit.increaseMorale(
+        totalMoraleIncrease,
+        FightStateManager.getInstance().getFightProperties().getAdditionalMoralePerTeam(fromUnit.getTeam()),
+    );
+    unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(moraleDecreaseForTheUnitTeam);
 
     return unitIdsDied;
 }
