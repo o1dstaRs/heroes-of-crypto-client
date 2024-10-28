@@ -186,7 +186,10 @@ const Popover: React.FC = () => {
         <div
             style={{
                 position: "fixed",
-                top: positionPopover.y + 10, // Offset to avoid overlapping with the cursor
+                top:
+                    positionPopover.y >= window.innerHeight - window.innerHeight / 16
+                        ? positionPopover.y - 70
+                        : positionPopover.y + 10, // Offset to avoid overlapping with the cursor
                 left: positionPopover.x + 10,
                 display: Object.keys(hoverInfo).length ? "block" : "none",
                 padding: "10px",
