@@ -801,6 +801,12 @@ class Sandbox extends GLScene {
                 .updateSynergyPerTeam(teamType, faction, specificSynergy, synergyLevel);
             this.refreshUnits();
             this.refreshSynergyVisualEffect();
+
+            if (this.sc_selectedBody) {
+                this.setSelectedUnitProperties(this.sc_selectedBody.GetUserData());
+            }
+            this.sc_unitPropertiesUpdateNeeded = true;
+
             return hasUpdated;
         }
 
@@ -1368,10 +1374,7 @@ class Sandbox extends GLScene {
 
                 if (
                     this.unitsHolder.deleteUnitIfNotAllowed(
-                        unitStats.team,
-                        unitStats.team === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER,
-                        unitStats,
-                        b.GetPosition(),
+                        unitStats.id,
                         this.getPlacement(TeamType.LOWER, 0),
                         this.getPlacement(TeamType.UPPER, 0),
                         this.getPlacement(TeamType.LOWER, 1),
@@ -1449,7 +1452,7 @@ class Sandbox extends GLScene {
     private refreshSynergyVisualEffect(): void {
         if (this.sc_selectedBody) {
             const unitData = this.sc_selectedBody.GetUserData();
-            this.fillActiveAuraRanges(
+            this.fillActiveRanges(
                 unitData.team,
                 unitData.size === 1,
                 this.sc_selectedBody.GetPosition(),
@@ -1462,9 +1465,6 @@ class Sandbox extends GLScene {
 
     private resetHover(resetSelectedCells = true): void {
         if (resetSelectedCells) {
-            this.sc_hoverUnitNameStr = "";
-            this.sc_hoverUnitLevel = 0;
-            this.sc_hoverUnitMovementType = MovementType.NO_TYPE;
             this.hoverSelectedCells = undefined;
             this.hoverSelectedCellsSwitchToRed = false;
         }
@@ -1732,20 +1732,17 @@ class Sandbox extends GLScene {
     }
 
     private resetHoverInfo(): void {
-        let updateNeeded = false;
         if (!this.sc_hoverInfoArr || this.sc_hoverInfoArr.length) {
             this.sc_hoverInfoArr = [];
-            updateNeeded = true;
         }
 
         if (this.sc_attackDamageSpreadStr || this.sc_attackKillSpreadStr || this.sc_attackRangeDamageDivisorStr) {
             this.sc_attackDamageSpreadStr = "";
             this.sc_attackRangeDamageDivisorStr = "";
             this.sc_attackKillSpreadStr = "";
-            updateNeeded = true;
         }
 
-        this.sc_hoverTextUpdateNeeded = updateNeeded;
+        this.sc_hoverTextUpdateNeeded = true;
     }
 
     private updateHoverInfoWithButtonAction(mouseCell: XY): void {
@@ -1774,6 +1771,8 @@ class Sandbox extends GLScene {
     }
 
     protected hover(): void {
+        this.resetHoverInfo();
+
         if (this.currentActiveUnit && this.currentActiveUnit.hasAbilityActive("AI Driven")) {
             return;
         }
@@ -1863,7 +1862,7 @@ class Sandbox extends GLScene {
                             };
                         }
 
-                        this.fillActiveAuraRanges(
+                        this.fillActiveRanges(
                             this.hoverUnit.getTeam(),
                             this.hoverUnit.isSmallSize(),
                             this.hoverUnit.getPosition(),
@@ -2671,7 +2670,7 @@ class Sandbox extends GLScene {
                                 this.hoverUnit = hoverUnit;
                             }
 
-                            this.fillActiveAuraRanges(
+                            this.fillActiveRanges(
                                 hoverUnit.getTeam(),
                                 hoverUnit.isSmallSize(),
                                 hoverUnit.getPosition(),
@@ -2712,7 +2711,7 @@ class Sandbox extends GLScene {
                                 this.hoverUnit = hoverUnit;
                             }
 
-                            this.fillActiveAuraRanges(
+                            this.fillActiveRanges(
                                 hoverUnit.getTeam(),
                                 hoverUnit.isSmallSize(),
                                 hoverUnit.getPosition(),
@@ -2751,7 +2750,7 @@ class Sandbox extends GLScene {
                             this.hoverUnit = hoverUnit;
                         }
 
-                        this.fillActiveAuraRanges(
+                        this.fillActiveRanges(
                             hoverUnit.getTeam(),
                             hoverUnit.isSmallSize(),
                             hoverUnit.getPosition(),
@@ -2812,7 +2811,7 @@ class Sandbox extends GLScene {
 
                             this.hoverUnit = unit;
                         }
-                        this.fillActiveAuraRanges(
+                        this.fillActiveRanges(
                             unit.getTeam(),
                             unit.isSmallSize(),
                             unit.getPosition(),
@@ -2847,7 +2846,7 @@ class Sandbox extends GLScene {
                             this.hoverUnit = unit;
                         }
 
-                        this.fillActiveAuraRanges(
+                        this.fillActiveRanges(
                             unit.getTeam(),
                             unit.isSmallSize(),
                             unit.getPosition(),
@@ -2915,7 +2914,7 @@ class Sandbox extends GLScene {
                         this.hoverUnit = unit;
                     }
 
-                    this.fillActiveAuraRanges(
+                    this.fillActiveRanges(
                         unit.getTeam(),
                         unit.isSmallSize(),
                         unit.getPosition(),
@@ -3544,7 +3543,7 @@ class Sandbox extends GLScene {
                 this.hoveredSpell.getSpellTargetType() === SpellTargetType.ALL_ENEMIES
             ) {
                 if (this.currentActiveUnit) {
-                    const randomCell = GridMath.getRandomCellAroundPosition(
+                    const randomCell = GridMath.getRandomGridCellAroundPosition(
                         this.sc_sceneSettings.getGridSettings(),
                         this.gridMatrix,
                         this.currentActiveUnit.getTeam(),
@@ -3937,6 +3936,15 @@ class Sandbox extends GLScene {
 
                 this.finishTurn();
             } else if (GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), positionToDropTo)) {
+                if (
+                    !this.lowerPlacements[0]?.isAllowed(positionToDropTo) &&
+                    !this.lowerPlacements[1]?.isAllowed(positionToDropTo) &&
+                    !this.upperPlacements[0]?.isAllowed(positionToDropTo) &&
+                    !this.upperPlacements[1]?.isAllowed(positionToDropTo)
+                ) {
+                    return;
+                }
+
                 const unitStats = this.sc_selectedBody.GetUserData();
                 if (unitStats) {
                     let refreshUnitPosition = false;
@@ -3991,7 +3999,13 @@ class Sandbox extends GLScene {
                         this.refreshUnits();
                     }
                 }
-            } else {
+            } else if (this.hoverSelectedCells) {
+                for (const hsc of this.hoverSelectedCells) {
+                    if (GridMath.isCellWithinGrid(this.sc_sceneSettings.getGridSettings(), hsc)) {
+                        return;
+                    }
+                }
+
                 const unitStats = this.sc_selectedBody.GetUserData();
                 const preStartUnitCell = GridMath.getCellForPosition(
                     this.sc_sceneSettings.getGridSettings(),
@@ -4096,14 +4110,6 @@ class Sandbox extends GLScene {
                         this.currentActiveSpell = undefined;
                         this.adjustSpellBookSprite();
                     }
-                    if (this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE) {
-                        this.sc_currentActiveShotRange = {
-                            xy: this.currentActiveUnit.getPosition(),
-                            distance: this.currentActiveUnit.getRangeShotDistance() * STEP,
-                        };
-                    } else {
-                        this.sc_currentActiveShotRange = undefined;
-                    }
                     this.switchToSelectedAttackType = undefined;
                 }
             } else {
@@ -4193,7 +4199,7 @@ class Sandbox extends GLScene {
         return cells;
     }
 
-    private fillActiveAuraRanges(
+    private fillActiveRanges(
         teamType: TeamType,
         isSmallUnit: boolean,
         position: XY,
@@ -4229,6 +4235,56 @@ class Sandbox extends GLScene {
                 });
             }
         }
+
+        if (this.currentActiveUnit && this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE) {
+            if (this.currentActiveUnit.hasAbilityActive("Sniper")) {
+                this.currentActiveUnit.setRangeShotDistance(
+                    Number(
+                        (
+                            GridMath.getDistanceToFurthestCorner(
+                                this.currentActiveUnit.getPosition(),
+                                this.sc_sceneSettings.getGridSettings(),
+                            ) /
+                                this.sc_sceneSettings.getGridSettings().getStep() -
+                            0.45
+                        ).toFixed(2),
+                    ),
+                );
+            }
+
+            this.sc_currentActiveShotRange = {
+                xy: this.currentActiveUnit.getPosition(),
+                distance: this.currentActiveUnit.getRangeShotDistance() * STEP,
+            };
+        } else {
+            this.sc_currentActiveShotRange = undefined;
+        }
+
+        if (forHover && this.hoverUnit) {
+            if (this.hoverUnit && this.hoverUnit.getAttackTypeSelection() === AttackType.RANGE) {
+                if (this.hoverUnit.hasAbilityActive("Sniper")) {
+                    this.hoverUnit.setRangeShotDistance(
+                        Number(
+                            (
+                                GridMath.getDistanceToFurthestCorner(
+                                    this.hoverUnit.getPosition(),
+                                    this.sc_sceneSettings.getGridSettings(),
+                                ) /
+                                    this.sc_sceneSettings.getGridSettings().getStep() -
+                                0.45
+                            ).toFixed(2),
+                        ),
+                    );
+                }
+
+                this.hoverActiveShotRange = {
+                    xy: this.hoverUnit.getPosition(),
+                    distance: this.hoverUnit.getRangeShotDistance() * STEP,
+                };
+            } else {
+                this.hoverActiveShotRange = undefined;
+            }
+        }
     }
 
     protected selectUnitPreStart(
@@ -4247,7 +4303,7 @@ class Sandbox extends GLScene {
         } else {
             this.sc_currentActiveShotRange = undefined;
         }
-        this.fillActiveAuraRanges(teamType, isSmallUnit, position, auraRanges, auraIsBuff);
+        this.fillActiveRanges(teamType, isSmallUnit, position, auraRanges, auraIsBuff);
     }
 
     protected updateCurrentMovePath(currentCell: XY): void {
@@ -4612,10 +4668,7 @@ class Sandbox extends GLScene {
                                     }
                                 } else if (
                                     this.unitsHolder.deleteUnitIfNotAllowed(
-                                        TeamType.UPPER,
-                                        TeamType.LOWER,
-                                        unitStats,
-                                        b.GetPosition(),
+                                        unitStats.id,
                                         this.getPlacement(TeamType.LOWER, 0),
                                         this.getPlacement(TeamType.UPPER, 0),
                                         this.getPlacement(TeamType.LOWER, 1),
@@ -4687,10 +4740,7 @@ class Sandbox extends GLScene {
                                 }
                             } else if (
                                 this.unitsHolder.deleteUnitIfNotAllowed(
-                                    TeamType.LOWER,
-                                    TeamType.UPPER,
-                                    unitStats,
-                                    b.GetPosition(),
+                                    unitStats.id,
                                     this.getPlacement(TeamType.LOWER, 0),
                                     this.getPlacement(TeamType.UPPER, 0),
                                     this.getPlacement(TeamType.LOWER, 1),
@@ -5082,7 +5132,7 @@ class Sandbox extends GLScene {
                                     } else {
                                         this.sc_currentActiveShotRange = undefined;
                                     }
-                                    this.fillActiveAuraRanges(
+                                    this.fillActiveRanges(
                                         nextUnit.getTeam(),
                                         nextUnit.isSmallSize(),
                                         nextUnit.getPosition(),

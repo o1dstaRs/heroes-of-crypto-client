@@ -28,6 +28,7 @@ import {
     Tooltip,
     Divider,
 } from "@mui/joy";
+import { VisibleSynergyLevel } from "../../state/visible_state";
 import { useManager } from "../../manager";
 import augmentBoardImg from "../../../images/board_augment_256.webp";
 import augmentArmorImg from "../../../images/armor_augment_256.webp";
@@ -68,7 +69,7 @@ const SYNERGY_NAME_TO_FACTION = {
 const SYNERGY_NAME_TO_DESCRIPTION = {
     [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: "Increase each unit's supply by {}%",
     [LifeSynergyNames.PLUS_MORALE]: "The entire army gets +{} morale",
-    [ChaosSynergyNames.MOVEMENT]: "Improve movement speed by {} cells",
+    [ChaosSynergyNames.MOVEMENT]: "Improve movement steps by {} cells",
     [ChaosSynergyNames.BREAK_ON_ATTACK]: "{}% chance to apply Break on attack",
     [MightSynergyNames.PLUS_AURAS_RANGE]: "Increase auras range by {} cells",
     [MightSynergyNames.PLUS_STACK_ABILITIES_POWER]: "Increase stack abilities power by {}%",
@@ -76,13 +77,11 @@ const SYNERGY_NAME_TO_DESCRIPTION = {
     [NatureSynergyNames.PLUS_FLY_ARMOR]: "Flying units get +{}% armor",
 };
 
-type PossibleSynergyLevel = 0 | 1 | 2 | 3;
-
 type SelectedSynergy = {
     faction: FactionType;
     synergyName: keyof typeof SYNERGY_NAME_TO_IMAGE;
     synergyValue: SpecificSynergy;
-    level: PossibleSynergyLevel;
+    level: VisibleSynergyLevel;
     name: string;
 };
 
@@ -541,15 +540,15 @@ const SideToggleContainer = ({
         setTotalPoints(remainingPoints);
     };
 
-    const possibleSynergiesObj: Record<string, PossibleSynergyLevel> = {};
+    const possibleSynergiesObj: Record<string, VisibleSynergyLevel> = {};
     const possibleSynergiesPerTeam = possibleSynergies.get(teamType);
     if (possibleSynergiesPerTeam) {
         for (const ps of possibleSynergiesPerTeam) {
             if (ps.synergy in possibleSynergiesObj) {
                 const elem = possibleSynergiesObj[ps.synergy];
-                possibleSynergiesObj[ps.synergy] = Math.max(ps.level, elem) as PossibleSynergyLevel;
+                possibleSynergiesObj[ps.synergy] = Math.max(ps.level, elem) as VisibleSynergyLevel;
             } else {
-                possibleSynergiesObj[ps.synergy] = ps.level as PossibleSynergyLevel;
+                possibleSynergiesObj[ps.synergy] = ps.level as VisibleSynergyLevel;
             }
         }
     }

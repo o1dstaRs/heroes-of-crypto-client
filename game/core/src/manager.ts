@@ -124,6 +124,8 @@ export class GameManager {
 
     private started = false;
 
+    private lastSentEmptyHoverInfo = false;
+
     public constructor() {
         for (const { scenes } of this.groupedScenes) {
             this.flatScenes.push(...scenes);
@@ -583,8 +585,10 @@ export class GameManager {
                 unitMovementType: this.m_scene.sc_hoverUnitMovementType,
                 information: this.m_scene.sc_hoverInfoArr,
             });
-        } else {
+            this.lastSentEmptyHoverInfo = false;
+        } else if (!this.lastSentEmptyHoverInfo) {
             this.onHoverInfoUpdated.emit({} as IHoverInfo);
+            this.lastSentEmptyHoverInfo = true;
         }
     }
 }

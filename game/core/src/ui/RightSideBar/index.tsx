@@ -1,10 +1,9 @@
 import { IDamageStatistic } from "@heroesofcrypto/common";
 import { TextareaAutosize } from "@mui/base/TextareaAutosize";
-import CalendarTodayRoundedIcon from "@mui/icons-material/CalendarTodayRounded";
+import Divider from "@mui/joy/Divider";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import QueryStatsRoundedIcon from "@mui/icons-material/QueryStatsRounded";
 import Box from "@mui/joy/Box";
-import Divider from "@mui/joy/Divider";
 import LinearProgress from "@mui/joy/LinearProgress";
 import List from "@mui/joy/List";
 import ListItem from "@mui/joy/ListItem";
@@ -17,15 +16,10 @@ import { useManager } from "../../manager";
 import Toggler from "../Toggler";
 import { EDGES_SIZE } from "../../statics";
 import FightControlToggler from "./FightControlToggler";
+import { VersionDisplay } from "./VersionDisplay";
 
 interface IDamageStatsTogglerProps {
     unitStatsElements: React.ReactNode;
-}
-
-interface ICalendarInfoProps {
-    day: number;
-    week: number;
-    daysUntilNextFight: number;
 }
 
 const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
@@ -49,27 +43,6 @@ const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
             <List sx={{ gap: 0 }}>{unitStatsElements}</List>
         </Toggler>
     </ListItem>
-);
-
-const CalendarInfo: React.FC<ICalendarInfoProps> = ({ day, week, daysUntilNextFight }) => (
-    <>
-        <Divider />
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center", paddingTop: 2 }}>
-            <CalendarTodayRoundedIcon />
-            <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography level="title-sm" sx={{ fontSize: 13 }}>
-                    Day {day}
-                </Typography>
-                <Typography level="body-xs">Week {week}</Typography>
-            </Box>
-            <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography level="title-sm" sx={{ fontSize: 13 }}>
-                    Next fight in
-                </Typography>
-                <Typography level="body-xs">{daysUntilNextFight} days</Typography>
-            </Box>
-        </Box>
-    </>
 );
 
 export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) {
@@ -234,7 +207,8 @@ export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) 
                             fontSize: "10px",
                         }}
                     />
-                    <CalendarInfo day={1} week={1} daysUntilNextFight={2} />
+                    <Divider />
+                    <VersionDisplay />
                 </List>
             </Box>
         </Sheet>

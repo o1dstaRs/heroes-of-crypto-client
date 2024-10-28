@@ -83,3 +83,5 @@ export interface IHoverInfo {
     unitMovementType: MovementType;
     information: string[];
 }
+
+export type VisibleSynergyLevel = 0 | 1 | 2 | 3;
