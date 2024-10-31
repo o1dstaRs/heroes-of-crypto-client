@@ -11,7 +11,15 @@ export const VersionDisplay = () => (
             href="https://heroesofcrypto.io/patches"
             target="_blank"
             rel="noopener noreferrer"
-            style={{ display: "flex", alignItems: "center", textDecoration: "none", color: "inherit" }}
+            style={{
+                display: "flex",
+                alignItems: "center",
+                textDecoration: "none",
+                color: "inherit",
+                transition: "transform 0.3s ease",
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
+            onMouseOut={(e) => (e.currentTarget.style.transform = "scale(1)")}
         >
             <Typography level="title-md">v{packageJson.version}</Typography>
             <OpenInNewRoundedIcon

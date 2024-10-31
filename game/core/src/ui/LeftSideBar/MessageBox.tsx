@@ -82,10 +82,12 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
             }}
         />
     );
+
     const defaultIcon =
-        visibleState.lapNumber &&
+        visibleState.lapNumber !== undefined &&
+        visibleState.numberOfLapsTillNarrowing !== undefined &&
         visibleState.lapNumber < visibleState.numberOfLapsTillStopNarrowing &&
-        !(visibleState.lapNumber % visibleState.numberOfLapsTillNarrowing) ? (
+        visibleState.lapNumber % visibleState.numberOfLapsTillNarrowing === 0 ? (
             <ZoomInMapIcon />
         ) : (
             <TimelapseRoundedIcon />

@@ -3,20 +3,27 @@ import Box from "@mui/joy/Box";
 
 export default function Toggler({
     defaultExpanded = true,
+    expanded,
     renderToggle,
     children,
 }: {
     defaultExpanded?: boolean;
+    expanded?: boolean;
     children: React.ReactNode;
     renderToggle: (params: {
         open: boolean;
         setOpen: React.Dispatch<React.SetStateAction<boolean>>;
     }) => React.ReactNode;
 }) {
-    const [open, setOpen] = React.useState(defaultExpanded);
+    const [localOpen, setLocalOpen] = React.useState(defaultExpanded);
+    const open = expanded !== undefined ? expanded : localOpen;
+
     return (
         <>
-            {renderToggle({ open, setOpen })}
+            {renderToggle({
+                open,
+                setOpen: expanded !== undefined ? setLocalOpen : setLocalOpen,
+            })}
             <Box
                 sx={{
                     display: "grid",

@@ -399,7 +399,7 @@ export abstract class Scene extends b2ContactListener {
 
     public abstract deleteObject(): void;
 
-    public abstract refreshScene(): void;
+    public abstract refreshScene(unitData: UnitProperties): void;
 
     public abstract setGridType(gridType: GridType): void;
 
