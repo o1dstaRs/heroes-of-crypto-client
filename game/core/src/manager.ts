@@ -403,7 +403,7 @@ export class GameManager {
             userData.amount_alive = this.m_settings.m_amountOfSelectedUnits;
             this.m_scene.sc_selectedUnitProperties = userData;
             this.m_scene.sc_unitPropertiesUpdateNeeded = true;
-            this.m_scene.refreshScene();
+            this.m_scene.refreshScene(userData);
             this.UpdateHoverInfo();
         }
     }

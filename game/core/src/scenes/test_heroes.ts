@@ -151,6 +151,8 @@ class Sandbox extends GLScene {
 
     private gridMatrix: number[][];
 
+    private gridMatrixNoUnits: number[][];
+
     private performingAIAction = false;
 
     private armageddonWave = 0;
@@ -304,6 +306,7 @@ class Sandbox extends GLScene {
 
         this.refreshVisibleStateIfNeeded();
         this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         this.obstacleGenerator = new ObstacleGenerator(
             this.sc_world,
             textures,
@@ -1245,6 +1248,7 @@ class Sandbox extends GLScene {
             laps--;
         }
         this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
 
         return logs.join("\n");
     }
@@ -1305,6 +1309,9 @@ class Sandbox extends GLScene {
         this.grid.refreshWithNewType(FightStateManager.getInstance().getFightProperties().getGridType());
         this.drawer.setGridType(FightStateManager.getInstance().getFightProperties().getGridType());
         this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+        // force as we might have changed the number of laps till narrowing
+        this.refreshVisibleStateIfNeeded(true);
     }
 
     public getGridType(): GridType {
@@ -2656,7 +2663,7 @@ class Sandbox extends GLScene {
                                 if (hoverUnit.canMove()) {
                                     this.hoverActivePath = this.pathHelper.getMovePath(
                                         hoverUnit.getBaseCell(),
-                                        this.gridMatrix,
+                                        this.gridMatrixNoUnits,
                                         hoverUnit.getSteps(),
                                         undefined,
                                         hoverUnit.canFly(),
@@ -2698,7 +2705,7 @@ class Sandbox extends GLScene {
                                 if (hoverUnit.canMove()) {
                                     this.hoverActivePath = this.pathHelper.getMovePath(
                                         hoverUnit.getBaseCell(),
-                                        this.gridMatrix,
+                                        this.gridMatrixNoUnits,
                                         hoverUnit.getSteps(),
                                         undefined,
                                         hoverUnit.canFly(),
@@ -2737,7 +2744,7 @@ class Sandbox extends GLScene {
                             if (hoverUnit.canMove()) {
                                 this.hoverActivePath = this.pathHelper.getMovePath(
                                     hoverUnit.getBaseCell(),
-                                    this.gridMatrix,
+                                    this.gridMatrixNoUnits,
                                     hoverUnit.getSteps(),
                                     undefined,
                                     hoverUnit.canFly(),
@@ -2798,7 +2805,7 @@ class Sandbox extends GLScene {
                             if (unit.canMove()) {
                                 this.hoverActivePath = this.pathHelper.getMovePath(
                                     unit.getBaseCell(),
-                                    this.gridMatrix,
+                                    this.gridMatrixNoUnits,
                                     unit.getSteps(),
                                     undefined,
                                     unit.canFly(),
@@ -2833,7 +2840,7 @@ class Sandbox extends GLScene {
                             if (unit.canMove()) {
                                 this.hoverActivePath = this.pathHelper.getMovePath(
                                     unit.getBaseCell(),
-                                    this.gridMatrix,
+                                    this.gridMatrixNoUnits,
                                     unit.getSteps(),
                                     undefined,
                                     unit.canFly(),
@@ -2901,7 +2908,7 @@ class Sandbox extends GLScene {
                         if (unit.canMove()) {
                             this.hoverActivePath = this.pathHelper.getMovePath(
                                 unit.getBaseCell(),
-                                this.gridMatrix,
+                                this.gridMatrixNoUnits,
                                 unit.getSteps(),
                                 undefined,
                                 unit.canFly(),
@@ -3173,7 +3180,12 @@ class Sandbox extends GLScene {
         }
     }
 
-    public refreshScene(): void {
+    public refreshScene(unitData: UnitProperties): void {
+        const unit = this.unitsHolder.getAllUnits().get(unitData.id);
+        if (unit) {
+            unit.setAmountAlive(unitData.amount_alive);
+        }
+
         this.unitsHolder.refreshStackPowerForAllUnits();
         this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
     }
@@ -4047,8 +4059,8 @@ class Sandbox extends GLScene {
         this.sc_selectedAttackType = AttackType.NO_TYPE;
     }
 
-    private refreshVisibleStateIfNeeded() {
-        if (!this.sc_visibleState) {
+    private refreshVisibleStateIfNeeded(force = false) {
+        if (!this.sc_visibleState || force) {
             this.sc_visibleState = {
                 canBeStarted: false,
                 hasFinished: false,
@@ -5055,6 +5067,7 @@ class Sandbox extends GLScene {
                                 this.refreshUnits();
 
                                 this.gridMatrix = this.grid.getMatrix();
+                                this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
                                 this.refreshVisibleStateIfNeeded();
                                 if (this.sc_visibleState) {
                                     this.sc_visibleState.teamTypeTurn = nextUnit.getTeam();
