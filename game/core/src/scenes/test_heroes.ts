@@ -3562,9 +3562,10 @@ class Sandbox extends GLScene {
                         this.currentActiveUnit.getPosition(),
                     );
 
-                    if (SpellHelper.canCastSummon(this.hoveredSpell, this.gridMatrix, randomCell)) {
-                        const amountToSummon = this.currentActiveUnit.getAmountAlive() * this.hoveredSpell.getPower();
-
+                    const amountToSummon = Math.floor(
+                        this.currentActiveUnit.getAmountAlive() * this.hoveredSpell.getPower(),
+                    );
+                    if (SpellHelper.canCastSummon(this.hoveredSpell, this.gridMatrix, randomCell) && amountToSummon) {
                         const possibleUnit = this.unitsHolder.getSummonedUnitByName(
                             this.currentActiveUnit.getTeam(),
                             this.hoveredSpell.getSummonUnitName(),
