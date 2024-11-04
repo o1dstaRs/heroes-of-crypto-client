@@ -46,7 +46,7 @@ import synergySupplyImg from "../../../images/synergy_supply_256.webp";
 
 const SYNERGY_NAME_TO_IMAGE = {
     [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: synergySupplyImg,
-    [LifeSynergyNames.PLUS_MORALE]: synergyMoraleImg,
+    [LifeSynergyNames.PLUS_MORALE_AND_LUCK]: synergyMoraleImg,
     [ChaosSynergyNames.MOVEMENT]: synergyMovementImg,
     [ChaosSynergyNames.BREAK_ON_ATTACK]: synergyBreakOnAttackImg,
     [MightSynergyNames.PLUS_AURAS_RANGE]: synergyAurasRangeImg,
@@ -57,7 +57,7 @@ const SYNERGY_NAME_TO_IMAGE = {
 
 const SYNERGY_NAME_TO_FACTION = {
     [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: "Life",
-    [LifeSynergyNames.PLUS_MORALE]: "Life",
+    [LifeSynergyNames.PLUS_MORALE_AND_LUCK]: "Life",
     [ChaosSynergyNames.MOVEMENT]: "Chaos",
     [ChaosSynergyNames.BREAK_ON_ATTACK]: "Chaos",
     [MightSynergyNames.PLUS_AURAS_RANGE]: "Might",
@@ -68,7 +68,7 @@ const SYNERGY_NAME_TO_FACTION = {
 
 const SYNERGY_NAME_TO_DESCRIPTION = {
     [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: "Increase each unit's supply by {}%",
-    [LifeSynergyNames.PLUS_MORALE]: "The entire army gets +{} morale",
+    [LifeSynergyNames.PLUS_MORALE_AND_LUCK]: "The entire army gets +{} morale and +{} luck",
     [ChaosSynergyNames.MOVEMENT]: "Improve movement steps by {} cells",
     [ChaosSynergyNames.BREAK_ON_ATTACK]: "{}% chance to apply Break on attack",
     [MightSynergyNames.PLUS_AURAS_RANGE]: "Increase auras range by {} cells",
@@ -102,12 +102,19 @@ const SynergyToggler = ({ selectedSynergy }: { selectedSynergy: SelectedSynergy 
                             <Radio
                                 key={`${selectedSynergyKey}:${i + 1}`}
                                 value={`${selectedSynergy.faction}:${selectedSynergy.synergyValue}:${i + 1}`}
-                                label={`${SYNERGY_NAME_TO_DESCRIPTION[selectedSynergy.synergyName]?.replace(
-                                    "{}",
-                                    SynergyKeysToPower[
-                                        `${selectedSynergy.faction}:${selectedSynergy.synergyValue}:${i + 1}`
-                                    ]?.toString() || "0",
-                                )}`}
+                                label={`${SYNERGY_NAME_TO_DESCRIPTION[selectedSynergy.synergyName]
+                                    ?.replace(
+                                        "{}",
+                                        SynergyKeysToPower[
+                                            `${selectedSynergy.faction}:${selectedSynergy.synergyValue}:${i + 1}`
+                                        ]?.[0]?.toString() || "0",
+                                    )
+                                    ?.replace(
+                                        "{}",
+                                        SynergyKeysToPower[
+                                            `${selectedSynergy.faction}:${selectedSynergy.synergyValue}:${i + 1}`
+                                        ]?.[1]?.toString() || "0",
+                                    )}`}
                                 disabled={
                                     selectedSynergyKey !==
                                     `${selectedSynergy.faction}:${selectedSynergy.synergyValue}:${i + 1}`
@@ -631,7 +638,7 @@ const SideToggleContainer = ({
 
     const hasAnySynergies =
         possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] > 0 ||
-        possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE] > 0 ||
+        possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] > 0 ||
         possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] > 0 ||
         possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] > 0 ||
         possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] > 0 ||
@@ -718,7 +725,7 @@ const SideToggleContainer = ({
             {hasAnySynergies && (
                 <Box sx={{ display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
                     {possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] > 0 &&
-                        possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE] > 0 && (
+                        possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] > 0 && (
                             <Box
                                 sx={{
                                     display: "flex",
@@ -756,14 +763,14 @@ const SideToggleContainer = ({
                                         />
                                     </IconButton>
                                 </Tooltip>
-                                <Tooltip title="Pick Morale synergy" style={{ zIndex: 1 }}>
+                                <Tooltip title="Pick Morale & Luck synergy" style={{ zIndex: 1 }}>
                                     <IconButton
                                         onClick={() =>
                                             handleSynergySelect(setSynergyPairTypeLife, {
                                                 faction: "Life" as FactionType,
-                                                synergyName: LifeSynergyNames.PLUS_MORALE,
-                                                synergyValue: LifeSynergy.PLUS_MORALE,
-                                                level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE] ?? 0,
+                                                synergyName: LifeSynergyNames.PLUS_MORALE_AND_LUCK,
+                                                synergyValue: LifeSynergy.PLUS_MORALE_AND_LUCK,
+                                                level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] ?? 0,
                                                 name: "Morale Synergy",
                                             })
                                         }
@@ -774,7 +781,8 @@ const SideToggleContainer = ({
                                             alt="Morale Icon"
                                             style={{
                                                 filter:
-                                                    synergyPairLife?.synergyName === LifeSynergyNames.PLUS_MORALE
+                                                    synergyPairLife?.synergyName ===
+                                                    LifeSynergyNames.PLUS_MORALE_AND_LUCK
                                                         ? "brightness(1.2)"
                                                         : "brightness(0.6)",
                                                 width: 45,

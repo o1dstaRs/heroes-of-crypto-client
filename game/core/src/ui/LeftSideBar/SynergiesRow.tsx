@@ -13,11 +13,11 @@ import synergySupplyImg from "../../../images/synergy_supply_256.webp";
 
 const SYNERGY_NAME_TO_DESCRIPTION = {
     "Life:1:1": "Increases each unit's supply by {}% at the start of the battle",
-    "Life:2:1": "The entire army gets +{} morale",
+    "Life:2:1": "The entire army gets +{} morale and +{} luck",
     "Life:1:2": "Increases each unit's supply by {}% at the start of the battle",
-    "Life:2:2": "The entire army gets +{} morale",
+    "Life:2:2": "The entire army gets +{} morale and +{} luck",
     "Life:1:3": "Increases each unit's supply by {}% at the start of the battle",
-    "Life:2:3": "The entire army gets +{} morale",
+    "Life:2:3": "The entire army gets +{} morale and +{} luck",
     "Chaos:1:1": "Improves movement steps by {} cells",
     "Chaos:2:1": "{}% chance to apply Break on attack which disables enemy abilities for 1 turn",
     "Chaos:1:2": "Improves movement steps by {} cells",
@@ -108,7 +108,9 @@ const SynergiesRow = ({ synergies }: { synergies: string[] }) => {
                             title={`Level ${level}: ${(
                                 SYNERGY_NAME_TO_DESCRIPTION[synergyKey as keyof typeof SYNERGY_NAME_TO_DESCRIPTION] ||
                                 "Unknown Synergy"
-                            ).replace(/\{\}/, SynergyKeysToPower[synergyKey]?.toString() || "0")}`}
+                            )
+                                .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[0]?.toString() || "0")
+                                .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[1]?.toString() || "0")}`}
                             placement="bottom"
                         >
                             <Box
