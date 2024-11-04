@@ -375,8 +375,8 @@ const UnitStatsLayout: React.FC<{
     const armorModBadgeValue = armorMod ? `${armorSign}${armorMod}` : "";
     const stepsSign = stepsMod > 0 ? "+" : "";
     const stepsModBadgeValue = stepsMod ? `${stepsSign}${stepsMod}` : "";
-    const luckSign = unitProperties.luck_per_turn > 0 ? "+" : "";
-    const luckBadgeValue = unitProperties.luck_per_turn ? `${luckSign}${unitProperties.luck_per_turn}` : "";
+    const luckSign = unitProperties.luck_mod > 0 ? "+" : "";
+    const luckBadgeValue = unitProperties.luck_mod ? `${luckSign}${unitProperties.luck_mod}` : "";
     let attackColor = "success";
     if (unitProperties.attack_multiplier < 1) {
         attackColor = "danger";
@@ -494,17 +494,13 @@ const UnitStatsLayout: React.FC<{
                 />
                 <StatItem
                     icon={<LuckIcon />}
-                    value={unitProperties.luck + unitProperties.luck_per_turn}
+                    value={unitProperties.luck + unitProperties.luck_mod}
                     tooltip="Luck: Increases or decreases damage received in combat, while also affecting the probability or power of abilities"
                     color="#ff4040"
                     badgeContent={luckBadgeValue}
-                    badgeColor={unitProperties.luck_per_turn > 0 ? "success" : "danger"}
-                    positiveFrame={
-                        unitProperties.luck + unitProperties.luck_per_turn >= HoCConstants.LUCK_MAX_VALUE_TOTAL
-                    }
-                    negativeFrame={
-                        unitProperties.luck + unitProperties.luck_per_turn <= -HoCConstants.LUCK_MAX_VALUE_TOTAL
-                    }
+                    badgeColor={unitProperties.luck_mod > 0 ? "success" : "danger"}
+                    positiveFrame={unitProperties.luck + unitProperties.luck_mod >= HoCConstants.LUCK_MAX_VALUE_TOTAL}
+                    negativeFrame={unitProperties.luck + unitProperties.luck_mod <= -HoCConstants.LUCK_MAX_VALUE_TOTAL}
                 />
             </StatGroup>
         </>
