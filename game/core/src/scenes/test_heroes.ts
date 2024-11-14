@@ -1591,7 +1591,8 @@ class Sandbox extends GLScene {
         let hiddenUnit = false;
         if (
             hoverAttackUnit &&
-            (!hoverAttackUnit.hasBuffActive("Hidden") || hoverAttackUnit.getTeam() === this.currentActiveUnit.getTeam())
+            !hoverAttackUnit.hasBuffActive("Hidden") &&
+            hoverAttackUnit.getTeam() !== this.currentActiveUnit.getTeam()
         ) {
             let abilityMultiplier = 1;
             const paralysisAttackerEffect = this.currentActiveUnit.getEffect("Paralysis");
@@ -1834,10 +1835,6 @@ class Sandbox extends GLScene {
             }
 
             const unitId = this.grid.getOccupantUnitId(mouseCell);
-            if (!unitId) {
-                this.resetHoverInfo();
-            }
-
             if (unitId && this.unitsHolder.getAllUnits().has(unitId)) {
                 this.hoverUnit = this.unitsHolder.getAllUnits().get(unitId);
                 let hoverUnitCell: XY | undefined = undefined;
@@ -2113,7 +2110,6 @@ class Sandbox extends GLScene {
                                 this.sc_hoverTextUpdateNeeded = true;
                                 this.sc_attackRangeDamageDivisorStr = "";
                             } else {
-                                this.resetHoverInfo();
                                 if (
                                     hoverAttackUnit.hasBuffActive("Hidden") &&
                                     hoverAttackUnit.getTeam() !== this.currentActiveUnit.getTeam()
@@ -2439,7 +2435,6 @@ class Sandbox extends GLScene {
                             distance: HoCMath.getDistance(this.currentActiveUnit.getPosition(), obstablePosition),
                         };
                         this.sc_hoverAttackIsTargetingObstacle = true;
-                        this.resetHoverInfo();
                         this.sc_hoverInfoArr = ["Hit the mountain"];
                         this.sc_hoverTextUpdateNeeded = true;
                     } else if (
@@ -2478,7 +2473,6 @@ class Sandbox extends GLScene {
                                 distance: HoCMath.getDistance(this.currentActiveUnit.getPosition(), obstablePosition),
                             };
                             this.sc_hoverAttackIsTargetingObstacle = true;
-                            this.resetHoverInfo();
                             this.sc_hoverInfoArr = ["Hit the mountain"];
                             this.sc_hoverTextUpdateNeeded = true;
                         }
