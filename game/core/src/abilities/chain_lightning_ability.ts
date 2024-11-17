@@ -21,6 +21,7 @@ import {
     UnitsHolder,
     IStatisticHolder,
     IDamageStatistic,
+    SpellHelper,
 } from "@heroesofcrypto/common";
 
 interface ILayerImpact {
@@ -29,6 +30,7 @@ interface ILayerImpact {
     moraleIncrease: number;
     enemyName: string;
     enemyMinusMorale: number;
+    magicDamageReflection: number;
 }
 
 function getEnemiesForCells(
@@ -74,6 +76,7 @@ function attackEnemiesAndGetLayerImpact(
     damageStatisticHolder: IStatisticHolder<IDamageStatistic>,
 ): ILayerImpact[] {
     const fullLayerImpact: ILayerImpact[] = [];
+    let magicDamageReflection = 0;
     for (const e1 of enemies) {
         let moraleIncrease = 0;
         const enemyMagicResist = e1.getMagicResist();
@@ -108,6 +111,7 @@ function attackEnemiesAndGetLayerImpact(
                 damage: e1.applyDamage(targetEnemyLightningDamage, 0 /* magic attack */, sceneLog),
                 team: fromUnit.getTeam(),
             });
+            magicDamageReflection += (SpellHelper.getMagicMirrorPower(e1) / 100) * targetEnemyLightningDamage;
             sceneLog.updateLog(`${e1.getName()} got hit ${targetEnemyLightningDamage} by Chain Lightning`);
 
             if (e1.isDead() && !unitIdsDied.includes(e1.getId())) {
@@ -124,6 +128,7 @@ function attackEnemiesAndGetLayerImpact(
             moraleIncrease,
             enemyName: e1.getName(),
             enemyMinusMorale,
+            magicDamageReflection,
         });
     }
 
@@ -169,6 +174,7 @@ export function processChainLightningAbility(
         chainLightningAbility,
         FightStateManager.getInstance().getFightProperties().getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
     );
+    let totalMagicDamageReflection = 0;
     const targetEnemyLightningDamage =
         Math.floor(abilityMultiplier * attackDamage * (1 - targetMagicResist / 100)) * heavyArmorMultiplierTarget;
     if (targetEnemyLightningDamage && !targetUnit.isDead()) {
@@ -177,6 +183,7 @@ export function processChainLightningAbility(
             damage: targetUnit.applyDamage(targetEnemyLightningDamage, 0 /* magic attack */, sceneLog),
             team: fromUnit.getTeam(),
         });
+        totalMagicDamageReflection += (SpellHelper.getMagicMirrorPower(targetUnit) / 100) * targetEnemyLightningDamage;
         sceneLog.updateLog(`${targetUnit.getName()} got hit ${targetEnemyLightningDamage} by Chain Lightning`);
     }
 
@@ -227,6 +234,8 @@ export function processChainLightningAbility(
             affectedEnemiesIds,
         );
 
+        totalMagicDamageReflection += impact.magicDamageReflection;
+
         const unitNameKeyL1 = `${impact.enemyName}:${fromUnit.getOppositeTeam()}`;
         moraleDecreaseForTheUnitTeam[unitNameKeyL1] =
             (moraleDecreaseForTheUnitTeam[unitNameKeyL1] || 0) + impact.enemyMinusMorale;
@@ -249,7 +258,7 @@ export function processChainLightningAbility(
         );
 
         for (const impact2 of layer2Impact) {
-            totalMoraleIncrease += impact.moraleIncrease;
+            totalMoraleIncrease += impact2.moraleIncrease;
             const enemiesLayer3: Unit[] = getEnemiesForCells(
                 impact2.cells,
                 targetUnit.getTeam(),
@@ -257,6 +266,7 @@ export function processChainLightningAbility(
                 unitsHolder,
                 affectedEnemiesIds,
             );
+            totalMagicDamageReflection += impact2.magicDamageReflection;
 
             const unitNameKeyL2 = `${impact2.enemyName}:${fromUnit.getOppositeTeam()}`;
             moraleDecreaseForTheUnitTeam[unitNameKeyL2] =
@@ -266,7 +276,7 @@ export function processChainLightningAbility(
                 continue;
             }
 
-            attackEnemiesAndGetLayerImpact(
+            const layer3Impact = attackEnemiesAndGetLayerImpact(
                 fromUnit,
                 enemiesLayer3,
                 attackDamage,
@@ -278,6 +288,26 @@ export function processChainLightningAbility(
                 unitIdsDied,
                 damageStatisticHolder,
             );
+
+            for (const impact3 of layer3Impact) {
+                totalMoraleIncrease += impact3.moraleIncrease;
+                totalMagicDamageReflection += impact3.magicDamageReflection;
+                const unitNameKeyL3 = `${impact3.enemyName}:${fromUnit.getOppositeTeam()}`;
+                moraleDecreaseForTheUnitTeam[unitNameKeyL3] =
+                    (moraleDecreaseForTheUnitTeam[unitNameKeyL3] || 0) + impact3.enemyMinusMorale;
+            }
+        }
+    }
+
+    if (totalMagicDamageReflection && !fromUnit.hasAbilityActive("Wind Element")) {
+        fromUnit.applyDamage(totalMagicDamageReflection, 0 /* magic attack */, sceneLog);
+        sceneLog.updateLog(`${fromUnit.getName()} got hit ${totalMagicDamageReflection} by Magic Mirror reflection`);
+        if (fromUnit.isDead()) {
+            sceneLog.updateLog(`${fromUnit.getName()} died`);
+            unitIdsDied.push(fromUnit.getId());
+            const unitFromKey = `${fromUnit.getName()}:${fromUnit.getOppositeTeam()}`;
+            moraleDecreaseForTheUnitTeam[unitFromKey] =
+                (moraleDecreaseForTheUnitTeam[unitFromKey] || 0) + HoCConstants.MORALE_CHANGE_FOR_KILL;
         }
     }
 

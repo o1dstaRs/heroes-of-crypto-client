@@ -84,4 +84,9 @@ export interface IHoverInfo {
     information: string[];
 }
 
+export interface IWindowSize {
+    width: number;
+    height: number;
+}
+
 export type VisibleSynergyLevel = 0 | 1 | 2 | 3;

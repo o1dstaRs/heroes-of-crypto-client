@@ -101,7 +101,7 @@ const GameScreen = ({ entry: { name, SceneClass }, setSceneControlGroups }: Scen
     );
 };
 
-export function useActiveTestEntry() {
+export function useActiveSceneEntry() {
     const location = useLocation();
     const link = decodeURIComponent(`${location.pathname}${location.hash}`);
     const manager = useManager();
@@ -120,6 +120,6 @@ interface MainProps {
 }
 
 export const Main = ({ setSceneControlGroups }: MainProps) => {
-    const entry = useActiveTestEntry();
+    const entry = useActiveSceneEntry();
     return entry ? <GameScreen entry={entry} setSceneControlGroups={setSceneControlGroups} /> : <span />;
 };

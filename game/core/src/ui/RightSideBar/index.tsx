@@ -11,12 +11,13 @@ import ListItemButton from "@mui/joy/ListItemButton";
 import ListItemContent from "@mui/joy/ListItemContent";
 import Sheet from "@mui/joy/Sheet";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useManager } from "../../manager";
 import Toggler from "../Toggler";
 import { EDGES_SIZE } from "../../statics";
 import FightControlToggler from "./FightControlToggler";
 import { VersionDisplay } from "./VersionDisplay";
+import { IWindowSize } from "../../state/visible_state";
 
 interface IDamageStatsTogglerProps {
     unitStatsElements: React.ReactNode;
@@ -45,54 +46,29 @@ const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
     </ListItem>
 );
 
-export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) {
+export default function RightSideBar({ gameStarted, windowSize }: { gameStarted: boolean; windowSize: IWindowSize }) {
     const [unitDamageStatistics, setUnitDamageStatistics] = useState([] as IDamageStatistic[]);
     const manager = useManager();
     const [barSize, setBarSize] = useState(280);
 
-    const adjustBarSize = () => {
+    const adjustBarSize = useCallback(() => {
         const additionalBoardPixels = gameStarted ? 0 : 512;
         const edgesSize = gameStarted ? 0 : EDGES_SIZE;
-        const widthRatio = window.innerWidth / (2048 + edgesSize + additionalBoardPixels);
-        const heightRatio = window.innerHeight / (2048 + edgesSize);
+        const widthRatio = windowSize.width / (2048 + edgesSize + additionalBoardPixels);
+        const heightRatio = windowSize.height / (2048 + edgesSize);
 
         const scaleRatio = Math.min(widthRatio, heightRatio);
         const scaledBoardSize = (2048 + additionalBoardPixels) * scaleRatio;
 
         const edgeSizeWidth = gameStarted ? 0 : edgesSize / 2;
-        const rightBarEndAtBoard = (window.innerWidth - scaledBoardSize) / 2;
+        const rightBarEndAtBoard = (windowSize.width - scaledBoardSize) / 2;
         setBarSize(rightBarEndAtBoard > edgeSizeWidth ? rightBarEndAtBoard : edgeSizeWidth);
-    };
+    }, [gameStarted, windowSize]);
 
     useEffect(() => {
         adjustBarSize();
         manager.HomeCamera();
-
-        const handleResize = () => {
-            adjustBarSize();
-            manager.HomeCamera();
-        };
-
-        const handleZoom = () => {
-            adjustBarSize();
-            manager.HomeCamera();
-        };
-
-        const handleFullscreenChange = () => {
-            adjustBarSize();
-            manager.HomeCamera();
-        };
-
-        window.addEventListener("resize", handleResize);
-        window.addEventListener("wheel", handleZoom);
-        document.addEventListener("fullscreenchange", handleFullscreenChange);
-
-        return () => {
-            window.removeEventListener("resize", handleResize);
-            window.removeEventListener("wheel", handleZoom);
-            document.removeEventListener("fullscreenchange", handleFullscreenChange);
-        };
-    }, [gameStarted]);
+    }, [adjustBarSize, manager]);
 
     const [attackText, setAttackText] = useState("");
 
@@ -101,14 +77,14 @@ export default function RightSideBar({ gameStarted }: { gameStarted: boolean }) 
         return () => {
             connection1.disconnect();
         };
-    });
+    }, [manager]);
 
     useEffect(() => {
         const connection2 = manager.onDamageStatisticsUpdated.connect(setUnitDamageStatistics);
         return () => {
             connection2.disconnect();
         };
-    });
+    }, [manager]);
 
     const unitStats: IDamageStatistic[] = [];
     let maxDmg = Number.MIN_SAFE_INTEGER;
