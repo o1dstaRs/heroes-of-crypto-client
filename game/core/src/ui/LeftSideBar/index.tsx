@@ -11,7 +11,7 @@ import ListItemButton from "@mui/joy/ListItemButton";
 import Sheet from "@mui/joy/Sheet";
 import { useColorScheme } from "@mui/joy/styles";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 
 import { EDGES_SIZE } from "../../statics";
 import { MessageBox } from "./MessageBox";
@@ -21,78 +21,71 @@ import redOverlayImage from "../../../images/overlay_red.webp";
 import { UnitStatsListItem } from "./UnitStatsListItem";
 import { UpNext } from "./UpNext";
 import SynergiesRow from "./SynergiesRow";
+import { IWindowSize } from "../../state/visible_state";
 
-export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
+export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: boolean; windowSize: IWindowSize }) {
     const [badgeVisible, setBadgeVisible] = useState(false);
-    const [barSize, setBarSize] = useState(280); // Initialize bar size state
+    const [barSize, setBarSize] = useState(280);
     const [buttonsVisible] = useState({
         prediction: false,
         terrain: false,
         factory: false,
         dashboard: false,
     });
-    const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
+    const [unitProperties, setUnitProperties] = useState<UnitProperties>({} as UnitProperties);
 
     const { setMode } = useColorScheme();
     const manager = useManager();
 
-    const adjustBarSize = () => {
+    const adjustBarSize = useCallback(() => {
         const additionalBoardPixels = gameStarted ? 0 : 512;
         const edgesSize = gameStarted ? 0 : EDGES_SIZE;
-        const widthRatio = window.innerWidth / (2048 + edgesSize + additionalBoardPixels);
-        const heightRatio = window.innerHeight / (2048 + edgesSize);
+        const widthRatio = windowSize.width / (2048 + edgesSize + additionalBoardPixels);
+        const heightRatio = windowSize.height / (2048 + edgesSize);
 
         const scaleRatio = Math.min(widthRatio, heightRatio);
         const scaledBoardSize = (2048 + additionalBoardPixels) * scaleRatio;
 
         const edgeSizeWidth = gameStarted ? 0 : edgesSize / 2;
-        const rightBarEndAtBoard = (window.innerWidth - scaledBoardSize) / 2;
+        const rightBarEndAtBoard = (windowSize.width - scaledBoardSize) / 2;
         setBarSize(rightBarEndAtBoard > edgeSizeWidth ? rightBarEndAtBoard : edgeSizeWidth);
-    };
+    }, [gameStarted, windowSize.width, windowSize.height]);
 
+    // Handle bar size updates
+    useEffect(() => {
+        adjustBarSize();
+    }, [adjustBarSize]);
+
+    // Handle badge visibility
     useEffect(() => {
         const interval = setInterval(() => {
             setBadgeVisible(true);
-            setTimeout(() => {
+            const timeout = setTimeout(() => {
                 setBadgeVisible(false);
-            }, 5000); // Badge disappears after 5 seconds
-        }, 10000); // Badge appears every 10 seconds
+            }, 5000);
+            return () => clearTimeout(timeout);
+        }, 10000);
 
         return () => clearInterval(interval);
     }, []);
 
+    // Handle unit selection
     useEffect(() => {
-        const connection1 = manager.onUnitSelected.connect(setUnitProperties);
+        const connection = manager.onUnitSelected.connect(setUnitProperties);
         return () => {
-            connection1.disconnect();
+            connection.disconnect();
         };
-    });
+    }, [manager]);
 
-    // Set the default mode to dark before rendering
+    // Set dark mode
     useEffect(() => {
-        setMode("dark"); // Set dark mode by default
+        setMode("dark");
     }, [setMode]);
 
-    // Adjust bar size on window resize
-    useEffect(() => {
-        adjustBarSize(); // Initial call to set the size based on the initial window dimensions
+    const shouldColumnize = useMemo(() => {
+        return windowSize.width / windowSize.height >= 16 / 9;
+    }, [windowSize.width, windowSize.height]);
 
-        window.addEventListener("resize", adjustBarSize);
-        window.addEventListener("wheel", adjustBarSize);
-        document.addEventListener("fullscreenchange", adjustBarSize);
-
-        return () => {
-            window.removeEventListener("resize", adjustBarSize);
-            window.removeEventListener("wheel", adjustBarSize);
-            document.removeEventListener("fullscreenchange", adjustBarSize);
-        };
-    }, [gameStarted]);
-
-    const shouldColumnize = () => {
-        return window.innerWidth / window.innerHeight >= 16 / 9;
-    };
-
-    // @ts-ignore: skip styles
     return (
         <Sheet
             className="Sidebar"
@@ -100,7 +93,7 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
                 position: "fixed",
                 zIndex: 1,
                 height: "100dvh",
-                width: `${barSize}px`, // Use dynamic bar size
+                width: `${barSize}px`,
                 top: 0,
                 left: 0,
                 p: 2,
@@ -120,11 +113,11 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
                         src={unitProperties.team === 2 ? greenOverlayImage : redOverlayImage}
                         sx={{
                             position: "absolute",
-                            width: "350px", // Stripe width
+                            width: "350px",
                             height: "100%",
-                            top: 0, // Set y position to the top of the screen
-                            right: -350, // Set y position to the top of the screen
-                            transform: "rotate(65deg)", // Rotate to make the stripe go from bottom left to top right
+                            top: 0,
+                            right: -350,
+                            transform: "rotate(65deg)",
                             transformOrigin: "top left",
                             opacity: 1,
                             zIndex: 0,
@@ -139,7 +132,6 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
             <Box
                 sx={{
                     minHeight: 0,
-                    // overflow: "hidden auto",
                     flexGrow: 1,
                     display: "flex",
                     flexDirection: "column",
@@ -223,11 +215,7 @@ export default function LeftSideBar({ gameStarted }: { gameStarted: boolean }) {
 
                     <Divider />
 
-                    <UnitStatsListItem
-                        barSize={barSize}
-                        columnize={shouldColumnize()}
-                        unitProperties={unitProperties}
-                    />
+                    <UnitStatsListItem barSize={barSize} columnize={shouldColumnize} unitProperties={unitProperties} />
 
                     <Box sx={{ flexGrow: 1 }} />
 

@@ -24,8 +24,13 @@ import { IVisibleButton, VisibleButtonState } from "../../state/visible_state";
 
 let SCREEN_RATIO = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
 
-const INITIAL_POSITION_Y = 0;
-const INITIAL_POSITION_X = (window.innerWidth * SCREEN_RATIO) / 2 - 278 * SCREEN_RATIO;
+const getDefaultSettings = (): { x: number; y: number; isVertical: boolean } => {
+    return {
+        x: window.innerHeight + (window.innerWidth - window.innerHeight) / 2,
+        y: window.innerHeight / 4,
+        isVertical: true,
+    };
+};
 
 const BUTTON_NAME_TO_ICON_IMAGE: Record<string, string> = {
     [`Spellbook${VisibleButtonState.FIRST}`]: spellbookIconImage,
@@ -58,6 +63,7 @@ const StyledSheet = styled(Sheet)(({ theme }) => ({
     borderRadius: `${7 * SCREEN_RATIO}px`,
     padding: `${0.7 * SCREEN_RATIO}rem`,
     boxShadow: `0 0 ${7 * SCREEN_RATIO}px rgba(0,0,0,0.5)`,
+    transition: "left 0.5s ease, top 0.5s ease, flex-direction 0.5s ease",
 }));
 
 const StyledIconButton = styled("button", {
@@ -230,35 +236,67 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
 };
 
 const DraggableToolbar: React.FC = () => {
+    const defaultSettings = getDefaultSettings();
     const [position, setPosition] = useState<{ x: number; y: number }>({
-        x: INITIAL_POSITION_X,
-        y: INITIAL_POSITION_Y,
+        x: defaultSettings.x,
+        y: defaultSettings.y,
     });
     const [isDragging, setIsDragging] = useState<boolean>(false);
     const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-    const [isVertical, setIsVertical] = useState<boolean>(false);
+    const [isVertical, setIsVertical] = useState<boolean>(defaultSettings.isVertical);
     const [buttonGroupChanged, setButtonGroupChanged] = useState<boolean>(false);
     const [buttonGroup, setButtonGroup] = useState<IVisibleButton[]>([]);
     const theme = useTheme();
     const manager = useManager();
+
+    const resetToDefaultPosition = useCallback(() => {
+        const ds = getDefaultSettings();
+        setPosition({ x: ds.x, y: ds.y });
+        setIsVertical(ds.isVertical);
+    }, []);
 
     const updateScreenRatios = useCallback(() => {
         SCREEN_RATIO = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
     }, []);
 
     useEffect(() => {
-        const handleResize = () => {
-            updateScreenRatios();
+        const resetPositionIfNeeded = () => {
+            const ds = getDefaultSettings();
+            setPosition((prevPosition) => {
+                const dragIndicatorPosition = {
+                    x: prevPosition.x,
+                    y: prevPosition.y,
+                };
+
+                if (
+                    dragIndicatorPosition.x < -20 ||
+                    dragIndicatorPosition.y < -20 ||
+                    dragIndicatorPosition.x + 45 * SCREEN_RATIO > window.innerWidth ||
+                    dragIndicatorPosition.y + 45 * SCREEN_RATIO > window.innerHeight
+                ) {
+                    return { x: ds.x, y: ds.y };
+                }
+
+                return prevPosition;
+            });
+            setIsVertical(ds.isVertical);
         };
 
-        window.addEventListener("resize", handleResize);
-        window.addEventListener("zoom", handleResize);
+        const handleResizeOrZoom = () => {
+            updateScreenRatios();
+            resetPositionIfNeeded();
+        };
+
+        window.addEventListener("resize", handleResizeOrZoom);
+        window.addEventListener("zoom", handleResizeOrZoom);
+        document.addEventListener("fullscreenchange", resetToDefaultPosition);
 
         return () => {
-            window.removeEventListener("resize", handleResize);
-            window.removeEventListener("zoom", handleResize);
+            window.removeEventListener("resize", handleResizeOrZoom);
+            window.removeEventListener("zoom", handleResizeOrZoom);
+            document.removeEventListener("fullscreenchange", resetToDefaultPosition);
         };
-    }, [updateScreenRatios]);
+    }, [updateScreenRatios, buttonGroup.length, isVertical, resetToDefaultPosition]);
 
     useEffect(() => {
         manager.onHasButtonsGroupUpdate.connect(setButtonGroupChanged);
@@ -286,13 +324,30 @@ const DraggableToolbar: React.FC = () => {
     const handleMouseMove = useCallback(
         (e: MouseEvent) => {
             if (isDragging) {
-                setPosition({
-                    x: e.clientX - dragOffset.x,
-                    y: e.clientY - dragOffset.y,
+                const ds = getDefaultSettings();
+                setPosition(() => {
+                    const newX = e.clientX - dragOffset.x;
+                    const newY = e.clientY - dragOffset.y;
+
+                    const dragIndicatorPosition = {
+                        x: newX,
+                        y: newY,
+                    };
+
+                    if (
+                        dragIndicatorPosition.x < -20 ||
+                        dragIndicatorPosition.y < -20 ||
+                        dragIndicatorPosition.x + 45 * SCREEN_RATIO > window.innerWidth ||
+                        dragIndicatorPosition.y + 45 * SCREEN_RATIO > window.innerHeight
+                    ) {
+                        return { x: ds.x, y: ds.y, isVertical: ds.isVertical };
+                    }
+
+                    return { x: newX, y: newY };
                 });
             }
         },
-        [isDragging, dragOffset],
+        [isDragging, dragOffset, buttonGroup.length, isVertical],
     );
 
     const handleMouseUp = useCallback(() => {
@@ -325,6 +380,7 @@ const DraggableToolbar: React.FC = () => {
                 alignItems: "center",
                 gap: 0.7 * SCREEN_RATIO,
                 zIndex: 4,
+                transition: isDragging ? "none" : "left 0.5s ease, top 0.5s ease", // Add transition only when not dragging
             }}
         >
             <Box

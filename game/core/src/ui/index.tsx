@@ -1,6 +1,6 @@
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
-import React, { useEffect, useReducer, useState } from "react";
+import React, { useEffect, useReducer, useState, useCallback } from "react";
 import ReactDOM from "react-dom";
 import { HashRouter, Route, Routes, useNavigate } from "react-router-dom";
 import "typeface-open-sans";
@@ -13,17 +13,15 @@ import { useManager } from "../manager";
 import { SceneControl } from "../sceneControls";
 import LeftSideBar from "./LeftSideBar";
 import DraggableToolbar from "./DraggableToolbar";
-import { Main, useActiveTestEntry } from "./Main";
+import { Main, useActiveSceneEntry } from "./Main";
 import RightSideBar from "./RightSideBar";
 import "./style.scss";
 import Popover from "./Popover";
 import { UpNextOverlay } from "./UpNextOverlay";
+import { IWindowSize } from "../state/visible_state";
 
-// based on the overlays width ratio
-// do not change
 const LEFT_SELECTION_RATIO = 0.375558035714286;
 const CENTER_SELECTION_RATIO = 0.622209821428571;
-
 const THROTTLE_MOUSE_MOVE_DELAY_MS = 25;
 
 enum SelectionType {
@@ -57,20 +55,76 @@ interface ICoordinates {
     y: number;
 }
 
-function getSelectionType(coordinates: ICoordinates): SelectionType {
+const getSelectionType = (coordinates: ICoordinates, windowSize: IWindowSize): SelectionType => {
     if (!coordinates.x || !coordinates.y) {
         return SelectionType.NO_SELECTION;
     }
-    if (coordinates.x / window.innerWidth < LEFT_SELECTION_RATIO) {
+    if (coordinates.x / windowSize.width < LEFT_SELECTION_RATIO) {
         return SelectionType.SANDBOX;
     }
-
-    if (coordinates.x / window.innerWidth < CENTER_SELECTION_RATIO) {
+    if (coordinates.x / windowSize.width < CENTER_SELECTION_RATIO) {
         return SelectionType.LOBBY;
     }
-
     return SelectionType.PREDICTION;
-}
+};
+
+const usePreventSelection = () => {
+    useEffect(() => {
+        // Prevent text selection via CSS
+        document.body.style.userSelect = "none";
+
+        // Prevent default mouse behaviors
+        const preventMouseSelection = (e: MouseEvent) => {
+            // Allow only left click (button === 0)
+            if (e.button !== 0) {
+                e.preventDefault();
+            }
+        };
+
+        // Prevent selection on touch devices
+        const preventTouchSelection = (e: TouchEvent) => {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        };
+
+        // Prevent context menu
+        const preventContextMenu = (e: Event) => {
+            e.preventDefault();
+        };
+
+        // Prevent clipboard operations
+        const preventClipboard = (e: ClipboardEvent) => {
+            e.preventDefault();
+        };
+
+        // Add event listeners
+        document.addEventListener("mousedown", preventMouseSelection);
+        document.addEventListener("touchstart", preventTouchSelection, { passive: false });
+        document.addEventListener("contextmenu", preventContextMenu);
+        document.addEventListener("copy", preventClipboard);
+        document.addEventListener("cut", preventClipboard);
+        document.addEventListener("paste", preventClipboard);
+
+        // Prevent drag operations
+        document.addEventListener("dragstart", preventContextMenu);
+        document.addEventListener("drop", preventContextMenu);
+
+        // Cleanup function
+        return () => {
+            document.body.style.userSelect = "";
+
+            document.removeEventListener("mousedown", preventMouseSelection);
+            document.removeEventListener("touchstart", preventTouchSelection);
+            document.removeEventListener("contextmenu", preventContextMenu);
+            document.removeEventListener("copy", preventClipboard);
+            document.removeEventListener("cut", preventClipboard);
+            document.removeEventListener("paste", preventClipboard);
+            document.removeEventListener("dragstart", preventContextMenu);
+            document.removeEventListener("drop", preventContextMenu);
+        };
+    }, []);
+};
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const throttle = (func: (...args: any[]) => void, delay: number) => {
@@ -86,13 +140,81 @@ const throttle = (func: (...args: any[]) => void, delay: number) => {
     };
 };
 
-function Home() {
+const Home: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const [isTracking, setIsTracking] = useState(true);
     const [needToRenderOverlay, setNeedToRenderOverlay] = useState(true);
     const [coordinates, setCoordinates] = useState({ x: 0, y: 0 });
     const manager = useManager();
+    const navigate = useNavigate();
+    const entry = useActiveSceneEntry();
 
-    const selectionType = getSelectionType(coordinates);
+    const handleClick = useCallback(
+        (event: MouseEvent) => {
+            const { clientX, clientY } = event;
+            setCoordinates({ x: clientX, y: clientY });
+            const sType = getSelectionType({ x: clientX, y: clientY }, windowSize);
+            if (sType === SelectionType.SANDBOX) {
+                setNeedToRenderOverlay(false);
+                setIsTracking(false);
+                navigate("/Heroes#Sandbox");
+            }
+        },
+        [windowSize, navigate],
+    );
+
+    const handleTouch = useCallback(
+        (event: TouchEvent) => {
+            const touch = event.touches[0];
+            const { clientX, clientY } = touch;
+            setCoordinates({ x: clientX, y: clientY });
+            const sType = getSelectionType({ x: clientX, y: clientY }, windowSize);
+            if (sType === SelectionType.SANDBOX) {
+                setNeedToRenderOverlay(false);
+                setIsTracking(false);
+                navigate("/Heroes#Sandbox");
+            }
+        },
+        [windowSize, navigate],
+    );
+
+    const handleMouseMove = useCallback((event: MouseEvent) => {
+        const { clientX, clientY } = event;
+        setCoordinates({ x: clientX, y: clientY });
+    }, []);
+
+    const throttledMouseMove = useCallback(throttle(handleMouseMove, THROTTLE_MOUSE_MOVE_DELAY_MS), [handleMouseMove]);
+
+    useEffect(() => {
+        if (isTracking) {
+            window.addEventListener("mousemove", throttledMouseMove);
+            window.addEventListener("click", handleClick);
+            window.addEventListener("touchstart", handleTouch);
+        }
+
+        return () => {
+            window.removeEventListener("mousemove", throttledMouseMove);
+            window.removeEventListener("click", handleClick);
+            window.removeEventListener("touchstart", handleTouch);
+        };
+    }, [isTracking, throttledMouseMove, handleClick, handleTouch]);
+
+    useEffect(() => {
+        if (entry && needToRenderOverlay) {
+            setNeedToRenderOverlay(false);
+        } else if (!entry && !needToRenderOverlay) {
+            setNeedToRenderOverlay(true);
+        }
+    }, [entry, needToRenderOverlay]);
+
+    useEffect(() => {
+        if (entry && isTracking) {
+            setIsTracking(false);
+        } else if (!entry && !isTracking) {
+            setIsTracking(true);
+        }
+    }, [entry, isTracking]);
+
+    const selectionType = getSelectionType(coordinates, windowSize);
     let defaultOverlay = overlayNoSelect;
     if (selectionType === SelectionType.SANDBOX) {
         defaultOverlay = overlaySandbox;
@@ -102,84 +224,15 @@ function Home() {
         defaultOverlay = overlayPrediction;
     }
 
-    const navigate = useNavigate();
-
-    const handleClick = (event: MouseEvent) => {
-        const { clientX, clientY } = event;
-        setCoordinates({ x: clientX, y: clientY });
-        const sType = getSelectionType({ x: clientX, y: clientY });
-        if (sType === SelectionType.SANDBOX) {
-            setNeedToRenderOverlay(false);
-            setIsTracking(false);
-            navigate("/Heroes#Sandbox");
-        }
-    };
-
-    const handleTouch = (event: TouchEvent) => {
-        const touch = event.touches[0];
-        const { clientX, clientY } = touch;
-        setCoordinates({ x: clientX, y: clientY });
-        const sType = getSelectionType({ x: clientX, y: clientY });
-        if (sType === SelectionType.SANDBOX) {
-            setNeedToRenderOverlay(false);
-            setIsTracking(false);
-            navigate("/Heroes#Sandbox");
-        }
-    };
-
-    const handleMouseMove = (event: MouseEvent) => {
-        const { clientX, clientY } = event;
-        setCoordinates({ x: clientX, y: clientY });
-    };
-
-    const throttledMouseMove = throttle(handleMouseMove, THROTTLE_MOUSE_MOVE_DELAY_MS);
-
+    // Move manager.Uninitialize() to useEffect with proper cleanup
     useEffect(() => {
-        if (isTracking) {
-            window.addEventListener("mousemove", throttledMouseMove);
-            window.addEventListener("click", handleClick);
-            window.addEventListener("touchstart", handleTouch);
-        } else {
-            window.removeEventListener("mousemove", throttledMouseMove);
-            window.removeEventListener("click", handleClick);
-            window.removeEventListener("touchstart", handleTouch);
-        }
-
-        // Cleanup function to ensure the event listener is removed if the component unmounts
         return () => {
-            window.removeEventListener("mousemove", throttledMouseMove);
-            window.removeEventListener("click", handleClick);
-            window.removeEventListener("touchstart", handleTouch);
+            manager.Uninitialize();
         };
-    }, [isTracking]);
-
-    const entry = useActiveTestEntry();
-
-    if (entry && needToRenderOverlay) {
-        setNeedToRenderOverlay(false);
-    }
-
-    if (!needToRenderOverlay && !entry) {
-        setNeedToRenderOverlay(true);
-    }
-
-    let cssContainerDisplay = "flex";
-    if (needToRenderOverlay) {
-        cssContainerDisplay = "block";
-    }
-
-    if (entry && isTracking) {
-        setIsTracking(false);
-    }
-
-    if (!entry && !isTracking) {
-        setIsTracking(true);
-    }
-
-    manager.Uninitialize();
+    }, [manager]);
 
     return (
-        <div className="container" style={{ display: cssContainerDisplay }}>
+        <div className="container" style={{ display: needToRenderOverlay ? "block" : "flex" }}>
             {needToRenderOverlay && (
                 <header className="App-header">
                     <div className="image-overlay">
@@ -189,16 +242,15 @@ function Home() {
             )}
         </div>
     );
-}
+};
 
-function Heroes() {
+const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const [, setSceneControls] = useReducer(reduceTestControlGroups, defaultSceneControlGroupsState);
     const [started, setStarted] = useState(false);
-
     const manager = useManager();
 
     useEffect(() => {
-        const connection2 = manager.onHasStarted.connect((hasStarted) => {
+        const connection = manager.onHasStarted.connect((hasStarted) => {
             setStarted(hasStarted);
             if (hasStarted) {
                 manager.HomeCamera();
@@ -206,16 +258,16 @@ function Heroes() {
         });
 
         return () => {
-            connection2.disconnect();
+            connection.disconnect();
         };
-    }, [manager]); // Add manager to the dependency array
+    }, [manager]);
 
     return (
         <div className="container" style={{ display: "flex" }}>
             <CssVarsProvider>
                 <CssBaseline />
-                <LeftSideBar gameStarted={started} />
-                <RightSideBar gameStarted={started} />
+                <LeftSideBar gameStarted={started} windowSize={windowSize} />
+                <RightSideBar gameStarted={started} windowSize={windowSize} />
                 <UpNextOverlay />
                 <DraggableToolbar />
             </CssVarsProvider>
@@ -223,18 +275,44 @@ function Heroes() {
             <Popover />
         </div>
     );
-}
+};
 
-document.title = "Heroes of Crypto Beta";
+const App: React.FC = () => {
+    const [windowSize, setWindowSize] = useState<IWindowSize>({
+        width: window.innerWidth,
+        height: window.innerHeight,
+    });
 
-const App: React.FC = () => (
-    <HashRouter>
-        <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/heroes" element={<Heroes />} />
-        </Routes>
-    </HashRouter>
-);
+    const updateWindowSize = useCallback(() => {
+        setWindowSize({
+            width: window.innerWidth,
+            height: window.innerHeight,
+        });
+    }, []);
+
+    usePreventSelection();
+
+    useEffect(() => {
+        window.addEventListener("resize", updateWindowSize);
+        window.addEventListener("wheel", updateWindowSize);
+        document.addEventListener("fullscreenchange", updateWindowSize);
+
+        return () => {
+            window.removeEventListener("resize", updateWindowSize);
+            window.removeEventListener("wheel", updateWindowSize);
+            document.removeEventListener("fullscreenchange", updateWindowSize);
+        };
+    }, [updateWindowSize]);
+
+    return (
+        <HashRouter>
+            <Routes>
+                <Route path="/" element={<Home windowSize={windowSize} />} />
+                <Route path="/heroes" element={<Heroes windowSize={windowSize} />} />
+            </Routes>
+        </HashRouter>
+    );
+};
 
 // eslint-disable-next-line react/no-deprecated
 ReactDOM.render(
