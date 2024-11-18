@@ -57,6 +57,7 @@
         "@typescript-eslint/eslint-plugin": "^7.14.1",
         "@typescript-eslint/parser": "^7.14.1",
         "buffer": "^6.0.3",
+        "cpy-cli": "^4.0.0",
         "cross-env": "^7.0.3",
         "crypto-browserify": "^3.12.0",
         "eslint": "^9.8.0",
@@ -74,6 +75,9 @@
         "stylelint": "^16.8.2",
         "stylelint-scss": "^6.5.0",
         "vm-browserify": "^1.1.2"
+    },
+    "engines": {
+        "node": ">=20.0.0"
     },
     "staticFiles": {
         "staticPath": "game/core/src/heroes/configuration"
