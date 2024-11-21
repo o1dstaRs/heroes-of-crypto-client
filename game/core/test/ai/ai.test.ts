@@ -193,8 +193,7 @@ describe("MoveAndAttackForSmallUnit", () => {
         const unitFrom = generateUnits(grid, 4 /* steps */, true, baseCellFrom, baseCellTo);
         // grid.print(unitFrom.getId(), false);
         const closestTarget = findTarget(unitFrom, grid, grid.getMatrix(), new UnitsHolder(grid), pathHelper);
-        // FIXME: Fix bug, must be either 9:5 or 5:9
-        expect(closestTarget?.cellToMove()).toEqual({ x: 5, y: 6 });
+        expect(closestTarget?.cellToMove()).toEqual({ x: 5, y: 9 });
         expect(closestTarget?.cellToAttack()).toBeUndefined();
         expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE);
     });
