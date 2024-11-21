@@ -241,6 +241,7 @@ function doFindTarget(
 
     if (debug) {
         console.log("just for debug: " + actualMovePath.knownPaths.size);
+        grid.print(unit.getId());
     }
 
     /*
@@ -492,9 +493,9 @@ function doFindTarget(
                         //     break;
                         // }
                     }
-                    if (resultMovementDistance) {
-                        break;
-                    }
+                    // if (resultMovementDistance) {
+                    //     break;
+                    // }
                 }
             }
         }
