@@ -35,7 +35,6 @@ import {
     VisibleButtonState,
 } from "./state/visible_state";
 import { EDGES_SIZE, MAX_FPS } from "./statics";
-import type { SceneControlGroup } from "./ui";
 import { g_camera } from "./utils/camera";
 import { FpsCalculator } from "./utils/FpsCalculator";
 import { createDefaultShader } from "./utils/gl/defaultShader";
@@ -120,8 +119,6 @@ export class GameManager {
 
     private activateScene: (entry: SceneEntry) => void = () => {};
 
-    private setSceneControlGroups: (groups: SceneControlGroup[]) => void = () => {};
-
     private started = false;
 
     private lastSentEmptyHoverInfo = false;
@@ -137,17 +134,14 @@ export class GameManager {
         debugCanvas: HTMLCanvasElement,
         wrapper: HTMLDivElement,
         activateScene: (entry: SceneEntry) => void,
-        setSceneControlGroups: (groups: SceneControlGroup[]) => void,
     ) {
         if (this.isInitialized) {
             return;
         }
         this.activateScene = activateScene;
-        this.setSceneControlGroups = setSceneControlGroups;
         debugCanvas.addEventListener("mousedown", (e) => this.HandleMouseDown(e));
         debugCanvas.addEventListener("mouseup", (e) => this.HandleMouseUp(e));
         debugCanvas.addEventListener("mousemove", (e) => this.HandleMouseMove(e));
-        // debugCanvas.addEventListener("wheel", (e) => this.HandleMouseWheel(e));
         debugCanvas.addEventListener("mouseenter", () => {
             this.m_hoveringCanvas = true;
         });
@@ -360,17 +354,12 @@ export class GameManager {
             draw: this.m_settings.m_debugDraw,
         });
 
-        // if (this.m_scene) {
-        // this.m_scene.switchStarted(this.started);
-        // }
         this.m_scene.setupControls();
         this.sceneBaseHotKeys = this.m_scene.getBaseHotkeys();
         this.sceneHotKeys = this.m_scene.getHotkeys();
         this.allHotKeys = [
             ...[
                 hotKeyPress("r", "Reset Camera", () => this.HomeCamera()),
-                // hotKeyPress("+", "Zoom In", () => this.ZoomCamera(1.1)),
-                // hotKeyPress("-", "Zoom Out", () => this.ZoomCamera(0.9)),
                 hotKeyPress("s", "Start Scene", () => this.StartGame()),
                 hotKeyPress("S", "Start Scene", () => this.StartGame()),
             ],
@@ -388,8 +377,6 @@ export class GameManager {
             this.HomeCamera();
         }
 
-        // Slice to force an update (and thus a reset) of the UI
-        this.setSceneControlGroups(this.m_scene.sc_testControlGroups.slice());
         this.UpdateHoverInfo();
     }
 

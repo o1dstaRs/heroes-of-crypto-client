@@ -15,9 +15,6 @@ import { g_camera } from "../utils/camera";
 import { RayHandlerImpl } from "../utils/lights/RayHandlerImpl";
 import { clearGlCanvas } from "../utils/gl/glUtils";
 import { Settings } from "../settings";
-import { selectDef } from "../ui/controls/Select";
-import { checkboxDef } from "../ui/controls/Checkbox";
-import { SceneControl } from "../sceneControls";
 import { Scene } from "./scene";
 import { SceneSettings } from "./scene_settings";
 
@@ -56,24 +53,6 @@ export abstract class GLScene extends Scene {
         );
         this.gl_rayHandler.setAmbientLight(0, 0, 0, 0.5);
         this.gl_rayHandler.setBlurNum(3);
-    }
-
-    public setupControls() {
-        this.addTestControlGroup("Light", this.getLightControls());
-    }
-
-    public getLightControls(): SceneControl[] {
-        return [
-            selectDef("Blend Mode", ["Default", "Over-Burn", "Some Other"], this.gl_blendMode, (value) => {
-                this.setBlending(value as BlendMode);
-            }),
-            checkboxDef("Debug Light Shapes", this.gl_drawDebugLight, (value: boolean) => {
-                this.gl_drawDebugLight = value;
-            }),
-            checkboxDef("Soft Shadows", this.gl_soft, (value: boolean) => {
-                this.gl_soft = value;
-            }),
-        ];
     }
 
     public abstract getViewportSize(): XY;
