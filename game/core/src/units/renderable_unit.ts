@@ -1005,6 +1005,18 @@ export class RenderableUnit extends Unit {
                     ),
             );
         }
+
+        // Devour Essence
+        const devourEssenceAbility = this.getAbility("Devour Essence");
+        if (devourEssenceAbility) {
+            const percentage = Number(
+                this.calculateAbilityApplyChance(devourEssenceAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
+            this.refreshAbiltyDescription(
+                devourEssenceAbility.getName(),
+                devourEssenceAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
     }
 
     private refreshAbiltyDescription(abilityName: string, abilityDescription: string): void {

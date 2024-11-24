@@ -508,7 +508,7 @@ const UnitStatsLayout: React.FC<{
 
     if (columnize) {
         return (
-            <Box sx={{ display: "flex", width: "100%", overflow: "hidden" }}>
+            <Box sx={{ display: "flex", width: "100%", overflow: "hidden", flexWrap: "wrap" }}>
                 <Box sx={{ width: "60%", position: "relative" }}>
                     <Avatar
                         src={images[largeTextureName]}
@@ -525,13 +525,13 @@ const UnitStatsLayout: React.FC<{
                 </Box>
                 <Box
                     sx={{
-                        width: "40%",
+                        width: "38%",
                         display: "flex",
                         flexDirection: "column",
                         justifyContent: "center",
                         pl: 3,
-                        pt: 2,
-                        pb: 2,
+                        pt: 1,
+                        pb: 1,
                         transform: "scale(1.2)",
                     }}
                 >
@@ -647,6 +647,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
     const abilities: IVisibleImpact[] = overallImpact.abilities || [];
     const buffs: IVisibleImpact[] = overallImpact.buffs || [];
     const debuffs: IVisibleImpact[] = overallImpact.debuffs || [];
+    const hasHandymanAbility = abilities.some((ability) => ability.name === "Handyman");
 
     const hasBuffsOrDebuffs = buffs.length > 0 || debuffs.length > 0;
     let hasBreakApplied = false;
@@ -697,7 +698,11 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
         const attackMod = Number(unitProperties.attack_mod.toFixed(2));
         const attackTypeSelected = unitProperties.attack_type_selected;
         let attackDamage = (unitProperties.base_attack + unitProperties.attack_mod) * unitProperties.attack_multiplier;
-        if (attackTypeSelected === AttackType.MELEE && unitProperties.attack_type === AttackType.RANGE) {
+        if (
+            attackTypeSelected === AttackType.MELEE &&
+            unitProperties.attack_type === AttackType.RANGE &&
+            !hasHandymanAbility
+        ) {
             attackDamage /= 2;
         }
         const meleeArmor = Math.max(1, unitProperties.base_armor + unitProperties.armor_mod);

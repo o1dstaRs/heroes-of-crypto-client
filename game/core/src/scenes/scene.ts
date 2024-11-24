@@ -53,7 +53,6 @@ import {
     SynergyWithLevel,
 } from "@heroesofcrypto/common";
 
-import { SceneControl } from "../sceneControls";
 import { Settings } from "../settings";
 import {
     IVisibleButton,
@@ -64,7 +63,6 @@ import {
     VisibleButtonState,
 } from "../state/visible_state";
 import { EDGES_SIZE, MAX_FPS, MAX_X } from "../statics";
-import type { SceneControlGroup } from "../ui";
 import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
@@ -239,8 +237,6 @@ export abstract class Scene extends b2ContactListener {
 
     public sc_groundBody: b2Body;
 
-    public sc_testControlGroups: SceneControlGroup[] = [];
-
     public sc_possibleSynergiesPerTeam: Map<TeamType, SynergyWithLevel[]> = new Map();
 
     public sc_isSelection = false;
@@ -303,13 +299,6 @@ export abstract class Scene extends b2ContactListener {
     }
 
     public setupControls() {}
-
-    protected addTestControlGroup(legend: string, controls: SceneControl[]): void {
-        this.sc_testControlGroups.push({
-            legend,
-            controls,
-        });
-    }
 
     protected selectedSmallUnit(): boolean {
         return !!this.sc_selectedBody && this.sc_selectedBody.GetUserData()?.size === 1;

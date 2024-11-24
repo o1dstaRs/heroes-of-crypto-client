@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 
-import type { SceneControlGroup } from "..";
 import { useManager } from "../../manager";
 import { SceneEntry } from "../../scenes/scene";
 import { getSceneLink } from "../../utils/reactUtils";
@@ -9,10 +8,9 @@ import DamageBubble from "../DamageBubble";
 
 interface SceneComponentProps {
     entry: SceneEntry;
-    setSceneControlGroups: (groups: SceneControlGroup[]) => void;
 }
 
-const GameScreen = ({ entry: { name, SceneClass }, setSceneControlGroups }: SceneComponentProps) => {
+const GameScreen = ({ entry: { name, SceneClass } }: SceneComponentProps) => {
     const [coordinates, setCoordinates] = useState({ x: 0, y: 0 });
     const [damage, setDamage] = useState<number>(0);
     const [started, setStarted] = useState(false);
@@ -77,7 +75,7 @@ const GameScreen = ({ entry: { name, SceneClass }, setSceneControlGroups }: Scen
             };
             const init = async () => {
                 const setTest = (test: SceneEntry) => navigate(getSceneLink(test));
-                await manager.init(glCanvas, debugCanvas, wrapper, setTest, setSceneControlGroups);
+                await manager.init(glCanvas, debugCanvas, wrapper, setTest);
                 window.requestAnimationFrame(loop);
             };
             window.requestAnimationFrame(() => {
@@ -102,24 +100,11 @@ const GameScreen = ({ entry: { name, SceneClass }, setSceneControlGroups }: Scen
 };
 
 export function useActiveSceneEntry() {
-    const location = useLocation();
-    const link = decodeURIComponent(`${location.pathname}${location.hash}`);
     const manager = useManager();
-
-    for (const scene of manager.flatScenes) {
-        if (getSceneLink(scene) === link) {
-            return scene;
-        }
-    }
-
-    return undefined;
+    return manager.flatScenes[0];
 }
 
-interface MainProps {
-    setSceneControlGroups: (groups: SceneControlGroup[]) => void;
-}
-
-export const Main = ({ setSceneControlGroups }: MainProps) => {
+export const Main = () => {
     const entry = useActiveSceneEntry();
-    return entry ? <GameScreen entry={entry} setSceneControlGroups={setSceneControlGroups} /> : <span />;
+    return entry ? <GameScreen entry={entry} /> : <span />;
 };

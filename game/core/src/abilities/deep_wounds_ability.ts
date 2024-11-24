@@ -11,6 +11,23 @@
 
 import { ISceneLog, Unit, HoCLib, FightStateManager } from "@heroesofcrypto/common";
 
+export function calculateActiveDeepWoundsEffect(fromUnit: Unit, targetUnit: Unit): number {
+    const activeDeepWoundsEffect = targetUnit.getEffect("Deep Wounds");
+    if (!activeDeepWoundsEffect?.getPower()) {
+        return 0;
+    }
+
+    const deepWoundsLevel1Ability = fromUnit.getAbility("Deep Wounds Level 1");
+    const deepWoundsLevel2Ability = fromUnit.getAbility("Deep Wounds Level 2");
+    const deepWoundsLevel3Ability = fromUnit.getAbility("Deep Wounds Level 3");
+
+    if (!deepWoundsLevel1Ability && !deepWoundsLevel2Ability && !deepWoundsLevel3Ability) {
+        return 0;
+    }
+
+    return activeDeepWoundsEffect.getPower();
+}
+
 export function processDeepWoundsAbility(
     fromUnit: Unit,
     targetUnit: Unit,

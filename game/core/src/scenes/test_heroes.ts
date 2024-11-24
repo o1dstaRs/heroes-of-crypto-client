@@ -439,6 +439,7 @@ class Sandbox extends GLScene {
             if (action?.actionType() === AIActionType.MOVE_AND_MELEE_ATTACK) {
                 if (this.currentActiveUnit.selectAttackType(AttackType.MELEE)) {
                     this.refreshButtons(true);
+                    this.applyAugments(this.currentActiveUnit, false);
                 }
                 if (
                     (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE ||
@@ -490,6 +491,7 @@ class Sandbox extends GLScene {
             } else if (action?.actionType() === AIActionType.MELEE_ATTACK) {
                 if (this.currentActiveUnit.selectAttackType(AttackType.MELEE)) {
                     this.refreshButtons(true);
+                    this.applyAugments(this.currentActiveUnit, false);
                 }
                 if (
                     (this.currentActiveUnit.getAttackTypeSelection() === AttackType.MELEE ||
@@ -523,6 +525,7 @@ class Sandbox extends GLScene {
             } else if (action?.actionType() === AIActionType.RANGE_ATTACK) {
                 if (this.currentActiveUnit.selectAttackType(AttackType.RANGE)) {
                     this.refreshButtons(true);
+                    this.applyAugments(this.currentActiveUnit, false);
                 }
                 if (
                     this.currentActiveUnit.getAttackTypeSelection() === AttackType.RANGE &&
@@ -969,10 +972,10 @@ class Sandbox extends GLScene {
             } else if (buttonName === "AttackType" && this.currentActiveUnit) {
                 if (this.currentActiveUnit.selectNextAttackType()) {
                     this.currentEnemiesCellsWithinMovementRange = undefined;
-                    // this.currentActiveUnitSwitchedAttackAuto = true;
                     this.sc_unitPropertiesUpdateNeeded = true;
                     this.refreshButtons(true);
                     this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
+                    this.applyAugments(this.currentActiveUnit, false);
                 }
             }
         }
@@ -1778,6 +1781,21 @@ class Sandbox extends GLScene {
         }
     }
 
+    private canTarget(): boolean {
+        if (!this.currentActiveUnit || !this.hoverUnit) {
+            return false;
+        }
+
+        const forcedTargetUnitId = this.currentActiveUnit.getTarget();
+        const forcedTargetUnit = this.unitsHolder.getAllUnits().get(forcedTargetUnitId);
+        return (
+            !forcedTargetUnit ||
+            forcedTargetUnit.isDead() ||
+            !forcedTargetUnitId ||
+            forcedTargetUnitId === this.hoverUnit.getId()
+        );
+    }
+
     protected hover(): void {
         this.resetHoverInfo();
 
@@ -1954,8 +1972,7 @@ class Sandbox extends GLScene {
                                 this.currentActiveUnit.hasDebuffActive("Cowardice") &&
                                 this.currentActiveUnit.getCumulativeHp() < this.hoverUnit.getCumulativeHp()
                             ) &&
-                            (!this.currentActiveUnit.getTarget() ||
-                                this.currentActiveUnit.getTarget() === this.hoverUnit.getId())
+                            this.canTarget()
                         ) {
                             this.hoverAttackUnits = [[this.hoverUnit]];
                         } else {
@@ -2647,6 +2664,10 @@ class Sandbox extends GLScene {
                             return;
                         }
 
+                        if (!FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+                            this.applyAugments(hoverUnit, selectedUnit.getId() !== hoverUnit.getId(), true);
+                        }
+
                         if (hoverUnit.getId() === selectedUnitProperties.id) {
                             if (
                                 GridMath.isPositionWithinGrid(
@@ -3185,7 +3206,7 @@ class Sandbox extends GLScene {
     }
 
     protected landAttack(): boolean {
-        if (!this.currentActiveSpell) {
+        if (!this.currentActiveSpell && this.currentActiveUnit) {
             const meleeAttackResult = this.attackHandler.handleMeleeAttack(
                 this.unitsHolder,
                 this.moveHandler,
@@ -3219,6 +3240,8 @@ class Sandbox extends GLScene {
 
             if (meleeAttackResult.completed) {
                 const alreadyProcessed: string[] = [];
+                const devourEssenceAbility = this.currentActiveUnit.getAbility("Devour Essence");
+                let killedAnEnemy = false;
                 for (const uId of meleeAttackResult.unitIdsDied) {
                     if (alreadyProcessed.includes(uId)) {
                         continue;
@@ -3226,12 +3249,43 @@ class Sandbox extends GLScene {
                     if (this.unitsHolder.deleteUnitById(uId, true /* check for resurrection */)) {
                         const unitBody = this.unitsFactory.getUnitBody(uId);
                         if (unitBody) {
+                            if (unitBody.GetUserData().team !== this.currentActiveUnit.getTeam()) {
+                                killedAnEnemy = true;
+                            }
+
                             this.sc_world.DestroyBody(unitBody);
                         }
                         this.unitsFactory.deleteUnitBody(uId);
                     }
                     alreadyProcessed.push(uId);
                 }
+
+                if (killedAnEnemy && devourEssenceAbility) {
+                    const devourEssenceAbilityPower = Number(
+                        this.currentActiveUnit
+                            .calculateAbilityApplyChance(
+                                devourEssenceAbility,
+                                FightStateManager.getInstance()
+                                    .getFightProperties()
+                                    .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
+                            )
+                            .toFixed(2),
+                    );
+                    if (devourEssenceAbilityPower > 0) {
+                        const devourEssenceMultiplier = Math.min(1, devourEssenceAbilityPower / 100);
+                        const canRejuvinateUpTo = Math.ceil(
+                            this.currentActiveUnit.getMaxHp() * devourEssenceMultiplier,
+                        );
+                        if (canRejuvinateUpTo > this.currentActiveUnit.getHp()) {
+                            const rejuvinateBy = canRejuvinateUpTo - this.currentActiveUnit.getHp();
+                            this.currentActiveUnit.applyHeal(rejuvinateBy);
+                            this.sc_sceneLog.updateLog(
+                                `${this.currentActiveUnit.getName()} rejuvinated for ${rejuvinateBy} hp`,
+                            );
+                        }
+                    }
+                }
+
                 this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
                 this.sc_damageStatsUpdateNeeded = true;
                 this.finishTurn();
@@ -4102,6 +4156,7 @@ class Sandbox extends GLScene {
                 if (this.currentActiveUnit.selectAttackType(AttackType.MELEE)) {
                     this.currentActiveSpell = undefined;
                     this.adjustSpellBookSprite();
+                    this.applyAugments(this.currentActiveUnit, false);
                 }
                 this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
             }
@@ -4112,6 +4167,7 @@ class Sandbox extends GLScene {
                 if (force) {
                     if (this.currentActiveUnit.selectAttackType(this.switchToSelectedAttackType)) {
                         this.refreshButtons(true);
+                        this.applyAugments(this.currentActiveUnit, false);
                     }
                     if (this.switchToSelectedAttackType !== AttackType.MAGIC) {
                         this.currentActiveSpell = undefined;
@@ -4126,6 +4182,7 @@ class Sandbox extends GLScene {
             if (this.switchToSelectedAttackType) {
                 if (this.currentActiveUnit.selectAttackType(this.switchToSelectedAttackType)) {
                     this.refreshButtons(true);
+                    this.applyAugments(this.currentActiveUnit, false);
                     return true;
                 }
             }
@@ -4152,6 +4209,7 @@ class Sandbox extends GLScene {
 
             this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
             this.refreshButtons(true);
+            this.applyAugments(this.currentActiveUnit, false);
             return true;
         }
         return false;
@@ -4373,7 +4431,6 @@ class Sandbox extends GLScene {
         unit.deleteBuff("Might Augment");
         if (
             augmentMight &&
-            unit.getAttackType() !== AttackType.RANGE &&
             GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), unit.getPosition())
         ) {
             const augmentMightBuff = new Spell({
@@ -5014,7 +5071,6 @@ class Sandbox extends GLScene {
 
                         if (nextUnit) {
                             this.cleanupHoverText();
-                            this.applyAugments(nextUnit, true);
                             const unitsNext: IVisibleUnit[] = [];
                             for (const unitIdNext of FightStateManager.getInstance()
                                 .getFightProperties()
@@ -5093,6 +5149,7 @@ class Sandbox extends GLScene {
                                             this.grid.getEnemyAggrMatrixByUnitId(nextUnit.getId()),
                                         ),
                                     );
+                                    this.applyAugments(nextUnit, false, true);
                                     this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                                     this.currentActiveSpell = undefined;
                                     this.adjustSpellBookSprite();
