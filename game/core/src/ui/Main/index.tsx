@@ -16,6 +16,7 @@ const GameScreen = ({ entry: { name, SceneClass } }: SceneComponentProps) => {
     const [started, setStarted] = useState(false);
 
     const manager = useManager();
+    const initializedRef = useRef(false);
 
     useEffect(() => {
         const connection = manager.onHasStarted.connect((hasStarted) => {
@@ -64,7 +65,10 @@ const GameScreen = ({ entry: { name, SceneClass } }: SceneComponentProps) => {
         const glCanvas = glCanvasRef.current;
         const debugCanvas = debugCanvasRef.current;
         const wrapper = wrapperRef.current;
-        if (glCanvas && debugCanvas && wrapper) {
+
+        if (glCanvas && debugCanvas && wrapper && !initializedRef.current) {
+            initializedRef.current = true;
+
             const loop = () => {
                 try {
                     manager.SimulationLoop();
@@ -73,16 +77,16 @@ const GameScreen = ({ entry: { name, SceneClass } }: SceneComponentProps) => {
                     console.error("Error during simulation loop", e);
                 }
             };
+
             const init = async () => {
                 const setTest = (test: SceneEntry) => navigate(getSceneLink(test));
                 await manager.init(glCanvas, debugCanvas, wrapper, setTest);
                 window.requestAnimationFrame(loop);
             };
-            window.requestAnimationFrame(() => {
-                init().catch((e) => console.error("Initialization failed", e));
-            });
+
+            init().catch((e) => console.error("Initialization failed", e));
         }
-    }, [debugCanvasRef.current, glCanvasRef.current, wrapperRef.current, manager]);
+    }, [manager]);
 
     useEffect(() => {
         manager.setScene(name, SceneClass);
