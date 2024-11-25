@@ -417,6 +417,9 @@ export abstract class Scene extends b2ContactListener {
             return;
         }
 
+        console.log("steps passed");
+        console.log(this.sc_stepCount.getValue() - this.sc_mouseDownStep);
+
         if (this.sc_stepCount.getValue() - this.sc_mouseDownStep < STEPS_BETWEEN_MOUSE_ACTIONS_MIN) {
             return;
         }

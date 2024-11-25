@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-export const MOVE_ANIMATION_SPEED = 6;
+export const MOVE_ANIMATION_SPEED = 12;
 
 export const FLY_ANIMATION_SPEED = MOVE_ANIMATION_SPEED;
 
