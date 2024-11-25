@@ -44,7 +44,7 @@ export function processPetrifyingGazeAbility(
             FightStateManager.getInstance().getFightProperties().getAdditionalAbilityPowerPerTeam(fromUnit.getTeam()),
         ),
     );
-    const percentageMin = Math.floor(percentageMax / 2);
+    const percentageMin = Math.floor((percentageMax / 3) * 2);
 
     const randomCoeff = HoCLib.getRandomInt(percentageMin, percentageMax) / 100;
     const randomAdditionalDamage = damageFromAttack * randomCoeff;

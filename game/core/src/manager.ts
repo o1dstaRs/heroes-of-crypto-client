@@ -139,7 +139,6 @@ export class GameManager {
             return;
         }
         this.activateScene = activateScene;
-        console.log("ADD EVENT LISTENER");
         debugCanvas.addEventListener("mousedown", (e) => this.HandleMouseDown(e));
         debugCanvas.addEventListener("mouseup", (e) => this.HandleMouseUp(e));
         debugCanvas.addEventListener("mousemove", (e) => this.HandleMouseMove(e));
@@ -229,8 +228,6 @@ export class GameManager {
     }
 
     public HandleMouseDown(e: MouseEvent): void {
-        console.log("HANDLE MOUSE DOWN");
-
         const element = new b2Vec2(e.offsetX, e.offsetY);
         const world = g_camera.unproject(element, new b2Vec2());
 
