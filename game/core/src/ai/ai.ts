@@ -207,12 +207,13 @@ function doFindTarget(
     // closest enemy unit
     let closestTarget: HoCMath.XY | undefined;
     let closestTargetDistance = Infinity;
-    let cellsByDistanceFromTarget: HoCMath.XY[][];
+    let cellsByDepthFromTarget: HoCMath.XY[][];
     let resultRoute: IWeightedRoute | undefined;
     let resultRouteIndex: number | undefined;
     let resultMovementDistance: number = Infinity;
     let resultDistanceLeftToTarget: number = Infinity;
-    let resultDepth: number = Infinity;
+    let resultDepthFromTarget: number = Infinity;
+    let usedInfinitPath: boolean = true;
 
     // if not range or spell type then add BFS, similar is in pathhelper
     // get the cell to go or cell to go and target to attack
@@ -239,7 +240,7 @@ function doFindTarget(
         unit.hasAbilityActive("Made of Fire"),
     );
 
-    const movePath = actualMovePath;
+    let movePath = infiniteMovePath;
 
     if (debug) {
         console.log("just for debug: " + actualMovePath.knownPaths.size + " " + infiniteMovePath.knownPaths.size);
@@ -261,7 +262,11 @@ function doFindTarget(
         console.log("currentUnit is at: " + cellToString(unitCell));
     }
     // go through every cell and check is it an enemy
-    const pickTarget = (): BasicAIAction | undefined => {
+    const pickTargetByActualPath = (): BasicAIAction | undefined => {
+        if (debug) {
+            console.log("Checking actual path");
+        }
+        movePath = actualMovePath;
         for (let y = 0; y < numRows; y++) {
             for (let x = 0; x < numCols; x++) {
                 const element = HoCMath.matrixElementOrDefault(matrix, x, y, 0);
@@ -285,7 +290,7 @@ function doFindTarget(
                     }
 
                     // get the list of cells that atacker can go to in order to attack the unit, return the layers, i.e bfs cells
-                    cellsByDistanceFromTarget = getLayersForAttacker_2(
+                    cellsByDepthFromTarget = getLayersForAttacker_2(
                         { x: x, y: y },
                         matrix,
                         unit,
@@ -296,16 +301,16 @@ function doFindTarget(
                         console.log(getLayersForAttacker({ x: x, y: y }, matrix, unit, unit.isSmallSize(), true));
                     }
                     // go through all cells in a layer, check the actual min distance for attcker unit and save
-                    for (let depth = 0; depth < cellsByDistanceFromTarget.length; depth++) {
+                    for (let depth = 0; depth < cellsByDepthFromTarget.length; depth++) {
                         if (debug) {
                             let cellsStr = "";
-                            cellsByDistanceFromTarget[depth].forEach(
+                            cellsByDepthFromTarget[depth].forEach(
                                 (cell) => (cellsStr = cellsStr + " [" + cellToString(cell) + "]"),
                             );
                             console.log("checking layer cellsToMoveTo:" + cellsStr);
                         }
                         // let layerRouteIndiciesLeft: number = Infinity;
-                        for (const layerCell of cellsByDistanceFromTarget[depth]) {
+                        for (const layerCell of cellsByDepthFromTarget[depth]) {
                             const { knownPaths } = movePath;
 
                             if (depth === 0 && cellKey(layerCell) === cellKey(unitCell)) {
@@ -360,121 +365,121 @@ function doFindTarget(
                                         tmpRoute?.length,
                                 );
                             }
-                            for (const currentRoute of tmpRoute) {
-                                // let currentRoute = tmpRoute?.at(0);
+                            // for (const currentRoute of tmpRoute) {
+                            let currentRoute = tmpRoute?.at(0);
 
-                                if (!currentRoute) {
-                                    continue;
-                                }
+                            if (!currentRoute) {
+                                continue;
+                            }
+                            if (debug) {
+                                let routeStr = "";
+                                currentRoute?.route.forEach(
+                                    (cell: HoCMath.XY | undefined) =>
+                                        (routeStr = routeStr + " [" + cellToString(cell) + "]"),
+                                );
+                                console.log("Checking route=" + routeStr);
+                            }
+                            /**
+                             * Use "paths" to go through the board and calculate the end cell
+                             * since the "paths" take into account aggro board
+                             */
+                            // let currentRouteIndex = 0;
+                            // let nextCellDistance: number | undefined;
+                            // do {
+                            //     const cell = currentRoute.route[currentRouteIndex];
+                            //     const nextCell = currentRoute.route[currentRouteIndex + 1];
+                            //     if (nextCell === undefined) {
+                            //         break;
+                            //     }
+                            //     if (isSameCell(cell, layerCell)) {
+                            //         break;
+                            //     }
+                            //     nextCellDistance = movePath.knownPaths?.get(cellKey(nextCell))?.at(0)?.weight;
+
+                            //     if (debug) {
+                            //         console.log("nextCellDistance: " + nextCellDistance);
+                            //     }
+                            //     if (nextCellDistance !== undefined && nextCellDistance > unit.getSteps()) {
+                            //         break;
+                            //     }
+                            //     currentRouteIndex += 1;
+                            // } while (
+                            //     nextCellDistance !== undefined &&
+                            //     nextCellDistance <= unit.getSteps() &&
+                            //     currentRouteIndex < currentRoute.route.length
+                            // );
+
+                            // if (debug) {
+                            //     console.log("Set currentRouteIndex: " + currentRouteIndex);
+                            // }
+
+                            // while (currentRouteIndex >= 0) {
+                            //     const cellToGo = currentRoute?.route[currentRouteIndex];
+                            //     if (cellToGo) {
+                            //         if (unit.isSmallSize()) {
+                            //             if (!isFree(cellToGo, matrix, unit)) {
+                            //                 currentRouteIndex--;
+                            //             } else {
+                            //                 break;
+                            //             }
+                            //         } else if (
+                            //             !isFree(cellToGo, matrix, unit) ||
+                            //             !isFree({ x: cellToGo.x - 1, y: cellToGo.y }, matrix, unit) ||
+                            //             !isFree({ x: cellToGo.x - 1, y: cellToGo.y - 1 }, matrix, unit) ||
+                            //             !isFree({ x: cellToGo.x, y: cellToGo.y - 1 }, matrix, unit)
+                            //         ) {
+                            //             currentRouteIndex--;
+                            //         } else {
+                            //             break;
+                            //         }
+                            //     } else {
+                            //         break;
+                            //     }
+                            // }
+                            // let currentRouteIndiciesLeft = currentRoute.route.length - 1 - currentRouteIndex;
+                            // let cellToMoveTo = currentRoute.route[currentRouteIndex];
+                            let cellToMoveTo = layerCell;
+                            let movementDistance = movePath.knownPaths?.get(cellKey(cellToMoveTo))?.at(0)?.weight;
+
+                            let distanceLeftToTarget = HoCMath.getDistance(cellToMoveTo, { x: x, y: y });
+
+                            if (debug) {
+                                console.log(
+                                    "Cell to move: " +
+                                        cellToString(cellToMoveTo) +
+                                        " elementNeighbor: " +
+                                        cellToString(layerCell) +
+                                        // " updated currentRouteIndex: " +
+                                        // currentRouteIndex +
+                                        " distance to target: " +
+                                        distanceLeftToTarget,
+                                );
+                            }
+
+                            if (!movementDistance) {
+                                console.log("skip cell: " + cellToString({ x: x, y: y }));
+                                continue;
+                            }
+                            // if same indicies left till the target but clooser then prev cell then update the route and hte cell to move to
+                            if (
+                                resultDepthFromTarget > depth || //&& distanceLeftToTarget < resultDistanceLeftToTarget) ||
+                                (resultDepthFromTarget === depth &&
+                                    (distanceLeftToTarget < resultDistanceLeftToTarget ||
+                                        (distanceLeftToTarget === resultDistanceLeftToTarget &&
+                                            movementDistance < resultMovementDistance)))
+                            ) {
+                                resultRoute = currentRoute;
+                                // resultRouteIndex = currentRouteIndex;
+                                resultMovementDistance = movementDistance;
+                                resultDistanceLeftToTarget = distanceLeftToTarget;
+                                // layerRouteIndiciesLeft = currentRouteIndiciesLeft;
+                                resultDepthFromTarget = depth;
+                                closestTarget = { x: x, y: y };
                                 if (debug) {
-                                    let routeStr = "";
-                                    currentRoute?.route.forEach(
-                                        (cell: HoCMath.XY | undefined) =>
-                                            (routeStr = routeStr + " [" + cellToString(cell) + "]"),
-                                    );
-                                    console.log("Checking route=" + routeStr);
-                                }
-                                /**
-                                 * Use "paths" to go through the board and calculate the end cell
-                                 * since the "paths" take into account aggro board
-                                 */
-                                // let currentRouteIndex = 0;
-                                // let nextCellDistance: number | undefined;
-                                // do {
-                                //     const cell = currentRoute.route[currentRouteIndex];
-                                //     const nextCell = currentRoute.route[currentRouteIndex + 1];
-                                //     if (nextCell === undefined) {
-                                //         break;
-                                //     }
-                                //     if (isSameCell(cell, layerCell)) {
-                                //         break;
-                                //     }
-                                //     nextCellDistance = movePath.knownPaths?.get(cellKey(nextCell))?.at(0)?.weight;
-
-                                //     if (debug) {
-                                //         console.log("nextCellDistance: " + nextCellDistance);
-                                //     }
-                                //     if (nextCellDistance !== undefined && nextCellDistance > unit.getSteps()) {
-                                //         break;
-                                //     }
-                                //     currentRouteIndex += 1;
-                                // } while (
-                                //     nextCellDistance !== undefined &&
-                                //     nextCellDistance <= unit.getSteps() &&
-                                //     currentRouteIndex < currentRoute.route.length
-                                // );
-
-                                // if (debug) {
-                                //     console.log("Set currentRouteIndex: " + currentRouteIndex);
-                                // }
-
-                                // while (currentRouteIndex >= 0) {
-                                //     const cellToGo = currentRoute?.route[currentRouteIndex];
-                                //     if (cellToGo) {
-                                //         if (unit.isSmallSize()) {
-                                //             if (!isFree(cellToGo, matrix, unit)) {
-                                //                 currentRouteIndex--;
-                                //             } else {
-                                //                 break;
-                                //             }
-                                //         } else if (
-                                //             !isFree(cellToGo, matrix, unit) ||
-                                //             !isFree({ x: cellToGo.x - 1, y: cellToGo.y }, matrix, unit) ||
-                                //             !isFree({ x: cellToGo.x - 1, y: cellToGo.y - 1 }, matrix, unit) ||
-                                //             !isFree({ x: cellToGo.x, y: cellToGo.y - 1 }, matrix, unit)
-                                //         ) {
-                                //             currentRouteIndex--;
-                                //         } else {
-                                //             break;
-                                //         }
-                                //     } else {
-                                //         break;
-                                //     }
-                                // }
-                                // let currentRouteIndiciesLeft = currentRoute.route.length - 1 - currentRouteIndex;
-                                // let cellToMoveTo = currentRoute.route[currentRouteIndex];
-                                let cellToMoveTo = layerCell;
-                                let movementDistance = movePath.knownPaths?.get(cellKey(cellToMoveTo))?.at(0)?.weight;
-
-                                let distanceLeftToTarget = HoCMath.getDistance(cellToMoveTo, { x: x, y: y });
-
-                                if (debug) {
-                                    console.log(
-                                        "Cell to move: " +
-                                            cellToString(cellToMoveTo) +
-                                            " elementNeighbor: " +
-                                            cellToString(layerCell) +
-                                            // " updated currentRouteIndex: " +
-                                            // currentRouteIndex +
-                                            " distance to target: " +
-                                            distanceLeftToTarget,
-                                    );
-                                }
-
-                                if (!movementDistance) {
-                                    console.log("skip cell: " + cellToString({ x: x, y: y }));
-                                    continue;
-                                }
-                                // if same indicies left till the target but clooser then prev cell then update the route and hte cell to move to
-                                if (
-                                    resultDepth > depth || //&& distanceLeftToTarget < resultDistanceLeftToTarget) ||
-                                    (resultDepth === depth &&
-                                        (distanceLeftToTarget < resultDistanceLeftToTarget ||
-                                            (distanceLeftToTarget === resultDistanceLeftToTarget &&
-                                                movementDistance < resultMovementDistance)))
-                                ) {
-                                    resultRoute = currentRoute;
-                                    // resultRouteIndex = currentRouteIndex;
-                                    resultMovementDistance = movementDistance;
-                                    resultDistanceLeftToTarget = distanceLeftToTarget;
-                                    // layerRouteIndiciesLeft = currentRouteIndiciesLeft;
-                                    resultDepth = depth;
-                                    closestTarget = { x: x, y: y };
-                                    if (debug) {
-                                        console.log("Set new cell to move to :" + cellToString(cellToMoveTo));
-                                    }
+                                    console.log("Set new cell to move to :" + cellToString(cellToMoveTo));
                                 }
                             }
+                            // }
                         }
                         // in current layer we found a cell to go to, use it
                         // if (resultMovementDistance) {
@@ -491,9 +496,230 @@ function doFindTarget(
         return undefined;
     };
 
-    let actionDetermined = pickTarget();
+    const pickTargetByInfinitPath = (): BasicAIAction | undefined => {
+        if (debug) {
+            console.log("Checking infinite path");
+        }
+        movePath = infiniteMovePath;
+        for (let y = 0; y < numRows; y++) {
+            for (let x = 0; x < numCols; x++) {
+                const element = HoCMath.matrixElementOrDefault(matrix, x, y, 0);
+                if (element !== unit.getTeam() && element !== 0) {
+                    if (
+                        element === ObstacleType.BLOCK ||
+                        element === ObstacleType.HOLE ||
+                        element === ObstacleType.WATER ||
+                        element === ObstacleType.LAVA
+                    ) {
+                        continue;
+                    }
+
+                    const occupantUnitId = grid.getOccupantUnitId({ x: x, y: y });
+                    if (!occupantUnitId) {
+                        continue;
+                    }
+
+                    // const targetUnit = unitsHolder.getAllUnits().get(occupantUnitId);
+                    // if (
+                    //     !targetUnit ||
+                    //     targetUnit.isDead() ||
+                    //     targetUnit.hasBuffActive("Hidden") ||
+                    //     !GridMath.isPositionWithinGrid(grid.getSettings(), targetUnit.getPosition())
+                    // ) {
+                    //     continue;
+                    // }
+
+                    // if (debug) {
+                    //     console.log(`Checking possible target at ${x}:${y} occupantUnitId: ${occupantUnitId}`);
+                    // }
+
+                    // if (unit.getTarget() && unit.getTarget() !== occupantUnitId) {
+                    //     continue;
+                    // }
+
+                    // get the list of cells that atacker can go to in order to attack the unit, return the layers, i.e bfs cells
+                    cellsByDepthFromTarget = getLayersForAttacker_2(
+                        { x: x, y: y },
+                        matrix,
+                        unit,
+                        unit.isSmallSize(),
+                        true,
+                    );
+                    // go through all cells in a layer, check the actual min distance for attcker unit and save
+                    for (let depth = 0; depth < cellsByDepthFromTarget.length; depth++) {
+                        if (debug) {
+                            let cellsStr = "";
+                            cellsByDepthFromTarget[depth].forEach(
+                                (cell) => (cellsStr = cellsStr + " [" + cellToString(cell) + "]"),
+                            );
+                            console.log("checking layer cellsToMoveTo:" + cellsStr);
+                        }
+                        let layerRouteIndiciesLeft: number = Infinity;
+                        for (const layerCell of cellsByDepthFromTarget[depth]) {
+                            const { knownPaths } = movePath;
+
+                            if (depth === 0 && cellKey(layerCell) === cellKey(unitCell)) {
+                                const occupantUnitId = grid.getOccupantUnitId({ x: x, y: y });
+                                if (occupantUnitId) {
+                                    previousTargets.set(unit.getId(), occupantUnitId);
+                                }
+                                return new BasicAIAction(
+                                    AIActionType.MELEE_ATTACK,
+                                    unitCell,
+                                    { x: x, y: y },
+                                    knownPaths,
+                                );
+                            }
+
+                            const cellK = cellKey(layerCell);
+
+                            if (knownPaths.has(cellK)) {
+                                const tmpRoute = knownPaths.get(cellK);
+                                const weight = tmpRoute?.at(0)?.weight;
+                                if (weight === undefined) {
+                                    continue;
+                                }
+                                if (weight < closestTargetDistance) {
+                                    if (debug) {
+                                        console.log(
+                                            "New min distance: " + weight + " layerCell:" + cellToString(layerCell),
+                                        );
+                                    }
+                                    closestTargetDistance = weight;
+                                    closestTarget = { x: x, y: y };
+                                    let currentRoute = tmpRoute?.at(0);
+
+                                    if (!currentRoute) {
+                                        continue;
+                                    }
+
+                                    if (debug) {
+                                        let routeStr = "";
+                                        currentRoute?.route.forEach(
+                                            (cell: HoCMath.XY | undefined) =>
+                                                (routeStr = routeStr + " [" + cellToString(cell) + "]"),
+                                        );
+                                        console.log("Checking route=" + routeStr);
+                                    }
+
+                                    /**
+                                     * Use "paths" to go through the board and calculate the end cell
+                                     * since the "paths" take into account aggro board
+                                     */
+                                    let currentRouteIndex = 0;
+                                    let nextCellDistance: number | undefined;
+                                    do {
+                                        const cell = currentRoute.route[currentRouteIndex];
+                                        const nextCell = currentRoute.route[currentRouteIndex + 1];
+                                        if (nextCell === undefined) {
+                                            break;
+                                        }
+                                        if (isSameCell(cell, layerCell)) {
+                                            break;
+                                        }
+                                        nextCellDistance = movePath.knownPaths?.get(cellKey(nextCell))?.at(0)?.weight;
+
+                                        if (debug) {
+                                            console.log("nextCellDistance: " + nextCellDistance);
+                                        }
+                                        if (nextCellDistance !== undefined && nextCellDistance > unit.getSteps()) {
+                                            break;
+                                        }
+                                        currentRouteIndex += 1;
+                                    } while (
+                                        nextCellDistance !== undefined &&
+                                        nextCellDistance <= unit.getSteps() &&
+                                        currentRouteIndex < currentRoute.route.length
+                                    );
+
+                                    if (debug) {
+                                        console.log("Set currentRouteIndex: " + currentRouteIndex);
+                                    }
+
+                                    while (currentRouteIndex >= 0) {
+                                        const cellToGo = currentRoute?.route[currentRouteIndex];
+                                        if (cellToGo) {
+                                            if (unit.isSmallSize()) {
+                                                if (!isFree(cellToGo, matrix, unit)) {
+                                                    currentRouteIndex--;
+                                                } else {
+                                                    break;
+                                                }
+                                            } else if (
+                                                !isFree(cellToGo, matrix, unit) ||
+                                                !isFree({ x: cellToGo.x - 1, y: cellToGo.y }, matrix, unit) ||
+                                                !isFree({ x: cellToGo.x - 1, y: cellToGo.y - 1 }, matrix, unit) ||
+                                                !isFree({ x: cellToGo.x, y: cellToGo.y - 1 }, matrix, unit)
+                                            ) {
+                                                currentRouteIndex--;
+                                            } else {
+                                                break;
+                                            }
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                    let currentRouteIndiciesLeft = currentRoute.route.length - 1 - currentRouteIndex;
+                                    let cellToMoveTo = currentRoute.route[currentRouteIndex];
+                                    let currentDistance = movePath.knownPaths
+                                        ?.get(cellKey(cellToMoveTo))
+                                        ?.at(0)?.weight;
+                                    if (debug) {
+                                        console.log(
+                                            "Cell to move :" +
+                                                cellToString(cellToMoveTo) +
+                                                " elementNeighbor:" +
+                                                cellToString(layerCell),
+                                        );
+                                    }
+
+                                    if (!currentDistance) {
+                                        continue;
+                                    }
+                                    // if same indicies left till the target but clooser then prev cell then update the route and hte cell to move to
+                                    if (
+                                        currentRouteIndiciesLeft < layerRouteIndiciesLeft ||
+                                        (currentRouteIndiciesLeft === layerRouteIndiciesLeft &&
+                                            currentDistance < resultMovementDistance)
+                                    ) {
+                                        resultRoute = currentRoute;
+                                        resultRouteIndex = currentRouteIndex;
+                                        resultMovementDistance = currentDistance;
+                                        layerRouteIndiciesLeft = currentRouteIndiciesLeft;
+                                        if (debug) {
+                                            console.log("Set new resultMovementDistance:" + resultMovementDistance);
+                                        }
+                                    }
+                                }
+                            } else {
+                                if (debug) {
+                                    console.log("No known path to layerCell:" + cellToString(layerCell));
+                                }
+                            }
+                        }
+                        // in current layer we found a cell to go to, use it
+                        if (resultMovementDistance) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        return undefined;
+    };
+
+    let actionDetermined = pickTargetByInfinitPath();
     if (actionDetermined) {
         return actionDetermined;
+    }
+    // if we can not move entire route with the infinite path then fallback to real one
+    if (!resultRoute || resultRoute?.route.length - 1 !== resultRouteIndex) {
+        actionDetermined = pickTargetByActualPath();
+        usedInfinitPath = false;
+        if (actionDetermined) {
+            return actionDetermined;
+        }
     }
 
     if (debug) {
@@ -541,7 +767,11 @@ function doFindTarget(
         );
         console.log("Route=" + routeStr);
     }
-    if (/*resultRoute && resultRoute?.route.length - 1 === resultRouteIndex &&*/ resultDepth === 0) {
+    if (
+        /*resultRoute && resultRoute?.route.length - 1 === resultRouteIndex &&*/ (!usedInfinitPath &&
+            resultDepthFromTarget === 0) ||
+        (usedInfinitPath && resultRoute && resultRoute?.route.length - 1 === resultRouteIndex)
+    ) {
         const occupantUnitId = grid.getOccupantUnitId({ x: closestTarget.x, y: closestTarget.y });
         if (occupantUnitId) {
             previousTargets.set(unit.getId(), occupantUnitId);
