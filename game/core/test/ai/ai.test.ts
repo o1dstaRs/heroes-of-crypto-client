@@ -350,68 +350,103 @@ describe("MoveAndAttackForSmallUnit", () => {
 //     });
 // });
 
-describe("MoveAndAttackForBigUnit", () => {
-    const pathHelper = new PathHelper(
-        // not needed for the getMovePath
-        new GridSettings(GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA),
-    );
+describe("BigUnit", () => {
+    describe("Move", () => {
+        const pathHelper = new PathHelper(
+            // not needed for the getMovePath
+            new GridSettings(GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA),
+        );
 
-    it("Big unit should go close to target if cannot attack", () => {
-        /**
-            Sample matrix
-            [2, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 0, 1],
-            [0, 0, 0, .],
-         */
-        const baseCellFrom = { x: 3, y: 1 };
-        const baseCellTo = { x: 0, y: 3 };
-        const grid = new Grid(gridSettings, GridType.LAVA_CENTER);
-        const unitFrom = generateUnits(grid, 1 /* steps */, false, baseCellFrom, baseCellTo);
-        const closestTarget = findTarget(unitFrom, grid, grid.getMatrix(), new UnitsHolder(grid), pathHelper);
-        expect(closestTarget?.cellToMove()).toEqual({ x: 2, y: 1 });
-        expect(closestTarget?.cellToAttack()).toBeUndefined();
-        expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE);
-    });
+        it("Big unit should go close to target if cannot attack", () => {
+            /**
+                Sample matrix
+                [2, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 1, .],
+                [0, 0, 0, 0],
+             */
+            const baseCellFrom = { x: 3, y: 1 };
+            const baseCellTo = { x: 0, y: 3 };
+            const grid = new Grid(gridSettings, GridType.LAVA_CENTER);
+            const unitFrom = generateUnits(grid, 1 /* steps */, false, baseCellFrom, baseCellTo);
+            const closestTarget = findTarget(unitFrom, grid, grid.getMatrix(), new UnitsHolder(grid), pathHelper);
+            expect(closestTarget?.cellToMove()).toEqual({ x: 2, y: 1 });
+            expect(closestTarget?.cellToAttack()).toBeUndefined();
+            expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE);
+        });
+    }),
+        describe("MoveAndAttack", () => {
+            const pathHelper = new PathHelper(
+                // not needed for the getMovePath
+                new GridSettings(GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA),
+            );
 
-    it("Big unit should go close to target and attack", () => {
-        /**
-            Sample matrix
-            [2, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 0, .],
-            [0, 0, 0, 0],
-        */
-        const baseCellFrom = { x: 3, y: 1 };
-        const baseCellTo = { x: 0, y: 3 };
-        const grid = new Grid(gridSettings, GridType.LAVA_CENTER);
-        const unitFrom = generateUnits(grid, 10 /* steps */, false, baseCellFrom, baseCellTo);
-        const closestTarget = findTarget(unitFrom, grid, grid.getMatrix(), new UnitsHolder(grid), pathHelper);
-        expect(closestTarget?.cellToMove()).toEqual({ x: 1, y: 2 });
-        // expect(closestTarget?.cellToMove()).toEqual({ x: 0, y: 2 });
-        expect(closestTarget?.cellToAttack()).toEqual({ x: 0, y: 3 });
-        expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE_AND_MELEE_ATTACK);
-    });
+            it("Big unit should go close to target and attack from right bottom", () => {
+                /**
+                    Sample matrix
+                    [2, 0, 0, 0],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, .],
+                    [0, 0, 0, 0],
+                */
+                const baseCellFrom = { x: 3, y: 1 };
+                const baseCellTo = { x: 0, y: 3 };
+                const grid = new Grid(gridSettings, GridType.LAVA_CENTER);
+                const unitFrom = generateUnits(grid, 2 /* steps */, false, baseCellFrom, baseCellTo);
+                const closestTarget = findTarget(unitFrom, grid, grid.getMatrix(), new UnitsHolder(grid), pathHelper);
+                expect(closestTarget?.cellToMove()).toEqual({ x: 2, y: 2 });
+                // expect(closestTarget?.cellToMove()).toEqual({ x: 0, y: 2 });
+                expect(closestTarget?.cellToAttack()).toEqual({ x: 0, y: 3 });
+                expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE_AND_MELEE_ATTACK);
+            }),
+                it("Big unit should go close to target and attack from bottom", () => {
+                    /**
+                    Sample matrix
+                    [0, 2, 0, 0],
+                    [0, 1, 0, 0],
+                    [0, ., 0, 0],
+                    [0, 0, 0, 0],
+                */
+                    const baseCellFrom = { x: 1, y: 1 };
+                    const baseCellTo = { x: 1, y: 3 };
+                    const grid = new Grid(gridSettings, GridType.LAVA_CENTER);
+                    const unitFrom = generateUnits(grid, 1 /* steps */, false, baseCellFrom, baseCellTo);
+                    const closestTarget = findTarget(
+                        unitFrom,
+                        grid,
+                        grid.getMatrix(),
+                        new UnitsHolder(grid),
+                        pathHelper,
+                    );
+                    expect(closestTarget?.cellToMove()).toEqual({ x: 1, y: 2 });
+                    expect(closestTarget?.cellToAttack()).toEqual({ x: 1, y: 3 });
+                    expect(closestTarget?.actionType()).toEqual(AIActionType.MOVE_AND_MELEE_ATTACK);
+                });
+        }),
+        describe("Attack", () => {
+            const pathHelper = new PathHelper(
+                // not needed for the getMovePath
+                new GridSettings(GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA),
+            );
 
-    // it("Big unit should attack if is near the target", () => {
-    //     const matrix: number[][] = new Array();
-    //     matrix[3] = [2, 0, 0, 0];
-    //     matrix[2] = [0, 0, 1, 0];
-    //     matrix[1] = [0, 0, 0, 0];
-    //     matrix[0] = [0, 0, 0, 0];
-    //     /**
-    //         End matrix
-    //         [2, 0, 0, 0],
-    //         [0, 0, 1, 0],
-    //         [0, 0, 0, 0],
-    //         [0, 0, 0, 0],
-    //     */
-    //     const unit = stubBigUnit(10, { x: 2, y: 2 });
-    //     const closestTarget = findTarget(unit, new Grid(gridSettings, GridType.NORMAL), matrix, pathHelper);
-    //     expect(closestTarget?.cellToMove()).toEqual({ x: 2, y: 2 });
-    //     expect(closestTarget?.cellToAttack()).toEqual({ x: 0, y: 3 });
-    //     expect(closestTarget?.actionType()).toEqual(AIActionType.MELEE_ATTACK);
-    // });
+            it("Big unit should attack if is near the target", () => {
+                /**
+                    Sample matrix
+                    [2, 0, 0, 0],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                 */
+                const baseCellFrom = { x: 2, y: 2 };
+                const baseCellTo = { x: 0, y: 3 };
+                const grid = new Grid(gridSettings, GridType.LAVA_CENTER);
+                const unitFrom = generateUnits(grid, 1 /* steps */, false, baseCellFrom, baseCellTo);
+                const closestTarget = findTarget(unitFrom, grid, grid.getMatrix(), new UnitsHolder(grid), pathHelper);
+                expect(closestTarget?.cellToMove()).toEqual({ x: 2, y: 2 });
+                expect(closestTarget?.cellToAttack()).toEqual({ x: 0, y: 3 });
+                expect(closestTarget?.actionType()).toEqual(AIActionType.MELEE_ATTACK);
+            });
+        });
 });
 
 function stubSmallUnit(teamType: TeamType, steps: number, baseCell: HoCMath.XY): UnitRepr {
@@ -426,7 +461,7 @@ function stubBigUnit(teamType: TeamType, steps: number, baseCell: HoCMath.XY): U
         1,
         1,
         true,
-        true,
+        false,
         baseCell,
         [
             baseCell,
