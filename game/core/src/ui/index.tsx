@@ -14,6 +14,8 @@ import "./style.scss";
 import Popover from "./Popover";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { IWindowSize } from "../state/visible_state";
+import StainedGlassWindow from "./PickAndBan";
+import { AuthProvider } from "./auth/context/auth_provider";
 
 const usePreventSelection = () => {
     useEffect(() => {
@@ -105,6 +107,45 @@ const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     );
 };
 
+const PickAndBanView: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
+    const [started, setStarted] = useState(false);
+    const manager = useManager();
+
+    useEffect(() => {
+        const connection = manager.onHasStarted.connect((hasStarted) => {
+            setStarted(hasStarted);
+            if (hasStarted) {
+                manager.HomeCamera();
+            }
+        });
+
+        return () => {
+            connection.disconnect();
+        };
+    }, [manager]);
+
+    return (
+        <div
+            className="container"
+            style={{
+                display: "flex",
+                backgroundColor: "rgba(0, 0, 128, 0.05)",
+                // boxShadow: "0 0 150px 500px rgba(0, 0, 0, 0.5) inset",
+            }}
+        >
+            <CssVarsProvider>
+                <CssBaseline />
+                <LeftSideBar gameStarted={started} windowSize={windowSize} />
+                <RightSideBar gameStarted={started} windowSize={windowSize} />
+                {/* <DraggableToolbar /> */}
+            </CssVarsProvider>
+            <StainedGlassWindow />
+            {/* <Main /> */}
+            <Popover />
+        </div>
+    );
+};
+
 const App: React.FC = () => {
     const [windowSize, setWindowSize] = useState<IWindowSize>({
         width: window.innerWidth,
@@ -133,11 +174,14 @@ const App: React.FC = () => {
     }, [updateWindowSize]);
 
     return (
-        <Router>
-            <Routes>
-                <Route path="/" element={<Heroes windowSize={windowSize} />} />
-            </Routes>
-        </Router>
+        <AuthProvider>
+            <Router>
+                <Routes>
+                    <Route path="/" element={<Heroes windowSize={windowSize} />} />
+                    <Route path="/game" element={<PickAndBanView windowSize={windowSize} />} />
+                </Routes>
+            </Router>
+        </AuthProvider>
     );
 };
 

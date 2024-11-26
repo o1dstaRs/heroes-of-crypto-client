@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { b2Clamp, b2Vec2 } from "@box2d/core";
+import { b2Vec2 } from "@box2d/core";
 import { DebugDraw } from "@box2d/debug-draw";
 import {
     UnitProperties,
@@ -142,6 +142,11 @@ export class GameManager {
         debugCanvas.addEventListener("mousedown", (e) => this.HandleMouseDown(e));
         debugCanvas.addEventListener("mouseup", (e) => this.HandleMouseUp(e));
         debugCanvas.addEventListener("mousemove", (e) => this.HandleMouseMove(e));
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                this.HandleEscapeKey(true);
+            }
+        });
         debugCanvas.addEventListener("mouseenter", () => {
             this.m_hoveringCanvas = true;
         });
@@ -208,8 +213,10 @@ export class GameManager {
         g_camera.setPositionAndZoom(center.x, center.y, zoom);
     }
 
-    public ZoomCamera(zoom: number): void {
-        g_camera.setZoom(b2Clamp(g_camera.getZoom() * zoom, 0.5, 500));
+    public HandleEscapeKey(down: boolean): void {
+        if (down && this.m_scene) {
+            this.m_scene.Deselect(true);
+        }
     }
 
     public HandleMouseMove(e: MouseEvent): void {
@@ -256,17 +263,6 @@ export class GameManager {
             case 2: // right mouse button
                 this.m_rMouseDown = false;
                 break;
-        }
-    }
-
-    public HandleMouseWheel(e: WheelEvent): void {
-        if (this.m_hoveringCanvas) {
-            if (e.deltaY < 0) {
-                this.ZoomCamera(1.1);
-            } else if (e.deltaY > 0) {
-                this.ZoomCamera(1 / 1.1);
-            }
-            e.preventDefault();
         }
     }
 

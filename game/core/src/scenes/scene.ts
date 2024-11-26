@@ -66,7 +66,7 @@ import { EDGES_SIZE, MAX_FPS, MAX_X } from "../statics";
 import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
-import { HotKey, hotKeyPress } from "../utils/hotkeys";
+import { HotKey } from "../utils/hotkeys";
 import { SceneLog } from "./scene_log";
 import { SceneSettings } from "./scene_settings";
 
@@ -327,7 +327,7 @@ export abstract class Scene extends b2ContactListener {
         return [];
     }
 
-    protected deselect(_onlyWhenNotStarted = false, _refreshStats = true) {
+    public Deselect(_onlyWhenNotStarted = false, _refreshStats = true) {
         if (this.sceneStarted && _onlyWhenNotStarted) {
             if (this.sc_selectedBody) {
                 this.sc_unitInfoLines.length = 0;
@@ -358,7 +358,7 @@ export abstract class Scene extends b2ContactListener {
     }
 
     public getHotkeys(): HotKey[] {
-        return [hotKeyPress("Escape", "Deselect", () => this.deselect(true))];
+        return [];
     }
 
     public JointDestroyed(_joint: b2Joint): void {}

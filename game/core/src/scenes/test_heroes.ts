@@ -820,7 +820,9 @@ class Sandbox extends GLScene {
     }
 
     private refreshButtons(forceUpdate = false): void {
-        if (this.sc_visibleState && this.sc_visibleState.hasFinished) {
+        console.log(`refreshButtons force: ${forceUpdate}`);
+
+        if (this.sc_visibleState?.hasFinished) {
             this.hourglassButton.isDisabled = true;
             this.shieldButton.isDisabled = true;
             this.nextButton.isDisabled = true;
@@ -1394,7 +1396,7 @@ class Sandbox extends GLScene {
                 ) {
                     if (b === this.sc_selectedBody) {
                         b.SetIsActive(false);
-                        this.deselect();
+                        this.Deselect();
                     }
                     this.sc_world.DestroyBody(b);
                     this.unitsFactory.deleteUnitBody(unitStats.id);
@@ -1570,7 +1572,7 @@ class Sandbox extends GLScene {
     public deleteObject() {
         if (this.sc_selectedBody) {
             const selectedUnitData = this.sc_selectedBody.GetUserData();
-            this.deselect();
+            this.Deselect();
             if (this.unitsHolder.deleteUnitById(selectedUnitData.id)) {
                 this.sc_world.DestroyBody(this.sc_selectedBody);
                 this.unitsFactory.deleteUnitBody(selectedUnitData.id);
@@ -3161,7 +3163,7 @@ class Sandbox extends GLScene {
                     if (!this.sc_moveBlocked) {
                         this.finishDrop(positionToDropTo);
                     }
-                    this.deselect(false, !FightStateManager.getInstance().getFightProperties().hasFightStarted());
+                    this.Deselect(false, !FightStateManager.getInstance().getFightProperties().hasFightStarted());
                     this.sc_mouseJoint = null;
                 }
             }
@@ -3405,8 +3407,8 @@ class Sandbox extends GLScene {
         return false;
     }
 
-    protected deselect(_onlyWhenNotStarted = false, _refreshStats = true) {
-        super.deselect(_onlyWhenNotStarted, _refreshStats);
+    public Deselect(_onlyWhenNotStarted = false, _refreshStats = true) {
+        super.Deselect(_onlyWhenNotStarted, _refreshStats);
         let refreshButtons = false;
         // close spellbook
         if (
@@ -4156,14 +4158,17 @@ class Sandbox extends GLScene {
         if (hasOption && (this.currentActiveUnit.getAttackType() === AttackType.RANGE || isMagic)) {
             if (this.switchToSelectedAttackType) {
                 if (force) {
-                    if (this.currentActiveUnit.selectAttackType(this.switchToSelectedAttackType)) {
-                        this.refreshButtons(true);
+                    const switched = this.currentActiveUnit.selectAttackType(this.switchToSelectedAttackType);
+                    if (switched) {
+                        if (this.switchToSelectedAttackType !== AttackType.MAGIC) {
+                            this.currentActiveSpell = undefined;
+                            this.adjustSpellBookSprite();
+                        } else {
+                            this.refreshButtons(true);
+                        }
                         this.refreshUnits();
                     }
-                    if (this.switchToSelectedAttackType !== AttackType.MAGIC) {
-                        this.currentActiveSpell = undefined;
-                        this.adjustSpellBookSprite();
-                    }
+
                     this.switchToSelectedAttackType = undefined;
                 }
             } else {
@@ -4172,6 +4177,7 @@ class Sandbox extends GLScene {
 
             if (this.switchToSelectedAttackType) {
                 if (this.currentActiveUnit.selectAttackType(this.switchToSelectedAttackType)) {
+                    this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                     this.refreshButtons(true);
                     this.refreshUnits();
                     return true;
@@ -4199,7 +4205,6 @@ class Sandbox extends GLScene {
             }
 
             this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
-            this.refreshButtons(true);
             this.refreshUnits();
             return true;
         }
@@ -4472,7 +4477,7 @@ class Sandbox extends GLScene {
             }
 
             if (FightStateManager.getInstance().getFightProperties().hasFightStarted() && !this.currentActiveUnit) {
-                this.deselect();
+                this.Deselect();
             }
 
             for (let b = this.sc_world.GetBodyList(); b; b = b.GetNext()) {
@@ -4931,7 +4936,7 @@ class Sandbox extends GLScene {
                         FightStateManager.getInstance()
                             .getFightProperties()
                             .prefetchNextUnitsToTurn(this.unitsHolder.getAllUnits(), unitsUpper, unitsLower);
-                        this.refreshButtons();
+                        // this.refreshButtons(true);
 
                         const nextUnitId = FightStateManager.getInstance().getFightProperties().dequeueNextUnitId();
                         const nextUnit = nextUnitId ? this.unitsHolder.getAllUnits().get(nextUnitId) : undefined;
@@ -4969,7 +4974,7 @@ class Sandbox extends GLScene {
 
                             if (nextUnit.isSkippingThisTurn()) {
                                 this.currentActiveUnit = nextUnit as RenderableUnit;
-                                this.refreshButtons(true);
+                                // this.refreshButtons(true);
                                 this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                                 this.currentActiveUnit.decreaseMorale(
                                     HoCConstants.MORALE_CHANGE_FOR_SKIP,
