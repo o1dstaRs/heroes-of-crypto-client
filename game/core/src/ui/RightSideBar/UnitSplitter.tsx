@@ -29,7 +29,7 @@ const UnitSplitter = (props: IUnitSplitterProps) => {
     };
 
     return (
-        <Box sx={{ width: "100%", maxWidth: 400, marginTop: 3 }}>
+        <Box sx={{ width: "100%", marginTop: 3 }}>
             <Stack spacing={2} alignItems="center">
                 <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
                     <Typography level="body-sm">{splitValue}</Typography>

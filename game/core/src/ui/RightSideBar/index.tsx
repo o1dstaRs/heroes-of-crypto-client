@@ -156,7 +156,6 @@ export default function RightSideBar({ gameStarted, windowSize }: { gameStarted:
             <Box
                 sx={{
                     minHeight: 0,
-                    // overflow: "hidden auto",
                     flexGrow: 1,
                     display: "flex",
                     flexDirection: "column",

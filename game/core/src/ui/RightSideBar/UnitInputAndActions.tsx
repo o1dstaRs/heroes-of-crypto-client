@@ -84,7 +84,7 @@ const UnitInputAndActions = ({
     };
 
     return (
-        <Box sx={{ width: "100%", maxWidth: 400, marginTop: 2 }}>
+        <Box sx={{ width: "100%", marginTop: 2 }}>
             {canPlaceUnits !== null && (
                 <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
                     Max units for the team: {canPlaceUnits}

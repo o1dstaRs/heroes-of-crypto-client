@@ -60,6 +60,7 @@ import { processSkewerStrikeAbility } from "../abilities/skewer_strike_ability";
 import { IVisibleDamage } from "../state/visible_state";
 import { processChainLightningAbility } from "../abilities/chain_lightning_ability";
 import { processDullingDefenseAblity } from "../abilities/dulling_defense_ability";
+import { processDevourEssenceAbility } from "../abilities/devour_essense_ability";
 
 export interface IRangeAttackEvaluation {
     rangeAttackDivisors: number[];
@@ -1621,6 +1622,9 @@ export class AttackHandler {
         );
         unitsHolder.decreaseMoraleForTheSameUnitsOfTheTeam(moraleDecreaseForTheUnitTeam);
         unitsHolder.refreshStackPowerForAllUnits();
+
+        processDevourEssenceAbility(attackerUnit, unitIdsDied, unitsHolder, this.sceneLog);
+        processDevourEssenceAbility(targetUnit, unitIdsDied, unitsHolder, this.sceneLog);
 
         return { completed: true, unitIdsDied, animationData };
     }

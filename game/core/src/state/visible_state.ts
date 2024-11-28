@@ -54,6 +54,7 @@ export interface IVisibleState {
     numberOfLapsTillStopNarrowing: number;
     canRequestAdditionalTime: boolean;
     upNext: IVisibleUnit[];
+    lapsNarrowed: number;
 }
 
 export enum VisibleButtonState {
