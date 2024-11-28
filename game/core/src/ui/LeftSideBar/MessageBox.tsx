@@ -1,4 +1,4 @@
-import { TeamType } from "@heroesofcrypto/common";
+import { TeamType, HoCConstants } from "@heroesofcrypto/common";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import TimelapseRoundedIcon from "@mui/icons-material/TimelapseRounded";
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
@@ -87,7 +87,8 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
         visibleState.lapNumber !== undefined &&
         visibleState.numberOfLapsTillNarrowing !== undefined &&
         visibleState.lapNumber < visibleState.numberOfLapsTillStopNarrowing &&
-        visibleState.lapNumber % visibleState.numberOfLapsTillNarrowing === 0 ? (
+        visibleState.lapNumber % visibleState.numberOfLapsTillNarrowing === 0 &&
+        visibleState.lapsNarrowed < HoCConstants.MAX_NARROWING_LAPS_TOTAL ? (
             <ZoomInMapIcon />
         ) : (
             <TimelapseRoundedIcon />

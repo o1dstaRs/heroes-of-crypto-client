@@ -43,6 +43,7 @@ import {
     IAttackTargets,
     FightStateManager,
     UnitsHolder,
+    ISystemMoveResult,
     EffectHelper,
     MoveHandler,
     IDamageStatistic,
@@ -154,6 +155,8 @@ class Sandbox extends GLScene {
     private gridMatrixNoUnits: number[][];
 
     private performingAIAction = false;
+
+    private buttonsRefreshLocked = false;
 
     private armageddonWave = 0;
 
@@ -820,9 +823,11 @@ class Sandbox extends GLScene {
     }
 
     private refreshButtons(forceUpdate = false): void {
-        console.log(`refreshButtons force: ${forceUpdate}`);
+        if (this.buttonsRefreshLocked) {
+            return;
+        }
 
-        if (this.sc_visibleState?.hasFinished) {
+        if (this.sc_visibleState && this.sc_visibleState.hasFinished) {
             this.hourglassButton.isDisabled = true;
             this.shieldButton.isDisabled = true;
             this.nextButton.isDisabled = true;
@@ -830,6 +835,8 @@ class Sandbox extends GLScene {
             this.selectedAttackTypeButton.isDisabled = true;
             this.spellBookButton.isDisabled = true;
             this.sc_buttonGroupUpdated = true;
+            console.log("DISABLE ALL BUTTONS");
+            this.buttonsRefreshLocked = true;
             return;
         }
 
@@ -846,12 +853,14 @@ class Sandbox extends GLScene {
             this.nextButton.isDisabled = true;
             this.selectedAttackTypeButton.isDisabled = true;
             this.spellBookButton.isDisabled = true;
+            console.log("DISABLE SOME BUTTONS BECAUSE OF AI");
         } else if (this.sc_renderSpellBookOverlay) {
             this.hourglassButton.isDisabled = true;
             this.shieldButton.isDisabled = true;
             this.nextButton.isDisabled = true;
             this.selectedAttackTypeButton.isDisabled = true;
             this.spellBookButton.isDisabled = false;
+            console.log("DISABLE SOME BUTTONS BECAUSE OF SPELLBOOK OVERLAY");
         } else {
             this.aiButton.state = VisibleButtonState.FIRST;
             this.shieldButton.isDisabled = false;
@@ -863,12 +872,14 @@ class Sandbox extends GLScene {
                 this.hourglassButton.isDisabled = false;
             } else {
                 this.hourglassButton.isDisabled = true;
+                console.log("DISABLE HOURGLASS BUTTON");
             }
 
             if (this.checkCastCondition()) {
                 this.spellBookButton.isDisabled = false;
             } else {
                 this.spellBookButton.isDisabled = true;
+                console.log("DISABLE SPELLBOOK BUTTON");
             }
         }
 
@@ -1091,7 +1102,7 @@ class Sandbox extends GLScene {
         }
     }
 
-    private spawnObstacles(): string | undefined {
+    private spawnObstacles(encounterCurrent = false): string | undefined {
         if (
             FightStateManager.getInstance().getFightProperties().getCurrentLap() >=
             HoCConstants.NUMBER_OF_LAPS_TILL_STOP_NARROWING
@@ -1099,11 +1110,12 @@ class Sandbox extends GLScene {
             return undefined;
         }
 
-        let laps = Math.floor(
-            FightStateManager.getInstance().getFightProperties().getCurrentLap() /
-                FightStateManager.getInstance().getFightProperties().getNumberOfLapsTillNarrowing(),
-        );
-        if (laps < 1) {
+        let laps =
+            Math.floor(
+                (FightStateManager.getInstance().getFightProperties().getCurrentLap() - (encounterCurrent ? 1 : 0)) /
+                    FightStateManager.getInstance().getFightProperties().getNumberOfLapsTillNarrowing(),
+            ) + FightStateManager.getInstance().getFightProperties().getAdditionalNarrowingLaps();
+        if (laps < 1 || laps > HoCConstants.MAX_NARROWING_LAPS_TOTAL) {
             return undefined;
         }
 
@@ -1129,7 +1141,11 @@ class Sandbox extends GLScene {
                     this.obstacleGenerator.generateHole({ x: i * STEP, y: prevLap * STEP }, STEP, STEP),
                 );
                 const cell = { x: cellX, y: cellY };
-                const systemMoveResult = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_UP, laps);
+                const systemMoveResult: ISystemMoveResult = this.moveHandler.moveUnitTowardsCenter(
+                    cell,
+                    GridConstants.UPDATE_UP,
+                    laps,
+                );
                 if (systemMoveResult.log) {
                     logs.push(systemMoveResult.log);
                 }
@@ -1138,12 +1154,12 @@ class Sandbox extends GLScene {
                     if (body) {
                         body.SetTransformXY(newPosition.x, newPosition.y, body.GetAngle());
                     } else {
-                        if (!(uId in systemMoveResult.unitIdsDestroyed)) {
+                        if (!systemMoveResult.unitIdsDestroyed.includes(uId)) {
                             systemMoveResult.unitIdsDestroyed.push(uId);
                         }
                     }
                 }
-                for (const uId in systemMoveResult.unitIdsDestroyed) {
+                for (const uId of systemMoveResult.unitIdsDestroyed) {
                     if (this.unitsHolder.deleteUnitById(uId)) {
                         const unitBody = this.unitsFactory.getUnitBody(uId);
                         if (unitBody) {
@@ -1161,7 +1177,11 @@ class Sandbox extends GLScene {
                     this.obstacleGenerator.generateHole({ x: i * STEP, y: (maxCellY - laps) * STEP }, STEP, STEP),
                 );
                 const cell = { x: cellX, y: cellY };
-                const systemMoveResult = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_DOWN, laps);
+                const systemMoveResult: ISystemMoveResult = this.moveHandler.moveUnitTowardsCenter(
+                    cell,
+                    GridConstants.UPDATE_DOWN,
+                    laps,
+                );
                 if (systemMoveResult.log) {
                     logs.push(systemMoveResult.log);
                 }
@@ -1170,12 +1190,12 @@ class Sandbox extends GLScene {
                     if (body) {
                         body.SetTransformXY(newPosition.x, newPosition.y, body.GetAngle());
                     } else {
-                        if (!(uId in systemMoveResult.unitIdsDestroyed)) {
+                        if (!systemMoveResult.unitIdsDestroyed.includes(uId)) {
                             systemMoveResult.unitIdsDestroyed.push(uId);
                         }
                     }
                 }
-                for (const uId in systemMoveResult.unitIdsDestroyed) {
+                for (const uId of systemMoveResult.unitIdsDestroyed) {
                     if (this.unitsHolder.deleteUnitById(uId)) {
                         const unitBody = this.unitsFactory.getUnitBody(uId);
                         if (unitBody) {
@@ -1193,7 +1213,11 @@ class Sandbox extends GLScene {
                     this.obstacleGenerator.generateHole({ x: (minCellX + prevLap) * STEP, y: i * STEP }, STEP, STEP),
                 );
                 const cell = { x: cellX, y: cellY };
-                const systemMoveResult = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_RIGHT, laps);
+                const systemMoveResult: ISystemMoveResult = this.moveHandler.moveUnitTowardsCenter(
+                    cell,
+                    GridConstants.UPDATE_RIGHT,
+                    laps,
+                );
                 if (systemMoveResult.log) {
                     logs.push(systemMoveResult.log);
                 }
@@ -1202,12 +1226,12 @@ class Sandbox extends GLScene {
                     if (body) {
                         body.SetTransformXY(newPosition.x, newPosition.y, body.GetAngle());
                     } else {
-                        if (!(uId in systemMoveResult.unitIdsDestroyed)) {
+                        if (!systemMoveResult.unitIdsDestroyed.includes(uId)) {
                             systemMoveResult.unitIdsDestroyed.push(uId);
                         }
                     }
                 }
-                for (const uId in systemMoveResult.unitIdsDestroyed) {
+                for (const uId of systemMoveResult.unitIdsDestroyed) {
                     if (this.unitsHolder.deleteUnitById(uId)) {
                         const unitBody = this.unitsFactory.getUnitBody(uId);
                         if (unitBody) {
@@ -1225,7 +1249,11 @@ class Sandbox extends GLScene {
                     this.obstacleGenerator.generateHole({ x: (maxCellX - laps) * STEP, y: i * STEP }, STEP, STEP),
                 );
                 const cell = { x: cellX, y: cellY };
-                const systemMoveResult = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_LEFT, laps);
+                const systemMoveResult: ISystemMoveResult = this.moveHandler.moveUnitTowardsCenter(
+                    cell,
+                    GridConstants.UPDATE_LEFT,
+                    laps,
+                );
                 if (systemMoveResult.log) {
                     logs.push(systemMoveResult.log);
                 }
@@ -1234,12 +1262,12 @@ class Sandbox extends GLScene {
                     if (body) {
                         body.SetTransformXY(newPosition.x, newPosition.y, body.GetAngle());
                     } else {
-                        if (!(uId in systemMoveResult.unitIdsDestroyed)) {
+                        if (!systemMoveResult.unitIdsDestroyed.includes(uId)) {
                             systemMoveResult.unitIdsDestroyed.push(uId);
                         }
                     }
                 }
-                for (const uId in systemMoveResult.unitIdsDestroyed) {
+                for (const uId of systemMoveResult.unitIdsDestroyed) {
                     if (this.unitsHolder.deleteUnitById(uId)) {
                         const unitBody = this.unitsFactory.getUnitBody(uId);
                         if (unitBody) {
@@ -1298,6 +1326,7 @@ class Sandbox extends GLScene {
             this.sc_buttonGroupUpdated = true;
             this.unitsHolder.increaseUnitsSupplyIfNeededPerTeam(TeamType.LOWER);
             this.unitsHolder.increaseUnitsSupplyIfNeededPerTeam(TeamType.UPPER);
+            this.unitsHolder.haveDistancesToClosestEnemiesDecreased();
             FightStateManager.getInstance().getFightProperties().startFight();
             return super.startScene();
         }
@@ -3217,8 +3246,6 @@ class Sandbox extends GLScene {
 
             if (meleeAttackResult.completed) {
                 const alreadyProcessed: string[] = [];
-                const devourEssenceAbility = this.currentActiveUnit.getAbility("Devour Essence");
-                let killedAnEnemy = false;
                 for (const uId of meleeAttackResult.unitIdsDied) {
                     if (alreadyProcessed.includes(uId)) {
                         continue;
@@ -3226,41 +3253,11 @@ class Sandbox extends GLScene {
                     if (this.unitsHolder.deleteUnitById(uId, true /* check for resurrection */)) {
                         const unitBody = this.unitsFactory.getUnitBody(uId);
                         if (unitBody) {
-                            if (unitBody.GetUserData().team !== this.currentActiveUnit.getTeam()) {
-                                killedAnEnemy = true;
-                            }
-
                             this.sc_world.DestroyBody(unitBody);
                         }
                         this.unitsFactory.deleteUnitBody(uId);
                     }
                     alreadyProcessed.push(uId);
-                }
-
-                if (killedAnEnemy && devourEssenceAbility) {
-                    const devourEssenceAbilityPower = Number(
-                        this.currentActiveUnit
-                            .calculateAbilityApplyChance(
-                                devourEssenceAbility,
-                                FightStateManager.getInstance()
-                                    .getFightProperties()
-                                    .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
-                            )
-                            .toFixed(2),
-                    );
-                    if (devourEssenceAbilityPower > 0) {
-                        const devourEssenceMultiplier = Math.min(1, devourEssenceAbilityPower / 100);
-                        const canRejuvinateUpTo = Math.ceil(
-                            this.currentActiveUnit.getMaxHp() * devourEssenceMultiplier,
-                        );
-                        if (canRejuvinateUpTo > this.currentActiveUnit.getHp()) {
-                            const rejuvinateBy = canRejuvinateUpTo - this.currentActiveUnit.getHp();
-                            this.currentActiveUnit.applyHeal(rejuvinateBy);
-                            this.sc_sceneLog.updateLog(
-                                `${this.currentActiveUnit.getName()} rejuvinated for ${rejuvinateBy} hp`,
-                            );
-                        }
-                    }
                 }
 
                 this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
@@ -3409,6 +3406,7 @@ class Sandbox extends GLScene {
 
     public Deselect(_onlyWhenNotStarted = false, _refreshStats = true) {
         super.Deselect(_onlyWhenNotStarted, _refreshStats);
+
         let refreshButtons = false;
         // close spellbook
         if (
@@ -3423,7 +3421,11 @@ class Sandbox extends GLScene {
             refreshButtons = true;
         }
         // try to fix buttons state
-        if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+        if (
+            FightStateManager.getInstance().getFightProperties().hasFightStarted() &&
+            this.sc_visibleState &&
+            !this.sc_visibleState.hasFinished
+        ) {
             if (
                 this.currentActiveUnit &&
                 this.currentActiveUnit.refreshPossibleAttackTypes(
@@ -3436,6 +3438,7 @@ class Sandbox extends GLScene {
                 this.refreshUnits();
             }
             refreshButtons = true;
+            this.buttonsRefreshLocked = false;
         }
         this.resetHover(true);
         if (refreshButtons) {
@@ -4119,6 +4122,7 @@ class Sandbox extends GLScene {
                     .getFightProperties()
                     .requestAdditionalTurnTime(undefined, true),
                 upNext: [],
+                lapsNarrowed: FightStateManager.getInstance().getFightProperties().getLapsNarrowed(),
             };
             this.sc_visibleStateUpdateNeeded = true;
         }
@@ -4767,10 +4771,20 @@ class Sandbox extends GLScene {
                 }
                 this.armageddonWave = FightStateManager.getInstance().getFightProperties().getArmageddonWave();
 
-                if (FightStateManager.getInstance().getFightProperties().isNarrowingLap()) {
+                const distancesDecreased = this.unitsHolder.haveDistancesToClosestEnemiesDecreased();
+
+                let spawnedObstacles = false;
+                if (!distancesDecreased || FightStateManager.getInstance().getFightProperties().isNarrowingLap()) {
+                    let encounterCurrent = false;
+                    if (!distancesDecreased && !FightStateManager.getInstance().getFightProperties().isNarrowingLap()) {
+                        FightStateManager.getInstance().getFightProperties().encounterAdditionalNarrowingLap();
+                        encounterCurrent = true;
+                    }
                     // can generate logs on destroy events
-                    this.sc_sceneLog.updateLog(this.spawnObstacles());
+                    this.sc_sceneLog.updateLog(this.spawnObstacles(encounterCurrent));
                     FightStateManager.getInstance().getFightProperties().increaseStepsMoraleMultiplier();
+                    spawnedObstacles = true;
+                    this.refreshVisibleStateIfNeeded(true);
                 }
 
                 let gotArmageddonKills = false;
@@ -4836,7 +4850,7 @@ class Sandbox extends GLScene {
                     }
                 }
 
-                if (!fightFinished && FightStateManager.getInstance().getFightProperties().isNarrowingLap()) {
+                if (!fightFinished && spawnedObstacles) {
                     // spawn may actually delete units due to overlap with obstacles
                     // so we have to refresh all the units here
                     if (!gotArmageddonKills) {
