@@ -704,6 +704,7 @@ export class AttackHandler {
                     `${targetUnit.getName()} resp ${rangeResponseUnit.getName()} (${damageFromResponse})`,
                 );
 
+                // response damage
                 this.damageStatisticHolder.add({
                     unitName: targetUnit.getName(),
                     damage: rangeResponseUnit.applyDamage(
@@ -715,6 +716,7 @@ export class AttackHandler {
                         true,
                     ),
                     team: targetUnit.getTeam(),
+                    lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
                 });
                 const pegasusLightEffect = rangeResponseUnit.getEffect("Pegasus Light");
                 if (pegasusLightEffect) {
@@ -736,6 +738,7 @@ export class AttackHandler {
                 damageForAnimation.unitPosition = targetUnit.getPosition();
                 damageForAnimation.unitIsSmall = targetUnit.isSmallSize();
 
+                // attack damage
                 this.damageStatisticHolder.add({
                     unitName: attackerUnit.getName(),
                     damage: targetUnit.applyDamage(
@@ -746,6 +749,7 @@ export class AttackHandler {
                         this.sceneLog,
                     ),
                     team: attackerUnit.getTeam(),
+                    lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
                 });
                 const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
                 if (pegasusLightEffect) {
@@ -1412,6 +1416,7 @@ export class AttackHandler {
                             true,
                         ),
                         team: targetUnit.getTeam(),
+                        lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
                     });
                     const pegasusLightEffect = attackerUnit.getEffect("Pegasus Light");
                     if (pegasusLightEffect) {
@@ -1480,6 +1485,7 @@ export class AttackHandler {
                     this.sceneLog,
                 ),
                 team: attackerUnit.getTeam(),
+                lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
             });
 
             processMinerAbility(attackerUnit, targetUnit, this.sceneLog);
@@ -1550,6 +1556,7 @@ export class AttackHandler {
                         this.sceneLog,
                     ),
                     team: attackerUnit.getTeam(),
+                    lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
                 });
             }
 
@@ -1683,7 +1690,7 @@ export class AttackHandler {
                 toPosition: targetPosition,
                 affectedUnit: new AttackTarget(targetPosition, 1),
             });
-            FightStateManager.getInstance().getFightProperties().encointerObstacleHit();
+            FightStateManager.getInstance().getFightProperties().encounterObstacleHit();
             attackerUnit.decreaseNumberOfShots();
             this.sceneLog.updateLog(`${attackerUnit.getName()} hit mountain`);
             rangeLanded = true;
@@ -1702,7 +1709,7 @@ export class AttackHandler {
                     toPosition: targetPosition,
                     affectedUnit: new AttackTarget(targetPosition, 1),
                 });
-                FightStateManager.getInstance().getFightProperties().encointerObstacleHit();
+                FightStateManager.getInstance().getFightProperties().encounterObstacleHit();
                 attackerUnit.decreaseNumberOfShots();
                 this.sceneLog.updateLog(`${attackerUnit.getName()} hit mountain`);
                 rangeLanded = true;
@@ -1810,13 +1817,13 @@ export class AttackHandler {
                         bodyUnit: attackerUnit,
                     });
 
-                    FightStateManager.getInstance().getFightProperties().encointerObstacleHit();
+                    FightStateManager.getInstance().getFightProperties().encounterObstacleHit();
                     this.sceneLog.updateLog(`${attackerUnit.getName()} hit mountain`);
                     if (
                         FightStateManager.getInstance().getFightProperties().getObstacleHitsLeft() &&
                         attackerUnit.getAbility("Double Punch")
                     ) {
-                        FightStateManager.getInstance().getFightProperties().encointerObstacleHit();
+                        FightStateManager.getInstance().getFightProperties().encounterObstacleHit();
                         this.sceneLog.updateLog(`${attackerUnit.getName()} hit mountain`);
                     }
                 } else {
@@ -1881,14 +1888,14 @@ export class AttackHandler {
                         bodyUnit: attackerUnit,
                     });
 
-                    FightStateManager.getInstance().getFightProperties().encointerObstacleHit();
+                    FightStateManager.getInstance().getFightProperties().encounterObstacleHit();
                     this.sceneLog.updateLog(`${attackerUnit.getName()} hit mountain`);
 
                     if (
                         FightStateManager.getInstance().getFightProperties().getObstacleHitsLeft() &&
                         attackerUnit.getAbility("Double Punch")
                     ) {
-                        FightStateManager.getInstance().getFightProperties().encointerObstacleHit();
+                        FightStateManager.getInstance().getFightProperties().encounterObstacleHit();
                         this.sceneLog.updateLog(`${attackerUnit.getName()} hit mountain`);
                     }
                 } else {

@@ -4,6 +4,7 @@ import TimelapseRoundedIcon from "@mui/icons-material/TimelapseRounded";
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
 import InfoRoundedIcon from "@mui/icons-material/InfoRounded";
 import Button from "@mui/joy/Button";
+import Tooltip from "@mui/joy/Tooltip";
 import Card from "@mui/joy/Card";
 import LinearProgress from "@mui/joy/LinearProgress";
 import Stack from "@mui/joy/Stack";
@@ -12,6 +13,8 @@ import React, { useEffect, useState, useRef } from "react";
 
 import { useManager } from "../../manager";
 import { IVisibleState } from "../../state/visible_state";
+import meteorSvg from "../../../images/meteor.svg";
+import { Box } from "@mui/joy";
 
 export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
@@ -83,16 +86,26 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
         />
     );
 
-    const defaultIcon =
+    let defaultIcon =
         visibleState.lapNumber !== undefined &&
         visibleState.numberOfLapsTillNarrowing !== undefined &&
         visibleState.lapNumber < visibleState.numberOfLapsTillStopNarrowing &&
         visibleState.lapNumber % visibleState.numberOfLapsTillNarrowing === 0 &&
         visibleState.lapsNarrowed < HoCConstants.MAX_NARROWING_LAPS_TOTAL ? (
-            <ZoomInMapIcon />
+            <Tooltip title="The map will narrow after this turn." placement="top" sx={{ zIndex: 2 }}>
+                <ZoomInMapIcon style={{ fontSize: "24px", color: "yellow" }} />
+            </Tooltip>
         ) : (
             <TimelapseRoundedIcon />
         );
+
+    if (visibleState.lapNumber && visibleState.lapNumber >= HoCConstants.NUMBER_OF_LAPS_FIRST_ARMAGEDDON) {
+        defaultIcon = (
+            <Tooltip title="Armageddon wave after this turn." placement="top" sx={{ zIndex: 2 }}>
+                <Box component="img" src={meteorSvg} sx={{ width: 26, height: 26 }} />
+            </Tooltip>
+        );
+    }
 
     if (gameStarted) {
         messageBoxVariant = "soft";

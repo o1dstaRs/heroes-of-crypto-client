@@ -135,6 +135,7 @@ export function processLightningSpinAbility(
                     sceneLog,
                 ),
                 team: fromUnit.getTeam(),
+                lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
             });
             enemyIdDamageFromAttack.set(enemy.getId(), damageFromAttack);
             const pegasusLightEffect = enemy.getEffect("Pegasus Light");

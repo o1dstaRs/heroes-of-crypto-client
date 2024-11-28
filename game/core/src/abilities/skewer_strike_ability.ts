@@ -120,6 +120,7 @@ export function processSkewerStrikeAbility(
                 sceneLog,
             ),
             team: fromUnit.getTeam(),
+            lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
         });
 
         sceneLog.updateLog(

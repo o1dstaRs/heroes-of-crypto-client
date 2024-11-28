@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { TeamType } from "@heroesofcrypto/common";
+import { TeamType, HoCConstants } from "@heroesofcrypto/common";
 import Avatar from "@mui/joy/Avatar";
 import Badge from "@mui/joy/Badge";
 import Box from "@mui/joy/Box";
@@ -10,6 +10,9 @@ import { IVisibleState, IVisibleUnit } from "../../state/visible_state";
 import { useManager } from "../../manager";
 import stopImg from "../../../images/stop.webp";
 import hourglassImg from "../../../images/hourglass.webp";
+import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
+import meteorSvg from "../../../images/meteor.svg";
+import { Tooltip } from "@mui/joy";
 
 export const UpNextOverlay: React.FC = () => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
@@ -52,6 +55,27 @@ export const UpNextOverlay: React.FC = () => {
 
     const maxVisibleUnits = Math.floor(window.innerWidth / 90); // Estimate based on each unit and space
 
+    let defaultIcon =
+        visibleState.lapNumber !== undefined &&
+        visibleState.numberOfLapsTillNarrowing !== undefined &&
+        visibleState.lapNumber < visibleState.numberOfLapsTillStopNarrowing &&
+        visibleState.lapNumber % visibleState.numberOfLapsTillNarrowing === 0 &&
+        visibleState.lapsNarrowed < HoCConstants.MAX_NARROWING_LAPS_TOTAL ? (
+            <Tooltip title="The map will narrow after this turn." placement="top" sx={{ zIndex: 9999 }}>
+                <ZoomInMapIcon sx={{ color: "white", pb: 2, width: 50, height: 50 }} />
+            </Tooltip>
+        ) : (
+            <React.Fragment />
+        );
+
+    if (visibleState.lapNumber && visibleState.lapNumber >= HoCConstants.NUMBER_OF_LAPS_FIRST_ARMAGEDDON) {
+        defaultIcon = (
+            <Tooltip title="Armageddon wave after this turn." placement="top" sx={{ zIndex: 9999 }}>
+                <Box component="img" src={meteorSvg} sx={{ width: 50, height: 50, pb: 2 }} />
+            </Tooltip>
+        );
+    }
+
     return (
         <Box
             sx={{
@@ -63,7 +87,7 @@ export const UpNextOverlay: React.FC = () => {
                 backgroundColor: "rgba(0, 0, 0, 0.8)",
                 padding: 2,
                 borderRadius: 2,
-                zIndex: 9999, // Increased z-index to ensure it's on top
+                zIndex: 9998, // Increased z-index to ensure it's on top
                 overflowX: "auto",
                 whiteSpace: "nowrap",
                 display: "flex",
@@ -72,15 +96,19 @@ export const UpNextOverlay: React.FC = () => {
                 flexDirection: "column",
             }}
         >
-            <Typography
-                level="h4"
-                sx={{
-                    color: "white",
-                    mb: 2,
-                }}
-            >
-                Lap {visibleState.lapNumber}
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Typography
+                    level="h4"
+                    sx={{
+                        color: "white",
+                        mb: 2,
+                        mr: 2,
+                    }}
+                >
+                    Lap {visibleState.lapNumber}
+                </Typography>
+                {defaultIcon}
+            </Box>
             <Stack
                 direction="row"
                 spacing={1}

@@ -100,6 +100,7 @@ export function processPetrifyingGazeAbility(
                 sceneLog,
             ),
             team: fromUnit.getTeam(),
+            lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
         });
 
         sceneLog.updateLog(`${amountOfUnitsKilled} ${toUnit.getName()} killed by ${petrifyingGazeAbility.getName()}`);

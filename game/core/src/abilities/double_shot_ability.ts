@@ -149,6 +149,7 @@ export function processDoubleShotAbility(
                 sceneLog,
             ),
             team: fromUnit.getTeam(),
+            lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
         });
         const pegasusLightEffect = toUnit.getEffect("Pegasus Light");
         if (pegasusLightEffect) {

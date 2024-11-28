@@ -123,6 +123,7 @@ export function processThroughShotAbility(
                     sceneLog,
                 ),
                 team: attackerUnit.getTeam(),
+                lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
             });
             const pegasusLightEffect = targetUnit.getEffect("Pegasus Light");
             if (pegasusLightEffect) {
