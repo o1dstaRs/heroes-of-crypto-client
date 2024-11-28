@@ -1104,7 +1104,7 @@ class Sandbox extends GLScene {
 
     private spawnObstacles(encounterCurrent = false): string | undefined {
         if (
-            FightStateManager.getInstance().getFightProperties().getCurrentLap() >=
+            FightStateManager.getInstance().getFightProperties().getCurrentLap() >
             HoCConstants.NUMBER_OF_LAPS_TILL_STOP_NARROWING
         ) {
             return undefined;
@@ -4764,6 +4764,15 @@ class Sandbox extends GLScene {
                     u.setResponded(false);
                     u.setOnHourglass(false);
                 }
+
+                if (
+                    this.attackHandler
+                        .getDamageStatisticHolder()
+                        .hasDamageDealt(FightStateManager.getInstance().getFightProperties().getCurrentLap())
+                ) {
+                    FightStateManager.getInstance().getFightProperties().encounterDamageDealFact();
+                }
+
                 FightStateManager.getInstance().getFightProperties().flipLap();
                 if (FightStateManager.getInstance().getFightProperties().isTimeToDryCenter()) {
                     this.drawer.switchToDryCenter();
@@ -4776,7 +4785,15 @@ class Sandbox extends GLScene {
                 let spawnedObstacles = false;
                 if (!distancesDecreased || FightStateManager.getInstance().getFightProperties().isNarrowingLap()) {
                     let encounterCurrent = false;
-                    if (!distancesDecreased && !FightStateManager.getInstance().getFightProperties().isNarrowingLap()) {
+                    if (
+                        !distancesDecreased &&
+                        !FightStateManager.getInstance()
+                            .getFightProperties()
+                            .hasDamageDealFactPerLap(
+                                FightStateManager.getInstance().getFightProperties().getCurrentLap() - 1,
+                            ) &&
+                        !FightStateManager.getInstance().getFightProperties().isNarrowingLap()
+                    ) {
                         FightStateManager.getInstance().getFightProperties().encounterAdditionalNarrowingLap();
                         encounterCurrent = true;
                     }

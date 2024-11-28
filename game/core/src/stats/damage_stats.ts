@@ -14,8 +14,11 @@ import { IStatisticHolder, IDamageStatistic } from "@heroesofcrypto/common";
 export class DamageStatisticHolder implements IStatisticHolder<IDamageStatistic> {
     private readonly damageStatistics: IDamageStatistic[];
 
+    private readonly damageDealtLaps: Set<number>;
+
     public constructor() {
         this.damageStatistics = [];
+        this.damageDealtLaps = new Set();
     }
 
     public add(singleDamageStatistic: IDamageStatistic): void {
@@ -32,11 +35,19 @@ export class DamageStatisticHolder implements IStatisticHolder<IDamageStatistic>
         if (!added) {
             this.damageStatistics.push(singleDamageStatistic);
         }
+
+        if (singleDamageStatistic.damage > 0) {
+            this.damageDealtLaps.add(singleDamageStatistic.lap);
+        }
     }
 
     public get(): IDamageStatistic[] {
         this.damageStatistics.sort((a, b) => b.damage - a.damage);
 
         return this.damageStatistics;
+    }
+
+    public hasDamageDealt(lap: number): boolean {
+        return this.damageDealtLaps.has(lap);
     }
 }

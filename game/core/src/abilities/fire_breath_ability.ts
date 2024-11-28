@@ -102,6 +102,7 @@ export function processFireBreathAbility(
             unitName: fromUnit.getName(),
             damage: nextStandingTarget.applyDamage(fireBreathAttackDamage, 0 /* magic attack */, sceneLog),
             team: fromUnit.getTeam(),
+            lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
         });
 
         sceneLog.updateLog(

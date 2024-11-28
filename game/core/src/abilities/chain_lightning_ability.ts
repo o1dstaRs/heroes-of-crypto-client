@@ -110,6 +110,7 @@ function attackEnemiesAndGetLayerImpact(
                 unitName: fromUnit.getName(),
                 damage: e1.applyDamage(targetEnemyLightningDamage, 0 /* magic attack */, sceneLog),
                 team: fromUnit.getTeam(),
+                lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
             });
             magicDamageReflection += (SpellHelper.getMagicMirrorPower(e1) / 100) * targetEnemyLightningDamage;
             sceneLog.updateLog(`${e1.getName()} got hit ${targetEnemyLightningDamage} by Chain Lightning`);
@@ -182,6 +183,7 @@ export function processChainLightningAbility(
             unitName: fromUnit.getName(),
             damage: targetUnit.applyDamage(targetEnemyLightningDamage, 0 /* magic attack */, sceneLog),
             team: fromUnit.getTeam(),
+            lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
         });
         totalMagicDamageReflection += (SpellHelper.getMagicMirrorPower(targetUnit) / 100) * targetEnemyLightningDamage;
         sceneLog.updateLog(`${targetUnit.getName()} got hit ${targetEnemyLightningDamage} by Chain Lightning`);

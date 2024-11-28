@@ -94,7 +94,7 @@ export default function RightSideBar({ gameStarted, windowSize }: { gameStarted:
             const stringParts = s.unitName.split(/\s/);
             unitName = `${stringParts[0][0]}. ${stringParts[1]}`;
         }
-        unitStats.push({ unitName, damage: s.damage, team: s.team });
+        unitStats.push({ unitName, damage: s.damage, team: s.team, lap: s.lap });
         maxDmg = Math.max(maxDmg, s.damage);
     }
 

@@ -72,6 +72,7 @@ export function processFireShieldAbility(
             unitName: fromUnit.getName(),
             damage: toUnit.applyDamage(fireShieldDmg, 0 /* magic attack */, sceneLog),
             team: fromUnit.getTeam(),
+            lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
         });
         sceneLog.updateLog(`${toUnit.getName()} received (${fireShieldDmg}) from Fire Shield`);
 

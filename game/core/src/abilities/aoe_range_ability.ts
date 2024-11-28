@@ -110,6 +110,7 @@ export function processRangeAOEAbility(
                         sceneLog,
                     ),
                     team: attackerUnit.getTeam(),
+                    lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
                 });
                 const pegasusLightEffect = unit.getEffect("Pegasus Light");
                 if (pegasusLightEffect) {
