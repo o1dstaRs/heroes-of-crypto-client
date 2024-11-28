@@ -795,6 +795,7 @@ class Sandbox extends GLScene {
         synergyLevel: number,
     ): boolean {
         let specificSynergy: SpecificSynergy | undefined = undefined;
+        let isNatureSynergy = false;
         if (faction === FactionType.LIFE) {
             specificSynergy = ToLifeSynergy[synergyName];
         } else if (faction === FactionType.CHAOS) {
@@ -803,6 +804,7 @@ class Sandbox extends GLScene {
             specificSynergy = ToMightSynergy[synergyName];
         } else if (faction === FactionType.NATURE) {
             specificSynergy = ToNatureSynergy[synergyName];
+            isNatureSynergy = true;
         }
         if (specificSynergy) {
             const hasUpdated = FightStateManager.getInstance()
@@ -815,6 +817,41 @@ class Sandbox extends GLScene {
                 this.setSelectedUnitProperties(this.sc_selectedBody.GetUserData());
             }
             this.sc_unitPropertiesUpdateNeeded = true;
+
+            // some synergies may affect the board state
+            if (hasUpdated && isNatureSynergy) {
+                const lowerLeftPlacement = this.getPlacement(TeamType.LOWER, 0);
+                const upperRightPlacement = this.getPlacement(TeamType.UPPER, 0);
+
+                if (lowerLeftPlacement && upperRightPlacement) {
+                    const targetTeamSize = FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getNumberOfUnitsAvailableForPlacement(teamType);
+
+                    if (
+                        this.unitsHolder.getAllAlliesPlaced(
+                            teamType,
+                            lowerLeftPlacement,
+                            upperRightPlacement,
+                            this.getPlacement(TeamType.LOWER, 1),
+                            this.getPlacement(TeamType.UPPER, 1),
+                        ).length > targetTeamSize
+                    ) {
+                        const unitsToCleanupFromTheBoard = this.unitsHolder.toCleanupRandomUnitsTillTeamSize(
+                            targetTeamSize,
+                            teamType,
+                            lowerLeftPlacement,
+                            upperRightPlacement,
+                            this.getPlacement(TeamType.LOWER, 1),
+                            this.getPlacement(TeamType.UPPER, 1),
+                        );
+
+                        if (unitsToCleanupFromTheBoard.length) {
+                            this.destroySpecificUnits(unitsToCleanupFromTheBoard);
+                        }
+                    }
+                }
+            }
 
             return hasUpdated;
         }
@@ -1390,6 +1427,38 @@ class Sandbox extends GLScene {
         if (augmentType.type === "Placement") {
             this.initializePlacements();
             this.destroyNonPlacedUnits(false);
+
+            const lowerLeftPlacement = this.getPlacement(TeamType.LOWER, 0);
+            const upperRightPlacement = this.getPlacement(TeamType.UPPER, 0);
+
+            if (lowerLeftPlacement && upperRightPlacement) {
+                const targetTeamSize = FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getNumberOfUnitsAvailableForPlacement(teamType);
+
+                if (
+                    this.unitsHolder.getAllAlliesPlaced(
+                        teamType,
+                        lowerLeftPlacement,
+                        upperRightPlacement,
+                        this.getPlacement(TeamType.LOWER, 1),
+                        this.getPlacement(TeamType.UPPER, 1),
+                    ).length > targetTeamSize
+                ) {
+                    const unitsToCleanupFromTheBoard = this.unitsHolder.toCleanupRandomUnitsTillTeamSize(
+                        targetTeamSize,
+                        teamType,
+                        lowerLeftPlacement,
+                        upperRightPlacement,
+                        this.getPlacement(TeamType.LOWER, 1),
+                        this.getPlacement(TeamType.UPPER, 1),
+                    );
+
+                    if (unitsToCleanupFromTheBoard.length) {
+                        this.destroySpecificUnits(unitsToCleanupFromTheBoard);
+                    }
+                }
+            }
         }
         if (augmented) {
             if (this.sc_selectedBody) {
@@ -1399,6 +1468,46 @@ class Sandbox extends GLScene {
         }
 
         return augmented;
+    }
+
+    protected destroySpecificUnits(unitsToDestroy: Unit[]): void {
+        if (FightStateManager.getInstance().getFightProperties().hasFightStarted() || !unitsToDestroy.length) {
+            return;
+        }
+
+        const destroyedUnitIds: string[] = [];
+
+        for (let b = this.sc_world.GetBodyList(); b; b = b.GetNext()) {
+            if (b.GetType() === b2BodyType.b2_dynamicBody) {
+                const unitStats = b.GetUserData();
+                if (!unitStats) {
+                    continue;
+                }
+
+                for (const utd of unitsToDestroy) {
+                    const unitId = utd.getId();
+
+                    if (unitId !== unitStats.id) {
+                        continue;
+                    }
+
+                    if (destroyedUnitIds.includes(unitId)) {
+                        continue;
+                    }
+
+                    if (this.unitsHolder.deleteUnitById(unitId)) {
+                        if (b === this.sc_selectedBody) {
+                            b.SetIsActive(false);
+                            this.Deselect();
+                        }
+                        this.sc_world.DestroyBody(b);
+                        this.unitsFactory.deleteUnitBody(unitId);
+                        destroyedUnitIds.push(unitId);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     protected destroyNonPlacedUnits(verifyWithinGridPosition = true): void {

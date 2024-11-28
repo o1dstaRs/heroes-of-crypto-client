@@ -704,6 +704,7 @@ export class AttackHandler {
                     `${targetUnit.getName()} resp ${rangeResponseUnit.getName()} (${damageFromResponse})`,
                 );
 
+                // response damage
                 this.damageStatisticHolder.add({
                     unitName: targetUnit.getName(),
                     damage: rangeResponseUnit.applyDamage(
@@ -737,6 +738,7 @@ export class AttackHandler {
                 damageForAnimation.unitPosition = targetUnit.getPosition();
                 damageForAnimation.unitIsSmall = targetUnit.isSmallSize();
 
+                // attack damage
                 this.damageStatisticHolder.add({
                     unitName: attackerUnit.getName(),
                     damage: targetUnit.applyDamage(
