@@ -860,11 +860,25 @@ class Sandbox extends GLScene {
     }
 
     private refreshButtons(forceUpdate = false): void {
-        if (this.buttonsRefreshLocked) {
-            return;
-        }
+        const previousAIButtonState = this.aiButton.state;
+        const previousHourglassButtonState = this.hourglassButton.state;
+        const previousNextButtonState = this.nextButton.state;
+        const previousShieldButtonState = this.shieldButton.state;
+        const previousSpellBookButtonState = this.spellBookButton.state;
+        const previousSelectedAttackTypeButtonNew = this.selectedAttackTypeButton.state;
 
-        if (this.sc_visibleState && this.sc_visibleState.hasFinished) {
+        const hasButtonStateChanged = (): boolean => {
+            return (
+                previousAIButtonState !== this.aiButton.state ||
+                previousHourglassButtonState !== this.hourglassButton.state ||
+                previousSpellBookButtonState !== this.spellBookButton.state ||
+                previousShieldButtonState !== this.shieldButton.state ||
+                previousSelectedAttackTypeButtonNew !== this.selectedAttackTypeButton.state ||
+                previousNextButtonState !== this.nextButton.state
+            );
+        };
+
+        if (this.buttonsRefreshLocked || (this.sc_visibleState && this.sc_visibleState.hasFinished)) {
             this.hourglassButton.isDisabled = true;
             this.shieldButton.isDisabled = true;
             this.nextButton.isDisabled = true;
@@ -873,16 +887,14 @@ class Sandbox extends GLScene {
             this.spellBookButton.isDisabled = true;
             this.sc_buttonGroupUpdated = true;
             console.log("DISABLE ALL BUTTONS");
-            this.buttonsRefreshLocked = true;
+            this.sc_buttonGroupUpdated = forceUpdate || hasButtonStateChanged();
             return;
         }
 
-        const previousAIButtonState = this.aiButton.state;
-        const previousHourglassButtonState = this.hourglassButton.state;
-        const previousNextButtonState = this.nextButton.state;
-        const previousShieldButtonState = this.shieldButton.state;
-        const previousSpellBookButtonState = this.spellBookButton.state;
-        const previousSelectedAttackTypeButtonNew = this.selectedAttackTypeButton.state;
+        if (!this.currentActiveUnit?.hasAbilityActive("AI Driven")) {
+            this.aiButton.isDisabled = false;
+        }
+
         if (this.sc_isAIActive) {
             this.aiButton.state = VisibleButtonState.SECOND;
             this.hourglassButton.isDisabled = true;
@@ -903,7 +915,6 @@ class Sandbox extends GLScene {
             this.shieldButton.isDisabled = false;
             this.nextButton.isDisabled = false;
             this.selectedAttackTypeButton.isDisabled = false;
-            this.spellBookButton.isDisabled = false;
 
             if (this.checkHourglassCondition()) {
                 this.hourglassButton.isDisabled = false;
@@ -957,14 +968,7 @@ class Sandbox extends GLScene {
             }
         }
 
-        this.sc_buttonGroupUpdated =
-            forceUpdate ||
-            previousAIButtonState !== this.aiButton.state ||
-            previousHourglassButtonState !== this.hourglassButton.state ||
-            previousSpellBookButtonState !== this.spellBookButton.state ||
-            previousShieldButtonState !== this.shieldButton.state ||
-            previousSelectedAttackTypeButtonNew !== this.selectedAttackTypeButton.state ||
-            previousNextButtonState !== this.nextButton.state;
+        this.sc_buttonGroupUpdated = forceUpdate || hasButtonStateChanged();
     }
 
     public propagateButtonClicked(buttonName: string, buttonState: VisibleButtonState): void {
@@ -3547,7 +3551,6 @@ class Sandbox extends GLScene {
                 this.refreshUnits();
             }
             refreshButtons = true;
-            this.buttonsRefreshLocked = false;
         }
         this.resetHover(true);
         if (refreshButtons) {
@@ -3556,6 +3559,7 @@ class Sandbox extends GLScene {
     }
 
     protected finishTurn = (isHourglass = false): void => {
+        this.buttonsRefreshLocked = true;
         if (!isHourglass && this.currentActiveUnit) {
             this.currentActiveUnit.minusLap();
         }
@@ -5154,6 +5158,7 @@ class Sandbox extends GLScene {
                                     this.sc_hoverTextUpdateNeeded = true;
                                     this.sc_selectedBody = unitBody;
                                     this.currentActiveUnit = nextUnit as RenderableUnit;
+                                    this.buttonsRefreshLocked = false;
                                     this.refreshButtons(true);
                                     if (
                                         nextUnit.refreshPossibleAttackTypes(
