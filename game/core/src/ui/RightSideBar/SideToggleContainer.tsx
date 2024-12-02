@@ -44,17 +44,6 @@ import synergyPlusFlyArmorImg from "../../../images/synergy_plus_fly_armor_256.w
 import synergyMovementImg from "../../../images/synergy_movement_256.webp";
 import synergySupplyImg from "../../../images/synergy_supply_256.webp";
 
-const SYNERGY_NAME_TO_IMAGE = {
-    [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: synergySupplyImg,
-    [LifeSynergyNames.PLUS_MORALE_AND_LUCK]: synergyMoraleImg,
-    [ChaosSynergyNames.MOVEMENT]: synergyMovementImg,
-    [ChaosSynergyNames.BREAK_ON_ATTACK]: synergyBreakOnAttackImg,
-    [MightSynergyNames.PLUS_AURAS_RANGE]: synergyAurasRangeImg,
-    [MightSynergyNames.PLUS_STACK_ABILITIES_POWER]: synergyAbilitiesPowerImg,
-    [NatureSynergyNames.INCREASE_BOARD_UNITS]: synergyIncreaseBoardUnitsImg,
-    [NatureSynergyNames.PLUS_FLY_ARMOR]: synergyPlusFlyArmorImg,
-};
-
 const SYNERGY_NAME_TO_FACTION = {
     [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: "Life",
     [LifeSynergyNames.PLUS_MORALE_AND_LUCK]: "Life",
@@ -79,7 +68,7 @@ const SYNERGY_NAME_TO_DESCRIPTION = {
 
 type SelectedSynergy = {
     faction: FactionType;
-    synergyName: keyof typeof SYNERGY_NAME_TO_IMAGE;
+    synergyName: keyof typeof SYNERGY_NAME_TO_FACTION;
     synergyValue: SpecificSynergy;
     level: VisibleSynergyLevel;
     name: string;
@@ -562,28 +551,28 @@ const SideToggleContainer = ({
 
     for (const [synergyName, synergyLevel] of Object.entries(possibleSynergiesObj)) {
         if (synergyLevel <= 0) {
-            if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_IMAGE] === "Life") {
+            if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === "Life") {
                 if (synergyPairLife !== null) {
                     setSynergyPairTypeLife(null);
                     if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionType.LIFE)) {
                         setTogglerType("None");
                     }
                 }
-            } else if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_IMAGE] === "Chaos") {
+            } else if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === "Chaos") {
                 if (synergyPairChaos !== null) {
                     setSynergyPairTypeChaos(null);
                     if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionType.CHAOS)) {
                         setTogglerType("None");
                     }
                 }
-            } else if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_IMAGE] === "Might") {
+            } else if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === "Might") {
                 if (synergyPairMight !== null) {
                     setSynergyPairTypeMight(null);
                     if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionType.MIGHT)) {
                         setTogglerType("None");
                     }
                 }
-            } else if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_IMAGE] === "Nature") {
+            } else if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === "Nature") {
                 if (synergyPairNature !== null) {
                     setSynergyPairTypeNature(null);
                     if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionType.NATURE)) {
