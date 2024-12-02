@@ -52,6 +52,28 @@ axiosMMInstance.interceptors.response.use(
     },
 );
 
+export const axiosGameInstance = axios.create({ baseURL: process.env.HOST_GAME_API });
+axiosGameInstance.interceptors.response.use(
+    (res) => {
+        res.headers = { ...res.headers };
+        return res;
+    },
+    (error) => {
+        if (error.response?.status === 409) {
+            return Promise.reject(new Error("Already in game"));
+        } else if (error.response?.status === 401) {
+            return Promise.reject(new Error("Unauthorized"));
+        }
+        return Promise.reject(
+            error.response?.data &&
+                error.response?.data.constructor === String &&
+                error.response?.data !== "Bad Request"
+                ? `Request failed: ${error.response.data}`
+                : error,
+        );
+    },
+);
+
 export const authFetcher = async (args: string | [string, AxiosRequestConfig]) => {
     const [url, config] = Array.isArray(args) ? args : [args];
 
@@ -75,5 +97,10 @@ export const endpoints = {
     },
     mm: {
         queue: `${IS_PROD ? "/v1/queue" : "/v1/mm/queue"}`,
+    },
+    game: {
+        confirm: `${IS_PROD ? "/v1/confirm" : "/v1/game/confirm"}`,
+        abandon: `${IS_PROD ? "/v1/abandon" : "/v1/game/abandon"}`,
+        current: `${IS_PROD ? "/v1/current" : "/v1/game/current"}`,
     },
 };

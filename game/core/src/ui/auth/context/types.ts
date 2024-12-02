@@ -1,4 +1,5 @@
 import { ResponseMe } from "@heroesofcrypto/common/src/generated/protobuf/v1/response_me_pb";
+import { GamePublic } from "@heroesofcrypto/common/src/generated/protobuf/v1/game_public_pb";
 
 // import { PopupLoginOptions, RedirectLoginOptions } from "@auth0/auth0-react";
 
@@ -57,5 +58,8 @@ export type JWTContextType = {
     resetPassword: (email: string, password: string, token: Uint8Array) => Promise<void>;
     startGameSearch: () => Promise<void>;
     stopGameSearch: () => Promise<void>;
+    confirmGame: (gameId: string) => Promise<void>;
+    abandonGame: (gameId: string) => Promise<void>;
+    getCurrentGame: () => Promise<GamePublic.AsObject | null>;
     logout: () => Promise<void>;
 };

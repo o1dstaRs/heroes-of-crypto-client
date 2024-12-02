@@ -3,6 +3,7 @@ import React from "react";
 import { ConfirmCode } from "@heroesofcrypto/common/src/generated/protobuf/v1/confirm_code_pb";
 import { NewPlayer } from "@heroesofcrypto/common/src/generated/protobuf/v1/new_player_pb";
 import { RequestCode } from "@heroesofcrypto/common/src/generated/protobuf/v1/request_code_pb";
+import { GamePublic } from "@heroesofcrypto/common/src/generated/protobuf/v1/game_public_pb";
 import { ResetPassword } from "@heroesofcrypto/common/src/generated/protobuf/v1/reset_password_pb";
 import { ResponseEnqueue } from "@heroesofcrypto/common/src/generated/protobuf/v1/response_enqueue_pb";
 import { ResponseMe } from "@heroesofcrypto/common/src/generated/protobuf/v1/response_me_pb";
@@ -13,7 +14,7 @@ import { v4 as uuidv4 } from "uuid";
 import { isValidToken, setSession } from "./auth_utils";
 import { ActionMapType, AuthStateType, AuthUserType } from "./types";
 import { AuthContext } from "./auth_context";
-import { axiosAuthInstance, axiosMMInstance, endpoints } from "../../../api/axios";
+import { axiosAuthInstance, axiosMMInstance, axiosGameInstance, endpoints } from "../../../api/axios";
 
 enum Types {
     INITIAL = "INITIAL",
@@ -185,6 +186,30 @@ export function AuthProvider({ children }: Props) {
         });
     }, [state]);
 
+    const confirmGame = useCallback(async (gameId: string) => {
+        await axiosGameInstance.post(`${endpoints.game.confirm}/${gameId}`, {
+            responseType: "arraybuffer",
+            headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
+        });
+    }, []);
+
+    const abandonGame = useCallback(async (gameId: string) => {
+        await axiosGameInstance.post(`${endpoints.game.abandon}/${gameId}`, {
+            responseType: "arraybuffer",
+            headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
+        });
+    }, []);
+
+    const getCurrentGame = useCallback(async (): Promise<GamePublic.AsObject | null> => {
+        const res = await axiosGameInstance.get(`${endpoints.game.current}`, {
+            responseType: "arraybuffer",
+            headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
+        });
+
+        const reponseData = res.data;
+        return GamePublic.deserializeBinary(reponseData).toObject();
+    }, []);
+
     // LOGIN
     const login = useCallback(async (email: string, password: string) => {
         const newPlayer = new NewPlayer();
@@ -351,6 +376,9 @@ export function AuthProvider({ children }: Props) {
             resetPassword,
             startGameSearch,
             stopGameSearch,
+            confirmGame,
+            abandonGame,
+            getCurrentGame,
             me,
         }),
         [
@@ -363,6 +391,9 @@ export function AuthProvider({ children }: Props) {
             resetPassword,
             startGameSearch,
             stopGameSearch,
+            confirmGame,
+            abandonGame,
+            getCurrentGame,
             me,
             state.user,
             status,

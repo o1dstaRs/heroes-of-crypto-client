@@ -161,7 +161,9 @@ export class GameManager {
                 debugCanvas.height = glCanvas.height = clientHeight;
                 g_camera.resize(clientWidth, clientHeight);
                 this.m_scene?.Resize(clientWidth, clientHeight);
-                this.gl && resizeGlCanvas(glCanvas, this.gl, clientWidth, wrapper.clientHeight);
+                if (this.gl) {
+                    resizeGlCanvas(glCanvas, this.gl, clientWidth, wrapper.clientHeight);
+                }
             }
         };
         window.addEventListener("resize", onResize);

@@ -13,6 +13,7 @@ module.exports = [
             "docs/**/*.js",
             "game/heroes-of-crypto-common/**/*.{ts,js}",
             "game/core/dist/*.js",
+            "node_modules/**", // Added to ignore node_modules contents
         ],
         plugins: {
             react: reactPlugin,
@@ -30,6 +31,7 @@ module.exports = [
             globals: {
                 ...globals.browser,
                 ...globals.es2021,
+                AudioWorkletGlobalScope: "readonly",
             },
         },
         rules: {
