@@ -190,6 +190,17 @@ function logAction(action: BasicAIAction | undefined, debug: boolean) {
     console.log("Do action:" + AIActionType[actionType] + " unit to move to " + cellToString(action.cellToMove()));
 }
 
+/**
+ * Calculate the target to attack and the operation,
+ * Use infinite path first, if it is not avaiable then use actual path
+ * @param unit
+ * @param unitsHolder
+ * @param grid
+ * @param matrix
+ * @param pathHelper
+ * @param debug
+ * @returns the action
+ */
 function doFindTarget(
     unit: IUnitAIRepr,
     unitsHolder: UnitsHolder,
@@ -457,7 +468,9 @@ function doFindTarget(
                             }
 
                             if (!movementDistance) {
-                                console.log("skip cell: " + cellToString({ x: x, y: y }));
+                                if (debug) {
+                                    console.log("skip cell: " + cellToString({ x: x, y: y }));
+                                }
                                 continue;
                             }
                             // if same indicies left till the target but clooser then prev cell then update the route and hte cell to move to
@@ -907,7 +920,6 @@ function getLayersForAttacker_2(
 }
 
 function getBorderCells_2(currentCell: HoCMath.XY, isSmallUnit = true, distance = 1): HoCMath.XY[] {
-    console.log("Current unit is small ? " + isSmallUnit);
     /*
     distance 1, current small:
     0 0 0 0 0 0 0
