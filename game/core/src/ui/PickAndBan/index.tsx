@@ -149,6 +149,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                     paddingTop: "3.5%",
                     paddingBottom: "2%",
                     borderRadius: "16px",
+                    zIndex: 100, // Base level for main container
                 }}
             >
                 <Sheet
@@ -189,6 +190,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                             flexDirection: "column",
                             width: "100%",
                             height: "100%",
+                            position: "relative", // Ensuring top-level placement
+                            zIndex: 1, // Base level for sections within the main container
                         }}
                     >
                         <Box
@@ -202,39 +205,39 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     left: 0,
                                     right: 0,
                                     bottom: 0,
-                                    background:
-                                        "linear-gradient(to bottom left, rgba(0, 0, 0, 0.6), transparent), linear-gradient(to bottom right, rgba(0, 0, 0, 0.6), transparent)",
+                                    // background: "radial-gradient(circle, rgba(0, 0, 0, 0.6), transparent)",
                                 },
                             }}
                         >
-                            <Box
+                            {/* <Box
                                 sx={{
                                     position: "absolute",
-                                    top: "10%",
+                                    top: "2%",
                                     left: "50%",
                                     transform: "translateX(-50%)",
                                     color: "#ffffff",
                                     fontWeight: "bold",
-                                    fontSize: "1.2rem",
+                                    fontSize: "1.1rem",
                                 }}
                             >
-                                Artifacts
-                            </Box>
+                                Countdown
+                            </Box> */}
                         </Box>
 
                         <Box
                             sx={{
                                 flex: 0.4,
-                                borderTop: "4px solid #2a2a2a",
-                                borderBottom: "4px solid #2a2a2a",
+                                borderTop: "2px solid transparent",
                                 position: "relative",
+                                zIndex: 70, // Ensure Level 4 renders above lower levels
                                 "&::before": {
                                     content: '""',
                                     position: "absolute",
                                     top: 0,
-                                    left: 0,
-                                    right: 0,
+                                    left: "16%", // Cut 20% from the left
+                                    right: "16%", // Cut 20% from the right
                                     bottom: 0,
+                                    borderTop: "2px solid #2a2a2a",
                                 },
                             }}
                         >
@@ -248,7 +251,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     fontWeight: "bold",
                                     fontSize: "1.2rem",
                                     textShadow: "2px 2px 8px #000000",
-                                    zIndex: 2,
+                                    zIndex: 71, // Ensure Level 4 renders above lower levels
                                 }}
                             >
                                 Level 4
@@ -259,7 +262,6 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     width: "100%",
                                     height: "100%",
                                     overflow: "visible",
-                                    zIndex: 2,
                                 }}
                             >
                                 <Box
@@ -273,7 +275,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                         width: "100%",
                                         height: "80%",
                                         transform: "rotate(180deg) scaleX(-1)",
-                                        zIndex: 2,
+                                        overflow: "visible",
                                     }}
                                 >
                                     {CreatureByLevel[3].map((creatureId: number, index: number) => (
@@ -286,7 +288,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 alignItems: "center",
                                                 justifyContent: "center",
                                                 position: "relative",
-                                                zIndex: hoveredCreature === creatureId ? 10 : 1, // Base or hover z-index
+                                                zIndex: hoveredCreature === creatureId ? 92 : 72, // Ensure hover z-index above others
                                                 transform:
                                                     index % 2 < CreatureByLevel[3].length / 2
                                                         ? "translateY(-15%)"
@@ -322,7 +324,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 "& .unit-name": {
                                                     visibility: hoveredCreature === creatureId ? "visible" : "hidden",
                                                     opacity: hoveredCreature === creatureId ? 1 : 0,
-                                                    zIndex: 101, // Ensure name is above everything including other windows
+                                                    zIndex: hoveredCreature === creatureId ? 102 : 82, // Ensure name appears above everything
                                                 },
                                             }}
                                             onMouseEnter={() => handleMouseEnter(creatureId)}
@@ -371,7 +373,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     fontSize: "0.9rem",
                                                     transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
                                                     whiteSpace: "nowrap",
-                                                    zIndex: 101, // Ensure name is above everything including other windows
+                                                    pointerEvents: "none",
+                                                    zIndex: 73,
                                                 }}
                                             >
                                                 {UNIT_ID_TO_NAME[creatureId]}
@@ -385,10 +388,12 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                         <Box
                             sx={{
                                 flex: 0.4,
-                                borderBottom: "4px solid #2a2a2a",
+                                // borderBottom: "2px solid #2a2a2a",
+                                // borderTop: "2px solid #2a2a2a",
                                 position: "relative",
                                 borderTopLeftRadius: "100%",
                                 borderTopRightRadius: "100%",
+                                zIndex: 60, // Ensure Level 3 below Level 4
                                 "&::before": {
                                     content: '""',
                                     position: "absolute",
@@ -396,8 +401,11 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     left: 5, // Gradient starts from the left
                                     right: "50%", // Gradient ends at the right
                                     bottom: 0, // Extend to the bottom for a full half circle
-                                    background: "linear-gradient(to right, rgba(0, 0, 0, 1), transparent)",
+                                    background:
+                                        "linear-gradient(to right, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0.8), transparent)",
                                     borderTopLeftRadius: "200%", // Half-circle cut on the top left
+                                    pointerEvents: "none", // Make the overlay non-interactive
+                                    zIndex: -1,
                                 },
                                 "&::after": {
                                     content: '""',
@@ -406,8 +414,11 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     left: "50%", // Gradient starts from the left
                                     right: 5, // Gradient ends at the right
                                     bottom: 0, // Extend to the bottom for a full half circle
-                                    background: "linear-gradient(to left, rgba(0, 0, 0, 1), transparent)",
+                                    background:
+                                        "linear-gradient(to left, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0.8), transparent)",
                                     borderTopRightRadius: "200%", // Half-circle cut on the top left
+                                    pointerEvents: "none", // Make the overlay non-interactive
+                                    zIndex: -1,
                                 },
                             }}
                         >
@@ -421,7 +432,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     fontWeight: "bold",
                                     fontSize: "1.2rem",
                                     textShadow: "2px 2px 8px #000000",
-                                    zIndex: 2,
+                                    zIndex: 61, // Ensure Level 3 below Level 4
                                 }}
                             >
                                 Level 3
@@ -432,7 +443,6 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     width: "100%",
                                     height: "100%",
                                     overflow: "visible",
-                                    zIndex: 2,
                                 }}
                             >
                                 <Box
@@ -446,7 +456,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                         width: "100%",
                                         height: "80%",
                                         transform: "rotate(180deg) scaleX(-1)",
-                                        zIndex: 2,
+                                        overflow: "visible",
                                     }}
                                 >
                                     {CreatureByLevel[2].map((creatureId: number, index: number) => (
@@ -459,7 +469,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 alignItems: "center",
                                                 justifyContent: "center",
                                                 position: "relative",
-                                                zIndex: hoveredCreature === creatureId ? 10 : 1, // Base or hover z-index
+                                                zIndex: hoveredCreature === creatureId ? 91 : 61, // Ensure hover z-index above others
                                                 transform: index % 2 === 0 ? "translateY(25%)" : "translateY(-25%)",
                                                 transition: "transform 0.3s ease, z-index 0.3s ease", // Add z-index transition
                                                 filter:
@@ -483,7 +493,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 "& .unit-name": {
                                                     visibility: hoveredCreature === creatureId ? "visible" : "hidden",
                                                     opacity: hoveredCreature === creatureId ? 1 : 0,
-                                                    zIndex: 101, // Ensure name is above everything including other windows
+                                                    zIndex: hoveredCreature === creatureId ? 101 : 71, // Ensure name appears above everything
                                                 },
                                             }}
                                             onMouseEnter={() => handleMouseEnter(creatureId)}
@@ -501,6 +511,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     filter: pickBanContext.banned.includes(creatureId)
                                                         ? "grayscale(100%)"
                                                         : "none", // Make image black and white if banned
+                                                    zIndex: 62,
                                                 }}
                                             />
                                             {/* Draw x mark if banned */}
@@ -515,6 +526,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                         top: "50%",
                                                         left: "50%",
                                                         transform: "translate(-50%, -50%)",
+                                                        zIndex: 65,
                                                     }}
                                                 />
                                             )}
@@ -532,7 +544,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     fontSize: "0.9rem",
                                                     transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
                                                     whiteSpace: "nowrap",
-                                                    zIndex: 101, // Ensure name is above everything including other windows
+                                                    pointerEvents: "none",
+                                                    zIndex: 64,
                                                 }}
                                             >
                                                 {UNIT_ID_TO_NAME[creatureId]}
@@ -546,8 +559,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                         <Box
                             sx={{
                                 flex: 0.4,
-                                borderBottom: "4px solid #2a2a2a",
+                                // borderBottom: "2px solid #2a2a2a",
                                 position: "relative",
+                                zIndex: 50, // Ensure Level 2 below Level 3
                                 "&::before": {
                                     content: '""',
                                     position: "absolute",
@@ -555,7 +569,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     left: "50%",
                                     right: 0,
                                     bottom: 0,
-                                    background: "linear-gradient(to left, rgba(0, 0, 0, 1), transparent)",
+                                    background:
+                                        "linear-gradient(to left, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0.8), transparent)",
+                                    pointerEvents: "none", // Make the overlay non-interactive
+                                    zIndex: -1,
                                 },
                                 "&::after": {
                                     content: '""',
@@ -564,9 +581,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     right: "50%",
                                     bottom: 0,
                                     left: 0,
-                                    background: "linear-gradient(to right, rgba(0, 0, 0, 1), transparent)",
+                                    background:
+                                        "linear-gradient(to right, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0.8), transparent)",
                                     pointerEvents: "none", // Make the overlay non-interactive
-                                    zIndex: 1,
+                                    zIndex: -1,
                                 },
                             }}
                         >
@@ -580,7 +598,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     fontWeight: "bold",
                                     fontSize: "1.2rem",
                                     textShadow: "2px 2px 8px #000000",
-                                    zIndex: 2,
+                                    zIndex: 99, // Ensure Level 2 below Level 3
                                 }}
                             >
                                 Level 2
@@ -591,7 +609,6 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     width: "100%",
                                     height: "100%",
                                     overflow: "visible",
-                                    zIndex: 2,
                                 }}
                             >
                                 <Box
@@ -605,7 +622,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                         width: "100%",
                                         height: "80%",
                                         transform: "rotate(180deg) scaleX(-1)",
-                                        zIndex: 2,
+                                        overflow: "visible",
                                     }}
                                 >
                                     {CreatureByLevel[1].map((creatureId: number, index: number) => (
@@ -618,7 +635,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 alignItems: "center",
                                                 justifyContent: "center",
                                                 position: "relative",
-                                                zIndex: hoveredCreature === creatureId ? 10 : 1, // Base or hover z-index
+                                                zIndex: hoveredCreature === creatureId ? 90 : 50, // Ensure hover z-index above others
                                                 transform: index % 2 === 0 ? "translateY(-25%)" : "translateY(25%)",
                                                 transition: "transform 0.3s ease, z-index 0.3s ease", // Add z-index transition
                                                 filter:
@@ -629,14 +646,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 borderRadius: hoveredCreature === creatureId ? "50%" : "none", // Border on hover
                                                 "&:hover": {
                                                     transform: `scale(1.2) ${
-                                                        index % 2 === 0 ? "translateY(-25%)" : "translateY(25%)"
+                                                        index % 2 === 0 ? "translateY(-25%)" : "translateY(15%)"
                                                     }`,
                                                 },
                                                 // Hover styles for name
                                                 "& .unit-name": {
                                                     visibility: hoveredCreature === creatureId ? "visible" : "hidden",
                                                     opacity: hoveredCreature === creatureId ? 1 : 0,
-                                                    zIndex: 101, // Ensure name is above everything including other windows
+                                                    zIndex: hoveredCreature === creatureId ? 100 : 51, // Ensure name appears above everything
                                                 },
                                             }}
                                             onMouseEnter={() => handleMouseEnter(creatureId)}
@@ -685,7 +702,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     fontSize: "0.9rem",
                                                     transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
                                                     whiteSpace: "nowrap",
-                                                    zIndex: 101, // Ensure name is above everything including other windows
+                                                    pointerEvents: "none",
                                                 }}
                                             >
                                                 {UNIT_ID_TO_NAME[creatureId]}
@@ -699,8 +716,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                         <Box
                             sx={{
                                 flex: 0.4,
-                                borderBottom: "4px solid #2a2a2a",
                                 position: "relative",
+                                zIndex: 40, // Ensure Level 1 at lowest z-index
                                 "&::before": {
                                     content: '""',
                                     position: "absolute",
@@ -708,7 +725,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     left: "50%",
                                     right: 0,
                                     bottom: 0,
-                                    background: "linear-gradient(to left, rgba(0, 0, 0, 1), transparent)",
+                                    background:
+                                        "linear-gradient(to left, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0.8), transparent)",
+                                    pointerEvents: "none", // Make the overlay non-interactive
+                                    zIndex: -1,
                                 },
                                 "&::after": {
                                     content: '""',
@@ -717,9 +737,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     right: "50%",
                                     bottom: 0,
                                     left: 0,
-                                    background: "linear-gradient(to right, rgba(0, 0, 0, 1), transparent)",
+                                    background:
+                                        "linear-gradient(to right, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0.8), transparent)",
                                     pointerEvents: "none", // Make the overlay non-interactive
-                                    zIndex: 1,
+                                    zIndex: -1,
                                 },
                             }}
                         >
@@ -733,7 +754,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     fontWeight: "bold",
                                     fontSize: "1.2rem",
                                     textShadow: "2px 2px 8px #000000",
-                                    zIndex: 2,
+                                    zIndex: 41, // Ensure Level 1 at lowest z-index
                                 }}
                             >
                                 Level 1
@@ -744,7 +765,6 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     width: "100%",
                                     height: "100%",
                                     overflow: "visible",
-                                    zIndex: 2,
                                 }}
                             >
                                 <Box
@@ -758,7 +778,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                         width: "100%",
                                         height: "80%",
                                         transform: "rotate(180deg) scaleX(-1)",
-                                        zIndex: 2,
+                                        overflow: "visible",
                                     }}
                                 >
                                     {CreatureByLevel[0].map((creatureId: number, index: number) => (
@@ -771,7 +791,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 alignItems: "center",
                                                 justifyContent: "center",
                                                 position: "relative",
-                                                zIndex: hoveredCreature === creatureId ? 10 : 1, // Base or hover z-index
+                                                zIndex: hoveredCreature === creatureId ? 89 : 40, // Ensure hover z-index above others
                                                 transform: index % 2 === 0 ? "translateY(25%)" : "translateY(-25%)",
                                                 transition: "transform 0.3s ease, z-index 0.3s ease", // Add z-index transition
                                                 filter:
@@ -782,14 +802,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 borderRadius: hoveredCreature === creatureId ? "50%" : "none", // Border on hover
                                                 "&:hover": {
                                                     transform: `scale(1.2) ${
-                                                        index % 2 === 0 ? "translateY(25%)" : "translateY(-25%)"
+                                                        index % 2 === 0 ? "translateY(15%)" : "translateY(-25%)"
                                                     }`,
                                                 },
                                                 // Hover styles for name
                                                 "& .unit-name": {
                                                     visibility: hoveredCreature === creatureId ? "visible" : "hidden",
                                                     opacity: hoveredCreature === creatureId ? 1 : 0,
-                                                    zIndex: 101, // Ensure name is above everything including other windows
+                                                    zIndex: hoveredCreature === creatureId ? 99 : 41, // Ensure name appears above everything
                                                 },
                                             }}
                                             onMouseEnter={() => handleMouseEnter(creatureId)}
@@ -838,7 +858,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     fontSize: "0.9rem",
                                                     transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
                                                     whiteSpace: "nowrap",
-                                                    zIndex: 101, // Ensure name is above everything including other windows
+                                                    pointerEvents: "none",
                                                 }}
                                             >
                                                 {UNIT_ID_TO_NAME[creatureId]}
