@@ -1,4 +1,4 @@
-import { axiosAuthInstance, axiosMMInstance } from "../../../api/axios";
+import { axiosAuthInstance, axiosGameInstance, axiosMMInstance } from "../../../api/axios";
 
 function jwtDecode(token: string) {
     const base64Url = token.split(".")[1];
@@ -53,6 +53,7 @@ export const setSession = (accessToken: string | null) => {
 
         axiosMMInstance.defaults.headers.common.Authorization = accessToken;
         axiosAuthInstance.defaults.headers.common.Authorization = accessToken;
+        axiosGameInstance.defaults.headers.common.Authorization = accessToken;
 
         // This function below will handle when token is expired
         const { exp } = jwtDecode(accessToken); // ~3 days by minimals server
@@ -62,5 +63,6 @@ export const setSession = (accessToken: string | null) => {
 
         delete axiosMMInstance.defaults.headers.common.Authorization;
         delete axiosAuthInstance.defaults.headers.common.Authorization;
+        delete axiosGameInstance.defaults.headers.common.Authorization;
     }
 };

@@ -1,6 +1,9 @@
+import { HoCLib, TeamType } from "@heroesofcrypto/common";
+import CustomEventSource from "@heroesofcrypto/common/src/messaging/custom_event_source";
+
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useContext, createContext, useMemo } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter as Router, Route, Routes, useParams } from "react-router";
 import "typeface-open-sans";
@@ -17,6 +20,8 @@ import { IWindowSize } from "../state/visible_state";
 import StainedGlassWindow from "./PickAndBan";
 import { AuthProvider } from "./auth/context/auth_provider";
 import { useAuthContext } from "./auth/context/auth_context";
+
+const IS_PROD = HoCLib.stringToBoolean(process.env.IS_PROD);
 
 const usePreventSelection = () => {
     useEffect(() => {
@@ -108,7 +113,109 @@ const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     );
 };
 
-const PickAndBanView: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
+export interface IPickPhaseEventData {
+    // pick phase
+    pp: number;
+    // actors
+    a: TeamType[];
+    // picked
+    p: number[];
+    // banned
+    b: number[];
+    // opponent picked
+    op: number[];
+    // time remaining
+    t: number;
+}
+
+// Context for SSE and pick/ban state
+interface PickBanContextType {
+    isConnected: boolean;
+    events: IPickPhaseEventData[];
+    error: string | null;
+    banned: number[];
+}
+
+const PickBanContext = createContext<PickBanContextType>({
+    isConnected: false,
+    events: [],
+    error: null,
+    banned: [],
+});
+
+// Custom hook to use the Pick Ban Context
+export const usePickBanEvents = () => useContext(PickBanContext);
+
+// Provider component that manages SSE connection
+export const PickBanEventProvider: React.FC<{
+    children: React.ReactNode;
+    url: string;
+}> = ({ children, url }) => {
+    const [isConnected, setIsConnected] = useState(false);
+    const [events, setEvents] = useState<IPickPhaseEventData[]>([]);
+    const [banned, setBanned] = useState<number[]>([]);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const STORAGE_KEY = "accessToken";
+
+        const getCookie = (name: string) => {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop()?.split(";").shift();
+            return undefined;
+        };
+
+        const refreshLocalStorageFromCookie = () => {
+            const accessTokenCookie = getCookie(STORAGE_KEY);
+            if (accessTokenCookie) {
+                localStorage.setItem(STORAGE_KEY, accessTokenCookie);
+            }
+        };
+        refreshLocalStorageFromCookie();
+
+        const token = localStorage.getItem(STORAGE_KEY);
+
+        // Create SSE connection
+        const eventSource = new CustomEventSource<IPickPhaseEventData>(url, {
+            token: token ?? undefined,
+            debug: IS_PROD ?? false,
+        });
+
+        eventSource.onmessage = (event: IPickPhaseEventData) => {
+            console.log(event);
+            setEvents((prevEvents) => [...prevEvents, event]);
+            setIsConnected(true);
+            setBanned(event.b);
+        };
+
+        eventSource.onerror = (error: Error) => {
+            console.error("SSE Connection Error:", error);
+            setError(error.message);
+            setIsConnected(false);
+        };
+
+        // Cleanup on unmount
+        return () => {
+            eventSource.close();
+        };
+    }, [url]);
+
+    // Memoize context value to prevent unnecessary re-renders
+    const contextValue = useMemo(
+        () => ({
+            isConnected,
+            events,
+            error,
+            banned,
+        }),
+        [isConnected, events, error, banned],
+    );
+
+    return <PickBanContext.Provider value={contextValue}>{children}</PickBanContext.Provider>;
+};
+
+const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType }> = ({ windowSize, userTeam }) => {
     const [started, setStarted] = useState(false);
     const manager = useManager();
 
@@ -125,25 +232,27 @@ const PickAndBanView: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) =
         };
     }, [manager]);
 
+    console.log(`userTeam ${userTeam}`);
+
     return (
-        <div
-            className="container"
-            style={{
-                display: "flex",
-                backgroundColor: "rgba(0, 0, 128, 0.05)",
-                // boxShadow: "0 0 150px 500px rgba(0, 0, 0, 0.5) inset",
-            }}
-        >
-            <CssVarsProvider>
-                <CssBaseline />
-                <LeftSideBar gameStarted={started} windowSize={windowSize} />
-                <RightSideBar gameStarted={started} windowSize={windowSize} />
-                {/* <DraggableToolbar /> */}
-            </CssVarsProvider>
-            <StainedGlassWindow />
-            {/* <Main /> */}
-            <Popover />
-        </div>
+        <PickBanEventProvider url={process.env.PICK_EVENT_SOURCE ?? ""}>
+            <div
+                className="container"
+                style={{
+                    display: "flex",
+                    backgroundColor: "rgba(0, 0, 128, 0.05)",
+                    // boxShadow: "0 0 150px 500px rgba(0, 0, 0, 0.5) inset",
+                }}
+            >
+                <CssVarsProvider>
+                    <CssBaseline />
+                    <LeftSideBar gameStarted={started} windowSize={windowSize} />
+                    <RightSideBar gameStarted={started} windowSize={windowSize} />
+                </CssVarsProvider>
+                <StainedGlassWindow />
+                <Popover />
+            </div>
+        </PickBanEventProvider>
     );
 };
 
@@ -152,6 +261,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const { getCurrentGame } = useAuthContext();
     const [showOverlay, setShowOverlay] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+    const [userTeam, setUserTeam] = useState<TeamType>(TeamType.NO_TEAM);
 
     useEffect(() => {
         const fetchGame = async () => {
@@ -159,8 +269,9 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                 const currentGame = await getCurrentGame?.();
                 setErrorMessage("");
 
-                console.log(gameId);
                 console.log(currentGame);
+                // store the user's team
+                setUserTeam(currentGame?.team ?? TeamType.NO_TEAM);
 
                 if (!gameId || currentGame?.id !== gameId) {
                     setShowOverlay(true);
@@ -201,7 +312,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                     {errorMessage}
                 </div>
             )}
-            <PickAndBanView windowSize={windowSize} />
+            <PickAndBanView windowSize={windowSize} userTeam={userTeam} />
         </>
     );
 };
