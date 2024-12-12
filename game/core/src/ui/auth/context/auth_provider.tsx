@@ -91,17 +91,19 @@ type Props = {
     children: React.ReactNode;
 };
 
+const refreshLocalStorageFromCookie = () => {
+    const accessTokenCookie = getCookie(STORAGE_KEY);
+    if (accessTokenCookie) {
+        localStorage.setItem(STORAGE_KEY, accessTokenCookie);
+    }
+};
+
 export function AuthProvider({ children }: Props) {
     const [state, dispatch] = useReducer(reducer, initialState);
 
     const initialize = useCallback(async () => {
         try {
-            const accessTokenCookie = getCookie(STORAGE_KEY);
-            if (accessTokenCookie) {
-                localStorage.setItem(STORAGE_KEY, accessTokenCookie);
-            }
-
-            console.log(`accessTokenCookie: ${accessTokenCookie}`);
+            refreshLocalStorageFromCookie();
 
             const accessToken = localStorage.getItem(STORAGE_KEY);
 
@@ -201,9 +203,16 @@ export function AuthProvider({ children }: Props) {
     }, []);
 
     const getCurrentGame = useCallback(async (): Promise<GamePublic.AsObject | null> => {
+        refreshLocalStorageFromCookie();
+        const accessToken = localStorage.getItem(STORAGE_KEY);
+
         const res = await axiosGameInstance.get(`${endpoints.game.current}`, {
             responseType: "arraybuffer",
-            headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
+            headers: {
+                "Content-Type": "application/octet-stream",
+                "x-request-id": uuidv4(),
+                Authorization: accessToken,
+            },
         });
 
         const reponseData = res.data;
