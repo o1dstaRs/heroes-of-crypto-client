@@ -105,36 +105,30 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
 
     const width = (height as number) * 0.84; // Reduce width by 10%
     const [hoveredCreature, setHoveredCreature] = useState<number | null>(null);
-    const lastHoverTimes = useRef<Record<number, number>>({});
+    const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const handleMouseEnter = useCallback(
         (creatureId: number) => {
-            const now = Date.now();
-            if (hoveredCreature !== null && hoveredCreature !== creatureId) {
-                delete lastHoverTimes.current[hoveredCreature];
+            if (hoverTimeoutRef.current) {
+                clearTimeout(hoverTimeoutRef.current);
             }
-            if (lastHoverTimes.current[creatureId] === undefined || now - lastHoverTimes.current[creatureId] >= 1000) {
+
+            if (hoveredCreature !== creatureId) {
                 setHoveredCreature(creatureId);
-                lastHoverTimes.current[creatureId] = now;
             }
         },
         [hoveredCreature],
     );
 
     const handleMouseLeave = useCallback(() => {
-        const now = Date.now();
-        if (
-            !hoveredCreature ||
-            (hoveredCreature &&
-                lastHoverTimes.current[hoveredCreature] &&
-                now - lastHoverTimes.current[hoveredCreature] >= 1000)
-        ) {
-            if (hoveredCreature) {
-                delete lastHoverTimes.current[hoveredCreature];
-            }
-            setHoveredCreature(null);
+        if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
         }
-    }, [hoveredCreature]);
+
+        hoverTimeoutRef.current = setTimeout(() => {
+            setHoveredCreature(null);
+        }, 100); // Small delay to prevent flickering
+    }, []);
 
     return (
         <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
@@ -183,7 +177,6 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                         }
                                     `}
                     </style>
-                    {/* Main window sections */}
                     <Box
                         sx={{
                             display: "flex",
@@ -205,24 +198,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     left: 0,
                                     right: 0,
                                     bottom: 0,
-                                    // background: "radial-gradient(circle, rgba(0, 0, 0, 0.6), transparent)",
                                 },
                             }}
-                        >
-                            {/* <Box
-                                sx={{
-                                    position: "absolute",
-                                    top: "2%",
-                                    left: "50%",
-                                    transform: "translateX(-50%)",
-                                    color: "#ffffff",
-                                    fontWeight: "bold",
-                                    fontSize: "1.1rem",
-                                }}
-                            >
-                                Countdown
-                            </Box> */}
-                        </Box>
+                        ></Box>
 
                         <Box
                             sx={{
@@ -293,10 +271,12 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     index % 2 < CreatureByLevel[3].length / 2
                                                         ? "translateY(-15%)"
                                                         : "translateY(25%)",
-                                                transition: "transform 0.3s ease, z-index 0.3s ease", // Add z-index transition
+                                                transition: "all 0.3s ease", // Updated to include all transitions
                                                 filter:
                                                     hoveredCreature === creatureId
-                                                        ? "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
+                                                        ? pickBanContext.banned.includes(creatureId)
+                                                            ? "drop-shadow(0px -40px 25px rgba(255, 0, 0, 1))"
+                                                            : "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
                                                         : "drop-shadow(0px 0px 0px rgba(0,0,0,0))", // Shadow on hover
                                                 left:
                                                     index === 0
@@ -313,62 +293,77 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                                   ? "-4.5%"
                                                                   : 0, // Adjust left position
                                                 borderRadius: hoveredCreature === creatureId ? "50%" : "none", // Border on hover
-                                                "&:hover": {
-                                                    transform:
-                                                        hoveredCreature === creatureId
-                                                            ? `scale(1.2) translateY(25%)`
-                                                            : "scale(1)",
-                                                    pointerEvents: hoveredCreature !== creatureId ? "none" : "auto",
-                                                },
+                                                cursor: "pointer",
                                                 // Hover styles for name
                                                 "& .unit-name": {
                                                     visibility: hoveredCreature === creatureId ? "visible" : "hidden",
                                                     opacity: hoveredCreature === creatureId ? 1 : 0,
+                                                    transition: "opacity 0.3s ease, visibility 0.2s ease",
                                                     zIndex: hoveredCreature === creatureId ? 102 : 82, // Ensure name appears above everything
                                                 },
                                             }}
-                                            onMouseEnter={() => handleMouseEnter(creatureId)}
+                                            onMouseEnter={() => {
+                                                if (hoverTimeoutRef.current) {
+                                                    clearTimeout(hoverTimeoutRef.current);
+                                                }
+                                                handleMouseEnter(creatureId);
+                                            }}
                                             onMouseLeave={handleMouseLeave}
                                         >
-                                            <img
-                                                src={UNIT_ID_TO_IMAGE[creatureId]}
-                                                alt={`Creature ${creatureId}`}
-                                                style={{
-                                                    width: "100%",
-                                                    height: "100%",
-                                                    objectFit: "contain",
-                                                    borderRadius: "50%",
-                                                    transition: "filter 0.3s ease",
-                                                    filter: pickBanContext.banned.includes(creatureId)
-                                                        ? "grayscale(100%)"
-                                                        : "none", // Make image black and white if banned
-                                                }}
-                                            />
-                                            {/* Draw x mark if banned */}
-                                            {pickBanContext.banned.includes(creatureId) && (
+                                            <div style={{ position: "relative", width: "100%", height: "100%" }}>
                                                 <img
-                                                    src={images.x_mark_512}
-                                                    alt="X mark"
+                                                    src={UNIT_ID_TO_IMAGE[creatureId]}
+                                                    alt={`Creature ${creatureId}`}
                                                     style={{
-                                                        position: "absolute",
-                                                        width: "50%",
-                                                        height: "50%",
-                                                        top: "50%",
-                                                        left: "50%",
-                                                        transform: "translate(-50%, -50%)",
+                                                        width: "100%",
+                                                        height: "100%",
+                                                        objectFit: "contain",
+                                                        borderRadius: "50%",
+                                                        transition: "filter 0.3s ease, transform 0.3s ease",
+                                                        filter: pickBanContext.banned.includes(creatureId)
+                                                            ? "grayscale(100%)"
+                                                            : "none",
+                                                        transform:
+                                                            hoveredCreature === creatureId
+                                                                ? "scale(1.2) translateY(25%)"
+                                                                : "scale(1)",
                                                     }}
                                                 />
-                                            )}
+                                                {/* Draw x mark if banned */}
+                                                {pickBanContext.banned.includes(creatureId) && (
+                                                    <img
+                                                        src={images.x_mark_1_512}
+                                                        alt="X mark"
+                                                        style={{
+                                                            position: "absolute",
+                                                            width: "100%",
+                                                            height: "100%",
+                                                            top: "0",
+                                                            left: "0",
+                                                            objectFit: "contain",
+                                                            transform:
+                                                                hoveredCreature === creatureId
+                                                                    ? "scale(1.2) translateY(25%)"
+                                                                    : "scale(1)",
+                                                            transition: "transform 0.2s ease-out",
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
                                             <Box
                                                 className="unit-name"
                                                 sx={{
                                                     position: "absolute",
-                                                    bottom: "120%",
+                                                    bottom: "100%",
                                                     left: "50%",
-                                                    backgroundColor: "rgba(255,255,255,0.8)",
+                                                    backgroundColor: pickBanContext.banned.includes(creatureId)
+                                                        ? "rgba(0,0,0,0.8)"
+                                                        : "rgba(255,255,255,0.8)",
                                                     padding: "5px",
                                                     borderRadius: "5px",
-                                                    color: "black",
+                                                    color: pickBanContext.banned.includes(creatureId)
+                                                        ? "white"
+                                                        : "black",
                                                     fontWeight: "bold",
                                                     fontSize: "0.9rem",
                                                     transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
@@ -469,83 +464,95 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 alignItems: "center",
                                                 justifyContent: "center",
                                                 position: "relative",
-                                                zIndex: hoveredCreature === creatureId ? 91 : 61, // Ensure hover z-index above others
-                                                transform: index % 2 === 0 ? "translateY(25%)" : "translateY(-25%)",
-                                                transition: "transform 0.3s ease, z-index 0.3s ease", // Add z-index transition
+                                                zIndex: hoveredCreature === creatureId ? 91 : 62, // Ensure hover z-index above others
+                                                transform: index % 2 === 0 ? "translateY(-25%)" : "translateY(25%)",
+                                                transition: "all 0.3s ease", // Updated to include all transitions
                                                 filter:
                                                     hoveredCreature === creatureId
-                                                        ? "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
+                                                        ? pickBanContext.banned.includes(creatureId)
+                                                            ? "drop-shadow(0px -40px 25px rgba(255, 0, 0, 1))"
+                                                            : "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
                                                         : "drop-shadow(0px 0px 0px rgba(0,0,0,0))", // Shadow on hover
-                                                cursor: "pointer",
-                                                left:
-                                                    index === 0
-                                                        ? "2.5%"
-                                                        : index === CreatureByLevel[2].length - 1
-                                                          ? "-2.5"
-                                                          : 0, // Adjust left position
+                                                left: index === CreatureByLevel[2].length - 1 ? "-2%" : 0, // Adjust left position
+                                                top: index === CreatureByLevel[2].length / 2 ? "12.5%" : 0, // Adjust left position
                                                 borderRadius: hoveredCreature === creatureId ? "50%" : "none", // Border on hover
-                                                "&:hover": {
-                                                    transform: `scale(1.2) ${
-                                                        index % 2 === 0 ? "translateY(25%)" : "translateY(-25%)"
-                                                    }`,
-                                                },
+                                                cursor: "pointer",
                                                 // Hover styles for name
                                                 "& .unit-name": {
                                                     visibility: hoveredCreature === creatureId ? "visible" : "hidden",
                                                     opacity: hoveredCreature === creatureId ? 1 : 0,
-                                                    zIndex: hoveredCreature === creatureId ? 101 : 71, // Ensure name appears above everything
+                                                    transition: "opacity 0.3s ease, visibility 0.2s ease",
+                                                    zIndex: hoveredCreature === creatureId ? 101 : 62, // Ensure name appears above everything
                                                 },
                                             }}
-                                            onMouseEnter={() => handleMouseEnter(creatureId)}
+                                            onMouseEnter={() => {
+                                                if (hoverTimeoutRef.current) {
+                                                    clearTimeout(hoverTimeoutRef.current);
+                                                }
+                                                handleMouseEnter(creatureId);
+                                            }}
                                             onMouseLeave={handleMouseLeave}
                                         >
-                                            <img
-                                                src={UNIT_ID_TO_IMAGE[creatureId]}
-                                                alt={`Creature ${creatureId}`}
-                                                style={{
-                                                    width: "100%",
-                                                    height: "100%",
-                                                    objectFit: "contain",
-                                                    borderRadius: "50%",
-                                                    transition: "filter 0.3s ease",
-                                                    filter: pickBanContext.banned.includes(creatureId)
-                                                        ? "grayscale(100%)"
-                                                        : "none", // Make image black and white if banned
-                                                    zIndex: 62,
-                                                }}
-                                            />
-                                            {/* Draw x mark if banned */}
-                                            {pickBanContext.banned.includes(creatureId) && (
+                                            <div style={{ position: "relative", width: "100%", height: "100%" }}>
                                                 <img
-                                                    src={images.x_mark_512}
-                                                    alt="X mark"
+                                                    src={UNIT_ID_TO_IMAGE[creatureId]}
+                                                    alt={`Creature ${creatureId}`}
                                                     style={{
-                                                        position: "absolute",
-                                                        width: "50%",
-                                                        height: "50%",
-                                                        top: "50%",
-                                                        left: "50%",
-                                                        transform: "translate(-50%, -50%)",
-                                                        zIndex: 65,
+                                                        width: "100%",
+                                                        height: "100%",
+                                                        objectFit: "contain",
+                                                        borderRadius: "50%",
+                                                        transition: "filter 0.3s ease, transform 0.3s ease",
+                                                        filter: pickBanContext.banned.includes(creatureId)
+                                                            ? "grayscale(100%)"
+                                                            : "none",
+                                                        transform:
+                                                            hoveredCreature === creatureId
+                                                                ? `scale(1.2) translateY(${index % 2 !== 0 ? "-10%" : "25%"})`
+                                                                : "scale(1)",
                                                     }}
                                                 />
-                                            )}
+                                                {/* Draw x mark if banned */}
+                                                {pickBanContext.banned.includes(creatureId) && (
+                                                    <img
+                                                        src={images.x_mark_1_512}
+                                                        alt="X mark"
+                                                        style={{
+                                                            position: "absolute",
+                                                            width: "100%",
+                                                            height: "100%",
+                                                            top: "0",
+                                                            left: "0",
+                                                            objectFit: "contain",
+                                                            transform:
+                                                                hoveredCreature === creatureId
+                                                                    ? `scale(1.2) translateY(${index % 2 !== 0 ? "-10%" : "25%"})`
+                                                                    : "scale(1)",
+                                                            transition: "transform 0.2s ease-out",
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
                                             <Box
                                                 className="unit-name"
                                                 sx={{
                                                     position: "absolute",
-                                                    bottom: "120%",
+                                                    bottom: index % 2 !== 0 ? "145%" : "100%",
                                                     left: "50%",
-                                                    backgroundColor: "rgba(255,255,255,0.8)",
+                                                    backgroundColor: pickBanContext.banned.includes(creatureId)
+                                                        ? "rgba(0,0,0,0.8)"
+                                                        : "rgba(255,255,255,0.8)",
                                                     padding: "5px",
                                                     borderRadius: "5px",
-                                                    color: "black",
+                                                    color: pickBanContext.banned.includes(creatureId)
+                                                        ? "white"
+                                                        : "black",
                                                     fontWeight: "bold",
                                                     fontSize: "0.9rem",
                                                     transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
                                                     whiteSpace: "nowrap",
                                                     pointerEvents: "none",
-                                                    zIndex: 64,
+                                                    zIndex: 63,
                                                 }}
                                             >
                                                 {UNIT_ID_TO_NAME[creatureId]}
@@ -629,80 +636,100 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                         <Box
                                             key={creatureId}
                                             sx={{
-                                                width: "30%",
-                                                height: "100%",
+                                                width: "10%",
+                                                height: "90%",
                                                 display: "flex",
                                                 alignItems: "center",
                                                 justifyContent: "center",
                                                 position: "relative",
-                                                zIndex: hoveredCreature === creatureId ? 90 : 50, // Ensure hover z-index above others
+                                                zIndex: hoveredCreature === creatureId ? 91 : 62, // Ensure hover z-index above others
                                                 transform: index % 2 === 0 ? "translateY(-25%)" : "translateY(25%)",
-                                                transition: "transform 0.3s ease, z-index 0.3s ease", // Add z-index transition
+                                                transition: "all 0.3s ease", // Updated to include all transitions
                                                 filter:
                                                     hoveredCreature === creatureId
-                                                        ? "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
+                                                        ? pickBanContext.banned.includes(creatureId)
+                                                            ? "drop-shadow(0px -40px 25px rgba(255, 0, 0, 1))"
+                                                            : "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
                                                         : "drop-shadow(0px 0px 0px rgba(0,0,0,0))", // Shadow on hover
-                                                cursor: "pointer",
+                                                top: index === CreatureByLevel[1].length / 2 ? "12.5%" : 0, // Adjust left position
                                                 borderRadius: hoveredCreature === creatureId ? "50%" : "none", // Border on hover
-                                                "&:hover": {
-                                                    transform: `scale(1.2) ${
-                                                        index % 2 === 0 ? "translateY(-25%)" : "translateY(15%)"
-                                                    }`,
-                                                },
+                                                cursor: "pointer",
                                                 // Hover styles for name
                                                 "& .unit-name": {
                                                     visibility: hoveredCreature === creatureId ? "visible" : "hidden",
                                                     opacity: hoveredCreature === creatureId ? 1 : 0,
-                                                    zIndex: hoveredCreature === creatureId ? 100 : 51, // Ensure name appears above everything
+                                                    transition: "opacity 0.3s ease, visibility 0.2s ease",
+                                                    zIndex: hoveredCreature === creatureId ? 101 : 62, // Ensure name appears above everything
                                                 },
                                             }}
-                                            onMouseEnter={() => handleMouseEnter(creatureId)}
+                                            onMouseEnter={() => {
+                                                if (hoverTimeoutRef.current) {
+                                                    clearTimeout(hoverTimeoutRef.current);
+                                                }
+                                                handleMouseEnter(creatureId);
+                                            }}
                                             onMouseLeave={handleMouseLeave}
                                         >
-                                            <img
-                                                src={UNIT_ID_TO_IMAGE[creatureId]}
-                                                alt={`Creature ${creatureId}`}
-                                                style={{
-                                                    width: "100%",
-                                                    height: "100%",
-                                                    objectFit: "contain",
-                                                    borderRadius: "50%",
-                                                    transition: "filter 0.3s ease",
-                                                    filter: pickBanContext.banned.includes(creatureId)
-                                                        ? "grayscale(100%)"
-                                                        : "none", // Make image black and white if banned
-                                                }}
-                                            />
-                                            {/* Draw x mark if banned */}
-                                            {pickBanContext.banned.includes(creatureId) && (
+                                            <div style={{ position: "relative", width: "100%", height: "100%" }}>
                                                 <img
-                                                    src={images.x_mark_512}
-                                                    alt="X mark"
+                                                    src={UNIT_ID_TO_IMAGE[creatureId]}
+                                                    alt={`Creature ${creatureId}`}
                                                     style={{
-                                                        position: "absolute",
-                                                        width: "50%",
-                                                        height: "50%",
-                                                        top: "50%",
-                                                        left: "50%",
-                                                        transform: "translate(-50%, -50%)",
+                                                        width: "100%",
+                                                        height: "100%",
+                                                        objectFit: "contain",
+                                                        borderRadius: "50%",
+                                                        transition: "filter 0.3s ease, transform 0.3s ease",
+                                                        filter: pickBanContext.banned.includes(creatureId)
+                                                            ? "grayscale(100%)"
+                                                            : "none",
+                                                        transform:
+                                                            hoveredCreature === creatureId
+                                                                ? `scale(1.2) translateY(${index % 2 !== 0 ? "-10%" : "25%"})`
+                                                                : "scale(1)",
                                                     }}
                                                 />
-                                            )}
+                                                {/* Draw x mark if banned */}
+                                                {pickBanContext.banned.includes(creatureId) && (
+                                                    <img
+                                                        src={images.x_mark_1_512}
+                                                        alt="X mark"
+                                                        style={{
+                                                            position: "absolute",
+                                                            width: "100%",
+                                                            height: "100%",
+                                                            top: "0",
+                                                            left: "0",
+                                                            objectFit: "contain",
+                                                            transform:
+                                                                hoveredCreature === creatureId
+                                                                    ? `scale(1.2) translateY(${index % 2 !== 0 ? "-10%" : "25%"})`
+                                                                    : "scale(1)",
+                                                            transition: "transform 0.2s ease-out",
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
                                             <Box
                                                 className="unit-name"
                                                 sx={{
                                                     position: "absolute",
-                                                    bottom: "100%",
+                                                    bottom: index % 2 !== 0 ? "135%" : "90%",
                                                     left: "50%",
-                                                    backgroundColor: "rgba(255,255,255,0.8)",
+                                                    backgroundColor: pickBanContext.banned.includes(creatureId)
+                                                        ? "rgba(0,0,0,0.8)"
+                                                        : "rgba(255,255,255,0.8)",
                                                     padding: "5px",
                                                     borderRadius: "5px",
-                                                    color: "black",
+                                                    color: pickBanContext.banned.includes(creatureId)
+                                                        ? "white"
+                                                        : "black",
                                                     fontWeight: "bold",
                                                     fontSize: "0.9rem",
                                                     transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
                                                     whiteSpace: "nowrap",
                                                     pointerEvents: "none",
+                                                    zIndex: 63,
                                                 }}
                                             >
                                                 {UNIT_ID_TO_NAME[creatureId]}
@@ -785,80 +812,100 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                         <Box
                                             key={creatureId}
                                             sx={{
-                                                width: "30%",
-                                                height: "100%",
+                                                width: "10%",
+                                                height: "90%",
                                                 display: "flex",
                                                 alignItems: "center",
                                                 justifyContent: "center",
                                                 position: "relative",
-                                                zIndex: hoveredCreature === creatureId ? 89 : 40, // Ensure hover z-index above others
-                                                transform: index % 2 === 0 ? "translateY(25%)" : "translateY(-25%)",
-                                                transition: "transform 0.3s ease, z-index 0.3s ease", // Add z-index transition
+                                                zIndex: hoveredCreature === creatureId ? 91 : 62, // Ensure hover z-index above others
+                                                transform: index % 2 !== 0 ? "translateY(-25%)" : "translateY(25%)",
+                                                transition: "all 0.3s ease", // Updated to include all transitions
                                                 filter:
                                                     hoveredCreature === creatureId
-                                                        ? "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
+                                                        ? pickBanContext.banned.includes(creatureId)
+                                                            ? "drop-shadow(0px -40px 25px rgba(255, 0, 0, 1))"
+                                                            : "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
                                                         : "drop-shadow(0px 0px 0px rgba(0,0,0,0))", // Shadow on hover
-                                                cursor: "pointer",
+                                                top: index === CreatureByLevel[0].length / 2 ? "12.5%" : 0, // Adjust left position
                                                 borderRadius: hoveredCreature === creatureId ? "50%" : "none", // Border on hover
-                                                "&:hover": {
-                                                    transform: `scale(1.2) ${
-                                                        index % 2 === 0 ? "translateY(15%)" : "translateY(-25%)"
-                                                    }`,
-                                                },
+                                                cursor: "pointer",
                                                 // Hover styles for name
                                                 "& .unit-name": {
                                                     visibility: hoveredCreature === creatureId ? "visible" : "hidden",
                                                     opacity: hoveredCreature === creatureId ? 1 : 0,
-                                                    zIndex: hoveredCreature === creatureId ? 99 : 41, // Ensure name appears above everything
+                                                    transition: "opacity 0.3s ease, visibility 0.2s ease",
+                                                    zIndex: hoveredCreature === creatureId ? 101 : 62, // Ensure name appears above everything
                                                 },
                                             }}
-                                            onMouseEnter={() => handleMouseEnter(creatureId)}
+                                            onMouseEnter={() => {
+                                                if (hoverTimeoutRef.current) {
+                                                    clearTimeout(hoverTimeoutRef.current);
+                                                }
+                                                handleMouseEnter(creatureId);
+                                            }}
                                             onMouseLeave={handleMouseLeave}
                                         >
-                                            <img
-                                                src={UNIT_ID_TO_IMAGE[creatureId]}
-                                                alt={`Creature ${creatureId}`}
-                                                style={{
-                                                    width: "100%",
-                                                    height: "100%",
-                                                    objectFit: "contain",
-                                                    borderRadius: "50%",
-                                                    transition: "filter 0.3s ease",
-                                                    filter: pickBanContext.banned.includes(creatureId)
-                                                        ? "grayscale(100%)"
-                                                        : "none", // Make image black and white if banned
-                                                }}
-                                            />
-                                            {/* Draw x mark if banned */}
-                                            {pickBanContext.banned.includes(creatureId) && (
+                                            <div style={{ position: "relative", width: "100%", height: "100%" }}>
                                                 <img
-                                                    src={images.x_mark_512}
-                                                    alt="X mark"
+                                                    src={UNIT_ID_TO_IMAGE[creatureId]}
+                                                    alt={`Creature ${creatureId}`}
                                                     style={{
-                                                        position: "absolute",
-                                                        width: "50%",
-                                                        height: "50%",
-                                                        top: "50%",
-                                                        left: "50%",
-                                                        transform: "translate(-50%, -50%)",
+                                                        width: "100%",
+                                                        height: "100%",
+                                                        objectFit: "contain",
+                                                        borderRadius: "50%",
+                                                        transition: "filter 0.3s ease, transform 0.3s ease",
+                                                        filter: pickBanContext.banned.includes(creatureId)
+                                                            ? "grayscale(100%)"
+                                                            : "none",
+                                                        transform:
+                                                            hoveredCreature === creatureId
+                                                                ? `scale(1.2) translateY(${index % 2 === 0 ? "-10%" : "25%"})`
+                                                                : "scale(1)",
                                                     }}
                                                 />
-                                            )}
+                                                {/* Draw x mark if banned */}
+                                                {pickBanContext.banned.includes(creatureId) && (
+                                                    <img
+                                                        src={images.x_mark_1_512}
+                                                        alt="X mark"
+                                                        style={{
+                                                            position: "absolute",
+                                                            width: "100%",
+                                                            height: "100%",
+                                                            top: "0",
+                                                            left: "0",
+                                                            objectFit: "contain",
+                                                            transform:
+                                                                hoveredCreature === creatureId
+                                                                    ? `scale(1.2) translateY(${index % 2 === 0 ? "-10%" : "25%"})`
+                                                                    : "scale(1)",
+                                                            transition: "transform 0.2s ease-out",
+                                                        }}
+                                                    />
+                                                )}
+                                            </div>
                                             <Box
                                                 className="unit-name"
                                                 sx={{
                                                     position: "absolute",
-                                                    bottom: "100%",
+                                                    bottom: index % 2 === 0 ? "135%" : "90%",
                                                     left: "50%",
-                                                    backgroundColor: "rgba(255,255,255,0.8)",
+                                                    backgroundColor: pickBanContext.banned.includes(creatureId)
+                                                        ? "rgba(0,0,0,0.8)"
+                                                        : "rgba(255,255,255,0.8)",
                                                     padding: "5px",
                                                     borderRadius: "5px",
-                                                    color: "black",
+                                                    color: pickBanContext.banned.includes(creatureId)
+                                                        ? "white"
+                                                        : "black",
                                                     fontWeight: "bold",
                                                     fontSize: "0.9rem",
                                                     transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
                                                     whiteSpace: "nowrap",
                                                     pointerEvents: "none",
+                                                    zIndex: 63,
                                                 }}
                                             >
                                                 {UNIT_ID_TO_NAME[creatureId]}
