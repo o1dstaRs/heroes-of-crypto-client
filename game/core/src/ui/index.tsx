@@ -114,6 +114,8 @@ const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
 };
 
 export interface IPickPhaseEventData {
+    // initial creatures pairs
+    ip: [number, number][];
     // pick phase
     pp: number;
     // actors
@@ -134,6 +136,8 @@ interface PickBanContextType {
     events: IPickPhaseEventData[];
     error: string | null;
     banned: number[];
+    pickPhase: number;
+    initialCreaturesPairs: [number, number][];
 }
 
 const PickBanContext = createContext<PickBanContextType>({
@@ -141,6 +145,8 @@ const PickBanContext = createContext<PickBanContextType>({
     events: [],
     error: null,
     banned: [],
+    pickPhase: -1,
+    initialCreaturesPairs: [],
 });
 
 // Custom hook to use the Pick Ban Context
@@ -154,6 +160,8 @@ export const PickBanEventProvider: React.FC<{
     const [isConnected, setIsConnected] = useState(false);
     const [events, setEvents] = useState<IPickPhaseEventData[]>([]);
     const [banned, setBanned] = useState<number[]>([]);
+    const [pickPhase, setPickPhase] = useState<number>(-1);
+    const [initialCreaturesPairs, setInitialCreaturesPairs] = useState<[number, number][]>([]);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -187,6 +195,8 @@ export const PickBanEventProvider: React.FC<{
             setEvents((prevEvents) => [...prevEvents, event]);
             setIsConnected(true);
             setBanned(event.b);
+            setPickPhase(event.pp);
+            setInitialCreaturesPairs(event.ip);
         };
 
         eventSource.onerror = (error: Error) => {
@@ -208,6 +218,8 @@ export const PickBanEventProvider: React.FC<{
             events,
             error,
             banned,
+            pickPhase,
+            initialCreaturesPairs,
         }),
         [isConnected, events, error, banned],
     );

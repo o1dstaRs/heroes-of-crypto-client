@@ -1,99 +1,15 @@
-import { Creature } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 import { CreatureByLevel } from "@heroesofcrypto/common";
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Box, Sheet } from "@mui/joy";
 
 import overlayPickImage from "../../../images/overlay_pick.webp";
 
 import { images } from "../../generated/image_imports";
 import { usePickBanEvents } from "..";
-
-const UNIT_ID_TO_IMAGE: Record<number, string> = {
-    [Creature.ORC]: images.orc_512,
-    [Creature.SCAVENGER]: images.scavenger_512,
-    [Creature.TROGLODYTE]: images.troglodyte_512,
-    [Creature.TROLL]: images.troll_512,
-    [Creature.MEDUSA]: images.medusa_512,
-    [Creature.BEHOLDER]: images.beholder_512,
-    [Creature.GOBLIN_KNIGHT]: images.goblin_knight_512,
-    [Creature.EFREET]: images.efreet_512,
-    [Creature.BLACK_DRAGON]: images.black_dragon_512,
-    [Creature.HYDRA]: images.hydra_512,
-    [Creature.CENTAUR]: images.centaur_512,
-    [Creature.BERSERKER]: images.berserker_512,
-    [Creature.WOLF_RIDER]: images.wolf_rider_512,
-    [Creature.HARPY]: images.harpy_512,
-    [Creature.NOMAD]: images.nomad_512,
-    [Creature.HYENA]: images.hyena_512,
-    [Creature.CYCLOPS]: images.cyclops_512,
-    [Creature.OGRE_MAGE]: images.ogre_mage_512,
-    [Creature.THUNDERBIRD]: images.thunderbird_512,
-    [Creature.BEHEMOTH]: images.behemoth_512,
-    [Creature.WOLF]: images.wolf_512,
-    [Creature.FAIRY]: images.fairy_512,
-    [Creature.LEPRECHAUN]: images.leprechaun_512,
-    [Creature.ELF]: images.elf_512,
-    [Creature.WHITE_TIGER]: images.white_tiger_512,
-    [Creature.SATYR]: images.satyr_512,
-    [Creature.MANTIS]: images.mantis_512,
-    [Creature.UNICORN]: images.unicorn_512,
-    [Creature.GARGANTUAN]: images.gargantuan_512,
-    [Creature.PEGASUS]: images.pegasus_512,
-    [Creature.PEASANT]: images.peasant_512,
-    [Creature.SQUIRE]: images.squire_512,
-    [Creature.ARBALESTER]: images.arbalester_512,
-    [Creature.VALKYRIE]: images.valkyrie_512,
-    [Creature.PIKEMAN]: images.pikeman_512,
-    [Creature.HEALER]: images.healer_512,
-    [Creature.GRIFFIN]: images.griffin_512,
-    [Creature.CRUSADER]: images.crusader_512,
-    [Creature.TSAR_CANNON]: images.tsar_cannon_512,
-    [Creature.ANGEL]: images.angel_512,
-};
-
-const UNIT_ID_TO_NAME: Record<number, string> = {
-    [Creature.ORC]: "Orc",
-    [Creature.SCAVENGER]: "Scavenger",
-    [Creature.TROGLODYTE]: "Troglodyte",
-    [Creature.TROLL]: "Troll",
-    [Creature.MEDUSA]: "Medusa",
-    [Creature.BEHOLDER]: "Beholder",
-    [Creature.GOBLIN_KNIGHT]: "Goblin Knight",
-    [Creature.EFREET]: "Efreet",
-    [Creature.BLACK_DRAGON]: "Black Dragon",
-    [Creature.HYDRA]: "Hydra",
-    [Creature.CENTAUR]: "Centaur",
-    [Creature.BERSERKER]: "Berserker",
-    [Creature.WOLF_RIDER]: "Wolf Rider",
-    [Creature.HARPY]: "Harpy",
-    [Creature.NOMAD]: "Nomad",
-    [Creature.HYENA]: "Hyena",
-    [Creature.CYCLOPS]: "Cyclops",
-    [Creature.OGRE_MAGE]: "Ogre Mage",
-    [Creature.THUNDERBIRD]: "Thunderbird",
-    [Creature.BEHEMOTH]: "Behemoth",
-    [Creature.WOLF]: "Wolf",
-    [Creature.FAIRY]: "Fairy",
-    [Creature.LEPRECHAUN]: "Leprechaun",
-    [Creature.ELF]: "Elf",
-    [Creature.WHITE_TIGER]: "White Tiger",
-    [Creature.SATYR]: "Satyr",
-    [Creature.MANTIS]: "Mantis",
-    [Creature.UNICORN]: "Unicorn",
-    [Creature.GARGANTUAN]: "Gargantuan",
-    [Creature.PEGASUS]: "Pegasus",
-    [Creature.PEASANT]: "Peasant",
-    [Creature.SQUIRE]: "Squire",
-    [Creature.ARBALESTER]: "Arbalester",
-    [Creature.VALKYRIE]: "Valkyrie",
-    [Creature.PIKEMAN]: "Pikeman",
-    [Creature.HEALER]: "Healer",
-    [Creature.GRIFFIN]: "Griffin",
-    [Creature.CRUSADER]: "Crusader",
-    [Creature.TSAR_CANNON]: "Tsar Cannon",
-    [Creature.ANGEL]: "Angel",
-};
+import { PickPhase } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
+import { InitialCreatureImageBox } from "./InitialCreatureImageBox";
 
 interface StainedGlassProps {
     width?: string | number;
@@ -105,7 +21,25 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
 
     const width = (height as number) * 0.84; // Reduce width by 10%
     const [hoveredCreature, setHoveredCreature] = useState<number | null>(null);
+    const [selectedCreature, setSelectedCreature] = useState<number | null>(null);
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    let isInitialPick = pickBanContext.pickPhase === PickPhase.INITIAL_PICK;
+    let initialCreaturesPairs: [number, number][] = [];
+    const initialCreatures: number[] = [];
+    if (isInitialPick && pickBanContext.initialCreaturesPairs?.length === 2) {
+        initialCreaturesPairs = pickBanContext.initialCreaturesPairs;
+        for (const pair of initialCreaturesPairs) {
+            if (pair?.length === 2) {
+                initialCreatures.push(pair[0]);
+                initialCreatures.push(pair[1]);
+            }
+        }
+    }
+
+    console.log("initialCreaturesPairs");
+    console.log(initialCreaturesPairs);
+    console.log("initialCreatures");
+    console.log(initialCreatures);
 
     const handleMouseEnter = useCallback(
         (creatureId: number) => {
@@ -113,11 +47,11 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                 clearTimeout(hoverTimeoutRef.current);
             }
 
-            if (hoveredCreature !== creatureId) {
+            if (hoveredCreature !== creatureId && selectedCreature !== creatureId) {
                 setHoveredCreature(creatureId);
             }
         },
-        [hoveredCreature],
+        [hoveredCreature, selectedCreature],
     );
 
     const handleMouseLeave = useCallback(() => {
@@ -129,6 +63,38 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
             setHoveredCreature(null);
         }, 100); // Small delay to prevent flickering
     }, []);
+
+    const handleCreatureClick = (creatureId: number) => {
+        if (!pickBanContext.banned.includes(creatureId)) {
+            setSelectedCreature(creatureId);
+        }
+    };
+
+    // Effect for handling click outside or 'ESC' key for deselection
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (selectedCreature !== null) {
+                const target = event.target as HTMLElement;
+                if (!target.closest(".creature-image")) {
+                    setSelectedCreature(null);
+                }
+            }
+        };
+
+        const handleEscKey = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                setSelectedCreature(null);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        document.addEventListener("keydown", handleEscKey);
+
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("keydown", handleEscKey);
+        };
+    }, [selectedCreature]);
 
     return (
         <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
@@ -259,6 +225,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     {CreatureByLevel[3].map((creatureId: number, index: number) => (
                                         <Box
                                             key={creatureId}
+                                            className="creature-image"
                                             sx={{
                                                 width: "10%",
                                                 height: "90%",
@@ -266,14 +233,17 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 alignItems: "center",
                                                 justifyContent: "center",
                                                 position: "relative",
-                                                zIndex: hoveredCreature === creatureId ? 92 : 72, // Ensure hover z-index above others
+                                                zIndex:
+                                                    selectedCreature === creatureId || hoveredCreature === creatureId
+                                                        ? 92
+                                                        : 72, // Ensure hover z-index above others
                                                 transform:
                                                     index % 2 < CreatureByLevel[3].length / 2
                                                         ? "translateY(-15%)"
                                                         : "translateY(25%)",
                                                 transition: "all 0.3s ease", // Updated to include all transitions
                                                 filter:
-                                                    hoveredCreature === creatureId
+                                                    selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? pickBanContext.banned.includes(creatureId)
                                                             ? "drop-shadow(0px -40px 25px rgba(255, 0, 0, 1))"
                                                             : "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
@@ -292,14 +262,29 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                                 : index === CreatureByLevel[3].length - 2
                                                                   ? "-4.5%"
                                                                   : 0, // Adjust left position
-                                                borderRadius: hoveredCreature === creatureId ? "50%" : "none", // Border on hover
+                                                borderRadius:
+                                                    selectedCreature === creatureId || hoveredCreature === creatureId
+                                                        ? "50%"
+                                                        : "none", // Border on hover
                                                 cursor: "pointer",
                                                 // Hover styles for name
                                                 "& .unit-name": {
-                                                    visibility: hoveredCreature === creatureId ? "visible" : "hidden",
-                                                    opacity: hoveredCreature === creatureId ? 1 : 0,
+                                                    visibility:
+                                                        selectedCreature === creatureId ||
+                                                        hoveredCreature === creatureId
+                                                            ? "visible"
+                                                            : "hidden",
+                                                    opacity:
+                                                        selectedCreature === creatureId ||
+                                                        hoveredCreature === creatureId
+                                                            ? 1
+                                                            : 0,
                                                     transition: "opacity 0.3s ease, visibility 0.2s ease",
-                                                    zIndex: hoveredCreature === creatureId ? 102 : 82, // Ensure name appears above everything
+                                                    zIndex:
+                                                        selectedCreature === creatureId ||
+                                                        hoveredCreature === creatureId
+                                                            ? 102
+                                                            : 82, // Ensure name appears above everything
                                                 },
                                             }}
                                             onMouseEnter={() => {
@@ -309,6 +294,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 handleMouseEnter(creatureId);
                                             }}
                                             onMouseLeave={handleMouseLeave}
+                                            onClick={() => handleCreatureClick(creatureId)}
                                         >
                                             <div style={{ position: "relative", width: "100%", height: "100%" }}>
                                                 <img
@@ -324,6 +310,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                             ? "grayscale(100%)"
                                                             : "none",
                                                         transform:
+                                                            selectedCreature === creatureId ||
                                                             hoveredCreature === creatureId
                                                                 ? "scale(1.2) translateY(25%)"
                                                                 : "scale(1)",
@@ -342,6 +329,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                             left: "0",
                                                             objectFit: "contain",
                                                             transform:
+                                                                selectedCreature === creatureId ||
                                                                 hoveredCreature === creatureId
                                                                     ? "scale(1.2) translateY(25%)"
                                                                     : "scale(1)",
@@ -464,25 +452,43 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 alignItems: "center",
                                                 justifyContent: "center",
                                                 position: "relative",
-                                                zIndex: hoveredCreature === creatureId ? 91 : 62, // Ensure hover z-index above others
+                                                zIndex:
+                                                    selectedCreature === creatureId || hoveredCreature === creatureId
+                                                        ? 91
+                                                        : 62, // Ensure hover z-index above others
                                                 transform: index % 2 === 0 ? "translateY(-25%)" : "translateY(25%)",
                                                 transition: "all 0.3s ease", // Updated to include all transitions
                                                 filter:
-                                                    hoveredCreature === creatureId
+                                                    selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? pickBanContext.banned.includes(creatureId)
                                                             ? "drop-shadow(0px -40px 25px rgba(255, 0, 0, 1))"
                                                             : "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
                                                         : "drop-shadow(0px 0px 0px rgba(0,0,0,0))", // Shadow on hover
                                                 left: index === CreatureByLevel[2].length - 1 ? "-2%" : 0, // Adjust left position
                                                 top: index === CreatureByLevel[2].length / 2 ? "12.5%" : 0, // Adjust left position
-                                                borderRadius: hoveredCreature === creatureId ? "50%" : "none", // Border on hover
+                                                borderRadius:
+                                                    selectedCreature === creatureId || hoveredCreature === creatureId
+                                                        ? "50%"
+                                                        : "none", // Border on hover
                                                 cursor: "pointer",
                                                 // Hover styles for name
                                                 "& .unit-name": {
-                                                    visibility: hoveredCreature === creatureId ? "visible" : "hidden",
-                                                    opacity: hoveredCreature === creatureId ? 1 : 0,
+                                                    visibility:
+                                                        selectedCreature === creatureId ||
+                                                        hoveredCreature === creatureId
+                                                            ? "visible"
+                                                            : "hidden",
+                                                    opacity:
+                                                        selectedCreature === creatureId ||
+                                                        hoveredCreature === creatureId
+                                                            ? 1
+                                                            : 0,
                                                     transition: "opacity 0.3s ease, visibility 0.2s ease",
-                                                    zIndex: hoveredCreature === creatureId ? 101 : 62, // Ensure name appears above everything
+                                                    zIndex:
+                                                        selectedCreature === creatureId ||
+                                                        hoveredCreature === creatureId
+                                                            ? 101
+                                                            : 62, // Ensure name appears above everything
                                                 },
                                             }}
                                             onMouseEnter={() => {
@@ -492,6 +498,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 handleMouseEnter(creatureId);
                                             }}
                                             onMouseLeave={handleMouseLeave}
+                                            onClick={() => handleCreatureClick(creatureId)}
                                         >
                                             <div style={{ position: "relative", width: "100%", height: "100%" }}>
                                                 <img
@@ -507,6 +514,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                             ? "grayscale(100%)"
                                                             : "none",
                                                         transform:
+                                                            selectedCreature === creatureId ||
                                                             hoveredCreature === creatureId
                                                                 ? `scale(1.2) translateY(${index % 2 !== 0 ? "-10%" : "25%"})`
                                                                 : "scale(1)",
@@ -525,6 +533,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                             left: "0",
                                                             objectFit: "contain",
                                                             transform:
+                                                                selectedCreature === creatureId ||
                                                                 hoveredCreature === creatureId
                                                                     ? `scale(1.2) translateY(${index % 2 !== 0 ? "-10%" : "25%"})`
                                                                     : "scale(1)",
@@ -642,24 +651,42 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 alignItems: "center",
                                                 justifyContent: "center",
                                                 position: "relative",
-                                                zIndex: hoveredCreature === creatureId ? 91 : 62, // Ensure hover z-index above others
+                                                zIndex:
+                                                    selectedCreature === creatureId || hoveredCreature === creatureId
+                                                        ? 91
+                                                        : 62, // Ensure hover z-index above others
                                                 transform: index % 2 === 0 ? "translateY(-25%)" : "translateY(25%)",
                                                 transition: "all 0.3s ease", // Updated to include all transitions
                                                 filter:
-                                                    hoveredCreature === creatureId
+                                                    selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? pickBanContext.banned.includes(creatureId)
                                                             ? "drop-shadow(0px -40px 25px rgba(255, 0, 0, 1))"
                                                             : "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
                                                         : "drop-shadow(0px 0px 0px rgba(0,0,0,0))", // Shadow on hover
                                                 top: index === CreatureByLevel[1].length / 2 ? "12.5%" : 0, // Adjust left position
-                                                borderRadius: hoveredCreature === creatureId ? "50%" : "none", // Border on hover
+                                                borderRadius:
+                                                    selectedCreature === creatureId || hoveredCreature === creatureId
+                                                        ? "50%"
+                                                        : "none", // Border on hover
                                                 cursor: "pointer",
                                                 // Hover styles for name
                                                 "& .unit-name": {
-                                                    visibility: hoveredCreature === creatureId ? "visible" : "hidden",
-                                                    opacity: hoveredCreature === creatureId ? 1 : 0,
+                                                    visibility:
+                                                        selectedCreature === creatureId ||
+                                                        hoveredCreature === creatureId
+                                                            ? "visible"
+                                                            : "hidden",
+                                                    opacity:
+                                                        selectedCreature === creatureId ||
+                                                        hoveredCreature === creatureId
+                                                            ? 1
+                                                            : 0,
                                                     transition: "opacity 0.3s ease, visibility 0.2s ease",
-                                                    zIndex: hoveredCreature === creatureId ? 101 : 62, // Ensure name appears above everything
+                                                    zIndex:
+                                                        selectedCreature === creatureId ||
+                                                        hoveredCreature === creatureId
+                                                            ? 101
+                                                            : 62, // Ensure name appears above everything
                                                 },
                                             }}
                                             onMouseEnter={() => {
@@ -669,26 +696,30 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 handleMouseEnter(creatureId);
                                             }}
                                             onMouseLeave={handleMouseLeave}
+                                            onClick={() => handleCreatureClick(creatureId)}
                                         >
                                             <div style={{ position: "relative", width: "100%", height: "100%" }}>
-                                                <img
-                                                    src={UNIT_ID_TO_IMAGE[creatureId]}
-                                                    alt={`Creature ${creatureId}`}
-                                                    style={{
-                                                        width: "100%",
-                                                        height: "100%",
-                                                        objectFit: "contain",
-                                                        borderRadius: "50%",
-                                                        transition: "filter 0.3s ease, transform 0.3s ease",
-                                                        filter: pickBanContext.banned.includes(creatureId)
-                                                            ? "grayscale(100%)"
-                                                            : "none",
-                                                        transform:
-                                                            hoveredCreature === creatureId
-                                                                ? `scale(1.2) translateY(${index % 2 !== 0 ? "-10%" : "25%"})`
-                                                                : "scale(1)",
-                                                    }}
-                                                />
+                                                {!initialCreatures.includes(creatureId) && (
+                                                    <img
+                                                        src={UNIT_ID_TO_IMAGE[creatureId]}
+                                                        alt={`Creature ${creatureId}`}
+                                                        style={{
+                                                            width: "100%",
+                                                            height: "100%",
+                                                            objectFit: "contain",
+                                                            borderRadius: "50%",
+                                                            transition: "filter 0.3s ease, transform 0.3s ease",
+                                                            filter: pickBanContext.banned.includes(creatureId)
+                                                                ? "grayscale(100%)"
+                                                                : "none",
+                                                            transform:
+                                                                selectedCreature === creatureId ||
+                                                                hoveredCreature === creatureId
+                                                                    ? `scale(1.2) translateY(${index % 2 !== 0 ? "-10%" : "25%"})`
+                                                                    : "scale(1)",
+                                                        }}
+                                                    />
+                                                )}
                                                 {/* Draw x mark if banned */}
                                                 {pickBanContext.banned.includes(creatureId) && (
                                                     <img
@@ -702,6 +733,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                             left: "0",
                                                             objectFit: "contain",
                                                             transform:
+                                                                selectedCreature === creatureId ||
                                                                 hoveredCreature === creatureId
                                                                     ? `scale(1.2) translateY(${index % 2 !== 0 ? "-10%" : "25%"})`
                                                                     : "scale(1)",
@@ -710,30 +742,32 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     />
                                                 )}
                                             </div>
-                                            <Box
-                                                className="unit-name"
-                                                sx={{
-                                                    position: "absolute",
-                                                    bottom: index % 2 !== 0 ? "135%" : "90%",
-                                                    left: "50%",
-                                                    backgroundColor: pickBanContext.banned.includes(creatureId)
-                                                        ? "rgba(0,0,0,0.8)"
-                                                        : "rgba(255,255,255,0.8)",
-                                                    padding: "5px",
-                                                    borderRadius: "5px",
-                                                    color: pickBanContext.banned.includes(creatureId)
-                                                        ? "white"
-                                                        : "black",
-                                                    fontWeight: "bold",
-                                                    fontSize: "0.9rem",
-                                                    transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
-                                                    whiteSpace: "nowrap",
-                                                    pointerEvents: "none",
-                                                    zIndex: 63,
-                                                }}
-                                            >
-                                                {UNIT_ID_TO_NAME[creatureId]}
-                                            </Box>
+                                            {!initialCreatures.includes(creatureId) && (
+                                                <Box
+                                                    className="unit-name"
+                                                    sx={{
+                                                        position: "absolute",
+                                                        bottom: index % 2 !== 0 ? "135%" : "90%",
+                                                        left: "50%",
+                                                        backgroundColor: pickBanContext.banned.includes(creatureId)
+                                                            ? "rgba(0,0,0,0.8)"
+                                                            : "rgba(255,255,255,0.8)",
+                                                        padding: "5px",
+                                                        borderRadius: "5px",
+                                                        color: pickBanContext.banned.includes(creatureId)
+                                                            ? "white"
+                                                            : "black",
+                                                        fontWeight: "bold",
+                                                        fontSize: "0.9rem",
+                                                        transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
+                                                        whiteSpace: "nowrap",
+                                                        pointerEvents: "none",
+                                                        zIndex: 63,
+                                                    }}
+                                                >
+                                                    {UNIT_ID_TO_NAME[creatureId]}
+                                                </Box>
+                                            )}
                                         </Box>
                                     ))}
                                 </Box>
@@ -818,24 +852,42 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 alignItems: "center",
                                                 justifyContent: "center",
                                                 position: "relative",
-                                                zIndex: hoveredCreature === creatureId ? 91 : 62, // Ensure hover z-index above others
+                                                zIndex:
+                                                    selectedCreature === creatureId || hoveredCreature === creatureId
+                                                        ? 91
+                                                        : 62, // Ensure hover z-index above others
                                                 transform: index % 2 !== 0 ? "translateY(-25%)" : "translateY(25%)",
                                                 transition: "all 0.3s ease", // Updated to include all transitions
                                                 filter:
-                                                    hoveredCreature === creatureId
+                                                    selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? pickBanContext.banned.includes(creatureId)
                                                             ? "drop-shadow(0px -40px 25px rgba(255, 0, 0, 1))"
                                                             : "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
                                                         : "drop-shadow(0px 0px 0px rgba(0,0,0,0))", // Shadow on hover
                                                 top: index === CreatureByLevel[0].length / 2 ? "12.5%" : 0, // Adjust left position
-                                                borderRadius: hoveredCreature === creatureId ? "50%" : "none", // Border on hover
+                                                borderRadius:
+                                                    selectedCreature === creatureId || hoveredCreature === creatureId
+                                                        ? "50%"
+                                                        : "none", // Border on hover
                                                 cursor: "pointer",
                                                 // Hover styles for name
                                                 "& .unit-name": {
-                                                    visibility: hoveredCreature === creatureId ? "visible" : "hidden",
-                                                    opacity: hoveredCreature === creatureId ? 1 : 0,
+                                                    visibility:
+                                                        selectedCreature === creatureId ||
+                                                        hoveredCreature === creatureId
+                                                            ? "visible"
+                                                            : "hidden",
+                                                    opacity:
+                                                        selectedCreature === creatureId ||
+                                                        hoveredCreature === creatureId
+                                                            ? 1
+                                                            : 0,
                                                     transition: "opacity 0.3s ease, visibility 0.2s ease",
-                                                    zIndex: hoveredCreature === creatureId ? 101 : 62, // Ensure name appears above everything
+                                                    zIndex:
+                                                        selectedCreature === creatureId ||
+                                                        hoveredCreature === creatureId
+                                                            ? 102
+                                                            : 82, // Ensure name appears above everything
                                                 },
                                             }}
                                             onMouseEnter={() => {
@@ -845,26 +897,30 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 handleMouseEnter(creatureId);
                                             }}
                                             onMouseLeave={handleMouseLeave}
+                                            onClick={() => handleCreatureClick(creatureId)}
                                         >
                                             <div style={{ position: "relative", width: "100%", height: "100%" }}>
-                                                <img
-                                                    src={UNIT_ID_TO_IMAGE[creatureId]}
-                                                    alt={`Creature ${creatureId}`}
-                                                    style={{
-                                                        width: "100%",
-                                                        height: "100%",
-                                                        objectFit: "contain",
-                                                        borderRadius: "50%",
-                                                        transition: "filter 0.3s ease, transform 0.3s ease",
-                                                        filter: pickBanContext.banned.includes(creatureId)
-                                                            ? "grayscale(100%)"
-                                                            : "none",
-                                                        transform:
-                                                            hoveredCreature === creatureId
-                                                                ? `scale(1.2) translateY(${index % 2 === 0 ? "-10%" : "25%"})`
-                                                                : "scale(1)",
-                                                    }}
-                                                />
+                                                {!initialCreatures.includes(creatureId) && (
+                                                    <img
+                                                        src={UNIT_ID_TO_IMAGE[creatureId]}
+                                                        alt={`Creature ${creatureId}`}
+                                                        style={{
+                                                            width: "100%",
+                                                            height: "100%",
+                                                            objectFit: "contain",
+                                                            borderRadius: "50%",
+                                                            transition: "filter 0.3s ease, transform 0.3s ease",
+                                                            filter: pickBanContext.banned.includes(creatureId)
+                                                                ? "grayscale(100%)"
+                                                                : "none",
+                                                            transform:
+                                                                selectedCreature === creatureId ||
+                                                                hoveredCreature === creatureId
+                                                                    ? `scale(1.2) translateY(${index % 2 === 0 ? "-10%" : "25%"})`
+                                                                    : "scale(1)",
+                                                        }}
+                                                    />
+                                                )}
                                                 {/* Draw x mark if banned */}
                                                 {pickBanContext.banned.includes(creatureId) && (
                                                     <img
@@ -878,6 +934,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                             left: "0",
                                                             objectFit: "contain",
                                                             transform:
+                                                                selectedCreature === creatureId ||
                                                                 hoveredCreature === creatureId
                                                                     ? `scale(1.2) translateY(${index % 2 === 0 ? "-10%" : "25%"})`
                                                                     : "scale(1)",
@@ -886,30 +943,32 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     />
                                                 )}
                                             </div>
-                                            <Box
-                                                className="unit-name"
-                                                sx={{
-                                                    position: "absolute",
-                                                    bottom: index % 2 === 0 ? "135%" : "90%",
-                                                    left: "50%",
-                                                    backgroundColor: pickBanContext.banned.includes(creatureId)
-                                                        ? "rgba(0,0,0,0.8)"
-                                                        : "rgba(255,255,255,0.8)",
-                                                    padding: "5px",
-                                                    borderRadius: "5px",
-                                                    color: pickBanContext.banned.includes(creatureId)
-                                                        ? "white"
-                                                        : "black",
-                                                    fontWeight: "bold",
-                                                    fontSize: "0.9rem",
-                                                    transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
-                                                    whiteSpace: "nowrap",
-                                                    pointerEvents: "none",
-                                                    zIndex: 63,
-                                                }}
-                                            >
-                                                {UNIT_ID_TO_NAME[creatureId]}
-                                            </Box>
+                                            {!initialCreatures.includes(creatureId) && (
+                                                <Box
+                                                    className="unit-name"
+                                                    sx={{
+                                                        position: "absolute",
+                                                        bottom: index % 2 === 0 ? "135%" : "90%",
+                                                        left: "50%",
+                                                        backgroundColor: pickBanContext.banned.includes(creatureId)
+                                                            ? "rgba(0,0,0,0.8)"
+                                                            : "rgba(255,255,255,0.8)",
+                                                        padding: "5px",
+                                                        borderRadius: "5px",
+                                                        color: pickBanContext.banned.includes(creatureId)
+                                                            ? "white"
+                                                            : "black",
+                                                        fontWeight: "bold",
+                                                        fontSize: "0.9rem",
+                                                        transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
+                                                        whiteSpace: "nowrap",
+                                                        pointerEvents: "none",
+                                                        zIndex: 63,
+                                                    }}
+                                                >
+                                                    {UNIT_ID_TO_NAME[creatureId]}
+                                                </Box>
+                                            )}
                                         </Box>
                                     ))}
                                 </Box>
@@ -923,14 +982,131 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                 display: "flex",
                                 flexDirection: "row",
                                 borderTop: "4px solid #2a2a2a",
-                                borderBottom: "4px solid #2a2a2a",
+                                borderBottom: !isInitialPick ? "4px solid #2a2a2a" : undefined,
                                 position: "relative",
+                                "&::after": isInitialPick
+                                    ? {
+                                          content: '""',
+                                          position: "absolute",
+                                          top: "0%",
+                                          left: "0%",
+                                          right: "0%",
+                                          bottom: "0%",
+                                          backgroundColor: "rgba(0, 0, 0, 0.9)",
+                                          zIndex: 30,
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                          color: "#ffffff",
+                                          fontWeight: "bold",
+                                          fontSize: "1.5rem",
+                                          textAlign: "center",
+                                      }
+                                    : undefined,
                             }}
                         >
+                            {isInitialPick && (
+                                <Box>
+                                    <Box
+                                        sx={{
+                                            position: "absolute",
+                                            top: initialCreaturesPairs?.length === 2 ? "40%" : "90%",
+                                            left: "50%",
+                                            transform: "translate(-50%, -50%)",
+                                            zIndex: 31,
+                                            fontSize: "2rem", // Increase font size
+                                            textShadow: "0 0 8px #ffffff, 0 0 15px #ffffff", // Light around the text
+                                            animation: "lightAnimation 3s infinite",
+                                            "@keyframes lightAnimation": {
+                                                "0%, 100%": { opacity: 1 },
+                                                "50%": { opacity: 0.4 },
+                                            },
+                                        }}
+                                    >
+                                        {initialCreaturesPairs?.length
+                                            ? "Pick your pair"
+                                            : "Your opponent is picking their first pair. Waiting..."}
+                                    </Box>
+                                    {initialCreaturesPairs?.length && (
+                                        <Box
+                                            sx={{
+                                                display: "flex",
+                                                flexDirection: "row",
+                                                justifyContent: "space-around",
+                                                alignItems: "center",
+                                                height: "200%",
+                                                overflow: "hidden",
+                                            }}
+                                        >
+                                            <Box
+                                                sx={{
+                                                    flex: 0.5,
+                                                    display: "flex",
+                                                    justifyContent: "center",
+                                                    alignItems: "center",
+                                                    position: "relative",
+                                                }}
+                                            >
+                                                <InitialCreatureImageBox
+                                                    creatureId={initialCreaturesPairs[0][0]}
+                                                    selectedCreature={selectedCreature}
+                                                    hoveredCreature={hoveredCreature}
+                                                    initialCreaturesPairs={initialCreaturesPairs}
+                                                    handleMouseEnter={handleMouseEnter}
+                                                    handleMouseLeave={handleMouseLeave}
+                                                    handleCreatureClick={handleCreatureClick}
+                                                    hoverTimeoutRef={hoverTimeoutRef}
+                                                />
+                                                <InitialCreatureImageBox
+                                                    creatureId={initialCreaturesPairs[0][1]}
+                                                    selectedCreature={selectedCreature}
+                                                    hoveredCreature={hoveredCreature}
+                                                    initialCreaturesPairs={initialCreaturesPairs}
+                                                    handleMouseEnter={handleMouseEnter}
+                                                    handleMouseLeave={handleMouseLeave}
+                                                    handleCreatureClick={handleCreatureClick}
+                                                    hoverTimeoutRef={hoverTimeoutRef}
+                                                />
+                                            </Box>
+                                            <Box
+                                                sx={{
+                                                    flex: 0.5,
+                                                    display: "flex",
+                                                    justifyContent: "center",
+                                                    alignItems: "center",
+                                                    position: "relative",
+                                                }}
+                                            >
+                                                <InitialCreatureImageBox
+                                                    creatureId={initialCreaturesPairs[1][0]}
+                                                    selectedCreature={selectedCreature}
+                                                    hoveredCreature={hoveredCreature}
+                                                    initialCreaturesPairs={initialCreaturesPairs}
+                                                    handleMouseEnter={handleMouseEnter}
+                                                    handleMouseLeave={handleMouseLeave}
+                                                    handleCreatureClick={handleCreatureClick}
+                                                    hoverTimeoutRef={hoverTimeoutRef}
+                                                />
+                                                <InitialCreatureImageBox
+                                                    creatureId={initialCreaturesPairs[1][1]}
+                                                    selectedCreature={selectedCreature}
+                                                    hoveredCreature={hoveredCreature}
+                                                    initialCreaturesPairs={initialCreaturesPairs}
+                                                    handleMouseEnter={handleMouseEnter}
+                                                    handleMouseLeave={handleMouseLeave}
+                                                    handleCreatureClick={handleCreatureClick}
+                                                    hoverTimeoutRef={hoverTimeoutRef}
+                                                />
+                                            </Box>
+                                        </Box>
+                                    )}
+                                </Box>
+                            )}
                             <Box
                                 sx={{
                                     flex: 0.5,
                                     position: "relative",
+                                    zIndex: 2,
                                     "&::before": {
                                         content: '""',
                                         position: "absolute",
@@ -938,28 +1114,33 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                         left: "0%",
                                         right: "0%",
                                         bottom: "0%",
-                                        background: "linear-gradient(to right, rgba(0, 0, 0, 1), transparent)",
+                                        background: !isInitialPick
+                                            ? "linear-gradient(to right, rgba(0, 0, 0, 1), transparent)"
+                                            : undefined,
                                     },
                                 }}
                             >
-                                <Box
-                                    sx={{
-                                        position: "absolute",
-                                        top: "0%",
-                                        left: "50%",
-                                        transform: "translateX(-50%)",
-                                        color: "#ffffff",
-                                        fontWeight: "bold",
-                                        fontSize: "1.5rem",
-                                    }}
-                                >
-                                    You
-                                </Box>
+                                {!isInitialPick && (
+                                    <Box
+                                        sx={{
+                                            position: "absolute",
+                                            top: "0%",
+                                            left: "50%",
+                                            transform: "translateX(-50%)",
+                                            color: "#ffffff",
+                                            fontWeight: "bold",
+                                            fontSize: "1.5rem",
+                                        }}
+                                    >
+                                        You
+                                    </Box>
+                                )}
                             </Box>
                             <Box
                                 sx={{
                                     flex: 0.5,
                                     position: "relative",
+                                    zIndex: 2,
                                     "&::before": {
                                         content: '""',
                                         position: "absolute",
@@ -971,19 +1152,21 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     },
                                 }}
                             >
-                                <Box
-                                    sx={{
-                                        position: "absolute",
-                                        top: "0%",
-                                        left: "50%",
-                                        transform: "translateX(-50%)",
-                                        color: "#ffffff",
-                                        fontWeight: "bold",
-                                        fontSize: "1.5rem",
-                                    }}
-                                >
-                                    Opponent
-                                </Box>
+                                {!isInitialPick && (
+                                    <Box
+                                        sx={{
+                                            position: "absolute",
+                                            top: "0%",
+                                            left: "50%",
+                                            transform: "translateX(-50%)",
+                                            color: "#ffffff",
+                                            fontWeight: "bold",
+                                            fontSize: "1.5rem",
+                                        }}
+                                    >
+                                        Opponent
+                                    </Box>
+                                )}
                             </Box>
                         </Box>
 
@@ -994,38 +1177,56 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                 flexDirection: "row",
                                 // borderBottom: "4px solid #2a2a2a",
                                 position: "relative",
+                                "&::after": isInitialPick
+                                    ? {
+                                          content: '""',
+                                          position: "absolute",
+                                          top: "0%",
+                                          left: "0%",
+                                          right: "0%",
+                                          bottom: "0%",
+                                          backgroundColor: "rgba(0, 0, 0, 0.9)",
+                                          zIndex: 1,
+                                      }
+                                    : undefined,
                             }}
                         >
-                            <Box
-                                sx={{
-                                    flex: 0.5,
-                                    position: "relative",
-                                    "&::before": {
-                                        content: '""',
-                                        position: "absolute",
-                                        top: "0%",
-                                        left: "0%",
-                                        right: "0%",
-                                        bottom: "0%",
-                                        background: "linear-gradient(to right, rgba(0, 0, 0, 1), transparent)",
-                                    },
-                                }}
-                            />
-                            <Box
-                                sx={{
-                                    flex: 0.5,
-                                    position: "relative",
-                                    "&::before": {
-                                        content: '""',
-                                        position: "absolute",
-                                        top: "0%",
-                                        left: "0%",
-                                        right: "0%",
-                                        bottom: "0%",
-                                        background: "linear-gradient(to left, rgba(0, 0, 0, 1), transparent)",
-                                    },
-                                }}
-                            />
+                            {!isInitialPick && (
+                                <>
+                                    <Box
+                                        sx={{
+                                            flex: 0.5,
+                                            position: "relative",
+                                            zIndex: 2,
+                                            "&::before": {
+                                                content: '""',
+                                                position: "absolute",
+                                                top: "0%",
+                                                left: "0%",
+                                                right: "0%",
+                                                bottom: "0%",
+                                                background: "linear-gradient(to right, rgba(0, 0, 0, 1), transparent)",
+                                            },
+                                        }}
+                                    />
+                                    <Box
+                                        sx={{
+                                            flex: 0.5,
+                                            position: "relative",
+                                            zIndex: 2,
+                                            "&::before": {
+                                                content: '""',
+                                                position: "absolute",
+                                                top: "0%",
+                                                left: "0%",
+                                                right: "0%",
+                                                bottom: "0%",
+                                                background: "linear-gradient(to left, rgba(0, 0, 0, 1), transparent)",
+                                            },
+                                        }}
+                                    />
+                                </>
+                            )}
                         </Box>
                     </Box>
                 </Sheet>
