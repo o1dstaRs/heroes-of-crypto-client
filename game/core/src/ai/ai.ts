@@ -352,20 +352,7 @@ function doFindTarget(
                             if (!tmpRoute) {
                                 continue;
                             }
-                            // const weight = tmpRoute?.at(0)?.weight;
-                            // if (weight === undefined) {
-                            //     continue;
-                            // }
-                            // if (weight >= closestTargetDistance) {
-                            //     continue;
-                            // }
-                            // if (debug) {
-                            //     console.log(
-                            //         "New min distance: " + weight + " elementNeighbor:" + cellToString(layerCell),
-                            //     );
-                            // }
-                            // closestTargetDistance = weight;
-                            // closestTarget = { x: x, y: y };
+
                             if (debug) {
                                 console.log(
                                     "for the target cell " +
@@ -390,65 +377,7 @@ function doFindTarget(
                                 );
                                 console.log("Checking route=" + routeStr);
                             }
-                            /**
-                             * Use "paths" to go through the board and calculate the end cell
-                             * since the "paths" take into account aggro board
-                             */
-                            // let currentRouteIndex = 0;
-                            // let nextCellDistance: number | undefined;
-                            // do {
-                            //     const cell = currentRoute.route[currentRouteIndex];
-                            //     const nextCell = currentRoute.route[currentRouteIndex + 1];
-                            //     if (nextCell === undefined) {
-                            //         break;
-                            //     }
-                            //     if (isSameCell(cell, layerCell)) {
-                            //         break;
-                            //     }
-                            //     nextCellDistance = movePath.knownPaths?.get(cellKey(nextCell))?.at(0)?.weight;
 
-                            //     if (debug) {
-                            //         console.log("nextCellDistance: " + nextCellDistance);
-                            //     }
-                            //     if (nextCellDistance !== undefined && nextCellDistance > unit.getSteps()) {
-                            //         break;
-                            //     }
-                            //     currentRouteIndex += 1;
-                            // } while (
-                            //     nextCellDistance !== undefined &&
-                            //     nextCellDistance <= unit.getSteps() &&
-                            //     currentRouteIndex < currentRoute.route.length
-                            // );
-
-                            // if (debug) {
-                            //     console.log("Set currentRouteIndex: " + currentRouteIndex);
-                            // }
-
-                            // while (currentRouteIndex >= 0) {
-                            //     const cellToGo = currentRoute?.route[currentRouteIndex];
-                            //     if (cellToGo) {
-                            //         if (unit.isSmallSize()) {
-                            //             if (!isFree(cellToGo, matrix, unit)) {
-                            //                 currentRouteIndex--;
-                            //             } else {
-                            //                 break;
-                            //             }
-                            //         } else if (
-                            //             !isFree(cellToGo, matrix, unit) ||
-                            //             !isFree({ x: cellToGo.x - 1, y: cellToGo.y }, matrix, unit) ||
-                            //             !isFree({ x: cellToGo.x - 1, y: cellToGo.y - 1 }, matrix, unit) ||
-                            //             !isFree({ x: cellToGo.x, y: cellToGo.y - 1 }, matrix, unit)
-                            //         ) {
-                            //             currentRouteIndex--;
-                            //         } else {
-                            //             break;
-                            //         }
-                            //     } else {
-                            //         break;
-                            //     }
-                            // }
-                            // let currentRouteIndiciesLeft = currentRoute.route.length - 1 - currentRouteIndex;
-                            // let cellToMoveTo = currentRoute.route[currentRouteIndex];
                             let cellToMoveTo = layerCell;
                             let movementDistance = movePath.knownPaths?.get(cellKey(cellToMoveTo))?.at(0)?.weight;
 
@@ -460,8 +389,6 @@ function doFindTarget(
                                         cellToString(cellToMoveTo) +
                                         " elementNeighbor: " +
                                         cellToString(layerCell) +
-                                        // " updated currentRouteIndex: " +
-                                        // currentRouteIndex +
                                         " distance to target: " +
                                         distanceLeftToTarget,
                                 );
@@ -473,7 +400,7 @@ function doFindTarget(
                                 }
                                 continue;
                             }
-                            // if same indicies left till the target but clooser then prev cell then update the route and hte cell to move to
+                            // if same indicies left till the target but clooser then prev cell then update the route and the cell to move to
                             if (
                                 resultDepthFromTarget > depth || //&& distanceLeftToTarget < resultDistanceLeftToTarget) ||
                                 (resultDepthFromTarget === depth &&
@@ -482,30 +409,19 @@ function doFindTarget(
                                             movementDistance < resultMovementDistance)))
                             ) {
                                 resultRoute = currentRoute;
-                                // resultRouteIndex = currentRouteIndex;
                                 resultMovementDistance = movementDistance;
                                 resultDistanceLeftToTarget = distanceLeftToTarget;
-                                // layerRouteIndiciesLeft = currentRouteIndiciesLeft;
                                 resultDepthFromTarget = depth;
                                 closestTarget = { x: x, y: y };
                                 if (debug) {
                                     console.log("Set new cell to move to :" + cellToString(cellToMoveTo));
                                 }
                             }
-                            // }
                         }
-                        // in current layer we found a cell to go to, use it
-                        // if (resultMovementDistance) {
-                        //     break;
-                        // }
                     }
-                    // if (resultMovementDistance) {
-                    //     break;
-                    // }
                 }
             }
         }
-
         return undefined;
     };
 
@@ -531,24 +447,6 @@ function doFindTarget(
                     if (!occupantUnitId) {
                         continue;
                     }
-
-                    // const targetUnit = unitsHolder.getAllUnits().get(occupantUnitId);
-                    // if (
-                    //     !targetUnit ||
-                    //     targetUnit.isDead() ||
-                    //     targetUnit.hasBuffActive("Hidden") ||
-                    //     !GridMath.isPositionWithinGrid(grid.getSettings(), targetUnit.getPosition())
-                    // ) {
-                    //     continue;
-                    // }
-
-                    // if (debug) {
-                    //     console.log(`Checking possible target at ${x}:${y} occupantUnitId: ${occupantUnitId}`);
-                    // }
-
-                    // if (unit.getTarget() && unit.getTarget() !== occupantUnitId) {
-                    //     continue;
-                    // }
 
                     // get the list of cells that atacker can go to in order to attack the unit, return the layers, i.e bfs cells
                     cellsByDepthFromTarget = getLayersForAttacker_2(
@@ -739,7 +637,7 @@ function doFindTarget(
         console.log("СlosestTarget:" + cellToString(closestTarget));
     }
 
-    if (closestTarget === undefined /*|| resultRouteIndex === undefined*/) {
+    if (closestTarget === undefined) {
         return undefined;
     }
 
@@ -758,7 +656,6 @@ function doFindTarget(
         }
         return new BasicAIAction(
             AIActionType.MELEE_ATTACK,
-            // resultRoute?.route[resultRouteIndex],
             resultRoute?.route[resultRoute?.route.length - 1],
             closestTarget,
             movePath.knownPaths,
@@ -783,8 +680,7 @@ function doFindTarget(
         console.log("Route=" + routeStr);
     }
     if (
-        /*resultRoute && resultRoute?.route.length - 1 === resultRouteIndex &&*/ (!usedInfinitPath &&
-            resultDepthFromTarget === 0) ||
+        (!usedInfinitPath && resultDepthFromTarget === 0) ||
         (usedInfinitPath && resultRoute && resultRoute?.route.length - 1 === resultRouteIndex)
     ) {
         const occupantUnitId = grid.getOccupantUnitId({ x: closestTarget.x, y: closestTarget.y });
@@ -793,13 +689,11 @@ function doFindTarget(
         }
         return new BasicAIAction(
             AIActionType.MOVE_AND_MELEE_ATTACK,
-            // resultRoute?.route[resultRouteIndex],
             resultRoute?.route[resultRoute?.route.length - 1],
             closestTarget,
             movePath.knownPaths,
         );
     }
-    // let toMoveTo = resultRoute?.route[resultRouteIndex];
     let toMoveTo = resultRoute?.route[resultRoute?.route.length - 1];
     if (debug) {
         console.log("action MOVE with cell to move to x:" + toMoveTo?.x + " t:" + toMoveTo?.y);
@@ -808,7 +702,6 @@ function doFindTarget(
 
     return new BasicAIAction(
         AIActionType.MOVE,
-        // resultRoute?.route[resultRouteIndex],
         resultRoute?.route[resultRoute?.route.length - 1],
         undefined,
         movePath.knownPaths,
@@ -1011,8 +904,7 @@ function getBorderCells(currentCell: HoCMath.XY, isSmallUnit = true, distance = 
         borderCells.push({ x: currentCell.x, y: currentCell.y + distance });
     } else {
         /*
-        // big attacker
-        // small target
+        // big attacker, small target
         // possible cells that big attacker can be palces at (right up corner) to attack the cell
         0 0 0 0 0 0 0
         0 x x x x 0 0
