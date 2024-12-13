@@ -190,6 +190,17 @@ function logAction(action: BasicAIAction | undefined, debug: boolean) {
     console.log("Do action:" + AIActionType[actionType] + " unit to move to " + cellToString(action.cellToMove()));
 }
 
+/**
+ * Calculate the target to attack and the operation,
+ * Use infinite path first, if it is not avaiable then use actual path
+ * @param unit
+ * @param unitsHolder
+ * @param grid
+ * @param matrix
+ * @param pathHelper
+ * @param debug
+ * @returns the action
+ */
 function doFindTarget(
     unit: IUnitAIRepr,
     unitsHolder: UnitsHolder,
@@ -207,17 +218,20 @@ function doFindTarget(
     // closest enemy unit
     let closestTarget: HoCMath.XY | undefined;
     let closestTargetDistance = Infinity;
-    let cellsByDistanceFromTarget: HoCMath.XY[][];
+    let cellsByDepthFromTarget: HoCMath.XY[][];
     let resultRoute: IWeightedRoute | undefined;
     let resultRouteIndex: number | undefined;
     let resultMovementDistance: number = Infinity;
+    let resultDistanceLeftToTarget: number = Infinity;
+    let resultDepthFromTarget: number = Infinity;
+    let usedInfinitPath: boolean = true;
 
     // if not range or spell type then add BFS, similar is in pathhelper
     // get the cell to go or cell to go and target to attack
     // to see grid use grid.print(unit.getId());
 
     const max_steps = 100; // unit.steps
-    const movePath = pathHelper.getMovePath(
+    const infiniteMovePath = pathHelper.getMovePath(
         unitCell,
         matrix,
         max_steps + unit.getSteps(),
@@ -226,6 +240,23 @@ function doFindTarget(
         unit.isSmallSize(),
         unit.hasAbilityActive("Made of Fire"),
     );
+
+    const actualMovePath = pathHelper.getMovePath(
+        unitCell,
+        matrix,
+        unit.getSteps(),
+        grid.getAggrMatrixByTeam(unit.getTeam() === TeamType.LOWER ? TeamType.UPPER : TeamType.LOWER),
+        unit.canFly(),
+        unit.isSmallSize(),
+        unit.hasAbilityActive("Made of Fire"),
+    );
+
+    let movePath = infiniteMovePath;
+
+    if (debug) {
+        console.log("just for debug: " + actualMovePath.knownPaths.size + " " + infiniteMovePath.knownPaths.size);
+        grid.print(unit.getId());
+    }
 
     /*
     Note:
@@ -242,7 +273,11 @@ function doFindTarget(
         console.log("currentUnit is at: " + cellToString(unitCell));
     }
     // go through every cell and check is it an enemy
-    const pickTarget = (): BasicAIAction | undefined => {
+    const pickTargetByActualPath = (): BasicAIAction | undefined => {
+        if (debug) {
+            console.log("Checking actual path");
+        }
+        movePath = actualMovePath;
         for (let y = 0; y < numRows; y++) {
             for (let x = 0; x < numCols; x++) {
                 const element = HoCMath.matrixElementOrDefault(matrix, x, y, 0);
@@ -261,26 +296,12 @@ function doFindTarget(
                         continue;
                     }
 
-                    // const targetUnit = unitsHolder.getAllUnits().get(occupantUnitId);
-                    // if (
-                    //     !targetUnit ||
-                    //     targetUnit.isDead() ||
-                    //     targetUnit.hasBuffActive("Hidden") ||
-                    //     !GridMath.isPositionWithinGrid(grid.getSettings(), targetUnit.getPosition())
-                    // ) {
-                    //     continue;
-                    // }
-
-                    // if (debug) {
-                    //     console.log(`Checking possible target at ${x}:${y} occupantUnitId: ${occupantUnitId}`);
-                    // }
-
-                    // if (unit.getTarget() && unit.getTarget() !== occupantUnitId) {
-                    //     continue;
-                    // }
+                    if (debug) {
+                        console.log("Checking unit at cell: " + cellToString({ x: x, y: y }));
+                    }
 
                     // get the list of cells that atacker can go to in order to attack the unit, return the layers, i.e bfs cells
-                    cellsByDistanceFromTarget = getLayersForAttacker(
+                    cellsByDepthFromTarget = getLayersForAttacker_2(
                         { x: x, y: y },
                         matrix,
                         unit,
@@ -288,19 +309,22 @@ function doFindTarget(
                         true,
                     );
                     if (debug) {
-                        let cellsStr = "";
-                        cellsByDistanceFromTarget[0].forEach(
-                            (cell) => (cellsStr = cellsStr + " [" + cellToString(cell) + "]"),
-                        );
-                        console.log("checking cellsToMoveTo:" + cellsStr);
+                        console.log(getLayersForAttacker({ x: x, y: y }, matrix, unit, unit.isSmallSize(), true));
                     }
                     // go through all cells in a layer, check the actual min distance for attcker unit and save
-                    for (let depth = 0; depth < cellsByDistanceFromTarget.length; depth++) {
-                        let layerRouteIndiciesLeft: number = Infinity;
-                        for (const elementNeighbor of cellsByDistanceFromTarget[depth]) {
+                    for (let depth = 0; depth < cellsByDepthFromTarget.length; depth++) {
+                        if (debug) {
+                            let cellsStr = "";
+                            cellsByDepthFromTarget[depth].forEach(
+                                (cell) => (cellsStr = cellsStr + " [" + cellToString(cell) + "]"),
+                            );
+                            console.log("checking layer cellsToMoveTo:" + cellsStr);
+                        }
+                        // let layerRouteIndiciesLeft: number = Infinity;
+                        for (const layerCell of cellsByDepthFromTarget[depth]) {
                             const { knownPaths } = movePath;
 
-                            if (depth === 0 && cellKey(elementNeighbor) === cellKey(unitCell)) {
+                            if (depth === 0 && cellKey(layerCell) === cellKey(unitCell)) {
                                 const occupantUnitId = grid.getOccupantUnitId({ x: x, y: y });
                                 if (occupantUnitId) {
                                     previousTargets.set(unit.getId(), occupantUnitId);
@@ -313,7 +337,152 @@ function doFindTarget(
                                 );
                             }
 
-                            const cellK = cellKey(elementNeighbor);
+                            const cellK = cellKey(layerCell);
+
+                            if (!knownPaths.has(cellK)) {
+                                if (debug) {
+                                    console.log("No known path to layerCell:" + cellToString(layerCell));
+                                }
+                            } else {
+                                if (debug) {
+                                    console.log("Check path to layerCell:" + cellToString(layerCell));
+                                }
+                            }
+                            const tmpRoute = knownPaths.get(cellK);
+                            if (!tmpRoute) {
+                                continue;
+                            }
+
+                            if (debug) {
+                                console.log(
+                                    "for the target cell " +
+                                        cellToString({ x: x, y: y }) +
+                                        " with mote to cell: " +
+                                        cellToString(layerCell) +
+                                        " avaiable routs: " +
+                                        tmpRoute?.length,
+                                );
+                            }
+                            // for (const currentRoute of tmpRoute) {
+                            let currentRoute = tmpRoute?.at(0);
+
+                            if (!currentRoute) {
+                                continue;
+                            }
+                            if (debug) {
+                                let routeStr = "";
+                                currentRoute?.route.forEach(
+                                    (cell: HoCMath.XY | undefined) =>
+                                        (routeStr = routeStr + " [" + cellToString(cell) + "]"),
+                                );
+                                console.log("Checking route=" + routeStr);
+                            }
+
+                            let cellToMoveTo = layerCell;
+                            let movementDistance = movePath.knownPaths?.get(cellKey(cellToMoveTo))?.at(0)?.weight;
+
+                            let distanceLeftToTarget = HoCMath.getDistance(cellToMoveTo, { x: x, y: y });
+
+                            if (debug) {
+                                console.log(
+                                    "Cell to move: " +
+                                        cellToString(cellToMoveTo) +
+                                        " elementNeighbor: " +
+                                        cellToString(layerCell) +
+                                        " distance to target: " +
+                                        distanceLeftToTarget,
+                                );
+                            }
+
+                            if (!movementDistance) {
+                                if (debug) {
+                                    console.log("skip cell: " + cellToString({ x: x, y: y }));
+                                }
+                                continue;
+                            }
+                            // if same indicies left till the target but clooser then prev cell then update the route and the cell to move to
+                            if (
+                                resultDepthFromTarget > depth || //&& distanceLeftToTarget < resultDistanceLeftToTarget) ||
+                                (resultDepthFromTarget === depth &&
+                                    (distanceLeftToTarget < resultDistanceLeftToTarget ||
+                                        (distanceLeftToTarget === resultDistanceLeftToTarget &&
+                                            movementDistance < resultMovementDistance)))
+                            ) {
+                                resultRoute = currentRoute;
+                                resultMovementDistance = movementDistance;
+                                resultDistanceLeftToTarget = distanceLeftToTarget;
+                                resultDepthFromTarget = depth;
+                                closestTarget = { x: x, y: y };
+                                if (debug) {
+                                    console.log("Set new cell to move to :" + cellToString(cellToMoveTo));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return undefined;
+    };
+
+    const pickTargetByInfinitPath = (): BasicAIAction | undefined => {
+        if (debug) {
+            console.log("Checking infinite path");
+        }
+        movePath = infiniteMovePath;
+        for (let y = 0; y < numRows; y++) {
+            for (let x = 0; x < numCols; x++) {
+                const element = HoCMath.matrixElementOrDefault(matrix, x, y, 0);
+                if (element !== unit.getTeam() && element !== 0) {
+                    if (
+                        element === ObstacleType.BLOCK ||
+                        element === ObstacleType.HOLE ||
+                        element === ObstacleType.WATER ||
+                        element === ObstacleType.LAVA
+                    ) {
+                        continue;
+                    }
+
+                    const occupantUnitId = grid.getOccupantUnitId({ x: x, y: y });
+                    if (!occupantUnitId) {
+                        continue;
+                    }
+
+                    // get the list of cells that atacker can go to in order to attack the unit, return the layers, i.e bfs cells
+                    cellsByDepthFromTarget = getLayersForAttacker_2(
+                        { x: x, y: y },
+                        matrix,
+                        unit,
+                        unit.isSmallSize(),
+                        true,
+                    );
+                    // go through all cells in a layer, check the actual min distance for attcker unit and save
+                    for (let depth = 0; depth < cellsByDepthFromTarget.length; depth++) {
+                        if (debug) {
+                            let cellsStr = "";
+                            cellsByDepthFromTarget[depth].forEach(
+                                (cell) => (cellsStr = cellsStr + " [" + cellToString(cell) + "]"),
+                            );
+                            console.log("checking layer cellsToMoveTo:" + cellsStr);
+                        }
+                        let layerRouteIndiciesLeft: number = Infinity;
+                        for (const layerCell of cellsByDepthFromTarget[depth]) {
+                            const { knownPaths } = movePath;
+
+                            if (depth === 0 && cellKey(layerCell) === cellKey(unitCell)) {
+                                const occupantUnitId = grid.getOccupantUnitId({ x: x, y: y });
+                                if (occupantUnitId) {
+                                    previousTargets.set(unit.getId(), occupantUnitId);
+                                }
+                                return new BasicAIAction(
+                                    AIActionType.MELEE_ATTACK,
+                                    unitCell,
+                                    { x: x, y: y },
+                                    knownPaths,
+                                );
+                            }
+
+                            const cellK = cellKey(layerCell);
 
                             if (knownPaths.has(cellK)) {
                                 const tmpRoute = knownPaths.get(cellK);
@@ -324,10 +493,7 @@ function doFindTarget(
                                 if (weight < closestTargetDistance) {
                                     if (debug) {
                                         console.log(
-                                            "New min distance: " +
-                                                weight +
-                                                " elementNeighbor:" +
-                                                cellToString(elementNeighbor),
+                                            "New min distance: " + weight + " layerCell:" + cellToString(layerCell),
                                         );
                                     }
                                     closestTargetDistance = weight;
@@ -336,6 +502,15 @@ function doFindTarget(
 
                                     if (!currentRoute) {
                                         continue;
+                                    }
+
+                                    if (debug) {
+                                        let routeStr = "";
+                                        currentRoute?.route.forEach(
+                                            (cell: HoCMath.XY | undefined) =>
+                                                (routeStr = routeStr + " [" + cellToString(cell) + "]"),
+                                        );
+                                        console.log("Checking route=" + routeStr);
                                     }
 
                                     /**
@@ -350,7 +525,7 @@ function doFindTarget(
                                         if (nextCell === undefined) {
                                             break;
                                         }
-                                        if (isSameCell(cell, elementNeighbor)) {
+                                        if (isSameCell(cell, layerCell)) {
                                             break;
                                         }
                                         nextCellDistance = movePath.knownPaths?.get(cellKey(nextCell))?.at(0)?.weight;
@@ -405,7 +580,7 @@ function doFindTarget(
                                             "Cell to move :" +
                                                 cellToString(cellToMoveTo) +
                                                 " elementNeighbor:" +
-                                                cellToString(elementNeighbor),
+                                                cellToString(layerCell),
                                         );
                                     }
 
@@ -429,7 +604,7 @@ function doFindTarget(
                                 }
                             } else {
                                 if (debug) {
-                                    console.log("No known path to elementNeighbor:" + cellToString(elementNeighbor));
+                                    console.log("No known path to layerCell:" + cellToString(layerCell));
                                 }
                             }
                         }
@@ -445,16 +620,24 @@ function doFindTarget(
         return undefined;
     };
 
-    let actionDetermined = pickTarget();
+    let actionDetermined = pickTargetByInfinitPath();
     if (actionDetermined) {
         return actionDetermined;
+    }
+    // if we can not move entire route with the infinite path then fallback to real one
+    if (!resultRoute || resultRoute?.route.length - 1 !== resultRouteIndex) {
+        actionDetermined = pickTargetByActualPath();
+        usedInfinitPath = false;
+        if (actionDetermined) {
+            return actionDetermined;
+        }
     }
 
     if (debug) {
         console.log("СlosestTarget:" + cellToString(closestTarget));
     }
 
-    if (closestTarget === undefined || resultRouteIndex === undefined) {
+    if (closestTarget === undefined) {
         return undefined;
     }
 
@@ -473,7 +656,7 @@ function doFindTarget(
         }
         return new BasicAIAction(
             AIActionType.MELEE_ATTACK,
-            resultRoute?.route[resultRouteIndex],
+            resultRoute?.route[resultRoute?.route.length - 1],
             closestTarget,
             movePath.knownPaths,
         );
@@ -481,7 +664,9 @@ function doFindTarget(
 
     if (debug) {
         console.log(
-            "closestTargetDistance=" +
+            "usedInfinitPath=" +
+                usedInfinitPath +
+                ", closestTargetDistance=" +
                 closestTargetDistance +
                 ", unit.steps=" +
                 unit.getSteps() +
@@ -494,25 +679,33 @@ function doFindTarget(
         );
         console.log("Route=" + routeStr);
     }
-    if (closestTargetDistance <= unit.getSteps()) {
+    if (
+        (!usedInfinitPath && resultDepthFromTarget === 0) ||
+        (usedInfinitPath && resultRoute && resultRoute?.route.length - 1 === resultRouteIndex)
+    ) {
         const occupantUnitId = grid.getOccupantUnitId({ x: closestTarget.x, y: closestTarget.y });
         if (occupantUnitId) {
             previousTargets.set(unit.getId(), occupantUnitId);
         }
         return new BasicAIAction(
             AIActionType.MOVE_AND_MELEE_ATTACK,
-            resultRoute?.route[resultRouteIndex],
+            resultRoute?.route[resultRoute?.route.length - 1],
             closestTarget,
             movePath.knownPaths,
         );
     }
-    let toMoveTo = resultRoute?.route[resultRouteIndex];
+    let toMoveTo = resultRoute?.route[resultRoute?.route.length - 1];
     if (debug) {
         console.log("action MOVE with cell to move to x:" + toMoveTo?.x + " t:" + toMoveTo?.y);
     }
     previousTargets.delete(unit.getId());
 
-    return new BasicAIAction(AIActionType.MOVE, resultRoute?.route[resultRouteIndex], undefined, movePath.knownPaths);
+    return new BasicAIAction(
+        AIActionType.MOVE,
+        resultRoute?.route[resultRoute?.route.length - 1],
+        undefined,
+        movePath.knownPaths,
+    );
 }
 
 function cellKey(xy: HoCMath.XY): number {
@@ -595,6 +788,83 @@ export function getCellsForAttacker(
     return filterCells(cellsForBigAttacker, matrix, false, attacker);
 }
 
+function getLayersForAttacker_2(
+    cellToAttack: HoCMath.XY,
+    matrix: number[][],
+    attacker: IUnitAIRepr,
+    isCurrentUnitSmall = true,
+    isTargetUnitSmall = true,
+): HoCMath.XY[][] {
+    const result: HoCMath.XY[][] = [];
+    for (let i = 1; i < matrix.length / 2; i++) {
+        const borderCells = filterCells(
+            getBorderCells_2(cellToAttack, isCurrentUnitSmall, i),
+            matrix,
+            isCurrentUnitSmall,
+            attacker,
+        );
+        result[i - 1] = borderCells;
+    }
+    if (isTargetUnitSmall) {
+        return result;
+    } else {
+        return [];
+    }
+}
+
+function getBorderCells_2(currentCell: HoCMath.XY, isSmallUnit = true, distance = 1): HoCMath.XY[] {
+    /*
+    distance 1, current small:
+    0 0 0 0 0 0 0
+    0 0 0 0 0 0 0
+    0 x x x 0 0 0
+    0 x c x 0 0 0
+    0 x x x 0 0 0
+    distance 1, current big:
+    0 0 0 0 0 0 0
+    0 x x x x 0 0
+    0 x 0 0 x 0 0
+    0 x c 0 x 0 0
+    0 x x x x 0 0
+    distance 2, current small:
+    0 0 0 0 0 0 0 0
+    x x x x x 0 0 0
+    x 0 0 0 x 0 0 0
+    x 0 c 0 x 0 0 0
+    x 0 0 0 x 0 0 0
+    x x x x x 0 0 0
+    distance 2, current big:
+    x x x x x x 0 0
+    x 0 0 0 0 x 0 0
+    x 0 0 0 0 x 0 0
+    x 0 c 0 0 x 0 0
+    x 0 0 0 0 x 0 0
+    x x x x x x 0 0
+    */
+    // we might add same cell few times but it is set so who cares
+    const borderCells = new Set<HoCMath.XY>();
+    // bottom line
+    for (let i = 0; i < distance * 2 + 1; i++) {
+        borderCells.add({ x: currentCell.x - distance + i, y: currentCell.y - distance });
+    }
+    // top line
+    for (let i = 0; i < distance * 2 + 1; i++) {
+        borderCells.add({ x: currentCell.x - distance + i, y: currentCell.y + distance + (isSmallUnit ? 0 : 1) });
+    }
+    // left line
+    for (let i = 0; i < distance /*- 1*/ * 2 + 1; i++) {
+        borderCells.add({ x: currentCell.x - distance, y: currentCell.y - distance + i });
+    }
+    // right line
+    for (let i = 0; i < distance /*- 1*/ * 2 + 1; i++) {
+        borderCells.add({ x: currentCell.x + distance + (isSmallUnit ? 0 : 1), y: currentCell.y - distance + i });
+    }
+    if (!isSmallUnit) {
+        borderCells.add({ x: currentCell.x + distance + 1, y: currentCell.y + distance + 1 });
+    }
+    return Array.from(borderCells);
+}
+
 //return cells by distance from the cell to attack
 function getLayersForAttacker(
     cellToAttack: HoCMath.XY,
@@ -634,8 +904,7 @@ function getBorderCells(currentCell: HoCMath.XY, isSmallUnit = true, distance = 
         borderCells.push({ x: currentCell.x, y: currentCell.y + distance });
     } else {
         /*
-        // big attacker
-        // small target
+        // big attacker, small target
         // possible cells that big attacker can be palces at (right up corner) to attack the cell
         0 0 0 0 0 0 0
         0 x x x x 0 0
