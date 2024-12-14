@@ -1,15 +1,19 @@
 import { CreatureByLevel } from "@heroesofcrypto/common";
+import { PickPhase } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
-import { Box, Sheet } from "@mui/joy";
+import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { Box, Sheet, IconButton } from "@mui/joy";
+import CheckIcon from "@mui/icons-material/Check";
+import ClearIcon from "@mui/icons-material/Clear";
 
 import overlayPickImage from "../../../images/overlay_pick.webp";
-
 import { images } from "../../generated/image_imports";
 import { usePickBanEvents } from "..";
-import { PickPhase } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { InitialCreatureImageBox } from "./InitialCreatureImageBox";
+import { useAuthContext } from "../auth/context/auth_context";
+import { Timer } from "./Timer";
+import HelpQuestionMark from "./HelpQuestionMark";
 
 interface StainedGlassProps {
     width?: string | number;
@@ -18,28 +22,78 @@ interface StainedGlassProps {
 
 const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.innerHeight }) => {
     const pickBanContext = usePickBanEvents();
+    const { pickPair } = useAuthContext();
 
-    const width = (height as number) * 0.84; // Reduce width by 10%
+    const width = useMemo(() => (height as number) * 0.84, [height]); // Memoize calculated width
     const [hoveredCreature, setHoveredCreature] = useState<number | null>(null);
     const [selectedCreature, setSelectedCreature] = useState<number | null>(null);
+    const [lastKnownPickPhase, setLastKnownPickPhase] = useState<number | null>(null);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [localSeconds, setLocalSeconds] = useState<number>(pickBanContext.secondsRemaining);
+    const [modalClosed, setModalClosed] = useState<boolean>(false);
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    let isInitialPick = pickBanContext.pickPhase === PickPhase.INITIAL_PICK;
-    let initialCreaturesPairs: [number, number][] = [];
-    const initialCreatures: number[] = [];
-    if (isInitialPick && pickBanContext.initialCreaturesPairs?.length === 2) {
-        initialCreaturesPairs = pickBanContext.initialCreaturesPairs;
-        for (const pair of initialCreaturesPairs) {
-            if (pair?.length === 2) {
-                initialCreatures.push(pair[0]);
-                initialCreatures.push(pair[1]);
+
+    const { isInitialPick, initialCreaturesPairs, initialCreatures, poolPickable, isBan } = useMemo(() => {
+        const isInitialPick = pickBanContext.pickPhase === PickPhase.INITIAL_PICK;
+        const isBan = pickBanContext.pickPhase === PickPhase.EXTENDED_BAN || pickBanContext.pickPhase === PickPhase.BAN;
+        let initialCreaturesPairs: [number, number][] = [];
+        const initialCreatures: number[] = [];
+
+        if (isInitialPick && pickBanContext.initialCreaturesPairs?.length === 2) {
+            initialCreaturesPairs = pickBanContext.initialCreaturesPairs;
+            for (const pair of initialCreaturesPairs) {
+                if (pair?.length === 2) {
+                    initialCreatures.push(pair[0]);
+                    initialCreatures.push(pair[1]);
+                }
             }
         }
-    }
 
-    console.log("initialCreaturesPairs");
-    console.log(initialCreaturesPairs);
-    console.log("initialCreatures");
-    console.log(initialCreatures);
+        const poolPickable = !isInitialPick && !errorMessage && !pickBanContext.error && pickBanContext.isYourTurn;
+
+        return { isInitialPick, initialCreaturesPairs, initialCreatures, poolPickable, isBan };
+    }, [pickBanContext.pickPhase, pickBanContext.initialCreaturesPairs, pickBanContext.error, errorMessage]);
+
+    console.log(`isBan ${isBan}`);
+
+    useEffect(() => {
+        if (pickBanContext.error) {
+            setErrorMessage(pickBanContext.error);
+        }
+        if (pickBanContext.pickPhase !== lastKnownPickPhase) {
+            setLastKnownPickPhase(pickBanContext.pickPhase);
+        }
+    }, [pickBanContext.error]);
+
+    useEffect(() => {
+        let timer: NodeJS.Timeout | undefined;
+
+        if (pickBanContext.secondsRemaining > -1) {
+            setLocalSeconds(pickBanContext.secondsRemaining);
+        }
+
+        if (localSeconds > 0) {
+            timer = setInterval(() => {
+                setLocalSeconds((prev) => {
+                    if (prev <= 1) {
+                        clearInterval(timer);
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        }
+
+        if (pickBanContext.secondsRemaining > -1 && pickBanContext.secondsRemaining < localSeconds) {
+            clearInterval(timer);
+            setLocalSeconds(pickBanContext.secondsRemaining);
+        }
+
+        return () => {
+            if (timer) {
+                clearInterval(timer);
+            }
+        };
+    }, [pickBanContext.secondsRemaining, localSeconds]);
 
     const handleMouseEnter = useCallback(
         (creatureId: number) => {
@@ -54,6 +108,22 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
         [hoveredCreature, selectedCreature],
     );
 
+    const handlePickPair1 = useCallback(async () => {
+        try {
+            await pickPair(0);
+        } catch (err) {
+            setErrorMessage((err as Error).message);
+        }
+    }, [pickPair]);
+
+    const handlePickPair2 = useCallback(async () => {
+        try {
+            await pickPair(1);
+        } catch (err) {
+            setErrorMessage((err as Error).message);
+        }
+    }, [pickPair]);
+
     const handleMouseLeave = useCallback(() => {
         if (hoverTimeoutRef.current) {
             clearTimeout(hoverTimeoutRef.current);
@@ -61,16 +131,18 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
 
         hoverTimeoutRef.current = setTimeout(() => {
             setHoveredCreature(null);
-        }, 100); // Small delay to prevent flickering
+        }, 100);
     }, []);
 
-    const handleCreatureClick = (creatureId: number) => {
-        if (!pickBanContext.banned.includes(creatureId)) {
-            setSelectedCreature(creatureId);
-        }
-    };
+    const handleCreatureClick = useCallback(
+        (creatureId: number) => {
+            if (!pickBanContext.banned.includes(creatureId)) {
+                setSelectedCreature(creatureId);
+            }
+        },
+        [pickBanContext.banned],
+    );
 
-    // Effect for handling click outside or 'ESC' key for deselection
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (selectedCreature !== null) {
@@ -166,7 +238,18 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     bottom: 0,
                                 },
                             }}
-                        ></Box>
+                        >
+                            <Timer localSeconds={localSeconds} isYourTurn={pickBanContext.isYourTurn ?? false} />
+                            <style>
+                                {`
+                                @keyframes pulseEffect {
+                                    0% { transform: scale(1); }
+                                    50% { transform: scale(1.05); }
+                                    100% { transform: scale(1); }
+                                }
+                                `}
+                            </style>
+                        </Box>
 
                         <Box
                             sx={{
@@ -188,7 +271,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                             <Box
                                 sx={{
                                     position: "absolute",
-                                    top: "-14%",
+                                    top: "0%",
                                     left: "50%",
                                     transform: "translateX(-50%)",
                                     color: "#ffffff",
@@ -336,6 +419,54 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                             transition: "transform 0.2s ease-out",
                                                         }}
                                                     />
+                                                )}
+                                                {selectedCreature === creatureId && poolPickable && (
+                                                    <Box
+                                                        sx={{
+                                                            position: "absolute",
+                                                            width: "auto",
+                                                            display: "flex",
+                                                            justifyContent: "space-between",
+                                                            alignItems: "center",
+                                                            top: "75%",
+                                                            right: "40%",
+                                                            transform: "translate(-50%, -50%) scale(1.5)",
+                                                            zIndex: 103,
+                                                        }}
+                                                    >
+                                                        <IconButton
+                                                            aria-label="accept"
+                                                            sx={{
+                                                                color: "lightgreen",
+                                                                marginRight: "10%",
+                                                                marginTop: "10%",
+                                                                borderRadius: "20px",
+                                                                boxShadow: "0 0 10px #ffffff",
+                                                                border: "2px solid white",
+                                                                paddingLeft: "10px",
+                                                                paddingRight: "10px",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                backgroundColor: "#000000",
+                                                                transform: "scale(0.8)",
+                                                                "&:hover": {
+                                                                    backgroundColor: "darkgreen",
+                                                                },
+                                                            }}
+                                                        >
+                                                            <CheckIcon
+                                                                sx={{
+                                                                    transform: "rotateX(180deg)",
+                                                                    marginRight: "5px",
+                                                                }}
+                                                            />
+                                                            <span
+                                                                style={{ color: "white", transform: "rotateX(180deg)" }}
+                                                            >
+                                                                Pick
+                                                            </span>
+                                                        </IconButton>
+                                                    </Box>
                                                 )}
                                             </div>
                                             <Box
@@ -982,35 +1113,138 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                 display: "flex",
                                 flexDirection: "row",
                                 borderTop: "4px solid #2a2a2a",
-                                borderBottom: !isInitialPick ? "4px solid #2a2a2a" : undefined,
+                                borderBottom: !isInitialPick && !errorMessage ? "4px solid #2a2a2a" : undefined,
                                 position: "relative",
-                                "&::after": isInitialPick
-                                    ? {
-                                          content: '""',
-                                          position: "absolute",
-                                          top: "0%",
-                                          left: "0%",
-                                          right: "0%",
-                                          bottom: "0%",
-                                          backgroundColor: "rgba(0, 0, 0, 0.9)",
-                                          zIndex: 30,
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center",
-                                          color: "#ffffff",
-                                          fontWeight: "bold",
-                                          fontSize: "1.5rem",
-                                          textAlign: "center",
-                                      }
-                                    : undefined,
+                                "&::after":
+                                    (lastKnownPickPhase !== null && !modalClosed) || errorMessage
+                                        ? {
+                                              content: '""',
+                                              position: "absolute",
+                                              top: "0%",
+                                              left: "0%",
+                                              right: "0%",
+                                              bottom: "0%",
+                                              backgroundColor: errorMessage
+                                                  ? "rgba(139, 0, 0, 0.9)"
+                                                  : "rgba(0, 0, 0, 0.9)",
+                                              zIndex: 30,
+                                              display: "flex",
+                                              alignItems: "center",
+                                              justifyContent: "center",
+                                              color: "#ffffff",
+                                              fontWeight: "bold",
+                                              fontSize: "1.5rem",
+                                              textAlign: "center",
+                                          }
+                                        : undefined,
                             }}
                         >
-                            {isInitialPick && (
+                            {errorMessage && (
                                 <Box>
                                     <Box
                                         sx={{
                                             position: "absolute",
-                                            top: initialCreaturesPairs?.length === 2 ? "40%" : "90%",
+                                            top: "50%",
+                                            left: "50%",
+                                            transform: "translate(-50%, -50%)",
+                                            zIndex: 31,
+                                            fontSize: "2rem", // Increase font size
+                                            textShadow: !errorMessage ? "0 0 8px #ffffff, 0 0 15px #ffffff" : "none", // Light around the text
+                                            animation: "lightAnimation 3s infinite",
+                                            "@keyframes lightAnimation": {
+                                                "0%, 100%": { opacity: 1 },
+                                                "50%": { opacity: 0.4 },
+                                            },
+                                        }}
+                                    >
+                                        {`Error: ${errorMessage}`}
+                                    </Box>
+
+                                    <Box
+                                        sx={{
+                                            position: "absolute",
+                                            width: "auto",
+                                            display: "flex",
+                                            justifyContent: "center", // Center the button
+                                            alignItems: "center",
+                                            top: "120%", // Position below the error message
+                                            left: "50%",
+                                            transform: "translate(-50%, -50%)", // Center the box
+                                            zIndex: 103,
+                                        }}
+                                    >
+                                        <IconButton
+                                            aria-label="accept"
+                                            onClick={() => setErrorMessage(null)}
+                                            sx={{
+                                                color: "lightgreen",
+                                                borderRadius: "20px",
+                                                border: "2px solid white",
+                                                paddingLeft: "40px",
+                                                paddingRight: "40px",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                backgroundColor: "transparent",
+                                                transform: "scale(1.1)",
+                                                "&:hover": {
+                                                    backgroundColor: "black",
+                                                    color: "white",
+                                                },
+                                            }}
+                                        >
+                                            <span style={{ color: "white" }}>Ok</span>
+                                        </IconButton>
+                                    </Box>
+                                </Box>
+                            )}
+                            {!errorMessage && !isInitialPick && lastKnownPickPhase !== null && !modalClosed && (
+                                <Box>
+                                    <IconButton
+                                        aria-label="close"
+                                        onClick={() => setModalClosed(true)}
+                                        sx={{
+                                            position: "absolute",
+                                            top: "5%",
+                                            right: "1%",
+                                            color: "white",
+                                            zIndex: 32,
+                                        }}
+                                    >
+                                        <ClearIcon />
+                                    </IconButton>
+                                    <Box
+                                        sx={{
+                                            position: "absolute",
+                                            top: "36%",
+                                            left: "50%",
+                                            transform: "translate(-50%, -50%)",
+                                            zIndex: 31,
+                                            color: pickBanContext.isYourTurn ? "#90ee90" : "white",
+                                            fontSize: "2rem", // Increase font size
+                                            textShadow: pickBanContext.isYourTurn
+                                                ? "0 0 8px #90ee90, 0 0 15px #90ee90" // Light green if it's your turn
+                                                : "0 0 8px #ffffff, 0 0 15px #ffffff", // Light around the text
+                                            animation: "lightAnimation 3s infinite",
+                                            "@keyframes lightAnimation": {
+                                                "0%, 100%": { opacity: 1 },
+                                                "50%": { opacity: 0.4 },
+                                            },
+                                        }}
+                                    >
+                                        {pickBanContext.isYourTurn === null
+                                            ? "Loading..."
+                                            : pickBanContext.isYourTurn
+                                              ? "Your time to pick"
+                                              : "Waiting for opponent to pick"}
+                                    </Box>
+                                </Box>
+                            )}
+                            {!errorMessage && isInitialPick && (
+                                <Box>
+                                    <Box
+                                        sx={{
+                                            position: "absolute",
+                                            top: initialCreaturesPairs?.length === 2 ? "36%" : "90%",
                                             left: "50%",
                                             transform: "translate(-50%, -50%)",
                                             zIndex: 31,
@@ -1057,6 +1291,54 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     handleCreatureClick={handleCreatureClick}
                                                     hoverTimeoutRef={hoverTimeoutRef}
                                                 />
+                                                <Box
+                                                    sx={{
+                                                        position: "absolute",
+                                                        width: "auto",
+                                                        display: "flex",
+                                                        justifyContent: "center",
+                                                        alignItems: "left",
+                                                        top: "40%",
+                                                        left: "0px",
+                                                        transform: "translate(50%, -50%) scale(1.5)",
+                                                        zIndex: 103,
+                                                    }}
+                                                >
+                                                    <IconButton
+                                                        aria-label="accept"
+                                                        onClick={handlePickPair1}
+                                                        sx={{
+                                                            color: "lightgreen",
+                                                            marginRight: "10%",
+                                                            marginTop: "10%",
+                                                            borderRadius: "20px",
+                                                            boxShadow: "0 0 10px #ffffff",
+                                                            border: "2px solid white",
+                                                            paddingLeft: "10px",
+                                                            paddingRight: "10px",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            backgroundColor: "#000000",
+                                                            transform: "scale(0.8)",
+                                                            "&:hover": {
+                                                                backgroundColor: "darkgreen",
+                                                            },
+                                                            animation: "lightAnimation 3s infinite",
+                                                            "@keyframes lightAnimation": {
+                                                                "0%, 100%": { opacity: 1 },
+                                                                "50%": { opacity: 0.4 },
+                                                            },
+                                                        }}
+                                                    >
+                                                        <CheckIcon
+                                                            sx={{
+                                                                // transform: "rotateX(180deg)",
+                                                                marginRight: "5px",
+                                                            }}
+                                                        />
+                                                        <span style={{ color: "white" }}>Pick</span>
+                                                    </IconButton>
+                                                </Box>
                                                 <InitialCreatureImageBox
                                                     creatureId={initialCreaturesPairs[0][1]}
                                                     selectedCreature={selectedCreature}
@@ -1097,6 +1379,54 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     handleCreatureClick={handleCreatureClick}
                                                     hoverTimeoutRef={hoverTimeoutRef}
                                                 />
+                                                <Box
+                                                    sx={{
+                                                        position: "absolute",
+                                                        width: "auto",
+                                                        display: "flex",
+                                                        justifyContent: "center",
+                                                        alignItems: "right",
+                                                        top: "40%",
+                                                        right: "72px",
+                                                        transform: "translate(50%, -50%) scale(1.5)",
+                                                        zIndex: 103,
+                                                    }}
+                                                >
+                                                    <IconButton
+                                                        aria-label="accept"
+                                                        onClick={handlePickPair2}
+                                                        sx={{
+                                                            color: "lightgreen",
+                                                            marginRight: "10%",
+                                                            marginTop: "10%",
+                                                            borderRadius: "20px",
+                                                            boxShadow: "0 0 10px #ffffff",
+                                                            border: "2px solid white",
+                                                            paddingLeft: "10px",
+                                                            paddingRight: "10px",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            backgroundColor: "#000000",
+                                                            transform: "scale(0.8)",
+                                                            "&:hover": {
+                                                                backgroundColor: "darkgreen",
+                                                            },
+                                                            animation: "lightAnimation 3s infinite",
+                                                            "@keyframes lightAnimation": {
+                                                                "0%, 100%": { opacity: 1 },
+                                                                "50%": { opacity: 0.4 },
+                                                            },
+                                                        }}
+                                                    >
+                                                        <CheckIcon
+                                                            sx={{
+                                                                // transform: "rotateX(180deg)",
+                                                                marginRight: "5px",
+                                                            }}
+                                                        />
+                                                        <span style={{ color: "white" }}>Pick</span>
+                                                    </IconButton>
+                                                </Box>
                                             </Box>
                                         </Box>
                                     )}
@@ -1114,13 +1444,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                         left: "0%",
                                         right: "0%",
                                         bottom: "0%",
-                                        background: !isInitialPick
-                                            ? "linear-gradient(to right, rgba(0, 0, 0, 1), transparent)"
-                                            : undefined,
+                                        background:
+                                            !isInitialPick && !errorMessage
+                                                ? "linear-gradient(to right, rgba(0, 0, 0, 1), transparent)"
+                                                : undefined,
                                     },
                                 }}
                             >
-                                {!isInitialPick && (
+                                {!isInitialPick && !errorMessage && (
                                     <Box
                                         sx={{
                                             position: "absolute",
@@ -1136,6 +1467,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     </Box>
                                 )}
                             </Box>
+                            {modalClosed && !errorMessage && <HelpQuestionMark setModalClosed={setModalClosed} />}
                             <Box
                                 sx={{
                                     flex: 0.5,
@@ -1152,7 +1484,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     },
                                 }}
                             >
-                                {!isInitialPick && (
+                                {!isInitialPick && !errorMessage && (
                                     <Box
                                         sx={{
                                             position: "absolute",
@@ -1177,21 +1509,24 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                 flexDirection: "row",
                                 // borderBottom: "4px solid #2a2a2a",
                                 position: "relative",
-                                "&::after": isInitialPick
-                                    ? {
-                                          content: '""',
-                                          position: "absolute",
-                                          top: "0%",
-                                          left: "0%",
-                                          right: "0%",
-                                          bottom: "0%",
-                                          backgroundColor: "rgba(0, 0, 0, 0.9)",
-                                          zIndex: 1,
-                                      }
-                                    : undefined,
+                                "&::after":
+                                    isInitialPick || errorMessage
+                                        ? {
+                                              content: '""',
+                                              position: "absolute",
+                                              top: "0%",
+                                              left: "0%",
+                                              right: "0%",
+                                              bottom: "0%",
+                                              backgroundColor: errorMessage
+                                                  ? "rgba(139, 0, 0, 0.9)"
+                                                  : "rgba(0, 0, 0, 0.9)",
+                                              zIndex: 1,
+                                          }
+                                        : undefined,
                             }}
                         >
-                            {!isInitialPick && (
+                            {!isInitialPick && !errorMessage && (
                                 <>
                                     <Box
                                         sx={{

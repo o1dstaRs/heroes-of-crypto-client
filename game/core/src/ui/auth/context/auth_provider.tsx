@@ -7,6 +7,7 @@ import { GamePublic } from "@heroesofcrypto/common/src/generated/protobuf/v1/gam
 import { ResetPassword } from "@heroesofcrypto/common/src/generated/protobuf/v1/reset_password_pb";
 import { ResponseEnqueue } from "@heroesofcrypto/common/src/generated/protobuf/v1/response_enqueue_pb";
 import { ResponseMe } from "@heroesofcrypto/common/src/generated/protobuf/v1/response_me_pb";
+import { PickPairRequest } from "@heroesofcrypto/common/src/generated/protobuf/v1/pick_phase_requests_pb";
 import { useCallback, useEffect, useMemo, useReducer } from "react";
 
 import { v4 as uuidv4 } from "uuid";
@@ -202,6 +203,24 @@ export function AuthProvider({ children }: Props) {
         });
     }, []);
 
+    const pickPair = useCallback(async (pairIndex: number) => {
+        refreshLocalStorageFromCookie();
+        const accessToken = localStorage.getItem(STORAGE_KEY);
+
+        const pickPairRequest = new PickPairRequest();
+        pickPairRequest.setPairIndex(pairIndex);
+        const data = pickPairRequest.serializeBinary();
+
+        await axiosGameInstance.post(`${endpoints.game.pickPair}`, data, {
+            responseType: "arraybuffer",
+            headers: {
+                "Content-Type": "application/octet-stream",
+                "x-request-id": uuidv4(),
+                Authorization: accessToken,
+            },
+        });
+    }, []);
+
     const getCurrentGame = useCallback(async (): Promise<GamePublic.AsObject | null> => {
         refreshLocalStorageFromCookie();
         const accessToken = localStorage.getItem(STORAGE_KEY);
@@ -387,6 +406,7 @@ export function AuthProvider({ children }: Props) {
             stopGameSearch,
             confirmGame,
             abandonGame,
+            pickPair,
             getCurrentGame,
             me,
         }),
@@ -402,6 +422,7 @@ export function AuthProvider({ children }: Props) {
             stopGameSearch,
             confirmGame,
             abandonGame,
+            pickPair,
             getCurrentGame,
             me,
             state.user,
