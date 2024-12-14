@@ -60,6 +60,7 @@ export type JWTContextType = {
     stopGameSearch: () => Promise<void>;
     confirmGame: (gameId: string) => Promise<void>;
     abandonGame: (gameId: string) => Promise<void>;
+    pickPair: (pairIndex: number) => Promise<void>;
     getCurrentGame: () => Promise<GamePublic.AsObject | null>;
     logout: () => Promise<void>;
 };

@@ -136,7 +136,9 @@ interface PickBanContextType {
     events: IPickPhaseEventData[];
     error: string | null;
     banned: number[];
+    isYourTurn: boolean | null;
     pickPhase: number;
+    secondsRemaining: number;
     initialCreaturesPairs: [number, number][];
 }
 
@@ -145,8 +147,10 @@ const PickBanContext = createContext<PickBanContextType>({
     events: [],
     error: null,
     banned: [],
+    isYourTurn: null,
     pickPhase: -1,
     initialCreaturesPairs: [],
+    secondsRemaining: -1,
 });
 
 // Custom hook to use the Pick Ban Context
@@ -156,11 +160,14 @@ export const usePickBanEvents = () => useContext(PickBanContext);
 export const PickBanEventProvider: React.FC<{
     children: React.ReactNode;
     url: string;
-}> = ({ children, url }) => {
+    userTeam: TeamType;
+}> = ({ children, url, userTeam }) => {
     const [isConnected, setIsConnected] = useState(false);
     const [events, setEvents] = useState<IPickPhaseEventData[]>([]);
     const [banned, setBanned] = useState<number[]>([]);
+    const [isYourTurn, setIsYourTurn] = useState<boolean | null>(null);
     const [pickPhase, setPickPhase] = useState<number>(-1);
+    const [secondsRemaining, setSecondsRemaining] = useState<number>(-1);
     const [initialCreaturesPairs, setInitialCreaturesPairs] = useState<[number, number][]>([]);
     const [error, setError] = useState<string | null>(null);
 
@@ -187,15 +194,17 @@ export const PickBanEventProvider: React.FC<{
         // Create SSE connection
         const eventSource = new CustomEventSource<IPickPhaseEventData>(url, {
             token: token ?? undefined,
-            debug: IS_PROD ?? false,
+            debug: !IS_PROD ?? false,
         });
 
         eventSource.onmessage = (event: IPickPhaseEventData) => {
-            console.log(event);
             setEvents((prevEvents) => [...prevEvents, event]);
             setIsConnected(true);
             setBanned(event.b);
             setPickPhase(event.pp);
+            setIsYourTurn(event.a.includes(userTeam));
+            setSecondsRemaining(Math.ceil(event.t / 1000));
+            setError(null);
             setInitialCreaturesPairs(event.ip);
         };
 
@@ -218,7 +227,9 @@ export const PickBanEventProvider: React.FC<{
             events,
             error,
             banned,
+            isYourTurn,
             pickPhase,
+            secondsRemaining,
             initialCreaturesPairs,
         }),
         [isConnected, events, error, banned],
@@ -244,10 +255,8 @@ const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType }> 
         };
     }, [manager]);
 
-    console.log(`userTeam ${userTeam}`);
-
     return (
-        <PickBanEventProvider url={process.env.PICK_EVENT_SOURCE ?? ""}>
+        <PickBanEventProvider url={process.env.PICK_EVENT_SOURCE ?? ""} userTeam={userTeam}>
             <div
                 className="container"
                 style={{
@@ -281,7 +290,6 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                 const currentGame = await getCurrentGame?.();
                 setErrorMessage("");
 
-                console.log(currentGame);
                 // store the user's team
                 setUserTeam(currentGame?.team ?? TeamType.NO_TEAM);
 
@@ -318,13 +326,13 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                         alignItems: "center",
                         zIndex: 1000,
                         fontSize: "28px",
-                        textShadow: "0 0 10px white", // Added white light effect for errorMessage
+                        textShadow: "0 0 10px white",
                     }}
                 >
                     {errorMessage}
                 </div>
             )}
-            <PickAndBanView windowSize={windowSize} userTeam={userTeam} />
+            {(userTeam !== null || errorMessage) && <PickAndBanView windowSize={windowSize} userTeam={userTeam} />}
         </>
     );
 };
