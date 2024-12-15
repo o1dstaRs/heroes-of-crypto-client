@@ -1,7 +1,7 @@
 import { HoCLib } from "@heroesofcrypto/common";
 import axios, { AxiosRequestConfig } from "axios";
 
-const IS_PROD = HoCLib.stringToBoolean(process.env.IS_PROD);
+const IS_PROD = HoCLib.stringToBoolean(process.env.PROD);
 
 export const axiosAuthInstance = axios.create({ baseURL: process.env.HOST_AUTH_API });
 
@@ -120,7 +120,8 @@ export const endpoints = {
         abandon: `${IS_PROD ? "/v1/abandon" : "/v1/game/abandon"}`,
         current: `${IS_PROD ? "/v1/current" : "/v1/game/current"}`,
         pickPair: `${IS_PROD ? "/v1/pick-pair" : "/v1/game/pick-pair"}`,
+        pick: `${IS_PROD ? "/v1/pick" : "/v1/game/pick"}`,
+        ban: `${IS_PROD ? "/v1/ban" : "/v1/game/ban"}`,
+        reveal: `${IS_PROD ? "/v1/reveal" : "/v1/game/reveal"}`,
     },
 };
-
-console.log(endpoints);

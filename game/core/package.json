@@ -9,7 +9,7 @@
     ],
     "scripts": {
         "build": "yarn run build:images && npm test && rimraf dist && tsc && yarn run build:docs",
-        "build:docs": "rimraf ../../.parcel-cache && rimraf ../../docs/core && dotenv -e .env.production parcel build --no-optimize src/ui/index.html --public-url . --no-source-maps --dist-dir ../../docs/core",
+        "build:docs": "rimraf ../../.parcel-cache && rimraf ../../docs/dist && dotenv -e .env.production parcel build --no-optimize src/ui/index.html --public-url . --no-source-maps && cpy dist ../../docs",
         "build:images": "rimraf images && npm run copy:images && npm run generate:images",
         "copy:images": "cpy $HOC_IMAGES_LOC ./",
         "generate:images": "node scripts/generate_image_imports.js",

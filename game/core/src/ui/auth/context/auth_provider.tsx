@@ -7,7 +7,11 @@ import { GamePublic } from "@heroesofcrypto/common/src/generated/protobuf/v1/gam
 import { ResetPassword } from "@heroesofcrypto/common/src/generated/protobuf/v1/reset_password_pb";
 import { ResponseEnqueue } from "@heroesofcrypto/common/src/generated/protobuf/v1/response_enqueue_pb";
 import { ResponseMe } from "@heroesofcrypto/common/src/generated/protobuf/v1/response_me_pb";
-import { PickPairRequest } from "@heroesofcrypto/common/src/generated/protobuf/v1/pick_phase_requests_pb";
+import {
+    PickPairRequest,
+    PickBanRequest,
+    RevealRequest,
+} from "@heroesofcrypto/common/src/generated/protobuf/v1/pick_phase_requests_pb";
 import { useCallback, useEffect, useMemo, useReducer } from "react";
 
 import { v4 as uuidv4 } from "uuid";
@@ -221,6 +225,60 @@ export function AuthProvider({ children }: Props) {
         });
     }, []);
 
+    const pick = useCallback(async (creature: number) => {
+        refreshLocalStorageFromCookie();
+        const accessToken = localStorage.getItem(STORAGE_KEY);
+
+        const pickRequest = new PickBanRequest();
+        pickRequest.setCreature(creature);
+        const data = pickRequest.serializeBinary();
+
+        await axiosGameInstance.post(`${endpoints.game.pick}`, data, {
+            responseType: "arraybuffer",
+            headers: {
+                "Content-Type": "application/octet-stream",
+                "x-request-id": uuidv4(),
+                Authorization: accessToken,
+            },
+        });
+    }, []);
+
+    const ban = useCallback(async (creature: number) => {
+        refreshLocalStorageFromCookie();
+        const accessToken = localStorage.getItem(STORAGE_KEY);
+
+        const banRequest = new PickBanRequest();
+        banRequest.setCreature(creature);
+        const data = banRequest.serializeBinary();
+
+        await axiosGameInstance.post(`${endpoints.game.ban}`, data, {
+            responseType: "arraybuffer",
+            headers: {
+                "Content-Type": "application/octet-stream",
+                "x-request-id": uuidv4(),
+                Authorization: accessToken,
+            },
+        });
+    }, []);
+
+    const reveal = useCallback(async (slot: number) => {
+        refreshLocalStorageFromCookie();
+        const accessToken = localStorage.getItem(STORAGE_KEY);
+
+        const revealRequest = new RevealRequest();
+        revealRequest.setCreatureIndex(slot);
+        const data = revealRequest.serializeBinary();
+
+        await axiosGameInstance.post(`${endpoints.game.reveal}`, data, {
+            responseType: "arraybuffer",
+            headers: {
+                "Content-Type": "application/octet-stream",
+                "x-request-id": uuidv4(),
+                Authorization: accessToken,
+            },
+        });
+    }, []);
+
     const getCurrentGame = useCallback(async (): Promise<GamePublic.AsObject | null> => {
         refreshLocalStorageFromCookie();
         const accessToken = localStorage.getItem(STORAGE_KEY);
@@ -407,6 +465,9 @@ export function AuthProvider({ children }: Props) {
             confirmGame,
             abandonGame,
             pickPair,
+            pick,
+            ban,
+            reveal,
             getCurrentGame,
             me,
         }),
@@ -423,6 +484,9 @@ export function AuthProvider({ children }: Props) {
             confirmGame,
             abandonGame,
             pickPair,
+            pick,
+            ban,
+            reveal,
             getCurrentGame,
             me,
             state.user,
