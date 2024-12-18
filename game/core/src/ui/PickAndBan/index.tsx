@@ -302,19 +302,18 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                 `}
                             </style>
                         </Box>
-
                         <Box
                             sx={{
                                 flex: 0.4,
                                 borderTop: "2px solid transparent",
                                 position: "relative",
-                                zIndex: 70, // Ensure Level 4 renders above lower levels
+                                zIndex: 70,
                                 "&::before": {
                                     content: '""',
                                     position: "absolute",
                                     top: 0,
-                                    left: "16%", // Cut 20% from the left
-                                    right: "16%", // Cut 20% from the right
+                                    left: "16%",
+                                    right: "16%",
                                     bottom: 0,
                                     borderTop: "2px solid #d2d2d2",
                                 },
@@ -330,7 +329,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     fontWeight: "bold",
                                     fontSize: "1.2rem",
                                     textShadow: "2px 2px 8px #000000",
-                                    zIndex: 71, // Ensure Level 4 renders above lower levels
+                                    zIndex: 71,
                                 }}
                             >
                                 Level 4
@@ -371,18 +370,18 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 zIndex:
                                                     selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? 92
-                                                        : 72, // Ensure hover z-index above others
+                                                        : 72,
                                                 transform:
                                                     index % 2 < CreatureByLevel[3].length / 2
                                                         ? "translateY(-15%)"
                                                         : "translateY(25%)",
-                                                transition: "all 0.3s ease", // Updated to include all transitions
+                                                transition: "all 0.3s ease",
                                                 filter:
                                                     selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? pickBanContext.banned.includes(creatureId)
                                                             ? "drop-shadow(0px -40px 25px rgba(255, 0, 0, 1))"
                                                             : "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
-                                                        : "drop-shadow(0px 0px 0px rgba(0,0,0,0))", // Shadow on hover
+                                                        : "drop-shadow(0px 0px 0px rgba(0,0,0,0))",
                                                 left:
                                                     index === 0
                                                         ? "7%"
@@ -396,15 +395,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                                 ? "-2%"
                                                                 : index === CreatureByLevel[3].length - 2
                                                                   ? "-4.5%"
-                                                                  : 0, // Adjust left position
+                                                                  : 0,
                                                 borderRadius:
                                                     selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? "50%"
-                                                        : "none", // Border on hover
+                                                        : "none",
                                                 cursor: !doNotRenderCreatures.includes(creatureId)
                                                     ? "pointer"
                                                     : "default",
-                                                // Hover styles for name
                                                 "& .unit-name": {
                                                     visibility:
                                                         selectedCreature === creatureId ||
@@ -421,7 +419,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                         selectedCreature === creatureId ||
                                                         hoveredCreature === creatureId
                                                             ? 102
-                                                            : 82, // Ensure name appears above everything
+                                                            : 82,
                                                     textDecoration: pickBanContext.banned.includes(creatureId)
                                                         ? "line-through"
                                                         : "none",
@@ -466,7 +464,6 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                                 : "scale(1)",
                                                     }}
                                                 />
-                                                {/* Draw x mark if banned */}
                                                 {pickBanContext.banned.includes(creatureId) && (
                                                     <img
                                                         src={images.x_mark_1_512}
@@ -572,36 +569,34 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                         <Box
                             sx={{
                                 flex: 0.4,
-                                // borderBottom: "2px solid #2a2a2a",
-                                // borderTop: "2px solid #2a2a2a",
                                 position: "relative",
                                 borderTopLeftRadius: "100%",
                                 borderTopRightRadius: "100%",
-                                zIndex: 60, // Ensure Level 3 below Level 4
+                                zIndex: 60,
                                 "&::before": {
                                     content: '""',
                                     position: "absolute",
                                     top: "-182%",
-                                    left: 5, // Gradient starts from the left
-                                    right: "50%", // Gradient ends at the right
-                                    bottom: 0, // Extend to the bottom for a full half circle
+                                    left: 5,
+                                    right: "50%",
+                                    bottom: 0,
                                     background:
                                         "linear-gradient(to right, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0.8), transparent)",
-                                    borderTopLeftRadius: "200%", // Half-circle cut on the top left
-                                    pointerEvents: "none", // Make the overlay non-interactive
+                                    borderTopLeftRadius: "200%",
+                                    pointerEvents: "none",
                                     zIndex: -1,
                                 },
                                 "&::after": {
                                     content: '""',
                                     position: "absolute",
                                     top: "-180%",
-                                    left: "50%", // Gradient starts from the left
-                                    right: 5, // Gradient ends at the right
-                                    bottom: 0, // Extend to the bottom for a full half circle
+                                    left: "50%",
+                                    right: 5,
+                                    bottom: 0,
                                     background:
                                         "linear-gradient(to left, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0.8), transparent)",
-                                    borderTopRightRadius: "200%", // Half-circle cut on the top left
-                                    pointerEvents: "none", // Make the overlay non-interactive
+                                    borderTopRightRadius: "200%",
+                                    pointerEvents: "none",
                                     zIndex: -1,
                                 },
                             }}
@@ -616,7 +611,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     fontWeight: "bold",
                                     fontSize: "1.2rem",
                                     textShadow: "2px 2px 8px #000000",
-                                    zIndex: 61, // Ensure Level 3 below Level 4
+                                    zIndex: 91,
                                 }}
                             >
                                 Level 3
@@ -646,6 +641,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     {CreatureByLevel[2].map((creatureId: number, index: number) => (
                                         <Box
                                             key={creatureId}
+                                            className="creature-image"
                                             sx={{
                                                 width: "10%",
                                                 height: "90%",
@@ -655,17 +651,15 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 position: "relative",
                                                 zIndex:
                                                     selectedCreature === creatureId || hoveredCreature === creatureId
-                                                        ? 91
-                                                        : 62, // Ensure hover z-index above others
-                                                // transform: index % 2 === 0 ? "translateY(-25%)" : "translateY(25%)",
-                                                transition: "all 0.3s ease", // Updated to include all transitions
+                                                        ? 92
+                                                        : 62,
+                                                transition: "all 0.3s ease",
                                                 filter:
                                                     selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? pickBanContext.banned.includes(creatureId)
                                                             ? "drop-shadow(0px -40px 25px rgba(255, 0, 0, 1))"
                                                             : "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
-                                                        : "drop-shadow(0px 0px 0px rgba(0,0,0,0))", // Shadow on hover
-                                                // left: index === CreatureByLevel[2].length - 1 ? "-2%" : 0, // Adjust left position
+                                                        : "drop-shadow(0px 0px 0px rgba(0,0,0,0))",
                                                 left:
                                                     index === 0
                                                         ? "1%"
@@ -684,15 +678,13 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                                     : index === 6
                                                                       ? "-0.4%"
                                                                       : 0,
-                                                // right: index === 1 ? "42%" : 0, // Adjust left position
                                                 borderRadius:
                                                     selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? "50%"
-                                                        : "none", // Border on hover
+                                                        : "none",
                                                 cursor: !doNotRenderCreatures.includes(creatureId)
                                                     ? "pointer"
                                                     : "default",
-                                                // Hover styles for name
                                                 "& .unit-name": {
                                                     visibility:
                                                         selectedCreature === creatureId ||
@@ -705,11 +697,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                             ? 1
                                                             : 0,
                                                     transition: "opacity 0.3s ease, visibility 0.2s ease",
-                                                    zIndex:
-                                                        selectedCreature === creatureId ||
-                                                        hoveredCreature === creatureId
-                                                            ? 101
-                                                            : 62, // Ensure name appears above everything
+                                                    zIndex: 101,
+                                                    textDecoration: pickBanContext.banned.includes(creatureId)
+                                                        ? "line-through"
+                                                        : "none",
                                                 },
                                             }}
                                             onMouseEnter={() => {
@@ -751,7 +742,6 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                                 : "scale(1)",
                                                     }}
                                                 />
-                                                {/* Draw x mark if banned */}
                                                 {pickBanContext.banned.includes(creatureId) && (
                                                     <img
                                                         src={images.x_mark_1_512}
@@ -783,7 +773,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                             top: "75%",
                                                             right: "40%",
                                                             transform: "translate(-50%, -50%) scale(1.5)",
-                                                            zIndex: 103,
+                                                            zIndex: 203,
+                                                            pointerEvents: "auto",
                                                         }}
                                                     >
                                                         <IconButton
@@ -801,6 +792,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                                 alignItems: "center",
                                                                 backgroundColor: "#000000",
                                                                 transform: "scale(0.8)",
+                                                                zIndex: 203,
                                                                 "&:hover": {
                                                                     backgroundColor: "darkgreen",
                                                                 },
@@ -840,7 +832,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
                                                     whiteSpace: "nowrap",
                                                     pointerEvents: "none",
-                                                    zIndex: 63,
+                                                    zIndex: 93,
                                                     textDecoration: pickBanContext.banned.includes(creatureId)
                                                         ? "line-through"
                                                         : "none",
@@ -1826,7 +1818,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                             position: "relative",
                                             zIndex: 2,
                                             display: "flex",
-                                            flexDirection: "row",
+                                            flexDirection: "row-reverse",
                                             height: "100%",
                                             backgroundColor: "rgba(0, 0, 0, 0.8)",
                                         }}
@@ -1836,7 +1828,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 key={index}
                                                 sx={{
                                                     flex: "1 1 16.666%",
-                                                    borderRight:
+                                                    borderLeft:
                                                         index < 5 ? "1px solid rgba(255, 255, 255, 0.3)" : "none",
                                                     height: "100%",
                                                     display: "flex",
