@@ -162,6 +162,8 @@ class Sandbox extends GLScene {
 
     private readonly allowedPlacementCellHashes: Set<number>;
 
+    private readonly allowedPlacementCellHashesPerTeam: Map<TeamType, Set<number>>;
+
     private readonly obstacleGenerator: ObstacleGenerator;
 
     private upperPlacements: [IDrawablePlacement?, IDrawablePlacement?];
@@ -331,6 +333,10 @@ class Sandbox extends GLScene {
         this.lowerPlacements = [];
         this.upperPlacements = [];
         this.allowedPlacementCellHashes = new Set();
+        this.allowedPlacementCellHashesPerTeam = new Map([
+            [TeamType.UPPER, new Set()],
+            [TeamType.LOWER, new Set()],
+        ]);
         FightStateManager.getInstance()
             .getFightProperties()
             .setDefaultPlacementPerTeam(TeamType.LOWER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
@@ -1121,24 +1127,44 @@ class Sandbox extends GLScene {
         }
 
         this.allowedPlacementCellHashes.clear();
+        this.allowedPlacementCellHashesPerTeam.clear();
+        this.allowedPlacementCellHashesPerTeam.set(TeamType.UPPER, new Set());
+        this.allowedPlacementCellHashesPerTeam.set(TeamType.LOWER, new Set());
+
         if (0 in this.lowerPlacements && this.lowerPlacements[0]) {
             for (const hash of this.lowerPlacements[0].possibleCellHashes()) {
                 this.allowedPlacementCellHashes.add(hash);
+                const teamSet = this.allowedPlacementCellHashesPerTeam.get(TeamType.LOWER);
+                if (teamSet) {
+                    teamSet.add(hash);
+                }
             }
         }
         if (0 in this.upperPlacements && this.upperPlacements[0]) {
             for (const hash of this.upperPlacements[0].possibleCellHashes()) {
                 this.allowedPlacementCellHashes.add(hash);
+                const teamSet = this.allowedPlacementCellHashesPerTeam.get(TeamType.UPPER);
+                if (teamSet) {
+                    teamSet.add(hash);
+                }
             }
         }
         if (1 in this.lowerPlacements && this.lowerPlacements[1]) {
             for (const hash of this.lowerPlacements[1].possibleCellHashes()) {
                 this.allowedPlacementCellHashes.add(hash);
+                const teamSet = this.allowedPlacementCellHashesPerTeam.get(TeamType.LOWER);
+                if (teamSet) {
+                    teamSet.add(hash);
+                }
             }
         }
         if (1 in this.upperPlacements && this.upperPlacements[1]) {
             for (const hash of this.upperPlacements[1].possibleCellHashes()) {
                 this.allowedPlacementCellHashes.add(hash);
+                const teamSet = this.allowedPlacementCellHashesPerTeam.get(TeamType.UPPER);
+                if (teamSet) {
+                    teamSet.add(hash);
+                }
             }
         }
     }
@@ -2682,7 +2708,7 @@ class Sandbox extends GLScene {
                     } else {
                         this.hoverSelectedCells = this.pathHelper.getClosestSquareCellIndices(
                             this.sc_mouseWorld,
-                            this.allowedPlacementCellHashes,
+                            this.allowedPlacementCellHashesPerTeam.get(this.currentActiveUnit.getTeam()),
                             this.cellToUnitPreRound ? Array.from(this.cellToUnitPreRound.keys()) : undefined,
                             GridMath.getCellsAroundPosition(
                                 this.sc_sceneSettings.getGridSettings(),
@@ -2798,6 +2824,17 @@ class Sandbox extends GLScene {
                     if (this.cellToUnitPreRound) {
                         const hoverUnit = this.cellToUnitPreRound.get(cellKey);
                         if (!hoverUnit) {
+                            if (
+                                GridMath.isPositionWithinGrid(
+                                    this.sc_sceneSettings.getGridSettings(),
+                                    this.sc_mouseWorld,
+                                ) &&
+                                !this.allowedPlacementCellHashesPerTeam
+                                    .get(selectedUnitProperties.team)
+                                    ?.has((mouseCell.x << 4) | mouseCell.y)
+                            ) {
+                                return;
+                            }
                             this.hoverSelectedCells = [mouseCell];
                             if (this.grid.areAllCellsEmpty(this.hoverSelectedCells)) {
                                 this.hoverSelectedCellsSwitchToRed = false;
@@ -2924,7 +2961,7 @@ class Sandbox extends GLScene {
                     if (!unit) {
                         this.hoverSelectedCells = this.pathHelper.getClosestSquareCellIndices(
                             this.sc_mouseWorld,
-                            this.allowedPlacementCellHashes,
+                            this.allowedPlacementCellHashesPerTeam.get(selectedUnitProperties.team),
                             Array.from(this.cellToUnitPreRound.keys()),
                             this.unitIdToCellsPreRound?.get(selectedUnitProperties.id),
                         );
@@ -3009,7 +3046,7 @@ class Sandbox extends GLScene {
                     } else {
                         this.hoverSelectedCells = this.pathHelper.getClosestSquareCellIndices(
                             this.sc_mouseWorld,
-                            this.allowedPlacementCellHashes,
+                            this.allowedPlacementCellHashesPerTeam.get(unit.getTeam()),
                             Array.from(this.cellToUnitPreRound.keys()),
                         );
                         if (
@@ -3024,7 +3061,7 @@ class Sandbox extends GLScene {
                 } else {
                     this.hoverSelectedCells = this.pathHelper.getClosestSquareCellIndices(
                         this.sc_mouseWorld,
-                        this.allowedPlacementCellHashes,
+                        this.allowedPlacementCellHashesPerTeam.get(selectedUnitProperties.team),
                     );
                     if (this.hoverSelectedCells?.length === 4 && this.grid.areAllCellsEmpty(this.hoverSelectedCells)) {
                         this.hoverSelectedCellsSwitchToRed = false;
@@ -3110,51 +3147,49 @@ class Sandbox extends GLScene {
         return FightStateManager.getInstance().getFightProperties().getNumberOfUnitsAvailableForPlacement(teamType);
     }
 
-    protected isAllowedPreStartMousePosition(unit: Unit, checkUnitSize = false): boolean {
-        if (!checkUnitSize || unit.isSmallSize()) {
-            const lowerLeftPlacement = this.getPlacement(TeamType.LOWER, 0);
-            const upperRightPlacement = this.getPlacement(TeamType.UPPER, 0);
+    protected isAllowedPreStartMousePosition(unit: Unit): boolean {
+        const lowerLeftPlacement = this.getPlacement(TeamType.LOWER, 0);
+        const upperRightPlacement = this.getPlacement(TeamType.UPPER, 0);
 
-            if (!lowerLeftPlacement || !upperRightPlacement) {
-                return false;
-            }
-
-            const lowerRightPlacement = this.getPlacement(TeamType.LOWER, 1);
-            const upperLeftPlacement = this.getPlacement(TeamType.UPPER, 1);
-
-            const isAllowed =
-                ((unit.getTeam() === TeamType.LOWER &&
-                    ((lowerLeftPlacement.isAllowed(this.sc_mouseWorld) ?? false) ||
-                        (this.lowerPlacements[1]?.isAllowed(this.sc_mouseWorld) ?? false))) ||
-                    (unit.getTeam() === TeamType.UPPER &&
-                        ((upperRightPlacement.isAllowed(this.sc_mouseWorld) ?? false) ||
-                            (this.upperPlacements[1]?.isAllowed(this.sc_mouseWorld) ?? false)))) &&
-                (this.unitsHolder.getAllAlliesPlaced(
-                    unit.getTeam(),
-                    lowerLeftPlacement,
-                    upperRightPlacement,
-                    lowerRightPlacement,
-                    upperLeftPlacement,
-                ).length <
-                    FightStateManager.getInstance()
-                        .getFightProperties()
-                        .getNumberOfUnitsAvailableForPlacement(unit.getTeam()) ||
-                    GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), unit.getPosition()));
-
-            return (
-                isAllowed ||
-                (!isAllowed &&
-                    this.sc_mouseWorld.x >= MAX_X &&
-                    this.sc_mouseWorld.x < MAX_X + this.sc_sceneSettings.getGridSettings().getTwoSteps() &&
-                    this.sc_mouseWorld.y < MAX_Y &&
-                    this.sc_mouseWorld.y >= MIN_Y) ||
-                (!isAllowed &&
-                    this.sc_mouseWorld.x < MIN_X &&
-                    this.sc_mouseWorld.x >= MIN_X - this.sc_sceneSettings.getGridSettings().getTwoSteps() &&
-                    this.sc_mouseWorld.y >= STEP * PathHelper.Y_FACTION_ICONS_OFFSET &&
-                    this.sc_mouseWorld.y < MAX_Y)
-            );
+        if (!lowerLeftPlacement || !upperRightPlacement) {
+            return false;
         }
+
+        const lowerRightPlacement = this.getPlacement(TeamType.LOWER, 1);
+        const upperLeftPlacement = this.getPlacement(TeamType.UPPER, 1);
+
+        const isAllowed =
+            ((unit.getTeam() === TeamType.LOWER &&
+                ((lowerLeftPlacement.isAllowed(this.sc_mouseWorld) ?? false) ||
+                    (this.lowerPlacements[1]?.isAllowed(this.sc_mouseWorld) ?? false))) ||
+                (unit.getTeam() === TeamType.UPPER &&
+                    ((upperRightPlacement.isAllowed(this.sc_mouseWorld) ?? false) ||
+                        (this.upperPlacements[1]?.isAllowed(this.sc_mouseWorld) ?? false)))) &&
+            (this.unitsHolder.getAllAlliesPlaced(
+                unit.getTeam(),
+                lowerLeftPlacement,
+                upperRightPlacement,
+                lowerRightPlacement,
+                upperLeftPlacement,
+            ).length <
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getNumberOfUnitsAvailableForPlacement(unit.getTeam()) ||
+                GridMath.isPositionWithinGrid(this.sc_sceneSettings.getGridSettings(), unit.getPosition()));
+
+        return (
+            isAllowed ||
+            (!isAllowed &&
+                this.sc_mouseWorld.x >= MAX_X &&
+                this.sc_mouseWorld.x < MAX_X + this.sc_sceneSettings.getGridSettings().getTwoSteps() &&
+                this.sc_mouseWorld.y < MAX_Y &&
+                this.sc_mouseWorld.y >= MIN_Y) ||
+            (!isAllowed &&
+                this.sc_mouseWorld.x < MIN_X &&
+                this.sc_mouseWorld.x >= MIN_X - this.sc_sceneSettings.getGridSettings().getTwoSteps() &&
+                this.sc_mouseWorld.y >= STEP * PathHelper.Y_FACTION_ICONS_OFFSET &&
+                this.sc_mouseWorld.y < MAX_Y)
+        );
         return this.pathHelper.areCellsFormingSquare(true, this.hoverSelectedCells);
     }
 
@@ -3231,7 +3266,7 @@ class Sandbox extends GLScene {
             !FightStateManager.getInstance().getFightProperties().hasFightStarted() &&
             mouseCell &&
             this.hoverSelectedCells &&
-            this.isAllowedPreStartMousePosition(unit, true)
+            this.isAllowedPreStartMousePosition(unit)
         ) {
             if (unit.isSmallSize()) {
                 return GridMath.getPositionForCell(
@@ -5159,7 +5194,6 @@ class Sandbox extends GLScene {
                                     this.sc_selectedBody = unitBody;
                                     this.currentActiveUnit = nextUnit as RenderableUnit;
                                     this.buttonsRefreshLocked = false;
-                                    this.refreshButtons(true);
                                     if (
                                         nextUnit.refreshPossibleAttackTypes(
                                             this.attackHandler.canLandRangeAttack(
@@ -5173,6 +5207,7 @@ class Sandbox extends GLScene {
                                     this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
                                     this.currentActiveSpell = undefined;
                                     this.adjustSpellBookSprite();
+                                    this.refreshButtons(true);
                                     // this.grid.print(nextUnit.getId());
                                     const currentCell = GridMath.getCellForPosition(
                                         this.sc_sceneSettings.getGridSettings(),
@@ -5262,7 +5297,6 @@ class Sandbox extends GLScene {
                     // Since u is a RenderableUnit, we can safely call render()
                     (u as RenderableUnit).render(this.sc_fps, this.sc_isAnimating, this.sc_sceneLog);
                 }
-                // u.render(this.sc_fps, this.sc_isAnimating, this.sc_sceneLog);
                 if (
                     !upperAllowed &&
                     ((this.upperPlacements[0]?.isAllowed(u.getPosition()) ?? false) ||

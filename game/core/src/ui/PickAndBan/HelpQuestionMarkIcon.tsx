@@ -4,15 +4,15 @@ import { Box } from "@mui/joy";
 
 import questionMarkImage from "../../../images/icon_question_mark_128.webp";
 
-const HelpQuestionMark: React.FC<{
+const HelpQuestionMarkIcon: React.FC<{
     setModalClosed: React.Dispatch<React.SetStateAction<boolean>>;
 }> = ({ setModalClosed }) => (
     <Box
         sx={{
             position: "absolute",
             top: "5%", // Anchor to the bottom side
-            left: "50%",
-            transform: "translate(-50%, 50%)",
+            left: "46%",
+            // transform: "translate(-50%, 50%)",
             zIndex: 50,
             animation: "wobble 3s ease-in-out infinite", // Add wobble effect
             "@keyframes wobble": {
@@ -41,4 +41,4 @@ const HelpQuestionMark: React.FC<{
     </Box>
 );
 
-export default HelpQuestionMark;
+export default HelpQuestionMarkIcon;

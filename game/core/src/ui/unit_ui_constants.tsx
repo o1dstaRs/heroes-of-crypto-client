@@ -2,6 +2,7 @@ import { Creature } from "@heroesofcrypto/common/src/generated/protobuf/v1/types
 import { images } from "../generated/image_imports";
 
 export const UNIT_ID_TO_IMAGE: Record<number, string> = {
+    [Creature.NO_CREATURE]: images.unknown_creature_512,
     [Creature.ORC]: images.orc_512,
     [Creature.SCAVENGER]: images.scavenger_512,
     [Creature.TROGLODYTE]: images.troglodyte_512,
@@ -45,6 +46,7 @@ export const UNIT_ID_TO_IMAGE: Record<number, string> = {
 };
 
 export const UNIT_ID_TO_NAME: Record<number, string> = {
+    [Creature.NO_CREATURE]: "Unknown",
     [Creature.ORC]: "Orc",
     [Creature.SCAVENGER]: "Scavenger",
     [Creature.TROGLODYTE]: "Troglodyte",

@@ -21,7 +21,7 @@ import StainedGlassWindow from "./PickAndBan";
 import { AuthProvider } from "./auth/context/auth_provider";
 import { useAuthContext } from "./auth/context/auth_context";
 
-const IS_PROD = HoCLib.stringToBoolean(process.env.IS_PROD);
+const IS_PROD = HoCLib.stringToBoolean(process.env.PROD);
 
 const usePreventSelection = () => {
     useEffect(() => {
@@ -128,6 +128,8 @@ export interface IPickPhaseEventData {
     op: number[];
     // time remaining
     t: number;
+    // reveals remanining
+    r: number;
 }
 
 // Context for SSE and pick/ban state
@@ -136,9 +138,12 @@ interface PickBanContextType {
     events: IPickPhaseEventData[];
     error: string | null;
     banned: number[];
+    picked: number[];
+    opponentPicked: number[];
     isYourTurn: boolean | null;
     pickPhase: number;
     secondsRemaining: number;
+    revealsRemaining: number;
     initialCreaturesPairs: [number, number][];
 }
 
@@ -147,10 +152,13 @@ const PickBanContext = createContext<PickBanContextType>({
     events: [],
     error: null,
     banned: [],
+    picked: [],
+    opponentPicked: [],
     isYourTurn: null,
     pickPhase: -1,
     initialCreaturesPairs: [],
     secondsRemaining: -1,
+    revealsRemaining: 0,
 });
 
 // Custom hook to use the Pick Ban Context
@@ -165,9 +173,12 @@ export const PickBanEventProvider: React.FC<{
     const [isConnected, setIsConnected] = useState(false);
     const [events, setEvents] = useState<IPickPhaseEventData[]>([]);
     const [banned, setBanned] = useState<number[]>([]);
+    const [picked, setPicked] = useState<number[]>([]);
+    const [opponentPicked, setOpponentPicked] = useState<number[]>([]);
     const [isYourTurn, setIsYourTurn] = useState<boolean | null>(null);
     const [pickPhase, setPickPhase] = useState<number>(-1);
     const [secondsRemaining, setSecondsRemaining] = useState<number>(-1);
+    const [revealsRemaining, setRevealsRemaining] = useState<number>(0);
     const [initialCreaturesPairs, setInitialCreaturesPairs] = useState<[number, number][]>([]);
     const [error, setError] = useState<string | null>(null);
 
@@ -201,9 +212,12 @@ export const PickBanEventProvider: React.FC<{
             setEvents((prevEvents) => [...prevEvents, event]);
             setIsConnected(true);
             setBanned(event.b);
+            setPicked(event.p);
+            setOpponentPicked(event.op);
             setPickPhase(event.pp);
             setIsYourTurn(event.a.includes(userTeam));
             setSecondsRemaining(Math.ceil(event.t / 1000));
+            setRevealsRemaining(event.r);
             setError(null);
             setInitialCreaturesPairs(event.ip);
         };
@@ -227,12 +241,27 @@ export const PickBanEventProvider: React.FC<{
             events,
             error,
             banned,
+            picked,
+            opponentPicked,
             isYourTurn,
             pickPhase,
             secondsRemaining,
+            revealsRemaining,
             initialCreaturesPairs,
         }),
-        [isConnected, events, error, banned],
+        [
+            isConnected,
+            events,
+            error,
+            banned,
+            picked,
+            opponentPicked,
+            isYourTurn,
+            pickPhase,
+            secondsRemaining,
+            revealsRemaining,
+            initialCreaturesPairs,
+        ],
     );
 
     return <PickBanContext.Provider value={contextValue}>{children}</PickBanContext.Provider>;
@@ -332,7 +361,9 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                     {errorMessage}
                 </div>
             )}
-            {(userTeam !== null || errorMessage) && <PickAndBanView windowSize={windowSize} userTeam={userTeam} />}
+            {(userTeam !== TeamType.NO_TEAM || errorMessage) && (
+                <PickAndBanView windowSize={windowSize} userTeam={userTeam} />
+            )}
         </>
     );
 };

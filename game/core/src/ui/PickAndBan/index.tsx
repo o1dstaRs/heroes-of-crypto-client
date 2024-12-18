@@ -1,4 +1,4 @@
-import { CreatureByLevel } from "@heroesofcrypto/common";
+import { CreatureByLevel, CreatureLevels } from "@heroesofcrypto/common";
 import { PickPhase } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
@@ -13,7 +13,9 @@ import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { InitialCreatureImageBox } from "./InitialCreatureImageBox";
 import { useAuthContext } from "../auth/context/auth_context";
 import { Timer } from "./Timer";
-import HelpQuestionMark from "./HelpQuestionMark";
+import HelpQuestionMarkIcon from "./HelpQuestionMarkIcon";
+import RevealIcon from "./RevealIcon";
+import { RevealCreatureImageBox } from "./RevealCreatureImageBox";
 
 interface StainedGlassProps {
     width?: string | number;
@@ -32,29 +34,79 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
     const [localSeconds, setLocalSeconds] = useState<number>(pickBanContext.secondsRemaining);
     const [modalClosed, setModalClosed] = useState<boolean>(false);
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const yourCreaturesPoolByLevel: number[] = structuredClone([1, 2, 1, 2, 3, 4]);
+    const opponentCreaturesPoolByLevel: number[] = structuredClone([1, 2]);
 
-    const { isInitialPick, initialCreaturesPairs, initialCreatures, poolPickable, isBan } = useMemo(() => {
+    const {
+        isInitialPick,
+        initialCreaturesPairs,
+        doNotRenderCreatures,
+        yourPickedCreatures,
+        opponentPickedCreatures,
+        poolPickable,
+        poolRevealable,
+        isBan,
+    } = useMemo(() => {
         const isInitialPick = pickBanContext.pickPhase === PickPhase.INITIAL_PICK;
         const isBan = pickBanContext.pickPhase === PickPhase.EXTENDED_BAN || pickBanContext.pickPhase === PickPhase.BAN;
         let initialCreaturesPairs: [number, number][] = [];
-        const initialCreatures: number[] = [];
+        const doNotRenderCreatures: number[] = [];
+        const yourPickedCreatures: number[] = [];
+        const opponentPickedCreatures: number[] = [];
 
         if (isInitialPick && pickBanContext.initialCreaturesPairs?.length === 2) {
             initialCreaturesPairs = pickBanContext.initialCreaturesPairs;
             for (const pair of initialCreaturesPairs) {
                 if (pair?.length === 2) {
-                    initialCreatures.push(pair[0]);
-                    initialCreatures.push(pair[1]);
+                    doNotRenderCreatures.push(pair[0]);
+                    doNotRenderCreatures.push(pair[1]);
                 }
             }
         }
 
-        const poolPickable = !isInitialPick && !errorMessage && !pickBanContext.error && pickBanContext.isYourTurn;
+        for (const p of pickBanContext.picked) {
+            yourPickedCreatures.push(p);
+            const level = CreatureLevels[p as keyof typeof CreatureLevels];
+            if (level) {
+                yourCreaturesPoolByLevel.splice(yourCreaturesPoolByLevel.indexOf(level), 1);
+            }
+            doNotRenderCreatures.push(p);
+        }
 
-        return { isInitialPick, initialCreaturesPairs, initialCreatures, poolPickable, isBan };
-    }, [pickBanContext.pickPhase, pickBanContext.initialCreaturesPairs, pickBanContext.error, errorMessage]);
+        let index = 0;
+        for (const op of pickBanContext.opponentPicked) {
+            opponentPickedCreatures.push(op);
+            if (index > 1 && op in CreatureLevels) {
+                opponentCreaturesPoolByLevel.push(CreatureLevels[op as keyof typeof CreatureLevels]);
+            }
+            index++;
+        }
+
+        const poolPickable = !isInitialPick && !errorMessage && !pickBanContext.error && pickBanContext.isYourTurn;
+        const poolRevealable = !isInitialPick && !errorMessage && !pickBanContext.error && pickBanContext.isYourTurn;
+
+        return {
+            isInitialPick,
+            initialCreaturesPairs,
+            doNotRenderCreatures: doNotRenderCreatures,
+            yourPickedCreatures,
+            opponentPickedCreatures,
+            poolPickable,
+            poolRevealable,
+            isBan,
+        };
+    }, [
+        pickBanContext.pickPhase,
+        pickBanContext.initialCreaturesPairs,
+        pickBanContext.error,
+        errorMessage,
+        yourCreaturesPoolByLevel,
+        opponentCreaturesPoolByLevel,
+    ]);
 
     console.log(`isBan ${isBan}`);
+    console.log(`yourCreaturesPoolByLevel ${yourCreaturesPoolByLevel}`);
+    console.log(`opponentCreaturesPoolByLevel ${opponentCreaturesPoolByLevel}`);
 
     useEffect(() => {
         if (pickBanContext.error) {
@@ -250,21 +302,20 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                 `}
                             </style>
                         </Box>
-
                         <Box
                             sx={{
                                 flex: 0.4,
                                 borderTop: "2px solid transparent",
                                 position: "relative",
-                                zIndex: 70, // Ensure Level 4 renders above lower levels
+                                zIndex: 70,
                                 "&::before": {
                                     content: '""',
                                     position: "absolute",
                                     top: 0,
-                                    left: "16%", // Cut 20% from the left
-                                    right: "16%", // Cut 20% from the right
+                                    left: "16%",
+                                    right: "16%",
                                     bottom: 0,
-                                    borderTop: "2px solid #2a2a2a",
+                                    borderTop: "2px solid #d2d2d2",
                                 },
                             }}
                         >
@@ -278,7 +329,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     fontWeight: "bold",
                                     fontSize: "1.2rem",
                                     textShadow: "2px 2px 8px #000000",
-                                    zIndex: 71, // Ensure Level 4 renders above lower levels
+                                    zIndex: 71,
                                 }}
                             >
                                 Level 4
@@ -319,18 +370,18 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 zIndex:
                                                     selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? 92
-                                                        : 72, // Ensure hover z-index above others
+                                                        : 72,
                                                 transform:
                                                     index % 2 < CreatureByLevel[3].length / 2
                                                         ? "translateY(-15%)"
                                                         : "translateY(25%)",
-                                                transition: "all 0.3s ease", // Updated to include all transitions
+                                                transition: "all 0.3s ease",
                                                 filter:
                                                     selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? pickBanContext.banned.includes(creatureId)
                                                             ? "drop-shadow(0px -40px 25px rgba(255, 0, 0, 1))"
                                                             : "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
-                                                        : "drop-shadow(0px 0px 0px rgba(0,0,0,0))", // Shadow on hover
+                                                        : "drop-shadow(0px 0px 0px rgba(0,0,0,0))",
                                                 left:
                                                     index === 0
                                                         ? "7%"
@@ -344,13 +395,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                                 ? "-2%"
                                                                 : index === CreatureByLevel[3].length - 2
                                                                   ? "-4.5%"
-                                                                  : 0, // Adjust left position
+                                                                  : 0,
                                                 borderRadius:
                                                     selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? "50%"
-                                                        : "none", // Border on hover
-                                                cursor: "pointer",
-                                                // Hover styles for name
+                                                        : "none",
+                                                cursor: !doNotRenderCreatures.includes(creatureId)
+                                                    ? "pointer"
+                                                    : "default",
                                                 "& .unit-name": {
                                                     visibility:
                                                         selectedCreature === creatureId ||
@@ -367,17 +419,30 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                         selectedCreature === creatureId ||
                                                         hoveredCreature === creatureId
                                                             ? 102
-                                                            : 82, // Ensure name appears above everything
+                                                            : 82,
+                                                    textDecoration: pickBanContext.banned.includes(creatureId)
+                                                        ? "line-through"
+                                                        : "none",
                                                 },
                                             }}
                                             onMouseEnter={() => {
-                                                if (hoverTimeoutRef.current) {
-                                                    clearTimeout(hoverTimeoutRef.current);
+                                                if (!doNotRenderCreatures.includes(creatureId)) {
+                                                    if (hoverTimeoutRef.current) {
+                                                        clearTimeout(hoverTimeoutRef.current);
+                                                    }
+                                                    handleMouseEnter(creatureId);
                                                 }
-                                                handleMouseEnter(creatureId);
                                             }}
-                                            onMouseLeave={handleMouseLeave}
-                                            onClick={() => handleCreatureClick(creatureId)}
+                                            onMouseLeave={() => {
+                                                if (!doNotRenderCreatures.includes(creatureId)) {
+                                                    handleMouseLeave();
+                                                }
+                                            }}
+                                            onClick={() => {
+                                                if (!doNotRenderCreatures.includes(creatureId)) {
+                                                    handleCreatureClick(creatureId);
+                                                }
+                                            }}
                                         >
                                             <div style={{ position: "relative", width: "100%", height: "100%" }}>
                                                 <img
@@ -399,7 +464,6 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                                 : "scale(1)",
                                                     }}
                                                 />
-                                                {/* Draw x mark if banned */}
                                                 {pickBanContext.banned.includes(creatureId) && (
                                                     <img
                                                         src={images.x_mark_1_512}
@@ -489,6 +553,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     whiteSpace: "nowrap",
                                                     pointerEvents: "none",
                                                     zIndex: 73,
+                                                    textDecoration: pickBanContext.banned.includes(creatureId)
+                                                        ? "line-through"
+                                                        : "none",
                                                 }}
                                             >
                                                 {UNIT_ID_TO_NAME[creatureId]}
@@ -502,36 +569,34 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                         <Box
                             sx={{
                                 flex: 0.4,
-                                // borderBottom: "2px solid #2a2a2a",
-                                // borderTop: "2px solid #2a2a2a",
                                 position: "relative",
                                 borderTopLeftRadius: "100%",
                                 borderTopRightRadius: "100%",
-                                zIndex: 60, // Ensure Level 3 below Level 4
+                                zIndex: 60,
                                 "&::before": {
                                     content: '""',
                                     position: "absolute",
                                     top: "-182%",
-                                    left: 5, // Gradient starts from the left
-                                    right: "50%", // Gradient ends at the right
-                                    bottom: 0, // Extend to the bottom for a full half circle
+                                    left: 5,
+                                    right: "50%",
+                                    bottom: 0,
                                     background:
                                         "linear-gradient(to right, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0.8), transparent)",
-                                    borderTopLeftRadius: "200%", // Half-circle cut on the top left
-                                    pointerEvents: "none", // Make the overlay non-interactive
+                                    borderTopLeftRadius: "200%",
+                                    pointerEvents: "none",
                                     zIndex: -1,
                                 },
                                 "&::after": {
                                     content: '""',
                                     position: "absolute",
                                     top: "-180%",
-                                    left: "50%", // Gradient starts from the left
-                                    right: 5, // Gradient ends at the right
-                                    bottom: 0, // Extend to the bottom for a full half circle
+                                    left: "50%",
+                                    right: 5,
+                                    bottom: 0,
                                     background:
                                         "linear-gradient(to left, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0.8), transparent)",
-                                    borderTopRightRadius: "200%", // Half-circle cut on the top left
-                                    pointerEvents: "none", // Make the overlay non-interactive
+                                    borderTopRightRadius: "200%",
+                                    pointerEvents: "none",
                                     zIndex: -1,
                                 },
                             }}
@@ -546,7 +611,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     fontWeight: "bold",
                                     fontSize: "1.2rem",
                                     textShadow: "2px 2px 8px #000000",
-                                    zIndex: 61, // Ensure Level 3 below Level 4
+                                    zIndex: 91,
                                 }}
                             >
                                 Level 3
@@ -576,6 +641,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     {CreatureByLevel[2].map((creatureId: number, index: number) => (
                                         <Box
                                             key={creatureId}
+                                            className="creature-image"
                                             sx={{
                                                 width: "10%",
                                                 height: "90%",
@@ -585,24 +651,40 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 position: "relative",
                                                 zIndex:
                                                     selectedCreature === creatureId || hoveredCreature === creatureId
-                                                        ? 91
-                                                        : 62, // Ensure hover z-index above others
-                                                transform: index % 2 === 0 ? "translateY(-25%)" : "translateY(25%)",
-                                                transition: "all 0.3s ease", // Updated to include all transitions
+                                                        ? 92
+                                                        : 62,
+                                                transition: "all 0.3s ease",
                                                 filter:
                                                     selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? pickBanContext.banned.includes(creatureId)
                                                             ? "drop-shadow(0px -40px 25px rgba(255, 0, 0, 1))"
                                                             : "drop-shadow(0px -40px 25px rgba(255, 255, 255, 0.9))"
-                                                        : "drop-shadow(0px 0px 0px rgba(0,0,0,0))", // Shadow on hover
-                                                left: index === CreatureByLevel[2].length - 1 ? "-2%" : 0, // Adjust left position
-                                                top: index === CreatureByLevel[2].length / 2 ? "12.5%" : 0, // Adjust left position
+                                                        : "drop-shadow(0px 0px 0px rgba(0,0,0,0))",
+                                                left:
+                                                    index === 0
+                                                        ? "1%"
+                                                        : index === CreatureByLevel[2].length - 1
+                                                          ? "-1%"
+                                                          : index === 1
+                                                            ? "0.9%"
+                                                            : index === 2
+                                                              ? "0.7%"
+                                                              : index === 3
+                                                                ? "0.3%"
+                                                                : index === 4
+                                                                  ? "-0.3%"
+                                                                  : index === 5
+                                                                    ? "-0.3%"
+                                                                    : index === 6
+                                                                      ? "-0.4%"
+                                                                      : 0,
                                                 borderRadius:
                                                     selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? "50%"
-                                                        : "none", // Border on hover
-                                                cursor: "pointer",
-                                                // Hover styles for name
+                                                        : "none",
+                                                cursor: !doNotRenderCreatures.includes(creatureId)
+                                                    ? "pointer"
+                                                    : "default",
                                                 "& .unit-name": {
                                                     visibility:
                                                         selectedCreature === creatureId ||
@@ -615,21 +697,30 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                             ? 1
                                                             : 0,
                                                     transition: "opacity 0.3s ease, visibility 0.2s ease",
-                                                    zIndex:
-                                                        selectedCreature === creatureId ||
-                                                        hoveredCreature === creatureId
-                                                            ? 101
-                                                            : 62, // Ensure name appears above everything
+                                                    zIndex: 101,
+                                                    textDecoration: pickBanContext.banned.includes(creatureId)
+                                                        ? "line-through"
+                                                        : "none",
                                                 },
                                             }}
                                             onMouseEnter={() => {
-                                                if (hoverTimeoutRef.current) {
-                                                    clearTimeout(hoverTimeoutRef.current);
+                                                if (!doNotRenderCreatures.includes(creatureId)) {
+                                                    if (hoverTimeoutRef.current) {
+                                                        clearTimeout(hoverTimeoutRef.current);
+                                                    }
+                                                    handleMouseEnter(creatureId);
                                                 }
-                                                handleMouseEnter(creatureId);
                                             }}
-                                            onMouseLeave={handleMouseLeave}
-                                            onClick={() => handleCreatureClick(creatureId)}
+                                            onMouseLeave={() => {
+                                                if (!doNotRenderCreatures.includes(creatureId)) {
+                                                    handleMouseLeave();
+                                                }
+                                            }}
+                                            onClick={() => {
+                                                if (!doNotRenderCreatures.includes(creatureId)) {
+                                                    handleCreatureClick(creatureId);
+                                                }
+                                            }}
                                         >
                                             <div style={{ position: "relative", width: "100%", height: "100%" }}>
                                                 <img
@@ -647,11 +738,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                         transform:
                                                             selectedCreature === creatureId ||
                                                             hoveredCreature === creatureId
-                                                                ? `scale(1.2) translateY(${index % 2 !== 0 ? "-10%" : "25%"})`
+                                                                ? `scale(1.2) translateY(25%)`
                                                                 : "scale(1)",
                                                     }}
                                                 />
-                                                {/* Draw x mark if banned */}
                                                 {pickBanContext.banned.includes(creatureId) && (
                                                     <img
                                                         src={images.x_mark_1_512}
@@ -666,18 +756,68 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                             transform:
                                                                 selectedCreature === creatureId ||
                                                                 hoveredCreature === creatureId
-                                                                    ? `scale(1.2) translateY(${index % 2 !== 0 ? "-10%" : "25%"})`
+                                                                    ? `scale(1.2) translateY(25%)`
                                                                     : "scale(1)",
                                                             transition: "transform 0.2s ease-out",
                                                         }}
                                                     />
+                                                )}
+                                                {selectedCreature === creatureId && poolPickable && (
+                                                    <Box
+                                                        sx={{
+                                                            position: "absolute",
+                                                            width: "auto",
+                                                            display: "flex",
+                                                            justifyContent: "space-between",
+                                                            alignItems: "center",
+                                                            top: "75%",
+                                                            right: "40%",
+                                                            transform: "translate(-50%, -50%) scale(1.5)",
+                                                            zIndex: 203,
+                                                            pointerEvents: "auto",
+                                                        }}
+                                                    >
+                                                        <IconButton
+                                                            aria-label="accept"
+                                                            sx={{
+                                                                color: "lightgreen",
+                                                                marginRight: "10%",
+                                                                marginTop: "10%",
+                                                                borderRadius: "20px",
+                                                                boxShadow: "0 0 10px #ffffff",
+                                                                border: "2px solid white",
+                                                                paddingLeft: "10px",
+                                                                paddingRight: "10px",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                backgroundColor: "#000000",
+                                                                transform: "scale(0.8)",
+                                                                zIndex: 203,
+                                                                "&:hover": {
+                                                                    backgroundColor: "darkgreen",
+                                                                },
+                                                            }}
+                                                        >
+                                                            <CheckIcon
+                                                                sx={{
+                                                                    transform: "rotateX(180deg)",
+                                                                    marginRight: "5px",
+                                                                }}
+                                                            />
+                                                            <span
+                                                                style={{ color: "white", transform: "rotateX(180deg)" }}
+                                                            >
+                                                                Pick
+                                                            </span>
+                                                        </IconButton>
+                                                    </Box>
                                                 )}
                                             </div>
                                             <Box
                                                 className="unit-name"
                                                 sx={{
                                                     position: "absolute",
-                                                    bottom: index % 2 !== 0 ? "145%" : "100%",
+                                                    bottom: "100%",
                                                     left: "50%",
                                                     backgroundColor: pickBanContext.banned.includes(creatureId)
                                                         ? "rgba(0,0,0,0.8)"
@@ -692,7 +832,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
                                                     whiteSpace: "nowrap",
                                                     pointerEvents: "none",
-                                                    zIndex: 63,
+                                                    zIndex: 93,
+                                                    textDecoration: pickBanContext.banned.includes(creatureId)
+                                                        ? "line-through"
+                                                        : "none",
                                                 }}
                                             >
                                                 {UNIT_ID_TO_NAME[creatureId]}
@@ -799,7 +942,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? "50%"
                                                         : "none", // Border on hover
-                                                cursor: "pointer",
+                                                cursor: !doNotRenderCreatures.includes(creatureId)
+                                                    ? "pointer"
+                                                    : "default",
                                                 // Hover styles for name
                                                 "& .unit-name": {
                                                     visibility:
@@ -821,16 +966,26 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 },
                                             }}
                                             onMouseEnter={() => {
-                                                if (hoverTimeoutRef.current) {
-                                                    clearTimeout(hoverTimeoutRef.current);
+                                                if (!doNotRenderCreatures.includes(creatureId)) {
+                                                    if (hoverTimeoutRef.current) {
+                                                        clearTimeout(hoverTimeoutRef.current);
+                                                    }
+                                                    handleMouseEnter(creatureId);
                                                 }
-                                                handleMouseEnter(creatureId);
                                             }}
-                                            onMouseLeave={handleMouseLeave}
-                                            onClick={() => handleCreatureClick(creatureId)}
+                                            onMouseLeave={() => {
+                                                if (!doNotRenderCreatures.includes(creatureId)) {
+                                                    handleMouseLeave();
+                                                }
+                                            }}
+                                            onClick={() => {
+                                                if (!doNotRenderCreatures.includes(creatureId)) {
+                                                    handleCreatureClick(creatureId);
+                                                }
+                                            }}
                                         >
                                             <div style={{ position: "relative", width: "100%", height: "100%" }}>
-                                                {!initialCreatures.includes(creatureId) && (
+                                                {!doNotRenderCreatures.includes(creatureId) && (
                                                     <img
                                                         src={UNIT_ID_TO_IMAGE[creatureId]}
                                                         alt={`Creature ${creatureId}`}
@@ -873,7 +1028,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     />
                                                 )}
                                             </div>
-                                            {!initialCreatures.includes(creatureId) && (
+                                            {!doNotRenderCreatures.includes(creatureId) && (
                                                 <Box
                                                     className="unit-name"
                                                     sx={{
@@ -894,6 +1049,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                         whiteSpace: "nowrap",
                                                         pointerEvents: "none",
                                                         zIndex: 63,
+                                                        textDecoration: pickBanContext.banned.includes(creatureId)
+                                                            ? "line-through"
+                                                            : "none",
                                                     }}
                                                 >
                                                     {UNIT_ID_TO_NAME[creatureId]}
@@ -1000,7 +1158,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     selectedCreature === creatureId || hoveredCreature === creatureId
                                                         ? "50%"
                                                         : "none", // Border on hover
-                                                cursor: "pointer",
+                                                cursor: !doNotRenderCreatures.includes(creatureId)
+                                                    ? "pointer"
+                                                    : "default",
                                                 // Hover styles for name
                                                 "& .unit-name": {
                                                     visibility:
@@ -1022,16 +1182,26 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                 },
                                             }}
                                             onMouseEnter={() => {
-                                                if (hoverTimeoutRef.current) {
-                                                    clearTimeout(hoverTimeoutRef.current);
+                                                if (!doNotRenderCreatures.includes(creatureId)) {
+                                                    if (hoverTimeoutRef.current) {
+                                                        clearTimeout(hoverTimeoutRef.current);
+                                                    }
+                                                    handleMouseEnter(creatureId);
                                                 }
-                                                handleMouseEnter(creatureId);
                                             }}
-                                            onMouseLeave={handleMouseLeave}
-                                            onClick={() => handleCreatureClick(creatureId)}
+                                            onMouseLeave={() => {
+                                                if (!doNotRenderCreatures.includes(creatureId)) {
+                                                    handleMouseLeave();
+                                                }
+                                            }}
+                                            onClick={() => {
+                                                if (!doNotRenderCreatures.includes(creatureId)) {
+                                                    handleCreatureClick(creatureId);
+                                                }
+                                            }}
                                         >
                                             <div style={{ position: "relative", width: "100%", height: "100%" }}>
-                                                {!initialCreatures.includes(creatureId) && (
+                                                {!doNotRenderCreatures.includes(creatureId) && (
                                                     <img
                                                         src={UNIT_ID_TO_IMAGE[creatureId]}
                                                         alt={`Creature ${creatureId}`}
@@ -1074,7 +1244,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     />
                                                 )}
                                             </div>
-                                            {!initialCreatures.includes(creatureId) && (
+                                            {!doNotRenderCreatures.includes(creatureId) && (
                                                 <Box
                                                     className="unit-name"
                                                     sx={{
@@ -1095,6 +1265,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                         whiteSpace: "nowrap",
                                                         pointerEvents: "none",
                                                         zIndex: 63,
+                                                        textDecoration: pickBanContext.banned.includes(creatureId)
+                                                            ? "line-through"
+                                                            : "none",
                                                     }}
                                                 >
                                                     {UNIT_ID_TO_NAME[creatureId]}
@@ -1112,8 +1285,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                 flex: 0.4,
                                 display: "flex",
                                 flexDirection: "row",
-                                borderTop: "4px solid #2a2a2a",
-                                borderBottom: !isInitialPick && !errorMessage ? "4px solid #2a2a2a" : undefined,
+                                borderTop: "4px solid #d2d2d2",
+                                borderBottom: !isInitialPick && !errorMessage ? "4px solid #d2d2d2" : undefined,
                                 position: "relative",
                                 "&::after":
                                     (lastKnownPickPhase !== null && !modalClosed) || errorMessage
@@ -1215,7 +1388,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     <Box
                                         sx={{
                                             position: "absolute",
-                                            top: "36%",
+                                            // top: "36%",
+                                            top: "45%",
                                             left: "50%",
                                             transform: "translate(-50%, -50%)",
                                             zIndex: 31,
@@ -1290,6 +1464,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     handleMouseLeave={handleMouseLeave}
                                                     handleCreatureClick={handleCreatureClick}
                                                     hoverTimeoutRef={hoverTimeoutRef}
+                                                    transformY={false}
                                                 />
                                                 <Box
                                                     sx={{
@@ -1348,6 +1523,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     handleMouseLeave={handleMouseLeave}
                                                     handleCreatureClick={handleCreatureClick}
                                                     hoverTimeoutRef={hoverTimeoutRef}
+                                                    transformY={false}
                                                 />
                                             </Box>
                                             <Box
@@ -1368,6 +1544,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     handleMouseLeave={handleMouseLeave}
                                                     handleCreatureClick={handleCreatureClick}
                                                     hoverTimeoutRef={hoverTimeoutRef}
+                                                    transformY={false}
                                                 />
                                                 <InitialCreatureImageBox
                                                     creatureId={initialCreaturesPairs[1][1]}
@@ -1378,6 +1555,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                                     handleMouseLeave={handleMouseLeave}
                                                     handleCreatureClick={handleCreatureClick}
                                                     hoverTimeoutRef={hoverTimeoutRef}
+                                                    transformY={false}
                                                 />
                                                 <Box
                                                     sx={{
@@ -1467,7 +1645,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                     </Box>
                                 )}
                             </Box>
-                            {modalClosed && !errorMessage && <HelpQuestionMark setModalClosed={setModalClosed} />}
+                            {modalClosed && !errorMessage && <HelpQuestionMarkIcon setModalClosed={setModalClosed} />}
+                            {modalClosed && !errorMessage && (
+                                <RevealIcon revealsRemaining={pickBanContext.revealsRemaining} />
+                            )}
                             <Box
                                 sx={{
                                     flex: 0.5,
@@ -1507,8 +1688,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                 flex: 0.4,
                                 display: "flex",
                                 flexDirection: "row",
-                                // borderBottom: "4px solid #2a2a2a",
                                 position: "relative",
+                                width: "100%",
                                 "&::after":
                                     isInitialPick || errorMessage
                                         ? {
@@ -1530,36 +1711,193 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ height = window.inner
                                 <>
                                     <Box
                                         sx={{
-                                            flex: 0.5,
+                                            flex: "1 0 50%",
                                             position: "relative",
                                             zIndex: 2,
-                                            "&::before": {
-                                                content: '""',
-                                                position: "absolute",
-                                                top: "0%",
-                                                left: "0%",
-                                                right: "0%",
-                                                bottom: "0%",
-                                                background: "linear-gradient(to right, rgba(0, 0, 0, 1), transparent)",
-                                            },
+                                            display: "flex",
+                                            flexDirection: "row",
+                                            height: "100%",
+                                            backgroundColor: "rgba(0, 0, 0, 0.8)",
                                         }}
-                                    />
+                                    >
+                                        {[...Array(6)].map((_, index) => (
+                                            <Box
+                                                key={index}
+                                                sx={{
+                                                    flex: "1 1 16.666%",
+                                                    borderRight:
+                                                        index < 5 ? "1px solid rgba(255, 255, 255, 0.3)" : "none",
+                                                    height: "100%",
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                }}
+                                            >
+                                                {index in yourPickedCreatures &&
+                                                    yourPickedCreatures[index] &&
+                                                    yourPickedCreatures[index] in CreatureLevels && (
+                                                        <>
+                                                            <Box
+                                                                sx={{
+                                                                    color: "#ffffff",
+                                                                    fontSize: "0.8rem",
+                                                                    marginBottom: "20px",
+                                                                    textAlign: "center",
+                                                                }}
+                                                            >
+                                                                Level{" "}
+                                                                {
+                                                                    CreatureLevels[
+                                                                        yourPickedCreatures[
+                                                                            index
+                                                                        ] as keyof typeof CreatureLevels
+                                                                    ]
+                                                                }
+                                                            </Box>
+                                                            <InitialCreatureImageBox
+                                                                key={yourPickedCreatures[index]}
+                                                                creatureId={yourPickedCreatures[index]}
+                                                                selectedCreature={selectedCreature}
+                                                                hoveredCreature={hoveredCreature}
+                                                                initialCreaturesPairs={initialCreaturesPairs}
+                                                                handleMouseEnter={handleMouseEnter}
+                                                                handleMouseLeave={handleMouseLeave}
+                                                                handleCreatureClick={handleCreatureClick}
+                                                                hoverTimeoutRef={hoverTimeoutRef}
+                                                                transformY={true}
+                                                            />
+                                                        </>
+                                                    )}
+                                                {!yourPickedCreatures[index] &&
+                                                    index - yourPickedCreatures.length in yourCreaturesPoolByLevel &&
+                                                    yourCreaturesPoolByLevel[index - yourPickedCreatures.length] >
+                                                        0 && (
+                                                        <Box
+                                                            sx={{
+                                                                color: "#ffffff",
+                                                                fontSize: "0.8rem",
+                                                                textAlign: "center",
+                                                            }}
+                                                        >
+                                                            Level{" "}
+                                                            {
+                                                                yourCreaturesPoolByLevel[
+                                                                    index - yourPickedCreatures.length
+                                                                ]
+                                                            }
+                                                        </Box>
+                                                    )}
+                                            </Box>
+                                        ))}
+                                    </Box>
+
+                                    {/* separator */}
                                     <Box
                                         sx={{
-                                            flex: 0.5,
+                                            width: "4px",
+                                            borderTop: "2px solid transparent",
                                             position: "relative",
                                             zIndex: 2,
+                                            display: "flex",
+                                            justifyContent: "center",
                                             "&::before": {
                                                 content: '""',
                                                 position: "absolute",
-                                                top: "0%",
-                                                left: "0%",
-                                                right: "0%",
-                                                bottom: "0%",
-                                                background: "linear-gradient(to left, rgba(0, 0, 0, 1), transparent)",
+                                                top: "16%",
+                                                bottom: "16%",
+                                                width: "100%",
+                                                borderLeft: "2px solid #ffffff",
                                             },
                                         }}
                                     />
+
+                                    <Box
+                                        sx={{
+                                            flex: "1 0 50%",
+                                            position: "relative",
+                                            zIndex: 2,
+                                            display: "flex",
+                                            flexDirection: "row-reverse",
+                                            height: "100%",
+                                            backgroundColor: "rgba(0, 0, 0, 0.8)",
+                                        }}
+                                    >
+                                        {[...Array(6)].map((_, index) => (
+                                            <Box
+                                                key={index}
+                                                sx={{
+                                                    flex: "1 1 16.666%",
+                                                    borderLeft:
+                                                        index < 5 ? "1px solid rgba(255, 255, 255, 0.3)" : "none",
+                                                    height: "100%",
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                }}
+                                            >
+                                                {index in opponentPickedCreatures && (
+                                                    <>
+                                                        <Box
+                                                            sx={{
+                                                                color: "#ffffff",
+                                                                fontSize: "0.8rem",
+                                                                marginBottom: "20px",
+                                                                textAlign: "center",
+                                                            }}
+                                                        >
+                                                            Level {opponentCreaturesPoolByLevel[index]}
+                                                        </Box>
+                                                        {opponentPickedCreatures[index] ? (
+                                                            <InitialCreatureImageBox
+                                                                key={opponentPickedCreatures[index]}
+                                                                creatureId={opponentPickedCreatures[index]}
+                                                                selectedCreature={selectedCreature}
+                                                                hoveredCreature={hoveredCreature}
+                                                                initialCreaturesPairs={initialCreaturesPairs}
+                                                                handleMouseEnter={handleMouseEnter}
+                                                                handleMouseLeave={handleMouseLeave}
+                                                                handleCreatureClick={handleCreatureClick}
+                                                                hoverTimeoutRef={hoverTimeoutRef}
+                                                                transformY={true}
+                                                            />
+                                                        ) : (
+                                                            <RevealCreatureImageBox
+                                                                key={`Unknown${index}`}
+                                                                creatureId={-index}
+                                                                selectedCreature={selectedCreature}
+                                                                hoveredCreature={hoveredCreature}
+                                                                initialCreaturesPairs={initialCreaturesPairs}
+                                                                handleMouseEnter={handleMouseEnter}
+                                                                handleMouseLeave={handleMouseLeave}
+                                                                handleCreatureClick={handleCreatureClick}
+                                                                hoverTimeoutRef={hoverTimeoutRef}
+                                                                poolRevealable={poolRevealable ?? false}
+                                                                transformY={true}
+                                                            />
+                                                        )}
+                                                    </>
+                                                )}
+                                                {/* {index in opponentPickedCreatures && (
+                                                    <Box
+                                                        sx={{
+                                                            color: "#ffffff",
+                                                            fontSize: "0.8rem",
+                                                            textAlign: "center",
+                                                        }}
+                                                    >
+                                                        Level{" "}
+                                                        {
+                                                            opponentCreaturesPoolByLevel[
+                                                                index - opponentPickedCreatures.length
+                                                            ]
+                                                        }
+                                                    </Box>
+                                                )} */}
+                                            </Box>
+                                        ))}
+                                    </Box>
                                 </>
                             )}
                         </Box>
