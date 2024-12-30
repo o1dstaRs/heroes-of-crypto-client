@@ -200,12 +200,25 @@ export function AuthProvider({ children }: Props) {
         });
     }, []);
 
-    const abandonGame = useCallback(async (gameId: string) => {
-        await axiosGameInstance.post(`${endpoints.game.abandon}/${gameId}`, {
-            responseType: "arraybuffer",
-            headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
-        });
-    }, []);
+    const abandonGame = useCallback(
+        async (gameId: string) => {
+            await axiosGameInstance.post(`${endpoints.game.abandon}/${gameId}`, {
+                responseType: "arraybuffer",
+                headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
+            });
+
+            dispatch({
+                type: Types.INITIAL,
+                payload: {
+                    user: {
+                        ...state.user,
+                        inGameId: "",
+                    } as AuthUserType,
+                },
+            });
+        },
+        [state],
+    );
 
     const pickPair = useCallback(async (pairIndex: number) => {
         refreshLocalStorageFromCookie();

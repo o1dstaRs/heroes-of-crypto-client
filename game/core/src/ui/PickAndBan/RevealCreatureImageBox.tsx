@@ -1,9 +1,11 @@
 import { CreatureByLevel } from "@heroesofcrypto/common";
 import { Box, IconButton } from "@mui/joy";
+import React, { useCallback } from "react";
 import { UNIT_ID_TO_IMAGE } from "../unit_ui_constants";
-import React from "react";
 import { usePickBanEvents } from "..";
 import { images } from "../../generated/image_imports";
+import revealSmallImage from "../../../images/icon_reveal_128.webp";
+import { useAuthContext } from "../auth/context/auth_context";
 
 export const RevealCreatureImageBox = ({
     creatureId,
@@ -16,6 +18,7 @@ export const RevealCreatureImageBox = ({
     hoverTimeoutRef,
     poolRevealable,
     transformY,
+    setErrorMessage,
 }: {
     creatureId: number;
     selectedCreature: number | null;
@@ -27,8 +30,23 @@ export const RevealCreatureImageBox = ({
     hoverTimeoutRef: React.MutableRefObject<NodeJS.Timeout | null>;
     poolRevealable: boolean;
     transformY: boolean;
+    setErrorMessage: React.Dispatch<React.SetStateAction<string | null>>;
 }) => {
     const pickBanContext = usePickBanEvents();
+    const { reveal } = useAuthContext();
+
+    const handleRevealClick = useCallback(async () => {
+        const slot = -creatureId;
+        try {
+            await reveal(slot);
+        } catch (error) {
+            if (typeof error === "string") {
+                setErrorMessage(error);
+            } else {
+                setErrorMessage((error as Error).message);
+            }
+        }
+    }, [creatureId, reveal, setErrorMessage]);
 
     return (
         <Box
@@ -56,7 +74,7 @@ export const RevealCreatureImageBox = ({
                     selectedCreature === creatureId || hoveredCreature === creatureId
                         ? pickBanContext.banned.includes(creatureId)
                             ? "drop-shadow(0px -40px 25px rgba(255, 0, 0, 1))"
-                            : "drop-shadow(0px -40px 25px rgba(0, 0, 255, 0.9))"
+                            : "drop-shadow(0px -40px 25px rgba(115, 239, 245, 0.9))"
                         : "drop-shadow(0px 0px 0px rgba(0,0,0,0))",
                 borderRadius: selectedCreature === creatureId || hoveredCreature === creatureId ? "50%" : "none",
                 cursor: "pointer",
@@ -97,7 +115,7 @@ export const RevealCreatureImageBox = ({
                 />
                 {pickBanContext.banned.includes(creatureId) && (
                     <img
-                        src={images.x_mark_1_512}
+                        src={images.x_mark_2_512}
                         alt="X mark"
                         style={{
                             position: "absolute",
@@ -108,8 +126,8 @@ export const RevealCreatureImageBox = ({
                             objectFit: "contain",
                             transform:
                                 selectedCreature === creatureId || hoveredCreature === creatureId
-                                    ? "scale(1.2) translateY(25%)"
-                                    : "scale(1)",
+                                    ? "scale(1.2) translateY(25%) rotateY(180deg)"
+                                    : "scale(1) rotateY(180deg)",
                             transition: "transform 0.2s ease-out",
                         }}
                     />
@@ -129,9 +147,10 @@ export const RevealCreatureImageBox = ({
                         }}
                     >
                         <IconButton
-                            aria-label="accept"
+                            aria-label="reveal"
+                            onClick={handleRevealClick}
                             sx={{
-                                color: "lightgreen",
+                                color: "#3B9B5C",
                                 marginRight: "10%",
                                 marginTop: "10%",
                                 borderRadius: "20px",
@@ -144,7 +163,16 @@ export const RevealCreatureImageBox = ({
                                 backgroundColor: "#000000",
                                 transform: "scale(0.8)",
                                 "&:hover": {
-                                    backgroundColor: "darkgreen",
+                                    backgroundColor: "rgb(62, 135, 144)",
+                                    "&::after": {
+                                        content: `url(${revealSmallImage})`,
+                                        position: "absolute",
+                                        left: "114%",
+                                        top: "130%",
+                                        transform: "translate(-50%, -50%) scale(0.48) rotateX(180deg)",
+                                        width: "60%",
+                                        height: "60%",
+                                    },
                                 },
                             }}
                         >
