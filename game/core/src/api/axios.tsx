@@ -69,9 +69,6 @@ axiosGameInstance.interceptors.response.use(
         return res;
     },
     (error) => {
-        if (error.response?.status === 409) {
-            return Promise.reject(new Error("Already in game"));
-        }
         if (error.response?.status === 401) {
             return Promise.reject(new Error("Unauthorized"));
         }

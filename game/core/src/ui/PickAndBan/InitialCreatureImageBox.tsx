@@ -1,5 +1,5 @@
 import { CreatureByLevel } from "@heroesofcrypto/common";
-import { Box } from "@mui/joy";
+import { Badge, Box } from "@mui/joy";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import React from "react";
 import { usePickBanEvents } from "..";
@@ -8,6 +8,7 @@ import { images } from "../../generated/image_imports";
 export const InitialCreatureImageBox = ({
     creatureId,
     selectedCreature,
+    selectedCreatureAmount,
     hoveredCreature,
     initialCreaturesPairs,
     handleMouseEnter,
@@ -18,6 +19,7 @@ export const InitialCreatureImageBox = ({
 }: {
     creatureId: number;
     selectedCreature: number | null;
+    selectedCreatureAmount: number | null;
     hoveredCreature: number | null;
     initialCreaturesPairs: [number, number][];
     handleMouseEnter: (creatureId: number) => void;
@@ -40,7 +42,11 @@ export const InitialCreatureImageBox = ({
                 alignItems: "center",
                 justifyContent: "center",
                 position: "relative",
-                zIndex: selectedCreature === creatureId || hoveredCreature === creatureId ? 92 : 72,
+                zIndex: !transformY
+                    ? selectedCreature === creatureId || hoveredCreature === creatureId
+                        ? 92
+                        : 72
+                    : undefined,
                 transform:
                     !transformY &&
                     initialCreaturesPairs.length &&
@@ -77,25 +83,48 @@ export const InitialCreatureImageBox = ({
             onClick={() => handleCreatureClick(creatureId)}
         >
             <div style={{ position: "relative", width: "100%", height: "100%" }}>
-                <img
-                    src={UNIT_ID_TO_IMAGE[creatureId]}
-                    alt={`Creature ${creatureId}`}
-                    style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                        borderRadius: "50%",
-                        transition: "filter 0.3s ease, transform 0.3s ease",
-                        filter: pickBanContext.banned.includes(creatureId) ? "grayscale(100%)" : "none",
-                        transform:
-                            selectedCreature === creatureId || hoveredCreature === creatureId
-                                ? "scale(1.2) translateY(25%)"
-                                : "scale(1)",
-                    }}
-                />
+                <>
+                    <img
+                        src={UNIT_ID_TO_IMAGE[creatureId]}
+                        alt={`Creature ${creatureId}`}
+                        style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "contain",
+                            borderRadius: "50%",
+                            transition: "filter 0.3s ease, transform 0.3s ease",
+                            filter: pickBanContext.banned.includes(creatureId) ? "grayscale(100%)" : "none",
+                            transform:
+                                selectedCreature === creatureId || hoveredCreature === creatureId
+                                    ? "scale(1.2) translateY(25%)"
+                                    : "scale(1)",
+                        }}
+                    />
+                    {selectedCreature === creatureId && hoveredCreature === creatureId && (
+                        <Badge
+                            badgeContent={selectedCreatureAmount}
+                            max={999}
+                            sx={{
+                                position: "absolute",
+                                zIndex: 104,
+                                transform: "rotateX(180deg)",
+                                bottom: "50%",
+                                cursor: "pointer",
+                                "& .MuiBadge-badge": {
+                                    fontSize: "1.08rem", // Increase by 20%
+                                    height: "26.4px", // Increase by 20%
+                                    minWidth: "26.4px", // Increase by 20%
+                                    color: "black",
+                                    backgroundColor: "white",
+                                    // border: "2px solid white", // Added white border
+                                },
+                            }}
+                        />
+                    )}
+                </>
                 {pickBanContext.banned.includes(creatureId) && (
                     <img
-                        src={images.x_mark_1_512}
+                        src={images.x_mark_2_512}
                         alt="X mark"
                         style={{
                             position: "absolute",
@@ -106,8 +135,8 @@ export const InitialCreatureImageBox = ({
                             objectFit: "contain",
                             transform:
                                 selectedCreature === creatureId || hoveredCreature === creatureId
-                                    ? "scale(1.2) translateY(25%)"
-                                    : "scale(1)",
+                                    ? "scale(1.2) translateY(25%) rotateY(180deg)"
+                                    : "scale(1) rotateY(180deg)",
                             transition: "transform 0.2s ease-out",
                         }}
                     />

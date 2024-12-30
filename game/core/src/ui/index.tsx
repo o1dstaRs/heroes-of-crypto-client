@@ -130,6 +130,8 @@ export interface IPickPhaseEventData {
     t: number;
     // reveals remanining
     r: number;
+    // is abandoned
+    ia: boolean;
 }
 
 // Context for SSE and pick/ban state
@@ -141,6 +143,7 @@ interface PickBanContextType {
     picked: number[];
     opponentPicked: number[];
     isYourTurn: boolean | null;
+    isAbandoned: boolean | null;
     pickPhase: number;
     secondsRemaining: number;
     revealsRemaining: number;
@@ -155,6 +158,7 @@ const PickBanContext = createContext<PickBanContextType>({
     picked: [],
     opponentPicked: [],
     isYourTurn: null,
+    isAbandoned: null,
     pickPhase: -1,
     initialCreaturesPairs: [],
     secondsRemaining: -1,
@@ -164,7 +168,6 @@ const PickBanContext = createContext<PickBanContextType>({
 // Custom hook to use the Pick Ban Context
 export const usePickBanEvents = () => useContext(PickBanContext);
 
-// Provider component that manages SSE connection
 export const PickBanEventProvider: React.FC<{
     children: React.ReactNode;
     url: string;
@@ -176,6 +179,7 @@ export const PickBanEventProvider: React.FC<{
     const [picked, setPicked] = useState<number[]>([]);
     const [opponentPicked, setOpponentPicked] = useState<number[]>([]);
     const [isYourTurn, setIsYourTurn] = useState<boolean | null>(null);
+    const [isAbandoned, setIsAbandoned] = useState<boolean | null>(null);
     const [pickPhase, setPickPhase] = useState<number>(-1);
     const [secondsRemaining, setSecondsRemaining] = useState<number>(-1);
     const [revealsRemaining, setRevealsRemaining] = useState<number>(0);
@@ -216,6 +220,7 @@ export const PickBanEventProvider: React.FC<{
             setOpponentPicked(event.op);
             setPickPhase(event.pp);
             setIsYourTurn(event.a.includes(userTeam));
+            setIsAbandoned(event.ia);
             setSecondsRemaining(Math.ceil(event.t / 1000));
             setRevealsRemaining(event.r);
             setError(null);
@@ -244,6 +249,7 @@ export const PickBanEventProvider: React.FC<{
             picked,
             opponentPicked,
             isYourTurn,
+            isAbandoned,
             pickPhase,
             secondsRemaining,
             revealsRemaining,
@@ -257,6 +263,7 @@ export const PickBanEventProvider: React.FC<{
             picked,
             opponentPicked,
             isYourTurn,
+            isAbandoned,
             pickPhase,
             secondsRemaining,
             revealsRemaining,
@@ -299,7 +306,7 @@ const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType }> 
                     <LeftSideBar gameStarted={started} windowSize={windowSize} />
                     <RightSideBar gameStarted={started} windowSize={windowSize} />
                 </CssVarsProvider>
-                <StainedGlassWindow />
+                <StainedGlassWindow userTeam={userTeam} />
                 <Popover />
             </div>
         </PickBanEventProvider>
@@ -317,16 +324,22 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         const fetchGame = async () => {
             try {
                 const currentGame = await getCurrentGame?.();
-                setErrorMessage("");
 
-                // store the user's team
-                setUserTeam(currentGame?.team ?? TeamType.NO_TEAM);
-
-                if (!gameId || currentGame?.id !== gameId) {
+                if (currentGame?.abandoned) {
                     setShowOverlay(true);
-                    setErrorMessage("The game is no longer active or you don't have access to it");
+                    setErrorMessage("This game has been abandoned!");
                 } else {
-                    setShowOverlay(false);
+                    setErrorMessage("");
+
+                    // store the user's team
+                    setUserTeam(currentGame?.team ?? TeamType.NO_TEAM);
+
+                    if (!gameId || currentGame?.id !== gameId) {
+                        setShowOverlay(true);
+                        setErrorMessage("The game is no longer active or you don't have access to it");
+                    } else {
+                        setShowOverlay(false);
+                    }
                 }
             } catch (err) {
                 console.error(err);

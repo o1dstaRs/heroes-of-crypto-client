@@ -2,6 +2,8 @@
 
 For a detailed overview of the game mechanics, roadmap, and the vision behind Heroes of Crypto, please check out our [Whitepaper](https://heroes-of-crypto.gitbook.io/heroes-of-crypto-ai).
 
+The client code heavily depends on HoC's [Common libraries](https://github.com/o1dstaRs/heroes-of-crypto-common)
+
 This repository mainly includes:
 
 1. The core game logic `game/core`. Including the game logic and the UI which is built with [mui](https://mui.com/) React components
@@ -9,6 +11,8 @@ This repository mainly includes:
     - [Box2D](https://github.com/erincatto/Box2D)
     - [LiquidFun](https://github.com/google/liquidfun)
     - [Box2D Lights](https://github.com/libgdx/box2dlights)
+
+Box2D will be replaced by [PixiJS](https://pixijs.com/) in one of the next releases.
 
 ## Build & Test
 
