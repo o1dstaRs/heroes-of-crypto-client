@@ -10,17 +10,6 @@
  */
 
 export const NO_VELOCITY = { x: 0, y: 0 };
-export const GRID_SIZE = 16;
-export const MAX_Y = 2048;
-export const MIN_Y = 0;
-export const MAX_X = 1024;
-export const MIN_X = -1024;
-export const STEP = MAX_Y / GRID_SIZE;
-export const DOUBLE_STEP = STEP << 1;
-export const HALF_STEP = STEP >> 1;
-export const FOURTH_STEP = STEP >> 2;
-export const UNIT_SIZE_DELTA = 0.06;
-export const MOVEMENT_DELTA = 5;
 export const HP_BAR_DELTA = 0.09;
 
 // animation

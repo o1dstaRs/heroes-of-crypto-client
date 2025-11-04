@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { TeamType, HoCMath, AttackType, MovementType } from "@heroesofcrypto/common";
+import { TeamType, AttackType, MovementType } from "@heroesofcrypto/common";
 
 export interface IVisibleUnit {
     amount: number;
@@ -27,13 +27,6 @@ export interface IVisibleImpact {
     stackPower: number;
     isStackPowered: boolean;
     isAura: boolean;
-}
-
-export interface IVisibleDamage {
-    amount: number;
-    render: boolean;
-    unitPosition: HoCMath.XY;
-    unitIsSmall: boolean;
 }
 
 export interface IVisibleOverallImpact {

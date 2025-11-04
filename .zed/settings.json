@@ -4,7 +4,7 @@
 // see the documentation: https://docs.zed.dev/configuration/configuring-zed#folder-specific-settings
 {
     "tab_size": 4,
-    "show_copilot_suggestions": true,
+    "show_completions_on_input": true,
     "lsp": {
         "typescript-language-server": {
             "initialization_options": {
@@ -21,18 +21,23 @@
             }
         }
     },
-    "enabled": true,
-    "show_type_hints": true,
-    "show_parameter_hints": true,
-    "show_other_hints": true,
-    "format_on_save": "on",
+    "inlay_hints": {
+        "enabled": true,
+        "show_type_hints": false,
+        "show_parameter_hints": true,
+        "show_other_hints": true,
+        "show_background": false,
+        "edit_debounce_ms": 700,
+        "scroll_debounce_ms": 50,
+        "toggle_on_modifiers_press": null
+    },
     "file_scan_exclusions": [
         "node_modules",
         "game/temp",
-        "game/heroes-of-crypto-common",
         "game/core/dist",
         "game/core/.cache",
         ".DS_Store",
+        ".fleet",
         ".git",
         "docs",
         "docs/benchmark/*.js"

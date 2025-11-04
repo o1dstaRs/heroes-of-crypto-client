@@ -47,7 +47,7 @@ export class DamageStatisticHolder implements IStatisticHolder<IDamageStatistic>
         return this.damageStatistics;
     }
 
-    public hasDamageDealt(lap: number): boolean {
+    public has(lap: number): boolean {
         return this.damageDealtLaps.has(lap);
     }
 }

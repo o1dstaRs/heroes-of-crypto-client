@@ -14,7 +14,7 @@
         "copy:images": "cpy $HOC_IMAGES_LOC ./",
         "generate:images": "node scripts/generate_image_imports.js",
         "start": "rimraf ../../.parcel-cache && dotenv -e .env parcel src/ui/index.html",
-        "test": "jest test/*",
+        "test": "jest test/* --passWithNoTests",
         "watch": "rimraf ../../.parcel-cache && dotenv -e .env parcel watch src/ui/index.html"
     },
     "browserslist": [

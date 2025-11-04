@@ -11,7 +11,10 @@
 
 import { b2Body, b2BodyType, b2EdgeShape, b2Fixture, b2Vec2, XY, b2Draw } from "@box2d/core";
 import {
+    AI,
+    AllAbilities,
     AttackType,
+    AttackHandler,
     Augment,
     HoCConfig,
     AbilityFactory,
@@ -46,6 +49,7 @@ import {
     ISystemMoveResult,
     EffectHelper,
     MoveHandler,
+    IAttackObstacle,
     IDamageStatistic,
     PlacementType,
     SpecificSynergy,
@@ -57,30 +61,14 @@ import {
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 
-import { evaluateAffectedUnits } from "../abilities/aoe_range_ability";
-import { processPenetratingBiteAbility } from "../abilities/penetrating_bite_ability";
-import { processRapidChargeAbility } from "../abilities/rapid_charge_ability";
-import { AIActionType, findTarget } from "../ai/ai";
 import { Drawer } from "../draw/drawer";
-import { AttackHandler, IAttackObstacle } from "../handlers/attack_handler";
 import { Button } from "../menu/button";
 import { ObstacleGenerator } from "../obstacles/obstacle_generator";
 import { DrawableRectanglePlacement, DrawableSquarePlacement, IDrawablePlacement } from "../draw/drawable_placement";
 import { Settings } from "../settings";
 import { RenderableSpell } from "../spells/renderable_spell";
 import { IVisibleButton, IVisibleUnit, VisibleButtonState } from "../state/visible_state";
-import {
-    GRID_SIZE,
-    HALF_STEP,
-    MAX_X,
-    MAX_Y,
-    MIN_X,
-    MIN_Y,
-    MOVEMENT_DELTA,
-    NO_VELOCITY,
-    STEP,
-    UNIT_SIZE_DELTA,
-} from "../statics";
+import { NO_VELOCITY } from "../statics";
 import { UnitsFactory } from "../units/units_factory";
 import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
@@ -90,6 +78,7 @@ import { GLScene } from "./gl_scene";
 import { registerScene, SceneContext } from "./scene";
 import { SceneSettings } from "./scene_settings";
 import { RenderableUnit } from "../units/renderable_unit";
+import { DamageStatisticHolder } from "../stats/damage_stats";
 
 class Sandbox extends GLScene {
     private ground: b2Body;
@@ -236,7 +225,15 @@ class Sandbox extends GLScene {
         super(
             gl,
             new SceneSettings(
-                new GridSettings(GRID_SIZE, MAX_Y, MIN_Y, MAX_X, MIN_X, MOVEMENT_DELTA, UNIT_SIZE_DELTA),
+                new GridSettings(
+                    GridConstants.GRID_SIZE,
+                    GridConstants.MAX_Y,
+                    GridConstants.MIN_Y,
+                    GridConstants.MAX_X,
+                    GridConstants.MIN_X,
+                    GridConstants.MOVEMENT_DELTA,
+                    GridConstants.UNIT_SIZE_DELTA,
+                ),
                 false,
             ),
         );
@@ -415,7 +412,12 @@ class Sandbox extends GLScene {
         }
 
         this.spawnUnits();
-        this.attackHandler = new AttackHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.sc_sceneLog);
+        this.attackHandler = new AttackHandler(
+            this.sc_sceneSettings.getGridSettings(),
+            this.grid,
+            this.sc_sceneLog,
+            new DamageStatisticHolder(),
+        );
         this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
 
         // update remaining time every half a second
@@ -438,14 +440,14 @@ class Sandbox extends GLScene {
 
             let actionPerformed = false;
 
-            const action = findTarget(
+            const action = AI.findTarget(
                 this.currentActiveUnit,
                 this.grid,
                 this.gridMatrix,
                 this.unitsHolder,
                 this.pathHelper,
             );
-            if (action?.actionType() === AIActionType.MOVE_AND_MELEE_ATTACK) {
+            if (action?.actionType() === AI.AIActionType.MOVE_AND_MELEE_ATTACK) {
                 if (this.currentActiveUnit.selectAttackType(AttackType.MELEE)) {
                     this.refreshButtons(true);
                     this.refreshUnits();
@@ -497,7 +499,7 @@ class Sandbox extends GLScene {
                     }
                 }
                 actionPerformed = this.landAttack();
-            } else if (action?.actionType() === AIActionType.MELEE_ATTACK) {
+            } else if (action?.actionType() === AI.AIActionType.MELEE_ATTACK) {
                 if (this.currentActiveUnit.selectAttackType(AttackType.MELEE)) {
                     this.refreshButtons(true);
                     this.refreshUnits();
@@ -531,7 +533,7 @@ class Sandbox extends GLScene {
                     }
                 }
                 actionPerformed = this.landAttack();
-            } else if (action?.actionType() === AIActionType.RANGE_ATTACK) {
+            } else if (action?.actionType() === AI.AIActionType.RANGE_ATTACK) {
                 if (this.currentActiveUnit.selectAttackType(AttackType.RANGE)) {
                     this.refreshButtons(true);
                     this.refreshUnits();
@@ -1205,7 +1207,11 @@ class Sandbox extends GLScene {
                 const cellX = i + maxCellX;
                 const cellY = prevLap;
                 this.drawer.addTerrainObstacle(
-                    this.obstacleGenerator.generateHole({ x: i * STEP, y: prevLap * STEP }, STEP, STEP),
+                    this.obstacleGenerator.generateHole(
+                        { x: i * GridConstants.STEP, y: prevLap * GridConstants.STEP },
+                        GridConstants.STEP,
+                        GridConstants.STEP,
+                    ),
                 );
                 const cell = { x: cellX, y: cellY };
                 const systemMoveResult: ISystemMoveResult = this.moveHandler.moveUnitTowardsCenter(
@@ -1241,7 +1247,11 @@ class Sandbox extends GLScene {
                 const cellX = i + maxCellX;
                 const cellY = maxCellY - laps;
                 this.drawer.addTerrainObstacle(
-                    this.obstacleGenerator.generateHole({ x: i * STEP, y: (maxCellY - laps) * STEP }, STEP, STEP),
+                    this.obstacleGenerator.generateHole(
+                        { x: i * GridConstants.STEP, y: (maxCellY - laps) * GridConstants.STEP },
+                        GridConstants.STEP,
+                        GridConstants.STEP,
+                    ),
                 );
                 const cell = { x: cellX, y: cellY };
                 const systemMoveResult: ISystemMoveResult = this.moveHandler.moveUnitTowardsCenter(
@@ -1277,7 +1287,11 @@ class Sandbox extends GLScene {
                 const cellX = prevLap;
                 const cellY = i;
                 this.drawer.addTerrainObstacle(
-                    this.obstacleGenerator.generateHole({ x: (minCellX + prevLap) * STEP, y: i * STEP }, STEP, STEP),
+                    this.obstacleGenerator.generateHole(
+                        { x: (minCellX + prevLap) * GridConstants.STEP, y: i * GridConstants.STEP },
+                        GridConstants.STEP,
+                        GridConstants.STEP,
+                    ),
                 );
                 const cell = { x: cellX, y: cellY };
                 const systemMoveResult: ISystemMoveResult = this.moveHandler.moveUnitTowardsCenter(
@@ -1313,7 +1327,11 @@ class Sandbox extends GLScene {
                 const cellX = (maxCellX << 1) - laps;
                 const cellY = i;
                 this.drawer.addTerrainObstacle(
-                    this.obstacleGenerator.generateHole({ x: (maxCellX - laps) * STEP, y: i * STEP }, STEP, STEP),
+                    this.obstacleGenerator.generateHole(
+                        { x: (maxCellX - laps) * GridConstants.STEP, y: i * GridConstants.STEP },
+                        GridConstants.STEP,
+                        GridConstants.STEP,
+                    ),
                 );
                 const cell = { x: cellX, y: cellY };
                 const systemMoveResult: ISystemMoveResult = this.moveHandler.moveUnitTowardsCenter(
@@ -2049,7 +2067,7 @@ class Sandbox extends GLScene {
                         ) {
                             this.hoverActiveShotRange = {
                                 xy: this.hoverUnit.getPosition(),
-                                distance: this.hoverUnit.getRangeShotDistance() * STEP,
+                                distance: this.hoverUnit.getRangeShotDistance() * GridConstants.STEP,
                             };
                         }
 
@@ -2196,7 +2214,7 @@ class Sandbox extends GLScene {
                                     rapidChargeCellsNumber = paths[0].route.length;
                                 }
 
-                                abilityMultiplier *= processRapidChargeAbility(
+                                abilityMultiplier *= AllAbilities.processRapidChargeAbility(
                                     this.currentActiveUnit,
                                     rapidChargeCellsNumber,
                                 );
@@ -2258,7 +2276,8 @@ class Sandbox extends GLScene {
                                             .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
                                         isRangedAttacker ? 2 : 1,
                                         abilityMultiplier,
-                                    ) + processPenetratingBiteAbility(this.currentActiveUnit, hoverAttackUnit);
+                                    ) +
+                                    AllAbilities.processPenetratingBiteAbility(this.currentActiveUnit, hoverAttackUnit);
                                 let maxDmg =
                                     this.currentActiveUnit.calculateAttackDamageMax(
                                         attackRate,
@@ -2269,7 +2288,8 @@ class Sandbox extends GLScene {
                                             .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
                                         isRangedAttacker ? 2 : 1,
                                         abilityMultiplier,
-                                    ) + processPenetratingBiteAbility(this.currentActiveUnit, hoverAttackUnit);
+                                    ) +
+                                    AllAbilities.processPenetratingBiteAbility(this.currentActiveUnit, hoverAttackUnit);
                                 const luckyStrikeAbility = this.currentActiveUnit.getAbility("Lucky Strike");
                                 if (luckyStrikeAbility) {
                                     maxDmg = Math.floor(
@@ -2538,7 +2558,11 @@ class Sandbox extends GLScene {
                         this.fillRangeAttackInfo(hoverAttackUnit);
                         this.sc_isSelection = true;
 
-                        this.hoverAttackUnits = evaluateAffectedUnits(this.hoverAOECells, this.unitsHolder, this.grid);
+                        this.hoverAttackUnits = AllAbilities.evaluateAffectedUnits(
+                            this.hoverAOECells,
+                            this.unitsHolder,
+                            this.grid,
+                        );
 
                         this.rangeResponseUnits = undefined;
                         this.rangeResponseAttackDivisor = 1;
@@ -2765,7 +2789,7 @@ class Sandbox extends GLScene {
             this.sc_selectedBody ||
             (mouseCell &&
                 mouseCell.y >= 0 &&
-                mouseCell.y < GRID_SIZE &&
+                mouseCell.y < GridConstants.GRID_SIZE &&
                 this.cellToUnitPreRound &&
                 this.cellToUnitPreRound.has(`${mouseCell.x}:${mouseCell.y}`))
         ) {
@@ -3180,15 +3204,15 @@ class Sandbox extends GLScene {
         return (
             isAllowed ||
             (!isAllowed &&
-                this.sc_mouseWorld.x >= MAX_X &&
-                this.sc_mouseWorld.x < MAX_X + this.sc_sceneSettings.getGridSettings().getTwoSteps() &&
-                this.sc_mouseWorld.y < MAX_Y &&
-                this.sc_mouseWorld.y >= MIN_Y) ||
+                this.sc_mouseWorld.x >= GridConstants.MAX_X &&
+                this.sc_mouseWorld.x < GridConstants.MAX_X + this.sc_sceneSettings.getGridSettings().getTwoSteps() &&
+                this.sc_mouseWorld.y < GridConstants.MAX_Y &&
+                this.sc_mouseWorld.y >= GridConstants.MIN_Y) ||
             (!isAllowed &&
-                this.sc_mouseWorld.x < MIN_X &&
-                this.sc_mouseWorld.x >= MIN_X - this.sc_sceneSettings.getGridSettings().getTwoSteps() &&
-                this.sc_mouseWorld.y >= STEP * PathHelper.Y_FACTION_ICONS_OFFSET &&
-                this.sc_mouseWorld.y < MAX_Y)
+                this.sc_mouseWorld.x < GridConstants.MIN_X &&
+                this.sc_mouseWorld.x >= GridConstants.MIN_X - this.sc_sceneSettings.getGridSettings().getTwoSteps() &&
+                this.sc_mouseWorld.y >= GridConstants.STEP * PathHelper.Y_FACTION_ICONS_OFFSET &&
+                this.sc_mouseWorld.y < GridConstants.MAX_Y)
         );
         return this.pathHelper.areCellsFormingSquare(true, this.hoverSelectedCells);
     }
@@ -4442,7 +4466,7 @@ class Sandbox extends GLScene {
                             FightStateManager.getInstance()
                                 .getFightProperties()
                                 .getAdditionalAuraRangePerTeam(teamType)) *
-                        STEP,
+                        GridConstants.STEP,
                     isBuff: auraIsBuff[i],
                     isSmallUnit: isSmallUnit,
                 });
@@ -4467,7 +4491,7 @@ class Sandbox extends GLScene {
 
             this.sc_currentActiveShotRange = {
                 xy: this.currentActiveUnit.getPosition(),
-                distance: this.currentActiveUnit.getRangeShotDistance() * STEP,
+                distance: this.currentActiveUnit.getRangeShotDistance() * GridConstants.STEP,
             };
         } else {
             this.sc_currentActiveShotRange = undefined;
@@ -4492,7 +4516,7 @@ class Sandbox extends GLScene {
 
                 this.hoverActiveShotRange = {
                     xy: this.hoverUnit.getPosition(),
-                    distance: this.hoverUnit.getRangeShotDistance() * STEP,
+                    distance: this.hoverUnit.getRangeShotDistance() * GridConstants.STEP,
                 };
             } else {
                 this.hoverActiveShotRange = undefined;
@@ -4511,7 +4535,7 @@ class Sandbox extends GLScene {
         if (rangeShotDistance > 0) {
             this.sc_currentActiveShotRange = {
                 xy: position,
-                distance: rangeShotDistance * STEP,
+                distance: rangeShotDistance * GridConstants.STEP,
             };
         } else {
             this.sc_currentActiveShotRange = undefined;
@@ -4661,11 +4685,13 @@ class Sandbox extends GLScene {
                     if (this.sc_calculatingPlacement) {
                         b.SetTransformXY(
                             isSmallUnit
-                                ? Math.floor(Math.round(bodyPosition.x) / STEP) * STEP + HALF_STEP
-                                : Math.floor(Math.round(bodyPosition.x) / STEP) * STEP,
+                                ? Math.floor(Math.round(bodyPosition.x) / GridConstants.STEP) * GridConstants.STEP +
+                                      GridConstants.HALF_STEP
+                                : Math.floor(Math.round(bodyPosition.x) / GridConstants.STEP) * GridConstants.STEP,
                             isSmallUnit
-                                ? Math.floor(Math.round(bodyPosition.y) / STEP) * STEP + HALF_STEP
-                                : Math.floor(Math.round(bodyPosition.y) / STEP) * STEP,
+                                ? Math.floor(Math.round(bodyPosition.y) / GridConstants.STEP) * GridConstants.STEP +
+                                      GridConstants.HALF_STEP
+                                : Math.floor(Math.round(bodyPosition.y) / GridConstants.STEP) * GridConstants.STEP,
                             b.GetAngle(),
                         );
                         const unitId = unitStats.id;
@@ -4853,32 +4879,32 @@ class Sandbox extends GLScene {
                             }
                         } else {
                             const cellOne = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
-                                x: bodyPosition.x + HALF_STEP,
-                                y: bodyPosition.y + HALF_STEP,
+                                x: bodyPosition.x + GridConstants.HALF_STEP,
+                                y: bodyPosition.y + GridConstants.HALF_STEP,
                             });
                             if (cellOne) {
                                 this.cellToUnitPreRound.set(`${cellOne.x}:${cellOne.y}`, unit);
                                 cells.push(cellOne);
                             }
                             const cellTwo = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
-                                x: bodyPosition.x - HALF_STEP,
-                                y: bodyPosition.y - HALF_STEP,
+                                x: bodyPosition.x - GridConstants.HALF_STEP,
+                                y: bodyPosition.y - GridConstants.HALF_STEP,
                             });
                             if (cellTwo) {
                                 this.cellToUnitPreRound.set(`${cellTwo.x}:${cellTwo.y}`, unit);
                                 cells.push(cellTwo);
                             }
                             const cellThree = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
-                                x: bodyPosition.x + HALF_STEP,
-                                y: bodyPosition.y - HALF_STEP,
+                                x: bodyPosition.x + GridConstants.HALF_STEP,
+                                y: bodyPosition.y - GridConstants.HALF_STEP,
                             });
                             if (cellThree) {
                                 this.cellToUnitPreRound.set(`${cellThree.x}:${cellThree.y}`, unit);
                                 cells.push(cellThree);
                             }
                             const cellFour = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), {
-                                x: bodyPosition.x - HALF_STEP,
-                                y: bodyPosition.y + HALF_STEP,
+                                x: bodyPosition.x - GridConstants.HALF_STEP,
+                                y: bodyPosition.y + GridConstants.HALF_STEP,
                             });
                             if (cellFour) {
                                 this.cellToUnitPreRound.set(`${cellFour.x}:${cellFour.y}`, unit);
@@ -4916,7 +4942,7 @@ class Sandbox extends GLScene {
                 if (
                     this.attackHandler
                         .getDamageStatisticHolder()
-                        .hasDamageDealt(FightStateManager.getInstance().getFightProperties().getCurrentLap())
+                        .has(FightStateManager.getInstance().getFightProperties().getCurrentLap())
                 ) {
                     FightStateManager.getInstance().getFightProperties().encounterDamageDealFact();
                 }
@@ -5247,7 +5273,7 @@ class Sandbox extends GLScene {
                                     if (nextUnit.getAttackTypeSelection() === AttackType.RANGE) {
                                         this.sc_currentActiveShotRange = {
                                             xy: nextUnit.getPosition(),
-                                            distance: nextUnit.getRangeShotDistance() * STEP,
+                                            distance: nextUnit.getRangeShotDistance() * GridConstants.STEP,
                                         };
                                     } else {
                                         this.sc_currentActiveShotRange = undefined;
@@ -5392,20 +5418,20 @@ class Sandbox extends GLScene {
                 currentUnitCellPositions.push(this.currentActiveUnit.getPosition());
             } else {
                 currentUnitCellPositions.push({
-                    x: this.currentActiveUnit.getPosition().x + HALF_STEP,
-                    y: this.currentActiveUnit.getPosition().y + HALF_STEP,
+                    x: this.currentActiveUnit.getPosition().x + GridConstants.HALF_STEP,
+                    y: this.currentActiveUnit.getPosition().y + GridConstants.HALF_STEP,
                 });
                 currentUnitCellPositions.push({
-                    x: this.currentActiveUnit.getPosition().x + HALF_STEP,
-                    y: this.currentActiveUnit.getPosition().y - HALF_STEP,
+                    x: this.currentActiveUnit.getPosition().x + GridConstants.HALF_STEP,
+                    y: this.currentActiveUnit.getPosition().y - GridConstants.HALF_STEP,
                 });
                 currentUnitCellPositions.push({
-                    x: this.currentActiveUnit.getPosition().x - HALF_STEP,
-                    y: this.currentActiveUnit.getPosition().y - HALF_STEP,
+                    x: this.currentActiveUnit.getPosition().x - GridConstants.HALF_STEP,
+                    y: this.currentActiveUnit.getPosition().y - GridConstants.HALF_STEP,
                 });
                 currentUnitCellPositions.push({
-                    x: this.currentActiveUnit.getPosition().x - HALF_STEP,
-                    y: this.currentActiveUnit.getPosition().y + HALF_STEP,
+                    x: this.currentActiveUnit.getPosition().x - GridConstants.HALF_STEP,
+                    y: this.currentActiveUnit.getPosition().y + GridConstants.HALF_STEP,
                 });
             }
             if (!this.sc_isAnimating && !this.sc_renderSpellBookOverlay) {
@@ -5424,20 +5450,20 @@ class Sandbox extends GLScene {
                 hoverUnitCellPositions.push(this.hoverUnit.getPosition());
             } else {
                 hoverUnitCellPositions.push({
-                    x: this.hoverUnit.getPosition().x + HALF_STEP,
-                    y: this.hoverUnit.getPosition().y + HALF_STEP,
+                    x: this.hoverUnit.getPosition().x + GridConstants.HALF_STEP,
+                    y: this.hoverUnit.getPosition().y + GridConstants.HALF_STEP,
                 });
                 hoverUnitCellPositions.push({
-                    x: this.hoverUnit.getPosition().x + HALF_STEP,
-                    y: this.hoverUnit.getPosition().y - HALF_STEP,
+                    x: this.hoverUnit.getPosition().x + GridConstants.HALF_STEP,
+                    y: this.hoverUnit.getPosition().y - GridConstants.HALF_STEP,
                 });
                 hoverUnitCellPositions.push({
-                    x: this.hoverUnit.getPosition().x - HALF_STEP,
-                    y: this.hoverUnit.getPosition().y - HALF_STEP,
+                    x: this.hoverUnit.getPosition().x - GridConstants.HALF_STEP,
+                    y: this.hoverUnit.getPosition().y - GridConstants.HALF_STEP,
                 });
                 hoverUnitCellPositions.push({
-                    x: this.hoverUnit.getPosition().x - HALF_STEP,
-                    y: this.hoverUnit.getPosition().y + HALF_STEP,
+                    x: this.hoverUnit.getPosition().x - GridConstants.HALF_STEP,
+                    y: this.hoverUnit.getPosition().y + GridConstants.HALF_STEP,
                 });
             }
             if (!this.sc_renderSpellBookOverlay) {

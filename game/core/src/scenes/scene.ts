@@ -42,6 +42,7 @@ import {
     HoCConstants,
     MovementType,
     GridType,
+    GridConstants,
     HoCMath,
     HoCLib,
     TeamType,
@@ -50,19 +51,19 @@ import {
     UnitProperties,
     AbilityHelper,
     IDamageStatistic,
+    IVisibleDamage,
     SynergyWithLevel,
 } from "@heroesofcrypto/common";
 
 import { Settings } from "../settings";
 import {
     IVisibleButton,
-    IVisibleDamage,
     IVisibleImpact,
     IVisibleOverallImpact,
     IVisibleState,
     VisibleButtonState,
 } from "../state/visible_state";
-import { EDGES_SIZE, MAX_FPS, MAX_X } from "../statics";
+import { EDGES_SIZE, MAX_FPS } from "../statics";
 import { g_camera } from "../utils/camera";
 import { DefaultShader } from "../utils/gl/defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
@@ -904,7 +905,7 @@ export abstract class Scene extends b2ContactListener {
     public getCenter(): XY {
         return {
             x: 0,
-            y: MAX_X,
+            y: GridConstants.MAX_X,
         };
     }
 

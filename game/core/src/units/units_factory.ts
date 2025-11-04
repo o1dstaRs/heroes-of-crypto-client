@@ -19,6 +19,7 @@ import {
     HoCMath,
     TeamType,
     Grid,
+    GridConstants,
     GridSettings,
     UnitType,
     HoCConfig,
@@ -32,16 +33,7 @@ import { PreloadedTextures } from "../utils/gl/preload";
 import { Sprite } from "../utils/gl/Sprite";
 import { Hero } from "./heroes";
 import { RenderableUnit } from "./renderable_unit";
-import {
-    BASE_UNIT_STACK_TO_SPAWN_EXP,
-    DOUBLE_STEP,
-    HALF_STEP,
-    MAX_X,
-    MAX_Y,
-    SHIFT_UNITS_POSITION_Y,
-    STEP,
-    UNIT_SIZE_DELTA,
-} from "../statics";
+import { BASE_UNIT_STACK_TO_SPAWN_EXP, SHIFT_UNITS_POSITION_Y } from "../statics";
 
 export enum HeroType {
     NO_TYPE = 0,
@@ -394,7 +386,7 @@ export class UnitsFactory {
                 this.gridSettings.getStep(),
                 this.gridSettings.getHalfStep(),
             );
-            cloned.setPosition(position.x - HALF_STEP, position.y - HALF_STEP);
+            cloned.setPosition(position.x - GridConstants.HALF_STEP, position.y - GridConstants.HALF_STEP);
             this.positionBody(cloned);
 
             return this.grid.occupyCells(
@@ -520,11 +512,20 @@ export class UnitsFactory {
 
             posIndex = i - subtrahend + yDiff - j + SHIFT_UNITS_POSITION_Y;
             if (team === TeamType.LOWER) {
-                u.setPosition(-MAX_X - HALF_STEP - STEP * j, posIndex * STEP + HALF_STEP);
+                u.setPosition(
+                    -GridConstants.MAX_X - GridConstants.HALF_STEP - GridConstants.STEP * j,
+                    posIndex * GridConstants.STEP + GridConstants.HALF_STEP,
+                );
             } else {
                 u.setPosition(
-                    MAX_X + HALF_STEP - UNIT_SIZE_DELTA + STEP * j,
-                    MAX_Y - posIndex * STEP - UNIT_SIZE_DELTA - HALF_STEP,
+                    GridConstants.MAX_X +
+                        GridConstants.HALF_STEP -
+                        GridConstants.UNIT_SIZE_DELTA +
+                        GridConstants.STEP * j,
+                    GridConstants.MAX_Y -
+                        posIndex * GridConstants.STEP -
+                        GridConstants.UNIT_SIZE_DELTA -
+                        GridConstants.HALF_STEP,
                 );
             }
             foundSomeSmallUnits = true;
@@ -540,9 +541,15 @@ export class UnitsFactory {
         let heroPosIndex = 0;
         for (const h of heroes) {
             if (team === TeamType.LOWER) {
-                h.setPosition(-MAX_X - STEP * heroPosIndex - HALF_STEP, DOUBLE_STEP + HALF_STEP);
+                h.setPosition(
+                    -GridConstants.MAX_X - GridConstants.STEP * heroPosIndex - GridConstants.HALF_STEP,
+                    GridConstants.DOUBLE_STEP + GridConstants.HALF_STEP,
+                );
             } else {
-                h.setPosition(MAX_X + STEP * heroPosIndex + HALF_STEP, MAX_Y - DOUBLE_STEP - HALF_STEP);
+                h.setPosition(
+                    GridConstants.MAX_X + GridConstants.STEP * heroPosIndex + GridConstants.HALF_STEP,
+                    GridConstants.MAX_Y - GridConstants.DOUBLE_STEP - GridConstants.HALF_STEP,
+                );
             }
             heroPosIndex++;
 
@@ -555,9 +562,15 @@ export class UnitsFactory {
             }
 
             if (team === TeamType.LOWER) {
-                u.setPosition(-MAX_X - STEP, posIndex * STEP + STEP);
+                u.setPosition(
+                    -GridConstants.MAX_X - GridConstants.STEP,
+                    posIndex * GridConstants.STEP + GridConstants.STEP,
+                );
             } else {
-                u.setPosition(MAX_X + STEP, MAX_Y - posIndex * STEP - STEP);
+                u.setPosition(
+                    GridConstants.MAX_X + GridConstants.STEP,
+                    GridConstants.MAX_Y - posIndex * GridConstants.STEP - GridConstants.STEP,
+                );
             }
             posIndex += 2;
 
