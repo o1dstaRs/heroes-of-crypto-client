@@ -61,23 +61,23 @@ import {
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 
-import { Drawer } from "../draw/drawer";
-import { Button } from "../menu/button";
-import { ObstacleGenerator } from "../obstacles/obstacle_generator";
-import { DrawableRectanglePlacement, DrawableSquarePlacement, IDrawablePlacement } from "../draw/drawable_placement";
-import { Settings } from "../settings";
-import { RenderableSpell } from "../spells/renderable_spell";
+import { Drawer } from "./drawer";
+import { Button } from "./button";
+import { ObstacleGenerator } from "./obstacle_generator";
+import { DrawableRectanglePlacement, DrawableSquarePlacement, IDrawablePlacement } from "./drawable_placement";
+import { Settings } from "./settings";
+import { RenderableSpell } from "./renderable_spell";
 import { IVisibleButton, IVisibleUnit, VisibleButtonState } from "../state/visible_state";
 import { NO_VELOCITY } from "../statics";
-import { UnitsFactory } from "../units/units_factory";
+import { UnitsFactory } from "./units_factory";
 import { g_camera } from "../utils/camera";
-import { DefaultShader } from "../utils/gl/defaultShader";
+import { DefaultShader } from "./defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
-import { Sprite } from "../utils/gl/Sprite";
+import { Sprite } from "./Sprite";
 import { GLScene } from "./gl_scene";
 import { registerScene, SceneContext } from "./scene";
-import { SceneSettings } from "./scene_settings";
-import { RenderableUnit } from "../units/renderable_unit";
+import { SceneSettings } from "../scenes/scene_settings";
+import { RenderableUnit } from "./renderable_unit";
 import { DamageStatisticHolder } from "../stats/damage_stats";
 
 class Sandbox extends GLScene {

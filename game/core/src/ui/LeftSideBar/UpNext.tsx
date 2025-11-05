@@ -10,7 +10,7 @@ import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState } from "react";
 
 import { images } from "../../generated/image_imports";
-import { useManager } from "../../manager";
+import { usePixiManager } from "../../pixi/PixiGameManager";
 import stopImg from "../../../images/stop.webp";
 import hourglassImg from "../../../images/hourglass.webp";
 import { IVisibleState, IVisibleUnit } from "../../state/visible_state";
@@ -18,7 +18,7 @@ import { IVisibleState, IVisibleUnit } from "../../state/visible_state";
 export const UpNext: React.FC = () => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
 
-    const manager = useManager();
+    const manager = usePixiManager();
 
     useEffect(() => {
         const connection = manager.onVisibleStateUpdated.connect(setVisibleState);

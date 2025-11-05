@@ -16,6 +16,7 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+import { b2Vec2, XY } from "@box2d/core";
 import { vec3, mat4 } from "gl-matrix";
 
 const up: vec3 = [0, -1, 0];
@@ -23,14 +24,14 @@ const forward: vec3 = [0, 0, 1];
 const tmpVector = vec3.create();
 const tmpXY = { x: 0, y: 0 };
 
-function vec2Project(x: number, y: number, m: mat4, out: { x: number; y: number }) {
+function vec2Project(x: number, y: number, m: mat4, out: XY) {
     const w = 1 / (x * m[3] + y * m[7] + m[15]);
     out.x = (x * m[0] + y * m[4] + m[12]) * w;
     out.y = (x * m[1] + y * m[5] + m[13]) * w;
 }
 
 export class Camera {
-    private readonly center = { x: 0, y: 20 };
+    private readonly center = new b2Vec2(0, 20);
 
     private zoom = 1;
 
@@ -50,8 +51,8 @@ export class Camera {
         return this.zoom;
     }
 
-    public getCenter(): { x: number; y: number } {
-        return { ...this.center };
+    public getCenter(): Readonly<XY> {
+        return this.center;
     }
 
     public getWidth() {
@@ -80,15 +81,13 @@ export class Camera {
     }
 
     public setPositionAndZoom(x: number, y: number, zoom: number) {
-        this.center.x = x;
-        this.center.y = y;
+        this.center.Set(x, y);
         this.zoom = zoom;
         this.update();
     }
 
     public setPosition(x: number, y: number) {
-        this.center.x = x;
-        this.center.y = y;
+        this.center.Set(x, y);
         this.update();
     }
 
@@ -97,14 +96,14 @@ export class Camera {
         this.update();
     }
 
-    public project(world: { x: number; y: number }, viewport: { x: number; y: number }) {
+    public project(world: Readonly<XY>, viewport: b2Vec2) {
         vec2Project(world.x, world.y, this.combined, tmpXY);
         viewport.x = (this.width * (tmpXY.x + 1)) / 2;
         viewport.y = this.height - (this.height * (tmpXY.y + 1)) / 2;
         return viewport;
     }
 
-    public unproject({ x, y }: { x: number; y: number }, world: { x: number; y: number }) {
+    public unproject({ x, y }: Readonly<XY>, world: b2Vec2) {
         vec2Project((2 * x) / this.width - 1, (2 * (this.height - y)) / this.height - 1, this.inverse, world);
 
         return world;

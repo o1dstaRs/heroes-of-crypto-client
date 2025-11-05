@@ -19,7 +19,7 @@ import activeOptionIconImage from "../../../images/icon_active_option.webp";
 import inactiveOptionIconImage from "../../../images/icon_inactive_option.webp";
 import blackImage from "../../../images/overlay_black.webp";
 import lightImage from "../../../images/overlay_light.webp";
-import { useManager } from "../../manager";
+import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IVisibleButton, VisibleButtonState } from "../../state/visible_state";
 
 let SCREEN_RATIO = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
@@ -247,7 +247,7 @@ const DraggableToolbar: React.FC = () => {
     const [buttonGroupChanged, setButtonGroupChanged] = useState<boolean>(false);
     const [buttonGroup, setButtonGroup] = useState<IVisibleButton[]>([]);
     const theme = useTheme();
-    const manager = useManager();
+    const manager = usePixiManager();
 
     const resetToDefaultPosition = useCallback(() => {
         const ds = getDefaultSettings();

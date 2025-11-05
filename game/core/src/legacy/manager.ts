@@ -25,7 +25,7 @@ import { createContext, useContext } from "react";
 import { Signal } from "typed-signals";
 
 import "./scenes";
-import { getScenesGrouped, Scene, SceneConstructor, SceneEntry } from "./scenes/scene";
+import { getScenesGrouped, Scene, SceneConstructor, SceneEntry } from "./scene";
 import { Settings } from "./settings";
 import {
     IHoverInfo,
@@ -33,14 +33,14 @@ import {
     IVisibleOverallImpact,
     IVisibleState,
     VisibleButtonState,
-} from "./state/visible_state";
-import { EDGES_SIZE, MAX_FPS } from "./statics";
-import { g_camera } from "./utils/camera";
-import { FpsCalculator } from "./utils/FpsCalculator";
-import { createDefaultShader } from "./utils/gl/defaultShader";
-import { clearGlCanvas, initGlCanvas, resizeGlCanvas } from "./utils/gl/glUtils";
-import { PreloadedTextures, preloadTextures } from "./utils/gl/preload";
-import { HotKey, hotKeyPress } from "./utils/hotkeys";
+} from "../state/visible_state";
+import { EDGES_SIZE, MAX_FPS } from "../statics";
+import { g_camera } from "./camera";
+import { FpsCalculator } from "../utils/FpsCalculator";
+import { createDefaultShader } from "./defaultShader";
+import { clearGlCanvas, initGlCanvas, resizeGlCanvas } from "./glUtils";
+import { PreloadedTextures, preloadTextures } from "../utils/gl/preload";
+import { HotKey, hotKeyPress } from "../utils/hotkeys";
 
 export class GameManager {
     public m_fpsCalculator = new FpsCalculator(200, 1000, MAX_FPS);

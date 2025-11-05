@@ -55,7 +55,7 @@ import {
     SynergyWithLevel,
 } from "@heroesofcrypto/common";
 
-import { Settings } from "../settings";
+import { Settings } from "./settings";
 import {
     IVisibleButton,
     IVisibleImpact,
@@ -64,12 +64,12 @@ import {
     VisibleButtonState,
 } from "../state/visible_state";
 import { EDGES_SIZE, MAX_FPS } from "../statics";
-import { g_camera } from "../utils/camera";
-import { DefaultShader } from "../utils/gl/defaultShader";
+import { g_camera } from "./camera";
+import { DefaultShader } from "./defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
 import { HotKey } from "../utils/hotkeys";
-import { SceneLog } from "./scene_log";
-import { SceneSettings } from "./scene_settings";
+import { SceneLog } from "../scenes/scene_log";
+import { SceneSettings } from "../scenes/scene_settings";
 
 const temp = {
     aabb: new b2AABB(),

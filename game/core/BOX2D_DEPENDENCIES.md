@@ -2,6 +2,8 @@
 
 This document provides a comprehensive list of all files that directly or indirectly depend on the Box2D physics engine. This will be useful when migrating to a new engine.
 
+Run this command to see the remaining: `cd /Users/zolotukhin/Workplace/heroes-of-crypto-client/game/core && find src -name "*.ts" -o -name "*.tsx" | xargs grep -l "@box2d" | head -10`
+
 ## Files with Direct Box2D Imports
 
 1. `src/draw/drawable_placement.ts`

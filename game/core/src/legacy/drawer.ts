@@ -23,8 +23,8 @@ import {
 } from "@box2d/core";
 import { Grid, GridType, GridMath, GridSettings, ObstacleType, UnitsHolder, IBoardObj } from "@heroesofcrypto/common";
 
-import { Obstacle } from "../obstacles/obstacle";
-import { ObstacleGenerator } from "../obstacles/obstacle_generator";
+import { Obstacle } from "./obstacle";
+import { ObstacleGenerator } from "./obstacle_generator";
 import {
     MAX_FPS,
     MAX_HOLE_LAYERS,
@@ -33,10 +33,12 @@ import {
     MOUNTAIN_ENLARGE_X,
     MOUNTAIN_ENLARGE_Y,
 } from "../statics";
-import { DefaultShader } from "../utils/gl/defaultShader";
+import { DefaultShader } from "./defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
-import { Sprite } from "../utils/gl/Sprite";
-import { BULLET_ANIMATION_SPEED, FLY_ANIMATION_SPEED, MOVE_ANIMATION_SPEED } from "./animation_settings";
+import { Sprite } from "./Sprite";
+const MOVE_ANIMATION_SPEED = 12;
+const FLY_ANIMATION_SPEED = MOVE_ANIMATION_SPEED;
+const BULLET_ANIMATION_SPEED = MOVE_ANIMATION_SPEED << 1;
 
 export interface IBullet {
     body: b2Body;

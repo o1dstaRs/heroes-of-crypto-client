@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { AttackType, MovementType } from "@heroesofcrypto/common";
 
-import { useManager } from "../../manager";
+import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IHoverInfo } from "../../state/visible_state";
 
 const getLevelEmoji = (hoverInfo: IHoverInfo): string => {
@@ -148,7 +148,7 @@ const Popover: React.FC = () => {
 
     const [hoverInfo, setHoverInfo] = useState({} as IHoverInfo);
 
-    const manager = useManager();
+    const manager = usePixiManager();
 
     useEffect(() => {
         const connection = manager.onHoverInfoUpdated.connect(setHoverInfo);

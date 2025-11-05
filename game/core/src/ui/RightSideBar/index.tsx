@@ -12,7 +12,7 @@ import ListItemContent from "@mui/joy/ListItemContent";
 import Sheet from "@mui/joy/Sheet";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState, useCallback } from "react";
-import { useManager } from "../../manager";
+import { usePixiManager } from "../../pixi/PixiGameManager";
 import Toggler from "../Toggler";
 import { EDGES_SIZE } from "../../statics";
 import FightControlToggler from "./FightControlToggler";
@@ -48,7 +48,7 @@ const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
 
 export default function RightSideBar({ gameStarted, windowSize }: { gameStarted: boolean; windowSize: IWindowSize }) {
     const [unitDamageStatistics, setUnitDamageStatistics] = useState([] as IDamageStatistic[]);
-    const manager = useManager();
+    const manager = usePixiManager();
     const [barSize, setBarSize] = useState(280);
 
     const adjustBarSize = useCallback(() => {

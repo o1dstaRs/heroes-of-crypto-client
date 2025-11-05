@@ -29,7 +29,7 @@ import {
     Divider,
 } from "@mui/joy";
 import { VisibleSynergyLevel } from "../../state/visible_state";
-import { useManager } from "../../manager";
+import { usePixiManager } from "../../pixi/PixiGameManager";
 import augmentBoardImg from "../../../images/board_augment_256.webp";
 import augmentArmorImg from "../../../images/armor_augment_256.webp";
 import augmentMightImg from "../../../images/might_augment_256.webp";
@@ -130,7 +130,7 @@ const PlacementToggler = ({
     onLevelChange: (pointsUsed: number, previousPointsUsed: number) => void;
     currentSelection: number | null;
 }) => {
-    const manager = useManager();
+    const manager = usePixiManager();
 
     const handleSelectionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const augmentType = Augment.ToPlacementAugment[event.target.value.toString()];
@@ -203,7 +203,7 @@ const ArmorToggler = ({
     onLevelChange: (pointsUsed: number, previousPointsUsed: number) => void;
     currentSelection: number | null;
 }) => {
-    const manager = useManager();
+    const manager = usePixiManager();
 
     const handleSelectionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const augmentType = Augment.ToArmorAugment[event.target.value.toString()];
@@ -279,7 +279,7 @@ const MightToggler = ({
     onLevelChange: (pointsUsed: number, previousPointsUsed: number) => void;
     currentSelection: number | null;
 }) => {
-    const manager = useManager();
+    const manager = usePixiManager();
 
     const handleSelectionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const augmentType = Augment.ToMightAugment[event.target.value.toString()];
@@ -355,7 +355,7 @@ const SniperToggler = ({
     onLevelChange: (pointsUsed: number, previousPointsUsed: number) => void;
     currentSelection: number | null;
 }) => {
-    const manager = useManager();
+    const manager = usePixiManager();
 
     const handleSelectionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const augmentType = Augment.ToSniperAugment[event.target.value.toString()];
@@ -435,7 +435,7 @@ const MovementToggler = ({
     onLevelChange: (pointsUsed: number, previousPointsUsed: number) => void;
     currentSelection: number | null;
 }) => {
-    const manager = useManager();
+    const manager = usePixiManager();
 
     const handleSelectionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const augmentType = Augment.ToMovementAugment[event.target.value.toString()];
@@ -599,7 +599,7 @@ const SideToggleContainer = ({
         }
     }
 
-    const manager = useManager();
+    const manager = usePixiManager();
 
     useEffect(() => {
         const connection = manager.onPossibleSynergiesUpdated.connect((sMap: Map<TeamType, SynergyWithLevel[]>) => {

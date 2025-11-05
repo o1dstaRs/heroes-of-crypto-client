@@ -13,7 +13,7 @@ import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState } from "react";
 
 import { images } from "../../generated/image_imports";
-import { useManager } from "../../manager";
+import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IVisibleImpact, IVisibleOverallImpact } from "../../state/visible_state";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
 import { BootIcon } from "../svg/boot";
@@ -618,7 +618,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
     const theme = useTheme();
     const isDarkMode = theme.palette.mode === "dark";
 
-    const manager = useManager();
+    const manager = usePixiManager();
 
     useEffect(() => {
         const connection2 = manager.onRaceSelected.connect(setRaceName);

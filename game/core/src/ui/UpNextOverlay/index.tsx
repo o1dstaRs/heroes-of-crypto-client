@@ -7,7 +7,7 @@ import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
 import { images } from "../../generated/image_imports";
 import { IVisibleState, IVisibleUnit } from "../../state/visible_state";
-import { useManager } from "../../manager";
+import { usePixiManager } from "../../pixi/PixiGameManager";
 import stopImg from "../../../images/stop.webp";
 import hourglassImg from "../../../images/hourglass.webp";
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
@@ -18,7 +18,7 @@ export const UpNextOverlay: React.FC = () => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [altPressed, setAltPressed] = useState<boolean>(false);
 
-    const manager = useManager();
+    const manager = usePixiManager();
 
     useEffect(() => {
         const connection = manager.onVisibleStateUpdated.connect(setVisibleState);

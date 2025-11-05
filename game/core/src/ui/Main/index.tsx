@@ -1,8 +1,11 @@
+// game/core/src/react/GameScreen.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
-import { useManager } from "../../manager";
-import { SceneEntry } from "../../scenes/scene";
+// ⬇️ use the Pixi manager + SceneEntry from your Pixi scene module
+import { usePixiManager } from "../../pixi/PixiGameManager"; // adjust the path if needed
+import type { SceneEntry } from "../../pixi/PixiScene"; // adjust the path if needed
+
 import { getSceneLink } from "../../utils/reactUtils";
 import DamageBubble from "../DamageBubble";
 
@@ -10,57 +13,50 @@ interface SceneComponentProps {
     entry: SceneEntry;
 }
 
-const GameScreen = ({ entry: { name, SceneClass } }: SceneComponentProps) => {
+const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass } }) => {
     const [coordinates, setCoordinates] = useState({ x: 0, y: 0 });
     const [damage, setDamage] = useState<number>(0);
     const [started, setStarted] = useState(false);
 
-    const manager = useManager();
+    const manager = usePixiManager();
     const initializedRef = useRef(false);
 
+    // Started flag
     useEffect(() => {
-        const connection = manager.onHasStarted.connect((hasStarted) => {
-            setStarted(hasStarted);
-        });
-
+        const connection = manager.onHasStarted.connect((hasStarted) => setStarted(hasStarted));
         return () => {
-            connection.disconnect();
+            connection.disconnect(); // ignore boolean return -> cleanup returns void
         };
     }, [manager]);
 
+    // Damage bubble
     useEffect(() => {
-        const connection2 = manager.onDamageReceived.connect((damage) => {
-            setDamage(damage);
-        });
-
+        const connection = manager.onDamageReceived.connect((dmg) => setDamage(dmg));
         return () => {
-            connection2.disconnect();
+            connection.disconnect(); // ignore boolean return
         };
     }, [manager]);
 
-    const handleMouseMove = (event: MouseEvent) => {
-        const { clientX, clientY } = event;
-        setCoordinates({ x: clientX, y: clientY });
-    };
-
+    // Mouse tracker for the damage bubble when game is started
     useEffect(() => {
+        const handleMouseMove = (event: MouseEvent) => {
+            const { clientX, clientY } = event;
+            setCoordinates({ x: clientX, y: clientY });
+        };
+
         if (started) {
             window.addEventListener("mousemove", handleMouseMove);
-        } else {
-            window.removeEventListener("mousemove", handleMouseMove);
         }
-
-        // Cleanup function to ensure the event listener is removed if the component unmounts
-        return () => {
-            window.removeEventListener("mousemove", handleMouseMove);
-        };
+        return () => window.removeEventListener("mousemove", handleMouseMove);
     }, [started]);
 
+    // Canvases + wrapper
     const glCanvasRef = useRef<HTMLCanvasElement>(null);
     const debugCanvasRef = useRef<HTMLCanvasElement>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
 
+    // Boot + loop
     useEffect(() => {
         const glCanvas = glCanvasRef.current;
         const debugCanvas = debugCanvasRef.current;
@@ -79,36 +75,39 @@ const GameScreen = ({ entry: { name, SceneClass } }: SceneComponentProps) => {
             };
 
             const init = async () => {
-                const setTest = (test: SceneEntry) => navigate(getSceneLink(test));
-                await manager.init(glCanvas, debugCanvas, wrapper, setTest);
+                const setSceneInUrl = (test: SceneEntry) => navigate(getSceneLink(test));
+                await manager.init(glCanvas, debugCanvas, wrapper, setSceneInUrl);
                 window.requestAnimationFrame(loop);
             };
 
-            init().catch((e) => console.error("Initialization failed", e));
+            void init().catch((e) => console.error("Initialization failed", e));
         }
-    }, [manager]);
+    }, [manager, navigate]);
 
+    // Switch active scene
     useEffect(() => {
         manager.setScene(name, SceneClass);
-    }, [manager, SceneClass]);
+    }, [manager, name, SceneClass]);
 
     return (
         <>
-            <main ref={wrapperRef}>
-                <canvas ref={glCanvasRef} />
-                <canvas ref={debugCanvasRef} />
+            <main ref={wrapperRef} style={{ position: "relative", width: "100%", height: "100%" }}>
+                {/* Pixi renders to glCanvas; debugCanvas is for picking/overlay input */}
+                <canvas ref={glCanvasRef} style={{ position: "absolute", inset: 0 }} />
+                <canvas ref={debugCanvasRef} style={{ position: "absolute", inset: 0, pointerEvents: "auto" }} />
             </main>
             <DamageBubble damages={[damage]} coordinates={coordinates} />
         </>
     );
 };
 
+// Helper to pick an active scene; adjust to your registry flow if needed.
 export function useActiveSceneEntry() {
-    const manager = useManager();
+    const manager = usePixiManager();
     return manager.flatScenes[0];
 }
 
-export const Main = () => {
+export const Main: React.FC = () => {
     const entry = useActiveSceneEntry();
     return entry ? <GameScreen entry={entry} /> : <span />;
 };

@@ -15,7 +15,7 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 
 import { EDGES_SIZE } from "../../statics";
 import { MessageBox } from "./MessageBox";
-import { useManager } from "../../manager";
+import { usePixiManager } from "../../pixi/PixiGameManager";
 import greenOverlayImage from "../../../images/overlay_green.webp";
 import redOverlayImage from "../../../images/overlay_red.webp";
 import { UnitStatsListItem } from "./UnitStatsListItem";
@@ -35,7 +35,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
     const [unitProperties, setUnitProperties] = useState<UnitProperties>({} as UnitProperties);
 
     const { setMode } = useColorScheme();
-    const manager = useManager();
+    const manager = usePixiManager();
 
     const adjustBarSize = useCallback(() => {
         const additionalBoardPixels = gameStarted ? 0 : 512;

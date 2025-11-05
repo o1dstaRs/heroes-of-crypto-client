@@ -8,7 +8,9 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter as Router, Route, Routes, useParams } from "react-router";
 import "typeface-open-sans";
 
-import { useManager } from "../manager";
+// ⬇️ use the Pixi manager hook (alias to keep the rest of your code unchanged)
+import { usePixiManager } from "../pixi/PixiGameManager";
+
 import LeftSideBar from "./LeftSideBar";
 import DraggableToolbar from "./DraggableToolbar";
 import { Main } from "./Main";
@@ -83,7 +85,7 @@ const usePreventSelection = () => {
 
 const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const [started, setStarted] = useState(false);
-    const manager = useManager();
+    const manager = usePixiManager();
 
     useEffect(() => {
         const connection = manager.onHasStarted.connect((hasStarted) => {
@@ -92,8 +94,8 @@ const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                 manager.HomeCamera();
             }
         });
-
         return () => {
+            // Important: ensure cleanup returns void
             connection.disconnect();
         };
     }, [manager]);
@@ -237,7 +239,7 @@ export const PickBanEventProvider: React.FC<{
         return () => {
             eventSource.close();
         };
-    }, [url]);
+    }, [url, userTeam]);
 
     // Memoize context value to prevent unnecessary re-renders
     const contextValue = useMemo(
@@ -276,7 +278,7 @@ export const PickBanEventProvider: React.FC<{
 
 const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType }> = ({ windowSize, userTeam }) => {
     const [started, setStarted] = useState(false);
-    const manager = useManager();
+    const manager = usePixiManager();
 
     useEffect(() => {
         const connection = manager.onHasStarted.connect((hasStarted) => {
@@ -285,7 +287,6 @@ const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType }> 
                 manager.HomeCamera();
             }
         });
-
         return () => {
             connection.disconnect();
         };

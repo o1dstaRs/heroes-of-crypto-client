@@ -6,7 +6,7 @@ import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
 import { TeamType } from "@heroesofcrypto/common";
 
-import { useManager } from "../../manager";
+import { usePixiManager } from "../../pixi/PixiGameManager";
 
 const DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT = 1;
 
@@ -23,7 +23,7 @@ const UnitInputAndActions = ({
 
     const [placementChanged, setPlacementChanged] = useState(false);
 
-    const manager = useManager();
+    const manager = usePixiManager();
 
     useEffect(() => {
         const connection = manager.onPlacementChanged.connect((hasChanged) => {

@@ -12,9 +12,9 @@
 import { b2FixtureDef } from "@box2d/core";
 import { AbilityFactory, TeamType, UnitProperties, GridSettings, UnitType, HoCLib } from "@heroesofcrypto/common";
 
-import { DefaultShader } from "../utils/gl/defaultShader";
+import { DefaultShader } from "./defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
-import { Sprite } from "../utils/gl/Sprite";
+import { Sprite } from "./Sprite";
 import { RenderableUnit } from "./renderable_unit";
 
 export class Hero extends RenderableUnit {

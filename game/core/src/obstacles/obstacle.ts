@@ -1,59 +1,48 @@
-/*
- * -----------------------------------------------------------------------------
- * This file is part of the browser implementation of the Heroes of Crypto game client.
- *
- * Heroes of Crypto and Heroes of Crypto AI are registered trademarks.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- * -----------------------------------------------------------------------------
- */
-
-import { b2Draw, b2Color } from "@box2d/core";
-
+// game/core/src/obstacles/obstacle.ts
 import { ObstacleType, HoCMath, GridSettings, HoCConstants } from "@heroesofcrypto/common";
+import { Graphics, Container } from "pixi.js";
 
-import { Sprite } from "../utils/gl/Sprite";
+// Minimal shape both old GL Sprite and Pixi adapter can satisfy
+export interface SpriteLike {
+    setRect(x: number, y: number, width: number, height: number): void;
+    render(): void;
+}
 
 export class Obstacle {
     private readonly type: ObstacleType;
-
     private readonly position: HoCMath.XY;
-
     private readonly sizeX: number;
-
     private readonly sizeY: number;
-
-    private readonly draw: b2Draw;
-
     private readonly gridSettings: GridSettings;
 
-    private lightSprite?: Sprite;
-
-    private darkSprite?: Sprite;
+    private lightSprite?: SpriteLike;
+    private darkSprite?: SpriteLike;
 
     private readonly monitorHits: boolean;
+
+    // Optional: a graphics layer for hitbar (attach externally if you want)
+    private hitbarLayer?: Container;
 
     public constructor(
         type: ObstacleType,
         position: HoCMath.XY,
         sizeX: number,
         sizeY: number,
-        draw: b2Draw,
         gridSettings: GridSettings,
-        lightSprite?: Sprite,
-        darkSprite?: Sprite,
-        monitorHits: boolean = false,
+        lightSprite?: SpriteLike,
+        darkSprite?: SpriteLike,
+        monitorHits = false,
+        hitbarLayer?: Container, // optional container to draw hitbar into
     ) {
         this.type = type;
         this.position = position;
         this.sizeX = sizeX;
         this.sizeY = sizeY;
-        this.draw = draw;
         this.gridSettings = gridSettings;
         this.lightSprite = lightSprite;
         this.darkSprite = darkSprite;
         this.monitorHits = monitorHits;
+        this.hitbarLayer = hitbarLayer;
     }
 
     public getSizeX(): number {
@@ -68,76 +57,65 @@ export class Obstacle {
         return this.type;
     }
 
-    public setLightSprite(lightSprite?: Sprite): void {
+    public setLightSprite(lightSprite?: SpriteLike): void {
         this.lightSprite = lightSprite;
     }
 
-    public setDarkSprite(darkSprite?: Sprite): void {
+    public setDarkSprite(darkSprite?: SpriteLike): void {
         this.darkSprite = darkSprite;
     }
 
     private drawHitbar(hitsRemaining: number): void {
-        const startingPositionX =
+        if (!this.hitbarLayer) return;
+
+        // Clear old bar
+        for (let i = this.hitbarLayer.children.length - 1; i >= 0; i--) {
+            const child = this.hitbarLayer.children[i];
+            if (child instanceof Graphics) {
+                child.destroy();
+            } else {
+                this.hitbarLayer.removeChild(child);
+            }
+        }
+
+        const g = new Graphics();
+        const startX =
             ((this.gridSettings.getMinX() + this.gridSettings.getMaxX()) >> 1) - this.gridSettings.getTwoSteps();
+        const startY =
+            ((this.gridSettings.getMinY() + this.gridSettings.getMaxY()) >> 1) - this.gridSettings.getTwoSteps();
+
         const shiftX = Math.floor(
             (this.gridSettings.getStep() / HoCConstants.MAX_HITS_MOUNTAIN) * (HoCConstants.MAX_HITS_MOUNTAIN - 1),
         );
-        while (hitsRemaining--) {
-            const polygonStartingPositionX = startingPositionX;
 
-            const polygonStartingPositionY =
-                ((this.gridSettings.getMinY() + this.gridSettings.getMaxY()) >> 1) - this.gridSettings.getTwoSteps();
-            const currentShiftX = shiftX * hitsRemaining;
-            const newX = polygonStartingPositionX + currentShiftX + shiftX;
-            const newY = polygonStartingPositionY + 40;
+        for (let h = hitsRemaining; h > 0; h--) {
+            const idx = h - 1;
+            const currentShiftX = shiftX * idx;
 
-            this.draw.DrawPolygon(
-                [
-                    { x: polygonStartingPositionX + currentShiftX, y: polygonStartingPositionY },
-                    { x: polygonStartingPositionX + currentShiftX, y: newY },
-                    { x: newX, y: newY },
-                    { x: newX, y: polygonStartingPositionY },
-                ],
-                4,
-                new b2Color(1, 1, 1, 1),
-            );
+            const x0 = startX + currentShiftX;
+            const y0 = startY;
+            const x1 = startX + currentShiftX + shiftX;
+            const y1 = startY + 40;
 
-            this.draw.DrawPolygon(
-                [
-                    { x: polygonStartingPositionX + currentShiftX + 1, y: polygonStartingPositionY + 1 },
-                    { x: polygonStartingPositionX + currentShiftX + 1, y: newY - 1 },
-                    { x: newX - 1, y: newY - 1 },
-                    { x: newX - 1, y: polygonStartingPositionY + 1 },
-                ],
-                4,
-                new b2Color(1, 1, 1, 1),
-            );
-
-            this.draw.DrawSolidPolygon(
-                [
-                    { x: polygonStartingPositionX + currentShiftX + 2, y: polygonStartingPositionY + 2 },
-                    { x: polygonStartingPositionX + currentShiftX + 2, y: newY - 2 },
-                    { x: newX - 2, y: newY - 2 },
-                    { x: newX - 2, y: polygonStartingPositionY + 2 },
-                ],
-                4,
-                new b2Color(253 / 255, 250 / 255, 112 / 255, 1),
-            );
+            // Outer frame
+            g.rect(x0, y0, x1 - x0, y1 - y0).stroke({ width: 1, color: 0xffffff, alpha: 1 });
+            // Inner frame
+            g.rect(x0 + 1, y0 + 1, x1 - x0 - 2, y1 - y0 - 2).stroke({ width: 1, color: 0xffffff, alpha: 1 });
+            // Fill
+            g.rect(x0 + 2, y0 + 2, x1 - x0 - 4, y1 - y0 - 4).fill({ color: 0xfdfa70, alpha: 1 });
         }
+
+        this.hitbarLayer.addChild(g);
     }
 
     public render(isLightMode: boolean, hitsRemaining = 0): void {
-        let sprite: Sprite | undefined;
-        if (isLightMode) {
-            sprite = this.lightSprite;
-        } else {
-            sprite = this.darkSprite;
-        }
+        const sprite = isLightMode ? this.lightSprite : this.darkSprite;
 
         if (sprite) {
             sprite.setRect(this.position.x, this.position.y, this.sizeX, this.sizeY);
             sprite.render();
         }
+
         if (this.monitorHits && this.type === ObstacleType.BLOCK && hitsRemaining) {
             this.drawHitbar(hitsRemaining);
         }

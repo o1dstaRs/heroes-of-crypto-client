@@ -28,9 +28,9 @@ import {
     UnitsHolder,
 } from "@heroesofcrypto/common";
 
-import { DefaultShader } from "../utils/gl/defaultShader";
+import { DefaultShader } from "./defaultShader";
 import { PreloadedTextures } from "../utils/gl/preload";
-import { Sprite } from "../utils/gl/Sprite";
+import { Sprite } from "./Sprite";
 import { Hero } from "./heroes";
 import { RenderableUnit } from "./renderable_unit";
 import { BASE_UNIT_STACK_TO_SPAWN_EXP, SHIFT_UNITS_POSITION_Y } from "../statics";

@@ -11,7 +11,7 @@ import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState, useRef } from "react";
 
-import { useManager } from "../../manager";
+import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IVisibleState } from "../../state/visible_state";
 import meteorSvg from "../../../images/meteor.svg";
 import { Box } from "@mui/joy";
@@ -20,7 +20,7 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [countdown, setCountdown] = useState<number | null>(null);
     const countdownInterval = useRef<NodeJS.Timeout | null>(null);
-    const manager = useManager();
+    const manager = usePixiManager();
 
     useEffect(() => {
         const connection = manager.onVisibleStateUpdated.connect(setVisibleState);

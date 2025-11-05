@@ -1,15 +1,9 @@
 /*
  * -----------------------------------------------------------------------------
- * This file is part of the browser implementation of the Heroes of Crypto game client.
- *
- * Heroes of Crypto and Heroes of Crypto AI are registered trademarks.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
+ * Pixi-only replacement for RenderableUnit (no Box2D, no custom WebGL Sprite).
  * -----------------------------------------------------------------------------
  */
 
-import { b2BodyDef, b2BodyType, b2ChainShape, b2Color, b2FixtureDef, b2PolygonShape } from "@box2d/core";
 import Denque from "denque";
 import {
     HoCLib,
@@ -30,53 +24,40 @@ import {
     Unit,
 } from "@heroesofcrypto/common";
 
-import { DAMAGE_ANIMATION_TICKS, HP_BAR_DELTA, MAX_FPS, RESURRECTION_ANIMATION_TICKS } from "../statics";
-import { PreloadedTextures } from "../utils/gl/preload";
-import { Sprite } from "../utils/gl/Sprite";
-import { DefaultShader } from "../utils/gl/defaultShader";
-import { RenderableSpell } from "../spells/renderable_spell";
+import { Container, Sprite as PixiSprite, Texture } from "pixi.js";
+import { DAMAGE_ANIMATION_TICKS, MAX_FPS, RESURRECTION_ANIMATION_TICKS } from "../statics";
+import { PixiRenderableSpell } from "../spells/renderable_spell"; // <- use the Pixi version you created
+
+type DigitTextureMap = Map<number, Texture>;
 
 interface IDamageTaken {
     animationTicks: number;
     unitsDied: number;
 }
 
-export class RenderableUnit extends Unit {
+export class PixiUnit extends Unit {
+    // Timing/state
     protected readonly sceneStepCount: HoCLib.RefNumber;
-
-    protected readonly textures: PreloadedTextures;
-
-    protected readonly gl: WebGLRenderingContext;
-
-    protected readonly shader: DefaultShader;
-
-    protected readonly digitNormalTextures: Map<number, WebGLTexture>;
-
-    protected readonly digitDamageTextures: Map<number, WebGLTexture>;
-
-    protected readonly digitScrollTextures: Map<number, WebGLTexture>;
-
-    protected readonly smallSprite: Sprite;
-
-    protected readonly tagSprite: Sprite;
-
-    protected readonly hourglassSprite: Sprite;
-
-    protected readonly stopSprite: Sprite;
-
-    protected readonly damageAnimationTicks: Denque<IDamageTaken> = new Denque<IDamageTaken>();
-
-    protected resurrectionAnimationTick = 0;
-
-    protected readonly bodyDef: b2BodyDef;
-
-    protected readonly fixtureDef: b2FixtureDef;
-
-    protected readonly stackPowerBarFixtureDefs: b2FixtureDef[];
-
-    protected readonly stackPowerBarBoundFixtureDefs: b2FixtureDef[];
-
     protected lastKnownTick = 0;
+    protected readonly damageAnimationTicks: Denque<IDamageTaken> = new Denque<IDamageTaken>();
+    protected resurrectionAnimationTick = 0;
+    // NEW: a dedicated container that holds this unit’s sprites
+    private readonly container: Container;
+
+    // Pixi visuals
+    private readonly layer: Container;
+    private readonly smallSprite: PixiSprite;
+    private readonly tagSprite: PixiSprite;
+    private readonly hourglassSprite: PixiSprite;
+    private readonly stopSprite: PixiSprite;
+
+    // Digits
+    private readonly digitNormalTextures: DigitTextureMap;
+    private readonly digitDamageTextures: DigitTextureMap;
+    private readonly digitScrollTextures: DigitTextureMap;
+
+    // Spell textures bag (by key name)
+    private readonly textures: Record<string, Texture>;
 
     protected constructor(
         unitProperties: UnitProperties,
@@ -87,99 +68,40 @@ export class RenderableUnit extends Unit {
         effectFactory: EffectFactory,
         summoned: boolean,
         sceneStepCount: HoCLib.RefNumber,
-        textures: PreloadedTextures,
-        gl: WebGLRenderingContext,
-        shader: DefaultShader,
-        digitNormalTextures: Map<number, WebGLTexture>,
-        digitDamageTextures: Map<number, WebGLTexture>,
-        digitScrollTextures: Map<number, WebGLTexture>,
-        smallSprite: Sprite,
-        tagSprite: Sprite,
-        hourglassSprite: Sprite,
-        stopSprite: Sprite,
+        layer: Container,
+        textures: Record<string, Texture>,
+        digitNormalTextures: DigitTextureMap,
+        digitDamageTextures: DigitTextureMap,
+        digitScrollTextures: DigitTextureMap,
+        smallSprite: PixiSprite,
+        tagSprite: PixiSprite,
+        hourglassSprite: PixiSprite,
+        stopSprite: PixiSprite,
     ) {
         super(unitProperties, gridSettings, teamType, unitType, abilityFactory, effectFactory, summoned);
-        this.damageAnimationTicks = new Denque();
+
         this.sceneStepCount = sceneStepCount;
+        this.layer = layer;
+        this.container = new Container();
+        this.layer.addChild(this.container);
         this.textures = textures;
-        this.gl = gl;
-        this.shader = shader;
+
         this.digitNormalTextures = digitNormalTextures;
         this.digitDamageTextures = digitDamageTextures;
         this.digitScrollTextures = digitScrollTextures;
+
         this.smallSprite = smallSprite;
         this.tagSprite = tagSprite;
         this.hourglassSprite = hourglassSprite;
         this.stopSprite = stopSprite;
 
-        this.bodyDef = {
-            type: b2BodyType.b2_dynamicBody,
-            position: this.position,
-            fixedRotation: true,
-            userData: unitProperties,
-        };
-
-        const unitShape = new b2PolygonShape();
-        this.fixtureDef = {
-            shape: unitShape,
-            density: 1,
-            friction: 0,
-            restitution: 0.0,
-        };
-        unitShape.SetAsBox(
-            this.gridSettings.getUnitSize() * this.unitProperties.size,
-            this.gridSettings.getUnitSize() * this.unitProperties.size,
-        );
-
-        const halfUnitStep = this.isSmallSize() ? this.gridSettings.getHalfStep() : this.gridSettings.getStep();
-        const fullUnitStep = this.isSmallSize() ? this.gridSettings.getStep() : this.gridSettings.getTwoSteps();
-
-        this.stackPowerBarBoundFixtureDefs = new Array(5);
-        let i = 0;
-        while (i < this.stackPowerBarBoundFixtureDefs.length) {
-            const hpBoundShape = new b2ChainShape(b2Color.WHITE);
-            const step = fullUnitStep / this.stackPowerBarBoundFixtureDefs.length;
-            const yOffset = i * step;
-            const yBottom = this.position.y - halfUnitStep + yOffset;
-            const yTop = yBottom + step;
-            hpBoundShape.CreateLoop([
-                { x: this.position.x - halfUnitStep, y: yTop },
-                { x: this.position.x - halfUnitStep + fullUnitStep / 7, y: yTop },
-                { x: this.position.x - halfUnitStep + fullUnitStep / 7, y: yBottom },
-                { x: this.position.x - halfUnitStep, y: yBottom },
-            ]);
-            this.stackPowerBarBoundFixtureDefs[i++] = {
-                shape: hpBoundShape,
-                density: 1,
-                friction: 0,
-                restitution: 0.0,
-                isSensor: true,
-            };
+        for (const s of [this.smallSprite, this.tagSprite, this.hourglassSprite, this.stopSprite]) {
+            if (!s.parent) this.container.addChild(s); // CHANGED: was this.layer.addChild(s)
         }
+    }
 
-        this.stackPowerBarFixtureDefs = new Array(5);
-        let j = 0;
-        while (j < this.stackPowerBarFixtureDefs.length) {
-            const hpBarShape = new b2PolygonShape();
-            const step = fullUnitStep / this.stackPowerBarBoundFixtureDefs.length;
-            const yOffset = j * step;
-            const yBottom = this.position.y - halfUnitStep + yOffset + HP_BAR_DELTA;
-            const yTop = yBottom + step - HP_BAR_DELTA;
-            hpBarShape.Set([
-                { x: this.position.x - halfUnitStep + HP_BAR_DELTA, y: yTop },
-                { x: this.position.x - halfUnitStep + fullUnitStep / 7 - HP_BAR_DELTA, y: yTop },
-                { x: this.position.x - halfUnitStep + HP_BAR_DELTA, y: yBottom },
-                { x: this.position.x - halfUnitStep + fullUnitStep / 7 - HP_BAR_DELTA, y: yBottom },
-            ]);
-            this.stackPowerBarFixtureDefs[j++] = {
-                shape: hpBarShape,
-                density: 1,
-                friction: 0,
-                restitution: 0.0,
-                isSensor: true,
-                userData: { team: this.teamType },
-            };
-        }
+    public getContainer(): Container {
+        return this.container;
     }
 
     public static createRenderableUnit(
@@ -191,18 +113,17 @@ export class RenderableUnit extends Unit {
         effectFactory: EffectFactory,
         summoned: boolean,
         sceneStepCount: HoCLib.RefNumber,
-        textures: PreloadedTextures,
-        gl: WebGLRenderingContext,
-        shader: DefaultShader,
-        digitNormalTextures: Map<number, WebGLTexture>,
-        digitDamageTextures: Map<number, WebGLTexture>,
-        digitScrollTextures: Map<number, WebGLTexture>,
-        smallSprite: Sprite,
-        tagSprite: Sprite,
-        hourglassSprite: Sprite,
-        stopSprite: Sprite,
-    ): RenderableUnit {
-        const renderableUnit = new RenderableUnit(
+        layer: Container,
+        textures: Record<string, Texture>,
+        digitNormalTextures: DigitTextureMap,
+        digitDamageTextures: DigitTextureMap,
+        digitScrollTextures: DigitTextureMap,
+        smallSprite: PixiSprite,
+        tagSprite: PixiSprite,
+        hourglassSprite: PixiSprite,
+        stopSprite: PixiSprite,
+    ): PixiUnit {
+        const u = new PixiUnit(
             unitProperties,
             gridSettings,
             teamType,
@@ -211,9 +132,8 @@ export class RenderableUnit extends Unit {
             effectFactory,
             summoned,
             sceneStepCount,
+            layer,
             textures,
-            gl,
-            shader,
             digitNormalTextures,
             digitDamageTextures,
             digitScrollTextures,
@@ -222,72 +142,96 @@ export class RenderableUnit extends Unit {
             hourglassSprite,
             stopSprite,
         );
-
-        renderableUnit.parseSpells();
-        return renderableUnit;
+        u.parseSpells();
+        return u;
     }
 
-    public getHoveredSpell(mousePosition: HoCMath.XY): RenderableSpell | undefined {
-        for (const s of this.spells) {
-            const renderableSpell = s as RenderableSpell;
-            if (renderableSpell.isHover(mousePosition, this.getStackPower())) {
-                return renderableSpell;
-            }
-        }
+    // ---------------- Spells ----------------
 
+    public getHoveredSpell(mousePosition: HoCMath.XY): PixiRenderableSpell | undefined {
+        for (const s of this.spells) {
+            const pr = s as PixiRenderableSpell;
+            if (pr.isHover(mousePosition, this.getStackPower())) return pr;
+        }
         return undefined;
     }
 
     public renderSpells(pageNumber: number): void {
         const windowLeft = (pageNumber - 1) * 6;
-        const windowRight = (pageNumber - 1) * 6 + 6;
+        const windowRight = windowLeft + 6;
         let bookPosition = 1;
         const rendered: number[] = [];
+
         for (let i = windowLeft; i < windowRight; i++) {
-            if (
-                i in this.spells &&
-                this.spells[i] // &&
-                // this.spells[i].isRemaining() &&
-                // this.spells[i].getMinimalCasterStackPower() <= this.getStackPower()
-            ) {
-                (this.spells[i] as RenderableSpell).renderOnPage(bookPosition++, this.getStackPower());
+            if (i in this.spells && this.spells[i]) {
+                (this.spells[i] as PixiRenderableSpell).renderOnPage(bookPosition++, this.getStackPower());
                 rendered.push(i);
             }
         }
 
         for (let i = 0; i < this.spells.length; i++) {
             if (!rendered.includes(i)) {
-                (this.spells[i] as RenderableSpell).cleanupPagePosition();
+                (this.spells[i] as PixiRenderableSpell).cleanupPagePosition();
             }
         }
     }
 
-    public getBodyDef(): b2BodyDef {
-        return this.bodyDef;
+    protected parseSpells(): void {
+        const spells: Map<string, number> = this.parseSpellData(this.unitProperties.spells);
+        const newSpells: PixiRenderableSpell[] = [];
+
+        for (const [k, v] of spells.entries()) {
+            const spArr = k.split(":");
+            if (spArr.length !== 2) continue;
+
+            const faction = ToFactionType[spArr[0] as AllFactionsType] ?? FactionType.NO_TYPE;
+            if (faction === undefined) continue;
+
+            const spellName = spArr[1];
+            const spellProperties = HoCConfig.getSpellConfig(faction, spellName);
+            const textureNames = SpellHelper.spellToTextureNames(spellName);
+            const [iconKey, titleKey] = textureNames;
+
+            const iconTex = this.textures[iconKey];
+            const titleTex = this.textures[titleKey];
+            const bgTex = this.textures["spell_cell_260"];
+            const stackGreen = this.textures["stack_green"];
+            const stackRed = this.textures["stack_red"];
+
+            if (!iconTex || !titleTex || !bgTex) continue;
+
+            // Create a small local layer for the spell UI elements (you can pass a shared UI layer instead)
+            const uiLayer = this.layer;
+
+            newSpells.push(
+                new PixiRenderableSpell(
+                    { spellProperties, amount: v },
+                    uiLayer,
+                    { spell_cell_260: bgTex, stack_green: stackGreen, stack_red: stackRed },
+                    iconTex,
+                    titleTex,
+                    this.digitScrollTextures,
+                ),
+            );
+        }
+
+        this.spells = newSpells;
     }
 
-    public getFixtureDef(): b2FixtureDef {
-        return this.fixtureDef;
-    }
-
-    public getHpBarBoundFixtureDefs(): b2FixtureDef[] {
-        return this.stackPowerBarBoundFixtureDefs.slice(0, this.getStackPower());
-    }
-
-    public getHpBarFixtureDefs(): b2FixtureDef[] {
-        return this.stackPowerBarFixtureDefs.slice(0, this.getStackPower());
-    }
+    // ---------------- Frame update / rendering ----------------
 
     public updateTick(currentTick: number): void {
         this.lastKnownTick = currentTick;
     }
 
+    public isAnimatingMovement(): boolean {
+        return false;
+    }
+
     public render(fps: number, isDamageAnimationLocked: boolean, sceneLog: ISceneLog) {
         this.lastKnownTick = Math.max(this.sceneStepCount.getValue(), this.lastKnownTick);
 
-        if (this.lastKnownTick < this.resurrectionAnimationTick) {
-            return;
-        }
+        if (this.lastKnownTick < this.resurrectionAnimationTick) return;
 
         if (this.resurrectionAnimationTick) {
             sceneLog.updateLog(`${this.getName()} resurrected as ${this.getAmountAlive()}`);
@@ -303,8 +247,13 @@ export class RenderableUnit extends Unit {
         const spritePositionX = this.renderPosition.x - halfUnitStep;
         const spritePositionY = this.renderPosition.y - halfUnitStep;
 
-        this.smallSprite.setRect(spritePositionX, spritePositionY, fullUnitStep, fullUnitStep);
-        this.smallSprite.render(this.hasBuffActive("Hidden") ? 0.6 : 1);
+        // Main unit sprite
+        this.smallSprite.x = spritePositionX;
+        this.smallSprite.y = spritePositionY;
+        this.smallSprite.width = fullUnitStep;
+        this.smallSprite.height = fullUnitStep;
+        this.smallSprite.alpha = this.hasBuffActive("Hidden") ? 0.6 : 1;
+        this.smallSprite.visible = true;
 
         const damageEntry = this.damageAnimationTicks.pop();
         let finishDamageTick = damageEntry?.animationTicks;
@@ -329,16 +278,13 @@ export class RenderableUnit extends Unit {
             }
         } else {
             const ratioToMaxFps = Math.floor(MAX_FPS / fps);
-
-            if (ratioToMaxFps) {
-                finishDamageTick -= Math.sqrt(ratioToMaxFps - 1);
-            }
+            if (ratioToMaxFps) finishDamageTick -= Math.sqrt(ratioToMaxFps - 1);
 
             const unitsDied = damageEntry?.unitsDied ?? 0;
 
             this.damageAnimationTicks.push({
                 animationTicks: finishDamageTick,
-                unitsDied: damageEntry?.unitsDied ?? 0,
+                unitsDied,
             });
 
             if (unitsDied) {
@@ -353,15 +299,14 @@ export class RenderableUnit extends Unit {
             } else {
                 const texture = this.digitNormalTextures.get(-1);
                 if (texture) {
-                    for (let i = 1; i <= this.unitProperties.amount_alive.toString().length; i++) {
-                        const sprite = new Sprite(this.gl, this.shader, texture);
-                        sprite.setRect(
-                            this.renderPosition.x + halfUnitStep - sixthStep * i,
-                            this.renderPosition.y - halfUnitStep,
-                            sixthStep,
-                            fifthStep,
-                        );
-                        sprite.render();
+                    const len = this.unitProperties.amount_alive.toString().length;
+                    for (let i = 1; i <= len; i++) {
+                        const sprite = new PixiSprite(texture);
+                        sprite.x = this.renderPosition.x + halfUnitStep - sixthStep * i;
+                        sprite.y = this.renderPosition.y - halfUnitStep;
+                        sprite.width = sixthStep;
+                        sprite.height = fifthStep;
+                        this.layer.addChild(sprite);
                     }
                 }
             }
@@ -369,31 +314,34 @@ export class RenderableUnit extends Unit {
 
         if (!damageEntry || (damageEntry && !isDamageAnimationLocked)) {
             if (this.responded) {
-                this.tagSprite.setRect(
-                    this.renderPosition.x + halfUnitStep - fourthUnitStep,
-                    this.renderPosition.y - fourthUnitStep - 6,
-                    fourthUnitStep,
-                    fourthUnitStep,
-                );
-                this.tagSprite.render();
+                this.tagSprite.x = this.renderPosition.x + halfUnitStep - fourthUnitStep;
+                this.tagSprite.y = this.renderPosition.y - fourthUnitStep - 6;
+                this.tagSprite.width = fourthUnitStep;
+                this.tagSprite.height = fourthUnitStep;
+                this.tagSprite.visible = true;
+            } else {
+                this.tagSprite.visible = false;
             }
 
             if (this.isSkippingThisTurn()) {
-                this.stopSprite.setRect(
-                    this.renderPosition.x + halfUnitStep - fourthUnitStep,
-                    this.renderPosition.y,
-                    fourthUnitStep,
-                    fourthUnitStep,
-                );
-                this.stopSprite.render();
+                this.stopSprite.x = this.renderPosition.x + halfUnitStep - fourthUnitStep;
+                this.stopSprite.y = this.renderPosition.y;
+                this.stopSprite.width = fourthUnitStep;
+                this.stopSprite.height = fourthUnitStep;
+                this.stopSprite.visible = true;
+
+                this.hourglassSprite.visible = false;
             } else if (this.onHourglass) {
-                this.hourglassSprite.setRect(
-                    this.renderPosition.x + halfUnitStep - fourthUnitStep,
-                    this.renderPosition.y,
-                    fourthUnitStep,
-                    fourthUnitStep,
-                );
-                this.hourglassSprite.render();
+                this.hourglassSprite.x = this.renderPosition.x + halfUnitStep - fourthUnitStep;
+                this.hourglassSprite.y = this.renderPosition.y;
+                this.hourglassSprite.width = fourthUnitStep;
+                this.hourglassSprite.height = fourthUnitStep;
+                this.hourglassSprite.visible = true;
+
+                this.stopSprite.visible = false;
+            } else {
+                this.stopSprite.visible = false;
+                this.hourglassSprite.visible = false;
             }
         }
     }
@@ -405,9 +353,8 @@ export class RenderableUnit extends Unit {
         );
     }
 
-    /**
-     * Refreshes the abilities descriptions for the UI, according to current unit stats.
-     **/
+    // ---------------- Ability description refresh (unchanged logic) ----------------
+
     protected refreshAbilitiesDescriptions(_synergyAbilityPowerIncrease: number): void {
         // Heavy Armor
         const heavyArmorAbility = this.getAbility("Heavy Armor");
@@ -1036,44 +983,9 @@ export class RenderableUnit extends Unit {
         }
     }
 
-    protected parseSpells(): void {
-        const spells: Map<string, number> = this.parseSpellData(this.unitProperties.spells);
-        const newSpells: RenderableSpell[] = [];
-
-        for (const [k, v] of spells.entries()) {
-            const spArr = k.split(":");
-            if (spArr.length !== 2) {
-                continue;
-            }
-            // can return us undefined
-            const faction = ToFactionType[spArr[0] as AllFactionsType] ?? FactionType.NO_TYPE;
-            if (faction === undefined) {
-                continue;
-            }
-
-            const spellName = spArr[1];
-            const spellProperties = HoCConfig.getSpellConfig(faction, spellName);
-            const textureNames = SpellHelper.spellToTextureNames(spellName);
-            newSpells.push(
-                new RenderableSpell(
-                    { spellProperties: spellProperties, amount: v },
-                    this.gl,
-                    this.shader,
-                    this.textures,
-                    new Sprite(this.gl, this.shader, this.textures[textureNames[0] as keyof PreloadedTextures].texture),
-                    new Sprite(this.gl, this.shader, this.textures[textureNames[1] as keyof PreloadedTextures].texture),
-                    this.digitScrollTextures,
-                ),
-            );
-        }
-
-        this.spells = newSpells;
-    }
-
     protected handleDamageAnimation(unitsDied: number): void {
         const damageTakenEntry = this.damageAnimationTicks.peekFront();
         const nextAnimationTick = damageTakenEntry?.animationTicks ?? 0;
-
         this.damageAnimationTicks.unshift({
             animationTicks: Math.max(this.sceneStepCount.getValue(), nextAnimationTick) + DAMAGE_ANIMATION_TICKS,
             unitsDied,
@@ -1081,7 +993,7 @@ export class RenderableUnit extends Unit {
     }
 
     protected renderAmountSprites(
-        digitTextures: Map<number, WebGLTexture>,
+        digitTextures: DigitTextureMap,
         amountToRender: number,
         position: HoCMath.XY,
         halfUnitStep: number,
@@ -1089,38 +1001,53 @@ export class RenderableUnit extends Unit {
         sixthStep: number,
     ): void {
         const isDamage = digitTextures === this.digitDamageTextures;
-        const amountSprites: Sprite[] = new Array(amountToRender.toString().length + (isDamage ? 1 : 0));
-        let index = 0;
-        if (amountToRender < 10) {
-            const texture = digitTextures.get(amountToRender);
-            if (texture) {
-                amountSprites[index] = new Sprite(this.gl, this.shader, texture);
-            }
+        let n = amountToRender;
+        const sprites: PixiSprite[] = [];
+
+        if (n < 10) {
+            const tex = digitTextures.get(n);
+            if (tex) sprites.push(new PixiSprite(tex));
         } else {
-            while (amountToRender) {
-                const digit = amountToRender % 10;
-                const texture = digitTextures.get(digit);
-                if (texture) {
-                    amountSprites[index++] = new Sprite(this.gl, this.shader, texture);
-                }
-                amountToRender = Math.floor(amountToRender / 10);
+            while (n) {
+                const digit = n % 10;
+                const tex = digitTextures.get(digit);
+                if (tex) sprites.push(new PixiSprite(tex));
+                n = Math.floor(n / 10);
             }
         }
+
         if (isDamage) {
-            const texture = digitTextures.get(-1);
-            if (texture) {
-                amountSprites[index + 1] = new Sprite(this.gl, this.shader, texture);
-            }
+            const dash = digitTextures.get(-1);
+            if (dash) sprites.push(new PixiSprite(dash));
         }
 
         let i = 1;
-        for (const s of amountSprites) {
-            if (!s) {
-                continue;
-            }
-
-            s.setRect(position.x + halfUnitStep - sixthStep * i++, position.y - halfUnitStep, sixthStep, fifthStep);
-            s.render();
+        for (const s of sprites) {
+            s.x = position.x + halfUnitStep - sixthStep * i++;
+            s.y = position.y - halfUnitStep;
+            s.width = sixthStep;
+            s.height = fifthStep;
+            this.layer.addChild(s);
         }
+    }
+
+    // ---------------- Migration stubs (to keep old call sites compiling) ----------------
+
+    /** @deprecated Box2D removed in Pixi version. Always returns undefined. */
+    public getBodyDef(): undefined {
+        return undefined;
+    }
+    /** @deprecated Box2D removed in Pixi version. Always returns undefined. */
+    public getFixtureDef(): undefined {
+        return undefined;
+    }
+    /** @deprecated Box2D removed in Pixi version. Use Pixi overlays instead. */
+    public getHpBarBoundFixtureDefs(): unknown[] {
+        // HP bars are rendered visually in Pixi (if you need them back, draw with Graphics).
+        return [];
+    }
+    /** @deprecated Box2D removed in Pixi version. Use Pixi overlays instead. */
+    public getHpBarFixtureDefs(): unknown[] {
+        return [];
     }
 }

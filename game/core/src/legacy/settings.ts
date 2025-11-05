@@ -1,60 +1,38 @@
-// game/core/src/settings.ts
+// MIT License
 
-// Simple XY coordinate interface
-interface XY {
-    x: number;
-    y: number;
-}
+import { b2AABB, b2Draw, RGBA } from "@box2d/core";
+import { b2CalculateParticleIterations } from "@box2d/particles";
 
-// Simple AABB interface
-interface AABB {
-    lowerBound: XY;
-    upperBound: XY;
-}
+// Copyright (c) 2019 Erin Catto
 
-// Simple Color interface
-interface Color {
-    r: number;
-    g: number;
-    b: number;
-    a: number;
-}
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
 
-// Accept several common 2D transform shapes without using `any`
-type TransformLike =
-    // Box2D-style: position p and rotation q (cos/sin)
-    | { p: XY; q: { s: number; c: number } }
-    // Angle-based: position + angle in radians
-    | { position: XY; angle: number }
-    // Affine 2D matrix (a b c d tx ty)
-    | { a: number; b: number; c: number; d: number; tx: number; ty: number };
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 const noop = () => undefined;
 
-export interface TestDebugDraw {
+export interface TestDebugDraw extends b2Draw {
     Prepare(centerX: number, centerY: number, zoom: number, flipY?: boolean): void;
 
     Finish(): void;
 
     DrawStringWorld(x: number, y: number, message: string): void;
 
-    DrawAABB?(aabb: AABB, color: Color): void;
-
-    DrawPolygon?(vertices: XY[], vertexCount: number, color: Color): void;
-
-    DrawSolidPolygon?(vertices: XY[], vertexCount: number, color: Color): void;
-
-    DrawCircle?(center: XY, radius: number, color: Color): void;
-
-    DrawSolidCircle?(center: XY, radius: number, axis: XY, color: Color): void;
-
-    DrawSegment?(p1: XY, p2: XY, color: Color): void;
-
-    DrawTransform?(xf: TransformLike, color: Color): void;
-
-    DrawPoint?(p: XY, size: number, color: Color): void;
-
-    DrawParticles?(centers: XY[], colors: Color[], count: number): void;
+    DrawAABB(aabb: b2AABB, color: RGBA): void;
 }
 
 export class Settings {
@@ -74,7 +52,7 @@ export class Settings {
     // Particle iterations are needed for numerical stability in particle
     // simulations with small particles and relatively high gravity.
     // b2CalculateParticleIterations helps to determine the number.
-    public m_particleIterations = 0; // Simplified
+    public m_particleIterations = b2CalculateParticleIterations(10, 0.04, 1 / this.m_hertz);
 
     public m_drawShapes = true;
 
@@ -119,7 +97,8 @@ export class Settings {
     public m_debugDraw: TestDebugDraw = {
         Prepare: noop,
         Finish: noop,
-        DrawStringWorld: noop,
+        PushTransform: noop,
+        PopTransform: noop,
         DrawPolygon: noop,
         DrawSolidPolygon: noop,
         DrawCircle: noop,
@@ -129,5 +108,6 @@ export class Settings {
         DrawPoint: noop,
         DrawParticles: noop,
         DrawAABB: noop,
+        DrawStringWorld: noop,
     };
 }

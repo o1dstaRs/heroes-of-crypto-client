@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { SceneEntry } from "../scenes/scene";
+import { SceneEntry } from "../pixi/PixiScene";
 
 export const classPrefix = (main: string, prefix?: string) => (prefix ? `${main} ${prefix}-${main}` : main);
 

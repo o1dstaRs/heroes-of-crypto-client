@@ -12,7 +12,7 @@
 import { b2Color, b2Draw, b2FixtureDef, b2PolygonShape, b2Vec2, XY } from "@box2d/core";
 import { GridMath, GridSettings } from "@heroesofcrypto/common";
 
-import { Sprite } from "../utils/gl/Sprite";
+import { Sprite } from "./Sprite";
 
 export class Button {
     private readonly gridSettings: GridSettings;

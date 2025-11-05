@@ -9,7 +9,7 @@ import Typography from "@mui/joy/Typography";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import TerrainRoundedIcon from "@mui/icons-material/TerrainRounded";
 import GroupAddRoundedIcon from "@mui/icons-material/GroupAddRounded";
-import { useManager } from "../../manager";
+import { usePixiManager } from "../../pixi/PixiGameManager";
 import { RedFlagIcon } from "../svg/flag_red";
 import { GreenFlagIcon } from "../svg/flag_green";
 import UnitInputAndActions from "./UnitInputAndActions";
@@ -21,7 +21,7 @@ import UnitSplitter from "./UnitSplitter";
 const FightControlToggler: React.FC = () => {
     const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
     const theme = useTheme();
-    const manager = useManager();
+    const manager = usePixiManager();
 
     // References to setOpen functions for each toggler
     const setOpenRefs = useRef<{

@@ -5,11 +5,11 @@ import FormControl from "@mui/joy/FormControl";
 import RadioGroup from "@mui/joy/RadioGroup";
 import Radio from "@mui/joy/Radio";
 import Button from "@mui/joy/Button";
-import { useManager } from "../../manager";
+import { usePixiManager } from "../../pixi/PixiGameManager";
 
 const MapSettingsRadioButtons: React.FC = () => {
     const [gridType, setGridType] = useState<GridType>(GridType.NORMAL);
-    const manager = useManager();
+    const manager = usePixiManager();
 
     useEffect(() => {
         const connection = manager.onGridTypeChanged.connect((newGridType: GridType) => {

@@ -11,12 +11,12 @@
 
 import { BlendFunc, Light, lightSettings, RayHandler, RECOMMENDED_GAMMA_CORRECTION, XY } from "@box2d/lights";
 
-import { g_camera } from "../utils/camera";
+import { g_camera } from "./camera";
 import { RayHandlerImpl } from "../utils/lights/RayHandlerImpl";
-import { clearGlCanvas } from "../utils/gl/glUtils";
-import { Settings } from "../settings";
+import { clearGlCanvas } from "./glUtils";
+import { Settings } from "./settings";
 import { Scene } from "./scene";
-import { SceneSettings } from "./scene_settings";
+import { SceneSettings } from "../scenes/scene_settings";
 
 type BlendMode = "Default" | "Over-Burn" | "Some Other";
 
