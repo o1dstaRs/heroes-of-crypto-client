@@ -22,14 +22,16 @@ import {
     IVisibleState,
     VisibleButtonState,
 } from "../state/visible_state";
-import { EDGES_SIZE, MAX_FPS } from "../statics";
+import { MAX_FPS } from "../statics";
 import { FpsCalculator } from "../utils/FpsCalculator";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
 import { PixiApp } from "./PixiApp";
 import { PixiSceneManager } from "./PixiSceneManager";
 import { preloadPixiTextures, PreloadedPixiTextures } from "./PixiTextureLoader";
 
+import "../scenes";
 import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
+import { getScenesGrouped } from "./PixiScene";
 
 // Narrower shape some of your legacy userData carried (from Box2D days)
 type LegacyUnitFlag = { unit_type?: number };
@@ -38,11 +40,7 @@ type LegacyUnitFlag = { unit_type?: number };
 function isUnitUserData(x: unknown): x is UnitProperties & LegacyUnitFlag {
     if (!x || typeof x !== "object") return false;
     const o = x as Record<string, unknown>;
-    // minimum fields we rely on here
-    const hasAmountAlive = typeof o["amount_alive"] === "number";
-    const hasAbilities = Array.isArray(o["abilities"]);
-    // legacy flag is optional, don’t require it to be present
-    return hasAmountAlive && hasAbilities;
+    return typeof o["amount_alive"] === "number" && Array.isArray(o["abilities"]);
 }
 
 export class PixiGameManager {
@@ -60,7 +58,7 @@ export class PixiGameManager {
     private allHotKeys: HotKey[] = [];
     private stepHotKeys: HotKey[] = [];
 
-    public readonly groupedScenes: { name: string; scenes: SceneEntry[] }[] = [];
+    public readonly groupedScenes: { name: string; scenes: SceneEntry[] }[] = getScenesGrouped();
     public readonly flatScenes: SceneEntry[] = [];
 
     private sceneConstructor: SceneConstructor | null = null;
@@ -95,7 +93,7 @@ export class PixiGameManager {
     private textures: PreloadedPixiTextures | null = null;
 
     public constructor() {
-        this.flatScenes = [];
+        for (const { scenes } of this.groupedScenes) this.flatScenes.push(...scenes);
     }
 
     /** Throwing getters to keep TypeScript happy without ‘never’ intersections */
@@ -121,53 +119,27 @@ export class PixiGameManager {
         if (this.isInitialized) return;
         this.activateScene = activateScene;
 
-        // Debug/UI canvas input
+        // Input handlers (unchanged) ...
         debugCanvas.addEventListener("mousedown", (e) => this.HandleMouseDown(e));
         debugCanvas.addEventListener("mouseup", (e) => this.HandleMouseUp(e));
         debugCanvas.addEventListener("mousemove", (e) => this.HandleMouseMove(e));
-
         window.addEventListener("keydown", (e) => {
             if (e.key === "Escape") this.HandleEscapeKey(true);
         });
+        debugCanvas.addEventListener("mouseenter", () => (this.m_hoveringCanvas = true));
+        debugCanvas.addEventListener("mouseleave", () => (this.m_hoveringCanvas = false));
 
-        debugCanvas.addEventListener("mouseenter", () => {
-            this.m_hoveringCanvas = true;
-        });
-        debugCanvas.addEventListener("mouseleave", () => {
-            this.m_hoveringCanvas = false;
-        });
-
-        // Resize handling
-        const onResize = () => {
-            const { clientWidth, clientHeight } = wrapper;
-            if (debugCanvas.width !== clientWidth || debugCanvas.height !== clientHeight) {
-                debugCanvas.width = glCanvas.width = clientWidth;
-                debugCanvas.height = glCanvas.height = clientHeight;
-
-                if (this.pixiApp) this.pixiApp.resize(clientWidth, clientHeight);
-                this.m_scene?.Resize(clientWidth, clientHeight);
-            }
-        };
-        window.addEventListener("resize", onResize);
-        window.addEventListener("orientationchange", onResize);
-        onResize();
-
-        // Init PixiJS
+        // Init Pixi using wrapper size
         this.pixiApp = new PixiApp();
         await this.pixiApp.init(glCanvas, wrapper.clientWidth, wrapper.clientHeight);
 
-        // Load textures (strongly typed to your generated images map)
+        // Preload textures & scene manager
         this.textures = await preloadPixiTextures();
-
-        // Scene manager + default grid settings
         const gridSettings = new GridSettings(32, 1024, 0, 1024, 0, 32, 16);
         this.pixiSceneManager = new PixiSceneManager(this.pixiApp, gridSettings);
 
-        // Keyboard global handlers
         window.addEventListener("keydown", (e) => this.HandleKey(e, true));
         window.addEventListener("keyup", (e) => this.HandleKey(e, false));
-
-        // Right-click context menu off (only inside main)
         window.addEventListener(
             "contextmenu",
             (e) => {
@@ -176,7 +148,34 @@ export class PixiGameManager {
             true,
         );
 
+        // --- IMPORTANT: don't set glCanvas.width/height; let Pixi own it. ---
+        // Only resize via Pixi + notify scene.
+        const onResize = () => {
+            const rect = wrapper.getBoundingClientRect();
+            const w = Math.max(1, Math.floor(rect.width));
+            const h = Math.max(1, Math.floor(rect.height));
+
+            // keep debugCanvas in CSS pixels for overlays if you use it
+            if (debugCanvas.width !== w || debugCanvas.height !== h) {
+                debugCanvas.width = w;
+                debugCanvas.height = h;
+            }
+
+            this.pixiApp!.resize(w, h);
+            this.m_scene?.Resize(w, h);
+
+            // camera is screen-anchored; keep neutral
+            this.fitViewToWindow();
+        };
+        window.addEventListener("resize", onResize);
+        window.addEventListener("orientationchange", onResize);
+        onResize(); // first sizing pass
+
         this.LoadGame();
+
+        // Do a second fit on the next frame after scene/backdrop layout
+        this._pixiApp.getTicker().addOnce(() => this.fitViewToWindow());
+
         this.isInitialized = true;
     }
 
@@ -194,17 +193,16 @@ export class PixiGameManager {
         this.sceneConstructor = constructor;
     }
 
+    /** Fit board to window (no manual zoom controls). */
+    private fitViewToWindow(): void {
+        if (!this.pixiSceneManager) return;
+        this.pixiSceneManager.setCameraZoom(1); // no world scaling; background is sized to stage
+        this.pixiSceneManager.setCameraPosition(0, 0); // top-left origin; your square is centered in stage
+    }
+
+    /** Legacy “HomeCamera” semantic, just uses fitViewToWindow now. */
     public HomeCamera(): void {
-        let edgesSize = EDGES_SIZE;
-        if (this.started) edgesSize = 0;
-
-        const zoom = this.m_scene ? this.m_scene.GetDefaultViewZoom(edgesSize) : 25;
-        const center = this.m_scene ? this.m_scene.getCenter() : { x: 0, y: 512 };
-
-        if (this.pixiSceneManager) {
-            this.pixiSceneManager.setCameraPosition(center.x, center.y);
-            this.pixiSceneManager.setCameraZoom(zoom);
-        }
+        this.fitViewToWindow();
     }
 
     public HandleEscapeKey(down: boolean): void {
@@ -218,17 +216,17 @@ export class PixiGameManager {
         const world = { x: e.offsetX, y: e.offsetY };
         this.m_scene?.MouseMove(world, this.m_lMouseDown);
 
+        // Keep optional right-click panning (no zoom UI)
         if (this.m_rMouseDown && this.pixiSceneManager) {
             const cameraPos = this.pixiSceneManager.getCameraPosition();
-            const zoom = this.pixiSceneManager.getCameraZoom();
-            const f = 1 / zoom;
+            const z = this.pixiSceneManager.getCameraZoom();
+            const f = 1 / z;
             this.pixiSceneManager.setCameraPosition(cameraPos.x - e.movementX * f, cameraPos.y + e.movementY * f);
         }
     }
 
     public HandleMouseDown(e: MouseEvent): void {
         const world = { x: e.offsetX, y: e.offsetY };
-
         switch (e.button) {
             case 0: // left
                 this.m_lMouseDown = true;
@@ -285,6 +283,7 @@ export class PixiGameManager {
     public StartGame(): void {
         if (this.m_scene && this.m_scene.startScene()) this.started = true;
         this.onHasStarted.emit(this.started);
+        this.fitViewToWindow(); // keep neutral after start too
     }
 
     public Uninitialize(): void {
@@ -305,7 +304,7 @@ export class PixiGameManager {
         this.m_scene?.propagateButtonClicked(buttonName, buttonState);
     }
 
-    public LoadGame(restartScene = false): void {
+    public LoadGame(_restartScene = false): void {
         const SceneClass = this.sceneConstructor;
         if (!SceneClass) return;
 
@@ -333,12 +332,14 @@ export class PixiGameManager {
 
         for (const hk of this.allHotKeys) {
             const firstHk = this.allHotKeys.find((hk2) => hk.key === hk2.key);
-            if (firstHk && hk !== firstHk) {
+            if (firstHk && hk !== firstHk)
                 console.error(`Conflicting keys "${hk.description}" and "${firstHk.description}"`);
-            }
         }
 
-        if (!restartScene) this.HomeCamera();
+        // Initial neutral view (no zoom math); then one more on next frame
+        this.fitViewToWindow();
+        this._pixiApp.getTicker().addOnce(() => this.fitViewToWindow());
+
         this.UpdateHoverInfo();
     }
 
@@ -346,15 +347,10 @@ export class PixiGameManager {
         if (this.m_scene?.sc_selectedBody && !this.started) {
             const getter = this.m_scene.sc_selectedBody.GetUserData;
             const raw = getter ? getter() : undefined;
-
-            if (!isUnitUserData(raw)) return; // type guard
-
-            // Optional legacy gate; keep if you still rely on unit_type === 1
+            if (!isUnitUserData(raw)) return;
             if (raw.unit_type !== undefined && raw.unit_type !== 1) return;
 
-            // Apply selected amount & refresh
             raw.amount_alive = this.m_settings.m_amountOfSelectedUnits;
-
             this.m_scene.sc_selectedUnitProperties = raw;
             this.m_scene.sc_unitPropertiesUpdateNeeded = true;
             this.m_scene.refreshScene(raw);
@@ -363,9 +359,7 @@ export class PixiGameManager {
     }
 
     public Clone(): void {
-        if (this.m_scene?.sc_selectedBody && !this.started) {
-            this.m_scene.cloneObject();
-        }
+        if (this.m_scene?.sc_selectedBody && !this.started) this.m_scene.cloneObject();
     }
 
     public Split(newAmount: number): void {
@@ -374,7 +368,6 @@ export class PixiGameManager {
             if (isCloned) {
                 const getter = this.m_scene.sc_selectedBody.GetUserData;
                 const current = getter ? getter() : undefined;
-
                 if (isUnitUserData(current) && typeof current.amount_alive === "number") {
                     const secondPart = current.amount_alive - newAmount;
                     if (secondPart > 0) {
@@ -412,6 +405,8 @@ export class PixiGameManager {
     public SetGridType(gridType: GridType): void {
         this.m_scene?.setGridType(gridType);
         if (this.pixiSceneManager) this.pixiSceneManager.setGridType(gridType);
+        // grid change might affect ideal zoom; refit
+        this.fitViewToWindow();
     }
 
     public SimulationLoop(): void {

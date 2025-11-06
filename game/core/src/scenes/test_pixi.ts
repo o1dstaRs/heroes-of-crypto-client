@@ -1,3 +1,4 @@
+import { Sprite } from "pixi.js";
 import {
     Augment,
     FactionType,
@@ -33,6 +34,9 @@ export class Sandbox extends PixiScene {
     private aiButton: IVisibleButton;
     private selectedAttackTypeButton: IVisibleButton;
     private spellBookButton: IVisibleButton;
+
+    private bgSprite?: Sprite;
+    private bgKey: "background_dark" | "background_light" = "background_dark";
 
     public constructor(context: PixiSceneContext) {
         // Build grid settings FIRST so we can pass a valid SceneSettings to super()
@@ -133,6 +137,53 @@ export class Sandbox extends PixiScene {
         HoCLib.interval(visibleStateUpdate, 500);
     }
 
+    /** Create background sprite once and add to the terrain/back layer */
+    private ensureBackgroundSprite(): void {
+        if (this.bgSprite) return;
+
+        const tex =
+            this.texAny(this.bgKey) ??
+            this.texAny(this.bgKey === "background_dark" ? "background_light" : "background_dark");
+        if (!tex) return;
+
+        const bg = new Sprite(tex);
+        bg.anchor.set(0.5); // center-based positioning
+
+        // Add behind the camera, so it sits at the very back and isn’t scaled by camera
+        const stage = this.pixiSceneManager.getApplication().stage;
+        stage.addChildAt(bg, 0);
+
+        this.bgSprite = bg;
+        this.layoutBackgroundSquare();
+    }
+
+    private layoutBackgroundSquare(): void {
+        if (!this.bgSprite) return;
+
+        const { width: vw, height: vh } = this.pixiSceneManager.getViewportSize();
+
+        // square that fits inside the viewport
+        const size = Math.min(vw, vh);
+
+        this.bgSprite.x = vw * 0.5;
+        this.bgSprite.y = vh * 0.5;
+        this.bgSprite.width = size;
+        this.bgSprite.height = size;
+
+        // theme toggle (optional)
+        const isLightMode = typeof localStorage !== "undefined" && localStorage.getItem("joy-mode") === "light";
+        const wantKey = isLightMode ? "background_light" : "background_dark";
+        const wantTex = this.texAny(wantKey);
+        if (wantTex && this.bgKey !== wantKey) {
+            this.bgKey = wantKey;
+            this.bgSprite.texture = wantTex;
+        }
+    }
+
+    public override Resize(_width: number, _height: number): void {
+        this.layoutBackgroundSquare(); // ✅ refit on window resize
+    }
+
     // ===================== Required abstract implementations (minimal) =====================
 
     protected verifyButtonsTrigger(): void {
@@ -216,8 +267,13 @@ export class Sandbox extends PixiScene {
     // ===================== Per-frame =====================
 
     public override Step(_settings: Settings, timeStep: number): void {
+        console.log("ssssss3");
+
         if (timeStep > 0) this.sc_stepCount.increment();
         this.sc_isAnimating = this.pixiSceneManager.isAnimating();
+
+        this.ensureBackgroundSprite();
+        this.layoutBackgroundSquare();
     }
 
     protected selectUnitPreStart(

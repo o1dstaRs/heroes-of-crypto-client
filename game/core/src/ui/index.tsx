@@ -90,7 +90,9 @@ const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     useEffect(() => {
         const connection = manager.onHasStarted.connect((hasStarted) => {
             setStarted(hasStarted);
+            console.log("szzolotu call Heroes");
             if (hasStarted) {
+                console.log("szzolotu call Heroes2");
                 manager.HomeCamera();
             }
         });
@@ -99,6 +101,8 @@ const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             connection.disconnect();
         };
     }, [manager]);
+
+    console.log("szzolotu call Heroes3");
 
     return (
         <div className="container" style={{ display: "flex" }}>

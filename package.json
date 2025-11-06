@@ -26,7 +26,7 @@
         "game/core"
     ],
     "scripts": {
-        "build": "yarn lint:fix && yarn lint && yarn workspaces run build",
+        "build": "yarn lint:fix && yarn lint && rimraf game/core/dist && yarn workspaces run build",
         "build:engine": "yarn workspace @box2d/core build && yarn workspace @box2d/controllers build && yarn workspace @box2d/particles build && yarn workspace @box2d/lights build && yarn workspace @box2d/debug-draw build",
         "build:game": "yarn workspace @heroesofcrypto/common build && yarn workspace @heroesofcrypto/core build",
         "lint": "yarn run lint:es && yarn run lint:scss && yarn run lint:package && yarn run lint:style",

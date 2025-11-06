@@ -1,4 +1,4 @@
-import { Sprite, Texture } from "pixi.js";
+import { Texture } from "pixi.js";
 import {
     AttackType,
     FactionType,
@@ -155,8 +155,6 @@ export abstract class PixiScene {
     // PixiJS components
     protected pixiSceneManager!: PixiSceneManager;
     protected textures!: PreloadedPixiTextures;
-    protected bgSprite?: Sprite;
-    private bgKey: "background_dark" | "background_light" = "background_dark";
 
     protected constructor(sceneSettings: SceneSettings) {
         this.sc_sceneSettings = sceneSettings;
@@ -223,62 +221,8 @@ export abstract class PixiScene {
         this.sc_currentActiveAuraRanges = [];
     }
     // ---- helper: dynamic access without fighting the strict key type
-    private texAny(key: string): Texture | undefined {
+    protected texAny(key: string): Texture | undefined {
         return (this.textures as unknown as Record<string, Texture>)[key];
-    }
-
-    /** Create background sprite once and add to the terrain/back layer */
-    protected ensureBackgroundSprite(): void {
-        if (this.bgSprite) return;
-
-        // use the unsafe accessor so TS doesn't complain about keyof typeof images
-        const tex = this.texAny(this.bgKey);
-        if (!tex) {
-            // try the other theme as a fallback
-            const alt = this.bgKey === "background_dark" ? "background_light" : "background_dark";
-            const altTex = this.texAny(alt);
-            if (!altTex) return; // neither exists in the generated bundle
-            this.bgKey = alt;
-        }
-
-        const bg = new Sprite(this.texAny(this.bgKey)!);
-
-        const container = this.pixiSceneManager.getApplication().stage;
-
-        container.addChildAt(bg, 0);
-        this.bgSprite = bg;
-
-        // First layout
-        this.layoutBackgroundToGrid();
-    }
-
-    /** Keep background sized to the grid like the old setRect() */
-    protected layoutBackgroundToGrid(): void {
-        if (!this.bgSprite) return;
-        const gs = this.sc_sceneSettings.getGridSettings();
-
-        const minX = gs.getMinX();
-        const minY = gs.getMinY();
-        const maxX = gs.getMaxX();
-        const maxY = gs.getMaxY();
-
-        const w = maxX - minX;
-        const h = maxY - minY;
-
-        this.bgSprite.x = minX;
-        this.bgSprite.y = minY;
-        this.bgSprite.width = w;
-        this.bgSprite.height = h;
-
-        // Optional: toggle based on localStorage setting, but only if that key exists
-        const isLightMode = typeof localStorage !== "undefined" && localStorage.getItem("joy-mode") === "light";
-        const wantKey = isLightMode ? "background_light" : "background_dark";
-
-        const wantTex = this.texAny(wantKey);
-        if (wantTex && this.bgKey !== wantKey) {
-            this.bgKey = wantKey;
-            this.bgSprite.texture = wantTex;
-        }
     }
 
     public getBaseHotkeys(): HotKey[] {
@@ -420,8 +364,10 @@ export abstract class PixiScene {
     public Resize(_width: number, _height: number) {}
 
     public RunStep(settings: Settings, fps: number) {
+        console.log("RunStep called");
         this.sc_fps = fps;
         this.sc_statisticLines.length = 0;
+        console.log("RunStep called2");
         this.Step(settings, settings.m_hertz > 0 ? 1 / settings.m_hertz : 0);
     }
 
@@ -504,19 +450,46 @@ export abstract class PixiScene {
         // Example: update scene manager, animations, AI, etc.
         // this.pixiSceneManager.update(timeStep);
         //
-        this.ensureBackgroundSprite();
-        this.layoutBackgroundToGrid();
-
         if (settings.m_drawStats) {
             this.addStatistic("Objects", 0);
             this.addStatistic("Textures", 0);
         }
     }
 
-    public GetDefaultViewZoom(edgesSize = EDGES_SIZE) {
-        const widthRatio = window.innerWidth / (2048 + edgesSize);
-        const heightRatio = window.innerHeight / (2048 + edgesSize);
-        return Math.min(widthRatio, heightRatio);
+    public GetDefaultViewZoom(edgesPx = EDGES_SIZE): number {
+        console.log("szzolotu GetDefaultViewZoom");
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const minX = gs.getMinX();
+        const minY = gs.getMinY();
+        const maxX = gs.getMaxX();
+        const maxY = gs.getMaxY();
+
+        const worldW = maxX - minX;
+        const worldH = maxY - minY;
+
+        // Read current render size from Pixi (device pixels already accounted for by renderer)
+        const app = this.pixiSceneManager.getApplication();
+        const viewW = Math.max(1, app.renderer.width - edgesPx);
+        const viewH = Math.max(1, app.renderer.height - edgesPx);
+
+        // Fit whole board
+        return Math.min(viewW / worldW, viewH / worldH);
+    }
+
+    public HomeCamera(edgesPx = EDGES_SIZE): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const minX = gs.getMinX();
+        const minY = gs.getMinY();
+        const maxX = gs.getMaxX();
+        const maxY = gs.getMaxY();
+
+        const cx = (minX + maxX) * 0.5;
+        const cy = (minY + maxY) * 0.5;
+
+        const zoom = this.GetDefaultViewZoom(edgesPx);
+
+        this.pixiSceneManager.setCameraPosition(cx, cy);
+        this.pixiSceneManager.setCameraZoom(zoom);
     }
 
     public getCenter(): XY {

@@ -5,14 +5,14 @@ export class PixiApp {
     private stage: Container;
     private ticker: Ticker;
 
-    // Game containers
+    // Layers
     private backgroundContainer: Container;
     private terrainContainer: Container;
     private unitsContainer: Container;
     private effectsContainer: Container;
     private uiContainer: Container;
 
-    // Camera/viewport
+    // Camera root
     private camera: Container;
 
     public constructor() {
@@ -38,6 +38,7 @@ export class PixiApp {
     }
 
     public async init(canvas: HTMLCanvasElement, width: number, height: number): Promise<void> {
+        const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
         await this.app.init({
             canvas,
             width,
@@ -45,16 +46,19 @@ export class PixiApp {
             backgroundColor: 0x000000,
             backgroundAlpha: 0,
             antialias: true,
-            resolution: window.devicePixelRatio,
+            resolution: dpr,
             autoDensity: true,
         });
-
         this.setupRendering();
     }
 
     private setupRendering(): void {
-        this.app.canvas.style.position = "absolute";
-        this.app.canvas.style.display = "block";
+        const c = this.app.canvas as HTMLCanvasElement;
+        c.style.position = "absolute";
+        c.style.display = "block";
+        // Make sure CSS size follows the wrapper size:
+        c.style.width = "100%";
+        c.style.height = "100%";
     }
 
     public getApplication(): Application {
@@ -64,7 +68,7 @@ export class PixiApp {
         return this.stage;
     }
     public getTicker(): Ticker {
-        return this.ticker;
+        return this.app.ticker;
     }
     public getBackgroundContainer(): Container {
         return this.backgroundContainer;
@@ -85,13 +89,17 @@ export class PixiApp {
         return this.camera;
     }
 
+    /** Keep world center stable when the canvas size changes */
     public resize(width: number, height: number): void {
+        const center = this.getCameraPosition(); // world center under screen center
+        const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+        this.app.renderer.resolution = dpr;
         this.app.renderer.resize(width, height);
+        this.setCameraPosition(center.x, center.y); // re-center after resize
     }
 
     public destroy(): void {
         this.ticker.stop();
-        // Pixi v8: use textureSource instead of baseTexture; context is optional but handy
         this.app.destroy(true, {
             children: true,
             texture: true,
@@ -100,25 +108,61 @@ export class PixiApp {
         });
     }
 
-    // Camera/viewport
-    public setCameraPosition(x: number, y: number): void {
-        this.camera.x = -x;
-        this.camera.y = -y;
+    // -------------------------
+    // Camera as WORLD CENTER
+    // -------------------------
+
+    /** Position the world center (wx,wy) at the middle of the screen */
+    public setCameraPosition(wx: number, wy: number): void {
+        const z = this.camera.scale.x || 1;
+        const { width, height } = this.app.renderer;
+        // screen center = (width/2, height/2)
+        // screen = world * z + pos  => pos = center - world*z
+        this.camera.position.set(width / 2 - wx * z, height / 2 - wy * z);
     }
 
+    /** Zoom while keeping the current world center fixed on screen */
     public setCameraZoom(zoom: number): void {
+        const prevCenter = this.getCameraPosition();
         this.camera.scale.set(zoom, zoom);
+        this.setCameraPosition(prevCenter.x, prevCenter.y);
     }
 
+    /** Current world point under the screen center */
     public getCameraPosition(): { x: number; y: number } {
-        return { x: -this.camera.x, y: -this.camera.y };
+        const z = this.camera.scale.x || 1;
+        const { width, height } = this.app.renderer;
+        // invert: world = (screen - pos) / z
+        return {
+            x: (width / 2 - this.camera.position.x) / z,
+            y: (height / 2 - this.camera.position.y) / z,
+        };
     }
 
     public getCameraZoom(): number {
-        return this.camera.scale.x;
+        return this.camera.scale.x || 1;
+    }
+
+    // -------------------------
+    // Coordinate helpers
+    // -------------------------
+    public screenToWorld(sx: number, sy: number) {
+        const z = this.getCameraZoom();
+        return {
+            x: (sx - this.camera.position.x) / z,
+            y: (sy - this.camera.position.y) / z,
+        };
+    }
+
+    public worldToScreen(wx: number, wy: number) {
+        const z = this.getCameraZoom();
+        return {
+            x: wx * z + this.camera.position.x,
+            y: wy * z + this.camera.position.y,
+        };
     }
 
     public render(): void {
-        // Ticker-driven; add custom per-frame logic here if needed.
+        // per-frame hooks if you need them
     }
 }

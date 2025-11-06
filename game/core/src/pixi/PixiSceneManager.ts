@@ -1,5 +1,5 @@
 // game/core/src/pixi/PixiSceneManager.ts
-import { Application, Ticker } from "pixi.js";
+import { Application, Ticker, Container } from "pixi.js";
 import { GridSettings, HoCMath, GridType, Grid as GridTypeFull } from "@heroesofcrypto/common";
 import { PixiApp } from "./PixiApp";
 import { PixiUnit } from "./PixiUnit";
@@ -63,6 +63,10 @@ export class PixiSceneManager {
         this.ticker.add(this.updateFn);
     }
 
+    public getBackgroundContainer(): Container {
+        return this.pixiApp.getBackgroundContainer();
+    }
+
     public getApplication(): Application {
         return this.pixiApp.getApplication();
     }
@@ -102,6 +106,12 @@ export class PixiSceneManager {
             // unit.destroy();
             this.units.delete(unitId);
         }
+    }
+
+    public getViewportSize(): { width: number; height: number } {
+        const app = this.pixiApp.getApplication();
+        // Pixi v8: renderer.width/height are in CSS pixels after autoDensity scaling
+        return { width: app.renderer.width, height: app.renderer.height };
     }
 
     public getUnit(unitId: string): PixiUnit | undefined {
