@@ -1,77 +1,47 @@
 // game/core/src/pixi/PixiTextureLoader.ts
-import { Texture } from "pixi.js";
+import { Assets, Texture } from "pixi.js";
 import { images } from "../generated/image_imports";
 
+/** Exact texture map keyed by your generated `images` object */
+export type PreloadedPixiTextures = {
+    [K in keyof typeof images]: Texture;
+};
+
+/** Optional parity type with width/height */
 export interface PixiTextureInfo {
+    texture: Texture;
     width: number;
     height: number;
-    texture: Texture;
 }
 
 /**
- * Load images using plain <img>, then build Pixi textures via Texture.from(img).
- * - No star import
- * - No Assets
- * - No BaseTexture
- * - No Texture.fromURL
+ * Zero-arg preload for the whole generated bundle.
+ * Usage: `const textures = await preloadPixiTextures();`
  */
-export class PixiTextureLoader {
-    private textures: Record<string, PixiTextureInfo> = {};
+export async function preloadPixiTextures(onProgress?: (progress01: number) => void): Promise<PreloadedPixiTextures> {
+    // Register (or overwrite) a named bundle for all assets
+    Assets.addBundle("hoc", images);
 
-    public async loadTextures(): Promise<Record<string, PixiTextureInfo>> {
-        await Promise.all(
-            Object.entries(images).map(async ([key, url]) => {
-                const img = await loadImage(url);
-                const texture = Texture.from(img); // works across Pixi versions
-                this.textures[key] = {
-                    width: img.width,
-                    height: img.height,
-                    texture,
-                };
-            }),
-        );
-        return this.textures;
-    }
+    // Load the bundle; Pixi returns a map of Texture
+    const loaded = await Assets.loadBundle("hoc", onProgress);
 
-    public getTexture(key: string): Texture | undefined {
-        return this.textures[key]?.texture;
-    }
-
-    public getTextureInfo(key: string): PixiTextureInfo | undefined {
-        return this.textures[key];
-    }
-
-    public getAllTextures(): Record<string, Texture> {
-        const out: Record<string, Texture> = {};
-        for (const [k, info] of Object.entries(this.textures)) out[k] = info.texture;
-        return out;
-    }
+    // Cast to the exact key map so indexing is fully typed
+    return loaded as PreloadedPixiTextures;
 }
 
-/** Promise-based <img> loader with CORS-friendly defaults. */
-function loadImage(src: string): Promise<HTMLImageElement> {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        // Helpful if your assets are served from CDN/other origins
-        img.crossOrigin = "anonymous";
-        img.onload = () => resolve(img);
-        img.onerror = (e) => reject(e);
-        img.src = src;
+/**
+ * If you want width/height alongside each texture.
+ */
+export async function preloadPixiTexturesWithInfo(
+    onProgress?: (progress01: number) => void,
+): Promise<{ [K in keyof typeof images]: PixiTextureInfo }> {
+    const raw = await preloadPixiTextures(onProgress);
+    const out = {} as { [K in keyof typeof images]: PixiTextureInfo };
+
+    (Object.keys(raw) as Array<keyof typeof images>).forEach((k) => {
+        const tex = raw[k];
+        out[k] = { texture: tex, width: tex.width, height: tex.height };
     });
-}
 
-// Optional functional loader (same behavior as the class above)
-export async function loadPixiTextures(): Promise<Record<string, PixiTextureInfo>> {
-    const textures: Record<string, PixiTextureInfo> = {};
-    await Promise.all(
-        Object.entries(images).map(async ([key, url]) => {
-            const img = await loadImage(url);
-            const texture = Texture.from(img);
-            textures[key] = { width: img.width, height: img.height, texture };
-        }),
-    );
-    return textures;
+    return out;
 }
-
-export type PromiseType<T> = T extends Promise<infer TR> ? TR : unknown;
-export type PreloadedPixiTextures = PromiseType<ReturnType<typeof loadPixiTextures>>;

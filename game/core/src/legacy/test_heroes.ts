@@ -72,7 +72,7 @@ import { NO_VELOCITY } from "../statics";
 import { UnitsFactory } from "./units_factory";
 import { g_camera } from "../utils/camera";
 import { DefaultShader } from "./defaultShader";
-import { PreloadedTextures } from "../utils/gl/preload";
+import { PreloadedTextures } from "./preload";
 import { Sprite } from "./Sprite";
 import { GLScene } from "./gl_scene";
 import { registerScene, SceneContext } from "./scene";

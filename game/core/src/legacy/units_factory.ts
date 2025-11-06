@@ -29,7 +29,7 @@ import {
 } from "@heroesofcrypto/common";
 
 import { DefaultShader } from "./defaultShader";
-import { PreloadedTextures } from "../utils/gl/preload";
+import { PreloadedTextures } from "./preload";
 import { Sprite } from "./Sprite";
 import { Hero } from "./heroes";
 import { RenderableUnit } from "./renderable_unit";

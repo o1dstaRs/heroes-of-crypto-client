@@ -66,7 +66,7 @@ import {
 import { EDGES_SIZE, MAX_FPS } from "../statics";
 import { g_camera } from "./camera";
 import { DefaultShader } from "./defaultShader";
-import { PreloadedTextures } from "../utils/gl/preload";
+import { PreloadedTextures } from "./preload";
 import { HotKey } from "../utils/hotkeys";
 import { SceneLog } from "../scenes/scene_log";
 import { SceneSettings } from "../scenes/scene_settings";

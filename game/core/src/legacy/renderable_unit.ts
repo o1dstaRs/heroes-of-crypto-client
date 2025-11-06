@@ -31,7 +31,7 @@ import {
 } from "@heroesofcrypto/common";
 
 import { DAMAGE_ANIMATION_TICKS, HP_BAR_DELTA, MAX_FPS, RESURRECTION_ANIMATION_TICKS } from "../statics";
-import { PreloadedTextures } from "../utils/gl/preload";
+import { PreloadedTextures } from "./preload";
 import { Sprite } from "./Sprite";
 import { DefaultShader } from "./defaultShader";
 import { RenderableSpell } from "./renderable_spell";

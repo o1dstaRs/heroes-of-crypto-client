@@ -12,7 +12,7 @@
 import { HoCConstants, HoCMath, ISpellParams, Spell } from "@heroesofcrypto/common";
 
 import { DefaultShader } from "./defaultShader";
-import { PreloadedTextures } from "../utils/gl/preload";
+import { PreloadedTextures } from "./preload";
 import { Sprite } from "./Sprite";
 
 export enum BookPosition {

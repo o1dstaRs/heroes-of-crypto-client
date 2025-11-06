@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { images } from "../../generated/image_imports";
+import { images } from "../generated/image_imports";
 
 export interface TextureInfo {
     width: number;

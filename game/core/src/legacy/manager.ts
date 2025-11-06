@@ -39,7 +39,7 @@ import { g_camera } from "./camera";
 import { FpsCalculator } from "../utils/FpsCalculator";
 import { createDefaultShader } from "./defaultShader";
 import { clearGlCanvas, initGlCanvas, resizeGlCanvas } from "./glUtils";
-import { PreloadedTextures, preloadTextures } from "../utils/gl/preload";
+import { PreloadedTextures, preloadTextures } from "./preload";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
 
 export class GameManager {

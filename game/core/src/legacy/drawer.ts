@@ -34,7 +34,7 @@ import {
     MOUNTAIN_ENLARGE_Y,
 } from "../statics";
 import { DefaultShader } from "./defaultShader";
-import { PreloadedTextures } from "../utils/gl/preload";
+import { PreloadedTextures } from "./preload";
 import { Sprite } from "./Sprite";
 const MOVE_ANIMATION_SPEED = 12;
 const FLY_ANIMATION_SPEED = MOVE_ANIMATION_SPEED;

@@ -1,5 +1,5 @@
 // game/core/src/pixi/PixiSceneManager.ts
-import { Ticker } from "pixi.js";
+import { Application, Ticker } from "pixi.js";
 import { GridSettings, HoCMath, GridType, Grid as GridTypeFull } from "@heroesofcrypto/common";
 import { PixiApp } from "./PixiApp";
 import { PixiUnit } from "./PixiUnit";
@@ -61,6 +61,10 @@ export class PixiSceneManager {
         // Start the render/update loop — Pixi v8 ticker passes the Ticker instance
         this.updateFn = (t) => this.update(t.deltaMS);
         this.ticker.add(this.updateFn);
+    }
+
+    public getApplication(): Application {
+        return this.pixiApp.getApplication();
     }
 
     public hitTest(x: number, y: number): BodyLike | undefined {

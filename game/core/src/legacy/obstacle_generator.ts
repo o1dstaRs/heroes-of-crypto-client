@@ -14,7 +14,7 @@ import { GridSettings, ObstacleType } from "@heroesofcrypto/common";
 
 import { Obstacle } from "./obstacle";
 import { Sprite } from "./Sprite";
-import { PreloadedTextures } from "../utils/gl/preload";
+import { PreloadedTextures } from "./preload";
 import { DefaultShader } from "./defaultShader";
 
 export class ObstacleGenerator {

@@ -1,4 +1,5 @@
 // game/core/src/PixiGameManager.ts
+import { Application, Container } from "pixi.js";
 import {
     UnitProperties,
     GridSettings,
@@ -26,7 +27,7 @@ import { FpsCalculator } from "../utils/FpsCalculator";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
 import { PixiApp } from "./PixiApp";
 import { PixiSceneManager } from "./PixiSceneManager";
-import { loadPixiTextures, PreloadedPixiTextures } from "./PixiTextureLoader";
+import { preloadPixiTextures, PreloadedPixiTextures } from "./PixiTextureLoader";
 
 import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
 
@@ -88,13 +89,27 @@ export class PixiGameManager {
     private started = false;
     private lastSentEmptyHoverInfo = false;
 
-    // PixiJS bits
+    // PixiJS bits (nullable until init)
     private pixiApp: PixiApp | null = null;
     private pixiSceneManager: PixiSceneManager | null = null;
     private textures: PreloadedPixiTextures | null = null;
 
     public constructor() {
         this.flatScenes = [];
+    }
+
+    /** Throwing getters to keep TypeScript happy without ‘never’ intersections */
+    private get _pixiApp(): PixiApp {
+        if (!this.pixiApp) throw new Error("PixiGameManager: pixiApp not initialized yet");
+        return this.pixiApp;
+    }
+    private get _pixiSceneManager(): PixiSceneManager {
+        if (!this.pixiSceneManager) throw new Error("PixiGameManager: pixiSceneManager not initialized yet");
+        return this.pixiSceneManager;
+    }
+    private get _textures(): PreloadedPixiTextures {
+        if (!this.textures) throw new Error("PixiGameManager: textures not initialized yet");
+        return this.textures;
     }
 
     public async init(
@@ -141,8 +156,8 @@ export class PixiGameManager {
         this.pixiApp = new PixiApp();
         await this.pixiApp.init(glCanvas, wrapper.clientWidth, wrapper.clientHeight);
 
-        // Load textures
-        this.textures = await loadPixiTextures();
+        // Load textures (strongly typed to your generated images map)
+        this.textures = await preloadPixiTextures();
 
         // Scene manager + default grid settings
         const gridSettings = new GridSettings(32, 1024, 0, 1024, 0, 32, 16);
@@ -165,6 +180,15 @@ export class PixiGameManager {
         this.isInitialized = true;
     }
 
+    public getApplication(): Application {
+        return this._pixiApp.getApplication();
+    }
+
+    /** Layer behind units for terrain/background drawing. */
+    public getTerrainContainer(): Container {
+        return this._pixiApp.getTerrainContainer();
+    }
+
     public setScene(title: string, constructor: SceneConstructor) {
         this.sceneTitle = title;
         this.sceneConstructor = constructor;
@@ -175,8 +199,9 @@ export class PixiGameManager {
         if (this.started) edgesSize = 0;
 
         const zoom = this.m_scene ? this.m_scene.GetDefaultViewZoom(edgesSize) : 25;
+        const center = this.m_scene ? this.m_scene.getCenter() : { x: 0, y: 512 };
+
         if (this.pixiSceneManager) {
-            const center = this.m_scene ? this.m_scene.getCenter() : { x: 0, y: 512 };
             this.pixiSceneManager.setCameraPosition(center.x, center.y);
             this.pixiSceneManager.setCameraZoom(zoom);
         }
@@ -288,8 +313,8 @@ export class PixiGameManager {
         this.started = false;
 
         const context: PixiSceneContext = {
-            pixiSceneManager: this.pixiSceneManager!, // set in init()
-            textures: this.textures!, // set in init()
+            pixiSceneManager: this._pixiSceneManager,
+            textures: this._textures,
         };
         this.m_scene = new SceneClass(context);
 

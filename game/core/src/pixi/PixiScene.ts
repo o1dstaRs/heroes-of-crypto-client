@@ -1,4 +1,4 @@
-// game/core/src/pixi/PixiScene.ts
+import { Sprite, Texture } from "pixi.js";
 import {
     AttackType,
     FactionType,
@@ -155,6 +155,8 @@ export abstract class PixiScene {
     // PixiJS components
     protected pixiSceneManager!: PixiSceneManager;
     protected textures!: PreloadedPixiTextures;
+    protected bgSprite?: Sprite;
+    private bgKey: "background_dark" | "background_light" = "background_dark";
 
     protected constructor(sceneSettings: SceneSettings) {
         this.sc_sceneSettings = sceneSettings;
@@ -219,6 +221,64 @@ export abstract class PixiScene {
         }
         this.sc_currentActiveShotRange = undefined;
         this.sc_currentActiveAuraRanges = [];
+    }
+    // ---- helper: dynamic access without fighting the strict key type
+    private texAny(key: string): Texture | undefined {
+        return (this.textures as unknown as Record<string, Texture>)[key];
+    }
+
+    /** Create background sprite once and add to the terrain/back layer */
+    protected ensureBackgroundSprite(): void {
+        if (this.bgSprite) return;
+
+        // use the unsafe accessor so TS doesn't complain about keyof typeof images
+        const tex = this.texAny(this.bgKey);
+        if (!tex) {
+            // try the other theme as a fallback
+            const alt = this.bgKey === "background_dark" ? "background_light" : "background_dark";
+            const altTex = this.texAny(alt);
+            if (!altTex) return; // neither exists in the generated bundle
+            this.bgKey = alt;
+        }
+
+        const bg = new Sprite(this.texAny(this.bgKey)!);
+
+        const container = this.pixiSceneManager.getApplication().stage;
+
+        container.addChildAt(bg, 0);
+        this.bgSprite = bg;
+
+        // First layout
+        this.layoutBackgroundToGrid();
+    }
+
+    /** Keep background sized to the grid like the old setRect() */
+    protected layoutBackgroundToGrid(): void {
+        if (!this.bgSprite) return;
+        const gs = this.sc_sceneSettings.getGridSettings();
+
+        const minX = gs.getMinX();
+        const minY = gs.getMinY();
+        const maxX = gs.getMaxX();
+        const maxY = gs.getMaxY();
+
+        const w = maxX - minX;
+        const h = maxY - minY;
+
+        this.bgSprite.x = minX;
+        this.bgSprite.y = minY;
+        this.bgSprite.width = w;
+        this.bgSprite.height = h;
+
+        // Optional: toggle based on localStorage setting, but only if that key exists
+        const isLightMode = typeof localStorage !== "undefined" && localStorage.getItem("joy-mode") === "light";
+        const wantKey = isLightMode ? "background_light" : "background_dark";
+
+        const wantTex = this.texAny(wantKey);
+        if (wantTex && this.bgKey !== wantKey) {
+            this.bgKey = wantKey;
+            this.bgSprite.texture = wantTex;
+        }
     }
 
     public getBaseHotkeys(): HotKey[] {
@@ -443,6 +503,9 @@ export abstract class PixiScene {
 
         // Example: update scene manager, animations, AI, etc.
         // this.pixiSceneManager.update(timeStep);
+        //
+        this.ensureBackgroundSprite();
+        this.layoutBackgroundToGrid();
 
         if (settings.m_drawStats) {
             this.addStatistic("Objects", 0);

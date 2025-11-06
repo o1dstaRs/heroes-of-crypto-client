@@ -80,7 +80,7 @@ export class PixiObstacleGenerator {
 
     /** Water center */
     public generateWater(position: HoCMath.XY, sizeX: number, sizeY: number): Obstacle {
-        const tex = this.textures["water_256"]?.texture;
+        const tex = this.textures.water_256; // Texture directly
         const light = tex ? new PixiSpriteAdapter(this.terrainBack, tex) : undefined;
         const dark = tex ? new PixiSpriteAdapter(this.terrainBack, tex) : undefined;
 
@@ -92,7 +92,7 @@ export class PixiObstacleGenerator {
 
     /** Lava center */
     public generateLava(position: HoCMath.XY, sizeX: number, sizeY: number): Obstacle {
-        const tex = this.textures["lava_256"]?.texture;
+        const tex = this.textures.lava_256; // Texture directly
         const light = tex ? new PixiSpriteAdapter(this.terrainBack, tex) : undefined;
         const dark = tex ? new PixiSpriteAdapter(this.terrainBack, tex) : undefined;
 
@@ -116,7 +116,7 @@ export class PixiObstacleGenerator {
         _spriteEnlargeX: number,
         _spriteEnlargeY: number,
     ): Obstacle {
-        const tex = this.textures["mountain_432_412"]?.texture;
+        const tex = this.textures.mountain_432_412; // Texture directly
         const light = tex ? new PixiSpriteAdapter(this.terrainFront, tex) : undefined;
         const dark = tex ? new PixiSpriteAdapter(this.terrainFront, tex) : undefined;
 
@@ -137,7 +137,7 @@ export class PixiObstacleGenerator {
 
     /** Optional helpers if you want to swap “dry/frozen” variants later */
     public switchWaterToDry(obstacle: Obstacle): void {
-        const dry = this.textures["water_dry_256"]?.texture;
+        const dry = this.textures.water_dry_256; // Texture directly
         if (!dry) return;
         const light = new PixiSpriteAdapter(this.terrainBack, dry);
         const dark = new PixiSpriteAdapter(this.terrainBack, dry);
@@ -146,7 +146,7 @@ export class PixiObstacleGenerator {
     }
 
     public switchLavaToFrozen(obstacle: Obstacle): void {
-        const frozen = this.textures["lava_frozen_256"]?.texture;
+        const frozen = this.textures.lava_frozen_256; // Texture directly
         if (!frozen) return;
         const light = new PixiSpriteAdapter(this.terrainBack, frozen);
         const dark = new PixiSpriteAdapter(this.terrainBack, frozen);
