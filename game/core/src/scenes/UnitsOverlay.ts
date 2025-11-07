@@ -1,7 +1,9 @@
+// game/core/src/overlays/UnitsOverlay.ts
 import { Application, Container, Sprite, Texture, Text, TextStyle, Graphics, Ticker, Rectangle } from "pixi.js";
 import { FactionType } from "@heroesofcrypto/common";
 import { unitToTextureName } from "../pixi/PixiUnitsFactory";
 import { TextureType } from "../pixi/PixiUnitsFactory";
+import { UnitChip } from "./UnitChip";
 
 type GetTexture = (key: string) => Texture | undefined;
 
@@ -35,6 +37,10 @@ export class UnitsOverlay {
 
     /** Simple tween bookkeeping */
     private tweenCancel?: () => void;
+
+    /** UnitChip registry for selection updates */
+    private allChips: UnitChip[] = [];
+    private selectedName: string | null = null;
 
     private readonly factions: { type: FactionType; iconName: string }[] = [
         { type: FactionType.LIFE, iconName: "life_128" },
@@ -109,7 +115,7 @@ export class UnitsOverlay {
     private readonly levelBuckets = [
         { label: "Level 1", count: 3, unitSize: 1 }, // 128
         { label: "Level 2", count: 3, unitSize: 1 }, // 128
-        { label: "Level 3", count: 2, unitSize: 1 }, // 128 (per your latest snippet)
+        { label: "Level 3", count: 2, unitSize: 1 }, // 128
         { label: "Level 4", count: 2, unitSize: 2 }, // 256
     ];
 
@@ -117,24 +123,23 @@ export class UnitsOverlay {
         this.app = app;
         this.getTex = getTexture;
 
-        // IMPORTANT: render above bg and let zIndex work
+        // render above bg and let zIndex work
         this.app.stage.sortableChildren = true;
         this.container.zIndex = 10;
 
-        // Button must be above the content (so it is always clickable)
+        // content & toggle
         this.content.addChild(this.backdrop, this.headerContainer, this.rowsContainer);
         this.container.addChild(this.content);
         this.container.addChild(this.toggleBtn);
 
-        this.container.sortableChildren = true; // let zIndex work inside the overlay
-        this.app.stage.sortableChildren = true; // already OK, but keep it
-        this.app.stage.eventMode = "static"; // stage emits events
+        this.container.sortableChildren = true;
+        this.app.stage.sortableChildren = true;
+        this.app.stage.eventMode = "static";
 
-        this.backdrop.eventMode = "none"; // backdrop never eats pointer events
+        this.backdrop.eventMode = "none";
 
-        // Add the button graphics to the toggle button container
+        // toggle visuals + events
         this.toggleBtn.addChild(this.toggleBtnBg, this.toggleArrow);
-
         this.toggleBtn.zIndex = 9999;
         this.toggleBtn.eventMode = "static";
         this.toggleBtn.cursor = "pointer";
@@ -147,26 +152,28 @@ export class UnitsOverlay {
     public build(): void {
         this.headerContainer.removeChildren();
         this.rowsContainer.removeChildren();
+        this.allChips = [];
+        this.selectedName = null;
 
-        // Header labels (Level 1..4)
+        // headers
         for (let i = 0; i < this.levelBuckets.length; i++) {
             const t = new Text({ text: this.levelBuckets[i].label, style: this.headerTextStyle });
             t.anchor.set(0.5);
             this.headerContainer.addChild(t);
         }
 
-        // 4 rows (Life, Nature, Chaos, Might)
+        // rows per faction
         for (let r = 0; r < this.factions.length; r++) {
             const row = new Container();
             row.label = `row-${r}`;
             this.rowsContainer.addChild(row);
 
-            // Faction icon at left
+            // faction icon
             const iconTex = this.getTex(this.factions[r].iconName);
             const icon = new Sprite(iconTex ?? Texture.EMPTY);
             row.addChild(icon);
 
-            // Bucketed units
+            // creatures → bucketize [3,3,2,2]
             const map = this.creaturesByFaction as Partial<Record<FactionType, readonly string[]>>;
             const names = map[this.factions[r].type] ?? [];
             const buckets = this.bucketize(
@@ -185,17 +192,29 @@ export class UnitsOverlay {
                     const unitName = bucket[i];
                     const texName = unitToTextureName(unitName, TextureType.SMALL, sizeFlag);
                     const tex = this.getTex(texName);
-                    const s = new Sprite(tex ?? Texture.EMPTY);
-                    s.label = unitName;
-                    s.anchor.set(0.5);
-                    bucketCont.addChild(s);
+                    const chip = new UnitChip({
+                        unitName,
+                        texture: tex ?? Texture.EMPTY,
+                        // show "9" when active (hover/selected)
+                        getAmount: () => 9,
+                    });
+                    chip.setTicker(this.app.ticker); // Add this line to enable smooth tweening
+                    // selection behavior (single-select)
+                    chip.on("pointertap", () => {
+                        const next = this.selectedName === unitName ? null : unitName;
+                        this.selectedName = next;
+                        // update all chips selected state
+                        for (const c of this.allChips) c.setSelected(c["nameKey"] === next);
+                    });
+                    bucketCont.addChild(chip);
+                    this.allChips.push(chip);
                 }
             }
         }
 
-        // Initial layout
+        // initial layout & button icon
         this.onResize(this.app.renderer.width, this.app.renderer.height);
-        this.refreshButtonIcon(); // left arrow (open state)
+        this.refreshButtonIcon();
     }
 
     /** Layout/resize: perfect centered square; overlay is middle 16×4 band */
@@ -215,7 +234,7 @@ export class UnitsOverlay {
 
         this.container.position.set(overlayX, overlayY);
 
-        // Backdrop
+        // backdrop
         this.backdrop.clear();
         this.backdrop.rect(0, 0, this.overlayW, this.overlayH).fill({ color: 0x000000, alpha: 0.8 });
 
@@ -238,15 +257,15 @@ export class UnitsOverlay {
             t.scale.set(scale);
         }
 
-        // rows + buckets (unchanged logic)
+        // rows + buckets
         for (let r = 0; r < rows; r++) {
             const rowCont = this.rowsContainer.children[r] as Container;
             rowCont.position.set(0, r * this.rowH);
 
+            // faction icon
             const icon = rowCont.children[0] as Sprite;
-            const iconSize = cell * 1.1;
-            icon.width = icon.height = iconSize;
-            icon.position.set(this.leftColW * 0.5 - iconSize * 0.5, this.rowH * 0.5 - iconSize * 0.5);
+            icon.width = icon.height = cell;
+            icon.position.set(this.leftColW * 0.5 - cell * 0.5, this.rowH * 0.5 - cell * 0.5);
 
             let childIndex = 1;
             for (let b = 0; b < levelCols; b++) {
@@ -254,21 +273,23 @@ export class UnitsOverlay {
                 const bx = this.leftColW + b * colW;
                 bucketCont.position.set(bx, 0);
 
-                const sprites = bucketCont.children as Sprite[];
-                const n = sprites.length;
+                // lay out UnitChips inside the bucket
+                const chips = bucketCont.children as UnitChip[];
+                const n = chips.length;
 
                 const iconSide = cell * (this.levelBuckets[b].unitSize === 2 ? 1.05 : 0.9);
                 const spacing = Math.min(iconSide * 1.1, (colW * 0.85) / Math.max(1, n));
                 const startX = colW * 0.5 - ((n - 1) * spacing) / 2;
 
                 for (let i = 0; i < n; i++) {
-                    const s = sprites[i];
-                    s.width = s.height = iconSide;
-                    s.position.set(startX + i * spacing, this.rowH * 0.5);
+                    const chip = chips[i];
+                    chip.layout(iconSide); // size sprite, ring, badge
+                    chip.position.set(startX + i * spacing, this.rowH * 0.5);
                 }
             }
         }
 
+        // toggle button under the left column
         const btnW = this.leftColW * 0.9;
         const btnH = cell * 0.9;
         const btnX = (this.leftColW - btnW) / 2;
@@ -281,13 +302,13 @@ export class UnitsOverlay {
         this.btnW = btnW;
         this.btnH = btnH;
 
-        // Set a clear hit area (helps mouse too)
+        // hit area
         this.toggleBtn.hitArea = new Rectangle(0, 0, btnW, btnH);
 
-        // Respect open/closed state when resizing
+        // keep state after resize (content slides right to hide)
         this.content.x = this.isOpen ? 0 : this.overlayW;
         this.content.alpha = this.isOpen ? 1 : 0;
-        this.toggleBtn.zIndex = 9999; // guarantee above content
+        this.toggleBtn.zIndex = 9999;
     }
 
     /** Show/hide overlay content with slide+fade animation */
@@ -295,8 +316,8 @@ export class UnitsOverlay {
         this.animateTo(!this.isOpen, 350);
     }
 
+    /** External hit-test helper for canvas-forwarded events */
     public hitToggle(globalX: number, globalY: number): boolean {
-        // Convert global pointer coords to this.toggleBtn's local space
         const local = this.toggleBtn.toLocal({ x: globalX, y: globalY });
         return local.x >= 0 && local.y >= 0 && local.x <= this.btnW && local.y <= this.btnH;
     }
@@ -309,6 +330,8 @@ export class UnitsOverlay {
 
         const startX = this.content.x;
         const startA = this.content.alpha;
+
+        // Close → slide LEFT off the board; Open → slide back RIGHT to 0
         const endX = open ? 0 : -this.overlayW;
         const endA = open ? 1 : 0;
 
@@ -339,14 +362,12 @@ export class UnitsOverlay {
 
     /** Draw/refresh the toggle button visuals (rounded rect + arrow) */
     private drawButton(w: number, h: number): void {
-        // button background (solid fill helps hit testing too)
         this.toggleBtnBg.clear();
         this.toggleBtnBg
             .roundRect(0, 0, w, h, Math.min(12, h * 0.25))
             .fill({ color: 0x000000, alpha: 0.7 })
             .stroke({ color: 0xffffff, width: 2, alpha: 0.7 });
 
-        // arrow (draw in local 0..w,0..h coordinates)
         const pad = Math.min(w, h) * 0.25;
         const aw = w - pad * 2;
         const ah = h - pad * 2;
@@ -355,7 +376,7 @@ export class UnitsOverlay {
         this.toggleArrow.position.set(pad, pad);
 
         if (this.isOpen) {
-            // pointing left
+            // pointing left while open (click → hides to the RIGHT)
             this.toggleArrow
                 .moveTo(aw, 0)
                 .lineTo(0, ah * 0.5)
@@ -364,7 +385,7 @@ export class UnitsOverlay {
                 .fill({ color: 0xf6d87c })
                 .stroke({ color: 0x000000, width: 2, alpha: 0.9 });
         } else {
-            // pointing right
+            // pointing right when closed (click → shows from the RIGHT to LEFT)
             this.toggleArrow
                 .moveTo(0, 0)
                 .lineTo(aw, ah * 0.5)
@@ -387,6 +408,7 @@ export class UnitsOverlay {
     public destroy(): void {
         if (this.tweenCancel) this.tweenCancel();
         this.container.destroy({ children: true });
+        this.allChips.length = 0;
     }
 
     private bucketize(names: string[], counts: number[]): string[][] {

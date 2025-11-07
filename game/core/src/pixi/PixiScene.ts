@@ -365,10 +365,8 @@ export abstract class PixiScene {
     public Resize(_width: number, _height: number) {}
 
     public RunStep(settings: Settings, fps: number) {
-        console.log("RunStep called");
         this.sc_fps = fps;
         this.sc_statisticLines.length = 0;
-        console.log("RunStep called2");
         this.Step(settings, settings.m_hertz > 0 ? 1 / settings.m_hertz : 0);
     }
 

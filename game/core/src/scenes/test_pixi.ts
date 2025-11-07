@@ -279,8 +279,6 @@ export class Sandbox extends PixiScene {
     // ===================== Per-frame =====================
 
     public override Step(_settings: Settings, timeStep: number): void {
-        console.log("ssssss3");
-
         if (timeStep > 0) this.sc_stepCount.increment();
         this.sc_isAnimating = this.pixiSceneManager.isAnimating();
 
