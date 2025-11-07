@@ -25,6 +25,7 @@ import {
 import { MAX_FPS } from "../statics";
 import { FpsCalculator } from "../utils/FpsCalculator";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
+import type { UnitsOverlay } from "../scenes/UnitsOverlay";
 import { PixiApp } from "./PixiApp";
 import { PixiSceneManager } from "./PixiSceneManager";
 import { preloadPixiTextures, PreloadedPixiTextures } from "./PixiTextureLoader";
@@ -41,6 +42,17 @@ function isUnitUserData(x: unknown): x is UnitProperties & LegacyUnitFlag {
     if (!x || typeof x !== "object") return false;
     const o = x as Record<string, unknown>;
     return typeof o["amount_alive"] === "number" && Array.isArray(o["abilities"]);
+}
+
+// A scene that (optionally) exposes the overlay
+type SceneWithUnitsOverlay = PixiScene & {
+    getUnitsOverlay?: () => UnitsOverlay | undefined;
+};
+
+// Safe accessor
+function getUnitsOverlayFromScene(scene: PixiScene | null): UnitsOverlay | undefined {
+    const s = scene as SceneWithUnitsOverlay | null;
+    return s?.getUnitsOverlay?.();
 }
 
 export class PixiGameManager {
@@ -91,6 +103,9 @@ export class PixiGameManager {
     private pixiApp: PixiApp | null = null;
     private pixiSceneManager: PixiSceneManager | null = null;
     private textures: PreloadedPixiTextures | null = null;
+
+    private forwardToggleClick?: (e: PointerEvent) => void;
+    private overlayDebugCanvas?: HTMLCanvasElement;
 
     public constructor() {
         for (const { scenes } of this.groupedScenes) this.flatScenes.push(...scenes);
@@ -172,6 +187,28 @@ export class PixiGameManager {
         onResize(); // first sizing pass
 
         this.LoadGame();
+
+        const initialOverlay = getUnitsOverlayFromScene(this.m_scene);
+        if (initialOverlay) {
+            const pixiCanvas = this._pixiApp.getApplication().canvas as HTMLCanvasElement;
+
+            const forwardToggleClick = (e: PointerEvent) => {
+                const cr = pixiCanvas.getBoundingClientRect();
+                const gx = e.clientX - cr.left;
+                const gy = e.clientY - cr.top;
+
+                const overlay = getUnitsOverlayFromScene(this.m_scene);
+                if (overlay && overlay.hitToggle(gx, gy)) {
+                    overlay.toggle();
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            };
+
+            debugCanvas.addEventListener("pointerup", forwardToggleClick);
+            this.forwardToggleClick = forwardToggleClick;
+            this.overlayDebugCanvas = debugCanvas;
+        }
 
         // Do a second fit on the next frame after scene/backdrop layout
         this._pixiApp.getTicker().addOnce(() => this.fitViewToWindow());
@@ -287,6 +324,12 @@ export class PixiGameManager {
     }
 
     public Uninitialize(): void {
+        if (this.overlayDebugCanvas && this.forwardToggleClick) {
+            this.overlayDebugCanvas.removeEventListener("pointerup", this.forwardToggleClick);
+        }
+        this.overlayDebugCanvas = undefined;
+        this.forwardToggleClick = undefined;
+
         this.isInitialized = false;
         this.pixiApp?.destroy();
         this.pixiSceneManager?.destroy();

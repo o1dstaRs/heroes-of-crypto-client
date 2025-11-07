@@ -13,7 +13,6 @@ import { useColorScheme } from "@mui/joy/styles";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 
-import { EDGES_SIZE } from "../../statics";
 import { MessageBox } from "./MessageBox";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import greenOverlayImage from "../../../images/overlay_green.webp";
@@ -38,18 +37,16 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
     const manager = usePixiManager();
 
     const adjustBarSize = useCallback(() => {
-        const additionalBoardPixels = gameStarted ? 0 : 512;
-        const edgesSize = gameStarted ? 0 : EDGES_SIZE;
-        const widthRatio = windowSize.width / (2048 + edgesSize + additionalBoardPixels);
-        const heightRatio = windowSize.height / (2048 + edgesSize);
+        const additionalBoardPixels = 0;
+        const widthRatio = windowSize.width / (2048 + additionalBoardPixels);
+        const heightRatio = windowSize.height / 2048;
 
         const scaleRatio = Math.min(widthRatio, heightRatio);
         const scaledBoardSize = (2048 + additionalBoardPixels) * scaleRatio;
 
-        const edgeSizeWidth = gameStarted ? 0 : edgesSize / 2;
         const rightBarEndAtBoard = (windowSize.width - scaledBoardSize) / 2;
-        setBarSize(rightBarEndAtBoard > edgeSizeWidth ? rightBarEndAtBoard : edgeSizeWidth);
-    }, [gameStarted, windowSize.width, windowSize.height]);
+        setBarSize(rightBarEndAtBoard > 0 ? rightBarEndAtBoard : 0);
+    }, [windowSize.width, windowSize.height]);
 
     // Handle bar size updates
     useEffect(() => {

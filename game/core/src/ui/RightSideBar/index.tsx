@@ -14,7 +14,6 @@ import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState, useCallback } from "react";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import Toggler from "../Toggler";
-import { EDGES_SIZE } from "../../statics";
 import FightControlToggler from "./FightControlToggler";
 import { VersionDisplay } from "./VersionDisplay";
 import { IWindowSize } from "../../state/visible_state";
@@ -52,18 +51,16 @@ export default function RightSideBar({ gameStarted, windowSize }: { gameStarted:
     const [barSize, setBarSize] = useState(280);
 
     const adjustBarSize = useCallback(() => {
-        const additionalBoardPixels = gameStarted ? 0 : 512;
-        const edgesSize = gameStarted ? 0 : EDGES_SIZE;
-        const widthRatio = windowSize.width / (2048 + edgesSize + additionalBoardPixels);
-        const heightRatio = windowSize.height / (2048 + edgesSize);
+        const additionalBoardPixels = 0;
+        const widthRatio = windowSize.width / (2048 + additionalBoardPixels);
+        const heightRatio = windowSize.height / 2048;
 
         const scaleRatio = Math.min(widthRatio, heightRatio);
         const scaledBoardSize = (2048 + additionalBoardPixels) * scaleRatio;
 
-        const edgeSizeWidth = gameStarted ? 0 : edgesSize / 2;
         const rightBarEndAtBoard = (windowSize.width - scaledBoardSize) / 2;
-        setBarSize(rightBarEndAtBoard > edgeSizeWidth ? rightBarEndAtBoard : edgeSizeWidth);
-    }, [gameStarted, windowSize]);
+        setBarSize(rightBarEndAtBoard > 0 ? rightBarEndAtBoard : 0);
+    }, [windowSize]);
 
     useEffect(() => {
         adjustBarSize();

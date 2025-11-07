@@ -29,6 +29,7 @@ import { SceneLog } from "../scenes/scene_log";
 import { SceneSettings } from "../scenes/scene_settings";
 import { PixiSceneManager } from "./PixiSceneManager";
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
+import { UnitsOverlay } from "../scenes/UnitsOverlay";
 
 const STEPS_BETWEEN_MOUSE_ACTIONS_MIN = 4;
 
@@ -474,6 +475,10 @@ export abstract class PixiScene {
 
         // Fit whole board
         return Math.min(viewW / worldW, viewH / worldH);
+    }
+
+    public getUnitsOverlay(): UnitsOverlay | undefined {
+        return undefined;
     }
 
     public HomeCamera(edgesPx = EDGES_SIZE): void {

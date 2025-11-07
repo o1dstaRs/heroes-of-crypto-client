@@ -13,6 +13,7 @@ import {
 } from "@heroesofcrypto/common";
 
 import { Settings } from "../settings";
+import { UnitsOverlay } from "./UnitsOverlay";
 import { VisibleButtonState, IVisibleButton } from "../state/visible_state";
 import { SceneSettings } from "../scenes/scene_settings";
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
@@ -35,6 +36,7 @@ export class Sandbox extends PixiScene {
     private selectedAttackTypeButton: IVisibleButton;
     private spellBookButton: IVisibleButton;
 
+    private unitsOverlay: UnitsOverlay;
     private bgSprite?: Sprite;
     private bgKey: "background_dark" | "background_light" = "background_dark";
 
@@ -135,6 +137,15 @@ export class Sandbox extends PixiScene {
             this.sc_visibleStateUpdateNeeded = true;
         };
         HoCLib.interval(visibleStateUpdate, 500);
+
+        this.unitsOverlay = new UnitsOverlay(this.pixiSceneManager.getApplication(), (name: string) =>
+            this.texAny(name),
+        );
+        this.unitsOverlay.build();
+    }
+
+    public override getUnitsOverlay(): UnitsOverlay | undefined {
+        return this.unitsOverlay;
     }
 
     /** Create background sprite once and add to the terrain/back layer */
@@ -181,7 +192,8 @@ export class Sandbox extends PixiScene {
     }
 
     public override Resize(_width: number, _height: number): void {
-        this.layoutBackgroundSquare(); // ✅ refit on window resize
+        this.layoutBackgroundSquare();
+        this.unitsOverlay.onResize(_width, _height);
     }
 
     // ===================== Required abstract implementations (minimal) =====================

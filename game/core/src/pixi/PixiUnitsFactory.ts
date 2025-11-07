@@ -160,12 +160,12 @@ const FACTION_HERO_GENDER_TO_NAME: { [heroKey: string]: string[] } = {
 type DigitTextureMap = Map<number, Texture>;
 type NamedTexture = [textureName: string, texture: Texture];
 
-enum TextureType {
+export enum TextureType {
     SMALL = 0,
     LARGE = 1,
 }
 
-const unitToTextureName = (unitName: string, textureType: TextureType, unitSize = 1) => {
+export const unitToTextureName = (unitName: string, textureType: TextureType, unitSize = 1) => {
     const base = unitName.toLowerCase().replace(/ /g, "_");
     if (textureType === TextureType.LARGE) return `${base}_512`;
     if (unitSize === 1) return `${base}_128`;
