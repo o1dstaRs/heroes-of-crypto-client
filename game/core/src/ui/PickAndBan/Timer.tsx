@@ -1,7 +1,17 @@
 import { Box, Typography } from "@mui/joy";
 import React from "react";
 
-export const Timer = ({ localSeconds, isYourTurn }: { localSeconds: number; isYourTurn: boolean }) => (
+const SECONDS_TO_RED_TEXT = 10;
+
+export const Timer = ({
+    localSeconds,
+    isYourTurn,
+    width,
+}: {
+    localSeconds: number;
+    isYourTurn: boolean;
+    width: number;
+}) => (
     <Box
         sx={{
             position: "absolute",
@@ -16,13 +26,13 @@ export const Timer = ({ localSeconds, isYourTurn }: { localSeconds: number; isYo
     >
         <Typography
             sx={{
-                color: isYourTurn && localSeconds < 400000 ? "red" : "white",
+                color: isYourTurn && localSeconds < SECONDS_TO_RED_TEXT ? "red" : "white",
                 fontWeight: "bold",
-                fontSize: isYourTurn && localSeconds < 400000 ? "6rem" : "4rem",
+                fontSize: isYourTurn && localSeconds < SECONDS_TO_RED_TEXT ? `${width / 8}px` : `${width / 10}px`,
                 zIndex: 2,
                 textShadow: "0 0 15px rgba(0, 0, 0, 1)",
                 fontFamily: "DigitalDream, sans-serif",
-                animation: localSeconds < 400000 ? "pulseEffect 1s infinite forwards" : "none", // Pulsing effect if less than 400000 seconds
+                animation: localSeconds < SECONDS_TO_RED_TEXT ? "pulseEffect 1s infinite forwards" : "none", // Pulsing effect if less than 400000 seconds
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",

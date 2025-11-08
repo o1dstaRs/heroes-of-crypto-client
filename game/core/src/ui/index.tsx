@@ -132,6 +132,10 @@ export interface IPickPhaseEventData {
     r: number;
     // is abandoned
     ia: boolean;
+    // my augments
+    ma: [number, number][];
+    // opponent augments (no power revealed)
+    oa: number[];
 }
 
 // Context for SSE and pick/ban state
@@ -142,6 +146,8 @@ interface PickBanContextType {
     banned: number[];
     picked: number[];
     opponentPicked: number[];
+    opponentAugments: number[];
+    augments: [number, number][];
     isYourTurn: boolean | null;
     isAbandoned: boolean | null;
     pickPhase: number;
@@ -157,6 +163,8 @@ const PickBanContext = createContext<PickBanContextType>({
     banned: [],
     picked: [],
     opponentPicked: [],
+    opponentAugments: [],
+    augments: [],
     isYourTurn: null,
     isAbandoned: null,
     pickPhase: -1,
@@ -178,6 +186,8 @@ export const PickBanEventProvider: React.FC<{
     const [banned, setBanned] = useState<number[]>([]);
     const [picked, setPicked] = useState<number[]>([]);
     const [opponentPicked, setOpponentPicked] = useState<number[]>([]);
+    const [opponentAugments, setOpponentAugments] = useState<number[]>([]);
+    const [augments, setAugments] = useState<[number, number][]>([]);
     const [isYourTurn, setIsYourTurn] = useState<boolean | null>(null);
     const [isAbandoned, setIsAbandoned] = useState<boolean | null>(null);
     const [pickPhase, setPickPhase] = useState<number>(-1);
@@ -218,6 +228,8 @@ export const PickBanEventProvider: React.FC<{
             setBanned(event.b);
             setPicked(event.p);
             setOpponentPicked(event.op);
+            setOpponentAugments(event.oa);
+            setAugments(event.ma);
             setPickPhase(event.pp);
             setIsYourTurn(event.a.includes(userTeam));
             setIsAbandoned(event.ia);
@@ -248,6 +260,8 @@ export const PickBanEventProvider: React.FC<{
             banned,
             picked,
             opponentPicked,
+            opponentAugments,
+            augments,
             isYourTurn,
             isAbandoned,
             pickPhase,
@@ -262,6 +276,8 @@ export const PickBanEventProvider: React.FC<{
             banned,
             picked,
             opponentPicked,
+            opponentAugments,
+            augments,
             isYourTurn,
             isAbandoned,
             pickPhase,

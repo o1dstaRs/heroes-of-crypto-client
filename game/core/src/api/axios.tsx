@@ -36,6 +36,10 @@ axiosAuthInstance.interceptors.response.use(
 export const axiosMMInstance = axios.create({ baseURL: process.env.HOST_MATCHMAKING_API });
 axiosMMInstance.interceptors.response.use(
     (res) => {
+        const newToken = res.headers["x-new-token"];
+        if (newToken) {
+            localStorage.setItem("accessToken", newToken);
+        }
         res.headers = { ...res.headers };
         return res;
     },
@@ -65,6 +69,10 @@ axiosMMInstance.interceptors.response.use(
 export const axiosGameInstance = axios.create({ baseURL: process.env.HOST_GAME_API });
 axiosGameInstance.interceptors.response.use(
     (res) => {
+        const newToken = res.headers["x-new-token"];
+        if (newToken) {
+            localStorage.setItem("accessToken", newToken);
+        }
         res.headers = { ...res.headers };
         return res;
     },
@@ -120,5 +128,7 @@ export const endpoints = {
         pick: `${IS_PROD ? "/v1/pick" : "/v1/game/pick"}`,
         ban: `${IS_PROD ? "/v1/ban" : "/v1/game/ban"}`,
         reveal: `${IS_PROD ? "/v1/reveal" : "/v1/game/reveal"}`,
+        revealAll: `${IS_PROD ? "/v1/reveal-all" : "/v1/game/reveal-all"}`,
+        revealMap: `${IS_PROD ? "/v1/reveal-map" : "/v1/game/reveal-map"}`,
     },
 };

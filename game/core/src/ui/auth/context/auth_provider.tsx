@@ -292,6 +292,34 @@ export function AuthProvider({ children }: Props) {
         });
     }, []);
 
+    const revealAll = useCallback(async () => {
+        refreshLocalStorageFromCookie();
+        const accessToken = localStorage.getItem(STORAGE_KEY);
+
+        await axiosGameInstance.post(`${endpoints.game.revealAll}`, undefined, {
+            responseType: "arraybuffer",
+            headers: {
+                "Content-Type": "application/octet-stream",
+                "x-request-id": uuidv4(),
+                Authorization: accessToken,
+            },
+        });
+    }, []);
+
+    const revealMap = useCallback(async () => {
+        refreshLocalStorageFromCookie();
+        const accessToken = localStorage.getItem(STORAGE_KEY);
+
+        await axiosGameInstance.post(`${endpoints.game.revealMap}`, undefined, {
+            responseType: "arraybuffer",
+            headers: {
+                "Content-Type": "application/octet-stream",
+                "x-request-id": uuidv4(),
+                Authorization: accessToken,
+            },
+        });
+    }, []);
+
     const getCurrentGame = useCallback(async (): Promise<GamePublic.AsObject | null> => {
         refreshLocalStorageFromCookie();
         const accessToken = localStorage.getItem(STORAGE_KEY);
@@ -481,6 +509,8 @@ export function AuthProvider({ children }: Props) {
             pick,
             ban,
             reveal,
+            revealAll,
+            revealMap,
             getCurrentGame,
             me,
         }),
@@ -500,6 +530,8 @@ export function AuthProvider({ children }: Props) {
             pick,
             ban,
             reveal,
+            revealAll,
+            revealMap,
             getCurrentGame,
             me,
             state.user,

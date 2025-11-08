@@ -7,7 +7,7 @@ import {
     PickHelper,
     AllFactions,
 } from "@heroesofcrypto/common";
-import { PickPhase } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import { AugmentType, PickPhase } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 import creaturesJson from "@heroesofcrypto/common/src/configuration/creatures.json";
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
@@ -51,13 +51,15 @@ const isChrome = /Chrome/.test(navigator.userAgent) && !/Edge/.test(navigator.us
 
 const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = window.innerHeight }) => {
     const pickBanContext = usePickBanEvents();
-    const { pickPair, pick, ban } = useAuthContext();
+    const { pickPair, pick, ban, revealAll } = useAuthContext();
 
     const width = useMemo(() => (height as number) * 0.84, [height]); // Memoize calculated width
     const [hoveredCreature, setHoveredCreature] = useState<number | null>(null);
     const [selectedCreature, setSelectedCreature] = useState<number | null>(null);
     const [hoveredAugmentsAndMapScout, setHoveredAugmentsAndMapScout] = useState<boolean | null>(null);
+    const [clickedAugmentsAndMapScout, setClickedAugmentsAndMapScout] = useState<boolean | null>(null);
     const [hoveredAllUnitsScout, setHoveredAllUnitsScout] = useState<boolean | null>(null);
+    const [clickedAllUnitsScout, setClickedAllUnitsScout] = useState<boolean | null>(null);
     const [selectedCreatureAmount, setSelectedCreatureAmount] = useState<number | null>(null);
     const [lastKnownPickPhase, setLastKnownPickPhase] = useState<number | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -80,6 +82,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
     }, [infoMessage]);
 
     const {
+        canAugmentScout,
         isInitialPick,
         initialCreaturesPairs,
         doNotRenderCreatures,
@@ -92,6 +95,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
         isBan,
     } = useMemo(() => {
         const isInitialPick = pickBanContext.pickPhase === PickPhase.INITIAL_PICK;
+        let canAugmentScout = !isInitialPick && !!userTeam;
         const isBan = pickBanContext.pickPhase === PickPhase.EXTENDED_BAN || pickBanContext.pickPhase === PickPhase.BAN;
         let initialCreaturesPairs: [number, number][] = [];
         const doNotRenderCreatures: number[] = [];
@@ -99,6 +103,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
         const yourCreaturesToPick: number[] = [...CreaturePoolByLevel];
         const opponentPickedCreatures: number[] = [];
         const canBanCreaturesByLevel: boolean[] = [false, false, false, false];
+
+        if (canAugmentScout) {
+            for (const a of pickBanContext.augments) {
+                if ((a[0] === AugmentType.AUGMENTS_AND_MAP_SCOUT || a[0] === AugmentType.ALL_UNITS_SCOUT) && a[1] > 0) {
+                    canAugmentScout = false;
+                }
+            }
+        }
 
         if (isInitialPick && pickBanContext.initialCreaturesPairs?.length === 2) {
             initialCreaturesPairs = pickBanContext.initialCreaturesPairs;
@@ -152,6 +164,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
             pickBanContext.revealsRemaining > 0;
 
         return {
+            canAugmentScout,
             isInitialPick,
             initialCreaturesPairs,
             doNotRenderCreatures,
@@ -253,6 +266,23 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
         }
     }, [selectedCreature, pick, setErrorMessage, isBan]);
 
+    const handleRevealAll = useCallback(async () => {
+        try {
+            await revealAll();
+            setInfoMessage(null);
+            setClickedAllUnitsScout(null);
+            setClickedAugmentsAndMapScout(null);
+        } catch (error) {
+            let message: string;
+            if (typeof error === "string") {
+                message = error as string;
+            } else {
+                message = (error as Error).message;
+            }
+            setErrorMessage(message);
+        }
+    }, [revealAll, setErrorMessage]);
+
     const handlePickPair1 = useCallback(async () => {
         try {
             await pickPair(0);
@@ -319,12 +349,18 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                     setSelectedCreatureAmount(null);
                 }
             }
+            if (!hoveredAllUnitsScout) {
+                setClickedAllUnitsScout(null);
+            }
+            setClickedAugmentsAndMapScout(null);
         };
 
         const handleEscKey = (event: KeyboardEvent) => {
             if (event.key === "Escape") {
                 setSelectedCreature(null);
                 setSelectedCreatureAmount(null);
+                setClickedAllUnitsScout(null);
+                setClickedAugmentsAndMapScout(null);
             }
         };
 
@@ -335,7 +371,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
             document.removeEventListener("mousedown", handleClickOutside);
             document.removeEventListener("keydown", handleEscKey);
         };
-    }, [selectedCreature]);
+    }, [selectedCreature, hoveredAllUnitsScout]);
 
     return (
         <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
@@ -441,66 +477,139 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                             }}
                         />
                     </Box>
-                    <Box
-                        sx={{
-                            position: "absolute",
-                            left: "-9%",
-                            top: "73%",
-                            transform: "translateY(-50%)",
-                            zIndex: 100,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: "68px",
-                            height: "68px",
-                            backgroundImage: `url(${scoutAugmentsAndMapImage})`,
-                            backgroundSize: "contain",
-                            backgroundRepeat: "no-repeat",
-                            backgroundPosition: "center",
-                            cursor: "pointer",
-                            transition: "transform 0.2s ease",
-                            "&:hover": {
-                                transform: "translateY(-50%) scale(1.2)",
-                            },
-                        }}
-                        onMouseEnter={() => {
-                            setHoveredAugmentsAndMapScout(true);
-                            setModalClosed(true);
-                        }}
-                        onMouseLeave={() => {
-                            setHoveredAugmentsAndMapScout(false);
-                            setModalClosed(false);
-                        }}
-                    />
-                    <Box
-                        sx={{
-                            position: "absolute",
-                            left: "-9.2%",
-                            top: "81.5%",
-                            transform: "translateY(-50%)",
-                            zIndex: 100,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: "72px",
-                            height: "72px",
-                            backgroundImage: `url(${scoutAllUnitsImage})`,
-                            backgroundSize: "contain",
-                            backgroundRepeat: "no-repeat",
-                            backgroundPosition: "center",
-                            cursor: "pointer",
-                            transition: "transform 0.2s ease",
-                            "&:hover": {
-                                transform: "translateY(-50%) scale(1.2)",
-                            },
-                        }}
-                        onMouseEnter={() => {
-                            setHoveredAllUnitsScout(true);
-                        }}
-                        onMouseLeave={() => {
-                            setHoveredAllUnitsScout(false);
-                        }}
-                    />
+                    {canAugmentScout && (
+                        <>
+                            <Box
+                                sx={{
+                                    position: "absolute",
+                                    left: "-9%",
+                                    top: "71%",
+                                    zIndex: 100,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    width: Math.floor(width / 11.5),
+                                    height: Math.floor(width / 11.5),
+                                    backgroundImage: `url(${scoutAugmentsAndMapImage})`,
+                                    backgroundSize: "contain",
+                                    backgroundRepeat: "no-repeat",
+                                    backgroundPosition: "center",
+                                    cursor: "pointer",
+                                    transition: "transform 0.2s ease",
+                                    transform: clickedAugmentsAndMapScout
+                                        ? "translateY(-50%) scale(1.2) translateX(-20%)"
+                                        : "translateY(-50%)",
+                                    "&:hover": {
+                                        transform: clickedAugmentsAndMapScout
+                                            ? "translateY(-50%) scale(1.2) translateX(-20%)"
+                                            : "translateY(-50%) scale(1.2)",
+                                    },
+                                }}
+                                onMouseEnter={() => {
+                                    setHoveredAugmentsAndMapScout(true);
+                                    setModalClosed(true);
+                                }}
+                                onMouseLeave={() => {
+                                    setHoveredAugmentsAndMapScout(false);
+                                    setModalClosed(false);
+                                }}
+                                onClick={() => {
+                                    setClickedAllUnitsScout(false);
+                                    setClickedAugmentsAndMapScout(true);
+                                }}
+                            />
+                            <Box
+                                sx={{
+                                    position: "absolute",
+                                    left: "-9.2%",
+                                    top: "80.2%",
+                                    zIndex: 100,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    width: Math.floor(width / 10.8),
+                                    height: Math.floor(width / 10.8),
+                                    backgroundImage: `url(${scoutAllUnitsImage})`,
+                                    backgroundSize: "contain",
+                                    backgroundRepeat: "no-repeat",
+                                    backgroundPosition: "center",
+                                    cursor: "pointer",
+                                    transition: "transform 0.2s ease",
+                                    transform: clickedAllUnitsScout
+                                        ? "translateY(-50%) scale(1.2) translateX(-20%)"
+                                        : "translateY(-50%)",
+                                    "&:hover": {
+                                        transform: clickedAllUnitsScout
+                                            ? "translateY(-50%) scale(1.2) translateX(-20%)"
+                                            : "translateY(-50%) scale(1.2)",
+                                    },
+                                }}
+                                onMouseEnter={() => {
+                                    setHoveredAllUnitsScout(true);
+                                }}
+                                onMouseLeave={() => {
+                                    setHoveredAllUnitsScout(false);
+                                }}
+                                onClick={() => {
+                                    setClickedAugmentsAndMapScout(false);
+                                    setClickedAllUnitsScout(true);
+                                }}
+                            >
+                                {clickedAllUnitsScout && (
+                                    <Box
+                                        sx={{
+                                            position: "absolute",
+                                            width: "auto",
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            alignItems: "center",
+                                            top: "45%",
+                                            left: "130%",
+                                            transform: "translate(-50%, -50%) scale(1.5)",
+                                            zIndex: 103,
+                                        }}
+                                    >
+                                        <IconButton
+                                            aria-label="reveal-all"
+                                            onClick={handleRevealAll}
+                                            sx={{
+                                                color: "#3B9B5C",
+                                                marginLeft: "10%",
+                                                marginTop: "10%",
+                                                borderRadius: "20px",
+                                                boxShadow: "0 0 10px #ffffff",
+                                                border: "2px solid white",
+                                                paddingLeft: "20px",
+                                                paddingRight: "20px",
+                                                paddingTop: "2px",
+                                                paddingBottom: "2px",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                backgroundColor: "#000000",
+                                                transform: "scale(0.7)",
+                                                "&:hover": {
+                                                    backgroundColor: "rgb(62, 135, 144)",
+                                                    "&::after": {
+                                                        position: "absolute",
+                                                        right: "114%",
+                                                        top: "130%",
+                                                        transform: "translate(-50%, -50%) scale(0.48)",
+                                                        width: "60%",
+                                                        height: "60%",
+                                                    },
+                                                },
+                                            }}
+                                        >
+                                            <span style={{ color: "white", fontSize: "0.8rem" }}>
+                                                Scout enemy units
+                                            </span>
+                                        </IconButton>
+                                    </Box>
+                                )}
+                            </Box>
+                        </>
+                    )}
+
                     {!!userTeam && (
                         <Box
                             sx={{
@@ -526,7 +635,11 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                     },
                                 }}
                             >
-                                <Timer localSeconds={localSeconds} isYourTurn={pickBanContext.isYourTurn ?? false} />
+                                <Timer
+                                    localSeconds={localSeconds}
+                                    isYourTurn={pickBanContext.isYourTurn ?? false}
+                                    width={width}
+                                />
                                 <style>
                                     {`
                                 @keyframes pulseEffect {
@@ -2692,22 +2805,26 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                 </Box>
                                             ))}
                                         </Box>
-
                                         <img
                                             src={crossSwordsImage}
                                             alt="Cross Swords"
                                             style={{
                                                 position: "absolute",
-                                                top: "35%",
+                                                top:
+                                                    hoveredCreature !== null &&
+                                                    (hoveredCreature <= 0 ||
+                                                        pickBanContext.picked.includes(hoveredCreature))
+                                                        ? "25%"
+                                                        : "35%",
                                                 left: "50%",
                                                 transform: "translate(-50%, -50%)",
                                                 width: "4.5%",
                                                 height: "auto",
                                                 zIndex: 999,
                                                 opacity: 0.9,
+                                                transition: "top 0.2s ease-out",
                                             }}
                                         />
-
                                         <Box
                                             sx={{
                                                 flex: "1 0 50%",
