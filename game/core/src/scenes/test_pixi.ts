@@ -1,16 +1,14 @@
 import { Sprite } from "pixi.js";
 import {
     Augment,
-    FactionType,
     FightStateManager,
     GridConstants,
     GridSettings,
-    GridType,
     HoCLib,
-    TeamType,
     HoCMath,
     UnitProperties,
 } from "@heroesofcrypto/common";
+import { GridType, TeamType, FactionType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
 
 import { Settings } from "../settings";
 import { UnitsOverlay } from "./UnitsOverlay";
@@ -27,7 +25,6 @@ interface XY {
 export class Sandbox extends PixiScene {
     /** Keep grid type locally (we don't mutate a Grid instance in this minimal scene) */
     private gridType: GridType;
-
     // ui/buttons (kept minimal but present so UI doesn’t crash if referenced)
     private hourglassButton: IVisibleButton;
     private shieldButton: IVisibleButton;
@@ -35,11 +32,9 @@ export class Sandbox extends PixiScene {
     private aiButton: IVisibleButton;
     private selectedAttackTypeButton: IVisibleButton;
     private spellBookButton: IVisibleButton;
-
     private unitsOverlay: UnitsOverlay;
     private bgSprite?: Sprite;
     private bgKey: "background_dark" | "background_light" = "background_dark";
-
     public constructor(context: PixiSceneContext) {
         // Build grid settings FIRST so we can pass a valid SceneSettings to super()
         const gs = new GridSettings(
@@ -143,11 +138,9 @@ export class Sandbox extends PixiScene {
         );
         this.unitsOverlay.build();
     }
-
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return this.unitsOverlay;
     }
-
     /** Create background sprite once and add to the terrain/back layer */
     private ensureBackgroundSprite(): void {
         if (this.bgSprite) return;
@@ -167,7 +160,6 @@ export class Sandbox extends PixiScene {
         this.bgSprite = bg;
         this.layoutBackgroundSquare();
     }
-
     private layoutBackgroundSquare(): void {
         if (!this.bgSprite) return;
 
@@ -190,22 +182,16 @@ export class Sandbox extends PixiScene {
             this.bgSprite.texture = wantTex;
         }
     }
-
     public override Resize(_width: number, _height: number): void {
         this.layoutBackgroundSquare();
         this.unitsOverlay.onResize(_width, _height);
     }
-
-    // ===================== Required abstract implementations (minimal) =====================
-
     protected verifyButtonsTrigger(): void {
         /* no-op for minimal */
     }
-
     public propagateAugmentation(_teamType: TeamType, _augmentType: Augment.AugmentType): boolean {
         return false;
     }
-
     public propagateSynergy(
         _teamType: TeamType,
         _faction: FactionType,
@@ -214,70 +200,51 @@ export class Sandbox extends PixiScene {
     ): boolean {
         return false;
     }
-
     public getNumberOfUnitsAvailableForPlacement(_teamType: TeamType): number {
         return 0;
     }
-
     public propagateButtonClicked(_buttonName: string, _buttonState: VisibleButtonState): void {
         /* no-op */
     }
-
     protected landAttack(): boolean {
         return false;
     }
-
     protected finishDrop(_positionToDropTo: XY): void {
         /* no-op */
     }
-
     protected handleMouseDownForSelectedBody(): void {
         /* no-op */
     }
-
     public cloneObject(_newAmount?: number): boolean {
         return false;
     }
-
     public deleteObject(): void {
         /* no-op */
     }
-
     public refreshScene(_unitData: UnitProperties): void {
         /* no-op */
     }
-
     public setGridType(gridType: GridType): void {
         this.gridType = gridType;
         this.pixiSceneManager.setGridType(gridType);
         this.sc_gridTypeUpdateNeeded = true;
     }
-
     public getGridType(): GridType {
         return this.gridType;
     }
-
     public requestTime(_team: number): void {
         /* no-op */
     }
-
     protected destroyTempFixtures(): void {
         /* no-op */
     }
-
-    // ===================== Input hooks (minimal) =====================
-
     public override MouseDown(_p: XY): void {
         if (this.sc_isAnimating) return;
         this.verifyButtonsTrigger();
     }
-
     public override MouseMove(_p: XY, _leftDrag: boolean): void {
         // minimal hover — intentionally empty
     }
-
-    // ===================== Per-frame =====================
-
     public override Step(_settings: Settings, timeStep: number): void {
         if (timeStep > 0) this.sc_stepCount.increment();
         this.sc_isAnimating = this.pixiSceneManager.isAnimating();
@@ -285,7 +252,6 @@ export class Sandbox extends PixiScene {
         this.ensureBackgroundSprite();
         this.layoutBackgroundSquare();
     }
-
     protected selectUnitPreStart(
         _teamType: TeamType,
         _isSmallUnit: boolean,

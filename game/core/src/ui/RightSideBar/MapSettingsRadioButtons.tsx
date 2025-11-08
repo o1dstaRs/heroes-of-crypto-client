@@ -1,4 +1,6 @@
-import { GridType, ToGridType } from "@heroesofcrypto/common";
+import { ToGridType } from "@heroesofcrypto/common";
+import { GridType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
+import { GridVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 import React, { useState, useEffect } from "react";
 import Box from "@mui/joy/Box";
 import FormControl from "@mui/joy/FormControl";
@@ -8,7 +10,7 @@ import Button from "@mui/joy/Button";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 
 const MapSettingsRadioButtons: React.FC = () => {
-    const [gridType, setGridType] = useState<GridType>(GridType.NORMAL);
+    const [gridType, setGridType] = useState<GridType>(GridVals.NORMAL);
     const manager = usePixiManager();
 
     useEffect(() => {
@@ -30,9 +32,9 @@ const MapSettingsRadioButtons: React.FC = () => {
     const handleRandomButtonClick = () => {
         // Filter out NO_TYPE from the grid types
         const availableGridTypes = [
-            GridType.NORMAL,
-            GridType.LAVA_CENTER,
-            GridType.BLOCK_CENTER,
+            GridVals.NORMAL,
+            GridVals.LAVA_CENTER,
+            GridVals.BLOCK_CENTER,
             // GridType.WATER_CENTER,
         ];
 
@@ -54,9 +56,9 @@ const MapSettingsRadioButtons: React.FC = () => {
                         value={gridType}
                         onChange={handleMapSettingChange}
                     >
-                        <Radio value={GridType.NORMAL} label="Normal" />
-                        <Radio value={GridType.LAVA_CENTER} label="Lava" />
-                        <Radio value={GridType.BLOCK_CENTER} label="Mountain" />
+                        <Radio value={GridVals.NORMAL} label="Normal" />
+                        <Radio value={GridVals.LAVA_CENTER} label="Lava" />
+                        <Radio value={GridVals.BLOCK_CENTER} label="Mountain" />
                         {/* <Radio value={GridType.WATER_CENTER} label="Water" /> */}
                     </RadioGroup>
                 </FormControl>

@@ -1,4 +1,11 @@
-import { AttackType, MovementType, HoCConstants, TeamType, UnitProperties, HoCLib } from "@heroesofcrypto/common";
+import { HoCConstants, UnitProperties, HoCLib } from "@heroesofcrypto/common";
+import { AttackType, FactionType, TeamType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
+import {
+    AttackVals,
+    FactionVals,
+    MovementVals,
+    TeamVals,
+} from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { Box, Badge } from "@mui/joy";
 import Avatar from "@mui/joy/Avatar";
@@ -48,8 +55,8 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
 }) => {
     if (stackPower === 0) return null;
 
-    const backgroundColor = teamType === TeamType.LOWER ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.4)";
-    const borderColor = teamType === TeamType.LOWER ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.4)";
+    const backgroundColor = teamType === TeamVals.LOWER ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.4)";
+    const borderColor = teamType === TeamVals.LOWER ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.4)";
 
     return (
         <Box
@@ -405,17 +412,17 @@ const UnitStatsLayout: React.FC<{
             <StatGroup>
                 <StatItem icon={<FistIcon />} value={damageRange} tooltip="Attack spread" color="#c0c0c0" />
                 <StatItem
-                    icon={attackTypeSelected === AttackType.RANGE ? <BowIcon /> : <SwordIcon />}
+                    icon={attackTypeSelected === AttackVals.RANGE ? <BowIcon /> : <SwordIcon />}
                     value={Number(attackDamage.toFixed(2))}
                     tooltip="Attack type and multiplier"
-                    color={attackTypeSelected === AttackType.RANGE ? "#ffd700" : "#a52a2a"}
+                    color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
                     badgeContent={attackModBadgeValue}
                     badgeColor={attackColor}
                     positiveFrame={unitProperties.attack_multiplier > 1}
                     negativeFrame={unitProperties.attack_multiplier < 1}
                 />
             </StatGroup>
-            {unitProperties.attack_type === AttackType.RANGE && (
+            {unitProperties.attack_type === AttackVals.RANGE && (
                 <StatGroup>
                     <StatItem
                         icon={<ShotRangeIcon />}
@@ -463,10 +470,10 @@ const UnitStatsLayout: React.FC<{
             </StatGroup>
             <StatGroup>
                 <StatItem
-                    icon={unitProperties.movement_type === MovementType.FLY ? <WingIcon /> : <BootIcon />}
+                    icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
                     value={Number((unitProperties.steps + stepsMod).toFixed(1))}
                     tooltip="Movement type and number of steps in cells"
-                    color={unitProperties.movement_type === MovementType.FLY ? "#00ff7f" : "#8b4513"}
+                    color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                     badgeContent={stepsModBadgeValue}
                     badgeColor={stepsMod > 0 ? "success" : "danger"}
                 />
@@ -614,14 +621,14 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
 }) => {
     const [overallImpact, setVisibleOverallImpact] = useState({} as IVisibleOverallImpact);
     const [, setAugmentChanged] = useState(false);
-    const [raceName, setRaceName] = useState("");
+    const [factionType, setFactionType] = useState(FactionVals.NO_FACTION as FactionType);
     const theme = useTheme();
     const isDarkMode = theme.palette.mode === "dark";
 
     const manager = usePixiManager();
 
     useEffect(() => {
-        const connection2 = manager.onRaceSelected.connect(setRaceName);
+        const connection2 = manager.onFactionSelected.connect(setFactionType);
         return () => {
             connection2.disconnect();
         };
@@ -659,7 +666,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
     }
 
     // @ts-ignore: style params
-    if (raceName) {
+    if (factionType) {
         return (
             // @ts-ignore: style params
             <ListItem style={{ "--List-nestedInsetStart": "0px" }} nested>
@@ -667,7 +674,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
                     renderToggle={({ open, setOpen }) => (
                         <ListItemButton onClick={() => setOpen(!open)}>
                             <ListItemContent>
-                                <Typography level="title-sm">{raceName}</Typography>
+                                <Typography level="title-sm">{factionType}</Typography>
                             </ListItemContent>
                             <KeyboardArrowDownIcon sx={{ transform: open ? "rotate(180deg)" : "none" }} />
                         </ListItemButton>
@@ -676,7 +683,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
                     <List sx={{ gap: 0 }}>
                         <Avatar
                             // @ts-ignore: src params
-                            src={images[`${raceName.toLowerCase()}_512`]}
+                            src={images[`${factionType.toLowerCase()}_512`]}
                             variant="plain"
                             sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
                             style={{
@@ -699,8 +706,8 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
         const attackTypeSelected = unitProperties.attack_type_selected;
         let attackDamage = (unitProperties.base_attack + unitProperties.attack_mod) * unitProperties.attack_multiplier;
         if (
-            attackTypeSelected === AttackType.MELEE &&
-            unitProperties.attack_type === AttackType.RANGE &&
+            attackTypeSelected === AttackVals.MELEE &&
+            unitProperties.attack_type === AttackVals.RANGE &&
             !hasHandymanAbility
         ) {
             attackDamage /= 2;

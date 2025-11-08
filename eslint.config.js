@@ -57,6 +57,7 @@ module.exports = [
                 },
             ],
             "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+            "lines-between-class-members": ["error", "never"],
         },
         settings: {
             react: {

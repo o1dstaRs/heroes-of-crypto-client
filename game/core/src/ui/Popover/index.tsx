@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AttackType, MovementType } from "@heroesofcrypto/common";
+import { AttackVals, MovementVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IHoverInfo } from "../../state/visible_state";
@@ -22,9 +22,9 @@ const getLevelEmoji = (hoverInfo: IHoverInfo): string => {
 
 const getAttackEmojiByType = (hoverInfo: IHoverInfo): string => {
     let attackTypeEmoji = "🗡️";
-    if (hoverInfo.attackType === AttackType.RANGE) {
+    if (hoverInfo.attackType === AttackVals.RANGE) {
         attackTypeEmoji = "🏹";
-    } else if (hoverInfo.attackType === AttackType.MAGIC) {
+    } else if (hoverInfo.attackType === AttackVals.MAGIC) {
         attackTypeEmoji = "💥";
     }
 
@@ -33,7 +33,7 @@ const getAttackEmojiByType = (hoverInfo: IHoverInfo): string => {
 
 const getMovementEmojiByType = (hoverInfo: IHoverInfo): string => {
     let movementEmoji = "🦶";
-    if (hoverInfo.unitMovementType === MovementType.FLY) {
+    if (hoverInfo.unitMovementType === MovementVals.FLY) {
         movementEmoji = "🪽";
     }
 
@@ -98,13 +98,13 @@ const unitInfoElement = (hoverInfo: IHoverInfo): JSX.Element => {
 
     let attackTypeStr = "Melee";
     let attackTypeEmoji = "🗡️";
-    if (hoverInfo.attackType === AttackType.RANGE) {
+    if (hoverInfo.attackType === AttackVals.RANGE) {
         attackTypeEmoji = "🏹";
         attackTypeStr = "Range";
-    } else if (hoverInfo.attackType === AttackType.MAGIC) {
+    } else if (hoverInfo.attackType === AttackVals.MAGIC) {
         attackTypeEmoji = "💥";
         attackTypeStr = "Magic";
-    } else if (hoverInfo.attackType === AttackType.MELEE_MAGIC) {
+    } else if (hoverInfo.attackType === AttackVals.MELEE_MAGIC) {
         attackTypeEmoji = "🗡️💥";
         attackTypeStr = "Melee magic";
     }

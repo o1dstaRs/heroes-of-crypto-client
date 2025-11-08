@@ -14,15 +14,11 @@ export class Obstacle {
     private readonly sizeX: number;
     private readonly sizeY: number;
     private readonly gridSettings: GridSettings;
-
     private lightSprite?: SpriteLike;
     private darkSprite?: SpriteLike;
-
     private readonly monitorHits: boolean;
-
     // Optional: a graphics layer for hitbar (attach externally if you want)
     private hitbarLayer?: Container;
-
     public constructor(
         type: ObstacleType,
         position: HoCMath.XY,
@@ -44,27 +40,21 @@ export class Obstacle {
         this.monitorHits = monitorHits;
         this.hitbarLayer = hitbarLayer;
     }
-
     public getSizeX(): number {
         return this.sizeX;
     }
-
     public getSizeY(): number {
         return this.sizeY;
     }
-
     public getType(): ObstacleType {
         return this.type;
     }
-
     public setLightSprite(lightSprite?: SpriteLike): void {
         this.lightSprite = lightSprite;
     }
-
     public setDarkSprite(darkSprite?: SpriteLike): void {
         this.darkSprite = darkSprite;
     }
-
     private drawHitbar(hitsRemaining: number): void {
         if (!this.hitbarLayer) return;
 
@@ -107,7 +97,6 @@ export class Obstacle {
 
         this.hitbarLayer.addChild(g);
     }
-
     public render(isLightMode: boolean, hitsRemaining = 0): void {
         const sprite = isLightMode ? this.lightSprite : this.darkSprite;
 

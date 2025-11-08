@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { TeamType, HoCConstants } from "@heroesofcrypto/common";
+import { HoCConstants } from "@heroesofcrypto/common";
+import { TeamVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 import Avatar from "@mui/joy/Avatar";
 import Badge from "@mui/joy/Badge";
 import Box from "@mui/joy/Box";
@@ -175,10 +176,10 @@ export const UpNextOverlay: React.FC = () => {
                                         color: "white",
                                         backgroundColor:
                                             index === 0
-                                                ? unit.teamType === TeamType.UPPER
+                                                ? unit.teamType === TeamVals.UPPER
                                                     ? "rgba(244, 67, 54, 1)"
                                                     : "rgba(76, 175, 80, 1)"
-                                                : unit.teamType === TeamType.UPPER
+                                                : unit.teamType === TeamVals.UPPER
                                                   ? "rgba(244, 67, 54, 0.6)"
                                                   : "rgba(76, 175, 80, 0.6)",
                                     },

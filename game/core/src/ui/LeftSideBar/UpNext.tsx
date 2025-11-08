@@ -1,4 +1,4 @@
-import { TeamType } from "@heroesofcrypto/common";
+import { TeamVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 
 import Avatar from "@mui/joy/Avatar";
 import Badge from "@mui/joy/Badge";
@@ -105,7 +105,7 @@ export const UpNext: React.FC = () => {
                                                     minWidth: "22px",
                                                     color: "white",
                                                     backgroundColor:
-                                                        unit.teamType === TeamType.UPPER
+                                                        unit.teamType === TeamVals.UPPER
                                                             ? `rgba(244, 67, 54, ${index === 0 ? 1 : 0.6})`
                                                             : `rgba(76, 175, 80, ${index === 0 ? 1 : 0.6})`,
                                                 },

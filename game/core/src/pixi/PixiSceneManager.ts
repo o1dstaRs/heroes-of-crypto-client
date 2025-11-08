@@ -1,6 +1,7 @@
 // game/core/src/pixi/PixiSceneManager.ts
 import { Application, Ticker, Container } from "pixi.js";
-import { GridSettings, HoCMath, GridType, Grid as GridTypeFull } from "@heroesofcrypto/common";
+import { GridSettings, HoCMath, Grid } from "@heroesofcrypto/common";
+import { GridType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
 import { PixiApp } from "./PixiApp";
 import { PixiUnit } from "./PixiUnit";
 import { PixiDrawer } from "./PixiDrawer";
@@ -39,13 +40,10 @@ export class PixiSceneManager {
     private readonly drawer: PixiDrawer;
     private readonly physicsManager: SimplePhysicsManager;
     private readonly ticker: Ticker;
-
     /** keep reference so we can remove it in destroy() */
     private readonly updateFn: (ticker: Ticker) => void;
-
     /** overall anim flag you referenced in methods */
     private animating = false;
-
     public constructor(pixiApp: PixiApp, gridSettings: GridSettings) {
         this.pixiApp = pixiApp;
         this.ticker = pixiApp.getTicker();
@@ -56,21 +54,18 @@ export class PixiSceneManager {
         // Drawer (uses a lightweight Grid shim)
         const dummyGrid: GridLike = { getSettings: () => gridSettings };
         // Cast the shim to the full Grid type so PixiDrawer accepts it without implementing everything
-        this.drawer = new PixiDrawer(dummyGrid as unknown as GridTypeFull, pixiApp.getApplication());
+        this.drawer = new PixiDrawer(dummyGrid as unknown as Grid, pixiApp.getApplication());
 
         // Start the render/update loop — Pixi v8 ticker passes the Ticker instance
         this.updateFn = (t) => this.update(t.deltaMS);
         this.ticker.add(this.updateFn);
     }
-
     public getBackgroundContainer(): Container {
         return this.pixiApp.getBackgroundContainer();
     }
-
     public getApplication(): Application {
         return this.pixiApp.getApplication();
     }
-
     public hitTest(x: number, y: number): BodyLike | undefined {
         const layer = this.pixiApp.getUnitsContainer();
         const children = layer.children as unknown as DisplayObjectLike[];
@@ -94,12 +89,10 @@ export class PixiSceneManager {
         }
         return undefined;
     }
-
     public addUnit(unitId: string, unit: PixiUnit): void {
         this.units.set(unitId, unit);
         this.pixiApp.getUnitsContainer().addChild(unit.getContainer());
     }
-
     public removeUnit(unitId: string): void {
         const unit = this.units.get(unitId);
         if (unit) {
@@ -107,21 +100,17 @@ export class PixiSceneManager {
             this.units.delete(unitId);
         }
     }
-
     public getViewportSize(): { width: number; height: number } {
         const app = this.pixiApp.getApplication();
         // Pixi v8: renderer.width/height are in CSS pixels after autoDensity scaling
         return { width: app.renderer.width, height: app.renderer.height };
     }
-
     public getUnit(unitId: string): PixiUnit | undefined {
         return this.units.get(unitId);
     }
-
     public getAllUnits(): Map<string, PixiUnit> {
         return new Map(this.units);
     }
-
     public startMoveAnimation(unitId: string, _path: HoCMath.XY[]): void {
         const unit = this.units.get(unitId);
         if (unit) {
@@ -131,7 +120,6 @@ export class PixiSceneManager {
         // optional: also tell drawer if you want it to track anim state
         // this.drawer.startMoveAnimation(unit!, path);
     }
-
     public startFlyAnimation(unitId: string, _targetPosition: HoCMath.XY): void {
         const unit = this.units.get(unitId);
         if (unit) {
@@ -140,18 +128,15 @@ export class PixiSceneManager {
         }
         // optional: this.drawer.startFlyAnimation(unit!, targetPosition);
     }
-
     public isAnimatingMovement(): boolean {
         for (const unit of this.units.values()) {
             if (unit.isAnimatingMovement()) return true;
         }
         return false;
     }
-
     public isAnimating(): boolean {
         return this.animating;
     }
-
     private update(deltaTimeMs: number): void {
         // Update physics
         this.physicsManager.update(deltaTimeMs);
@@ -172,28 +157,22 @@ export class PixiSceneManager {
         // Overall animation flag
         this.animating = this.isAnimatingMovement();
     }
-
     // Camera delegation
     public setCameraPosition(x: number, y: number): void {
         this.pixiApp.setCameraPosition(x, y);
     }
-
     public setCameraZoom(zoom: number): void {
         this.pixiApp.setCameraZoom(zoom);
     }
-
     public getCameraPosition(): { x: number; y: number } {
         return this.pixiApp.getCameraPosition();
     }
-
     public getCameraZoom(): number {
         return this.pixiApp.getCameraZoom();
     }
-
     public resize(width: number, height: number): void {
         this.pixiApp.resize(width, height);
     }
-
     public destroy(): void {
         // Stop ticker and remove callback
         this.ticker.remove(this.updateFn);
@@ -204,7 +183,6 @@ export class PixiSceneManager {
         // Clean up drawer
         this.drawer.destroy();
     }
-
     // ------- Drawer delegates -------
     public drawPath(
         color: number,
@@ -215,19 +193,15 @@ export class PixiSceneManager {
     ): void {
         this.drawer.drawPath(color, currentActivePath, currentActiveUnitPositions, hoverAttackFromHashes, drawSolid);
     }
-
     public drawAttackTo(targetPosition: HoCMath.XY, size: number): void {
         this.drawer.drawAttackTo(targetPosition, size);
     }
-
     public drawHoverCells(cells?: HoCMath.XY[], hoverSelectedCellsSwitchToRed = false): void {
         this.drawer.drawHoverCells(cells, hoverSelectedCellsSwitchToRed);
     }
-
     public setHoleLayers(numberOfLayers: number): void {
         this.drawer.setHoleLayers(numberOfLayers);
     }
-
     public setGridType(gridType: GridType): void {
         this.drawer.setGridType(gridType);
     }

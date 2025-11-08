@@ -31,37 +31,25 @@ function vec2Project(x: number, y: number, m: mat4, out: { x: number; y: number 
 
 export class Camera {
     private readonly center = { x: 0, y: 20 };
-
     private zoom = 1;
-
     public readonly projection = mat4.create();
-
     public readonly modelView = mat4.create();
-
     public readonly combined = mat4.create();
-
     public readonly inverse = mat4.create();
-
     private width = 0;
-
     private height = 0;
-
     public getZoom() {
         return this.zoom;
     }
-
     public getCenter(): { x: number; y: number } {
         return { ...this.center };
     }
-
     public getWidth() {
         return this.width;
     }
-
     public getHeight() {
         return this.height;
     }
-
     public update() {
         const f = 1 / (2 * this.zoom);
         const hw = this.width * f;
@@ -72,38 +60,32 @@ export class Camera {
         mat4.mul(this.combined, this.projection, this.modelView);
         mat4.invert(this.inverse, this.combined);
     }
-
     public resize(width: number, height: number) {
         this.width = width;
         this.height = height;
         this.update();
     }
-
     public setPositionAndZoom(x: number, y: number, zoom: number) {
         this.center.x = x;
         this.center.y = y;
         this.zoom = zoom;
         this.update();
     }
-
     public setPosition(x: number, y: number) {
         this.center.x = x;
         this.center.y = y;
         this.update();
     }
-
     public setZoom(zoom: number) {
         this.zoom = zoom;
         this.update();
     }
-
     public project(world: { x: number; y: number }, viewport: { x: number; y: number }) {
         vec2Project(world.x, world.y, this.combined, tmpXY);
         viewport.x = (this.width * (tmpXY.x + 1)) / 2;
         viewport.y = this.height - (this.height * (tmpXY.y + 1)) / 2;
         return viewport;
     }
-
     public unproject({ x, y }: { x: number; y: number }, world: { x: number; y: number }) {
         vec2Project((2 * x) / this.width - 1, (2 * (this.height - y)) / this.height - 1, this.inverse, world);
 

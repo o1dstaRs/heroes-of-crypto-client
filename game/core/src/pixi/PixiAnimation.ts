@@ -21,7 +21,6 @@ export class MoveAnimation implements IAnimation {
     private currentIndex = 0;
     private speed: number;
     private isComplete = false;
-
     public constructor(target: Positionable, path: HoCMath.XY[], speed: number = MOVE_ANIMATION_SPEED) {
         this.target = target;
         this.path = [...path];
@@ -33,7 +32,6 @@ export class MoveAnimation implements IAnimation {
             this.currentIndex = 1; // move toward second point
         }
     }
-
     public update(deltaTime: number): boolean {
         if (this.isComplete || this.currentIndex >= this.path.length) {
             this.isComplete = true;
@@ -63,7 +61,6 @@ export class MoveAnimation implements IAnimation {
 
         return false;
     }
-
     public destroy(): void {
         /* no-op */
     }
@@ -74,13 +71,11 @@ export class FlyAnimation implements IAnimation {
     private destination: HoCMath.XY;
     private speed: number;
     private isComplete = false;
-
     public constructor(target: Positionable, destination: HoCMath.XY, speed: number = FLY_ANIMATION_SPEED) {
         this.target = target;
         this.destination = { ...destination };
         this.speed = speed;
     }
-
     public update(deltaTime: number): boolean {
         if (this.isComplete) return true;
 
@@ -108,7 +103,6 @@ export class FlyAnimation implements IAnimation {
 
         return false;
     }
-
     public destroy(): void {
         /* no-op */
     }
@@ -123,7 +117,6 @@ export class BulletAnimation implements IAnimation {
     private traveled = 0;
     private isComplete = false;
     private container: Container;
-
     public constructor(
         container: Container,
         startX: number,
@@ -148,7 +141,6 @@ export class BulletAnimation implements IAnimation {
 
         this.container.addChild(this.bullet);
     }
-
     public update(deltaTime: number): boolean {
         if (this.isComplete) return true;
 
@@ -171,7 +163,6 @@ export class BulletAnimation implements IAnimation {
 
         return false;
     }
-
     public destroy(): void {
         this.container.removeChild(this.bullet);
         this.bullet.destroy();
@@ -180,14 +171,11 @@ export class BulletAnimation implements IAnimation {
 
 export class PixiAnimationManager {
     private animations: IAnimation[] = [];
-
     // No container in the ctor anymore
     public constructor() {}
-
     public addAnimation(animation: IAnimation): void {
         this.animations.push(animation);
     }
-
     public removeAnimation(animation: IAnimation): void {
         const index = this.animations.indexOf(animation);
         if (index !== -1) {
@@ -195,7 +183,6 @@ export class PixiAnimationManager {
             animation.destroy();
         }
     }
-
     public update(deltaTime: number): void {
         for (let i = this.animations.length - 1; i >= 0; i--) {
             const animation = this.animations[i];
@@ -205,16 +192,13 @@ export class PixiAnimationManager {
             }
         }
     }
-
     public hasAnimations(): boolean {
         return this.animations.length > 0;
     }
-
     public clear(): void {
         for (const animation of this.animations) animation.destroy();
         this.animations = [];
     }
-
     public destroy(): void {
         this.clear();
     }

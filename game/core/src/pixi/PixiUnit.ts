@@ -10,11 +10,7 @@ import {
     UnitProperties,
     GridSettings,
     HoCMath,
-    UnitType,
-    TeamType,
-    FactionType,
     ToFactionType,
-    AllFactionsType,
     HoCConfig,
     AbilityFactory,
     SpellHelper,
@@ -23,10 +19,12 @@ import {
     HoCConstants,
     Unit,
 } from "@heroesofcrypto/common";
+import { TeamType, UnitType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
 
 import { Container, Sprite as PixiSprite, Texture } from "pixi.js";
 import { DAMAGE_ANIMATION_TICKS, MAX_FPS, RESURRECTION_ANIMATION_TICKS } from "../statics";
 import { PixiRenderableSpell } from "../spells/renderable_spell"; // <- use the Pixi version you created
+import { FactionVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 
 type DigitTextureMap = Map<number, Texture>;
 
@@ -43,22 +41,18 @@ export class PixiUnit extends Unit {
     protected resurrectionAnimationTick = 0;
     // NEW: a dedicated container that holds this unit’s sprites
     private readonly container: Container;
-
     // Pixi visuals
     private readonly layer: Container;
     private readonly smallSprite: PixiSprite;
     private readonly tagSprite: PixiSprite;
     private readonly hourglassSprite: PixiSprite;
     private readonly stopSprite: PixiSprite;
-
     // Digits
     private readonly digitNormalTextures: DigitTextureMap;
     private readonly digitDamageTextures: DigitTextureMap;
     private readonly digitScrollTextures: DigitTextureMap;
-
     // Spell textures bag (by key name)
     private readonly textures: Record<string, Texture>;
-
     protected constructor(
         unitProperties: UnitProperties,
         gridSettings: GridSettings,
@@ -99,11 +93,9 @@ export class PixiUnit extends Unit {
             if (!s.parent) this.container.addChild(s); // CHANGED: was this.layer.addChild(s)
         }
     }
-
     public getContainer(): Container {
         return this.container;
     }
-
     public static createRenderableUnit(
         unitProperties: UnitProperties,
         gridSettings: GridSettings,
@@ -145,9 +137,6 @@ export class PixiUnit extends Unit {
         u.parseSpells();
         return u;
     }
-
-    // ---------------- Spells ----------------
-
     public getHoveredSpell(mousePosition: HoCMath.XY): PixiRenderableSpell | undefined {
         for (const s of this.spells) {
             const pr = s as PixiRenderableSpell;
@@ -155,7 +144,6 @@ export class PixiUnit extends Unit {
         }
         return undefined;
     }
-
     public renderSpells(pageNumber: number): void {
         const windowLeft = (pageNumber - 1) * 6;
         const windowRight = windowLeft + 6;
@@ -175,7 +163,6 @@ export class PixiUnit extends Unit {
             }
         }
     }
-
     protected parseSpells(): void {
         const spells: Map<string, number> = this.parseSpellData(this.unitProperties.spells);
         const newSpells: PixiRenderableSpell[] = [];
@@ -184,7 +171,7 @@ export class PixiUnit extends Unit {
             const spArr = k.split(":");
             if (spArr.length !== 2) continue;
 
-            const faction = ToFactionType[spArr[0] as AllFactionsType] ?? FactionType.NO_TYPE;
+            const faction = ToFactionType[spArr[0] as keyof typeof ToFactionType] ?? FactionVals.NO_FACTION;
             if (faction === undefined) continue;
 
             const spellName = spArr[1];
@@ -217,17 +204,12 @@ export class PixiUnit extends Unit {
 
         this.spells = newSpells;
     }
-
-    // ---------------- Frame update / rendering ----------------
-
     public updateTick(currentTick: number): void {
         this.lastKnownTick = currentTick;
     }
-
     public isAnimatingMovement(): boolean {
         return false;
     }
-
     public render(fps: number, isDamageAnimationLocked: boolean, sceneLog: ISceneLog) {
         this.lastKnownTick = Math.max(this.sceneStepCount.getValue(), this.lastKnownTick);
 
@@ -345,16 +327,12 @@ export class PixiUnit extends Unit {
             }
         }
     }
-
     public handleResurrectionAnimation(): void {
         this.resurrectionAnimationTick = Math.max(
             this.resurrectionAnimationTick,
             this.lastKnownTick + RESURRECTION_ANIMATION_TICKS,
         );
     }
-
-    // ---------------- Ability description refresh (unchanged logic) ----------------
-
     protected refreshAbilitiesDescriptions(_synergyAbilityPowerIncrease: number): void {
         // Heavy Armor
         const heavyArmorAbility = this.getAbility("Heavy Armor");
@@ -965,7 +943,6 @@ export class PixiUnit extends Unit {
             );
         }
     }
-
     private refreshAbiltyDescription(abilityName: string, abilityDescription: string): void {
         if (
             this.unitProperties.abilities.length === this.unitProperties.abilities_descriptions.length &&
@@ -982,7 +959,6 @@ export class PixiUnit extends Unit {
             }
         }
     }
-
     protected handleDamageAnimation(unitsDied: number): void {
         const damageTakenEntry = this.damageAnimationTicks.peekFront();
         const nextAnimationTick = damageTakenEntry?.animationTicks ?? 0;
@@ -991,7 +967,6 @@ export class PixiUnit extends Unit {
             unitsDied,
         });
     }
-
     protected renderAmountSprites(
         digitTextures: DigitTextureMap,
         amountToRender: number,
@@ -1030,9 +1005,6 @@ export class PixiUnit extends Unit {
             this.layer.addChild(s);
         }
     }
-
-    // ---------------- Migration stubs (to keep old call sites compiling) ----------------
-
     /** @deprecated Box2D removed in Pixi version. Always returns undefined. */
     public getBodyDef(): undefined {
         return undefined;

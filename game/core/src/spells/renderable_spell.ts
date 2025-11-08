@@ -27,27 +27,21 @@ export type DigitTextureMap = Map<number, Texture>;
 export class PixiRenderableSpell extends Spell {
     /** Parent layer where all elements get attached */
     private readonly layer: Container;
-
     /** Visuals */
     private readonly bgSprite: PixiSprite;
     private readonly iconSprite: PixiSprite;
     private readonly titleSprite: PixiSprite;
-
     /** Digit textures 0..9 (and optionally -1 for special glyph) */
     private readonly digits: DigitTextureMap;
-
     /** Runtime digit sprites that show "amountRemaining" */
     private amountDigitSprites: PixiSprite[] = [];
-
     /** Column of stacks — drawn with Graphics for perf */
     private stackColumnGfx: Graphics;
-
     /** Cached hover rect */
     private xMin = 0;
     private xMax = 0;
     private yMin = 0;
     private yMax = 0;
-
     /**
      * @param spellParams ISpellParams used by the game logic
      * @param layer Container to attach all sub-sprites
@@ -85,16 +79,13 @@ export class PixiRenderableSpell extends Spell {
 
         this.layer.addChild(this.bgSprite, this.iconSprite, this.titleSprite, this.stackColumnGfx);
     }
-
     /** Old API parity */
     public getSprite(): PixiSprite {
         return this.iconSprite;
     }
-
     public cleanupPagePosition(): void {
         this.xMin = this.xMax = this.yMin = this.yMax = 0;
     }
-
     public isHover(mousePosition: HoCMath.XY, ownerStackPower: number): boolean {
         return (
             this.amountRemaining > 0 &&
@@ -107,14 +98,12 @@ export class PixiRenderableSpell extends Spell {
             mousePosition.y < this.yMax
         );
     }
-
     public getOnPagePosition(): HoCMath.XY[] {
         return [
             { x: this.xMin, y: this.yMin },
             { x: this.xMax, y: this.yMax },
         ];
     }
-
     /**
      * Places everything visually to a “book slot” and renders:
      * - background cell
@@ -175,9 +164,6 @@ export class PixiRenderableSpell extends Spell {
         // Stack column
         this.renderStackColumn(xPos, yPos, ownerStackPower, canRenderStack);
     }
-
-    // -------- internals --------
-
     private renderDigits(xPos: number, yPos: number, canRenderNumber: boolean) {
         // cleanup previous digit sprites
         for (const s of this.amountDigitSprites) {
@@ -216,7 +202,6 @@ export class PixiRenderableSpell extends Spell {
         }
         this.amountDigitSprites = sprites;
     }
-
     private renderStackColumn(xPos: number, yPos: number, ownerStackPower: number, canRenderStack: boolean) {
         // Clear previous vectors
         this.stackColumnGfx.clear();
@@ -241,9 +226,6 @@ export class PixiRenderableSpell extends Spell {
             yShift += BOOK_SPELL_SIZE / 5;
         }
     }
-
-    // ----- lifecycle helpers if you need them -----
-
     public destroy(): void {
         for (const s of this.amountDigitSprites) {
             s.parent?.removeChild(s);

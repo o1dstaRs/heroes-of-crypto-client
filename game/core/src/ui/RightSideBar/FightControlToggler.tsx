@@ -1,4 +1,5 @@
-import { TeamType, UnitProperties } from "@heroesofcrypto/common";
+import { UnitProperties } from "@heroesofcrypto/common";
+import { TeamVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 import React, { useEffect, useState, useRef } from "react";
 import { useTheme } from "@mui/joy/styles";
 import List from "@mui/joy/List";
@@ -165,7 +166,7 @@ const FightControlToggler: React.FC = () => {
                 }}
             >
                 <List>
-                    <SideToggleContainer side="red" teamType={TeamType.UPPER} unitFaction={unitProperties.faction} />
+                    <SideToggleContainer side="red" teamType={TeamVals.UPPER} unitFaction={unitProperties.faction} />
                 </List>
             </Toggler>
 
@@ -200,7 +201,7 @@ const FightControlToggler: React.FC = () => {
                 }}
             >
                 <List>
-                    <SideToggleContainer side="green" teamType={TeamType.LOWER} unitFaction={unitProperties.faction} />
+                    <SideToggleContainer side="green" teamType={TeamVals.LOWER} unitFaction={unitProperties.faction} />
                 </List>
             </Toggler>
         </ListItem>

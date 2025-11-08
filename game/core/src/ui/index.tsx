@@ -1,4 +1,6 @@
-import { HoCLib, TeamType } from "@heroesofcrypto/common";
+import { HoCLib } from "@heroesofcrypto/common";
+import { TeamVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import { TeamType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
 import CustomEventSource from "@heroesofcrypto/common/src/messaging/custom_event_source";
 
 import CssBaseline from "@mui/joy/CssBaseline";
@@ -323,7 +325,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const { getCurrentGame } = useAuthContext();
     const [showOverlay, setShowOverlay] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
-    const [userTeam, setUserTeam] = useState<TeamType>(TeamType.NO_TEAM);
+    const [userTeam, setUserTeam] = useState<TeamType>(TeamVals.NO_TEAM as TeamType);
 
     useEffect(() => {
         const fetchGame = async () => {
@@ -337,7 +339,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                     setErrorMessage("");
 
                     // store the user's team
-                    setUserTeam(currentGame?.team ?? TeamType.NO_TEAM);
+                    setUserTeam((currentGame?.team as TeamType) ?? TeamVals.NO_TEAM);
 
                     if (!gameId || currentGame?.id !== gameId) {
                         setShowOverlay(true);
@@ -379,7 +381,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                     {errorMessage}
                 </div>
             )}
-            {(userTeam !== TeamType.NO_TEAM || errorMessage) && (
+            {(userTeam !== TeamVals.NO_TEAM || errorMessage) && (
                 <PickAndBanView windowSize={windowSize} userTeam={userTeam} />
             )}
         </>

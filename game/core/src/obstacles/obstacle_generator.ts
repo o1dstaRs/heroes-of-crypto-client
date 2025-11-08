@@ -9,14 +9,12 @@ import type { PreloadedPixiTextures } from "../pixi/PixiTextureLoader";
 class PixiSpriteAdapter {
     private sprite: PixiSprite;
     private parent: Container;
-
     public constructor(parent: Container, texture: Texture) {
         this.parent = parent;
         this.sprite = new PixiSprite(texture);
         this.sprite.visible = false; // becomes visible on first render()
         this.parent.addChild(this.sprite);
     }
-
     /** Matches old Sprite.setRect(x, y, w, h) */
     public setRect(x: number, y: number, width: number, height: number): void {
         this.sprite.x = x;
@@ -24,16 +22,13 @@ class PixiSpriteAdapter {
         this.sprite.width = width;
         this.sprite.height = height;
     }
-
     /** Matches old Sprite.render() semantics (noop there, toggle visible here) */
     public render(): void {
         this.sprite.visible = true;
     }
-
     public setTexture(texture: Texture): void {
         this.sprite.texture = texture;
     }
-
     public destroy(): void {
         this.sprite.parent?.removeChild(this.sprite);
         this.sprite.destroy();
@@ -43,11 +38,9 @@ class PixiSpriteAdapter {
 export class PixiObstacleGenerator {
     private readonly textures: PreloadedPixiTextures;
     private readonly gridSettings: GridSettings;
-
     /** Where to add sprites */
     private readonly terrainBack: Container; // water/lava etc.
     private readonly terrainFront: Container; // mountains/blocks etc.
-
     public constructor(
         textures: PreloadedPixiTextures,
         gridSettings: GridSettings,
@@ -59,7 +52,6 @@ export class PixiObstacleGenerator {
         this.terrainBack = terrainBack;
         this.terrainFront = terrainFront;
     }
-
     /**
      * BLOCK “hole” without physics (keeps parity with old size logic).
      * Old version created a Box2D body; here we only return the Obstacle for rendering/hitbar.
@@ -77,7 +69,6 @@ export class PixiObstacleGenerator {
             false, // monitorHits
         );
     }
-
     /** Water center */
     public generateWater(position: HoCMath.XY, sizeX: number, sizeY: number): Obstacle {
         const tex = this.textures.water_256; // Texture directly
@@ -89,7 +80,6 @@ export class PixiObstacleGenerator {
 
         return new Obstacle(ObstacleType.WATER, position, sizeX, sizeY, this.gridSettings, light, dark);
     }
-
     /** Lava center */
     public generateLava(position: HoCMath.XY, sizeX: number, sizeY: number): Obstacle {
         const tex = this.textures.lava_256; // Texture directly
@@ -101,7 +91,6 @@ export class PixiObstacleGenerator {
 
         return new Obstacle(ObstacleType.LAVA, position, sizeX, sizeY, this.gridSettings, light, dark);
     }
-
     /**
      * Mountain / Block (front layer), with optional “monitorHits” bar rendered by Obstacle.
      * `spriteSizeX/Y` control the sprite’s visual size, while sizeX/Y were the physical hitbox before.
@@ -134,7 +123,6 @@ export class PixiObstacleGenerator {
             true, // monitorHits — mountains show a hitbar
         );
     }
-
     /** Optional helpers if you want to swap “dry/frozen” variants later */
     public switchWaterToDry(obstacle: Obstacle): void {
         const dry = this.textures.water_dry_256; // Texture directly
@@ -144,7 +132,6 @@ export class PixiObstacleGenerator {
         obstacle.setLightSprite(light);
         obstacle.setDarkSprite(dark);
     }
-
     public switchLavaToFrozen(obstacle: Obstacle): void {
         const frozen = this.textures.lava_frozen_256; // Texture directly
         if (!frozen) return;

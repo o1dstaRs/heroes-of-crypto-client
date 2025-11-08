@@ -4,17 +4,14 @@ export class PixiApp {
     private app: Application;
     private stage: Container;
     private ticker: Ticker;
-
     // Layers
     private backgroundContainer: Container;
     private terrainContainer: Container;
     private unitsContainer: Container;
     private effectsContainer: Container;
     private uiContainer: Container;
-
     // Camera root
     private camera: Container;
-
     public constructor() {
         this.app = new Application();
 
@@ -36,7 +33,6 @@ export class PixiApp {
 
         this.ticker = this.app.ticker;
     }
-
     public async init(canvas: HTMLCanvasElement, width: number, height: number): Promise<void> {
         const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
         await this.app.init({
@@ -51,7 +47,6 @@ export class PixiApp {
         });
         this.setupRendering();
     }
-
     private setupRendering(): void {
         const c = this.app.canvas as HTMLCanvasElement;
         c.style.position = "absolute";
@@ -60,7 +55,6 @@ export class PixiApp {
         c.style.width = "100%";
         c.style.height = "100%";
     }
-
     public getApplication(): Application {
         return this.app;
     }
@@ -88,7 +82,6 @@ export class PixiApp {
     public getCamera(): Container {
         return this.camera;
     }
-
     /** Keep world center stable when the canvas size changes */
     public resize(width: number, height: number): void {
         const center = this.getCameraPosition(); // world center under screen center
@@ -97,7 +90,6 @@ export class PixiApp {
         this.app.renderer.resize(width, height);
         this.setCameraPosition(center.x, center.y); // re-center after resize
     }
-
     public destroy(): void {
         this.ticker.stop();
         this.app.destroy(true, {
@@ -107,12 +99,6 @@ export class PixiApp {
             context: true,
         });
     }
-
-    // -------------------------
-    // Camera as WORLD CENTER
-    // -------------------------
-
-    /** Position the world center (wx,wy) at the middle of the screen */
     public setCameraPosition(wx: number, wy: number): void {
         const z = this.camera.scale.x || 1;
         const { width, height } = this.app.renderer;
@@ -120,15 +106,11 @@ export class PixiApp {
         // screen = world * z + pos  => pos = center - world*z
         this.camera.position.set(width / 2 - wx * z, height / 2 - wy * z);
     }
-
-    /** Zoom while keeping the current world center fixed on screen */
     public setCameraZoom(zoom: number): void {
         const prevCenter = this.getCameraPosition();
         this.camera.scale.set(zoom, zoom);
         this.setCameraPosition(prevCenter.x, prevCenter.y);
     }
-
-    /** Current world point under the screen center */
     public getCameraPosition(): { x: number; y: number } {
         const z = this.camera.scale.x || 1;
         const { width, height } = this.app.renderer;
@@ -138,11 +120,9 @@ export class PixiApp {
             y: (height / 2 - this.camera.position.y) / z,
         };
     }
-
     public getCameraZoom(): number {
         return this.camera.scale.x || 1;
     }
-
     // -------------------------
     // Coordinate helpers
     // -------------------------
@@ -153,7 +133,6 @@ export class PixiApp {
             y: (sy - this.camera.position.y) / z,
         };
     }
-
     public worldToScreen(wx: number, wy: number) {
         const z = this.getCameraZoom();
         return {
@@ -161,7 +140,6 @@ export class PixiApp {
             y: wy * z + this.camera.position.y,
         };
     }
-
     public render(): void {
         // per-frame hooks if you need them
     }

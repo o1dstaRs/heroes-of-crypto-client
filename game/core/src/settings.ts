@@ -59,63 +59,36 @@ export interface TestDebugDraw {
 
 export class Settings {
     public m_testIndex = 0;
-
     public m_windowWidth = 3200;
-
     public m_windowHeight = 1800;
-
     public m_hertz = 240;
-
     // default: 9
     public m_velocityIterations = 0;
-
     public m_positionIterations = 3;
-
     // Particle iterations are needed for numerical stability in particle
     // simulations with small particles and relatively high gravity.
     // b2CalculateParticleIterations helps to determine the number.
     public m_particleIterations = 0; // Simplified
-
     public m_drawShapes = true;
-
     public m_drawParticles = true;
-
     public m_drawJoints = true;
-
     public m_drawAABBs = false;
-
     public m_drawContactPoints = false;
-
     public m_drawContactNormals = false;
-
     public m_drawContactImpulse = false;
-
     public m_drawFrictionImpulse = false;
-
     public m_drawCOMs = false;
-
     public m_drawControllers = true;
-
     public m_drawStats = false;
-
     public m_drawInputHelp = false;
-
     public m_drawFpsMeter = false;
-
     public m_drawProfile = false;
-
     public m_enableWarmStarting = false;
-
     public m_enableContinuous = true;
-
     public m_enableSubStepping = false;
-
     public m_enableSleep = true;
-
     public m_amountOfSelectedUnits = 1;
-
     public m_pause = false;
-
     public m_debugDraw: TestDebugDraw = {
         Prepare: noop,
         Finish: noop,

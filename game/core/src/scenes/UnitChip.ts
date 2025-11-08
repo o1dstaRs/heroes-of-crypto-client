@@ -33,7 +33,6 @@ export class UnitChip extends Container {
     private banned = false;
     private amountProvider?: AmountProvider;
     private lastIconSide = 0;
-
     // Tween targets and state
     private targetScale = 1.0;
     private targetY = 0;
@@ -43,7 +42,6 @@ export class UnitChip extends Container {
     private tweenStartTime = 0;
     private isTweening = false;
     private ticker?: Ticker; // Shared ticker reference (set externally if needed)
-
     public constructor(opts: UnitChipOptions) {
         super();
         this.nameKey = opts.unitName;
@@ -80,12 +78,10 @@ export class UnitChip extends Container {
         this.on("pointerout", () => this.setHovered(false));
         if (this.banned) this.applyBannedVisual(true);
     }
-
     /** Set the shared Ticker (e.g., from app.ticker) for animation. Call this after construction if not using the default. */
     public setTicker(ticker: Ticker): void {
         this.ticker = ticker;
     }
-
     /** Call whenever the grid lays out to size the chip nicely. */
     public layout(iconSide: number) {
         this.lastIconSide = iconSide;
@@ -102,21 +98,18 @@ export class UnitChip extends Container {
         // Re-apply active visuals with new sizes
         this.applyInteractionVisuals();
     }
-
     /** Toggle hover state */
     public setHovered(v: boolean) {
         if (this.hovered === v) return;
         this.hovered = v;
         this.applyInteractionVisuals();
     }
-
     /** Toggle selection (call from outside on click) */
     public setSelected(v: boolean) {
         if (this.selected === v) return;
         this.selected = v;
         this.applyInteractionVisuals();
     }
-
     /** Optional: toggle banned look */
     public setBanned(v: boolean) {
         if (this.banned === v) return;
@@ -125,13 +118,11 @@ export class UnitChip extends Container {
         // re-evaluate sizing
         if (this.lastIconSide > 0) this.layout(this.lastIconSide);
     }
-
     /** Swap / set amount provider dynamically */
     public setAmountProvider(fn?: AmountProvider) {
         this.amountProvider = fn;
         this.applyInteractionVisuals();
     }
-
     // ---- internals ----
     private applyInteractionVisuals() {
         const active = this.hovered || this.selected;
@@ -149,7 +140,6 @@ export class UnitChip extends Container {
         // Start/restart tween if needed
         this.startTween();
     }
-
     private startTween() {
         if (this.isTweening) {
             // Reset start time to interrupt current tween
@@ -185,11 +175,9 @@ export class UnitChip extends Container {
 
         this.ticker.add(step);
     }
-
     private easeInOutCubic(t: number): number {
         return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
-
     private drawGlows(iconSide: number) {
         // Draw a few concentric ellipses with decreasing alpha for a soft “spotlight” under.
         // Positioned just beneath the sprite center (y positive = down).
@@ -218,7 +206,6 @@ export class UnitChip extends Container {
             this.aroundGlow.circle(0, 0, r).fill({ color: 0xffffff, alpha }); // white light
         }
     }
-
     private applyBannedVisual(on: boolean) {
         if (on) {
             this.sprite.tint = 0x888888;

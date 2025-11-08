@@ -21,30 +21,23 @@ export class SimplePhysicsManager {
     private units: Map<string, IUnitPhysics> = new Map();
     private gravity: IPosition = { x: 0, y: 0 }; // No gravity for turn-based game
     private friction: number = 0.95;
-
     public constructor() {}
-
     public setGravity(x: number, y: number): void {
         this.gravity.x = x;
         this.gravity.y = y;
     }
-
     public addUnit(unit: IUnitPhysics): void {
         this.units.set(unit.id, unit);
     }
-
     public removeUnit(unitId: string): void {
         this.units.delete(unitId);
     }
-
     public getUnit(unitId: string): IUnitPhysics | undefined {
         return this.units.get(unitId);
     }
-
     public getAllUnits(): IUnitPhysics[] {
         return Array.from(this.units.values());
     }
-
     public setUnitPosition(unitId: string, x: number, y: number): void {
         const unit = this.units.get(unitId);
         if (unit) {
@@ -52,7 +45,6 @@ export class SimplePhysicsManager {
             unit.position.y = y;
         }
     }
-
     public setUnitVelocity(unitId: string, x: number, y: number): void {
         const unit = this.units.get(unitId);
         if (unit) {
@@ -60,7 +52,6 @@ export class SimplePhysicsManager {
             unit.velocity.y = y;
         }
     }
-
     public applyForce(unitId: string, fx: number, fy: number): void {
         const unit = this.units.get(unitId);
         if (unit && !unit.isStatic) {
@@ -69,7 +60,6 @@ export class SimplePhysicsManager {
             unit.velocity.y += fy / unit.mass;
         }
     }
-
     public update(deltaTime: number): void {
         // Update positions based on velocity
         for (const unit of this.units.values()) {
@@ -91,7 +81,6 @@ export class SimplePhysicsManager {
             // This would be expanded based on game requirements
         }
     }
-
     public checkCollision(unitId1: string, unitId2: string): boolean {
         const unit1 = this.units.get(unitId1);
         const unit2 = this.units.get(unitId2);
@@ -108,7 +97,6 @@ export class SimplePhysicsManager {
 
         return distance < minDistance;
     }
-
     public resolveCollisions(): void {
         // Simple collision resolution
         const unitArray = Array.from(this.units.values());
@@ -135,7 +123,6 @@ export class SimplePhysicsManager {
             }
         }
     }
-
     public moveToPosition(unitId: string, targetX: number, targetY: number, speed: number = 1): void {
         const unit = this.units.get(unitId);
         if (!unit || unit.isStatic) return;
@@ -158,7 +145,6 @@ export class SimplePhysicsManager {
             unit.position.y = targetY;
         }
     }
-
     public stopUnit(unitId: string): void {
         const unit = this.units.get(unitId);
         if (unit) {

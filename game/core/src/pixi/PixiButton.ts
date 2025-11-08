@@ -11,7 +11,6 @@ export class PixiButton {
     private spriteActive?: PixiSprite;
     private selected = false;
     private container: Container;
-
     public constructor(
         gridSettings: GridSettings,
         spriteWhite: PixiSprite,
@@ -34,15 +33,12 @@ export class PixiButton {
         if (this.spriteBlack) this.container.addChild(this.spriteBlack);
         if (this.spriteActive) this.container.addChild(this.spriteActive);
     }
-
     public getContainer(): Container {
         return this.container;
     }
-
     public getPosition(): { x: number; y: number } {
         return this.position;
     }
-
     public setPosition(position: { x: number; y: number }): void {
         this.position = position;
         this.cell = GridMath.getCellForPosition(this.gridSettings, position);
@@ -59,19 +55,15 @@ export class PixiButton {
             this.spriteActive.y = position.y;
         }
     }
-
     public isHover(cellPosition?: { x: number; y: number }): boolean {
         return !!(cellPosition && this.cell && this.cell.x === cellPosition.x && this.cell.y === cellPosition.y);
     }
-
     public setIsSelected(isSelected: boolean): void {
         this.selected = isSelected;
     }
-
     public isSelected(): boolean {
         return this.selected;
     }
-
     public switchSprites(spriteWhite: PixiSprite, spriteBlack?: PixiSprite, allowDestroy = true): void {
         if (allowDestroy) {
             this.spriteWhite.destroy();
@@ -87,7 +79,6 @@ export class PixiButton {
         if (this.spriteBlack) this.container.addChild(this.spriteBlack);
         if (this.spriteActive) this.container.addChild(this.spriteActive);
     }
-
     public render(isLightMode: boolean, multiplier = 1, isActive = false): void {
         // Hide all sprites first
         this.spriteWhite.visible = false;
@@ -116,7 +107,6 @@ export class PixiButton {
             this.spriteWhite.setRect(x, y, w, h);
         }
     }
-
     public destroy(): void {
         this.container.destroy({ children: true });
     }

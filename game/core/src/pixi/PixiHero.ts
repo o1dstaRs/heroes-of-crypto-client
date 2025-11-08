@@ -5,7 +5,9 @@
  */
 
 import { Container, Sprite as PixiSprite, Texture } from "pixi.js";
-import { AbilityFactory, TeamType, UnitProperties, GridSettings, UnitType, HoCLib } from "@heroesofcrypto/common";
+import { AbilityFactory, UnitProperties, GridSettings, HoCLib } from "@heroesofcrypto/common";
+import { UnitVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import { TeamType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
 
 import { PixiUnit } from "./PixiUnit"; // <- your PixiUnit class
 
@@ -39,7 +41,7 @@ export class PixiHero extends PixiUnit {
             unitProperties,
             gridSettings,
             teamType,
-            UnitType.HERO,
+            UnitVals.HERO,
             abilityFactory,
             abilityFactory.getEffectsFactory(),
             false, // summoned
@@ -58,12 +60,10 @@ export class PixiHero extends PixiUnit {
         // Heroes start with zero stack power in your old implementation
         this.setStackPower(0);
     }
-
     /** @deprecated Box2D bars not used in Pixi version. */
     public getHpBarBoundFixtureDefs(): unknown[] {
         return [];
     }
-
     /** @deprecated Box2D bars not used in Pixi version. */
     public getHpBarFixtureDefs(): unknown[] {
         return [];

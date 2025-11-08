@@ -15,14 +15,11 @@ import Denque from "denque";
 
 export class SceneLog implements ISceneLog {
     protected log: Denque<string>;
-
     protected updated: boolean;
-
     public constructor() {
         this.log = new Denque();
         this.updated = false;
     }
-
     public getLog(): string {
         this.updated = false;
         return this.log
@@ -30,14 +27,12 @@ export class SceneLog implements ISceneLog {
             .filter(() => true)
             .join("\n");
     }
-
     public updateLog(_newLog?: string): void {
         if (_newLog && _newLog.constructor === String) {
             this.log.unshift(_newLog);
             this.updated = true;
         }
     }
-
     public hasBeenUpdated(): boolean {
         return this.updated;
     }

@@ -1,6 +1,8 @@
 // game/core/src/pixi/PixiDrawer.ts
 import { Application, Container, Graphics, Sprite, Texture } from "pixi.js";
-import { Grid, GridType, GridMath, GridSettings, HoCMath, UnitsHolder, ObstacleType } from "@heroesofcrypto/common";
+import { Grid, GridMath, GridSettings, HoCMath, UnitsHolder, ObstacleType } from "@heroesofcrypto/common";
+import { GridType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
+import { GridVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 import { Obstacle } from "../obstacles/obstacle";
 import { PixiUnit } from "./PixiUnit";
 
@@ -16,15 +18,11 @@ export class PixiDrawer {
     private readonly grid: Grid;
     private readonly gridSettings: GridSettings;
     private readonly app: Application;
-
-    // Layered containers (in stage order)
     private backgroundContainer: Container;
     private terrainContainerBack: Container; // water/lava etc. behind units
     private unitsContainer: Container; // you can attach real units elsewhere; this is for layering parity
     private terrainContainerFront: Container; // mountains/blocks etc. in front
     private overlayContainer: Container; // transient drawings (paths, hovers, aoe, grid)
-
-    // Reusable graphics (avoid constant allocations)
     private pathGfx: Graphics;
     private hoverCellsGfx: Graphics;
     private highlightedCellsGfx: Graphics;
@@ -33,19 +31,11 @@ export class PixiDrawer {
     private hoverAreaGfx: Graphics;
     private attackFromToGfx: Graphics;
     private gridGfx: Graphics;
-
-    // Hole layers
     private holeLayersSprites: Sprite[] = [];
     private holeLayers = 0;
-
-    // Terrain obstacles
     private terrainObstacles: Obstacle[] = [];
-
-    // Animation state
     private animating = false;
     private flyingUnits: IFlyingUnit[] = [];
-
-    // Colors (approx to Box2D color constants)
     private readonly COLOR = {
         ORANGE: 0xe84a34,
         YELLOW: 0xfff36d,
@@ -60,7 +50,6 @@ export class PixiDrawer {
         ATTACK_TO: 0xff8080,
         ATTACK_FROM: 0x90ed90,
     };
-
     public constructor(grid: Grid, app: Application) {
         this.grid = grid;
         this.gridSettings = this.grid.getSettings();
@@ -103,9 +92,6 @@ export class PixiDrawer {
 
         this.initHoleLayers();
     }
-
-    // ----- Hole layers -----
-
     private initHoleLayers(): void {
         // Make 5 layers with EMPTY textures by default; caller can later set textures if needed.
         for (let i = 0; i < 5; i++) {
@@ -119,41 +105,33 @@ export class PixiDrawer {
             this.backgroundContainer.addChild(sprite);
         }
     }
-
-    /** Optionally assign a texture to a particular hole layer (0..4) */
     public setHoleLayerTexture(layerIndex: number, texture: Texture): void {
         if (layerIndex < 0 || layerIndex >= this.holeLayersSprites.length) return;
         this.holeLayersSprites[layerIndex].texture = texture;
     }
-
     public setHoleLayers(numberOfLayers: number): void {
         this.holeLayers = clamp(numberOfLayers | 0, 0, this.holeLayersSprites.length);
         for (let i = 0; i < this.holeLayersSprites.length; i++) {
             this.holeLayersSprites[i].visible = i < this.holeLayers;
         }
     }
-
     public renderHole(): void {
         // In Pixi, sprites auto-render each frame; nothing needed here.
         // Method kept to mirror old API.
     }
-
-    // ----- Terrain -----
-
     public setGridType(gridType: GridType): void {
         // Old drawer synthesized center obstacles via ObstacleGenerator.
         // Here we just reset; callers can add obstacles with addTerrainObstacle().
         this.terrainObstacles = [];
 
-        if (gridType === GridType.WATER_CENTER) {
+        if (gridType === GridVals.WATER_CENTER) {
             // addTerrainObstacle(...) via your PixiObstacleGenerator if desired
-        } else if (gridType === GridType.LAVA_CENTER) {
+        } else if (gridType === GridVals.LAVA_CENTER) {
             // addTerrainObstacle(...) via your PixiObstacleGenerator if desired
-        } else if (gridType === GridType.BLOCK_CENTER) {
+        } else if (gridType === GridVals.BLOCK_CENTER) {
             // addTerrainObstacle(...) via your PixiObstacleGenerator if desired
         }
     }
-
     public switchToDryCenter(): void {
         for (const o of this.terrainObstacles) {
             if (o.getType() === ObstacleType.BLOCK) {
@@ -162,25 +140,19 @@ export class PixiDrawer {
             }
         }
     }
-
     public addTerrainObstacle(obstacle: Obstacle): void {
         this.terrainObstacles.push(obstacle);
     }
-
     public renderTerrainSpritesBack(isLightMode: boolean): void {
         for (const o of this.terrainObstacles) {
             if (o.getType() !== ObstacleType.BLOCK) o.render(isLightMode);
         }
     }
-
     public renderTerrainSpritesFront(isLightMode: boolean, hitsRemaining: number): void {
         for (const o of this.terrainObstacles) {
             if (o.getType() === ObstacleType.BLOCK) o.render(isLightMode, hitsRemaining);
         }
     }
-
-    // ----- Animations -----
-
     public startMoveAnimation(_unit: PixiUnit, _path: HoCMath.XY[]): void {
         // if (unit?.startMoveAnimation) {
         //     unit.startMoveAnimation(path);
@@ -189,7 +161,6 @@ export class PixiDrawer {
         //
         console.log("startMoveAnimation called");
     }
-
     public startFlyAnimation(_unit: PixiUnit, _targetPosition: HoCMath.XY): void {
         // if (unit?.startFlyAnimation) {
         //     unit.startFlyAnimation(targetPosition);
@@ -199,12 +170,9 @@ export class PixiDrawer {
         //
         console.log("startFlyAnimation called");
     }
-
     public isAnimating(): boolean {
         return this.animating;
     }
-
-    /** Call per frame with deltaTime from ticker */
     public update(_deltaTime: number): void {
         // Cull finished flying units
         const stillFlying: IFlyingUnit[] = [];
@@ -216,10 +184,6 @@ export class PixiDrawer {
         // Global animating flag
         this.animating = this.flyingUnits.length > 0;
     }
-
-    // ----- Drawing helpers (non-deprecated Pixi v8 APIs) -----
-
-    /** Draws path cells like old Drawer.drawPath */
     public drawPath(
         color: number,
         currentActivePath?: HoCMath.XY[],
@@ -265,7 +229,6 @@ export class PixiDrawer {
             }
         }
     }
-
     /** Draws a red-ish filled square at a target position (old drawAttackTo) */
     public drawAttackTo(targetPosition: HoCMath.XY, size: number): void {
         this.attackFromToGfx.clear();
@@ -278,7 +241,6 @@ export class PixiDrawer {
 
         this.attackFromToGfx.rect(x, y, sizeSteps, sizeSteps).fill({ color: this.COLOR.ATTACK_TO, alpha: 0.7 });
     }
-
     /** Green-ish square from a position (old drawAttackFrom) */
     public drawAttackFrom(fromPosition: HoCMath.XY, isSmallUnit = true): void {
         // Additive to attackFromTo layer
@@ -289,7 +251,6 @@ export class PixiDrawer {
         // Keep existing drawn content and add another rect
         this.attackFromToGfx.rect(x, y, s, s).fill({ color: this.COLOR.ATTACK_FROM, alpha: 1 });
     }
-
     /** Old drawHoverCells */
     public drawHoverCells(cells?: HoCMath.XY[], hoverSelectedCellsSwitchToRed = false): void {
         this.hoverCellsGfx.clear();
@@ -347,7 +308,6 @@ export class PixiDrawer {
             this.hoverCellsGfx.rect(minX, minY, maxX - minX, maxY - minY).fill({ color: mixed, alpha: 0.8 });
         }
     }
-
     /** Old drawHighlightedCells */
     public drawHighlightedCells(isLightMode: boolean, cells?: HoCMath.XY[]): void {
         this.highlightedCellsGfx.clear();
@@ -371,7 +331,6 @@ export class PixiDrawer {
             this.highlightedCellsGfx.rect(x, y, s, s).fill({ color, alpha: 1 });
         }
     }
-
     /** Old drawAOECells behavior (only size 1–2 are drawn with drawAttackTo) */
     public drawAOECells(unitsHolder: UnitsHolder, hoverAOECells?: HoCMath.XY[]): void {
         this.aoeGfx.clear();
@@ -439,7 +398,6 @@ export class PixiDrawer {
             }
         }
     }
-
     /** Old drawAuraArea (two outlines) */
     public drawAuraArea(position: HoCMath.XY, range: number, isBuff: boolean, isSmallUnit: boolean = true): void {
         this.auraGfx.clear();
@@ -458,7 +416,6 @@ export class PixiDrawer {
         const h2 = h + 2;
         this.auraGfx.rect(start2.x, start2.y, w2, h2).stroke({ width: 1, color, alpha: 1 });
     }
-
     /** Old drawHoverArea (filled rect between two corners) */
     public drawHoverArea(isLightMode: boolean, area: HoCMath.XY[]): void {
         this.hoverAreaGfx.clear();
@@ -475,7 +432,6 @@ export class PixiDrawer {
 
         this.hoverAreaGfx.rect(x, y, w, h).fill({ color, alpha: 0.8 });
     }
-
     /** Old drawGrid (with gap segments around large units) */
     public drawGrid(largeUnitsCache: [Map<number, number[]>, Map<number, number[]>]): void {
         this.gridGfx.clear();
@@ -549,9 +505,6 @@ export class PixiDrawer {
             this.gridGfx.moveTo(p1.x, p1.y).lineTo(p2.x, p2.y);
         }
     }
-
-    // ----- Cleanup -----
-
     public destroy(): void {
         // Clear graphics to release GPU buffers
         this.pathGfx.clear();

@@ -1,54 +1,53 @@
 // game/core/src/overlays/UnitsOverlay.ts
 import { Application, Container, Sprite, Texture, Text, TextStyle, Graphics, Ticker, Rectangle } from "pixi.js";
-import { FactionType } from "@heroesofcrypto/common";
-import { unitToTextureName } from "../pixi/PixiUnitsFactory";
-import { TextureType } from "../pixi/PixiUnitsFactory";
+
+import { FactionType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
+import { FactionVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+
+import { unitToTextureName, TextureType } from "../pixi/PixiUnitsFactory";
 import { UnitChip } from "./UnitChip";
 
+import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
+
+import { LevelBuckets as CommonLevelBuckets, getCreaturesOf, CreatureId } from "@heroesofcrypto/common";
+import type { UnitLevelId } from "@heroesofcrypto/common";
+
 type GetTexture = (key: string) => Texture | undefined;
+type LevelBucket = Readonly<{ label: string; count: number; unitSize: 1 | 2 }>;
 
 export class UnitsOverlay {
     private app: Application;
     private getTex: GetTexture;
-
     /** Root overlay container (we position this inside the square board) */
     public readonly container = new Container();
-
     /** Holds backdrop + headers + rows (we animate this in/out) */
     private content = new Container();
-
     /** Semi-transparent black backdrop */
     private backdrop = new Graphics();
-
     private headerContainer = new Container();
     private rowsContainer = new Container();
-
     /** Toggle button that stays visible to reopen/close the content */
     private toggleBtn = new Container();
     private toggleBtnBg = new Graphics();
     private toggleArrow = new Graphics();
-
     /** Layout state used by animation */
     private overlayW = 0;
     private overlayH = 0;
     private leftColW = 0;
     private rowH = 0;
     private isOpen = true;
-
     /** Simple tween bookkeeping */
     private tweenCancel?: () => void;
-
     /** UnitChip registry for selection updates */
     private allChips: UnitChip[] = [];
     private selectedName: string | null = null;
-
+    /** Faction → icon mapping (UI concern; data comes from common) */
     private readonly factions: { type: FactionType; iconName: string }[] = [
-        { type: FactionType.LIFE, iconName: "life_128" },
-        { type: FactionType.NATURE, iconName: "nature_128" },
-        { type: FactionType.CHAOS, iconName: "chaos_128" },
-        { type: FactionType.MIGHT, iconName: "might_128" },
+        { type: FactionVals.LIFE, iconName: "life_128" },
+        { type: FactionVals.NATURE, iconName: "nature_128" },
+        { type: FactionVals.CHAOS, iconName: "chaos_128" },
+        { type: FactionVals.MIGHT, iconName: "might_128" },
     ];
-
     private headerTextStyle = new TextStyle({
         fontFamily: "Montserrat, Arial, sans-serif",
         fontSize: 24,
@@ -57,71 +56,21 @@ export class UnitsOverlay {
         stroke: { color: 0x000000, width: 4 },
         dropShadow: { color: 0x000000, distance: 2, angle: Math.PI / 4, blur: 1, alpha: 1 },
     });
-
     private btnW = 0;
     private btnH = 0;
-
-    private readonly creaturesByFaction = {
-        [FactionType.LIFE]: [
-            "Squire",
-            "Peasant",
-            "Arbalester",
-            "Pikeman",
-            "Valkyrie",
-            "Healer",
-            "Crusader",
-            "Griffin",
-            "Angel",
-            "Tsar Cannon",
-        ],
-        [FactionType.NATURE]: [
-            "Fairy",
-            "Wolf",
-            "Leprechaun",
-            "White Tiger",
-            "Elf",
-            "Satyr",
-            "Unicorn",
-            "Mantis",
-            "Pegasus",
-            "Gargantuan",
-        ],
-        [FactionType.CHAOS]: [
-            "Scavenger",
-            "Orc",
-            "Troglodyte",
-            "Medusa",
-            "Troll",
-            "Beholder",
-            "Efreet",
-            "Goblin Knight",
-            "Black Dragon",
-            "Hydra",
-        ],
-        [FactionType.MIGHT]: [
-            "Berserker",
-            "Centaur",
-            "Wolf Rider",
-            "Nomad",
-            "Harpy",
-            "Hyena",
-            "Ogre Mage",
-            "Cyclops",
-            "Thunderbird",
-            "Behemoth",
-        ],
-    } as const satisfies Partial<Record<FactionType, readonly string[]>>;
-
-    private readonly levelBuckets = [
-        { label: "Level 1", count: 3, unitSize: 1 }, // 128
-        { label: "Level 2", count: 3, unitSize: 1 }, // 128
-        { label: "Level 3", count: 2, unitSize: 1 }, // 128
-        { label: "Level 4", count: 2, unitSize: 2 }, // 256
-    ];
-
+    private levelBuckets: LevelBucket[] = [];
     public constructor(app: Application, getTexture: GetTexture) {
         this.app = app;
         this.getTex = getTexture;
+
+        // Use precomputed level buckets from common
+        this.levelBuckets = CommonLevelBuckets.map(
+            (b: LevelBucket): LevelBucket => ({
+                label: b.label,
+                count: b.count,
+                unitSize: b.unitSize,
+            }),
+        );
 
         // render above bg and let zIndex work
         this.app.stage.sortableChildren = true;
@@ -147,7 +96,6 @@ export class UnitsOverlay {
 
         this.app.stage.addChild(this.container);
     }
-
     /** Call once after textures are ready */
     public build(): void {
         this.headerContainer.removeChildren();
@@ -168,44 +116,42 @@ export class UnitsOverlay {
             row.label = `row-${r}`;
             this.rowsContainer.addChild(row);
 
-            // faction icon
             const iconTex = this.getTex(this.factions[r].iconName);
             const icon = new Sprite(iconTex ?? Texture.EMPTY);
             row.addChild(icon);
 
-            // creatures → bucketize [3,3,2,2]
-            const map = this.creaturesByFaction as Partial<Record<FactionType, readonly string[]>>;
-            const names = map[this.factions[r].type] ?? [];
-            const buckets = this.bucketize(
-                [...names],
-                this.levelBuckets.map((b) => b.count),
-            );
-
-            for (let b = 0; b < buckets.length; b++) {
-                const bucket = buckets[b];
+            // one bucket per level column (use precomputed getCreaturesOf)
+            for (let b = 0; b < this.levelBuckets.length; b++) {
                 const bucketCont = new Container();
                 bucketCont.label = `bucket-${b}`;
                 row.addChild(bucketCont);
 
-                const sizeFlag = this.levelBuckets[b].unitSize; // 1=>128, 2=>256
-                for (let i = 0; i < bucket.length; i++) {
-                    const unitName = bucket[i];
+                const lvl = (b + 1) as UnitLevelId; // levels 1..4
+                const sizeFlag = this.levelBuckets[b].unitSize; // 2 => large sprite
+
+                // ids → names via client-side map
+                const namesForLevel = getCreaturesOf(this.factions[r].type, lvl)
+                    .map((id: CreatureId) => UNIT_ID_TO_NAME[id as number])
+                    .filter(Boolean) as string[];
+
+                for (const unitName of namesForLevel) {
                     const texName = unitToTextureName(unitName, TextureType.SMALL, sizeFlag);
                     const tex = this.getTex(texName);
+
                     const chip = new UnitChip({
                         unitName,
                         texture: tex ?? Texture.EMPTY,
-                        // show "9" when active (hover/selected)
-                        getAmount: () => 9,
+                        getAmount: () => 9, // example badge
                     });
-                    chip.setTicker(this.app.ticker); // Add this line to enable smooth tweening
-                    // selection behavior (single-select)
+                    chip.setTicker(this.app.ticker);
+
+                    // single-select behavior
                     chip.on("pointertap", () => {
                         const next = this.selectedName === unitName ? null : unitName;
                         this.selectedName = next;
-                        // update all chips selected state
                         for (const c of this.allChips) c.setSelected(c["nameKey"] === next);
                     });
+
                     bucketCont.addChild(chip);
                     this.allChips.push(chip);
                 }
@@ -216,7 +162,6 @@ export class UnitsOverlay {
         this.onResize(this.app.renderer.width, this.app.renderer.height);
         this.refreshButtonIcon();
     }
-
     /** Layout/resize: perfect centered square; overlay is middle 16×4 band */
     public onResize(stageW: number, stageH: number): void {
         if (stageW <= 0 || stageH <= 0) return;
@@ -274,7 +219,7 @@ export class UnitsOverlay {
                 bucketCont.position.set(bx, 0);
 
                 // lay out UnitChips inside the bucket
-                const chips = bucketCont.children as UnitChip[];
+                const chips = bucketCont.children as unknown as UnitChip[];
                 const n = chips.length;
 
                 const iconSide = cell * (this.levelBuckets[b].unitSize === 2 ? 1.05 : 0.9);
@@ -310,18 +255,15 @@ export class UnitsOverlay {
         this.content.alpha = this.isOpen ? 1 : 0;
         this.toggleBtn.zIndex = 9999;
     }
-
     /** Show/hide overlay content with slide+fade animation */
     public toggle(): void {
         this.animateTo(!this.isOpen, 350);
     }
-
     /** External hit-test helper for canvas-forwarded events */
     public hitToggle(globalX: number, globalY: number): boolean {
         const local = this.toggleBtn.toLocal({ x: globalX, y: globalY });
         return local.x >= 0 && local.y >= 0 && local.x <= this.btnW && local.y <= this.btnH;
     }
-
     private animateTo(open: boolean, durationMs: number): void {
         if (this.tweenCancel) {
             this.tweenCancel();
@@ -359,7 +301,6 @@ export class UnitsOverlay {
         ticker.add(step);
         this.tweenCancel = () => ticker.remove(step);
     }
-
     /** Draw/refresh the toggle button visuals (rounded rect + arrow) */
     private drawButton(w: number, h: number): void {
         this.toggleBtnBg.clear();
@@ -395,29 +336,16 @@ export class UnitsOverlay {
                 .stroke({ color: 0x000000, width: 2, alpha: 0.9 });
         }
     }
-
     private refreshButtonIcon(): void {
         const b = this.toggleBtnBg.getBounds();
         this.drawButton(b.width, b.height);
     }
-
     public setVisible(v: boolean): void {
         this.container.visible = v;
     }
-
     public destroy(): void {
         if (this.tweenCancel) this.tweenCancel();
         this.container.destroy({ children: true });
         this.allChips.length = 0;
-    }
-
-    private bucketize(names: string[], counts: number[]): string[][] {
-        const out: string[][] = [];
-        let idx = 0;
-        for (const c of counts) {
-            out.push(names.slice(idx, idx + c));
-            idx += c;
-        }
-        return out;
     }
 }

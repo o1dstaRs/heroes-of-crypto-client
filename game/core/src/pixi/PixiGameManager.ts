@@ -4,13 +4,11 @@ import {
     UnitProperties,
     GridSettings,
     HoCConstants,
-    GridType,
-    TeamType,
     Augment,
     IDamageStatistic,
     SynergyWithLevel,
-    FactionType,
 } from "@heroesofcrypto/common";
+import { TeamType, FactionType, GridType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
 import { createContext, useContext } from "react";
 import { Signal } from "typed-signals";
 
@@ -33,6 +31,7 @@ import { preloadPixiTextures, PreloadedPixiTextures } from "./PixiTextureLoader"
 import "../scenes";
 import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
 import { getScenesGrouped } from "./PixiScene";
+import { FactionVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 
 // Narrower shape some of your legacy userData carried (from Box2D days)
 type LegacyUnitFlag = { unit_type?: number };
@@ -58,24 +57,18 @@ function getUnitsOverlayFromScene(scene: PixiScene | null): UnitsOverlay | undef
 export class PixiGameManager {
     public m_fpsCalculator = new FpsCalculator(200, 1000, MAX_FPS);
     public readonly m_settings = new Settings();
-
     public m_scene: PixiScene | null = null;
     public m_lMouseDown = false;
     public m_rMouseDown = false;
-
     private m_mouse = { x: 0, y: 0 };
-
     private sceneBaseHotKeys: HotKey[] = [];
     private sceneHotKeys: HotKey[] = [];
     private allHotKeys: HotKey[] = [];
     private stepHotKeys: HotKey[] = [];
-
     public readonly groupedScenes: { name: string; scenes: SceneEntry[] }[] = getScenesGrouped();
     public readonly flatScenes: SceneEntry[] = [];
-
     private sceneConstructor: SceneConstructor | null = null;
     private sceneTitle = "Heroes";
-
     public readonly onHasStarted = new Signal<(started: boolean) => void>();
     public readonly onHasButtonsGroupUpdate = new Signal<(updated: boolean) => void>();
     public readonly onPlacementChanged = new Signal<(changed: boolean) => void>();
@@ -86,31 +79,25 @@ export class PixiGameManager {
     public readonly onUnitSelected = new Signal<(unitProperties: UnitProperties) => void>();
     public readonly onDamageStatisticsUpdated = new Signal<(damageStats: IDamageStatistic[]) => void>();
     public readonly onPossibleSynergiesUpdated = new Signal<(possible: Map<TeamType, SynergyWithLevel[]>) => void>();
-    public readonly onRaceSelected = new Signal<(raceName: string) => void>();
+    public readonly onFactionSelected = new Signal<(factionType: FactionType) => void>();
     public readonly onVisibleStateUpdated = new Signal<(visibleState: IVisibleState) => void>();
     public readonly onVisibleOverallImpactUpdated = new Signal<(impact: IVisibleOverallImpact) => void>();
     public readonly onHoverInfoUpdated = new Signal<(hover: IHoverInfo) => void>();
-
     private m_hoveringCanvas = false;
     private m_keyMap: Record<string, boolean> = {};
-
     private isInitialized = false;
     private activateScene: (entry: SceneEntry) => void = () => {};
     private started = false;
     private lastSentEmptyHoverInfo = false;
-
     // PixiJS bits (nullable until init)
     private pixiApp: PixiApp | null = null;
     private pixiSceneManager: PixiSceneManager | null = null;
     private textures: PreloadedPixiTextures | null = null;
-
     private forwardToggleClick?: (e: PointerEvent) => void;
     private overlayDebugCanvas?: HTMLCanvasElement;
-
     public constructor() {
         for (const { scenes } of this.groupedScenes) this.flatScenes.push(...scenes);
     }
-
     /** Throwing getters to keep TypeScript happy without ‘never’ intersections */
     private get _pixiApp(): PixiApp {
         if (!this.pixiApp) throw new Error("PixiGameManager: pixiApp not initialized yet");
@@ -124,7 +111,6 @@ export class PixiGameManager {
         if (!this.textures) throw new Error("PixiGameManager: textures not initialized yet");
         return this.textures;
     }
-
     public async init(
         glCanvas: HTMLCanvasElement,
         debugCanvas: HTMLCanvasElement,
@@ -215,37 +201,30 @@ export class PixiGameManager {
 
         this.isInitialized = true;
     }
-
     public getApplication(): Application {
         return this._pixiApp.getApplication();
     }
-
     /** Layer behind units for terrain/background drawing. */
     public getTerrainContainer(): Container {
         return this._pixiApp.getTerrainContainer();
     }
-
     public setScene(title: string, constructor: SceneConstructor) {
         this.sceneTitle = title;
         this.sceneConstructor = constructor;
     }
-
     /** Fit board to window (no manual zoom controls). */
     private fitViewToWindow(): void {
         if (!this.pixiSceneManager) return;
         this.pixiSceneManager.setCameraZoom(1); // no world scaling; background is sized to stage
         this.pixiSceneManager.setCameraPosition(0, 0); // top-left origin; your square is centered in stage
     }
-
     /** Legacy “HomeCamera” semantic, just uses fitViewToWindow now. */
     public HomeCamera(): void {
         this.fitViewToWindow();
     }
-
     public HandleEscapeKey(down: boolean): void {
         if (down && this.m_scene) this.m_scene.Deselect(true);
     }
-
     public HandleMouseMove(e: MouseEvent): void {
         this.m_mouse.x = e.offsetX;
         this.m_mouse.y = e.offsetY;
@@ -261,7 +240,6 @@ export class PixiGameManager {
             this.pixiSceneManager.setCameraPosition(cameraPos.x - e.movementX * f, cameraPos.y + e.movementY * f);
         }
     }
-
     public HandleMouseDown(e: MouseEvent): void {
         const world = { x: e.offsetX, y: e.offsetY };
         switch (e.button) {
@@ -276,7 +254,6 @@ export class PixiGameManager {
                 break;
         }
     }
-
     public HandleMouseUp(e: MouseEvent): void {
         switch (e.button) {
             case 0:
@@ -288,7 +265,6 @@ export class PixiGameManager {
                 break;
         }
     }
-
     private HandleKey(e: KeyboardEvent, down: boolean): void {
         if (this.m_hoveringCanvas || !down) {
             const { key } = e;
@@ -304,25 +280,21 @@ export class PixiGameManager {
             }
         }
     }
-
     public DecrementTest(): void {
         const index = this.flatScenes.findIndex((e) => e.name === this.sceneTitle) - 1;
         if (index < 0) this.activateScene(this.flatScenes[this.flatScenes.length - 1]);
         else this.activateScene(this.flatScenes[index]);
     }
-
     public IncrementTest(): void {
         const index = this.flatScenes.findIndex((e) => e.name === this.sceneTitle) + 1;
         if (index >= this.flatScenes.length) this.activateScene(this.flatScenes[0]);
         else this.activateScene(this.flatScenes[index]);
     }
-
     public StartGame(): void {
         if (this.m_scene && this.m_scene.startScene()) this.started = true;
         this.onHasStarted.emit(this.started);
         this.fitViewToWindow(); // keep neutral after start too
     }
-
     public Uninitialize(): void {
         if (this.overlayDebugCanvas && this.forwardToggleClick) {
             this.overlayDebugCanvas.removeEventListener("pointerup", this.forwardToggleClick);
@@ -334,19 +306,15 @@ export class PixiGameManager {
         this.pixiApp?.destroy();
         this.pixiSceneManager?.destroy();
     }
-
     public RequestTime(team?: number): void {
         if (this.started && this.m_scene && team !== undefined) this.m_scene.requestTime(team);
     }
-
     public GetButtonGroup(): IVisibleButton[] {
         return this.m_scene?.sc_visibleButtonGroup ?? [];
     }
-
     public PropagateButtonClicked(buttonName: string, buttonState: VisibleButtonState): void {
         this.m_scene?.propagateButtonClicked(buttonName, buttonState);
     }
-
     public LoadGame(_restartScene = false): void {
         const SceneClass = this.sceneConstructor;
         if (!SceneClass) return;
@@ -385,7 +353,6 @@ export class PixiGameManager {
 
         this.UpdateHoverInfo();
     }
-
     public Accept(): void {
         if (this.m_scene?.sc_selectedBody && !this.started) {
             const getter = this.m_scene.sc_selectedBody.GetUserData;
@@ -400,11 +367,9 @@ export class PixiGameManager {
             this.UpdateHoverInfo();
         }
     }
-
     public Clone(): void {
         if (this.m_scene?.sc_selectedBody && !this.started) this.m_scene.cloneObject();
     }
-
     public Split(newAmount: number): void {
         if (this.m_scene?.sc_selectedBody && !this.started) {
             const isCloned = this.m_scene.cloneObject(newAmount);
@@ -421,7 +386,6 @@ export class PixiGameManager {
             }
         }
     }
-
     public PropagateAugmentation(teamType: TeamType, augmentType: Augment.AugmentType): boolean {
         const augmented = this.m_scene?.propagateAugmentation(teamType, augmentType);
         if (augmented && augmentType.type === "Placement") this.onPlacementChanged.emit(true);
@@ -431,7 +395,6 @@ export class PixiGameManager {
         }
         return augmented || false;
     }
-
     public PropagateSynergy(
         teamType: TeamType,
         faction: FactionType,
@@ -440,18 +403,15 @@ export class PixiGameManager {
     ): boolean {
         return this.m_scene?.propagateSynergy(teamType, faction, synergyName, synergyLevel) ?? false;
     }
-
     public GetNumberOfUnitsAvailableForPlacement(teamType: TeamType): number {
         return this.m_scene?.getNumberOfUnitsAvailableForPlacement(teamType) ?? HoCConstants.MAX_UNITS_PER_TEAM;
     }
-
     public SetGridType(gridType: GridType): void {
         this.m_scene?.setGridType(gridType);
         if (this.pixiSceneManager) this.pixiSceneManager.setGridType(gridType);
         // grid change might affect ideal zoom; refit
         this.fitViewToWindow();
     }
-
     public SimulationLoop(): void {
         if (this.m_fpsCalculator.addFrame() <= 0) return;
 
@@ -483,9 +443,9 @@ export class PixiGameManager {
         if (this.m_scene?.sc_unitPropertiesUpdateNeeded) {
             if (this.m_scene.sc_selectedUnitProperties) {
                 this.onUnitSelected.emit(structuredClone(this.m_scene.sc_selectedUnitProperties));
-                this.onRaceSelected.emit("");
+                this.onFactionSelected.emit(FactionVals.NO_FACTION);
             } else {
-                this.onRaceSelected.emit(this.m_scene?.sc_selectedFactionName ?? "");
+                this.onFactionSelected.emit(this.m_scene?.sc_selectedFactionType ?? FactionVals.NO_FACTION);
                 this.onUnitSelected.emit({} as UnitProperties);
             }
 
@@ -498,8 +458,8 @@ export class PixiGameManager {
         }
 
         if (this.m_scene?.sc_factionNameUpdateNeeded) {
-            if (this.m_scene.sc_selectedFactionName) this.onRaceSelected.emit(this.m_scene.sc_selectedFactionName);
-            else this.onRaceSelected.emit("");
+            if (this.m_scene.sc_selectedFactionType) this.onFactionSelected.emit(this.m_scene.sc_selectedFactionType);
+            else this.onFactionSelected.emit(FactionVals.NO_FACTION);
             this.m_scene.sc_factionNameUpdateNeeded = false;
         }
 
@@ -546,7 +506,6 @@ export class PixiGameManager {
             this.m_scene.sc_buttonGroupUpdated = false;
         }
     }
-
     private sceneHasHoverInfo(): boolean {
         return (
             !!this.m_scene?.sc_attackDamageSpreadStr ||
@@ -555,7 +514,6 @@ export class PixiGameManager {
             !!this.m_scene?.sc_hoverInfoArr?.length
         );
     }
-
     public UpdateHoverInfo(): void {
         if (this.sceneHasHoverInfo() && this.m_scene) {
             this.onHoverInfoUpdated.emit({

@@ -4,7 +4,6 @@ import { SimplePixiScene } from "./SimplePixiScene";
 export class SimplePixiManager {
     private app: PIXI.Application | null = null;
     private scene: SimplePixiScene | null = null;
-
     public async init(canvas: HTMLCanvasElement): Promise<void> {
         // Initialize PixiJS application
         this.app = new PIXI.Application();
@@ -22,7 +21,6 @@ export class SimplePixiManager {
         // Add some test sprites
         this.addTestContent();
     }
-
     private addTestContent(): void {
         if (!this.app || !this.scene) return;
 
@@ -34,13 +32,11 @@ export class SimplePixiManager {
         graphics.x = this.app.screen.width / 2;
         graphics.y = this.app.screen.height / 2;
     }
-
     public update(): void {
         if (this.scene) {
             this.scene.update();
         }
     }
-
     public destroy(): void {
         if (this.app) {
             this.app.destroy(true);

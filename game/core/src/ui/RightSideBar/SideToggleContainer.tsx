@@ -1,6 +1,5 @@
 import {
     Augment,
-    TeamType,
     HoCConstants,
     SynergyWithLevel,
     LifeSynergy,
@@ -9,12 +8,13 @@ import {
     ChaosSynergy,
     MightSynergyNames,
     MightSynergy,
-    FactionType,
     NatureSynergyNames,
     NatureSynergy,
     SynergyKeysToPower,
     SpecificSynergy,
 } from "@heroesofcrypto/common";
+import { TeamType, FactionType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
+import { FactionVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 import React, { useEffect, useState } from "react";
 import {
     Radio,
@@ -45,14 +45,14 @@ import synergyMovementImg from "../../../images/synergy_movement_256.webp";
 import synergySupplyImg from "../../../images/synergy_supply_256.webp";
 
 const SYNERGY_NAME_TO_FACTION = {
-    [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: "Life",
-    [LifeSynergyNames.PLUS_MORALE_AND_LUCK]: "Life",
-    [ChaosSynergyNames.MOVEMENT]: "Chaos",
-    [ChaosSynergyNames.BREAK_ON_ATTACK]: "Chaos",
-    [MightSynergyNames.PLUS_AURAS_RANGE]: "Might",
-    [MightSynergyNames.PLUS_STACK_ABILITIES_POWER]: "Might",
-    [NatureSynergyNames.INCREASE_BOARD_UNITS]: "Nature",
-    [NatureSynergyNames.PLUS_FLY_ARMOR]: "Nature",
+    [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: FactionVals.LIFE,
+    [LifeSynergyNames.PLUS_MORALE_AND_LUCK]: FactionVals.LIFE,
+    [ChaosSynergyNames.MOVEMENT]: FactionVals.CHAOS,
+    [ChaosSynergyNames.BREAK_ON_ATTACK]: FactionVals.CHAOS,
+    [MightSynergyNames.PLUS_AURAS_RANGE]: FactionVals.MIGHT,
+    [MightSynergyNames.PLUS_STACK_ABILITIES_POWER]: FactionVals.MIGHT,
+    [NatureSynergyNames.INCREASE_BOARD_UNITS]: FactionVals.NATURE,
+    [NatureSynergyNames.PLUS_FLY_ARMOR]: FactionVals.NATURE,
 };
 
 const SYNERGY_NAME_TO_DESCRIPTION = {
@@ -551,31 +551,37 @@ const SideToggleContainer = ({
 
     for (const [synergyName, synergyLevel] of Object.entries(possibleSynergiesObj)) {
         if (synergyLevel <= 0) {
-            if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === "Life") {
+            if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === FactionVals.LIFE) {
                 if (synergyPairLife !== null) {
                     setSynergyPairTypeLife(null);
-                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionType.LIFE)) {
+                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionVals.LIFE)) {
                         setTogglerType("None");
                     }
                 }
-            } else if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === "Chaos") {
+            } else if (
+                SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === FactionVals.CHAOS
+            ) {
                 if (synergyPairChaos !== null) {
                     setSynergyPairTypeChaos(null);
-                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionType.CHAOS)) {
+                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionVals.CHAOS)) {
                         setTogglerType("None");
                     }
                 }
-            } else if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === "Might") {
+            } else if (
+                SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === FactionVals.MIGHT
+            ) {
                 if (synergyPairMight !== null) {
                     setSynergyPairTypeMight(null);
-                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionType.MIGHT)) {
+                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionVals.MIGHT)) {
                         setTogglerType("None");
                     }
                 }
-            } else if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === "Nature") {
+            } else if (
+                SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === FactionVals.NATURE
+            ) {
                 if (synergyPairNature !== null) {
                     setSynergyPairTypeNature(null);
-                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionType.NATURE)) {
+                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionVals.NATURE)) {
                         setTogglerType("None");
                     }
                 }
@@ -727,7 +733,7 @@ const SideToggleContainer = ({
                                     <IconButton
                                         onClick={() =>
                                             handleSynergySelect(setSynergyPairTypeLife, {
-                                                faction: "Life" as FactionType,
+                                                faction: FactionVals.LIFE as FactionType,
                                                 synergyName: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
                                                 synergyValue: LifeSynergy.PLUS_SUPPLY_PERCENTAGE,
                                                 level:
@@ -756,7 +762,7 @@ const SideToggleContainer = ({
                                     <IconButton
                                         onClick={() =>
                                             handleSynergySelect(setSynergyPairTypeLife, {
-                                                faction: "Life" as FactionType,
+                                                faction: FactionVals.LIFE as FactionType,
                                                 synergyName: LifeSynergyNames.PLUS_MORALE_AND_LUCK,
                                                 synergyValue: LifeSynergy.PLUS_MORALE_AND_LUCK,
                                                 level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] ?? 0,
@@ -796,7 +802,7 @@ const SideToggleContainer = ({
                                     <IconButton
                                         onClick={() =>
                                             handleSynergySelect(setSynergyPairTypeChaos, {
-                                                faction: "Chaos" as FactionType,
+                                                faction: FactionVals.CHAOS as FactionType,
                                                 synergyName: ChaosSynergyNames.MOVEMENT,
                                                 synergyValue: ChaosSynergy.MOVEMENT,
                                                 level: possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] ?? 0,
@@ -823,7 +829,7 @@ const SideToggleContainer = ({
                                     <IconButton
                                         onClick={() =>
                                             handleSynergySelect(setSynergyPairTypeChaos, {
-                                                faction: "Chaos" as FactionType,
+                                                faction: FactionVals.CHAOS as FactionType,
                                                 synergyName: ChaosSynergyNames.BREAK_ON_ATTACK,
                                                 synergyValue: ChaosSynergy.BREAK_ON_ATTACK,
                                                 level: possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] ?? 0,
@@ -862,7 +868,7 @@ const SideToggleContainer = ({
                                     <IconButton
                                         onClick={() =>
                                             handleSynergySelect(setSynergyPairTypeMight, {
-                                                faction: "Might" as FactionType,
+                                                faction: FactionVals.MIGHT as FactionType,
                                                 synergyName: MightSynergyNames.PLUS_AURAS_RANGE,
                                                 synergyValue: MightSynergy.PLUS_AURAS_RANGE,
                                                 level: possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] ?? 0,
@@ -889,7 +895,7 @@ const SideToggleContainer = ({
                                     <IconButton
                                         onClick={() =>
                                             handleSynergySelect(setSynergyPairTypeMight, {
-                                                faction: "Might" as FactionType,
+                                                faction: FactionVals.MIGHT as FactionType,
                                                 synergyName: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
                                                 synergyValue: MightSynergy.PLUS_STACK_ABILITIES_POWER,
                                                 level:
@@ -932,7 +938,7 @@ const SideToggleContainer = ({
                                     <IconButton
                                         onClick={() =>
                                             handleSynergySelect(setSynergyPairTypeNature, {
-                                                faction: "Nature" as FactionType,
+                                                faction: FactionVals.NATURE as FactionType,
                                                 synergyName: NatureSynergyNames.INCREASE_BOARD_UNITS,
                                                 synergyValue: NatureSynergy.INCREASE_BOARD_UNITS,
                                                 level:
@@ -961,7 +967,7 @@ const SideToggleContainer = ({
                                     <IconButton
                                         onClick={() =>
                                             handleSynergySelect(setSynergyPairTypeNature, {
-                                                faction: "Nature" as FactionType,
+                                                faction: FactionVals.NATURE as FactionType,
                                                 synergyName: NatureSynergyNames.PLUS_FLY_ARMOR,
                                                 synergyValue: NatureSynergy.PLUS_FLY_ARMOR,
                                                 level: possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] ?? 0,

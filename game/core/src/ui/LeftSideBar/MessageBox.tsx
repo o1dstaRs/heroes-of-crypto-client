@@ -1,4 +1,5 @@
-import { TeamType, HoCConstants } from "@heroesofcrypto/common";
+import { HoCConstants } from "@heroesofcrypto/common";
+import { TeamVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import TimelapseRoundedIcon from "@mui/icons-material/TimelapseRounded";
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
@@ -132,7 +133,7 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
             messageBoxTitle = `Lap ${visibleState.lapNumber}`;
             if (!visibleState.teamTypeTurn) {
                 messageBoxText = "Calculating next turn.";
-            } else if (visibleState.teamTypeTurn === TeamType.LOWER) {
+            } else if (visibleState.teamTypeTurn === TeamVals.LOWER) {
                 messageBoxText = "Green team is making a turn";
             } else {
                 messageBoxText = "Red team is making a turn";

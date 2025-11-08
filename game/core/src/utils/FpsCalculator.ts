@@ -5,17 +5,11 @@ import { HoCMath } from "@heroesofcrypto/common";
  */
 export class FpsCalculator {
     private index = 0;
-
     private readonly frameTimes: number[];
-
     private lastTime = -1;
-
     private readonly waitTime: number;
-
     private nextUpdate = 0;
-
     private p90: number;
-
     /**
      * @param waitTime Time to wait before updating the time, to avoid flickering
      * @param cacheSize Number of frames to cache
@@ -27,16 +21,13 @@ export class FpsCalculator {
         this.p90 = startValue;
         this.calculate();
     }
-
     public getFps() {
         return this.p90;
     }
-
     public getFrames() {
         if (this.index === 0) return this.frameTimes;
         return this.frameTimes.slice(this.index).concat(this.frameTimes.slice(0, this.index));
     }
-
     public addFrame() {
         const time = performance.now();
         // ignore first frame
@@ -57,7 +48,6 @@ export class FpsCalculator {
         if (this.nextUpdate <= 0) this.calculate();
         return delta;
     }
-
     private calculate() {
         this.nextUpdate = this.waitTime;
         this.p90 = 1000 / HoCMath.q90(this.frameTimes);

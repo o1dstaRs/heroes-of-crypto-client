@@ -13,7 +13,6 @@ export class PixiObstacle {
     private readonly monitorHits: boolean;
     private container: Container;
     private hitBarGraphics: Graphics;
-
     public constructor(
         type: ObstacleType,
         position: HoCMath.XY,
@@ -40,35 +39,28 @@ export class PixiObstacle {
         if (this.lightSprite) this.container.addChild(this.lightSprite);
         if (this.darkSprite) this.container.addChild(this.darkSprite);
     }
-
     public getContainer(): Container {
         return this.container;
     }
-
     public getSizeX(): number {
         return this.sizeX;
     }
-
     public getSizeY(): number {
         return this.sizeY;
     }
-
     public getType(): ObstacleType {
         return this.type;
     }
-
     public setLightSprite(lightSprite?: PixiSprite): void {
         if (this.lightSprite) this.container.removeChild(this.lightSprite);
         this.lightSprite = lightSprite;
         if (this.lightSprite) this.container.addChild(this.lightSprite);
     }
-
     public setDarkSprite(darkSprite?: PixiSprite): void {
         if (this.darkSprite) this.container.removeChild(this.darkSprite);
         this.darkSprite = darkSprite;
         if (this.darkSprite) this.container.addChild(this.darkSprite);
     }
-
     private drawHitbar(hitsRemaining: number): void {
         this.hitBarGraphics.clear();
         if (this.type !== ObstacleType.BLOCK || !hitsRemaining) return;
@@ -98,7 +90,6 @@ export class PixiObstacle {
             this.hitBarGraphics.rect(x + 2, y + 2, Math.max(0, w - 4), Math.max(0, h - 4)).fill({ color: 0xfdfa70 });
         }
     }
-
     public render(isLightMode: boolean, hitsRemaining = 0): void {
         let sprite: PixiSprite | undefined = isLightMode ? this.lightSprite : this.darkSprite;
 
@@ -117,7 +108,6 @@ export class PixiObstacle {
             this.hitBarGraphics.clear();
         }
     }
-
     public destroy(): void {
         this.container.destroy({ children: true });
     }

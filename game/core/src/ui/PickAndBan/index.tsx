@@ -1,13 +1,6 @@
-import {
-    CreatureByLevel,
-    FactionType,
-    CreatureLevels,
-    TeamType,
-    CreaturePoolByLevel,
-    PickHelper,
-    AllFactions,
-} from "@heroesofcrypto/common";
-import { PickPhase } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import { CreatureByLevel, CreatureLevels, CreaturePoolByLevel, PickHelper, AllFactions } from "@heroesofcrypto/common";
+import { PickPhaseVals, TeamVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import { FactionType, TeamType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
 import creaturesJson from "@heroesofcrypto/common/src/configuration/creatures.json";
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
@@ -91,8 +84,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
         poolRevealable,
         isBan,
     } = useMemo(() => {
-        const isInitialPick = pickBanContext.pickPhase === PickPhase.INITIAL_PICK;
-        const isBan = pickBanContext.pickPhase === PickPhase.EXTENDED_BAN || pickBanContext.pickPhase === PickPhase.BAN;
+        const isInitialPick = pickBanContext.pickPhase === PickPhaseVals.INITIAL_PICK;
+        const isBan =
+            pickBanContext.pickPhase === PickPhaseVals.EXTENDED_BAN || pickBanContext.pickPhase === PickPhaseVals.BAN;
         let initialCreaturesPairs: [number, number][] = [];
         const doNotRenderCreatures: number[] = [];
         const yourPickedCreatures: number[] = [];
@@ -291,7 +285,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                 }
 
                 for (const faction of Object.keys(creaturesJson)) {
-                    if (!AllFactions.includes(faction as FactionType)) {
+                    if (!AllFactions.includes(faction as unknown as FactionType)) {
                         continue;
                     }
 
@@ -2592,13 +2586,13 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                 height: "100%",
                                                 backgroundColor: "rgba(0, 0, 0, 0.8)",
                                                 backgroundImage:
-                                                    userTeam === TeamType.LOWER
+                                                    userTeam === TeamVals.LOWER
                                                         ? `url(${overlayGreenImage})`
-                                                        : userTeam === TeamType.UPPER
+                                                        : userTeam === TeamVals.UPPER
                                                           ? `url(${overlayRedImage})`
                                                           : "none",
                                                 "&::before":
-                                                    userTeam === TeamType.UPPER
+                                                    userTeam === TeamVals.UPPER
                                                         ? {
                                                               content: '""',
                                                               position: "absolute",

@@ -37,12 +37,10 @@ function drawQuadFilled(gfx: Graphics, verts: HoCMath.XY[], color: number, alpha
 
 export class DrawableSquarePlacement extends SquarePlacement implements IDrawablePlacement {
     private readonly vertices: HoCMath.XY[];
-
     public constructor(gridSettings: GridSettings, placementPositionType: PlacementPositionType, size = 3) {
         super(gridSettings, placementPositionType, size);
         this.vertices = buildInsetRectVerts(this.xLeft, this.yUpper, this.xRight, this.yLower, 1);
     }
-
     public draw(gfx: Graphics): void {
         const isLower =
             this.placementPositionType === PlacementPositionType.LOWER_RIGHT ||
@@ -55,12 +53,10 @@ export class DrawableSquarePlacement extends SquarePlacement implements IDrawabl
 
 export class DrawableRectanglePlacement extends RectanglePlacement implements IDrawablePlacement {
     private readonly vertices: HoCMath.XY[];
-
     public constructor(gridSettings: GridSettings, placementPositionType: PlacementPositionType, size = 3) {
         super(gridSettings, placementPositionType, size);
         this.vertices = buildInsetRectVerts(this.xLeft, this.yUpper, this.xRight, this.yLower, 1);
     }
-
     public draw(gfx: Graphics): void {
         const isLower =
             this.placementPositionType === PlacementPositionType.LOWER_RIGHT ||

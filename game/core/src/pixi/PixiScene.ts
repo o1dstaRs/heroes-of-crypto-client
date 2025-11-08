@@ -1,12 +1,7 @@
 import { Texture } from "pixi.js";
 import {
-    AttackType,
-    FactionType,
     HoCConstants,
-    MovementType,
-    GridType,
     HoCLib,
-    TeamType,
     Augment,
     IAuraOnMap,
     UnitProperties,
@@ -14,6 +9,13 @@ import {
     IVisibleDamage,
     SynergyWithLevel,
 } from "@heroesofcrypto/common";
+import { AttackVals, MovementVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import {
+    TeamType,
+    FactionType,
+    AttackType,
+    GridType,
+} from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
 
 import { Settings } from "../settings";
 import {
@@ -87,14 +89,12 @@ export function getScenesGrouped() {
 
 export abstract class PixiScene {
     private sceneStarted = false;
-
     public readonly sc_debugLines: Array<[string, string]> = [];
     public readonly sc_statisticLines: Array<[string, string]> = [];
     public readonly sc_sceneLog = new SceneLog();
     public readonly sc_maxProfile = { step: 0, collide: 0, solve: 0 }; // parity with old UI
     public readonly sc_totalProfile = { step: 0, collide: 0, solve: 0 }; // parity with old UI
     public readonly sc_sceneSettings: SceneSettings;
-
     public sc_currentActiveShotRange?: { xy: XY; distance: number };
     public sc_currentActiveAuraRanges: IAuraOnMap[] = [];
     public sc_unitInfoLines: Array<[string, string]> = [];
@@ -104,100 +104,78 @@ export abstract class PixiScene {
     public sc_hoverInfoArr: string[] = [];
     public sc_hoverUnitNameStr = "";
     public sc_hoverUnitLevel = 0;
-    public sc_hoverUnitMovementType = MovementType.NO_TYPE;
-
+    public sc_hoverUnitMovementType = MovementVals.NO_MOVEMENT;
     public sc_pointCount = 0; // parity field
     public sc_mouseTracing = false;
     public sc_calculatingPlacement = true;
     public sc_stepCount: HoCLib.RefNumber = new HoCLib.RefNumber(0);
     public sc_fps = MAX_FPS;
-
     // Previously Box2D objects — keep flexible but typed.
     public sc_selectedBody: BodyLike | undefined;
     public sc_selectedUnitProperties?: UnitProperties;
-    public sc_selectedFactionName?: FactionType;
-    public sc_selectedAttackType: AttackType = AttackType.NO_TYPE;
-
+    public sc_selectedFactionType?: FactionType;
+    public sc_selectedAttackType: AttackType = AttackVals.NO_ATTACK;
     public sc_visibleState?: IVisibleState;
     public sc_visibleOverallImpact?: IVisibleOverallImpact;
     public sc_groundBody: BodyLike | undefined;
-
     public sc_possibleSynergiesPerTeam: Map<TeamType, SynergyWithLevel[]> = new Map();
     public sc_isSelection = false;
     public sc_hoverAttackIsTargetingObstacle = false;
     public sc_mouseDropStep = 0;
     public sc_mouseDownStep = 0;
-
     public sc_hoverTextUpdateNeeded = false;
     public sc_visibleStateUpdateNeeded = false;
     public sc_visibleButtonGroup: IVisibleButton[] = [];
-
     public sc_unitPropertiesUpdateNeeded = false;
     public sc_factionNameUpdateNeeded = false;
     public sc_damageStatsUpdateNeeded = false;
     public sc_possibleSynergiesUpdateNeeded = false;
-
     public sc_damageForAnimation: IVisibleDamage = {
         amount: 0,
         render: false,
         unitPosition: { x: 0, y: 0 },
         unitIsSmall: true,
     };
-
     public sc_gridTypeUpdateNeeded = false;
     public sc_moveBlocked = false;
     public sc_augmentChanged = false;
     public sc_buttonGroupUpdated = false;
-
     protected sc_isAnimating = false;
     protected sc_isAIActive = false;
     protected sc_renderSpellBookOverlay = false;
-
     // PixiJS components
     protected pixiSceneManager!: PixiSceneManager;
     protected textures!: PreloadedPixiTextures;
-
     protected constructor(sceneSettings: SceneSettings) {
         this.sc_sceneSettings = sceneSettings;
     }
-
     /** Call this from your scene’s constructor: `this.initialize(context)` */
     protected initialize(context: PixiSceneContext) {
         this.pixiSceneManager = context.pixiSceneManager;
         this.textures = context.textures;
     }
-
     public setupControls() {}
-
     protected selectedSmallUnit(): boolean {
         const data = this.sc_selectedBody?.GetUserData?.() as { size?: number } | undefined;
         return !!data && data.size === 1;
     }
-
     protected selectedLargeUnit(): boolean {
         const data = this.sc_selectedBody?.GetUserData?.() as { size?: number } | undefined;
         return !!data && data.size === 2;
     }
-
     protected abstract verifyButtonsTrigger(): void;
-
     public abstract propagateAugmentation(teamType: TeamType, augmentType: Augment.AugmentType): boolean;
-
     public abstract propagateSynergy(
         teamType: TeamType,
         faction: FactionType,
         synergyName: string,
         synergyLevel: number,
     ): boolean;
-
     public abstract getNumberOfUnitsAvailableForPlacement(teamType: TeamType): number;
-
     public abstract propagateButtonClicked(buttonName: string, buttonState: VisibleButtonState): void;
-
     public getDamageStatisics(): IDamageStatistic[] {
         return [];
     }
-
     public Deselect(_onlyWhenNotStarted = false, _refreshStats = true) {
         if (this.sceneStarted && _onlyWhenNotStarted) {
             if (this.sc_selectedBody) {
@@ -225,21 +203,15 @@ export abstract class PixiScene {
     protected texAny(key: string): Texture | undefined {
         return (this.textures as unknown as Record<string, Texture>)[key];
     }
-
     public getBaseHotkeys(): HotKey[] {
         return [];
     }
-
     public getHotkeys(): HotKey[] {
         return [];
     }
-
     protected abstract landAttack(): boolean;
-
     protected abstract finishDrop(positionToDropTo: XY): void;
-
     protected abstract handleMouseDownForSelectedBody(): void;
-
     protected abstract selectUnitPreStart(
         team: TeamType,
         isSmallUnit: boolean,
@@ -248,17 +220,11 @@ export abstract class PixiScene {
         auraRanges: number[],
         auraIsBuff: boolean[],
     ): void;
-
     public abstract cloneObject(newAmount?: number): boolean;
-
     public abstract deleteObject(): void;
-
     public abstract refreshScene(unitData: UnitProperties): void;
-
     public abstract setGridType(gridType: GridType): void;
-
     public abstract getGridType(): GridType;
-
     /** MouseDown from screen coords (already converted to world if needed by caller) */
     public MouseDown(_p: XY): void {
         // If needed, convert via camera: const world = this.pixiSceneManager.unproject(_p)
@@ -311,7 +277,6 @@ export abstract class PixiScene {
             this.verifyButtonsTrigger();
         }
     }
-
     public ShiftMouseDown(_p: XY): void {
         if (this.sc_isAnimating) return;
 
@@ -324,11 +289,8 @@ export abstract class PixiScene {
         // e.g. const hit = this.pixiSceneManager.hitTest(_p.x, _p.y);
         // if (hit) this.setSelectedUnitProperties(hit.GetUserData?.() as UnitProperties);
     }
-
     protected hover(): void {}
-
     public resetRightControls(): void {}
-
     public MouseUp(): void {
         this.sc_mouseTracing = false;
         this.sc_calculatingPlacement = true;
@@ -337,55 +299,45 @@ export abstract class PixiScene {
             this.sc_mouseJoint = null;
         }
     }
-
     // Mouse joint equivalent holder for API parity
     protected sc_mouseJoint: MouseJointLike = null;
-
     public abstract requestTime(team: number): void;
-
     public startScene(): boolean {
         if (!this.sceneStarted) {
             this.sceneStarted = true;
             this.destroyTempFixtures();
             this.sc_hoverUnitNameStr = "";
             this.sc_hoverUnitLevel = 0;
-            this.sc_hoverUnitMovementType = MovementType.NO_TYPE;
+            this.sc_hoverUnitMovementType = MovementVals.NO_MOVEMENT;
         }
         return this.sceneStarted;
     }
-
     protected abstract destroyTempFixtures(): void;
-
     public MouseMove(_p: XY, _leftDrag: boolean): void {
         // If you had a drag target: if (this.sc_sceneSettings.isDraggable() && _leftDrag && this.sc_mouseJoint) { ... }
         if (this.sc_isAnimating) return;
         this.hover();
     }
-
     public Resize(_width: number, _height: number) {}
-
     public RunStep(settings: Settings, fps: number) {
         this.sc_fps = fps;
         this.sc_statisticLines.length = 0;
         this.Step(settings, settings.m_hertz > 0 ? 1 / settings.m_hertz : 0);
     }
-
     public addDebug(label: string, value: string | number | boolean): void {
         this.sc_debugLines.push([label, `${value}`]);
     }
-
     public cleanupHoverText(updateNeeded = true): void {
         this.sc_attackDamageSpreadStr = "";
         this.sc_attackRangeDamageDivisorStr = "";
         this.sc_hoverUnitNameStr = "";
         this.sc_hoverInfoArr = [];
-        this.sc_selectedAttackType = AttackType.NO_TYPE;
+        this.sc_selectedAttackType = AttackVals.NO_ATTACK;
         this.sc_attackKillSpreadStr = "";
         this.sc_hoverUnitLevel = 0;
-        this.sc_hoverUnitMovementType = MovementType.NO_TYPE;
+        this.sc_hoverUnitMovementType = MovementVals.NO_MOVEMENT;
         this.sc_hoverTextUpdateNeeded = updateNeeded;
     }
-
     protected setSelectedUnitProperties(unitProperties: UnitProperties): void {
         this.sc_selectedUnitProperties = unitProperties;
 
@@ -437,11 +389,9 @@ export abstract class PixiScene {
 
         this.sc_unitPropertiesUpdateNeeded = true;
     }
-
     public addStatistic(label: string, value: string | number | boolean): void {
         this.sc_statisticLines.push([label, `${value}`]);
     }
-
     /** Main per-frame scene update (no Box2D). */
     public Step(settings: Settings, timeStep: number): void {
         if (timeStep > 0) this.sc_stepCount.increment();
@@ -454,7 +404,6 @@ export abstract class PixiScene {
             this.addStatistic("Textures", 0);
         }
     }
-
     public GetDefaultViewZoom(edgesPx = EDGES_SIZE): number {
         console.log("szzolotu GetDefaultViewZoom");
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -474,11 +423,9 @@ export abstract class PixiScene {
         // Fit whole board
         return Math.min(viewW / worldW, viewH / worldH);
     }
-
     public getUnitsOverlay(): UnitsOverlay | undefined {
         return undefined;
     }
-
     public HomeCamera(edgesPx = EDGES_SIZE): void {
         const gs = this.sc_sceneSettings.getGridSettings();
         const minX = gs.getMinX();
@@ -494,10 +441,8 @@ export abstract class PixiScene {
         this.pixiSceneManager.setCameraPosition(cx, cy);
         this.pixiSceneManager.setCameraZoom(zoom);
     }
-
     public getCenter(): XY {
         return { x: 0, y: 1024 };
     }
-
     public Destroy() {}
 }
