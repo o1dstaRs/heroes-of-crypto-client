@@ -1,7 +1,6 @@
 // game/core/src/pixi/PixiSceneManager.ts
 import { Application, Ticker, Container } from "pixi.js";
-import { GridSettings, HoCMath, Grid } from "@heroesofcrypto/common";
-import { GridType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
+import { GridSettings, GridType, HoCMath, Grid } from "@heroesofcrypto/common";
 import { PixiApp } from "./PixiApp";
 import { PixiUnit } from "./PixiUnit";
 import { PixiDrawer } from "./PixiDrawer";

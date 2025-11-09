@@ -1,6 +1,4 @@
-import { ToGridType } from "@heroesofcrypto/common";
-import { GridType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
-import { GridVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import { ToGridType, GridType, GridVals } from "@heroesofcrypto/common";
 import React, { useState, useEffect } from "react";
 import Box from "@mui/joy/Box";
 import FormControl from "@mui/joy/FormControl";

@@ -1,8 +1,6 @@
 // game/core/src/pixi/PixiDrawer.ts
 import { Application, Container, Graphics, Sprite, Texture } from "pixi.js";
-import { Grid, GridMath, GridSettings, HoCMath, UnitsHolder, ObstacleType } from "@heroesofcrypto/common";
-import { GridType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
-import { GridVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import { Grid, GridMath, GridType, GridVals, GridSettings, HoCMath, UnitsHolder, ObstacleType } from "@heroesofcrypto/common";
 import { Obstacle } from "../obstacles/obstacle";
 import { PixiUnit } from "./PixiUnit";
 

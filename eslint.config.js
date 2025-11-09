@@ -31,7 +31,13 @@ module.exports = [
             globals: {
                 ...globals.browser,
                 ...globals.es2021,
+                ...globals.node,
                 AudioWorkletGlobalScope: "readonly",
+                Bun: "readonly",
+                console: "readonly",
+                expect: "readonly", // silence "console not defined" in non-DOM libs
+                describe: "readonly", // silence "console not defined" in non-DOM libs
+                it: "readonly", // silence "console not defined" in non-DOM libs
             },
         },
         rules: {

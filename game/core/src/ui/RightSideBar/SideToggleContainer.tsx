@@ -12,9 +12,10 @@ import {
     NatureSynergy,
     SynergyKeysToPower,
     SpecificSynergy,
+    TeamType,
+    FactionType,
+    FactionVals,
 } from "@heroesofcrypto/common";
-import { TeamType, FactionType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
-import { FactionVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 import React, { useEffect, useState } from "react";
 import {
     Radio,

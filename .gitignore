@@ -8,4 +8,5 @@ lerna-debug.log
 .idea
 docs/
 .parcel-cache/
+.bin
 

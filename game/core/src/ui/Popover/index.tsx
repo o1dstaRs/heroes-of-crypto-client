@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AttackVals, MovementVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import { AttackVals, MovementVals } from "@heroesofcrypto/common";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IHoverInfo } from "../../state/visible_state";

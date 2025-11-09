@@ -1,11 +1,15 @@
-import { HoCConstants, UnitProperties, HoCLib } from "@heroesofcrypto/common";
-import { AttackType, FactionType, TeamType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
 import {
+    HoCConstants,
+    UnitProperties,
     AttackVals,
     FactionVals,
     MovementVals,
     TeamVals,
-} from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+    HoCLib,
+    AttackType,
+    FactionType,
+    TeamType,
+} from "@heroesofcrypto/common";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { Box, Badge } from "@mui/joy";
 import Avatar from "@mui/joy/Avatar";

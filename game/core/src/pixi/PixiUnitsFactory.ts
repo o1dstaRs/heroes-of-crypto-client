@@ -20,10 +20,9 @@ import {
     IUnitPropertiesProvider,
     Unit,
     UnitsHolder,
+    TeamVals, FactionVals, UnitVals,
+    TeamType, FactionType,
 } from "@heroesofcrypto/common";
-
-import { TeamType, FactionType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
-import { TeamVals, FactionVals, UnitVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 
 import { Container, Sprite as PixiSprite, Texture } from "pixi.js";
 

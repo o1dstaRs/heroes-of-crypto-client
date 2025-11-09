@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { HoCConstants } from "@heroesofcrypto/common";
-import { TeamVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import { HoCConstants, TeamVals } from "@heroesofcrypto/common";
 import Avatar from "@mui/joy/Avatar";
 import Badge from "@mui/joy/Badge";
 import Box from "@mui/joy/Box";

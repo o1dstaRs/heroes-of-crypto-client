@@ -1,5 +1,4 @@
-import { HoCConstants } from "@heroesofcrypto/common";
-import { TeamVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import { HoCConstants, TeamVals } from "@heroesofcrypto/common";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import TimelapseRoundedIcon from "@mui/icons-material/TimelapseRounded";
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";

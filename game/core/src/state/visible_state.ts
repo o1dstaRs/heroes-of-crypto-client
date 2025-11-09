@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { TeamType, MovementType, AttackType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
+import { TeamType, MovementType, AttackType } from "@heroesofcrypto/common";
 
 export interface IVisibleUnit {
     amount: number;

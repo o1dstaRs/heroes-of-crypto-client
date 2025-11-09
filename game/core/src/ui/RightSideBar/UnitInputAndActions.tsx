@@ -4,7 +4,7 @@ import Button from "@mui/joy/Button";
 import Input from "@mui/joy/Input";
 import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
-import { TeamType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
+import { TeamType } from "@heroesofcrypto/common";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
 

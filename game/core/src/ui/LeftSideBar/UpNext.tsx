@@ -1,4 +1,4 @@
-import { TeamVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import { TeamVals } from "@heroesofcrypto/common";
 
 import Avatar from "@mui/joy/Avatar";
 import Badge from "@mui/joy/Badge";

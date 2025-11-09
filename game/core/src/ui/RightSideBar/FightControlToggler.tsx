@@ -1,5 +1,4 @@
-import { UnitProperties } from "@heroesofcrypto/common";
-import { TeamVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import { UnitProperties, TeamVals } from "@heroesofcrypto/common";
 import React, { useEffect, useState, useRef } from "react";
 import { useTheme } from "@mui/joy/styles";
 import List from "@mui/joy/List";

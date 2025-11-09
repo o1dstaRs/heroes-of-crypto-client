@@ -7,8 +7,11 @@ import {
     Augment,
     IDamageStatistic,
     SynergyWithLevel,
+    FactionVals,
+    TeamType,
+    FactionType,
+    GridType,
 } from "@heroesofcrypto/common";
-import { TeamType, FactionType, GridType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
 import { createContext, useContext } from "react";
 import { Signal } from "typed-signals";
 
@@ -31,7 +34,6 @@ import { preloadPixiTextures, PreloadedPixiTextures } from "./PixiTextureLoader"
 import "../scenes";
 import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
 import { getScenesGrouped } from "./PixiScene";
-import { FactionVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
 
 // Narrower shape some of your legacy userData carried (from Box2D days)
 type LegacyUnitFlag = { unit_type?: number };

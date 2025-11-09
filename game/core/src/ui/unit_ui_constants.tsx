@@ -1,4 +1,4 @@
-import { CreatureVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import { CreatureVals } from "@heroesofcrypto/common";
 import { images } from "../generated/image_imports";
 
 export const UNIT_ID_TO_IMAGE: Record<number, string> = {

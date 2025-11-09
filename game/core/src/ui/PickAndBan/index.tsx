@@ -1,7 +1,15 @@
-import { CreatureByLevel, CreatureLevels, CreaturePoolByLevel, PickHelper, AllFactions } from "@heroesofcrypto/common";
-import { PickPhaseVals, TeamVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
-import { FactionType, TeamType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
-import creaturesJson from "@heroesofcrypto/common/src/configuration/creatures.json";
+import {
+    CreatureByLevel,
+    PickPhaseVals,
+    TeamVals,
+    CreatureLevels,
+    FactionType,
+    TeamType,
+    CreaturePoolByLevel,
+    PickHelper,
+    AllFactions,
+    CREATURES_JSON,
+} from "@heroesofcrypto/common";
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { Box, Sheet, IconButton, Badge, Tooltip } from "@mui/joy";
@@ -284,12 +292,12 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                     return;
                 }
 
-                for (const faction of Object.keys(creaturesJson)) {
+                for (const faction of Object.keys(CREATURES_JSON)) {
                     if (!AllFactions.includes(faction as unknown as FactionType)) {
                         continue;
                     }
 
-                    const creatures = creaturesJson[faction as keyof typeof creaturesJson];
+                    const creatures = CREATURES_JSON[faction as keyof typeof CREATURES_JSON];
                     for (const creature of Object.values(creatures) as ConfigCreature[]) {
                         if (creature.name !== creatureName) {
                             continue;

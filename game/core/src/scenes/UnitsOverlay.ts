@@ -1,15 +1,18 @@
 // game/core/src/overlays/UnitsOverlay.ts
 import { Application, Container, Sprite, Texture, Text, TextStyle, Graphics, Ticker, Rectangle } from "pixi.js";
 
-import { FactionType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
-import { FactionVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
-
 import { unitToTextureName, TextureType } from "../pixi/PixiUnitsFactory";
 import { UnitChip } from "./UnitChip";
 
 import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
 
-import { LevelBuckets as CommonLevelBuckets, getCreaturesOf, CreatureId } from "@heroesofcrypto/common";
+import {
+    LevelBuckets as CommonLevelBuckets,
+    getCreaturesOf,
+    CreatureId,
+    FactionType,
+    FactionVals,
+} from "@heroesofcrypto/common";
 import type { UnitLevelId } from "@heroesofcrypto/common";
 
 type GetTexture = (key: string) => Texture | undefined;

@@ -17,14 +17,15 @@ import {
     EffectFactory,
     ISceneLog,
     HoCConstants,
+    TeamType,
+    UnitType,
     Unit,
+    FactionVals,
 } from "@heroesofcrypto/common";
-import { TeamType, UnitType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
 
 import { Container, Sprite as PixiSprite, Texture } from "pixi.js";
 import { DAMAGE_ANIMATION_TICKS, MAX_FPS, RESURRECTION_ANIMATION_TICKS } from "../statics";
-import { PixiRenderableSpell } from "../spells/renderable_spell"; // <- use the Pixi version you created
-import { FactionVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
+import { PixiRenderableSpell } from "../spells/renderable_spell";
 
 type DigitTextureMap = Map<number, Texture>;
 
@@ -39,7 +40,6 @@ export class PixiUnit extends Unit {
     protected lastKnownTick = 0;
     protected readonly damageAnimationTicks: Denque<IDamageTaken> = new Denque<IDamageTaken>();
     protected resurrectionAnimationTick = 0;
-    // NEW: a dedicated container that holds this unit’s sprites
     private readonly container: Container;
     // Pixi visuals
     private readonly layer: Container;

@@ -1,6 +1,7 @@
 {
-    "version": "0.10.0",
-    "packages": ["game/**"],
-    "npmClient": "yarn",
-    "useWorkspaces": true
+  "packages": [
+    "game/heroes-of-crypto-common",
+    "game/core"
+  ],
+  "version": "independent"
 }

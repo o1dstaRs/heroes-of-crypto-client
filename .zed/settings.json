@@ -38,6 +38,8 @@
         "game/core/.cache",
         ".DS_Store",
         ".fleet",
+        ".idea",
+        ".parce-cache",
         ".git",
         "docs",
         "docs/benchmark/*.js"

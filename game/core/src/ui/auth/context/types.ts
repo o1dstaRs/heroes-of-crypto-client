@@ -1,5 +1,4 @@
-import { ResponseMe } from "@heroesofcrypto/common/src/generated/protobuf/v1/response_me_pb";
-import { GamePublic } from "@heroesofcrypto/common/src/generated/protobuf/v1/game_public_pb";
+import { GamePublicObject, ResponseMeObject } from "@heroesofcrypto/common";
 
 // import { PopupLoginOptions, RedirectLoginOptions } from "@auth0/auth0-react";
 
@@ -15,7 +14,7 @@ export type ActionMapType<M extends { [index: string]: any }> = {
           };
 };
 
-export type AuthUserType = null | ResponseMe.AsObject;
+export type AuthUserType = null | ResponseMeObject;
 
 export type AuthStateType = {
     status?: string;
@@ -64,6 +63,6 @@ export type JWTContextType = {
     pick: (creature: number) => Promise<void>;
     ban: (creature: number) => Promise<void>;
     reveal: (slot: number) => Promise<void>;
-    getCurrentGame: () => Promise<GamePublic.AsObject | null>;
+    getCurrentGame: () => Promise<GamePublicObject | null>;
     logout: () => Promise<void>;
 };

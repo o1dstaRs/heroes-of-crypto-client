@@ -7,16 +7,18 @@ The client code heavily depends on HoC's [Common libraries](https://github.com/o
 This repository mainly includes:
 
 1. The core game logic `game/core`. Including the game logic and the UI which is built with [mui](https://mui.com/) React components
-2. Engine `game/engine`, which is essentially a bundle of [TypeScript](https://github.com/Microsoft/TypeScript) ports:
-    - [Box2D](https://github.com/erincatto/Box2D)
-    - [LiquidFun](https://github.com/google/liquidfun)
-    - [Box2D Lights](https://github.com/libgdx/box2dlights)
-
-Box2D will be replaced by [PixiJS](https://pixijs.com/) in one of the next releases.
+2. Engine `game/engine`, which is essentially a bundle of [TypeScript](https://github.com/Microsoft/TypeScript) ports. We're currently using PixiJS 8.x.
 
 ## Build & Test
 
-Runs well with node 20.X.X
+Runs well with Bun 1.3.2 or newer
+
+Prerequisites:
+
+```bash
+brew install protoc-gen-js
+brew install protoc
+```
 
 Env variables:
 
@@ -36,22 +38,6 @@ Most important commands to execute from the root folder (you need [yarn](https:/
 -   `yarn start:all` -> Run game locally after building all libraries
 -   `yarn lint` -> Run linters, formatters, etc.
 -   `yarn lint:fix` -> Run linters, formatters, etc. and autofix if possible
-
-## The @box2d Ecosystem
-
-Located in `game/engine`.
-
-@box2d is a full-blown ecosystem for [box2d](https://box2d.org/) for the JavaScript/TypeScript world. It can be used both in the browser and
-in NodeJS.
-
-Other packages included in the ecosystem:
-
--   Benchmark: Based on [bench2d](https://github.com/joelgwebber/bench2d)
--   Controllers: From the LiquidFun project
--   Particles: Also from the LiquidFun project
--   Lights: [ported from LibGDX](https://github.com/libgdx/box2dlights)
--   DebugDraw: Debug drawing using a canvas
--   Core: The game itself
 
 ## Contribution
 

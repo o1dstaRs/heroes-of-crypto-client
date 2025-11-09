@@ -7,8 +7,8 @@ import {
     HoCLib,
     HoCMath,
     UnitProperties,
+    GridType, TeamType, FactionType,
 } from "@heroesofcrypto/common";
-import { GridType, TeamType, FactionType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
 
 import { Settings } from "../settings";
 import { UnitsOverlay } from "./UnitsOverlay";

@@ -1,7 +1,5 @@
-import { HoCLib } from "@heroesofcrypto/common";
-import { TeamVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
-import { TeamType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
-import CustomEventSource from "@heroesofcrypto/common/src/messaging/custom_event_source";
+import { HoCLib, TeamVals, TeamType } from "@heroesofcrypto/common";
+import { CustomEventSource } from "@heroesofcrypto/common";
 
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
@@ -217,7 +215,7 @@ export const PickBanEventProvider: React.FC<{
         // Create SSE connection
         const eventSource = new CustomEventSource<IPickPhaseEventData>(url, {
             token: token ?? undefined,
-            debug: !IS_PROD ?? false,
+            debug: !IS_PROD ? false : false,
         });
 
         eventSource.onmessage = (event: IPickPhaseEventData) => {

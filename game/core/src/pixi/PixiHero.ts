@@ -5,9 +5,7 @@
  */
 
 import { Container, Sprite as PixiSprite, Texture } from "pixi.js";
-import { AbilityFactory, UnitProperties, GridSettings, HoCLib } from "@heroesofcrypto/common";
-import { UnitVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
-import { TeamType } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
+import { AbilityFactory, UnitVals, TeamType, UnitProperties, GridSettings, HoCLib } from "@heroesofcrypto/common";
 
 import { PixiUnit } from "./PixiUnit"; // <- your PixiUnit class
 

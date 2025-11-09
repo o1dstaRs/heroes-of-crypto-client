@@ -1,17 +1,18 @@
 import React from "react";
 
-import { ConfirmCode } from "@heroesofcrypto/common/src/generated/protobuf/v1/confirm_code_pb";
-import { NewPlayer } from "@heroesofcrypto/common/src/generated/protobuf/v1/new_player_pb";
-import { RequestCode } from "@heroesofcrypto/common/src/generated/protobuf/v1/request_code_pb";
-import { GamePublic } from "@heroesofcrypto/common/src/generated/protobuf/v1/game_public_pb";
-import { ResetPassword } from "@heroesofcrypto/common/src/generated/protobuf/v1/reset_password_pb";
-import { ResponseEnqueue } from "@heroesofcrypto/common/src/generated/protobuf/v1/response_enqueue_pb";
-import { ResponseMe } from "@heroesofcrypto/common/src/generated/protobuf/v1/response_me_pb";
 import {
+    ConfirmCode,
+    NewPlayer,
+    RequestCode,
+    GamePublic,
+    GamePublicObject,
+    ResetPassword,
+    ResponseEnqueue,
+    ResponseMe,
     PickPairRequest,
     PickBanRequest,
     RevealRequest,
-} from "@heroesofcrypto/common/src/generated/protobuf/v1/pick_phase_requests_pb";
+} from "@heroesofcrypto/common";
 import { useCallback, useEffect, useMemo, useReducer } from "react";
 
 import { v4 as uuidv4 } from "uuid";
@@ -224,8 +225,7 @@ export function AuthProvider({ children }: Props) {
         refreshLocalStorageFromCookie();
         const accessToken = localStorage.getItem(STORAGE_KEY);
 
-        const pickPairRequest = new PickPairRequest();
-        pickPairRequest.setPairIndex(pairIndex);
+        const pickPairRequest = new PickPairRequest({ pair_index: pairIndex });
         const data = pickPairRequest.serializeBinary();
 
         await axiosGameInstance.post(`${endpoints.game.pickPair}`, data, {
@@ -242,8 +242,7 @@ export function AuthProvider({ children }: Props) {
         refreshLocalStorageFromCookie();
         const accessToken = localStorage.getItem(STORAGE_KEY);
 
-        const pickRequest = new PickBanRequest();
-        pickRequest.setCreature(creature);
+        const pickRequest = new PickBanRequest({ creature });
         const data = pickRequest.serializeBinary();
 
         await axiosGameInstance.post(`${endpoints.game.pick}`, data, {
@@ -260,8 +259,7 @@ export function AuthProvider({ children }: Props) {
         refreshLocalStorageFromCookie();
         const accessToken = localStorage.getItem(STORAGE_KEY);
 
-        const banRequest = new PickBanRequest();
-        banRequest.setCreature(creature);
+        const banRequest = new PickBanRequest({ creature });
         const data = banRequest.serializeBinary();
 
         await axiosGameInstance.post(`${endpoints.game.ban}`, data, {
@@ -278,8 +276,7 @@ export function AuthProvider({ children }: Props) {
         refreshLocalStorageFromCookie();
         const accessToken = localStorage.getItem(STORAGE_KEY);
 
-        const revealRequest = new RevealRequest();
-        revealRequest.setCreatureIndex(slot);
+        const revealRequest = new RevealRequest({ creature_index: slot });
         const data = revealRequest.serializeBinary();
 
         await axiosGameInstance.post(`${endpoints.game.reveal}`, data, {
@@ -292,7 +289,7 @@ export function AuthProvider({ children }: Props) {
         });
     }, []);
 
-    const getCurrentGame = useCallback(async (): Promise<GamePublic.AsObject | null> => {
+    const getCurrentGame = useCallback(async (): Promise<GamePublicObject | null> => {
         refreshLocalStorageFromCookie();
         const accessToken = localStorage.getItem(STORAGE_KEY);
 
@@ -311,9 +308,7 @@ export function AuthProvider({ children }: Props) {
 
     // LOGIN
     const login = useCallback(async (email: string, password: string) => {
-        const newPlayer = new NewPlayer();
-        newPlayer.setPassword(password);
-        newPlayer.setEmail(email);
+        const newPlayer = new NewPlayer({ email, password });
         const data = newPlayer.serializeBinary();
 
         const res = await axiosAuthInstance.post(endpoints.auth.login, data, {
@@ -357,9 +352,7 @@ export function AuthProvider({ children }: Props) {
 
     const confirmCode = useCallback(
         async (email: string, code: string) => {
-            const confirmRequest = new ConfirmCode();
-            confirmRequest.setCode(code);
-            confirmRequest.setEmail(email);
+            const confirmRequest = new ConfirmCode({ email, code });
             const data = confirmRequest.serializeBinary();
 
             await axiosAuthInstance.post(endpoints.auth.confirmCode, data, {
@@ -380,8 +373,7 @@ export function AuthProvider({ children }: Props) {
     );
 
     const requestCode = useCallback(async (email: string) => {
-        const codeRequest = new RequestCode();
-        codeRequest.setEmail(email);
+        const codeRequest = new RequestCode({ email });
         const data = codeRequest.serializeBinary();
 
         await axiosAuthInstance.post(endpoints.auth.requestCode, data, {
@@ -390,8 +382,7 @@ export function AuthProvider({ children }: Props) {
     }, []);
 
     const requestPasswordReset = useCallback(async (email: string) => {
-        const passwordResetRequest = new RequestCode();
-        passwordResetRequest.setEmail(email);
+        const passwordResetRequest = new RequestCode({ email });
         const data = passwordResetRequest.serializeBinary();
 
         await axiosAuthInstance.post(endpoints.auth.requestPasswordReset, data, {
@@ -400,10 +391,7 @@ export function AuthProvider({ children }: Props) {
     }, []);
 
     const resetPassword = useCallback(async (email: string, password: string, token: Uint8Array) => {
-        const resetPasswordRequest = new ResetPassword();
-        resetPasswordRequest.setEmail(email);
-        resetPasswordRequest.setPassword(password);
-        resetPasswordRequest.setToken(token);
+        const resetPasswordRequest = new ResetPassword({ email, password, token });
         const data = resetPasswordRequest.serializeBinary();
 
         await axiosAuthInstance.post(endpoints.auth.resetPassword, data, {
@@ -413,10 +401,7 @@ export function AuthProvider({ children }: Props) {
 
     // REGISTER
     const register = useCallback(async (email: string, password: string, username: string) => {
-        const newPlayer = new NewPlayer();
-        newPlayer.setUsername(username);
-        newPlayer.setPassword(password);
-        newPlayer.setEmail(email);
+        const newPlayer = new NewPlayer({ username, email, password });
         const data = newPlayer.serializeBinary();
 
         const res = await axiosAuthInstance.post(endpoints.auth.register, data, {

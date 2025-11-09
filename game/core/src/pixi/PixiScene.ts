@@ -7,15 +7,14 @@ import {
     UnitProperties,
     IDamageStatistic,
     IVisibleDamage,
-    SynergyWithLevel,
-} from "@heroesofcrypto/common";
-import { AttackVals, MovementVals } from "@heroesofcrypto/common/src/generated/protobuf/v1/types_pb";
-import {
+    AttackVals,
+    MovementVals,
     TeamType,
     FactionType,
     AttackType,
     GridType,
-} from "@heroesofcrypto/common/src/generated/protobuf/v1/types_gen";
+    SynergyWithLevel,
+} from "@heroesofcrypto/common";
 
 import { Settings } from "../settings";
 import {
