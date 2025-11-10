@@ -36,7 +36,8 @@
         "lint:scss:fix": "bun run lint:scss -- --fix",
         "lint:style": "bun run lint:style:base -- --check",
         "lint:style:base": "bunx prettier \"game/**/src/**/*.{ts,tsx,js,json,scss}\" \"game/*/*.{ts,tsx,js,json,scss}\"",
-        "lint:style:fix": "bun run lint:style:base -- --write"
+        "lint:style:fix": "bun run lint:style:base -- --write",
+        "start": "bun --cwd game/core start"
     },
     "resolutions": {
         "@typescript-eslint/eslint-plugin": "^8.46.3",

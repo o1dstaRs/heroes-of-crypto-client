@@ -2,12 +2,11 @@
 
 For a detailed overview of the game mechanics, roadmap, and the vision behind Heroes of Crypto, please check out our [Whitepaper](https://heroes-of-crypto.gitbook.io/heroes-of-crypto-ai).
 
-The client code heavily depends on HoC's [Common libraries](https://github.com/o1dstaRs/heroes-of-crypto-common)
+This repository primarily contains:
 
-This repository mainly includes:
+1. The core game client at `game/core`, which implements the game mechanics and the user interface built with [mui](https://mui.com/) React components, and uses PixiJS 8 (pixijs8) as the game engine for rendering, animation, and game loop integration.
 
-1. The core game logic `game/core`. Including the game logic and the UI which is built with [mui](https://mui.com/) React components
-2. Engine `game/engine`, which is essentially a bundle of [TypeScript](https://github.com/Microsoft/TypeScript) ports. We're currently using PixiJS 8.x.
+**Depends on** the shared libraries in `game/heroes-of-crypto-common`. This package provides code shared between the client and server — protobuf definitions and generated code, shared TypeScript types, networking helpers, serialization utilities, and the game constants and rules. See the common repo at https://github.com/o1dstaRs/heroes-of-crypto-common
 
 ## Build & Test
 
@@ -17,7 +16,14 @@ Prerequisites:
 
 ```bash
 brew install protoc-gen-js
-brew install protoc
+# works just fine with 'libprotoc 33.0'
+brew install protobuf
+which protoc
+
+# pull the heroes-of-crypto common libraries and build protoc
+git pull --recurse-submodules
+bun install
+bun run --cwd game/heroes-of-crypto-common build:proto
 ```
 
 Env variables:
@@ -27,17 +33,16 @@ Env variables:
 HOC_IMAGES_LOC=./path/to/images
 ```
 
-Most important commands to execute from the root folder (you need [yarn](https://yarnpkg.com/) installed):
+Most important commands to execute from the root folder (you need [bun](https://bun.com/) installed):
 
--   `./scripts/pull_hoc_common.sh && yarn` -> pull and install dependencies
--   `yarn build` -> build all projects
--   `yarn build:engine` -> build only box2d engine and lights
--   `yarn build:game` -> build the game code without its engine
--   `yarn start` -> Run game locally
--   `yarn start:fresh` -> Run game locally after building client libraries
--   `yarn start:all` -> Run game locally after building all libraries
--   `yarn lint` -> Run linters, formatters, etc.
--   `yarn lint:fix` -> Run linters, formatters, etc. and autofix if possible
+-   `bun run build` -> Full project build: runs lint fixers, lint checks, then builds workspace packages (common + core).
+-   `bun run build:common` -> Build the shared heroes-of-crypto-common package (game/heroes-of-crypto-common).
+-   `bun run build:core` -> Build the core client package (game/core).
+-   `bun run build:game` -> Build the game packages via Bun workspaces (runs workspace build for @heroesofcrypto/common and @heroesofcrypto/core).
+-   `bun run build:ws` -> Build workspace pieces by running build:common and build:core.
+-   `bun run lint` -> Run the full lint suite and style checks (ESLint, Stylelint, package.json sorting, Prettier checks).
+-   `bun run lint:fix` -> Run all lint fixers (ESLint --fix, SCSS fixes, package.json sorting, Prettier write).
+-   `bun run start` -> Start the game locally.
 
 ## Contribution
 
