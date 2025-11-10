@@ -7,7 +7,9 @@ import {
     HoCLib,
     HoCMath,
     UnitProperties,
-    GridType, TeamType, FactionType,
+    GridType,
+    TeamType,
+    FactionType,
 } from "@heroesofcrypto/common";
 
 import { Settings } from "../settings";

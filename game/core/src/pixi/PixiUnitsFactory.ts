@@ -20,8 +20,11 @@ import {
     IUnitPropertiesProvider,
     Unit,
     UnitsHolder,
-    TeamVals, FactionVals, UnitVals,
-    TeamType, FactionType,
+    TeamVals,
+    FactionVals,
+    UnitVals,
+    TeamType,
+    FactionType,
 } from "@heroesofcrypto/common";
 
 import { Container, Sprite as PixiSprite, Texture } from "pixi.js";
