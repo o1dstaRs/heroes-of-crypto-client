@@ -2,3 +2,4 @@
 	path = game/heroes-of-crypto-common
 	url = git@github.com:o1dstaRs/heroes-of-crypto-common.git
 	branch = main
+	ignore = all
