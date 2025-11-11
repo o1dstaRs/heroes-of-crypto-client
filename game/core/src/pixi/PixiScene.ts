@@ -1,3 +1,4 @@
+// game/core/src/pixi/PixiScene.ts
 import { Texture } from "pixi.js";
 import {
     HoCConstants,
@@ -432,10 +433,16 @@ export abstract class PixiScene {
         const maxX = gs.getMaxX();
         const maxY = gs.getMaxY();
 
+        const worldW = Math.max(1, maxX - minX);
+        const worldH = Math.max(1, maxY - minY);
+
+        // Your renderer is fixed to 2048×2048; if not, read from renderer.width/height instead.
+        const viewW = Math.max(1, 2048 - edgesPx * 2);
+        const viewH = Math.max(1, 2048 - edgesPx * 2);
+
+        const zoom = Math.min(viewW / worldW, viewH / worldH);
         const cx = (minX + maxX) * 0.5;
         const cy = (minY + maxY) * 0.5;
-
-        const zoom = this.GetDefaultViewZoom(edgesPx);
 
         this.pixiSceneManager.setCameraPosition(cx, cy);
         this.pixiSceneManager.setCameraZoom(zoom);

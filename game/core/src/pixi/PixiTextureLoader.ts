@@ -1,8 +1,6 @@
-// game/core/src/pixi/PixiTextureLoader.ts
 import { Assets, Texture } from "pixi.js";
 import { images as rawImages } from "../generated/image_imports";
 
-/** Optional parity type with width/height */
 export interface PixiTextureInfo {
     texture: Texture;
     width: number;

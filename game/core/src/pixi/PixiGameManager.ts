@@ -133,8 +133,8 @@ export class PixiGameManager {
         debugCanvas.addEventListener("mouseleave", () => (this.m_hoveringCanvas = false));
 
         // Init Pixi using wrapper size
-        this.pixiApp = new PixiApp();
-        await this.pixiApp.init(glCanvas, wrapper.clientWidth, wrapper.clientHeight);
+        this.pixiApp = new PixiApp(); // sync constructor
+        await this.pixiApp.init(glCanvas, 2048, 2048); // async init, safe to await here
 
         // Preload textures & scene manager
         this.textures = await preloadPixiTextures();

@@ -1,4 +1,4 @@
-import { Sprite } from "pixi.js";
+import { Sprite, Graphics } from "pixi.js";
 import {
     Augment,
     FightStateManager,
@@ -36,6 +36,7 @@ export class Sandbox extends PixiScene {
     private spellBookButton: IVisibleButton;
     private unitsOverlay: UnitsOverlay;
     private bgSprite?: Sprite;
+    private cornerGfx?: Graphics;
     private bgKey: "background_dark" | "background_light" = "background_dark";
     public constructor(context: PixiSceneContext) {
         // Build grid settings FIRST so we can pass a valid SceneSettings to super()
@@ -184,9 +185,43 @@ export class Sandbox extends PixiScene {
             this.bgSprite.texture = wantTex;
         }
     }
+    private ensureCornerMarkers(): void {
+        if (this.cornerGfx) return;
+        this.cornerGfx = new Graphics();
+        // Attach to STAGE, not the camera/world container
+        const stage = this.pixiSceneManager.getApplication().stage;
+        stage.addChild(this.cornerGfx);
+        stage.sortableChildren = true;
+        this.cornerGfx.zIndex = 9999;
+        this.layoutCornerMarkers();
+    }
+    private getSquareFrame() {
+        const { width: vw, height: vh } = this.pixiSceneManager.getViewportSize();
+        const size = Math.min(vw, vh); // square side in CSS pixels
+        const left = (vw - size) * 0.5; // x of the square frame
+        const top = (vh - size) * 0.5; // y of the square frame
+        return { left, top, size };
+    }
+    private layoutCornerMarkers(): void {
+        if (!this.cornerGfx) return;
+
+        const { left, top, size } = this.getSquareFrame();
+
+        // Scale the 256×256 test squares relative to the 2048 board:
+        const scale = size / 2048; // how much the board is scaled on screen
+        const s = 256 * scale; // side length of each red square on screen
+
+        const g = this.cornerGfx;
+        g.clear();
+        g.rect(left, top, s, s).fill({ color: 0xff0000, alpha: 1 });
+        g.rect(left + size - s, top, s, s).fill({ color: 0xff0000, alpha: 1 });
+        g.rect(left, top + size - s, s, s).fill({ color: 0xff0000, alpha: 1 });
+        g.rect(left + size - s, top + size - s, s, s).fill({ color: 0xff0000, alpha: 1 });
+    }
     public override Resize(_width: number, _height: number): void {
         this.layoutBackgroundSquare();
         this.unitsOverlay.onResize(_width, _height);
+        this.layoutCornerMarkers();
     }
     protected verifyButtonsTrigger(): void {
         /* no-op for minimal */
@@ -253,6 +288,9 @@ export class Sandbox extends PixiScene {
 
         this.ensureBackgroundSprite();
         this.layoutBackgroundSquare();
+
+        this.ensureCornerMarkers();
+        this.layoutCornerMarkers();
     }
     protected selectUnitPreStart(
         _teamType: TeamType,
