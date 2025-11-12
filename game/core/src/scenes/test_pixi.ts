@@ -39,7 +39,6 @@ export class Sandbox extends PixiScene {
     private readonly allowedPlacementCellHashes: Set<number>;
     private readonly allowedPlacementCellHashesPerTeam: Map<TeamType, Set<number>>;
     private placementsDirty = true;
-    private didFitCamera = false;
     private upperPlacements: [IDrawablePlacement?, IDrawablePlacement?];
     private lowerPlacements: [IDrawablePlacement?, IDrawablePlacement?];
     public constructor(context: PixiSceneContext) {
@@ -294,7 +293,6 @@ export class Sandbox extends PixiScene {
         this.layoutCornerMarkersWorld();
 
         this.placementsDirty = true;
-        this.didFitCamera = true;
     }
     protected verifyButtonsTrigger(): void {}
     public propagateAugmentation(_t: TeamType, _a: Augment.AugmentType): boolean {
