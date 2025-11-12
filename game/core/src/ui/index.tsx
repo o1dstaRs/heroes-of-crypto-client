@@ -1,4 +1,5 @@
-import { HoCLib, TeamVals, TeamType } from "@heroesofcrypto/common";
+import { TeamVals, TeamType } from "@heroesofcrypto/common";
+import { IS_PROD, PICK_EVENT_SOURCE } from "./env";
 import { CustomEventSource } from "@heroesofcrypto/common";
 
 import CssBaseline from "@mui/joy/CssBaseline";
@@ -22,8 +23,6 @@ import { IWindowSize } from "../state/visible_state";
 import StainedGlassWindow from "./PickAndBan";
 import { AuthProvider } from "./auth/context/auth_provider";
 import { useAuthContext } from "./auth/context/auth_context";
-
-const IS_PROD = HoCLib.stringToBoolean(process.env.PROD);
 
 const usePreventSelection = () => {
     useEffect(() => {
@@ -90,7 +89,6 @@ const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     useEffect(() => {
         const connection = manager.onHasStarted.connect((hasStarted) => {
             setStarted(hasStarted);
-            console.log("szzolotu call Heroes");
             if (hasStarted) {
                 console.log("szzolotu call Heroes2");
                 manager.HomeCamera();
@@ -101,8 +99,6 @@ const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             connection.disconnect();
         };
     }, [manager]);
-
-    console.log("szzolotu call Heroes3");
 
     return (
         <div className="container" style={{ display: "flex" }}>
@@ -297,7 +293,7 @@ const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType }> 
     }, [manager]);
 
     return (
-        <PickBanEventProvider url={process.env.PICK_EVENT_SOURCE ?? ""} userTeam={userTeam}>
+        <PickBanEventProvider url={PICK_EVENT_SOURCE ?? ""} userTeam={userTeam}>
             <div
                 className="container"
                 style={{

@@ -2,6 +2,13 @@
     text-align: center;
 }
 
+:root {
+    --color-text: #f2f2f2;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+    --size-sidebar: 260px;
+}
+
 .container {
     /* display: flex; */
     width: 100%;
@@ -76,7 +83,7 @@ body,
     margin: 0;
     padding: 0;
     font-family: "Open Sans", Verdana, sans-serif;
-    color: $color-text;
+    color: var(--color-text);
 }
 
 .main {
@@ -110,7 +117,7 @@ main {
         pointer-events: none;
         bottom: 0;
         right: 0;
-        padding: $spacing-md;
+        padding: var(--spacing-md);
     }
 }
 
@@ -131,7 +138,7 @@ main {
     }
 
     td {
-        padding: 0 0 0 $spacing-lg;
+        padding: 0 0 0 var(--spacing-lg);
     }
 
     td:empty::after {
@@ -143,7 +150,7 @@ main {
     > table {
         float: right;
 
-        margin-right: #{$size-sidebar + $spacing-lg};
+        margin-right: calc(var(--size-sidebar) + var(--spacing-lg));
     }
 
     th,

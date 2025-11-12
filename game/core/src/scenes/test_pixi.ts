@@ -1,3 +1,4 @@
+// game/core/src/scenes/test_pixi.ts
 import { Sprite, Graphics } from "pixi.js";
 import {
     Augment,
@@ -9,7 +10,10 @@ import {
     UnitProperties,
     GridType,
     TeamType,
+    TeamVals,
     FactionType,
+    PlacementPositionType,
+    PlacementType,
 } from "@heroesofcrypto/common";
 
 import { Settings } from "../settings";
@@ -17,17 +21,10 @@ import { UnitsOverlay } from "./UnitsOverlay";
 import { VisibleButtonState, IVisibleButton } from "../state/visible_state";
 import { SceneSettings } from "../scenes/scene_settings";
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
-
-// Simple alias to keep signatures tidy
-interface XY {
-    x: number;
-    y: number;
-}
+import { DrawableRectanglePlacement, DrawableSquarePlacement, IDrawablePlacement } from "../pixi/PixiDrawablePlacement";
 
 export class Sandbox extends PixiScene {
-    /** Keep grid type locally (we don't mutate a Grid instance in this minimal scene) */
     private gridType: GridType;
-    // ui/buttons (kept minimal but present so UI doesn’t crash if referenced)
     private hourglassButton: IVisibleButton;
     private shieldButton: IVisibleButton;
     private nextButton: IVisibleButton;
@@ -36,10 +33,16 @@ export class Sandbox extends PixiScene {
     private spellBookButton: IVisibleButton;
     private unitsOverlay: UnitsOverlay;
     private bgSprite?: Sprite;
-    private cornerGfx?: Graphics;
     private bgKey: "background_dark" | "background_light" = "background_dark";
+    private cornerGfxWorld?: Graphics;
+    private placementGraphics?: Graphics;
+    private readonly allowedPlacementCellHashes: Set<number>;
+    private readonly allowedPlacementCellHashesPerTeam: Map<TeamType, Set<number>>;
+    private placementsDirty = true;
+    private didFitCamera = false;
+    private upperPlacements: [IDrawablePlacement?, IDrawablePlacement?];
+    private lowerPlacements: [IDrawablePlacement?, IDrawablePlacement?];
     public constructor(context: PixiSceneContext) {
-        // Build grid settings FIRST so we can pass a valid SceneSettings to super()
         const gs = new GridSettings(
             GridConstants.GRID_SIZE,
             GridConstants.MAX_Y,
@@ -49,18 +52,27 @@ export class Sandbox extends PixiScene {
             GridConstants.MOVEMENT_DELTA,
             GridConstants.UNIT_SIZE_DELTA,
         );
-
         super(new SceneSettings(gs, false));
 
-        // Required Pixi linkage
         this.initialize(context);
 
-        // Start with the fight’s current grid type
         this.gridType = FightStateManager.getInstance().getFightProperties().getGridType();
         this.pixiSceneManager.setGridType(this.gridType);
         this.sc_gridTypeUpdateNeeded = true;
 
-        // ---- Minimal buttons ----
+        this.lowerPlacements = [];
+        this.upperPlacements = [];
+        this.allowedPlacementCellHashes = new Set();
+        this.allowedPlacementCellHashesPerTeam = new Map([
+            [TeamVals.UPPER, new Set()],
+            [TeamVals.LOWER, new Set()],
+        ]);
+
+        const fp = FightStateManager.getInstance().getFightProperties();
+        fp.setDefaultPlacementPerTeam(TeamVals.LOWER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+        fp.setDefaultPlacementPerTeam(TeamVals.UPPER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+
+        // buttons (unchanged)
         this.hourglassButton = {
             name: "Hourglass",
             text: "Wait",
@@ -124,8 +136,8 @@ export class Sandbox extends PixiScene {
             this.spellBookButton,
         ];
 
-        // Visible state updater — lightweight & safe
-        const visibleStateUpdate = () => {
+        // visible state updater
+        HoCLib.interval(() => {
             if (!this.sc_visibleState) return;
             const fightProps = FightStateManager.getInstance().getFightProperties();
             this.sc_visibleState.secondsMax =
@@ -133,30 +145,61 @@ export class Sandbox extends PixiScene {
             const remaining = (fightProps.getCurrentTurnEnd() - HoCLib.getTimeMillis()) / 1000;
             this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
             this.sc_visibleStateUpdateNeeded = true;
-        };
-        HoCLib.interval(visibleStateUpdate, 500);
+        }, 500);
 
         this.unitsOverlay = new UnitsOverlay(this.pixiSceneManager.getApplication(), (name: string) =>
             this.texAny(name),
         );
         this.unitsOverlay.build();
+
+        this.initializePlacements();
+        this.placementsDirty = true;
     }
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return this.unitsOverlay;
     }
-    /** Create background sprite once and add to the terrain/back layer */
+    public CameraChanged(): void {
+        // After camera fit, PixiSceneManager may swap the world root container.
+        this.attachToWorldRoot(this.cornerGfxWorld, 90);
+        this.attachToWorldRoot(this.placementGraphics, 100);
+
+        // Reposition (don’t redraw geometry) so quads don’t disappear.
+        this.layoutCornerMarkersWorld();
+
+        // Ensure placements redraw once (verts recompute against new transforms).
+        this.placementsDirty = true;
+    }
+    protected selectUnitPreStart(
+        _teamType: TeamType,
+        _isSmallUnit: boolean,
+        position: HoCMath.XY,
+        rangeShotDistance = 0,
+        _auraRanges: number[] = [],
+        _auraIsBuff: boolean[] = [],
+    ): void {
+        if (rangeShotDistance > 0) {
+            this.sc_currentActiveShotRange = {
+                xy: position,
+                distance: rangeShotDistance * GridConstants.STEP,
+            };
+        } else {
+            this.sc_currentActiveShotRange = undefined;
+        }
+        // this.fillActiveRanges(teamType, isSmallUnit, position, auraRanges, auraIsBuff);
+    }
+    private ensurePlacementGraphicsWorld(): void {
+        if (!this.placementGraphics) this.placementGraphics = new Graphics();
+        this.attachToWorldRoot(this.placementGraphics, 100);
+    }
     private ensureBackgroundSprite(): void {
         if (this.bgSprite) return;
-
         const tex =
             this.texAny(this.bgKey) ??
             this.texAny(this.bgKey === "background_dark" ? "background_light" : "background_dark");
         if (!tex) return;
 
         const bg = new Sprite(tex);
-        bg.anchor.set(0.5); // center-based positioning
-
-        // Add behind the camera, so it sits at the very back and isn’t scaled by camera
+        bg.anchor.set(0.5);
         const stage = this.pixiSceneManager.getApplication().stage;
         stage.addChildAt(bg, 0);
 
@@ -167,8 +210,6 @@ export class Sandbox extends PixiScene {
         if (!this.bgSprite) return;
 
         const { width: vw, height: vh } = this.pixiSceneManager.getViewportSize();
-
-        // square that fits inside the viewport
         const size = Math.min(vw, vh);
 
         this.bgSprite.x = vw * 0.5;
@@ -176,7 +217,6 @@ export class Sandbox extends PixiScene {
         this.bgSprite.width = size;
         this.bgSprite.height = size;
 
-        // theme toggle (optional)
         const isLightMode = typeof localStorage !== "undefined" && localStorage.getItem("joy-mode") === "light";
         const wantKey = isLightMode ? "background_light" : "background_dark";
         const wantTex = this.texAny(wantKey);
@@ -185,103 +225,115 @@ export class Sandbox extends PixiScene {
             this.bgSprite.texture = wantTex;
         }
     }
-    private ensureCornerMarkers(): void {
-        if (this.cornerGfx) return;
-        this.cornerGfx = new Graphics();
-        // Attach to STAGE, not the camera/world container
-        const stage = this.pixiSceneManager.getApplication().stage;
-        stage.addChild(this.cornerGfx);
-        stage.sortableChildren = true;
-        this.cornerGfx.zIndex = 9999;
-        this.layoutCornerMarkers();
+    private ensureCornerMarkersWorld(): void {
+        if (!this.cornerGfxWorld) this.cornerGfxWorld = new Graphics();
+        this.attachToWorldRoot(this.cornerGfxWorld, 90);
+        // only draw if we just created or after camera changes
+        this.layoutCornerMarkersWorld();
     }
-    private getSquareFrame() {
-        const { width: vw, height: vh } = this.pixiSceneManager.getViewportSize();
-        const size = Math.min(vw, vh); // square side in CSS pixels
-        const left = (vw - size) * 0.5; // x of the square frame
-        const top = (vh - size) * 0.5; // y of the square frame
-        return { left, top, size };
-    }
-    private layoutCornerMarkers(): void {
-        if (!this.cornerGfx) return;
+    private layoutCornerMarkersWorld(): void {
+        const g = this.cornerGfxWorld;
+        if (!g) return;
 
-        const { left, top, size } = this.getSquareFrame();
+        // Always ensure the layer is alive and visible
+        g.visible = true;
+        g.renderable = true;
+        g.alpha = 1;
 
-        // Scale the 256×256 test squares relative to the 2048 board:
-        const scale = size / 2048; // how much the board is scaled on screen
-        const s = 256 * scale; // side length of each red square on screen
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const minX = gs.getMinX(); // world bottom-left.x
+        const maxX = gs.getMaxX(); // world top-right.x (before y-flip)
+        const minY = gs.getMinY(); // world bottom-left.y
+        const maxY = gs.getMaxY(); // world top-right.y
 
-        const g = this.cornerGfx;
+        const s = 256; // side length
+        const eps = 0.75; // inset to avoid edge scissor
+        const r = 6; // debug dot radius (screen-independent)
+
         g.clear();
-        g.rect(left, top, s, s).fill({ color: 0xff0000, alpha: 1 });
-        g.rect(left + size - s, top, s, s).fill({ color: 0xff0000, alpha: 1 });
-        g.rect(left, top + size - s, s, s).fill({ color: 0xff0000, alpha: 1 });
-        g.rect(left + size - s, top + size - s, s, s).fill({ color: 0xff0000, alpha: 1 });
+
+        // Helper draws a quad AND a small debug circle to confirm visibility even if height gets inverted
+        const corner = (x0: number, y0: number, x1: number, y1: number) => {
+            // robust rect fill API in v8
+            g.rect(x0, y0, x1 - x0, y1 - y0).fill({ color: 0xff0000, alpha: 1 });
+            // debug dot near the inner corner
+            const cx = (x0 + x1) * 0.5;
+            const cy = (y0 + y1) * 0.5;
+            g.circle(cx, cy, r).fill({ color: 0x000000, alpha: 1 }); // black dot center
+            g.circle(cx, cy, r * 0.5).fill({ color: 0xffffff, alpha: 1 }); // white inner dot
+        };
+
+        // Bottom-left (x grows right; your world is y-up so "bottom" is minY in world coords)
+        corner(minX + eps, minY + eps, minX + s - eps, minY + s - eps);
+        // Bottom-right
+        corner(maxX - s + eps, minY + eps, maxX - eps, minY + s - eps);
+        // Top-left
+        corner(minX + eps, maxY - s + eps, minX + s - eps, maxY - eps);
+        // Top-right
+        corner(maxX - s + eps, maxY - s + eps, maxX - eps, maxY - eps);
     }
-    public override Resize(_width: number, _height: number): void {
+    private attachToWorldRoot(gfx: Graphics | undefined, zIndex: number): void {
+        if (!gfx) return;
+        const worldRoot = this.pixiSceneManager.getWorldRoot();
+        if (gfx.parent !== worldRoot) {
+            // move to the new world root
+            gfx.removeFromParent();
+            worldRoot.addChild(gfx);
+        }
+        if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+        gfx.zIndex = zIndex;
+    }
+    public override Resize(w: number, h: number): void {
         this.layoutBackgroundSquare();
-        this.unitsOverlay.onResize(_width, _height);
-        this.layoutCornerMarkers();
+        this.unitsOverlay.onResize(w, h);
+
+        this.attachToWorldRoot(this.cornerGfxWorld, 90);
+        this.attachToWorldRoot(this.placementGraphics, 100);
+
+        // IMPORTANT: relayout AFTER reattaching
+        this.layoutCornerMarkersWorld();
+
+        this.placementsDirty = true;
+        this.didFitCamera = true;
     }
-    protected verifyButtonsTrigger(): void {
-        /* no-op for minimal */
-    }
-    public propagateAugmentation(_teamType: TeamType, _augmentType: Augment.AugmentType): boolean {
+    protected verifyButtonsTrigger(): void {}
+    public propagateAugmentation(_t: TeamType, _a: Augment.AugmentType): boolean {
         return false;
     }
-    public propagateSynergy(
-        _teamType: TeamType,
-        _faction: FactionType,
-        _synergyName: string,
-        _synergyLevel: number,
-    ): boolean {
+    public propagateSynergy(_t: TeamType, _f: FactionType, _n: string, _l: number): boolean {
         return false;
     }
-    public getNumberOfUnitsAvailableForPlacement(_teamType: TeamType): number {
+    public getNumberOfUnitsAvailableForPlacement(_t: TeamType): number {
         return 0;
     }
-    public propagateButtonClicked(_buttonName: string, _buttonState: VisibleButtonState): void {
-        /* no-op */
-    }
+    public propagateButtonClicked(_n: string, _s: VisibleButtonState): void {}
     protected landAttack(): boolean {
         return false;
     }
-    protected finishDrop(_positionToDropTo: XY): void {
-        /* no-op */
-    }
-    protected handleMouseDownForSelectedBody(): void {
-        /* no-op */
-    }
-    public cloneObject(_newAmount?: number): boolean {
+    protected finishDrop(_p: HoCMath.XY): void {}
+    protected handleMouseDownForSelectedBody(): void {}
+    public cloneObject(_n?: number): boolean {
         return false;
     }
-    public deleteObject(): void {
-        /* no-op */
-    }
-    public refreshScene(_unitData: UnitProperties): void {
-        /* no-op */
-    }
+    public deleteObject(): void {}
+    public refreshScene(_u: UnitProperties): void {}
     public setGridType(gridType: GridType): void {
         this.gridType = gridType;
         this.pixiSceneManager.setGridType(gridType);
         this.sc_gridTypeUpdateNeeded = true;
+        this.layoutCornerMarkersWorld();
+        this.placementsDirty = true;
     }
     public getGridType(): GridType {
         return this.gridType;
     }
-    public requestTime(_team: number): void {
-        /* no-op */
-    }
-    protected destroyTempFixtures(): void {
-        /* no-op */
-    }
-    public override MouseDown(_p: XY): void {
+    public requestTime(_team: number): void {}
+    protected destroyTempFixtures(): void {}
+    public override MouseDown(_p: HoCMath.XY): void {
         if (this.sc_isAnimating) return;
         this.verifyButtonsTrigger();
     }
-    public override MouseMove(_p: XY, _leftDrag: boolean): void {
-        // minimal hover — intentionally empty
-    }
+    public override MouseMove(_p: HoCMath.XY, _leftDrag: boolean): void {}
     public override Step(_settings: Settings, timeStep: number): void {
         if (timeStep > 0) this.sc_stepCount.increment();
         this.sc_isAnimating = this.pixiSceneManager.isAnimating();
@@ -289,23 +341,129 @@ export class Sandbox extends PixiScene {
         this.ensureBackgroundSprite();
         this.layoutBackgroundSquare();
 
-        this.ensureCornerMarkers();
-        this.layoutCornerMarkers();
-    }
-    protected selectUnitPreStart(
-        _teamType: TeamType,
-        _isSmallUnit: boolean,
-        position: HoCMath.XY,
-        rangeShotDistance = 0,
-        _auraRanges: number[] = [],
-        _auraIsBuff: boolean[] = [],
-    ): void {
-        // Minimal: if a range is passed, expose it via the scene’s shot-range field so drawers can use it.
-        this.sc_currentActiveShotRange =
-            rangeShotDistance > 0 ? { xy: position, distance: rangeShotDistance * GridConstants.STEP } : undefined;
+        this.ensureCornerMarkersWorld();
+        this.ensurePlacementGraphicsWorld();
 
-        // Minimal aura reset (keep it empty for now)
-        this.sc_currentActiveAuraRanges = [];
+        // <- reattach every frame in case camera swapped the world container
+        this.attachToWorldRoot(this.cornerGfxWorld, 90);
+        this.attachToWorldRoot(this.placementGraphics, 100);
+
+        if (this.placementsDirty) {
+            this.drawPlacements();
+            this.placementsDirty = false;
+        }
+    }
+    private initializePlacements(): void {
+        this.lowerPlacements = [];
+        this.upperPlacements = [];
+
+        const fp = FightStateManager.getInstance().getFightProperties();
+        const augLower = fp.getAugmentPlacement(TeamVals.LOWER);
+        const augUpper = fp.getAugmentPlacement(TeamVals.UPPER);
+        const placementType = fp.getPlacementType();
+
+        if (placementType === PlacementType.RECTANGLE) {
+            // 3 rows tall, full board width is handled by RectanglePlacement itself.
+            const heightRows = 3;
+            this.lowerPlacements.push(
+                new DrawableRectanglePlacement(
+                    this.sc_sceneSettings.getGridSettings(),
+                    PlacementPositionType.LOWER_LEFT,
+                    heightRows,
+                ),
+            );
+            this.upperPlacements.push(
+                new DrawableRectanglePlacement(
+                    this.sc_sceneSettings.getGridSettings(),
+                    PlacementPositionType.UPPER_LEFT,
+                    heightRows,
+                ),
+            );
+        } else {
+            // (unchanged) square halves driven by augment sizes
+            if (0 in augLower) {
+                this.lowerPlacements.push(
+                    new DrawableSquarePlacement(
+                        this.sc_sceneSettings.getGridSettings(),
+                        PlacementPositionType.LOWER_LEFT,
+                        augLower[0],
+                    ),
+                );
+            }
+            if (1 in augLower) {
+                this.lowerPlacements.push(
+                    new DrawableSquarePlacement(
+                        this.sc_sceneSettings.getGridSettings(),
+                        PlacementPositionType.LOWER_RIGHT,
+                        augLower[1],
+                    ),
+                );
+            }
+            if (0 in augUpper) {
+                this.upperPlacements.push(
+                    new DrawableSquarePlacement(
+                        this.sc_sceneSettings.getGridSettings(),
+                        PlacementPositionType.UPPER_RIGHT,
+                        augUpper[0],
+                    ),
+                );
+            }
+            if (1 in augUpper) {
+                this.upperPlacements.push(
+                    new DrawableSquarePlacement(
+                        this.sc_sceneSettings.getGridSettings(),
+                        PlacementPositionType.UPPER_LEFT,
+                        augUpper[1],
+                    ),
+                );
+            }
+        }
+
+        // rebuild allowed hashes (kept as before)
+        this.allowedPlacementCellHashes.clear();
+        this.allowedPlacementCellHashesPerTeam.clear();
+        this.allowedPlacementCellHashesPerTeam.set(TeamVals.UPPER, new Set());
+        this.allowedPlacementCellHashesPerTeam.set(TeamVals.LOWER, new Set());
+
+        const addHashes = (team: TeamType, p?: IDrawablePlacement) => {
+            if (!p) return;
+            const target = this.allowedPlacementCellHashesPerTeam.get(team);
+            for (const hash of p.possibleCellHashes()) {
+                this.allowedPlacementCellHashes.add(hash);
+                target?.add(hash);
+            }
+        };
+
+        addHashes(TeamVals.LOWER, this.lowerPlacements[0]);
+        addHashes(TeamVals.LOWER, this.lowerPlacements[1]);
+        addHashes(TeamVals.UPPER, this.upperPlacements[0]);
+        addHashes(TeamVals.UPPER, this.upperPlacements[1]);
+
+        this.placementsDirty = true;
+    }
+    private drawPlacements(): void {
+        if (!this.placementGraphics) return;
+        const g = this.placementGraphics;
+        g.clear();
+
+        const props = FightStateManager.getInstance().getFightProperties();
+        if (!props.hasFightStarted()) {
+            let team: TeamType | undefined = undefined; // swap if needed
+            const draw = (p?: IDrawablePlacement) => p && p.draw(g);
+
+            if (team === undefined) {
+                draw(this.lowerPlacements[0]);
+                draw(this.lowerPlacements[1]);
+                draw(this.upperPlacements[0]);
+                draw(this.upperPlacements[1]);
+            } else if (team === TeamVals.LOWER) {
+                draw(this.lowerPlacements[0]);
+                draw(this.lowerPlacements[1]);
+            } else if (team === TeamVals.UPPER) {
+                draw(this.upperPlacements[0]);
+                draw(this.upperPlacements[1]);
+            }
+        }
     }
 }
 

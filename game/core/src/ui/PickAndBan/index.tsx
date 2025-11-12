@@ -27,7 +27,7 @@ import scoutAllUnitsImage from "../../../images/icon_scout_all_units_256.webp";
 import unknownMapImage from "../../../images/icon_unknown_map_256.webp";
 import checkmarkImage from "../../../images/icon_checkmark_256.webp";
 import { images } from "../../generated/image_imports";
-import { usePickBanEvents } from "..";
+import { usePickBanEvents } from "@/ui";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { InitialCreatureImageBox } from "./InitialCreatureImageBox";
 import { useAuthContext } from "../auth/context/auth_context";

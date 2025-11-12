@@ -2,7 +2,7 @@ import { CreatureByLevel } from "@heroesofcrypto/common";
 import { Badge, Box } from "@mui/joy";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import React from "react";
-import { usePickBanEvents } from "..";
+import { usePickBanEvents } from "@/ui";
 import { images } from "../../generated/image_imports";
 
 export const InitialCreatureImageBox = ({

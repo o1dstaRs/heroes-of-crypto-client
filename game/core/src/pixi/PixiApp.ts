@@ -5,12 +5,13 @@ export class PixiApp {
     private app!: Application;
     private stage!: Container;
     private ticker!: Ticker;
+    private camera!: Container; // pans/zooms
+    private worldRoot!: Container; // Y-up (scaleY = -1)
     private backgroundContainer!: Container;
     private terrainContainer!: Container;
     private unitsContainer!: Container;
     private effectsContainer!: Container;
     private uiContainer!: Container;
-    private camera!: Container;
     public constructor() {}
     public async init(canvas: HTMLCanvasElement, width = 2048, height = 2048): Promise<void> {
         const DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
@@ -20,38 +21,45 @@ export class PixiApp {
             canvas,
             width,
             height,
-            resolution: DPR, // device pixels per CSS pixel
+            resolution: DPR,
             antialias: true,
-            background: 0x000000, // v8: use `background`
+            background: 0x000000,
         });
 
-        // Build scene graph AFTER init()
+        // --- World containers ---
+        this.camera = new Container(); // we pan/zoom this one
+        this.worldRoot = new Container(); // we flip Y here ONCE to get y-up
+        this.worldRoot.scale.set(1, -1); // y-up like Box2D
+
+        // Layers go under worldRoot (so they inherit y-up + camera transforms)
         this.backgroundContainer = new Container();
         this.terrainContainer = new Container();
         this.unitsContainer = new Container();
         this.effectsContainer = new Container();
-        this.uiContainer = new Container();
-
-        this.camera = new Container();
-        this.camera.addChild(
+        this.worldRoot.addChild(
             this.backgroundContainer,
             this.terrainContainer,
             this.unitsContainer,
             this.effectsContainer,
         );
 
+        // Screen-space UI (no camera / no y-flip)
+        this.uiContainer = new Container();
+
+        // Stage wiring
         this.stage = this.app.stage;
+        this.camera.addChild(this.worldRoot);
         this.stage.addChild(this.camera, this.uiContainer);
 
         this.ticker = this.app.ticker;
 
+        // Default camera: center world and fit bounds once caller sets zoom
         this.setupRendering(width, height);
     }
     private setupRendering(width: number, height: number): void {
         const c = this.app.canvas as HTMLCanvasElement;
         c.style.position = "absolute";
         c.style.display = "block";
-        // Lock CSS size to 2048×2048 (or the provided width/height)
         c.style.width = `${width}px`;
         c.style.height = `${height}px`;
     }
@@ -64,6 +72,15 @@ export class PixiApp {
     public getTicker(): Ticker {
         return this.ticker;
     }
+    public getUIContainer(): Container {
+        return this.uiContainer;
+    }
+    public getCamera(): Container {
+        return this.camera;
+    }
+    public getWorldRoot(): Container {
+        return this.worldRoot;
+    }
     public getBackgroundContainer(): Container {
         return this.backgroundContainer;
     }
@@ -75,12 +92,6 @@ export class PixiApp {
     }
     public getEffectsContainer(): Container {
         return this.effectsContainer;
-    }
-    public getUIContainer(): Container {
-        return this.uiContainer;
-    }
-    public getCamera(): Container {
-        return this.camera;
     }
     public resize(width = 2048, height = 2048): void {
         const DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
@@ -99,22 +110,25 @@ export class PixiApp {
             context: true,
         });
     }
-    public setCameraPosition(wx: number, wy: number): void {
+    public setCameraPosition(cx: number, cy: number): void {
         const z = this.camera.scale.x || 1;
-        const { width, height } = this.app.renderer;
-        this.camera.position.set(width / 2 - wx * z, height / 2 - wy * z);
+        const { width: W, height: H } = this.app.renderer;
+        this.camera.position.set(W / 2 - z * cx, H / 2 + z * cy);
     }
     public setCameraZoom(zoom: number): void {
-        const prevCenter = this.getCameraPosition(); // keep the same world center
+        const { x, y } = this.getCameraPosition(); // current world center
         this.camera.scale.set(zoom, zoom);
-        this.setCameraPosition(prevCenter.x, prevCenter.y);
+        this.setCameraPosition(x, y); // keep same center after zoom
     }
     public getCameraPosition(): { x: number; y: number } {
         const z = this.camera.scale.x || 1;
-        const { width, height } = this.app.renderer;
+        const { width: W, height: H } = this.app.renderer;
+        // invert formulas:
+        // cx = (W/2 - pos.x) / z
+        // cy = (pos.y - H/2) / z
         return {
-            x: (width / 2 - this.camera.position.x) / z,
-            y: (height / 2 - this.camera.position.y) / z,
+            x: (W / 2 - this.camera.position.x) / z,
+            y: (this.camera.position.y - H / 2) / z,
         };
     }
     public getCameraZoom(): number {
@@ -122,13 +136,19 @@ export class PixiApp {
     }
     public screenToWorld(sx: number, sy: number) {
         const z = this.getCameraZoom();
-        return { x: (sx - this.camera.position.x) / z, y: (sy - this.camera.position.y) / z };
+        return {
+            x: (sx - this.camera.position.x) / z,
+            y: (this.camera.position.y - sy) / z, // note the minus
+        };
     }
     public worldToScreen(wx: number, wy: number) {
         const z = this.getCameraZoom();
-        return { x: wx * z + this.camera.position.x, y: wy * z + this.camera.position.y };
+        return {
+            x: this.camera.position.x + wx * z,
+            y: this.camera.position.y - wy * z, // note the minus
+        };
     }
     public render(): void {
-        // per-frame hooks if needed
+        /* no-op hook */
     }
 }

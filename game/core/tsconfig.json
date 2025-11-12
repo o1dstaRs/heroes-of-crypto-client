@@ -17,7 +17,11 @@
 
         "rootDir": "src",
         "outDir": "dist",
-        "noEmit": true
+        "noEmit": true,
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["src/*"]
+        }
     },
     "references": [{ "path": "../heroes-of-crypto-common/tsconfig.build.json" }],
     "include": ["src/**/*.ts", "src/**/*.tsx", "src/types/**/*.d.ts"]

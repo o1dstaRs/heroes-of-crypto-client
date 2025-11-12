@@ -1,3 +1,4 @@
+// game/core/src/PixiDrawablePlacement.ts
 import { Graphics } from "pixi.js";
 import {
     HoCMath,
@@ -25,8 +26,11 @@ function buildInsetRectVerts(xLeft: number, yUpper: number, xRight: number, yLow
     ];
 }
 
-function drawQuadFilled(gfx: Graphics, verts: HoCMath.XY[], color: number, alpha = 1): void {
-    // v8: build path -> fill({color, alpha})
+function drawQuadFilled(gfx: Graphics, verts: HoCMath.XY[], color: number, alpha = 0.35): void {
+    console.log(
+        "drawQuadFilled verts:",
+        verts.map((v, i) => ({ index: i, x: v.x, y: v.y })),
+    );
     gfx.moveTo(verts[0].x, verts[0].y)
         .lineTo(verts[1].x, verts[1].y)
         .lineTo(verts[2].x, verts[2].y)
@@ -37,8 +41,8 @@ function drawQuadFilled(gfx: Graphics, verts: HoCMath.XY[], color: number, alpha
 
 export class DrawableSquarePlacement extends SquarePlacement implements IDrawablePlacement {
     private readonly vertices: HoCMath.XY[];
-    public constructor(gridSettings: GridSettings, placementPositionType: PlacementPositionType, size = 3) {
-        super(gridSettings, placementPositionType, size);
+    public constructor(gs: GridSettings, pos: PlacementPositionType, size = 3) {
+        super(gs, pos, size);
         this.vertices = buildInsetRectVerts(this.xLeft, this.yUpper, this.xRight, this.yLower, 1);
     }
     public draw(gfx: Graphics): void {
@@ -47,14 +51,14 @@ export class DrawableSquarePlacement extends SquarePlacement implements IDrawabl
             this.placementPositionType === PlacementPositionType.LOWER_LEFT;
 
         const fillColor = isLower ? rgb255(75, 100, 54) : rgb255(194, 97, 73);
-        drawQuadFilled(gfx, this.vertices, fillColor, 1);
+        drawQuadFilled(gfx, this.vertices, fillColor);
     }
 }
 
 export class DrawableRectanglePlacement extends RectanglePlacement implements IDrawablePlacement {
     private readonly vertices: HoCMath.XY[];
-    public constructor(gridSettings: GridSettings, placementPositionType: PlacementPositionType, size = 3) {
-        super(gridSettings, placementPositionType, size);
+    public constructor(gs: GridSettings, pos: PlacementPositionType, size = 3) {
+        super(gs, pos, size);
         this.vertices = buildInsetRectVerts(this.xLeft, this.yUpper, this.xRight, this.yLower, 1);
     }
     public draw(gfx: Graphics): void {
@@ -63,6 +67,6 @@ export class DrawableRectanglePlacement extends RectanglePlacement implements ID
             this.placementPositionType === PlacementPositionType.LOWER_LEFT;
 
         const fillColor = isLower ? rgb255(75, 100, 54) : rgb255(194, 97, 73);
-        drawQuadFilled(gfx, this.vertices, fillColor, 1);
+        drawQuadFilled(gfx, this.vertices, fillColor);
     }
 }

@@ -14,8 +14,6 @@ interface SceneComponentProps {
 }
 
 const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass } }) => {
-    console.log("szzolotu call GameScreen");
-
     const [coordinates, setCoordinates] = useState({ x: 0, y: 0 });
     const [damage, setDamage] = useState<number>(0);
     const [started, setStarted] = useState(false);
@@ -60,8 +58,6 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
 
     // Boot + loop
     useEffect(() => {
-        console.log("szzolotu call useEffect");
-
         const glCanvas = glCanvasRef.current;
         const debugCanvas = debugCanvasRef.current;
         const wrapper = wrapperRef.current;
@@ -108,8 +104,6 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
 // Helper to pick an active scene; adjust to your registry flow if needed.
 export function useActiveSceneEntry() {
     const manager = usePixiManager();
-    console.log("szzolotu call Heroes4");
-    console.log(manager.flatScenes);
     return manager.flatScenes[0];
 }
 

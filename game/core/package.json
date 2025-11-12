@@ -12,8 +12,7 @@
         "build:images": "rimraf images && npm run copy:images && npm run generate:images",
         "copy:images": "cpy $HOC_IMAGES_LOC ./",
         "generate:images": "node scripts/generate_image_imports.js",
-        "start": "rimraf ../../.parcel-cache && dotenv -e .env parcel src/ui/index.html",
-        "watch": "rimraf ../../.parcel-cache && dotenv -e .env parcel watch src/ui/index.html"
+        "start": "cross-env NODE_ENV=development vite"
     },
     "browserslist": [
         "> 5%"

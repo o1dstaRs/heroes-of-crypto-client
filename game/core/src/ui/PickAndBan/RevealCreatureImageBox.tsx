@@ -2,7 +2,7 @@ import { CreatureByLevel } from "@heroesofcrypto/common";
 import { Box, IconButton } from "@mui/joy";
 import React, { useCallback } from "react";
 import { UNIT_ID_TO_IMAGE } from "../unit_ui_constants";
-import { usePickBanEvents } from "..";
+import { usePickBanEvents } from "@/ui";
 import { images } from "../../generated/image_imports";
 import revealSmallImage from "../../../images/icon_reveal_128.webp";
 import { useAuthContext } from "../auth/context/auth_context";

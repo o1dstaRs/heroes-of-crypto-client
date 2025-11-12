@@ -217,10 +217,16 @@ export class PixiGameManager {
     /** Fit board to window (no manual zoom controls). */
     private fitViewToWindow(): void {
         if (!this.pixiSceneManager) return;
-        this.pixiSceneManager.setCameraZoom(1); // no world scaling; background is sized to stage
-        this.pixiSceneManager.setCameraPosition(0, 0); // top-left origin; your square is centered in stage
+
+        // Pull the scene’s current grid bounds and fit to them.
+        const gs = this.m_scene?.sc_sceneSettings?.getGridSettings?.();
+        if (!gs) return;
+
+        this.pixiSceneManager.fitWorldToViewport(gs.getMinX(), gs.getMinY(), gs.getMaxX(), gs.getMaxY(), 0);
+
+        // Tell scene the camera/container may have changed.
+        this.m_scene?.CameraChanged?.();
     }
-    /** Legacy “HomeCamera” semantic, just uses fitViewToWindow now. */
     public HomeCamera(): void {
         this.fitViewToWindow();
     }
@@ -293,6 +299,7 @@ export class PixiGameManager {
         else this.activateScene(this.flatScenes[index]);
     }
     public StartGame(): void {
+        console.log("JJJJJJ");
         if (this.m_scene && this.m_scene.startScene()) this.started = true;
         this.onHasStarted.emit(this.started);
         this.fitViewToWindow(); // keep neutral after start too

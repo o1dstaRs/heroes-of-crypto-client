@@ -92,6 +92,26 @@ export class PixiSceneManager {
         this.units.set(unitId, unit);
         this.pixiApp.getUnitsContainer().addChild(unit.getContainer());
     }
+    public getWorldRoot(): Container {
+        return this.pixiApp.getCamera();
+    }
+    public fitWorldToViewport(minX: number, minY: number, maxX: number, maxY: number, padding = 0): void {
+        const { width, height } = this.getViewportSize(); // CSS pixels
+        const worldW = Math.max(1, maxX - minX);
+        const worldH = Math.max(1, maxY - minY);
+        const viewW = Math.max(1, width - padding * 2);
+        const viewH = Math.max(1, height - padding * 2);
+
+        const zoom = Math.min(viewW / worldW, viewH / worldH);
+        const cx = (minX + maxX) * 0.5;
+        const cy = (minY + maxY) * 0.5;
+
+        const root = this.getWorldRoot();
+        // y-up: flip Y
+        root.scale.set(zoom, -zoom);
+        // map (cx, cy) to screen center; note + for y because of the flip
+        root.position.set(width / 2 - cx * zoom, height / 2 + cy * zoom);
+    }
     public removeUnit(unitId: string): void {
         const unit = this.units.get(unitId);
         if (unit) {

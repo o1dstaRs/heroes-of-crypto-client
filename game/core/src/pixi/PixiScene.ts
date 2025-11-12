@@ -3,6 +3,7 @@ import { Texture } from "pixi.js";
 import {
     HoCConstants,
     HoCLib,
+    HoCMath,
     Augment,
     IAuraOnMap,
     UnitProperties,
@@ -43,12 +44,6 @@ export interface BodyLike {
 /** If you later model a drag/constraint, replace this with a real type. */
 export type MouseJointLike = object | null;
 
-/** Screen/world 2D coordinate */
-export interface XY {
-    x: number;
-    y: number;
-}
-
 export interface PixiSceneContext {
     pixiSceneManager: PixiSceneManager;
     textures: PreloadedPixiTextures;
@@ -70,7 +65,6 @@ const sceneGroups = {
 export type SceneGroup = keyof typeof sceneGroups;
 
 export function registerScene(group: SceneGroup, name: string, constructor: SceneConstructor) {
-    console.log("SSSSS2");
     sceneGroups[group].push({
         group,
         name,
@@ -95,7 +89,7 @@ export abstract class PixiScene {
     public readonly sc_maxProfile = { step: 0, collide: 0, solve: 0 }; // parity with old UI
     public readonly sc_totalProfile = { step: 0, collide: 0, solve: 0 }; // parity with old UI
     public readonly sc_sceneSettings: SceneSettings;
-    public sc_currentActiveShotRange?: { xy: XY; distance: number };
+    public sc_currentActiveShotRange?: { xy: HoCMath.XY; distance: number };
     public sc_currentActiveAuraRanges: IAuraOnMap[] = [];
     public sc_unitInfoLines: Array<[string, string]> = [];
     public sc_attackDamageSpreadStr = "";
@@ -210,12 +204,12 @@ export abstract class PixiScene {
         return [];
     }
     protected abstract landAttack(): boolean;
-    protected abstract finishDrop(positionToDropTo: XY): void;
+    protected abstract finishDrop(positionToDropTo: HoCMath.XY): void;
     protected abstract handleMouseDownForSelectedBody(): void;
     protected abstract selectUnitPreStart(
         team: TeamType,
         isSmallUnit: boolean,
-        position: XY,
+        position: HoCMath.XY,
         rangeShotDistance: number,
         auraRanges: number[],
         auraIsBuff: boolean[],
@@ -226,7 +220,7 @@ export abstract class PixiScene {
     public abstract setGridType(gridType: GridType): void;
     public abstract getGridType(): GridType;
     /** MouseDown from screen coords (already converted to world if needed by caller) */
-    public MouseDown(_p: XY): void {
+    public MouseDown(_p: HoCMath.XY): void {
         // If needed, convert via camera: const world = this.pixiSceneManager.unproject(_p)
         this.sc_mouseTracing = true;
 
@@ -277,7 +271,10 @@ export abstract class PixiScene {
             this.verifyButtonsTrigger();
         }
     }
-    public ShiftMouseDown(_p: XY): void {
+    public CameraChanged(): void {
+        // default no-op; scenes can override to reattach overlays, relayout, etc.
+    }
+    public ShiftMouseDown(_p: HoCMath.XY): void {
         if (this.sc_isAnimating) return;
 
         if (this.sc_stepCount.getValue() - this.sc_mouseDownStep < STEPS_BETWEEN_MOUSE_ACTIONS_MIN) {
@@ -313,7 +310,7 @@ export abstract class PixiScene {
         return this.sceneStarted;
     }
     protected abstract destroyTempFixtures(): void;
-    public MouseMove(_p: XY, _leftDrag: boolean): void {
+    public MouseMove(_p: HoCMath.XY, _leftDrag: boolean): void {
         // If you had a drag target: if (this.sc_sceneSettings.isDraggable() && _leftDrag && this.sc_mouseJoint) { ... }
         if (this.sc_isAnimating) return;
         this.hover();
@@ -405,7 +402,6 @@ export abstract class PixiScene {
         }
     }
     public GetDefaultViewZoom(edgesPx = EDGES_SIZE): number {
-        console.log("szzolotu GetDefaultViewZoom");
         const gs = this.sc_sceneSettings.getGridSettings();
         const minX = gs.getMinX();
         const minY = gs.getMinY();
@@ -426,28 +422,28 @@ export abstract class PixiScene {
     public getUnitsOverlay(): UnitsOverlay | undefined {
         return undefined;
     }
-    public HomeCamera(edgesPx = EDGES_SIZE): void {
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const minX = gs.getMinX();
-        const minY = gs.getMinY();
-        const maxX = gs.getMaxX();
-        const maxY = gs.getMaxY();
+    public HomeCamera(): void {
+        const minX = -1024,
+            maxX = 1024;
+        const minY = 0,
+            maxY = 2048;
 
-        const worldW = Math.max(1, maxX - minX);
-        const worldH = Math.max(1, maxY - minY);
+        const worldW = maxX - minX; // 2048
+        const worldH = maxY - minY; // 2048
 
-        // Your renderer is fixed to 2048×2048; if not, read from renderer.width/height instead.
-        const viewW = Math.max(1, 2048 - edgesPx * 2);
-        const viewH = Math.max(1, 2048 - edgesPx * 2);
+        // read renderer size (you locked to 2048×2048, but this is general)
+        const app = this.pixiSceneManager.getApplication();
+        const viewW = app.renderer.width;
+        const viewH = app.renderer.height;
 
-        const zoom = Math.min(viewW / worldW, viewH / worldH);
-        const cx = (minX + maxX) * 0.5;
-        const cy = (minY + maxY) * 0.5;
+        const z = Math.min(viewW / worldW, viewH / worldH); // fit
+        const cx = (minX + maxX) * 0.5; // 0
+        const cy = (minY + maxY) * 0.5; // 1024
 
+        this.pixiSceneManager.setCameraZoom(z);
         this.pixiSceneManager.setCameraPosition(cx, cy);
-        this.pixiSceneManager.setCameraZoom(zoom);
     }
-    public getCenter(): XY {
+    public getCenter(): HoCMath.XY {
         return { x: 0, y: 1024 };
     }
     public Destroy() {}
