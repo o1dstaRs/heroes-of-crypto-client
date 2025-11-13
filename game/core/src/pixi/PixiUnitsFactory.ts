@@ -25,6 +25,7 @@ import {
     UnitVals,
     TeamType,
     FactionType,
+    ToFactionName,
 } from "@heroesofcrypto/common";
 
 import { Container, Sprite as PixiSprite, Texture } from "pixi.js";
@@ -47,15 +48,15 @@ export enum HeroGender {
     FEMALE = 2,
 }
 
-const generateHeroKey = (faction: FactionType, heroType: HeroType, heroGender: HeroGender) =>
-    `${faction}:${heroType}:${heroGender}}`;
+const generateHeroKey = (factionName: string, heroType: HeroType, heroGender: HeroGender) =>
+    `${factionName}:${heroType}:${heroGender}}`;
 
 const FACTION_TO_HERO_TYPES: { [faction: string]: HeroType[] } = {
     [FactionVals.NATURE]: [HeroType.MAGICIAN, HeroType.WARRIOR_RANGE],
 };
 
 const FACTION_HERO_GENDER_TO_NAME: { [heroKey: string]: string[] } = {
-    [`${generateHeroKey(FactionVals.NATURE, HeroType.MAGICIAN, HeroGender.MALE)}`]: [
+    [`${generateHeroKey("Nature", HeroType.MAGICIAN, HeroGender.MALE)}`]: [
         "Aelion Sage",
         "Thorne Whisper",
         "Faelan Moss",
@@ -225,7 +226,7 @@ export class PixiUnitsFactory {
 
             for (const heroType of heroTypes) {
                 // Example: add a few preloaded keys for nature magician male
-                this.smallTexturesByHero.set(generateHeroKey(faction, heroType, HeroGender.MALE), [
+                this.smallTexturesByHero.set(generateHeroKey(ToFactionName[faction], heroType, HeroGender.MALE), [
                     ["nature_mage_male_1_128", this.textures["nature_mage_male_1_128"]],
                     ["nature_mage_male_2_128", this.textures["nature_mage_male_2_128"]],
                     ["nature_mage_male_3_128", this.textures["nature_mage_male_3_128"]],
@@ -257,7 +258,7 @@ export class PixiUnitsFactory {
         if (size === 1) {
             if (!this.grid.getOccupantUnitId(cell)) {
                 const cloned = this.makeCreature(
-                    unitPropertiesProvider.getFaction(),
+                    ToFactionName[unitPropertiesProvider.getFaction()],
                     unitPropertiesProvider.getName(),
                     unitPropertiesProvider.getTeam(),
                     newAmount ?? unitPropertiesProvider.getAmountAlive(),
@@ -293,7 +294,7 @@ export class PixiUnitsFactory {
             if (!this.grid.areAllCellsEmpty(cells)) return false;
 
             const cloned = this.makeCreature(
-                unitPropertiesProvider.getFaction(),
+                ToFactionName[unitPropertiesProvider.getFaction()],
                 unitPropertiesProvider.getName(),
                 unitPropertiesProvider.getTeam(),
                 newAmount ?? unitPropertiesProvider.getAmountAlive(),
@@ -344,53 +345,53 @@ export class PixiUnitsFactory {
         const heroes: PixiUnit[] = [];
 
         if (faction === FactionVals.LIFE) {
-            units.push(this.makeCreature(FactionVals.LIFE, "Squire", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.LIFE, "Peasant", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.LIFE, "Arbalester", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.LIFE, "Pikeman", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.LIFE, "Valkyrie", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.LIFE, "Healer", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.LIFE, "Crusader", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.LIFE, "Griffin", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.LIFE, "Tsar Cannon", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.LIFE, "Angel", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.LIFE, "Champion", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Life", "Squire", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Life", "Peasant", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Life", "Arbalester", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Life", "Pikeman", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Life", "Valkyrie", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Life", "Healer", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Life", "Crusader", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Life", "Griffin", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Life", "Tsar Cannon", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Life", "Angel", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Life", "Champion", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
         } else if (faction === FactionVals.NATURE) {
             // heroes.push(this.makeHero(FactionType.NATURE, team, HeroType.MAGICIAN, HeroGender.MALE));
-            units.push(this.makeCreature(FactionVals.NATURE, "Fairy", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.NATURE, "Wolf", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.NATURE, "Leprechaun", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.NATURE, "White Tiger", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.NATURE, "Elf", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.NATURE, "Satyr", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.NATURE, "Unicorn", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.NATURE, "Mantis", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.NATURE, "Gargantuan", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.NATURE, "Pegasus", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.NATURE, "Arachna Queen", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Nature", "Fairy", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Nature", "Wolf", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Nature", "Leprechaun", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Nature", "White Tiger", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Nature", "Elf", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Nature", "Satyr", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Nature", "Unicorn", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Nature", "Mantis", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Nature", "Gargantuan", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Nature", "Pegasus", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Nature", "Arachna Queen", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
         } else if (faction === FactionVals.CHAOS) {
-            units.push(this.makeCreature(FactionVals.CHAOS, "Scavenger", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.CHAOS, "Orc", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.CHAOS, "Troglodyte", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.CHAOS, "Medusa", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.CHAOS, "Troll", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.CHAOS, "Beholder", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.CHAOS, "Efreet", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.CHAOS, "Goblin Knight", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.CHAOS, "Black Dragon", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.CHAOS, "Hydra", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Chaos", "Scavenger", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Chaos", "Orc", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Chaos", "Troglodyte", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Chaos", "Medusa", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Chaos", "Troll", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Chaos", "Beholder", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Chaos", "Efreet", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Chaos", "Goblin Knight", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Chaos", "Black Dragon", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Chaos", "Hydra", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
         } else if (faction === FactionVals.MIGHT) {
-            units.push(this.makeCreature(FactionVals.MIGHT, "Berserker", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.MIGHT, "Centaur", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.MIGHT, "Wolf Rider", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.MIGHT, "Nomad", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.MIGHT, "Harpy", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.MIGHT, "Hyena", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.MIGHT, "Ogre Mage", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.MIGHT, "Cyclops", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.MIGHT, "Thunderbird", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.MIGHT, "Behemoth", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
-            units.push(this.makeCreature(FactionVals.MIGHT, "Frenzied Boar", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Might", "Berserker", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Might", "Centaur", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Might", "Wolf Rider", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Might", "Nomad", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Might", "Harpy", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Might", "Hyena", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Might", "Ogre Mage", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Might", "Cyclops", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Might", "Thunderbird", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Might", "Behemoth", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
+            units.push(this.makeCreature("Might", "Frenzied Boar", team, 0, BASE_UNIT_STACK_TO_SPAWN_EXP));
         }
 
         // Position logic (unchanged from your original, minus Box2D)
@@ -484,7 +485,7 @@ export class PixiUnitsFactory {
         }
     }
     public makeCreature(
-        faction: FactionType,
+        factionName: string,
         name: string,
         team: TeamType,
         amount: number,
@@ -493,7 +494,7 @@ export class PixiUnitsFactory {
     ): PixiUnit {
         const creatureConfig = HoCConfig.getCreatureConfig(
             team,
-            faction,
+            factionName,
             name,
             unitToTextureName(name, TextureType.LARGE),
             amount,
@@ -528,8 +529,8 @@ export class PixiUnitsFactory {
 
         return unit;
     }
-    public makeHero(faction: FactionType, team: TeamType, heroType: HeroType, gender: HeroGender): PixiUnit {
-        const heroKey = generateHeroKey(faction, heroType, gender);
+    public makeHero(factionName: string, team: TeamType, heroType: HeroType, gender: HeroGender): PixiUnit {
+        const heroKey = generateHeroKey(factionName, heroType, gender);
 
         const pair = this.getRandomHeroTexture(heroKey);
         if (!pair) throw new ReferenceError(`Texture for hero key ${heroKey} not found`);
@@ -542,7 +543,7 @@ export class PixiUnitsFactory {
         const largeTextureName = `${textureName.split("_").slice(0, -1).join("_")}_512`;
 
         // Build config with large art id preserved (for UI/portraits if needed)
-        const heroConfig = HoCConfig.getHeroConfig(team, faction, heroName, largeTextureName);
+        const heroConfig = HoCConfig.getHeroConfig(team, factionName, heroName, largeTextureName);
 
         const hero = new PixiHero(
             this.layer,

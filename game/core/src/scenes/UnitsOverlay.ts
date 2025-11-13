@@ -12,8 +12,14 @@ import {
     CreatureId,
     FactionType,
     FactionVals,
+    ToFactionName,
+    UnitProperties,
+    UnitLevelVals,
+    TeamVals,
+    HoCConfig,
 } from "@heroesofcrypto/common";
 import type { UnitLevelId } from "@heroesofcrypto/common";
+import { BASE_UNIT_STACK_TO_SPAWN_EXP } from "@/statics";
 
 type GetTexture = (key: string) => Texture | undefined;
 type LevelBucket = Readonly<{ label: string; count: number; unitSize: 1 | 2 }>;
@@ -62,9 +68,15 @@ export class UnitsOverlay {
     private btnW = 0;
     private btnH = 0;
     private levelBuckets: LevelBucket[] = [];
-    public constructor(app: Application, getTexture: GetTexture) {
+    private onUnitSelected?: (unitProperties: UnitProperties | null) => void;
+    public constructor(
+        app: Application,
+        getTexture: GetTexture,
+        onUnitSelected?: (unitProperties: UnitProperties | null) => void,
+    ) {
         this.app = app;
         this.getTex = getTexture;
+        this.onUnitSelected = onUnitSelected;
 
         // Use precomputed level buckets from common
         this.levelBuckets = CommonLevelBuckets.map(
@@ -95,9 +107,104 @@ export class UnitsOverlay {
         this.toggleBtn.zIndex = 9999;
         this.toggleBtn.eventMode = "static";
         this.toggleBtn.cursor = "pointer";
-        this.toggleBtn.on("pointertap", () => this.toggle());
-
         this.app.stage.addChild(this.container);
+    }
+    public handlePointerDown(globalX: number, globalY: number): boolean {
+        // 0) First, check if click is inside the overlay's main rect at all
+        const localOverlay = this.container.toLocal({ x: globalX, y: globalY });
+        const insideOverlay =
+            localOverlay.x >= 0 &&
+            localOverlay.y >= 0 &&
+            localOverlay.x <= this.overlayW &&
+            localOverlay.y <= this.overlayH;
+
+        // 1) Toggle button (reuse hit area)
+        const localToggle = this.toggleBtn.toLocal({ x: globalX, y: globalY });
+        if (localToggle.x >= 0 && localToggle.y >= 0 && localToggle.x <= this.btnW && localToggle.y <= this.btnH) {
+            console.log("UnitsOverlay: toggle click via handlePointerDown");
+            this.toggle();
+            return true; // event consumed
+        }
+
+        console.log(`UnitsOverlay: handlePointerDown(${globalX}, ${globalY}), insideOverlay=${insideOverlay}`);
+
+        // If overlay is closed, don’t process chips / selection
+        if (!this.isOpen) return false;
+
+        // 2) Chips – use global bounds
+        for (const chip of this.allChips) {
+            const b = chip.getBounds(); // global coords
+            if (!b) continue;
+
+            if (globalX >= b.x && globalX <= b.x + b.width && globalY >= b.y && globalY <= b.y + b.height) {
+                const unitName = (chip as UnitChip).nameKey as string;
+                console.log("UnitsOverlay: chip click via handlePointerDown", unitName);
+
+                const next = this.selectedName === unitName ? null : unitName;
+                this.selectedName = next;
+
+                for (const c of this.allChips) {
+                    c.setSelected((c as UnitChip).nameKey === next);
+                }
+
+                if (this.onUnitSelected) {
+                    if (next) {
+                        const unitProps = this.getUnitProperties(unitName);
+                        this.onUnitSelected(unitProps);
+                    } else {
+                        this.onUnitSelected(null);
+                    }
+                }
+
+                return true; // event consumed
+            }
+        }
+
+        // 3) Click inside overlay but not on a chip: clear selection and eat the click
+        if (insideOverlay) {
+            if (this.selectedName) {
+                console.log("UnitsOverlay: click inside overlay but not on chip → clearing selection");
+                this.clearSelection(true);
+            }
+            return true; // overlay handled the click area
+        }
+
+        // 4) Outside overlay → not our problem
+        return false;
+    }
+    private getUnitProperties(unitName: string): UnitProperties {
+        // Determine faction by checking which faction's creature lists include the unit name,
+        // using the same logic as build() to map creature IDs → names.
+        let faction: FactionType = FactionVals.NO_FACTION;
+        const target = unitName;
+
+        let found = false;
+        for (const f of this.factions) {
+            for (let b = 0; b < this.levelBuckets.length; b++) {
+                const lvl = (b + 1) as UnitLevelId;
+                const namesForLevel = getCreaturesOf(f.type, lvl)
+                    .map((id: CreatureId) => UNIT_ID_TO_NAME[id as number])
+                    .filter(Boolean) as string[];
+
+                if (namesForLevel.includes(target)) {
+                    faction = f.type;
+                    found = true;
+                    break;
+                }
+            }
+            if (found) break;
+        }
+
+        const creatureConfig = HoCConfig.getCreatureConfig(
+            TeamVals.NO_TEAM,
+            ToFactionName[faction],
+            unitName,
+            unitToTextureName(unitName, TextureType.LARGE),
+            0, // amount
+            BASE_UNIT_STACK_TO_SPAWN_EXP, // totalExp
+        );
+
+        return creatureConfig;
     }
     /** Call once after textures are ready */
     public build(): void {
@@ -138,22 +245,21 @@ export class UnitsOverlay {
                     .filter(Boolean) as string[];
 
                 for (const unitName of namesForLevel) {
-                    const texName = unitToTextureName(unitName, TextureType.SMALL, sizeFlag);
+                    const unitProperties = this.getUnitProperties(unitName);
+
+                    const texName = unitToTextureName(
+                        unitName,
+                        lvl === UnitLevelVals.FOURTH ? TextureType.LARGE : TextureType.SMALL,
+                        sizeFlag,
+                    );
                     const tex = this.getTex(texName);
 
                     const chip = new UnitChip({
                         unitName,
                         texture: tex ?? Texture.EMPTY,
-                        getAmount: () => 9, // example badge
+                        getAmount: () => unitProperties.amount_alive, // example badge
                     });
                     chip.setTicker(this.app.ticker);
-
-                    // single-select behavior
-                    chip.on("pointertap", () => {
-                        const next = this.selectedName === unitName ? null : unitName;
-                        this.selectedName = next;
-                        for (const c of this.allChips) c.setSelected(c["nameKey"] === next);
-                    });
 
                     bucketCont.addChild(chip);
                     this.allChips.push(chip);
@@ -350,5 +456,25 @@ export class UnitsOverlay {
         if (this.tweenCancel) this.tweenCancel();
         this.container.destroy({ children: true });
         this.allChips.length = 0;
+    }
+    public hasSelection(): boolean {
+        return this.selectedName !== null;
+    }
+    public clearSelection(notify: boolean = true): void {
+        if (!this.selectedName) return;
+
+        const prev = this.selectedName;
+        this.selectedName = null;
+
+        // update chip visuals
+        for (const c of this.allChips) {
+            c.setSelected(false);
+        }
+
+        if (notify && this.onUnitSelected) {
+            this.onUnitSelected(null);
+        }
+
+        console.log("UnitsOverlay: cleared selection (prev:", prev, ")");
     }
 }

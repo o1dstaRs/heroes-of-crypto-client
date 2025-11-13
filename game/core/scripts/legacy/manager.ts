@@ -139,14 +139,15 @@ export class GameManager {
             return;
         }
         this.activateScene = activateScene;
-        debugCanvas.addEventListener("mousedown", (e) => this.HandleMouseDown(e));
-        debugCanvas.addEventListener("mouseup", (e) => this.HandleMouseUp(e));
-        debugCanvas.addEventListener("mousemove", (e) => this.HandleMouseMove(e));
         window.addEventListener("keydown", (e) => {
             if (e.key === "Escape") {
                 this.HandleEscapeKey(true);
             }
         });
+        debugCanvas.addEventListener("mousedown", (e) => this.HandleMouseDown(e));
+        debugCanvas.addEventListener("mouseup", (e) => this.HandleMouseUp(e));
+        debugCanvas.addEventListener("mousemove", (e) => this.HandleMouseMove(e));
+
         debugCanvas.addEventListener("mouseenter", () => {
             this.m_hoveringCanvas = true;
         });

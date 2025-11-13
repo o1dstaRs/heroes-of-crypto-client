@@ -146,8 +146,18 @@ export class Sandbox extends PixiScene {
             this.sc_visibleStateUpdateNeeded = true;
         }, 500);
 
-        this.unitsOverlay = new UnitsOverlay(this.pixiSceneManager.getApplication(), (name: string) =>
-            this.texAny(name),
+        this.unitsOverlay = new UnitsOverlay(
+            this.pixiSceneManager.getApplication(),
+            (name: string) => this.texAny(name),
+            (unitProperties: UnitProperties | null) => {
+                if (unitProperties) {
+                    // This computes sc_visibleOverallImpact + sets the flag
+                    this.setSelectedUnitProperties(unitProperties);
+                } else {
+                    // Proper clear path
+                    this.Deselect(false, true);
+                }
+            },
         );
         this.unitsOverlay.build();
 
@@ -327,7 +337,24 @@ export class Sandbox extends PixiScene {
     }
     public requestTime(_team: number): void {}
     protected destroyTempFixtures(): void {}
-    public override MouseDown(_p: HoCMath.XY): void {
+    public override MouseDown(p: HoCMath.XY): void {
+        let overlayHandled = false;
+
+        if (this.unitsOverlay) {
+            overlayHandled = this.unitsOverlay.handlePointerDown(p.x, p.y);
+        }
+
+        if (!overlayHandled && this.unitsOverlay && this.unitsOverlay.hasSelection()) {
+            // Click somewhere that overlay did not handle (outside its rect)
+            // → clear selection, but still allow board logic.
+            this.unitsOverlay.clearSelection(true);
+        }
+
+        if (overlayHandled) {
+            // overlay ate the click (toggle, chip, or empty area inside overlay)
+            return;
+        }
+
         if (this.sc_isAnimating) return;
         this.verifyButtonsTrigger();
     }
