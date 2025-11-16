@@ -107,7 +107,7 @@ export abstract class PixiScene {
     public sc_fps = MAX_FPS;
     // Previously Box2D objects — keep flexible but typed.
     public sc_selectedBody: BodyLike | undefined;
-    public sc_selectedUnitProperties?: UnitProperties;
+    public sc_selectedUnitProperties?: Readonly<UnitProperties>;
     public sc_selectedFactionType?: FactionType;
     public sc_selectedAttackType: AttackType = AttackVals.NO_ATTACK;
     public sc_visibleState?: IVisibleState;
