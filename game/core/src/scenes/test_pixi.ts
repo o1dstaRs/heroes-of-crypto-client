@@ -46,6 +46,7 @@ export class Sandbox extends PixiScene {
     private readonly allowedPlacementCellHashesPerTeam: Map<TeamType, Set<number>>;
     private upperPlacements: [IDrawablePlacement?, IDrawablePlacement?];
     private lowerPlacements: [IDrawablePlacement?, IDrawablePlacement?];
+    private selectedUnitProperties?: UnitProperties;
     public constructor(context: PixiSceneContext) {
         const gs = new GridSettings(
             GridConstants.GRID_SIZE,
@@ -156,10 +157,13 @@ export class Sandbox extends PixiScene {
             (name: string) => this.texAny(name),
             (unitProperties: UnitProperties | null) => {
                 if (unitProperties) {
+                    // Store selected unit properties for placement
+                    this.selectedUnitProperties = unitProperties;
                     // This computes sc_visibleOverallImpact + sets the flag
                     this.setSelectedUnitProperties(unitProperties);
                 } else {
                     // Proper clear path
+                    this.selectedUnitProperties = undefined;
                     this.Deselect(false, true);
                 }
             },
@@ -334,6 +338,73 @@ export class Sandbox extends PixiScene {
         return this.gridType;
     }
     public requestTime(_team: number): void {}
+    private tryPlaceUnit(p: HoCMath.XY): void {
+        // Check if the click is within any of the placement areas
+        const allPlacements = [...this.lowerPlacements, ...this.upperPlacements].filter(
+            Boolean,
+        ) as IDrawablePlacement[];
+
+        // Find which placement the click is in
+        let targetPlacement: IDrawablePlacement | undefined;
+        for (const placement of allPlacements) {
+            if (placement.isAllowed(p)) {
+                targetPlacement = placement;
+                break;
+            }
+        }
+
+        if (!targetPlacement || !this.selectedUnitProperties) {
+            return;
+        }
+
+        // Determine which team this placement belongs to
+        let teamType: TeamType | undefined;
+        if (this.lowerPlacements.includes(targetPlacement)) {
+            teamType = TeamVals.LOWER;
+        } else if (this.upperPlacements.includes(targetPlacement)) {
+            teamType = TeamVals.UPPER;
+        }
+
+        if (!teamType) {
+            return;
+        }
+
+        // Check if the selected unit's team matches the placement team
+        // For simplicity, we assume the team is determined by which placement area is clicked
+        const isSmallUnit = this.selectedUnitProperties.size === 1;
+
+        // Get possible positions within this placement area
+        const possiblePositions = targetPlacement.possibleCellPositions(isSmallUnit);
+        HoCLib.shuffle(possiblePositions);
+
+        // Find the closest valid position to the clicked point
+        let closestPosition: HoCMath.XY | undefined;
+        let minDistance = Infinity;
+        for (const pos of possiblePositions) {
+            const distance = Math.sqrt(Math.pow(pos.x - p.x, 2) + Math.pow(pos.y - p.y, 2));
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestPosition = pos;
+            }
+        }
+
+        if (closestPosition) {
+            // For now, just log that we're placing a unit - in a full implementation,
+            // you would create the actual game object at the determined position
+            console.log(
+                `Placing ${this.selectedUnitProperties.name} at position (${closestPosition.x}, ${closestPosition.y}) in ${teamType} placement`,
+            );
+
+            // In a complete implementation, you would call a method to actually place the unit
+            // For example: this.placeUnitAtPosition(this.selectedUnitProperties, closestPosition, teamType);
+
+            // Clear the selection after placement
+            this.selectedUnitProperties = undefined;
+            if (this.unitsOverlay) {
+                this.unitsOverlay.clearSelection(true);
+            }
+        }
+    }
     protected destroyTempFixtures(): void {}
     public override MouseDown(p: HoCMath.XY): void {
         let overlayHandled = false;
@@ -353,6 +424,12 @@ export class Sandbox extends PixiScene {
             return;
         }
 
+        // If we have a selected unit from the overlay and the fight hasn't started,
+        // try to place the unit in an empty placement area
+        if (this.selectedUnitProperties && !FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            this.tryPlaceUnit(p);
+        }
+
         if (this.sc_isAnimating) return;
         this.verifyButtonsTrigger();
     }
@@ -370,9 +447,7 @@ export class Sandbox extends PixiScene {
         // this.attachToWorldRoot(this.cornerGfxWorld, 90);
         this.attachToWorldRoot(this.placementGraphics, 100);
 
-        const ticker = this.pixiSceneManager.getApplication().ticker;
-        const dt = Math.min(0.05, (ticker.deltaMS ?? 16.666) / 1000);
-        this.spawnPulsePhase = (this.spawnPulsePhase + (dt * (Math.PI * 2)) / 4) % (Math.PI * 2);
+        this.spawnPulsePhase += timeStep * 3.7; // accumulate
         setSpawnFlowPhase(this.spawnPulsePhase);
 
         // always redraw placements (geometry is cached in placements themselves)
