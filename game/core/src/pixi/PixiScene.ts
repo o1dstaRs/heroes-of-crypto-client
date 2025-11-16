@@ -135,6 +135,7 @@ export abstract class PixiScene {
     public sc_moveBlocked = false;
     public sc_augmentChanged = false;
     public sc_buttonGroupUpdated = false;
+    protected sc_mouseWorld: HoCMath.XY = { x: 0, y: 0 };
     protected sc_isAnimating = false;
     protected sc_isAIActive = false;
     protected sc_renderSpellBookOverlay = false;
@@ -172,6 +173,13 @@ export abstract class PixiScene {
         return [];
     }
     public Deselect(_onlyWhenNotStarted = false, _refreshStats = true) {
+        // 🔗 Always clear UnitsOverlay chip selection when we deselect in the scene
+        const overlay = this.getUnitsOverlay?.();
+        if (overlay && overlay.hasSelection()) {
+            // notify = false to avoid calling onUnitSelected(null) → Deselect() recursion
+            overlay.clearSelection(false);
+        }
+
         if (this.sceneStarted && _onlyWhenNotStarted) {
             if (this.sc_selectedBody) {
                 this.sc_unitInfoLines.length = 0;
@@ -186,11 +194,13 @@ export abstract class PixiScene {
             this.sc_selectedBody = undefined;
         }
         this.sc_unitInfoLines.length = 0;
+
         if (_refreshStats) {
             this.sc_selectedUnitProperties = undefined;
             this.sc_visibleOverallImpact = undefined;
             this.sc_unitPropertiesUpdateNeeded = true;
         }
+
         this.sc_currentActiveShotRange = undefined;
         this.sc_currentActiveAuraRanges = [];
     }
@@ -222,7 +232,9 @@ export abstract class PixiScene {
     public abstract getGridType(): GridType;
     /** MouseDown from screen coords (already converted to world if needed by caller) */
     public MouseDown(_p: HoCMath.XY): void {
-        // If needed, convert via camera: const world = this.pixiSceneManager.unproject(_p)
+        // Treat _p as world coords (caller already converted if needed).
+        this.sc_mouseWorld = _p;
+
         this.sc_mouseTracing = true;
 
         // Clear previous drag analogue
@@ -242,8 +254,6 @@ export abstract class PixiScene {
         }
         this.sc_mouseDownStep = this.sc_stepCount.getValue();
 
-        // If you expose a hit-test on the scene manager, you can use it here:
-        // const hit = this.pixiSceneManager.hitTest(_p.x, _p.y);
         const hit_fixture: BodyLike | undefined = undefined;
 
         if (hit_fixture || this.sc_isSelection || this.sc_hoverAttackIsTargetingObstacle) {
@@ -312,8 +322,12 @@ export abstract class PixiScene {
     }
     protected abstract destroyTempFixtures(): void;
     public MouseMove(_p: HoCMath.XY, _leftDrag: boolean): void {
-        // If you had a drag target: if (this.sc_sceneSettings.isDraggable() && _leftDrag && this.sc_mouseJoint) { ... }
         if (this.sc_isAnimating) return;
+
+        // Remember last world position
+        this.sc_mouseWorld = _p;
+
+        // If you had drag logic, it would live here.
         this.hover();
     }
     public Resize(_width: number, _height: number) {}

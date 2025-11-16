@@ -1046,13 +1046,13 @@ export class RenderableUnit extends Unit {
                 continue;
             }
             // can return us undefined
-            const faction = ToFactionType[spArr[0] as AllFactionsType] ?? FactionType.NO_TYPE;
-            if (faction === undefined) {
+            const factionName = spArr[0];
+            if (!factionName) {
                 continue;
             }
 
             const spellName = spArr[1];
-            const spellProperties = HoCConfig.getSpellConfig(faction, spellName);
+            const spellProperties = HoCConfig.getSpellConfig(factionName, spellName);
             const textureNames = SpellHelper.spellToTextureNames(spellName);
             newSpells.push(
                 new RenderableSpell(

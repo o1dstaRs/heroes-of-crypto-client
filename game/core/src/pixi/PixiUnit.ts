@@ -10,7 +10,6 @@ import {
     UnitProperties,
     GridSettings,
     HoCMath,
-    ToFactionType,
     HoCConfig,
     AbilityFactory,
     SpellHelper,
@@ -20,7 +19,6 @@ import {
     TeamType,
     UnitType,
     Unit,
-    FactionVals,
 } from "@heroesofcrypto/common";
 
 import { Container, Sprite as PixiSprite, Texture } from "pixi.js";
@@ -171,11 +169,11 @@ export class PixiUnit extends Unit {
             const spArr = k.split(":");
             if (spArr.length !== 2) continue;
 
-            const faction = ToFactionType[spArr[0] as keyof typeof ToFactionType] ?? FactionVals.NO_FACTION;
-            if (faction === undefined) continue;
+            const factionName = spArr[0];
+            if (!factionName) continue;
 
             const spellName = spArr[1];
-            const spellProperties = HoCConfig.getSpellConfig(faction, spellName);
+            const spellProperties = HoCConfig.getSpellConfig(factionName, spellName);
             const textureNames = SpellHelper.spellToTextureNames(spellName);
             const [iconKey, titleKey] = textureNames;
 

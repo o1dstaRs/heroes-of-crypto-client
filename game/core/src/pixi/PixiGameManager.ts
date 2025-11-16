@@ -203,6 +203,28 @@ export class PixiGameManager {
 
         this.isInitialized = true;
     }
+    private screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
+        if (!this.pixiSceneManager || !this.pixiApp) {
+            return { x: screenX, y: screenY }; // fallback (shouldn't normally happen)
+        }
+
+        const app = this.pixiApp.getApplication();
+        const cam = this.pixiSceneManager.getCameraPosition();
+        const zoom = this.pixiSceneManager.getCameraZoom();
+
+        const viewW = app.renderer.width;
+        const viewH = app.renderer.height;
+
+        // Screen (0..viewW, 0..viewH) → centered, then scaled by zoom.
+        // Y is flipped (screen Y down, world Y up).
+        const nx = screenX - viewW * 0.5;
+        const ny = screenY - viewH * 0.5;
+
+        return {
+            x: cam.x + nx / zoom,
+            y: cam.y - ny / zoom,
+        };
+    }
     public getApplication(): Application {
         return this._pixiApp.getApplication();
     }
@@ -237,7 +259,8 @@ export class PixiGameManager {
         this.m_mouse.x = e.offsetX;
         this.m_mouse.y = e.offsetY;
 
-        const world = { x: e.offsetX, y: e.offsetY };
+        // Convert from canvas pixels → world coords
+        const world = this.screenToWorld(e.offsetX, e.offsetY);
         this.m_scene?.MouseMove(world, this.m_lMouseDown);
 
         // Keep optional right-click panning (no zoom UI)
@@ -249,7 +272,8 @@ export class PixiGameManager {
         }
     }
     public HandleMouseDown(e: MouseEvent): void {
-        const world = { x: e.offsetX, y: e.offsetY };
+        const world = this.screenToWorld(e.offsetX, e.offsetY);
+
         switch (e.button) {
             case 0: // left
                 this.m_lMouseDown = true;

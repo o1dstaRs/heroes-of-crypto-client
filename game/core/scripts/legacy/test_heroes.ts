@@ -5115,7 +5115,7 @@ class Sandbox extends GLScene {
                                 if (chance < Math.abs(u.getMorale()) && !u.hasMindAttackResistance()) {
                                     if (isPlusMorale) {
                                         const buff = new Spell({
-                                            spellProperties: HoCConfig.getSpellConfig(FactionType.NO_TYPE, "Morale"),
+                                            spellProperties: HoCConfig.getSpellConfig("System", "Morale"),
                                             amount: 1,
                                         });
                                         u.applyBuff(buff);
@@ -5125,7 +5125,7 @@ class Sandbox extends GLScene {
                                         this.sc_sceneLog.updateLog(`${u.getName()} is on Morale this lap!`);
                                     } else {
                                         const debuff = new Spell({
-                                            spellProperties: HoCConfig.getSpellConfig(FactionType.NO_TYPE, "Dismorale"),
+                                            spellProperties: HoCConfig.getSpellConfig("System", "Dismorale"),
                                             amount: 1,
                                         });
                                         u.applyDebuff(debuff);

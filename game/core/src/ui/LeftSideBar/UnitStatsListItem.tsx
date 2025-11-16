@@ -579,8 +579,6 @@ const UnitStatsLayout: React.FC<{
             </StatGroup>
         </>
     );
-    console.log(abilitiesVisible);
-    console.log(abilities);
     const abilitiesBlock = (
         <Box
             sx={{
