@@ -2,7 +2,6 @@ import {
     HoCConstants,
     UnitProperties,
     AttackVals,
-    FactionVals,
     MovementVals,
     TeamVals,
     HoCLib,
@@ -24,7 +23,6 @@ import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState } from "react";
 
 import { images } from "../../generated/image_imports";
-import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IVisibleImpact, IVisibleOverallImpact } from "../../state/visible_state";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
 import { BootIcon } from "../svg/boot";
@@ -62,15 +60,74 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     const backgroundColor = teamType === TeamVals.LOWER ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.4)";
     const borderColor = teamType === TeamVals.LOWER ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.4)";
 
+    if (isAura) {
+        const tileSize = 22;
+        const margin = 2;
+        const radius = 50 - tileSize / 2 - margin;
+
+        const count = stackPower;
+        const startAngle = 135;
+        const endAngle = 225;
+        const span = endAngle - startAngle;
+        const step = count > 1 ? span / (count - 1) : 0;
+
+        const minAlpha = 0.18;
+        const maxAlpha = 0.86;
+        const [baseR, baseG, baseB] = teamType === TeamVals.LOWER ? [76, 175, 80] : [244, 67, 54];
+
+        return (
+            <Box
+                sx={{
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 3,
+                    pointerEvents: "none",
+                }}
+            >
+                {Array.from({ length: count }).map((_, index) => {
+                    const angleDeg = endAngle - step * index;
+                    const angleRad = (angleDeg * Math.PI) / 180;
+
+                    const cx = 50 + radius * Math.cos(angleRad);
+                    const cy = 50 + radius * Math.sin(angleRad);
+
+                    const t = count > 1 ? index / (count - 1) : 0.5;
+                    const opacity = minAlpha + t * (maxAlpha - minAlpha);
+                    const tileBackground = `rgba(${baseR}, ${baseG}, ${baseB}, ${opacity})`;
+                    const tileBorder = `rgba(${baseR}, ${baseG}, ${baseB}, ${Math.min(1, opacity + 0.08)})`;
+
+                    return (
+                        <Box
+                            key={`stack_aura_${index}`}
+                            sx={{
+                                position: "absolute",
+                                left: `${cx - tileSize / 2}%`,
+                                top: `${cy - tileSize / 2}%`,
+                                width: `${tileSize + 4}%`,
+                                height: `${tileSize}%`,
+                                backgroundColor: tileBackground,
+                                border: `1px solid ${tileBorder}`,
+                                borderRadius: "6px",
+                                transform: `rotate(${angleDeg - 90}deg)`,
+                                transformOrigin: "center center",
+                                zIndex: index + 1,
+                            }}
+                        />
+                    );
+                })}
+            </Box>
+        );
+    }
+
     return (
         <Box
             sx={{
                 position: "absolute",
                 bottom: 0,
                 left: 0,
-                width: isAura ? "100%" : "20%",
-                height: isAura ? "50%" : "100%", // Half height for aura to create a half-circle
-                zIndex: 3, // Ensures it's above the image and glow effect
+                width: "20%",
+                height: "100%",
+                zIndex: 3,
             }}
         >
             {[...Array(stackPower)].map((_, index) => (
@@ -78,20 +135,14 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
                     key={`stack_${index}`}
                     sx={{
                         position: "absolute",
-                        bottom: `${isAura ? 90 : 0}%`,
-                        left: isAura ? "30%" : 0, // Move the stack to the left side
-                        width: isAura ? "30px" : "100%", // Enlarge width of each rectangle for aura
-                        height: isAura
-                            ? `${index * (index / 3) + 20}px` // Enlarge height of each rectangle for aura
-                            : `${((index + 1) / HoCConstants.MAX_UNIT_STACK_POWER) * 100}%`,
-                        transform: isAura
-                            ? `rotate(${index * 41}deg) translateX(-20%) translateY(200%)` // Rotate each rectangle to form a half-circle
-                            : "none",
-                        transformOrigin: "bottom center", // Set origin for rotation to the bottom center of the rectangle
-                        clipPath: isAura ? "none" : "polygon(20% 100%, 100% 100%, 100% 20%, 0 0)",
-                        backgroundColor: backgroundColor,
+                        bottom: 0,
+                        left: 0,
+                        width: "100%",
+                        height: `${((index + 1) / HoCConstants.MAX_UNIT_STACK_POWER) * 100}%`,
+                        clipPath: "polygon(20% 100%, 100% 100%, 100% 20%, 0 0)",
+                        backgroundColor,
                         border: `1px solid ${borderColor}`,
-                        zIndex: stackPower - index, // Ensure stacking order
+                        zIndex: stackPower - index,
                     }}
                 />
             ))}
@@ -138,12 +189,11 @@ const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean; hasBr
                                 <Box
                                     sx={{
                                         position: "relative",
-                                        width: isWidescreen ? "22%" : "30%", // Force each ability to take 1/3 of row width
-                                        paddingBottom: isWidescreen ? "22%" : "30%", // Forces a square aspect ratio
+                                        width: isWidescreen ? "22%" : "30%",
+                                        paddingBottom: isWidescreen ? "22%" : "30%",
                                         overflow: "hidden",
-                                        borderRadius: ability.isAura ? "50%" : "15%", // Circle if aura, rounded corners otherwise
+                                        borderRadius: ability.isAura ? "50%" : "15%",
                                         "&::before": {
-                                            // Using pseudo-element to create the circular glow
                                             content: '""',
                                             position: "absolute",
                                             top: "50%",
@@ -151,22 +201,21 @@ const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean; hasBr
                                             width: "100%",
                                             height: "100%",
                                             transform: "translate(-50%, -50%)",
-                                            borderRadius: ability.isAura ? "50%" : "20%", // Circle if aura, slightly rounded otherwise
+                                            borderRadius: ability.isAura ? "50%" : "20%",
                                             boxShadow: ability.isAura ? `-20px 0 -20px 60px ${auraColor}` : "none",
-                                            zIndex: 0, // Ensures it's behind the image
+                                            zIndex: 0,
                                         },
                                         "&::after": {
-                                            // Adding a frame effect
                                             content: '""',
                                             position: "absolute",
                                             top: 0,
                                             left: 0,
                                             right: 0,
                                             bottom: 0,
-                                            borderRadius: ability.isAura ? "50%" : "15%", // Circle if aura, rounded corners otherwise
-                                            border: ability.isAura ? `2px solid ${auraColor}` : "none", // Only show frame for aura
-                                            zIndex: 2, // Ensures it's above the image and glow effect
-                                            pointerEvents: "none", // Prevents the frame from interfering with clicks
+                                            borderRadius: ability.isAura ? "50%" : "15%",
+                                            border: ability.isAura ? `2px solid ${auraColor}` : "none",
+                                            zIndex: 2,
+                                            pointerEvents: "none",
                                         },
                                     }}
                                 >
@@ -181,7 +230,6 @@ const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean; hasBr
                                             width: "100%",
                                             height: "100%",
                                             objectFit: "cover",
-                                            transform: "rotateX(-180deg)",
                                             zIndex: 1,
                                         }}
                                     />
@@ -215,15 +263,15 @@ const EffectColumnOrRow: React.FC<{
                 width: "100%",
                 alignItems: isHorizontalLayout ? "left" : "center",
                 marginBottom: title === "Debuffs" ? 2 : 0,
-                ...(isHorizontalLayout ? {} : { paddingLeft: "2px" }), // Add 2px padding on the left side if not horizontal layout
+                ...(isHorizontalLayout ? {} : { paddingLeft: "2px" }),
             }}
         >
             <Typography
                 level="title-sm"
                 sx={{
                     textAlign: isHorizontalLayout ? "left" : "center",
-                    ...(isHorizontalLayout ? {} : { fontSize: 9 }), // Conditional fontSize based on layout
-                    width: "8ch", // Fixed width for 8 symbols
+                    ...(isHorizontalLayout ? {} : { fontSize: 9 }),
+                    width: "8ch",
                     marginBottom: isHorizontalLayout ? 1 : 0,
                     ...(isHorizontalLayout ? { marginTop: 2 } : {}),
                 }}
@@ -262,11 +310,10 @@ const EffectColumnOrRow: React.FC<{
                                 width: isHorizontalLayout ? "13%" : "auto",
                                 maxWidth: "100%",
                                 height: "auto",
-                                aspectRatio: "1", // Maintain width=height ratio
+                                aspectRatio: "1",
                                 objectFit: "contain",
-                                transform: "rotateX(-180deg)",
                                 zIndex: 3,
-                                margin: isHorizontalLayout && index !== 0 ? "0 2px" : "1px", // Add margin between elements in horizontal layout
+                                margin: isHorizontalLayout && index !== 0 ? "0 2px" : "1px",
                             }}
                         />
                     </Tooltip>
@@ -287,8 +334,8 @@ const StatItem: React.FC<{
     color: string;
     badgeContent?: string;
     badgeColor?: string;
-    positiveFrame?: boolean; // New flag for positive frame
-    negativeFrame?: boolean; // New flag for negative frame
+    positiveFrame?: boolean;
+    negativeFrame?: boolean;
 }> = ({ icon, value, tooltip, color, badgeContent, badgeColor, positiveFrame, negativeFrame }) => (
     <Tooltip title={tooltip}>
         <Box
@@ -301,11 +348,11 @@ const StatItem: React.FC<{
                     ? "rgba(0, 255, 0, 0.3)"
                     : negativeFrame
                       ? "rgba(255, 0, 0, 0.3)"
-                      : "transparent", // Add light effect inside the box
+                      : "transparent",
                 ...(positiveFrame
-                    ? { boxShadow: "0 0 5px 5px green", borderRadius: "20px" } // Apply borderRadius for circular corners
+                    ? { boxShadow: "0 0 5px 5px green", borderRadius: "20px" }
                     : negativeFrame
-                      ? { boxShadow: "0 0 5px 5px red", borderRadius: "20px" } // Apply borderRadius for circular corners
+                      ? { boxShadow: "0 0 5px 5px red", borderRadius: "20px" }
                       : {}),
             }}
         >
@@ -362,6 +409,13 @@ const UnitStatsLayout: React.FC<{
     columnize: boolean;
     largeTextureName: string;
     images: { [key: string]: string };
+    showStats: boolean;
+    showAbilities: boolean;
+    imageLoaded: boolean;
+    onImageLoaded: () => void;
+    abilities: IVisibleImpact[];
+    hasBreakApplied: boolean;
+    team: TeamType;
 }> = ({
     unitProperties,
     damageRange,
@@ -377,7 +431,16 @@ const UnitStatsLayout: React.FC<{
     columnize,
     largeTextureName,
     images,
+    showStats,
+    showAbilities,
+    imageLoaded,
+    onImageLoaded,
+    abilities,
+    hasBreakApplied,
+    team,
 }) => {
+    const statsVisible = showStats && (columnize || imageLoaded);
+    const abilitiesVisible = showAbilities && (columnize || imageLoaded);
     const attackSign = attackMod > 0 ? "+" : "";
     const attackModBadgeValue = `${attackMod ? `${attackSign}${unitProperties.attack_mod}` : ""}${
         unitProperties.attack_multiplier !== 1 ? ` x${unitProperties.attack_multiplier}` : ""
@@ -395,7 +458,7 @@ const UnitStatsLayout: React.FC<{
         attackColor = "danger";
     }
 
-    const content = (
+    const statsContent = (
         <>
             <StatGroup>
                 <StatItem
@@ -517,40 +580,72 @@ const UnitStatsLayout: React.FC<{
         </>
     );
 
+    console.log(abilitiesVisible);
+    console.log(abilities);
+
+    const abilitiesBlock = (
+        <Box
+            sx={{
+                opacity: abilitiesVisible ? 1 : 0,
+                transition: "opacity 150ms ease-out",
+            }}
+        >
+            <Typography level="title-sm" sx={{ marginTop: columnize ? 1.5 : 0 }}>
+                Abilities
+            </Typography>
+            <AbilityStack
+                abilities={abilities}
+                teamType={team}
+                isWidescreen={columnize}
+                hasBreakApplied={hasBreakApplied}
+            />
+        </Box>
+    );
+
     if (columnize) {
+        // widescreen layout
         return (
-            <Box sx={{ display: "flex", width: "100%", overflow: "hidden", flexWrap: "wrap" }}>
-                <Box sx={{ width: "60%", position: "relative" }}>
-                    <Avatar
-                        src={images[largeTextureName]}
-                        variant="plain"
+            <>
+                <Box sx={{ display: "flex", width: "100%", overflow: "hidden", flexWrap: "wrap" }}>
+                    <Box sx={{ width: "60%", position: "relative" }}>
+                        <Avatar
+                            src={images[largeTextureName]}
+                            variant="plain"
+                            sx={{
+                                width: "100%",
+                                zIndex: 5,
+                                height: "auto",
+                                objectFit: "contain",
+                                overflow: "visible",
+                                transition: "opacity 120ms ease-out",
+                            }}
+                            onLoad={onImageLoaded}
+                            onError={onImageLoaded}
+                        />
+                    </Box>
+                    <Box
                         sx={{
-                            width: "100%",
-                            zIndex: 5,
-                            height: "auto",
-                            transform: "rotateX(-180deg)",
-                            objectFit: "contain",
-                            overflow: "visible",
+                            width: "38%",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "center",
+                            pl: 3,
+                            pt: 1,
+                            pb: 1,
+                            transformOrigin: "top left",
+                            opacity: statsVisible ? 1 : 0,
+                            transition: "opacity 140ms ease-out, transform 140ms ease-out",
+                            transform: statsVisible ? "scale(1.2)" : "scale(1.2) translateY(4px)",
                         }}
-                    />
+                    >
+                        {statsContent}
+                    </Box>
                 </Box>
-                <Box
-                    sx={{
-                        width: "38%",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                        pl: 3,
-                        pt: 1,
-                        pb: 1,
-                        transform: "scale(1.2)",
-                    }}
-                >
-                    {content}
-                </Box>
-            </Box>
+                <Box sx={{ width: "100%" }}>{abilitiesBlock}</Box>
+            </>
         );
     } else {
+        // vertical layout
         return (
             <Box sx={{ position: "relative", marginBottom: 1.5 }}>
                 <Avatar
@@ -558,28 +653,41 @@ const UnitStatsLayout: React.FC<{
                     src={images[largeTextureName]}
                     variant="plain"
                     sx={{
-                        transform: "rotateX(-180deg)",
                         zIndex: 5,
-                        width: "auto", // Removes fixed width
-                        height: "auto", // Removes fixed height, letting the image maintain its natural size
-                        maxWidth: "100%", // Ensures the image does not overflow its container
-                        maxHeight: "100%", // Ensures the image does not overflow vertically
-                        objectFit: "contain", // Ensures the image fits without cropping
+                        width: "auto",
+                        height: "auto",
+                        maxWidth: "100%",
+                        maxHeight: "100%",
+                        objectFit: "contain",
                         overflow: "visible",
+                        transition: "opacity 120ms ease-out",
                     }}
+                    onLoad={onImageLoaded}
+                    onError={onImageLoaded}
                 />
                 <Box
                     sx={{
                         width: "90%",
-                        display: "flex",
+                        display: statsVisible ? "flex" : "none",
                         flexDirection: "column",
                         justifyContent: "center",
                         pl: 4,
                         py: 4,
-                        transform: "scale(1.2)", // Enlarges all elements by 20%
+                        transformOrigin: "top left",
+                        opacity: statsVisible ? 1 : 0,
+                        transition: statsVisible ? "opacity 140ms ease-out, transform 140ms ease-out" : "none",
+                        transform: statsVisible ? "scale(1.2)" : "scale(1.2) translateY(4px)",
                     }}
                 >
-                    {content}
+                    {statsContent}
+                </Box>
+                <Box
+                    sx={{
+                        width: "100%",
+                        mt: 1,
+                    }}
+                >
+                    {abilitiesBlock}
                 </Box>
             </Box>
         );
@@ -618,42 +726,19 @@ const BreakOverlay: React.FC = () => (
     </Box>
 );
 
-export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; unitProperties: UnitProperties }> = ({
-    barSize,
-    columnize,
-    unitProperties,
-}) => {
-    const [overallImpact, setVisibleOverallImpact] = useState({} as IVisibleOverallImpact);
-    const [, setAugmentChanged] = useState(false);
-    const [factionType, setFactionType] = useState(FactionVals.NO_FACTION as FactionType);
+export const UnitStatsListItem: React.FC<{
+    barSize: number;
+    columnize: boolean;
+    unitProperties: UnitProperties;
+    overallImpact: IVisibleOverallImpact;
+    factionType: FactionType;
+}> = ({ barSize, columnize, unitProperties, overallImpact, factionType }) => {
+    console.log("UnitStatsListItem rendered");
+    console.log(unitProperties);
+
+    const [imageLoaded, setImageLoaded] = useState(false);
     const theme = useTheme();
     const isDarkMode = theme.palette.mode === "dark";
-
-    const manager = usePixiManager();
-
-    useEffect(() => {
-        const connection2 = manager.onFactionSelected.connect(setFactionType);
-        return () => {
-            connection2.disconnect();
-        };
-    });
-
-    useEffect(() => {
-        const connection3 = manager.onVisibleOverallImpactUpdated.connect(setVisibleOverallImpact);
-        return () => {
-            connection3.disconnect();
-        };
-    });
-
-    useEffect(() => {
-        const connection = manager.onAugmentChanged.connect((hasChanged) => {
-            setAugmentChanged(hasChanged);
-        });
-
-        return () => {
-            connection.disconnect();
-        };
-    }, [manager]);
 
     const abilities: IVisibleImpact[] = overallImpact.abilities || [];
     const buffs: IVisibleImpact[] = overallImpact.buffs || [];
@@ -669,7 +754,30 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
         }
     }
 
-    // @ts-ignore: style params
+    const unitKey =
+        (unitProperties && (unitProperties.id as string | undefined)) ||
+        `${unitProperties?.name ?? ""}-${unitProperties?.team ?? ""}-${unitProperties?.amount_alive ?? ""}`;
+    const [phase, setPhase] = useState<0 | 1 | 2>(0);
+
+    useEffect(() => {
+        if (!unitKey) return;
+
+        setPhase(0);
+        setImageLoaded(false);
+
+        const statsTimer = window.setTimeout(() => setPhase(1), 0);
+        const abilitiesTimer = window.setTimeout(() => setPhase(2), 0);
+
+        return () => {
+            window.clearTimeout(statsTimer);
+            window.clearTimeout(abilitiesTimer);
+        };
+    }, [unitKey]);
+
+    const showStatsPhase = phase >= 1;
+    const showAbilitiesPhase = phase >= 2;
+
+    // Faction list item
     if (factionType) {
         return (
             // @ts-ignore: style params
@@ -680,7 +788,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
                             <ListItemContent>
                                 <Typography level="title-sm">{factionType}</Typography>
                             </ListItemContent>
-                            <KeyboardArrowDownIcon sx={{ transform: open ? "rotate(180deg)" : "none" }} />
+                            <KeyboardArrowDownIcon />
                         </ListItemButton>
                     )}
                 >
@@ -689,7 +797,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
                             // @ts-ignore: src params
                             src={images[`${factionType.toLowerCase()}_512`]}
                             variant="plain"
-                            sx={{ transform: "rotateX(-180deg)", zIndex: "modal" }}
+                            sx={{ zIndex: "modal" }}
                             style={{
                                 width: "auto",
                                 height: "auto",
@@ -701,6 +809,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
             </ListItem>
         );
     }
+
     if (unitProperties && Object.keys(unitProperties).length) {
         const stackName = `${unitProperties.name} x${unitProperties.amount_alive}`;
         const damageRange = `${unitProperties.attack_damage_min} - ${unitProperties.attack_damage_max}`;
@@ -721,6 +830,8 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
         const hasDifferentRangeArmor = meleeArmor !== rangeArmor;
         const largeTextureName = unitProperties.large_texture_name;
 
+        const buffsVisible = showAbilitiesPhase && imageLoaded;
+
         return (
             // @ts-ignore: style params
             <ListItem style={{ "--List-nestedInsetStart": "0px" }} nested>
@@ -731,7 +842,7 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
                             <ListItemContent>
                                 <Typography level="title-sm">{stackName}</Typography>
                             </ListItemContent>
-                            <KeyboardArrowDownIcon sx={{ transform: open ? "rotate(180deg)" : "none" }} />
+                            <KeyboardArrowDownIcon />
                         </ListItemButton>
                     )}
                 >
@@ -759,13 +870,22 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
                                 columnize={columnize}
                                 largeTextureName={largeTextureName}
                                 images={images}
+                                showStats={showStatsPhase}
+                                showAbilities={showAbilitiesPhase}
+                                imageLoaded={imageLoaded}
+                                onImageLoaded={() => setImageLoaded(true)}
+                                abilities={abilities}
+                                hasBreakApplied={hasBreakApplied}
+                                team={unitProperties.team}
                             />
                             {hasBuffsOrDebuffs && !columnize && (
                                 <Box
                                     sx={{
                                         width: barSize > 256 ? "20%" : "15%",
-                                        display: "flex",
+                                        display: buffsVisible ? "flex" : "none",
                                         flexDirection: "column",
+                                        opacity: buffsVisible ? 1 : 0,
+                                        transition: buffsVisible ? "opacity 150ms ease-out" : "none",
                                     }}
                                 >
                                     {buffs.length > 0 && <EffectColumnOrRow effects={buffs} title="Buffs" />}
@@ -773,19 +893,16 @@ export const UnitStatsListItem: React.FC<{ barSize: number; columnize: boolean; 
                                 </Box>
                             )}
                         </Box>
-                        <Box sx={{ width: columnize ? "100%" : "auto" }}>
-                            <Typography level="title-sm" sx={{ marginTop: columnize ? 1.5 : 0 }}>
-                                Abilities
-                            </Typography>
-                            <AbilityStack
-                                abilities={abilities}
-                                teamType={unitProperties.team}
-                                isWidescreen={columnize}
-                                hasBreakApplied={hasBreakApplied}
-                            />
-                        </Box>
                         {hasBuffsOrDebuffs && columnize && (
-                            <Box sx={{ width: "100%", display: "flex", flexDirection: "column" }}>
+                            <Box
+                                sx={{
+                                    width: "100%",
+                                    display: buffsVisible ? "flex" : "none",
+                                    flexDirection: "column",
+                                    opacity: buffsVisible ? 1 : 0,
+                                    transition: buffsVisible ? "opacity 150ms ease-out" : "none",
+                                }}
+                            >
                                 <EffectColumnOrRow effects={buffs} title="Buffs" isHorizontalLayout={true} />
                                 <EffectColumnOrRow effects={debuffs} title="Debuffs" isHorizontalLayout={true} />
                             </Box>
