@@ -16,6 +16,7 @@ import {
     AttackType,
     GridType,
     SynergyWithLevel,
+    AbilityHelper,
 } from "@heroesofcrypto/common";
 
 import { Settings } from "../settings";
@@ -352,13 +353,89 @@ export abstract class PixiScene {
 
             visibleAbilitiesImpact.push({
                 name: abilityName,
-                smallTextureName: "",
+                smallTextureName: AbilityHelper.abilityToTextureName(abilityName),
                 description: abilityDescription,
                 laps: Number.MAX_SAFE_INTEGER,
                 stackPower: unitProperties.stack_power,
                 isStackPowered,
                 isAura,
             });
+        }
+
+        if (
+            unitProperties.applied_effects.length === unitProperties.applied_effects_laps.length &&
+            unitProperties.applied_effects.length === unitProperties.applied_effects_descriptions.length
+        ) {
+            for (let i = 0; i < unitProperties.applied_effects.length; i++) {
+                const lapsRemaining = unitProperties.applied_effects_laps[i];
+                if (lapsRemaining < 1) {
+                    continue;
+                }
+
+                const effectName = unitProperties.applied_effects[i];
+                const description = unitProperties.applied_effects_descriptions[i];
+
+                visibleDebuffsImpact.push({
+                    name: effectName,
+                    smallTextureName: AbilityHelper.abilityToTextureName(effectName),
+                    description: description,
+                    laps: lapsRemaining,
+                    stackPower: 0,
+                    isStackPowered: false,
+                    isAura: false,
+                });
+            }
+        }
+
+        if (
+            unitProperties.applied_buffs.length === unitProperties.applied_buffs_laps.length &&
+            unitProperties.applied_buffs.length === unitProperties.applied_buffs_descriptions.length
+        ) {
+            for (let i = 0; i < unitProperties.applied_buffs.length; i++) {
+                const lapsRemaining = unitProperties.applied_buffs_laps[i];
+                if (lapsRemaining < 1) {
+                    continue;
+                }
+
+                const buffName = unitProperties.applied_buffs[i];
+
+                const description = unitProperties.applied_buffs_descriptions[i].split(";")[0];
+
+                visibleBuffsImpact.push({
+                    name: buffName,
+                    smallTextureName: AbilityHelper.abilityToTextureName(buffName),
+                    description: description,
+                    laps: lapsRemaining,
+                    stackPower: 0,
+                    isStackPowered: false,
+                    isAura: false,
+                });
+            }
+        }
+
+        if (
+            unitProperties.applied_debuffs.length === unitProperties.applied_debuffs_laps.length &&
+            unitProperties.applied_debuffs.length === unitProperties.applied_debuffs_descriptions.length
+        ) {
+            for (let i = 0; i < unitProperties.applied_debuffs.length; i++) {
+                const lapsRemaining = unitProperties.applied_debuffs_laps[i];
+                if (lapsRemaining < 1) {
+                    continue;
+                }
+
+                const debuffName = unitProperties.applied_debuffs[i];
+                const description = unitProperties.applied_debuffs_descriptions[i].split(";")[0];
+
+                visibleDebuffsImpact.push({
+                    name: debuffName,
+                    smallTextureName: AbilityHelper.abilityToTextureName(debuffName),
+                    description: description,
+                    laps: lapsRemaining,
+                    stackPower: 0,
+                    isStackPowered: false,
+                    isAura: false,
+                });
+            }
         }
 
         visibleBuffsImpact.sort((a, b) => {

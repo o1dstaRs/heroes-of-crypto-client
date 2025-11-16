@@ -1,4 +1,4 @@
-import { UnitProperties } from "@heroesofcrypto/common";
+import { UnitProperties, FactionType, FactionVals } from "@heroesofcrypto/common";
 import DiceIcon from "@mui/icons-material/Casino";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import FactoryRoundedIcon from "@mui/icons-material/FactoryRounded";
@@ -11,7 +11,7 @@ import ListItemButton from "@mui/joy/ListItemButton";
 import Sheet from "@mui/joy/Sheet";
 import { useColorScheme } from "@mui/joy/styles";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 
 import { MessageBox } from "./MessageBox";
 import { usePixiManager } from "../../pixi/PixiGameManager";
@@ -20,7 +20,16 @@ import redOverlayImage from "../../../images/overlay_red.webp";
 import { UnitStatsListItem } from "./UnitStatsListItem";
 import { UpNext } from "./UpNext";
 import SynergiesRow from "./SynergiesRow";
-import { IWindowSize } from "../../state/visible_state";
+import { IWindowSize, IVisibleOverallImpact } from "../../state/visible_state";
+
+type SidebarSelectionState = {
+    unit: UnitProperties;
+    overallImpact: IVisibleOverallImpact;
+    factionType: FactionType;
+};
+
+const emptyUnit = {} as UnitProperties;
+const emptyImpact = {} as IVisibleOverallImpact;
 
 export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: boolean; windowSize: IWindowSize }) {
     const [badgeVisible, setBadgeVisible] = useState(false);
@@ -31,7 +40,12 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
         factory: false,
         dashboard: false,
     });
-    const [unitProperties, setUnitProperties] = useState<UnitProperties>({} as UnitProperties);
+
+    const [selection, setSelection] = useState<SidebarSelectionState>({
+        unit: emptyUnit,
+        overallImpact: emptyImpact,
+        factionType: FactionVals.NO_FACTION as FactionType,
+    });
 
     const { setMode } = useColorScheme();
     const manager = usePixiManager();
@@ -48,12 +62,10 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
         setBarSize(rightBarEndAtBoard > 0 ? rightBarEndAtBoard : 0);
     }, [windowSize.width, windowSize.height]);
 
-    // Handle bar size updates
     useEffect(() => {
         adjustBarSize();
     }, [adjustBarSize]);
 
-    // Handle badge visibility
     useEffect(() => {
         const interval = setInterval(() => {
             setBadgeVisible(true);
@@ -66,15 +78,69 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
         return () => clearInterval(interval);
     }, []);
 
-    // Handle unit selection
-    useEffect(() => {
-        const connection = manager.onUnitSelected.connect(setUnitProperties);
-        return () => {
-            connection.disconnect();
-        };
-    }, [manager]);
+    // --- Batch all manager events into a single state update ------------------
+    const pendingRef = useRef(selection);
+    const scheduledRef = useRef(false);
+    const lastSelectionKeyRef = useRef<string | null>(null);
 
-    // Set dark mode
+    const flush = useCallback(() => {
+        scheduledRef.current = false;
+        setSelection(pendingRef.current);
+    }, []);
+
+    const scheduleFlush = useCallback(() => {
+        if (scheduledRef.current) return;
+        scheduledRef.current = true;
+        // Next animation frame is fine for UI
+        requestAnimationFrame(flush);
+    }, [flush]);
+
+    useEffect(() => {
+        const handleUnitSelected = (unit: UnitProperties | null) => {
+            const safeUnit = unit ?? ({} as UnitProperties);
+            const key = safeUnit
+                ? `${safeUnit.name}-${safeUnit.team}-${safeUnit.amount_alive}-${safeUnit.large_texture_name ?? ""}`
+                : "none";
+
+            if (lastSelectionKeyRef.current === key) {
+                return;
+            }
+            lastSelectionKeyRef.current = key;
+
+            pendingRef.current = {
+                ...pendingRef.current,
+                unit: safeUnit,
+            };
+            scheduleFlush();
+        };
+
+        const handleImpact = (impact: IVisibleOverallImpact | null) => {
+            pendingRef.current = {
+                ...pendingRef.current,
+                overallImpact: impact ?? ({} as IVisibleOverallImpact),
+            };
+            scheduleFlush();
+        };
+
+        const handleFaction = (f: FactionType) => {
+            pendingRef.current = {
+                ...pendingRef.current,
+                factionType: f,
+            };
+            scheduleFlush();
+        };
+
+        const c1 = manager.onUnitSelected.connect(handleUnitSelected);
+        const c2 = manager.onVisibleOverallImpactUpdated.connect(handleImpact);
+        const c3 = manager.onFactionSelected.connect(handleFaction);
+
+        return () => {
+            c1.disconnect();
+            c2.disconnect();
+            c3.disconnect();
+        };
+    }, [manager, scheduleFlush]);
+
     useEffect(() => {
         setMode("dark");
     }, [setMode]);
@@ -82,6 +148,11 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
     const shouldColumnize = useMemo(() => {
         return windowSize.width / windowSize.height >= 16 / 9;
     }, [windowSize.width, windowSize.height]);
+
+    const unitProperties = selection.unit || ({} as UnitProperties);
+    const hasSelectedUnit = !!unitProperties.team;
+    const synergies = ((unitProperties as UnitProperties).synergies as string[]) || [];
+    const hasSynergies = Array.isArray(synergies) && synergies.length > 0;
 
     return (
         <Sheet
@@ -103,28 +174,34 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
                 overflowX: "hidden",
             }}
         >
-            {unitProperties.team ? (
-                <>
-                    <Box
-                        component="img"
-                        src={unitProperties.team === 2 ? greenOverlayImage : redOverlayImage}
-                        sx={{
-                            position: "absolute",
-                            width: "350px",
-                            height: "100%",
-                            top: 0,
-                            right: -350,
-                            transform: "rotate(65deg)",
-                            transformOrigin: "top left",
-                            opacity: 1,
-                            zIndex: 0,
-                        }}
-                    />
-                    <SynergiesRow synergies={unitProperties.synergies} />
-                </>
-            ) : (
-                <Box sx={{ height: "40px" }} />
+            {hasSelectedUnit && (
+                <Box
+                    component="img"
+                    src={unitProperties.team === 2 ? greenOverlayImage : redOverlayImage}
+                    sx={{
+                        position: "absolute",
+                        width: "350px",
+                        height: "100%",
+                        top: 0,
+                        right: -350,
+                        transform: "rotate(65deg)",
+                        transformOrigin: "top left",
+                        opacity: 1,
+                        zIndex: 0,
+                    }}
+                />
             )}
+
+            <Box
+                sx={{
+                    height: "40px",
+                    display: "flex",
+                    alignItems: "center",
+                    overflow: "hidden",
+                }}
+            >
+                {hasSelectedUnit && hasSynergies && <SynergiesRow synergies={synergies} />}
+            </Box>
 
             <Box
                 sx={{
@@ -212,7 +289,13 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
 
                     <Divider />
 
-                    <UnitStatsListItem barSize={barSize} columnize={shouldColumnize} unitProperties={unitProperties} />
+                    <UnitStatsListItem
+                        barSize={barSize}
+                        columnize={shouldColumnize}
+                        unitProperties={unitProperties}
+                        overallImpact={selection.overallImpact}
+                        factionType={selection.factionType}
+                    />
 
                     <Box sx={{ flexGrow: 1 }} />
 

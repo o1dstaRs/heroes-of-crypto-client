@@ -95,7 +95,7 @@ export class PixiGameManager {
     private pixiApp: PixiApp | null = null;
     private pixiSceneManager: PixiSceneManager | null = null;
     private textures: PreloadedPixiTextures | null = null;
-    private forwardToggleClick?: (e: PointerEvent) => void;
+    private forwardOverlayInteraction?: (e: PointerEvent) => void;
     private overlayDebugCanvas?: HTMLCanvasElement;
     public constructor() {
         for (const { scenes } of this.groupedScenes) this.flatScenes.push(...scenes);
@@ -178,23 +178,23 @@ export class PixiGameManager {
 
         const initialOverlay = getUnitsOverlayFromScene(this.m_scene);
         if (initialOverlay) {
-            const pixiCanvas = this._pixiApp.getApplication().canvas as HTMLCanvasElement;
-
-            const forwardToggleClick = (e: PointerEvent) => {
-                const cr = pixiCanvas.getBoundingClientRect();
-                const gx = e.clientX - cr.left;
-                const gy = e.clientY - cr.top;
-
+            const forwardOverlayInteraction = (e: PointerEvent) => {
+                // Use debugCanvas for bounds (assuming it overlays the Pixi canvas perfectly)
+                const canvas = debugCanvas;
+                const cr = canvas.getBoundingClientRect();
+                // Scale for high-DPI: convert CSS pixels to canvas logical pixels
+                const scaleX = canvas.width / cr.width;
+                const scaleY = canvas.height / cr.height;
+                const gx = (e.clientX - cr.left) * scaleX;
+                const gy = (e.clientY - cr.top) * scaleY;
                 const overlay = getUnitsOverlayFromScene(this.m_scene);
-                if (overlay && overlay.hitToggle(gx, gy)) {
-                    overlay.toggle();
+                if (overlay && overlay.handlePointerDown(gx, gy)) {
                     e.preventDefault();
                     e.stopPropagation();
                 }
             };
-
-            debugCanvas.addEventListener("pointerup", forwardToggleClick);
-            this.forwardToggleClick = forwardToggleClick;
+            debugCanvas.addEventListener("pointerdown", forwardOverlayInteraction);
+            this.forwardOverlayInteraction = forwardOverlayInteraction; // For cleanup if needed
             this.overlayDebugCanvas = debugCanvas;
         }
 
@@ -305,11 +305,11 @@ export class PixiGameManager {
         this.fitViewToWindow(); // keep neutral after start too
     }
     public Uninitialize(): void {
-        if (this.overlayDebugCanvas && this.forwardToggleClick) {
-            this.overlayDebugCanvas.removeEventListener("pointerup", this.forwardToggleClick);
+        if (this.overlayDebugCanvas && this.forwardOverlayInteraction) {
+            this.overlayDebugCanvas.removeEventListener("pointerup", this.forwardOverlayInteraction);
         }
         this.overlayDebugCanvas = undefined;
-        this.forwardToggleClick = undefined;
+        this.forwardOverlayInteraction = undefined;
 
         this.isInitialized = false;
         this.pixiApp?.destroy();

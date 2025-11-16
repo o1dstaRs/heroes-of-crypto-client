@@ -21,7 +21,12 @@ import { UnitsOverlay } from "./UnitsOverlay";
 import { VisibleButtonState, IVisibleButton } from "../state/visible_state";
 import { SceneSettings } from "../scenes/scene_settings";
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
-import { DrawableRectanglePlacement, DrawableSquarePlacement, IDrawablePlacement } from "../pixi/PixiDrawablePlacement";
+import {
+    DrawableRectanglePlacement,
+    DrawableSquarePlacement,
+    IDrawablePlacement,
+    setSpawnFlowPhase,
+} from "../pixi/PixiDrawablePlacement";
 
 export class Sandbox extends PixiScene {
     private gridType: GridType;
@@ -33,12 +38,12 @@ export class Sandbox extends PixiScene {
     private spellBookButton: IVisibleButton;
     private unitsOverlay: UnitsOverlay;
     private bgSprite?: Sprite;
+    private spawnPulsePhase = 0;
     private bgKey: "background_dark" | "background_light" = "background_dark";
     private cornerGfxWorld?: Graphics;
     private placementGraphics?: Graphics;
     private readonly allowedPlacementCellHashes: Set<number>;
     private readonly allowedPlacementCellHashesPerTeam: Map<TeamType, Set<number>>;
-    private placementsDirty = true;
     private upperPlacements: [IDrawablePlacement?, IDrawablePlacement?];
     private lowerPlacements: [IDrawablePlacement?, IDrawablePlacement?];
     public constructor(context: PixiSceneContext) {
@@ -162,7 +167,6 @@ export class Sandbox extends PixiScene {
         this.unitsOverlay.build();
 
         this.initializePlacements();
-        this.placementsDirty = true;
     }
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return this.unitsOverlay;
@@ -174,9 +178,6 @@ export class Sandbox extends PixiScene {
 
         // Reposition (don’t redraw geometry) so quads don’t disappear.
         this.layoutCornerMarkersWorld();
-
-        // Ensure placements redraw once (verts recompute against new transforms).
-        this.placementsDirty = true;
     }
     protected selectUnitPreStart(
         _teamType: TeamType,
@@ -301,8 +302,6 @@ export class Sandbox extends PixiScene {
 
         // IMPORTANT: relayout AFTER reattaching
         this.layoutCornerMarkersWorld();
-
-        this.placementsDirty = true;
     }
     protected verifyButtonsTrigger(): void {}
     public propagateAugmentation(_t: TeamType, _a: Augment.AugmentType): boolean {
@@ -330,7 +329,6 @@ export class Sandbox extends PixiScene {
         this.pixiSceneManager.setGridType(gridType);
         this.sc_gridTypeUpdateNeeded = true;
         this.layoutCornerMarkersWorld();
-        this.placementsDirty = true;
     }
     public getGridType(): GridType {
         return this.gridType;
@@ -366,16 +364,20 @@ export class Sandbox extends PixiScene {
         this.ensureBackgroundSprite();
         this.layoutBackgroundSquare();
 
-        this.ensureCornerMarkersWorld();
+        // this.ensureCornerMarkersWorld();
         this.ensurePlacementGraphicsWorld();
 
-        // <- reattach every frame in case camera swapped the world container
-        this.attachToWorldRoot(this.cornerGfxWorld, 90);
+        // this.attachToWorldRoot(this.cornerGfxWorld, 90);
         this.attachToWorldRoot(this.placementGraphics, 100);
 
-        if (this.placementsDirty) {
+        const ticker = this.pixiSceneManager.getApplication().ticker;
+        const dt = Math.min(0.05, (ticker.deltaMS ?? 16.666) / 1000);
+        this.spawnPulsePhase = (this.spawnPulsePhase + (dt * (Math.PI * 2)) / 4) % (Math.PI * 2);
+        setSpawnFlowPhase(this.spawnPulsePhase);
+
+        // always redraw placements (geometry is cached in placements themselves)
+        if (this.placementGraphics) {
             this.drawPlacements();
-            this.placementsDirty = false;
         }
     }
     private initializePlacements(): void {
@@ -463,8 +465,6 @@ export class Sandbox extends PixiScene {
         addHashes(TeamVals.LOWER, this.lowerPlacements[1]);
         addHashes(TeamVals.UPPER, this.upperPlacements[0]);
         addHashes(TeamVals.UPPER, this.upperPlacements[1]);
-
-        this.placementsDirty = true;
     }
     private drawPlacements(): void {
         if (!this.placementGraphics) return;

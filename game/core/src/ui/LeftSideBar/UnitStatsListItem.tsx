@@ -60,6 +60,7 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     const backgroundColor = teamType === TeamVals.LOWER ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.4)";
     const borderColor = teamType === TeamVals.LOWER ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.4)";
 
+    // --- AURA: tiles along a half-circle around the icon --------------------
     if (isAura) {
         const tileSize = 22;
         const margin = 2;
@@ -457,7 +458,6 @@ const UnitStatsLayout: React.FC<{
     } else if (unitProperties.attack_multiplier === 1 && unitProperties.attack_mod < 0) {
         attackColor = "danger";
     }
-
     const statsContent = (
         <>
             <StatGroup>
@@ -579,10 +579,8 @@ const UnitStatsLayout: React.FC<{
             </StatGroup>
         </>
     );
-
     console.log(abilitiesVisible);
     console.log(abilities);
-
     const abilitiesBlock = (
         <Box
             sx={{
@@ -601,7 +599,6 @@ const UnitStatsLayout: React.FC<{
             />
         </Box>
     );
-
     if (columnize) {
         // widescreen layout
         return (
@@ -636,6 +633,7 @@ const UnitStatsLayout: React.FC<{
                             opacity: statsVisible ? 1 : 0,
                             transition: "opacity 140ms ease-out, transform 140ms ease-out",
                             transform: statsVisible ? "scale(1.2)" : "scale(1.2) translateY(4px)",
+                            pointerEvents: statsVisible ? "auto" : "none",
                         }}
                     >
                         {statsContent}
@@ -668,7 +666,7 @@ const UnitStatsLayout: React.FC<{
                 <Box
                     sx={{
                         width: "90%",
-                        display: statsVisible ? "flex" : "none",
+                        display: "flex",
                         flexDirection: "column",
                         justifyContent: "center",
                         pl: 4,
@@ -677,6 +675,7 @@ const UnitStatsLayout: React.FC<{
                         opacity: statsVisible ? 1 : 0,
                         transition: statsVisible ? "opacity 140ms ease-out, transform 140ms ease-out" : "none",
                         transform: statsVisible ? "scale(1.2)" : "scale(1.2) translateY(4px)",
+                        pointerEvents: statsVisible ? "auto" : "none",
                     }}
                 >
                     {statsContent}
