@@ -14,7 +14,6 @@ import {
     FactionVals,
     ToFactionName,
     UnitProperties,
-    UnitLevelVals,
     TeamVals,
     HoCConfig,
 } from "@heroesofcrypto/common";
@@ -247,11 +246,7 @@ export class UnitsOverlay {
                 for (const unitName of namesForLevel) {
                     const unitProperties = this.getUnitProperties(unitName);
 
-                    const texName = unitToTextureName(
-                        unitName,
-                        lvl === UnitLevelVals.FOURTH ? TextureType.LARGE : TextureType.SMALL,
-                        sizeFlag,
-                    );
+                    const texName = unitToTextureName(unitName, TextureType.SMALL, sizeFlag);
                     const tex = this.getTex(texName);
 
                     const chip = new UnitChip({

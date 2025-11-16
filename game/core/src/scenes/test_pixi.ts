@@ -36,6 +36,7 @@ import {
     IDrawablePlacement,
     setSpawnFlowPhase,
 } from "../pixi/PixiDrawablePlacement";
+import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 
 export class Sandbox extends PixiScene {
     private readonly grid: Grid;
@@ -59,11 +60,24 @@ export class Sandbox extends PixiScene {
     private lowerPlacements: [IDrawablePlacement?, IDrawablePlacement?];
     private hoverPlacementCell?: HoCMath.XY; // cell currently hovered for placement
     private hoverPlacementCellTeam?: TeamType; // LOWER / UPPER (optional, if you care)
+    private hoverSilhouette?: Sprite;
+    private hoverSilhouetteOutline?: Sprite;
+    private hoverSilhouetteKey?: string;
     private hoverSelectedCells?: HoCMath.XY[];
     private cellToUnitPreRound?: Map<string, Unit>;
+    private unitSprites: Map<string, Sprite> = new Map();
     private hoverSelectedCellsSwitchToRed = false;
     private readonly unitsHolder: UnitsHolder;
     private readonly abilityFactory: AbilityFactory;
+    private spawnAnimations: {
+        sprite: Sprite;
+        startScaleX: number;
+        startScaleY: number;
+        endScaleX: number;
+        endScaleY: number;
+        elapsed: number;
+        duration: number;
+    }[] = [];
     public constructor(context: PixiSceneContext) {
         const gs = new GridSettings(
             GridConstants.GRID_SIZE,
@@ -217,6 +231,115 @@ export class Sandbox extends PixiScene {
 
         return undefined;
     }
+    private ensureUnitSprite(unit: Unit, props: UnitProperties): { sprite: Sprite; scale: number } | undefined {
+        const id = unit.getId();
+        let sprite = this.unitSprites.get(id);
+
+        // --- texture key based on unit props (same logic as hover) ---
+        const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
+        const tex = this.texAny(texName);
+        if (!tex) {
+            return undefined;
+        }
+
+        if (!sprite) {
+            sprite = new Sprite(tex);
+            sprite.anchor.set(0.5);
+            // y-up world → flip vertically in Pixi
+            sprite.scale.y = -1;
+            this.attachToWorldRoot(sprite, 120); // above placements & hover
+            this.unitSprites.set(id, sprite);
+        } else {
+            sprite.texture = tex;
+        }
+
+        const pos = unit.getPosition();
+        const targetSize = props.size === 2 ? 256 : 128;
+        const baseWidth = tex.width || 1;
+        const scale = targetSize / baseWidth;
+
+        sprite.scale.set(scale, -scale);
+        sprite.x = pos.x;
+        sprite.y = pos.y;
+        sprite.visible = true;
+        sprite.alpha = 1;
+        sprite.tint = 0xffffff;
+
+        return { sprite, scale };
+    }
+    private startSpawnAnimation(sprite: Sprite, endScale: number): void {
+        const endScaleX = endScale;
+        const endScaleY = -endScale; // keep y-flip
+
+        // Start a bit bigger and fade in → "materializing" feel
+        const startScaleX = endScaleX * 1.3;
+        const startScaleY = endScaleY * 1.3;
+
+        sprite.scale.set(startScaleX, startScaleY);
+        sprite.alpha = 0;
+
+        this.spawnAnimations.push({
+            sprite,
+            startScaleX,
+            startScaleY,
+            endScaleX,
+            endScaleY,
+            elapsed: 0,
+            duration: 0.25, // ~0.25s animation
+        });
+    }
+    private updateSpawnAnimations(dt: number): void {
+        if (!dt || this.spawnAnimations.length === 0) return;
+
+        // Simple ease-out (cubic)
+        const easeOutCubic = (t: number) => {
+            const u = 1 - t;
+            return 1 - u * u * u;
+        };
+
+        this.spawnAnimations = this.spawnAnimations.filter((anim) => {
+            // If sprite was removed, drop animation
+            if (!anim.sprite.parent) {
+                return false;
+            }
+
+            anim.elapsed += dt;
+            const t = Math.min(anim.elapsed / anim.duration, 1);
+            const e = easeOutCubic(t);
+
+            const sx = anim.startScaleX + (anim.endScaleX - anim.startScaleX) * e;
+            const sy = anim.startScaleY + (anim.endScaleY - anim.startScaleY) * e;
+
+            anim.sprite.scale.set(sx, sy);
+            anim.sprite.alpha = e;
+
+            if (t >= 1) {
+                anim.sprite.scale.set(anim.endScaleX, anim.endScaleY);
+                anim.sprite.alpha = 1;
+                return false; // finished
+            }
+            return true;
+        });
+    }
+    private syncUnitSprites(): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+
+        for (const [id, unit] of this.unitsHolder.getAllUnits()) {
+            const sprite = this.unitSprites.get(id);
+            if (!sprite) continue;
+
+            const pos = unit.getPosition();
+            // optional: hide if outside board
+            if (!GridMath.isPositionWithinGrid(gs, pos)) {
+                sprite.visible = false;
+                continue;
+            }
+
+            sprite.visible = true;
+            sprite.x = pos.x;
+            sprite.y = pos.y;
+        }
+    }
     private drawHoverPlacementCell(gfx: Graphics): void {
         const cells = this.hoverSelectedCells;
         if (!cells || cells.length === 0) return;
@@ -263,96 +386,6 @@ export class Sandbox extends PixiScene {
             .stroke({ width: 2, color: strokeColor, alpha: 1 })
             .fill({ color: fillColor, alpha: fillAlpha });
     }
-    protected isAllowedPreStartMousePosition(unit: Unit, cells: HoCMath.XY[]): boolean {
-        const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
-        const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-
-        if (!lowerLeftPlacement || !upperRightPlacement) {
-            return false;
-        }
-
-        const lowerRightPlacement = this.getPlacement(TeamVals.LOWER, 1);
-        const upperLeftPlacement = this.getPlacement(TeamVals.UPPER, 1);
-
-        const mouseWorld = this.sc_mouseWorld;
-        const gridSettings = this.sc_sceneSettings.getGridSettings();
-
-        // --- core placement rule: team must be in its placement rectangles
-        const isInTeamPlacement =
-            ((unit.getTeam() === TeamVals.LOWER || unit.getTeam() === TeamVals.NO_TEAM) &&
-                ((lowerLeftPlacement.isAllowed(mouseWorld) ?? false) ||
-                    (lowerRightPlacement?.isAllowed(mouseWorld) ?? false))) ||
-            ((unit.getTeam() === TeamVals.UPPER || unit.getTeam() === TeamVals.NO_TEAM) &&
-                ((upperRightPlacement.isAllowed(mouseWorld) ?? false) ||
-                    (upperLeftPlacement?.isAllowed(mouseWorld) ?? false)));
-
-        // Determine which team the mouse is targeting (proposed team)
-        let proposedTeam: TeamType = TeamVals.NO_TEAM;
-        if (
-            (lowerLeftPlacement.isAllowed(mouseWorld) ?? false) ||
-            (lowerRightPlacement?.isAllowed(mouseWorld) ?? false)
-        ) {
-            proposedTeam = TeamVals.LOWER;
-        } else if (
-            (upperRightPlacement.isAllowed(mouseWorld) ?? false) ||
-            (upperLeftPlacement?.isAllowed(mouseWorld) ?? false)
-        ) {
-            proposedTeam = TeamVals.UPPER;
-        }
-
-        // how many allies of this team are already placed on the field
-        const alliesPlacedCount = this.unitsHolder.getAllAlliesPlaced(
-            proposedTeam,
-            lowerLeftPlacement,
-            upperRightPlacement,
-            lowerRightPlacement,
-            upperLeftPlacement,
-        ).length;
-
-        const maxUnitsForTeam = FightStateManager.getInstance()
-            .getFightProperties()
-            .getNumberOfUnitsAvailableForPlacement(proposedTeam);
-
-        const canPlaceMore = alliesPlacedCount < maxUnitsForTeam;
-
-        // if the unit is already on the grid, we allow "reposition" even if cap is reached
-        const isInsideGridAtOwnPosition = GridMath.isPositionWithinGrid(gridSettings, unit.getPosition());
-
-        const isInPlacementAndAllowedCount = isInTeamPlacement && (canPlaceMore || isInsideGridAtOwnPosition);
-
-        // --- extra "side lanes" where you can drag units but not place inside the grid
-        const inRightLane =
-            mouseWorld.x >= GridConstants.MAX_X &&
-            mouseWorld.x < GridConstants.MAX_X + gridSettings.getTwoSteps() &&
-            mouseWorld.y < GridConstants.MAX_Y &&
-            mouseWorld.y >= GridConstants.MIN_Y;
-
-        const inLeftLane =
-            mouseWorld.x < GridConstants.MIN_X &&
-            mouseWorld.x >= GridConstants.MIN_X - gridSettings.getTwoSteps() &&
-            mouseWorld.y >= GridConstants.STEP * PathHelper.Y_FACTION_ICONS_OFFSET &&
-            mouseWorld.y < GridConstants.MAX_Y;
-
-        const baseAllowed = isInPlacementAndAllowedCount || inRightLane || inLeftLane;
-
-        // --- for large units, if we have a candidate square selection, validate that shape
-        if (!baseAllowed || unit.isSmallSize()) {
-            return baseAllowed;
-        }
-
-        return this.pathHelper.areCellsFormingSquare(cells);
-    }
-    private buildLargeUnitCells(baseCell: HoCMath.XY): HoCMath.XY[] {
-        // Simple bottom-left anchored 2×2:
-        //  [ (x, y)     (x+1, y) ]
-        //  [ (x, y+1)   (x+1, y+1) ]
-        return [
-            { x: baseCell.x, y: baseCell.y },
-            { x: baseCell.x + 1, y: baseCell.y },
-            { x: baseCell.x, y: baseCell.y + 1 },
-            { x: baseCell.x + 1, y: baseCell.y + 1 },
-        ];
-    }
     private resetHover(resetSelectedCells = true): void {
         if (resetSelectedCells) {
             this.hoverSelectedCells = undefined;
@@ -378,6 +411,76 @@ export class Sandbox extends PixiScene {
         // this.rangeResponseAttackDivisor = 1;
         this.sc_moveBlocked = false;
         this.sc_isSelection = false;
+        this.clearHoverSilhouette();
+    }
+    private clearHoverSilhouette(): void {
+        if (this.hoverSilhouette) {
+            this.hoverSilhouette.visible = false;
+        }
+        if (this.hoverSilhouetteOutline) {
+            this.hoverSilhouetteOutline.visible = false;
+        }
+    }
+    private updateHoverSilhouette(boundsCenter: HoCMath.XY): void {
+        const selected = this.sc_selectedUnitProperties;
+
+        if (!selected || this.hoverSelectedCellsSwitchToRed || !this.hoverSelectedCells?.length) {
+            this.clearHoverSilhouette();
+            return;
+        }
+
+        const texName = unitToTextureName(selected.name, TextureType.SMALL, selected.size);
+        const tex = this.texAny(texName);
+
+        if (!tex) {
+            this.clearHoverSilhouette();
+            return;
+        }
+
+        if (!this.hoverSilhouette) {
+            this.hoverSilhouette = new Sprite(tex);
+            this.hoverSilhouette.anchor.set(0.5);
+            this.attachToWorldRoot(this.hoverSilhouette, 110);
+            this.hoverSilhouette.scale.y = -1;
+        } else if (this.hoverSilhouetteKey !== texName) {
+            this.hoverSilhouette.texture = tex;
+        }
+
+        if (!this.hoverSilhouetteOutline) {
+            this.hoverSilhouetteOutline = new Sprite(tex);
+            this.hoverSilhouetteOutline.anchor.set(0.5);
+            this.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
+            this.hoverSilhouetteOutline.scale.y = -1;
+        } else if (this.hoverSilhouetteKey !== texName) {
+            this.hoverSilhouetteOutline.texture = tex;
+        }
+
+        this.hoverSilhouetteKey = texName;
+
+        const sprite = this.hoverSilhouette;
+        const outline = this.hoverSilhouetteOutline;
+
+        const targetSize = selected.size === 2 ? 256 : 128;
+
+        const baseWidth = tex.width || 1;
+        const scale = targetSize / baseWidth;
+        const outlineScale = scale * 1.06;
+
+        sprite.scale.set(scale, -scale);
+        outline.scale.set(outlineScale, -outlineScale);
+
+        sprite.x = boundsCenter.x;
+        sprite.y = boundsCenter.y;
+        outline.x = boundsCenter.x;
+        outline.y = boundsCenter.y;
+
+        outline.visible = true;
+        outline.alpha = 0.9;
+        outline.tint = 0xffffff;
+
+        sprite.visible = true;
+        sprite.alpha = 0.8;
+        sprite.tint = 0x000000;
     }
     private updateHoverPlacementCell(worldPos: HoCMath.XY): void {
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -388,6 +491,7 @@ export class Sandbox extends PixiScene {
         this.hoverPlacementCellTeam = undefined;
         this.hoverSelectedCells = undefined;
         this.hoverSelectedCellsSwitchToRed = false;
+        this.clearHoverSilhouette();
 
         if (!selected) return; // no unit selected → no hover
 
@@ -396,10 +500,6 @@ export class Sandbox extends PixiScene {
 
         const isLarge = selected.size === 2;
 
-        // ---------------------------------------------------------
-        // 1) Determine which team this hovered cell belongs to
-        //    (because selected.team is NO_TEAM in Sandbox)
-        // ---------------------------------------------------------
         const cellHash = (cell.x << 4) | cell.y;
         let teamFromPlacement: TeamType | undefined;
 
@@ -409,7 +509,7 @@ export class Sandbox extends PixiScene {
             teamFromPlacement = TeamVals.UPPER;
         }
 
-        // If the cell is not in any placement area, we can still show red 1×1 hover and bail for large.
+        // If the cell is not in any placement area, nothing to show
         if (!teamFromPlacement) {
             this.resetHover();
             return;
@@ -421,7 +521,6 @@ export class Sandbox extends PixiScene {
         let candidateCells: HoCMath.XY[];
 
         if (isLarge) {
-            console.log("LARGE UNIT → using getClosestSquareCellIndices");
             const occupiedKeys: string[] = []; // Sandbox: no pre-round units yet
 
             candidateCells =
@@ -443,25 +542,12 @@ export class Sandbox extends PixiScene {
             this.hoverSelectedCellsSwitchToRed = true;
             this.hoverPlacementCell = cell;
             this.hoverPlacementCellTeam = teamFromPlacement;
-            console.log("RETURN 1");
             return;
         }
 
-        // ---------------------------------------------------------
-        // 2) Use original helper for large units, 1×1 for small
-        // ---------------------------------------------------------
-
-        console.log("candidateCells:", candidateCells);
-
-        // ---------------------------------------------------------
-        // 3) Validate candidates:
-        //    - large → must be 4 cells forming a square
-        //    - inside global allowedPlacementCellHashes
-        //    - empty on grid
-        //    - respect isAllowedPreStartMousePosition
-        // ---------------------------------------------------------
         let invalid = false;
 
+        // Large units must have 4 cells forming a square
         if (isLarge) {
             if (candidateCells?.length !== 4) {
                 this.resetHover();
@@ -471,6 +557,7 @@ export class Sandbox extends PixiScene {
             }
         }
 
+        // All cells must be in allowed placement hashes
         for (const c of candidateCells) {
             const h = (c.x << 4) | c.y;
             if (!this.allowedPlacementCellHashes.has(h)) {
@@ -479,16 +566,9 @@ export class Sandbox extends PixiScene {
             }
         }
 
+        // All cells must be empty on grid
         if (!invalid) {
             for (const c of candidateCells) {
-                const h = (c.x << 4) | c.y;
-
-                console.log(this.allowedPlacementCellHashes);
-                console.log(this.allowedPlacementCellHashes.size);
-
-                console.log("candidateCell", c);
-                console.log(this.allowedPlacementCellHashes.has(h));
-
                 const currentOccuppantId = this.grid.getOccupantUnitId(c);
                 if (currentOccuppantId && this.unitsHolder.getAllUnits().has(currentOccuppantId)) {
                     invalid = true;
@@ -497,9 +577,7 @@ export class Sandbox extends PixiScene {
             }
         }
 
-        // Optional: use isAllowedPreStartMousePosition
         if (!invalid && teamFromPlacement) {
-            // Create a mock unit with correct team just for this check
             const mockUnit = Unit.createUnit(
                 selected,
                 this.sc_sceneSettings.getGridSettings(),
@@ -509,26 +587,64 @@ export class Sandbox extends PixiScene {
                 this.abilityFactory.getEffectsFactory(),
                 false,
             );
+            const possiblePosition = GridMath.getPositionForCells(gs, candidateCells);
+            if (possiblePosition) {
+                mockUnit.setPosition(possiblePosition.x, possiblePosition.y, false);
+            }
 
-            console.log("mockUnit");
-            console.log(mockUnit);
-
-            if (!this.isAllowedPreStartMousePosition(mockUnit, candidateCells)) {
-                console.log("SSSS");
+            if (
+                !this.pathHelper.isAllowedPreStartUnitPosition(
+                    mockUnit,
+                    candidateCells,
+                    this.unitsHolder,
+                    this.getPlacement(TeamVals.LOWER, 0),
+                    this.getPlacement(TeamVals.UPPER, 0),
+                    this.getPlacement(TeamVals.LOWER, 1),
+                    this.getPlacement(TeamVals.UPPER, 1),
+                )
+            ) {
                 invalid = true;
             }
         }
 
-        console.log(`invalid ${invalid}`);
-
         this.hoverSelectedCellsSwitchToRed = invalid;
-
-        // ---------------------------------------------------------
-        // 4) Update hover team + base cell
-        // ---------------------------------------------------------
         this.hoverPlacementCell = cell;
         this.hoverSelectedCells = candidateCells;
         this.hoverPlacementCellTeam = teamFromPlacement;
+
+        // ---------------------------------------------------------
+        // 5) Compute bounds center and update silhouette (only if valid)
+        // ---------------------------------------------------------
+        if (!invalid && candidateCells.length > 0) {
+            const size = gs.getCellSize();
+            const half = size / 2;
+
+            let minX = Number.POSITIVE_INFINITY;
+            let maxX = Number.NEGATIVE_INFINITY;
+            let minY = Number.POSITIVE_INFINITY;
+            let maxY = Number.NEGATIVE_INFINITY;
+
+            for (const c of candidateCells) {
+                const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+
+                const left = pos.x - half;
+                const right = pos.x + half;
+                const bottom = pos.y - half;
+                const top = pos.y + half;
+
+                if (left < minX) minX = left;
+                if (right > maxX) maxX = right;
+                if (bottom < minY) minY = bottom;
+                if (top > maxY) maxY = top;
+            }
+
+            const centerX = (minX + maxX) * 0.5;
+            const centerY = (minY + maxY) * 0.5;
+
+            this.updateHoverSilhouette({ x: centerX, y: centerY });
+        } else {
+            this.clearHoverSilhouette();
+        }
     }
     protected selectUnitPreStart(
         _teamType: TeamType,
@@ -633,16 +749,36 @@ export class Sandbox extends PixiScene {
         // Top-right
         corner(maxX - s + eps, maxY - s + eps, maxX - eps, maxY - eps);
     }
-    private attachToWorldRoot(gfx: Graphics | undefined, zIndex: number): void {
-        if (!gfx) return;
+    private attachToWorldRoot(obj: Graphics | Sprite | undefined, zIndex: number): void {
+        if (!obj) return;
         const worldRoot = this.pixiSceneManager.getWorldRoot();
-        if (gfx.parent !== worldRoot) {
-            // move to the new world root
-            gfx.removeFromParent();
-            worldRoot.addChild(gfx);
+        if (obj.parent !== worldRoot) {
+            obj.removeFromParent();
+            worldRoot.addChild(obj);
         }
         if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
-        gfx.zIndex = zIndex;
+        obj.zIndex = zIndex;
+    }
+    private createUnitForTeam(teamType: TeamType): Unit | undefined {
+        const selected = this.sc_selectedUnitProperties;
+        if (!selected || teamType === TeamVals.NO_TEAM) return undefined;
+
+        const unit = Unit.createUnit(
+            selected,
+            this.sc_sceneSettings.getGridSettings(),
+            teamType,
+            UnitVals.CREATURE,
+            this.abilityFactory,
+            this.abilityFactory.getEffectsFactory(),
+            false,
+        );
+
+        // Register inside holder if not already there
+        if (!this.unitsHolder.getAllUnits().has(unit.getId())) {
+            this.unitsHolder.addUnit(unit);
+        }
+
+        return unit;
     }
     public override Resize(w: number, h: number): void {
         this.layoutBackgroundSquare();
@@ -685,90 +821,168 @@ export class Sandbox extends PixiScene {
         return this.gridType;
     }
     public requestTime(_team: number): void {}
-    private tryPlaceUnit(p: HoCMath.XY): void {
-        const allPlacements = [...this.lowerPlacements, ...this.upperPlacements].filter(
-            Boolean,
-        ) as IDrawablePlacement[];
+    private tryPlaceUnit(): void {
+        console.log("tryPlaceUnit called");
 
-        let targetPlacement: IDrawablePlacement | undefined;
-        for (const placement of allPlacements) {
-            if (placement.isAllowed(p)) {
-                targetPlacement = placement;
-                break;
-            }
+        const selected = this.sc_selectedUnitProperties;
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+
+        if (!selected) {
+            console.log("No selected unit");
+            return;
         }
-
-        if (!targetPlacement || !this.sc_selectedUnitProperties) {
+        if (fightProps.hasFightStarted()) {
+            console.log("Fight already started, no placement");
             return;
         }
 
-        let teamType: TeamType | undefined;
-        if (this.lowerPlacements.includes(targetPlacement)) {
-            teamType = TeamVals.LOWER;
-        } else if (this.upperPlacements.includes(targetPlacement)) {
-            teamType = TeamVals.UPPER;
+        // Must have a valid hover shape
+        if (!this.hoverSelectedCells || this.hoverSelectedCells.length === 0 || this.hoverSelectedCellsSwitchToRed) {
+            console.log("No valid hoverSelectedCells or hover is red, abort placement");
+            return;
         }
 
+        const teamType = this.hoverPlacementCellTeam;
         if (!teamType) {
+            console.log("No hoverPlacementCellTeam, abort placement");
             return;
         }
 
-        const isSmallUnit = this.sc_selectedUnitProperties.size === 1;
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cellsToOccupy = this.hoverSelectedCells;
 
-        const possiblePositions = targetPlacement.possibleCellPositions(isSmallUnit);
-        HoCLib.shuffle(possiblePositions);
-
-        let closestPosition: HoCMath.XY | undefined;
-        let minDistance = Infinity;
-        for (const pos of possiblePositions) {
-            const distance = Math.sqrt(Math.pow(pos.x - p.x, 2) + Math.pow(pos.y - p.y, 2));
-            if (distance < minDistance) {
-                minDistance = distance;
-                closestPosition = pos;
+        // Defensive check: ensure all cells are inside allowed hashes and empty
+        for (const c of cellsToOccupy) {
+            const h = (c.x << 4) | c.y;
+            if (!this.allowedPlacementCellHashes.has(h)) {
+                console.log("Cell not in allowed placement hashes", c);
+                return;
             }
         }
 
-        if (closestPosition) {
-            console.log(
-                `Placing ${this.sc_selectedUnitProperties.name} at position (${closestPosition.x}, ${closestPosition.y}) in ${teamType} placement`,
+        if (!this.grid.areAllCellsEmpty(cellsToOccupy)) {
+            console.log("Some cells already occupied, abort");
+            return;
+        }
+
+        // Double-check per-team cap (defensive; hover already checked via isAllowedPreStartMousePosition)
+        const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
+        const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
+        const lowerRightPlacement = this.getPlacement(TeamVals.LOWER, 1);
+        const upperLeftPlacement = this.getPlacement(TeamVals.UPPER, 1);
+
+        if (lowerLeftPlacement && upperRightPlacement) {
+            const alliesPlacedCount = this.unitsHolder.getAllAlliesPlaced(
+                teamType,
+                lowerLeftPlacement,
+                upperRightPlacement,
+                lowerRightPlacement,
+                upperLeftPlacement,
+            ).length;
+
+            const maxUnitsForTeam = fightProps.getNumberOfUnitsAvailableForPlacement(teamType);
+
+            if (alliesPlacedCount >= maxUnitsForTeam) {
+                console.log(`Team ${teamType} reached placement cap ${alliesPlacedCount}/${maxUnitsForTeam}, abort`);
+                return;
+            }
+        }
+
+        // Compute world position from the same cells as silhouette
+        const placePos = GridMath.getPositionForCells(gs, cellsToOccupy);
+        if (!placePos) {
+            console.log("Failed to compute position for cells");
+            return;
+        }
+
+        // Create unit for this team
+        const unit = this.createUnitForTeam(teamType);
+        if (!unit) {
+            console.log("Failed to create unit");
+            return;
+        }
+
+        const hasMadeOfFire = unit.hasAbilityActive("Made of Fire");
+        const hasMadeOfWater = unit.hasAbilityActive("Made of Water");
+
+        // Occupy cells on grid
+        let occupied = false;
+        if (cellsToOccupy.length === 1) {
+            const c = cellsToOccupy[0];
+            console.log("Try occupy single cell", c);
+            occupied = this.grid.occupyCell(
+                c,
+                unit.getId(),
+                unit.getTeam(),
+                unit.getAttackRange(),
+                hasMadeOfFire,
+                hasMadeOfWater,
             );
-
-            // TODO: if you want full integration, construct a Unit and call this.unitsHolder.addUnit(...)
-            // and update grid occupancy here.
-
-            this.sc_selectedUnitProperties = undefined;
-            if (this.unitsOverlay) {
-                this.unitsOverlay.clearSelection(true);
-            }
+        } else {
+            console.log("Try occupy cells", cellsToOccupy);
+            occupied = this.grid.occupyCells(
+                cellsToOccupy,
+                unit.getId(),
+                unit.getTeam(),
+                unit.getAttackRange(),
+                hasMadeOfFire,
+                hasMadeOfWater,
+            );
         }
-    }
-    protected destroyTempFixtures(): void {}
-    public override MouseDown(p: HoCMath.XY): void {
-        let overlayHandled = false;
 
+        if (!occupied) {
+            console.log("Grid reject occupy");
+            return;
+        }
+
+        // Commit logical position
+        unit.setPosition(placePos.x, placePos.y);
+
+        // Create/update sprite and trigger spawn animation
+        const ensured = this.ensureUnitSprite(unit, selected);
+        if (!ensured) {
+            console.log("Failed to ensure unit sprite");
+            return;
+        }
+
+        const { sprite, scale } = ensured;
+        this.startSpawnAnimation(sprite, scale);
+
+        // Recompute stack power, etc.
+        this.unitsHolder.refreshStackPowerForAllUnits();
+
+        console.log(
+            `Placed ${selected.name} (size=${selected.size}) at (${placePos.x}, ${placePos.y}) for team ${teamType}`,
+        );
+
+        // Clean up selection + silhouette
+        this.sc_selectedUnitProperties = undefined;
+        this.clearHoverSilhouette();
         if (this.unitsOverlay) {
-            overlayHandled = this.unitsOverlay.handlePointerDown(p.x, p.y);
-        }
-
-        if (!overlayHandled && this.unitsOverlay && this.unitsOverlay.hasSelection()) {
-            // Click somewhere that overlay did not handle (outside its rect)
-            // → clear selection, but still allow board logic.
             this.unitsOverlay.clearSelection(true);
         }
 
-        if (overlayHandled) {
-            // overlay ate the click (toggle, chip, or empty area inside overlay)
-            return;
-        }
+        // Also clear hover cells so next click must come from new hover
+        this.hoverSelectedCells = undefined;
+        this.hoverSelectedCellsSwitchToRed = false;
+    }
+    protected destroyTempFixtures(): void {}
+    public override MouseDown(p: HoCMath.XY): void {
+        // keep world position up to date
+        this.sc_mouseWorld = p;
+
+        const fightProps = FightStateManager.getInstance().getFightProperties();
 
         // If we have a selected unit from the overlay and the fight hasn't started,
-        // try to place the unit in an empty placement area
-        if (this.sc_selectedUnitProperties && !FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
-            this.tryPlaceUnit(p);
+        // update hover for this click position and then try to place from hover.
+        if (this.sc_selectedUnitProperties && !fightProps.hasFightStarted()) {
+            this.updateHoverPlacementCell(p);
+            this.tryPlaceUnit();
+            return; // don't propagate to base, we handled this click
         }
 
-        if (this.sc_isAnimating) return;
-        this.verifyButtonsTrigger();
+        // No pre-start placement → base behavior (hotkeys, buttons, etc.)
+        super.MouseDown(p);
     }
     protected override hover(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -796,22 +1010,27 @@ export class Sandbox extends PixiScene {
         if (timeStep > 0) this.sc_stepCount.increment();
         this.sc_isAnimating = this.pixiSceneManager.isAnimating();
 
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        if (fightProps.hasFightStarted()) {
+            this.clearHoverSilhouette();
+        }
+
         this.ensureBackgroundSprite();
         this.layoutBackgroundSquare();
 
-        // this.ensureCornerMarkersWorld();
         this.ensurePlacementGraphicsWorld();
-
-        // this.attachToWorldRoot(this.cornerGfxWorld, 90);
         this.attachToWorldRoot(this.placementGraphics, 100);
 
-        this.spawnPulsePhase += timeStep * 3.7; // accumulate
+        this.spawnPulsePhase += timeStep * 3.7;
         setSpawnFlowPhase(this.spawnPulsePhase);
 
-        // always redraw placements (geometry is cached in placements themselves)
         if (this.placementGraphics) {
             this.drawPlacements();
         }
+        this.syncUnitSprites();
+
+        // ✨ new: animate newly spawned units
+        this.updateSpawnAnimations(timeStep);
     }
     private initializePlacements(): void {
         this.lowerPlacements = [];
