@@ -1,3 +1,4 @@
+// game/core/src/ui/FightControlToggler.tsx
 import { UnitProperties, TeamVals } from "@heroesofcrypto/common";
 import React, { useEffect, useState, useRef } from "react";
 import { useTheme } from "@mui/joy/styles";
@@ -37,11 +38,17 @@ const FightControlToggler: React.FC = () => {
     });
 
     useEffect(() => {
-        const connection = manager.onUnitSelected.connect(setUnitProperties);
+        // ✅ Subscribe to the new combined selection signal
+        const connection = manager.onSelectionCombined.connect(({ unit }) => {
+            console.log("RECEIVED");
+            // unit can be null → fall back to empty object
+            setUnitProperties((unit ?? {}) as UnitProperties);
+        });
+
         return () => {
             connection.disconnect();
         };
-    });
+    }, [manager]);
 
     const handleSplit = (group1: number, group2: number) => {
         if (group1 > 0 && group2 > 0) {

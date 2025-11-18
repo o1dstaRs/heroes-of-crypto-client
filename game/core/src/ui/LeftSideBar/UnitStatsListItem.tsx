@@ -20,7 +20,7 @@ import Stack from "@mui/joy/Stack";
 import { useTheme } from "@mui/joy/styles";
 import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useState } from "react";
+import React, { useState, useCallback } from "react";
 
 import { animationAtlases, AnimationUnitName, AnimationStateName } from "../../generated/animation_atlases";
 import { images, type ImageKey } from "../../generated/image_imports";
@@ -56,15 +56,14 @@ function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | nu
     if (!name) return null;
     const trimmed = name.trim();
     if (!trimmed) return null;
-    // animationAtlases uses "Angel", "Wolf Rider", etc. exactly as we generated
     if (trimmed in animationAtlases) return trimmed as AnimationUnitName;
     return null;
 }
 
 // Turn "Wolf Rider" + "default" -> "wolf_rider_default_atlas"
 function atlasImageKeyFromUnitAndState(unitName: string, state: string): ImageKey | null {
-    const base = unitName.toLowerCase().replace(/\s+/g, "_"); // "Wolf Rider" -> "wolf_rider"
-    const stateLower = state.toLowerCase(); // "default" -> "default"
+    const base = unitName.toLowerCase().replace(/\s+/g, "_");
+    const stateLower = state.toLowerCase();
 
     const key = `${base}_${stateLower}_atlas` as ImageKey;
 
@@ -112,13 +111,14 @@ const AtlasAnimation: React.FC<{
     onLoaded: () => void;
 }> = ({ meta, src, onLoaded }) => {
     const [frameIndex, setFrameIndex] = React.useState(0);
+    const [isImageLoaded, setIsImageLoaded] = React.useState(false);
 
     React.useEffect(() => {
-        // --- load atlas once -------------------------------------------------
         const img = new Image();
         img.src = src;
 
         const handleLoaded = () => {
+            setIsImageLoaded(true);
             onLoaded();
         };
 
@@ -127,15 +127,14 @@ const AtlasAnimation: React.FC<{
 
         const frameCount = meta.frameCount ?? 1;
 
-        // timing: use generated values if present, otherwise derive from totalDurationSec
         const fallbackTotalSec =
             typeof meta.totalDurationSec === "number" && Number.isFinite(meta.totalDurationSec)
                 ? meta.totalDurationSec
                 : frameCount / (meta.fps || 12);
 
         const baseTotalMs = fallbackTotalSec * 1000;
-        const loopDurationMs = meta.loopDurationMs ?? Math.round(baseTotalMs * 0.8); // 20% faster
-        const pauseMs = meta.pauseMs ?? Math.round(loopDurationMs * 0.4); // 40% of loopDurationMs
+        const loopDurationMs = meta.loopDurationMs ?? Math.round(baseTotalMs * 0.8);
+        const pauseMs = meta.pauseMs ?? Math.round(loopDurationMs * 0.4);
 
         const stepDuration = loopDurationMs / Math.max(1, frameCount - 1);
 
@@ -148,7 +147,6 @@ const AtlasAnimation: React.FC<{
             setFrameIndex(idx);
 
             if (idx >= frameCount - 1) {
-                // reached last frame → pause, then start backward
                 timer = window.setTimeout(() => runBackward(frameCount - 1), pauseMs);
             } else {
                 timer = window.setTimeout(() => runForward(idx + 1), stepDuration);
@@ -161,7 +159,6 @@ const AtlasAnimation: React.FC<{
             setFrameIndex(idx);
 
             if (idx <= 0) {
-                // reached first frame → pause, then start forward
                 timer = window.setTimeout(() => runForward(0), pauseMs);
             } else {
                 timer = window.setTimeout(() => runBackward(idx - 1), stepDuration);
@@ -177,8 +174,7 @@ const AtlasAnimation: React.FC<{
                 window.clearTimeout(timer);
             }
         };
-        // empty deps => animation won't restart on parent re-renders for the same unit
-    }, [meta, src]); // if you want absolutely no restart, you can also drop meta/src here and key the component
+    }, [isImageLoaded, meta]);
 
     const frameWidth = meta.frameWidth ?? 512;
     const frameHeight = meta.frameHeight ?? 512;
@@ -198,8 +194,8 @@ const AtlasAnimation: React.FC<{
         <Box
             sx={{
                 position: "relative",
-                width: "100%", // fill same width as Avatar
-                aspectRatio: `${frameWidth} / ${frameHeight}`, // keeps original aspect ratio
+                width: "100%",
+                aspectRatio: `${frameWidth} / ${frameHeight}`,
                 backgroundImage: `url(${src})`,
                 backgroundRepeat: "no-repeat",
                 backgroundSize: `${bgSizeX}% ${bgSizeY}%`,
@@ -212,106 +208,6 @@ const AtlasAnimation: React.FC<{
     );
 };
 
-// const ANGEL_ATLAS_META = {
-//     frameWidth: 512,
-//     frameHeight: 512,
-//     frameCount: 73,
-//     cols: 8,
-//     rows: 10,
-// } as const;
-
-// const ANGEL_LOOP_DURATION_MS = 5000; // time for 1 -> N (and separately N -> 1)
-// const ANGEL_PAUSE_MS = 2000; // pause at each end
-
-// const AngelAtlasAnimation: React.FC<{ onLoaded: () => void }> = ({ onLoaded }) => {
-//     const [frameIndex, setFrameIndex] = React.useState(0);
-
-//     React.useEffect(() => {
-//         // --- load atlas once -------------------------------------------------
-//         const img = new Image();
-//         // @ts-ignore: src params
-//         img.src = images["angel_atlas"];
-
-//         const handleLoaded = () => {
-//             onLoaded();
-//         };
-
-//         img.onload = handleLoaded;
-//         img.onerror = handleLoaded;
-
-//         const { frameCount } = ANGEL_ATLAS_META;
-//         const stepDuration = ANGEL_LOOP_DURATION_MS / Math.max(1, frameCount - 1);
-
-//         let cancelled = false;
-//         let timer: number | undefined;
-
-//         const runForward = (idx: number) => {
-//             if (cancelled) return;
-
-//             setFrameIndex(idx);
-
-//             if (idx >= frameCount - 1) {
-//                 // reached last frame → pause, then start backward
-//                 timer = window.setTimeout(() => runBackward(frameCount - 1), ANGEL_PAUSE_MS);
-//             } else {
-//                 timer = window.setTimeout(() => runForward(idx + 1), stepDuration);
-//             }
-//         };
-
-//         const runBackward = (idx: number) => {
-//             if (cancelled) return;
-
-//             setFrameIndex(idx);
-
-//             if (idx <= 0) {
-//                 // reached first frame → pause, then start forward
-//                 timer = window.setTimeout(() => runForward(0), ANGEL_PAUSE_MS);
-//             } else {
-//                 timer = window.setTimeout(() => runBackward(idx - 1), stepDuration);
-//             }
-//         };
-
-//         // start at the beginning, going forward
-//         runForward(0);
-
-//         return () => {
-//             cancelled = true;
-//             if (timer !== undefined) {
-//                 window.clearTimeout(timer);
-//             }
-//         };
-//     }, []); // run once; animation won't restart on parent re-renders
-
-//     const { frameWidth, frameHeight, cols, rows } = ANGEL_ATLAS_META;
-
-//     const col = frameIndex % cols;
-//     const row = Math.floor(frameIndex / cols);
-
-//     // percent-based slicing of the grid
-//     const bgSizeX = cols * 100; // 8 → 800%
-//     const bgSizeY = rows * 100; // 10 → 1000%
-
-//     const bgPosX = cols > 1 ? (col / (cols - 1)) * 100 : 0;
-//     const bgPosY = rows > 1 ? (row / (rows - 1)) * 100 : 0;
-
-//     return (
-//         <Box
-//             sx={{
-//                 position: "relative",
-//                 width: "100%", // fill same width as Avatar
-//                 aspectRatio: `${frameWidth} / ${frameHeight}`, // keeps original aspect ratio → no quality loss
-//                 backgroundImage: `url(${images["angel_atlas"]})`,
-//                 backgroundRepeat: "no-repeat",
-//                 backgroundSize: `${bgSizeX}% ${bgSizeY}%`,
-//                 backgroundPosition: `${bgPosX}% ${bgPosY}%`,
-//                 imageRendering: "pixelated",
-//                 overflow: "visible",
-//                 zIndex: 5,
-//             }}
-//         />
-//     );
-// };
-
 const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAura: boolean }> = ({
     stackPower,
     teamType,
@@ -322,7 +218,6 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     const backgroundColor = teamType === TeamVals.LOWER ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.4)";
     const borderColor = teamType === TeamVals.LOWER ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.4)";
 
-    // --- AURA: tiles along a half-circle around the icon --------------------
     if (isAura) {
         const tileSize = 22;
         const margin = 2;
@@ -423,14 +318,14 @@ const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean; hasBr
     const isDarkMode = theme.palette.mode === "dark";
     const auraColor = isDarkMode ? "rgba(255, 255, 255, 0.75)" : "rgba(0, 0, 0, 0.75)";
 
+    const filtered = abilities.filter((ability) => ability.laps > 0);
+    const rowsCount = Math.ceil(filtered.length / ABILITIES_FIT_IN_ONE_ROW);
+
     return (
         <Stack spacing={2} sx={{ marginTop: 1 }}>
-            {[
-                ...Array(Math.ceil(abilities.filter((ability) => ability.laps > 0).length / ABILITIES_FIT_IN_ONE_ROW)),
-            ].map((_, rowIndex) => (
+            {Array.from({ length: rowsCount }).map((_, rowIndex) => (
                 <Stack key={`row_${rowIndex}`} direction="row" spacing={2} sx={{ width: "100%" }}>
-                    {abilities
-                        .filter((ability) => ability.laps > 0)
+                    {filtered
                         .slice(rowIndex * ABILITIES_FIT_IN_ONE_ROW, (rowIndex + 1) * ABILITIES_FIT_IN_ONE_ROW)
                         .map((ability, index) => (
                             <Tooltip
@@ -674,7 +569,6 @@ const UnitStatsLayout: React.FC<{
     images: { [key: string]: string };
     showStats: boolean;
     showAbilities: boolean;
-    imageLoaded: boolean;
     onImageLoaded: () => void;
     abilities: IVisibleImpact[];
     hasBreakApplied: boolean;
@@ -696,14 +590,14 @@ const UnitStatsLayout: React.FC<{
     images,
     showStats,
     showAbilities,
-    imageLoaded,
     onImageLoaded,
     abilities,
     hasBreakApplied,
     team,
 }) => {
-    const statsVisible = showStats && (columnize || imageLoaded);
-    const abilitiesVisible = showAbilities && (columnize || imageLoaded);
+    const statsVisible = showStats;
+    const abilitiesVisible = showAbilities;
+
     const attackSign = attackMod > 0 ? "+" : "";
     const attackModBadgeValue = `${attackMod ? `${attackSign}${unitProperties.attack_mod}` : ""}${
         unitProperties.attack_multiplier !== 1 ? ` x${unitProperties.attack_multiplier}` : ""
@@ -714,12 +608,14 @@ const UnitStatsLayout: React.FC<{
     const stepsModBadgeValue = stepsMod ? `${stepsSign}${stepsMod}` : "";
     const luckSign = unitProperties.luck_mod > 0 ? "+" : "";
     const luckBadgeValue = unitProperties.luck_mod ? `${luckSign}${unitProperties.luck_mod}` : "";
-    let attackColor = "success";
+
+    let attackColor: "success" | "danger" | "primary" | "neutral" | "warning" = "success";
     if (unitProperties.attack_multiplier < 1) {
         attackColor = "danger";
     } else if (unitProperties.attack_multiplier === 1 && unitProperties.attack_mod < 0) {
         attackColor = "danger";
     }
+
     const animationConfig = getDefaultAnimationConfig(unitProperties.name);
     const hasAnimation = !!animationConfig;
 
@@ -846,6 +742,7 @@ const UnitStatsLayout: React.FC<{
             </StatGroup>
         </>
     );
+
     const abilitiesBlock = (
         <Box
             sx={{
@@ -864,16 +761,14 @@ const UnitStatsLayout: React.FC<{
             />
         </Box>
     );
+
     if (columnize) {
-        // widescreen layout
         return (
             <>
                 <Box sx={{ display: "flex", width: "100%", overflow: "hidden", flexWrap: "wrap" }}>
                     <Box sx={{ width: "60%", position: "relative" }}>
                         {hasAnimation && animationConfig ? (
                             <AtlasAnimation
-                                // if you don't want restart on outside re-renders:
-                                // key={`${unitProperties.name}-${unitProperties.team}-${unitProperties.amount_alive}`}
                                 meta={animationConfig.meta}
                                 src={animationConfig.imageSrc}
                                 onLoaded={onImageLoaded}
@@ -919,21 +814,17 @@ const UnitStatsLayout: React.FC<{
             </>
         );
     } else {
-        // vertical layout
         return (
             <Box
                 sx={{
                     position: "relative",
                     marginBottom: 1.5,
-                    width: "100%", // ⬅️ ensure full row width
+                    width: "100%",
                 }}
             >
                 <Box sx={{ width: "100%" }}>
-                    {" "}
-                    {/* ⬅️ wrapper that fills width */}
                     {hasAnimation && animationConfig ? (
                         <AtlasAnimation
-                            // key={`${unitProperties.name}-${unitProperties.team}-${unitProperties.amount_alive}`}
                             meta={animationConfig.meta}
                             src={animationConfig.imageSrc}
                             onLoaded={onImageLoaded}
@@ -1022,17 +913,27 @@ const BreakOverlay: React.FC = () => (
     </Box>
 );
 
-export const UnitStatsListItem: React.FC<{
+type UnitStatsListItemProps = {
     barSize: number;
     columnize: boolean;
     unitProperties: UnitProperties;
     overallImpact: IVisibleOverallImpact;
     factionType: FactionType;
-}> = ({ barSize, columnize, unitProperties, overallImpact, factionType }) => {
+};
+
+// Add this optimization to your UnitStatsListItemInner component
+
+const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
+    barSize,
+    columnize,
+    unitProperties,
+    overallImpact,
+    factionType,
+}) => {
     console.log("UnitStatsListItem rendered");
     console.log(unitProperties);
 
-    const [imageLoaded, setImageLoaded] = useState(false);
+    const [loadedUnitKey, setLoadedUnitKey] = useState<string | null>(null);
     const theme = useTheme();
     const isDarkMode = theme.palette.mode === "dark";
 
@@ -1053,26 +954,17 @@ export const UnitStatsListItem: React.FC<{
     const unitKey =
         (unitProperties && (unitProperties.id as string | undefined)) ||
         `${unitProperties?.name ?? ""}-${unitProperties?.team ?? ""}-${unitProperties?.amount_alive ?? ""}`;
-    const [phase, setPhase] = useState<0 | 1 | 2>(0);
 
-    useEffect(() => {
+    // Image is considered loaded if we have already loaded this unitKey
+    const showStats = columnize || (!!unitKey && loadedUnitKey === unitKey);
+    const showAbilities = columnize || (!!unitKey && loadedUnitKey === unitKey);
+
+    const onImageLoaded = useCallback(() => {
         if (!unitKey) return;
-
-        setPhase(0);
-        setImageLoaded(false);
-
-        const statsTimer = window.setTimeout(() => setPhase(1), 0);
-        const abilitiesTimer = window.setTimeout(() => setPhase(2), 0);
-
-        return () => {
-            window.clearTimeout(statsTimer);
-            window.clearTimeout(abilitiesTimer);
-        };
+        setLoadedUnitKey(unitKey);
     }, [unitKey]);
 
-    const showStatsPhase = phase >= 1;
-    const showAbilitiesPhase = phase >= 2;
-
+    // Rest of your component code stays the same...
     // Faction list item
     if (factionType) {
         return (
@@ -1113,6 +1005,7 @@ export const UnitStatsListItem: React.FC<{
         const stepsMod = Number(unitProperties.steps_mod.toFixed(1));
         const attackMod = Number(unitProperties.attack_mod.toFixed(2));
         const attackTypeSelected = unitProperties.attack_type_selected;
+
         let attackDamage = (unitProperties.base_attack + unitProperties.attack_mod) * unitProperties.attack_multiplier;
         if (
             attackTypeSelected === AttackVals.MELEE &&
@@ -1121,12 +1014,13 @@ export const UnitStatsListItem: React.FC<{
         ) {
             attackDamage /= 2;
         }
+
         const meleeArmor = Math.max(1, unitProperties.base_armor + unitProperties.armor_mod);
         const rangeArmor = Math.max(1, unitProperties.range_armor + unitProperties.armor_mod);
         const hasDifferentRangeArmor = meleeArmor !== rangeArmor;
         const largeTextureName = unitProperties.large_texture_name;
 
-        const buffsVisible = showAbilitiesPhase && imageLoaded;
+        const buffsVisible = showAbilities;
 
         return (
             // @ts-ignore: style params
@@ -1166,10 +1060,9 @@ export const UnitStatsListItem: React.FC<{
                                 columnize={columnize}
                                 largeTextureName={largeTextureName}
                                 images={images}
-                                showStats={showStatsPhase}
-                                showAbilities={showAbilitiesPhase}
-                                imageLoaded={imageLoaded}
-                                onImageLoaded={() => setImageLoaded(true)}
+                                showStats={showStats}
+                                showAbilities={showAbilities}
+                                onImageLoaded={onImageLoaded}
                                 abilities={abilities}
                                 hasBreakApplied={hasBreakApplied}
                                 team={unitProperties.team}
@@ -1211,3 +1104,5 @@ export const UnitStatsListItem: React.FC<{
 
     return <ListItem nested />;
 };
+
+export const UnitStatsListItem = React.memo(UnitStatsListItemInner);

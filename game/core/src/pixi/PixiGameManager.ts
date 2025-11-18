@@ -78,13 +78,16 @@ export class PixiGameManager {
     public readonly onGridTypeChanged = new Signal<(gridType: GridType) => void>();
     public readonly onAttackLanded = new Signal<(attackMessage: string) => void>();
     public readonly onDamageReceived = new Signal<(attackDamage: number) => void>();
-    public readonly onUnitSelected = new Signal<(unitProperties: UnitProperties) => void>();
+    // public readonly onUnitSelected = new Signal<(unitProperties: UnitProperties) => void>();
     public readonly onDamageStatisticsUpdated = new Signal<(damageStats: IDamageStatistic[]) => void>();
     public readonly onPossibleSynergiesUpdated = new Signal<(possible: Map<TeamType, SynergyWithLevel[]>) => void>();
-    public readonly onFactionSelected = new Signal<(factionType: FactionType) => void>();
+    // public readonly onFactionSelected = new Signal<(factionType: FactionType) => void>();
     public readonly onVisibleStateUpdated = new Signal<(visibleState: IVisibleState) => void>();
-    public readonly onVisibleOverallImpactUpdated = new Signal<(impact: IVisibleOverallImpact) => void>();
+    // public readonly onVisibleOverallImpactUpdated = new Signal<(impact: IVisibleOverallImpact) => void>();
     public readonly onHoverInfoUpdated = new Signal<(hover: IHoverInfo) => void>();
+    public readonly onSelectionCombined = new Signal<
+        (payload: { unit: UnitProperties | null; impact: IVisibleOverallImpact | null; faction: FactionType }) => void
+    >();
     private m_hoveringCanvas = false;
     private m_keyMap: Record<string, boolean> = {};
     private isInitialized = false;
@@ -473,31 +476,31 @@ export class PixiGameManager {
         }
 
         // Unit / faction updates
-        if (this.m_scene?.sc_unitPropertiesUpdateNeeded) {
-            if (this.m_scene.sc_selectedUnitProperties) {
-                this.onUnitSelected.emit(structuredClone(this.m_scene.sc_selectedUnitProperties));
-                this.onFactionSelected.emit(FactionVals.NO_FACTION);
-            } else {
-                this.onFactionSelected.emit(this.m_scene?.sc_selectedFactionType ?? FactionVals.NO_FACTION);
-                this.onUnitSelected.emit({} as UnitProperties);
+        const scene = this.m_scene;
+        if (scene) {
+            // ✅ Combined selection: unit + impact + faction
+            if (scene.sc_unitPropertiesUpdateNeeded || scene.sc_factionNameUpdateNeeded) {
+                const unit = (scene.sc_selectedUnitProperties ?? null) as UnitProperties | null;
+                const impact = (scene.sc_visibleOverallImpact ?? null) as IVisibleOverallImpact | null;
+                const faction = (scene.sc_selectedFactionType ??
+                    (FactionVals.NO_FACTION as FactionType)) as FactionType;
+                console.log("EMIT1");
+                this.onSelectionCombined.emit({ unit, impact, faction });
+
+                // mark both handled
+                scene.sc_unitPropertiesUpdateNeeded = false;
+                scene.sc_factionNameUpdateNeeded = false;
             }
 
-            if (this.m_scene?.sc_visibleOverallImpact) {
-                this.onVisibleOverallImpactUpdated.emit(structuredClone(this.m_scene.sc_visibleOverallImpact));
-            } else {
-                this.onVisibleOverallImpactUpdated.emit({} as IVisibleOverallImpact);
-            }
-            this.m_scene.sc_unitPropertiesUpdateNeeded = false;
-        }
-
-        if (this.m_scene?.sc_factionNameUpdateNeeded) {
-            if (this.m_scene.sc_selectedFactionType) this.onFactionSelected.emit(this.m_scene.sc_selectedFactionType);
-            else this.onFactionSelected.emit(FactionVals.NO_FACTION);
-            this.m_scene.sc_factionNameUpdateNeeded = false;
+            // 🧹 remove the old separate emitters here:
+            // - onUnitSelected
+            // - onOverallImpactUpdated
+            // - onFactionSelected (for selection purposes)
         }
 
         // Damage animation surface
         if (this.m_scene?.sc_damageForAnimation.render) {
+            console.log("EMIT2");
             this.onDamageReceived.emit(this.m_scene.sc_damageForAnimation.amount);
             this.m_scene.sc_damageForAnimation.render = false;
             this.m_scene.sc_damageForAnimation.amount = 0;
@@ -507,18 +510,21 @@ export class PixiGameManager {
 
         // Damage stats
         if (this.m_scene?.sc_damageStatsUpdateNeeded) {
+            console.log("EMIT3");
             this.onDamageStatisticsUpdated.emit(structuredClone(this.m_scene.getDamageStatisics()));
             this.m_scene.sc_damageStatsUpdateNeeded = false;
         }
 
         // Synergies
         if (this.m_scene?.sc_possibleSynergiesUpdateNeeded) {
+            console.log("EMIT4");
             this.onPossibleSynergiesUpdated.emit(this.m_scene.sc_possibleSynergiesPerTeam);
             this.m_scene.sc_possibleSynergiesUpdateNeeded = false;
         }
 
         // Visible state
         if (this.m_scene?.sc_visibleStateUpdateNeeded) {
+            console.log("EMIT5");
             if (this.m_scene.sc_visibleState) {
                 this.onVisibleStateUpdated.emit(structuredClone(this.m_scene.sc_visibleState as IVisibleState));
             } else {
@@ -529,12 +535,14 @@ export class PixiGameManager {
 
         // Grid type
         if (this.m_scene?.sc_gridTypeUpdateNeeded) {
+            console.log("EMIT6");
             this.onGridTypeChanged.emit(this.m_scene.getGridType());
             this.m_scene.sc_gridTypeUpdateNeeded = false;
         }
 
         // Buttons group
         if (this.m_scene?.sc_buttonGroupUpdated) {
+            console.log("EMIT7");
             this.onHasButtonsGroupUpdate.emit(true);
             this.m_scene.sc_buttonGroupUpdated = false;
         }

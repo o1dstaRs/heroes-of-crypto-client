@@ -11,7 +11,7 @@ import ListItemButton from "@mui/joy/ListItemButton";
 import Sheet from "@mui/joy/Sheet";
 import { useColorScheme } from "@mui/joy/styles";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 
 import { MessageBox } from "./MessageBox";
 import { usePixiManager } from "../../pixi/PixiGameManager";
@@ -32,8 +32,8 @@ const emptyUnit = {} as UnitProperties;
 const emptyImpact = {} as IVisibleOverallImpact;
 
 export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: boolean; windowSize: IWindowSize }) {
-    const [badgeVisible, setBadgeVisible] = useState(false);
     const [barSize, setBarSize] = useState(280);
+
     const [buttonsVisible] = useState({
         prediction: false,
         terrain: false,
@@ -54,10 +54,8 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
         const additionalBoardPixels = 0;
         const widthRatio = windowSize.width / (2048 + additionalBoardPixels);
         const heightRatio = windowSize.height / 2048;
-
         const scaleRatio = Math.min(widthRatio, heightRatio);
         const scaledBoardSize = (2048 + additionalBoardPixels) * scaleRatio;
-
         const rightBarEndAtBoard = (windowSize.width - scaledBoardSize) / 2;
         setBarSize(rightBarEndAtBoard > 0 ? rightBarEndAtBoard : 0);
     }, [windowSize.width, windowSize.height]);
@@ -66,88 +64,40 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
         adjustBarSize();
     }, [adjustBarSize]);
 
+    // ✅ Subscribe to combined selection event
     useEffect(() => {
-        const interval = setInterval(() => {
-            setBadgeVisible(true);
-            const timeout = setTimeout(() => {
-                setBadgeVisible(false);
-            }, 5000);
-            return () => clearTimeout(timeout);
-        }, 10000);
+        const handleCombined = (payload: {
+            unit: UnitProperties | null;
+            impact: IVisibleOverallImpact | null;
+            faction: FactionType;
+        }) => {
+            const unit = (payload.unit ?? ({} as UnitProperties)) as UnitProperties;
+            const impact = (payload.impact ?? ({} as IVisibleOverallImpact)) as IVisibleOverallImpact;
+            const factionType = (payload.faction ?? (FactionVals.NO_FACTION as FactionType)) as FactionType;
 
-        return () => clearInterval(interval);
-    }, []);
-
-    // --- Batch all manager events into a single state update ------------------
-    const pendingRef = useRef(selection);
-    const scheduledRef = useRef(false);
-    const lastSelectionKeyRef = useRef<string | null>(null);
-
-    const flush = useCallback(() => {
-        scheduledRef.current = false;
-        setSelection(pendingRef.current);
-    }, []);
-
-    const scheduleFlush = useCallback(() => {
-        if (scheduledRef.current) return;
-        scheduledRef.current = true;
-        // Next animation frame is fine for UI
-        requestAnimationFrame(flush);
-    }, [flush]);
-
-    useEffect(() => {
-        const handleUnitSelected = (unit: UnitProperties | null) => {
-            const safeUnit = unit ?? ({} as UnitProperties);
-            const key = safeUnit
-                ? `${safeUnit.name}-${safeUnit.team}-${safeUnit.amount_alive}-${safeUnit.large_texture_name ?? ""}`
-                : "none";
-
-            if (lastSelectionKeyRef.current === key) {
-                return;
-            }
-            lastSelectionKeyRef.current = key;
-
-            pendingRef.current = {
-                ...pendingRef.current,
-                unit: safeUnit,
-            };
-            scheduleFlush();
+            console.log("RECEIVED2");
+            // Always update – React will skip DOM work if nothing really changed
+            setSelection({
+                unit,
+                overallImpact: impact,
+                factionType,
+            });
         };
 
-        const handleImpact = (impact: IVisibleOverallImpact | null) => {
-            pendingRef.current = {
-                ...pendingRef.current,
-                overallImpact: impact ?? ({} as IVisibleOverallImpact),
-            };
-            scheduleFlush();
-        };
-
-        const handleFaction = (f: FactionType) => {
-            pendingRef.current = {
-                ...pendingRef.current,
-                factionType: f,
-            };
-            scheduleFlush();
-        };
-
-        const c1 = manager.onUnitSelected.connect(handleUnitSelected);
-        const c2 = manager.onVisibleOverallImpactUpdated.connect(handleImpact);
-        const c3 = manager.onFactionSelected.connect(handleFaction);
-
+        const conn = manager.onSelectionCombined.connect(handleCombined);
         return () => {
-            c1.disconnect();
-            c2.disconnect();
-            c3.disconnect();
+            conn.disconnect();
         };
-    }, [manager, scheduleFlush]);
+    }, [manager]);
 
     useEffect(() => {
         setMode("dark");
     }, [setMode]);
 
-    const shouldColumnize = useMemo(() => {
-        return windowSize.width / windowSize.height >= 16 / 9;
-    }, [windowSize.width, windowSize.height]);
+    const shouldColumnize = useMemo(
+        () => windowSize.width / windowSize.height >= 16 / 9,
+        [windowSize.width, windowSize.height],
+    );
 
     const unitProperties = selection.unit || ({} as UnitProperties);
     const hasSelectedUnit = !!unitProperties.team;
@@ -226,35 +176,6 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
                                     <ListItemButton disabled>
                                         <DiceIcon />
                                     </ListItemButton>
-                                    {badgeVisible && (
-                                        <Box
-                                            sx={{
-                                                position: "absolute",
-                                                top: -17,
-                                                right: -32,
-                                                backgroundColor: "#FFD700",
-                                                color: "#000000",
-                                                borderRadius: "10px",
-                                                padding: "4px 8px",
-                                                fontSize: "0.7rem",
-                                                boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                                                zIndex: 3,
-                                                "&::after": {
-                                                    content: '""',
-                                                    position: "absolute",
-                                                    bottom: -5,
-                                                    left: 8,
-                                                    width: 0,
-                                                    height: 0,
-                                                    borderLeft: "4px solid transparent",
-                                                    borderRight: "4px solid transparent",
-                                                    borderTop: "5px solid #FFD700",
-                                                },
-                                            }}
-                                        >
-                                            Prediction
-                                        </Box>
-                                    )}
                                 </ListItem>
                             )}
 
