@@ -1,0 +1,13 @@
+{
+  "name": "scripts",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "pngjs": "^7.0.0"
+  }
+}

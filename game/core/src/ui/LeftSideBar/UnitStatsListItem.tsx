@@ -22,7 +22,8 @@ import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState } from "react";
 
-import { images } from "../../generated/image_imports";
+import { animationAtlases, AnimationUnitName, AnimationStateName } from "../../generated/animation_atlases";
+import { images, type ImageKey } from "../../generated/image_imports";
 import { IVisibleImpact, IVisibleOverallImpact } from "../../state/visible_state";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
 import { BootIcon } from "../svg/boot";
@@ -49,6 +50,267 @@ interface IAbilityStackProps {
 }
 
 const ABILITIES_FIT_IN_ONE_ROW = 3;
+
+// Normalize "Angel", "Wolf Rider" etc. to the keys in animationAtlases
+function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | null {
+    if (!name) return null;
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    // animationAtlases uses "Angel", "Wolf Rider", etc. exactly as we generated
+    if (trimmed in animationAtlases) return trimmed as AnimationUnitName;
+    return null;
+}
+
+// Turn "Wolf Rider" + "default" -> "wolf_rider_default_atlas"
+function atlasImageKeyFromUnitAndState(unitName: string, state: string): ImageKey | null {
+    const base = unitName.toLowerCase().replace(/\s+/g, "_"); // "Wolf Rider" -> "wolf_rider"
+    const stateLower = state.toLowerCase(); // "default" -> "default"
+
+    const key = `${base}_${stateLower}_atlas` as ImageKey;
+
+    if (key in images) {
+        return key;
+    }
+
+    if (process.env.NODE_ENV === "development") {
+        console.warn(`[atlas] Missing atlas image for unit "${unitName}", state "${state}". Expected key: ${key}`);
+    }
+
+    return null;
+}
+
+type AtlasMeta = (typeof animationAtlases)[AnimationUnitName][AnimationStateName];
+
+// Pick the "default" state if present, otherwise first available
+function getDefaultAnimationConfig(unitName?: string | null): { meta: AtlasMeta; imageSrc: string } | null {
+    const normalized = normalizeUnitNameForAtlas(unitName);
+    if (!normalized) return null;
+
+    const unitStates = animationAtlases[normalized];
+    const stateNames = Object.keys(unitStates) as AnimationStateName[];
+
+    if (!stateNames.length) return null;
+
+    const preferredState = (stateNames as string[]).includes("default")
+        ? ("default" as AnimationStateName)
+        : stateNames[0];
+
+    const meta = unitStates[preferredState];
+
+    const imageKey = atlasImageKeyFromUnitAndState(normalized, preferredState as string);
+    if (!imageKey) return null;
+
+    const imageSrc = images[imageKey];
+    if (!imageSrc) return null;
+
+    return { meta, imageSrc };
+}
+
+const AtlasAnimation: React.FC<{
+    meta: AtlasMeta;
+    src: string;
+    onLoaded: () => void;
+}> = ({ meta, src, onLoaded }) => {
+    const [frameIndex, setFrameIndex] = React.useState(0);
+
+    React.useEffect(() => {
+        // --- load atlas once -------------------------------------------------
+        const img = new Image();
+        img.src = src;
+
+        const handleLoaded = () => {
+            onLoaded();
+        };
+
+        img.onload = handleLoaded;
+        img.onerror = handleLoaded;
+
+        const frameCount = meta.frameCount ?? 1;
+
+        // timing: use generated values if present, otherwise derive from totalDurationSec
+        const fallbackTotalSec =
+            typeof meta.totalDurationSec === "number" && Number.isFinite(meta.totalDurationSec)
+                ? meta.totalDurationSec
+                : frameCount / (meta.fps || 12);
+
+        const baseTotalMs = fallbackTotalSec * 1000;
+        const loopDurationMs = meta.loopDurationMs ?? Math.round(baseTotalMs * 0.8); // 20% faster
+        const pauseMs = meta.pauseMs ?? Math.round(loopDurationMs * 0.4); // 40% of loopDurationMs
+
+        const stepDuration = loopDurationMs / Math.max(1, frameCount - 1);
+
+        let cancelled = false;
+        let timer: number | undefined;
+
+        const runForward = (idx: number) => {
+            if (cancelled) return;
+
+            setFrameIndex(idx);
+
+            if (idx >= frameCount - 1) {
+                // reached last frame → pause, then start backward
+                timer = window.setTimeout(() => runBackward(frameCount - 1), pauseMs);
+            } else {
+                timer = window.setTimeout(() => runForward(idx + 1), stepDuration);
+            }
+        };
+
+        const runBackward = (idx: number) => {
+            if (cancelled) return;
+
+            setFrameIndex(idx);
+
+            if (idx <= 0) {
+                // reached first frame → pause, then start forward
+                timer = window.setTimeout(() => runForward(0), pauseMs);
+            } else {
+                timer = window.setTimeout(() => runBackward(idx - 1), stepDuration);
+            }
+        };
+
+        // start at the beginning, going forward
+        runForward(0);
+
+        return () => {
+            cancelled = true;
+            if (timer !== undefined) {
+                window.clearTimeout(timer);
+            }
+        };
+        // empty deps => animation won't restart on parent re-renders for the same unit
+    }, [meta, src]); // if you want absolutely no restart, you can also drop meta/src here and key the component
+
+    const frameWidth = meta.frameWidth ?? 512;
+    const frameHeight = meta.frameHeight ?? 512;
+    const cols = meta.layout?.cols ?? 1;
+    const rows = meta.layout?.rows ?? 1;
+
+    const col = frameIndex % cols;
+    const row = Math.floor(frameIndex / cols);
+
+    const bgSizeX = cols * 100;
+    const bgSizeY = rows * 100;
+
+    const bgPosX = cols > 1 ? (col / (cols - 1)) * 100 : 0;
+    const bgPosY = rows > 1 ? (row / (rows - 1)) * 100 : 0;
+
+    return (
+        <Box
+            sx={{
+                position: "relative",
+                width: "100%", // fill same width as Avatar
+                aspectRatio: `${frameWidth} / ${frameHeight}`, // keeps original aspect ratio
+                backgroundImage: `url(${src})`,
+                backgroundRepeat: "no-repeat",
+                backgroundSize: `${bgSizeX}% ${bgSizeY}%`,
+                backgroundPosition: `${bgPosX}% ${bgPosY}%`,
+                imageRendering: "pixelated",
+                overflow: "visible",
+                zIndex: 5,
+            }}
+        />
+    );
+};
+
+// const ANGEL_ATLAS_META = {
+//     frameWidth: 512,
+//     frameHeight: 512,
+//     frameCount: 73,
+//     cols: 8,
+//     rows: 10,
+// } as const;
+
+// const ANGEL_LOOP_DURATION_MS = 5000; // time for 1 -> N (and separately N -> 1)
+// const ANGEL_PAUSE_MS = 2000; // pause at each end
+
+// const AngelAtlasAnimation: React.FC<{ onLoaded: () => void }> = ({ onLoaded }) => {
+//     const [frameIndex, setFrameIndex] = React.useState(0);
+
+//     React.useEffect(() => {
+//         // --- load atlas once -------------------------------------------------
+//         const img = new Image();
+//         // @ts-ignore: src params
+//         img.src = images["angel_atlas"];
+
+//         const handleLoaded = () => {
+//             onLoaded();
+//         };
+
+//         img.onload = handleLoaded;
+//         img.onerror = handleLoaded;
+
+//         const { frameCount } = ANGEL_ATLAS_META;
+//         const stepDuration = ANGEL_LOOP_DURATION_MS / Math.max(1, frameCount - 1);
+
+//         let cancelled = false;
+//         let timer: number | undefined;
+
+//         const runForward = (idx: number) => {
+//             if (cancelled) return;
+
+//             setFrameIndex(idx);
+
+//             if (idx >= frameCount - 1) {
+//                 // reached last frame → pause, then start backward
+//                 timer = window.setTimeout(() => runBackward(frameCount - 1), ANGEL_PAUSE_MS);
+//             } else {
+//                 timer = window.setTimeout(() => runForward(idx + 1), stepDuration);
+//             }
+//         };
+
+//         const runBackward = (idx: number) => {
+//             if (cancelled) return;
+
+//             setFrameIndex(idx);
+
+//             if (idx <= 0) {
+//                 // reached first frame → pause, then start forward
+//                 timer = window.setTimeout(() => runForward(0), ANGEL_PAUSE_MS);
+//             } else {
+//                 timer = window.setTimeout(() => runBackward(idx - 1), stepDuration);
+//             }
+//         };
+
+//         // start at the beginning, going forward
+//         runForward(0);
+
+//         return () => {
+//             cancelled = true;
+//             if (timer !== undefined) {
+//                 window.clearTimeout(timer);
+//             }
+//         };
+//     }, []); // run once; animation won't restart on parent re-renders
+
+//     const { frameWidth, frameHeight, cols, rows } = ANGEL_ATLAS_META;
+
+//     const col = frameIndex % cols;
+//     const row = Math.floor(frameIndex / cols);
+
+//     // percent-based slicing of the grid
+//     const bgSizeX = cols * 100; // 8 → 800%
+//     const bgSizeY = rows * 100; // 10 → 1000%
+
+//     const bgPosX = cols > 1 ? (col / (cols - 1)) * 100 : 0;
+//     const bgPosY = rows > 1 ? (row / (rows - 1)) * 100 : 0;
+
+//     return (
+//         <Box
+//             sx={{
+//                 position: "relative",
+//                 width: "100%", // fill same width as Avatar
+//                 aspectRatio: `${frameWidth} / ${frameHeight}`, // keeps original aspect ratio → no quality loss
+//                 backgroundImage: `url(${images["angel_atlas"]})`,
+//                 backgroundRepeat: "no-repeat",
+//                 backgroundSize: `${bgSizeX}% ${bgSizeY}%`,
+//                 backgroundPosition: `${bgPosX}% ${bgPosY}%`,
+//                 imageRendering: "pixelated",
+//                 overflow: "visible",
+//                 zIndex: 5,
+//             }}
+//         />
+//     );
+// };
 
 const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAura: boolean }> = ({
     stackPower,
@@ -458,6 +720,9 @@ const UnitStatsLayout: React.FC<{
     } else if (unitProperties.attack_multiplier === 1 && unitProperties.attack_mod < 0) {
         attackColor = "danger";
     }
+    const animationConfig = getDefaultAnimationConfig(unitProperties.name);
+    const hasAnimation = !!animationConfig;
+
     const statsContent = (
         <>
             <StatGroup>
@@ -543,6 +808,8 @@ const UnitStatsLayout: React.FC<{
                     color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                     badgeContent={stepsModBadgeValue}
                     badgeColor={stepsMod > 0 ? "success" : "danger"}
+                    positiveFrame={stepsMod > 0}
+                    negativeFrame={stepsMod < 0}
                 />
                 <StatItem
                     icon={<SpeedIcon />}
@@ -603,20 +870,31 @@ const UnitStatsLayout: React.FC<{
             <>
                 <Box sx={{ display: "flex", width: "100%", overflow: "hidden", flexWrap: "wrap" }}>
                     <Box sx={{ width: "60%", position: "relative" }}>
-                        <Avatar
-                            src={images[largeTextureName]}
-                            variant="plain"
-                            sx={{
-                                width: "100%",
-                                zIndex: 5,
-                                height: "auto",
-                                objectFit: "contain",
-                                overflow: "visible",
-                                transition: "opacity 120ms ease-out",
-                            }}
-                            onLoad={onImageLoaded}
-                            onError={onImageLoaded}
-                        />
+                        {hasAnimation && animationConfig ? (
+                            <AtlasAnimation
+                                // if you don't want restart on outside re-renders:
+                                // key={`${unitProperties.name}-${unitProperties.team}-${unitProperties.amount_alive}`}
+                                meta={animationConfig.meta}
+                                src={animationConfig.imageSrc}
+                                onLoaded={onImageLoaded}
+                            />
+                        ) : (
+                            <Avatar
+                                // @ts-ignore: src params
+                                src={images[largeTextureName]}
+                                variant="plain"
+                                sx={{
+                                    width: "100%",
+                                    zIndex: 5,
+                                    height: "auto",
+                                    objectFit: "contain",
+                                    overflow: "visible",
+                                    transition: "opacity 120ms ease-out",
+                                }}
+                                onLoad={onImageLoaded}
+                                onError={onImageLoaded}
+                            />
+                        )}
                     </Box>
                     <Box
                         sx={{
@@ -643,24 +921,44 @@ const UnitStatsLayout: React.FC<{
     } else {
         // vertical layout
         return (
-            <Box sx={{ position: "relative", marginBottom: 1.5 }}>
-                <Avatar
-                    // @ts-ignore: src params
-                    src={images[largeTextureName]}
-                    variant="plain"
-                    sx={{
-                        zIndex: 5,
-                        width: "auto",
-                        height: "auto",
-                        maxWidth: "100%",
-                        maxHeight: "100%",
-                        objectFit: "contain",
-                        overflow: "visible",
-                        transition: "opacity 120ms ease-out",
-                    }}
-                    onLoad={onImageLoaded}
-                    onError={onImageLoaded}
-                />
+            <Box
+                sx={{
+                    position: "relative",
+                    marginBottom: 1.5,
+                    width: "100%", // ⬅️ ensure full row width
+                }}
+            >
+                <Box sx={{ width: "100%" }}>
+                    {" "}
+                    {/* ⬅️ wrapper that fills width */}
+                    {hasAnimation && animationConfig ? (
+                        <AtlasAnimation
+                            // key={`${unitProperties.name}-${unitProperties.team}-${unitProperties.amount_alive}`}
+                            meta={animationConfig.meta}
+                            src={animationConfig.imageSrc}
+                            onLoaded={onImageLoaded}
+                        />
+                    ) : (
+                        <Avatar
+                            // @ts-ignore: src params
+                            src={images[largeTextureName]}
+                            variant="plain"
+                            sx={{
+                                zIndex: 5,
+                                width: "100%",
+                                height: "auto",
+                                maxWidth: "100%",
+                                maxHeight: "100%",
+                                objectFit: "contain",
+                                overflow: "visible",
+                                transition: "opacity 120ms ease-out",
+                            }}
+                            onLoad={onImageLoaded}
+                            onError={onImageLoaded}
+                        />
+                    )}
+                </Box>
+
                 <Box
                     sx={{
                         width: "90%",
@@ -678,6 +976,7 @@ const UnitStatsLayout: React.FC<{
                 >
                     {statsContent}
                 </Box>
+
                 <Box
                     sx={{
                         width: "100%",

@@ -31,6 +31,7 @@ Env variables:
 ```bash
 # path to the images folder containing the *.webp assets
 HOC_IMAGES_LOC=./path/to/images
+HOC_ANIMATIONS_LOC=./path/to/animations
 ```
 
 Most important commands to execute from the root folder (you need [bun](https://bun.com/) installed):

@@ -9,9 +9,10 @@
     "scripts": {
         "build": "rimraf .parcel-cache && yarn run build:images && rimraf dist && tsc && yarn run build:docs",
         "build:docs": "rimraf ../../.parcel-cache && rimraf ../../docs/dist && dotenv -e .env.production parcel build --no-optimize src/ui/index.html --public-url . --no-source-maps && cpy dist ../../docs",
-        "build:images": "rimraf images && npm run copy:images && npm run generate:images",
+        "build:images": "rimraf images && bun run copy:images && npm run generate:animations && npm run generate:images",
         "copy:images": "cpy $HOC_IMAGES_LOC ./",
-        "generate:images": "node scripts/generate_image_imports.js",
+        "generate:animations": "bun scripts/generate_animation_atlases.js",
+        "generate:images": "bun scripts/generate_image_imports.js",
         "start": "cross-env NODE_ENV=development vite"
     },
     "browserslist": [
