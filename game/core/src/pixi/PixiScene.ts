@@ -204,10 +204,9 @@ export abstract class PixiScene {
         this.sc_currentActiveShotRange = undefined;
         this.sc_currentActiveAuraRanges = [];
     }
-    // ---- helper: dynamic access without fighting the strict key type
-    protected texAny(key: string): Texture | undefined {
+    protected texAny = (key: string): Texture | undefined => {
         return (this.textures as unknown as Record<string, Texture>)[key];
-    }
+    };
     public getBaseHotkeys(): HotKey[] {
         return [];
     }

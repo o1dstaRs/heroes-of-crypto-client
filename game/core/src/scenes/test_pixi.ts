@@ -1,5 +1,5 @@
 // game/core/src/scenes/test_pixi.ts
-import { Sprite, Graphics, Container, Text, TextStyle } from "pixi.js";
+import { Sprite, Graphics, Container, Text } from "pixi.js";
 import {
     Augment,
     FightStateManager,
@@ -23,6 +23,12 @@ import {
     UnitVals,
     AbilityFactory,
     EffectFactory,
+    SpecificSynergy,
+    ToLifeSynergy,
+    ToChaosSynergy,
+    ToMightSynergy,
+    ToNatureSynergy,
+    FactionVals,
 } from "@heroesofcrypto/common";
 import { Settings } from "../settings";
 import { UnitsOverlay } from "./UnitsOverlay";
@@ -36,6 +42,7 @@ import {
     setSpawnFlowPhase,
 } from "../pixi/PixiDrawablePlacement";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
+import { RenderableUnit } from "@/pixi/RenderableUnit";
 export class Sandbox extends PixiScene {
     private readonly grid: Grid;
     private readonly allowedPlacementCellHashes: Set<number>;
@@ -244,77 +251,6 @@ export class Sandbox extends PixiScene {
         }
         return undefined;
     }
-    private ensureUnitSprite(unit: Unit, props: UnitProperties): { sprite: Sprite; scale: number } | undefined {
-        const id = unit.getId();
-        let sprite = this.unitSprites.get(id);
-        const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
-        const tex = this.texAny(texName);
-        if (!tex) return undefined;
-        if (!sprite) {
-            sprite = new Sprite(tex);
-            sprite.anchor.set(0.5);
-            sprite.scale.y = -1; // y-up → flip in Pixi
-            this.attachToWorldRoot(sprite, 120);
-            this.unitSprites.set(id, sprite);
-        } else {
-            sprite.texture = tex;
-        }
-        const pos = unit.getPosition();
-        const targetSize = props.size === 2 ? 256 : 128;
-        const baseWidth = tex.width || 1;
-        const scale = targetSize / baseWidth;
-        sprite.scale.set(scale, -scale);
-        sprite.x = pos.x;
-        sprite.y = pos.y;
-        sprite.visible = true;
-        sprite.alpha = 1;
-        sprite.tint = 0xffffff;
-        // Use grid cell size so badges are consistent across unit sizes
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const iconSide = gs.getCellSize();
-        this.ensureUnitBadge(unit, props, iconSide, pos);
-        return { sprite, scale };
-    }
-    private startSpawnAnimation(sprite: Sprite, endScale: number): void {
-        const endScaleX = endScale;
-        const endScaleY = -endScale;
-        const startScaleX = endScaleX * 1.3;
-        const startScaleY = endScaleY * 1.3;
-        sprite.scale.set(startScaleX, startScaleY);
-        sprite.alpha = 0;
-        this.spawnAnimations.push({
-            sprite,
-            startScaleX,
-            startScaleY,
-            endScaleX,
-            endScaleY,
-            elapsed: 0,
-            duration: 0.25,
-        });
-    }
-    private updateSpawnAnimations(dt: number): void {
-        if (!dt || this.spawnAnimations.length === 0) return;
-        const easeOutCubic = (t: number) => {
-            const u = 1 - t;
-            return 1 - u * u * u;
-        };
-        this.spawnAnimations = this.spawnAnimations.filter((anim) => {
-            if (!anim.sprite.parent) return false;
-            anim.elapsed += dt;
-            const t = Math.min(anim.elapsed / anim.duration, 1);
-            const e = easeOutCubic(t);
-            const sx = anim.startScaleX + (anim.endScaleX - anim.startScaleX) * e;
-            const sy = anim.startScaleY + (anim.endScaleY - anim.startScaleY) * e;
-            anim.sprite.scale.set(sx, sy);
-            anim.sprite.alpha = e;
-            if (t >= 1) {
-                anim.sprite.scale.set(anim.endScaleX, anim.endScaleY);
-                anim.sprite.alpha = 1;
-                return false;
-            }
-            return true;
-        });
-    }
     private updateBoardHoverTween(dt: number): void {
         if (!dt) return;
         const lerp = (from: number, to: number, speed: number) => {
@@ -327,27 +263,6 @@ export class Sandbox extends PixiScene {
         this.boardHoverYOffset = lerp(this.boardHoverYOffset, this.boardHoverTargetYOffset, 8);
         if (this.boardHoverProps && this.boardHoverCenter && !this.hasActiveSelection) {
             this.updateBoardHoverSilhouette(this.boardHoverProps, this.boardHoverCenter);
-        }
-    }
-    private syncUnitSprites(): void {
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const cellSize = gs.getCellSize();
-        for (const [id, unit] of this.unitsHolder.getAllUnits()) {
-            const sprite = this.unitSprites.get(id);
-            if (!sprite) continue;
-            const pos = unit.getPosition();
-            const inGrid = GridMath.isPositionWithinGrid(gs, pos);
-            const badge = this.unitBadges.get(id);
-            if (!inGrid) {
-                sprite.visible = false;
-                if (badge) badge.container.visible = false;
-                continue;
-            }
-            sprite.visible = true;
-            sprite.x = pos.x;
-            sprite.y = pos.y;
-            const props = unit.getUnitProperties();
-            this.ensureUnitBadge(unit, props, cellSize, pos);
         }
     }
     /** Get unit by world position using grid occupancy */
@@ -769,53 +684,6 @@ export class Sandbox extends PixiScene {
             this.sc_currentActiveShotRange = undefined;
         }
     }
-    private ensureUnitBadge(unit: Unit, props: UnitProperties, iconSide: number, pos: HoCMath.XY): void {
-        const id = unit.getId();
-        let entry = this.unitBadges.get(id);
-        if (!entry) {
-            const container = new Container();
-            const circle = new Graphics();
-            const text = new Text({
-                text: "0",
-                style: new TextStyle({
-                    fill: 0x000000,
-                    fontSize: 14,
-                    fontWeight: "700",
-                }),
-            });
-            text.anchor.set(0.5);
-            // Y-flip the number so it’s upright in world coordinates
-            text.scale.y = -1;
-            container.addChild(circle, text);
-            this.attachToWorldRoot(container, 130); // above units
-            entry = { container, circle, text, iconSide };
-            this.unitBadges.set(id, entry);
-        } else {
-            entry.iconSide = iconSide;
-        }
-        const amount = unit.getAmountAlive();
-        entry.text.text = String(amount);
-        // Badge size: based on ONE cell (same for size-1 & size-2 units)
-        const br = Math.max(10, Math.floor(iconSide * 0.18));
-        entry.circle.clear().circle(0, 0, br).fill({ color: 0xffffff, alpha: 1 });
-        const fs = Math.max(12, Math.floor(iconSide * 0.22));
-        entry.text.style = new TextStyle({
-            fill: 0x000000,
-            fontSize: fs,
-            fontWeight: "700",
-        });
-        // Compute full stack bounds: 1×1 vs 2×2 cells
-        const w = iconSide * (props.size === 2 ? 2 : 1);
-        const h = iconSide * (props.size === 2 ? 2 : 1);
-        // Small inset from the very edge
-        const margin = Math.max(4, Math.floor(iconSide * 0.12));
-        // Top-right in Y-up world → +X, +Y from center, minus margin
-        const offsetX = w * 0.5 - margin;
-        const offsetY = h * 0.5 - margin;
-        entry.container.x = pos.x + offsetX;
-        entry.container.y = pos.y + offsetY;
-        entry.container.visible = amount > 0;
-    }
     private ensurePlacementGraphicsWorld(): void {
         if (!this.placementGraphics) this.placementGraphics = new Graphics();
         this.attachToWorldRoot(this.placementGraphics, 100);
@@ -848,11 +716,6 @@ export class Sandbox extends PixiScene {
             this.bgKey = wantKey;
             this.bgSprite.texture = wantTex;
         }
-    }
-    private ensureCornerMarkersWorld(): void {
-        if (!this.cornerGfxWorld) this.cornerGfxWorld = new Graphics();
-        this.attachToWorldRoot(this.cornerGfxWorld, 90);
-        this.layoutCornerMarkersWorld();
     }
     private layoutCornerMarkersWorld(): void {
         const g = this.cornerGfxWorld;
@@ -891,7 +754,7 @@ export class Sandbox extends PixiScene {
         if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
         obj.zIndex = zIndex;
     }
-    private createUnitForTeam(teamType: TeamType): Unit | undefined {
+    private createUnitForTeam(teamType: TeamType): RenderableUnit | undefined {
         const selected = this.sc_selectedUnitProperties;
         if (!selected || teamType === TeamVals.NO_TEAM) return undefined;
         const unit = Unit.createUnit(
@@ -903,10 +766,11 @@ export class Sandbox extends PixiScene {
             this.abilityFactory.getEffectsFactory(),
             false,
         );
+        const renderableUnit = RenderableUnit.fromBase(unit, this.texAny);
         if (!this.unitsHolder.getAllUnits().has(unit.getId())) {
-            this.unitsHolder.addUnit(unit);
+            this.unitsHolder.addUnit(renderableUnit);
         }
-        return unit;
+        return renderableUnit;
     }
     public override Resize(w: number, h: number): void {
         this.layoutBackgroundSquare();
@@ -916,10 +780,203 @@ export class Sandbox extends PixiScene {
         this.layoutCornerMarkersWorld();
     }
     protected verifyButtonsTrigger(): void {}
-    public propagateAugmentation(_t: TeamType, _a: Augment.AugmentType): boolean {
-        return false;
+    public refreshUnits(): void {
+        // those need to be applied first
+        this.unitsHolder.applyAugments();
+        // now we can refresh unit properties
+        this.unitsHolder.refreshAuraEffectsForAllUnits();
+        this.unitsHolder.refreshStackPowerForAllUnits();
+        // need to call it twice to make sure aura effects are applied
+        this.unitsHolder.refreshAuraEffectsForAllUnits();
+        this.unitsHolder.refreshStackPowerForAllUnits();
+        // this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
     }
-    public propagateSynergy(_t: TeamType, _f: FactionType, _n: string, _l: number): boolean {
+    protected destroySpecificUnits(unitsToDestroy: RenderableUnit[]): void {
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        if (fightProps.hasFightStarted() || !unitsToDestroy.length) return;
+
+        const destroyedUnitIds = new Set<string>();
+
+        for (const utd of unitsToDestroy) {
+            const unitId = utd.getId();
+            if (destroyedUnitIds.has(unitId)) continue;
+
+            // 1) Remove from UnitsHolder
+            const deleted = this.unitsHolder.deleteUnitById(unitId);
+            if (!deleted) continue;
+
+            // 2) Cleanup grid occupancy (we still have the Unit instance `utd`)
+            this.grid.cleanupAll(unitId, utd.getAttackRange(), utd.isSmallSize());
+
+            // 3) Remove Pixi visuals + selection
+            utd.destroyVisuals();
+
+            destroyedUnitIds.add(unitId);
+        }
+
+        this.unitsHolder.refreshStackPowerForAllUnits();
+    }
+    protected destroyNonPlacedUnits(verifyWithinGridPosition = true): void {
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        if (fightProps.hasFightStarted()) return;
+
+        const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
+        const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
+        const lowerRightPlacement = this.getPlacement(TeamVals.LOWER, 1);
+        const upperLeftPlacement = this.getPlacement(TeamVals.UPPER, 1);
+
+        if (!lowerLeftPlacement && !upperRightPlacement && !lowerRightPlacement && !upperLeftPlacement) {
+            return;
+        }
+
+        // Snapshot units BEFORE we start deleting them from UnitsHolder
+        const unitsSnapshot = Array.from(this.unitsHolder.getAllUnits().values()) as RenderableUnit[];
+
+        for (const unit of unitsSnapshot) {
+            const unitId = unit.getId();
+
+            const shouldDelete = this.unitsHolder.deleteUnitIfNotAllowed(
+                unitId,
+                lowerLeftPlacement,
+                upperRightPlacement,
+                lowerRightPlacement,
+                upperLeftPlacement,
+                verifyWithinGridPosition,
+            );
+
+            if (!shouldDelete) continue;
+
+            // UnitsHolder has already removed the unit at this point,
+            // but we still have the original `unit` object for grid cleanup:
+            this.grid.cleanupAll(unitId, unit.getAttackRange(), unit.isSmallSize());
+
+            // Remove Pixi visuals + selection
+            unit.destroyVisuals();
+        }
+
+        this.unitsHolder.refreshStackPowerForAllUnits();
+    }
+    public propagateAugmentation(teamType: TeamType, augmentType: Augment.AugmentType): boolean {
+        const fp = FightStateManager.getInstance().getFightProperties();
+        const canAugment = fp.canAugment(teamType, augmentType);
+        if (!canAugment) return false;
+
+        const augmented = fp.setAugmentPerTeam(teamType, augmentType);
+
+        if (augmentType.type === "Placement") {
+            // Rebuild placements & allowed cells
+            this.initializePlacements();
+
+            // First remove units that are now outside any placement
+            this.destroyNonPlacedUnits(false);
+
+            const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
+            const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
+            const lowerRightPlacement = this.getPlacement(TeamVals.LOWER, 1);
+            const upperLeftPlacement = this.getPlacement(TeamVals.UPPER, 1);
+
+            if (lowerLeftPlacement && upperRightPlacement) {
+                const targetTeamSize = fp.getNumberOfUnitsAvailableForPlacement(teamType);
+                const alliesPlacedCount = this.unitsHolder.getAllAlliesPlaced(
+                    teamType,
+                    lowerLeftPlacement,
+                    upperRightPlacement,
+                    lowerRightPlacement,
+                    upperLeftPlacement,
+                ).length;
+
+                if (alliesPlacedCount > targetTeamSize) {
+                    const unitsToCleanupFromTheBoard = this.unitsHolder.toCleanupRandomUnitsTillTeamSize(
+                        targetTeamSize,
+                        teamType,
+                        lowerLeftPlacement,
+                        upperRightPlacement,
+                        lowerRightPlacement,
+                        upperLeftPlacement,
+                    );
+                    if (unitsToCleanupFromTheBoard.length) {
+                        this.destroySpecificUnits(unitsToCleanupFromTheBoard as RenderableUnit[]);
+                    }
+                }
+            }
+        }
+
+        if (augmented) {
+            if (this.sc_selectedUnitProperties) {
+                this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
+            }
+            this.sc_unitPropertiesUpdateNeeded = true;
+        }
+
+        return augmented;
+    }
+    public propagateSynergy(
+        teamType: TeamType,
+        faction: FactionType,
+        synergyName: string,
+        synergyLevel: number,
+    ): boolean {
+        let specificSynergy: SpecificSynergy | undefined = undefined;
+        let isNatureSynergy = false;
+        if (faction === FactionVals.LIFE) {
+            specificSynergy = ToLifeSynergy[synergyName];
+        } else if (faction === FactionVals.CHAOS) {
+            specificSynergy = ToChaosSynergy[synergyName];
+        } else if (faction === FactionVals.MIGHT) {
+            specificSynergy = ToMightSynergy[synergyName];
+        } else if (faction === FactionVals.NATURE) {
+            specificSynergy = ToNatureSynergy[synergyName];
+            isNatureSynergy = true;
+        }
+        if (specificSynergy) {
+            const hasUpdated = FightStateManager.getInstance()
+                .getFightProperties()
+                .updateSynergyPerTeam(teamType, faction, specificSynergy, synergyLevel);
+            this.refreshUnits();
+            // this.refreshSynergyVisualEffect();
+
+            if (this.sc_selectedUnitProperties) {
+                this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
+            }
+            this.sc_unitPropertiesUpdateNeeded = true;
+
+            // some synergies may affect the board state
+            if (hasUpdated && isNatureSynergy) {
+                const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
+                const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
+
+                if (lowerLeftPlacement && upperRightPlacement) {
+                    const targetTeamSize = FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getNumberOfUnitsAvailableForPlacement(teamType);
+
+                    if (
+                        this.unitsHolder.getAllAlliesPlaced(
+                            teamType,
+                            lowerLeftPlacement,
+                            upperRightPlacement,
+                            this.getPlacement(TeamVals.LOWER, 1),
+                            this.getPlacement(TeamVals.UPPER, 1),
+                        ).length > targetTeamSize
+                    ) {
+                        const unitsToCleanupFromTheBoard = this.unitsHolder.toCleanupRandomUnitsTillTeamSize(
+                            targetTeamSize,
+                            teamType,
+                            lowerLeftPlacement,
+                            upperRightPlacement,
+                            this.getPlacement(TeamVals.LOWER, 1),
+                            this.getPlacement(TeamVals.UPPER, 1),
+                        );
+                        if (unitsToCleanupFromTheBoard.length) {
+                            this.destroySpecificUnits(unitsToCleanupFromTheBoard as RenderableUnit[]);
+                        }
+                    }
+                }
+            }
+
+            return hasUpdated;
+        }
+
         return false;
     }
     public getNumberOfUnitsAvailableForPlacement(_t: TeamType): number {
@@ -1037,9 +1094,9 @@ export class Sandbox extends PixiScene {
             return;
         }
         // Decide whether this is a move (existing unit) or a new unit
-        let unit: Unit | undefined;
+        let unit: RenderableUnit | undefined;
         if (this.draggingUnitId) {
-            unit = this.unitsHolder.getAllUnits().get(this.draggingUnitId);
+            unit = this.unitsHolder.getAllUnits().get(this.draggingUnitId) as RenderableUnit;
             if (!unit) console.log("Dragging unit not found, will create new");
         }
         if (!unit) {
@@ -1086,14 +1143,13 @@ export class Sandbox extends PixiScene {
             return;
         }
         unit.setPosition(placePos.x, placePos.y);
-        const ensured = this.ensureUnitSprite(unit, selected);
-        if (!ensured) {
+        const scale = unit.ensureVisual(this.pixiSceneManager.getWorldRoot(), gs);
+        if (!scale) {
             console.log("Failed to ensure unit sprite");
             if (!this.selectionFromOverlay) this.clearBoardSelection();
             return;
         }
-        const { sprite, scale } = ensured;
-        this.startSpawnAnimation(sprite, scale);
+        unit.startSpawnAnimation(scale);
         this.unitsHolder.refreshStackPowerForAllUnits();
         console.log(
             `Placed ${selected.name} (size=${selected.size}) at (${placePos.x}, ${placePos.y}) for team ${teamType}`,
@@ -1291,8 +1347,15 @@ export class Sandbox extends PixiScene {
         if (this.placementGraphics) {
             this.drawPlacements();
         }
-        this.syncUnitSprites();
-        this.updateSpawnAnimations(timeStep);
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            (unit as RenderableUnit).syncVisual(
+                this.pixiSceneManager.getWorldRoot(),
+                this.sc_sceneSettings.getGridSettings(),
+            );
+        }
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            (unit as RenderableUnit).stepSpawnAnimation(timeStep);
+        }
     }
     private initializePlacements(): void {
         this.lowerPlacements = [];
@@ -1300,21 +1363,21 @@ export class Sandbox extends PixiScene {
         const fp = FightStateManager.getInstance().getFightProperties();
         const augLower = fp.getAugmentPlacement(TeamVals.LOWER);
         const augUpper = fp.getAugmentPlacement(TeamVals.UPPER);
+
         const placementType = fp.getPlacementType();
         if (placementType === PlacementType.RECTANGLE) {
-            const heightRows = 3;
             this.lowerPlacements.push(
                 new DrawableRectanglePlacement(
                     this.sc_sceneSettings.getGridSettings(),
                     PlacementPositionType.LOWER_LEFT,
-                    heightRows,
+                    augLower[0],
                 ),
             );
             this.upperPlacements.push(
                 new DrawableRectanglePlacement(
                     this.sc_sceneSettings.getGridSettings(),
                     PlacementPositionType.UPPER_LEFT,
-                    heightRows,
+                    augUpper[0],
                 ),
             );
         } else {
