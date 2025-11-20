@@ -61,6 +61,7 @@ export class Sandbox extends PixiScene {
     private hoverSelectedCellsSwitchToRed = false;
     private centerTerrainSprite?: Sprite;
     private lastPlacementUnitId?: string;
+    private selectedBoardUnit?: RenderableUnit;
     private lastPlacementTimestampSec = 0;
     private readonly hoverRearmDelaySec = 2.0;
     /** silhouette used both for overlay preview and for board hover/move */
@@ -825,6 +826,10 @@ export class Sandbox extends PixiScene {
             // 3) Remove Pixi visuals + selection
             utd.destroyVisuals();
 
+            if (this.selectedBoardUnit === utd) {
+                this.selectedBoardUnit = undefined;
+            }
+
             destroyedUnitIds.add(unitId);
         }
 
@@ -1047,6 +1052,12 @@ export class Sandbox extends PixiScene {
     }
     public requestTime(_team: number): void {}
     private clearBoardSelection(_notifyUnitDeselected: boolean = true): void {
+        // stop board selection animation if any
+        if (this.selectedBoardUnit) {
+            this.selectedBoardUnit.setBoardSelected(false);
+            this.selectedBoardUnit = undefined;
+        }
+
         this.hasActiveSelection = false;
         this.selectionFromOverlay = false;
         this.draggingUnitId = undefined;
@@ -1062,7 +1073,6 @@ export class Sandbox extends PixiScene {
         this.boardHoverCenter = undefined;
         this.boardHoverTargetScale = 1;
         this.boardHoverTargetYOffset = 0;
-        // cancel delayed hover re-arm
         // this.lastPlacementUnitId = undefined;
         // this.lastPlacementTimestampSec = 0;
         this.clearHoverSilhouette();
@@ -1198,6 +1208,7 @@ export class Sandbox extends PixiScene {
             `Placed ${selected.name} (size=${selected.size}) at (${placePos.x}, ${placePos.y}) for team ${teamType}`,
         );
         // Success → clear selection / hover
+        // Success → clear selection / hover
         if (this.selectionFromOverlay) {
             this.sc_selectedUnitProperties = undefined;
             this.hoverSelectedCells = undefined;
@@ -1207,7 +1218,11 @@ export class Sandbox extends PixiScene {
             this.hasActiveSelection = false;
             this.selectionFromOverlay = false;
         } else {
-            // Board move: clear selection + notify UI (same as overlay Deselect)
+            // Board move: stop board animation + clear selection + notify UI (same as overlay Deselect)
+            if (this.selectedBoardUnit) {
+                this.selectedBoardUnit.setBoardSelected(false);
+                this.selectedBoardUnit = undefined;
+            }
             this.clearBoardSelection();
             this.Deselect(false, true);
         }
@@ -1222,10 +1237,12 @@ export class Sandbox extends PixiScene {
     public override MouseDown(p: HoCMath.XY): void {
         this.sc_mouseWorld = p;
         const fightProps = FightStateManager.getInstance().getFightProperties();
+
         if (!fightProps.hasFightStarted()) {
             // CASE 1: we already have an active selection (overlay or board) → attempt to place/move
             if (this.hasActiveSelection && this.sc_selectedUnitProperties) {
                 this.updateHoverPlacementCell(p);
+
                 // For board selection, clicking invalid area should deselect instead of trying to place
                 if (
                     !this.hoverSelectedCells ||
@@ -1234,18 +1251,36 @@ export class Sandbox extends PixiScene {
                 ) {
                     if (!this.selectionFromOverlay) {
                         // Clicked elsewhere while moving from board → deselect
+                        // stop board animation
+                        if (this.selectedBoardUnit) {
+                            this.selectedBoardUnit.setBoardSelected(false);
+                            this.selectedBoardUnit = undefined;
+                        }
                         this.clearBoardSelection();
                         this.Deselect(false, true);
                         return;
                     }
-                    return; // overlay selection keeps selection
+                    // overlay selection keeps selection
+                    return;
                 }
+
                 this.tryPlaceUnit();
                 return;
             }
-            // CASE 2: no active selection yet → maybe click on existing unit to start move
+
+            // CASE 2: no active selection yet → maybe click on existing unit to start move/selection
             const unit = this.getUnitAtPosition(p);
             if (unit) {
+                const ru = unit as RenderableUnit;
+
+                // stop previous board selection animation if any
+                if (this.selectedBoardUnit && this.selectedBoardUnit !== ru) {
+                    this.selectedBoardUnit.setBoardSelected(false);
+                }
+
+                this.selectedBoardUnit = ru;
+                this.selectedBoardUnit.setBoardSelected(true); // 🔥 start board animation
+
                 const props = unit.getUnitProperties();
                 this.lastPlacementUnitId = undefined;
                 this.lastPlacementTimestampSec = 0;
@@ -1254,18 +1289,23 @@ export class Sandbox extends PixiScene {
                 this.draggingUnitId = unit.getId();
                 this.draggingUnitTeam = unit.getTeam();
                 this.sc_selectedUnitProperties = props;
-                // 🔔 fire UnitSelected-style event so the rest of the UI updates
+
+                // update right-hand UI panel
                 this.setSelectedUnitProperties(props);
+
                 // clear passive hover, now this is an active selection
                 this.boardHoverProps = undefined;
                 this.boardHoverCenter = undefined;
                 this.boardHoverTargetScale = 1;
                 this.boardHoverTargetYOffset = 0;
-                // show preview at current mouse/cell
+
+                // show placement preview under mouse
                 this.updateHoverPlacementCell(p);
                 return;
             }
         }
+
+        // fall back to base behavior (hotkeys / buttons)
         super.MouseDown(p);
     }
     private getHighlightRectForUnit(unit: Unit): { x: number; y: number; w: number; h: number } | undefined {
@@ -1340,21 +1380,30 @@ export class Sandbox extends PixiScene {
         }
     }
     public override Deselect(_onlyWhenNotStarted = false, _refreshStats = true): void {
-        // First let the base class clear its own selection state
+        // First let the base class clear its own selection state (overlay linkage, etc.)
         super.Deselect(_onlyWhenNotStarted, _refreshStats);
+
+        // Stop board selection animation if any
+        if (this.selectedBoardUnit) {
+            this.selectedBoardUnit.setBoardSelected(false);
+            this.selectedBoardUnit = undefined;
+        }
+
         // Then clear Sandbox-specific selection / hover state
-        // No active selection anymore (overlay or board)
         this.hasActiveSelection = false;
         this.selectionFromOverlay = false;
         this.draggingUnitId = undefined;
         this.draggingUnitTeam = undefined;
+
         // Clear placement hover (red/white rectangle)
         this.hoverPlacementCell = undefined;
         this.hoverPlacementCellTeam = undefined;
         this.hoverSelectedCells = undefined;
         this.hoverSelectedCellsSwitchToRed = false;
+
         // Clear passive board-hover highlight
         this.hoveredUnitHighlight = undefined;
+
         // Reset UnitChip-style hover tween state
         this.boardHoverProps = undefined;
         this.boardHoverCenter = undefined;
@@ -1362,9 +1411,7 @@ export class Sandbox extends PixiScene {
         this.boardHoverTargetScale = 1;
         this.boardHoverYOffset = 0;
         this.boardHoverTargetYOffset = 0;
-        // Cancel delayed hover re-arm (ESC should fully reset)
-        // this.lastPlacementUnitId = undefined;
-        // this.lastPlacementTimestampSec = 0;
+
         // Also clear silhouettes / flags used by hover previews
         this.resetHover(false); // clears silhouette + internal flags, but we already nulled selected cells above
     }

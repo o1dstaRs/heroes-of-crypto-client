@@ -77,7 +77,12 @@ function main() {
 
     const metaFiles = allFiles.filter((f) => f.endsWith("_meta.json")).sort();
     const atlasWebps = allFiles
-        .filter((f) => f.endsWith(".webp") && f.includes(`${path.sep}atlas${path.sep}`) && f.endsWith("_atlas.webp"))
+        .filter(
+            (f) =>
+                f.endsWith(".webp") &&
+                f.includes(`${path.sep}atlas${path.sep}`) &&
+                (f.endsWith("_atlas.webp") || f.endsWith("_atlas_quarter.webp") || f.endsWith("_atlas_half.webp")),
+        )
         .sort();
 
     if (metaFiles.length === 0) {

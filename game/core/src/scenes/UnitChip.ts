@@ -1,5 +1,91 @@
 // game/core/src/scenes/UnitChip.ts
-import { Container, Graphics, Sprite, Text, TextStyle, Texture, Ticker } from "pixi.js";
+import { Container, Graphics, Sprite, Text, TextStyle, Texture, Ticker, Rectangle } from "pixi.js";
+import { animationAtlases, AnimationUnitName, AnimationStateName } from "../generated/animation_atlases";
+import { images, type ImageKey } from "../generated/image_imports";
+
+// --- Atlas helpers (Pixi version of your React helpers) ---
+
+type AtlasMeta = (typeof animationAtlases)[AnimationUnitName][AnimationStateName];
+
+function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | null {
+    if (!name) return null;
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    if (trimmed in animationAtlases) return trimmed as AnimationUnitName;
+    return null;
+}
+
+function atlasImageKeyFromUnitAndState(unitName: string, state: string): ImageKey | null {
+    const base = unitName.toLowerCase().replace(/\s+/g, "_");
+    const stateLower = state.toLowerCase();
+
+    const key = `${base}_${stateLower}_atlas_quarter` as ImageKey;
+
+    if (key in images) return key;
+    if (process.env.NODE_ENV === "development") {
+        console.warn(`[atlas] Missing atlas image for unit "${unitName}", state "${state}". Expected key: ${key}`);
+    }
+    return null;
+}
+
+function getDefaultAnimationConfig(
+    unitName?: string | null,
+): { meta: AtlasMeta; imageSrc: string; cacheKey: string } | null {
+    const normalized = normalizeUnitNameForAtlas(unitName);
+    if (!normalized) return null;
+
+    const unitStates = animationAtlases[normalized];
+    const stateNames = Object.keys(unitStates) as AnimationStateName[];
+    if (!stateNames.length) return null;
+
+    const preferredState = (stateNames as string[]).includes("default")
+        ? ("default" as AnimationStateName)
+        : stateNames[0];
+
+    const meta = unitStates[preferredState];
+    const imageKey = atlasImageKeyFromUnitAndState(normalized, preferredState);
+    if (!imageKey) return null;
+
+    const imageSrc = images[imageKey];
+    if (!imageSrc) return null;
+
+    const cacheKey = `${normalized}::${preferredState}`;
+    return { meta, imageSrc, cacheKey };
+}
+
+// Cache textures per atlas to avoid rebuilding frames
+const atlasFramesCache = new Map<string, Texture[]>();
+
+function buildAtlasFrames(meta: AtlasMeta, imageSrc: string): Texture[] {
+    // Parent texture for the whole atlas image (cached by Pixi for a given id/url)
+    const parentTexture = Texture.from(imageSrc);
+    const source = parentTexture.source; // ✅ v8 way, replaces deprecated baseTexture
+
+    const frameWidth = meta.frameWidth / 4;
+    const frameHeight = meta.frameHeight / 4;
+    const cols = meta.layout?.cols ?? 1;
+    const rows = meta.layout?.rows ?? 1;
+    const frameCount = meta.frameCount ?? cols * rows;
+
+    const frames: Texture[] = [];
+
+    let index = 0;
+    for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+            if (index >= frameCount) break;
+
+            const frameRect = new Rectangle(col * frameWidth, row * frameHeight, frameWidth, frameHeight);
+
+            // ✅ Pixi v8: TextureOptions uses `source` + `frame`
+            const tex = new Texture({ source, frame: frameRect });
+
+            frames.push(tex);
+            index++;
+        }
+    }
+
+    return frames;
+}
 
 export type AmountProvider = (unitName: string) => number | undefined | null;
 
@@ -24,6 +110,7 @@ export class UnitChip extends Container {
     private banned = false;
     private amountProvider?: AmountProvider;
     private lastIconSide = 0;
+    private idleTexture: Texture;
     // Tween targets and state
     private targetScale = 1.0;
     private targetY = 0;
@@ -33,6 +120,9 @@ export class UnitChip extends Container {
     private tweenStartTime = 0;
     private isTweening = false;
     private ticker?: Ticker;
+    private animationFrames?: Texture[];
+    private animationFrameIndex = 0;
+    private animationStepFn?: () => void;
     public constructor(opts: UnitChipOptions) {
         super();
         this.nameKey = opts.unitName;
@@ -52,7 +142,10 @@ export class UnitChip extends Container {
         this.aroundGlow.visible = false;
         this.aroundGlow.blendMode = "add";
 
-        this.sprite = new Sprite(opts.texture ?? Texture.EMPTY);
+        // ⬇️ store idle texture
+        this.idleTexture = opts.texture ?? Texture.EMPTY;
+
+        this.sprite = new Sprite(this.idleTexture);
         this.sprite.anchor.set(0.5);
 
         this.badgeCont = new Container();
@@ -110,8 +203,114 @@ export class UnitChip extends Container {
         if (this.selected === v) return;
         this.selected = v;
 
+        if (this.selected) {
+            this.startAtlasAnimation();
+        } else {
+            this.stopAtlasAnimation();
+        }
+
         // Only update glows/badge; don't touch scale/position
         this.updateHighlight();
+    }
+    private startAtlasAnimation(): void {
+        if (!this.ticker) return;
+        if (this.animationStepFn) return; // already running
+
+        const config = getDefaultAnimationConfig(this.nameKey);
+        if (!config) {
+            // No atlas for this unit – keep idle texture
+            this.sprite.texture = this.idleTexture;
+            return;
+        }
+
+        const { meta, imageSrc, cacheKey } = config;
+
+        let frames = atlasFramesCache.get(cacheKey);
+        if (!frames) {
+            frames = buildAtlasFrames(meta, imageSrc);
+            atlasFramesCache.set(cacheKey, frames);
+        }
+
+        if (!frames.length) {
+            this.sprite.texture = this.idleTexture;
+            return;
+        }
+
+        this.animationFrames = frames;
+        this.animationFrameIndex = 0;
+        this.sprite.texture = frames[0];
+
+        const frameCount = meta.frameCount ?? frames.length;
+
+        // Match React semantics as closely as we can
+        const fallbackTotalSec =
+            typeof meta.totalDurationSec === "number" && Number.isFinite(meta.totalDurationSec)
+                ? meta.totalDurationSec
+                : frameCount / (meta.fps || 12);
+
+        const baseTotalMs = fallbackTotalSec * 1000;
+        const loopDurationMs = meta.loopDurationMs ?? Math.round(baseTotalMs * 0.8);
+        const pauseMs = meta.pauseMs ?? Math.round(loopDurationMs * 0.4);
+        const stepDuration = loopDurationMs / Math.max(1, frameCount - 1);
+
+        let index = 0;
+        let direction = 1; // 1 = forward, -1 = backward
+        let inPause = false;
+        let nextStepAt = performance.now() + stepDuration;
+
+        const step = () => {
+            const now = performance.now();
+
+            if (inPause) {
+                if (now >= nextStepAt) {
+                    inPause = false;
+                    direction *= -1;
+                    nextStepAt = now + stepDuration;
+                }
+                return;
+            }
+
+            if (now < nextStepAt) return;
+
+            nextStepAt = now + stepDuration;
+
+            index += direction;
+
+            // ping-pong and pause at edges
+            if (index <= 0) {
+                index = 0;
+                inPause = true;
+                nextStepAt = now + pauseMs;
+            } else if (index >= frameCount - 1) {
+                index = frameCount - 1;
+                inPause = true;
+                nextStepAt = now + pauseMs;
+            }
+
+            this.animationFrameIndex = index;
+            const framesRef = this.animationFrames;
+            if (framesRef && framesRef[index]) {
+                this.sprite.texture = framesRef[index];
+            }
+        };
+
+        this.animationStepFn = step;
+        this.ticker.add(step);
+    }
+    public override destroy(options?: Parameters<Container["destroy"]>[0]): void {
+        this.stopAtlasAnimation();
+        super.destroy(options);
+    }
+    private stopAtlasAnimation(): void {
+        if (this.animationStepFn && this.ticker) {
+            this.ticker.remove(this.animationStepFn);
+        }
+        this.animationStepFn = undefined;
+        this.animationFrames = undefined;
+        this.animationFrameIndex = 0;
+
+        // Restore static idle texture when not selected
+        this.sprite.texture = this.idleTexture;
     }
     public setBanned(v: boolean) {
         if (this.banned === v) return;

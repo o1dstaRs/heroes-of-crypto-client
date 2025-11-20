@@ -1,15 +1,17 @@
 #!/usr/bin/env bun
 
 import { readdir } from "fs/promises";
-import { resolve, join, extname } from "path";
+import { resolve, join, extname, basename } from "path";
 import { PNG } from "pngjs";
+
+const BIG_UNITS = ["angel"];
 
 async function loadPng(path) {
     const buf = await Bun.file(path).arrayBuffer();
     return PNG.sync.read(Buffer.from(buf));
 }
 
-async function generateWebp(pngPath, webpPath, { quality, lossless }) {
+async function generateWebp(pngPath, webpPath, { quality, lossless, scaleFactor }) {
     const ffmpegPath = Bun.which ? Bun.which("ffmpeg") : null;
     if (!ffmpegPath) {
         console.warn(
@@ -19,6 +21,11 @@ async function generateWebp(pngPath, webpPath, { quality, lossless }) {
     }
 
     const args = ["-y", "-i", pngPath];
+
+    if (scaleFactor && scaleFactor !== 1) {
+        // scale down by factor (2 => half, 4 => quarter)
+        args.push("-vf", `scale=iw/${scaleFactor}:ih/${scaleFactor}`);
+    }
 
     if (lossless) {
         // lossless WebP
@@ -45,7 +52,9 @@ async function generateWebp(pngPath, webpPath, { quality, lossless }) {
     }
 }
 
-async function buildAtlas(inputDir, outPng, outJson, fps, maxWidth, webpOptions) {
+async function buildAtlas(inputDir, outPng, outJson, fps, maxWidth, webpOptions, opts = {}) {
+    const { generateHalfWebp = false } = opts;
+
     const files = await readdir(inputDir);
     const pngFiles = files.filter((f) => extname(f).toLowerCase() === ".png").sort();
 
@@ -102,10 +111,34 @@ async function buildAtlas(inputDir, outPng, outJson, fps, maxWidth, webpOptions)
     await Bun.write(outPng, atlasBuf);
     console.log(`✅ Atlas PNG: ${outPng}`);
 
-    // Generate WebP alongside PNG
+    // Generate WebP variants alongside PNG
     if (webpOptions.enabled) {
-        const webpPath = outPng.replace(/\.[^.]+$/, ".webp");
-        await generateWebp(outPng, webpPath, webpOptions);
+        const baseWebp = outPng.replace(/\.[^.]+$/, ".webp");
+
+        // Original-size WebP
+        await generateWebp(outPng, baseWebp, {
+            quality: webpOptions.quality,
+            lossless: webpOptions.lossless,
+            scaleFactor: 1,
+        });
+
+        // Half-size WebP (only if requested, e.g. for angel)
+        if (generateHalfWebp) {
+            const halfWebp = baseWebp.replace(/\.webp$/, "_half.webp");
+            await generateWebp(outPng, halfWebp, {
+                quality: webpOptions.quality,
+                lossless: webpOptions.lossless,
+                scaleFactor: 2,
+            });
+        }
+
+        // Quarter-size WebP (always)
+        const quarterWebp = baseWebp.replace(/\.webp$/, "_quarter.webp");
+        await generateWebp(outPng, quarterWebp, {
+            quality: webpOptions.quality,
+            lossless: webpOptions.lossless,
+            scaleFactor: 4,
+        });
     }
 
     const frameDurationSec = fps > 0 ? 1 / fps : null;
@@ -205,9 +238,32 @@ function parseArgs() {
     };
 }
 
+// Derive unit name from something like "angel_default_atlas.png" → "angel"
+function getUnitNameFromOutPng(outPng) {
+    const base = basename(outPng, extname(outPng)); // e.g. "angel_default_atlas"
+    const withoutAtlas = base.replace(/_atlas$/, ""); // "angel_default"
+    const parts = withoutAtlas.split("_");
+    if (parts.length < 2) return null;
+    // everything except the last part (state) is the unit base
+    return parts.slice(0, -1).join("_"); // "angel"
+}
+
 async function main() {
     const { inputDir, outPng, outJson, fps, maxWidth, webpOptions } = parseArgs();
-    await buildAtlas(inputDir, outPng, outJson, fps, maxWidth, webpOptions);
+
+    const unitName = getUnitNameFromOutPng(outPng);
+    const generateHalfWebp = BIG_UNITS.includes(unitName);
+
+    console.log(`Unit name inferred from output: ${unitName ?? "unknown"}`);
+    if (generateHalfWebp) {
+        console.log("✅ Will generate _half and _quarter WebP atlases for this unit.");
+    } else {
+        console.log("✅ Will generate only _quarter WebP atlas for this unit (no _half).");
+    }
+
+    await buildAtlas(inputDir, outPng, outJson, fps, maxWidth, webpOptions, {
+        generateHalfWebp,
+    });
 }
 
 main().catch((err) => {
