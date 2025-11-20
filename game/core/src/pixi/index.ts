@@ -1,5 +1,4 @@
 export * from "./PixiApp";
-export * from "./PixiUnit";
 export * from "./PixiDrawer";
 export * from "./PixiSceneManager";
 export * from "./SimplePhysicsManager";

@@ -1,5 +1,5 @@
-// game/core/src/scenes/test_pixi.ts
-import { Sprite, Graphics, Container, Text } from "pixi.js";
+// game/core/src/scenes/Sandbox.ts
+import { Sprite, Graphics, Container } from "pixi.js";
 import {
     Augment,
     FightStateManager,
@@ -12,8 +12,6 @@ import {
     TeamType,
     TeamVals,
     FactionType,
-    PlacementPositionType,
-    PlacementType,
     PathHelper,
     Grid,
     GridMath,
@@ -29,26 +27,21 @@ import {
     ToMightSynergy,
     ToNatureSynergy,
     FactionVals,
+    GridVals,
+    HoCConstants,
 } from "@heroesofcrypto/common";
 import { Settings } from "../settings";
 import { UnitsOverlay } from "./UnitsOverlay";
 import { VisibleButtonState, IVisibleButton } from "../state/visible_state";
 import { SceneSettings } from "../scenes/scene_settings";
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
-import {
-    DrawableRectanglePlacement,
-    DrawableSquarePlacement,
-    IDrawablePlacement,
-    setSpawnFlowPhase,
-} from "../pixi/PixiDrawablePlacement";
+import { setSpawnFlowPhase } from "../pixi/PixiDrawablePlacement";
+import { PlacementManager } from "./PlacementManager";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { RenderableUnit } from "@/pixi/RenderableUnit";
 export class Sandbox extends PixiScene {
     private readonly grid: Grid;
-    private readonly allowedPlacementCellHashes: Set<number>;
-    private readonly allowedPlacementCellHashesPerTeam: Map<TeamType, Set<number>>;
     private readonly pathHelper: PathHelper;
-    private gridType: GridType;
     private hourglassButton: IVisibleButton;
     private shieldButton: IVisibleButton;
     private nextButton: IVisibleButton;
@@ -57,26 +50,25 @@ export class Sandbox extends PixiScene {
     private spellBookButton: IVisibleButton;
     private unitsOverlay: UnitsOverlay;
     private bgSprite?: Sprite;
+    private placementManager: PlacementManager;
     private spawnPulsePhase = 0;
     private bgKey: "background_dark" | "background_light" = "background_dark";
-    private cornerGfxWorld?: Graphics;
     private placementGraphics?: Graphics;
-    private upperPlacements: [IDrawablePlacement?, IDrawablePlacement?];
-    private lowerPlacements: [IDrawablePlacement?, IDrawablePlacement?];
     /** placement-preview hover (for active selection: overlay OR board move) */
     private hoverPlacementCell?: HoCMath.XY;
     private hoverPlacementCellTeam?: TeamType;
     private hoverSelectedCells?: HoCMath.XY[];
     private hoverSelectedCellsSwitchToRed = false;
+    private centerTerrainSprite?: Sprite;
     private lastPlacementUnitId?: string;
     private lastPlacementTimestampSec = 0;
     private readonly hoverRearmDelaySec = 2.0;
-    private unitBadges: Map<string, { container: Container; circle: Graphics; text: Text; iconSide: number }> =
-        new Map();
     /** silhouette used both for overlay preview and for board hover/move */
     private hoverSilhouette?: Sprite;
     private hoverSilhouetteOutline?: Sprite;
     private hoverSilhouetteKey?: string;
+    private gridMatrix: number[][];
+    private gridMatrixNoUnits: number[][];
     /** passive hover highlight for an already placed unit (no selection) */
     private hoveredUnitHighlight?: { x: number; y: number; w: number; h: number };
     /** UnitChip-style hover tween state for already placed units */
@@ -87,18 +79,8 @@ export class Sandbox extends PixiScene {
     private boardHoverProps?: UnitProperties;
     private boardHoverCenter?: HoCMath.XY;
     private cellToUnitPreRound?: Map<string, Unit>;
-    private unitSprites: Map<string, Sprite> = new Map();
     private readonly unitsHolder: UnitsHolder;
     private readonly abilityFactory: AbilityFactory;
-    private spawnAnimations: {
-        sprite: Sprite;
-        startScaleX: number;
-        startScaleY: number;
-        endScaleX: number;
-        endScaleY: number;
-        elapsed: number;
-        duration: number;
-    }[] = [];
     /** Active-board-selection state (move existing unit) */
     private draggingUnitId?: string;
     private draggingUnitTeam?: TeamType;
@@ -121,17 +103,9 @@ export class Sandbox extends PixiScene {
         super(new SceneSettings(gs, false));
         this.pathHelper = new PathHelper(this.sc_sceneSettings.getGridSettings());
         this.initialize(context);
-        this.gridType = FightStateManager.getInstance().getFightProperties().getGridType();
-        this.pixiSceneManager.setGridType(this.gridType);
+        // this.pixiSceneManager.setGridType(FightStateManager.getInstance().getFightProperties().getGridType());
         this.sc_gridTypeUpdateNeeded = true;
         this.abilityFactory = new AbilityFactory(new EffectFactory());
-        this.lowerPlacements = [];
-        this.upperPlacements = [];
-        this.allowedPlacementCellHashes = new Set();
-        this.allowedPlacementCellHashesPerTeam = new Map([
-            [TeamVals.UPPER, new Set()],
-            [TeamVals.LOWER, new Set()],
-        ]);
         const fp = FightStateManager.getInstance().getFightProperties();
         fp.setDefaultPlacementPerTeam(TeamVals.LOWER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
         fp.setDefaultPlacementPerTeam(TeamVals.UPPER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
@@ -140,6 +114,9 @@ export class Sandbox extends PixiScene {
             FightStateManager.getInstance().getFightProperties().getGridType(),
         );
         this.unitsHolder = new UnitsHolder(this.grid);
+        this.refreshVisibleStateIfNeeded();
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         // buttons (unchanged)
         this.hourglassButton = {
             name: "Hourglass",
@@ -234,22 +211,16 @@ export class Sandbox extends PixiScene {
             },
         );
         this.unitsOverlay.build();
-        this.initializePlacements();
+        this.placementManager = new PlacementManager(this.sc_sceneSettings.getGridSettings());
     }
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return this.unitsOverlay;
     }
     public CameraChanged(): void {
-        this.attachToWorldRoot(this.cornerGfxWorld, 90);
         this.attachToWorldRoot(this.placementGraphics, 100);
-        this.layoutCornerMarkersWorld();
     }
     private getPlacement(teamType: TeamType, placementIndex: number): IPlacement | undefined {
-        const placements = teamType === TeamVals.LOWER ? this.lowerPlacements : this.upperPlacements;
-        if (placementIndex in placements && placements[placementIndex]) {
-            return placements[placementIndex];
-        }
-        return undefined;
+        return this.placementManager.getPlacement(teamType, placementIndex);
     }
     private updateBoardHoverTween(dt: number): void {
         if (!dt) return;
@@ -386,6 +357,76 @@ export class Sandbox extends PixiScene {
         if (this.hoverSilhouette) this.hoverSilhouette.visible = false;
         if (this.hoverSilhouetteOutline) this.hoverSilhouetteOutline.visible = false;
     }
+    private ensureCenterTerrainSprite(): void {
+        // Decide which texture key to use based on grid type
+        let texKey: string | undefined;
+        switch (FightStateManager.getInstance().getFightProperties().getGridType()) {
+            case GridVals.WATER_CENTER:
+                texKey = "water_256";
+                break;
+            case GridVals.LAVA_CENTER:
+                texKey = "lava_256";
+                break;
+            case GridVals.BLOCK_CENTER:
+                texKey = "mountain_432_412";
+                break;
+            default:
+                texKey = undefined;
+                break;
+        }
+
+        // If no special center terrain → hide if exists and bail
+        if (!texKey) {
+            if (this.centerTerrainSprite) {
+                this.centerTerrainSprite.visible = false;
+            }
+            return;
+        }
+
+        const tex = this.texAny(texKey);
+        if (!tex) {
+            if (this.centerTerrainSprite) {
+                this.centerTerrainSprite.visible = false;
+            }
+            return;
+        }
+
+        // Lazily create sprite
+        if (!this.centerTerrainSprite) {
+            this.centerTerrainSprite = new Sprite(tex);
+            this.centerTerrainSprite.anchor.set(0.5);
+            // Place it under units & placements but above background
+            this.attachToWorldRoot(this.centerTerrainSprite, 50);
+            this.centerTerrainSprite.scale.y = -1; // world y-up
+        } else {
+            if (this.centerTerrainSprite.texture !== tex) {
+                this.centerTerrainSprite.texture = tex;
+            }
+            this.attachToWorldRoot(this.centerTerrainSprite, 50);
+        }
+
+        const gs = this.sc_sceneSettings.getGridSettings();
+
+        const centerX = (gs.getMinX() + gs.getMaxX()) * 0.5;
+        const centerY = (gs.getMinY() + gs.getMaxY()) * 0.5;
+
+        const cellSize = gs.getCellSize();
+
+        // Target area: 4x4 cells in the middle
+        const targetW = cellSize * 4;
+        const targetH = cellSize * 4;
+
+        const texW = tex.width || 1;
+        const texH = tex.height || 1;
+
+        const sx = targetW / texW;
+        const sy = targetH / texH;
+
+        this.centerTerrainSprite.scale.set(sx, -sy);
+        this.centerTerrainSprite.x = centerX;
+        this.centerTerrainSprite.y = centerY;
+        this.centerTerrainSprite.visible = true;
+    }
     /** Silhouette for placement preview (overlay/board move) */
     private updateHoverSilhouette(boundsCenter: HoCMath.XY): void {
         const selected = this.sc_selectedUnitProperties;
@@ -497,9 +538,9 @@ export class Sandbox extends PixiScene {
         const isLarge = selected.size === 2;
         const cellHash = (cell.x << 4) | cell.y;
         let teamFromPlacement: TeamType | undefined;
-        if (this.allowedPlacementCellHashesPerTeam.get(TeamVals.LOWER)?.has(cellHash)) {
+        if (this.placementManager.getAllowedPlacementCellHashesForTeam(TeamVals.LOWER)?.has(cellHash)) {
             teamFromPlacement = TeamVals.LOWER;
-        } else if (this.allowedPlacementCellHashesPerTeam.get(TeamVals.UPPER)?.has(cellHash)) {
+        } else if (this.placementManager.getAllowedPlacementCellHashesForTeam(TeamVals.UPPER)?.has(cellHash)) {
             teamFromPlacement = TeamVals.UPPER;
         }
         if (!teamFromPlacement) {
@@ -512,7 +553,8 @@ export class Sandbox extends PixiScene {
             // even though it's invalid (wrong side) -> red rectangle with correct size.
             let cells: HoCMath.XY[];
             if (isLarge) {
-                const allowedForThatSide = this.allowedPlacementCellHashesPerTeam.get(teamFromPlacement) ?? undefined;
+                const allowedForThatSide =
+                    this.placementManager.getAllowedPlacementCellHashesForTeam(teamFromPlacement);
                 const occupiedKeys: string[] = [];
                 cells =
                     this.pathHelper.getClosestSquareCellIndices(
@@ -537,7 +579,8 @@ export class Sandbox extends PixiScene {
             return;
         }
         const allowedForTeam =
-            (teamFromPlacement && this.allowedPlacementCellHashesPerTeam.get(teamFromPlacement)) ?? undefined;
+            (teamFromPlacement && this.placementManager.getAllowedPlacementCellHashesForTeam(teamFromPlacement)) ??
+            undefined;
         let candidateCells: HoCMath.XY[];
         if (isLarge) {
             const occupiedKeys: string[] = [];
@@ -571,7 +614,7 @@ export class Sandbox extends PixiScene {
         }
         for (const c of candidateCells) {
             const h = (c.x << 4) | c.y;
-            if (!this.allowedPlacementCellHashes.has(h)) {
+            if (!this.placementManager.getAllowedPlacementCellHashes().has(h)) {
                 this.resetHover();
                 return;
             }
@@ -717,33 +760,6 @@ export class Sandbox extends PixiScene {
             this.bgSprite.texture = wantTex;
         }
     }
-    private layoutCornerMarkersWorld(): void {
-        const g = this.cornerGfxWorld;
-        if (!g) return;
-        g.visible = true;
-        g.renderable = true;
-        g.alpha = 1;
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const minX = gs.getMinX();
-        const maxX = gs.getMaxX();
-        const minY = gs.getMinY();
-        const maxY = gs.getMaxY();
-        const s = 256;
-        const eps = 0.75;
-        const r = 6;
-        g.clear();
-        const corner = (x0: number, y0: number, x1: number, y1: number) => {
-            g.rect(x0, y0, x1 - x0, y1 - y0).fill({ color: 0xff0000, alpha: 1 });
-            const cx = (x0 + x1) * 0.5;
-            const cy = (y0 + y1) * 0.5;
-            g.circle(cx, cy, r).fill({ color: 0x000000, alpha: 1 });
-            g.circle(cx, cy, r * 0.5).fill({ color: 0xffffff, alpha: 1 });
-        };
-        corner(minX + eps, minY + eps, minX + s - eps, minY + s - eps);
-        corner(maxX - s + eps, minY + eps, maxX - eps, minY + s - eps);
-        corner(minX + eps, maxY - s + eps, minX + s - eps, maxY - eps);
-        corner(maxX - s + eps, maxY - eps, maxX - eps, maxY - s + eps);
-    }
     private attachToWorldRoot(obj: Graphics | Sprite | Container | undefined, zIndex: number): void {
         if (!obj) return;
         const worldRoot = this.pixiSceneManager.getWorldRoot();
@@ -775,9 +791,7 @@ export class Sandbox extends PixiScene {
     public override Resize(w: number, h: number): void {
         this.layoutBackgroundSquare();
         this.unitsOverlay.onResize(w, h);
-        this.attachToWorldRoot(this.cornerGfxWorld, 90);
         this.attachToWorldRoot(this.placementGraphics, 100);
-        this.layoutCornerMarkersWorld();
     }
     protected verifyButtonsTrigger(): void {}
     public refreshUnits(): void {
@@ -865,7 +879,7 @@ export class Sandbox extends PixiScene {
 
         if (augmentType.type === "Placement") {
             // Rebuild placements & allowed cells
-            this.initializePlacements();
+            this.placementManager.rebuildFromFightProps();
 
             // First remove units that are now outside any placement
             this.destroyNonPlacedUnits(false);
@@ -994,13 +1008,42 @@ export class Sandbox extends PixiScene {
     public deleteObject(): void {}
     public refreshScene(_u: UnitProperties): void {}
     public setGridType(gridType: GridType): void {
-        this.gridType = gridType;
-        this.pixiSceneManager.setGridType(gridType);
-        this.sc_gridTypeUpdateNeeded = true;
-        this.layoutCornerMarkersWorld();
+        if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            return;
+        }
+
+        FightStateManager.getInstance().getFightProperties().setGridType(gridType);
+        this.grid.refreshWithNewType(FightStateManager.getInstance().getFightProperties().getGridType());
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+        // force as we might have changed the number of laps till narrowing
+        this.refreshVisibleStateIfNeeded(true);
+    }
+    private refreshVisibleStateIfNeeded(force = false) {
+        if (!this.sc_visibleState || force) {
+            this.sc_visibleState = {
+                canBeStarted: false,
+                hasFinished: false,
+                secondsRemaining: -1,
+                secondsMax: Number.MAX_SAFE_INTEGER,
+                teamTypeTurn: undefined,
+                hasAdditionalTime: false,
+                lapNumber: 0,
+                numberOfLapsTillNarrowing: FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getNumberOfLapsTillNarrowing(),
+                numberOfLapsTillStopNarrowing: HoCConstants.NUMBER_OF_LAPS_TILL_STOP_NARROWING,
+                canRequestAdditionalTime: !!FightStateManager.getInstance()
+                    .getFightProperties()
+                    .requestAdditionalTurnTime(undefined, true),
+                upNext: [],
+                lapsNarrowed: FightStateManager.getInstance().getFightProperties().getLapsNarrowed(),
+            };
+            this.sc_visibleStateUpdateNeeded = true;
+        }
     }
     public getGridType(): GridType {
-        return this.gridType;
+        return FightStateManager.getInstance().getFightProperties().getGridType();
     }
     public requestTime(_team: number): void {}
     private clearBoardSelection(_notifyUnitDeselected: boolean = true): void {
@@ -1056,7 +1099,7 @@ export class Sandbox extends PixiScene {
         const cellsToOccupy = this.hoverSelectedCells;
         for (const c of cellsToOccupy) {
             const h = (c.x << 4) | c.y;
-            if (!this.allowedPlacementCellHashes.has(h)) {
+            if (!this.placementManager.getAllowedPlacementCellHashes().has(h)) {
                 console.log("Cell not in allowed placement hashes", c);
                 if (!this.selectionFromOverlay) this.clearBoardSelection();
                 return;
@@ -1335,6 +1378,7 @@ export class Sandbox extends PixiScene {
         }
         this.ensureBackgroundSprite();
         this.layoutBackgroundSquare();
+        this.ensureCenterTerrainSprite();
         this.ensurePlacementGraphicsWorld();
         this.attachToWorldRoot(this.placementGraphics, 100);
         this.spawnPulsePhase += timeStep * 3.7;
@@ -1357,105 +1401,20 @@ export class Sandbox extends PixiScene {
             (unit as RenderableUnit).stepSpawnAnimation(timeStep);
         }
     }
-    private initializePlacements(): void {
-        this.lowerPlacements = [];
-        this.upperPlacements = [];
-        const fp = FightStateManager.getInstance().getFightProperties();
-        const augLower = fp.getAugmentPlacement(TeamVals.LOWER);
-        const augUpper = fp.getAugmentPlacement(TeamVals.UPPER);
-
-        const placementType = fp.getPlacementType();
-        if (placementType === PlacementType.RECTANGLE) {
-            this.lowerPlacements.push(
-                new DrawableRectanglePlacement(
-                    this.sc_sceneSettings.getGridSettings(),
-                    PlacementPositionType.LOWER_LEFT,
-                    augLower[0],
-                ),
-            );
-            this.upperPlacements.push(
-                new DrawableRectanglePlacement(
-                    this.sc_sceneSettings.getGridSettings(),
-                    PlacementPositionType.UPPER_LEFT,
-                    augUpper[0],
-                ),
-            );
-        } else {
-            if (0 in augLower) {
-                this.lowerPlacements.push(
-                    new DrawableSquarePlacement(
-                        this.sc_sceneSettings.getGridSettings(),
-                        PlacementPositionType.LOWER_LEFT,
-                        augLower[0],
-                    ),
-                );
-            }
-            if (1 in augLower) {
-                this.lowerPlacements.push(
-                    new DrawableSquarePlacement(
-                        this.sc_sceneSettings.getGridSettings(),
-                        PlacementPositionType.LOWER_RIGHT,
-                        augLower[1],
-                    ),
-                );
-            }
-            if (0 in augUpper) {
-                this.upperPlacements.push(
-                    new DrawableSquarePlacement(
-                        this.sc_sceneSettings.getGridSettings(),
-                        PlacementPositionType.UPPER_RIGHT,
-                        augUpper[0],
-                    ),
-                );
-            }
-            if (1 in augUpper) {
-                this.upperPlacements.push(
-                    new DrawableSquarePlacement(
-                        this.sc_sceneSettings.getGridSettings(),
-                        PlacementPositionType.UPPER_LEFT,
-                        augUpper[1],
-                    ),
-                );
-            }
-        }
-        this.allowedPlacementCellHashes.clear();
-        this.allowedPlacementCellHashesPerTeam.clear();
-        this.allowedPlacementCellHashesPerTeam.set(TeamVals.UPPER, new Set());
-        this.allowedPlacementCellHashesPerTeam.set(TeamVals.LOWER, new Set());
-        const addHashes = (team: TeamType, p?: IDrawablePlacement) => {
-            if (!p) return;
-            const target = this.allowedPlacementCellHashesPerTeam.get(team);
-            for (const hash of p.possibleCellHashes()) {
-                this.allowedPlacementCellHashes.add(hash);
-                target?.add(hash);
-            }
-        };
-        addHashes(TeamVals.LOWER, this.lowerPlacements[0]);
-        addHashes(TeamVals.LOWER, this.lowerPlacements[1]);
-        addHashes(TeamVals.UPPER, this.upperPlacements[0]);
-        addHashes(TeamVals.UPPER, this.upperPlacements[1]);
-    }
     private drawPlacements(): void {
         if (!this.placementGraphics) return;
         const g = this.placementGraphics;
         g.clear();
+
         const props = FightStateManager.getInstance().getFightProperties();
         if (!props.hasFightStarted()) {
             let team: TeamType | undefined = undefined;
-            const draw = (p?: IDrawablePlacement) => p && p.draw(g);
-            if (team === undefined) {
-                draw(this.lowerPlacements[0]);
-                draw(this.lowerPlacements[1]);
-                draw(this.upperPlacements[0]);
-                draw(this.upperPlacements[1]);
-            } else if (team === TeamVals.LOWER) {
-                draw(this.lowerPlacements[0]);
-                draw(this.lowerPlacements[1]);
-            } else if (team === TeamVals.UPPER) {
-                draw(this.upperPlacements[0]);
-                draw(this.upperPlacements[1]);
-            }
+
+            // Let PlacementManager draw spawn lights for the requested team(s)
+            this.placementManager.draw(g, team);
+
             this.drawHoverPlacementCell(g);
+
             // passive board-hover highlight (no active selection)
             if (this.hoveredUnitHighlight) {
                 this.drawHoveredUnitHighlight(g);

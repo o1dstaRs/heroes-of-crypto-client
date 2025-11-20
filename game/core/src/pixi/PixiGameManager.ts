@@ -444,7 +444,6 @@ export class PixiGameManager {
     }
     public SetGridType(gridType: GridType): void {
         this.m_scene?.setGridType(gridType);
-        if (this.pixiSceneManager) this.pixiSceneManager.setGridType(gridType);
         // grid change might affect ideal zoom; refit
         this.fitViewToWindow();
     }

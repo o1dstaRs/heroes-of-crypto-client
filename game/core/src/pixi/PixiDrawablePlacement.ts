@@ -91,13 +91,13 @@ function drawSpawnWaterLight(gfx: Graphics, verts: HoCMath.XY[], baseColor: numb
     // unique seed per placement so upper/lower don’t sync perfectly
     const seed = (minX * 0.017 + minY * 0.013) * 0.5;
 
-    const layers = 64; // more layers = smoother
+    const layers = 100; // Increased layers for smoother vertical transitions
     const layerH_avg = height / layers;
 
-    // Precompute y positions with vertical jitter for up/down wobble, fixed at ends
+    // Precompute y positions with controlled vertical jitter for up/down wobble, fixed at ends
     const y_positions: number[] = new Array(layers + 1);
-    y_positions[0] = minY;
-    y_positions[layers] = maxY;
+    y_positions[0] = minY; // Fixed top edge
+    y_positions[layers] = maxY; // Fixed bottom edge
 
     // flow across time – animate noise sampling coords, not just a band
     const t = gSpawnFlowPhase; // radians
@@ -107,7 +107,28 @@ function drawSpawnWaterLight(gfx: Graphics, verts: HoCMath.XY[], baseColor: numb
     for (let i = 1; i < layers; i++) {
         const hNorm = i / layers;
         const nv = fbm2(seed + hNorm * 1.5 + flowY, seed + flowX * 0.85, 4);
-        const v_jitter = (nv - 0.5) * layerH_avg * 2;
+
+        let v_jitter = (nv - 0.5) * layerH_avg * 0.5;
+
+        // CRITICAL FIX: Ensure vertical jitter is completely zero at the adjacent inner layer points
+        // TAPER_LAYERS = 2 means:
+        // i=1: factor = 0.0 (Perfectly straight line at y_positions[1])
+        // i=2: factor = 0.5 (Starts gentle wobble)
+        // i=3: factor = 1.0 (Full wobble)
+        const TAPER_LAYERS = 2;
+        let taperFactor = 1.0;
+
+        if (i < TAPER_LAYERS + 1) {
+            // Taper near the top (minY)
+            taperFactor = (i - 1) / TAPER_LAYERS;
+        } else if (i > layers - TAPER_LAYERS - 1) {
+            // Taper near the bottom (maxY)
+            taperFactor = (layers - i - 1) / TAPER_LAYERS;
+        }
+
+        // Ensure factor is non-negative and apply
+        v_jitter *= Math.max(0, taperFactor);
+
         y_positions[i] = minY + hNorm * height + v_jitter;
     }
 
@@ -129,7 +150,7 @@ function drawSpawnWaterLight(gfx: Graphics, verts: HoCMath.XY[], baseColor: numb
             y1 = temp;
         }
         const layerH = y1 - y0;
-        if (layerH <= 0) continue;
+        if (layerH <= 0) continue; // Ensure positive height
 
         // falloff stronger near board side, softer away
         const toBoard = isLower ? 1 - hNorm : hNorm;
@@ -138,7 +159,8 @@ function drawSpawnWaterLight(gfx: Graphics, verts: HoCMath.XY[], baseColor: numb
         // sample a small flow field to jitter the strip edges horizontally
         // scale: bigger values => broader, slow waves
         const nx = fbm2(seed + hNorm * 1.5 + flowX, seed + flowY, 4); // [0,1]
-        const jitter = (nx - 0.5) * 0.12 * width; // pixels
+        // Reduced horizontal jitter factor from 0.12 to 0.10 for smoother edges
+        const jitter = (nx - 0.5) * 0.1 * width; // pixels
 
         // second noise to modulate alpha (shimmering brightness)
         const ny = fbm2(seed + hNorm * 2.1 + flowY * 0.75, seed + flowX * 0.5, 5);
@@ -150,10 +172,13 @@ function drawSpawnWaterLight(gfx: Graphics, verts: HoCMath.XY[], baseColor: numb
         // slight curved feather toward edges using cosine to avoid banding
         const feather = 0.65 + 0.35 * Math.cos((hNorm - 0.5) * Math.PI);
 
-        const alphaBase = 0.35 * edgeFalloff * feather;
-        const alphaSpark = 0.35 * sparkle;
+        // Slightly increased intensity (from 0.35 to 0.40)
+        const alphaBase = 0.4 * edgeFalloff * feather;
+        const alphaSpark = 0.4 * sparkle;
         const orig_alpha = alphaBase + alphaSpark;
+
         const alpha = Math.min(1, orig_alpha * (layerH_avg / layerH));
+
         if (alpha < 0.01) continue;
 
         const color = nz > 0.66 ? highlight : baseColor;

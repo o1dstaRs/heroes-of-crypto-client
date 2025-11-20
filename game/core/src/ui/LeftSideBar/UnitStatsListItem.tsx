@@ -921,8 +921,6 @@ type UnitStatsListItemProps = {
     factionType: FactionType;
 };
 
-// Add this optimization to your UnitStatsListItemInner component
-
 const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
     barSize,
     columnize,
@@ -930,10 +928,13 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
     overallImpact,
     factionType,
 }) => {
+    // NOTE: It is normal for this to log twice on the *initial* selection of a new unit
+    // due to React's mounting phase + image loading phase.
+    // The fix below prevents it from re-rendering/flickering during gameplay (stat changes).
     console.log("UnitStatsListItem rendered");
-    console.log(unitProperties);
 
-    const [loadedUnitKey, setLoadedUnitKey] = useState<string | null>(null);
+    // ✅ FIX 1: We track the loaded texture NAME, not the full unit ID/State.
+    const [loadedTexture, setLoadedTexture] = useState<string | null>(null);
     const theme = useTheme();
     const isDarkMode = theme.palette.mode === "dark";
 
@@ -951,21 +952,24 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
         }
     }
 
-    const unitKey =
-        (unitProperties && (unitProperties.id as string | undefined)) ||
-        `${unitProperties?.name ?? ""}-${unitProperties?.team ?? ""}-${unitProperties?.amount_alive ?? ""}`;
+    // ✅ FIX 2: Calculate the texture key.
+    // We use the texture name (or unit name) as the dependency.
+    // This ensures that if 'amount_alive' or 'hp' changes, the key stays the same,
+    // so the UI does not reset to "Loading..." (invisible) state.
+    const currentTexture = unitProperties?.large_texture_name || unitProperties?.name || "default";
 
-    // Image is considered loaded if we have already loaded this unitKey
-    const showStats = columnize || (!!unitKey && loadedUnitKey === unitKey);
-    const showAbilities = columnize || (!!unitKey && loadedUnitKey === unitKey);
+    // The image is "ready" if the texture we want to show matches what we have loaded.
+    const isImageReady = loadedTexture === currentTexture;
+
+    // Show stats if we are in column mode OR if the image is fully loaded.
+    const showStats = columnize || isImageReady;
 
     const onImageLoaded = useCallback(() => {
-        if (!unitKey) return;
-        setLoadedUnitKey(unitKey);
-    }, [unitKey]);
+        if (!currentTexture) return;
+        setLoadedTexture(currentTexture);
+    }, [currentTexture]);
 
-    // Rest of your component code stays the same...
-    // Faction list item
+    // --- Faction List Item Logic ---
     if (factionType) {
         return (
             // @ts-ignore: style params
@@ -998,6 +1002,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
         );
     }
 
+    // --- Unit Stats Logic ---
     if (unitProperties && Object.keys(unitProperties).length) {
         const stackName = `${unitProperties.name} x${unitProperties.amount_alive}`;
         const damageRange = `${unitProperties.attack_damage_min} - ${unitProperties.attack_damage_max}`;
@@ -1020,7 +1025,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
         const hasDifferentRangeArmor = meleeArmor !== rangeArmor;
         const largeTextureName = unitProperties.large_texture_name;
 
-        const buffsVisible = showAbilities;
+        const buffsVisible = showStats; // Sync visibility with the main stats
 
         return (
             // @ts-ignore: style params
@@ -1061,12 +1066,14 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                                 largeTextureName={largeTextureName}
                                 images={images}
                                 showStats={showStats}
-                                showAbilities={showAbilities}
+                                showAbilities={showStats}
                                 onImageLoaded={onImageLoaded}
                                 abilities={abilities}
                                 hasBreakApplied={hasBreakApplied}
                                 team={unitProperties.team}
                             />
+
+                            {/* Vertical Buffs (Normal View) */}
                             {hasBuffsOrDebuffs && !columnize && (
                                 <Box
                                     sx={{
@@ -1082,6 +1089,8 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                                 </Box>
                             )}
                         </Box>
+
+                        {/* Horizontal Buffs (Widescreen/Columnize View) */}
                         {hasBuffsOrDebuffs && columnize && (
                             <Box
                                 sx={{
@@ -1105,4 +1114,35 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
     return <ListItem nested />;
 };
 
-export const UnitStatsListItem = React.memo(UnitStatsListItemInner);
+const arePropsEqual = (prev: UnitStatsListItemProps, next: UnitStatsListItemProps) => {
+    if (prev.barSize !== next.barSize) return false;
+    if (prev.columnize !== next.columnize) return false;
+    if (prev.factionType !== next.factionType) return false;
+
+    const pUnit = prev.unitProperties;
+    const nUnit = next.unitProperties;
+
+    // 1. Handle Reference Equality
+    if (pUnit === nUnit) return true;
+
+    // 2. Handle Nulls
+    if (!pUnit && !nUnit) return true;
+    if (!pUnit || !nUnit) return false;
+
+    // 3. Handle Data Equality
+    // We check specific fields that affect visual rendering.
+    // If these match, we skip the re-render.
+    if (pUnit.id !== nUnit.id) return false;
+    if (pUnit.amount_alive !== nUnit.amount_alive) return false;
+    if (pUnit.hp !== nUnit.hp) return false;
+    if (pUnit.steps !== nUnit.steps) return false;
+    if (pUnit.name !== nUnit.name) return false;
+
+    // Note: We assume if unit ID is the same, 'overallImpact' is relatively stable
+    // or acceptable to strict-check by reference.
+    if (prev.overallImpact !== next.overallImpact) return false;
+
+    return true;
+};
+
+export const UnitStatsListItem = React.memo(UnitStatsListItemInner, arePropsEqual);

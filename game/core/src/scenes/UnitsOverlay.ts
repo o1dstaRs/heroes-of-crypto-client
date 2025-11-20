@@ -26,30 +26,28 @@ type LevelBucket = Readonly<{ label: string; count: number; unitSize: 1 | 2 }>;
 export class UnitsOverlay {
     private app: Application;
     private getTex: GetTexture;
-    /** Root overlay container (we position this inside the square board) */
+    /** Root overlay container */
     public readonly container = new Container();
-    /** Holds backdrop + headers + rows (we animate this in/out) */
+    /** Holds backdrop + headers + rows */
     private content = new Container();
-    /** Semi-transparent black backdrop */
     private backdrop = new Graphics();
     private headerContainer = new Container();
     private rowsContainer = new Container();
-    /** Toggle button that stays visible to reopen/close the content */
+    /** Toggle button container */
     private toggleBtn = new Container();
-    private toggleBtnBg = new Graphics();
-    private toggleArrow = new Graphics();
-    /** Layout state used by animation */
+    /** The sprite displaying the arrow texture (Primary) */
+    private toggleSprite = new Sprite();
+    /** Fallback graphic if texture is missing (Secondary) */
+    private toggleArrowFallback = new Graphics();
+    /** Layout state */
     private overlayW = 0;
     private overlayH = 0;
     private leftColW = 0;
     private rowH = 0;
     private isOpen = true;
-    /** Simple tween bookkeeping */
     private tweenCancel?: () => void;
-    /** UnitChip registry for selection updates */
     private allChips: UnitChip[] = [];
     private selectedName: string | null = null;
-    /** Faction → icon mapping (UI concern; data comes from common) */
     private readonly factions: { type: FactionType; iconName: string }[] = [
         { type: FactionVals.LIFE, iconName: "life_128" },
         { type: FactionVals.NATURE, iconName: "nature_128" },
@@ -64,8 +62,7 @@ export class UnitsOverlay {
         stroke: { color: 0x000000, width: 4 },
         dropShadow: { color: 0x000000, distance: 2, angle: Math.PI / 4, blur: 1, alpha: 1 },
     });
-    private btnW = 0;
-    private btnH = 0;
+    private btnRadius = 0;
     private levelBuckets: LevelBucket[] = [];
     private onUnitSelected?: (unitProperties: UnitProperties | null) => void;
     public constructor(
@@ -77,7 +74,6 @@ export class UnitsOverlay {
         this.getTex = getTexture;
         this.onUnitSelected = onUnitSelected;
 
-        // Use precomputed level buckets from common
         this.levelBuckets = CommonLevelBuckets.map(
             (b: LevelBucket): LevelBucket => ({
                 label: b.label,
@@ -86,30 +82,70 @@ export class UnitsOverlay {
             }),
         );
 
-        // render above bg and let zIndex work
         this.app.stage.sortableChildren = true;
-        this.container.zIndex = 10;
+        this.container.zIndex = 100;
+        this.container.sortableChildren = true;
 
-        // content & toggle
         this.content.addChild(this.backdrop, this.headerContainer, this.rowsContainer);
         this.container.addChild(this.content);
         this.container.addChild(this.toggleBtn);
 
-        this.container.sortableChildren = true;
-        this.app.stage.sortableChildren = true;
         this.app.stage.eventMode = "static";
-
         this.backdrop.eventMode = "none";
 
-        // toggle visuals + events
-        this.toggleBtn.addChild(this.toggleBtnBg, this.toggleArrow);
+        // --- Toggle Button Setup ---
         this.toggleBtn.zIndex = 9999;
         this.toggleBtn.eventMode = "static";
         this.toggleBtn.cursor = "pointer";
+
+        // Fallback Vector Arrow (Visible if texture fails)
+        this.toggleBtn.addChild(this.toggleArrowFallback);
+
+        // Sprite (Visible if texture exists)
+        this.toggleSprite.anchor.set(0.5);
+        this.toggleBtn.addChild(this.toggleSprite);
+
+        // Hover effects
+        this.toggleBtn.on("pointerenter", () => {
+            this.updateButtonVisuals(true);
+        });
+
+        this.toggleBtn.on("pointerleave", () => {
+            this.updateButtonVisuals(false);
+        });
+
         this.app.stage.addChild(this.container);
     }
+    private updateButtonVisuals(isHovered: boolean): void {
+        const texKey = isHovered ? "arrow_button_active" : "arrow_button_inactive";
+        const tex = this.getTex(texKey);
+
+        if (tex) {
+            this.toggleSprite.texture = tex;
+            this.toggleSprite.visible = true;
+            this.toggleArrowFallback.visible = false;
+        } else {
+            this.toggleSprite.visible = false;
+            this.toggleArrowFallback.visible = true;
+            this.drawFallbackArrow(isHovered ? 0xffffff : 0xf6d87c);
+        }
+    }
+    private drawFallbackArrow(color: number): void {
+        const r = this.btnRadius * 0.6;
+        // Updated to point LEFT by default (tip at negative x)
+        // This aligns with the new rotation logic:
+        // Open (Rot 0) -> Points Left
+        // Closed (Rot 180) -> Points Right
+        this.toggleArrowFallback
+            .clear()
+            .moveTo(r * 0.5, -r) // Top Right
+            .lineTo(-r * 0.8, 0) // Tip (Left)
+            .lineTo(r * 0.5, r) // Bottom Right
+            .closePath()
+            .fill({ color: color })
+            .stroke({ color: 0x000000, width: 2, alpha: 0.8 });
+    }
     public handlePointerDown(globalX: number, globalY: number): boolean {
-        // 0) First, check if click is inside the overlay's main rect at all
         const localOverlay = this.container.toLocal({ x: globalX, y: globalY });
         const insideOverlay =
             localOverlay.x >= 0 &&
@@ -117,28 +153,20 @@ export class UnitsOverlay {
             localOverlay.x <= this.overlayW &&
             localOverlay.y <= this.overlayH;
 
-        // 1) Toggle button (reuse hit area)
         const localToggle = this.toggleBtn.toLocal({ x: globalX, y: globalY });
-        if (localToggle.x >= 0 && localToggle.y >= 0 && localToggle.x <= this.btnW && localToggle.y <= this.btnH) {
-            console.log("UnitsOverlay: toggle click via handlePointerDown");
+        if (Math.abs(localToggle.x) <= this.btnRadius && Math.abs(localToggle.y) <= this.btnRadius) {
             this.toggle();
-            return true; // event consumed
+            return true;
         }
 
-        console.log(`UnitsOverlay: handlePointerDown(${globalX}, ${globalY}), insideOverlay=${insideOverlay}`);
-
-        // If overlay is closed, don’t process chips / selection
         if (!this.isOpen) return false;
 
-        // 2) Chips – use global bounds
         for (const chip of this.allChips) {
-            const b = chip.getBounds(); // global coords
+            const b = chip.getBounds();
             if (!b) continue;
 
             if (globalX >= b.x && globalX <= b.x + b.width && globalY >= b.y && globalY <= b.y + b.height) {
                 const unitName = (chip as UnitChip).nameKey as string;
-                console.log("UnitsOverlay: chip click via handlePointerDown", unitName);
-
                 const next = this.selectedName === unitName ? null : unitName;
                 this.selectedName = next;
 
@@ -147,37 +175,24 @@ export class UnitsOverlay {
                 }
 
                 if (this.onUnitSelected) {
-                    if (next) {
-                        const unitProps = this.getUnitProperties(unitName);
-                        this.onUnitSelected(unitProps);
-                    } else {
-                        this.onUnitSelected(null);
-                    }
+                    this.onUnitSelected(next ? this.getUnitProperties(unitName) : null);
                 }
-
-                return true; // event consumed
+                return true;
             }
         }
 
-        // 3) Click inside overlay but not on a chip: clear selection and eat the click
         if (insideOverlay) {
-            if (this.selectedName) {
-                console.log("UnitsOverlay: click inside overlay but not on chip → clearing selection");
-                this.clearSelection(true);
-            }
-            return true; // overlay handled the click area
+            if (this.selectedName) this.clearSelection(true);
+            return true;
         }
 
-        // 4) Outside overlay → not our problem
         return false;
     }
     private getUnitProperties(unitName: string): UnitProperties {
-        // Determine faction by checking which faction's creature lists include the unit name,
-        // using the same logic as build() to map creature IDs → names.
         let faction: FactionType = FactionVals.NO_FACTION;
         const target = unitName;
-
         let found = false;
+
         for (const f of this.factions) {
             for (let b = 0; b < this.levelBuckets.length; b++) {
                 const lvl = (b + 1) as UnitLevelId;
@@ -194,79 +209,67 @@ export class UnitsOverlay {
             if (found) break;
         }
 
-        const creatureConfig = HoCConfig.getCreatureConfig(
+        return HoCConfig.getCreatureConfig(
             TeamVals.NO_TEAM,
             ToFactionName[faction],
             unitName,
             unitToTextureName(unitName, TextureType.LARGE),
-            0, // amount
-            BASE_UNIT_STACK_TO_SPAWN_EXP, // totalExp
+            0,
+            BASE_UNIT_STACK_TO_SPAWN_EXP,
         );
-
-        return creatureConfig;
     }
-    /** Call once after textures are ready */
     public build(): void {
         this.headerContainer.removeChildren();
         this.rowsContainer.removeChildren();
         this.allChips = [];
         this.selectedName = null;
 
-        // headers
         for (let i = 0; i < this.levelBuckets.length; i++) {
             const t = new Text({ text: this.levelBuckets[i].label, style: this.headerTextStyle });
             t.anchor.set(0.5);
             this.headerContainer.addChild(t);
         }
 
-        // rows per faction
         for (let r = 0; r < this.factions.length; r++) {
             const row = new Container();
-            row.label = `row-${r}`;
             this.rowsContainer.addChild(row);
 
             const iconTex = this.getTex(this.factions[r].iconName);
             const icon = new Sprite(iconTex ?? Texture.EMPTY);
             row.addChild(icon);
 
-            // one bucket per level column (use precomputed getCreaturesOf)
             for (let b = 0; b < this.levelBuckets.length; b++) {
                 const bucketCont = new Container();
-                bucketCont.label = `bucket-${b}`;
                 row.addChild(bucketCont);
 
-                const lvl = (b + 1) as UnitLevelId; // levels 1..4
-                const sizeFlag = this.levelBuckets[b].unitSize; // 2 => large sprite
-
-                // ids → names via client-side map
+                const lvl = (b + 1) as UnitLevelId;
+                const sizeFlag = this.levelBuckets[b].unitSize;
                 const namesForLevel = getCreaturesOf(this.factions[r].type, lvl)
                     .map((id: CreatureId) => UNIT_ID_TO_NAME[id as number])
                     .filter(Boolean) as string[];
 
                 for (const unitName of namesForLevel) {
                     const unitProperties = this.getUnitProperties(unitName);
-
                     const texName = unitToTextureName(unitName, TextureType.SMALL, sizeFlag);
                     const tex = this.getTex(texName);
 
                     const chip = new UnitChip({
                         unitName,
                         texture: tex ?? Texture.EMPTY,
-                        getAmount: () => unitProperties.amount_alive, // example badge
+                        getAmount: () => unitProperties.amount_alive,
                     });
                     chip.setTicker(this.app.ticker);
-
                     bucketCont.addChild(chip);
                     this.allChips.push(chip);
                 }
             }
         }
 
-        // initial layout & button icon
+        this.updateButtonVisuals(false);
+
         this.onResize(this.app.renderer.width, this.app.renderer.height);
-        this.refreshButtonIcon();
+        this.container.sortChildren();
     }
-    /** Layout/resize: perfect centered square; overlay is middle 16×4 band */
     public onResize(stageW: number, stageH: number): void {
         if (stageW <= 0 || stageH <= 0) return;
 
@@ -283,35 +286,24 @@ export class UnitsOverlay {
 
         this.container.position.set(overlayX, overlayY);
 
-        // backdrop
         this.backdrop.clear();
         this.backdrop.rect(0, 0, this.overlayW, this.overlayH).fill({ color: 0x000000, alpha: 0.8 });
 
         this.leftColW = 1.5 * cell;
         const levelCols = this.levelBuckets.length;
-        const levelAreaW = this.overlayW - this.leftColW;
-        const colW = levelAreaW / levelCols;
+        const colW = (this.overlayW - this.leftColW) / levelCols;
+        this.rowH = this.overlayH / this.factions.length;
 
-        const rows = this.factions.length;
-        this.rowH = this.overlayH / rows;
-
-        // headers
         for (let i = 0; i < this.headerContainer.children.length; i++) {
             const t = this.headerContainer.children[i] as Text;
-            const cx = this.leftColW + (i + 0.5) * colW;
-            const cy = -0.45 * this.rowH;
-            t.position.set(cx, cy);
-            const maxW = colW * 0.7;
-            const scale = t.width > 0 ? Math.min(1, maxW / t.width) : 1;
-            t.scale.set(scale);
+            t.position.set(this.leftColW + (i + 0.5) * colW, -0.45 * this.rowH);
+            t.scale.set(t.width > 0 ? Math.min(1, (colW * 0.7) / t.width) : 1);
         }
 
-        // rows + buckets
-        for (let r = 0; r < rows; r++) {
+        for (let r = 0; r < this.factions.length; r++) {
             const rowCont = this.rowsContainer.children[r] as Container;
             rowCont.position.set(0, r * this.rowH);
 
-            // faction icon
             const icon = rowCont.children[0] as Sprite;
             icon.width = icon.height = cell;
             icon.position.set(this.leftColW * 0.5 - cell * 0.5, this.rowH * 0.5 - cell * 0.5);
@@ -319,54 +311,53 @@ export class UnitsOverlay {
             let childIndex = 1;
             for (let b = 0; b < levelCols; b++) {
                 const bucketCont = rowCont.children[childIndex++] as Container;
-                const bx = this.leftColW + b * colW;
-                bucketCont.position.set(bx, 0);
+                bucketCont.position.set(this.leftColW + b * colW, 0);
 
-                // lay out UnitChips inside the bucket
                 const chips = bucketCont.children as unknown as UnitChip[];
                 const n = chips.length;
-
                 const iconSide = cell * (this.levelBuckets[b].unitSize === 2 ? 1.05 : 0.9);
                 const spacing = Math.min(iconSide * 1.1, (colW * 0.85) / Math.max(1, n));
                 const startX = colW * 0.5 - ((n - 1) * spacing) / 2;
 
                 for (let i = 0; i < n; i++) {
-                    const chip = chips[i];
-                    chip.layout(iconSide); // size sprite, ring, badge
-                    chip.position.set(startX + i * spacing, this.rowH * 0.5);
+                    chips[i].layout(iconSide);
+                    chips[i].position.set(startX + i * spacing, this.rowH * 0.5);
                 }
             }
         }
 
-        // toggle button under the left column
-        const btnW = this.leftColW * 0.9;
-        const btnH = cell * 0.9;
-        const btnX = (this.leftColW - btnW) / 2;
-        const btnY = this.overlayH + cell * 0.2;
+        // --- Toggle Button ---
+        // 1. Size reduced to 80% of cell
+        const btnSize = cell * 0.8;
+
+        // 2. Position above overlay
+        const btnX = this.leftColW * 0.5;
+        const btnY = -btnSize * 0.6; // Keep tight to the top edge
 
         this.toggleBtn.position.set(btnX, btnY);
-        this.drawButton(btnW, btnH);
+        this.btnRadius = btnSize * 0.5;
 
-        // cache for hit-test
-        this.btnW = btnW;
-        this.btnH = btnH;
+        this.toggleSprite.width = btnSize;
+        this.toggleSprite.height = btnSize;
 
-        // hit area
-        this.toggleBtn.hitArea = new Rectangle(0, 0, btnW, btnH);
+        this.drawFallbackArrow(0xf6d87c);
 
-        // keep state after resize (content slides right to hide)
-        this.content.x = this.isOpen ? 0 : this.overlayW;
+        this.toggleBtn.hitArea = new Rectangle(-this.btnRadius, -this.btnRadius, btnSize, btnSize);
+
+        this.content.x = this.isOpen ? 0 : -this.overlayW;
         this.content.alpha = this.isOpen ? 1 : 0;
-        this.toggleBtn.zIndex = 9999;
+
+        // 3. Rotated logic flipped: 0 if Open (Left), Math.PI if Closed (Right)
+        const rot = this.isOpen ? 0 : Math.PI;
+        this.toggleSprite.rotation = rot;
+        this.toggleArrowFallback.rotation = rot;
     }
-    /** Show/hide overlay content with slide+fade animation */
     public toggle(): void {
         this.animateTo(!this.isOpen, 350);
     }
-    /** External hit-test helper for canvas-forwarded events */
     public hitToggle(globalX: number, globalY: number): boolean {
         const local = this.toggleBtn.toLocal({ x: globalX, y: globalY });
-        return local.x >= 0 && local.y >= 0 && local.x <= this.btnW && local.y <= this.btnH;
+        return Math.abs(local.x) <= this.btnRadius && Math.abs(local.y) <= this.btnRadius;
     }
     private animateTo(open: boolean, durationMs: number): void {
         if (this.tweenCancel) {
@@ -376,14 +367,15 @@ export class UnitsOverlay {
 
         const startX = this.content.x;
         const startA = this.content.alpha;
-
-        // Close → slide LEFT off the board; Open → slide back RIGHT to 0
         const endX = open ? 0 : -this.overlayW;
         const endA = open ? 1 : 0;
 
+        const startRot = this.toggleSprite.rotation;
+        // Logic flipped here too
+        const endRot = open ? 0 : Math.PI;
+
         const start = performance.now();
         const ticker = this.app.ticker as Ticker;
-
         const easeInOutQuad = (t: number) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
 
         const step = () => {
@@ -394,55 +386,19 @@ export class UnitsOverlay {
             this.content.x = startX + (endX - startX) * e;
             this.content.alpha = startA + (endA - startA) * e;
 
+            const curRot = startRot + (endRot - startRot) * e;
+            this.toggleSprite.rotation = curRot;
+            this.toggleArrowFallback.rotation = curRot;
+
             if (p >= 1) {
                 ticker.remove(step);
                 this.tweenCancel = undefined;
                 this.isOpen = open;
-                this.refreshButtonIcon();
             }
         };
 
         ticker.add(step);
         this.tweenCancel = () => ticker.remove(step);
-    }
-    /** Draw/refresh the toggle button visuals (rounded rect + arrow) */
-    private drawButton(w: number, h: number): void {
-        this.toggleBtnBg.clear();
-        this.toggleBtnBg
-            .roundRect(0, 0, w, h, Math.min(12, h * 0.25))
-            .fill({ color: 0x000000, alpha: 0.7 })
-            .stroke({ color: 0xffffff, width: 2, alpha: 0.7 });
-
-        const pad = Math.min(w, h) * 0.25;
-        const aw = w - pad * 2;
-        const ah = h - pad * 2;
-
-        this.toggleArrow.clear();
-        this.toggleArrow.position.set(pad, pad);
-
-        if (this.isOpen) {
-            // pointing left while open (click → hides to the RIGHT)
-            this.toggleArrow
-                .moveTo(aw, 0)
-                .lineTo(0, ah * 0.5)
-                .lineTo(aw, ah)
-                .closePath()
-                .fill({ color: 0xf6d87c })
-                .stroke({ color: 0x000000, width: 2, alpha: 0.9 });
-        } else {
-            // pointing right when closed (click → shows from the RIGHT to LEFT)
-            this.toggleArrow
-                .moveTo(0, 0)
-                .lineTo(aw, ah * 0.5)
-                .lineTo(0, ah)
-                .closePath()
-                .fill({ color: 0xf6d87c })
-                .stroke({ color: 0x000000, width: 2, alpha: 0.9 });
-        }
-    }
-    private refreshButtonIcon(): void {
-        const b = this.toggleBtnBg.getBounds();
-        this.drawButton(b.width, b.height);
     }
     public setVisible(v: boolean): void {
         this.container.visible = v;
@@ -457,19 +413,8 @@ export class UnitsOverlay {
     }
     public clearSelection(notify: boolean = true): void {
         if (!this.selectedName) return;
-
-        const prev = this.selectedName;
         this.selectedName = null;
-
-        // update chip visuals
-        for (const c of this.allChips) {
-            c.setSelected(false);
-        }
-
-        if (notify && this.onUnitSelected) {
-            this.onUnitSelected(null);
-        }
-
-        console.log("UnitsOverlay: cleared selection (prev:", prev, ")");
+        for (const c of this.allChips) c.setSelected(false);
+        if (notify && this.onUnitSelected) this.onUnitSelected(null);
     }
 }

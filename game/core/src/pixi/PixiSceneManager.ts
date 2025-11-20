@@ -2,10 +2,10 @@
 import { Application, Ticker, Container } from "pixi.js";
 import { GridSettings, GridType, HoCMath, Grid } from "@heroesofcrypto/common";
 import { PixiApp } from "./PixiApp";
-import { PixiUnit } from "./PixiUnit";
 import { PixiDrawer } from "./PixiDrawer";
 import { SimplePhysicsManager } from "./SimplePhysicsManager";
 import { makeBodyLike, type BodyLike, type DisplayObjectLike } from "./userData";
+import { RenderableUnit } from "./RenderableUnit";
 
 /** Minimal grid shape expected by PixiDrawer; we'll cast it to the full Grid type for compatibility */
 interface GridLike {
@@ -35,7 +35,7 @@ function hasRect(obj: unknown): obj is { x: number; y: number; width: number; he
 
 export class PixiSceneManager {
     private readonly pixiApp: PixiApp;
-    private readonly units: Map<string, PixiUnit> = new Map();
+    private readonly units: Map<string, RenderableUnit> = new Map();
     private readonly drawer: PixiDrawer;
     private readonly physicsManager: SimplePhysicsManager;
     private readonly ticker: Ticker;
@@ -88,10 +88,6 @@ export class PixiSceneManager {
         }
         return undefined;
     }
-    public addUnit(unitId: string, unit: PixiUnit): void {
-        this.units.set(unitId, unit);
-        this.pixiApp.getUnitsContainer().addChild(unit.getContainer());
-    }
     public getWorldRoot(): Container {
         return this.pixiApp.getCamera();
     }
@@ -124,12 +120,6 @@ export class PixiSceneManager {
         // Pixi v8: renderer.width/height are in CSS pixels after autoDensity scaling
         return { width: app.renderer.width, height: app.renderer.height };
     }
-    public getUnit(unitId: string): PixiUnit | undefined {
-        return this.units.get(unitId);
-    }
-    public getAllUnits(): Map<string, PixiUnit> {
-        return new Map(this.units);
-    }
     public startMoveAnimation(unitId: string, _path: HoCMath.XY[]): void {
         const unit = this.units.get(unitId);
         if (unit) {
@@ -146,12 +136,6 @@ export class PixiSceneManager {
             this.animating = true;
         }
         // optional: this.drawer.startFlyAnimation(unit!, targetPosition);
-    }
-    public isAnimatingMovement(): boolean {
-        for (const unit of this.units.values()) {
-            if (unit.isAnimatingMovement()) return true;
-        }
-        return false;
     }
     public isAnimating(): boolean {
         return this.animating;
@@ -172,9 +156,6 @@ export class PixiSceneManager {
 
         // Draw overlays / helpers
         this.drawer.update(deltaTimeMs);
-
-        // Overall animation flag
-        this.animating = this.isAnimatingMovement();
     }
     // Camera delegation
     public setCameraPosition(x: number, y: number): void {

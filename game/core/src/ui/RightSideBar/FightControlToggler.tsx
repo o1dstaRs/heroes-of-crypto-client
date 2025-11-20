@@ -40,7 +40,6 @@ const FightControlToggler: React.FC = () => {
     useEffect(() => {
         // ✅ Subscribe to the new combined selection signal
         const connection = manager.onSelectionCombined.connect(({ unit }) => {
-            console.log("RECEIVED");
             // unit can be null → fall back to empty object
             setUnitProperties((unit ?? {}) as UnitProperties);
         });

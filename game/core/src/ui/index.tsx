@@ -90,7 +90,6 @@ const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         const connection = manager.onHasStarted.connect((hasStarted) => {
             setStarted(hasStarted);
             if (hasStarted) {
-                console.log("szzolotu call Heroes2");
                 manager.HomeCamera();
             }
         });

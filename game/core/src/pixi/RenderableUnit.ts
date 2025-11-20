@@ -1,4 +1,3 @@
-// game/core/src/pixi/RenderableUnit.ts
 import { Container, Sprite, Graphics, Text, TextStyle, Texture } from "pixi.js";
 import { Unit, UnitProperties, HoCMath, GridSettings, GridMath } from "@heroesofcrypto/common";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
@@ -22,6 +21,7 @@ interface SpawnAnimState {
 export class RenderableUnit extends Unit {
     private texResolver!: TexResolver;
     private sprite?: Sprite;
+    private shadow?: Sprite;
     private badgeContainer?: Container;
     private badgeCircle?: Graphics;
     private badgeText?: Text;
@@ -71,6 +71,42 @@ export class RenderableUnit extends Unit {
         this.sprite.alpha = 1;
         this.sprite.tint = 0xffffff;
 
+        // --- shadow ---
+        if (!this.shadow) {
+            // Use a simple sprite copy for the silhouette effect
+            this.shadow = new Sprite(tex);
+            this.shadow.anchor.set(0.5); // Center anchor matches sprite
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            this.shadow.zIndex = 110; // Below the unit
+            worldRoot.addChild(this.shadow);
+
+            // No blur filter for a crisp silhouette look
+            this.shadow.filters = [];
+        } else {
+            this.shadow.texture = tex;
+            if (!this.shadow.parent) {
+                worldRoot.addChild(this.shadow);
+            }
+        }
+
+        // Silhouette Logic:
+        // 1. Exact scale as the unit (no flattening)
+        this.shadow.scale.set(scale, -scale);
+
+        // 2. Reset any skew/rotation from previous attempts
+        this.shadow.skew.set(0, 0);
+        this.shadow.rotation = 0;
+
+        // 3. Shifted to the bottom right
+        const shadowOffsetX = targetSize * 0.04; // Small shift to the right
+        const shadowOffsetY = targetSize * 0.08; // Larger shift down
+        this.shadow.x = pos.x + shadowOffsetX;
+        this.shadow.y = pos.y + shadowOffsetY;
+
+        this.shadow.visible = true;
+        this.shadow.alpha = 0.35; // Reduced intensity (from 0.5 to 0.35)
+        this.shadow.tint = 0x000000; // Black tint for the silhouette
+
         // --- badge ---
         this.ensureBadge(worldRoot, gs, props, pos);
 
@@ -83,6 +119,7 @@ export class RenderableUnit extends Unit {
 
         if (!inGrid) {
             if (this.sprite) this.sprite.visible = false;
+            if (this.shadow) this.shadow.visible = false;
             if (this.badgeContainer) this.badgeContainer.visible = false;
             return;
         }
@@ -91,7 +128,7 @@ export class RenderableUnit extends Unit {
     }
     /** Kick a small "pop-in" spawn animation for the sprite. */
     public startSpawnAnimation(scale: number): void {
-        if (!this.sprite) return;
+        if (!this.sprite || !this.shadow) return;
 
         const endScaleX = scale;
         const endScaleY = -scale;
@@ -100,6 +137,10 @@ export class RenderableUnit extends Unit {
 
         this.sprite.scale.set(startScaleX, startScaleY);
         this.sprite.alpha = 0;
+
+        // Shadow anim matches sprite exactly for silhouette effect
+        this.shadow.scale.set(startScaleX, startScaleY);
+        this.shadow.alpha = 0;
 
         this.spawnAnim = {
             startScaleX,
@@ -112,7 +153,7 @@ export class RenderableUnit extends Unit {
     }
     /** Step spawn animation (call once per frame). */
     public stepSpawnAnimation(dt: number): void {
-        if (!this.spawnAnim || !this.sprite || !this.sprite.parent || !dt) return;
+        if (!this.spawnAnim || !this.sprite || !this.shadow || !this.sprite.parent || !dt) return;
 
         const anim = this.spawnAnim;
         anim.elapsed += dt;
@@ -128,9 +169,17 @@ export class RenderableUnit extends Unit {
         this.sprite.scale.set(sx, sy);
         this.sprite.alpha = e;
 
+        // Animate shadow exactly with sprite
+        this.shadow.scale.set(sx, sy);
+        this.shadow.alpha = e * 0.35; // Target alpha is 0.35
+
         if (t >= 1) {
             this.sprite.scale.set(anim.endScaleX, anim.endScaleY);
             this.sprite.alpha = 1;
+
+            this.shadow.scale.set(anim.endScaleX, anim.endScaleY);
+            this.shadow.alpha = 0.35;
+
             this.spawnAnim = undefined;
         }
     }
@@ -138,6 +187,10 @@ export class RenderableUnit extends Unit {
         if (this.sprite) {
             this.sprite.removeFromParent();
             this.sprite = undefined;
+        }
+        if (this.shadow) {
+            this.shadow.removeFromParent();
+            this.shadow = undefined;
         }
         if (this.badgeContainer) {
             this.badgeContainer.removeFromParent();
@@ -198,5 +251,24 @@ export class RenderableUnit extends Unit {
         container.x = pos.x + offsetX;
         container.y = pos.y + offsetY;
         container.visible = amount > 0;
+    }
+    protected refreshAbilitiesDescriptions(_synergyAbilityPowerIncrease: number): void {
+        return;
+    }
+    private refreshAbiltyDescription(abilityName: string, abilityDescription: string): void {
+        if (
+            this.unitProperties.abilities.length === this.unitProperties.abilities_descriptions.length &&
+            this.unitProperties.abilities.length === this.unitProperties.abilities_stack_powered.length &&
+            this.unitProperties.abilities.length === this.unitProperties.abilities_auras.length
+        ) {
+            for (let i = 0; i < this.unitProperties.abilities.length; i++) {
+                if (
+                    this.unitProperties.abilities[i] === abilityName &&
+                    (this.unitProperties.abilities_stack_powered[i] || abilityName === "Blind Fury")
+                ) {
+                    this.unitProperties.abilities_descriptions[i] = abilityDescription;
+                }
+            }
+        }
     }
 }

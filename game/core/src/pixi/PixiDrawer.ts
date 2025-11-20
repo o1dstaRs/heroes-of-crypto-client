@@ -11,13 +11,13 @@ import {
     ObstacleType,
 } from "@heroesofcrypto/common";
 import { Obstacle } from "../obstacles/obstacle";
-import { PixiUnit } from "./PixiUnit";
+import { RenderableUnit } from "./RenderableUnit";
 
 // Internal helper to clamp values
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
 interface IFlyingUnit {
-    unit: PixiUnit;
+    unit: RenderableUnit;
     targetPosition: HoCMath.XY;
 }
 
@@ -160,7 +160,7 @@ export class PixiDrawer {
             if (o.getType() === ObstacleType.BLOCK) o.render(isLightMode, hitsRemaining);
         }
     }
-    public startMoveAnimation(_unit: PixiUnit, _path: HoCMath.XY[]): void {
+    public startMoveAnimation(_unit: RenderableUnit, _path: HoCMath.XY[]): void {
         // if (unit?.startMoveAnimation) {
         //     unit.startMoveAnimation(path);
         //     this.animating = true;
@@ -168,7 +168,7 @@ export class PixiDrawer {
         //
         console.log("startMoveAnimation called");
     }
-    public startFlyAnimation(_unit: PixiUnit, _targetPosition: HoCMath.XY): void {
+    public startFlyAnimation(_unit: RenderableUnit, _targetPosition: HoCMath.XY): void {
         // if (unit?.startFlyAnimation) {
         //     unit.startFlyAnimation(targetPosition);
         //     this.flyingUnits.push({ unit, targetPosition });
@@ -183,9 +183,9 @@ export class PixiDrawer {
     public update(_deltaTime: number): void {
         // Cull finished flying units
         const stillFlying: IFlyingUnit[] = [];
-        for (const f of this.flyingUnits) {
-            if (f.unit.isAnimatingMovement()) stillFlying.push(f);
-        }
+        // for (const f of this.flyingUnits) {
+        // if (f.unit.isAnimatingMovement()) stillFlying.push(f);
+        // }
         this.flyingUnits = stillFlying;
 
         // Global animating flag
