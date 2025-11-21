@@ -15,6 +15,19 @@ import stopImg from "../../../images/stop.webp";
 import hourglassImg from "../../../images/hourglass.webp";
 import { IVisibleState, IVisibleUnit } from "../../state/visible_state";
 
+// --- Custom Style for "Heroes" Aesthetic Tooltips ---
+const commonTooltipSx = {
+    backgroundColor: "#2d1606", // Deep dark brown/wood
+    border: "2px solid #dcb158", // Metallic gold/bronze border
+    color: "#efe4cc", // Parchment/Cream text for contrast
+    borderRadius: "8px",
+    boxShadow: "0 6px 12px rgba(0,0,0,0.8)",
+    fontSize: "0.85rem",
+    fontWeight: 500,
+    maxWidth: "280px",
+    zIndex: 10000,
+};
+
 export const UpNext: React.FC = () => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
 
@@ -32,7 +45,8 @@ export const UpNext: React.FC = () => {
     return (
         <>
             <Divider />
-            <Tooltip title="Click ALT to see who is turning next" style={{ zIndex: 1 }}>
+            <Tooltip title="Click ALT to see who is turning next" placement="top" sx={commonTooltipSx}>
+                {/* Container Box acts as the trigger, separated from Tooltip styles */}
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2, minHeight: 80 }}>
                     <Typography level="title-md">Up next</Typography>
 

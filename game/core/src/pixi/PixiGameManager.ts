@@ -35,16 +35,6 @@ import "../scenes";
 import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
 import { getScenesGrouped } from "./PixiScene";
 
-// Narrower shape some of your legacy userData carried (from Box2D days)
-type LegacyUnitFlag = { unit_type?: number };
-
-// Type guard to safely use unknown userData coming from GetUserData()
-function isUnitUserData(x: unknown): x is UnitProperties & LegacyUnitFlag {
-    if (!x || typeof x !== "object") return false;
-    const o = x as Record<string, unknown>;
-    return typeof o["amount_alive"] === "number" && Array.isArray(o["abilities"]);
-}
-
 // A scene that (optionally) exposes the overlay
 type SceneWithUnitsOverlay = PixiScene & {
     getUnitsOverlay?: () => UnitsOverlay | undefined;
@@ -390,30 +380,29 @@ export class PixiGameManager {
         this.UpdateHoverInfo();
     }
     public Accept(): void {
-        if (this.m_scene?.sc_selectedBody && !this.started) {
-            const getter = this.m_scene.sc_selectedBody.GetUserData;
-            const raw = getter ? getter() : undefined;
-            if (!isUnitUserData(raw)) return;
-            if (raw.unit_type !== undefined && raw.unit_type !== 1) return;
-
-            raw.amount_alive = this.m_settings.m_amountOfSelectedUnits;
-            this.m_scene.sc_selectedUnitProperties = raw;
-            this.m_scene.sc_unitPropertiesUpdateNeeded = true;
-            this.m_scene.refreshScene(raw);
-            this.UpdateHoverInfo();
+        if (this.m_scene?.sc_selectedUnitProperties && !this.started) {
+            console.log("SSSSS");
+            const newAmount = this.m_settings.m_amountOfSelectedUnits;
+            if (newAmount > 0) {
+                this.m_scene.refreshScene({
+                    ...this.m_scene.sc_selectedUnitProperties,
+                    amount_alive: Math.floor(newAmount),
+                });
+                this.m_scene.sc_unitPropertiesUpdateNeeded = true;
+                this.UpdateHoverInfo();
+            }
         }
     }
     public Clone(): void {
-        if (this.m_scene?.sc_selectedBody && !this.started) this.m_scene.cloneObject();
+        if (this.m_scene?.sc_selectedUnitProperties && !this.started) this.m_scene.cloneObject();
     }
     public Split(newAmount: number): void {
-        if (this.m_scene?.sc_selectedBody && !this.started) {
+        if (this.m_scene?.sc_selectedUnitProperties && !this.started) {
             const isCloned = this.m_scene.cloneObject(newAmount);
             if (isCloned) {
-                const getter = this.m_scene.sc_selectedBody.GetUserData;
-                const current = getter ? getter() : undefined;
-                if (isUnitUserData(current) && typeof current.amount_alive === "number") {
-                    const secondPart = current.amount_alive - newAmount;
+                const amountAlive = this.m_scene?.sc_selectedUnitProperties?.amount_alive;
+                if (amountAlive > 0) {
+                    const secondPart = Math.floor(amountAlive - newAmount);
                     if (secondPart > 0) {
                         this.m_settings.m_amountOfSelectedUnits = secondPart;
                         this.Accept();

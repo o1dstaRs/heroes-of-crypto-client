@@ -83,7 +83,7 @@ export function getScenesGrouped() {
 }
 
 export abstract class PixiScene {
-    private sceneStarted = false;
+    private sc_sceneStarted = false;
     public readonly sc_debugLines: Array<[string, string]> = [];
     public readonly sc_statisticLines: Array<[string, string]> = [];
     public readonly sc_sceneLog = new SceneLog();
@@ -180,7 +180,7 @@ export abstract class PixiScene {
             overlay.clearSelection(false);
         }
 
-        if (this.sceneStarted && _onlyWhenNotStarted) {
+        if (this.sc_sceneStarted && _onlyWhenNotStarted) {
             if (this.sc_selectedBody) {
                 this.sc_unitInfoLines.length = 0;
                 this.sc_selectedUnitProperties = undefined;
@@ -263,7 +263,7 @@ export abstract class PixiScene {
             if (this.sc_isSelection || this.sc_hoverAttackIsTargetingObstacle) {
                 attackLanded = this.landAttack();
             } else {
-                if (this.sceneStarted) {
+                if (this.sc_sceneStarted) {
                     if (!this.sc_isAIActive) {
                         attackLanded = this.landAttack();
                     }
@@ -310,14 +310,14 @@ export abstract class PixiScene {
     protected sc_mouseJoint: MouseJointLike = null;
     public abstract requestTime(team: number): void;
     public startScene(): boolean {
-        if (!this.sceneStarted) {
-            this.sceneStarted = true;
+        if (!this.sc_sceneStarted) {
+            this.sc_sceneStarted = true;
             this.destroyTempFixtures();
             this.sc_hoverUnitNameStr = "";
             this.sc_hoverUnitLevel = 0;
             this.sc_hoverUnitMovementType = MovementVals.NO_MOVEMENT;
         }
-        return this.sceneStarted;
+        return this.sc_sceneStarted;
     }
     protected abstract destroyTempFixtures(): void;
     public MouseMove(_p: HoCMath.XY, _leftDrag: boolean): void {

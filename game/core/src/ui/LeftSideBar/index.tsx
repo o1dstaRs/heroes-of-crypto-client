@@ -227,7 +227,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
 
                     <MessageBox gameStarted={gameStarted} />
 
-                    <UpNext />
+                    {gameStarted && <UpNext />}
                 </List>
             </Box>
         </Sheet>

@@ -52,6 +52,19 @@ interface IAbilityStackProps {
 
 const ABILITIES_FIT_IN_ONE_ROW = 3;
 
+// --- Custom Style for "Heroes" Aesthetic Tooltips ---
+const commonTooltipSx = {
+    backgroundColor: "#2d1606", // Deep dark brown/wood
+    border: "2px solid #dcb158", // Metallic gold/bronze border
+    color: "#efe4cc", // Parchment/Cream text for contrast
+    borderRadius: "8px",
+    boxShadow: "0 6px 12px rgba(0,0,0,0.8)",
+    fontSize: "0.85rem",
+    fontWeight: 500,
+    maxWidth: "280px",
+    zIndex: 10000,
+};
+
 // Normalize "Angel", "Wolf Rider" etc. to the keys in animationAtlases
 function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | null {
     if (!name) return null;
@@ -343,7 +356,7 @@ const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean; hasBr
                                     </>
                                 }
                                 key={`tooltip_${rowIndex}_${index}`}
-                                style={{ zIndex: 3 }}
+                                sx={commonTooltipSx}
                             >
                                 <Box
                                     sx={{
@@ -460,6 +473,7 @@ const EffectColumnOrRow: React.FC<{
                                 ? ` (remaining ${HoCLib.getLapString(effect.laps)})`
                                 : ""
                         }`}
+                        sx={commonTooltipSx}
                     >
                         <Box
                             component="img"
@@ -496,7 +510,7 @@ const StatItem: React.FC<{
     positiveFrame?: boolean;
     negativeFrame?: boolean;
 }> = ({ icon, value, tooltip, color, badgeContent, badgeColor, positiveFrame, negativeFrame }) => (
-    <Tooltip title={tooltip}>
+    <Tooltip title={tooltip} sx={commonTooltipSx}>
         <Box
             sx={{
                 display: "flex",
@@ -733,7 +747,7 @@ const UnitStatsLayout: React.FC<{
                 <StatItem
                     icon={<LuckIcon />}
                     value={unitProperties.luck + unitProperties.luck_mod}
-                    tooltip="Luck: Increases or decreases damage received in combat, while also affecting the probability or power of abilities"
+                    tooltip="Luck increases or decreases damage received in combat, while also affecting the probability or power of abilities"
                     color="#ff4040"
                     badgeContent={luckBadgeValue}
                     badgeColor={unitProperties.luck_mod > 0 ? "success" : "danger"}

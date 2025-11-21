@@ -1,5 +1,5 @@
 // game/core/src/overlays/UnitsOverlay.ts
-import { Application, Container, Sprite, Texture, Text, TextStyle, Graphics, Ticker, Rectangle } from "pixi.js";
+import { Application, Container, Sprite, Texture, Graphics, Ticker, Rectangle } from "pixi.js";
 
 import { unitToTextureName, TextureType } from "../pixi/PixiUnitsFactory";
 import { UnitChip } from "./UnitChip";
@@ -54,14 +54,6 @@ export class UnitsOverlay {
         { type: FactionVals.CHAOS, iconName: "chaos_128" },
         { type: FactionVals.MIGHT, iconName: "might_128" },
     ];
-    private headerTextStyle = new TextStyle({
-        fontFamily: "Montserrat, Arial, sans-serif",
-        fontSize: 24,
-        fill: 0xf6d87c,
-        align: "center",
-        stroke: { color: 0x000000, width: 4 },
-        dropShadow: { color: 0x000000, distance: 2, angle: Math.PI / 4, blur: 1, alpha: 1 },
-    });
     private btnRadius = 0;
     private levelBuckets: LevelBucket[] = [];
     private onUnitSelected?: (unitProperties: UnitProperties | null) => void;
@@ -224,10 +216,16 @@ export class UnitsOverlay {
         this.allChips = [];
         this.selectedName = null;
 
+        // --- Render Textures instead of Text ---
         for (let i = 0; i < this.levelBuckets.length; i++) {
-            const t = new Text({ text: this.levelBuckets[i].label, style: this.headerTextStyle });
-            t.anchor.set(0.5);
-            this.headerContainer.addChild(t);
+            const levelIndex = i + 1;
+            const texName = `label_level_${levelIndex}`;
+            const tex = this.getTex(texName);
+
+            // Create Sprite with texture (or empty if missing)
+            const sprite = new Sprite(tex ?? Texture.EMPTY);
+            sprite.anchor.set(0.5);
+            this.headerContainer.addChild(sprite);
         }
 
         for (let r = 0; r < this.factions.length; r++) {
@@ -294,10 +292,24 @@ export class UnitsOverlay {
         const colW = (this.overlayW - this.leftColW) / levelCols;
         this.rowH = this.overlayH / this.factions.length;
 
+        // --- Position & Scale Texture Labels ---
         for (let i = 0; i < this.headerContainer.children.length; i++) {
-            const t = this.headerContainer.children[i] as Text;
-            t.position.set(this.leftColW + (i + 0.5) * colW, -0.45 * this.rowH);
-            t.scale.set(t.width > 0 ? Math.min(1, (colW * 0.7) / t.width) : 1);
+            const s = this.headerContainer.children[i] as Sprite;
+
+            // Position center of header cell.
+            // UPDATED: Changed Y offset from -0.45 to -0.25 to move it closer to the overlay.
+            s.position.set(this.leftColW + (i + 0.5) * colW, -0.38 * this.rowH);
+
+            // Reset scale to 1 to measure natural size
+            s.scale.set(1);
+
+            if (s.texture && s.texture !== Texture.EMPTY) {
+                // Constrain fitting: 90% of column width, 50% of available top space height
+                const maxW = colW * 0.9;
+                const maxH = this.rowH * 0.5;
+                const scale = Math.min(maxW / s.width, maxH / s.height);
+                s.scale.set(scale);
+            }
         }
 
         for (let r = 0; r < this.factions.length; r++) {
