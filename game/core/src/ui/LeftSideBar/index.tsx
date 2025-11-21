@@ -75,7 +75,6 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
             const impact = (payload.impact ?? ({} as IVisibleOverallImpact)) as IVisibleOverallImpact;
             const factionType = (payload.faction ?? (FactionVals.NO_FACTION as FactionType)) as FactionType;
 
-            console.log("RECEIVED2");
             // Always update – React will skip DOM work if nothing really changed
             setSelection({
                 unit,
@@ -102,6 +101,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
     const unitProperties = selection.unit || ({} as UnitProperties);
     const hasSelectedUnit = !!unitProperties.team;
     const synergies = ((unitProperties as UnitProperties).synergies as string[]) || [];
+
     const hasSynergies = Array.isArray(synergies) && synergies.length > 0;
 
     return (
@@ -144,10 +144,15 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
 
             <Box
                 sx={{
-                    height: "40px",
+                    // INCREASED HEIGHT: Prevents clipping of icon tops
+                    height: "52px",
+                    // MIN-HEIGHT: Reserves space even if empty (prevents UI drift)
+                    minHeight: "52px",
                     display: "flex",
                     alignItems: "center",
-                    overflow: "hidden",
+                    // FLEX-SHRINK 0: Prevents flexbox from crushing this container if the list below grows
+                    flexShrink: 0,
+                    // OVERFLOW HIDDEN REMOVED: Allows glow effects/shadows to extend slightly outside
                 }}
             >
                 {hasSelectedUnit && hasSynergies && <SynergiesRow synergies={synergies} />}

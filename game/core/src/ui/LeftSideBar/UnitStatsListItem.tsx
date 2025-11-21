@@ -41,6 +41,7 @@ import { SpeedIcon } from "../svg/speed";
 import { SwordIcon } from "../svg/sword";
 import { GreenUserIcon } from "../svg/user_green";
 import { RedUserIcon } from "../svg/user_red";
+import { GrayUserIcon } from "../svg/user_gray";
 import { WingIcon } from "../svg/wing";
 import Toggler from "../Toggler";
 
@@ -1033,7 +1034,13 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                 <Toggler
                     renderToggle={({ open, setOpen }) => (
                         <ListItemButton onClick={() => setOpen(!open)}>
-                            {unitProperties.team === 1 ? <RedUserIcon /> : <GreenUserIcon />}
+                            {!unitProperties.team ? (
+                                <GrayUserIcon />
+                            ) : unitProperties.team === 1 ? (
+                                <RedUserIcon />
+                            ) : (
+                                <GreenUserIcon />
+                            )}
                             <ListItemContent>
                                 <Typography level="title-sm">{stackName}</Typography>
                             </ListItemContent>
@@ -1130,16 +1137,24 @@ const arePropsEqual = (prev: UnitStatsListItemProps, next: UnitStatsListItemProp
     if (!pUnit || !nUnit) return false;
 
     // 3. Handle Data Equality
-    // We check specific fields that affect visual rendering.
-    // If these match, we skip the re-render.
+    // Key Identity Checks
     if (pUnit.id !== nUnit.id) return false;
     if (pUnit.amount_alive !== nUnit.amount_alive) return false;
     if (pUnit.hp !== nUnit.hp) return false;
     if (pUnit.steps !== nUnit.steps) return false;
     if (pUnit.name !== nUnit.name) return false;
 
-    // Note: We assume if unit ID is the same, 'overallImpact' is relatively stable
-    // or acceptable to strict-check by reference.
+    // ✅ ADDED: Modifier Checks
+    // Augments change these values, so we must check them to trigger a re-render
+    if (pUnit.attack_mod !== nUnit.attack_mod) return false;
+    if (pUnit.attack_multiplier !== nUnit.attack_multiplier) return false;
+    if (pUnit.armor_mod !== nUnit.armor_mod) return false;
+    if (pUnit.steps_mod !== nUnit.steps_mod) return false;
+    if (pUnit.luck_mod !== nUnit.luck_mod) return false;
+    if (pUnit.range_shots_mod !== nUnit.range_shots_mod) return false;
+    if (pUnit.magic_resist_mod !== nUnit.magic_resist_mod) return false;
+
+    // Handle Impact/Buff changes
     if (prev.overallImpact !== next.overallImpact) return false;
 
     return true;

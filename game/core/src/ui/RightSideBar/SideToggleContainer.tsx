@@ -9,6 +9,7 @@ import {
     MightSynergyNames,
     MightSynergy,
     NatureSynergyNames,
+    ToFactionName,
     NatureSynergy,
     SynergyKeysToPower,
     SpecificSynergy,
@@ -80,7 +81,8 @@ const SynergyToggler = ({ selectedSynergy }: { selectedSynergy: SelectedSynergy 
         return null;
     }
 
-    const selectedSynergyKey = `${selectedSynergy.faction}:${selectedSynergy.synergyValue}:${selectedSynergy.level}`;
+    const selectedSynergyFactionName = ToFactionName[selectedSynergy.faction];
+    const selectedSynergyKey = `${selectedSynergyFactionName}:${selectedSynergy.synergyValue}:${selectedSynergy.level}`;
 
     return (
         <Box sx={{ marginBottom: 2 }}>
@@ -91,23 +93,23 @@ const SynergyToggler = ({ selectedSynergy }: { selectedSynergy: SelectedSynergy 
                         {Array.from({ length: HoCConstants.MAX_SYNERGY_LEVEL }, (_, i) => (
                             <Radio
                                 key={`${selectedSynergyKey}:${i + 1}`}
-                                value={`${selectedSynergy.faction}:${selectedSynergy.synergyValue}:${i + 1}`}
+                                value={`${selectedSynergyFactionName}:${selectedSynergy.synergyValue}:${i + 1}`}
                                 label={`${SYNERGY_NAME_TO_DESCRIPTION[selectedSynergy.synergyName]
                                     ?.replace(
                                         "{}",
                                         SynergyKeysToPower[
-                                            `${selectedSynergy.faction}:${selectedSynergy.synergyValue}:${i + 1}`
+                                            `${selectedSynergyFactionName}:${selectedSynergy.synergyValue}:${i + 1}`
                                         ]?.[0]?.toString() || "0",
                                     )
                                     ?.replace(
                                         "{}",
                                         SynergyKeysToPower[
-                                            `${selectedSynergy.faction}:${selectedSynergy.synergyValue}:${i + 1}`
+                                            `${selectedSynergyFactionName}:${selectedSynergy.synergyValue}:${i + 1}`
                                         ]?.[1]?.toString() || "0",
                                     )}`}
                                 disabled={
                                     selectedSynergyKey !==
-                                    `${selectedSynergy.faction}:${selectedSynergy.synergyValue}:${i + 1}`
+                                    `${selectedSynergyFactionName}:${selectedSynergy.synergyValue}:${i + 1}`
                                 }
                             />
                         ))}
@@ -654,7 +656,6 @@ const SideToggleContainer = ({
                                 filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
                                 width: 48,
                                 height: 48,
-                                transform: "rotate(180deg)",
                             }}
                         />
                     </IconButton>
@@ -668,7 +669,6 @@ const SideToggleContainer = ({
                                 filter: togglerType === "Armor" ? "brightness(1.2)" : "brightness(0.6)",
                                 width: 48,
                                 height: 48,
-                                transform: "rotate(180deg)",
                             }}
                         />
                     </IconButton>
@@ -682,7 +682,6 @@ const SideToggleContainer = ({
                                 filter: togglerType === "Might" ? "brightness(1.2)" : "brightness(0.6)",
                                 width: 48,
                                 height: 48,
-                                transform: "rotate(180deg)",
                             }}
                         />
                     </IconButton>
@@ -696,7 +695,6 @@ const SideToggleContainer = ({
                                 filter: togglerType === "Sniper" ? "brightness(1.2)" : "brightness(0.6)",
                                 width: 48,
                                 height: 48,
-                                transform: "rotate(180deg)",
                             }}
                         />
                     </IconButton>
@@ -710,7 +708,6 @@ const SideToggleContainer = ({
                                 filter: togglerType === "Movement" ? "brightness(1.2)" : "brightness(0.6)",
                                 width: 48,
                                 height: 48,
-                                transform: "rotate(180deg)",
                             }}
                         />
                     </IconButton>
