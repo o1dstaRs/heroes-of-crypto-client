@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { mkdir, readdir } from "fs/promises";
+import { mkdir, readdir, unlink } from "fs/promises";
 import { resolve, join, extname } from "path";
 import { PNG } from "pngjs";
 
@@ -30,12 +30,10 @@ function colorDistanceSq(a, b) {
 }
 
 function isCloseColor(c, bg, threshold) {
-    // threshold is 0–255; use squared distance to avoid sqrt
     const t2 = threshold * threshold;
     return colorDistanceSq(c, bg) <= t2;
 }
 
-// Rough heuristics for "white" / "black" corners
 function isNearWhite(c) {
     return c.r >= 240 && c.g >= 240 && c.b >= 240;
 }
@@ -44,7 +42,6 @@ function isNearBlack(c) {
     return c.r <= 15 && c.g <= 15 && c.b <= 15;
 }
 
-// Flood-fill from edges, replacing “background-like” pixels with transparent
 function eraseBackground(png, backgroundColor, threshold) {
     const { width, height } = png;
     const visited = new Uint8Array(width * height);
@@ -61,7 +58,6 @@ function eraseBackground(png, backgroundColor, threshold) {
         queue.push([x, y]);
     }
 
-    // Seed from borders
     for (let x = 0; x < width; x++) {
         tryPush(x, 0);
         tryPush(x, height - 1);
@@ -71,7 +67,6 @@ function eraseBackground(png, backgroundColor, threshold) {
         tryPush(width - 1, y);
     }
 
-    // BFS 4-connected
     while (queue.length > 0) {
         const [x, y] = queue.pop();
         setPixelAlpha(png, x, y, 0);
@@ -97,7 +92,7 @@ function eraseBackground(png, backgroundColor, threshold) {
     }
 }
 
-async function processImage(inputPath, outputPath, threshold) {
+async function processImage(inputPath, outputPath, threshold, shouldDeleteOriginal) {
     const buf = await Bun.file(inputPath).arrayBuffer();
     const png = PNG.sync.read(Buffer.from(buf));
     const { width, height } = png;
@@ -109,8 +104,7 @@ async function processImage(inputPath, outputPath, threshold) {
 
     const corners = [c1, c2, c3, c4];
 
-    // Check that the corners are reasonably similar
-    const cornerThreshold = threshold; // can adjust separately if you want
+    const cornerThreshold = threshold;
     const cornersClose =
         isCloseColor(c1, c2, cornerThreshold) &&
         isCloseColor(c1, c3, cornerThreshold) &&
@@ -119,69 +113,86 @@ async function processImage(inputPath, outputPath, threshold) {
     let backgroundColor = null;
 
     if (cornersClose) {
-        // Use average of corners as background
         backgroundColor = {
             r: Math.round((c1.r + c2.r + c3.r + c4.r) / 4),
             g: Math.round((c1.g + c2.g + c3.g + c4.g) / 4),
             b: Math.round((c1.b + c2.b + c3.b + c4.b) / 4),
             a: 255,
         };
-        // console.log(`Using averaged corner background for: ${inputPath}`);
     } else {
-        // If we see 2/4 white or 2/4 black corners, use that color as background.
-        // If that still fails but at least ONE corner is black, fall back to black.
         const whiteCount = corners.filter(isNearWhite).length;
         const blackCount = corners.filter(isNearBlack).length;
 
         if (whiteCount >= 2) {
             backgroundColor = { r: 255, g: 255, b: 255, a: 255 };
-            console.log(`Corners differ, but detected white background from corners in: ${inputPath}`);
         } else if (blackCount >= 2) {
             backgroundColor = { r: 0, g: 0, b: 0, a: 255 };
-            console.log(`Corners differ, but detected black background from corners in: ${inputPath}`);
         } else if (blackCount >= 1) {
-            // 👇 new fallback: at least one corner is black → assume black background
             backgroundColor = { r: 0, g: 0, b: 0, a: 255 };
-            console.log(
-                `Corners differ and no strong consensus, but at least one corner is black. ` +
-                    `Falling back to black background for: ${inputPath}`,
-            );
         }
     }
 
+    // Case 1: No background detected
     if (!backgroundColor) {
-        console.log(`Skipping (corner colors differ too much and no black corner fallback): ${inputPath}`);
-        const outBuf = PNG.sync.write(png);
-        await Bun.write(outputPath, outBuf);
+        console.log(`Skipping (no bg detected): ${inputPath}`);
+        // If we are outputting to a different folder, we must copy the file (move behavior)
+        if (inputPath !== outputPath) {
+            const outBuf = PNG.sync.write(png);
+            await Bun.write(outputPath, outBuf);
+
+            // If requested, delete the original (effective move)
+            if (shouldDeleteOriginal) {
+                await unlink(inputPath);
+            }
+        }
         return;
     }
 
+    // Case 2: Background detected, process it
     console.log(`Cleaning background in: ${inputPath}`);
     eraseBackground(png, backgroundColor, threshold);
 
     const outBuf = PNG.sync.write(png);
     await Bun.write(outputPath, outBuf);
+
+    // Delete original if requested and paths differ
+    // (If paths are the same, Bun.write already overwrote it, so no unlink needed)
+    if (shouldDeleteOriginal && inputPath !== outputPath) {
+        await unlink(inputPath);
+    }
 }
 
 // ---- CLI ----
 
 function parseArgs() {
     const args = Bun.argv.slice(2);
-    if (args.length < 2) {
-        console.error("Usage: bun clean_frames_background.js <input_dir> <output_dir> [--bg-threshold 16]");
+    if (args.length < 1) {
+        console.error("Usage: bun clean.js <input_dir> [output_dir] [--bg-threshold 16] [--keep]");
+        console.error(
+            "Note: By default, original files in <input_dir> are DELETED after processing unless --keep is used.",
+        );
         process.exit(1);
     }
 
     const inputDir = resolve(args[0]);
-    const outputDir = resolve(args[1]);
+    let outputDir = inputDir;
+    let nextArgIndex = 1;
 
-    let bgThreshold = 16; // default tolerance
+    if (args[1] && !args[1].startsWith("-")) {
+        outputDir = resolve(args[1]);
+        nextArgIndex = 2;
+    }
 
-    for (let i = 2; i < args.length; i++) {
+    let bgThreshold = 16;
+    let keepOriginals = false; // Default is to delete originals
+
+    for (let i = nextArgIndex; i < args.length; i++) {
         const a = args[i];
         if (a === "--bg-threshold" && args[i + 1]) {
             bgThreshold = Number(args[i + 1]);
             i++;
+        } else if (a === "--keep") {
+            keepOriginals = true;
         }
     }
 
@@ -189,13 +200,24 @@ function parseArgs() {
         bgThreshold = 16;
     }
 
-    return { inputDir, outputDir, bgThreshold };
+    return { inputDir, outputDir, bgThreshold, keepOriginals };
 }
 
 async function main() {
-    const { inputDir, outputDir, bgThreshold } = parseArgs();
+    const { inputDir, outputDir, bgThreshold, keepOriginals } = parseArgs();
+    const isSameDir = inputDir === outputDir;
 
-    await mkdir(outputDir, { recursive: true });
+    if (isSameDir) {
+        console.log(`ℹ️  Overwrite Mode: Processing files in place inside ${inputDir}`);
+    } else {
+        console.log(`ℹ️  Pipeline Mode: ${inputDir} -> ${outputDir}`);
+        if (keepOriginals) {
+            console.log(`   --keep flag detected: Original files will be preserved.`);
+        } else {
+            console.log(`   ⚠️  Original files will be DELETED from input directory after processing.`);
+        }
+        await mkdir(outputDir, { recursive: true });
+    }
 
     const files = await readdir(inputDir);
     const pngFiles = files.filter((f) => extname(f).toLowerCase() === ".png").sort();
@@ -205,15 +227,19 @@ async function main() {
         process.exit(1);
     }
 
-    console.log(`Using background tolerance: ${bgThreshold}`);
+    console.log(`Found ${pngFiles.length} frames. Tolerance: ${bgThreshold}`);
 
     for (const f of pngFiles) {
         const inPath = join(inputDir, f);
         const outPath = join(outputDir, f);
-        await processImage(inPath, outPath, bgThreshold);
+
+        // If directories are the same, we ignore keepOriginals logic (we physically can't keep the old version if we overwrite it)
+        const shouldDelete = isSameDir ? false : !keepOriginals;
+
+        await processImage(inPath, outPath, bgThreshold, shouldDelete);
     }
 
-    console.log("✅ Done cleaning frames.");
+    console.log("✅ Done.");
 }
 
 main().catch((err) => {

@@ -76,6 +76,9 @@ export const UpNextOverlay: React.FC = () => {
         );
     }
 
+    console.log("visibleUnits");
+    console.log(visibleUnits);
+
     return (
         <Box
             sx={{
@@ -129,7 +132,6 @@ export const UpNextOverlay: React.FC = () => {
                                     width: index === 0 ? "86.4px" : "72px",
                                     height: index === 0 ? "86.4px" : "72px",
                                     flexShrink: 0,
-                                    transform: "rotateX(-180deg)",
                                 }}
                             />
                             {unit.isSkipping ? (
@@ -143,7 +145,6 @@ export const UpNextOverlay: React.FC = () => {
                                         width: "20px",
                                         height: "20px",
                                         zIndex: 2,
-                                        transform: "rotate(180deg)",
                                     }}
                                 />
                             ) : unit.isOnHourglass ? (
@@ -157,7 +158,6 @@ export const UpNextOverlay: React.FC = () => {
                                         width: "20px",
                                         height: "20px",
                                         zIndex: 2,
-                                        transform: "rotate(180deg)",
                                     }}
                                 />
                             ) : null}

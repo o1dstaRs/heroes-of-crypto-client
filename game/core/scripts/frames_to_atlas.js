@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 
-import { readdir } from "fs/promises";
+import { readdir, rm, unlink } from "fs/promises";
 import { resolve, join, extname, basename } from "path";
 import { PNG } from "pngjs";
 
-const BIG_UNITS = ["angel"];
+const BIG_UNITS = ["angel", "tsar_cannon", "gargantuan", "pegasus", "black_dragon", "hydra", "thunderbird", "behemoth"];
 
 async function loadPng(path) {
     const buf = await Bun.file(path).arrayBuffer();
@@ -53,7 +53,7 @@ async function generateWebp(pngPath, webpPath, { quality, lossless, scaleFactor 
 }
 
 async function buildAtlas(inputDir, outPng, outJson, fps, maxWidth, webpOptions, opts = {}) {
-    const { generateHalfWebp = false } = opts;
+    const { generateHalfWebp = false, cleanup = false } = opts;
 
     const files = await readdir(inputDir);
     const pngFiles = files.filter((f) => extname(f).toLowerCase() === ".png").sort();
@@ -122,7 +122,7 @@ async function buildAtlas(inputDir, outPng, outJson, fps, maxWidth, webpOptions,
             scaleFactor: 1,
         });
 
-        // Half-size WebP (only if requested, e.g. for angel)
+        // Half-size WebP (only if requested, e.g. for big units)
         if (generateHalfWebp) {
             const halfWebp = baseWebp.replace(/\.webp$/, "_half.webp");
             await generateWebp(outPng, halfWebp, {
@@ -139,6 +139,14 @@ async function buildAtlas(inputDir, outPng, outJson, fps, maxWidth, webpOptions,
             lossless: webpOptions.lossless,
             scaleFactor: 4,
         });
+
+        // Delete the PNG atlas once WebPs are generated
+        try {
+            await unlink(outPng);
+            console.log(`🗑️ Deleted atlas PNG after WebP generation: ${outPng}`);
+        } catch (err) {
+            console.warn(`⚠️ Failed to delete atlas PNG ${outPng}:`, err);
+        }
     }
 
     const frameDurationSec = fps > 0 ? 1 / fps : null;
@@ -179,6 +187,19 @@ async function buildAtlas(inputDir, outPng, outJson, fps, maxWidth, webpOptions,
 
     await Bun.write(outJson, JSON.stringify(json, null, 2));
     console.log(`✅ Timemap JSON: ${outJson}`);
+
+    // --- Optional cleanup of original PNG frames directory ---
+    if (cleanup) {
+        console.log("🧹 Cleanup enabled – removing input directory with frames...");
+
+        try {
+            // We know pngFiles.length > 0 here, so this directory definitely had frames.
+            await rm(inputDir, { recursive: true, force: true });
+            console.log(`🗑️ Deleted input directory: ${inputDir}`);
+        } catch (err) {
+            console.warn(`⚠️ Failed to delete input directory ${inputDir}:`, err);
+        }
+    }
 }
 
 // ---- CLI ----
@@ -187,7 +208,7 @@ function parseArgs() {
     const args = Bun.argv.slice(2);
     if (args.length < 3) {
         console.error(
-            "Usage: bun frames_to_atlas.js <input_dir> <out_atlas.png> <out_meta.json> [--fps 12] [--max-width 4096] [--no-webp] [--webp-quality 85] [--webp-lossless]",
+            "Usage: bun frames_to_atlas.js <input_dir> <out_atlas.png> <out_meta.json> [--fps 12] [--max-width 4096] [--no-webp] [--webp-quality 85] [--webp-lossless] [--cleanup]",
         );
         process.exit(1);
     }
@@ -202,6 +223,7 @@ function parseArgs() {
     let webpEnabled = true;
     let webpQuality = 85; // good default for web
     let webpLossless = false;
+    let cleanup = false;
 
     for (let i = 3; i < args.length; i++) {
         const a = args[i];
@@ -215,6 +237,8 @@ function parseArgs() {
             webpQuality = Number(args[++i]);
         } else if (a === "--webp-lossless") {
             webpLossless = true;
+        } else if (a === "--cleanup") {
+            cleanup = true;
         }
     }
 
@@ -235,6 +259,7 @@ function parseArgs() {
             quality: webpQuality,
             lossless: webpLossless,
         },
+        cleanup,
     };
 }
 
@@ -249,7 +274,7 @@ function getUnitNameFromOutPng(outPng) {
 }
 
 async function main() {
-    const { inputDir, outPng, outJson, fps, maxWidth, webpOptions } = parseArgs();
+    const { inputDir, outPng, outJson, fps, maxWidth, webpOptions, cleanup } = parseArgs();
 
     const unitName = getUnitNameFromOutPng(outPng);
     const generateHalfWebp = BIG_UNITS.includes(unitName);
@@ -263,6 +288,7 @@ async function main() {
 
     await buildAtlas(inputDir, outPng, outJson, fps, maxWidth, webpOptions, {
         generateHalfWebp,
+        cleanup,
     });
 }
 

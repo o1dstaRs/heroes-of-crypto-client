@@ -89,7 +89,8 @@ for video in "${MP4_FILES[@]}"; do
       "$atlas_dir/${base}_meta.json" \
       --fps "$FPS" \
       --max-width "$MAX_WIDTH" \
-      --webp-lossless
+      --webp-lossless \
+      --cleanup
   else
     bun run "$FRAMES_TO_ATLAS" \
       "$clean_dir" \
@@ -97,7 +98,8 @@ for video in "${MP4_FILES[@]}"; do
       "$atlas_dir/${base}_meta.json" \
       --fps "$FPS" \
       --max-width "$MAX_WIDTH" \
-      --webp-quality "$WEBP_QUALITY"
+      --webp-quality "$WEBP_QUALITY" \
+      --cleanup
   fi
 
   echo "✅ Done: $base"

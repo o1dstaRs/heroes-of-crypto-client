@@ -181,6 +181,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                         disabled={isDisabled}
                         rotationDegrees={isHourglass ? rotationDegrees : initialRotation}
                         isDark={isDark}
+                        clickEffectNeeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
                         style={{
                             backgroundImage: `url(${iconImage})`,
                             width: 45 * SCREEN_RATIO,

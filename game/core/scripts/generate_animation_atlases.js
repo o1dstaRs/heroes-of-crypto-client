@@ -66,8 +66,8 @@ function main() {
     const root = path.resolve(animationsRoot);
 
     if (!fs.existsSync(root)) {
-        console.error(`Animations root does not exist: ${root}`);
-        process.exit(1);
+        console.warn(`Animations root does not exist: ${root}`);
+        process.exit(0);
     }
 
     console.log(`Scanning for *_meta.json and *_atlas.webp under: ${root}`);

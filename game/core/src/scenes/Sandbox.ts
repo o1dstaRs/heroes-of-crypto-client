@@ -1,6 +1,7 @@
 // game/core/src/scenes/Sandbox.ts
 import { v4 as uuidv4 } from "uuid";
 import { Sprite, Graphics, Container } from "pixi.js";
+import { DamageStatisticHolder } from "../stats/damage_stats";
 import {
     Augment,
     FightStateManager,
@@ -30,20 +31,31 @@ import {
     FactionVals,
     GridVals,
     HoCConstants,
+    SpellTargetType,
+    AttackVals,
+    AttackHandler,
+    MoveHandler,
+    IWeightedRoute,
+    Spell,
+    HoCConfig,
 } from "@heroesofcrypto/common";
 import { Settings } from "../settings";
 import { UnitsOverlay } from "./UnitsOverlay";
-import { VisibleButtonState, IVisibleButton } from "../state/visible_state";
+import { VisibleButtonState, IVisibleButton, IVisibleUnit } from "../state/visible_state";
 import { SceneSettings } from "../scenes/scene_settings";
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
 import { setSpawnFlowPhase } from "../pixi/PixiDrawablePlacement";
 import { PlacementManager } from "./PlacementManager";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { RenderableUnit } from "@/pixi/RenderableUnit";
+import { PixiRenderableSpell } from "@/spells/renderable_spell";
 export class Sandbox extends PixiScene {
     private readonly grid: Grid;
     private readonly pathHelper: PathHelper;
+    private readonly attackHandler: AttackHandler;
+    private readonly moveHandler: MoveHandler;
     private hourglassButton: IVisibleButton;
+    private currentEnemiesCellsWithinMovementRange?: HoCMath.XY[];
     private shieldButton: IVisibleButton;
     private nextButton: IVisibleButton;
     private aiButton: IVisibleButton;
@@ -92,6 +104,17 @@ export class Sandbox extends PixiScene {
     private selectionFromOverlay = false;
     /** Phase for animating the hover glow (shimmer effect) */
     private hoverGlowPhase = 0;
+    private hoverRangeAttackDivisors: number[] = [];
+    private currentActiveUnit?: RenderableUnit;
+    private currentActivePathHashes?: Set<number>;
+    private currentActivePath?: HoCMath.XY[];
+    private currentActiveKnownPaths?: Map<number, IWeightedRoute[]>;
+    private canAttackByMeleeTargets?: boolean;
+    private buttonsRefreshLocked = false;
+    private performingAIAction = false;
+    private hasInitializedLap = false;
+    private gameplayGraphics?: Graphics;
+    private currentActiveSpell?: PixiRenderableSpell;
     public constructor(context: PixiSceneContext) {
         const gs = new GridSettings(
             GridConstants.GRID_SIZE,
@@ -182,6 +205,15 @@ export class Sandbox extends PixiScene {
             this.selectedAttackTypeButton,
             this.spellBookButton,
         ];
+
+        this.attackHandler = new AttackHandler(
+            this.sc_sceneSettings.getGridSettings(),
+            this.grid,
+            this.sc_sceneLog,
+            new DamageStatisticHolder(),
+        );
+        this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
+
         // visible state updater
         HoCLib.interval(() => {
             if (!this.sc_visibleState) return;
@@ -282,7 +314,34 @@ export class Sandbox extends PixiScene {
             .stroke({ width: 2, color: strokeColor, alpha: 1 })
             .fill({ color: fillColor, alpha: fillAlpha });
     }
-    /** Draw passive board-hover highlight (when there is no active selection) */
+    private isCellReachableForActiveUnit(cell: HoCMath.XY): boolean {
+        if (!this.currentActiveUnit) return false;
+        if (!this.currentActivePathHashes || !this.currentActivePathHashes.size) return false;
+
+        const props = this.currentActiveUnit.getUnitProperties();
+        const hash = (x: number, y: number) => (x << 4) | y;
+
+        if (props.size === 1) {
+            return this.currentActivePathHashes.has(hash(cell.x, cell.y));
+        }
+
+        // size === 2 → check full 2×2 footprint
+        const footprint: HoCMath.XY[] = [
+            { x: cell.x, y: cell.y },
+            { x: cell.x + 1, y: cell.y },
+            { x: cell.x, y: cell.y + 1 },
+            { x: cell.x + 1, y: cell.y + 1 },
+        ];
+
+        // Option 1: require all 4 cells in the reachable set
+        for (const c of footprint) {
+            if (!this.currentActivePathHashes.has(hash(c.x, c.y))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
     private drawHoveredUnitHighlight(gfx: Graphics): void {
         const r = this.hoveredUnitHighlight;
         if (!r) return;
@@ -801,9 +860,9 @@ export class Sandbox extends PixiScene {
         this.unitsOverlay.onResize(w, h);
         this.attachToWorldRoot(this.placementGraphics, 100);
 
-        const fightProps = FightStateManager.getInstance().getFightProperties();
-        const fightStarted = fightProps.hasFightStarted();
-        this.unitsOverlay.setVisible(!fightStarted);
+        if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            this.unitsOverlay.destroy();
+        }
     }
     protected verifyButtonsTrigger(): void {}
     public refreshUnits(): void {
@@ -1015,7 +1074,343 @@ export class Sandbox extends PixiScene {
     public getNumberOfUnitsAvailableForPlacement(_t: TeamType): number {
         return 0;
     }
-    public propagateButtonClicked(_n: string, _s: VisibleButtonState): void {}
+    private refreshButtons(forceUpdate = false): void {
+        this.recomputeButtons(forceUpdate);
+    }
+    private checkHourglassCondition(): boolean {
+        if (!this.currentActiveUnit) {
+            return false;
+        }
+
+        const fightState = FightStateManager.getInstance().getFightProperties();
+
+        const lowerTeamUnitsAlive = fightState.getTeamUnitsAlive(TeamVals.LOWER);
+        const upperTeamUnitsAlive = fightState.getTeamUnitsAlive(TeamVals.UPPER);
+
+        const moreThanOneUnitAlive =
+            (this.currentActiveUnit.getTeam() === TeamVals.LOWER && lowerTeamUnitsAlive > 1) ||
+            (this.currentActiveUnit.getTeam() === TeamVals.UPPER && upperTeamUnitsAlive > 1);
+        if (
+            moreThanOneUnitAlive &&
+            !fightState.hourglassIncludes(this.currentActiveUnit.getId()) &&
+            !fightState.hasAlreadyMadeTurn(this.currentActiveUnit.getId()) &&
+            !fightState.hasAlreadyHourglass(this.currentActiveUnit.getId())
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+    private checkCastCondition(): boolean {
+        if (!this.currentActiveUnit) {
+            return false;
+        }
+
+        return (
+            this.currentActiveUnit &&
+            this.currentActiveUnit.getSpellsCount() > 0 &&
+            this.currentActiveUnit.getCanCastSpells()
+        );
+    }
+    private recomputeButtons(forceUpdate = false): void {
+        const prevButtonsJSON = JSON.stringify(this.sc_visibleButtonGroup ?? []);
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        const fightStarted = fightProps.hasFightStarted();
+        const fightFinished = this.sc_visibleState?.hasFinished ?? false;
+
+        const buttons: IVisibleButton[] = [];
+
+        // Helper to push buttons in the canonical order
+        const pushAll = (
+            hourglass: IVisibleButton,
+            shield: IVisibleButton,
+            next: IVisibleButton,
+            ai: IVisibleButton,
+            attackType: IVisibleButton,
+            spellBook: IVisibleButton,
+        ) => {
+            buttons.push(hourglass, shield, next, ai, attackType, spellBook);
+            // Keep instance fields in sync (if something else reads them)
+            this.hourglassButton = hourglass;
+            this.shieldButton = shield;
+            this.nextButton = next;
+            this.aiButton = ai;
+            this.selectedAttackTypeButton = attackType;
+            this.spellBookButton = spellBook;
+        };
+
+        // ===== 1) BASE BUTTON SHAPES (all enabled by default, we’ll tweak below) =====
+        const baseHourglass: IVisibleButton = {
+            name: "Hourglass",
+            text: "Wait",
+            state: VisibleButtonState.FIRST,
+            isVisible: true,
+            isDisabled: false,
+            numberOfOptions: 1,
+            selectedOption: 1,
+        };
+
+        const baseShield: IVisibleButton = {
+            name: "LuckShield",
+            text: "Cleanup randomized luck and skip turn",
+            state: VisibleButtonState.FIRST,
+            isVisible: true,
+            isDisabled: false,
+            numberOfOptions: 1,
+            selectedOption: 1,
+        };
+
+        const baseNext: IVisibleButton = {
+            name: "Next",
+            text: "Skip turn",
+            state: VisibleButtonState.FIRST,
+            isVisible: true,
+            isDisabled: false,
+            numberOfOptions: 1,
+            selectedOption: 1,
+        };
+
+        const baseAI: IVisibleButton = {
+            name: "AI",
+            text: "Switch AI state",
+            state: this.sc_isAIActive ? VisibleButtonState.SECOND : VisibleButtonState.FIRST,
+            isVisible: true,
+            isDisabled: false,
+            numberOfOptions: 1,
+            selectedOption: 1,
+        };
+
+        const baseAttackType: IVisibleButton = {
+            name: "AttackType",
+            text: "Switch attack type",
+            state: VisibleButtonState.FIRST,
+            isVisible: true,
+            isDisabled: true,
+            numberOfOptions: 1,
+            selectedOption: 1,
+        };
+
+        const baseSpellBook: IVisibleButton = {
+            name: "Spellbook",
+            text: "Select spell",
+            state: VisibleButtonState.FIRST,
+            isVisible: true,
+            isDisabled: true,
+            numberOfOptions: 1,
+            selectedOption: 1,
+            customSpriteName: undefined,
+        };
+
+        const hasActiveUnit = !!this.currentActiveUnit;
+
+        // ===== 2) GLOBAL DISABLE CASE (fight finished or lock) =====
+        if (this.buttonsRefreshLocked || fightFinished) {
+            const disabled = (b: IVisibleButton): IVisibleButton => ({ ...b, isDisabled: true });
+            pushAll(
+                disabled(baseHourglass),
+                disabled(baseShield),
+                disabled(baseNext),
+                disabled(baseAI),
+                disabled(baseAttackType),
+                disabled(baseSpellBook),
+            );
+
+            const nextJSON = JSON.stringify(buttons);
+            this.sc_visibleButtonGroup = buttons;
+            this.sc_buttonGroupUpdated = forceUpdate || prevButtonsJSON !== nextJSON;
+            return;
+        }
+
+        // ===== 3) AI BUTTON DISABLE RULES =====
+        let aiButton = { ...baseAI };
+        if (!this.currentActiveUnit?.hasAbilityActive("AI Driven")) {
+            // As in your old code: only disable if unit is AI-driven?
+            aiButton.isDisabled = false;
+        }
+
+        // ===== 4) SPELLBOOK vs AI vs NORMAL logic =====
+        let hourglassButton = { ...baseHourglass };
+        let shieldButton = { ...baseShield };
+        let nextButton = { ...baseNext };
+        let attackTypeButton = { ...baseAttackType };
+        let spellBookButton = { ...baseSpellBook };
+
+        if (this.sc_isAIActive) {
+            // --- AI ON → disable everything except AI toggle itself ---
+            hourglassButton.isDisabled = true;
+            shieldButton.isDisabled = true;
+            nextButton.isDisabled = true;
+            attackTypeButton.isDisabled = true;
+            spellBookButton.isDisabled = true;
+            // aiButton.state is already SECOND above
+        } else if (this.sc_renderSpellBookOverlay) {
+            // --- SPELLBOOK OVERLAY VISIBLE ---
+            hourglassButton.isDisabled = true;
+            shieldButton.isDisabled = true;
+            nextButton.isDisabled = true;
+            attackTypeButton.isDisabled = true;
+            spellBookButton.isDisabled = false;
+        } else {
+            // --- NORMAL FIGHT / PREFIGHT STATE ---
+            // Default rules: require an active unit & fight started for most buttons
+            shieldButton.isDisabled = !(fightStarted && hasActiveUnit);
+            nextButton.isDisabled = !(fightStarted && hasActiveUnit);
+            attackTypeButton.isDisabled = !(fightStarted && hasActiveUnit);
+
+            // Hourglass logic comes from your old checkHourglassCondition()
+            hourglassButton.isDisabled = !this.checkHourglassCondition();
+
+            // Spellbook enable depends on your checkCastCondition()
+            spellBookButton.isDisabled = !this.checkCastCondition();
+
+            // AttackType specifics: state + numberOfOptions + selectedOption
+            if (hasActiveUnit) {
+                const active = this.currentActiveUnit!;
+                const [idx, options] = active.getAttackTypeSelectionIndex();
+                const currentIdx = idx + 1;
+
+                if (currentIdx <= 0 || options <= 1) {
+                    attackTypeButton = {
+                        ...attackTypeButton,
+                        isDisabled: true,
+                        numberOfOptions: 1,
+                        selectedOption: 1,
+                    };
+                } else {
+                    let state = VisibleButtonState.FIRST;
+
+                    switch (active.getAttackTypeSelection()) {
+                        case AttackVals.RANGE:
+                            this.currentActiveSpell = undefined;
+                            spellBookButton.customSpriteName = undefined;
+                            state = VisibleButtonState.SECOND;
+                            break;
+                        case AttackVals.MAGIC:
+                            state = VisibleButtonState.THIRD;
+                            break;
+                        default:
+                            this.currentActiveSpell = undefined;
+                            spellBookButton.customSpriteName = undefined;
+                            state = VisibleButtonState.FIRST;
+                            // recompute move path for melee
+                            const currentCell = GridMath.getCellForPosition(
+                                this.sc_sceneSettings.getGridSettings(),
+                                active.getPosition(),
+                            );
+                            if (currentCell) {
+                                this.updateCurrentMovePath(currentCell);
+                            }
+                            break;
+                    }
+
+                    attackTypeButton = {
+                        ...attackTypeButton,
+                        isDisabled: !fightStarted,
+                        state,
+                        numberOfOptions: options,
+                        selectedOption: currentIdx,
+                    };
+                }
+            }
+        }
+
+        // ===== 5) PUSH FINAL BUTTONS IN ORDER =====
+        pushAll(hourglassButton, shieldButton, nextButton, aiButton, attackTypeButton, spellBookButton);
+
+        // ===== 6) DIFF & FLAG UPDATE =====
+        const nextJSON = JSON.stringify(buttons);
+        this.sc_visibleButtonGroup = buttons;
+        this.sc_buttonGroupUpdated = forceUpdate || prevButtonsJSON !== nextJSON;
+    }
+    public propagateButtonClicked(name: string, _state: VisibleButtonState): void {
+        if (
+            !this.currentActiveUnit ||
+            (this.currentActiveUnit && this.currentActiveUnit.hasAbilityActive("AI Driven"))
+        ) {
+            return;
+        }
+
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+
+        // If fight is over, ignore clicks
+        if (fightProps.hasFightFinished()) return;
+
+        // No active unit → nothing to do for most buttons
+        const active = this.currentActiveUnit;
+
+        switch (name) {
+            case "Next": {
+                // Skip/End turn
+                if (!active || !fightProps.hasFightStarted()) return;
+
+                this.sc_sceneLog.updateLog(`${active.getName()} ends turn (player click)`);
+                // Treat "Next" as "finish the turn now"
+                this.finishTurn(false);
+                this.refreshButtons(true);
+                return;
+            }
+
+            case "Hourglass": {
+                if (!active || !fightProps.hasFightStarted()) return;
+
+                // Simple "wait": don't reduce lap, but mark them as having used hourglass.
+                // If you have more detailed hourglass queue logic, put it here.
+                active.setOnHourglass(true);
+                this.sc_sceneLog.updateLog(`${active.getName()} waits (hourglass)`);
+                this.finishTurn(true); // flag as hourglass turn
+                this.refreshButtons(true);
+                return;
+            }
+
+            case "AI": {
+                // Toggle global AI on/off
+                this.sc_isAIActive = !this.sc_isAIActive;
+                this.sc_sceneLog.updateLog(`AI ${this.sc_isAIActive ? "enabled" : "disabled"} by player`);
+                this.refreshButtons(true);
+                return;
+            }
+
+            case "Spellbook": {
+                // Toggle spellbook overlay
+                this.sc_renderSpellBookOverlay = !this.sc_renderSpellBookOverlay;
+                this.sc_sceneLog.updateLog(this.sc_renderSpellBookOverlay ? "Spellbook opened" : "Spellbook closed");
+                this.refreshButtons(true);
+                return;
+            }
+
+            case "LuckShield": {
+                // Whatever "cleanup randomized luck and skip turn" means in your rules.
+                if (!active || !fightProps.hasFightStarted()) return;
+
+                // TODO: put your actual "cleanup luck" logic here.
+                this.sc_sceneLog.updateLog(`${active.getName()} uses Luck Shield (player click)`);
+
+                // For now just skip turn after using it:
+                this.finishTurn(false);
+                this.refreshButtons(true);
+                return;
+            }
+
+            case "AttackType": {
+                // Here you usually want to cycle attack type for the active unit.
+                if (!active || !fightProps.hasFightStarted()) return;
+
+                if (this.currentActiveUnit.selectNextAttackType()) {
+                    this.currentEnemiesCellsWithinMovementRange = undefined;
+                    this.sc_unitPropertiesUpdateNeeded = true;
+                    this.refreshButtons(true);
+                    this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
+                    this.refreshUnits();
+                }
+                // Then update buttons:
+                this.refreshButtons(true);
+                return;
+            }
+
+            default:
+                return;
+        }
+    }
     protected landAttack(): boolean {
         return false;
     }
@@ -1544,16 +1939,126 @@ export class Sandbox extends PixiScene {
             h: h - 2,
         };
     }
+    private updateActiveMoveSilhouetteForCell(cell: HoCMath.XY): void {
+        if (!this.currentActiveUnit) {
+            this.clearHoverSilhouette();
+            return;
+        }
+
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const props = this.currentActiveUnit.getUnitProperties();
+
+        // Build footprint cells like in placement / cloneObject (1x1 vs 2x2)
+        const cells: HoCMath.XY[] =
+            props.size === 2
+                ? [
+                      { x: cell.x, y: cell.y },
+                      { x: cell.x + 1, y: cell.y },
+                      { x: cell.x, y: cell.y + 1 },
+                      { x: cell.x + 1, y: cell.y + 1 },
+                  ]
+                : [cell];
+
+        const centerPos =
+            props.size === 2
+                ? GridMath.getPositionForCells(gs, cells)
+                : GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+
+        if (!centerPos) {
+            this.clearHoverSilhouette();
+            return;
+        }
+
+        const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
+        const tex = this.texAny(texName);
+        if (!tex) {
+            this.clearHoverSilhouette();
+            return;
+        }
+
+        // Ensure silhouette sprites exist (same setup as updateHoverSilhouette)
+        if (!this.hoverSilhouette) {
+            this.hoverSilhouette = new Sprite(tex);
+            this.hoverSilhouette.anchor.set(0.5);
+            this.attachToWorldRoot(this.hoverSilhouette, 110);
+            this.hoverSilhouette.scale.y = -1;
+        } else if (this.hoverSilhouetteKey !== texName) {
+            this.hoverSilhouette.texture = tex;
+        }
+
+        if (!this.hoverSilhouetteOutline) {
+            this.hoverSilhouetteOutline = new Sprite(tex);
+            this.hoverSilhouetteOutline.anchor.set(0.5);
+            this.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
+            this.hoverSilhouetteOutline.scale.y = -1;
+        } else if (this.hoverSilhouetteKey !== texName) {
+            this.hoverSilhouetteOutline.texture = tex;
+        }
+
+        this.hoverSilhouetteKey = texName;
+
+        const sprite = this.hoverSilhouette;
+        const outline = this.hoverSilhouetteOutline;
+
+        const targetSize = props.size === 2 ? 256 : 128;
+        const baseWidth = tex.width || 1;
+        const scale = targetSize / baseWidth;
+        const outlineScale = scale * 1.06;
+
+        sprite.scale.set(scale, -scale);
+        outline.scale.set(outlineScale, -outlineScale);
+
+        sprite.x = centerPos.x;
+        sprite.y = centerPos.y;
+        outline.x = centerPos.x;
+        outline.y = centerPos.y;
+
+        // Same “ghost” styling as placement silhouette
+        outline.visible = true;
+        outline.alpha = 0.9;
+        outline.tint = 0xffffff;
+
+        sprite.visible = true;
+        sprite.alpha = 0.8;
+        sprite.tint = 0x000000;
+    }
     protected override hover(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
-        if (fightProps.hasFightStarted()) return;
-        // --- CASE 1: active selection from OVERLAY ---
+
+        // --- FIGHT MODE: active unit move-hover silhouette ---
+        if (fightProps.hasFightStarted()) {
+            if (!this.currentActiveUnit) {
+                this.clearHoverSilhouette();
+                return;
+            }
+
+            const gs = this.sc_sceneSettings.getGridSettings();
+            const cell = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
+            if (!cell) {
+                this.clearHoverSilhouette();
+                return;
+            }
+
+            // ✅ hash-aware + size-aware check (1×1 vs 2×2)
+            if (this.isCellReachableForActiveUnit(cell)) {
+                this.updateActiveMoveSilhouetteForCell(cell);
+            } else {
+                this.clearHoverSilhouette();
+            }
+
+            return;
+        }
+
+        // --- PRE-FIGHT LOGIC (your existing placement / pre-round hover) ---
+
+        // CASE 1: active selection from OVERLAY
         if (this.hasActiveSelection && this.sc_selectedUnitProperties && this.selectionFromOverlay) {
             this.hoveredUnitHighlight = undefined;
             this.updateHoverPlacementCell(this.sc_mouseWorld);
             return;
         }
-        // --- CASE 2: active selection from BOARD (move existing unit) ---
+
+        // CASE 2: active selection from BOARD (move existing unit)
         if (
             this.hasActiveSelection &&
             this.sc_selectedUnitProperties &&
@@ -1562,22 +2067,21 @@ export class Sandbox extends PixiScene {
         ) {
             const selectedUnit = this.unitsHolder.getAllUnits().get(this.draggingUnitId);
             if (selectedUnit) {
-                // Keep light on the selected stack (UnitChip-style "selected" glow)
                 this.hoveredUnitHighlight = this.getHighlightRectForUnit(selectedUnit);
             } else {
                 this.hoveredUnitHighlight = undefined;
             }
-            // Also keep showing placement preview as mouse moves
             this.updateHoverPlacementCell(this.sc_mouseWorld);
             return;
         }
-        // --- CASE 3: no active selection → pure hover over already placed units ---
+
+        // CASE 3: no active selection → just passive hover highlight
         const p = this.sc_mouseWorld;
         const nowSec = HoCLib.getTimeMillis() / 1000;
         const unit = this.getUnitAtPosition(p);
         if (!unit) {
             this.hoveredUnitHighlight = undefined;
-            this.clearHoverSilhouette(); // just in case
+            this.clearHoverSilhouette();
             return;
         }
         const lastPlacementActive =
@@ -1681,57 +2185,459 @@ export class Sandbox extends PixiScene {
             this.unitsHolder.increaseUnitsSupplyIfNeededPerTeam(TeamVals.LOWER);
             this.unitsHolder.increaseUnitsSupplyIfNeededPerTeam(TeamVals.UPPER);
             this.unitsHolder.haveDistancesToClosestEnemiesDecreased();
+
+            // 🔥 new: reset lap initialization state
+            this.hasInitializedLap = false;
+
             FightStateManager.getInstance().getFightProperties().startFight();
             return super.startScene();
         }
 
         return false;
     }
+    private ensureGameplayGraphics(): void {
+        if (!this.gameplayGraphics) this.gameplayGraphics = new Graphics();
+        this.attachToWorldRoot(this.gameplayGraphics, 55); // Above terrain, below units
+    }
     public override Step(_settings: Settings, timeStep: number): void {
         if (timeStep > 0) this.sc_stepCount.increment();
         this.sc_isAnimating = this.pixiSceneManager.isAnimating();
-        const fightProps = FightStateManager.getInstance().getFightProperties();
+
+        const fightStateManager = FightStateManager.getInstance();
+        const fightProps = fightStateManager.getFightProperties();
         const fightStarted = fightProps.hasFightStarted();
 
-        // 🔹 Hide UnitsOverlay once fight starts
-        if (this.unitsOverlay) {
-            this.unitsOverlay.setVisible(!fightStarted);
-        }
-
+        // 1. Update Visual Overlays
         if (fightStarted) {
-            this.clearHoverSilhouette();
-            this.lastPlacementUnitId = undefined;
-        } else {
-            this.checkStartCondition();
+            this.unitsOverlay?.destroy();
+            this.placementGraphics?.clear();
         }
 
+        // 2. Background & Static Elements
         this.ensureBackgroundSprite();
         this.layoutBackgroundSquare();
         this.ensureCenterTerrainSprite();
         this.ensurePlacementGraphicsWorld();
-        this.attachToWorldRoot(this.placementGraphics, 100);
+        this.ensureGameplayGraphics();
+
         this.spawnPulsePhase += timeStep * 3.7;
         setSpawnFlowPhase(this.spawnPulsePhase);
 
-        // hover shimmer phase
         this.hoverGlowPhase += timeStep * ((Math.PI * 2) / 2.5);
         if (this.hoverGlowPhase > Math.PI * 2) this.hoverGlowPhase -= Math.PI * 2;
 
-        this.updatePlacementHoverRearm();
+        // 3. Clear dynamic graphics every frame
+        this.gameplayGraphics?.clear();
 
-        if (this.placementGraphics) {
-            this.drawPlacements();
+        // ==========================================================================================
+        // CORE GAME LOGIC (Ported from Box2D Step)
+        // ==========================================================================================
+
+        if (fightStarted) {
+            // this.clearHoverSilhouette();
+            this.lastPlacementUnitId = undefined;
+
+            // --- A. TURN TIMER LOGIC ---
+            if (HoCLib.getTimeMillis() >= fightProps.getCurrentTurnEnd()) {
+                if (this.currentActiveUnit) {
+                    // Handle Timeout: Decrease Morale and Skip
+                    this.currentActiveUnit.decreaseMorale(
+                        HoCConstants.MORALE_CHANGE_FOR_SKIP,
+                        fightProps.getAdditionalMoralePerTeam(this.currentActiveUnit.getTeam()),
+                    );
+                    this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
+                }
+                this.finishTurn();
+            }
+
+            if (this.cellToUnitPreRound) {
+                this.cellToUnitPreRound = undefined;
+            }
+
+            // --- B. WIN CONDITION & NEXT UNIT SELECTION ---
+            if (!this.currentActiveUnit) {
+                // Check if fight is over or needs unit shuffle
+                const unitsUpper = this.unitsHolder.getAllAllies(TeamVals.UPPER);
+                const unitsLower = this.unitsHolder.getAllAllies(TeamVals.LOWER);
+
+                if (!unitsUpper.length || !unitsLower.length) {
+                    this.finishFight(unitsLower as RenderableUnit[], unitsUpper as RenderableUnit[]);
+                } else {
+                    // If queue is empty, it might be a new lap or start of game
+                    // MODIFIED: Removed !fightProps.getAlreadyMadeTurnSize() to allow lap flip when all turns are made
+                    if (!fightProps.getHourglassQueueSize() && !fightProps.getUpNextQueueSize()) {
+                        this.handleLapFlip(unitsUpper as RenderableUnit[], unitsLower as RenderableUnit[]);
+                    }
+
+                    // Dequeue next unit
+                    const nextUnitId = fightProps.dequeueNextUnitId();
+                    const nextUnit = nextUnitId ? this.unitsHolder.getAllUnits().get(nextUnitId) : undefined;
+
+                    if (nextUnit) {
+                        this.handleNextUnitActivation(nextUnit as RenderableUnit);
+                    }
+                }
+            }
+
+            // --- C. AI LOGIC ---
+            if (
+                this.currentActiveUnit &&
+                (this.sc_isAIActive || this.currentActiveUnit?.hasAbilityActive("AI Driven")) &&
+                !this.performingAIAction &&
+                !this.sc_isAnimating // Don't run AI while animations are playing
+            ) {
+                this.performingAIAction = true;
+                setTimeout(() => {
+                    // const wasAIActive = this.sc_isAIActive;
+                    this.sc_isAIActive = true;
+                    // this.refreshButtons();
+                    // this.performAIAction(wasAIActive);
+                }, 750);
+            }
+        } else {
+            // Pre-fight logic
+            this.checkStartCondition();
+            this.updatePlacementHoverRearm();
+            if (this.placementGraphics) {
+                this.drawPlacements();
+            }
         }
 
+        // ==========================================================================================
+        // RENDERING SYNCHRONIZATION
+        // ==========================================================================================
+
+        // 4. Draw Gameplay Visuals (Ranges, Paths)
+        // if (fightStarted && this.gameplayGraphics) {
+        //     this.drawGameplayVisuals(this.gameplayGraphics);
+        // }
+        if (this.gameplayGraphics) {
+            this.drawGameplayVisuals(this.gameplayGraphics);
+        }
+
+        // 5. Sync Logical Units to Pixi Sprites
         for (const unit of this.unitsHolder.getAllUnits().values()) {
-            (unit as RenderableUnit).syncVisual(
-                this.pixiSceneManager.getWorldRoot(),
-                this.sc_sceneSettings.getGridSettings(),
+            const rUnit = unit as RenderableUnit;
+            rUnit.syncVisual(this.pixiSceneManager.getWorldRoot(), this.sc_sceneSettings.getGridSettings());
+            rUnit.stepSpawnAnimation(timeStep);
+            // Call the render method on the unit to update bars/effects
+            // rUnit.render(this.sc_fps || 60, this.sc_isAnimating, this.sc_sceneLog);
+        }
+    }
+    private drawGameplayVisuals(g: Graphics): void {
+        // 1. Draw Shot Range
+        if (this.sc_currentActiveShotRange) {
+            const { xy, distance } = this.sc_currentActiveShotRange;
+            const isLightMode = typeof localStorage !== "undefined" && localStorage.getItem("joy-mode") === "light";
+            const color = isLightMode ? 0xffa500 : 0xffff00; // ORANGE : YELLOW
+
+            g.circle(xy.x, xy.y, distance).stroke({ width: 2, color: color, alpha: 0.6 });
+        }
+
+        // 2. Draw Active Path
+        if (this.currentActivePath && this.currentActiveUnit && !this.sc_isAnimating) {
+            const path = this.currentActivePath;
+            if (path.length > 0) {
+                const gs = this.sc_sceneSettings.getGridSettings();
+
+                // --- Soft “light orbs” along the path for glow (no connecting line) ---
+                for (let i = 0; i < path.length; i++) {
+                    const pos = GridMath.getPositionForCell(path[i], gs.getMinX(), gs.getStep(), gs.getHalfStep());
+
+                    // Smaller base radius than before
+                    const baseRadius = gs.getCellSize() * 0.18;
+
+                    // Per-node phase offset so pulses travel down the path a bit
+                    const phase = this.hoverGlowPhase + i * 0.4;
+                    const wave = (Math.sin(phase) + 1) / 2; // 0..1
+
+                    // Radius pulses: gently enlarge → shrink → enlarge
+                    const innerRadius = baseRadius * (0.9 + 0.2 * wave); // ~0.9x–1.1x
+                    const outerRadius = baseRadius * 1.8 * (0.9 + 0.25 * wave); // halo still bigger but overall smaller
+
+                    // Only the “light portion”: soft alpha pulsing, no strokes at all
+                    const innerAlpha = 0.38 + 0.2 * wave; // 0.32–0.52
+                    const outerAlpha = 0.08 + 0.06 * wave; // very soft halo
+
+                    // Outer soft halo
+                    g.circle(pos.x, pos.y, outerRadius).fill({
+                        color: 0xffffff,
+                        alpha: outerAlpha,
+                    });
+
+                    // Inner bright core
+                    g.circle(pos.x, pos.y, innerRadius).fill({
+                        color: 0xffffff,
+                        alpha: innerAlpha,
+                    });
+                }
+            }
+        }
+
+        // 3. Draw Cursor/Hover Highlights (Attack targets, etc)
+        // ... Port logic for this.hoverAttackUnit, etc ...
+
+        // 🔥 NEW: Draw Active Unit Highlight (The "Light" Effect)
+        if (this.currentActiveUnit) {
+            // We reuse the existing hover highlight logic.
+            // Since 'hover()' is disabled during fight, we can safely set this property for drawing.
+            this.hoveredUnitHighlight = this.getHighlightRectForUnit(this.currentActiveUnit);
+            this.drawHoveredUnitHighlight(g);
+        }
+    }
+    private handleNextUnitActivation(nextUnit: RenderableUnit): void {
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+
+        // ✅ Mark this as the active unit for this turn
+        this.currentActiveUnit = nextUnit;
+
+        // 1. Update "Up Next" UI State
+        const unitsNext: IVisibleUnit[] = [];
+
+        for (const unitIdNext of FightStateManager.getInstance().getFightProperties().getUpNextQueueIterable()) {
+            const unitNext = this.unitsHolder.getAllUnits().get(unitIdNext);
+            if (!unitNext) continue;
+
+            unitsNext.unshift({
+                amount: unitNext.getAmountAlive(),
+                smallTextureName: unitNext.getSmallTextureName(),
+                teamType: unitNext.getTeam(),
+                isOnHourglass: unitNext.isOnHourglass(),
+                isSkipping: unitNext.isSkippingThisTurn(),
+            });
+        }
+
+        if (nextUnit) {
+            unitsNext.push({
+                amount: nextUnit.getAmountAlive(),
+                smallTextureName: nextUnit.getSmallTextureName(),
+                teamType: nextUnit.getTeam(),
+                isOnHourglass: nextUnit.isOnHourglass(),
+                isSkipping: nextUnit.isSkippingThisTurn(),
+            });
+        }
+
+        if (this.sc_visibleState) {
+            this.sc_visibleState.upNext = unitsNext;
+            this.sc_visibleState.teamTypeTurn = nextUnit.getTeam();
+            this.sc_visibleState.lapNumber = FightStateManager.getInstance().getFightProperties().getCurrentLap();
+            this.sc_visibleStateUpdateNeeded = true;
+        }
+
+        // 2. Check Skip
+        if (nextUnit.isSkippingThisTurn()) {
+            // now this.currentActiveUnit is already set
+            this.currentActiveUnit.decreaseMorale(
+                HoCConstants.MORALE_CHANGE_FOR_SKIP,
+                fightProps.getAdditionalMoralePerTeam(this.currentActiveUnit.getTeam()),
             );
+            this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
+            this.finishTurn();
+            return;
         }
-        for (const unit of this.unitsHolder.getAllUnits().values()) {
-            (unit as RenderableUnit).stepSpawnAnimation(timeStep);
+
+        // 3. Activate Unit
+        this.sc_moveBlocked = false;
+        this.refreshUnits();
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+
+        nextUnit.setBoardSelected(true);
+
+        fightProps.startTurn(nextUnit.getTeam());
+        this.refreshVisibleStateIfNeeded();
+
+        // 4. Setup Unit State
+        nextUnit.refreshPreTurnState(this.sc_sceneLog);
+        this.currentActiveUnit = nextUnit;
+        this.buttonsRefreshLocked = false;
+
+        // Update Sidebar UI
+        const props = nextUnit.getUnitProperties();
+        this.sc_selectedUnitProperties = props;
+        this.setSelectedUnitProperties(props);
+        this.sc_unitPropertiesUpdateNeeded = true;
+
+        // 5. Calculate Attack Options
+        const canLandRange =
+            this.attackHandler?.canLandRangeAttack(nextUnit, this.grid.getEnemyAggrMatrixByUnitId(nextUnit.getId())) ??
+            false;
+
+        nextUnit.refreshPossibleAttackTypes(canLandRange);
+
+        // 6. Setup Pathfinding – "possible path" for white light visualization
+        const currentCell = GridMath.getCellForPosition(
+            this.sc_sceneSettings.getGridSettings(),
+            nextUnit.getPosition(),
+        );
+
+        if (currentCell) {
+            this.updateCurrentMovePath(currentCell);
         }
+
+        // 7. Shot range circle (if ranged)
+        if (nextUnit.getAttackTypeSelection() === AttackVals.RANGE) {
+            this.sc_currentActiveShotRange = {
+                xy: nextUnit.getPosition(),
+                distance: nextUnit.getRangeShotDistance() * GridConstants.STEP,
+            };
+        } else {
+            this.sc_currentActiveShotRange = undefined;
+        }
+
+        fightProps.markFirstTurn();
+        this.buttonsRefreshLocked = false;
+        this.refreshButtons(true);
+    }
+    private performArmageddon(units: RenderableUnit[], wave: number): boolean {
+        let killed = false;
+        // We iterate a copy or be careful with indices because we might modify the array via deleteUnitById
+        for (const u of units) {
+            u.applyArmageddonDamage(wave, this.sc_sceneLog);
+            if (u.isDead()) {
+                killed = true;
+                this.sc_sceneLog.updateLog(`${u.getName()} died`);
+
+                // 1) Remove from Holder
+                const deleted = this.unitsHolder.deleteUnitById(u.getId(), wave === 1);
+                if (deleted) {
+                    // 2) Cleanup Grid & Visuals
+                    this.grid.cleanupAll(u.getId(), u.getAttackRange(), u.isSmallSize());
+                    u.destroyVisuals();
+
+                    if (this.selectedBoardUnit === u) {
+                        this.selectedBoardUnit = undefined;
+                    }
+                }
+            }
+        }
+        return killed;
+    }
+    private handleLapFlip(unitsUpper: RenderableUnit[], unitsLower: RenderableUnit[]): void {
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+
+        // 0. Reset flags on all units (as seen in legacy code "for (const u of units)... setResponded(false)")
+        const allCurrentUnits = [...unitsUpper, ...unitsLower];
+        for (const u of allCurrentUnits) {
+            u.setResponded(false);
+            u.setOnHourglass(false);
+        }
+
+        // 1. Apply lap-based damage facts / "dry center" effects
+        if (this.attackHandler?.getDamageStatisticHolder().has(fightProps.getCurrentLap())) {
+            fightProps.encounterDamageDealFact();
+        }
+
+        // 2. Advance lap – but NOT on the very first initialization
+        if (this.hasInitializedLap) {
+            fightProps.flipLap();
+
+            // Dry Center check (visuals + logic)
+            if (fightProps.isTimeToDryCenter()) {
+                this.ensureCenterTerrainSprite(); // This handles the texture swap internally based on fight props
+                this.grid.cleanupCenterObstacle();
+            }
+        } else {
+            this.hasInitializedLap = true; // first lap, no increment
+        }
+
+        // 3. Armageddon Wave Logic (Replaces old Armageddon body iteration)
+        const armageddonWave = fightProps.getArmageddonWave();
+        let gotArmageddonKills = false;
+
+        if (armageddonWave) {
+            // Process damage on all units
+            gotArmageddonKills = this.performArmageddon(unitsLower, armageddonWave) || gotArmageddonKills;
+            gotArmageddonKills = this.performArmageddon(unitsUpper, armageddonWave) || gotArmageddonKills;
+
+            // If kills happened, refresh lists
+            if (gotArmageddonKills) {
+                const unitsForAllTeams = this.unitsHolder.refreshUnitsForAllTeams();
+                unitsLower = unitsForAllTeams[TeamVals.LOWER - 1] as RenderableUnit[];
+                unitsUpper = unitsForAllTeams[TeamVals.UPPER - 1] as RenderableUnit[];
+
+                // Check Win Condition immediately after Armageddon
+                if (!unitsLower?.length || !unitsUpper?.length) {
+                    this.finishFight(unitsLower, unitsUpper);
+                    return; // Fight over
+                }
+            }
+        }
+
+        // 4. Narrowing / Obstacle Spawning Logic
+        const distancesDecreased = this.unitsHolder.haveDistancesToClosestEnemiesDecreased();
+        let spawnedObstacles = false;
+
+        if (!distancesDecreased || fightProps.isNarrowingLap()) {
+            let encounterCurrent = false;
+            if (
+                !distancesDecreased &&
+                !fightProps.hasDamageDealFactPerLap(fightProps.getCurrentLap() - 1) &&
+                !fightProps.isNarrowingLap()
+            ) {
+                fightProps.encounterAdditionalNarrowingLap();
+                encounterCurrent = true;
+            }
+
+            // Spawn logic
+            const spawnLog = this.spawnObstacles(encounterCurrent);
+            if (spawnLog) this.sc_sceneLog.updateLog(spawnLog);
+
+            fightProps.increaseStepsMoraleMultiplier();
+            spawnedObstacles = true;
+            this.refreshVisibleStateIfNeeded(true);
+        }
+
+        // If obstacles spawned, refresh grid/units again as they might have killed overlapping units
+        if (!fightProps.hasFightFinished() && spawnedObstacles) {
+            if (!gotArmageddonKills) {
+                const unitsForAllTeams = this.unitsHolder.refreshUnitsForAllTeams();
+                unitsLower = unitsForAllTeams[TeamVals.LOWER - 1] as RenderableUnit[];
+                unitsUpper = unitsForAllTeams[TeamVals.UPPER - 1] as RenderableUnit[];
+            }
+            this.unitsHolder.refreshStackPowerForAllUnits();
+        }
+
+        // 5. Re-Shuffle and sort by speed (initiative)
+        const allUnits = [...unitsUpper, ...unitsLower];
+        HoCLib.shuffle(allUnits);
+        allUnits.sort((a, b) => b.getSpeed() - a.getSpeed());
+
+        // 6. Morale RNG Logic (Ported from Source)
+        for (const u of allUnits) {
+            if (!u.getMorale()) continue;
+
+            const isPlusMorale = u.getMorale() > 0;
+            const chance = HoCLib.getRandomInt(0, 100);
+
+            if (chance < Math.abs(u.getMorale()) && !u.hasMindAttackResistance()) {
+                if (isPlusMorale) {
+                    const buff = new Spell({
+                        spellProperties: HoCConfig.getSpellConfig("System", "Morale"),
+                        amount: 1,
+                    });
+                    u.applyBuff(buff);
+                    fightProps.enqueueMoralePlus(u.getId());
+                    this.sc_sceneLog.updateLog(`${u.getName()} is on Morale this lap!`);
+                } else {
+                    const debuff = new Spell({
+                        spellProperties: HoCConfig.getSpellConfig("System", "Dismorale"),
+                        amount: 1,
+                    });
+                    u.applyDebuff(debuff);
+                    fightProps.enqueueMoraleMinus(u.getId());
+                    this.sc_sceneLog.updateLog(`${u.getName()} is on Dismorale this lap!`);
+                }
+            }
+        }
+
+        // 7. Prefetch turn order queues for the (possibly new) lap
+        fightProps.prefetchNextUnitsToTurn(this.unitsHolder.getAllUnits(), unitsUpper, unitsLower);
+    }
+    private spawnObstacles(encounterCurrent = false): string | undefined {
+        // TODO: port
+        console.log(encounterCurrent);
+        return undefined;
     }
     private drawPlacements(): void {
         if (!this.placementGraphics) return;
@@ -1791,6 +2697,123 @@ export class Sandbox extends PixiScene {
                     this.sc_visibleStateUpdateNeeded = true;
                 }
             }
+        }
+    }
+    protected finishTurn = (isHourglass = false): void => {
+        this.buttonsRefreshLocked = true;
+        if (!isHourglass && this.currentActiveUnit) {
+            this.currentActiveUnit.minusLap();
+        }
+
+        this.sc_currentActiveShotRange = undefined;
+
+        if (this.currentActiveUnit) {
+            this.currentActiveUnit.setBoardSelected(false);
+        }
+
+        // cleanup range attack state
+        this.hoverRangeAttackDivisors = [];
+        // if (this.hoverRangeAttackLine) {
+        //     this.ground.DestroyFixture(this.hoverRangeAttackLine);
+        //     this.hoverRangeAttackLine = undefined;
+        // }
+        // this.rangeResponseAttackDivisor = 1;
+        // this.rangeResponseUnits = undefined;
+
+        // cleanup magic attack state
+        // this.hoveredSpell = undefined;
+        this.currentActiveSpell = undefined;
+        this.currentEnemiesCellsWithinMovementRange = undefined;
+
+        // // handle units state
+        // this.hoverAttackUnits = undefined;
+        // this.hoverAttackFromCell = undefined;
+        // this.hoverAttackIsSmallSize = undefined;
+
+        if (
+            this.currentActiveUnit &&
+            this.currentActiveUnit.refreshPossibleAttackTypes(
+                this.attackHandler.canLandRangeAttack(
+                    this.currentActiveUnit,
+                    this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
+                ),
+            )
+        ) {
+            this.refreshUnits();
+        }
+
+        if (!isHourglass && this.currentActiveUnit) {
+            FightStateManager.getInstance()
+                .getFightProperties()
+                .addAlreadyMadeTurn(this.currentActiveUnit.getTeam(), this.currentActiveUnit.getId());
+            FightStateManager.getInstance().getFightProperties().removeFromUpNext(this.currentActiveUnit.getId());
+            this.currentActiveUnit.setOnHourglass(false);
+            console.log(
+                `Finished turn ${this.currentActiveUnit.getName()} lap ${FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getCurrentLap()}`,
+            );
+        }
+        this.currentActiveUnit = undefined;
+        this.sc_selectedAttackType = AttackVals.NO_ATTACK;
+
+        // refresh UI
+        this.sc_renderSpellBookOverlay = false;
+        // this.adjustSpellBookSprite();
+        this.unitsHolder.refreshStackPowerForAllUnits();
+        this.refreshButtons(true);
+    };
+    protected finishFight(unitsLower?: Unit[], unitsUpper?: Unit[]): void {
+        if (this.currentActiveUnit) {
+            this.currentActiveUnit.setBoardSelected(false);
+            this.currentActiveUnit = undefined;
+        }
+        this.sc_currentActiveShotRange = undefined;
+        this.canAttackByMeleeTargets = undefined;
+        let result = "Draw!";
+        if (unitsUpper?.length && !unitsLower?.length) {
+            result = "Red team wins!";
+        } else if (!unitsUpper?.length && unitsLower?.length) {
+            result = "Green team wins!";
+        }
+        FightStateManager.getInstance().getFightProperties().finishFight();
+        this.cleanActivePaths();
+        this.sc_sceneLog.updateLog(`Fight finished! ${result}`);
+        this.refreshVisibleStateIfNeeded();
+        if (this.sc_visibleState) {
+            this.sc_visibleState.hasFinished = true;
+            this.sc_visibleStateUpdateNeeded = true;
+        }
+        this.refreshButtons(true);
+    }
+    protected cleanActivePaths(): void {
+        this.currentActivePath = undefined;
+        this.currentActiveKnownPaths = undefined;
+        this.currentActivePathHashes = undefined;
+    }
+    protected updateCurrentMovePath(currentCell: HoCMath.XY): void {
+        if (!this.currentActiveUnit) {
+            return;
+        }
+
+        if (
+            this.currentActiveUnit.canMove() &&
+            this.currentActiveSpell?.getSpellTargetType() !== SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE
+        ) {
+            const movePath = this.pathHelper.getMovePath(
+                currentCell,
+                this.gridMatrix,
+                this.currentActiveUnit.getSteps(),
+                this.grid.getAggrMatrixByTeam(this.currentActiveUnit.getOppositeTeam()),
+                this.currentActiveUnit.canFly(),
+                this.currentActiveUnit.isSmallSize(),
+                this.currentActiveUnit.hasAbilityActive("Made of Fire"),
+            );
+            this.currentActivePath = movePath.cells;
+            this.currentActiveKnownPaths = movePath.knownPaths;
+            this.currentActivePathHashes = movePath.hashes;
+        } else {
+            this.cleanActivePaths();
         }
     }
 }

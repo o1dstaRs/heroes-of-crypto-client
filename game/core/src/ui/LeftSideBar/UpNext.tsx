@@ -69,7 +69,6 @@ export const UpNext: React.FC = () => {
                                             src={images[unit.smallTextureName]}
                                             variant="plain"
                                             sx={{
-                                                transform: "rotateX(-180deg)",
                                                 width: index === 0 ? "84px" : "72px",
                                                 height: index === 0 ? "84px" : "72px",
                                                 flexShrink: 0,
@@ -86,7 +85,6 @@ export const UpNext: React.FC = () => {
                                                     width: "20px",
                                                     height: "20px",
                                                     zIndex: 2,
-                                                    transform: "rotate(180deg)",
                                                 }}
                                             />
                                         ) : unit.isOnHourglass ? (
@@ -100,7 +98,6 @@ export const UpNext: React.FC = () => {
                                                     width: "20px",
                                                     height: "20px",
                                                     zIndex: 2,
-                                                    transform: "rotate(180deg)",
                                                 }}
                                             />
                                         ) : null}
