@@ -5,7 +5,6 @@ export * from "./SimplePhysicsManager";
 export * from "./PixiGameManager";
 export * from "./PixiTextureLoader";
 export * from "./PixiSprite";
-export * from "./PixiButton";
 export * from "./PixiObstacle";
 export * from "./PixiCamera";
 export * from "./PixiAnimation";

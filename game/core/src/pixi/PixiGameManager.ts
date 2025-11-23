@@ -172,6 +172,10 @@ export class PixiGameManager {
         const initialOverlay = getUnitsOverlayFromScene(this.m_scene);
         if (initialOverlay) {
             const forwardOverlayInteraction = (e: PointerEvent) => {
+                // 🔥 FIX: If the fight has started, do not let the overlay intercept clicks.
+                // This ensures clicks pass through to HandleMouseDown for unit movement.
+                if (this.started) return;
+
                 // Use debugCanvas for bounds (assuming it overlays the Pixi canvas perfectly)
                 const canvas = debugCanvas;
                 const cr = canvas.getBoundingClientRect();
@@ -381,7 +385,6 @@ export class PixiGameManager {
     }
     public Accept(): void {
         if (this.m_scene?.sc_selectedUnitProperties && !this.started) {
-            console.log("SSSSS");
             const newAmount = this.m_settings.m_amountOfSelectedUnits;
             if (newAmount > 0) {
                 this.m_scene.refreshScene({
@@ -472,7 +475,6 @@ export class PixiGameManager {
                 const impact = (scene.sc_visibleOverallImpact ?? null) as IVisibleOverallImpact | null;
                 const faction = (scene.sc_selectedFactionType ??
                     (FactionVals.NO_FACTION as FactionType)) as FactionType;
-                console.log("EMIT1");
                 this.onSelectionCombined.emit({ unit, impact, faction });
 
                 // mark both handled
@@ -512,7 +514,6 @@ export class PixiGameManager {
 
         // Visible state
         if (this.m_scene?.sc_visibleStateUpdateNeeded) {
-            console.log("EMIT5");
             if (this.m_scene.sc_visibleState) {
                 this.onVisibleStateUpdated.emit(structuredClone(this.m_scene.sc_visibleState as IVisibleState));
             } else {

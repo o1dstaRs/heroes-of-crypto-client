@@ -76,9 +76,6 @@ export const UpNextOverlay: React.FC = () => {
         );
     }
 
-    console.log("visibleUnits");
-    console.log(visibleUnits);
-
     return (
         <Box
             sx={{
