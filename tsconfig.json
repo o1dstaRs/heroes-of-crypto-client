@@ -18,6 +18,7 @@
         "forceConsistentCasingInFileNames": true,
         "stripInternal": true,
         "isolatedModules": true,
+        "noImplicitOverride": true,
         "noEmit": false,
         "types": ["bun-types"],
         "baseUrl": ".",

@@ -1,7 +1,6 @@
 // game/core/src/scenes/Sandbox.ts
 import { v4 as uuidv4 } from "uuid";
 import { Sprite, Graphics, Container } from "pixi.js";
-import { DamageStatisticHolder } from "../stats/damage_stats";
 import {
     Augment,
     FightStateManager,
@@ -41,57 +40,33 @@ import {
 } from "@heroesofcrypto/common";
 import { Settings } from "../settings";
 import { UnitsOverlay } from "./UnitsOverlay";
-import { VisibleButtonState, IVisibleButton, IVisibleUnit } from "../state/visible_state";
+import { VisibleButtonState, IVisibleUnit } from "../state/visible_state";
 import { SceneSettings } from "../scenes/scene_settings";
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
 import { setSpawnFlowPhase } from "../pixi/PixiDrawablePlacement";
 import { PlacementManager } from "./PlacementManager";
-import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { RenderableUnit } from "@/pixi/RenderableUnit";
 import { PixiRenderableSpell } from "@/spells/renderable_spell";
+import { HoverManager } from "./HoverManager";
+import { ButtonManager } from "./ButtonManager";
 export class Sandbox extends PixiScene {
     private readonly grid: Grid;
     private readonly pathHelper: PathHelper;
-    private readonly attackHandler: AttackHandler;
-    private readonly moveHandler: MoveHandler;
-    private hourglassButton: IVisibleButton;
+    private readonly attackHandler?: AttackHandler;
+    private readonly moveHandler?: MoveHandler;
+    private hoverManager: HoverManager;
+    private buttonManager: ButtonManager;
     private currentEnemiesCellsWithinMovementRange?: HoCMath.XY[];
-    private shieldButton: IVisibleButton;
-    private nextButton: IVisibleButton;
-    private aiButton: IVisibleButton;
-    private selectedAttackTypeButton: IVisibleButton;
-    private spellBookButton: IVisibleButton;
     private unitsOverlay: UnitsOverlay;
     private bgSprite?: Sprite;
     private placementManager: PlacementManager;
     private spawnPulsePhase = 0;
     private bgKey: "background_dark" | "background_light" = "background_dark";
     private placementGraphics?: Graphics;
-    /** placement-preview hover (for active selection: overlay OR board move) */
-    private hoverPlacementCell?: HoCMath.XY;
-    private hoverPlacementCellTeam?: TeamType;
-    private hoverSelectedCells?: HoCMath.XY[];
-    private hoverSelectedCellsSwitchToRed = false;
     private centerTerrainSprite?: Sprite;
-    private lastPlacementUnitId?: string;
     private selectedBoardUnit?: RenderableUnit;
-    private lastPlacementTimestampSec = 0;
-    private readonly hoverRearmDelaySec = 2.0;
-    /** silhouette used both for overlay preview and for board hover/move */
-    private hoverSilhouette?: Sprite;
-    private hoverSilhouetteOutline?: Sprite;
-    private hoverSilhouetteKey?: string;
     private gridMatrix: number[][];
     private gridMatrixNoUnits: number[][];
-    /** passive hover highlight for an already placed unit (no selection) */
-    private hoveredUnitHighlight?: { x: number; y: number; w: number; h: number };
-    /** UnitChip-style hover tween state for already placed units */
-    private boardHoverScale = 1;
-    private boardHoverTargetScale = 1;
-    private boardHoverYOffset = 0;
-    private boardHoverTargetYOffset = 0;
-    private boardHoverProps?: UnitProperties;
-    private boardHoverCenter?: HoCMath.XY;
     private cellToUnitPreRound?: Map<string, Unit>;
     private readonly unitsHolder: UnitsHolder;
     private readonly abilityFactory: AbilityFactory;
@@ -110,7 +85,7 @@ export class Sandbox extends PixiScene {
     private currentActivePath?: HoCMath.XY[];
     private currentActiveKnownPaths?: Map<number, IWeightedRoute[]>;
     private canAttackByMeleeTargets?: boolean;
-    private buttonsRefreshLocked = false;
+    private spawnPulseDirection = 1;
     private performingAIAction = false;
     private hasInitializedLap = false;
     private gameplayGraphics?: Graphics;
@@ -142,77 +117,92 @@ export class Sandbox extends PixiScene {
         this.refreshVisibleStateIfNeeded();
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
-        // buttons (unchanged)
-        this.hourglassButton = {
-            name: "Hourglass",
-            text: "Wait",
-            state: VisibleButtonState.FIRST,
-            isVisible: true,
-            isDisabled: true,
-            numberOfOptions: 1,
-            selectedOption: 1,
-        };
-        this.shieldButton = {
-            name: "LuckShield",
-            text: "Cleanup randomized luck and skip turn",
-            state: VisibleButtonState.FIRST,
-            isVisible: true,
-            isDisabled: true,
-            numberOfOptions: 1,
-            selectedOption: 1,
-        };
-        this.nextButton = {
-            name: "Next",
-            text: "Skip turn",
-            state: VisibleButtonState.FIRST,
-            isVisible: true,
-            isDisabled: true,
-            numberOfOptions: 1,
-            selectedOption: 1,
-        };
-        this.aiButton = {
-            name: "AI",
-            text: "Switch AI state",
-            state: this.sc_isAIActive ? VisibleButtonState.SECOND : VisibleButtonState.FIRST,
-            isVisible: true,
-            isDisabled: false,
-            numberOfOptions: 1,
-            selectedOption: 1,
-        };
-        this.selectedAttackTypeButton = {
-            name: "AttackType",
-            text: "Switch attack type",
-            state: VisibleButtonState.FIRST,
-            isVisible: true,
-            isDisabled: true,
-            numberOfOptions: 3,
-            selectedOption: 1,
-        };
-        this.spellBookButton = {
-            name: "Spellbook",
-            text: "Select spell",
-            state: VisibleButtonState.FIRST,
-            isVisible: true,
-            isDisabled: true,
-            numberOfOptions: 1,
-            selectedOption: 1,
-        };
-        this.sc_visibleButtonGroup = [
-            this.hourglassButton,
-            this.shieldButton,
-            this.nextButton,
-            this.aiButton,
-            this.selectedAttackTypeButton,
-            this.spellBookButton,
-        ];
+        this.placementManager = new PlacementManager(this.sc_sceneSettings.getGridSettings());
 
-        this.attackHandler = new AttackHandler(
-            this.sc_sceneSettings.getGridSettings(),
-            this.grid,
-            this.sc_sceneLog,
-            new DamageStatisticHolder(),
+        this.unitsOverlay = new UnitsOverlay(
+            context.pixiSceneManager.getApplication(),
+            (name) => this.texAny(name),
+            (props) => {
+                if (props) {
+                    this.selectionFromOverlay = true;
+                    this.hasActiveSelection = true;
+                    // clear board selection
+                    if (this.selectedBoardUnit) {
+                        this.selectedBoardUnit.setBoardSelected(false);
+                        this.selectedBoardUnit = undefined;
+                    }
+                    this.draggingUnitId = undefined;
+                    this.draggingUnitTeam = undefined;
+
+                    this.sc_selectedUnitProperties = props;
+                    this.setSelectedUnitProperties(props);
+                    this.hoverManager.resetHover(true);
+                } else {
+                    // deselected from overlay
+                    if (this.selectionFromOverlay) {
+                        this.Deselect(false, true);
+                    }
+                }
+            },
         );
-        this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
+        this.unitsOverlay.build();
+
+        // Initialize Managers
+        this.hoverManager = new HoverManager({
+            grid: this.grid,
+            pathHelper: this.pathHelper,
+            unitsHolder: this.unitsHolder,
+            sceneSettings: this.sc_sceneSettings,
+            placementManager: this.placementManager,
+            abilityFactory: this.abilityFactory,
+            texAny: (name) => this.texAny(name),
+            attachToWorldRoot: (obj, z) => this.attachToWorldRoot(obj, z),
+            getPlacement: (t, i) => this.getPlacement(t, i),
+            getMouseWorld: () => this.sc_mouseWorld,
+            getCurrentActiveUnit: () => this.currentActiveUnit,
+            getCurrentActivePathHashes: () => this.currentActivePathHashes,
+            getDraggingUnitId: () => this.draggingUnitId,
+            getDraggingUnitTeam: () => this.draggingUnitTeam,
+            getSelectedUnitProperties: () => this.sc_selectedUnitProperties,
+            hasActiveSelection: () => this.hasActiveSelection,
+        });
+
+        this.buttonManager = new ButtonManager(
+            {
+                getCurrentActiveUnit: () => this.currentActiveUnit,
+                getSceneLog: () => this.sc_sceneLog,
+                getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
+                finishTurn: (h) => this.finishTurn(h),
+                refreshUnits: () => this.refreshUnits(),
+                updateCurrentMovePath: (c) => this.updateCurrentMovePath(c),
+                setUnitPropertiesUpdateNeeded: (n) => {
+                    this.sc_unitPropertiesUpdateNeeded = n;
+                },
+                setCurrentEnemiesCellsWithinMovementRange: (c) => {
+                    this.currentEnemiesCellsWithinMovementRange = c;
+                },
+                setSelectedAttackType: (t) => {
+                    this.sc_selectedAttackType = t;
+                },
+                setCurrentActiveSpell: (s) => {
+                    this.currentActiveSpell = s;
+                },
+                getVisibleState: () => this.sc_visibleState,
+
+                // 👇 NEW: Implement setters to sync state from Manager to Sandbox (PixiScene)
+                setVisibleButtons: (buttons, updated) => {
+                    this.sc_visibleButtonGroup = buttons;
+                    this.sc_buttonGroupUpdated = updated;
+                },
+                setAIActive: (active) => {
+                    this.sc_isAIActive = active;
+                },
+                setSpellBookOverlay: (active) => {
+                    this.sc_renderSpellBookOverlay = active;
+                },
+            },
+            this.sc_isAIActive,
+        );
 
         // visible state updater
         HoCLib.interval(() => {
@@ -224,55 +214,18 @@ export class Sandbox extends PixiScene {
             this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
             this.sc_visibleStateUpdateNeeded = true;
         }, 500);
-        // Overlay selection: creates a *new* unit type selection (not tied to board unit)
-        this.unitsOverlay = new UnitsOverlay(
-            this.pixiSceneManager.getApplication(),
-            (name: string) => this.texAny(name),
-            (unitProperties: UnitProperties | null) => {
-                if (unitProperties) {
-                    // Active overlay selection
-                    this.hasActiveSelection = true;
-                    this.selectionFromOverlay = true;
-                    this.draggingUnitId = undefined;
-                    this.draggingUnitTeam = undefined;
-                    this.sc_selectedUnitProperties = unitProperties;
-                    this.setSelectedUnitProperties(unitProperties);
-                } else {
-                    // Overlay cleared → clear common state; overlay already fired UnitSelected(null)
-                    this.clearBoardSelection(false);
-                    this.Deselect(false, true);
-                }
-            },
-        );
-        this.unitsOverlay.build();
-        this.placementManager = new PlacementManager(this.sc_sceneSettings.getGridSettings());
     }
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return this.unitsOverlay;
     }
-    public CameraChanged(): void {
+    public override CameraChanged(): void {
         this.attachToWorldRoot(this.placementGraphics, 100);
         this.attachToWorldRoot(this.gameplayGraphics, 55);
         this.attachToWorldRoot(this.centerTerrainSprite, 50);
-        this.attachToWorldRoot(this.hoverSilhouette, 110);
-        this.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
+        this.hoverManager.onCameraChanged();
     }
     private getPlacement(teamType: TeamType, placementIndex: number): IPlacement | undefined {
         return this.placementManager.getPlacement(teamType, placementIndex);
-    }
-    private updateBoardHoverTween(dt: number): void {
-        if (!dt) return;
-        const lerp = (from: number, to: number, speed: number) => {
-            if (from === to) return from;
-            const step = Math.min(1, speed * dt); // simple exponential-ish smoothing
-            return from + (to - from) * step;
-        };
-        // Fast but smooth – ~150–200ms glide like UnitChip
-        this.boardHoverScale = lerp(this.boardHoverScale, this.boardHoverTargetScale, 8);
-        this.boardHoverYOffset = lerp(this.boardHoverYOffset, this.boardHoverTargetYOffset, 8);
-        if (this.boardHoverProps && this.boardHoverCenter && !this.hasActiveSelection) {
-            this.updateBoardHoverSilhouette(this.boardHoverProps, this.boardHoverCenter);
-        }
     }
     /** Get unit by world position using grid occupancy */
     private getUnitAtPosition(worldPos: HoCMath.XY): Unit | undefined {
@@ -282,131 +235,6 @@ export class Sandbox extends PixiScene {
         const occupantId = this.grid.getOccupantUnitId(cell);
         if (!occupantId) return undefined;
         return this.unitsHolder.getAllUnits().get(occupantId);
-    }
-    private drawHoverPlacementCell(gfx: Graphics): void {
-        const cells = this.hoverSelectedCells;
-        if (!cells || cells.length === 0) return;
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const size = gs.getCellSize();
-        const half = size / 2;
-        let strokeColor = 0xffffff;
-        let fillColor = 0xffffff;
-        let fillAlpha = 0.18;
-        if (this.hoverSelectedCellsSwitchToRed) {
-            strokeColor = 0xff5555;
-            fillColor = 0xff3333;
-            fillAlpha = 0.25;
-        }
-        let minX = Number.POSITIVE_INFINITY;
-        let maxX = Number.NEGATIVE_INFINITY;
-        let minY = Number.POSITIVE_INFINITY;
-        let maxY = Number.NEGATIVE_INFINITY;
-        for (const c of cells) {
-            const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-            const left = pos.x - half;
-            const right = pos.x + half;
-            const bottom = pos.y - half;
-            const top = pos.y + half;
-            if (left < minX) minX = left;
-            if (right > maxX) maxX = right;
-            if (bottom < minY) minY = bottom;
-            if (top > maxY) maxY = top;
-        }
-        const w = maxX - minX - 2;
-        const h = maxY - minY - 2;
-        gfx.rect(minX + 1, minY + 1, w, h)
-            .stroke({ width: 2, color: strokeColor, alpha: 1 })
-            .fill({ color: fillColor, alpha: fillAlpha });
-    }
-    private isCellReachableForActiveUnit(cell: HoCMath.XY): boolean {
-        if (!this.currentActiveUnit) return false;
-        if (!this.currentActivePathHashes || !this.currentActivePathHashes.size) return false;
-
-        const props = this.currentActiveUnit.getUnitProperties();
-        const hash = (x: number, y: number) => (x << 4) | y;
-
-        if (props.size === 1) {
-            return this.currentActivePathHashes.has(hash(cell.x, cell.y));
-        }
-
-        // size === 2: if we can find a valid 2×2 footprint for this cell, it's reachable
-        return this.findLargeUnitMoveCandidate(cell) !== null;
-    }
-    private drawHoveredUnitHighlight(gfx: Graphics): void {
-        const r = this.hoveredUnitHighlight;
-        if (!r) return;
-        const cx = r.x + r.w * 0.5;
-        const cy = r.y + r.h * 0.5;
-        const iconSide = Math.max(r.w, r.h);
-        // Modulate for shimmer: gentle pulse using sine wave
-        const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2; // 0 to 1
-        const pulseFactor = 0.05 + pulse * 0.1; // subtle 5-15% variation
-        // --- Under-glow ellipse (like UnitChip.glow), but stronger ---
-        const baseW = iconSide * 0.95;
-        const baseH = iconSide * 0.28;
-        const yOffset = iconSide * 0.48;
-        const underLayers = 5;
-        for (let i = 0; i < underLayers; i++) {
-            const t = (i + 1) / underLayers;
-            const w = baseW * (1 + 0.3 * t) * (1 + pulseFactor);
-            const h = baseH * (1 + 0.4 * t) * (1 + pulseFactor);
-            const alpha = 0.3 * (1 - t * 0.75) * (1 - pulseFactor * 0.5); // slightly dim when expanding
-            // Y-flip: move light to the correct side in world coords
-            gfx.ellipse(cx, cy - yOffset, w * 0.5, h * 0.5).fill({ color: 0xffffff, alpha });
-        }
-        // --- Around-glow ring (stronger) ---
-        const baseR = iconSide * 0.6;
-        const aroundLayers = 6;
-        for (let i = 0; i < aroundLayers; i++) {
-            const t = (i + 1) / aroundLayers;
-            const rg = baseR * (1 + 0.45 * t) * (1 + pulseFactor);
-            const alpha = 0.22 * (1 - t * 0.8) * (1 - pulseFactor * 0.5);
-            gfx.circle(cx, cy, rg).fill({ color: 0xffffff, alpha });
-        }
-    }
-    private updatePlacementHoverRearm(): void {
-        if (!this.lastPlacementUnitId) return;
-        const fightProps = FightStateManager.getInstance().getFightProperties();
-        if (fightProps.hasFightStarted() || this.hasActiveSelection) {
-            this.lastPlacementUnitId = undefined;
-            return;
-        }
-        // If hover is already active from normal logic, do nothing.
-        if (this.hoveredUnitHighlight) return;
-        const nowSec = HoCLib.getTimeMillis() / 1000;
-        if (nowSec - this.lastPlacementTimestampSec < this.hoverRearmDelaySec) return;
-        const unit = this.unitsHolder.getAllUnits().get(this.lastPlacementUnitId);
-        if (!unit) {
-            this.lastPlacementUnitId = undefined;
-            return;
-        }
-        const rect = this.getHighlightRectForUnit(unit);
-        if (!rect) {
-            this.lastPlacementUnitId = undefined;
-            return;
-        }
-        const p = this.sc_mouseWorld;
-        const inside = p.x >= rect.x && p.x <= rect.x + rect.w && p.y >= rect.y && p.y <= rect.y + rect.h;
-        if (inside) {
-            // Re-arm the hover highlight on the just-placed unit
-            this.hoveredUnitHighlight = rect;
-        }
-        // One-shot: either we re-armed or cursor left the area; in both cases stop tracking.
-        this.lastPlacementUnitId = undefined;
-    }
-    private resetHover(resetSelectedCells = true): void {
-        if (resetSelectedCells) {
-            this.hoverSelectedCells = undefined;
-            this.hoverSelectedCellsSwitchToRed = false;
-        }
-        this.sc_hoverAttackIsTargetingObstacle = false;
-        this.sc_moveBlocked = false;
-        this.sc_isSelection = false;
-        this.clearHoverSilhouette();
-    }
-    private clearHoverSilhouette(): void {
-        if (this.hoverSilhouette) this.hoverSilhouette.visible = false;
-        if (this.hoverSilhouetteOutline) this.hoverSilhouetteOutline.visible = false;
     }
     private ensureCenterTerrainSprite(): void {
         // Decide which texture key to use based on grid type
@@ -477,331 +305,6 @@ export class Sandbox extends PixiScene {
         this.centerTerrainSprite.x = centerX;
         this.centerTerrainSprite.y = centerY;
         this.centerTerrainSprite.visible = true;
-    }
-    /** Silhouette for placement preview (overlay/board move) */
-    private updateHoverSilhouette(boundsCenter: HoCMath.XY): void {
-        const selected = this.sc_selectedUnitProperties;
-        if (!selected || this.hoverSelectedCellsSwitchToRed || !this.hoverSelectedCells?.length) {
-            this.clearHoverSilhouette();
-            return;
-        }
-        const texName = unitToTextureName(selected.name, TextureType.SMALL, selected.size);
-        const tex = this.texAny(texName);
-        if (!tex) {
-            this.clearHoverSilhouette();
-            return;
-        }
-        if (!this.hoverSilhouette) {
-            this.hoverSilhouette = new Sprite(tex);
-            this.hoverSilhouette.anchor.set(0.5);
-            this.attachToWorldRoot(this.hoverSilhouette, 110);
-            this.hoverSilhouette.scale.y = -1;
-        } else if (this.hoverSilhouetteKey !== texName) {
-            this.hoverSilhouette.texture = tex;
-        }
-        if (!this.hoverSilhouetteOutline) {
-            this.hoverSilhouetteOutline = new Sprite(tex);
-            this.hoverSilhouetteOutline.anchor.set(0.5);
-            this.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
-            this.hoverSilhouetteOutline.scale.y = -1;
-        } else if (this.hoverSilhouetteKey !== texName) {
-            this.hoverSilhouetteOutline.texture = tex;
-        }
-        this.hoverSilhouetteKey = texName;
-        const sprite = this.hoverSilhouette;
-        const outline = this.hoverSilhouetteOutline;
-        const targetSize = selected.size === 2 ? 256 : 128;
-        const baseWidth = tex.width || 1;
-        const scale = targetSize / baseWidth;
-        const outlineScale = scale * 1.06;
-        sprite.scale.set(scale, -scale);
-        outline.scale.set(outlineScale, -outlineScale);
-        sprite.x = boundsCenter.x;
-        sprite.y = boundsCenter.y;
-        outline.x = boundsCenter.x;
-        outline.y = boundsCenter.y;
-        outline.visible = true;
-        outline.alpha = 0.9;
-        outline.tint = 0xffffff;
-        sprite.visible = true;
-        sprite.alpha = 0.8;
-        sprite.tint = 0x000000;
-    }
-    /** Silhouette for passive board-hover (no selection) – styled like UnitChip hover */
-    private updateBoardHoverSilhouette(props: UnitProperties, center: HoCMath.XY): void {
-        const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
-        const tex = this.texAny(texName);
-        if (!tex) {
-            this.clearHoverSilhouette();
-            return;
-        }
-        if (!this.hoverSilhouette) {
-            this.hoverSilhouette = new Sprite(tex);
-            this.hoverSilhouette.anchor.set(0.5);
-            this.attachToWorldRoot(this.hoverSilhouette, 110);
-            this.hoverSilhouette.scale.y = -1;
-        } else if (this.hoverSilhouetteKey !== texName) {
-            this.hoverSilhouette.texture = tex;
-        }
-        if (!this.hoverSilhouetteOutline) {
-            this.hoverSilhouetteOutline = new Sprite(tex);
-            this.hoverSilhouetteOutline.anchor.set(0.5);
-            this.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
-            this.hoverSilhouetteOutline.scale.y = -1;
-        } else if (this.hoverSilhouetteKey !== texName) {
-            this.hoverSilhouetteOutline.texture = tex;
-        }
-        this.hoverSilhouetteKey = texName;
-        const sprite = this.hoverSilhouette;
-        const outline = this.hoverSilhouetteOutline;
-        const targetSize = props.size === 2 ? 256 : 128;
-        const baseWidth = tex.width || 1;
-        const baseScale = targetSize / baseWidth;
-        const scale = baseScale * this.boardHoverScale;
-        const outlineScale = scale * 1.08;
-        const y = center.y + this.boardHoverYOffset;
-        sprite.scale.set(scale, -scale);
-        outline.scale.set(outlineScale, -outlineScale);
-        sprite.x = center.x;
-        sprite.y = y;
-        outline.x = center.x;
-        outline.y = y;
-        // “Light + enlarge” like UnitChip: bright sprite + soft outer halo
-        outline.visible = true;
-        outline.alpha = 0.35;
-        outline.tint = 0xffffff;
-        sprite.visible = true;
-        sprite.alpha = 1.0;
-        sprite.tint = 0xffffff;
-    }
-    private updateHoverPlacementCell(worldPos: HoCMath.XY): void {
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const selected = this.sc_selectedUnitProperties;
-
-        // reset preview state
-        this.hoverPlacementCell = undefined;
-        this.hoverPlacementCellTeam = undefined;
-        this.hoverSelectedCells = undefined;
-        this.hoverSelectedCellsSwitchToRed = false;
-        this.clearHoverSilhouette();
-
-        if (!selected || !this.hasActiveSelection) return;
-
-        const cell = GridMath.getCellForPosition(gs, worldPos);
-        if (!cell) return;
-
-        const isLarge = selected.size === 2;
-        const cellHash = (cell.x << 4) | cell.y;
-
-        let teamFromPlacement: TeamType | undefined;
-        if (this.placementManager.getAllowedPlacementCellHashesForTeam(TeamVals.LOWER)?.has(cellHash)) {
-            teamFromPlacement = TeamVals.LOWER;
-        } else if (this.placementManager.getAllowedPlacementCellHashesForTeam(TeamVals.UPPER)?.has(cellHash)) {
-            teamFromPlacement = TeamVals.UPPER;
-        }
-
-        if (!teamFromPlacement) {
-            this.resetHover();
-            return;
-        }
-
-        // If we are moving an existing unit, force it to stay on its own side
-        if (this.draggingUnitTeam && teamFromPlacement !== this.draggingUnitTeam) {
-            // We still want the preview footprint to match unit size (1x1 vs 2x2),
-            // even though it's invalid (wrong side) -> red rectangle with correct size.
-            let cells: HoCMath.XY[];
-
-            if (isLarge) {
-                const allowedForThatSide =
-                    this.placementManager.getAllowedPlacementCellHashesForTeam(teamFromPlacement);
-                const occupiedKeys: string[] = [];
-                cells =
-                    this.pathHelper.getClosestSquareCellIndices(
-                        this.sc_mouseWorld,
-                        allowedForThatSide,
-                        occupiedKeys,
-                        undefined,
-                        undefined,
-                        undefined,
-                    ) ?? [];
-                if (cells.length === 0) {
-                    cells = [cell]; // fallback
-                }
-            } else {
-                cells = [cell];
-            }
-
-            this.hoverSelectedCells = cells;
-            this.hoverSelectedCellsSwitchToRed = true;
-            this.hoverPlacementCell = cell;
-            this.hoverPlacementCellTeam = teamFromPlacement;
-            this.clearHoverSilhouette();
-            return;
-        }
-
-        const allowedForTeam =
-            (teamFromPlacement && this.placementManager.getAllowedPlacementCellHashesForTeam(teamFromPlacement)) ??
-            undefined;
-
-        let candidateCells: HoCMath.XY[];
-
-        if (isLarge) {
-            const occupiedKeys: string[] = [];
-            candidateCells =
-                this.pathHelper.getClosestSquareCellIndices(
-                    this.sc_mouseWorld,
-                    allowedForTeam,
-                    occupiedKeys,
-                    undefined,
-                    undefined,
-                    undefined,
-                ) ?? [];
-        } else {
-            candidateCells = [cell];
-        }
-
-        if (!allowedForTeam || allowedForTeam.size === 0) {
-            this.hoverSelectedCells = candidateCells;
-            this.hoverSelectedCellsSwitchToRed = true;
-            this.hoverPlacementCell = cell;
-            this.hoverPlacementCellTeam = teamFromPlacement;
-            return;
-        }
-
-        let invalid = false;
-
-        if (isLarge) {
-            if (candidateCells?.length !== 4) {
-                this.resetHover();
-                return;
-            } else if (!this.pathHelper.areCellsFormingSquare(candidateCells)) {
-                invalid = true;
-            }
-        }
-
-        // Global placement hash check (any team)
-        for (const c of candidateCells) {
-            const h = (c.x << 4) | c.y;
-            if (!this.placementManager.getAllowedPlacementCellHashes().has(h)) {
-                this.resetHover();
-                return;
-            }
-        }
-
-        // Allow reusing cells occupied by the same unit when repositioning
-        if (!invalid) {
-            for (const c of candidateCells) {
-                const occId = this.grid.getOccupantUnitId(c);
-                if (occId && this.unitsHolder.getAllUnits().has(occId)) {
-                    if (!(this.draggingUnitId && occId === this.draggingUnitId)) {
-                        invalid = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // EXTRA GEOMETRY / OBSTACLE RULES (skip for center grids)
-        const gridType = this.getGridType();
-        const skipPreStartGeom =
-            gridType === GridVals.LAVA_CENTER ||
-            gridType === GridVals.WATER_CENTER ||
-            gridType === GridVals.BLOCK_CENTER;
-
-        if (!invalid && teamFromPlacement && !skipPreStartGeom) {
-            const mockUnit = Unit.createUnit(
-                selected,
-                gs,
-                teamFromPlacement,
-                UnitVals.CREATURE,
-                this.abilityFactory,
-                this.abilityFactory.getEffectsFactory(),
-                false,
-            );
-
-            const possiblePosition = GridMath.getPositionForCells(gs, candidateCells);
-            if (possiblePosition) {
-                mockUnit.setPosition(possiblePosition.x, possiblePosition.y, false);
-            }
-
-            const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
-            const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-            const lowerRightPlacement = this.getPlacement(TeamVals.LOWER, 1);
-            const upperLeftPlacement = this.getPlacement(TeamVals.UPPER, 1);
-
-            if (
-                !this.pathHelper.isAllowedPreStartUnitPosition(
-                    mockUnit,
-                    candidateCells,
-                    this.unitsHolder,
-                    lowerLeftPlacement,
-                    upperRightPlacement,
-                    lowerRightPlacement,
-                    upperLeftPlacement,
-                )
-            ) {
-                invalid = true;
-            }
-        }
-
-        // Capacity / max-army-size rules (same as before, but independent of pre-start geometry)
-        if (!invalid && !this.draggingUnitId) {
-            const fightProps = FightStateManager.getInstance().getFightProperties();
-            const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
-            const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-            const lowerRightPlacement = this.getPlacement(TeamVals.LOWER, 1);
-            const upperLeftPlacement = this.getPlacement(TeamVals.UPPER, 1);
-
-            if (lowerLeftPlacement && upperRightPlacement && teamFromPlacement) {
-                const alliesPlacedCount = this.unitsHolder.getAllAlliesPlaced(
-                    teamFromPlacement,
-                    lowerLeftPlacement,
-                    upperRightPlacement,
-                    lowerRightPlacement,
-                    upperLeftPlacement,
-                ).length;
-
-                const maxUnitsForTeam = fightProps.getNumberOfUnitsAvailableForPlacement(teamFromPlacement);
-                if (alliesPlacedCount >= maxUnitsForTeam) {
-                    invalid = true;
-                }
-            }
-        }
-
-        this.hoverSelectedCellsSwitchToRed = invalid;
-        this.hoverPlacementCell = cell;
-        this.hoverSelectedCells = candidateCells;
-        this.hoverPlacementCellTeam = teamFromPlacement;
-
-        if (!invalid && candidateCells.length > 0) {
-            const size = gs.getCellSize();
-            const half = size / 2;
-
-            let minX = Number.POSITIVE_INFINITY;
-            let maxX = Number.NEGATIVE_INFINITY;
-            let minY = Number.POSITIVE_INFINITY;
-            let maxY = Number.NEGATIVE_INFINITY;
-
-            for (const c of candidateCells) {
-                const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-                const left = pos.x - half;
-                const right = pos.x + half;
-                const bottom = pos.y - half;
-                const top = pos.y + half;
-
-                if (left < minX) minX = left;
-                if (right > maxX) maxX = right;
-                if (bottom < minY) minY = bottom;
-                if (top > maxY) maxY = top;
-            }
-
-            const centerX = (minX + maxX) * 0.5;
-            const centerY = (minY + maxY) * 0.5;
-
-            this.updateHoverSilhouette({ x: centerX, y: centerY });
-        } else {
-            this.clearHoverSilhouette();
-        }
     }
     protected selectUnitPreStart(
         _teamType: TeamType,
@@ -911,8 +414,7 @@ export class Sandbox extends PixiScene {
         // to the old worldRoot should be re-attached to the new one.
         this.attachToWorldRoot(this.gameplayGraphics, 55);
         this.attachToWorldRoot(this.centerTerrainSprite, 50);
-        this.attachToWorldRoot(this.hoverSilhouette, 110);
-        this.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
+        this.hoverManager.onCameraChanged();
     }
     public refreshUnits(): void {
         // those need to be applied first
@@ -1123,342 +625,8 @@ export class Sandbox extends PixiScene {
     public getNumberOfUnitsAvailableForPlacement(_t: TeamType): number {
         return 0;
     }
-    private refreshButtons(forceUpdate = false): void {
-        this.recomputeButtons(forceUpdate);
-    }
-    private checkHourglassCondition(): boolean {
-        if (!this.currentActiveUnit) {
-            return false;
-        }
-
-        const fightState = FightStateManager.getInstance().getFightProperties();
-
-        const lowerTeamUnitsAlive = fightState.getTeamUnitsAlive(TeamVals.LOWER);
-        const upperTeamUnitsAlive = fightState.getTeamUnitsAlive(TeamVals.UPPER);
-
-        const moreThanOneUnitAlive =
-            (this.currentActiveUnit.getTeam() === TeamVals.LOWER && lowerTeamUnitsAlive > 1) ||
-            (this.currentActiveUnit.getTeam() === TeamVals.UPPER && upperTeamUnitsAlive > 1);
-        if (
-            moreThanOneUnitAlive &&
-            !fightState.hourglassIncludes(this.currentActiveUnit.getId()) &&
-            !fightState.hasAlreadyMadeTurn(this.currentActiveUnit.getId()) &&
-            !fightState.hasAlreadyHourglass(this.currentActiveUnit.getId())
-        ) {
-            return true;
-        }
-
-        return false;
-    }
-    private checkCastCondition(): boolean {
-        if (!this.currentActiveUnit) {
-            return false;
-        }
-
-        return (
-            this.currentActiveUnit &&
-            this.currentActiveUnit.getSpellsCount() > 0 &&
-            this.currentActiveUnit.getCanCastSpells()
-        );
-    }
-    private recomputeButtons(forceUpdate = false): void {
-        const prevButtonsJSON = JSON.stringify(this.sc_visibleButtonGroup ?? []);
-        const fightProps = FightStateManager.getInstance().getFightProperties();
-        const fightStarted = fightProps.hasFightStarted();
-        const fightFinished = this.sc_visibleState?.hasFinished ?? false;
-
-        const buttons: IVisibleButton[] = [];
-
-        // Helper to push buttons in the canonical order
-        const pushAll = (
-            hourglass: IVisibleButton,
-            shield: IVisibleButton,
-            next: IVisibleButton,
-            ai: IVisibleButton,
-            attackType: IVisibleButton,
-            spellBook: IVisibleButton,
-        ) => {
-            buttons.push(hourglass, shield, next, ai, attackType, spellBook);
-            // Keep instance fields in sync (if something else reads them)
-            this.hourglassButton = hourglass;
-            this.shieldButton = shield;
-            this.nextButton = next;
-            this.aiButton = ai;
-            this.selectedAttackTypeButton = attackType;
-            this.spellBookButton = spellBook;
-        };
-
-        // ===== 1) BASE BUTTON SHAPES (all enabled by default, we’ll tweak below) =====
-        const baseHourglass: IVisibleButton = {
-            name: "Hourglass",
-            text: "Wait",
-            state: VisibleButtonState.FIRST,
-            isVisible: true,
-            isDisabled: false,
-            numberOfOptions: 1,
-            selectedOption: 1,
-        };
-
-        const baseShield: IVisibleButton = {
-            name: "LuckShield",
-            text: "Cleanup randomized luck and skip turn",
-            state: VisibleButtonState.FIRST,
-            isVisible: true,
-            isDisabled: false,
-            numberOfOptions: 1,
-            selectedOption: 1,
-        };
-
-        const baseNext: IVisibleButton = {
-            name: "Next",
-            text: "Skip turn",
-            state: VisibleButtonState.FIRST,
-            isVisible: true,
-            isDisabled: false,
-            numberOfOptions: 1,
-            selectedOption: 1,
-        };
-
-        const baseAI: IVisibleButton = {
-            name: "AI",
-            text: "Switch AI state",
-            state: this.sc_isAIActive ? VisibleButtonState.SECOND : VisibleButtonState.FIRST,
-            isVisible: true,
-            isDisabled: false,
-            numberOfOptions: 1,
-            selectedOption: 1,
-        };
-
-        const baseAttackType: IVisibleButton = {
-            name: "AttackType",
-            text: "Switch attack type",
-            state: VisibleButtonState.FIRST,
-            isVisible: true,
-            isDisabled: true,
-            numberOfOptions: 1,
-            selectedOption: 1,
-        };
-
-        const baseSpellBook: IVisibleButton = {
-            name: "Spellbook",
-            text: "Select spell",
-            state: VisibleButtonState.FIRST,
-            isVisible: true,
-            isDisabled: true,
-            numberOfOptions: 1,
-            selectedOption: 1,
-            customSpriteName: undefined,
-        };
-
-        const hasActiveUnit = !!this.currentActiveUnit;
-
-        // ===== 2) GLOBAL DISABLE CASE (fight finished or lock) =====
-        if (this.buttonsRefreshLocked || fightFinished) {
-            const disabled = (b: IVisibleButton): IVisibleButton => ({ ...b, isDisabled: true });
-            pushAll(
-                disabled(baseHourglass),
-                disabled(baseShield),
-                disabled(baseNext),
-                disabled(baseAI),
-                disabled(baseAttackType),
-                disabled(baseSpellBook),
-            );
-
-            const nextJSON = JSON.stringify(buttons);
-            this.sc_visibleButtonGroup = buttons;
-            this.sc_buttonGroupUpdated = forceUpdate || prevButtonsJSON !== nextJSON;
-            return;
-        }
-
-        // ===== 3) AI BUTTON DISABLE RULES =====
-        let aiButton = { ...baseAI };
-        if (!this.currentActiveUnit?.hasAbilityActive("AI Driven")) {
-            // As in your old code: only disable if unit is AI-driven?
-            aiButton.isDisabled = false;
-        }
-
-        // ===== 4) SPELLBOOK vs AI vs NORMAL logic =====
-        let hourglassButton = { ...baseHourglass };
-        let shieldButton = { ...baseShield };
-        let nextButton = { ...baseNext };
-        let attackTypeButton = { ...baseAttackType };
-        let spellBookButton = { ...baseSpellBook };
-
-        if (this.sc_isAIActive) {
-            // --- AI ON → disable everything except AI toggle itself ---
-            hourglassButton.isDisabled = true;
-            shieldButton.isDisabled = true;
-            nextButton.isDisabled = true;
-            attackTypeButton.isDisabled = true;
-            spellBookButton.isDisabled = true;
-            // aiButton.state is already SECOND above
-        } else if (this.sc_renderSpellBookOverlay) {
-            // --- SPELLBOOK OVERLAY VISIBLE ---
-            hourglassButton.isDisabled = true;
-            shieldButton.isDisabled = true;
-            nextButton.isDisabled = true;
-            attackTypeButton.isDisabled = true;
-            spellBookButton.isDisabled = false;
-        } else {
-            // --- NORMAL FIGHT / PREFIGHT STATE ---
-            // Default rules: require an active unit & fight started for most buttons
-            shieldButton.isDisabled = !(fightStarted && hasActiveUnit);
-            nextButton.isDisabled = !(fightStarted && hasActiveUnit);
-            attackTypeButton.isDisabled = !(fightStarted && hasActiveUnit);
-
-            // Hourglass logic comes from your old checkHourglassCondition()
-            hourglassButton.isDisabled = !this.checkHourglassCondition();
-
-            // Spellbook enable depends on your checkCastCondition()
-            spellBookButton.isDisabled = !this.checkCastCondition();
-
-            // AttackType specifics: state + numberOfOptions + selectedOption
-            if (hasActiveUnit) {
-                const active = this.currentActiveUnit!;
-                const [idx, options] = active.getAttackTypeSelectionIndex();
-                const currentIdx = idx + 1;
-
-                if (currentIdx <= 0 || options <= 1) {
-                    attackTypeButton = {
-                        ...attackTypeButton,
-                        isDisabled: true,
-                        numberOfOptions: 1,
-                        selectedOption: 1,
-                    };
-                } else {
-                    let state = VisibleButtonState.FIRST;
-
-                    switch (active.getAttackTypeSelection()) {
-                        case AttackVals.RANGE:
-                            this.currentActiveSpell = undefined;
-                            spellBookButton.customSpriteName = undefined;
-                            state = VisibleButtonState.SECOND;
-                            break;
-                        case AttackVals.MAGIC:
-                            state = VisibleButtonState.THIRD;
-                            break;
-                        default:
-                            this.currentActiveSpell = undefined;
-                            spellBookButton.customSpriteName = undefined;
-                            state = VisibleButtonState.FIRST;
-                            // recompute move path for melee
-                            const currentCell = GridMath.getCellForPosition(
-                                this.sc_sceneSettings.getGridSettings(),
-                                active.getPosition(),
-                            );
-                            if (currentCell) {
-                                this.updateCurrentMovePath(currentCell);
-                            }
-                            break;
-                    }
-
-                    attackTypeButton = {
-                        ...attackTypeButton,
-                        isDisabled: !fightStarted,
-                        state,
-                        numberOfOptions: options,
-                        selectedOption: currentIdx,
-                    };
-                }
-            }
-        }
-
-        // ===== 5) PUSH FINAL BUTTONS IN ORDER =====
-        pushAll(hourglassButton, shieldButton, nextButton, aiButton, attackTypeButton, spellBookButton);
-
-        // ===== 6) DIFF & FLAG UPDATE =====
-        const nextJSON = JSON.stringify(buttons);
-        this.sc_visibleButtonGroup = buttons;
-        this.sc_buttonGroupUpdated = forceUpdate || prevButtonsJSON !== nextJSON;
-    }
-    public propagateButtonClicked(name: string, _state: VisibleButtonState): void {
-        if (
-            !this.currentActiveUnit ||
-            (this.currentActiveUnit && this.currentActiveUnit.hasAbilityActive("AI Driven"))
-        ) {
-            return;
-        }
-
-        const fightProps = FightStateManager.getInstance().getFightProperties();
-
-        // If fight is over, ignore clicks
-        if (fightProps.hasFightFinished()) return;
-
-        // No active unit → nothing to do for most buttons
-        const active = this.currentActiveUnit;
-
-        switch (name) {
-            case "Next": {
-                // Skip/End turn
-                if (!active || !fightProps.hasFightStarted()) return;
-
-                this.sc_sceneLog.updateLog(`${active.getName()} ends turn (player click)`);
-                // Treat "Next" as "finish the turn now"
-                this.finishTurn(false);
-                this.refreshButtons(true);
-                return;
-            }
-
-            case "Hourglass": {
-                if (!active || !fightProps.hasFightStarted()) return;
-
-                // Simple "wait": don't reduce lap, but mark them as having used hourglass.
-                // If you have more detailed hourglass queue logic, put it here.
-                active.setOnHourglass(true);
-                this.sc_sceneLog.updateLog(`${active.getName()} waits (hourglass)`);
-                this.finishTurn(true); // flag as hourglass turn
-                this.refreshButtons(true);
-                return;
-            }
-
-            case "AI": {
-                // Toggle global AI on/off
-                this.sc_isAIActive = !this.sc_isAIActive;
-                this.sc_sceneLog.updateLog(`AI ${this.sc_isAIActive ? "enabled" : "disabled"} by player`);
-                this.refreshButtons(true);
-                return;
-            }
-
-            case "Spellbook": {
-                // Toggle spellbook overlay
-                this.sc_renderSpellBookOverlay = !this.sc_renderSpellBookOverlay;
-                this.sc_sceneLog.updateLog(this.sc_renderSpellBookOverlay ? "Spellbook opened" : "Spellbook closed");
-                this.refreshButtons(true);
-                return;
-            }
-
-            case "LuckShield": {
-                // Whatever "cleanup randomized luck and skip turn" means in your rules.
-                if (!active || !fightProps.hasFightStarted()) return;
-
-                // TODO: put your actual "cleanup luck" logic here.
-                this.sc_sceneLog.updateLog(`${active.getName()} uses Luck Shield (player click)`);
-
-                // For now just skip turn after using it:
-                this.finishTurn(false);
-                this.refreshButtons(true);
-                return;
-            }
-
-            case "AttackType": {
-                // Here you usually want to cycle attack type for the active unit.
-                if (!active || !fightProps.hasFightStarted()) return;
-
-                if (this.currentActiveUnit.selectNextAttackType()) {
-                    this.currentEnemiesCellsWithinMovementRange = undefined;
-                    this.sc_unitPropertiesUpdateNeeded = true;
-                    this.refreshButtons(true);
-                    this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
-                    this.refreshUnits();
-                }
-                // Then update buttons:
-                this.refreshButtons(true);
-                return;
-            }
-
-            default:
-                return;
-        }
+    public override propagateButtonClicked(name: string, state: VisibleButtonState): void {
+        this.buttonManager.propagateButtonClicked(name, state);
     }
     protected landAttack(): boolean {
         return false;
@@ -1721,19 +889,8 @@ export class Sandbox extends PixiScene {
         this.draggingUnitId = undefined;
         this.draggingUnitTeam = undefined;
         this.sc_selectedUnitProperties = undefined;
-        this.hoverPlacementCell = undefined;
-        this.hoverPlacementCellTeam = undefined;
-        this.hoverSelectedCells = undefined;
-        this.hoverSelectedCellsSwitchToRed = false;
-        this.hoveredUnitHighlight = undefined;
-        // reset UnitChip-style hover tween state
-        this.boardHoverProps = undefined;
-        this.boardHoverCenter = undefined;
-        this.boardHoverTargetScale = 1;
-        this.boardHoverTargetYOffset = 0;
-        // this.lastPlacementUnitId = undefined;
-        // this.lastPlacementTimestampSec = 0;
-        this.clearHoverSilhouette();
+        this.hoverManager.resetHover(true);
+        this.hoverManager.resetBoardHoverState();
     }
     private tryPlaceUnit(): void {
         console.log("tryPlaceUnit called");
@@ -1749,14 +906,19 @@ export class Sandbox extends PixiScene {
             console.log("Fight already started, no placement");
             return;
         }
-        if (!this.hoverSelectedCells || this.hoverSelectedCells.length === 0 || this.hoverSelectedCellsSwitchToRed) {
+        if (
+            !this.hoverManager.hoverSelectedCells ||
+            this.hoverManager.hoverSelectedCells.length === 0 ||
+            this.hoverManager.hoverSelectedCellsSwitchToRed
+        ) {
             console.log("No valid hoverSelectedCells or hover is red, abort placement");
             if (!this.selectionFromOverlay) {
                 this.clearBoardSelection();
             }
             return;
         }
-        const teamType = this.hoverPlacementCellTeam;
+
+        const teamType = this.hoverManager.hoverPlacementCellTeam;
         if (!teamType) {
             console.log("No hoverPlacementCellTeam, abort placement");
             if (!this.selectionFromOverlay) {
@@ -1764,9 +926,10 @@ export class Sandbox extends PixiScene {
             }
             return;
         }
+
         // 2. Validate Placement Hashes
         const gs = this.sc_sceneSettings.getGridSettings();
-        const cellsToOccupy = this.hoverSelectedCells;
+        const cellsToOccupy = this.hoverManager.hoverSelectedCells;
         for (const c of cellsToOccupy) {
             const h = (c.x << 4) | c.y;
             if (!this.placementManager.getAllowedPlacementCellHashes().has(h)) {
@@ -1775,16 +938,41 @@ export class Sandbox extends PixiScene {
                 return;
             }
         }
+
+        // Calculate the target world position derived from the hover cells
+        const placePos = GridMath.getPositionForCells(gs, cellsToOccupy);
+
+        if (this.draggingUnitId && placePos) {
+            const unit = this.unitsHolder.getAllUnits().get(this.draggingUnitId);
+            if (unit) {
+                const currentPos = unit.getPosition();
+
+                // Compare current unit position vs target position with a small epsilon
+                // to avoid floating point strict equality issues.
+                const dx = Math.abs(currentPos.x - placePos.x);
+                const dy = Math.abs(currentPos.y - placePos.y);
+
+                if (dx < 0.1 && dy < 0.1) {
+                    console.log("Dropped at exact same position. Ignoring action (keeping selection).");
+                    return; // ⬅️ Return early. Do NOT clearBoardSelection.
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------
+
         // 3. Check Collision (unless moving existing unit, then we ignore self-collision for now)
         if (!this.draggingUnitId && !this.grid.areAllCellsEmpty(cellsToOccupy)) {
             console.log("Some cells already occupied, abort (new placement)");
             return;
         }
+
         // 4. Check Team Cap (only for new units)
         const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
         const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
         const lowerRightPlacement = this.getPlacement(TeamVals.LOWER, 1);
         const upperLeftPlacement = this.getPlacement(TeamVals.UPPER, 1);
+
         if (!this.draggingUnitId && lowerLeftPlacement && upperRightPlacement) {
             const alliesPlacedCount = this.unitsHolder.getAllAlliesPlaced(
                 teamType,
@@ -1801,7 +989,7 @@ export class Sandbox extends PixiScene {
                 return;
             }
         }
-        const placePos = GridMath.getPositionForCells(gs, cellsToOccupy);
+
         if (!placePos) {
             console.log("Failed to compute position for cells");
             if (!this.selectionFromOverlay) this.clearBoardSelection();
@@ -1858,7 +1046,6 @@ export class Sandbox extends PixiScene {
 
         let occupied = false;
 
-        // Grid.occupyCells handles both single and multi-cell logic, but let's match your existing pattern
         if (cellsToOccupy.length === 1) {
             occupied = this.grid.occupyCell(
                 cellsToOccupy[0],
@@ -1930,9 +1117,7 @@ export class Sandbox extends PixiScene {
         // 10. Clear Selection / Hover State
         if (this.selectionFromOverlay) {
             this.sc_selectedUnitProperties = undefined;
-            this.hoverSelectedCells = undefined;
-            this.hoverSelectedCellsSwitchToRed = false;
-            this.clearHoverSilhouette();
+            this.hoverManager.resetHover(true);
             if (this.unitsOverlay) this.unitsOverlay.clearSelection(true);
             this.hasActiveSelection = false;
             this.selectionFromOverlay = false;
@@ -1947,10 +1132,9 @@ export class Sandbox extends PixiScene {
         }
 
         if (!fightProps.hasFightStarted()) {
-            this.lastPlacementUnitId = unit.getId();
-            this.lastPlacementTimestampSec = HoCLib.getTimeMillis() / 1000;
+            this.hoverManager.setLastPlacement(unit.getId());
         } else {
-            this.lastPlacementUnitId = undefined;
+            this.hoverManager.setLastPlacement(undefined);
         }
     }
     protected destroyTempFixtures(): void {}
@@ -1966,20 +1150,52 @@ export class Sandbox extends PixiScene {
                 if (!cell) return;
 
                 const props = this.currentActiveUnit.getUnitProperties();
+                const currentPos = this.currentActiveUnit.getPosition();
 
                 if (props.size === 2) {
-                    const candidate = this.findLargeUnitMoveCandidate(cell);
+                    const candidate = this.hoverManager.findLargeUnitMoveCandidate(cell);
                     if (!candidate) return;
 
-                    this.executeMoveSequence(this.currentActiveUnit, candidate.route.route, candidate.footprint);
+                    const targetPos = GridMath.getPositionForCells(gs, candidate);
+                    if (targetPos) {
+                        const dx = Math.abs(currentPos.x - targetPos.x);
+                        const dy = Math.abs(currentPos.y - targetPos.y);
+                        if (dx < 0.1 && dy < 0.1) {
+                            console.log("Move target is same as current position. Ignoring.");
+                            return;
+                        }
+                    }
+
+                    this.executeMoveSequence(this.currentActiveUnit, candidate, candidate);
                     return;
                 } else {
-                    if (!this.isCellReachableForActiveUnit(cell)) return;
+                    if (!this.hoverManager.isCellReachableForActiveUnit(cell)) return;
 
                     const key = (cell.x << 4) | cell.y;
                     const routes = this.currentActiveKnownPaths.get(key);
+
                     if (routes && routes.length > 0) {
-                        this.executeMoveSequence(this.currentActiveUnit, routes[0].route);
+                        const route = routes[0].route;
+
+                        if (route.length > 0) {
+                            const destCell = route[route.length - 1];
+                            const targetPos = GridMath.getPositionForCell(
+                                destCell,
+                                gs.getMinX(),
+                                gs.getStep(),
+                                gs.getHalfStep(),
+                            );
+
+                            const dx = Math.abs(currentPos.x - targetPos.x);
+                            const dy = Math.abs(currentPos.y - targetPos.y);
+
+                            if (dx < 0.1 && dy < 0.1) {
+                                console.log("Move target is same as current position. Ignoring.");
+                                return;
+                            }
+                        }
+
+                        this.executeMoveSequence(this.currentActiveUnit, route);
                         return;
                     }
                 }
@@ -1989,13 +1205,13 @@ export class Sandbox extends PixiScene {
 
         // 2. PRE-FIGHT PLACEMENT INTERACTION
         if (this.hasActiveSelection && this.sc_selectedUnitProperties) {
-            this.updateHoverPlacementCell(p);
+            this.hoverManager.updateHoverPlacementCell(p);
 
             // If hover is invalid or empty, handle deselect
             if (
-                !this.hoverSelectedCells ||
-                this.hoverSelectedCells.length === 0 ||
-                this.hoverSelectedCellsSwitchToRed
+                !this.hoverManager.hoverSelectedCells ||
+                this.hoverManager.hoverSelectedCells.length === 0 ||
+                this.hoverManager.hoverSelectedCellsSwitchToRed
             ) {
                 if (!this.selectionFromOverlay) {
                     if (this.selectedBoardUnit) {
@@ -2024,8 +1240,7 @@ export class Sandbox extends PixiScene {
             this.selectedBoardUnit.setBoardSelected(true);
 
             const props = unit.getUnitProperties();
-            this.lastPlacementUnitId = undefined;
-            this.lastPlacementTimestampSec = 0;
+            this.hoverManager.setLastPlacement(undefined);
             this.hasActiveSelection = true;
             this.selectionFromOverlay = false;
             this.draggingUnitId = unit.getId();
@@ -2033,12 +1248,9 @@ export class Sandbox extends PixiScene {
             this.sc_selectedUnitProperties = props;
             this.setSelectedUnitProperties(props);
 
-            this.boardHoverProps = undefined;
-            this.boardHoverCenter = undefined;
-            this.boardHoverTargetScale = 1;
-            this.boardHoverTargetYOffset = 0;
+            this.hoverManager.resetBoardHoverState();
 
-            this.updateHoverPlacementCell(p);
+            this.hoverManager.updateHoverPlacementCell(p);
             return;
         }
 
@@ -2052,10 +1264,8 @@ export class Sandbox extends PixiScene {
         // For logging, still keep the last path cell
         const destCell = path[path.length - 1];
 
-        // 2. CLEANUP: Remove the unit from its OLD grid position
         this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
 
-        // 3. Determine the NEW footprint
         let cellsToOccupy: HoCMath.XY[];
 
         if (!unit.isSmallSize()) {
@@ -2074,7 +1284,6 @@ export class Sandbox extends PixiScene {
             cellsToOccupy = [destCell];
         }
 
-        // 4. OCCUPY NEW CELLS
         const hasMadeOfFire = unit.hasAbilityActive("Made of Fire");
         const hasMadeOfWater = unit.hasAbilityActive("Made of Water");
 
@@ -2088,18 +1297,15 @@ export class Sandbox extends PixiScene {
         );
 
         if (occupied) {
-            // 5. SYNC MATRICES
             this.gridMatrix = this.grid.getMatrix();
             this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
 
-            // 6. VISUALS
             const newWorldPos = GridMath.getPositionForCells(gs, cellsToOccupy);
             if (newWorldPos) {
                 unit.setPosition(newWorldPos.x, newWorldPos.y);
 
                 this.sc_sceneLog.updateLog(`${unit.getName()} moved to (${destCell.x}, ${destCell.y})`);
 
-                // 7. Finish the turn
                 this.finishTurn();
             }
         } else {
@@ -2109,211 +1315,18 @@ export class Sandbox extends PixiScene {
             // Optional: restore old footprint here if you want a full rollback.
         }
     }
-    /** For a size-2 active unit, find the best 2×2 footprint + route for the hovered cell. */
-    private findLargeUnitMoveCandidate(
-        hoveredCell: HoCMath.XY,
-    ): { footprint: HoCMath.XY[]; center: HoCMath.XY; route: IWeightedRoute } | null {
-        if (!this.currentActiveUnit || !this.currentActivePathHashes || !this.currentActiveKnownPaths) return null;
-
-        const props = this.currentActiveUnit.getUnitProperties();
-        if (props.size !== 2) return null;
-
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const hash = (x: number, y: number) => (x << 4) | y;
-
-        type Candidate = { footprint: HoCMath.XY[]; center: HoCMath.XY; route: IWeightedRoute };
-
-        const candidates: Candidate[] = [];
-
-        // 4 possible bottom-left anchors for a 2×2 block that contains hoveredCell
-        const anchors: HoCMath.XY[] = [
-            { x: hoveredCell.x, y: hoveredCell.y }, // hovered as BL
-            { x: hoveredCell.x - 1, y: hoveredCell.y }, // hovered as BR
-            { x: hoveredCell.x, y: hoveredCell.y - 1 }, // hovered as TL
-            { x: hoveredCell.x - 1, y: hoveredCell.y - 1 }, // hovered as TR
-        ];
-
-        for (const anchor of anchors) {
-            const footprint: HoCMath.XY[] = [
-                { x: anchor.x, y: anchor.y },
-                { x: anchor.x + 1, y: anchor.y },
-                { x: anchor.x, y: anchor.y + 1 },
-                { x: anchor.x + 1, y: anchor.y + 1 },
-            ];
-
-            // All 4 cells must be reachable according to path hashes
-            let allReachable = true;
-            for (const c of footprint) {
-                if (!this.currentActivePathHashes.has(hash(c.x, c.y))) {
-                    allReachable = false;
-                    break;
-                }
-            }
-            if (!allReachable) continue;
-
-            // Find a route whose destination lies on any cell of this footprint
-            let bestRoute: IWeightedRoute | null = null;
-
-            for (const c of footprint) {
-                const key = hash(c.x, c.y);
-                const routes = this.currentActiveKnownPaths.get(key);
-                if (!routes || !routes.length) continue;
-
-                for (const r of routes) {
-                    const dest = r.route && r.route.length ? r.route[r.route.length - 1] : r.cell;
-                    if (!dest) continue;
-
-                    if (!footprint.some((f) => f.x === dest.x && f.y === dest.y)) {
-                        continue;
-                    }
-
-                    if (!bestRoute || r.weight < bestRoute.weight) {
-                        bestRoute = r;
-                    }
-                }
-            }
-
-            if (!bestRoute) continue;
-
-            const center = GridMath.getPositionForCells(gs, footprint);
-            if (!center) continue;
-
-            candidates.push({ footprint, center, route: bestRoute });
-        }
-
-        if (!candidates.length) return null;
-
-        // Choose candidate whose center is closest to mouse
-        const mouse = this.sc_mouseWorld;
-        if (!mouse) return candidates[0];
-
-        let best = candidates[0];
-        let bestDistSq = Number.POSITIVE_INFINITY;
-
-        for (const cand of candidates) {
-            const dx = cand.center.x - mouse.x;
-            const dy = cand.center.y - mouse.y;
-            const d2 = dx * dx + dy * dy;
-            if (d2 < bestDistSq) {
-                bestDistSq = d2;
-                best = cand;
-            }
-        }
-
-        return best;
-    }
-    private getHighlightRectForUnit(unit: Unit): { x: number; y: number; w: number; h: number } | undefined {
-        const props = unit.getUnitProperties();
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const size = gs.getCellSize();
-        const pos = unit.getPosition();
-        let w = size;
-        let h = size;
-        if (props.size === 2) {
-            w = size * 2;
-            h = size * 2;
-        }
-        return {
-            x: pos.x - w / 2 + 1,
-            y: pos.y - h / 2 + 1,
-            w: w - 2,
-            h: h - 2,
-        };
-    }
-    private updateActiveMoveSilhouetteForCell(cell: HoCMath.XY): void {
-        if (!this.currentActiveUnit) {
-            this.clearHoverSilhouette();
-            return;
-        }
-
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const props = this.currentActiveUnit.getUnitProperties();
-
-        let centerPos: HoCMath.XY | undefined;
-
-        if (props.size === 2) {
-            const candidate = this.findLargeUnitMoveCandidate(cell);
-            if (!candidate) {
-                this.clearHoverSilhouette();
-                return;
-            }
-            centerPos = candidate.center;
-        } else {
-            if (!this.isCellReachableForActiveUnit(cell)) {
-                this.clearHoverSilhouette();
-                return;
-            }
-            centerPos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-        }
-
-        if (!centerPos) {
-            this.clearHoverSilhouette();
-            return;
-        }
-
-        const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
-        const tex = this.texAny(texName);
-        if (!tex) {
-            this.clearHoverSilhouette();
-            return;
-        }
-
-        if (!this.hoverSilhouette) {
-            this.hoverSilhouette = new Sprite(tex);
-            this.hoverSilhouette.anchor.set(0.5);
-            this.attachToWorldRoot(this.hoverSilhouette, 110);
-            this.hoverSilhouette.scale.y = -1;
-        } else if (this.hoverSilhouetteKey !== texName) {
-            this.hoverSilhouette.texture = tex;
-        }
-
-        if (!this.hoverSilhouetteOutline) {
-            this.hoverSilhouetteOutline = new Sprite(tex);
-            this.hoverSilhouetteOutline.anchor.set(0.5);
-            this.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
-            this.hoverSilhouetteOutline.scale.y = -1;
-        } else if (this.hoverSilhouetteKey !== texName) {
-            this.hoverSilhouetteOutline.texture = tex;
-        }
-
-        this.hoverSilhouetteKey = texName;
-
-        const sprite = this.hoverSilhouette;
-        const outline = this.hoverSilhouetteOutline;
-
-        const targetSize = props.size === 2 ? 256 : 128;
-        const baseWidth = tex.width || 1;
-        const scale = targetSize / baseWidth;
-        const outlineScale = scale * 1.06;
-
-        sprite.scale.set(scale, -scale);
-        outline.scale.set(outlineScale, -outlineScale);
-
-        sprite.x = centerPos.x;
-        sprite.y = centerPos.y;
-        outline.x = centerPos.x;
-        outline.y = centerPos.y;
-
-        outline.visible = true;
-        outline.alpha = 0.9;
-        outline.tint = 0xffffff;
-
-        sprite.visible = true;
-        sprite.alpha = 0.8;
-        sprite.tint = 0x000000;
-    }
     protected override hover(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
 
         // --- FIGHT MODE: active unit move-hover silhouette ---
         if (fightProps.hasFightStarted()) {
             if (!this.currentActiveUnit) {
-                this.clearHoverSilhouette();
+                this.hoverManager.clearHoverSilhouette();
                 return;
             }
 
             if (this.sc_isAnimating || !this.sc_mouseWorld) {
-                this.clearHoverSilhouette();
+                this.hoverManager.clearHoverSilhouette();
                 return;
             }
 
@@ -2321,67 +1334,48 @@ export class Sandbox extends PixiScene {
             const cell = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
 
             if (!cell) {
-                this.clearHoverSilhouette();
+                this.hoverManager.clearHoverSilhouette();
                 return;
             }
 
-            if (this.isCellReachableForActiveUnit(cell)) {
-                this.updateActiveMoveSilhouetteForCell(cell);
+            if (this.hoverManager.isCellReachableForActiveUnit(cell)) {
+                this.hoverManager.updateActiveMoveSilhouetteForCell(cell);
             } else {
-                this.clearHoverSilhouette();
+                this.hoverManager.clearHoverSilhouette();
             }
             return;
         }
 
-        // ... [Rest of Pre-Fight Logic remains exactly as in the previous step] ...
-        // (Copy the updateHoverPlacementCell call from previous answer here)
+        // CASE 1: Active selection from OVERLAY (New Unit)
+        // We usually don't highlight a "ghost" unit from the overlay, just the placement square
         if (this.hasActiveSelection && this.sc_selectedUnitProperties && this.selectionFromOverlay) {
-            this.hoveredUnitHighlight = undefined;
-            this.updateHoverPlacementCell(this.sc_mouseWorld);
+            this.hoverManager.hoveredUnitHighlight = undefined;
+            this.hoverManager.updateHoverPlacementCell(this.sc_mouseWorld);
             return;
         }
 
-        // CASE 2: active selection from BOARD (move existing unit)
+        // CASE 2: Active selection from BOARD (Moving existing unit)
         if (
             this.hasActiveSelection &&
             this.sc_selectedUnitProperties &&
             !this.selectionFromOverlay &&
             this.draggingUnitId
         ) {
-            const selectedUnit = this.unitsHolder.getAllUnits().get(this.draggingUnitId);
-            if (selectedUnit) {
-                this.hoveredUnitHighlight = this.getHighlightRectForUnit(selectedUnit);
-            } else {
-                this.hoveredUnitHighlight = undefined;
-            }
-            this.updateHoverPlacementCell(this.sc_mouseWorld);
+            this.hoverManager.calculateActiveSelectionHighlight();
+            this.hoverManager.updateHoverPlacementCell(this.sc_mouseWorld);
             return;
         }
 
-        // CASE 3: no active selection → just passive hover highlight
-        const p = this.sc_mouseWorld;
-        const nowSec = HoCLib.getTimeMillis() / 1000;
-        const unit = this.getUnitAtPosition(p);
-        if (!unit) {
-            this.hoveredUnitHighlight = undefined;
-            this.clearHoverSilhouette();
-            return;
-        }
-        const lastPlacementActive =
-            this.lastPlacementUnitId && nowSec - this.lastPlacementTimestampSec < this.hoverRearmDelaySec;
-        if (lastPlacementActive && unit.getId() === this.lastPlacementUnitId) {
-            this.hoveredUnitHighlight = undefined;
-            this.clearHoverSilhouette();
-            return;
-        }
-        this.hoveredUnitHighlight = this.getHighlightRectForUnit(unit);
+        // CASE 3: No active selection → just passive hover highlight (mouse over unit)
+        this.hoverManager.update(1 / 60);
+        this.hoverManager.calculatePassiveHover();
     }
     public override MouseMove(p: HoCMath.XY, leftDrag: boolean): void {
         super.MouseMove(p, leftDrag);
         const fightProps = FightStateManager.getInstance().getFightProperties();
         if (fightProps.hasFightStarted()) {
-            this.hoverPlacementCell = undefined;
-            this.hoverPlacementCellTeam = undefined;
+            this.hoverManager.hoverPlacementCell = undefined;
+            this.hoverManager.hoverPlacementCellTeam = undefined;
         }
     }
     public override Deselect(_onlyWhenNotStarted = false, _refreshStats = true): void {
@@ -2401,24 +1395,19 @@ export class Sandbox extends PixiScene {
         this.draggingUnitTeam = undefined;
 
         // Clear placement hover (red/white rectangle)
-        this.hoverPlacementCell = undefined;
-        this.hoverPlacementCellTeam = undefined;
-        this.hoverSelectedCells = undefined;
-        this.hoverSelectedCellsSwitchToRed = false;
+        this.hoverManager.hoverPlacementCell = undefined;
+        this.hoverManager.hoverPlacementCellTeam = undefined;
+        this.hoverManager.hoverSelectedCells = undefined;
+        this.hoverManager.hoverSelectedCellsSwitchToRed = false;
 
         // Clear passive board-hover highlight
-        this.hoveredUnitHighlight = undefined;
+        this.hoverManager.hoveredUnitHighlight = undefined;
 
         // Reset UnitChip-style hover tween state
-        this.boardHoverProps = undefined;
-        this.boardHoverCenter = undefined;
-        this.boardHoverScale = 1;
-        this.boardHoverTargetScale = 1;
-        this.boardHoverYOffset = 0;
-        this.boardHoverTargetYOffset = 0;
+        this.hoverManager.resetBoardHoverState();
 
         // Also clear silhouettes / flags used by hover previews
-        this.resetHover(false); // clears silhouette + internal flags, but we already nulled selected cells above
+        this.hoverManager.resetHover(false); // clears silhouette + internal flags, but we already nulled selected cells above
     }
     private updateUnitsOverlayVisibility(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -2435,12 +1424,12 @@ export class Sandbox extends PixiScene {
             this.hasActiveSelection = false;
             this.selectionFromOverlay = false;
             this.sc_selectedUnitProperties = undefined;
-            this.clearHoverSilhouette();
-            this.hoverSelectedCells = undefined;
-            this.hoverSelectedCellsSwitchToRed = false;
+            this.hoverManager.clearHoverSilhouette();
+            this.hoverManager.hoverSelectedCells = undefined;
+            this.hoverManager.hoverSelectedCellsSwitchToRed = false;
         }
     }
-    public startScene() {
+    public override startScene() {
         const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
         const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
 
@@ -2518,7 +1507,7 @@ export class Sandbox extends PixiScene {
 
         if (fightStarted) {
             // this.clearHoverSilhouette();
-            this.lastPlacementUnitId = undefined;
+            this.hoverManager.setLastPlacement(undefined);
 
             // --- A. TURN TIMER LOGIC ---
             if (HoCLib.getTimeMillis() >= fightProps.getCurrentTurnEnd()) {
@@ -2573,6 +1562,7 @@ export class Sandbox extends PixiScene {
                 setTimeout(() => {
                     // const wasAIActive = this.sc_isAIActive;
                     this.sc_isAIActive = true;
+                    this.buttonManager.sc_isAIActive = true;
                     // this.refreshButtons();
                     // this.performAIAction(wasAIActive);
                 }, 750);
@@ -2580,7 +1570,13 @@ export class Sandbox extends PixiScene {
         } else {
             // Pre-fight logic
             this.checkStartCondition();
-            this.updatePlacementHoverRearm();
+            this.hoverManager.update(timeStep);
+
+            // Ensure placement hover is updated every frame if we have an active selection
+            if (this.hasActiveSelection && this.sc_selectedUnitProperties && this.sc_mouseWorld) {
+                this.hoverManager.updateHoverPlacementCell(this.sc_mouseWorld);
+            }
+
             if (this.placementGraphics) {
                 this.drawPlacements();
             }
@@ -2608,47 +1604,95 @@ export class Sandbox extends PixiScene {
         }
     }
     private drawGameplayVisuals(g: Graphics): void {
-        // 1. Draw Shot Range
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        const fightStarted = fightProps.hasFightStarted();
+
+        // 1. Draw Shot Range (single yellow ring, no inner fill)
         if (this.sc_currentActiveShotRange) {
             const { xy, distance } = this.sc_currentActiveShotRange;
-            const isLightMode = typeof localStorage !== "undefined" && localStorage.getItem("joy-mode") === "light";
-            const color = isLightMode ? 0xffa500 : 0xffff00; // ORANGE : YELLOW
+            const gs = this.sc_sceneSettings.getGridSettings();
+            const cellSize = gs.getCellSize();
 
-            g.circle(xy.x, xy.y, distance).stroke({ width: 2, color: color, alpha: 0.6 });
+            // Always yellow
+            const baseColor = 0xffff00; // pure yellow
+            const ringWidth = fightStarted ? 3 : 2;
+
+            // Just the main ring – no fill/halo
+            g.circle(xy.x, xy.y, distance).stroke({
+                width: ringWidth,
+                color: baseColor,
+                alpha: fightStarted ? 0.95 : 0.8,
+            });
+
+            // Small pulsing ticks around the ring (to make the radius very clear)
+            const steps = 8;
+            const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2;
+            const tickLen = cellSize * (0.25 + 0.15 * pulse);
+
+            for (let i = 0; i < steps; i++) {
+                const angle = (Math.PI * 2 * i) / steps;
+                const cos = Math.cos(angle);
+                const sin = Math.sin(angle);
+
+                const r0 = distance - tickLen * 0.5;
+                const r1 = distance + tickLen * 0.5;
+
+                const x0 = xy.x + cos * r0;
+                const y0 = xy.y + sin * r0;
+                const x1 = xy.x + cos * r1;
+                const y1 = xy.y + sin * r1;
+
+                g.moveTo(x0, y0)
+                    .lineTo(x1, y1)
+                    .stroke({
+                        width: 1.5,
+                        color: baseColor,
+                        alpha: 0.6 + 0.3 * pulse,
+                    });
+            }
+
+            // Outer yellow blur effect (simulated glow for limited visibility)
+            const glowSteps = 12;
+            const glowSpread = cellSize * 0.8; // Adjust spread based on desired blur extent
+            const glowBaseAlpha = fightStarted ? 0.25 : 0.2;
+
+            for (let i = 1; i <= glowSteps; i++) {
+                const fraction = i / glowSteps;
+                const glowRadius = distance + fraction * glowSpread;
+                const glowAlpha = glowBaseAlpha * (1 - fraction) * (0.7 + 0.3 * pulse); // Pulse for dynamic effect
+
+                g.circle(xy.x, xy.y, glowRadius).stroke({
+                    width: 1.5,
+                    color: baseColor,
+                    alpha: glowAlpha,
+                });
+            }
         }
 
-        // 2. Draw Active Path
+        // 2. Draw Active Path (keep your existing one)
         if (this.currentActivePath && this.currentActiveUnit && !this.sc_isAnimating) {
             const path = this.currentActivePath;
             if (path.length > 0) {
                 const gs = this.sc_sceneSettings.getGridSettings();
 
-                // --- Soft “light orbs” along the path for glow (no connecting line) ---
                 for (let i = 0; i < path.length; i++) {
                     const pos = GridMath.getPositionForCell(path[i], gs.getMinX(), gs.getStep(), gs.getHalfStep());
 
-                    // Smaller base radius than before
                     const baseRadius = gs.getCellSize() * 0.18;
-
-                    // Per-node phase offset so pulses travel down the path a bit
                     const phase = this.hoverGlowPhase + i * 0.4;
-                    const wave = (Math.sin(phase) + 1) / 2; // 0..1
+                    const wave = (Math.sin(phase) + 1) / 2;
 
-                    // Radius pulses: gently enlarge → shrink → enlarge
-                    const innerRadius = baseRadius * (0.9 + 0.2 * wave); // ~0.9x–1.1x
-                    const outerRadius = baseRadius * 1.8 * (0.9 + 0.25 * wave); // halo still bigger but overall smaller
+                    const innerRadius = baseRadius * (0.9 + 0.2 * wave);
+                    const outerRadius = baseRadius * 1.8 * (0.9 + 0.25 * wave);
 
-                    // Only the “light portion”: soft alpha pulsing, no strokes at all
-                    const innerAlpha = 0.38 + 0.2 * wave; // 0.32–0.52
-                    const outerAlpha = 0.08 + 0.06 * wave; // very soft halo
+                    const innerAlpha = 0.38 + 0.2 * wave;
+                    const outerAlpha = 0.08 + 0.06 * wave;
 
-                    // Outer soft halo
                     g.circle(pos.x, pos.y, outerRadius).fill({
                         color: 0xffffff,
                         alpha: outerAlpha,
                     });
 
-                    // Inner bright core
                     g.circle(pos.x, pos.y, innerRadius).fill({
                         color: 0xffffff,
                         alpha: innerAlpha,
@@ -2657,15 +1701,10 @@ export class Sandbox extends PixiScene {
             }
         }
 
-        // 3. Draw Cursor/Hover Highlights (Attack targets, etc)
-        // ... Port logic for this.hoverAttackUnit, etc ...
-
-        // 🔥 NEW: Draw Active Unit Highlight (The "Light" Effect)
+        // 3. Active Unit “light” highlight (unchanged)
         if (this.currentActiveUnit) {
-            // We reuse the existing hover highlight logic.
-            // Since 'hover()' is disabled during fight, we can safely set this property for drawing.
-            this.hoveredUnitHighlight = this.getHighlightRectForUnit(this.currentActiveUnit);
-            this.drawHoveredUnitHighlight(g);
+            this.hoverManager.hoveredUnitHighlight = this.hoverManager.getHighlightRectForUnit(this.currentActiveUnit);
+            this.hoverManager.drawHoveredUnitHighlight(g);
         }
     }
     private handleNextUnitActivation(nextUnit: RenderableUnit): void {
@@ -2733,7 +1772,7 @@ export class Sandbox extends PixiScene {
         // 4. Setup Unit State
         nextUnit.refreshPreTurnState(this.sc_sceneLog);
         this.currentActiveUnit = nextUnit;
-        this.buttonsRefreshLocked = false;
+        this.buttonManager.setButtonsRefreshLocked(false);
 
         // Update Sidebar UI
         const props = nextUnit.getUnitProperties();
@@ -2759,18 +1798,19 @@ export class Sandbox extends PixiScene {
         }
 
         // 7. Shot range circle (if ranged)
-        if (nextUnit.getAttackTypeSelection() === AttackVals.RANGE) {
+        const rangeShotCells = nextUnit.getRangeShotDistance();
+        if (rangeShotCells > 0) {
             this.sc_currentActiveShotRange = {
                 xy: nextUnit.getPosition(),
-                distance: nextUnit.getRangeShotDistance() * GridConstants.STEP,
+                distance: rangeShotCells * GridConstants.STEP,
             };
         } else {
             this.sc_currentActiveShotRange = undefined;
         }
 
         fightProps.markFirstTurn();
-        this.buttonsRefreshLocked = false;
-        this.refreshButtons(true);
+        this.buttonManager.setButtonsRefreshLocked(false);
+        this.buttonManager.refreshButtons(true);
     }
     private performArmageddon(units: RenderableUnit[], wave: number): boolean {
         let killed = false;
@@ -2934,11 +1974,11 @@ export class Sandbox extends PixiScene {
             // Let PlacementManager draw spawn lights for the requested team(s)
             this.placementManager.draw(g, team);
 
-            this.drawHoverPlacementCell(g);
+            this.hoverManager.drawHoverPlacementCell(g);
 
             // passive board-hover highlight (no active selection)
-            if (this.hoveredUnitHighlight) {
-                this.drawHoveredUnitHighlight(g);
+            if (this.hoverManager.hoveredUnitHighlight) {
+                this.hoverManager.drawHoveredUnitHighlight(g);
             }
         }
     }
@@ -2983,7 +2023,7 @@ export class Sandbox extends PixiScene {
         }
     }
     protected finishTurn = (isHourglass = false): void => {
-        this.buttonsRefreshLocked = true;
+        this.buttonManager.setButtonsRefreshLocked(true);
         if (!isHourglass && this.currentActiveUnit) {
             this.currentActiveUnit.minusLap();
         }
@@ -3016,10 +2056,10 @@ export class Sandbox extends PixiScene {
         if (
             this.currentActiveUnit &&
             this.currentActiveUnit.refreshPossibleAttackTypes(
-                this.attackHandler.canLandRangeAttack(
+                this.attackHandler?.canLandRangeAttack(
                     this.currentActiveUnit,
                     this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
-                ),
+                ) ?? false,
             )
         ) {
             this.refreshUnits();
@@ -3042,9 +2082,10 @@ export class Sandbox extends PixiScene {
 
         // refresh UI
         this.sc_renderSpellBookOverlay = false;
+        this.buttonManager.sc_renderSpellBookOverlay = false;
         // this.adjustSpellBookSprite();
         this.unitsHolder.refreshStackPowerForAllUnits();
-        this.refreshButtons(true);
+        this.buttonManager.refreshButtons(true);
     };
     protected finishFight(unitsLower?: Unit[], unitsUpper?: Unit[]): void {
         if (this.currentActiveUnit) {
@@ -3067,7 +2108,7 @@ export class Sandbox extends PixiScene {
             this.sc_visibleState.hasFinished = true;
             this.sc_visibleStateUpdateNeeded = true;
         }
-        this.refreshButtons(true);
+        this.buttonManager.refreshButtons(true);
     }
     protected cleanActivePaths(): void {
         this.currentActivePath = undefined;

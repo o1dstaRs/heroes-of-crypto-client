@@ -461,7 +461,7 @@ export class RenderableUnit extends Unit {
         container.y = pos.y + offsetY;
         container.visible = amount > 0;
     }
-    protected refreshAbilitiesDescriptions(_synergyAbilityPowerIncrease: number): void {
+    protected override refreshAbilitiesDescriptions(_synergyAbilityPowerIncrease: number): void {
         return;
     }
     private refreshAbiltyDescription(abilityName: string, abilityDescription: string): void {

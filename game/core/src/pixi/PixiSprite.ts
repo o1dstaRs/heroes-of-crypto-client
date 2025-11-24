@@ -33,7 +33,7 @@ export class PixiSprite extends PIXI.Sprite {
         // In PixiJS, rendering is handled automatically by the renderer
         // This method is kept for API compatibility
     }
-    public destroy(): void {
+    public override destroy(): void {
         super.destroy();
     }
     public isDone(): boolean {
