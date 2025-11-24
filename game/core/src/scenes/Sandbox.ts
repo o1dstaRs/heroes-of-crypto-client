@@ -49,6 +49,7 @@ import { RenderableUnit } from "@/pixi/RenderableUnit";
 import { PixiRenderableSpell } from "@/spells/renderable_spell";
 import { HoverManager } from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
+
 export class Sandbox extends PixiScene {
     private readonly grid: Grid;
     private readonly pathHelper: PathHelper;
@@ -65,6 +66,30 @@ export class Sandbox extends PixiScene {
     private placementGraphics?: Graphics;
     private centerTerrainSprite?: Sprite;
     private selectedBoardUnit?: RenderableUnit;
+    private moveAnimation?: {
+        unit: RenderableUnit;
+        worldPath: HoCMath.XY[]; // world coordinates along the path (includes start + each cell center)
+        currentSegment: number; // segment index in worldPath
+        t: number; // progress [0..1] along current segment
+        speed: number; // world units per second
+        destCell: HoCMath.XY; // final destination cell for logging
+        /** Last world position where a large-unit track cluster was dropped */
+        lastTrackWorld: HoCMath.XY;
+    };
+    private moveTrackPath?: HoCMath.XY[];
+    private moveTrackProgress = 0; // float index along moveTrackPath (0..length)
+    /** Lingering “footprints” / grey glow left after movement. */
+    private lingeringTracks: {
+        x: number;
+        y: number;
+        radius: number;
+        life: number; // seconds remaining
+        maxLife: number; // initial life in seconds
+        phase: number;
+        team: TeamType;
+    }[] = [];
+    private isActiveUnitMoving = false;
+    private lastTrackDropIndex: number = -1;
     private gridMatrix: number[][];
     private gridMatrixNoUnits: number[][];
     private cellToUnitPreRound?: Map<string, Unit>;
@@ -103,7 +128,6 @@ export class Sandbox extends PixiScene {
         super(new SceneSettings(gs, false));
         this.pathHelper = new PathHelper(this.sc_sceneSettings.getGridSettings());
         this.initialize(context);
-        // this.pixiSceneManager.setGridType(FightStateManager.getInstance().getFightProperties().getGridType());
         this.sc_gridTypeUpdateNeeded = true;
         this.abilityFactory = new AbilityFactory(new EffectFactory());
         const fp = FightStateManager.getInstance().getFightProperties();
@@ -118,7 +142,6 @@ export class Sandbox extends PixiScene {
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         this.placementManager = new PlacementManager(this.sc_sceneSettings.getGridSettings());
-
         this.unitsOverlay = new UnitsOverlay(
             context.pixiSceneManager.getApplication(),
             (name) => this.texAny(name),
@@ -133,7 +156,6 @@ export class Sandbox extends PixiScene {
                     }
                     this.draggingUnitId = undefined;
                     this.draggingUnitTeam = undefined;
-
                     this.sc_selectedUnitProperties = props;
                     this.setSelectedUnitProperties(props);
                     this.hoverManager.resetHover(true);
@@ -146,7 +168,6 @@ export class Sandbox extends PixiScene {
             },
         );
         this.unitsOverlay.build();
-
         // Initialize Managers
         this.hoverManager = new HoverManager({
             grid: this.grid,
@@ -166,7 +187,6 @@ export class Sandbox extends PixiScene {
             getSelectedUnitProperties: () => this.sc_selectedUnitProperties,
             hasActiveSelection: () => this.hasActiveSelection,
         });
-
         this.buttonManager = new ButtonManager(
             {
                 getCurrentActiveUnit: () => this.currentActiveUnit,
@@ -188,7 +208,6 @@ export class Sandbox extends PixiScene {
                     this.currentActiveSpell = s;
                 },
                 getVisibleState: () => this.sc_visibleState,
-
                 // 👇 NEW: Implement setters to sync state from Manager to Sandbox (PixiScene)
                 setVisibleButtons: (buttons, updated) => {
                     this.sc_visibleButtonGroup = buttons;
@@ -203,7 +222,6 @@ export class Sandbox extends PixiScene {
             },
             this.sc_isAIActive,
         );
-
         // visible state updater
         HoCLib.interval(() => {
             if (!this.sc_visibleState) return;
@@ -253,7 +271,6 @@ export class Sandbox extends PixiScene {
                 texKey = undefined;
                 break;
         }
-
         // If no special center terrain → hide if exists and bail
         if (!texKey) {
             if (this.centerTerrainSprite) {
@@ -261,7 +278,6 @@ export class Sandbox extends PixiScene {
             }
             return;
         }
-
         const tex = this.texAny(texKey);
         if (!tex) {
             if (this.centerTerrainSprite) {
@@ -269,7 +285,6 @@ export class Sandbox extends PixiScene {
             }
             return;
         }
-
         // Lazily create sprite
         if (!this.centerTerrainSprite) {
             this.centerTerrainSprite = new Sprite(tex);
@@ -283,28 +298,214 @@ export class Sandbox extends PixiScene {
             }
             this.attachToWorldRoot(this.centerTerrainSprite, 50);
         }
-
         const gs = this.sc_sceneSettings.getGridSettings();
-
         const centerX = (gs.getMinX() + gs.getMaxX()) * 0.5;
         const centerY = (gs.getMinY() + gs.getMaxY()) * 0.5;
-
         const cellSize = gs.getCellSize();
-
         // Target area: 4x4 cells in the middle
         const targetW = cellSize * 4;
         const targetH = cellSize * 4;
-
         const texW = tex.width || 1;
         const texH = tex.height || 1;
-
         const sx = targetW / texW;
         const sy = targetH / texH;
-
         this.centerTerrainSprite.scale.set(sx, -sy);
         this.centerTerrainSprite.x = centerX;
         this.centerTerrainSprite.y = centerY;
         this.centerTerrainSprite.visible = true;
+    }
+    /**
+     * Drop a 2x2 cluster of lingering tracks at a given world position for a large (2x2) unit.
+     */
+    private dropLargeUnitTrackAtPosition(unit: RenderableUnit, worldPos: HoCMath.XY, gs: GridSettings): void {
+        const cellSize = gs.getCellSize();
+
+        // FIX: The worldPos passed here is the Visual Center of the 2x2 unit.
+        // That center lies exactly on the grid line between the anchor cell and the next cell.
+        // We subtract half a cell size to shift the coordinate back into the "Anchor Cell"
+        // so getCellForPosition doesn't round up to the next neighbor (+1 shift).
+        const halfSize = cellSize * 0.5;
+        const adjustedPos = { x: worldPos.x - halfSize, y: worldPos.y - halfSize };
+
+        const anchorCell = GridMath.getCellForPosition(gs, adjustedPos);
+        if (!anchorCell) return;
+
+        const footprintCells: HoCMath.XY[] = [
+            { x: anchorCell.x, y: anchorCell.y },
+            { x: anchorCell.x + 1, y: anchorCell.y },
+            { x: anchorCell.x, y: anchorCell.y + 1 },
+            { x: anchorCell.x + 1, y: anchorCell.y + 1 },
+        ];
+
+        for (const c of footprintCells) {
+            const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+            if (!pos) continue;
+            this.lingeringTracks.push({
+                x: pos.x,
+                y: pos.y,
+                radius: cellSize * 0.5,
+                life: 2.0,
+                maxLife: 2.0,
+                phase: Math.random() * Math.PI * 2,
+                team: unit.getTeam(),
+            });
+        }
+    }
+    /**
+     * Step movement animation for the active moving unit.
+     * Uses a piecewise-linear interpolation along worldPath and drops lingering track decals.
+     * For large units (2x2), tracks are dropped as 2x2 clusters along the path of travel.
+     */
+    private stepMoveAnimation(dt: number): void {
+        const anim = this.moveAnimation;
+        if (!anim) return;
+
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cellSize = gs.getCellSize();
+        const { unit, worldPath, speed } = anim;
+        const isLargeUnit = !unit.isSmallSize();
+
+        if (!worldPath || worldPath.length < 2 || speed <= 0) {
+            // Degenerate case – just snap to end and finish.
+            const end = worldPath[worldPath.length - 1] ?? unit.getPosition();
+            unit.setPosition(end.x, end.y);
+            this.finishMoveAnimation();
+            return;
+        }
+
+        let remaining = speed * dt;
+
+        while (remaining > 0 && this.moveAnimation) {
+            const a = this.moveAnimation!;
+            const segIndex = a.currentSegment;
+
+            if (segIndex >= a.worldPath.length - 1) {
+                // Reached the very end of the path.
+                const end = a.worldPath[a.worldPath.length - 1];
+                unit.setPosition(end.x, end.y);
+                this.moveTrackProgress = this.moveTrackPath ? this.moveTrackPath.length : a.worldPath.length - 1;
+                this.finishMoveAnimation();
+                return;
+            }
+
+            const p0 = a.worldPath[segIndex];
+            const p1 = a.worldPath[segIndex + 1];
+            const dx = p1.x - p0.x;
+            const dy = p1.y - p0.y;
+            const segLen = Math.sqrt(dx * dx + dy * dy) || 1e-6;
+            const segRemaining = (1 - a.t) * segLen;
+
+            let newPos: HoCMath.XY;
+
+            if (remaining >= segRemaining) {
+                // We can finish this segment and move to the next.
+                a.t = 1;
+                newPos = { x: p1.x, y: p1.y };
+                unit.setPosition(newPos.x, newPos.y);
+                a.currentSegment += 1;
+                a.t = 0;
+                remaining -= segRemaining;
+            } else {
+                // Move partially along the current segment.
+                const deltaT = remaining / segLen;
+                a.t += deltaT;
+                const nx = p0.x + dx * a.t;
+                const ny = p0.y + dy * a.t;
+                newPos = { x: nx, y: ny };
+                unit.setPosition(newPos.x, newPos.y);
+                remaining = 0;
+            }
+
+            // --- Track dropping ---
+            if (isLargeUnit) {
+                // For big units: drop 2x2 footprints along the world-space path between lastTrackWorld and newPos
+                const spacing = cellSize * 0.9; // ~one cluster per cell travelled
+                let lx = a.lastTrackWorld.x;
+                let ly = a.lastTrackWorld.y;
+
+                let vx = newPos.x - lx;
+                let vy = newPos.y - ly;
+                let dist = Math.sqrt(vx * vx + vy * vy);
+
+                // March along the segment, dropping clusters every `spacing`
+                while (dist >= spacing && dist > 1e-6) {
+                    const stepT = spacing / dist;
+                    lx += vx * stepT;
+                    ly += vy * stepT;
+
+                    this.dropLargeUnitTrackAtPosition(unit, { x: lx, y: ly }, gs);
+
+                    vx = newPos.x - lx;
+                    vy = newPos.y - ly;
+                    dist = Math.sqrt(vx * vx + vy * vy);
+                }
+
+                a.lastTrackWorld = { x: lx, y: ly };
+            }
+
+            // Update track head [0..pathLength] – segment index + local t.
+            this.moveTrackProgress = a.currentSegment + a.t;
+
+            // Small units still use the grid-path based tracking
+            if (!isLargeUnit && this.moveTrackPath && this.moveTrackPath.length > 0) {
+                const idx = Math.floor(this.moveTrackProgress);
+                if (idx >= 0 && idx < this.moveTrackPath.length && idx !== this.lastTrackDropIndex) {
+                    const cell = this.moveTrackPath[idx];
+                    const pos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+                    if (pos) {
+                        this.lingeringTracks.push({
+                            x: pos.x,
+                            y: pos.y,
+                            radius: cellSize * 0.5,
+                            life: 2.0,
+                            maxLife: 2.0,
+                            phase: Math.random() * Math.PI * 2,
+                            team: unit.getTeam(),
+                        });
+                        this.lastTrackDropIndex = idx;
+                    }
+                }
+            }
+        }
+    }
+    private finishMoveAnimation(): void {
+        const anim = this.moveAnimation;
+        if (!anim) return;
+        const { unit, worldPath, destCell } = anim;
+        const end = worldPath[worldPath.length - 1] ?? unit.getPosition();
+
+        // Ensure we end up exactly at the intended destination.
+        unit.setPosition(end.x, end.y);
+
+        // Final 2x2 track cluster at destination for big units
+        if (!unit.isSmallSize()) {
+            const gs = this.sc_sceneSettings.getGridSettings();
+            this.dropLargeUnitTrackAtPosition(unit, end, gs);
+        }
+
+        this.sc_sceneLog.updateLog(`${unit.getName()} moved to (${destCell.x}, ${destCell.y})`);
+        this.moveAnimation = undefined;
+        this.moveTrackPath = undefined;
+        this.moveTrackProgress = 0;
+        this.sc_moveBlocked = false;
+        this.isActiveUnitMoving = false;
+        if (this.sc_visibleState) {
+            this.sc_visibleStateUpdateNeeded = true;
+        }
+        // Apply one final sync and default idle to reset any move effects
+        unit.syncVisual(this.pixiSceneManager.getWorldRoot(), this.sc_sceneSettings.getGridSettings());
+        // Reset sprite transform if we manipulated it
+        unit.setSpriteRotation(0);
+        // End the turn as before.
+        this.finishTurn();
+    }
+    private updateLingeringTracks(dt: number): void {
+        if (!this.lingeringTracks.length) return;
+        this.lingeringTracks = this.lingeringTracks.filter((t) => {
+            t.life -= dt;
+            t.phase += dt * 2; // for pulsing
+            return t.life > 0;
+        });
     }
     protected selectUnitPreStart(
         _teamType: TeamType,
@@ -393,14 +594,11 @@ export class Sandbox extends PixiScene {
     public override Resize(w: number, h: number): void {
         // 1) Let the base scene update camera, worldRoot, etc.
         super.Resize(w, h);
-
         // 2) Background is in screen-space
         this.layoutBackgroundSquare();
-
         // 3) Overlay only exists / matters pre-fight
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const fightStarted = fightProps.hasFightStarted();
-
         if (!fightStarted && this.unitsOverlay) {
             this.unitsOverlay.onResize(w, h);
             // Placement graphics only used pre-fight
@@ -409,7 +607,6 @@ export class Sandbox extends PixiScene {
             // Make sure it’s gone once fight has started
             this.unitsOverlay.destroy();
         }
-
         // 4) Anything that lives in world space and might have been attached
         // to the old worldRoot should be re-attached to the new one.
         this.attachToWorldRoot(this.gameplayGraphics, 55);
@@ -425,56 +622,42 @@ export class Sandbox extends PixiScene {
         // need to call it twice to make sure aura effects are applied
         this.unitsHolder.refreshAuraEffectsForAllUnits();
         this.unitsHolder.refreshStackPowerForAllUnits();
-        // this.unitsFactory.refreshBarFixturesForAllUnits(this.unitsHolder.getAllUnitsIterator());
     }
     protected destroySpecificUnits(unitsToDestroy: RenderableUnit[]): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         if (fightProps.hasFightStarted() || !unitsToDestroy.length) return;
-
         const destroyedUnitIds = new Set<string>();
-
         for (const utd of unitsToDestroy) {
             const unitId = utd.getId();
             if (destroyedUnitIds.has(unitId)) continue;
-
             // 1) Remove from UnitsHolder
             const deleted = this.unitsHolder.deleteUnitById(unitId);
             if (!deleted) continue;
-
             // 2) Cleanup grid occupancy (we still have the Unit instance `utd`)
             this.grid.cleanupAll(unitId, utd.getAttackRange(), utd.isSmallSize());
-
             // 3) Remove Pixi visuals + selection
             utd.destroyVisuals();
-
             if (this.selectedBoardUnit === utd) {
                 this.selectedBoardUnit = undefined;
             }
-
             destroyedUnitIds.add(unitId);
         }
-
         this.unitsHolder.refreshStackPowerForAllUnits();
     }
     protected destroyNonPlacedUnits(verifyWithinGridPosition = true): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         if (fightProps.hasFightStarted()) return;
-
         const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
         const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
         const lowerRightPlacement = this.getPlacement(TeamVals.LOWER, 1);
         const upperLeftPlacement = this.getPlacement(TeamVals.UPPER, 1);
-
         if (!lowerLeftPlacement && !upperRightPlacement && !lowerRightPlacement && !upperLeftPlacement) {
             return;
         }
-
         // Snapshot units BEFORE we start deleting them from UnitsHolder
         const unitsSnapshot = Array.from(this.unitsHolder.getAllUnits().values()) as RenderableUnit[];
-
         for (const unit of unitsSnapshot) {
             const unitId = unit.getId();
-
             const shouldDelete = this.unitsHolder.deleteUnitIfNotAllowed(
                 unitId,
                 lowerLeftPlacement,
@@ -483,26 +666,20 @@ export class Sandbox extends PixiScene {
                 upperLeftPlacement,
                 verifyWithinGridPosition,
             );
-
             if (!shouldDelete) continue;
-
             // UnitsHolder has already removed the unit at this point,
             // but we still have the original `unit` object for grid cleanup:
             this.grid.cleanupAll(unitId, unit.getAttackRange(), unit.isSmallSize());
-
             // Remove Pixi visuals + selection
             unit.destroyVisuals();
         }
-
         this.unitsHolder.refreshStackPowerForAllUnits();
     }
     public propagateAugmentation(teamType: TeamType, augmentType: Augment.AugmentType): boolean {
         const fp = FightStateManager.getInstance().getFightProperties();
         const canAugment = fp.canAugment(teamType, augmentType);
         if (!canAugment) return false;
-
         const augmented = fp.setAugmentPerTeam(teamType, augmentType);
-
         if (augmentType.type === "Placement") {
             this.placementManager.rebuildFromFightProps();
             this.destroyNonPlacedUnits(false);
@@ -517,7 +694,6 @@ export class Sandbox extends PixiScene {
                     this.getPlacement(TeamVals.LOWER, 1),
                     this.getPlacement(TeamVals.UPPER, 1),
                 ).length;
-
                 if (alliesPlacedCount > targetTeamSize) {
                     const unitsToCleanup = this.unitsHolder.toCleanupRandomUnitsTillTeamSize(
                         targetTeamSize,
@@ -533,10 +709,8 @@ export class Sandbox extends PixiScene {
                 }
             }
         }
-
         if (augmented) {
             this.refreshUnits();
-
             if (this.sc_selectedUnitProperties) {
                 const unitId = this.sc_selectedUnitProperties.id;
                 if (unitId) {
@@ -547,10 +721,8 @@ export class Sandbox extends PixiScene {
                 }
                 this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
             }
-
             this.sc_unitPropertiesUpdateNeeded = true;
         }
-
         return augmented;
     }
     public propagateSynergy(
@@ -576,23 +748,18 @@ export class Sandbox extends PixiScene {
                 .getFightProperties()
                 .updateSynergyPerTeam(teamType, faction, specificSynergy, synergyLevel);
             this.refreshUnits();
-            // this.refreshSynergyVisualEffect();
-
             if (this.sc_selectedUnitProperties) {
                 this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
             }
             this.sc_unitPropertiesUpdateNeeded = true;
-
             // some synergies may affect the board state
             if (hasUpdated && isNatureSynergy) {
                 const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
                 const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-
                 if (lowerLeftPlacement && upperRightPlacement) {
                     const targetTeamSize = FightStateManager.getInstance()
                         .getFightProperties()
                         .getNumberOfUnitsAvailableForPlacement(teamType);
-
                     if (
                         this.unitsHolder.getAllAlliesPlaced(
                             teamType,
@@ -616,10 +783,8 @@ export class Sandbox extends PixiScene {
                     }
                 }
             }
-
             return hasUpdated;
         }
-
         return false;
     }
     public getNumberOfUnitsAvailableForPlacement(_t: TeamType): number {
@@ -634,11 +799,9 @@ export class Sandbox extends PixiScene {
     protected refreshSynergyNumbers(teamType: TeamType): void {
         const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
         const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-
         if (!lowerLeftPlacement || !upperRightPlacement) {
             return;
         }
-
         const teamUnits = this.unitsHolder.getAllAlliesPlaced(
             teamType,
             lowerLeftPlacement,
@@ -646,7 +809,6 @@ export class Sandbox extends PixiScene {
             this.getPlacement(TeamVals.LOWER, 1),
             this.getPlacement(TeamVals.UPPER, 1),
         );
-
         let uniqueNamesLife: string[] = [];
         let uniqueNamesChaos: string[] = [];
         let uniqueNamesMight: string[] = [];
@@ -670,7 +832,6 @@ export class Sandbox extends PixiScene {
                 }
             }
         }
-
         FightStateManager.getInstance()
             .getFightProperties()
             .setSynergyUnitsPerFactions(
@@ -680,7 +841,6 @@ export class Sandbox extends PixiScene {
                 uniqueNamesMight.length,
                 uniqueNamesNature.length,
             );
-
         const synergies = this.sc_possibleSynergiesPerTeam.get(teamType);
         const newSynergies = FightStateManager.getInstance().getFightProperties().getPossibleSynergies(teamType);
         this.sc_possibleSynergiesPerTeam.set(teamType, newSynergies);
@@ -690,51 +850,41 @@ export class Sandbox extends PixiScene {
     protected handleMouseDownForSelectedBody(): void {}
     public cloneObject(newAmount?: number): boolean {
         let cloned = false;
-
         if (this.sc_selectedUnitProperties) {
             const selectedUnit = this.unitsHolder.getAllUnits().get(this.sc_selectedUnitProperties.id);
             if (!selectedUnit?.getTeam()) {
                 return cloned;
             }
-
             // 1. Army Cap Check
             // Count all units of this team currently on the board/holder
             const currentTeamCount = Array.from(this.unitsHolder.getAllUnits().values()).filter(
                 (u) => u.getTeam() === selectedUnit.getTeam(),
             ).length;
-
             const limit = FightStateManager.getInstance()
                 .getFightProperties()
                 .getNumberOfUnitsAvailableForPlacement(selectedUnit.getTeam());
-
             if (currentTeamCount >= limit) {
                 return cloned;
             }
-
             const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
             const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-
             if (!lowerLeftPlacement || !upperRightPlacement) {
                 return cloned;
             }
-
             let placement: IPlacement;
             if (selectedUnit.getTeam() === TeamVals.LOWER) {
                 placement = lowerLeftPlacement;
             } else {
                 placement = upperRightPlacement;
             }
-
             const isSmallUnit = selectedUnit.getSize() === 1;
             const allowedCells = placement.possibleCellPositions(isSmallUnit);
             HoCLib.shuffle(allowedCells);
             const gs = this.sc_sceneSettings.getGridSettings();
-
             // Prepare the set of all valid placement hashes for this team to verify boundaries
             const teamAllowedHashes = this.placementManager.getAllowedPlacementCellHashesForTeam(
                 selectedUnit.getTeam(),
             );
-
             for (const cell of allowedCells) {
                 // 2. Define the full footprint
                 let cellsToOccupy: HoCMath.XY[] = [cell];
@@ -746,7 +896,6 @@ export class Sandbox extends PixiScene {
                         { x: cell.x + 1, y: cell.y + 1 },
                     ];
                 }
-
                 // 3. CHECK: Boundaries (Ensure EVERY cell is inside the placement zone)
                 // Even if the anchor is valid, a large unit might spill out.
                 if (teamAllowedHashes) {
@@ -760,16 +909,13 @@ export class Sandbox extends PixiScene {
                     }
                     if (!allInside) continue; // Skip this position if it bleeds out
                 }
-
                 // 4. CHECK: Vacancy (Are these cells free?)
                 if (!this.grid.areAllCellsEmpty(cellsToOccupy)) {
                     continue;
                 }
-
                 // 5. Create the logical unit
                 const newUnit = this.createUnitForTeam(selectedUnit.getTeam(), newAmount);
                 if (!newUnit) break;
-
                 // 6. Attempt to occupy the grid
                 const hasMadeOfFire = newUnit.hasAbilityActive("Made of Fire");
                 const hasMadeOfWater = newUnit.hasAbilityActive("Made of Water");
@@ -781,30 +927,24 @@ export class Sandbox extends PixiScene {
                     hasMadeOfFire,
                     hasMadeOfWater,
                 );
-
                 if (occupied) {
                     this.gridMatrix = this.grid.getMatrix();
                     this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
-
                     // 7. Finalize Position and Visuals
                     const placePos = GridMath.getPositionForCells(gs, cellsToOccupy);
                     if (placePos) {
                         newUnit.setPosition(placePos.x, placePos.y);
                     }
-
                     const scale = newUnit.ensureVisual(this.pixiSceneManager.getWorldRoot(), gs);
                     if (scale) {
                         newUnit.startSpawnAnimation(scale);
                     }
-
                     // 8. Refresh State
                     this.unitsHolder.refreshStackPowerForAllUnits();
                     this.refreshSynergyNumbers(selectedUnit.getTeam());
                     this.refreshUnits();
                     cloned = true;
-
                     this.grid.print(newUnit.getId());
-
                     break; // Stop after successful clone
                 } else {
                     // If grid occupation failed unexpectedly, cleanup
@@ -812,29 +952,20 @@ export class Sandbox extends PixiScene {
                 }
             }
         }
-
         return cloned;
     }
     public deleteObject(): void {}
     public override refreshScene(u: UnitProperties): void {
         // 1. Safety checks
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted() || !u.id) return;
-
         const unit = this.unitsHolder.getAllUnits().get(u.id);
-
         if (unit) {
             // 2. Update the Game Logic
             unit.setAmountAlive(u.amount_alive);
-
             // 3. Refresh Visuals (Stack power, HP bars, etc.)
             this.refreshUnits();
-
             // 4. CRITICAL FIX: Sync the UI State
-            // We must update sc_selectedUnitProperties so PixiGameManager sends the
-            // correct new amount to React.
             this.sc_selectedUnitProperties = { ...unit.getUnitProperties() };
-
-            // 5. Flag for update (Accept() does this too, but good to be explicit)
             this.sc_unitPropertiesUpdateNeeded = true;
         }
     }
@@ -842,7 +973,6 @@ export class Sandbox extends PixiScene {
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
             return;
         }
-
         FightStateManager.getInstance().getFightProperties().setGridType(gridType);
         this.grid.refreshWithNewType(FightStateManager.getInstance().getFightProperties().getGridType());
         this.gridMatrix = this.grid.getMatrix();
@@ -883,7 +1013,6 @@ export class Sandbox extends PixiScene {
             this.selectedBoardUnit.setBoardSelected(false);
             this.selectedBoardUnit = undefined;
         }
-
         this.hasActiveSelection = false;
         this.selectionFromOverlay = false;
         this.draggingUnitId = undefined;
@@ -896,7 +1025,6 @@ export class Sandbox extends PixiScene {
         console.log("tryPlaceUnit called");
         const selected = this.sc_selectedUnitProperties;
         const fightProps = FightStateManager.getInstance().getFightProperties();
-
         // 1. Basic Validations
         if (!this.hasActiveSelection || !selected) {
             console.log("No active selection");
@@ -917,7 +1045,6 @@ export class Sandbox extends PixiScene {
             }
             return;
         }
-
         const teamType = this.hoverManager.hoverPlacementCellTeam;
         if (!teamType) {
             console.log("No hoverPlacementCellTeam, abort placement");
@@ -926,7 +1053,6 @@ export class Sandbox extends PixiScene {
             }
             return;
         }
-
         // 2. Validate Placement Hashes
         const gs = this.sc_sceneSettings.getGridSettings();
         const cellsToOccupy = this.hoverManager.hoverSelectedCells;
@@ -938,41 +1064,31 @@ export class Sandbox extends PixiScene {
                 return;
             }
         }
-
         // Calculate the target world position derived from the hover cells
         const placePos = GridMath.getPositionForCells(gs, cellsToOccupy);
-
         if (this.draggingUnitId && placePos) {
             const unit = this.unitsHolder.getAllUnits().get(this.draggingUnitId);
             if (unit) {
                 const currentPos = unit.getPosition();
-
-                // Compare current unit position vs target position with a small epsilon
-                // to avoid floating point strict equality issues.
                 const dx = Math.abs(currentPos.x - placePos.x);
                 const dy = Math.abs(currentPos.y - placePos.y);
-
                 if (dx < 0.1 && dy < 0.1) {
                     console.log("Dropped at exact same position. Ignoring action (keeping selection).");
-                    return; // ⬅️ Return early. Do NOT clearBoardSelection.
+                    return;
                 }
             }
         }
-
         // ------------------------------------------------------------------
-
         // 3. Check Collision (unless moving existing unit, then we ignore self-collision for now)
         if (!this.draggingUnitId && !this.grid.areAllCellsEmpty(cellsToOccupy)) {
             console.log("Some cells already occupied, abort (new placement)");
             return;
         }
-
         // 4. Check Team Cap (only for new units)
         const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
         const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
         const lowerRightPlacement = this.getPlacement(TeamVals.LOWER, 1);
         const upperLeftPlacement = this.getPlacement(TeamVals.UPPER, 1);
-
         if (!this.draggingUnitId && lowerLeftPlacement && upperRightPlacement) {
             const alliesPlacedCount = this.unitsHolder.getAllAlliesPlaced(
                 teamType,
@@ -989,13 +1105,11 @@ export class Sandbox extends PixiScene {
                 return;
             }
         }
-
         if (!placePos) {
             console.log("Failed to compute position for cells");
             if (!this.selectionFromOverlay) this.clearBoardSelection();
             return;
         }
-
         // 5. Resolve Unit Instance
         let unit: RenderableUnit | undefined;
         if (this.draggingUnitId) {
@@ -1010,18 +1124,13 @@ export class Sandbox extends PixiScene {
             if (!this.selectionFromOverlay) this.clearBoardSelection();
             return;
         }
-
         // ==================================================================================
         // 6. PREPARE ROLLBACK STATE
-        // We must capture where the unit WAS before we remove it.
-        // If the new placement fails, we must put it back to prevent Aggregation Matrix corruption.
         // ==================================================================================
         let cellsToRestore: HoCMath.XY[] | undefined;
-
         if (this.draggingUnitId) {
             const currentPos = unit.getPosition();
             const anchorCell = GridMath.getCellForPosition(gs, currentPos);
-
             if (anchorCell) {
                 if (unit.isSmallSize()) {
                     cellsToRestore = [anchorCell];
@@ -1035,17 +1144,13 @@ export class Sandbox extends PixiScene {
                     ];
                 }
             }
-
             // DESTRUCTIVE ACTION: Remove from grid
             this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
         }
-
         // 7. Attempt to Occupy New Cells
         const hasMadeOfFire = unit.hasAbilityActive("Made of Fire");
         const hasMadeOfWater = unit.hasAbilityActive("Made of Water");
-
         let occupied = false;
-
         if (cellsToOccupy.length === 1) {
             occupied = this.grid.occupyCell(
                 cellsToOccupy[0],
@@ -1065,14 +1170,11 @@ export class Sandbox extends PixiScene {
                 hasMadeOfWater,
             );
         }
-
         // ==================================================================================
         // 8. ROLLBACK ON FAILURE
         // ==================================================================================
         if (!occupied) {
             if (this.draggingUnitId && cellsToRestore) {
-                // Put the unit back exactly where it was.
-                // This increments the AggrMatrix back to its original state.
                 this.grid.occupyCells(
                     cellsToRestore,
                     unit.getId(),
@@ -1082,38 +1184,29 @@ export class Sandbox extends PixiScene {
                     hasMadeOfWater,
                 );
             } else if (!this.draggingUnitId) {
-                // If it was a new unit (not a move) and failed, we clean it up from memory
                 this.unitsHolder.deleteUnitById(unit.getId());
             }
-
             if (!this.selectionFromOverlay) this.clearBoardSelection();
             return;
         }
-
         // 9. Success: Finalize Updates
         unit.setPosition(placePos.x, placePos.y);
         this.refreshSynergyNumbers(unit.getTeam());
         this.refreshUnits();
-
         const scale = unit.ensureVisual(this.pixiSceneManager.getWorldRoot(), gs);
         if (!scale) {
             console.log("Failed to ensure unit sprite");
-            // Ideally rollback here too, but sprite failure is rare/fatal
             if (!this.selectionFromOverlay) this.clearBoardSelection();
             return;
         }
-
         // Sync pathfinding matrices
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
-
         unit.startSpawnAnimation(scale);
         this.unitsHolder.refreshStackPowerForAllUnits();
-
         console.log(
             `Placed ${selected.name} (size=${selected.size}) at (${placePos.x}, ${placePos.y}) for team ${teamType}`,
         );
-
         // 10. Clear Selection / Hover State
         if (this.selectionFromOverlay) {
             this.sc_selectedUnitProperties = undefined;
@@ -1130,7 +1223,6 @@ export class Sandbox extends PixiScene {
             this.clearBoardSelection();
             this.Deselect(false, true);
         }
-
         if (!fightProps.hasFightStarted()) {
             this.hoverManager.setLastPlacement(unit.getId());
         } else {
@@ -1141,21 +1233,17 @@ export class Sandbox extends PixiScene {
     public override MouseDown(p: HoCMath.XY): void {
         this.sc_mouseWorld = p;
         const fightProps = FightStateManager.getInstance().getFightProperties();
-
         // 1. FIGHT STARTED INTERACTION
         if (fightProps.hasFightStarted()) {
             if (this.currentActiveUnit && this.currentActiveKnownPaths && !this.sc_moveBlocked) {
                 const gs = this.sc_sceneSettings.getGridSettings();
                 const cell = GridMath.getCellForPosition(gs, p);
                 if (!cell) return;
-
                 const props = this.currentActiveUnit.getUnitProperties();
                 const currentPos = this.currentActiveUnit.getPosition();
-
                 if (props.size === 2) {
                     const candidate = this.hoverManager.findLargeUnitMoveCandidate(cell);
                     if (!candidate) return;
-
                     const targetPos = GridMath.getPositionForCells(gs, candidate);
                     if (targetPos) {
                         const dx = Math.abs(currentPos.x - targetPos.x);
@@ -1165,18 +1253,14 @@ export class Sandbox extends PixiScene {
                             return;
                         }
                     }
-
                     this.executeMoveSequence(this.currentActiveUnit, candidate, candidate);
                     return;
                 } else {
                     if (!this.hoverManager.isCellReachableForActiveUnit(cell)) return;
-
                     const key = (cell.x << 4) | cell.y;
                     const routes = this.currentActiveKnownPaths.get(key);
-
                     if (routes && routes.length > 0) {
                         const route = routes[0].route;
-
                         if (route.length > 0) {
                             const destCell = route[route.length - 1];
                             const targetPos = GridMath.getPositionForCell(
@@ -1185,16 +1269,13 @@ export class Sandbox extends PixiScene {
                                 gs.getStep(),
                                 gs.getHalfStep(),
                             );
-
                             const dx = Math.abs(currentPos.x - targetPos.x);
                             const dy = Math.abs(currentPos.y - targetPos.y);
-
                             if (dx < 0.1 && dy < 0.1) {
                                 console.log("Move target is same as current position. Ignoring.");
                                 return;
                             }
                         }
-
                         this.executeMoveSequence(this.currentActiveUnit, route);
                         return;
                     }
@@ -1202,12 +1283,9 @@ export class Sandbox extends PixiScene {
             }
             return;
         }
-
         // 2. PRE-FIGHT PLACEMENT INTERACTION
         if (this.hasActiveSelection && this.sc_selectedUnitProperties) {
             this.hoverManager.updateHoverPlacementCell(p);
-
-            // If hover is invalid or empty, handle deselect
             if (
                 !this.hoverManager.hoverSelectedCells ||
                 this.hoverManager.hoverSelectedCells.length === 0 ||
@@ -1224,11 +1302,9 @@ export class Sandbox extends PixiScene {
                 }
                 return;
             }
-
             this.tryPlaceUnit();
             return;
         }
-
         // 3. UNIT SELECTION (Clicking a unit on board)
         const unit = this.getUnitAtPosition(p);
         if (unit) {
@@ -1238,7 +1314,6 @@ export class Sandbox extends PixiScene {
             }
             this.selectedBoardUnit = ru;
             this.selectedBoardUnit.setBoardSelected(true);
-
             const props = unit.getUnitProperties();
             this.hoverManager.setLastPlacement(undefined);
             this.hasActiveSelection = true;
@@ -1247,32 +1322,38 @@ export class Sandbox extends PixiScene {
             this.draggingUnitTeam = unit.getTeam();
             this.sc_selectedUnitProperties = props;
             this.setSelectedUnitProperties(props);
-
             this.hoverManager.resetBoardHoverState();
-
             this.hoverManager.updateHoverPlacementCell(p);
             return;
         }
-
         super.MouseDown(p);
     }
     private executeMoveSequence(unit: RenderableUnit, path: HoCMath.XY[], overrideFootprint?: HoCMath.XY[]): void {
         if (!path || path.length === 0) return;
-
         const gs = this.sc_sceneSettings.getGridSettings();
+        const cellSize = gs.getCellSize();
+        const isLargeUnit = !unit.isSmallSize();
+        const hasFootprintOverride = !!overrideFootprint && overrideFootprint.length === 4;
 
-        // For logging, still keep the last path cell
-        const destCell = path[path.length - 1];
+        // For large units right now, `path` is actually just the final 2x2 footprint cells,
+        // not a real route → detect that pattern and treat it as "teleport" destination only.
+        const pathLooksLikeFootprintOnly = isLargeUnit && hasFootprintOverride && path.length <= 4;
 
+        // Default destCell for logging / track anchor.
+        let destCell = path[path.length - 1];
+
+        // Capture starting world position *before* changing grid.
+        const startPos = unit.getPosition();
+
+        // --- Grid occupancy update ---
         this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
 
         let cellsToOccupy: HoCMath.XY[];
-
-        if (!unit.isSmallSize()) {
-            if (overrideFootprint && overrideFootprint.length === 4) {
-                cellsToOccupy = overrideFootprint;
+        if (isLargeUnit) {
+            if (hasFootprintOverride) {
+                cellsToOccupy = overrideFootprint!;
             } else {
-                // Fallback (shouldn't normally be hit once overrideFootprint is wired)
+                // Fallback if we somehow don't get a footprint override.
                 cellsToOccupy = [
                     { x: destCell.x, y: destCell.y },
                     { x: destCell.x + 1, y: destCell.y },
@@ -1286,7 +1367,6 @@ export class Sandbox extends PixiScene {
 
         const hasMadeOfFire = unit.hasAbilityActive("Made of Fire");
         const hasMadeOfWater = unit.hasAbilityActive("Made of Water");
-
         const occupied = this.grid.occupyCells(
             cellsToOccupy,
             unit.getId(),
@@ -1295,49 +1375,118 @@ export class Sandbox extends PixiScene {
             hasMadeOfFire,
             hasMadeOfWater,
         );
-
-        if (occupied) {
-            this.gridMatrix = this.grid.getMatrix();
-            this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
-
-            const newWorldPos = GridMath.getPositionForCells(gs, cellsToOccupy);
-            if (newWorldPos) {
-                unit.setPosition(newWorldPos.x, newWorldPos.y);
-
-                this.sc_sceneLog.updateLog(`${unit.getName()} moved to (${destCell.x}, ${destCell.y})`);
-
-                this.finishTurn();
-            }
-        } else {
+        if (!occupied) {
             console.error(
                 `Critical: Unit ${unit.getName()} failed to occupy target footprint (dest ${destCell.x}, ${destCell.y})`,
             );
-            // Optional: restore old footprint here if you want a full rollback.
+            return;
         }
+
+        // Sync matrices
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+
+        const newWorldPos = GridMath.getPositionForCells(gs, cellsToOccupy);
+        if (!newWorldPos) {
+            console.error(
+                `Critical: Failed to compute world position for cells when moving ${unit.getName()} -> (${destCell.x}, ${destCell.y})`,
+            );
+            return;
+        }
+
+        // For large units, recompute a sensible anchor destCell
+        if (pathLooksLikeFootprintOnly) {
+            const anchor = GridMath.getCellForPosition(gs, newWorldPos);
+            if (anchor) {
+                destCell = anchor;
+            }
+        }
+
+        // --- Build world-space path for visual animation ---
+        const worldPath: HoCMath.XY[] = [];
+        worldPath.push({ x: startPos.x, y: startPos.y });
+
+        if (pathLooksLikeFootprintOnly) {
+            // Large unit: we only know start and final footprint → straight line A → B.
+            worldPath.push({ x: newWorldPos.x, y: newWorldPos.y });
+        } else {
+            // Small units (or future large units with real route): follow the full route.
+            for (let i = 0; i < path.length; i++) {
+                const cell = path[i];
+                const pos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+                if (pos) {
+                    const last = worldPath[worldPath.length - 1];
+                    if (!last || last.x !== pos.x || last.y !== pos.y) {
+                        worldPath.push(pos);
+                    }
+                }
+            }
+            // Ensure last point matches logical final position.
+            const last = worldPath[worldPath.length - 1];
+            if (!last || last.x !== newWorldPos.x || last.y !== newWorldPos.y) {
+                worldPath.push({ x: newWorldPos.x, y: newWorldPos.y });
+            }
+        }
+
+        // --- Track effect path ---
+        if (pathLooksLikeFootprintOnly) {
+            // For large units we ignore moveTrackPath and rely on world-space tracking.
+            this.moveTrackPath = undefined;
+        } else {
+            this.moveTrackPath = [...path];
+        }
+
+        this.moveTrackProgress = 0;
+        this.lastTrackDropIndex = -1;
+
+        // --- Movement animation state ---
+        this.moveAnimation = {
+            unit,
+            worldPath,
+            currentSegment: 0,
+            t: 0,
+            // 2× speed (cellSize * 12) as per previous tweak.
+            speed: cellSize * 12,
+            destCell,
+            lastTrackWorld: { x: startPos.x, y: startPos.y },
+        };
+
+        // Immediately drop starting 2x2 tracks for big units
+        if (isLargeUnit) {
+            this.dropLargeUnitTrackAtPosition(unit, startPos, gs);
+        }
+
+        this.isActiveUnitMoving = true;
+        if (this.sc_visibleState) {
+            this.sc_visibleStateUpdateNeeded = true;
+        }
+
+        // Once movement starts, kill previews & silhouettes.
+        this.currentActivePath = undefined;
+        this.currentActiveKnownPaths = undefined;
+        this.currentActivePathHashes = undefined;
+        this.hoverManager.clearHoverSilhouette();
+        this.hoverManager.hoveredUnitHighlight = undefined;
+        this.sc_moveBlocked = true;
     }
     protected override hover(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
-
         // --- FIGHT MODE: active unit move-hover silhouette ---
         if (fightProps.hasFightStarted()) {
             if (!this.currentActiveUnit) {
                 this.hoverManager.clearHoverSilhouette();
                 return;
             }
-
             if (this.sc_isAnimating || !this.sc_mouseWorld) {
                 this.hoverManager.clearHoverSilhouette();
                 return;
             }
-
             const gs = this.sc_sceneSettings.getGridSettings();
             const cell = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
-
             if (!cell) {
                 this.hoverManager.clearHoverSilhouette();
                 return;
             }
-
             if (this.hoverManager.isCellReachableForActiveUnit(cell)) {
                 this.hoverManager.updateActiveMoveSilhouetteForCell(cell);
             } else {
@@ -1345,15 +1494,12 @@ export class Sandbox extends PixiScene {
             }
             return;
         }
-
         // CASE 1: Active selection from OVERLAY (New Unit)
-        // We usually don't highlight a "ghost" unit from the overlay, just the placement square
         if (this.hasActiveSelection && this.sc_selectedUnitProperties && this.selectionFromOverlay) {
             this.hoverManager.hoveredUnitHighlight = undefined;
             this.hoverManager.updateHoverPlacementCell(this.sc_mouseWorld);
             return;
         }
-
         // CASE 2: Active selection from BOARD (Moving existing unit)
         if (
             this.hasActiveSelection &&
@@ -1365,7 +1511,6 @@ export class Sandbox extends PixiScene {
             this.hoverManager.updateHoverPlacementCell(this.sc_mouseWorld);
             return;
         }
-
         // CASE 3: No active selection → just passive hover highlight (mouse over unit)
         this.hoverManager.update(1 / 60);
         this.hoverManager.calculatePassiveHover();
@@ -1379,46 +1524,29 @@ export class Sandbox extends PixiScene {
         }
     }
     public override Deselect(_onlyWhenNotStarted = false, _refreshStats = true): void {
-        // First let the base class clear its own selection state (overlay linkage, etc.)
         super.Deselect(_onlyWhenNotStarted, _refreshStats);
-
-        // Stop board selection animation if any
         if (this.selectedBoardUnit) {
             this.selectedBoardUnit.setBoardSelected(false);
             this.selectedBoardUnit = undefined;
         }
-
-        // Then clear Sandbox-specific selection / hover state
         this.hasActiveSelection = false;
         this.selectionFromOverlay = false;
         this.draggingUnitId = undefined;
         this.draggingUnitTeam = undefined;
-
-        // Clear placement hover (red/white rectangle)
         this.hoverManager.hoverPlacementCell = undefined;
         this.hoverManager.hoverPlacementCellTeam = undefined;
         this.hoverManager.hoverSelectedCells = undefined;
         this.hoverManager.hoverSelectedCellsSwitchToRed = false;
-
-        // Clear passive board-hover highlight
         this.hoverManager.hoveredUnitHighlight = undefined;
-
-        // Reset UnitChip-style hover tween state
         this.hoverManager.resetBoardHoverState();
-
-        // Also clear silhouettes / flags used by hover previews
-        this.hoverManager.resetHover(false); // clears silhouette + internal flags, but we already nulled selected cells above
+        this.hoverManager.resetHover(false);
     }
     private updateUnitsOverlayVisibility(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const started = fightProps.hasFightStarted();
-
-        // Hide/show the Pixi overlay container
         if (this.unitsOverlay?.container) {
             this.unitsOverlay.container.visible = !started;
         }
-
-        // When fight starts, clear any overlay selection so nothing “sticks”
         if (started) {
             this.unitsOverlay.clearSelection(true);
             this.hasActiveSelection = false;
@@ -1432,11 +1560,9 @@ export class Sandbox extends PixiScene {
     public override startScene() {
         const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
         const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-
         if (!lowerLeftPlacement || !upperRightPlacement) {
             return false;
         }
-
         if (
             this.unitsHolder.getAllAlliesPlaced(
                 TeamVals.LOWER,
@@ -1457,14 +1583,10 @@ export class Sandbox extends PixiScene {
             this.unitsHolder.increaseUnitsSupplyIfNeededPerTeam(TeamVals.LOWER);
             this.unitsHolder.increaseUnitsSupplyIfNeededPerTeam(TeamVals.UPPER);
             this.unitsHolder.haveDistancesToClosestEnemiesDecreased();
-
-            // 🔥 new: reset lap initialization state
             this.hasInitializedLap = false;
-
             FightStateManager.getInstance().getFightProperties().startFight();
             return super.startScene();
         }
-
         return false;
     }
     private ensureGameplayGraphics(): void {
@@ -1474,7 +1596,6 @@ export class Sandbox extends PixiScene {
     public override Step(_settings: Settings, timeStep: number): void {
         if (timeStep > 0) this.sc_stepCount.increment();
         this.sc_isAnimating = this.pixiSceneManager.isAnimating();
-
         const fightStateManager = FightStateManager.getInstance();
         const fightProps = fightStateManager.getFightProperties();
         const fightStarted = fightProps.hasFightStarted();
@@ -1491,10 +1612,8 @@ export class Sandbox extends PixiScene {
         this.ensureCenterTerrainSprite();
         this.ensurePlacementGraphicsWorld();
         this.ensureGameplayGraphics();
-
         this.spawnPulsePhase += timeStep * 3.7;
         setSpawnFlowPhase(this.spawnPulsePhase);
-
         this.hoverGlowPhase += timeStep * ((Math.PI * 2) / 2.5);
         if (this.hoverGlowPhase > Math.PI * 2) this.hoverGlowPhase -= Math.PI * 2;
 
@@ -1502,17 +1621,14 @@ export class Sandbox extends PixiScene {
         this.gameplayGraphics?.clear();
 
         // ==========================================================================================
-        // CORE GAME LOGIC (Ported from Box2D Step)
+        // CORE GAME LOGIC
         // ==========================================================================================
-
         if (fightStarted) {
-            // this.clearHoverSilhouette();
             this.hoverManager.setLastPlacement(undefined);
 
             // --- A. TURN TIMER LOGIC ---
             if (HoCLib.getTimeMillis() >= fightProps.getCurrentTurnEnd()) {
                 if (this.currentActiveUnit) {
-                    // Handle Timeout: Decrease Morale and Skip
                     this.currentActiveUnit.decreaseMorale(
                         HoCConstants.MORALE_CHANGE_FOR_SKIP,
                         fightProps.getAdditionalMoralePerTeam(this.currentActiveUnit.getTeam()),
@@ -1528,27 +1644,25 @@ export class Sandbox extends PixiScene {
 
             // --- B. WIN CONDITION & NEXT UNIT SELECTION ---
             if (!this.currentActiveUnit) {
-                // Check if fight is over or needs unit shuffle
                 const unitsUpper = this.unitsHolder.getAllAllies(TeamVals.UPPER);
                 const unitsLower = this.unitsHolder.getAllAllies(TeamVals.LOWER);
-
                 if (!unitsUpper.length || !unitsLower.length) {
                     this.finishFight(unitsLower as RenderableUnit[], unitsUpper as RenderableUnit[]);
                 } else {
-                    // If queue is empty, it might be a new lap or start of game
-                    // MODIFIED: Removed !fightProps.getAlreadyMadeTurnSize() to allow lap flip when all turns are made
                     if (!fightProps.getHourglassQueueSize() && !fightProps.getUpNextQueueSize()) {
                         this.handleLapFlip(unitsUpper as RenderableUnit[], unitsLower as RenderableUnit[]);
                     }
-
-                    // Dequeue next unit
                     const nextUnitId = fightProps.dequeueNextUnitId();
                     const nextUnit = nextUnitId ? this.unitsHolder.getAllUnits().get(nextUnitId) : undefined;
-
                     if (nextUnit) {
                         this.handleNextUnitActivation(nextUnit as RenderableUnit);
                     }
                 }
+            }
+
+            // --- Movement animation (visual travel along route) ---
+            if (this.moveAnimation) {
+                this.stepMoveAnimation(timeStep);
             }
 
             // --- C. AI LOGIC ---
@@ -1556,14 +1670,13 @@ export class Sandbox extends PixiScene {
                 this.currentActiveUnit &&
                 (this.sc_isAIActive || this.currentActiveUnit?.hasAbilityActive("AI Driven")) &&
                 !this.performingAIAction &&
-                !this.sc_isAnimating // Don't run AI while animations are playing
+                !this.sc_isAnimating &&
+                !this.moveAnimation
             ) {
                 this.performingAIAction = true;
                 setTimeout(() => {
-                    // const wasAIActive = this.sc_isAIActive;
                     this.sc_isAIActive = true;
                     this.buttonManager.sc_isAIActive = true;
-                    // this.refreshButtons();
                     // this.performAIAction(wasAIActive);
                 }, 750);
             }
@@ -1571,12 +1684,9 @@ export class Sandbox extends PixiScene {
             // Pre-fight logic
             this.checkStartCondition();
             this.hoverManager.update(timeStep);
-
-            // Ensure placement hover is updated every frame if we have an active selection
             if (this.hasActiveSelection && this.sc_selectedUnitProperties && this.sc_mouseWorld) {
                 this.hoverManager.updateHoverPlacementCell(this.sc_mouseWorld);
             }
-
             if (this.placementGraphics) {
                 this.drawPlacements();
             }
@@ -1585,63 +1695,52 @@ export class Sandbox extends PixiScene {
         // ==========================================================================================
         // RENDERING SYNCHRONIZATION
         // ==========================================================================================
-
-        // 4. Draw Gameplay Visuals (Ranges, Paths)
-        // if (fightStarted && this.gameplayGraphics) {
-        //     this.drawGameplayVisuals(this.gameplayGraphics);
-        // }
+        this.updateLingeringTracks(timeStep);
         if (this.gameplayGraphics) {
             this.drawGameplayVisuals(this.gameplayGraphics);
         }
 
-        // 5. Sync Logical Units to Pixi Sprites
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             const rUnit = unit as RenderableUnit;
             rUnit.syncVisual(this.pixiSceneManager.getWorldRoot(), this.sc_sceneSettings.getGridSettings());
-            rUnit.stepSpawnAnimation(timeStep);
-            // Call the render method on the unit to update bars/effects
-            // rUnit.render(this.sc_fps || 60, this.sc_isAnimating, this.sc_sceneLog);
+            if (this.isActiveUnitMoving && this.moveAnimation?.unit === rUnit) {
+                rUnit.applyMoveEffect(this.spawnPulsePhase);
+            } else {
+                rUnit.stepSpawnAnimation(timeStep);
+            }
         }
     }
     private drawGameplayVisuals(g: Graphics): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const fightStarted = fightProps.hasFightStarted();
 
-        // 1. Draw Shot Range (single yellow ring, no inner fill)
-        if (this.sc_currentActiveShotRange) {
+        // 1. Shot range ring
+        if (this.sc_currentActiveShotRange && !this.isActiveUnitMoving) {
             const { xy, distance } = this.sc_currentActiveShotRange;
             const gs = this.sc_sceneSettings.getGridSettings();
             const cellSize = gs.getCellSize();
-
-            // Always yellow
-            const baseColor = 0xffff00; // pure yellow
+            const baseColor = 0xffff00;
             const ringWidth = fightStarted ? 3 : 2;
 
-            // Just the main ring – no fill/halo
             g.circle(xy.x, xy.y, distance).stroke({
                 width: ringWidth,
                 color: baseColor,
                 alpha: fightStarted ? 0.95 : 0.8,
             });
 
-            // Small pulsing ticks around the ring (to make the radius very clear)
             const steps = 8;
             const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2;
             const tickLen = cellSize * (0.25 + 0.15 * pulse);
-
             for (let i = 0; i < steps; i++) {
                 const angle = (Math.PI * 2 * i) / steps;
                 const cos = Math.cos(angle);
                 const sin = Math.sin(angle);
-
                 const r0 = distance - tickLen * 0.5;
                 const r1 = distance + tickLen * 0.5;
-
                 const x0 = xy.x + cos * r0;
                 const y0 = xy.y + sin * r0;
                 const x1 = xy.x + cos * r1;
                 const y1 = xy.y + sin * r1;
-
                 g.moveTo(x0, y0)
                     .lineTo(x1, y1)
                     .stroke({
@@ -1651,16 +1750,13 @@ export class Sandbox extends PixiScene {
                     });
             }
 
-            // Outer yellow blur effect (simulated glow for limited visibility)
             const glowSteps = 12;
-            const glowSpread = cellSize * 0.8; // Adjust spread based on desired blur extent
+            const glowSpread = cellSize * 0.8;
             const glowBaseAlpha = fightStarted ? 0.25 : 0.2;
-
             for (let i = 1; i <= glowSteps; i++) {
                 const fraction = i / glowSteps;
                 const glowRadius = distance + fraction * glowSpread;
-                const glowAlpha = glowBaseAlpha * (1 - fraction) * (0.7 + 0.3 * pulse); // Pulse for dynamic effect
-
+                const glowAlpha = glowBaseAlpha * (1 - fraction) * (0.7 + 0.3 * pulse);
                 g.circle(xy.x, xy.y, glowRadius).stroke({
                     width: 1.5,
                     color: baseColor,
@@ -1669,30 +1765,24 @@ export class Sandbox extends PixiScene {
             }
         }
 
-        // 2. Draw Active Path (keep your existing one)
+        // 2. Active path lights
         if (this.currentActivePath && this.currentActiveUnit && !this.sc_isAnimating) {
             const path = this.currentActivePath;
             if (path.length > 0) {
                 const gs = this.sc_sceneSettings.getGridSettings();
-
                 for (let i = 0; i < path.length; i++) {
                     const pos = GridMath.getPositionForCell(path[i], gs.getMinX(), gs.getStep(), gs.getHalfStep());
-
                     const baseRadius = gs.getCellSize() * 0.18;
                     const phase = this.hoverGlowPhase + i * 0.4;
                     const wave = (Math.sin(phase) + 1) / 2;
-
                     const innerRadius = baseRadius * (0.9 + 0.2 * wave);
                     const outerRadius = baseRadius * 1.8 * (0.9 + 0.25 * wave);
-
                     const innerAlpha = 0.38 + 0.2 * wave;
                     const outerAlpha = 0.08 + 0.06 * wave;
-
                     g.circle(pos.x, pos.y, outerRadius).fill({
                         color: 0xffffff,
                         alpha: outerAlpha,
                     });
-
                     g.circle(pos.x, pos.y, innerRadius).fill({
                         color: 0xffffff,
                         alpha: innerAlpha,
@@ -1701,25 +1791,45 @@ export class Sandbox extends PixiScene {
             }
         }
 
-        // 3. Active Unit “light” highlight (unchanged)
+        // 3. Active unit highlight
         if (this.currentActiveUnit) {
             this.hoverManager.hoveredUnitHighlight = this.hoverManager.getHighlightRectForUnit(this.currentActiveUnit);
             this.hoverManager.drawHoveredUnitHighlight(g);
         }
+
+        // 4. Lingering tracks
+        if (this.lingeringTracks.length) {
+            for (const t of this.lingeringTracks) {
+                const k = t.life / t.maxLife;
+                const numRings = 4;
+                for (let r = 0; r < numRings; r++) {
+                    const frac = r / (numRings - 1);
+                    const ringRadius = t.radius * (0.35 + frac * (0.55 + 0.5 * (1 - k)));
+                    const ringWidth = 0.8 * (1 - frac) + 0.4;
+                    const ringAlpha = 0.55 * k * (1 - frac) * (0.8 + 0.2 * Math.sin(t.phase + frac * Math.PI));
+                    g.circle(t.x, t.y, ringRadius).stroke({
+                        width: ringWidth,
+                        color: 0xffffff,
+                        alpha: ringAlpha,
+                    });
+                }
+                const innerRadius = t.radius * 0.3 * k;
+                const innerAlpha = 0.32 * k * (0.7 + 0.3 * Math.sin(t.phase));
+                g.circle(t.x, t.y, innerRadius).fill({
+                    color: 0xffffff,
+                    alpha: innerAlpha,
+                });
+            }
+        }
     }
     private handleNextUnitActivation(nextUnit: RenderableUnit): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
-
-        // ✅ Mark this as the active unit for this turn
         this.currentActiveUnit = nextUnit;
 
-        // 1. Update "Up Next" UI State
         const unitsNext: IVisibleUnit[] = [];
-
         for (const unitIdNext of FightStateManager.getInstance().getFightProperties().getUpNextQueueIterable()) {
             const unitNext = this.unitsHolder.getAllUnits().get(unitIdNext);
             if (!unitNext) continue;
-
             unitsNext.unshift({
                 amount: unitNext.getAmountAlive(),
                 smallTextureName: unitNext.getSmallTextureName(),
@@ -1728,7 +1838,6 @@ export class Sandbox extends PixiScene {
                 isSkipping: unitNext.isSkippingThisTurn(),
             });
         }
-
         if (nextUnit) {
             unitsNext.push({
                 amount: nextUnit.getAmountAlive(),
@@ -1738,7 +1847,6 @@ export class Sandbox extends PixiScene {
                 isSkipping: nextUnit.isSkippingThisTurn(),
             });
         }
-
         if (this.sc_visibleState) {
             this.sc_visibleState.upNext = unitsNext;
             this.sc_visibleState.teamTypeTurn = nextUnit.getTeam();
@@ -1746,9 +1854,7 @@ export class Sandbox extends PixiScene {
             this.sc_visibleStateUpdateNeeded = true;
         }
 
-        // 2. Check Skip
         if (nextUnit.isSkippingThisTurn()) {
-            // now this.currentActiveUnit is already set
             this.currentActiveUnit.decreaseMorale(
                 HoCConstants.MORALE_CHANGE_FOR_SKIP,
                 fightProps.getAdditionalMoralePerTeam(this.currentActiveUnit.getTeam()),
@@ -1758,46 +1864,35 @@ export class Sandbox extends PixiScene {
             return;
         }
 
-        // 3. Activate Unit
         this.sc_moveBlocked = false;
         this.refreshUnits();
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
-
         nextUnit.setBoardSelected(true);
-
         fightProps.startTurn(nextUnit.getTeam());
         this.refreshVisibleStateIfNeeded();
-
-        // 4. Setup Unit State
         nextUnit.refreshPreTurnState(this.sc_sceneLog);
         this.currentActiveUnit = nextUnit;
         this.buttonManager.setButtonsRefreshLocked(false);
 
-        // Update Sidebar UI
         const props = nextUnit.getUnitProperties();
         this.sc_selectedUnitProperties = props;
         this.setSelectedUnitProperties(props);
         this.sc_unitPropertiesUpdateNeeded = true;
 
-        // 5. Calculate Attack Options
         const canLandRange =
             this.attackHandler?.canLandRangeAttack(nextUnit, this.grid.getEnemyAggrMatrixByUnitId(nextUnit.getId())) ??
             false;
-
         nextUnit.refreshPossibleAttackTypes(canLandRange);
 
-        // 6. Setup Pathfinding – "possible path" for white light visualization
         const currentCell = GridMath.getCellForPosition(
             this.sc_sceneSettings.getGridSettings(),
             nextUnit.getPosition(),
         );
-
         if (currentCell) {
             this.updateCurrentMovePath(currentCell);
         }
 
-        // 7. Shot range circle (if ranged)
         const rangeShotCells = nextUnit.getRangeShotDistance();
         if (rangeShotCells > 0) {
             this.sc_currentActiveShotRange = {
@@ -1814,20 +1909,15 @@ export class Sandbox extends PixiScene {
     }
     private performArmageddon(units: RenderableUnit[], wave: number): boolean {
         let killed = false;
-        // We iterate a copy or be careful with indices because we might modify the array via deleteUnitById
         for (const u of units) {
             u.applyArmageddonDamage(wave, this.sc_sceneLog);
             if (u.isDead()) {
                 killed = true;
                 this.sc_sceneLog.updateLog(`${u.getName()} died`);
-
-                // 1) Remove from Holder
                 const deleted = this.unitsHolder.deleteUnitById(u.getId(), wave === 1);
                 if (deleted) {
-                    // 2) Cleanup Grid & Visuals
                     this.grid.cleanupAll(u.getId(), u.getAttackRange(), u.isSmallSize());
                     u.destroyVisuals();
-
                     if (this.selectedBoardUnit === u) {
                         this.selectedBoardUnit = undefined;
                     }
@@ -1839,58 +1929,44 @@ export class Sandbox extends PixiScene {
     private handleLapFlip(unitsUpper: RenderableUnit[], unitsLower: RenderableUnit[]): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
 
-        // 0. Reset flags on all units (as seen in legacy code "for (const u of units)... setResponded(false)")
         const allCurrentUnits = [...unitsUpper, ...unitsLower];
         for (const u of allCurrentUnits) {
             u.setResponded(false);
             u.setOnHourglass(false);
         }
 
-        // 1. Apply lap-based damage facts / "dry center" effects
         if (this.attackHandler?.getDamageStatisticHolder().has(fightProps.getCurrentLap())) {
             fightProps.encounterDamageDealFact();
         }
 
-        // 2. Advance lap – but NOT on the very first initialization
         if (this.hasInitializedLap) {
             fightProps.flipLap();
-
-            // Dry Center check (visuals + logic)
             if (fightProps.isTimeToDryCenter()) {
-                this.ensureCenterTerrainSprite(); // This handles the texture swap internally based on fight props
+                this.ensureCenterTerrainSprite();
                 this.grid.cleanupCenterObstacle();
             }
         } else {
-            this.hasInitializedLap = true; // first lap, no increment
+            this.hasInitializedLap = true;
         }
 
-        // 3. Armageddon Wave Logic (Replaces old Armageddon body iteration)
         const armageddonWave = fightProps.getArmageddonWave();
         let gotArmageddonKills = false;
-
         if (armageddonWave) {
-            // Process damage on all units
             gotArmageddonKills = this.performArmageddon(unitsLower, armageddonWave) || gotArmageddonKills;
             gotArmageddonKills = this.performArmageddon(unitsUpper, armageddonWave) || gotArmageddonKills;
-
-            // If kills happened, refresh lists
             if (gotArmageddonKills) {
                 const unitsForAllTeams = this.unitsHolder.refreshUnitsForAllTeams();
                 unitsLower = unitsForAllTeams[TeamVals.LOWER - 1] as RenderableUnit[];
                 unitsUpper = unitsForAllTeams[TeamVals.UPPER - 1] as RenderableUnit[];
-
-                // Check Win Condition immediately after Armageddon
                 if (!unitsLower?.length || !unitsUpper?.length) {
                     this.finishFight(unitsLower, unitsUpper);
-                    return; // Fight over
+                    return;
                 }
             }
         }
 
-        // 4. Narrowing / Obstacle Spawning Logic
         const distancesDecreased = this.unitsHolder.haveDistancesToClosestEnemiesDecreased();
         let spawnedObstacles = false;
-
         if (!distancesDecreased || fightProps.isNarrowingLap()) {
             let encounterCurrent = false;
             if (
@@ -1901,17 +1977,13 @@ export class Sandbox extends PixiScene {
                 fightProps.encounterAdditionalNarrowingLap();
                 encounterCurrent = true;
             }
-
-            // Spawn logic
             const spawnLog = this.spawnObstacles(encounterCurrent);
             if (spawnLog) this.sc_sceneLog.updateLog(spawnLog);
-
             fightProps.increaseStepsMoraleMultiplier();
             spawnedObstacles = true;
             this.refreshVisibleStateIfNeeded(true);
         }
 
-        // If obstacles spawned, refresh grid/units again as they might have killed overlapping units
         if (!fightProps.hasFightFinished() && spawnedObstacles) {
             if (!gotArmageddonKills) {
                 const unitsForAllTeams = this.unitsHolder.refreshUnitsForAllTeams();
@@ -1921,18 +1993,14 @@ export class Sandbox extends PixiScene {
             this.unitsHolder.refreshStackPowerForAllUnits();
         }
 
-        // 5. Re-Shuffle and sort by speed (initiative)
         const allUnits = [...unitsUpper, ...unitsLower];
         HoCLib.shuffle(allUnits);
         allUnits.sort((a, b) => b.getSpeed() - a.getSpeed());
 
-        // 6. Morale RNG Logic (Ported from Source)
         for (const u of allUnits) {
             if (!u.getMorale()) continue;
-
             const isPlusMorale = u.getMorale() > 0;
             const chance = HoCLib.getRandomInt(0, 100);
-
             if (chance < Math.abs(u.getMorale()) && !u.hasMindAttackResistance()) {
                 if (isPlusMorale) {
                     const buff = new Spell({
@@ -1954,11 +2022,9 @@ export class Sandbox extends PixiScene {
             }
         }
 
-        // 7. Prefetch turn order queues for the (possibly new) lap
         fightProps.prefetchNextUnitsToTurn(this.unitsHolder.getAllUnits(), unitsUpper, unitsLower);
     }
     private spawnObstacles(encounterCurrent = false): string | undefined {
-        // TODO: port
         console.log(encounterCurrent);
         return undefined;
     }
@@ -1966,17 +2032,11 @@ export class Sandbox extends PixiScene {
         if (!this.placementGraphics) return;
         const g = this.placementGraphics;
         g.clear();
-
         const props = FightStateManager.getInstance().getFightProperties();
         if (!props.hasFightStarted()) {
             let team: TeamType | undefined = undefined;
-
-            // Let PlacementManager draw spawn lights for the requested team(s)
             this.placementManager.draw(g, team);
-
             this.hoverManager.drawHoverPlacementCell(g);
-
-            // passive board-hover highlight (no active selection)
             if (this.hoverManager.hoveredUnitHighlight) {
                 this.hoverManager.drawHoveredUnitHighlight(g);
             }
@@ -2003,9 +2063,7 @@ export class Sandbox extends PixiScene {
                 }
             }
         }
-
         if (lowerAllowed && upperAllowed) {
-            // this.refreshVisibleStateIfNeeded();
             if (this.sc_visibleState) {
                 if (!this.sc_visibleState.canBeStarted) {
                     this.sc_visibleState.canBeStarted = true;
@@ -2013,7 +2071,6 @@ export class Sandbox extends PixiScene {
                 }
             }
         } else {
-            // this.refreshVisibleStateIfNeeded();
             if (this.sc_visibleState) {
                 if (this.sc_visibleState.canBeStarted) {
                     this.sc_visibleState.canBeStarted = false;
@@ -2027,31 +2084,13 @@ export class Sandbox extends PixiScene {
         if (!isHourglass && this.currentActiveUnit) {
             this.currentActiveUnit.minusLap();
         }
-
         this.sc_currentActiveShotRange = undefined;
-
         if (this.currentActiveUnit) {
             this.currentActiveUnit.setBoardSelected(false);
         }
-
-        // cleanup range attack state
         this.hoverRangeAttackDivisors = [];
-        // if (this.hoverRangeAttackLine) {
-        //     this.ground.DestroyFixture(this.hoverRangeAttackLine);
-        //     this.hoverRangeAttackLine = undefined;
-        // }
-        // this.rangeResponseAttackDivisor = 1;
-        // this.rangeResponseUnits = undefined;
-
-        // cleanup magic attack state
-        // this.hoveredSpell = undefined;
         this.currentActiveSpell = undefined;
         this.currentEnemiesCellsWithinMovementRange = undefined;
-
-        // // handle units state
-        // this.hoverAttackUnits = undefined;
-        // this.hoverAttackFromCell = undefined;
-        // this.hoverAttackIsSmallSize = undefined;
 
         if (
             this.currentActiveUnit &&
@@ -2064,7 +2103,6 @@ export class Sandbox extends PixiScene {
         ) {
             this.refreshUnits();
         }
-
         if (!isHourglass && this.currentActiveUnit) {
             FightStateManager.getInstance()
                 .getFightProperties()
@@ -2079,11 +2117,8 @@ export class Sandbox extends PixiScene {
         }
         this.currentActiveUnit = undefined;
         this.sc_selectedAttackType = AttackVals.NO_ATTACK;
-
-        // refresh UI
         this.sc_renderSpellBookOverlay = false;
         this.buttonManager.sc_renderSpellBookOverlay = false;
-        // this.adjustSpellBookSprite();
         this.unitsHolder.refreshStackPowerForAllUnits();
         this.buttonManager.refreshButtons(true);
     };
@@ -2117,10 +2152,9 @@ export class Sandbox extends PixiScene {
     }
     protected verifyButtonsTrigger(): void {}
     protected updateCurrentMovePath(currentCell: HoCMath.XY): void {
-        if (!this.currentActiveUnit) {
+        if (!this.currentActiveUnit || this.moveAnimation) {
             return;
         }
-
         if (
             this.currentActiveUnit.canMove() &&
             this.currentActiveSpell?.getSpellTargetType() !== SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE
@@ -2142,4 +2176,5 @@ export class Sandbox extends PixiScene {
         }
     }
 }
+
 registerScene("Heroes", "Sandbox", Sandbox);
