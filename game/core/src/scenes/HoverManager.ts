@@ -17,7 +17,7 @@ import {
     UnitVals,
     GridConstants,
 } from "@heroesofcrypto/common";
-import { SceneSettings } from "../scenes/scene_settings";
+import { SceneSettings } from "./SceneSettings";
 import { PlacementManager } from "./PlacementManager";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 

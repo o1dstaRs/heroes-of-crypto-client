@@ -11,7 +11,7 @@ import {
     ObstacleType,
 } from "@heroesofcrypto/common";
 import { Obstacle } from "../obstacles/obstacle";
-import { RenderableUnit } from "./RenderableUnit";
+import { RenderableUnit } from "../scenes/RenderableUnit";
 
 // Internal helper to clamp values
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));

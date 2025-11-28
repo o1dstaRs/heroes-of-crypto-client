@@ -37,28 +37,46 @@ import {
     FactionVals,
     GridVals,
     AttackVals,
+<<<<<<< HEAD
     UnitVals,
     IVisibleDamage,
+=======
+    AttackHandler,
+    MoveHandler,
+    IWeightedRoute,
+    Spell,
+    HoCConfig,
+    ISystemMoveResult,
+>>>>>>> aa2e759 (A bit project tree restructuring)
 } from "@heroesofcrypto/common";
-import { Settings } from "../settings";
 import { UnitsOverlay } from "./UnitsOverlay";
+<<<<<<< HEAD
 import { DamageStatisticHolder } from "../stats/damage_stats";
 import { VisibleButtonState, IVisibleUnit } from "../state/visible_state";
 import { SceneSettings } from "../scenes/scene_settings";
+=======
+import { VisibleButtonState, IVisibleUnit } from "./VisibleState";
+import { SceneSettings } from "./SceneSettings";
+>>>>>>> aa2e759 (A bit project tree restructuring)
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
 import { setSpawnFlowPhase } from "../pixi/PixiDrawablePlacement";
 import { PlacementManager } from "./PlacementManager";
-import { RenderableUnit } from "@/pixi/RenderableUnit";
-import { PixiRenderableSpell } from "@/spells/renderable_spell";
+import { RenderableUnit } from "./RenderableUnit";
+import { PixiRenderableSpell } from "./RenderableSpell";
 import { HoverManager } from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
+import { MAX_HOLE_LAYERS } from "@/statics";
 
 export class Sandbox extends PixiScene {
     private readonly grid: Grid;
     private readonly pathHelper: PathHelper;
+<<<<<<< HEAD
     private canAttackByMeleeTargets?: IAttackTargets;
     // --- Components ---
     private readonly attackHandler: AttackHandler;
+=======
+    private readonly attackHandler?: AttackHandler;
+>>>>>>> aa2e759 (A bit project tree restructuring)
     private readonly moveHandler: MoveHandler;
     private hoverManager: HoverManager;
     private buttonManager: ButtonManager;
@@ -119,6 +137,8 @@ export class Sandbox extends PixiScene {
     private hasInitializedLap = false;
     private gameplayGraphics?: Graphics;
     private currentActiveSpell?: PixiRenderableSpell;
+    private holeContainer: Container;
+    private drawnNarrowingLaps: Set<number> = new Set();
     public constructor(context: PixiSceneContext) {
         const gs = new GridSettings(
             GridConstants.GRID_SIZE,
@@ -141,6 +161,9 @@ export class Sandbox extends PixiScene {
             this.sc_sceneSettings.getGridSettings(),
             FightStateManager.getInstance().getFightProperties().getGridType(),
         );
+
+        this.holeContainer = new Container();
+        this.holeContainer.sortableChildren = true;
         this.unitsHolder = new UnitsHolder(this.grid);
         this.attackHandler = new AttackHandler(
             this.sc_sceneSettings.getGridSettings(),
@@ -153,6 +176,7 @@ export class Sandbox extends PixiScene {
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         this.placementManager = new PlacementManager(this.sc_sceneSettings.getGridSettings());
+
         this.unitsOverlay = new UnitsOverlay(
             context.pixiSceneManager.getApplication(),
             (name) => this.texAny(name),
@@ -160,7 +184,6 @@ export class Sandbox extends PixiScene {
                 if (props) {
                     this.selectionFromOverlay = true;
                     this.hasActiveSelection = true;
-                    // clear board selection
                     if (this.selectedBoardUnit) {
                         this.selectedBoardUnit.setBoardSelected(false);
                         this.selectedBoardUnit = undefined;
@@ -171,7 +194,6 @@ export class Sandbox extends PixiScene {
                     this.setSelectedUnitProperties(props);
                     this.hoverManager.resetHover(true);
                 } else {
-                    // deselected from overlay
                     if (this.selectionFromOverlay) {
                         this.Deselect(false, true);
                     }
@@ -179,7 +201,7 @@ export class Sandbox extends PixiScene {
             },
         );
         this.unitsOverlay.build();
-        // Initialize Managers
+
         this.hoverManager = new HoverManager({
             grid: this.grid,
             pathHelper: this.pathHelper,
@@ -198,6 +220,7 @@ export class Sandbox extends PixiScene {
             getSelectedUnitProperties: () => this.sc_selectedUnitProperties,
             hasActiveSelection: () => this.hasActiveSelection,
         });
+
         this.buttonManager = new ButtonManager(
             {
                 getCurrentActiveUnit: () => this.currentActiveUnit,
@@ -219,7 +242,6 @@ export class Sandbox extends PixiScene {
                     this.currentActiveSpell = s;
                 },
                 getVisibleState: () => this.sc_visibleState,
-                // 👇 NEW: Implement setters to sync state from Manager to Sandbox (PixiScene)
                 setVisibleButtons: (buttons, updated) => {
                     this.sc_visibleButtonGroup = buttons;
                     this.sc_buttonGroupUpdated = updated;
@@ -233,7 +255,9 @@ export class Sandbox extends PixiScene {
             },
             this.sc_isAIActive,
         );
-        // visible state updater
+
+        this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
+
         HoCLib.interval(() => {
             if (!this.sc_visibleState) return;
             const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -620,9 +644,166 @@ export class Sandbox extends PixiScene {
         }
         // 4) Anything that lives in world space and might have been attached
         // to the old worldRoot should be re-attached to the new one.
+        this.attachToWorldRoot(this.holeContainer, 20);
         this.attachToWorldRoot(this.gameplayGraphics, 55);
         this.attachToWorldRoot(this.centerTerrainSprite, 50);
         this.hoverManager.onCameraChanged();
+    }
+    private spawnObstacles(encounterCurrent = false): string | undefined {
+        console.log(`spawnObstacles ${encounterCurrent}`);
+
+        // 1. Calculate exactly how many layers should be active based on original logic
+        const fp = FightStateManager.getInstance().getFightProperties();
+
+        if (fp.getCurrentLap() > HoCConstants.NUMBER_OF_LAPS_TILL_STOP_NARROWING) {
+            return undefined;
+        }
+
+        const calculatedLaps =
+            Math.floor((fp.getCurrentLap() - (encounterCurrent ? 1 : 0)) / fp.getNumberOfLapsTillNarrowing()) +
+            fp.getAdditionalNarrowingLaps();
+
+        // If calculated laps is 0 or less (early game), do nothing.
+        if (calculatedLaps < 1) {
+            return undefined;
+        }
+
+        // Cap at max laps if necessary
+        const totalLaps = Math.min(calculatedLaps, MAX_HOLE_LAYERS || 5);
+
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const minCellX = gs.getMinX() / gs.getCellSize();
+        const maxCellX = gs.getMaxX() / gs.getCellSize();
+        const minCellY = gs.getMinY() / gs.getCellSize();
+        const maxCellY = gs.getMaxY() / gs.getCellSize();
+
+        const logs: string[] = [];
+
+        this.attachToWorldRoot(this.holeContainer, 20);
+
+        // 2. Loop from 1 up to totalLaps (Outermost ring -> Inwards)
+        for (let layer = 1; layer <= totalLaps; layer++) {
+            // A. VISUALS: Spawn the sprite for this layer if not already present
+            if (!this.drawnNarrowingLaps.has(layer)) {
+                this.spawnHoleLayer(layer);
+                this.drawnNarrowingLaps.add(layer);
+            }
+
+            // B. LOGIC: Define the grid offset for this specific ring
+            // layer 1 = offset 0 (Edge)
+            // layer 2 = offset 1 (Edge + 1)
+            const offset = layer - 1;
+
+            // Process the 4 edges for this specific ring (offset)
+            // 1. TOP EDGE
+            for (let i = minCellX + offset; i < maxCellX - offset; i++) {
+                const cellX = i + maxCellX;
+                const cell = { x: cellX, y: offset };
+
+                const systemMoveResult = this.moveHandler.moveUnitTowardsCenter(
+                    cell,
+                    GridConstants.UPDATE_UP,
+                    layer, // Pass actual layer count to logic if needed
+                );
+                this.handleSystemMoveResult(systemMoveResult, logs);
+                this.grid.occupyByHole(cell);
+            }
+
+            // 2. BOTTOM EDGE
+            for (let i = minCellX + offset; i < maxCellX - offset; i++) {
+                const cellX = i + maxCellX;
+                const cellY = maxCellY - layer; // effectively max - 1 - offset
+
+                const cell = { x: cellX, y: cellY };
+
+                const systemMoveResult = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_DOWN, layer);
+                this.handleSystemMoveResult(systemMoveResult, logs);
+                this.grid.occupyByHole(cell);
+            }
+
+            // 3. LEFT EDGE
+            for (let i = minCellY + offset; i < maxCellY - offset; i++) {
+                const cellX = offset;
+                const cellY = i;
+
+                const cell = { x: cellX, y: cellY };
+
+                const systemMoveResult = this.moveHandler.moveUnitTowardsCenter(
+                    cell,
+                    GridConstants.UPDATE_RIGHT,
+                    layer,
+                );
+                this.handleSystemMoveResult(systemMoveResult, logs);
+                this.grid.occupyByHole(cell);
+            }
+
+            // 4. RIGHT EDGE
+            for (let i = minCellY + offset; i < maxCellY - offset; i++) {
+                const cellX = (maxCellX << 1) - layer; // Logic from original: max*2 - laps
+                // If maxCellX is width, then (2*max - layer) might be specific to your coordinate system.
+                // Keeping your original math:
+
+                const cellY = i;
+                const cell = { x: cellX, y: cellY };
+
+                const systemMoveResult = this.moveHandler.moveUnitTowardsCenter(cell, GridConstants.UPDATE_LEFT, layer);
+                this.handleSystemMoveResult(systemMoveResult, logs);
+                this.grid.occupyByHole(cell);
+            }
+        }
+
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+
+        return logs.join("\n");
+    }
+    private spawnHoleLayer(layerIndex: number): void {
+        const texName = `spacehole_${layerIndex}`;
+        const tex = this.texAny(texName);
+        if (!tex) return;
+
+        const sprite = new Sprite(tex);
+        sprite.anchor.set(0.5);
+
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const centerX = gs.getMinX() + gs.getMaxX();
+        const centerY = (gs.getMinY() + gs.getMaxY()) * 0.5;
+
+        sprite.x = centerX;
+        sprite.y = centerY;
+
+        // Ensure scale is correct for coordinate system (Y up)
+        sprite.scale.y = 2;
+        sprite.scale.x = 2;
+
+        this.holeContainer.addChild(sprite);
+    }
+    private handleSystemMoveResult(result: ISystemMoveResult, logs: string[]) {
+        if (result.log) {
+            logs.push(result.log);
+        }
+        for (const [uId, newPosition] of result.unitIdToNewPosition.entries()) {
+            const unit = this.unitsHolder.getAllUnits().get(uId);
+            if (unit) {
+                const rUnit = unit as RenderableUnit;
+                rUnit.setPosition(newPosition.x, newPosition.y);
+                rUnit.syncVisual(this.pixiSceneManager.getWorldRoot(), this.sc_sceneSettings.getGridSettings());
+            } else {
+                if (!result.unitIdsDestroyed.includes(uId)) {
+                    result.unitIdsDestroyed.push(uId);
+                }
+            }
+        }
+        const unitsToDestroy: RenderableUnit[] = [];
+        for (const uId of result.unitIdsDestroyed) {
+            const unit = this.unitsHolder.getAllUnits().get(uId);
+            if (unit) {
+                unitsToDestroy.push(unit as RenderableUnit);
+            }
+        }
+        if (unitsToDestroy.length > 0) {
+            this.destroySpecificUnits(unitsToDestroy);
+        }
     }
     public refreshUnits(): void {
         // those need to be applied first
@@ -1240,7 +1421,13 @@ export class Sandbox extends PixiScene {
             this.hoverManager.setLastPlacement(undefined);
         }
     }
+<<<<<<< HEAD
     protected destroyTempFixtures(): void { }
+=======
+    protected destroyTempFixtures(): void {
+        this.updateUnitsOverlayVisibility();
+    }
+>>>>>>> aa2e759 (A bit project tree restructuring)
     public override MouseDown(p: HoCMath.XY): void {
         this.sc_mouseWorld = p;
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -1829,7 +2016,7 @@ export class Sandbox extends PixiScene {
         if (!this.gameplayGraphics) this.gameplayGraphics = new Graphics();
         this.attachToWorldRoot(this.gameplayGraphics, 55); // Above terrain, below units
     }
-    public override Step(_settings: Settings, timeStep: number): void {
+    public override Step(timeStep: number): void {
         if (timeStep > 0) this.sc_stepCount.increment();
         this.sc_isAnimating = this.pixiSceneManager.isAnimating();
         const fightStateManager = FightStateManager.getInstance();
@@ -1936,18 +2123,39 @@ export class Sandbox extends PixiScene {
 
             // --- B. WIN CONDITION & NEXT UNIT SELECTION ---
             if (!this.currentActiveUnit) {
-                const unitsUpper = this.unitsHolder.getAllAllies(TeamVals.UPPER);
-                const unitsLower = this.unitsHolder.getAllAllies(TeamVals.LOWER);
+                const unitsUpper = this.unitsHolder.getAllAllies(TeamVals.UPPER) as RenderableUnit[];
+                const unitsLower = this.unitsHolder.getAllAllies(TeamVals.LOWER) as RenderableUnit[];
+
+                // No enemies on one side → finish fight
                 if (!unitsUpper.length || !unitsLower.length) {
-                    this.finishFight(unitsLower as RenderableUnit[], unitsUpper as RenderableUnit[]);
+                    this.finishFight(unitsLower, unitsUpper);
                 } else {
-                    if (!fightProps.getHourglassQueueSize() && !fightProps.getUpNextQueueSize()) {
-                        this.handleLapFlip(unitsUpper as RenderableUnit[], unitsLower as RenderableUnit[]);
+                    // --- New: replicate old "allUnitsMadeTurn" behaviour ---
+
+                    // 1) First-lap initialization guard
+                    //    (same idea as old `turnFlipped` check: when fight just started and
+                    //     nothing is in hourglass or up-next queues yet, we need to seed the lap)
+                    const initFirstLap =
+                        fightProps.getCurrentLap() === 1 &&
+                        !fightProps.getHourglassQueueSize() &&
+                        !fightProps.getUpNextQueueSize();
+
+                    // 2) True when EVERY living unit has an entry in alreadyMadeTurn
+                    const allUnitsMadeTurn =
+                        unitsUpper.every((u) => fightProps.hasAlreadyMadeTurn(u.getId())) &&
+                        unitsLower.every((u) => fightProps.hasAlreadyMadeTurn(u.getId()));
+
+                    if ((initFirstLap || allUnitsMadeTurn) && !fightProps.hasFightFinished()) {
+                        this.handleLapFlip(unitsUpper, unitsLower, allUnitsMadeTurn);
                     }
-                    const nextUnitId = fightProps.dequeueNextUnitId();
-                    const nextUnit = nextUnitId ? this.unitsHolder.getAllUnits().get(nextUnitId) : undefined;
-                    if (nextUnit) {
-                        this.handleNextUnitActivation(nextUnit as RenderableUnit);
+
+                    // After possible lap flip, fight may have ended
+                    if (!fightProps.hasFightFinished()) {
+                        const nextUnitId = fightProps.dequeueNextUnitId();
+                        const nextUnit = nextUnitId ? this.unitsHolder.getAllUnits().get(nextUnitId) : undefined;
+                        if (nextUnit) {
+                            this.handleNextUnitActivation(nextUnit as RenderableUnit);
+                        }
                     }
                 }
             }
@@ -2218,7 +2426,7 @@ export class Sandbox extends PixiScene {
         }
         return killed;
     }
-    private handleLapFlip(unitsUpper: RenderableUnit[], unitsLower: RenderableUnit[]): void {
+    private handleLapFlip(unitsUpper: RenderableUnit[], unitsLower: RenderableUnit[], allUnitsMadeTurn: boolean): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
 
         const allCurrentUnits = [...unitsUpper, ...unitsLower];
@@ -2259,14 +2467,18 @@ export class Sandbox extends PixiScene {
 
         const distancesDecreased = this.unitsHolder.haveDistancesToClosestEnemiesDecreased();
         let spawnedObstacles = false;
-        if (!distancesDecreased || fightProps.isNarrowingLap()) {
+        if (allUnitsMadeTurn && (!distancesDecreased || fightProps.isNarrowingLap())) {
             let encounterCurrent = false;
             if (
                 !distancesDecreased &&
-                !fightProps.hasDamageDealFactPerLap(fightProps.getCurrentLap() - 1) &&
-                !fightProps.isNarrowingLap()
+                !FightStateManager.getInstance()
+                    .getFightProperties()
+                    .hasDamageDealFactPerLap(
+                        FightStateManager.getInstance().getFightProperties().getCurrentLap() - 1,
+                    ) &&
+                !FightStateManager.getInstance().getFightProperties().isNarrowingLap()
             ) {
-                fightProps.encounterAdditionalNarrowingLap();
+                FightStateManager.getInstance().getFightProperties().encounterAdditionalNarrowingLap();
                 encounterCurrent = true;
             }
             const spawnLog = this.spawnObstacles(encounterCurrent);
@@ -2315,10 +2527,6 @@ export class Sandbox extends PixiScene {
         }
 
         fightProps.prefetchNextUnitsToTurn(this.unitsHolder.getAllUnits(), unitsUpper, unitsLower);
-    }
-    private spawnObstacles(encounterCurrent = false): string | undefined {
-        console.log(encounterCurrent);
-        return undefined;
     }
     private drawPlacements(): void {
         if (!this.placementGraphics) return;

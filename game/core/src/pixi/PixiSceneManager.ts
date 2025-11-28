@@ -4,33 +4,11 @@ import { GridSettings, GridType, HoCMath, Grid } from "@heroesofcrypto/common";
 import { PixiApp } from "./PixiApp";
 import { PixiDrawer } from "./PixiDrawer";
 import { SimplePhysicsManager } from "./SimplePhysicsManager";
-import { makeBodyLike, type BodyLike, type DisplayObjectLike } from "./userData";
-import { RenderableUnit } from "./RenderableUnit";
+import { RenderableUnit } from "../scenes/RenderableUnit";
 
 /** Minimal grid shape expected by PixiDrawer; we'll cast it to the full Grid type for compatibility */
 interface GridLike {
     getSettings(): GridSettings;
-}
-
-/** Bounds shape we care about */
-interface BoundsLike {
-    contains(x: number, y: number): boolean;
-}
-
-/** Type guard: does an unknown object expose getBounds(): BoundsLike ? */
-function hasBounds(obj: unknown): obj is { getBounds: () => BoundsLike } {
-    return !!obj && typeof obj === "object" && typeof (obj as { getBounds?: unknown }).getBounds === "function";
-}
-
-function hasRect(obj: unknown): obj is { x: number; y: number; width: number; height: number } {
-    if (!obj || typeof obj !== "object") return false;
-    const o = obj as Record<string, unknown>;
-    return (
-        typeof o.x === "number" &&
-        typeof o.y === "number" &&
-        typeof o.width === "number" &&
-        typeof o.height === "number"
-    );
 }
 
 export class PixiSceneManager {
@@ -64,29 +42,6 @@ export class PixiSceneManager {
     }
     public getApplication(): Application {
         return this.pixiApp.getApplication();
-    }
-    public hitTest(x: number, y: number): BodyLike | undefined {
-        const layer = this.pixiApp.getUnitsContainer();
-        const children = layer.children as unknown as DisplayObjectLike[];
-
-        for (let i = children.length - 1; i >= 0; i--) {
-            const obj = children[i];
-
-            // Prefer precise local/global bounds if available
-            if (hasBounds(obj)) {
-                // Pixi v8's getBounds() returns a Bounds-like object; we only need `contains`.
-                const b = obj.getBounds() as unknown as BoundsLike;
-                if (b.contains(x, y)) {
-                    return makeBodyLike(obj);
-                }
-            } else if (hasRect(obj)) {
-                // Fallback: simple AABB check using x,y,width,height
-                if (x >= obj.x && y >= obj.y && x <= obj.x + obj.width && y <= obj.y + obj.height) {
-                    return makeBodyLike(obj);
-                }
-            }
-        }
-        return undefined;
     }
     public getWorldRoot(): Container {
         return this.pixiApp.getCamera();

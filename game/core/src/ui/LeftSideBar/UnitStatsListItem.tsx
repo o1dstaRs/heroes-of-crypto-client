@@ -24,7 +24,7 @@ import React, { useCallback } from "react";
 
 import { animationAtlases, AnimationUnitName, AnimationStateName } from "../../generated/animation_atlases";
 import { images, type ImageKey } from "../../generated/image_imports";
-import { IVisibleImpact, IVisibleOverallImpact } from "../../state/visible_state";
+import { IVisibleImpact, IVisibleOverallImpact } from "../../scenes/VisibleState";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
 import { BootIcon } from "../svg/boot";
 import { BowIcon } from "../svg/bow";

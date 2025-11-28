@@ -15,16 +15,15 @@ import {
 import { createContext, useContext } from "react";
 import { Signal } from "typed-signals";
 
-import { Settings } from "../settings";
 import {
     IHoverInfo,
     IVisibleButton,
     IVisibleOverallImpact,
     IVisibleState,
     VisibleButtonState,
-} from "../state/visible_state";
+} from "../scenes/VisibleState";
 import { MAX_FPS } from "../statics";
-import { FpsCalculator } from "../utils/FpsCalculator";
+import { FpsCalculator } from "./FpsCalculator";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
 import type { UnitsOverlay } from "../scenes/UnitsOverlay";
 import { PixiApp } from "./PixiApp";
@@ -48,7 +47,6 @@ function getUnitsOverlayFromScene(scene: PixiScene | null): UnitsOverlay | undef
 
 export class PixiGameManager {
     public m_fpsCalculator = new FpsCalculator(200, 1000, MAX_FPS);
-    public readonly m_settings = new Settings();
     public m_scene: PixiScene | null = null;
     public m_lMouseDown = false;
     public m_rMouseDown = false;
@@ -84,7 +82,7 @@ export class PixiGameManager {
     private activateScene: (entry: SceneEntry) => void = () => {};
     private started = false;
     private lastSentEmptyHoverInfo = false;
-    // PixiJS bits (nullable until init)
+    private amountOfSelectedObjects = 1;
     private pixiApp: PixiApp | null = null;
     private pixiSceneManager: PixiSceneManager | null = null;
     private textures: PreloadedPixiTextures | null = null;
@@ -283,6 +281,14 @@ export class PixiGameManager {
                 break;
         }
     }
+    public getAmountOfSelectedObjects(): number {
+        return this.amountOfSelectedObjects;
+    }
+    public setAmountOfSelectedObjects(newAmount: number): void {
+        if (newAmount >= 0) {
+            this.amountOfSelectedObjects = newAmount;
+        }
+    }
     public HandleMouseUp(e: MouseEvent): void {
         switch (e.button) {
             case 0:
@@ -385,7 +391,7 @@ export class PixiGameManager {
     }
     public Accept(): void {
         if (this.m_scene?.sc_selectedUnitProperties && !this.started) {
-            const newAmount = this.m_settings.m_amountOfSelectedUnits;
+            const newAmount = this.getAmountOfSelectedObjects();
             if (newAmount > 0) {
                 this.m_scene.refreshScene({
                     ...this.m_scene.sc_selectedUnitProperties,
@@ -407,7 +413,7 @@ export class PixiGameManager {
                 if (amountAlive > 0) {
                     const secondPart = Math.floor(amountAlive - newAmount);
                     if (secondPart > 0) {
-                        this.m_settings.m_amountOfSelectedUnits = secondPart;
+                        this.setAmountOfSelectedObjects(secondPart);
                         this.Accept();
                     }
                 }
@@ -458,7 +464,11 @@ export class PixiGameManager {
         if (dt > 0.1) dt = 0.1;
 
         // Update scene
+<<<<<<< HEAD
         this.m_scene?.RunStep(this.m_settings, this.m_fpsCalculator.getFps(), dt);
+=======
+        this.m_scene?.RunStep(this.m_fpsCalculator.getFps());
+>>>>>>> aa2e759 (A bit project tree restructuring)
 
         // Hotkeys
         if (this.m_hoveringCanvas) {

@@ -20,7 +20,7 @@ const redOverlayImage = new URL("../../../images/overlay_red.webp", import.meta.
 import { UnitStatsListItem } from "./UnitStatsListItem";
 import { UpNext } from "./UpNext";
 import SynergiesRow from "./SynergiesRow";
-import { IWindowSize, IVisibleOverallImpact } from "../../state/visible_state";
+import { IWindowSize, IVisibleOverallImpact } from "../../scenes/VisibleState";
 
 type SidebarSelectionState = {
     unit: UnitProperties;

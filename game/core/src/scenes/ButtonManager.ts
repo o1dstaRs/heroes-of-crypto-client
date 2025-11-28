@@ -10,8 +10,8 @@ import {
     GridMath,
     GridSettings,
 } from "@heroesofcrypto/common";
-import { PixiRenderableSpell } from "@/spells/renderable_spell";
-import { VisibleButtonState, IVisibleButton, IVisibleState } from "../state/visible_state";
+import { PixiRenderableSpell } from "./RenderableSpell";
+import { VisibleButtonState, IVisibleButton, IVisibleState } from "./VisibleState";
 
 export interface ISandboxButtonContext {
     getCurrentActiveUnit(): Unit | undefined;

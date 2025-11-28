@@ -21,7 +21,7 @@ const blackImage = new URL("../../../images/overlay_black.webp", import.meta.url
 const lightImage = new URL("../../../images/overlay_light.webp", import.meta.url).toString();
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { IVisibleButton, VisibleButtonState } from "../../state/visible_state";
+import { IVisibleButton, VisibleButtonState } from "../../scenes/VisibleState";
 
 let SCREEN_RATIO = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
 

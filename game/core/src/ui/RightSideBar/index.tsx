@@ -16,7 +16,7 @@ import { usePixiManager } from "../../pixi/PixiGameManager";
 import Toggler from "../Toggler";
 import FightControlToggler from "./FightControlToggler";
 import { VersionDisplay } from "./VersionDisplay";
-import { IWindowSize } from "../../state/visible_state";
+import { IWindowSize } from "../../scenes/VisibleState";
 
 interface IDamageStatsTogglerProps {
     unitStatsElements: React.ReactNode;

@@ -19,23 +19,22 @@ import {
     AbilityHelper,
 } from "@heroesofcrypto/common";
 
-import { Settings } from "../settings";
 import {
     IVisibleButton,
     IVisibleImpact,
     IVisibleOverallImpact,
     IVisibleState,
     VisibleButtonState,
-} from "../state/visible_state";
+} from "../scenes/VisibleState";
 import { EDGES_SIZE, MAX_FPS } from "../statics";
 import { HotKey } from "../utils/hotkeys";
-import { SceneLog } from "../scenes/scene_log";
-import { SceneSettings } from "../scenes/scene_settings";
+import { SceneLog } from "../scenes/SceneLog";
+import { SceneSettings } from "../scenes/SceneSettings";
 import { PixiSceneManager } from "./PixiSceneManager";
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
 
-const STEPS_BETWEEN_MOUSE_ACTIONS_MIN = 4;
+const STEPS_BETWEEN_MOUSE_ACTIONS_MIN = 2;
 
 /** Minimal shape of objects your scene selects / manipulates. */
 export interface BodyLike {
@@ -330,10 +329,17 @@ export abstract class PixiScene {
         this.hover();
     }
     public Resize(_width: number, _height: number) {}
+<<<<<<< HEAD
     public RunStep(settings: Settings, fps: number, dt: number) {
         this.sc_fps = fps;
         this.sc_statisticLines.length = 0;
         this.Step(settings, dt);
+=======
+    public RunStep(fps: number) {
+        this.sc_fps = fps;
+        this.sc_statisticLines.length = 0;
+        this.Step(1 / 240);
+>>>>>>> aa2e759 (A bit project tree restructuring)
     }
     public addDebug(label: string, value: string | number | boolean): void {
         this.sc_debugLines.push([label, `${value}`]);
@@ -480,16 +486,12 @@ export abstract class PixiScene {
         this.sc_statisticLines.push([label, `${value}`]);
     }
     /** Main per-frame scene update (no Box2D). */
-    public Step(settings: Settings, timeStep: number): void {
+    public Step(timeStep: number): void {
         if (timeStep > 0) this.sc_stepCount.increment();
 
         // Example: update scene manager, animations, AI, etc.
         // this.pixiSceneManager.update(timeStep);
         //
-        if (settings.m_drawStats) {
-            this.addStatistic("Objects", 0);
-            this.addStatistic("Textures", 0);
-        }
     }
     public GetDefaultViewZoom(edgesPx = EDGES_SIZE): number {
         const gs = this.sc_sceneSettings.getGridSettings();

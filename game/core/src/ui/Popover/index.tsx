@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { AttackVals, MovementVals } from "@heroesofcrypto/common";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { IHoverInfo } from "../../state/visible_state";
+import { IHoverInfo } from "../../scenes/VisibleState";
 
 const getLevelEmoji = (hoverInfo: IHoverInfo): string => {
     let levelEmoji = "";

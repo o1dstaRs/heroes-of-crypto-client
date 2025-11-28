@@ -30,7 +30,7 @@ import {
     Tooltip,
     Divider,
 } from "@mui/joy";
-import { VisibleSynergyLevel } from "../../state/visible_state";
+import { VisibleSynergyLevel } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import.meta.url).toString();
 const augmentArmorImg = new URL("../../../images/armor_augment_256.webp", import.meta.url).toString();

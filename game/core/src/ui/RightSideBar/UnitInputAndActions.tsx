@@ -76,7 +76,7 @@ const UnitInputAndActions = ({
 
     const handleAccept = (count: number) => {
         if (!Number.isNaN(count) && count > 0) {
-            manager.m_settings.m_amountOfSelectedUnits = count;
+            manager.setAmountOfSelectedObjects(Math.floor(count));
             manager.Accept();
             setUnitCount(count.toString());
             changedRef.current = false;

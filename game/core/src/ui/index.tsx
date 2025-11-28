@@ -8,9 +8,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter as Router, Route, Routes, useParams } from "react-router";
 import "typeface-open-sans";
 
-// ⬇️ use the Pixi manager hook (alias to keep the rest of your code unchanged)
 import { usePixiManager } from "../pixi/PixiGameManager";
-
 import LeftSideBar from "./LeftSideBar";
 import DraggableToolbar from "./DraggableToolbar";
 import { Main } from "./Main";
@@ -18,7 +16,7 @@ import RightSideBar from "./RightSideBar";
 import "./style.scss";
 import Popover from "./Popover";
 import { UpNextOverlay } from "./UpNextOverlay";
-import { IWindowSize } from "../state/visible_state";
+import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
 import { AuthProvider } from "./auth/context/auth_provider";
 import { useAuthContext } from "./auth/context/auth_context";

@@ -11,9 +11,15 @@ import React, { useEffect, useState } from "react";
 
 import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
+<<<<<<< HEAD
 const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
 const hourglassImg = new URL("../../../images/hourglass.webp", import.meta.url).toString();
 import { IVisibleState, IVisibleUnit } from "../../state/visible_state";
+=======
+import stopImg from "../../../images/stop.webp";
+import hourglassImg from "../../../images/hourglass.webp";
+import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
+>>>>>>> aa2e759 (A bit project tree restructuring)
 
 // --- Custom Style for "Heroes" Aesthetic Tooltips ---
 const commonTooltipSx = {
