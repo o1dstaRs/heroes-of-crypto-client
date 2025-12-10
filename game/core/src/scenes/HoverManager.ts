@@ -1,5 +1,4 @@
-// game/core/src/scenes/HoverManager.ts
-import { Sprite, Graphics, Texture } from "pixi.js";
+import { Sprite, Graphics, BlurFilter, Texture } from "pixi.js";
 import {
     FightStateManager,
     GridVals,
@@ -53,9 +52,12 @@ export class HoverManager {
     public hoverPlacementCellTeam?: TeamType;
     public hoverSelectedCells?: HoCMath.XY[];
     public hoverSelectedCellsSwitchToRed = false;
+    public hoverAttackFromCell?: HoCMath.XY; // New state for attack hover
+    public hoverAttackTargetUnit?: Unit; // New state for attack target
     private hoverSilhouette?: Sprite;
     private hoverSilhouetteOutline?: Sprite;
     private hoverSilhouetteKey?: string;
+    private hoverTargetSilhouette?: Sprite; // For enemy unit red highlight
     public hoveredUnitHighlight?: { x: number; y: number; w: number; h: number };
     private hoverGlowPhase = 0;
     private boardHoverScale = 1;
@@ -324,6 +326,7 @@ export class HoverManager {
         if (resetSelectedCells) {
             this.hoverSelectedCells = undefined;
             this.hoverSelectedCellsSwitchToRed = false;
+            this.hoverAttackFromCell = undefined;
         }
         // These were in Sandbox, need to check if we need to expose them or if they are local to hover
         // sc_hoverAttackIsTargetingObstacle -> seems attack related
@@ -335,16 +338,172 @@ export class HoverManager {
 
         this.clearHoverSilhouette();
     }
+    public hoverAttackArrow?: Graphics;
     public clearHoverSilhouette(): void {
-        if (this.hoverSilhouette) this.hoverSilhouette.visible = false;
-        if (this.hoverSilhouetteOutline) this.hoverSilhouetteOutline.visible = false;
+        if (this.hoverSilhouette) {
+            this.hoverSilhouette.visible = false;
+        }
+        if (this.hoverSilhouetteOutline) {
+            this.hoverSilhouetteOutline.visible = false;
+        }
+        if (this.hoverTargetSilhouette) {
+            this.hoverTargetSilhouette.visible = false;
+        }
+        if (this.hoverAttackArrow) {
+            this.hoverAttackArrow.clear();
+            this.hoverAttackArrow.visible = false;
+        }
+        this.hoverAttackFromCell = undefined;
+        this.hoverAttackTargetUnit = undefined;
+    }
+    public clearAttackVisuals(): void {
+        if (this.hoverTargetSilhouette) {
+            this.hoverTargetSilhouette.visible = false;
+        }
+        if (this.hoverAttackArrow) {
+            this.hoverAttackArrow.visible = false;
+        }
+        // Restore stack visibility if we were hiding it
+        if (this.hoverAttackTargetUnit) {
+            // Safe cast if unit is RenderableUnit
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const rUnit = this.hoverAttackTargetUnit as any;
+            if (typeof rUnit.setStackVisibility === "function") {
+                rUnit.setStackVisibility(true);
+            }
+        }
+        this.hoverAttackTargetUnit = undefined;
+    }
+    public updateAttackTargetHighlight(targetUnit: Unit): void {
+        this.hoverAttackTargetUnit = targetUnit;
+
+        // Hide stack on target for cleaner visual
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rUnit = targetUnit as any;
+        if (typeof rUnit.setStackVisibility === 'function') {
+            rUnit.setStackVisibility(false);
+        }
+
+        const texName = unitToTextureName(
+            targetUnit.getName(),
+            targetUnit.getSize() === 2 ? TextureType.LARGE : TextureType.SMALL,
+            targetUnit.getSize()
+        );
+        const tex = this.context.texAny(texName);
+        if (!tex) return;
+
+        if (!this.hoverTargetSilhouette) {
+            this.hoverTargetSilhouette = new Sprite(tex);
+            this.hoverTargetSilhouette.anchor.set(0.5);
+            this.context.attachToWorldRoot(this.hoverTargetSilhouette, 140); // Above units (Z=120)
+            this.hoverTargetSilhouette.scale.y = -1;
+        } else {
+            this.hoverTargetSilhouette.texture = tex;
+        }
+
+        // Use new helper on RenderableUnit if available, else fallback
+        let centerPos = targetUnit.getPosition();
+        if (typeof rUnit.getVisualCenter === 'function') {
+            centerPos = rUnit.getVisualCenter(this.context.sceneSettings.getGridSettings());
+        }
+
+        const baseWidth = tex.width || 1;
+        const targetSize = targetUnit.getSize() === 2 ? 256 : 128; // Standard sizes
+        const scale = targetSize / baseWidth;
+
+        this.hoverTargetSilhouette.scale.set(scale, -scale);
+        this.hoverTargetSilhouette.position.set(centerPos.x, centerPos.y);
+        this.hoverTargetSilhouette.visible = true;
+
+        // Static Dark Red + Blur as requested
+        this.hoverTargetSilhouette.alpha = 0.8;
+        this.hoverTargetSilhouette.tint = 0xaa0000; // Darker Red
+
+        // Check if filter already exists to avoid recreating (perf)
+        if (!this.hoverTargetSilhouette.filters) {
+            this.hoverTargetSilhouette.filters = [new BlurFilter(4)];
+        }
+    }
+    public drawAttackArrow(from: HoCMath.XY, to: HoCMath.XY): void {
+        // If attacking from same position (Stand Ground), don't draw arrow
+        const dist = Math.sqrt(Math.pow(to.x - from.x, 2) + Math.pow(to.y - from.y, 2));
+        if (dist < 10) {
+            if (this.hoverAttackArrow) this.hoverAttackArrow.visible = false;
+            return;
+        }
+
+        if (!this.hoverAttackArrow) {
+            this.hoverAttackArrow = new Graphics();
+            this.context.attachToWorldRoot(this.hoverAttackArrow, 200); // Very high z-index
+        }
+
+        const g = this.hoverAttackArrow;
+        g.clear();
+        g.visible = true;
+
+        // Draw glow/light effect (layered lines)
+        const angle = Math.atan2(to.y - from.y, to.x - from.x);
+
+        // Adjust arrow length to stop a bit before the visual center
+        const stopDistance = 60;
+        const arrowLen = Math.max(0, dist - stopDistance);
+
+        if (arrowLen <= 0) return;
+
+        // Outer glow
+        g.lineStyle(12, 0xFF4444, 0.4);
+        g.moveTo(from.x, from.y);
+        g.lineTo(from.x + Math.cos(angle) * arrowLen, from.y + Math.sin(angle) * arrowLen);
+
+        // Inner core
+        g.lineStyle(4, 0xFFFFFF, 0.9);
+        g.moveTo(from.x, from.y);
+        g.lineTo(from.x + Math.cos(angle) * arrowLen, from.y + Math.sin(angle) * arrowLen);
+
+        // Arrow Head
+        const headLen = 20;
+        const headAngle = Math.PI / 6;
+        const endX = from.x + Math.cos(angle) * arrowLen;
+        const endY = from.y + Math.sin(angle) * arrowLen;
+
+        g.lineStyle(4, 0xFFFFFF, 1.0);
+        g.moveTo(endX, endY);
+        g.lineTo(endX - headLen * Math.cos(angle - headAngle), endY - headLen * Math.sin(angle - headAngle));
+        g.moveTo(endX, endY);
+        g.lineTo(endX - headLen * Math.cos(angle + headAngle), endY - headLen * Math.sin(angle + headAngle));
     }
     public updateHoverSilhouette(boundsCenter: HoCMath.XY): void {
         const selected = this.context.getSelectedUnitProperties();
+
+        if (this.hoverAttackTargetUnit) {
+            // If we have a target unit (red highlight), we might want to keep it?
+            // Actually, Sandbox resets this every frame if attacking.
+            // If we are here and NOT attacking, we should clear.
+        }
+
+        // If we are just moving (active unit), clear attack specifics
+        if (this.hoverTargetSilhouette && !this.hoverAttackFromCell) {
+            this.hoverTargetSilhouette.visible = false;
+        }
+        if (this.hoverAttackArrow && !this.hoverAttackFromCell) {
+            this.hoverAttackArrow.visible = false;
+        }
+
+        // 1. If we have an attack-from cell, we behave differently:
+        if (this.hoverAttackFromCell && selected) {
+            // We force red tint for attack
+            this.ensureHoverSilhouetteParams(selected, boundsCenter, true);
+            return;
+        }
+
         if (!selected || this.hoverSelectedCellsSwitchToRed || !this.hoverSelectedCells?.length) {
             this.clearHoverSilhouette();
             return;
         }
+
+        this.ensureHoverSilhouetteParams(selected, boundsCenter, false);
+    }
+    private ensureHoverSilhouetteParams(selected: UnitProperties, boundsCenter: HoCMath.XY, isAttack: boolean): void {
         const texName = unitToTextureName(selected.name, TextureType.SMALL, selected.size);
         const tex = this.context.texAny(texName);
         if (!tex) {
@@ -385,7 +544,15 @@ export class HoverManager {
         outline.tint = 0xffffff;
         sprite.visible = true;
         sprite.alpha = 0.8;
-        sprite.tint = 0x000000;
+
+        if (isAttack) {
+            // User requested standard silhouette for attacker, so no red tint here.
+            sprite.tint = 0x000000;
+            outline.tint = 0xffffff;
+        } else {
+            sprite.tint = 0x000000;
+            outline.tint = 0xffffff;
+        }
     }
     public updateBoardHoverSilhouette(props: UnitProperties, center: HoCMath.XY): void {
         const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);

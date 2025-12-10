@@ -100,6 +100,7 @@ export class RenderableUnit extends Unit {
     private selectionAnimStepMs = 0;
     private selectionAnimPauseMs = 0;
     private selectionAnimNextStepAtMs = 0;
+    private stackForcedHidden = false;
     /**
      * Attach rendering capabilities to an existing Unit instance.
      * (We rely on JS prototype + TS casting; Unit stays the core owner.)
@@ -349,6 +350,20 @@ export class RenderableUnit extends Unit {
             duration: 0.25,
         };
     }
+    /**
+     * Returns the geometric center of the unit's footprint in world coordinates.
+     * For 1x1 units: Same as position (center of tile).
+     * For 2x2 units: Center of the 2x2 block.
+     */
+    public getVisualCenter(gs: GridSettings): HoCMath.XY {
+        const pos = this.getPosition();
+        const size = this.getSize();
+        if (size > 1) {
+            const offset = (size - 1) * 0.5 * gs.getCellSize();
+            return { x: pos.x + offset, y: pos.y + offset };
+        }
+        return pos;
+    }
     public destroyVisuals(): void {
         if (this.sprite) {
             this.sprite.removeFromParent();
@@ -509,7 +524,7 @@ export class RenderableUnit extends Unit {
             pip.y = 0;
         }
 
-        this.stackPowerContainer.visible = true;
+        this.stackPowerContainer.visible = !this.stackForcedHidden;
     }
     protected override refreshAbilitiesDescriptions(_synergyAbilityPowerIncrease: number): void {
         return;
@@ -528,6 +543,14 @@ export class RenderableUnit extends Unit {
                     this.unitProperties.abilities_descriptions[i] = abilityDescription;
                 }
             }
+        }
+    }
+    public setStackVisibility(visible: boolean): void {
+        this.stackForcedHidden = !visible;
+        if (this.stackPowerContainer) {
+            this.stackPowerContainer.visible = visible && this.getStackPower() > 0;
+            // Also force alpha update if we are toggling back on
+            if (visible) this.stackPowerContainer.alpha = 1;
         }
     }
 }

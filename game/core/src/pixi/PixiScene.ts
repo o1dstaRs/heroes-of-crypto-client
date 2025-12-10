@@ -330,10 +330,10 @@ export abstract class PixiScene {
         this.hover();
     }
     public Resize(_width: number, _height: number) {}
-    public RunStep(settings: Settings, fps: number) {
+    public RunStep(settings: Settings, fps: number, dt: number) {
         this.sc_fps = fps;
         this.sc_statisticLines.length = 0;
-        this.Step(settings, settings.m_hertz > 0 ? 1 / settings.m_hertz : 0);
+        this.Step(settings, dt);
     }
     public addDebug(label: string, value: string | number | boolean): void {
         this.sc_debugLines.push([label, `${value}`]);

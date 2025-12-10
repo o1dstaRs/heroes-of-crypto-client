@@ -65,9 +65,9 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
         if (glCanvas && debugCanvas && wrapper && !initializedRef.current) {
             initializedRef.current = true;
 
-            const loop = () => {
+            const loop = (time: number) => {
                 try {
-                    manager.SimulationLoop();
+                    manager.SimulationLoop(time);
                     window.requestAnimationFrame(loop);
                 } catch (e) {
                     console.error("Error during simulation loop", e);
@@ -102,10 +102,7 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
 };
 
 // Helper to pick an active scene; adjust to your registry flow if needed.
-export function useActiveSceneEntry() {
-    const manager = usePixiManager();
-    return manager.flatScenes[0];
-}
+import { useActiveSceneEntry } from "../hooks/useActiveSceneEntry";
 
 export const Main: React.FC = () => {
     const entry = useActiveSceneEntry();

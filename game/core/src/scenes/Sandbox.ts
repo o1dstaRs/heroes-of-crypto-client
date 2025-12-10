@@ -1,27 +1,34 @@
 // game/core/src/scenes/Sandbox.ts
 import { v4 as uuidv4 } from "uuid";
-import { Sprite, Graphics, Container } from "pixi.js";
+import { Sprite, Graphics, Container, Text as PixiText, TextStyle } from "pixi.js";
 import {
+    AttackHandler,
     Augment,
-    FightStateManager,
+    HoCConfig,
+    AbilityFactory,
+    FactionType,
+    EffectFactory,
+    Grid,
     GridConstants,
-    GridSettings,
-    HoCLib,
-    HoCMath,
-    UnitProperties,
+    GridMath,
     GridType,
+    GridSettings,
+    HoCConstants,
+    HoCLib,
+    SpellTargetType,
+    Spell,
+    HoCMath,
+    IWeightedRoute,
+    PathHelper,
     TeamType,
     TeamVals,
-    FactionType,
-    PathHelper,
-    Grid,
-    GridMath,
+    UnitProperties,
     IPlacement,
     Unit,
+    IAttackTargets,
+    FightStateManager,
     UnitsHolder,
-    UnitVals,
-    AbilityFactory,
-    EffectFactory,
+    MoveHandler,
     SpecificSynergy,
     ToLifeSynergy,
     ToChaosSynergy,
@@ -29,17 +36,13 @@ import {
     ToNatureSynergy,
     FactionVals,
     GridVals,
-    HoCConstants,
-    SpellTargetType,
     AttackVals,
-    AttackHandler,
-    MoveHandler,
-    IWeightedRoute,
-    Spell,
-    HoCConfig,
+    UnitVals,
+    IVisibleDamage,
 } from "@heroesofcrypto/common";
 import { Settings } from "../settings";
 import { UnitsOverlay } from "./UnitsOverlay";
+import { DamageStatisticHolder } from "../stats/damage_stats";
 import { VisibleButtonState, IVisibleUnit } from "../state/visible_state";
 import { SceneSettings } from "../scenes/scene_settings";
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
@@ -53,8 +56,10 @@ import { ButtonManager } from "./ButtonManager";
 export class Sandbox extends PixiScene {
     private readonly grid: Grid;
     private readonly pathHelper: PathHelper;
-    private readonly attackHandler?: AttackHandler;
-    private readonly moveHandler?: MoveHandler;
+    private canAttackByMeleeTargets?: IAttackTargets;
+    // --- Components ---
+    private readonly attackHandler: AttackHandler;
+    private readonly moveHandler: MoveHandler;
     private hoverManager: HoverManager;
     private buttonManager: ButtonManager;
     private currentEnemiesCellsWithinMovementRange?: HoCMath.XY[];
@@ -109,7 +114,6 @@ export class Sandbox extends PixiScene {
     private currentActivePathHashes?: Set<number>;
     private currentActivePath?: HoCMath.XY[];
     private currentActiveKnownPaths?: Map<number, IWeightedRoute[]>;
-    private canAttackByMeleeTargets?: boolean;
     private spawnPulseDirection = 1;
     private performingAIAction = false;
     private hasInitializedLap = false;
@@ -138,6 +142,13 @@ export class Sandbox extends PixiScene {
             FightStateManager.getInstance().getFightProperties().getGridType(),
         );
         this.unitsHolder = new UnitsHolder(this.grid);
+        this.attackHandler = new AttackHandler(
+            this.sc_sceneSettings.getGridSettings(),
+            this.grid,
+            this.sc_sceneLog,
+            new DamageStatisticHolder(),
+        );
+        this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
         this.refreshVisibleStateIfNeeded();
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
@@ -483,7 +494,7 @@ export class Sandbox extends PixiScene {
             this.dropLargeUnitTrackAtPosition(unit, end, gs);
         }
 
-        this.sc_sceneLog.updateLog(`${unit.getName()} moved to (${destCell.x}, ${destCell.y})`);
+        this.sc_sceneLog.updateLog(`${unit.getName()} moved to(${destCell.x}, ${destCell.y})`);
         this.moveAnimation = undefined;
         this.moveTrackPath = undefined;
         this.moveTrackProgress = 0;
@@ -846,8 +857,8 @@ export class Sandbox extends PixiScene {
         this.sc_possibleSynergiesPerTeam.set(teamType, newSynergies);
         this.sc_possibleSynergiesUpdateNeeded = synergies !== newSynergies;
     }
-    protected finishDrop(_p: HoCMath.XY): void {}
-    protected handleMouseDownForSelectedBody(): void {}
+    protected finishDrop(_p: HoCMath.XY): void { }
+    protected handleMouseDownForSelectedBody(): void { }
     public cloneObject(newAmount?: number): boolean {
         let cloned = false;
         if (this.sc_selectedUnitProperties) {
@@ -954,7 +965,7 @@ export class Sandbox extends PixiScene {
         }
         return cloned;
     }
-    public deleteObject(): void {}
+    public deleteObject(): void { }
     public override refreshScene(u: UnitProperties): void {
         // 1. Safety checks
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted() || !u.id) return;
@@ -1006,7 +1017,7 @@ export class Sandbox extends PixiScene {
     public getGridType(): GridType {
         return FightStateManager.getInstance().getFightProperties().getGridType();
     }
-    public requestTime(_team: number): void {}
+    public requestTime(_team: number): void { }
     private clearBoardSelection(_notifyUnitDeselected: boolean = true): void {
         // stop board selection animation if any
         if (this.selectedBoardUnit) {
@@ -1229,14 +1240,34 @@ export class Sandbox extends PixiScene {
             this.hoverManager.setLastPlacement(undefined);
         }
     }
-    protected destroyTempFixtures(): void {}
+    protected destroyTempFixtures(): void { }
     public override MouseDown(p: HoCMath.XY): void {
         this.sc_mouseWorld = p;
         const fightProps = FightStateManager.getInstance().getFightProperties();
         // 1. FIGHT STARTED INTERACTION
         if (fightProps.hasFightStarted()) {
+            const gs = this.sc_sceneSettings.getGridSettings();
+
+            // Melee Attack Interaction
+            if (this.hoverManager.hoverAttackFromCell && this.currentActiveUnit) {
+                const cell = GridMath.getCellForPosition(gs, p);
+                if (cell) {
+                    const occupantId = this.grid.getOccupantUnitId(cell);
+                    if (occupantId) {
+                        const targetUnit = this.unitsHolder.getAllUnits().get(occupantId);
+                        if (targetUnit && targetUnit.getTeam() !== this.currentActiveUnit.getTeam()) {
+                            this.executeAttackSequence(
+                                this.currentActiveUnit,
+                                targetUnit as RenderableUnit,
+                                this.hoverManager.hoverAttackFromCell,
+                            );
+                            return;
+                        }
+                    }
+                }
+            }
+
             if (this.currentActiveUnit && this.currentActiveKnownPaths && !this.sc_moveBlocked) {
-                const gs = this.sc_sceneSettings.getGridSettings();
                 const cell = GridMath.getCellForPosition(gs, p);
                 if (!cell) return;
                 const props = this.currentActiveUnit.getUnitProperties();
@@ -1327,6 +1358,165 @@ export class Sandbox extends PixiScene {
             return;
         }
         super.MouseDown(p);
+    }
+    private floatingTexts: {
+        text: PixiText;
+        life: number;
+        maxLife: number;
+        startY: number;
+        startX: number;
+        velX: number;
+        velY: number;
+    }[] = [];
+    private showFloatingDamage(pos: HoCMath.XY, amount: number, direction?: HoCMath.XY): void {
+        const text = new PixiText({
+            text: `-${amount}`,
+            style: new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 36,
+                fontWeight: "bold",
+                fill: 0xff0000,
+                stroke: { color: 0xffffff, width: 4 },
+                dropShadow: {
+                    color: 0x000000,
+                    blur: 4,
+                    angle: Math.PI / 6,
+                    distance: 2,
+                },
+            }),
+        });
+
+        text.anchor.set(0.5);
+        text.x = pos.x;
+        text.y = pos.y - 40; // Start slightly above unit center
+        text.scale.y = -1; // Flip Y because world is flipped
+
+        // Ensure high Z-index
+        this.attachToWorldRoot(text, 300);
+
+        // Calculate velocity based on direction or default up
+        let vx = 0;
+        let vy = -80; // Default float "up" (Negative Y in Pixi)
+
+        if (direction) {
+            // Normalized direction * speed
+            const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+            if (len > 0.001) {
+                vx = (direction.x / len) * 100; // Speed 100
+                vy = (direction.y / len) * 100;
+            }
+        }
+
+        this.floatingTexts.push({
+            text,
+            life: 1.5,
+            maxLife: 1.5,
+            startY: text.y,
+            startX: text.x,
+            velX: vx,
+            velY: vy,
+        });
+    }
+    private async executeAttackSequence(attacker: RenderableUnit, target: Unit, attackFrom: HoCMath.XY): Promise<void> {
+        this.sc_moveBlocked = true;
+
+        // Create a local damage object for animation
+        const damageForAnimation: IVisibleDamage = {
+            render: false,
+            amount: 0,
+            unitPosition: { x: 0, y: 0 },
+            unitIsSmall: true,
+        };
+
+        const attackerBefore = { amount: attacker.getAmountAlive(), health: attacker.getHp() };
+
+        const result = this.attackHandler.handleMeleeAttack(
+            this.unitsHolder,
+            this.moveHandler,
+            damageForAnimation,
+            this.currentActiveKnownPaths,
+            attacker,
+            target,
+            attackFrom,
+        );
+
+        // 1. Target Damage
+        if (damageForAnimation.amount > 0) {
+            // Target damage floats away from attacker
+            // attacker might have moved to `attackFrom`
+
+            // Recalculate attacker visual center at `attackFrom` 
+            // (assuming attackFrom is anchor position)
+            const gs = this.sc_sceneSettings.getGridSettings();
+
+            // Attacker visual pos:
+            // If attacker is large, we need to offset from `attackFrom` same way
+            const aSize = attacker.getSize();
+            const aOffset = (aSize > 1) ? (aSize - 1) * 0.5 * gs.getCellSize() : 0;
+            const aCenter = { x: attackFrom.x + aOffset, y: attackFrom.y + aOffset };
+
+            // Target visual pos:
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const rTarget = target as any;
+            const tVis = (typeof rTarget.getVisualCenter === 'function') ? rTarget.getVisualCenter(gs) : target.getPosition();
+
+            const dir = { x: tVis.x - aCenter.x, y: tVis.y - aCenter.y };
+            this.showFloatingDamage(tVis, damageForAnimation.amount, dir);
+        }
+
+        // 2. Attacker Damage (Counter-Attack)
+        const attackerAfter = { amount: attacker.getAmountAlive(), health: attacker.getHp() };
+
+        const stackLost = attackerBefore.amount - attackerAfter.amount;
+        const hpLost = attackerBefore.health - attackerAfter.health;
+
+        if (stackLost > 0 || hpLost > 0) {
+            const maxHp = attacker.getMaxHp();
+            const totalHpBefore = (attackerBefore.amount - 1) * maxHp + attackerBefore.health;
+            const totalHpAfter = (attackerAfter.amount - 1) * maxHp + attackerAfter.health;
+            const damageTaken = totalHpBefore - totalHpAfter;
+
+            if (damageTaken > 0) {
+                // Attacker damage floats away from target
+                const gs = this.sc_sceneSettings.getGridSettings();
+
+                const aVis = attacker.getVisualCenter(gs);
+
+                // Target visual center
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const rTarget = target as any;
+                const tVis = (typeof rTarget.getVisualCenter === 'function') ? rTarget.getVisualCenter(gs) : target.getPosition();
+
+                const dir = { x: aVis.x - tVis.x, y: aVis.y - tVis.y };
+                this.showFloatingDamage(aVis, damageTaken, dir);
+            }
+        }
+
+        // Handle animations if needed (e.g. movement, hits)
+        if (result.animationData) {
+            // TODO: Port animation playback logic (move, bullet, etc)
+            // For now, we rely on state updates, but movement might jump without animation.
+        }
+
+        if (result.completed) {
+            for (const uId of result.unitIdsDied) {
+                this.unitsHolder.deleteUnitById(uId, true);
+                // Visual cleanup should happen in the next update loop via UnitsOverlay/VisibleState
+            }
+            this.unitsHolder.refreshStackPowerForAllUnits();
+
+            // Log interaction
+            console.log(`Attack completed. Died: ${result.unitIdsDied.join(", ")}`);
+
+            this.finishTurn();
+            // Clear hover state
+            this.hoverManager.clearHoverSilhouette();
+            this.hoverManager.hoverAttackFromCell = undefined;
+        }
+
+        this.sc_moveBlocked = false;
+        // Trigger UI update
+        this.sc_visibleStateUpdateNeeded = true;
     }
     private executeMoveSequence(unit: RenderableUnit, path: HoCMath.XY[], overrideFootprint?: HoCMath.XY[]): void {
         if (!path || path.length === 0) return;
@@ -1485,13 +1675,58 @@ export class Sandbox extends PixiScene {
             const cell = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
             if (!cell) {
                 this.hoverManager.clearHoverSilhouette();
+                this.hoverManager.hoverAttackFromCell = undefined;
                 return;
             }
-            if (this.hoverManager.isCellReachableForActiveUnit(cell)) {
-                this.hoverManager.updateActiveMoveSilhouetteForCell(cell);
-            } else {
-                this.hoverManager.clearHoverSilhouette();
+
+            // Check for melee attack target
+            let isAttacking = false;
+            this.hoverManager.hoverAttackFromCell = undefined; // Reset state
+            // Only checking for attack if we have melee targets calculated
+            if (this.canAttackByMeleeTargets && this.currentActiveUnit) {
+                const targetUnit = this.getUnitAtPosition(this.sc_mouseWorld);
+                if (targetUnit && targetUnit.getTeam() !== this.currentActiveUnit.getTeam()) {
+                    const attackFrom = this.pathHelper.calculateClosestAttackFrom(
+                        this.sc_mouseWorld,
+                        this.canAttackByMeleeTargets.attackCells,
+                        this.currentActiveUnit.getCells(),
+                        targetUnit.getCells(),
+                        this.currentActiveUnit.isSmallSize(),
+                        this.currentActiveUnit.getAttackRange(),
+                        true,
+                        TeamVals.NO_TEAM,
+                        this.canAttackByMeleeTargets.attackCellHashesToLargeCells,
+                    );
+
+                    if (attackFrom) {
+                        this.hoverManager.hoverAttackFromCell = attackFrom;
+                        this.hoverManager.updateAttackTargetHighlight(targetUnit);
+                        const attackFromPos = GridMath.getPositionForCell(
+                            attackFrom,
+                            gs.getMinX(),
+                            gs.getStep(),
+                            gs.getHalfStep(),
+                        );
+                        this.hoverManager.updateHoverSilhouette(attackFromPos);
+                        this.hoverManager.drawAttackArrow(attackFromPos, targetUnit.getPosition());
+                        isAttacking = true;
+                    }
+                }
             }
+
+            if (!isAttacking) {
+                this.hoverManager.clearAttackVisuals();
+            }
+
+            if (!isAttacking) {
+                this.hoverManager.hoverAttackFromCell = undefined;
+                if (this.hoverManager.isCellReachableForActiveUnit(cell)) {
+                    this.hoverManager.updateActiveMoveSilhouetteForCell(cell);
+                } else {
+                    this.hoverManager.clearHoverSilhouette();
+                }
+            }
+
             return;
         }
         // CASE 1: Active selection from OVERLAY (New Unit)
@@ -1589,6 +1824,7 @@ export class Sandbox extends PixiScene {
         }
         return false;
     }
+    // --- Animation State ---
     private ensureGameplayGraphics(): void {
         if (!this.gameplayGraphics) this.gameplayGraphics = new Graphics();
         this.attachToWorldRoot(this.gameplayGraphics, 55); // Above terrain, below units
@@ -1599,6 +1835,62 @@ export class Sandbox extends PixiScene {
         const fightStateManager = FightStateManager.getInstance();
         const fightProps = fightStateManager.getFightProperties();
         const fightStarted = fightProps.hasFightStarted();
+
+        // Update floating texts
+        if (this.floatingTexts.length > 0) {
+            this.floatingTexts = this.floatingTexts.filter((ft) => {
+                ft.life -= timeStep;
+                if (ft.life <= 0) {
+                    ft.text.destroy();
+                    return false;
+                }
+                const progress = 1 - ft.life / ft.maxLife;
+                ft.text.alpha = 1 - Math.pow(progress, 3); // Slow fade out at end
+
+                // Use velocity if set, otherwise default float up
+                // Note: progress (0 to 1).
+                // x = startX + velX * progress
+                // y = startY + velY * progress (minus because up?)
+
+                // If velocity was calculated with Y growing means...
+                // In showFloatingDamage I set vy positive for "UP"?
+                // Wait. Pixi Y: Down is positive usually.
+                // Grid Y: Up is often positive in HoC logic?
+                // Visuals: If `text.scale.y = -1`, then +Y is DOWN in local space? No, +Y is UP in world space if parent is flipped?
+                // WorldRoot usually has Y flipped?
+                // Let's rely on standard Pixi: +Y is Down.
+                // But `text.scale.y = -1` flips the text object itself.
+
+                // Let's just trust common sense:
+                // Previous code: `ft.text.y = ft.startY - progress * 80;` -> Minus Y is UP.
+                // So default vy should be -80.
+                // In showFloatingDamage I set vy=80 then used it?
+                // I need to check how I used it. I haven't used it yet in Step.
+
+                // Let's implement:
+                // If velY is defined as "Direction Y" relative to world.
+                // If I want to move UP, and Y is Down, I need Negative Y.
+                // My calculate in showFloatingDamage used `dir.y`.
+                // If Attacker is at (0,0) and Target at (0, 100). Dir is (0, 100).
+                // Target is visually BELOW attacker? Or ABOVE?
+                // In HoC grid, usually (0,0) is bottom left?
+
+                // Assuming standard cartesian movement for "Direction":
+                // If dir is (dx, dy), I want text to move by (dx, dy).
+                // But World Space Y?
+                // Let's stick to: Vector Math works in World Coords.
+                // So `text.x = startX + velX * progress`.
+                // `text.y = startY + velY * progress`.
+                // I just need to make sure default vy is correct.
+                // Old code: `startY - 80`. So `-80` is UP.
+                // So default vy = -80.
+
+                ft.text.x = ft.startX + ft.velX * progress;
+                ft.text.y = ft.startY + ft.velY * progress;
+
+                return true;
+            });
+        }
 
         // 1. Update Visual Overlays
         if (fightStarted) {
@@ -2150,7 +2442,7 @@ export class Sandbox extends PixiScene {
         this.currentActiveKnownPaths = undefined;
         this.currentActivePathHashes = undefined;
     }
-    protected verifyButtonsTrigger(): void {}
+    protected verifyButtonsTrigger(): void { }
     protected updateCurrentMovePath(currentCell: HoCMath.XY): void {
         if (!this.currentActiveUnit || this.moveAnimation) {
             return;
@@ -2171,6 +2463,23 @@ export class Sandbox extends PixiScene {
             this.currentActivePath = movePath.cells;
             this.currentActiveKnownPaths = movePath.knownPaths;
             this.currentActivePathHashes = movePath.hashes;
+
+            if (this.currentActiveUnit) {
+                const enemyTeam = this.unitsHolder.getAllEnemyUnits(this.currentActiveUnit.getTeam());
+                const positions = new Map<string, HoCMath.XY>();
+                for (const u of this.unitsHolder.getAllUnits().values()) {
+                    positions.set(u.getId(), u.getPosition());
+                }
+                const adjacentEnemies = this.unitsHolder.allEnemiesAroundUnit(this.currentActiveUnit, false, undefined);
+
+                this.canAttackByMeleeTargets = this.currentActiveUnit.attackMeleeAllowed(
+                    enemyTeam,
+                    positions,
+                    adjacentEnemies,
+                    movePath.cells,
+                    movePath.knownPaths,
+                );
+            }
         } else {
             this.cleanActivePaths();
         }

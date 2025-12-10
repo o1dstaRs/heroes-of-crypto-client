@@ -439,11 +439,26 @@ export class PixiGameManager {
         // grid change might affect ideal zoom; refit
         this.fitViewToWindow();
     }
-    public SimulationLoop(): void {
+    private lastTime = 0;
+    public SimulationLoop(currentTime: number): void {
         if (this.m_fpsCalculator.addFrame() <= 0) return;
 
+        // First frame init
+        if (this.lastTime === 0) {
+            this.lastTime = currentTime;
+            return;
+        }
+
+        // Calculate delta time in seconds
+        let dt = (currentTime - this.lastTime) / 1000;
+        this.lastTime = currentTime;
+
+        // Cap dt to prevent huge jumps (e.g. if tab was backgrounded)
+        // 0.1s = 10fps minimum
+        if (dt > 0.1) dt = 0.1;
+
         // Update scene
-        this.m_scene?.RunStep(this.m_settings, this.m_fpsCalculator.getFps());
+        this.m_scene?.RunStep(this.m_settings, this.m_fpsCalculator.getFps(), dt);
 
         // Hotkeys
         if (this.m_hoveringCanvas) {
