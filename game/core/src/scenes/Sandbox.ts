@@ -1812,7 +1812,7 @@ export class Sandbox extends PixiScene {
             currentSegment: 0,
             t: 0,
             // Adjusted speed based on user feedback (was 12)
-            speed: cellSize * 8,
+            speed: cellSize * 16,
             destCell,
             lastTrackWorld: { x: startPos.x, y: startPos.y },
         };
@@ -1862,17 +1862,44 @@ export class Sandbox extends PixiScene {
             if (this.canAttackByMeleeTargets && this.currentActiveUnit) {
                 const targetUnit = this.getUnitAtPosition(this.sc_mouseWorld);
                 if (targetUnit && targetUnit.getTeam() !== this.currentActiveUnit.getTeam()) {
-                    const attackFrom = this.pathHelper.calculateClosestAttackFrom(
-                        this.sc_mouseWorld,
-                        this.canAttackByMeleeTargets.attackCells,
-                        this.currentActiveUnit.getCells(),
-                        targetUnit.getCells(),
-                        this.currentActiveUnit.isSmallSize(),
-                        this.currentActiveUnit.getAttackRange(),
-                        true,
-                        TeamVals.NO_TEAM,
-                        this.canAttackByMeleeTargets.attackCellHashesToLargeCells,
-                    );
+                    let attackFrom: HoCMath.XY | undefined;
+                    let visualTargetCell: HoCMath.XY | undefined; // Store the cell we actually targeted for visual feedback
+
+                    // Check if mouse cell is actually part of the target unit (for precise targeting)
+                    const isMouseInsideUnit = targetUnit.getCells().some(c => c.x === cell.x && c.y === cell.y);
+
+                    if (isMouseInsideUnit) {
+                        attackFrom = this.pathHelper.calculateClosestAttackFrom(
+                            this.sc_mouseWorld,
+                            this.canAttackByMeleeTargets.attackCells,
+                            this.currentActiveUnit.getCells(),
+                            [cell], // Priority 1: Specific hovered cell
+                            this.currentActiveUnit.isSmallSize(),
+                            this.currentActiveUnit.getAttackRange(),
+                            true, // Treat single cell as small target
+                            TeamVals.NO_TEAM,
+                            this.canAttackByMeleeTargets.attackCellHashesToLargeCells,
+                        );
+                        if (attackFrom) {
+                            visualTargetCell = cell;
+                        }
+                    }
+
+                    // Fallback: If specific cell is not reachable (e.g. far side) or mouse is outside
+                    if (!attackFrom) {
+                        attackFrom = this.pathHelper.calculateClosestAttackFrom(
+                            this.sc_mouseWorld,
+                            this.canAttackByMeleeTargets.attackCells,
+                            this.currentActiveUnit.getCells(),
+                            targetUnit.getCells(),
+                            this.currentActiveUnit.isSmallSize(),
+                            this.currentActiveUnit.getAttackRange(),
+                            targetUnit.isSmallSize(),
+                            TeamVals.NO_TEAM,
+                            this.canAttackByMeleeTargets.attackCellHashesToLargeCells,
+                        );
+                        // In fallback, visualTargetCell remains undefined, so we'll use distance-based logic later
+                    }
 
                     if (attackFrom) {
                         this.hoverManager.hoverAttackFromCell = attackFrom;
@@ -1927,11 +1954,72 @@ export class Sandbox extends PixiScene {
                         // Target visual center
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const rTarget = targetUnit as any;
-                        const tVis =
+                        let tVis =
                             typeof rTarget.getVisualCenter === "function"
                                 ? rTarget.getVisualCenter(gs)
                                 : targetUnit.getPosition();
 
+                        // Standard geometric center for damage text
+                        const centerVis = { x: tVis.x, y: tVis.y };
+
+                        // If we targeted a specific cell (Priority 1), force visual to that cell
+                        if (visualTargetCell) {
+                            tVis = GridMath.getPositionForCell(
+                                visualTargetCell,
+                                gs.getMinX(),
+                                gs.getStep(),
+                                gs.getHalfStep(),
+                            );
+                        } else if (!targetUnit.isSmallSize() && attackFromPos) {
+                            // Fallback: finding closest cell logic
+                            const targetCells = targetUnit.getCells();
+                            let closestDist = Number.MAX_VALUE;
+                            let closestPos = tVis;
+
+                            for (const cell of targetCells) {
+                                const cellPos = GridMath.getPositionForCell(
+                                    cell,
+                                    gs.getMinX(),
+                                    gs.getStep(),
+                                    gs.getHalfStep(),
+                                );
+                                const d = (cellPos.x - attackFromPos.x) ** 2 + (cellPos.y - attackFromPos.y) ** 2;
+                                if (d < closestDist) {
+                                    closestDist = d;
+                                    closestPos = cellPos;
+                                }
+                            }
+                            tVis = closestPos;
+                        }
+
+                        // Calculate projected damage
+                        const attackRate = this.currentActiveUnit.getAttack();
+                        const abilityPower = FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam());
+
+                        const minDmg = this.currentActiveUnit.calculateAttackDamageMin(
+                            attackRate,
+                            targetUnit,
+                            false, // Melee
+                            abilityPower,
+                            1, // Range divisor
+                            1, // Multiplier
+                        );
+                        let maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
+                            attackRate,
+                            targetUnit,
+                            false, // Melee
+                            abilityPower,
+                            1, // Range divisor
+                            1, // Multiplier
+                        );
+
+                        this.hoverManager.drawDamagePrediction(
+                            `${minDmg}-${maxDmg}`,
+                            centerVis,
+                            !targetUnit.isSmallSize(), // isLargeTarget
+                        );
                         this.hoverManager.drawAttackArrow(attackFromPos, tVis);
                         isAttacking = true;
                     }

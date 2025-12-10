@@ -1,4 +1,4 @@
-import { Sprite, Graphics, BlurFilter, Texture } from "pixi.js";
+import { Sprite, Graphics, BlurFilter, Texture, Text } from "pixi.js";
 import {
     FightStateManager,
     GridVals,
@@ -31,7 +31,7 @@ export interface ISandboxHoverContext {
 
     // Callbacks
     texAny(name: string): Texture | undefined;
-    attachToWorldRoot(obj: Sprite | Graphics, zIndex: number): void;
+    attachToWorldRoot(obj: Sprite | Graphics | Text, zIndex: number): void;
     getPlacement(teamType: TeamType, placementIndex: number): IPlacement | undefined;
     // Wait, IPlacement IS imported in Sandbox.ts from common.
 
@@ -356,12 +356,39 @@ export class HoverManager {
         this.hoverAttackFromCell = undefined;
         this.hoverAttackTargetUnit = undefined;
     }
+    private hoverDamageText?: Text;
+    public drawDamagePrediction(text: string, position: HoCMath.XY, isLargeTarget: boolean): void {
+        if (!this.hoverDamageText) {
+            this.hoverDamageText = new Text(text, {
+                fontFamily: "Arial",
+                fontSize: 24,
+                fill: 0xffffff,
+                stroke: { color: 0x000000, width: 4, join: "round" },
+                align: "center",
+                fontWeight: "bold",
+            });
+            this.hoverDamageText.anchor.set(0.5);
+            this.context.attachToWorldRoot(this.hoverDamageText, 200);
+        } else {
+            this.hoverDamageText.text = text;
+        }
+        this.hoverDamageText.scale.set(1, -1);
+        if (isLargeTarget) {
+            this.hoverDamageText.scale.set(2, -2);
+        }
+        this.hoverDamageText.x = position.x;
+        this.hoverDamageText.y = position.y;
+        this.hoverDamageText.visible = true;
+    }
     public clearAttackVisuals(): void {
+        if (this.hoverAttackArrow) {
+            this.hoverAttackArrow.clear();
+        }
         if (this.hoverTargetSilhouette) {
             this.hoverTargetSilhouette.visible = false;
         }
-        if (this.hoverAttackArrow) {
-            this.hoverAttackArrow.visible = false;
+        if (this.hoverDamageText) {
+            this.hoverDamageText.visible = false;
         }
         // Restore stack visibility if we were hiding it
         if (this.hoverAttackTargetUnit) {
