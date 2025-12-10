@@ -4,7 +4,7 @@ import { m } from "framer-motion";
 import React, { forwardRef } from "react";
 import RouterLink from "../routes/router_link";
 
-import logoHoCImg from "../../../images/logo_hoc.webp";
+const logoHoCImg = new URL("../../../images/logo_hoc.webp", import.meta.url).toString();
 
 // ----------------------------------------------------------------------
 
@@ -17,7 +17,7 @@ const Logo = forwardRef<HTMLDivElement, LogoProps>(function Logo({ disabledLink 
         <Box
             ref={ref}
             component={m.img}
-            src={logoHoCImg}
+            src={(logoHoCImg as unknown as { default?: string }).default ?? logoHoCImg}
             sx={{
                 width: 40,
                 height: 40,

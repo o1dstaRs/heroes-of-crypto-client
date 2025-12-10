@@ -13,7 +13,7 @@ import React, { useEffect, useState, useRef } from "react";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IVisibleState } from "../../state/visible_state";
-import meteorSvg from "../../../images/meteor.svg";
+const meteorSvg = new URL("../../../images/meteor.svg", import.meta.url).toString();
 import { images } from "../../generated/image_imports";
 
 // --- Configuration for the Start Button Atlas ---

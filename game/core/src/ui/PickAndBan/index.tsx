@@ -17,15 +17,18 @@ import BlockIcon from "@mui/icons-material/Block";
 import CheckIcon from "@mui/icons-material/Check";
 import ClearIcon from "@mui/icons-material/Clear";
 
-import overlayPickImage from "../../../images/overlay_pick_2.webp";
-import overlayPickFrameImage from "../../../images/overlay_pick_frame.webp";
-import overlayGreenImage from "../../../images/overlay_green.webp";
-import overlayRedImage from "../../../images/overlay_red.webp";
-import crossSwordsImage from "../../../images/icon_crossswords_128.webp";
-import scoutAugmentsAndMapImage from "../../../images/icon_scout_augments_and_map_256.webp";
-import scoutAllUnitsImage from "../../../images/icon_scout_all_units_256.webp";
-import unknownMapImage from "../../../images/icon_unknown_map_256.webp";
-import checkmarkImage from "../../../images/icon_checkmark_256.webp";
+const overlayPickImage = new URL("../../../images/overlay_pick_2.webp", import.meta.url).toString();
+const overlayPickFrameImage = new URL("../../../images/overlay_pick_frame.webp", import.meta.url).toString();
+const overlayGreenImage = new URL("../../../images/overlay_green.webp", import.meta.url).toString();
+const overlayRedImage = new URL("../../../images/overlay_red.webp", import.meta.url).toString();
+const crossSwordsImage = new URL("../../../images/icon_crossswords_128.webp", import.meta.url).toString();
+const scoutAugmentsAndMapImage = new URL(
+    "../../../images/icon_scout_augments_and_map_256.webp",
+    import.meta.url,
+).toString();
+const scoutAllUnitsImage = new URL("../../../images/icon_scout_all_units_256.webp", import.meta.url).toString();
+const unknownMapImage = new URL("../../../images/icon_unknown_map_256.webp", import.meta.url).toString();
+const checkmarkImage = new URL("../../../images/icon_checkmark_256.webp", import.meta.url).toString();
 import { images } from "../../generated/image_imports";
 import { usePickBanEvents } from "@/ui";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
@@ -364,7 +367,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                         paddingRight: "0.7%",
                         paddingLeft: "0.7%",
                         paddingBottom: "1.2%",
-                        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${overlayPickImage})`,
+                        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${(overlayPickImage as unknown as { default?: string }).default ?? overlayPickImage})`,
                         backgroundSize: "115.5% 107%", // Adjust the background size accordingly
                         backgroundRepeat: "no-repeat",
                         backgroundPosition: "center",
@@ -377,7 +380,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                             left: 0,
                             right: 0,
                             bottom: "-1.42%",
-                            backgroundImage: `url(${overlayPickFrameImage})`,
+                            backgroundImage: `url(${(overlayPickFrameImage as unknown as { default?: string }).default ?? overlayPickFrameImage})`,
                             backgroundSize: "115.5% 104%",
                             backgroundRepeat: "no-repeat",
                             backgroundPosition: "center",
@@ -434,7 +437,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                 // filter: "blur(15px)",
                                 zIndex: 90,
                                 pointerEvents: "none",
-                                backgroundImage: `url(${unknownMapImage})`,
+                                backgroundImage: `url(${(unknownMapImage as unknown as { default?: string }).default ?? unknownMapImage})`,
                                 backgroundSize: "contain",
                                 backgroundRepeat: "no-repeat",
                                 backgroundPosition: "center",
@@ -455,7 +458,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                             justifyContent: "center",
                             width: "68px",
                             height: "68px",
-                            backgroundImage: `url(${scoutAugmentsAndMapImage})`,
+                            backgroundImage: `url(${(scoutAugmentsAndMapImage as unknown as { default?: string }).default ?? scoutAugmentsAndMapImage})`,
                             backgroundSize: "contain",
                             backgroundRepeat: "no-repeat",
                             backgroundPosition: "center",
@@ -486,7 +489,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                             justifyContent: "center",
                             width: "72px",
                             height: "72px",
-                            backgroundImage: `url(${scoutAllUnitsImage})`,
+                            backgroundImage: `url(${(scoutAllUnitsImage as unknown as { default?: string }).default ?? scoutAllUnitsImage})`,
                             backgroundSize: "contain",
                             backgroundRepeat: "no-repeat",
                             backgroundPosition: "center",
@@ -814,7 +817,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                     {(pickBanContext.picked.includes(creatureId) ||
                                                         pickBanContext.opponentPicked.includes(creatureId)) && (
                                                         <img
-                                                            src={checkmarkImage}
+                                                            src={
+                                                                (checkmarkImage as unknown as { default?: string })
+                                                                    .default ?? checkmarkImage
+                                                            }
                                                             alt="checkmark"
                                                             style={{
                                                                 position: "absolute",
@@ -1219,7 +1225,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                     {(pickBanContext.picked.includes(creatureId) ||
                                                         pickBanContext.opponentPicked.includes(creatureId)) && (
                                                         <img
-                                                            src={checkmarkImage}
+                                                            src={
+                                                                (checkmarkImage as unknown as { default?: string })
+                                                                    .default ?? checkmarkImage
+                                                            }
                                                             alt="checkmark"
                                                             style={{
                                                                 position: "absolute",
@@ -1605,7 +1614,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                     {(pickBanContext.picked.includes(creatureId) ||
                                                         pickBanContext.opponentPicked.includes(creatureId)) && (
                                                         <img
-                                                            src={checkmarkImage}
+                                                            src={
+                                                                (checkmarkImage as unknown as { default?: string })
+                                                                    .default ?? checkmarkImage
+                                                            }
                                                             alt="checkmark"
                                                             style={{
                                                                 position: "absolute",
@@ -1999,7 +2011,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                     {(pickBanContext.picked.includes(creatureId) ||
                                                         pickBanContext.opponentPicked.includes(creatureId)) && (
                                                         <img
-                                                            src={checkmarkImage}
+                                                            src={
+                                                                (checkmarkImage as unknown as { default?: string })
+                                                                    .default ?? checkmarkImage
+                                                            }
                                                             alt="checkmark"
                                                             style={{
                                                                 position: "absolute",
@@ -2595,9 +2610,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                 backgroundColor: "rgba(0, 0, 0, 0.8)",
                                                 backgroundImage:
                                                     userTeam === TeamVals.LOWER
-                                                        ? `url(${overlayGreenImage})`
+                                                        ? `url(${(overlayGreenImage as unknown as { default?: string }).default ?? overlayGreenImage})`
                                                         : userTeam === TeamVals.UPPER
-                                                          ? `url(${overlayRedImage})`
+                                                          ? `url(${(overlayRedImage as unknown as { default?: string }).default ?? overlayRedImage})`
                                                           : "none",
                                                 "&::before":
                                                     userTeam === TeamVals.UPPER
@@ -2696,7 +2711,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                         </Box>
 
                                         <img
-                                            src={crossSwordsImage}
+                                            src={
+                                                (crossSwordsImage as unknown as { default?: string }).default ??
+                                                crossSwordsImage
+                                            }
                                             alt="Cross Swords"
                                             style={{
                                                 position: "absolute",

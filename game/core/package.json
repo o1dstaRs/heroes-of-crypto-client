@@ -7,7 +7,7 @@
         "dist"
     ],
     "scripts": {
-        "build": "rimraf .parcel-cache && yarn run build:images && rimraf dist && tsc && yarn run build:docs",
+        "build": "rimraf .parcel-cache && yarn run build:images && rimraf dist && tsc && vite build",
         "build:docs": "rimraf ../../.parcel-cache && rimraf ../../docs/dist && dotenv -e .env.production parcel build --no-optimize src/ui/index.html --public-url . --no-source-maps && cpy dist ../../docs",
         "build:images": "rimraf images && bun run copy:images && npm run generate:animations && npm run generate:images",
         "copy:images": "cpy $HOC_IMAGES_LOC ./",

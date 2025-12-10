@@ -1445,8 +1445,8 @@ export class Sandbox extends PixiScene {
             worldPath,
             currentSegment: 0,
             t: 0,
-            // 2× speed (cellSize * 12) as per previous tweak.
-            speed: cellSize * 12,
+            // Adjusted speed based on user feedback (was 12)
+            speed: cellSize * 8,
             destCell,
             lastTrackWorld: { x: startPos.x, y: startPos.y },
         };

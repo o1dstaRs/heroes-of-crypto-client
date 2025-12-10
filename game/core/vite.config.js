@@ -69,6 +69,7 @@ export default defineConfig(({ mode }) => {
                     path.resolve(__dirname), // core
                     path.resolve(__dirname, "../heroes-of-crypto-common"), // workspace root
                     path.resolve(__dirname, "../heroes-of-crypto-common/src"),
+                    path.resolve(__dirname, "../.."), // project root (for node_modules)
                 ],
             },
         },

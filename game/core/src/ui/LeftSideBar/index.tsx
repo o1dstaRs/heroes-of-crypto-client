@@ -15,8 +15,8 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 
 import { MessageBox } from "./MessageBox";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import greenOverlayImage from "../../../images/overlay_green.webp";
-import redOverlayImage from "../../../images/overlay_red.webp";
+const greenOverlayImage = new URL("../../../images/overlay_green.webp", import.meta.url).toString();
+const redOverlayImage = new URL("../../../images/overlay_red.webp", import.meta.url).toString();
 import { UnitStatsListItem } from "./UnitStatsListItem";
 import { UpNext } from "./UpNext";
 import SynergiesRow from "./SynergiesRow";
@@ -127,7 +127,11 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
             {hasSelectedUnit && (
                 <Box
                     component="img"
-                    src={unitProperties.team === 2 ? greenOverlayImage : redOverlayImage}
+                    src={
+                        unitProperties.team === 2
+                            ? ((greenOverlayImage as unknown as { default?: string }).default ?? greenOverlayImage)
+                            : ((redOverlayImage as unknown as { default?: string }).default ?? redOverlayImage)
+                    }
                     sx={{
                         position: "absolute",
                         width: "350px",

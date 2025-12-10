@@ -11,8 +11,8 @@ import React, { useEffect, useState } from "react";
 
 import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import stopImg from "../../../images/stop.webp";
-import hourglassImg from "../../../images/hourglass.webp";
+const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
+const hourglassImg = new URL("../../../images/hourglass.webp", import.meta.url).toString();
 import { IVisibleState, IVisibleUnit } from "../../state/visible_state";
 
 // --- Custom Style for "Heroes" Aesthetic Tooltips ---

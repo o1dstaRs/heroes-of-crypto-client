@@ -4,7 +4,7 @@ import React, { useCallback } from "react";
 import { UNIT_ID_TO_IMAGE } from "../unit_ui_constants";
 import { usePickBanEvents } from "@/ui";
 import { images } from "../../generated/image_imports";
-import revealSmallImage from "../../../images/icon_reveal_128.webp";
+const revealSmallImage = new URL("../../../images/icon_reveal_128.webp", import.meta.url).toString();
 import { useAuthContext } from "../auth/context/auth_context";
 
 export const RevealCreatureImageBox = ({
@@ -165,7 +165,7 @@ export const RevealCreatureImageBox = ({
                                 "&:hover": {
                                     backgroundColor: "rgb(62, 135, 144)",
                                     "&::after": {
-                                        content: `url(${revealSmallImage})`,
+                                        content: `url(${(revealSmallImage as unknown as { default?: string }).default ?? revealSmallImage})`,
                                         position: "absolute",
                                         left: "114%",
                                         top: "130%",

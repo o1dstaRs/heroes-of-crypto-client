@@ -466,13 +466,12 @@ const EffectColumnOrRow: React.FC<{
                 {effects.map((effect, index) => (
                     <Tooltip
                         key={index}
-                        title={`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${
-                            effect.laps > 0 &&
-                            effect.laps !== Number.MAX_SAFE_INTEGER &&
-                            effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL
+                        title={`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${effect.laps > 0 &&
+                                effect.laps !== Number.MAX_SAFE_INTEGER &&
+                                effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL
                                 ? ` (remaining ${HoCLib.getLapString(effect.laps)})`
                                 : ""
-                        }`}
+                            }`}
                         sx={commonTooltipSx}
                     >
                         <Box
@@ -520,13 +519,13 @@ const StatItem: React.FC<{
                 backgroundColor: positiveFrame
                     ? "rgba(0, 255, 0, 0.3)"
                     : negativeFrame
-                      ? "rgba(255, 0, 0, 0.3)"
-                      : "transparent",
+                        ? "rgba(255, 0, 0, 0.3)"
+                        : "transparent",
                 ...(positiveFrame
                     ? { boxShadow: "0 0 5px 5px green", borderRadius: "20px" }
                     : negativeFrame
-                      ? { boxShadow: "0 0 5px 5px red", borderRadius: "20px" }
-                      : {}),
+                        ? { boxShadow: "0 0 5px 5px red", borderRadius: "20px" }
+                        : {}),
             }}
         >
             {React.cloneElement(icon, { sx: { color, fontSize: "1.25rem", pr: "4px" } })}
@@ -610,178 +609,233 @@ const UnitStatsLayout: React.FC<{
     hasBreakApplied,
     team,
 }) => {
-    const statsVisible = showStats;
-    const abilitiesVisible = showAbilities;
+        const statsVisible = showStats;
+        const abilitiesVisible = showAbilities;
 
-    const attackSign = attackMod > 0 ? "+" : "";
-    const attackModBadgeValue = `${attackMod ? `${attackSign}${unitProperties.attack_mod}` : ""}${
-        unitProperties.attack_multiplier !== 1 ? ` x${unitProperties.attack_multiplier}` : ""
-    }`;
-    const armorSign = armorMod > 0 ? "+" : "";
-    const armorModBadgeValue = armorMod ? `${armorSign}${armorMod}` : "";
-    const stepsSign = stepsMod > 0 ? "+" : "";
-    const stepsModBadgeValue = stepsMod ? `${stepsSign}${stepsMod}` : "";
-    const luckSign = unitProperties.luck_mod > 0 ? "+" : "";
-    const luckBadgeValue = unitProperties.luck_mod ? `${luckSign}${unitProperties.luck_mod}` : "";
+        const attackSign = attackMod > 0 ? "+" : "";
+        const attackModBadgeValue = `${attackMod ? `${attackSign}${unitProperties.attack_mod}` : ""}${unitProperties.attack_multiplier !== 1 ? ` x${unitProperties.attack_multiplier}` : ""
+            }`;
+        const armorSign = armorMod > 0 ? "+" : "";
+        const armorModBadgeValue = armorMod ? `${armorSign}${armorMod}` : "";
+        const stepsSign = stepsMod > 0 ? "+" : "";
+        const stepsModBadgeValue = stepsMod ? `${stepsSign}${stepsMod}` : "";
+        const luckSign = unitProperties.luck_mod > 0 ? "+" : "";
+        const luckBadgeValue = unitProperties.luck_mod ? `${luckSign}${unitProperties.luck_mod}` : "";
 
-    let attackColor: "success" | "danger" | "primary" | "neutral" | "warning" = "success";
-    if (unitProperties.attack_multiplier < 1) {
-        attackColor = "danger";
-    } else if (unitProperties.attack_multiplier === 1 && unitProperties.attack_mod < 0) {
-        attackColor = "danger";
-    }
+        let attackColor: "success" | "danger" | "primary" | "neutral" | "warning" = "success";
+        if (unitProperties.attack_multiplier < 1) {
+            attackColor = "danger";
+        } else if (unitProperties.attack_multiplier === 1 && unitProperties.attack_mod < 0) {
+            attackColor = "danger";
+        }
 
-    const animationConfig = getDefaultAnimationConfig(unitProperties.name);
-    const hasAnimation = !!animationConfig;
+        const animationConfig = getDefaultAnimationConfig(unitProperties.name);
+        const hasAnimation = !!animationConfig;
 
-    const statsContent = (
-        <>
-            <StatGroup>
-                <StatItem
-                    icon={<HeartIcon />}
-                    value={`${unitProperties.hp}/${unitProperties.max_hp}`}
-                    tooltip="Current/max Health Points"
-                    color="#ff4d4d"
-                />
-                {unitProperties.can_cast_spells && (
-                    <StatItem
-                        icon={<ScrollIcon />}
-                        value={unitProperties.spells.length}
-                        tooltip="Number of magic scrolls"
-                        color="#add8e6"
-                    />
-                )}
-            </StatGroup>
-            <StatGroup>
-                <StatItem icon={<FistIcon />} value={damageRange} tooltip="Attack spread" color="#c0c0c0" />
-                <StatItem
-                    icon={attackTypeSelected === AttackVals.RANGE ? <BowIcon /> : <SwordIcon />}
-                    value={Number(attackDamage.toFixed(2))}
-                    tooltip="Attack type and multiplier"
-                    color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
-                    badgeContent={attackModBadgeValue}
-                    badgeColor={attackColor}
-                    positiveFrame={unitProperties.attack_multiplier > 1}
-                    negativeFrame={unitProperties.attack_multiplier < 1}
-                />
-            </StatGroup>
-            {unitProperties.attack_type === AttackVals.RANGE && (
+        const statsContent = (
+            <>
                 <StatGroup>
                     <StatItem
-                        icon={<ShotRangeIcon />}
-                        value={unitProperties.shot_distance}
-                        tooltip="Ranged shot distance in cells"
-                        color="#ffff00"
+                        icon={<HeartIcon />}
+                        value={`${unitProperties.hp}/${unitProperties.max_hp}`}
+                        tooltip="Current/max Health Points"
+                        color="#ff4d4d"
                     />
-                    {(unitProperties.range_shots_mod || unitProperties.range_shots) && (
+                    {unitProperties.can_cast_spells && (
                         <StatItem
-                            icon={<QuiverIcon />}
-                            value={unitProperties.range_shots_mod || unitProperties.range_shots}
-                            tooltip="Number of ranged shots"
-                            color="#cd5c5c"
+                            icon={<ScrollIcon />}
+                            value={unitProperties.spells.length}
+                            tooltip="Number of magic scrolls"
+                            color="#add8e6"
                         />
                     )}
                 </StatGroup>
-            )}
-            <StatGroup>
-                <StatItem
-                    icon={<ShieldIcon />}
-                    value={Number(meleeArmor.toFixed(2))}
-                    tooltip="Armor"
-                    color="#4682b4"
-                    badgeContent={armorModBadgeValue}
-                    badgeColor={unitProperties.armor_mod > 0 ? "success" : "danger"}
-                    positiveFrame={unitProperties.armor_mod > 0}
-                    negativeFrame={unitProperties.armor_mod < 0}
-                />
-                <StatItem
-                    icon={<MagicShieldIcon />}
-                    value={`${unitProperties.magic_resist_mod || unitProperties.magic_resist}%`}
-                    tooltip="Magic resist in %"
-                    color="#8a2be2"
-                />
-                {hasDifferentRangeArmor && (
+                <StatGroup>
+                    <StatItem icon={<FistIcon />} value={damageRange} tooltip="Attack spread" color="#c0c0c0" />
                     <StatItem
-                        icon={<ArrowShieldIcon />}
-                        value={Number(rangeArmor.toFixed(2))}
-                        tooltip="Range armor"
-                        color="#f4a460"
+                        icon={attackTypeSelected === AttackVals.RANGE ? <BowIcon /> : <SwordIcon />}
+                        value={Number(attackDamage.toFixed(2))}
+                        tooltip="Attack type and multiplier"
+                        color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
+                        badgeContent={attackModBadgeValue}
+                        badgeColor={attackColor}
+                        positiveFrame={unitProperties.attack_multiplier > 1}
+                        negativeFrame={unitProperties.attack_multiplier < 1}
+                    />
+                </StatGroup>
+                {unitProperties.attack_type === AttackVals.RANGE && (
+                    <StatGroup>
+                        <StatItem
+                            icon={<ShotRangeIcon />}
+                            value={unitProperties.shot_distance}
+                            tooltip="Ranged shot distance in cells"
+                            color="#ffff00"
+                        />
+                        {(unitProperties.range_shots_mod || unitProperties.range_shots) && (
+                            <StatItem
+                                icon={<QuiverIcon />}
+                                value={unitProperties.range_shots_mod || unitProperties.range_shots}
+                                tooltip="Number of ranged shots"
+                                color="#cd5c5c"
+                            />
+                        )}
+                    </StatGroup>
+                )}
+                <StatGroup>
+                    <StatItem
+                        icon={<ShieldIcon />}
+                        value={Number(meleeArmor.toFixed(2))}
+                        tooltip="Armor"
+                        color="#4682b4"
                         badgeContent={armorModBadgeValue}
                         badgeColor={unitProperties.armor_mod > 0 ? "success" : "danger"}
+                        positiveFrame={unitProperties.armor_mod > 0}
+                        negativeFrame={unitProperties.armor_mod < 0}
                     />
-                )}
-            </StatGroup>
-            <StatGroup>
-                <StatItem
-                    icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
-                    value={Number((unitProperties.steps + stepsMod).toFixed(1))}
-                    tooltip="Movement type and number of steps in cells"
-                    color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
-                    badgeContent={stepsModBadgeValue}
-                    badgeColor={stepsMod > 0 ? "success" : "danger"}
-                    positiveFrame={stepsMod > 0}
-                    negativeFrame={stepsMod < 0}
-                />
-                <StatItem
-                    icon={<SpeedIcon />}
-                    value={unitProperties.speed}
-                    tooltip="Units with higher speed turn first on the battlefield"
-                    color={isDarkMode ? "#f5fefd" : "#000000"}
-                />
-            </StatGroup>
-            <StatGroup>
-                <StatItem
-                    icon={<MoraleIcon />}
-                    value={unitProperties.morale}
-                    tooltip="The morale parameter affects the chance of an out of regular order action depending on whether it is positive or negative"
-                    color={isDarkMode ? "#ffff00" : "#DC4D01"}
-                    positiveFrame={
-                        unitProperties.morale >= HoCConstants.MORALE_MAX_VALUE_TOTAL &&
-                        unitProperties.attack_multiplier > 1
-                    }
-                    negativeFrame={
-                        unitProperties.morale <= -HoCConstants.MORALE_MAX_VALUE_TOTAL &&
-                        unitProperties.attack_multiplier < 1
-                    }
-                />
-                <StatItem
-                    icon={<LuckIcon />}
-                    value={unitProperties.luck + unitProperties.luck_mod}
-                    tooltip="Luck increases or decreases damage received in combat, while also affecting the probability or power of abilities"
-                    color="#ff4040"
-                    badgeContent={luckBadgeValue}
-                    badgeColor={unitProperties.luck_mod > 0 ? "success" : "danger"}
-                    positiveFrame={unitProperties.luck + unitProperties.luck_mod >= HoCConstants.LUCK_MAX_VALUE_TOTAL}
-                    negativeFrame={unitProperties.luck + unitProperties.luck_mod <= -HoCConstants.LUCK_MAX_VALUE_TOTAL}
-                />
-            </StatGroup>
-        </>
-    );
+                    <StatItem
+                        icon={<MagicShieldIcon />}
+                        value={`${unitProperties.magic_resist_mod || unitProperties.magic_resist}%`}
+                        tooltip="Magic resist in %"
+                        color="#8a2be2"
+                    />
+                    {hasDifferentRangeArmor && (
+                        <StatItem
+                            icon={<ArrowShieldIcon />}
+                            value={Number(rangeArmor.toFixed(2))}
+                            tooltip="Range armor"
+                            color="#f4a460"
+                            badgeContent={armorModBadgeValue}
+                            badgeColor={unitProperties.armor_mod > 0 ? "success" : "danger"}
+                        />
+                    )}
+                </StatGroup>
+                <StatGroup>
+                    <StatItem
+                        icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
+                        value={Number((unitProperties.steps + stepsMod).toFixed(1))}
+                        tooltip="Movement type and number of steps in cells"
+                        color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
+                        badgeContent={stepsModBadgeValue}
+                        badgeColor={stepsMod > 0 ? "success" : "danger"}
+                        positiveFrame={stepsMod > 0}
+                        negativeFrame={stepsMod < 0}
+                    />
+                    <StatItem
+                        icon={<SpeedIcon />}
+                        value={unitProperties.speed}
+                        tooltip="Units with higher speed turn first on the battlefield"
+                        color={isDarkMode ? "#f5fefd" : "#000000"}
+                    />
+                </StatGroup>
+                <StatGroup>
+                    <StatItem
+                        icon={<MoraleIcon />}
+                        value={unitProperties.morale}
+                        tooltip="The morale parameter affects the chance of an out of regular order action depending on whether it is positive or negative"
+                        color={isDarkMode ? "#ffff00" : "#DC4D01"}
+                        positiveFrame={
+                            unitProperties.morale >= HoCConstants.MORALE_MAX_VALUE_TOTAL &&
+                            unitProperties.attack_multiplier > 1
+                        }
+                        negativeFrame={
+                            unitProperties.morale <= -HoCConstants.MORALE_MAX_VALUE_TOTAL &&
+                            unitProperties.attack_multiplier < 1
+                        }
+                    />
+                    <StatItem
+                        icon={<LuckIcon />}
+                        value={unitProperties.luck + unitProperties.luck_mod}
+                        tooltip="Luck increases or decreases damage received in combat, while also affecting the probability or power of abilities"
+                        color="#ff4040"
+                        badgeContent={luckBadgeValue}
+                        badgeColor={unitProperties.luck_mod > 0 ? "success" : "danger"}
+                        positiveFrame={unitProperties.luck + unitProperties.luck_mod >= HoCConstants.LUCK_MAX_VALUE_TOTAL}
+                        negativeFrame={unitProperties.luck + unitProperties.luck_mod <= -HoCConstants.LUCK_MAX_VALUE_TOTAL}
+                    />
+                </StatGroup>
+            </>
+        );
 
-    const abilitiesBlock = (
-        <Box
-            sx={{
-                opacity: abilitiesVisible ? 1 : 0,
-                transition: "opacity 150ms ease-out",
-            }}
-        >
-            <Typography level="title-sm" sx={{ marginTop: columnize ? 1.5 : 0 }}>
-                Abilities
-            </Typography>
-            <AbilityStack
-                abilities={abilities}
-                teamType={team}
-                isWidescreen={columnize}
-                hasBreakApplied={hasBreakApplied}
-            />
-        </Box>
-    );
+        const abilitiesBlock = (
+            <Box
+                sx={{
+                    opacity: abilitiesVisible ? 1 : 0,
+                    transition: "opacity 150ms ease-out",
+                }}
+            >
+                <Typography level="title-sm" sx={{ marginTop: columnize ? 1.5 : 0 }}>
+                    Abilities
+                </Typography>
+                <AbilityStack
+                    abilities={abilities}
+                    teamType={team}
+                    isWidescreen={columnize}
+                    hasBreakApplied={hasBreakApplied}
+                />
+            </Box>
+        );
 
-    if (columnize) {
-        return (
-            <>
-                <Box sx={{ display: "flex", width: "100%", overflow: "hidden", flexWrap: "wrap" }}>
-                    <Box sx={{ width: "60%", position: "relative" }}>
+        if (columnize) {
+            return (
+                <>
+                    <Box sx={{ display: "flex", width: "100%", overflow: "hidden", flexWrap: "wrap" }}>
+                        <Box sx={{ width: "60%", position: "relative" }}>
+                            {hasAnimation && animationConfig ? (
+                                <AtlasAnimation
+                                    meta={animationConfig.meta}
+                                    src={animationConfig.imageSrc}
+                                    onLoaded={onImageLoaded}
+                                />
+                            ) : (
+                                <Avatar
+                                    // @ts-ignore: src params
+                                    src={images[largeTextureName]}
+                                    variant="plain"
+                                    sx={{
+                                        width: "100%",
+                                        zIndex: 5,
+                                        height: "auto",
+                                        objectFit: "contain",
+                                        overflow: "visible",
+                                        transition: "opacity 120ms ease-out",
+                                    }}
+                                    onLoad={onImageLoaded}
+                                    onError={onImageLoaded}
+                                />
+                            )}
+                        </Box>
+                        <Box
+                            sx={{
+                                width: "38%",
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "center",
+                                pl: 3,
+                                pt: 1,
+                                pb: 1,
+                                transformOrigin: "top left",
+                                opacity: statsVisible ? 1 : 0,
+                                transition: "opacity 140ms ease-out, transform 140ms ease-out",
+                                transform: statsVisible ? "scale(1.2)" : "scale(1.2) translateY(4px)",
+                                pointerEvents: statsVisible ? "auto" : "none",
+                            }}
+                        >
+                            {statsContent}
+                        </Box>
+                    </Box>
+                    <Box sx={{ width: "100%" }}>{abilitiesBlock}</Box>
+                </>
+            );
+        } else {
+            return (
+                <Box
+                    sx={{
+                        position: "relative",
+                        marginBottom: 1.5,
+                        width: "100%",
+                    }}
+                >
+                    <Box sx={{ width: "100%" }}>
                         {hasAnimation && animationConfig ? (
                             <AtlasAnimation
                                 meta={animationConfig.meta}
@@ -794,9 +848,11 @@ const UnitStatsLayout: React.FC<{
                                 src={images[largeTextureName]}
                                 variant="plain"
                                 sx={{
-                                    width: "100%",
                                     zIndex: 5,
+                                    width: "100%",
                                     height: "auto",
+                                    maxWidth: "100%",
+                                    maxHeight: "100%",
                                     objectFit: "contain",
                                     overflow: "visible",
                                     transition: "opacity 120ms ease-out",
@@ -806,95 +862,37 @@ const UnitStatsLayout: React.FC<{
                             />
                         )}
                     </Box>
+
                     <Box
                         sx={{
-                            width: "38%",
+                            width: "90%",
                             display: "flex",
                             flexDirection: "column",
                             justifyContent: "center",
-                            pl: 3,
-                            pt: 1,
-                            pb: 1,
+                            pl: 4,
+                            py: 4,
                             transformOrigin: "top left",
                             opacity: statsVisible ? 1 : 0,
-                            transition: "opacity 140ms ease-out, transform 140ms ease-out",
+                            transition: statsVisible ? "opacity 140ms ease-out, transform 140ms ease-out" : "none",
                             transform: statsVisible ? "scale(1.2)" : "scale(1.2) translateY(4px)",
                             pointerEvents: statsVisible ? "auto" : "none",
                         }}
                     >
                         {statsContent}
                     </Box>
-                </Box>
-                <Box sx={{ width: "100%" }}>{abilitiesBlock}</Box>
-            </>
-        );
-    } else {
-        return (
-            <Box
-                sx={{
-                    position: "relative",
-                    marginBottom: 1.5,
-                    width: "100%",
-                }}
-            >
-                <Box sx={{ width: "100%" }}>
-                    {hasAnimation && animationConfig ? (
-                        <AtlasAnimation
-                            meta={animationConfig.meta}
-                            src={animationConfig.imageSrc}
-                            onLoaded={onImageLoaded}
-                        />
-                    ) : (
-                        <Avatar
-                            // @ts-ignore: src params
-                            src={images[largeTextureName]}
-                            variant="plain"
-                            sx={{
-                                zIndex: 5,
-                                width: "100%",
-                                height: "auto",
-                                maxWidth: "100%",
-                                maxHeight: "100%",
-                                objectFit: "contain",
-                                overflow: "visible",
-                                transition: "opacity 120ms ease-out",
-                            }}
-                            onLoad={onImageLoaded}
-                            onError={onImageLoaded}
-                        />
-                    )}
-                </Box>
 
-                <Box
-                    sx={{
-                        width: "90%",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                        pl: 4,
-                        py: 4,
-                        transformOrigin: "top left",
-                        opacity: statsVisible ? 1 : 0,
-                        transition: statsVisible ? "opacity 140ms ease-out, transform 140ms ease-out" : "none",
-                        transform: statsVisible ? "scale(1.2)" : "scale(1.2) translateY(4px)",
-                        pointerEvents: statsVisible ? "auto" : "none",
-                    }}
-                >
-                    {statsContent}
+                    <Box
+                        sx={{
+                            width: "100%",
+                            mt: 1,
+                        }}
+                    >
+                        {abilitiesBlock}
+                    </Box>
                 </Box>
-
-                <Box
-                    sx={{
-                        width: "100%",
-                        mt: 1,
-                    }}
-                >
-                    {abilitiesBlock}
-                </Box>
-            </Box>
-        );
-    }
-};
+            );
+        }
+    };
 
 const BreakOverlay: React.FC = () => (
     <Box
@@ -943,11 +941,6 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
     overallImpact,
     factionType,
 }) => {
-    // NOTE: It is normal for this to log twice on the *initial* selection of a new unit
-    // due to React's mounting phase + image loading phase.
-    // The fix below prevents it from re-rendering/flickering during gameplay (stat changes).
-    console.log("UnitStatsListItem rendered");
-
     // ✅ FIX 1: We track the loaded texture NAME, not the full unit ID/State.
     const [loadedTexture, setLoadedTexture] = useState<string | null>(null);
     const theme = useTheme();

@@ -8,10 +8,10 @@ import Typography from "@mui/joy/Typography";
 import { images } from "../../generated/image_imports";
 import { IVisibleState, IVisibleUnit } from "../../state/visible_state";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import stopImg from "../../../images/stop.webp";
-import hourglassImg from "../../../images/hourglass.webp";
+const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
+const hourglassImg = new URL("../../../images/hourglass.webp", import.meta.url).toString();
+const meteorSvg = new URL("../../../images/meteor.svg", import.meta.url).toString();
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
-import meteorSvg from "../../../images/meteor.svg";
 import { Tooltip } from "@mui/joy";
 
 export const UpNextOverlay: React.FC = () => {

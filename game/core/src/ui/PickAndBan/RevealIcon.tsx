@@ -2,7 +2,7 @@ import React from "react";
 
 import { Box, Badge, Tooltip } from "@mui/joy";
 
-import revealSmallImage from "../../../images/icon_reveal_128.webp";
+const revealSmallImage = new URL("../../../images/icon_reveal_128.webp", import.meta.url).toString();
 
 const RevealIcon: React.FC<{
     revealsRemaining: number;
@@ -21,7 +21,7 @@ const RevealIcon: React.FC<{
             }}
         >
             <img
-                src={revealSmallImage}
+                src={(revealSmallImage as unknown as { default?: string }).default ?? revealSmallImage}
                 alt="Reveal Icon"
                 style={{
                     width: "45%",

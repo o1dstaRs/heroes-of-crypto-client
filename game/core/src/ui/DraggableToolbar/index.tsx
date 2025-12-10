@@ -6,19 +6,20 @@ import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import RotateRightIcon from "@mui/icons-material/RotateRight";
 
 import { images } from "../../generated/image_imports";
-import spellbookIconImage from "../../../images/icon_spellbook_black.webp";
-import hourglassIconImage from "../../../images/icon_hourglass_black.webp";
-import swordIconImage from "../../../images/icon_sword_black.webp";
-import bowIconImage from "../../../images/icon_bow_black.webp";
-import scepterIconImage from "../../../images/icon_scepter_black.webp";
-import aiIconImage from "../../../images/icon_ai_black.webp";
-import aiOnIconImage from "../../../images/icon_ai_on_black.webp";
-import skipIconImage from "../../../images/icon_skip_black.webp";
-import luckShieldIconImage from "../../../images/icon_luck_shield_black.webp";
-import activeOptionIconImage from "../../../images/icon_active_option.webp";
-import inactiveOptionIconImage from "../../../images/icon_inactive_option.webp";
-import blackImage from "../../../images/overlay_black.webp";
-import lightImage from "../../../images/overlay_light.webp";
+const spellbookIconImage = new URL("../../../images/icon_spellbook_black.webp", import.meta.url).toString();
+const hourglassIconImage = new URL("../../../images/icon_hourglass_black.webp", import.meta.url).toString();
+const swordIconImage = new URL("../../../images/icon_sword_black.webp", import.meta.url).toString();
+const bowIconImage = new URL("../../../images/icon_bow_black.webp", import.meta.url).toString();
+const scepterIconImage = new URL("../../../images/icon_scepter_black.webp", import.meta.url).toString();
+const aiIconImage = new URL("../../../images/icon_ai_black.webp", import.meta.url).toString();
+const aiOnIconImage = new URL("../../../images/icon_ai_on_black.webp", import.meta.url).toString();
+const skipIconImage = new URL("../../../images/icon_skip_black.webp", import.meta.url).toString();
+const luckShieldIconImage = new URL("../../../images/icon_luck_shield_black.webp", import.meta.url).toString();
+const activeOptionIconImage = new URL("../../../images/icon_active_option.webp", import.meta.url).toString();
+const inactiveOptionIconImage = new URL("../../../images/icon_inactive_option.webp", import.meta.url).toString();
+const blackImage = new URL("../../../images/overlay_black.webp", import.meta.url).toString();
+const lightImage = new URL("../../../images/overlay_light.webp", import.meta.url).toString();
+
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IVisibleButton, VisibleButtonState } from "../../state/visible_state";
 

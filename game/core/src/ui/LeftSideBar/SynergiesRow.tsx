@@ -2,14 +2,20 @@ import { SynergyKeysToPower } from "@heroesofcrypto/common";
 import Box from "@mui/joy/Box";
 import Tooltip from "@mui/joy/Tooltip";
 import React from "react";
-import synergyAbilitiesPowerImg from "../../../images/synergy_abilities_power_256.webp";
-import synergyAurasRangeImg from "../../../images/synergy_auras_range_256.webp";
-import synergyBreakOnAttackImg from "../../../images/synergy_break_on_attack_256.webp";
-import synergyIncreaseBoardUnitsImg from "../../../images/synergy_increase_board_units_256.webp";
-import synergyMoraleImg from "../../../images/synergy_morale_256.webp";
-import synergyPlusFlyArmorImg from "../../../images/synergy_plus_fly_armor_256.webp";
-import synergyMovementImg from "../../../images/synergy_movement_256.webp";
-import synergySupplyImg from "../../../images/synergy_supply_256.webp";
+const synergyAbilitiesPowerImg = new URL(
+    "../../../images/synergy_abilities_power_256.webp",
+    import.meta.url,
+).toString();
+const synergyAurasRangeImg = new URL("../../../images/synergy_auras_range_256.webp", import.meta.url).toString();
+const synergyBreakOnAttackImg = new URL("../../../images/synergy_break_on_attack_256.webp", import.meta.url).toString();
+const synergyIncreaseBoardUnitsImg = new URL(
+    "../../../images/synergy_increase_board_units_256.webp",
+    import.meta.url,
+).toString();
+const synergyMoraleImg = new URL("../../../images/synergy_morale_256.webp", import.meta.url).toString();
+const synergyPlusFlyArmorImg = new URL("../../../images/synergy_plus_fly_armor_256.webp", import.meta.url).toString();
+const synergyMovementImg = new URL("../../../images/synergy_movement_256.webp", import.meta.url).toString();
+const synergySupplyImg = new URL("../../../images/synergy_supply_256.webp", import.meta.url).toString();
 
 const SYNERGY_NAME_TO_DESCRIPTION = {
     "Life:1:1": "Increases each unit's supply by {}% at the start of the battle",

@@ -2,7 +2,7 @@ import React from "react";
 
 import { Box, Tooltip } from "@mui/joy";
 
-import questionMarkImage from "../../../images/icon_question_mark_128.webp";
+const questionMarkImage = new URL("../../../images/icon_question_mark_128.webp", import.meta.url).toString();
 
 const HelpQuestionMarkIcon: React.FC<{
     setModalClosed: React.Dispatch<React.SetStateAction<boolean>>;
@@ -25,7 +25,7 @@ const HelpQuestionMarkIcon: React.FC<{
             }}
         >
             <img
-                src={questionMarkImage}
+                src={(questionMarkImage as unknown as { default?: string }).default ?? questionMarkImage}
                 alt="Question Mark"
                 style={{
                     width: "40%",

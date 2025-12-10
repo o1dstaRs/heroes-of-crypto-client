@@ -32,19 +32,25 @@ import {
 } from "@mui/joy";
 import { VisibleSynergyLevel } from "../../state/visible_state";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import augmentBoardImg from "../../../images/board_augment_256.webp";
-import augmentArmorImg from "../../../images/armor_augment_256.webp";
-import augmentMightImg from "../../../images/might_augment_256.webp";
-import augmentSniperImg from "../../../images/sniper_augment_256.webp";
-import augmentMovementImg from "../../../images/movement_augment_256.webp";
-import synergyAbilitiesPowerImg from "../../../images/synergy_abilities_power_256.webp";
-import synergyAurasRangeImg from "../../../images/synergy_auras_range_256.webp";
-import synergyBreakOnAttackImg from "../../../images/synergy_break_on_attack_256.webp";
-import synergyIncreaseBoardUnitsImg from "../../../images/synergy_increase_board_units_256.webp";
-import synergyMoraleImg from "../../../images/synergy_morale_256.webp";
-import synergyPlusFlyArmorImg from "../../../images/synergy_plus_fly_armor_256.webp";
-import synergyMovementImg from "../../../images/synergy_movement_256.webp";
-import synergySupplyImg from "../../../images/synergy_supply_256.webp";
+const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import.meta.url).toString();
+const augmentArmorImg = new URL("../../../images/armor_augment_256.webp", import.meta.url).toString();
+const augmentMightImg = new URL("../../../images/might_augment_256.webp", import.meta.url).toString();
+const augmentSniperImg = new URL("../../../images/sniper_augment_256.webp", import.meta.url).toString();
+const augmentMovementImg = new URL("../../../images/movement_augment_256.webp", import.meta.url).toString();
+const synergyAbilitiesPowerImg = new URL(
+    "../../../images/synergy_abilities_power_256.webp",
+    import.meta.url,
+).toString();
+const synergyAurasRangeImg = new URL("../../../images/synergy_auras_range_256.webp", import.meta.url).toString();
+const synergyBreakOnAttackImg = new URL("../../../images/synergy_break_on_attack_256.webp", import.meta.url).toString();
+const synergyIncreaseBoardUnitsImg = new URL(
+    "../../../images/synergy_increase_board_units_256.webp",
+    import.meta.url,
+).toString();
+const synergyMoraleImg = new URL("../../../images/synergy_morale_256.webp", import.meta.url).toString();
+const synergyPlusFlyArmorImg = new URL("../../../images/synergy_plus_fly_armor_256.webp", import.meta.url).toString();
+const synergyMovementImg = new URL("../../../images/synergy_movement_256.webp", import.meta.url).toString();
+const synergySupplyImg = new URL("../../../images/synergy_supply_256.webp", import.meta.url).toString();
 
 const SYNERGY_NAME_TO_FACTION = {
     [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: FactionVals.LIFE,
@@ -650,7 +656,7 @@ const SideToggleContainer = ({
                 <Tooltip title="Augment board placements" style={{ zIndex: 1 }}>
                     <IconButton onClick={() => handleAugmentClick("Placement")} title="Augment board placements">
                         <img
-                            src={augmentBoardImg}
+                            src={(augmentBoardImg as unknown as { default?: string }).default ?? augmentBoardImg}
                             alt="Placement Icon"
                             style={{
                                 filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
@@ -663,7 +669,7 @@ const SideToggleContainer = ({
                 <Tooltip title="Augment armor" style={{ zIndex: 1 }}>
                     <IconButton onClick={() => handleAugmentClick("Armor")} title="Augment armor">
                         <img
-                            src={augmentArmorImg}
+                            src={(augmentArmorImg as unknown as { default?: string }).default ?? augmentArmorImg}
                             alt="Armor Icon"
                             style={{
                                 filter: togglerType === "Armor" ? "brightness(1.2)" : "brightness(0.6)",
@@ -676,7 +682,7 @@ const SideToggleContainer = ({
                 <Tooltip title="Augment melee attack" style={{ zIndex: 1 }}>
                     <IconButton onClick={() => handleAugmentClick("Might")} title="Augment melee attack">
                         <img
-                            src={augmentMightImg}
+                            src={(augmentMightImg as unknown as { default?: string }).default ?? augmentMightImg}
                             alt="Might Icon"
                             style={{
                                 filter: togglerType === "Might" ? "brightness(1.2)" : "brightness(0.6)",
@@ -689,7 +695,7 @@ const SideToggleContainer = ({
                 <Tooltip title="Augment ranged attack" style={{ zIndex: 1 }}>
                     <IconButton onClick={() => handleAugmentClick("Sniper")} title="Augment ranged attack">
                         <img
-                            src={augmentSniperImg}
+                            src={(augmentSniperImg as unknown as { default?: string }).default ?? augmentSniperImg}
                             alt="Sniper Icon"
                             style={{
                                 filter: togglerType === "Sniper" ? "brightness(1.2)" : "brightness(0.6)",
@@ -702,7 +708,7 @@ const SideToggleContainer = ({
                 <Tooltip title="Augment movement" style={{ zIndex: 1 }}>
                     <IconButton onClick={() => handleAugmentClick("Movement")} title="Augment movement">
                         <img
-                            src={augmentMovementImg}
+                            src={(augmentMovementImg as unknown as { default?: string }).default ?? augmentMovementImg}
                             alt="Movement Icon"
                             style={{
                                 filter: togglerType === "Movement" ? "brightness(1.2)" : "brightness(0.6)",
@@ -742,7 +748,10 @@ const SideToggleContainer = ({
                                         title="Supply synergy"
                                     >
                                         <img
-                                            src={synergySupplyImg}
+                                            src={
+                                                (synergySupplyImg as unknown as { default?: string }).default ??
+                                                synergySupplyImg
+                                            }
                                             alt="Supply Icon"
                                             style={{
                                                 filter:
@@ -770,7 +779,10 @@ const SideToggleContainer = ({
                                         title="Morale synergy"
                                     >
                                         <img
-                                            src={synergyMoraleImg}
+                                            src={
+                                                (synergyMoraleImg as unknown as { default?: string }).default ??
+                                                synergyMoraleImg
+                                            }
                                             alt="Morale Icon"
                                             style={{
                                                 filter:
@@ -810,7 +822,10 @@ const SideToggleContainer = ({
                                         title="Movement synergy"
                                     >
                                         <img
-                                            src={synergyMovementImg}
+                                            src={
+                                                (synergyMovementImg as unknown as { default?: string }).default ??
+                                                synergyMovementImg
+                                            }
                                             alt="Movement Icon"
                                             style={{
                                                 filter:
@@ -837,7 +852,10 @@ const SideToggleContainer = ({
                                         title="Break on Attack synergy"
                                     >
                                         <img
-                                            src={synergyBreakOnAttackImg}
+                                            src={
+                                                (synergyBreakOnAttackImg as unknown as { default?: string }).default ??
+                                                synergyBreakOnAttackImg
+                                            }
                                             alt="Break on Attack Icon"
                                             style={{
                                                 filter:
@@ -876,7 +894,10 @@ const SideToggleContainer = ({
                                         title="Auras Range synergy"
                                     >
                                         <img
-                                            src={synergyAurasRangeImg}
+                                            src={
+                                                (synergyAurasRangeImg as unknown as { default?: string }).default ??
+                                                synergyAurasRangeImg
+                                            }
                                             alt="Auras Range Icon"
                                             style={{
                                                 filter:
@@ -906,7 +927,10 @@ const SideToggleContainer = ({
                                         title="Abilities Power synergy"
                                     >
                                         <img
-                                            src={synergyAbilitiesPowerImg}
+                                            src={
+                                                (synergyAbilitiesPowerImg as unknown as { default?: string }).default ??
+                                                synergyAbilitiesPowerImg
+                                            }
                                             alt="Abilities Power Icon"
                                             style={{
                                                 filter:
@@ -947,7 +971,10 @@ const SideToggleContainer = ({
                                         title="Board Units synergy"
                                     >
                                         <img
-                                            src={synergyIncreaseBoardUnitsImg}
+                                            src={
+                                                (synergyIncreaseBoardUnitsImg as unknown as { default?: string })
+                                                    .default ?? synergyIncreaseBoardUnitsImg
+                                            }
                                             alt="Board Units Icon"
                                             style={{
                                                 filter:
@@ -975,7 +1002,10 @@ const SideToggleContainer = ({
                                         title="Fly Armor synergy"
                                     >
                                         <img
-                                            src={synergyPlusFlyArmorImg}
+                                            src={
+                                                (synergyPlusFlyArmorImg as unknown as { default?: string }).default ??
+                                                synergyPlusFlyArmorImg
+                                            }
                                             alt="Fly Armor Icon"
                                             style={{
                                                 filter:

@@ -61,7 +61,7 @@ export class Settings {
     public m_testIndex = 0;
     public m_windowWidth = 3200;
     public m_windowHeight = 1800;
-    public m_hertz = 240;
+    public m_hertz = 60;
     // default: 9
     public m_velocityIterations = 0;
     public m_positionIterations = 3;
