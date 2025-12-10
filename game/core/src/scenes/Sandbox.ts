@@ -40,6 +40,8 @@ import {
     UnitVals,
     IVisibleDamage,
     ISystemMoveResult,
+    AbilityHelper,
+    AllAbilities,
 } from "@heroesofcrypto/common";
 import { UnitsOverlay } from "./UnitsOverlay";
 import { DamageStatisticHolder } from "./DamageStats";
@@ -810,7 +812,28 @@ export class Sandbox extends PixiScene {
             if (!deleted) continue;
             // 2) Cleanup grid occupancy (we still have the Unit instance `utd`)
             this.grid.cleanupAll(unitId, utd.getAttackRange(), utd.isSmallSize());
-            // 3) Remove Pixi visuals + selection
+
+            // 3) Cleanup Physics Body (if exists) - logic matching test_heroes.ts
+            /*
+             * Even though Sandbox.ts might be moving away from direct Box2D usage for everything,
+             * if units have bodies, they must be destroyed to prevent "ghost" obstacles.
+             */
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const context = this as any; // Cast to access inherited/mixed properties if needed, or assume this is the same context.
+            // Accessing physics world from GLScene if present
+            if (context.sc_world) {
+                // We need to look up the body. test_heroes uses unitsFactory.getUnitBody(id).
+                // We need to check if we can access unitsFactory.
+                if (context.unitsFactory) {
+                    const unitBody = context.unitsFactory.getUnitBody(unitId);
+                    if (unitBody) {
+                        context.sc_world.DestroyBody(unitBody);
+                    }
+                    context.unitsFactory.deleteUnitBody(unitId);
+                }
+            }
+
+            // 4) Remove Pixi visuals + selection
             utd.destroyVisuals();
             if (this.selectedBoardUnit === utd) {
                 this.selectedBoardUnit = undefined;
@@ -1554,7 +1577,7 @@ export class Sandbox extends PixiScene {
 
         text.anchor.set(0.5);
         text.x = pos.x;
-        text.y = pos.y - 40; // Start slightly above unit center
+        text.y = pos.y; // Use exact position passed (projection logic handles offset)
         text.scale.y = -1; // Flip Y because world is flipped
 
         // Ensure high Z-index
@@ -1592,6 +1615,7 @@ export class Sandbox extends PixiScene {
             amount: 0,
             unitPosition: { x: 0, y: 0 },
             unitIsSmall: true,
+            hits: [],
         };
 
         const attackerBefore = { amount: attacker.getAmountAlive(), health: attacker.getHp() };
@@ -1612,23 +1636,57 @@ export class Sandbox extends PixiScene {
             // attacker might have moved to `attackFrom`
 
             // Recalculate attacker visual center at `attackFrom`
-            // (assuming attackFrom is anchor position)
+            // Since handleMeleeAttack updates the logical position of the unit to `attackFrom`,
+            // we can simply ask the unit for its visual center.
             const gs = this.sc_sceneSettings.getGridSettings();
-
-            // Attacker visual pos:
-            // If attacker is large, we need to offset from `attackFrom` same way
-            const aSize = attacker.getSize();
-            const aOffset = aSize > 1 ? (aSize - 1) * 0.5 * gs.getCellSize() : 0;
-            const aCenter = { x: attackFrom.x + aOffset, y: attackFrom.y + aOffset };
+            const aCenter = attacker.getVisualCenter(gs);
 
             // Target visual pos:
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const rTarget = target as any;
             const tVis =
                 typeof rTarget.getVisualCenter === "function" ? rTarget.getVisualCenter(gs) : target.getPosition();
 
+            // Calculate trajectory direction (Attacker -> Target)
             const dir = { x: tVis.x - aCenter.x, y: tVis.y - aCenter.y };
-            this.showFloatingDamage(tVis, damageForAnimation.amount, dir);
+            const len = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
+
+            let spawnPos = { x: tVis.x, y: tVis.y };
+            if (len > 0.001) {
+                // Normalize
+                const ndx = dir.x / len;
+                const ndy = dir.y / len;
+
+                // Push text out by radius + margin
+                // Small unit radius ~0.5 cell, Large ~1.0 cell. Add extra margin.
+                const targetRadius = target.isSmallSize() ? gs.getCellSize() * 0.5 : gs.getCellSize() * 1.0;
+                const margin = gs.getCellSize() * 0.5;
+                spawnPos.x += ndx * (targetRadius + margin);
+                spawnPos.y += ndy * (targetRadius + margin);
+            } else {
+                // Fallback for overlapping? Just push up
+                spawnPos.y += gs.getCellSize();
+            }
+
+            if (damageForAnimation.hits && damageForAnimation.hits.length > 0) {
+                damageForAnimation.hits.forEach((dmg, index) => {
+                    // Capture spawnPos for the closure. 
+                    // We clone it because we might want to offset subsequent hits slightly if desired, 
+                    // but for now same position with delay is enough.
+                    const pos = { ...spawnPos };
+                    // Stagger animations by 800ms
+                    if (index === 0) {
+                        this.showFloatingDamage(pos, dmg, dir);
+                    } else {
+                        setTimeout(() => {
+                            this.showFloatingDamage(pos, dmg, dir);
+                        }, index * 800);
+                    }
+                });
+            } else {
+                this.showFloatingDamage(spawnPos, damageForAnimation.amount, dir);
+            }
         }
 
         // 2. Attacker Damage (Counter-Attack)
@@ -1655,8 +1713,24 @@ export class Sandbox extends PixiScene {
                 const tVis =
                     typeof rTarget.getVisualCenter === "function" ? rTarget.getVisualCenter(gs) : target.getPosition();
 
+                // Direction: Target -> Attacker
                 const dir = { x: aVis.x - tVis.x, y: aVis.y - tVis.y };
-                this.showFloatingDamage(aVis, damageTaken, dir);
+                const len = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
+
+                let spawnPos = { x: aVis.x, y: aVis.y };
+                if (len > 0.001) {
+                    const ndx = dir.x / len;
+                    const ndy = dir.y / len;
+
+                    const attackerRadius = attacker.isSmallSize() ? gs.getCellSize() * 0.5 : gs.getCellSize() * 1.0;
+                    const margin = gs.getCellSize() * 0.5;
+                    spawnPos.x += ndx * (attackerRadius + margin);
+                    spawnPos.y += ndy * (attackerRadius + margin);
+                } else {
+                    spawnPos.y += gs.getCellSize();
+                }
+
+                this.showFloatingDamage(spawnPos, damageTaken, dir);
             }
         }
 
@@ -1687,6 +1761,7 @@ export class Sandbox extends PixiScene {
             this.finishTurn();
             // Clear hover state
             this.hoverManager.clearHoverSilhouette();
+            this.hoverManager.clearAttackVisuals(); // Clean up red blur/damage
             this.hoverManager.hoverAttackFromCell = undefined;
         }
 
@@ -1902,10 +1977,12 @@ export class Sandbox extends PixiScene {
                     }
 
                     if (attackFrom) {
+                        // Clear previous frame's highlights/visuals before adding new ones
+                        this.hoverManager.clearAttackVisuals();
+
                         this.hoverManager.hoverAttackFromCell = attackFrom;
-                        this.hoverManager.updateAttackTargetHighlight(targetUnit);
-                        this.hoverManager.hoverAttackFromCell = attackFrom;
-                        this.hoverManager.updateAttackTargetHighlight(targetUnit);
+                        this.hoverManager.addTargetHighlight(targetUnit);
+
                         let attackFromPos: HoCMath.XY | undefined;
 
                         // Refined Logic: Use the footprint map to find the true center for large units
@@ -1959,6 +2036,7 @@ export class Sandbox extends PixiScene {
                                 ? rTarget.getVisualCenter(gs)
                                 : targetUnit.getPosition();
 
+
                         // Standard geometric center for damage text
                         const centerVis = { x: tVis.x, y: tVis.y };
 
@@ -1971,25 +2049,18 @@ export class Sandbox extends PixiScene {
                                 gs.getHalfStep(),
                             );
                         } else if (!targetUnit.isSmallSize() && attackFromPos) {
-                            // Fallback: finding closest cell logic
+                            // Manual closest cell logic to avoid private method issue
                             const targetCells = targetUnit.getCells();
-                            let closestDist = Number.MAX_VALUE;
-                            let closestPos = tVis;
-
-                            for (const cell of targetCells) {
-                                const cellPos = GridMath.getPositionForCell(
-                                    cell,
-                                    gs.getMinX(),
-                                    gs.getStep(),
-                                    gs.getHalfStep(),
-                                );
-                                const d = (cellPos.x - attackFromPos.x) ** 2 + (cellPos.y - attackFromPos.y) ** 2;
-                                if (d < closestDist) {
-                                    closestDist = d;
-                                    closestPos = cellPos;
-                                }
+                            let bestCell = targetCells[0];
+                            let minD = Number.MAX_VALUE;
+                            for (const tc of targetCells) {
+                                const tcp = GridMath.getPositionForCell(tc, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+                                const d = (tcp.x - attackFromPos.x) ** 2 + (tcp.y - attackFromPos.y) ** 2;
+                                if (d < minD) { minD = d; bestCell = tc; }
                             }
-                            tVis = closestPos;
+                            if (bestCell) {
+                                tVis = GridMath.getPositionForCell(bestCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+                            }
                         }
 
                         // Calculate projected damage
@@ -2006,7 +2077,7 @@ export class Sandbox extends PixiScene {
                             1, // Range divisor
                             1, // Multiplier
                         );
-                        let maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
+                        const maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
                             attackRate,
                             targetUnit,
                             false, // Melee
@@ -2022,6 +2093,66 @@ export class Sandbox extends PixiScene {
                         );
                         this.hoverManager.drawAttackArrow(attackFromPos, tVis);
                         isAttacking = true;
+
+                        // --- Multi-Target Highlight ---
+                        const secondaryTargets: Unit[] = [];
+                        // Derive cell from pos
+                        const attackFromCell = GridMath.getCellForPosition(gs, attackFromPos);
+
+                        if (attackFromCell) {
+                            // 1. Lightning Spin (Hydra) - Attacks all enemies around
+                            if (this.currentActiveUnit.hasAbilityActive("Lightning Spin")) {
+                                const enemiesAround = this.unitsHolder.allEnemiesAroundUnit(
+                                    this.currentActiveUnit,
+                                    true, // isAttack
+                                    attackFromCell // Simulate being at the attack position
+                                );
+                                for (const enemy of enemiesAround) {
+                                    if (enemy.getId() !== targetUnit.getId() && !enemy.isDead()) {
+                                        secondaryTargets.push(enemy);
+                                    }
+                                }
+                            }
+
+                            // 2. Fire Breath (Dragon) & Skewer Strike (Pikeman) - Linear/Cone attacks
+                            if (this.currentActiveUnit.hasAbilityActive("Fire Breath") || this.currentActiveUnit.hasAbilityActive("Skewer Strike")) {
+                                const targets = AbilityHelper.nextStandingTargets(
+                                    this.currentActiveUnit,
+                                    targetUnit,
+                                    this.grid,
+                                    this.unitsHolder,
+                                    attackFromCell, // Corrected: Pass grid cell, not world position
+                                    true, // isThroughShot / pierceLargeUnits - set to TRUE to allow Dragon/Pikeman to hit through large units
+                                    this.currentActiveUnit.hasAbilityActive("Skewer Strike") // isSkewerStrike
+                                );
+
+                                for (const enemy of targets) {
+                                    if (enemy.getId() !== targetUnit.getId() && !enemy.isDead()) {
+                                        secondaryTargets.push(enemy);
+                                    }
+                                }
+                            }
+
+                            // 3. Chain Lightning (Thunderbird)
+                            if (this.currentActiveUnit.hasAbilityActive("Chain Lightning")) {
+                                const targets = AllAbilities.getChainLightningTargets(
+                                    targetUnit,
+                                    this.grid,
+                                    this.unitsHolder
+                                );
+                                for (const enemy of targets) {
+                                    if (enemy.getId() !== targetUnit.getId() && !enemy.isDead()) {
+                                        secondaryTargets.push(enemy);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Add Red Highlight for Secondary Targets
+                        for (const enemy of secondaryTargets) {
+                            this.hoverManager.addTargetHighlight(enemy);
+                        }
+                        // --------------------------------------
                     }
                 }
             }

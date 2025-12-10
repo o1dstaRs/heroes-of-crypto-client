@@ -384,25 +384,37 @@ export class HoverManager {
         if (this.hoverAttackArrow) {
             this.hoverAttackArrow.clear();
         }
-        if (this.hoverTargetSilhouette) {
-            this.hoverTargetSilhouette.visible = false;
-        }
-        if (this.hoverDamageText) {
-            this.hoverDamageText.visible = false;
-        }
-        // Restore stack visibility if we were hiding it
-        if (this.hoverAttackTargetUnit) {
-            // Safe cast if unit is RenderableUnit
+
+        // 1. Restore stack visibility for ALL highlighted units
+        for (const unit of this.highlightedUnits) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const rUnit = this.hoverAttackTargetUnit as any;
+            const rUnit = unit as any;
             if (typeof rUnit.setStackVisibility === "function") {
                 rUnit.setStackVisibility(true);
             }
         }
+        this.highlightedUnits = [];
+
+        // 2. Hide silhouettes and return to pool
+        for (const s of this.hoverTargetSilhouettes) {
+            s.visible = false;
+            this.silhouettePool.push(s);
+        }
+        this.hoverTargetSilhouettes = [];
+
+        if (this.hoverDamageText) {
+            this.hoverDamageText.visible = false;
+        }
         this.hoverAttackTargetUnit = undefined;
     }
-    public updateAttackTargetHighlight(targetUnit: Unit): void {
-        this.hoverAttackTargetUnit = targetUnit;
+
+    private hoverTargetSilhouettes: Sprite[] = [];
+    private silhouettePool: Sprite[] = [];
+    private highlightedUnits: Unit[] = [];
+
+    public addTargetHighlight(targetUnit: Unit): void {
+        this.hoverAttackTargetUnit = targetUnit; // Keep referring to last added (primary usually added first, but overwritten here is fine for now as long as we track all in highlightedUnits)
+        this.highlightedUnits.push(targetUnit);
 
         // Hide stack on target for cleaner visual
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -419,13 +431,17 @@ export class HoverManager {
         const tex = this.context.texAny(texName);
         if (!tex) return;
 
-        if (!this.hoverTargetSilhouette) {
-            this.hoverTargetSilhouette = new Sprite(tex);
-            this.hoverTargetSilhouette.anchor.set(0.5);
-            this.context.attachToWorldRoot(this.hoverTargetSilhouette, 140); // Above units (Z=120)
-            this.hoverTargetSilhouette.scale.y = -1;
+        let silhouette: Sprite;
+        if (this.silhouettePool.length > 0) {
+            silhouette = this.silhouettePool.pop()!;
+            silhouette.texture = tex;
         } else {
-            this.hoverTargetSilhouette.texture = tex;
+            silhouette = new Sprite(tex);
+            silhouette.anchor.set(0.5);
+            this.context.attachToWorldRoot(silhouette, 140); // Above units (Z=120)
+            silhouette.scale.y = -1;
+            // Static Dark Red + Blur as requested (set once if creating)
+            silhouette.filters = [new BlurFilter(4)];
         }
 
         // Use new helper on RenderableUnit if available, else fallback
@@ -438,18 +454,13 @@ export class HoverManager {
         const targetSize = targetUnit.getSize() === 2 ? 256 : 128; // Standard sizes
         const scale = targetSize / baseWidth;
 
-        this.hoverTargetSilhouette.scale.set(scale, -scale);
-        this.hoverTargetSilhouette.position.set(centerPos.x, centerPos.y);
-        this.hoverTargetSilhouette.visible = true;
+        silhouette.scale.set(scale, -scale);
+        silhouette.position.set(centerPos.x, centerPos.y);
+        silhouette.visible = true;
+        silhouette.alpha = 0.8;
+        silhouette.tint = 0xaa0000; // Darker Red
 
-        // Static Dark Red + Blur as requested
-        this.hoverTargetSilhouette.alpha = 0.8;
-        this.hoverTargetSilhouette.tint = 0xaa0000; // Darker Red
-
-        // Check if filter already exists to avoid recreating (perf)
-        if (!this.hoverTargetSilhouette.filters) {
-            this.hoverTargetSilhouette.filters = [new BlurFilter(4)];
-        }
+        this.hoverTargetSilhouettes.push(silhouette);
     }
     public drawAttackArrow(from: HoCMath.XY, to: HoCMath.XY): void {
         // If attacking from same position (Stand Ground), don't draw arrow
