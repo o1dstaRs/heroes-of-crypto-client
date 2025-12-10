@@ -329,17 +329,10 @@ export abstract class PixiScene {
         this.hover();
     }
     public Resize(_width: number, _height: number) {}
-<<<<<<< HEAD
-    public RunStep(settings: Settings, fps: number, dt: number) {
-        this.sc_fps = fps;
-        this.sc_statisticLines.length = 0;
-        this.Step(settings, dt);
-=======
     public RunStep(fps: number) {
         this.sc_fps = fps;
         this.sc_statisticLines.length = 0;
         this.Step(1 / 240);
->>>>>>> aa2e759 (A bit project tree restructuring)
     }
     public addDebug(label: string, value: string | number | boolean): void {
         this.sc_debugLines.push([label, `${value}`]);

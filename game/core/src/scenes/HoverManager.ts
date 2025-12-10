@@ -77,7 +77,7 @@ export class HoverManager {
         if (this.hoverSilhouetteOutline) this.context.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
     }
     public update(dt: number): void {
-        this.hoverGlowPhase += dt * 5;
+        this.hoverGlowPhase += dt * (5 / 3);
         this.updateBoardHoverTween(dt);
         this.updatePlacementHoverRearm();
     }
@@ -380,14 +380,14 @@ export class HoverManager {
         // Hide stack on target for cleaner visual
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const rUnit = targetUnit as any;
-        if (typeof rUnit.setStackVisibility === 'function') {
+        if (typeof rUnit.setStackVisibility === "function") {
             rUnit.setStackVisibility(false);
         }
 
         const texName = unitToTextureName(
             targetUnit.getName(),
             targetUnit.getSize() === 2 ? TextureType.LARGE : TextureType.SMALL,
-            targetUnit.getSize()
+            targetUnit.getSize(),
         );
         const tex = this.context.texAny(texName);
         if (!tex) return;
@@ -403,7 +403,7 @@ export class HoverManager {
 
         // Use new helper on RenderableUnit if available, else fallback
         let centerPos = targetUnit.getPosition();
-        if (typeof rUnit.getVisualCenter === 'function') {
+        if (typeof rUnit.getVisualCenter === "function") {
             centerPos = rUnit.getVisualCenter(this.context.sceneSettings.getGridSettings());
         }
 
@@ -451,14 +451,14 @@ export class HoverManager {
         if (arrowLen <= 0) return;
 
         // Outer glow
-        g.lineStyle(12, 0xFF4444, 0.4);
-        g.moveTo(from.x, from.y);
-        g.lineTo(from.x + Math.cos(angle) * arrowLen, from.y + Math.sin(angle) * arrowLen);
+        g.moveTo(from.x, from.y)
+            .lineTo(from.x + Math.cos(angle) * arrowLen, from.y + Math.sin(angle) * arrowLen)
+            .stroke({ width: 12, color: 0xff4444, alpha: 0.4 });
 
         // Inner core
-        g.lineStyle(4, 0xFFFFFF, 0.9);
-        g.moveTo(from.x, from.y);
-        g.lineTo(from.x + Math.cos(angle) * arrowLen, from.y + Math.sin(angle) * arrowLen);
+        g.moveTo(from.x, from.y)
+            .lineTo(from.x + Math.cos(angle) * arrowLen, from.y + Math.sin(angle) * arrowLen)
+            .stroke({ width: 4, color: 0xffffff, alpha: 0.9 });
 
         // Arrow Head
         const headLen = 20;
@@ -466,11 +466,11 @@ export class HoverManager {
         const endX = from.x + Math.cos(angle) * arrowLen;
         const endY = from.y + Math.sin(angle) * arrowLen;
 
-        g.lineStyle(4, 0xFFFFFF, 1.0);
-        g.moveTo(endX, endY);
-        g.lineTo(endX - headLen * Math.cos(angle - headAngle), endY - headLen * Math.sin(angle - headAngle));
-        g.moveTo(endX, endY);
-        g.lineTo(endX - headLen * Math.cos(angle + headAngle), endY - headLen * Math.sin(angle + headAngle));
+        g.moveTo(endX, endY)
+            .lineTo(endX - headLen * Math.cos(angle - headAngle), endY - headLen * Math.sin(angle - headAngle))
+            .moveTo(endX, endY)
+            .lineTo(endX - headLen * Math.cos(angle + headAngle), endY - headLen * Math.sin(angle + headAngle))
+            .stroke({ width: 4, color: 0xffffff, alpha: 1.0 });
     }
     public updateHoverSilhouette(boundsCenter: HoCMath.XY): void {
         const selected = this.context.getSelectedUnitProperties();

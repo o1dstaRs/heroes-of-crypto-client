@@ -37,27 +37,14 @@ import {
     FactionVals,
     GridVals,
     AttackVals,
-<<<<<<< HEAD
     UnitVals,
     IVisibleDamage,
-=======
-    AttackHandler,
-    MoveHandler,
-    IWeightedRoute,
-    Spell,
-    HoCConfig,
     ISystemMoveResult,
->>>>>>> aa2e759 (A bit project tree restructuring)
 } from "@heroesofcrypto/common";
 import { UnitsOverlay } from "./UnitsOverlay";
-<<<<<<< HEAD
-import { DamageStatisticHolder } from "../stats/damage_stats";
-import { VisibleButtonState, IVisibleUnit } from "../state/visible_state";
-import { SceneSettings } from "../scenes/scene_settings";
-=======
+import { DamageStatisticHolder } from "./DamageStats";
 import { VisibleButtonState, IVisibleUnit } from "./VisibleState";
 import { SceneSettings } from "./SceneSettings";
->>>>>>> aa2e759 (A bit project tree restructuring)
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
 import { setSpawnFlowPhase } from "../pixi/PixiDrawablePlacement";
 import { PlacementManager } from "./PlacementManager";
@@ -70,13 +57,9 @@ import { MAX_HOLE_LAYERS } from "@/statics";
 export class Sandbox extends PixiScene {
     private readonly grid: Grid;
     private readonly pathHelper: PathHelper;
-<<<<<<< HEAD
     private canAttackByMeleeTargets?: IAttackTargets;
     // --- Components ---
     private readonly attackHandler: AttackHandler;
-=======
-    private readonly attackHandler?: AttackHandler;
->>>>>>> aa2e759 (A bit project tree restructuring)
     private readonly moveHandler: MoveHandler;
     private hoverManager: HoverManager;
     private buttonManager: ButtonManager;
@@ -815,15 +798,15 @@ export class Sandbox extends PixiScene {
         this.unitsHolder.refreshAuraEffectsForAllUnits();
         this.unitsHolder.refreshStackPowerForAllUnits();
     }
-    protected destroySpecificUnits(unitsToDestroy: RenderableUnit[]): void {
+    protected destroySpecificUnits(unitsToDestroy: RenderableUnit[], force = false, isDead = false): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
-        if (fightProps.hasFightStarted() || !unitsToDestroy.length) return;
+        if ((!force && fightProps.hasFightStarted()) || !unitsToDestroy.length) return;
         const destroyedUnitIds = new Set<string>();
         for (const utd of unitsToDestroy) {
             const unitId = utd.getId();
             if (destroyedUnitIds.has(unitId)) continue;
             // 1) Remove from UnitsHolder
-            const deleted = this.unitsHolder.deleteUnitById(unitId);
+            const deleted = this.unitsHolder.deleteUnitById(unitId, isDead);
             if (!deleted) continue;
             // 2) Cleanup grid occupancy (we still have the Unit instance `utd`)
             this.grid.cleanupAll(unitId, utd.getAttackRange(), utd.isSmallSize());
@@ -1421,13 +1404,9 @@ export class Sandbox extends PixiScene {
             this.hoverManager.setLastPlacement(undefined);
         }
     }
-<<<<<<< HEAD
-    protected destroyTempFixtures(): void { }
-=======
     protected destroyTempFixtures(): void {
         this.updateUnitsOverlayVisibility();
     }
->>>>>>> aa2e759 (A bit project tree restructuring)
     public override MouseDown(p: HoCMath.XY): void {
         this.sc_mouseWorld = p;
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -1632,20 +1611,21 @@ export class Sandbox extends PixiScene {
             // Target damage floats away from attacker
             // attacker might have moved to `attackFrom`
 
-            // Recalculate attacker visual center at `attackFrom` 
+            // Recalculate attacker visual center at `attackFrom`
             // (assuming attackFrom is anchor position)
             const gs = this.sc_sceneSettings.getGridSettings();
 
             // Attacker visual pos:
             // If attacker is large, we need to offset from `attackFrom` same way
             const aSize = attacker.getSize();
-            const aOffset = (aSize > 1) ? (aSize - 1) * 0.5 * gs.getCellSize() : 0;
+            const aOffset = aSize > 1 ? (aSize - 1) * 0.5 * gs.getCellSize() : 0;
             const aCenter = { x: attackFrom.x + aOffset, y: attackFrom.y + aOffset };
 
             // Target visual pos:
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const rTarget = target as any;
-            const tVis = (typeof rTarget.getVisualCenter === 'function') ? rTarget.getVisualCenter(gs) : target.getPosition();
+            const tVis =
+                typeof rTarget.getVisualCenter === "function" ? rTarget.getVisualCenter(gs) : target.getPosition();
 
             const dir = { x: tVis.x - aCenter.x, y: tVis.y - aCenter.y };
             this.showFloatingDamage(tVis, damageForAnimation.amount, dir);
@@ -1672,7 +1652,8 @@ export class Sandbox extends PixiScene {
                 // Target visual center
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const rTarget = target as any;
-                const tVis = (typeof rTarget.getVisualCenter === 'function') ? rTarget.getVisualCenter(gs) : target.getPosition();
+                const tVis =
+                    typeof rTarget.getVisualCenter === "function" ? rTarget.getVisualCenter(gs) : target.getPosition();
 
                 const dir = { x: aVis.x - tVis.x, y: aVis.y - tVis.y };
                 this.showFloatingDamage(aVis, damageTaken, dir);
@@ -1686,9 +1667,17 @@ export class Sandbox extends PixiScene {
         }
 
         if (result.completed) {
+            const unitsDied: RenderableUnit[] = [];
             for (const uId of result.unitIdsDied) {
-                this.unitsHolder.deleteUnitById(uId, true);
-                // Visual cleanup should happen in the next update loop via UnitsOverlay/VisibleState
+                const u = this.unitsHolder.getAllUnits().get(uId);
+                // Note: If unit was already removed from map but is in result, we might miss it here if we don't look carefully.
+                // But unitsHolder.getAllUnits() should still have it until we delete it.
+                if (u) {
+                    unitsDied.push(u as RenderableUnit);
+                }
+            }
+            if (unitsDied.length > 0) {
+                this.destroySpecificUnits(unitsDied, true, true);
             }
             this.unitsHolder.refreshStackPowerForAllUnits();
 
@@ -1888,14 +1877,62 @@ export class Sandbox extends PixiScene {
                     if (attackFrom) {
                         this.hoverManager.hoverAttackFromCell = attackFrom;
                         this.hoverManager.updateAttackTargetHighlight(targetUnit);
-                        const attackFromPos = GridMath.getPositionForCell(
-                            attackFrom,
-                            gs.getMinX(),
-                            gs.getStep(),
-                            gs.getHalfStep(),
-                        );
+                        this.hoverManager.hoverAttackFromCell = attackFrom;
+                        this.hoverManager.updateAttackTargetHighlight(targetUnit);
+                        let attackFromPos: HoCMath.XY | undefined;
+
+                        // Refined Logic: Use the footprint map to find the true center for large units
+                        if (!this.currentActiveUnit.isSmallSize() && this.canAttackByMeleeTargets) {
+                            const hash = (attackFrom.x << 4) | attackFrom.y;
+                            const footprint =
+                                this.canAttackByMeleeTargets.attackCellHashesToLargeCells.get(hash);
+                            if (footprint && footprint.length > 0) {
+                                // Find top-left cell (min x, min y)
+                                let minX = Number.MAX_SAFE_INTEGER;
+                                let minY = Number.MAX_SAFE_INTEGER;
+                                for (const c of footprint) {
+                                    if (c.x < minX) minX = c.x;
+                                    if (c.y < minY) minY = c.y;
+                                }
+                                // Position at center of top-left cell
+                                attackFromPos = GridMath.getPositionForCell(
+                                    { x: minX, y: minY },
+                                    gs.getMinX(),
+                                    gs.getStep(),
+                                    gs.getHalfStep(),
+                                );
+                                // Apply correction to center the visual (assuming alignment needs shifting from the anchor)
+                                attackFromPos.x -= gs.getHalfStep();
+                                attackFromPos.y -= gs.getHalfStep();
+                            }
+                        }
+
+                        // Fallback / Small Unit
+                        if (!attackFromPos) {
+                            attackFromPos = GridMath.getPositionForCell(
+                                attackFrom,
+                                gs.getMinX(),
+                                gs.getStep(),
+                                gs.getHalfStep(),
+                            );
+                            // If it's a large unit but we fell back (no footprint found?), apply the offset blindly
+                            if (!this.currentActiveUnit.isSmallSize()) {
+                                attackFromPos.x -= gs.getHalfStep();
+                                attackFromPos.y -= gs.getHalfStep();
+                            }
+                        }
+
                         this.hoverManager.updateHoverSilhouette(attackFromPos);
-                        this.hoverManager.drawAttackArrow(attackFromPos, targetUnit.getPosition());
+
+                        // Target visual center
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const rTarget = targetUnit as any;
+                        const tVis =
+                            typeof rTarget.getVisualCenter === "function"
+                                ? rTarget.getVisualCenter(gs)
+                                : targetUnit.getPosition();
+
+                        this.hoverManager.drawAttackArrow(attackFromPos, tVis);
                         isAttacking = true;
                     }
                 }

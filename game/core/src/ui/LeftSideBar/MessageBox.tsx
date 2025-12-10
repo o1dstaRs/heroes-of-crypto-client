@@ -12,13 +12,8 @@ import Box from "@mui/joy/Box";
 import React, { useEffect, useState, useRef } from "react";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
-<<<<<<< HEAD
-import { IVisibleState } from "../../state/visible_state";
-const meteorSvg = new URL("../../../images/meteor.svg", import.meta.url).toString();
-=======
 import { IVisibleState } from "../../scenes/VisibleState";
 import meteorSvg from "../../../images/meteor.svg";
->>>>>>> aa2e759 (A bit project tree restructuring)
 import { images } from "../../generated/image_imports";
 
 // --- Configuration for the Start Button Atlas ---

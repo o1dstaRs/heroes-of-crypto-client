@@ -355,14 +355,8 @@ export class RenderableUnit extends Unit {
      * For 1x1 units: Same as position (center of tile).
      * For 2x2 units: Center of the 2x2 block.
      */
-    public getVisualCenter(gs: GridSettings): HoCMath.XY {
-        const pos = this.getPosition();
-        const size = this.getSize();
-        if (size > 1) {
-            const offset = (size - 1) * 0.5 * gs.getCellSize();
-            return { x: pos.x + offset, y: pos.y + offset };
-        }
-        return pos;
+    public getVisualCenter(_gs: GridSettings): HoCMath.XY {
+        return this.getPosition();
     }
     public destroyVisuals(): void {
         if (this.sprite) {

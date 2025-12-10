@@ -464,11 +464,7 @@ export class PixiGameManager {
         if (dt > 0.1) dt = 0.1;
 
         // Update scene
-<<<<<<< HEAD
-        this.m_scene?.RunStep(this.m_settings, this.m_fpsCalculator.getFps(), dt);
-=======
         this.m_scene?.RunStep(this.m_fpsCalculator.getFps());
->>>>>>> aa2e759 (A bit project tree restructuring)
 
         // Hotkeys
         if (this.m_hoveringCanvas) {
