@@ -101,6 +101,7 @@ export class RenderableUnit extends Unit {
     private selectionAnimPauseMs = 0;
     private selectionAnimNextStepAtMs = 0;
     private stackForcedHidden = false;
+    private isActiveTurn = false;
     /**
      * Attach rendering capabilities to an existing Unit instance.
      * (We rely on JS prototype + TS casting; Unit stays the core owner.)
@@ -409,7 +410,8 @@ export class RenderableUnit extends Unit {
         const container = this.badgeContainer!;
         // circle
         const br = Math.max(10, Math.floor(iconSide * 0.18));
-        circle.clear().circle(0, 0, br).fill({ color: 0xffffff, alpha: 1 });
+        const badgeColor = this.isActiveTurn ? 0xffaa00 : 0xffffff; // Orange if active, White otherwise
+        circle.clear().circle(0, 0, br).fill({ color: badgeColor, alpha: 1 });
         // text
         const fs = Math.max(12, Math.floor(iconSide * 0.22));
         text.style = new TextStyle({
@@ -427,6 +429,30 @@ export class RenderableUnit extends Unit {
         container.x = pos.x + offsetX;
         container.y = pos.y + offsetY;
         container.visible = amount > 0;
+
+        // Active Turn Highlight (Orange Ring)
+        // Clear previous ring if any (it might be drawn on circle or container)
+        // Let's draw it on the `circle` graphics instance, expanding outwards.
+        if (this.isActiveTurn) {
+            const ringColor = 0xffaa00; // Orange
+            const ringWidth = 2; // Thinner
+            // Draw ring around the circle
+            circle.stroke({ width: ringWidth, color: ringColor, alpha: 1 });
+        } else {
+            // Default Black Border
+            circle.stroke({ width: 1.5, color: 0x000000, alpha: 0.5 });
+        }
+    }
+    public setActiveTurn(active: boolean): void {
+        if (this.isActiveTurn === active) return;
+        this.isActiveTurn = active;
+        // Force immediate visual update to ensure ring appears/disappears instantly
+        // This requires accessing internal sprite logic or just relying on the next syncVisual.
+        // To be safe, we can try to mark it dirty if possible, but unit.ts doesn't have a dirty flag for visuals.
+        // However, ensuresBadge is called every syncVisual (every frame).
+        // If the ring is not disappearing, it's possible ensureBadge logic specifically for clearing isn't working?
+        // Ah, ensuring circle.clear() at the top of ensureBadge effectively clears it.
+        // But we must assume syncVisual IS called.
     }
     private ensureStackPowerIndicator(
         worldRoot: Container,

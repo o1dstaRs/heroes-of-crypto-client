@@ -116,6 +116,7 @@ export class Sandbox extends PixiScene {
     private hoverGlowPhase = 0;
     private hoverRangeAttackDivisors: number[] = [];
     private currentActiveUnit?: RenderableUnit;
+    private currentShiftedUnit?: RenderableUnit;
     private currentActivePathHashes?: Set<number>;
     private currentActivePath?: HoCMath.XY[];
     private currentActiveKnownPaths?: Map<number, IWeightedRoute[]>;
@@ -1222,7 +1223,6 @@ export class Sandbox extends PixiScene {
         this.hoverManager.resetBoardHoverState();
     }
     private tryPlaceUnit(): void {
-        console.log("tryPlaceUnit called");
         const selected = this.sc_selectedUnitProperties;
         const fightProps = FightStateManager.getInstance().getFightProperties();
         // 1. Basic Validations
@@ -1432,6 +1432,39 @@ export class Sandbox extends PixiScene {
     protected destroyTempFixtures(): void {
         this.updateUnitsOverlayVisibility();
     }
+    public override ShiftMouseDown(p: HoCMath.XY): void {
+        this.sc_mouseWorld = p;
+        if (this.sc_isAnimating) return;
+
+        const unit = this.getUnitAtPosition(p);
+        if (unit && unit instanceof RenderableUnit) {
+            // Set shifted unit
+            this.currentShiftedUnit = unit;
+
+            // Force Sidebar Update
+            const props = unit.getUnitProperties();
+            this.sc_selectedUnitProperties = props;
+            this.setSelectedUnitProperties(props);
+            this.sc_unitPropertiesUpdateNeeded = true;
+
+            // Update Board Selection Visuals
+            if (this.selectedBoardUnit && this.selectedBoardUnit !== unit) {
+                this.selectedBoardUnit.setBoardSelected(false);
+            }
+            this.selectedBoardUnit = unit;
+            this.selectedBoardUnit.setBoardSelected(true);
+
+            // Reset interaction states to ensure clean inspection
+            this.draggingUnitId = undefined;
+            this.draggingUnitTeam = undefined;
+            this.hasActiveSelection = true; // Treats as selection
+            this.selectionFromOverlay = false;
+
+            // Optional: Log
+            // console.log("Shift+Click Shifted Unit:", unit.getName());
+        }
+    }
+    /** MouseDown from screen coords (already converted to world if needed by caller) */
     public override MouseDown(p: HoCMath.XY): void {
         this.sc_mouseWorld = p;
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -1630,7 +1663,10 @@ export class Sandbox extends PixiScene {
         const dist = HoCMath.getDistance(attackFrom, target.getPosition());
         const isRange =
             attacker.getAttackType() === AttackVals.RANGE &&
-            (this.canAttackByRangeTargets?.has(target.getId()) || (dist > GridConstants.STEP * 1.5 && attackFrom.x === attacker.getPosition().x && attackFrom.y === attacker.getPosition().y));
+            (this.canAttackByRangeTargets?.has(target.getId()) ||
+                (dist > GridConstants.STEP * 1.5 &&
+                    attackFrom.x === attacker.getPosition().x &&
+                    attackFrom.y === attacker.getPosition().y));
 
         if (isRange) {
             const evalResult = this.attackHandler.evaluateRangeAttack(
@@ -1708,7 +1744,7 @@ export class Sandbox extends PixiScene {
             const aCenter = attacker.getVisualCenter(gs);
 
             // Target visual pos:
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const rTarget = target as any;
             const tVis =
@@ -1737,8 +1773,8 @@ export class Sandbox extends PixiScene {
 
             if (damageForAnimation.hits && damageForAnimation.hits.length > 0) {
                 damageForAnimation.hits.forEach((dmg, index) => {
-                    // Capture spawnPos for the closure. 
-                    // We clone it because we might want to offset subsequent hits slightly if desired, 
+                    // Capture spawnPos for the closure.
+                    // We clone it because we might want to offset subsequent hits slightly if desired,
                     // but for now same position with delay is enough.
                     const pos = { ...spawnPos };
                     // Stagger animations by 800ms
@@ -2004,11 +2040,12 @@ export class Sandbox extends PixiScene {
                 const auraRanges = hoverTargetUnit.getAuraRanges();
                 const auraIsBuff = hoverTargetUnit.getAuraIsBuff();
 
-                if (auraRanges && auraRanges.length > 0) {
+                if (auraRanges && auraRanges.length > 0 && !this.isActiveUnitMoving) {
                     for (let i = 0; i < auraRanges.length; i++) {
                         if (auraRanges[i] <= 0) continue;
 
-                        const rangeCells = auraRanges[i] +
+                        const rangeCells =
+                            auraRanges[i] +
                             FightStateManager.getInstance()
                                 .getFightProperties()
                                 .getAdditionalAuraRangePerTeam(hoverTargetUnit.getTeam());
@@ -2018,11 +2055,12 @@ export class Sandbox extends PixiScene {
                         const isBuff = auraIsBuff && i < auraIsBuff.length ? auraIsBuff[i] : true;
 
                         let groundCenter = { x: hoverTargetUnit.getPosition().x, y: hoverTargetUnit.getPosition().y };
-                        // Revert to legacy: trust getPosition/drawer linkage.
-                        const offset = 0;
-                        // Note: If shifts persist, the issue is deep in Drawer, but we match test_heroes args now.
-
-                        this.hoverManager.drawAuraArea(groundCenter, radiusPixel, isBuff, hoverTargetUnit.isSmallSize());
+                        this.hoverManager.drawAuraArea(
+                            groundCenter,
+                            radiusPixel,
+                            isBuff,
+                            hoverTargetUnit.isSmallSize(),
+                        );
                     }
                 }
             }
@@ -2036,10 +2074,9 @@ export class Sandbox extends PixiScene {
                 const targetUnit = this.getUnitAtPosition(this.sc_mouseWorld);
                 if (targetUnit && targetUnit.getTeam() !== this.currentActiveUnit.getTeam()) {
                     let attackFrom: HoCMath.XY | undefined;
-                    let visualTargetCell: HoCMath.XY | undefined; // Store the cell we actually targeted for visual feedback
 
                     // Check if mouse cell is actually part of the target unit (for precise targeting)
-                    const isMouseInsideUnit = targetUnit.getCells().some(c => c.x === cell.x && c.y === cell.y);
+                    const isMouseInsideUnit = targetUnit.getCells().some((c) => c.x === cell.x && c.y === cell.y);
 
                     const isRangedUnit = this.currentActiveUnit.getAttackType() === AttackVals.RANGE;
                     const canStaticRangeAttack = this.canAttackByRangeTargets?.has(targetUnit.getId());
@@ -2048,13 +2085,22 @@ export class Sandbox extends PixiScene {
 
                     // 1. Static Range Priority
                     // Relaxed check: Allow visualization even if technically out of 'shot_distance' (for Penalty logic)
-                    if (canStaticRangeAttack || (isRangedUnit && !this.currentActiveUnit.hasAbilityActive("Handyman"))) {
-                        const dist = HoCMath.getDistance(this.currentActiveUnit.getPosition(), targetUnit.getPosition());
+                    if (
+                        canStaticRangeAttack ||
+                        (isRangedUnit && !this.currentActiveUnit.hasAbilityActive("Handyman"))
+                    ) {
+                        const dist = HoCMath.getDistance(
+                            this.currentActiveUnit.getPosition(),
+                            targetUnit.getPosition(),
+                        );
 
                         // If Valid Attack OR (Long Range Visual Context - Not Adjacent)
-                        if (canStaticRangeAttack || (dist > GridConstants.STEP * 1.5)) {
+                        if (canStaticRangeAttack || dist > GridConstants.STEP * 1.5) {
                             // If not adjacent (or forced No Melee), prefer shooting
-                            if (dist > GridConstants.STEP * 1.5 || this.currentActiveUnit.hasAbilityActive("No Melee")) {
+                            if (
+                                dist > GridConstants.STEP * 1.5 ||
+                                this.currentActiveUnit.hasAbilityActive("No Melee")
+                            ) {
                                 isRangeAttackContext = true;
                                 skipMeleeCheck = true;
                             }
@@ -2062,7 +2108,8 @@ export class Sandbox extends PixiScene {
                     }
 
                     // 2. Move-and-Shoot Logic (if not static shooting)
-                    if (!isRangeAttackContext && isRangedUnit && !this.currentActiveUnit.hasAbilityActive("Handyman")) { // Handyman behaves as melee for some reason? Legacy checked it.
+                    if (!isRangeAttackContext && isRangedUnit && !this.currentActiveUnit.hasAbilityActive("Handyman")) {
+                        // Handyman behaves as melee for some reason? Legacy checked it.
                         // If we are not adjacent/melee preferred, try finding a shooting spot
                         // Or if strictly out of range
                         // Let's assume user wants to shoot if possible
@@ -2081,7 +2128,7 @@ export class Sandbox extends PixiScene {
                             attackRangeForCalc,
                             targetUnit.isSmallSize(),
                             TeamVals.NO_TEAM,
-                            this.canAttackByMeleeTargets.attackCellHashesToLargeCells
+                            this.canAttackByMeleeTargets.attackCellHashesToLargeCells,
                         );
 
                         // Valid if position found AND distance implies shooting (not melee)
@@ -2108,9 +2155,6 @@ export class Sandbox extends PixiScene {
                             TeamVals.NO_TEAM,
                             this.canAttackByMeleeTargets.attackCellHashesToLargeCells,
                         );
-                        if (attackFrom) {
-                            visualTargetCell = cell;
-                        }
                     }
 
                     // Fallback: Melee if not found
@@ -2126,7 +2170,6 @@ export class Sandbox extends PixiScene {
                             TeamVals.NO_TEAM,
                             this.canAttackByMeleeTargets.attackCellHashesToLargeCells,
                         );
-                        // In fallback, visualTargetCell remains undefined, so we'll use distance-based logic later
                     }
 
                     if (attackFrom || isRangeAttackContext) {
@@ -2144,8 +2187,7 @@ export class Sandbox extends PixiScene {
                             // Refined Logic (Melee / Move-to-Shoot): Use footprint map for large units
                             if (!this.currentActiveUnit.isSmallSize() && this.canAttackByMeleeTargets) {
                                 const hash = (attackFrom.x << 4) | attackFrom.y;
-                                const footprint =
-                                    this.canAttackByMeleeTargets.attackCellHashesToLargeCells.get(hash);
+                                const footprint = this.canAttackByMeleeTargets.attackCellHashesToLargeCells.get(hash);
                                 if (footprint && footprint.length > 0) {
                                     let minX = Number.MAX_SAFE_INTEGER;
                                     let minY = Number.MAX_SAFE_INTEGER;
@@ -2159,8 +2201,11 @@ export class Sandbox extends PixiScene {
                                         gs.getStep(),
                                         gs.getHalfStep(),
                                     );
+
                                     attackFromPos.x -= gs.getHalfStep();
                                     attackFromPos.y -= gs.getHalfStep();
+
+                                    console.log("ssss-1");
                                 }
                             }
 
@@ -2175,6 +2220,9 @@ export class Sandbox extends PixiScene {
                                     attackFromPos.x -= gs.getHalfStep();
                                     attackFromPos.y -= gs.getHalfStep();
                                 }
+                                console.log("attackFromPos-2");
+                                console.log(attackFromPos);
+                                console.log("ssss-2");
                             }
 
                             this.hoverManager.updateHoverSilhouette(attackFromPos);
@@ -2186,12 +2234,12 @@ export class Sandbox extends PixiScene {
                         }
 
                         // Target visual center
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const rTarget = targetUnit as any;
-                        let tVis =
-                            typeof rTarget.getVisualCenter === "function"
-                                ? rTarget.getVisualCenter(gs)
-                                : targetUnit.getPosition();
+                        let tVis: HoCMath.XY;
+                        if (targetUnit instanceof RenderableUnit) {
+                            tVis = targetUnit.getVisualCenter(gs);
+                        } else {
+                            tVis = targetUnit.getPosition();
+                        }
 
                         const centerVis = { x: tVis.x, y: tVis.y };
 
@@ -2199,49 +2247,91 @@ export class Sandbox extends PixiScene {
                         // FIX TRAJECTORY: Use Centers for Large Units for the Arrow
                         // Calculate Attacker Center (Start)
                         // If attackFromPos is defined, it is a Cell Center (0.5).
-                        // If not, we use Unit Position (TopLeft 0.0).
-                        const isDerivedFromCell = !!attackFromPos;
                         // FIX TRAJECTORY: Use Centers for Large Units for the Arrow
-                        // Calculate Attacker Center (Start)
-                        // Base is TopLeft (0.0) - either from attackFromPos (shifted) or unit.getPosition().
-                        // Add Offset (Small: HalfStep, Large: Step).
+
                         let arrowStartPos: HoCMath.XY;
-                        if (attackFromPos) {
-                            arrowStartPos = { ...attackFromPos };
-                            const centerOffset = this.currentActiveUnit.isSmallSize() ? gs.getHalfStep() : gs.getStep();
-                            arrowStartPos.x += centerOffset;
-                            arrowStartPos.y += centerOffset;
+
+                        if (!attackFromPos) {
+                            // PRIORITIZE VISUAL CENTER if available (matches sprite exactly)
+                            if (!this.currentActiveUnit.isSmallSize()) {
+                                arrowStartPos = { ...this.currentActiveUnit.getVisualCenter(gs) };
+                            } else {
+                                arrowStartPos = { ...this.currentActiveUnit.getCenter() };
+                            }
+
+                            console.log(`ssss1`);
                         } else {
-                            arrowStartPos = { ...this.currentActiveUnit.getPosition() };
+                            // Moving to new Anchor
+                            arrowStartPos = { ...attackFromPos };
+                            // attackFromPos is Center of Anchor Cell (0.5).
+                            // Convert to Top-Left of Anchor Cell (0.0)
+                            // if (!this.currentActiveUnit.isSmallSize()) {
+                            //     arrowStartPos.x -= gs.getHalfStep();
+                            //     arrowStartPos.y -= gs.getHalfStep();
+                            // }
+                            // Add Center Offset (since we are using Grid Math)
+                            // const centerOffset = this.currentActiveUnit.isSmallSize() ? gs.getHalfStep() : gs.getStep();
+                            // arrowStartPos.x += centerOffset;
+                            // arrowStartPos.y += centerOffset;
+                            // away from the top-left position where the texture is drawn.
+                            // const centerOffset = gs.getStep(); // One full cell size in world space.
+
+                            // attackFromPos is the top-left (anchor) of the new sprite position.
+                            // Add 1 cell size in X and Y to get the visual center.
+                            // arrowStartPos.x += centerOffset;
+                            // arrowStartPos.y += centerOffset;
+
+                            console.log(`Calculated move-attack start: (${arrowStartPos.x}, ${arrowStartPos.y})`);
                         }
 
+                        // Range Offset Logic (-0.5/-1.0)
+                        if (isRangeAttackContext) {
+                            const userOffset = this.currentActiveUnit.isSmallSize() ? gs.getHalfStep() : gs.getStep();
+                            arrowStartPos.x -= userOffset;
+                            arrowStartPos.y -= userOffset;
+                            console.log(`ssss3`);
+                        }
                         // Calculate Target Center (End)
-                        // Allow "Picking any visible side" -> Use specific hovered cell center
+                        // Use Legacy Helper for precise side selection for ALL units.
+                        // This handles both Small (2 edges) and Large (outer perimeter edges) correctly.
                         let arrowEndPos: HoCMath.XY | undefined;
 
-                        // We rely on 'cell' calculated earlier (under mouse)
-                        if (cell && targetUnit.getCells().some(c => c.x === cell.x && c.y === cell.y)) {
-                            arrowEndPos = GridMath.getPositionForCell(
-                                cell,
-                                gs.getMinX(),
-                                gs.getStep(),
-                                gs.getHalfStep()
-                            );
-                        }
+                        arrowEndPos = GridMath.getClosestSideCenter(
+                            this.grid.getMatrix(),
+                            gs,
+                            this.sc_mouseWorld,
+                            arrowStartPos,
+                            targetUnit.getPosition(),
+                            this.currentActiveUnit.isSmallSize(),
+                            targetUnit.isSmallSize(),
+                            this.currentActiveUnit.getTeam(),
+                            this.currentActiveUnit.hasAbilityActive("Through Shot"),
+                        );
+                        console.log("attackFromPos4");
+                        console.log(attackFromPos);
+                        console.log(`ssss4`);
 
-                        // Fallback to Geometric Center if logic fails or mouse drift
+
+                        // Fallback
                         if (!arrowEndPos) {
-                            arrowEndPos = { ...targetUnit.getPosition() };
-                            if (!targetUnit.isSmallSize()) {
-                                arrowEndPos.x += gs.getHalfStep();
-                                arrowEndPos.y += gs.getHalfStep();
+                            // Ensure arrowEndPos is assigned a concrete value here
+                            let rawPos: HoCMath.XY;
+                            if (targetUnit instanceof RenderableUnit) {
+                                rawPos = targetUnit.getVisualCenter(gs);
                             } else {
-                                arrowEndPos.x += gs.getHalfStep();
-                                arrowEndPos.y += gs.getHalfStep();
+                                rawPos = targetUnit.getPosition();
                             }
-                        }
+                            // Clone to avoid mutation if getPosition returns a reference
+                            const fallbackPos = { ...rawPos };
 
-                        tVis = arrowEndPos; // Use Center for Arrow End
+                            if (!(targetUnit instanceof RenderableUnit)) {
+                                fallbackPos.x += gs.getHalfStep();
+                                fallbackPos.y += gs.getHalfStep();
+                            }
+                            arrowEndPos = fallbackPos;
+                        }
+                        const finalArrowEndPos = arrowEndPos!;
+                        tVis = finalArrowEndPos;
 
                         // Calculate projected damage
                         const attackRate = this.currentActiveUnit.getAttack();
@@ -2254,14 +2344,18 @@ export class Sandbox extends PixiScene {
                         let multiplier = 1;
 
                         // Melee Penalty for Ranged Units doing Melee
-                        if (isMelee && this.currentActiveUnit.getAttackType() === AttackVals.RANGE && !this.currentActiveUnit.hasAbilityActive("Handyman")) {
+                        if (
+                            isMelee &&
+                            this.currentActiveUnit.getAttackType() === AttackVals.RANGE &&
+                            !this.currentActiveUnit.hasAbilityActive("Handyman")
+                        ) {
                             rangeDivisor = 2; // Penalty
                         }
 
-                        // Range Penalty (Long Range)
+                        // distance-based penalties
+                        // We use the guaranteed non-null finalArrowEndPos
+                        const distRes = HoCMath.getDistance(arrowStartPos, finalArrowEndPos) / GridConstants.STEP;
                         if (isRangeAttackContext) {
-                            // Calculate distance in Cells
-                            const distRes = HoCMath.getDistance(arrowStartPos, arrowEndPos) / GridConstants.STEP;
                             if (distRes > this.currentActiveUnit.getRangeShotDistance()) {
                                 rangeDivisor = 2;
                             }
@@ -2308,7 +2402,7 @@ export class Sandbox extends PixiScene {
                                 const enemiesAround = this.unitsHolder.allEnemiesAroundUnit(
                                     this.currentActiveUnit,
                                     true,
-                                    attackFromCell
+                                    attackFromCell,
                                 );
                                 for (const enemy of enemiesAround) {
                                     if (enemy.getId() !== targetUnit.getId() && !enemy.isDead()) {
@@ -2317,7 +2411,10 @@ export class Sandbox extends PixiScene {
                                 }
                             }
 
-                            if (this.currentActiveUnit.hasAbilityActive("Fire Breath") || this.currentActiveUnit.hasAbilityActive("Skewer Strike")) {
+                            if (
+                                this.currentActiveUnit.hasAbilityActive("Fire Breath") ||
+                                this.currentActiveUnit.hasAbilityActive("Skewer Strike")
+                            ) {
                                 const targets = AbilityHelper.nextStandingTargets(
                                     this.currentActiveUnit,
                                     targetUnit,
@@ -2325,7 +2422,7 @@ export class Sandbox extends PixiScene {
                                     this.unitsHolder,
                                     attackFromCell,
                                     true,
-                                    this.currentActiveUnit.hasAbilityActive("Skewer Strike")
+                                    this.currentActiveUnit.hasAbilityActive("Skewer Strike"),
                                 );
 
                                 for (const enemy of targets) {
@@ -2339,7 +2436,7 @@ export class Sandbox extends PixiScene {
                                 const targets = AllAbilities.getChainLightningTargets(
                                     targetUnit,
                                     this.grid,
-                                    this.unitsHolder
+                                    this.unitsHolder,
                                 );
                                 for (const enemy of targets) {
                                     if (enemy.getId() !== targetUnit.getId() && !enemy.isDead()) {
@@ -2354,7 +2451,6 @@ export class Sandbox extends PixiScene {
                             this.hoverManager.addTargetHighlight(enemy);
                         }
                     }
-
                 }
             }
 
@@ -2408,6 +2504,7 @@ export class Sandbox extends PixiScene {
             this.selectedBoardUnit.setBoardSelected(false);
             this.selectedBoardUnit = undefined;
         }
+        this.currentShiftedUnit = undefined;
         this.hasActiveSelection = false;
         this.selectionFromOverlay = false;
         this.draggingUnitId = undefined;
@@ -2751,6 +2848,7 @@ export class Sandbox extends PixiScene {
         // 3. Active unit highlight
         if (this.currentActiveUnit) {
             this.hoverManager.hoveredUnitHighlight = this.hoverManager.getHighlightRectForUnit(this.currentActiveUnit);
+            this.hoverManager.hoveredUnitId = this.currentActiveUnit.getId();
             this.hoverManager.drawHoveredUnitHighlight(g);
         }
 
@@ -2781,7 +2879,19 @@ export class Sandbox extends PixiScene {
     }
     private handleNextUnitActivation(nextUnit: RenderableUnit): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const worldRoot = this.pixiSceneManager.getWorldRoot();
+
+        // Clear Shifted Unit override so UI reverts to Active Unit
+        this.currentShiftedUnit = undefined;
+
+        if (this.currentActiveUnit) {
+            this.currentActiveUnit.setActiveTurn(false);
+            this.currentActiveUnit.syncVisual(worldRoot, gs);
+        }
         this.currentActiveUnit = nextUnit;
+        nextUnit.setActiveTurn(true);
+        nextUnit.syncVisual(worldRoot, gs);
 
         const unitsNext: IVisibleUnit[] = [];
         for (const unitIdNext of FightStateManager.getInstance().getFightProperties().getUpNextQueueIterable()) {
@@ -3071,6 +3181,11 @@ export class Sandbox extends PixiScene {
                     .getFightProperties()
                     .getCurrentLap()}`,
             );
+            // Ensure visual state is reset (Orange Badge -> Default)
+            this.currentActiveUnit.setActiveTurn(false);
+            const gs = this.sc_sceneSettings.getGridSettings();
+            const worldRoot = this.pixiSceneManager.getWorldRoot();
+            this.currentActiveUnit.syncVisual(worldRoot, gs);
         }
         this.currentActiveUnit = undefined;
         this.sc_selectedAttackType = AttackVals.NO_ATTACK;
@@ -3080,7 +3195,11 @@ export class Sandbox extends PixiScene {
         this.buttonManager.refreshButtons(true);
     };
     protected finishFight(unitsLower?: Unit[], unitsUpper?: Unit[]): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const worldRoot = this.pixiSceneManager.getWorldRoot();
         if (this.currentActiveUnit) {
+            this.currentActiveUnit.setActiveTurn(false);
+            this.currentActiveUnit.syncVisual(worldRoot, gs);
             this.currentActiveUnit.setBoardSelected(false);
             this.currentActiveUnit = undefined;
         }
@@ -3157,11 +3276,10 @@ export class Sandbox extends PixiScene {
                     )
                 ) {
                     this.canAttackByRangeTargets = new Set<string>();
-                    const rangeDist = this.currentActiveUnit.getRangeShotDistance() * GridConstants.STEP;
-                    const attackerPos = this.currentActiveUnit.getPosition();
+                    // const rangeDist = this.currentActiveUnit.getRangeShotDistance() * GridConstants.STEP; // Unused
+                    // const attackerPos = this.currentActiveUnit.getPosition(); // Unused
 
                     for (const enemy of enemyTeam) {
-                        const dist = HoCMath.getDistance(attackerPos, enemy.getPosition());
                         // Relaxed: Allow long range shots (penalty applied later).
                         if (!enemy.hasBuffActive("Hidden")) {
                             // Additionally check if unit is hittable (e.g. not dead, effectively already checked by being in enemyTeam mostly)

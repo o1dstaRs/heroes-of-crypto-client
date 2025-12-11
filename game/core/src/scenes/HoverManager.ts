@@ -48,17 +48,21 @@ export interface ISandboxHoverContext {
 export class HoverManager {
     private context: ISandboxHoverContext;
     // State moved from Sandbox
-    public hoverPlacementCell?: HoCMath.XY;
-    public hoverPlacementCellTeam?: TeamType;
+    public hoverPlacementCell?: HoCMath.XY = undefined;
+    public hoverPlacementCellTeam?: TeamType = undefined;
     public hoverSelectedCells?: HoCMath.XY[];
     public hoverSelectedCellsSwitchToRed = false;
-    public hoverAttackFromCell?: HoCMath.XY; // New state for attack hover
+    public hoverAttackFromCell?: HoCMath.XY = undefined;
+    public hoverSpellCell?: HoCMath.XY = undefined;
+    public hoverAbilityCell?: HoCMath.XY = undefined;
+    private auraVisuals: Graphics[] = [];
     public hoverAttackTargetUnit?: Unit; // New state for attack target
     private hoverSilhouette?: Sprite;
     private hoverSilhouetteOutline?: Sprite;
     private hoverSilhouetteKey?: string;
     private hoverTargetSilhouette?: Sprite; // For enemy unit red highlight
     public hoveredUnitHighlight?: { x: number; y: number; w: number; h: number };
+    public hoveredUnitId?: string;
     private hoverGlowPhase = 0;
     private boardHoverScale = 1;
     private boardHoverTargetScale = 1;
@@ -69,9 +73,7 @@ export class HoverManager {
     private lastPlacementUnitId?: string;
     private lastPlacementTimestampSec = 0;
     private readonly hoverRearmDelaySec = 2.0;
-
     private auraGraphics: Graphics;
-
     public constructor(context: ISandboxHoverContext) {
         this.context = context;
         this.auraGraphics = new Graphics();
@@ -81,11 +83,9 @@ export class HoverManager {
         if (this.hoverSilhouetteOutline) this.context.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
         this.context.attachToWorldRoot(this.auraGraphics, 51); // Below units and movement path
     }
-
     public clearAuraVisuals(): void {
         this.auraGraphics.clear();
     }
-
     public drawAuraArea(center: HoCMath.XY, radius: number, isBuff: boolean, isSmallUnit: boolean): void {
         // Aesthetic Configuration
         const color = isBuff ? 0x00FF88 : 0xFF4444; // Green vs Red
@@ -111,7 +111,6 @@ export class HoverManager {
         );
         this.auraGraphics.endFill();
     }
-
     public update(dt: number): void {
         this.hoverGlowPhase += dt * (5 / 3);
         this.updateBoardHoverTween(dt);
@@ -263,6 +262,12 @@ export class HoverManager {
 
         return null;
     }
+    public getHoverSelectedCells(): HoCMath.XY[] | undefined {
+        return this.hoverSelectedCells;
+    }
+    public getHoverSilhouette(): Sprite | undefined {
+        return this.hoverSilhouette;
+    }
     public drawHoveredUnitHighlight(gfx: Graphics): void {
         const r = this.hoveredUnitHighlight;
         if (!r) return;
@@ -280,7 +285,12 @@ export class HoverManager {
             const w = baseW * (1 + 0.3 * t) * (1 + pulseFactor);
             const h = baseH * (1 + 0.4 * t) * (1 + pulseFactor);
             const alpha = 0.3 * (1 - t * 0.75) * (1 - pulseFactor * 0.5);
-            gfx.ellipse(cx, cy - yOffset, w * 0.5, h * 0.5).fill({ color: 0xffffff, alpha });
+
+            // Check for Active Unit
+            const isActive = this.hoveredUnitId && this.context.getCurrentActiveUnit()?.getId() === this.hoveredUnitId;
+            const color = isActive ? 0xffaa00 : 0xffffff;
+
+            gfx.ellipse(cx, cy - yOffset, w * 0.5, h * 0.5).fill({ color, alpha });
         }
         const baseR = iconSide * 0.6;
         const aroundLayers = 6;
@@ -288,7 +298,11 @@ export class HoverManager {
             const t = (i + 1) / aroundLayers;
             const rg = baseR * (1 + 0.45 * t) * (1 + pulseFactor);
             const alpha = 0.22 * (1 - t * 0.8) * (1 - pulseFactor * 0.5);
-            gfx.circle(cx, cy, rg).fill({ color: 0xffffff, alpha });
+
+            const isActive = this.hoveredUnitId && this.context.getCurrentActiveUnit()?.getId() === this.hoveredUnitId;
+            const color = isActive ? 0xffaa00 : 0xffffff;
+
+            gfx.circle(cx, cy, rg).fill({ color, alpha });
         }
     }
     private updatePlacementHoverRearm(): void {
@@ -327,17 +341,20 @@ export class HoverManager {
         const draggingId = this.context.getDraggingUnitId();
         if (!draggingId) {
             this.hoveredUnitHighlight = undefined;
+            this.hoveredUnitId = undefined;
             return;
         }
 
         const unit = this.context.unitsHolder.getAllUnits().get(draggingId);
         if (!unit) {
             this.hoveredUnitHighlight = undefined;
+            this.hoveredUnitId = undefined;
             return;
         }
 
         // Reuse the logic used for passive hover to set the highlight rect
         this.hoveredUnitHighlight = this.getHighlightRectForUnit(unit);
+        this.hoveredUnitId = unit.getId();
     }
     public getHighlightRectForUnit(unit: Unit): { x: number; y: number; w: number; h: number } | undefined {
         // Use the exact world position of the unit (center of mass/sprite)
@@ -372,6 +389,7 @@ export class HoverManager {
         // We might need to tell Sandbox to reset these flags via context or just ignore them here if they are not strictly hover state.
         // But resetHover was clearing them.
 
+        this.hoveredUnitId = undefined; // Clear tracked unit ID
         this.clearHoverSilhouette();
     }
     public hoverAttackArrow?: Graphics;
@@ -443,11 +461,9 @@ export class HoverManager {
         }
         this.hoverAttackTargetUnit = undefined;
     }
-
     private hoverTargetSilhouettes: Sprite[] = [];
     private silhouettePool: Sprite[] = [];
     private highlightedUnits: Unit[] = [];
-
     public addTargetHighlight(targetUnit: Unit): void {
         this.hoverAttackTargetUnit = targetUnit; // Keep referring to last added (primary usually added first, but overwritten here is fine for now as long as we track all in highlightedUnits)
         this.highlightedUnits.push(targetUnit);
@@ -519,7 +535,7 @@ export class HoverManager {
         const angle = Math.atan2(to.y - from.y, to.x - from.x);
 
         // Adjust arrow length to stop a bit before the visual center
-        const stopDistance = 60;
+        const stopDistance = 0; // Removed gap as per user request
         const arrowLen = Math.max(0, dist - stopDistance);
 
         if (arrowLen <= 0) return;
@@ -991,6 +1007,7 @@ export class HoverManager {
         // If we have an active selection, we shouldn't show passive hover
         if (this.context.hasActiveSelection()) {
             this.hoveredUnitHighlight = undefined;
+            this.hoveredUnitId = undefined;
             return;
         }
 
@@ -1001,6 +1018,7 @@ export class HoverManager {
         const cell = GridMath.getCellForPosition(gs, p);
         if (!cell) {
             this.hoveredUnitHighlight = undefined;
+            this.hoveredUnitId = undefined;
             this.clearHoverSilhouette();
             return;
         }
@@ -1008,6 +1026,7 @@ export class HoverManager {
         const occupantId = this.context.grid.getOccupantUnitId(cell);
         if (!occupantId) {
             this.hoveredUnitHighlight = undefined;
+            this.hoveredUnitId = undefined;
             this.clearHoverSilhouette();
             return;
         }
@@ -1015,6 +1034,7 @@ export class HoverManager {
         const unit = this.context.unitsHolder.getAllUnits().get(occupantId);
         if (!unit) {
             this.hoveredUnitHighlight = undefined;
+            this.hoveredUnitId = undefined;
             this.clearHoverSilhouette();
             return;
         }
@@ -1027,10 +1047,12 @@ export class HoverManager {
             unit.getId() === this.lastPlacementUnitId
         ) {
             this.hoveredUnitHighlight = undefined;
+            this.hoveredUnitId = undefined;
             this.clearHoverSilhouette();
             return;
         }
 
         this.hoveredUnitHighlight = this.getHighlightRectForUnit(unit);
+        this.hoveredUnitId = unit.getId();
     }
 }
