@@ -69,13 +69,49 @@ export class HoverManager {
     private lastPlacementUnitId?: string;
     private lastPlacementTimestampSec = 0;
     private readonly hoverRearmDelaySec = 2.0;
+
+    private auraGraphics: Graphics;
+
     public constructor(context: ISandboxHoverContext) {
         this.context = context;
+        this.auraGraphics = new Graphics();
     }
     public onCameraChanged(): void {
         if (this.hoverSilhouette) this.context.attachToWorldRoot(this.hoverSilhouette, 110);
         if (this.hoverSilhouetteOutline) this.context.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
+        this.context.attachToWorldRoot(this.auraGraphics, 51); // Below units and movement path
     }
+
+    public clearAuraVisuals(): void {
+        this.auraGraphics.clear();
+    }
+
+    public drawAuraArea(center: HoCMath.XY, radius: number, isBuff: boolean, isSmallUnit: boolean): void {
+        // Aesthetic Configuration
+        const color = isBuff ? 0x00FF88 : 0xFF4444; // Green vs Red
+        const fillColor = isBuff ? 0x00FF88 : 0xFF0000;
+        const fillAlpha = 0.15;
+        const strokeAlpha = 0.6;
+        const strokeWidth = 2;
+
+        const gs = this.context.sceneSettings.getGridSettings();
+        const halfSize = isSmallUnit ? gs.getHalfStep() : gs.getStep();
+        const extent = radius + halfSize; // Total distance from center to edge of aura square
+
+        this.auraGraphics.lineStyle(strokeWidth, color, strokeAlpha);
+        this.auraGraphics.beginFill(fillColor, fillAlpha);
+
+        // Draw Square centered at unit
+        // x, y is top-left of rect
+        this.auraGraphics.drawRect(
+            center.x - extent,
+            center.y - extent,
+            extent * 2,
+            extent * 2
+        );
+        this.auraGraphics.endFill();
+    }
+
     public update(dt: number): void {
         this.hoverGlowPhase += dt * (5 / 3);
         this.updateBoardHoverTween(dt);

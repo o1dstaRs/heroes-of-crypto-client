@@ -1,62 +1,12 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { TeamType } from "@heroesofcrypto/common";
 import { CustomEventSource } from "@heroesofcrypto/common";
 import { IS_PROD } from "../env";
+import { IPickPhaseEventData, PickBanContext } from "./PickBanContextDefs";
 
-export interface IPickPhaseEventData {
-    // initial creatures pairs
-    ip: [number, number][];
-    // pick phase
-    pp: number;
-    // actors
-    a: TeamType[];
-    // picked
-    p: number[];
-    // banned
-    b: number[];
-    // opponent picked
-    op: number[];
-    // time remaining
-    t: number;
-    // reveals remanining
-    r: number;
-    // is abandoned
-    ia: boolean;
-}
+export { usePickBanEvents } from "./PickBanContextDefs";
+export type { IPickPhaseEventData };
 
-// Context for SSE and pick/ban state
-interface PickBanContextType {
-    isConnected: boolean;
-    events: IPickPhaseEventData[];
-    error: string | null;
-    banned: number[];
-    picked: number[];
-    opponentPicked: number[];
-    isYourTurn: boolean | null;
-    isAbandoned: boolean | null;
-    pickPhase: number;
-    secondsRemaining: number;
-    revealsRemaining: number;
-    initialCreaturesPairs: [number, number][];
-}
-
-const PickBanContext = createContext<PickBanContextType>({
-    isConnected: false,
-    events: [],
-    error: null,
-    banned: [],
-    picked: [],
-    opponentPicked: [],
-    isYourTurn: null,
-    isAbandoned: null,
-    pickPhase: -1,
-    initialCreaturesPairs: [],
-    secondsRemaining: -1,
-    revealsRemaining: 0,
-});
-
-// Custom hook to use the Pick Ban Context
-export const usePickBanEvents = () => useContext(PickBanContext);
 
 export const PickBanEventProvider: React.FC<{
     children: React.ReactNode;

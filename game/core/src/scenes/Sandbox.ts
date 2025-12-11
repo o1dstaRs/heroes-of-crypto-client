@@ -42,6 +42,7 @@ import {
     ISystemMoveResult,
     AbilityHelper,
     AllAbilities,
+    IAttackResult,
 } from "@heroesofcrypto/common";
 import { UnitsOverlay } from "./UnitsOverlay";
 import { DamageStatisticHolder } from "./DamageStats";
@@ -60,6 +61,7 @@ export class Sandbox extends PixiScene {
     private readonly grid: Grid;
     private readonly pathHelper: PathHelper;
     private canAttackByMeleeTargets?: IAttackTargets;
+    private canAttackByRangeTargets?: Set<string>;
     // --- Components ---
     private readonly attackHandler: AttackHandler;
     private readonly moveHandler: MoveHandler;
@@ -1620,15 +1622,79 @@ export class Sandbox extends PixiScene {
 
         const attackerBefore = { amount: attacker.getAmountAlive(), health: attacker.getHp() };
 
-        const result = this.attackHandler.handleMeleeAttack(
-            this.unitsHolder,
-            this.moveHandler,
-            damageForAnimation,
-            this.currentActiveKnownPaths,
-            attacker,
-            target,
-            attackFrom,
-        );
+        let result: IAttackResult;
+
+        // Check for Range Attack
+        // If attackFrom is current position AND target is far away (or strictly defined as range target), use Range logic.
+        // We can check if it is in canAttackByRangeTargets if available, or deduce from distance.
+        const dist = HoCMath.getDistance(attackFrom, target.getPosition());
+        const isRange =
+            attacker.getAttackType() === AttackVals.RANGE &&
+            (this.canAttackByRangeTargets?.has(target.getId()) || (dist > GridConstants.STEP * 1.5 && attackFrom.x === attacker.getPosition().x && attackFrom.y === attacker.getPosition().y));
+
+        if (isRange) {
+            const evalResult = this.attackHandler.evaluateRangeAttack(
+                this.unitsHolder.getAllUnits(),
+                attacker,
+                attacker.getPosition(), // From
+                target.getPosition(), // To
+                false, // isThroughShot
+                false, // isSelection
+                attacker.hasAbilityActive("Large Caliber") || attacker.hasAbilityActive("Area Throw"),
+            );
+
+            // Response Logic (lightweight version of legacy)
+            let responseDivisor = 1;
+            let responseUnits: Unit[] | undefined = undefined;
+
+            // Check if target can respond (Range vs Range)
+            if (
+                target.getAttackType() === AttackVals.RANGE &&
+                target.getRangeShots() > 0 &&
+                !target.hasDebuffActive("Range Null Field Aura") &&
+                !target.hasDebuffActive("Rangebane") &&
+                !this.attackHandler.canBeAttackedByMelee(
+                    target.getPosition(),
+                    target.isSmallSize(),
+                    this.grid.getEnemyAggrMatrixByUnitId(target.getId()),
+                )
+            ) {
+                const respEval = this.attackHandler.evaluateRangeAttack(
+                    this.unitsHolder.getAllUnits(),
+                    target,
+                    target.getPosition(),
+                    attacker.getPosition(),
+                    false,
+                    false,
+                    target.hasAbilityActive("Large Caliber") || target.hasAbilityActive("Area Throw"),
+                );
+                responseDivisor = respEval.rangeAttackDivisors[0] ?? 1;
+                responseUnits = respEval.affectedUnits[0];
+            }
+
+            result = this.attackHandler.handleRangeAttack(
+                this.unitsHolder,
+                evalResult.rangeAttackDivisors,
+                responseDivisor,
+                damageForAnimation,
+                attacker,
+                evalResult.affectedUnits,
+                responseUnits,
+                attacker.getPosition(),
+                false, // isAOE
+                true, // decreaseNumberOfShots
+            );
+        } else {
+            result = this.attackHandler.handleMeleeAttack(
+                this.unitsHolder,
+                this.moveHandler,
+                damageForAnimation,
+                this.currentActiveKnownPaths,
+                attacker,
+                target,
+                attackFrom,
+            );
+        }
 
         // 1. Target Damage
         if (damageForAnimation.amount > 0) {
@@ -1927,11 +1993,43 @@ export class Sandbox extends PixiScene {
             if (!cell) {
                 this.hoverManager.clearHoverSilhouette();
                 this.hoverManager.hoverAttackFromCell = undefined;
+                this.hoverManager.clearAuraVisuals();
                 return;
+            }
+
+            // --- Aura Visualization ---
+            this.hoverManager.clearAuraVisuals();
+            const hoverTargetUnit = this.getUnitAtPosition(this.sc_mouseWorld);
+            if (hoverTargetUnit && !hoverTargetUnit.isDead()) {
+                const auraRanges = hoverTargetUnit.getAuraRanges();
+                const auraIsBuff = hoverTargetUnit.getAuraIsBuff();
+
+                if (auraRanges && auraRanges.length > 0) {
+                    for (let i = 0; i < auraRanges.length; i++) {
+                        if (auraRanges[i] <= 0) continue;
+
+                        const rangeCells = auraRanges[i] +
+                            FightStateManager.getInstance()
+                                .getFightProperties()
+                                .getAdditionalAuraRangePerTeam(hoverTargetUnit.getTeam());
+
+                        const radiusPixel = rangeCells * GridConstants.STEP;
+
+                        const isBuff = auraIsBuff && i < auraIsBuff.length ? auraIsBuff[i] : true;
+
+                        let groundCenter = { x: hoverTargetUnit.getPosition().x, y: hoverTargetUnit.getPosition().y };
+                        // Revert to legacy: trust getPosition/drawer linkage.
+                        const offset = 0;
+                        // Note: If shifts persist, the issue is deep in Drawer, but we match test_heroes args now.
+
+                        this.hoverManager.drawAuraArea(groundCenter, radiusPixel, isBuff, hoverTargetUnit.isSmallSize());
+                    }
+                }
             }
 
             // Check for melee attack target
             let isAttacking = false;
+
             this.hoverManager.hoverAttackFromCell = undefined; // Reset state
             // Only checking for attack if we have melee targets calculated
             if (this.canAttackByMeleeTargets && this.currentActiveUnit) {
@@ -1943,7 +2041,62 @@ export class Sandbox extends PixiScene {
                     // Check if mouse cell is actually part of the target unit (for precise targeting)
                     const isMouseInsideUnit = targetUnit.getCells().some(c => c.x === cell.x && c.y === cell.y);
 
-                    if (isMouseInsideUnit) {
+                    const isRangedUnit = this.currentActiveUnit.getAttackType() === AttackVals.RANGE;
+                    const canStaticRangeAttack = this.canAttackByRangeTargets?.has(targetUnit.getId());
+                    let isRangeAttackContext = false;
+                    let skipMeleeCheck = false;
+
+                    // 1. Static Range Priority
+                    // Relaxed check: Allow visualization even if technically out of 'shot_distance' (for Penalty logic)
+                    if (canStaticRangeAttack || (isRangedUnit && !this.currentActiveUnit.hasAbilityActive("Handyman"))) {
+                        const dist = HoCMath.getDistance(this.currentActiveUnit.getPosition(), targetUnit.getPosition());
+
+                        // If Valid Attack OR (Long Range Visual Context - Not Adjacent)
+                        if (canStaticRangeAttack || (dist > GridConstants.STEP * 1.5)) {
+                            // If not adjacent (or forced No Melee), prefer shooting
+                            if (dist > GridConstants.STEP * 1.5 || this.currentActiveUnit.hasAbilityActive("No Melee")) {
+                                isRangeAttackContext = true;
+                                skipMeleeCheck = true;
+                            }
+                        }
+                    }
+
+                    // 2. Move-and-Shoot Logic (if not static shooting)
+                    if (!isRangeAttackContext && isRangedUnit && !this.currentActiveUnit.hasAbilityActive("Handyman")) { // Handyman behaves as melee for some reason? Legacy checked it.
+                        // If we are not adjacent/melee preferred, try finding a shooting spot
+                        // Or if strictly out of range
+                        // Let's assume user wants to shoot if possible
+
+                        const shotDist = this.currentActiveUnit.getRangeShotDistance();
+                        const attackRangeForCalc = Math.max(1, shotDist); // Use Shot Distance for pathfinding!
+
+                        // Try to find a spot within shot_distance using existing pathfinding
+                        // Note: calculateClosestAttackFrom checks REACHABLE cells.
+                        const possibleShootPos = this.pathHelper.calculateClosestAttackFrom(
+                            this.sc_mouseWorld,
+                            this.canAttackByMeleeTargets.attackCells,
+                            this.currentActiveUnit.getCells(),
+                            targetUnit.getCells(),
+                            this.currentActiveUnit.isSmallSize(),
+                            attackRangeForCalc,
+                            targetUnit.isSmallSize(),
+                            TeamVals.NO_TEAM,
+                            this.canAttackByMeleeTargets.attackCellHashesToLargeCells
+                        );
+
+                        // Valid if position found AND distance implies shooting (not melee)
+                        if (possibleShootPos) {
+                            const distFromDest = HoCMath.getDistance(possibleShootPos, targetUnit.getPosition());
+                            if (distFromDest > GridConstants.STEP * 1.5) {
+                                // Found a valid SHOOTING position
+                                attackFrom = possibleShootPos;
+                                isRangeAttackContext = true;
+                                skipMeleeCheck = true;
+                            }
+                        }
+                    }
+
+                    if (!skipMeleeCheck && isMouseInsideUnit) {
                         attackFrom = this.pathHelper.calculateClosestAttackFrom(
                             this.sc_mouseWorld,
                             this.canAttackByMeleeTargets.attackCells,
@@ -1960,8 +2113,8 @@ export class Sandbox extends PixiScene {
                         }
                     }
 
-                    // Fallback: If specific cell is not reachable (e.g. far side) or mouse is outside
-                    if (!attackFrom) {
+                    // Fallback: Melee if not found
+                    if (!attackFrom && !skipMeleeCheck) {
                         attackFrom = this.pathHelper.calculateClosestAttackFrom(
                             this.sc_mouseWorld,
                             this.canAttackByMeleeTargets.attackCells,
@@ -1976,57 +2129,61 @@ export class Sandbox extends PixiScene {
                         // In fallback, visualTargetCell remains undefined, so we'll use distance-based logic later
                     }
 
-                    if (attackFrom) {
+                    if (attackFrom || isRangeAttackContext) {
                         // Clear previous frame's highlights/visuals before adding new ones
                         this.hoverManager.clearAttackVisuals();
-
-                        this.hoverManager.hoverAttackFromCell = attackFrom;
                         this.hoverManager.addTargetHighlight(targetUnit);
 
                         let attackFromPos: HoCMath.XY | undefined;
+                        let attackFromCell: HoCMath.XY;
 
-                        // Refined Logic: Use the footprint map to find the true center for large units
-                        if (!this.currentActiveUnit.isSmallSize() && this.canAttackByMeleeTargets) {
-                            const hash = (attackFrom.x << 4) | attackFrom.y;
-                            const footprint =
-                                this.canAttackByMeleeTargets.attackCellHashesToLargeCells.get(hash);
-                            if (footprint && footprint.length > 0) {
-                                // Find top-left cell (min x, min y)
-                                let minX = Number.MAX_SAFE_INTEGER;
-                                let minY = Number.MAX_SAFE_INTEGER;
-                                for (const c of footprint) {
-                                    if (c.x < minX) minX = c.x;
-                                    if (c.y < minY) minY = c.y;
+                        if (attackFrom) {
+                            attackFromCell = attackFrom;
+                            this.hoverManager.hoverAttackFromCell = attackFrom;
+
+                            // Refined Logic (Melee / Move-to-Shoot): Use footprint map for large units
+                            if (!this.currentActiveUnit.isSmallSize() && this.canAttackByMeleeTargets) {
+                                const hash = (attackFrom.x << 4) | attackFrom.y;
+                                const footprint =
+                                    this.canAttackByMeleeTargets.attackCellHashesToLargeCells.get(hash);
+                                if (footprint && footprint.length > 0) {
+                                    let minX = Number.MAX_SAFE_INTEGER;
+                                    let minY = Number.MAX_SAFE_INTEGER;
+                                    for (const c of footprint) {
+                                        if (c.x < minX) minX = c.x;
+                                        if (c.y < minY) minY = c.y;
+                                    }
+                                    attackFromPos = GridMath.getPositionForCell(
+                                        { x: minX, y: minY },
+                                        gs.getMinX(),
+                                        gs.getStep(),
+                                        gs.getHalfStep(),
+                                    );
+                                    attackFromPos.x -= gs.getHalfStep();
+                                    attackFromPos.y -= gs.getHalfStep();
                                 }
-                                // Position at center of top-left cell
+                            }
+
+                            if (!attackFromPos) {
                                 attackFromPos = GridMath.getPositionForCell(
-                                    { x: minX, y: minY },
+                                    attackFrom,
                                     gs.getMinX(),
                                     gs.getStep(),
                                     gs.getHalfStep(),
                                 );
-                                // Apply correction to center the visual (assuming alignment needs shifting from the anchor)
-                                attackFromPos.x -= gs.getHalfStep();
-                                attackFromPos.y -= gs.getHalfStep();
+                                if (!this.currentActiveUnit.isSmallSize()) {
+                                    attackFromPos.x -= gs.getHalfStep();
+                                    attackFromPos.y -= gs.getHalfStep();
+                                }
                             }
-                        }
 
-                        // Fallback / Small Unit
-                        if (!attackFromPos) {
-                            attackFromPos = GridMath.getPositionForCell(
-                                attackFrom,
-                                gs.getMinX(),
-                                gs.getStep(),
-                                gs.getHalfStep(),
-                            );
-                            // If it's a large unit but we fell back (no footprint found?), apply the offset blindly
-                            if (!this.currentActiveUnit.isSmallSize()) {
-                                attackFromPos.x -= gs.getHalfStep();
-                                attackFromPos.y -= gs.getHalfStep();
-                            }
+                            this.hoverManager.updateHoverSilhouette(attackFromPos);
+                        } else {
+                            // Static Range Attack (No movement)
+                            attackFromPos = this.currentActiveUnit.getPosition();
+                            attackFromCell = GridMath.getCellForPosition(gs, attackFromPos);
+                            this.hoverManager.hoverAttackFromCell = attackFromCell;
                         }
-
-                        this.hoverManager.updateHoverSilhouette(attackFromPos);
 
                         // Target visual center
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2036,32 +2193,55 @@ export class Sandbox extends PixiScene {
                                 ? rTarget.getVisualCenter(gs)
                                 : targetUnit.getPosition();
 
-
-                        // Standard geometric center for damage text
                         const centerVis = { x: tVis.x, y: tVis.y };
 
                         // If we targeted a specific cell (Priority 1), force visual to that cell
-                        if (visualTargetCell) {
-                            tVis = GridMath.getPositionForCell(
-                                visualTargetCell,
+                        // FIX TRAJECTORY: Use Centers for Large Units for the Arrow
+                        // Calculate Attacker Center (Start)
+                        // If attackFromPos is defined, it is a Cell Center (0.5).
+                        // If not, we use Unit Position (TopLeft 0.0).
+                        const isDerivedFromCell = !!attackFromPos;
+                        // FIX TRAJECTORY: Use Centers for Large Units for the Arrow
+                        // Calculate Attacker Center (Start)
+                        // Base is TopLeft (0.0) - either from attackFromPos (shifted) or unit.getPosition().
+                        // Add Offset (Small: HalfStep, Large: Step).
+                        let arrowStartPos: HoCMath.XY;
+                        if (attackFromPos) {
+                            arrowStartPos = { ...attackFromPos };
+                            const centerOffset = this.currentActiveUnit.isSmallSize() ? gs.getHalfStep() : gs.getStep();
+                            arrowStartPos.x += centerOffset;
+                            arrowStartPos.y += centerOffset;
+                        } else {
+                            arrowStartPos = { ...this.currentActiveUnit.getPosition() };
+                        }
+
+                        // Calculate Target Center (End)
+                        // Allow "Picking any visible side" -> Use specific hovered cell center
+                        let arrowEndPos: HoCMath.XY | undefined;
+
+                        // We rely on 'cell' calculated earlier (under mouse)
+                        if (cell && targetUnit.getCells().some(c => c.x === cell.x && c.y === cell.y)) {
+                            arrowEndPos = GridMath.getPositionForCell(
+                                cell,
                                 gs.getMinX(),
                                 gs.getStep(),
-                                gs.getHalfStep(),
+                                gs.getHalfStep()
                             );
-                        } else if (!targetUnit.isSmallSize() && attackFromPos) {
-                            // Manual closest cell logic to avoid private method issue
-                            const targetCells = targetUnit.getCells();
-                            let bestCell = targetCells[0];
-                            let minD = Number.MAX_VALUE;
-                            for (const tc of targetCells) {
-                                const tcp = GridMath.getPositionForCell(tc, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-                                const d = (tcp.x - attackFromPos.x) ** 2 + (tcp.y - attackFromPos.y) ** 2;
-                                if (d < minD) { minD = d; bestCell = tc; }
-                            }
-                            if (bestCell) {
-                                tVis = GridMath.getPositionForCell(bestCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+                        }
+
+                        // Fallback to Geometric Center if logic fails or mouse drift
+                        if (!arrowEndPos) {
+                            arrowEndPos = { ...targetUnit.getPosition() };
+                            if (!targetUnit.isSmallSize()) {
+                                arrowEndPos.x += gs.getHalfStep();
+                                arrowEndPos.y += gs.getHalfStep();
+                            } else {
+                                arrowEndPos.x += gs.getHalfStep();
+                                arrowEndPos.y += gs.getHalfStep();
                             }
                         }
+
+                        tVis = arrowEndPos; // Use Center for Arrow End
 
                         // Calculate projected damage
                         const attackRate = this.currentActiveUnit.getAttack();
@@ -2069,21 +2249,44 @@ export class Sandbox extends PixiScene {
                             .getFightProperties()
                             .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam());
 
+                        let isMelee = !isRangeAttackContext;
+                        let rangeDivisor = 1;
+                        let multiplier = 1;
+
+                        // Melee Penalty for Ranged Units doing Melee
+                        if (isMelee && this.currentActiveUnit.getAttackType() === AttackVals.RANGE && !this.currentActiveUnit.hasAbilityActive("Handyman")) {
+                            rangeDivisor = 2; // Penalty
+                        }
+
+                        // Range Penalty (Long Range)
+                        if (isRangeAttackContext) {
+                            // Calculate distance in Cells
+                            const distRes = HoCMath.getDistance(arrowStartPos, arrowEndPos) / GridConstants.STEP;
+                            if (distRes > this.currentActiveUnit.getRangeShotDistance()) {
+                                rangeDivisor = 2;
+                            }
+                        }
+
+                        // Double Shot Logic
+                        if (isRangeAttackContext && this.currentActiveUnit.hasAbilityActive("Double Shot")) {
+                            multiplier = 2; // Display double damage
+                        }
+
                         const minDmg = this.currentActiveUnit.calculateAttackDamageMin(
                             attackRate,
                             targetUnit,
-                            false, // Melee
+                            isMelee,
                             abilityPower,
-                            1, // Range divisor
-                            1, // Multiplier
+                            rangeDivisor,
+                            multiplier,
                         );
                         const maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
                             attackRate,
                             targetUnit,
-                            false, // Melee
+                            isMelee,
                             abilityPower,
-                            1, // Range divisor
-                            1, // Multiplier
+                            rangeDivisor,
+                            multiplier,
                         );
 
                         this.hoverManager.drawDamagePrediction(
@@ -2091,21 +2294,21 @@ export class Sandbox extends PixiScene {
                             centerVis,
                             !targetUnit.isSmallSize(), // isLargeTarget
                         );
-                        this.hoverManager.drawAttackArrow(attackFromPos, tVis);
+                        this.hoverManager.drawAttackArrow(arrowStartPos, tVis);
                         isAttacking = true;
 
-                        // --- Multi-Target Highlight ---
+                        // --- Multi-Target Highlight (AOE) ---
                         const secondaryTargets: Unit[] = [];
-                        // Derive cell from pos
-                        const attackFromCell = GridMath.getCellForPosition(gs, attackFromPos);
 
-                        if (attackFromCell) {
-                            // 1. Lightning Spin (Hydra) - Attacks all enemies around
+                        // Common AOE (Lightning Spin, Fire Breath, Skewer Strike) - Usually Melee triggered?
+                        // If Move-and-Shoot (Range), we probably shouldn't trigger Melee AOE visuals unless logic supports it.
+                        // Assuming these are Melee abilities for now.
+                        if (!isRangeAttackContext && attackFromCell) {
                             if (this.currentActiveUnit.hasAbilityActive("Lightning Spin")) {
                                 const enemiesAround = this.unitsHolder.allEnemiesAroundUnit(
                                     this.currentActiveUnit,
-                                    true, // isAttack
-                                    attackFromCell // Simulate being at the attack position
+                                    true,
+                                    attackFromCell
                                 );
                                 for (const enemy of enemiesAround) {
                                     if (enemy.getId() !== targetUnit.getId() && !enemy.isDead()) {
@@ -2114,16 +2317,15 @@ export class Sandbox extends PixiScene {
                                 }
                             }
 
-                            // 2. Fire Breath (Dragon) & Skewer Strike (Pikeman) - Linear/Cone attacks
                             if (this.currentActiveUnit.hasAbilityActive("Fire Breath") || this.currentActiveUnit.hasAbilityActive("Skewer Strike")) {
                                 const targets = AbilityHelper.nextStandingTargets(
                                     this.currentActiveUnit,
                                     targetUnit,
                                     this.grid,
                                     this.unitsHolder,
-                                    attackFromCell, // Corrected: Pass grid cell, not world position
-                                    true, // isThroughShot / pierceLargeUnits - set to TRUE to allow Dragon/Pikeman to hit through large units
-                                    this.currentActiveUnit.hasAbilityActive("Skewer Strike") // isSkewerStrike
+                                    attackFromCell,
+                                    true,
+                                    this.currentActiveUnit.hasAbilityActive("Skewer Strike")
                                 );
 
                                 for (const enemy of targets) {
@@ -2133,7 +2335,6 @@ export class Sandbox extends PixiScene {
                                 }
                             }
 
-                            // 3. Chain Lightning (Thunderbird)
                             if (this.currentActiveUnit.hasAbilityActive("Chain Lightning")) {
                                 const targets = AllAbilities.getChainLightningTargets(
                                     targetUnit,
@@ -2152,8 +2353,8 @@ export class Sandbox extends PixiScene {
                         for (const enemy of secondaryTargets) {
                             this.hoverManager.addTargetHighlight(enemy);
                         }
-                        // --------------------------------------
                     }
+
                 }
             }
 
@@ -2943,6 +3144,31 @@ export class Sandbox extends PixiScene {
                     movePath.cells,
                     movePath.knownPaths,
                 );
+
+                this.canAttackByRangeTargets = undefined;
+                // Range Attack Logic
+                // We use attackHandler.canLandRangeAttack to check general ability (no range bane, no adjacent enemies block)
+                if (
+                    this.currentActiveUnit.getAttackType() === AttackVals.RANGE &&
+                    this.currentActiveUnit.getRangeShots() > 0 &&
+                    this.attackHandler.canLandRangeAttack(
+                        this.currentActiveUnit,
+                        this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
+                    )
+                ) {
+                    this.canAttackByRangeTargets = new Set<string>();
+                    const rangeDist = this.currentActiveUnit.getRangeShotDistance() * GridConstants.STEP;
+                    const attackerPos = this.currentActiveUnit.getPosition();
+
+                    for (const enemy of enemyTeam) {
+                        const dist = HoCMath.getDistance(attackerPos, enemy.getPosition());
+                        // Relaxed: Allow long range shots (penalty applied later).
+                        if (!enemy.hasBuffActive("Hidden")) {
+                            // Additionally check if unit is hittable (e.g. not dead, effectively already checked by being in enemyTeam mostly)
+                            this.canAttackByRangeTargets.add(enemy.getId());
+                        }
+                    }
+                }
             }
         } else {
             this.cleanActivePaths();
