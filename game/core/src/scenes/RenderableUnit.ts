@@ -77,6 +77,14 @@ interface SpawnAnimState {
     elapsed: number;
     duration: number;
 }
+
+interface OneShotAnimState {
+    frames: Texture[];
+    frameIndex: number;
+    elapsed: number;
+    durationPerFrame: number;
+    onComplete?: () => void;
+}
 /**
  * Unit + Pixi visualization (sprite, stack badge, spawn animation).
  * We never `new RenderableUnit` directly; instead we "upgrade"
@@ -102,6 +110,7 @@ export class RenderableUnit extends Unit {
     private selectionAnimNextStepAtMs = 0;
     private stackForcedHidden = false;
     private isActiveTurn = false;
+    private visualMode: "normal" | "hidden" | "ghost" = "normal";
     /**
      * Attach rendering capabilities to an existing Unit instance.
      * (We rely on JS prototype + TS casting; Unit stays the core owner.)
@@ -149,8 +158,8 @@ export class RenderableUnit extends Unit {
         this.sprite.scale.set(scale, -scale);
         this.sprite.x = pos.x;
         this.sprite.y = pos.y;
-        this.sprite.visible = true;
-        this.sprite.alpha = 1;
+        this.sprite.visible = this.visualMode !== "hidden";
+        this.sprite.alpha = this.visualMode === "ghost" ? 0.25 : 1;
         // keep tint white; selection uses atlas frames, not tinting
         this.sprite.tint = 0xffffff;
         // --- shadow (can safely follow base texture, selection is only the main sprite) ---
@@ -173,8 +182,8 @@ export class RenderableUnit extends Unit {
         const shadowOffsetY = targetSize * 0.08;
         this.shadow.x = pos.x + shadowOffsetX;
         this.shadow.y = pos.y + shadowOffsetY;
-        this.shadow.visible = true;
-        this.shadow.alpha = 0.35;
+        this.shadow.visible = this.visualMode !== "hidden";
+        this.shadow.alpha = this.visualMode === "ghost" ? 0.1 : 0.35;
         this.shadow.tint = 0x000000;
         // --- badge ---
         this.ensureBadge(worldRoot, gs, props, pos);
@@ -187,6 +196,37 @@ export class RenderableUnit extends Unit {
             this.sprite.rotation = rotation;
         }
     }
+
+    public getCurrentVisualScale(): number {
+        return this.sprite ? Math.abs(this.sprite.scale.x) : 1;
+    }
+
+    public setVisualVisible(visible: boolean): void {
+        this.visualMode = visible ? "normal" : "hidden";
+        if (this.sprite) this.sprite.visible = visible;
+        if (this.shadow) this.shadow.visible = visible;
+        if (this.badgeContainer) this.badgeContainer.visible = visible;
+        if (this.stackPowerContainer) this.stackPowerContainer.visible = visible;
+    }
+
+    public setVisualGhost(active: boolean): void {
+        this.visualMode = active ? "ghost" : "normal";
+        const visible = active || this.visualMode === "normal";
+        const alpha = active ? 0.25 : 1;
+
+        if (this.sprite) {
+            this.sprite.visible = visible;
+            this.sprite.alpha = alpha;
+        }
+        if (this.shadow) {
+            this.shadow.visible = visible;
+            this.shadow.alpha = active ? 0.1 : 0.35;
+        }
+        // Hide badges in ghost mode
+        if (this.badgeContainer) this.badgeContainer.visible = !active && visible;
+        if (this.stackPowerContainer) this.stackPowerContainer.visible = !active && visible;
+    }
+
     public applyMoveEffect(spawnPulsePhase: number): void {
         const sprite = this.sprite;
         if (!sprite) return;
@@ -314,6 +354,8 @@ export class RenderableUnit extends Unit {
         }
         // --- Board selection animation (always tick; wall clock inside) ---
         this.stepSelectionAnimation();
+        // --- One Shot animation ---
+        this.stepOneShotAnimation(dt * 1000);
     }
     private stopSelectionAnimationInternal(): void {
         this.selectionAnimFrames = undefined;
@@ -359,7 +401,102 @@ export class RenderableUnit extends Unit {
     public getVisualCenter(_gs: GridSettings): HoCMath.XY {
         return this.getPosition();
     }
+    private oneShotAnim?: OneShotAnimState;
+
+    /**
+     * Plays a one-shot animation sequence (like 'death', 'attack', 'hit')
+     * @param stateName The animation state name (e.g. "death", "attack")
+     * @param onComplete Callback when animation finishes
+     */
+    public playOneShotAnimation(stateName: string, onComplete?: () => void): void {
+        const props = this.getUnitProperties();
+        const config = getDefaultAnimationConfig(props.name, props.size);
+        // If config/atlas not found, just fire callback immediately
+        if (!config || !this.sprite) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        const { meta, imageSrc, cacheKey } = config;
+        // We override the state name to the requested one (e.g. "death") to find the right frames
+        // But getDefaultAnimationConfig only returns the preferred/default state metadata.
+        // We need to fetch specific state metadata.
+
+        const normalized = normalizeUnitNameForAtlas(props.name);
+        if (!normalized) {
+            if (onComplete) onComplete();
+            return;
+        }
+
+        const unitStates = animationAtlases[normalized];
+        // @ts-ignore: string vs AnimationStateName
+        const targetState = unitStates[stateName] ? stateName : null;
+
+        if (!targetState) {
+            console.warn(`[RenderableUnit] Animation state '${stateName}' not found for ${props.name}`);
+            if (onComplete) onComplete();
+            return;
+        }
+
+        // @ts-ignore
+        const targetMeta = unitStates[targetState] as AtlasMeta;
+
+        // We need the cache key for THIS specific state
+        const targetCacheKey = `${normalized}::${targetState}`;
+        const targetImageKey = atlasImageKeyFromUnitAndState(normalized, targetState, props.size);
+
+        // If we can't find image for this state, fallback
+        if (!targetImageKey || !images[targetImageKey]) {
+            console.warn(`[RenderableUnit] Missing image for state '${stateName}'`);
+            if (onComplete) onComplete();
+            return;
+        }
+
+        const targetImageSrc = images[targetImageKey];
+
+        let frames = atlasFramesCache.get(targetCacheKey);
+        if (!frames) {
+            frames = buildAtlasFrames(targetMeta, targetImageSrc, props.size);
+            atlasFramesCache.set(targetCacheKey, frames);
+        }
+
+        this.oneShotAnim = {
+            frames,
+            frameIndex: 0,
+            elapsed: 0,
+            durationPerFrame: (targetMeta.loopDurationMs || 1000) / (targetMeta.frameCount || frames.length),
+            onComplete,
+        };
+
+        // Set first frame immediately
+        this.sprite.texture = frames[0];
+    }
+
+    public stepOneShotAnimation(dtMs: number): void {
+        if (!this.oneShotAnim || !this.sprite) return;
+
+        const anim = this.oneShotAnim;
+        anim.elapsed += dtMs;
+
+        if (anim.elapsed >= anim.durationPerFrame) {
+            const framesToAdvance = Math.floor(anim.elapsed / anim.durationPerFrame);
+            anim.elapsed %= anim.durationPerFrame;
+
+            anim.frameIndex += framesToAdvance;
+
+            if (anim.frameIndex >= anim.frames.length) {
+                // Animation Finished
+                const callback = anim.onComplete;
+                this.oneShotAnim = undefined;
+                if (callback) callback();
+            } else {
+                this.sprite.texture = anim.frames[anim.frameIndex];
+            }
+        }
+    }
+
     public destroyVisuals(): void {
+        console.log(`RenderableUnit: destroyVisuals id=${this.getId()} sprite=${!!this.sprite}`);
         if (this.sprite) {
             this.sprite.removeFromParent();
             this.sprite = undefined;
@@ -380,6 +517,7 @@ export class RenderableUnit extends Unit {
             this.stackPowerPips = [];
         }
         this.spawnAnim = undefined;
+        this.oneShotAnim = undefined;
         // ⬇️ NEW
         this.boardSelected = false;
         this.selectionAnimFrames = undefined;

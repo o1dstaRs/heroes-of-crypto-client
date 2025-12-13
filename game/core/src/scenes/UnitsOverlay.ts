@@ -61,6 +61,7 @@ export class UnitsOverlay {
         app: Application,
         getTexture: GetTexture,
         onUnitSelected?: (unitProperties: UnitProperties | null) => void,
+        private getAmount?: (unitName: string) => number,
     ) {
         this.app = app;
         this.getTex = getTexture;
@@ -180,7 +181,7 @@ export class UnitsOverlay {
 
         return false;
     }
-    private getUnitProperties(unitName: string): UnitProperties {
+    public getUnitProperties(unitName: string): UnitProperties {
         let faction: FactionType = FactionVals.NO_FACTION;
         const target = unitName;
         let found = false;
@@ -254,7 +255,7 @@ export class UnitsOverlay {
                     const chip = new UnitChip({
                         unitName,
                         texture: tex ?? Texture.EMPTY,
-                        getAmount: () => unitProperties.amount_alive,
+                        getAmount: () => (this.getAmount ? this.getAmount(unitName) : unitProperties.amount_alive),
                     });
                     chip.setTicker(this.app.ticker);
                     bucketCont.addChild(chip);
@@ -428,5 +429,10 @@ export class UnitsOverlay {
         this.selectedName = null;
         for (const c of this.allChips) c.setSelected(false);
         if (notify && this.onUnitSelected) this.onUnitSelected(null);
+    }
+    public setShowAllAmounts(show: boolean): void {
+        for (const c of this.allChips) {
+            c.setForceBadgeVisible(show);
+        }
     }
 }

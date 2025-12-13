@@ -297,6 +297,8 @@ export abstract class PixiScene {
     }
     protected hover(): void {}
     public resetRightControls(): void {}
+    /** Optional hook for scenes to react to background asset loading progress (Tier 2) */
+    public onBackgroundAssetLoad?(progress: number): void;
     public MouseUp(): void {
         this.sc_mouseTracing = false;
         this.sc_calculatingPlacement = true;

@@ -1,5 +1,5 @@
 // game/core/src/react/GameScreen.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 
 // ⬇️ use the Pixi manager + SceneEntry from your Pixi scene module
@@ -7,48 +7,14 @@ import { usePixiManager } from "../../pixi/PixiGameManager"; // adjust the path 
 import type { SceneEntry } from "../../pixi/PixiScene"; // adjust the path if needed
 
 import { getSceneLink } from "../../utils/reactUtils";
-import DamageBubble from "../DamageBubble";
 
 interface SceneComponentProps {
     entry: SceneEntry;
 }
 
 const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass } }) => {
-    const [coordinates, setCoordinates] = useState({ x: 0, y: 0 });
-    const [damage, setDamage] = useState<number>(0);
-    const [started, setStarted] = useState(false);
-
     const manager = usePixiManager();
     const initializedRef = useRef(false);
-
-    // Started flag
-    useEffect(() => {
-        const connection = manager.onHasStarted.connect((hasStarted) => setStarted(hasStarted));
-        return () => {
-            connection.disconnect(); // ignore boolean return -> cleanup returns void
-        };
-    }, [manager]);
-
-    // Damage bubble
-    useEffect(() => {
-        const connection = manager.onDamageReceived.connect((dmg) => setDamage(dmg));
-        return () => {
-            connection.disconnect(); // ignore boolean return
-        };
-    }, [manager]);
-
-    // Mouse tracker for the damage bubble when game is started
-    useEffect(() => {
-        const handleMouseMove = (event: MouseEvent) => {
-            const { clientX, clientY } = event;
-            setCoordinates({ x: clientX, y: clientY });
-        };
-
-        if (started) {
-            window.addEventListener("mousemove", handleMouseMove);
-        }
-        return () => window.removeEventListener("mousemove", handleMouseMove);
-    }, [started]);
 
     // Canvases + wrapper
     const glCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -96,7 +62,6 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
                 <canvas ref={glCanvasRef} style={{ position: "absolute", inset: 0 }} />
                 <canvas ref={debugCanvasRef} style={{ position: "absolute", inset: 0, pointerEvents: "auto" }} />
             </main>
-            <DamageBubble damages={[damage]} coordinates={coordinates} />
         </>
     );
 };

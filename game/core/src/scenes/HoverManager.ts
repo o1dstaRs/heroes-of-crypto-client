@@ -52,6 +52,8 @@ export class HoverManager {
     public hoverPlacementCellTeam?: TeamType = undefined;
     public hoverSelectedCells?: HoCMath.XY[];
     public hoverSelectedCellsSwitchToRed = false;
+    // AI Support
+    public hoverAttackUnits?: Unit[][];
     public hoverAttackFromCell?: HoCMath.XY = undefined;
     public hoverSpellCell?: HoCMath.XY = undefined;
     public hoverAbilityCell?: HoCMath.XY = undefined;
@@ -86,10 +88,21 @@ export class HoverManager {
     public clearAuraVisuals(): void {
         this.auraGraphics.clear();
     }
+    public clear(): void {
+        this.hoverAttackUnits = undefined;
+        this.hoverAttackFromCell = undefined;
+        this.hoverPlacementCell = undefined;
+        this.hoverSelectedCells = undefined;
+        this.hoverSpellCell = undefined;
+        this.hoverAbilityCell = undefined;
+        this.hoverAttackTargetUnit = undefined;
+        this.hoveredUnitId = undefined;
+        this.clearAuraVisuals();
+    }
     public drawAuraArea(center: HoCMath.XY, radius: number, isBuff: boolean, isSmallUnit: boolean): void {
         // Aesthetic Configuration
-        const color = isBuff ? 0x00FF88 : 0xFF4444; // Green vs Red
-        const fillColor = isBuff ? 0x00FF88 : 0xFF0000;
+        const color = isBuff ? 0x00ff88 : 0xff4444; // Green vs Red
+        const fillColor = isBuff ? 0x00ff88 : 0xff0000;
         const fillAlpha = 0.15;
         const strokeAlpha = 0.6;
         const strokeWidth = 2;
@@ -103,12 +116,7 @@ export class HoverManager {
 
         // Draw Square centered at unit
         // x, y is top-left of rect
-        this.auraGraphics.drawRect(
-            center.x - extent,
-            center.y - extent,
-            extent * 2,
-            extent * 2
-        );
+        this.auraGraphics.drawRect(center.x - extent, center.y - extent, extent * 2, extent * 2);
         this.auraGraphics.endFill();
     }
     public update(dt: number): void {

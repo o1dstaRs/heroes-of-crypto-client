@@ -80,8 +80,9 @@ const usePreventSelection = () => {
 };
 
 const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
-    const [started, setStarted] = useState(false);
     const manager = usePixiManager();
+    const [started, setStarted] = useState(false);
+    const [isLoading, setIsLoading] = useState(manager.isLoading);
 
     useEffect(() => {
         const connection = manager.onHasStarted.connect((hasStarted) => {
@@ -90,9 +91,12 @@ const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                 manager.HomeCamera();
             }
         });
+        const loadingConnection = manager.onLoadingChanged.connect(setIsLoading);
+
         return () => {
             // Important: ensure cleanup returns void
             connection.disconnect();
+            loadingConnection.disconnect();
         };
     }, [manager]);
 
@@ -100,8 +104,8 @@ const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         <div className="container" style={{ display: "flex" }}>
             <CssVarsProvider>
                 <CssBaseline />
-                <LeftSideBar gameStarted={started} windowSize={windowSize} />
-                <RightSideBar gameStarted={started} windowSize={windowSize} />
+                {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
+                {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
                 <UpNextOverlay />
                 <DraggableToolbar />
             </CssVarsProvider>
@@ -116,8 +120,9 @@ import { PickBanEventProvider, usePickBanEvents } from "./context/PickBanContext
 export { PickBanEventProvider, usePickBanEvents };
 
 const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType }> = ({ windowSize, userTeam }) => {
-    const [started, setStarted] = useState(false);
     const manager = usePixiManager();
+    const [started, setStarted] = useState(false);
+    const [isLoading, setIsLoading] = useState(manager.isLoading);
 
     useEffect(() => {
         const connection = manager.onHasStarted.connect((hasStarted) => {
@@ -126,8 +131,11 @@ const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType }> 
                 manager.HomeCamera();
             }
         });
+        const loadingConnection = manager.onLoadingChanged.connect(setIsLoading);
+
         return () => {
             connection.disconnect();
+            loadingConnection.disconnect();
         };
     }, [manager]);
 
@@ -143,8 +151,8 @@ const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType }> 
             >
                 <CssVarsProvider>
                     <CssBaseline />
-                    <LeftSideBar gameStarted={started} windowSize={windowSize} />
-                    <RightSideBar gameStarted={started} windowSize={windowSize} />
+                    {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
+                    {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
                 </CssVarsProvider>
                 <StainedGlassWindow userTeam={userTeam} />
                 <Popover />

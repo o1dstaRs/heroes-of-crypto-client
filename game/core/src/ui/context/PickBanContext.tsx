@@ -7,7 +7,6 @@ import { IPickPhaseEventData, PickBanContext } from "./PickBanContextDefs";
 export { usePickBanEvents } from "./PickBanContextDefs";
 export type { IPickPhaseEventData };
 
-
 export const PickBanEventProvider: React.FC<{
     children: React.ReactNode;
     url: string;

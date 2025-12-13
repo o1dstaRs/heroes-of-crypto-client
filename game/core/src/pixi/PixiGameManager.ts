@@ -28,10 +28,11 @@ import { HotKey, hotKeyPress } from "../utils/hotkeys";
 import type { UnitsOverlay } from "../scenes/UnitsOverlay";
 import { PixiApp } from "./PixiApp";
 import { PixiSceneManager } from "./PixiSceneManager";
-import { preloadPixiTextures, PreloadedPixiTextures } from "./PixiTextureLoader";
+import { PreloadedPixiTextures } from "./PixiTextureLoader";
 
 import "../scenes";
 import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
+import type { LoadingScreen } from "../scenes/LoadingScreen";
 import { getScenesGrouped } from "./PixiScene";
 
 // A scene that (optionally) exposes the overlay
@@ -76,9 +77,14 @@ export class PixiGameManager {
     public readonly onSelectionCombined = new Signal<
         (payload: { unit: UnitProperties | null; impact: IVisibleOverallImpact | null; faction: FactionType }) => void
     >();
+    public readonly onLoadingChanged = new Signal<(loading: boolean) => void>();
     private m_hoveringCanvas = false;
     private m_keyMap: Record<string, boolean> = {};
     private isInitialized = false;
+    private _isLoading = true;
+    public get isLoading(): boolean {
+        return this._isLoading;
+    }
     private activateScene: (entry: SceneEntry) => void = () => {};
     private started = false;
     private lastSentEmptyHoverInfo = false;
@@ -127,20 +133,8 @@ export class PixiGameManager {
         this.pixiApp = new PixiApp(); // sync constructor
         await this.pixiApp.init(glCanvas, 2048, 2048); // async init, safe to await here
 
-        // Preload textures & scene manager
-        this.textures = await preloadPixiTextures();
-        const gridSettings = new GridSettings(32, 1024, 0, 1024, 0, 32, 16);
-        this.pixiSceneManager = new PixiSceneManager(this.pixiApp, gridSettings);
-
-        window.addEventListener("keydown", (e) => this.HandleKey(e, true));
-        window.addEventListener("keyup", (e) => this.HandleKey(e, false));
-        window.addEventListener(
-            "contextmenu",
-            (e) => {
-                if (e.target instanceof HTMLElement && e.target.closest("main")) e.preventDefault();
-            },
-            true,
-        );
+        // Declare loadingScreen early so onResize can close over it
+        let loadingScreen: LoadingScreen | undefined;
 
         // --- IMPORTANT: don't set glCanvas.width/height; let Pixi own it. ---
         // Only resize via Pixi + notify scene.
@@ -156,16 +150,82 @@ export class PixiGameManager {
             }
 
             this.pixiApp!.resize(w, h);
-            this.m_scene?.Resize(w, h);
-
-            // camera is screen-anchored; keep neutral
+            this.m_scene?.Resize(w, h); // Resize scene first
+            loadingScreen?.resize(w, h); // Resize loader if active
             this.fitViewToWindow();
         };
+
         window.addEventListener("resize", onResize);
         window.addEventListener("orientationchange", onResize);
-        onResize(); // first sizing pass
+        onResize(); // first sizing pass to set correct canvas size
+
+        // --- NEW: TIERED LOADING ---
+        const stage = this.pixiApp.getStage();
+        // Now use the CORRECT CURRENT dimensions after onResize()
+        const { width, height } = this.pixiApp.getApplication().renderer;
+
+        // 1. Show Blocking Loading Screen
+        const { LoadingScreen } = await import("../scenes/LoadingScreen");
+        loadingScreen = new LoadingScreen(width, height);
+        // Ensure it's on top of everything (UI container usually) but for now just add to stage
+        stage.addChild(loadingScreen);
+
+        // 2. Load Core Assets (Blocking)
+        // Ensure starting state
+        this._isLoading = true;
+        this.onLoadingChanged.emit(true);
+
+        loadingScreen.setProgress(0.1);
+        const { preloadCoreAssets, preloadAnimationAssets } = await import("./PixiTextureLoader");
+
+        this.textures = (await preloadCoreAssets((p) => {
+            // scale 0.1 -> 1.0
+            if (loadingScreen) loadingScreen.setProgress(0.1 + p * 0.9);
+        })) as PreloadedPixiTextures;
+
+        // 3. Remove Loading Screen & Start Game
+        // Loading Done
+        this._isLoading = false;
+        this.onLoadingChanged.emit(false);
+
+        stage.removeChild(loadingScreen);
+        loadingScreen.destroy();
+        loadingScreen = undefined;
+
+        // 4. Init Scene Manager & Game
+        const gridSettings = new GridSettings(32, 1024, 0, 1024, 0, 32, 16);
+        this.pixiSceneManager = new PixiSceneManager(this.pixiApp, gridSettings);
+
+        window.addEventListener("keydown", (e) => this.HandleKey(e, true));
+        window.addEventListener("keyup", (e) => this.HandleKey(e, false));
+        window.addEventListener(
+            "contextmenu",
+            (e) => {
+                if (e.target instanceof HTMLElement && e.target.closest("main")) e.preventDefault();
+            },
+            true,
+        );
 
         this.LoadGame();
+
+        // 5. Tier 2: Background Load Animations
+        // We can pass a callback to update UI if needed
+        preloadAnimationAssets((p) => {
+            // TODO: Emit signal to UI / Scene about progress
+            // For now just log
+            // console.log("Background Asset Load:", p);
+            this.m_scene?.onBackgroundAssetLoad?.(p);
+        }).then((newTextures) => {
+            this.textures = { ...this.textures, ...newTextures } as PreloadedPixiTextures;
+            // Notify scene that assets are fully ready?
+            // Ideally Pixi handles texture updates automatically if we reference them by new Texture objects?
+            // Actually Pixi Assets cache uses string keys. If we request texture by name, it should appear.
+            // But existing Sprites showing "missing" texture won't auto-update unless re-assigned.
+            // However, separating "Core" vs "Anim" likely means TIER 2 assets are ONLY used for animations
+            // that trigger LATER. If user tries to play animation immediately, it might be missing.
+            // We'll rely on the fact that these are mostly specialized animations.
+            this.m_scene?.onBackgroundAssetLoad?.(1.0);
+        });
 
         const initialOverlay = getUnitsOverlayFromScene(this.m_scene);
         if (initialOverlay) {
@@ -258,13 +318,13 @@ export class PixiGameManager {
         const world = this.screenToWorld(e.offsetX, e.offsetY);
         this.m_scene?.MouseMove(world, this.m_lMouseDown);
 
-        // Keep optional right-click panning (no zoom UI)
-        if (this.m_rMouseDown && this.pixiSceneManager) {
-            const cameraPos = this.pixiSceneManager.getCameraPosition();
-            const z = this.pixiSceneManager.getCameraZoom();
-            const f = 1 / z;
-            this.pixiSceneManager.setCameraPosition(cameraPos.x - e.movementX * f, cameraPos.y + e.movementY * f);
-        }
+        // Keep optional right-click panning (no zoom UI) - DISABLED by request
+        // if (this.m_rMouseDown && this.pixiSceneManager) {
+        //     const cameraPos = this.pixiSceneManager.getCameraPosition();
+        //     const z = this.pixiSceneManager.getCameraZoom();
+        //     const f = 1 / z;
+        //     this.pixiSceneManager.setCameraPosition(cameraPos.x - e.movementX * f, cameraPos.y + e.movementY * f);
+        // }
     }
     public HandleMouseDown(e: MouseEvent): void {
         const world = this.screenToWorld(e.offsetX, e.offsetY);
@@ -521,14 +581,12 @@ export class PixiGameManager {
 
         // Damage stats
         if (this.m_scene?.sc_damageStatsUpdateNeeded) {
-            console.log("EMIT3");
             this.onDamageStatisticsUpdated.emit(structuredClone(this.m_scene.getDamageStatisics()));
             this.m_scene.sc_damageStatsUpdateNeeded = false;
         }
 
         // Synergies
         if (this.m_scene?.sc_possibleSynergiesUpdateNeeded) {
-            console.log("EMIT4");
             this.onPossibleSynergiesUpdated.emit(this.m_scene.sc_possibleSynergiesPerTeam);
             this.m_scene.sc_possibleSynergiesUpdateNeeded = false;
         }
@@ -545,14 +603,12 @@ export class PixiGameManager {
 
         // Grid type
         if (this.m_scene?.sc_gridTypeUpdateNeeded) {
-            console.log("EMIT6");
             this.onGridTypeChanged.emit(this.m_scene.getGridType());
             this.m_scene.sc_gridTypeUpdateNeeded = false;
         }
 
         // Buttons group
         if (this.m_scene?.sc_buttonGroupUpdated) {
-            console.log("EMIT7");
             this.onHasButtonsGroupUpdate.emit(true);
             this.m_scene.sc_buttonGroupUpdated = false;
         }

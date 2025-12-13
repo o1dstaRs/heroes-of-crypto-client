@@ -7,10 +7,10 @@
         "dist"
     ],
     "scripts": {
-        "build": "rimraf .parcel-cache && yarn run build:images && rimraf dist && tsc && vite build",
-        "build:skip": "rimraf .parcel-cache && rimraf dist && tsc && vite build",
+        "build": "rimraf .parcel-cache && bun run build:images && rimraf dist && tsc && vite build",
         "build:docs": "rimraf ../../.parcel-cache && rimraf ../../docs/dist && dotenv -e .env.production parcel build --no-optimize src/ui/index.html --public-url . --no-source-maps && cpy dist ../../docs",
         "build:images": "rimraf images && bun run copy:images && npm run generate:animations && npm run generate:images",
+        "build:skip": "rimraf .parcel-cache && rimraf dist && tsc && vite build",
         "copy:images": "cpy $HOC_IMAGES_LOC ./",
         "generate:animations": "bun scripts/generate_animation_atlases.js",
         "generate:images": "bun scripts/generate_image_imports.js",

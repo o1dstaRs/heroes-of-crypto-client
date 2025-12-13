@@ -107,6 +107,7 @@ export class UnitChip extends Container {
     private badgeText: Text;
     private hovered = false;
     private selected = false;
+    private forceBadgeVisible = false;
     private banned = false;
     private amountProvider?: AmountProvider;
     private lastIconSide = 0;
@@ -322,7 +323,12 @@ export class UnitChip extends Container {
         this.amountProvider = fn;
         this.updateHighlight();
     }
-    /** Hover-only scale + float + tween */
+    public setForceBadgeVisible(v: boolean) {
+        if (this.forceBadgeVisible === v) return;
+        console.log(`UnitChip: setForceBadgeVisible [${this.nameKey}] ${v}`);
+        this.forceBadgeVisible = v;
+        this.updateHighlight();
+    }
     private applyHoverVisuals() {
         const hoverActive = this.hovered;
 
@@ -339,7 +345,28 @@ export class UnitChip extends Container {
 
         const amount = this.amountProvider?.(this.nameKey) ?? 0;
         this.badgeText.text = String(amount);
-        this.badgeCont.visible = anyActive && !!amount;
+
+        // Show badge if:
+        // 1. Active (Hover/Select) AND amount > 0 (Standard behavior)
+        // 2. Forced (Alt key) => Show even if inactive. Should we show if 0?
+        //    Probably yes, to show "0 available".
+        //    But typically chips with 0 might be hidden or disallowed?
+        //    Let's align with user request "sees all the units amount".
+
+        if (this.forceBadgeVisible) {
+            this.badgeCont.visible = true;
+        } else {
+            this.badgeCont.visible = anyActive && amount > 0;
+        }
+
+        // Ensure badge is on top?
+        this.badgeCont.zIndex = 10;
+
+        // Debug
+        // if (this.forceBadgeVisible) console.log(`UnitChip: updateHighlight [${this.nameKey}] active=${anyActive} force=${this.forceBadgeVisible} amount=${amount} -> visible=${this.badgeCont.visible}`);
+        console.log(
+            `UnitChip: updateHighlight [${this.nameKey}] active=${anyActive} force=${this.forceBadgeVisible} amount=${amount} -> visible=${this.badgeCont.visible}`,
+        );
     }
     private startTween() {
         if (!this.ticker) {

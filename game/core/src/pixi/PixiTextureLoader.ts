@@ -37,22 +37,55 @@ function normalizeUrl(v: unknown, key: string): string {
     throw new TypeError(`Image "${key}" is not a URL-like string (got ${typeof v}).`);
 }
 
-function toPixiBundle(map: ImagesMap) {
-    const out: Record<string, { src: string }> = {};
-    for (const [k, v] of Object.entries(map)) {
-        out[k] = { src: normalizeUrl(v, k) };
-    }
-    return out;
-}
-
 /** Exact texture map keyed by your generated `images` object */
 export type PreloadedPixiTextures = { [K in keyof ImagesMap]: Texture };
 
+let loadedTextures: Partial<PreloadedPixiTextures> = {};
+
+function getSplitBundles() {
+    const core: Record<string, { src: string }> = {};
+    const animations: Record<string, { src: string }> = {};
+
+    for (const [k, v] of Object.entries(rawImages)) {
+        const src = normalizeUrl(v, k);
+        // Tier 2: Animations (_atlas)
+        if (k.endsWith("_atlas")) {
+            animations[k] = { src };
+        } else {
+            // Tier 1: Core
+            core[k] = { src };
+        }
+    }
+    return { core, animations };
+}
+
+export async function preloadCoreAssets(onProgress?: (p: number) => void): Promise<Partial<PreloadedPixiTextures>> {
+    const { core } = getSplitBundles();
+    if (Object.keys(core).length === 0) return loadedTextures;
+
+    Assets.addBundle("hoc_core", core);
+    const loaded = await Assets.loadBundle("hoc_core", onProgress);
+    loadedTextures = { ...loadedTextures, ...loaded };
+    return loadedTextures;
+}
+
+export async function preloadAnimationAssets(
+    onProgress?: (p: number) => void,
+): Promise<Partial<PreloadedPixiTextures>> {
+    const { animations } = getSplitBundles();
+    if (Object.keys(animations).length === 0) return loadedTextures;
+
+    Assets.addBundle("hoc_animations", animations);
+    const loaded = await Assets.loadBundle("hoc_animations", onProgress);
+    loadedTextures = { ...loadedTextures, ...loaded };
+    return loadedTextures;
+}
+
+/** Legacy: Loads everything (Tier 1 + Tier 2) - Kept for compatibility if needed, but we should switch */
 export async function preloadPixiTextures(onProgress?: (p: number) => void): Promise<PreloadedPixiTextures> {
-    const bundle = toPixiBundle(rawImages);
-    Assets.addBundle("hoc", bundle);
-    const loaded = await Assets.loadBundle("hoc", onProgress);
-    return loaded as PreloadedPixiTextures;
+    await preloadCoreAssets((p) => onProgress?.(p * 0.5));
+    await preloadAnimationAssets((p) => onProgress?.(0.5 + p * 0.5));
+    return loadedTextures as PreloadedPixiTextures;
 }
 
 /**
