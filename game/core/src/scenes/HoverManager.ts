@@ -816,132 +816,62 @@ export class HoverManager {
             teamFromPlacement = TeamVals.UPPER;
         }
 
-        if (!teamFromPlacement) {
-            this.resetHover();
-            // return; // Allow flow to proceed to effectiveTeam logic for visualization
-        }
-
         const draggingUnitTeam = this.context.getDraggingUnitTeam();
         const draggingUnitId = this.context.getDraggingUnitId();
+        const effectiveTeam = teamFromPlacement ?? draggingUnitTeam ?? selected.team ?? TeamVals.LOWER;
 
-        // Wrong team → red highlight only
-        if (draggingUnitTeam && teamFromPlacement !== draggingUnitTeam) {
-            let cells: HoCMath.XY[];
-            if (isLarge) {
-                const allowedForThatSide = teamFromPlacement
-                    ? this.context.placementManager.getAllowedPlacementCellHashesForTeam(teamFromPlacement)
-                    : undefined;
-                const occupiedKeys: string[] = [];
-                cells =
-                    this.context.pathHelper.getClosestSquareCellIndices(
-                        this.context.getMouseWorld(),
-                        allowedForThatSide,
-                        occupiedKeys,
-                        undefined,
-                        undefined,
-                        undefined,
-                    ) ?? [];
-                if (cells.length === 0) {
-                    cells = [cell];
-                }
-            } else {
-                cells = [cell];
-            }
-
-            this.hoverSelectedCells = cells;
-            this.hoverSelectedCellsSwitchToRed = true;
-            this.hoverPlacementCell = cell;
-            this.hoverPlacementCellTeam = teamFromPlacement;
-            this.clearHoverSilhouette();
-            return;
-        }
-
-        const allowedForTeam = teamFromPlacement
-            ? this.context.placementManager.getAllowedPlacementCellHashesForTeam(teamFromPlacement)
-            : undefined;
-
+        // --- 1. Calculate Candidate Cells (Early) ---
+        // We need these for both Visualization (Mock Unit) and Validation
         let candidateCells: HoCMath.XY[];
-
         if (isLarge) {
+            // If teamFromPlacement is known, prioritize that side's valid cells
+            // If undefined (void), use dragging team's side or generic?
+            // Existing logic used "allowedForThatSide" inside "Wrong Team" block, and "allowedForTeam" later.
+            // We'll try to find best fit.
+            const targetTeamForPath = teamFromPlacement ?? draggingUnitTeam ?? TeamVals.LOWER;
+            const allowedForPath = this.context.placementManager.getAllowedPlacementCellHashesForTeam(targetTeamForPath);
+
             const occupiedKeys: string[] = [];
-            candidateCells =
-                this.context.pathHelper.getClosestSquareCellIndices(
-                    this.context.getMouseWorld(),
-                    allowedForTeam,
-                    occupiedKeys,
-                    undefined,
-                    undefined,
-                    undefined,
-                ) ?? [];
+            candidateCells = this.context.pathHelper.getClosestSquareCellIndices(
+                this.context.getMouseWorld(),
+                allowedForPath,
+                occupiedKeys,
+                undefined,
+                undefined,
+                undefined,
+            ) ?? [];
+
+            // Fallback if pathing fails (e.g. void): just use the cell under mouse
+            if (candidateCells.length === 0) {
+                candidateCells = [cell];
+            }
         } else {
             candidateCells = [cell];
         }
 
-        if (!allowedForTeam || allowedForTeam.size === 0) {
-            this.hoverSelectedCells = candidateCells;
-            this.hoverSelectedCellsSwitchToRed = true;
-            this.hoverPlacementCell = cell;
-            this.hoverPlacementCellTeam = teamFromPlacement;
-            return;
-        }
+        // --- 2. Draw Aura & Attack Range (ALWAYS, Visuals First) ---
+        // Verify we have a position to draw at
+        const possiblePosition = GridMath.getPositionForCells(gs, candidateCells);
+        if (possiblePosition) {
+            const gridType = FightStateManager.getInstance().getFightProperties().getGridType();
+            const skipPreStartGeom =
+                gridType === GridVals.LAVA_CENTER ||
+                gridType === GridVals.WATER_CENTER ||
+                gridType === GridVals.BLOCK_CENTER;
 
-        let invalid = false;
-
-        if (isLarge) {
-            if (candidateCells?.length !== 4) {
-                this.resetHover();
-                this.clearAuraVisuals();
-                return;
-            } else if (!this.context.pathHelper.areCellsFormingSquare(candidateCells)) {
-                invalid = true;
-            }
-        }
-
-        for (const c of candidateCells) {
-            const h = (c.x << 4) | c.y;
-            if (!this.context.placementManager.getAllowedPlacementCellHashes().has(h)) {
-                this.resetHover();
-                return;
-            }
-        }
-
-        if (!invalid) {
-            for (const c of candidateCells) {
-                const occId = this.context.grid.getOccupantUnitId(c);
-                if (occId && this.context.unitsHolder.getAllUnits().has(occId)) {
-                    if (!(draggingUnitId && occId === draggingUnitId)) {
-                        invalid = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        const gridType = FightStateManager.getInstance().getFightProperties().getGridType();
-
-        const skipPreStartGeom =
-            gridType === GridVals.LAVA_CENTER ||
-            gridType === GridVals.WATER_CENTER ||
-            gridType === GridVals.BLOCK_CENTER;
-
-        const effectiveTeam = teamFromPlacement ?? draggingUnitTeam ?? selected?.team ?? TeamVals.LOWER;
-
-        if (effectiveTeam && !skipPreStartGeom) {
-            const mockUnit = Unit.createUnit(
-                selected,
-                gs,
-                effectiveTeam,
-                UnitVals.CREATURE,
-                this.context.abilityFactory,
-                this.context.abilityFactory.getEffectsFactory(),
-                false,
-            );
-
-            const possiblePosition = GridMath.getPositionForCells(gs, candidateCells);
-            if (possiblePosition) {
+            if (!skipPreStartGeom) {
+                const mockUnit = Unit.createUnit(
+                    selected,
+                    gs,
+                    effectiveTeam,
+                    UnitVals.CREATURE,
+                    this.context.abilityFactory,
+                    this.context.abilityFactory.getEffectsFactory(),
+                    false,
+                );
                 mockUnit.setPosition(possiblePosition.x, possiblePosition.y, false);
 
-                // Draw Aura (Available even if placement is invalid)
+                // Draw Aura
                 const auras = mockUnit.getAuraRanges();
                 const auraBuffs = mockUnit.getAuraIsBuff();
                 if (auras && auras.length > 0) {
@@ -956,7 +886,7 @@ export class HoverManager {
                     }
                 }
 
-                // Draw Attack Range (New Feature)
+                // Draw Attack Range
                 if (mockUnit.getAttackType() === 3 /* AttackVals.RANGE */ && !mockUnit.hasAbilityActive("Handyman")) {
                     const dist = mockUnit.getRangeShotDistance();
                     if (dist > 0) {
@@ -965,41 +895,79 @@ export class HoverManager {
                     }
                 }
             }
+        }
 
-            const lowerLeftPlacement = this.context.getPlacement(TeamVals.LOWER, 0);
-            const upperRightPlacement = this.context.getPlacement(TeamVals.UPPER, 0);
-            const lowerRightPlacement = this.context.getPlacement(TeamVals.LOWER, 1);
-            const upperLeftPlacement = this.context.getPlacement(TeamVals.UPPER, 1);
+        // --- 3. Validation & Interaction Highlight ---
 
-            // Validation Check
-            // We only care about validation if we think it's valid so far, otherwise keep invalid=true
-            if (!invalid) {
-                // strict check: MUST match placement team for validity
-                if (!teamFromPlacement) {
-                    invalid = true; // dragging team used for aura, but actual placement team missing -> invalid
-                } else if (
-                    !this.context.pathHelper.isAllowedPreStartUnitPosition(
-                        mockUnit,
-                        candidateCells,
-                        this.context.unitsHolder,
-                        lowerLeftPlacement,
-                        upperRightPlacement,
-                        lowerRightPlacement,
-                        upperLeftPlacement,
-                    )
-                ) {
+        // Case A: Void (Outside any placement zone) -> No Red Square, Just Return
+        if (!teamFromPlacement) {
+            this.resetHover(false); // keep aura
+            return;
+        }
+
+        // Case B: Wrong Team Zone -> Red Square
+        if (draggingUnitTeam && teamFromPlacement !== draggingUnitTeam) {
+            this.hoverSelectedCells = candidateCells;
+            this.hoverSelectedCellsSwitchToRed = true;
+            this.hoverPlacementCell = cell;
+            this.hoverPlacementCellTeam = teamFromPlacement;
+            this.clearHoverSilhouette();
+            return;
+        }
+
+        // Case C: Valid Team Zone, but placement invalid (Blocked / Not Allowed / Max Units)
+        const allowedForTeam = this.context.placementManager.getAllowedPlacementCellHashesForTeam(teamFromPlacement);
+
+        // Standard Validation Checks
+        let invalid = false;
+
+        // Check 1: Allowed Cells existence
+        if (!allowedForTeam || allowedForTeam.size === 0) {
+            invalid = true;
+        }
+
+        // Check 2: Large Unit Shape
+        if (!invalid && isLarge) {
+            if (candidateCells.length !== 4) {
+                invalid = true; // Should ideally limit to valid cells, but if we can't find 4, it's invalid
+            } else if (!this.context.pathHelper.areCellsFormingSquare(candidateCells)) {
+                invalid = true;
+            }
+        }
+
+        // Check 3: Cells in Allowed Set
+        if (!invalid) {
+            for (const c of candidateCells) {
+                const h = (c.x << 4) | c.y;
+                if (!allowedForTeam?.has(h)) {
                     invalid = true;
+                    break;
                 }
             }
         }
 
-        if (!invalid && !draggingUnitId) {
+        // Check 4: Occupied by other unit (that isn't self)
+        if (!invalid) {
+            for (const c of candidateCells) {
+                const occId = this.context.grid.getOccupantUnitId(c);
+                if (occId && this.context.unitsHolder.getAllUnits().has(occId)) {
+                    if (!(draggingUnitId && occId === draggingUnitId)) {
+                        invalid = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Check 5: Max Units Limit
+        if (!invalid && !draggingUnitId) { // Only check count if spawning new, not moving existing
+            // ... existing max unit check ...
+            // Simplified: logic was checking "alliesPlacedCount >= maxUnitsForTeam"
             const lowerLeftPlacement = this.context.getPlacement(TeamVals.LOWER, 0);
             const upperRightPlacement = this.context.getPlacement(TeamVals.UPPER, 0);
             const lowerRightPlacement = this.context.getPlacement(TeamVals.LOWER, 1);
             const upperLeftPlacement = this.context.getPlacement(TeamVals.UPPER, 1);
-
-            if (lowerLeftPlacement && upperRightPlacement && teamFromPlacement) {
+            if (lowerLeftPlacement && upperRightPlacement) {
                 const alliesPlacedCount = this.context.unitsHolder.getAllAlliesPlaced(
                     teamFromPlacement,
                     lowerLeftPlacement,
@@ -1007,7 +975,6 @@ export class HoverManager {
                     lowerRightPlacement,
                     upperLeftPlacement,
                 ).length;
-
                 const maxUnitsForTeam = fightProps.getNumberOfUnitsAvailableForPlacement(teamFromPlacement);
                 if (alliesPlacedCount >= maxUnitsForTeam) {
                     invalid = true;
@@ -1015,11 +982,23 @@ export class HoverManager {
             }
         }
 
-        this.hoverSelectedCellsSwitchToRed = invalid;
-        this.hoverPlacementCell = cell;
-        this.hoverSelectedCells = candidateCells;
-        this.hoverPlacementCellTeam = teamFromPlacement;
+        // Handle Invalid Result
+        if (invalid) {
+            this.hoverSelectedCells = candidateCells;
+            this.hoverSelectedCellsSwitchToRed = true;
+            this.hoverPlacementCell = cell;
+            this.hoverPlacementCellTeam = teamFromPlacement;
+            return;
+        }
 
+        // --- 4. Success: Green/Blue Highlight ---
+        this.hoverSelectedCells = candidateCells;
+        this.hoverSelectedCellsSwitchToRed = false; // Green
+        this.hoverPlacementCell = cell;
+        this.hoverPlacementCellTeam = teamFromPlacement;
+        // set silhouette if needed? existing code did clearHoverSilhouette() in failure cases. 
+        // Success case used generic drawHoverPlacementCell in SandboxDrawer? 
+        // No, SandboxDrawer draws hoverPlacementCell.
         if (!invalid && candidateCells.length > 0) {
             const size = gs.getCellSize();
             const half = size / 2;
@@ -1031,15 +1010,17 @@ export class HoverManager {
 
             for (const c of candidateCells) {
                 const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-                const left = pos.x - half;
-                const right = pos.x + half;
-                const bottom = pos.y - half;
-                const top = pos.y + half;
+                if (pos) {
+                    const left = pos.x - half;
+                    const right = pos.x + half;
+                    const bottom = pos.y - half;
+                    const top = pos.y + half;
 
-                if (left < minX) minX = left;
-                if (right > maxX) maxX = right;
-                if (bottom < minY) minY = bottom;
-                if (top > maxY) maxY = top;
+                    if (left < minX) minX = left;
+                    if (right > maxX) maxX = right;
+                    if (bottom < minY) minY = bottom;
+                    if (top > maxY) maxY = top;
+                }
             }
 
             const centerX = (minX + maxX) * 0.5;
