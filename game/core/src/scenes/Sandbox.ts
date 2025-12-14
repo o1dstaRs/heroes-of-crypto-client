@@ -44,6 +44,7 @@ import {
     AllAbilities,
     IAttackResult,
     AI,
+    IDamageStatistic,
 } from "@heroesofcrypto/common";
 import { UnitsOverlay } from "./UnitsOverlay";
 import { DamageStatisticHolder } from "./DamageStats";
@@ -116,13 +117,18 @@ export class Sandbox extends PixiScene {
     private selectionFromOverlay = false;
     /** Phase for animating the hover glow (shimmer effect) */
     private hoverGlowPhase = 0;
-    private hoverRangeAttackDivisors: number[] = [];
+    private hoverRangeAttackDivisors: number[] = []; // Unified Range Visualization
     private sc_hoveredShotRange?: { xy: HoCMath.XY; distance: number };
     private sc_hoveredAuraRanges?: {
         xy: HoCMath.XY;
         auraRanges: { range: number; isBuff: boolean }[];
         isSmall: boolean;
     };
+    // Movement Visualization
+    private sc_placementMoveRange?: HoCMath.XY[];
+    private sc_lastCalcRef?: { unitId: string; x: number; y: number; steps: number; layoutVersion: number };
+    private layoutVersion = 0; // Tracks board topology changes during placement
+    // --- Scene Setup ---
     private currentActiveUnit?: RenderableUnit;
     private currentShiftedUnit?: RenderableUnit;
     private currentActivePathHashes?: Set<number>;
@@ -823,6 +829,7 @@ export class Sandbox extends PixiScene {
         for (const utd of unitsToDestroy) {
             const unitId = utd.getId();
             if (destroyedUnitIds.has(unitId)) continue;
+            this.layoutVersion++;
             // 1) Remove from UnitsHolder
             const deleted = this.unitsHolder.deleteUnitById(unitId, isDead);
             // console.log(`Sandbox: deleteUnitById(${unitId}) -> ${deleted}`);
@@ -1039,11 +1046,58 @@ export class Sandbox extends PixiScene {
     public override propagateButtonClicked(name: string, state: VisibleButtonState): void {
         this.buttonManager.propagateButtonClicked(name, state);
     }
+    // Helper to capture total health state of all units (Exact Cumulative HP)
+    private captureHealthState(): Map<string, number> {
+        const m = new Map<string, number>();
+        for (const u of this.unitsHolder.getAllUnits().values()) {
+            m.set(u.getId(), u.getCumulativeHp());
+        }
+        return m;
+    }
+    private showDamageVisualsFromDiff(preState: Map<string, number>, attackerCell?: HoCMath.XY): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+
+        for (const [id, oldTotal] of preState) {
+            const u = this.unitsHolder.getAllUnits().get(id);
+            if (!u) continue;
+
+            const newTotal = u.getCumulativeHp();
+
+            if (newTotal < oldTotal) {
+                const diff = oldTotal - newTotal;
+                // Determine direction
+                let direction: HoCMath.XY | undefined;
+                if (attackerCell) {
+                    const attPos = GridMath.getPositionForCell(
+                        attackerCell,
+                        gs.getMinX(),
+                        gs.getStep(),
+                        gs.getHalfStep(),
+                    );
+                    if (attPos) {
+                        const center = u instanceof RenderableUnit ? u.getVisualCenter(gs) : u.getPosition();
+                        direction = { x: center.x - attPos.x, y: center.y - attPos.y };
+                    }
+                }
+
+                const center = u instanceof RenderableUnit ? u.getVisualCenter(gs) : u.getPosition();
+                this.showFloatingDamage(center, diff, direction, 0);
+
+                // UI Update
+                if (this.sc_selectedUnitProperties && this.sc_selectedUnitProperties.id === id) {
+                    this.sc_selectedUnitProperties = { ...u.getUnitProperties() };
+                    this.sc_unitPropertiesUpdateNeeded = true;
+                }
+            }
+        }
+    }
     protected landAttack(): boolean {
         if (!this.currentActiveUnit) return false;
 
         // 1. MELEE
         if (!this.currentActiveSpell) {
+            const preHealth = this.captureHealthState();
+
             const damageForAnimation: IVisibleDamage = {
                 amount: 0,
                 render: false,
@@ -1051,13 +1105,6 @@ export class Sandbox extends PixiScene {
                 unitIsSmall: true,
                 hits: [],
             };
-
-            const targetUnit = this.hoverManager.hoverAttackUnits?.[0]?.[0];
-            let deadCount = 0;
-            let targetStartAmount = 0;
-            if (targetUnit) {
-                targetStartAmount = targetUnit.getAmountAlive();
-            }
 
             const meleeAttackResult = this.attackHandler.handleMeleeAttack(
                 this.unitsHolder,
@@ -1069,73 +1116,80 @@ export class Sandbox extends PixiScene {
                 this.hoverManager.hoverAttackFromCell,
             );
 
-            if (targetUnit) {
-                const currentAmount = targetUnit.getAmountAlive();
-                if (meleeAttackResult.unitIdsDied.includes(targetUnit.getId())) {
-                    deadCount = targetStartAmount; // All died
-                } else {
-                    deadCount = Math.max(0, targetStartAmount - currentAmount);
-                }
-                // console.log(`LandAttack: Target ${targetUnit.getName()} Start=${targetStartAmount} Current=${currentAmount} Dead=${deadCount} DiedList=${meleeAttackResult.unitIdsDied.length}`);
-            }
-
-            if (damageForAnimation.render && damageForAnimation.amount > 0) {
-                // Calculate direction for damage animation (Target - Attacker)
-                // We use hoverAttackFromCell (Attacker position) and unitPosition (Target position)
-                let direction: HoCMath.XY | undefined;
-                if (this.hoverManager.hoverAttackFromCell) {
-                    const attackerPos = this.hoverManager.hoverAttackFromCell; // Grid coordinates
-                    const targetPos = this.hoverManager.hoverAttackUnits?.[0]?.[0]?.getPosition(); // World coordinates
-                    if (targetPos) {
-                        // Convert attacker grid to world? NO, landAttack usually has positions.
-                        // Wait, hoverAttackFromCell is XY (Grid Cell). unitPosition is XY (World?).
-                        // targetUnit.getPosition() returns Grid Coords usually in Logic units?
-                        // Unit.getPosition() returns Grid Coords (x,y).
-                        // So we can subtract directly.
-                        direction = {
-                            x: targetPos.x - attackerPos.x,
-                            y: targetPos.y - attackerPos.y,
-                        };
-                    }
-                }
-
-                this.showFloatingDamage(
-                    damageForAnimation.unitPosition,
-                    damageForAnimation.amount,
-                    direction,
-                    deadCount,
-                );
-            }
+            this.showDamageVisualsFromDiff(preHealth, this.hoverManager.hoverAttackFromCell);
 
             if (this.hoverManager.hoverAttackFromCell) {
-                const movePaths = this.currentActiveKnownPaths?.get(
-                    (this.hoverManager.hoverAttackFromCell.x << 4) | this.hoverManager.hoverAttackFromCell.y,
-                );
-                if (movePaths?.length && this.selectedBoardUnit) {
-                    // In Sandbox we animate differently?
-                    // Sandbox's `executeMoveSequence` handles animation.
-                    // `handleMeleeAttack` in `test_heroes` does logic.
-                    // We might need to manually trigger move animation if `handleMeleeAttack` doesn't.
-                    // `handleMeleeAttack` returns `moveInitiated`.
-                }
+                // Animation logic if needed
             }
             if (meleeAttackResult.completed) {
-                // Handle deaths
                 for (const uId of meleeAttackResult.unitIdsDied) {
                     const unit = this.unitsHolder.getAllUnits().get(uId);
                     this.unitsHolder.deleteUnitById(uId, true);
-                    this.grid.cleanupAll(uId, 0, true); // Approximate cleanup
-                    // Visual cleanup
+                    this.layoutVersion++;
+                    this.grid.cleanupAll(uId, 0, true);
                     if (unit && unit instanceof RenderableUnit) {
                         unit.destroyVisuals();
                     }
+                }
+                if (this.sc_selectedUnitProperties) {
+                    const u = this.unitsHolder.getAllUnits().get(this.sc_selectedUnitProperties.id);
+                    if (u) {
+                        this.sc_selectedUnitProperties = { ...u.getUnitProperties() };
+                    }
+                    this.sc_unitPropertiesUpdateNeeded = true;
                 }
                 return true;
             }
         }
 
         // 2. RANGED
-        // Sandbox `Sidebar` visualization uses `attackRange`.
+        if (this.hoverManager.hoverAttackUnits && this.hoverManager.hoverAttackUnits.length > 0) {
+            const preHealth = this.captureHealthState();
+
+            const rangeDamageData: IVisibleDamage = {
+                amount: 0,
+                render: false,
+                unitPosition: { x: 0, y: 0 },
+                unitIsSmall: true,
+                hits: [],
+            };
+
+            const rangeAttackResult = this.attackHandler.handleRangeAttack(
+                this.unitsHolder,
+                this.hoverRangeAttackDivisors,
+                1,
+                rangeDamageData,
+                this.currentActiveUnit,
+                this.hoverManager.hoverAttackUnits,
+                [],
+                this.sc_hoveredShotRange?.xy,
+                false,
+                false,
+            );
+
+            this.showDamageVisualsFromDiff(preHealth, undefined);
+
+            if (rangeAttackResult.completed) {
+                for (const uId of rangeAttackResult.unitIdsDied) {
+                    const unit = this.unitsHolder.getAllUnits().get(uId);
+                    this.unitsHolder.deleteUnitById(uId, true);
+                    this.layoutVersion++;
+                    this.grid.cleanupAll(uId, 0, true);
+                    if (unit && unit instanceof RenderableUnit) {
+                        unit.destroyVisuals();
+                    }
+                }
+                if (this.sc_selectedUnitProperties) {
+                    const u = this.unitsHolder.getAllUnits().get(this.sc_selectedUnitProperties.id);
+                    if (u) {
+                        this.sc_selectedUnitProperties = { ...u.getUnitProperties() };
+                    }
+                    this.sc_unitPropertiesUpdateNeeded = true;
+                }
+                return true;
+            }
+        }
+
         return false;
     }
     private performAIAction(wasAIActive: boolean): void {
@@ -1308,8 +1362,8 @@ export class Sandbox extends PixiScene {
         this.sc_possibleSynergiesPerTeam.set(teamType, newSynergies);
         this.sc_possibleSynergiesUpdateNeeded = synergies !== newSynergies;
     }
-    protected finishDrop(_p: HoCMath.XY): void { }
-    protected handleMouseDownForSelectedBody(): void { }
+    protected finishDrop(_p: HoCMath.XY): void {}
+    protected handleMouseDownForSelectedBody(): void {}
     public cloneObject(newAmount?: number): boolean {
         let cloned = false;
         if (this.sc_selectedUnitProperties) {
@@ -1390,6 +1444,7 @@ export class Sandbox extends PixiScene {
                     hasMadeOfWater,
                 );
                 if (occupied) {
+                    this.layoutVersion++;
                     this.gridMatrix = this.grid.getMatrix();
                     this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
                     // 7. Finalize Position and Visuals
@@ -1416,7 +1471,7 @@ export class Sandbox extends PixiScene {
         }
         return cloned;
     }
-    public deleteObject(): void { }
+    public deleteObject(): void {}
     public override refreshScene(u: UnitProperties): void {
         // 1. Safety checks
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted() || !u.id) return;
@@ -1468,7 +1523,7 @@ export class Sandbox extends PixiScene {
     public getGridType(): GridType {
         return FightStateManager.getInstance().getFightProperties().getGridType();
     }
-    public requestTime(_team: number): void { }
+    public requestTime(_team: number): void {}
     private clearBoardSelection(_notifyUnitDeselected: boolean = true): void {
         // stop board selection animation if any
         if (this.selectedBoardUnit) {
@@ -1621,6 +1676,7 @@ export class Sandbox extends PixiScene {
                 hasMadeOfFire,
                 hasMadeOfWater,
             );
+            if (occupied) this.layoutVersion++; // Invalidate board layout
         } else {
             occupied = this.grid.occupyCells(
                 cellsToOccupy,
@@ -1630,6 +1686,7 @@ export class Sandbox extends PixiScene {
                 hasMadeOfFire,
                 hasMadeOfWater,
             );
+            if (occupied) this.layoutVersion++; // Invalidate board layout
         }
         // ==================================================================================
         // 8. ROLLBACK ON FAILURE
@@ -1644,6 +1701,7 @@ export class Sandbox extends PixiScene {
                     hasMadeOfFire,
                     hasMadeOfWater,
                 );
+                this.layoutVersion++; // Invalidate board layout (Rollback)
             } else if (!this.draggingUnitId) {
                 this.unitsHolder.deleteUnitById(unit.getId());
             }
@@ -1669,6 +1727,8 @@ export class Sandbox extends PixiScene {
             `Placed ${selected.name} (size=${selected.size}) at (${placePos.x}, ${placePos.y}) for team ${teamType}`,
         );
         // 10. Clear Selection / Hover State
+        // 10. Update Selection (Don't Clear)
+        // Set the placed unit as the selected board unit to show its visuals immediately
         if (this.selectionFromOverlay) {
             this.sc_selectedUnitProperties = undefined;
             this.hoverManager.resetHover(true);
@@ -1676,7 +1736,7 @@ export class Sandbox extends PixiScene {
             this.hasActiveSelection = false;
             this.selectionFromOverlay = false;
         } else {
-            // Board move
+            // Board move - Deselect on drop
             if (this.selectedBoardUnit) {
                 this.selectedBoardUnit.setBoardSelected(false);
                 this.selectedBoardUnit = undefined;
@@ -1684,11 +1744,8 @@ export class Sandbox extends PixiScene {
             this.clearBoardSelection();
             this.Deselect(false, true);
         }
-        if (!fightProps.hasFightStarted()) {
-            this.hoverManager.setLastPlacement(unit.getId());
-        } else {
-            this.hoverManager.setLastPlacement(undefined);
-        }
+        // Cooldown removed as per user request
+        this.hoverManager.setLastPlacement(undefined);
     }
     protected destroyTempFixtures(): void {
         this.updateUnitsOverlayVisibility();
@@ -1722,7 +1779,10 @@ export class Sandbox extends PixiScene {
             // Reset interaction states to ensure clean inspection
             this.draggingUnitId = undefined;
             this.draggingUnitTeam = undefined;
-            this.hasActiveSelection = true; // Treats as selection
+            this.draggingUnitId = undefined;
+            this.draggingUnitTeam = undefined;
+            this.hasActiveSelection = false; // Inspection only, do not enter placement/clone mode
+            this.selectionFromOverlay = false;
             this.selectionFromOverlay = false;
 
             // Optional: Log
@@ -1804,7 +1864,12 @@ export class Sandbox extends PixiScene {
             return;
         }
         // 2. PRE-FIGHT PLACEMENT INTERACTION
-        if (this.hasActiveSelection && this.sc_selectedUnitProperties) {
+        const unitUnderMouse = this.getUnitAtPosition(p);
+        // Allow switching selection to another unit immediately, instead of trying to place and failing
+        const isSwitchingSelection =
+            unitUnderMouse && (!this.draggingUnitId || unitUnderMouse.getId() !== this.draggingUnitId);
+
+        if (this.hasActiveSelection && this.sc_selectedUnitProperties && !isSwitchingSelection) {
             this.hoverManager.updateHoverPlacementCell(p);
             if (
                 !this.hoverManager.hoverSelectedCells ||
@@ -1844,6 +1909,13 @@ export class Sandbox extends PixiScene {
             this.setSelectedUnitProperties(props);
             this.hoverManager.resetBoardHoverState();
             this.hoverManager.updateHoverPlacementCell(p);
+
+            // Force immediate visual update to show ranges instantly
+            this.gameplayGraphics?.clear();
+            this.hover(); // Recalculate ranges/paths based on new selection
+            if (this.gameplayGraphics) {
+                this.drawGameplayVisuals(this.gameplayGraphics);
+            }
             return;
         }
         super.MouseDown(p);
@@ -1912,7 +1984,8 @@ export class Sandbox extends PixiScene {
         // Initial Position
         container.position.set(pos.x, pos.y + 20);
 
-        this.pixiSceneManager.getWorldRoot().addChild(container);
+        // [FIXED] Use attachToWorldRoot with High Z-Index to ensure it overlays units
+        this.attachToWorldRoot(container, 2000);
 
         // Velocity: Match direction of attack
         let vx = 0;
@@ -2367,6 +2440,56 @@ export class Sandbox extends PixiScene {
     }
     protected override hover(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
+
+        // --- 1. Generic Hover Logic (Pre & Post Fight) ---
+        // Populates sc_hoveredAuraRanges / sc_hoveredShotRange for generic drawing via SandboxDrawer
+        this.hoverManager.clearAuraVisuals(); // Ensure previous frame visual is cleared
+        this.sc_hoveredAuraRanges = undefined;
+        this.sc_hoveredShotRange = undefined;
+
+        // Always calculate hovered unit visuals (unless moving active unit)
+        if (this.sc_mouseWorld && !this.isActiveUnitMoving) {
+            const hoverTargetUnit = this.getUnitAtPosition(this.sc_mouseWorld);
+            if (hoverTargetUnit && !hoverTargetUnit.isDead()) {
+                // Aura Calculations
+                const auraRanges = hoverTargetUnit.getAuraRanges();
+                if (auraRanges && auraRanges.length > 0) {
+                    const bonus = FightStateManager.getInstance()
+                        .getFightProperties()
+                        .getAdditionalAuraRangePerTeam(hoverTargetUnit.getTeam());
+                    const ab = hoverTargetUnit.getAuraIsBuff();
+
+                    for (let i = 0; i < auraRanges.length; i++) {
+                        const r = auraRanges[i];
+                        if (r <= 0) continue;
+                        const isBuff = ab && i < ab.length ? ab[i] : true;
+                        const radiusPixel = (r + bonus) * GridConstants.STEP;
+
+                        this.hoverManager.drawAuraArea(
+                            hoverTargetUnit.getPosition(),
+                            radiusPixel,
+                            isBuff,
+                            hoverTargetUnit.isSmallSize(),
+                        );
+                    }
+                }
+
+                // Range Attack Visuals (Only if Ranged)
+                if (
+                    hoverTargetUnit.getAttackType() === AttackVals.RANGE &&
+                    !hoverTargetUnit.hasAbilityActive("Handyman")
+                ) {
+                    const dist = hoverTargetUnit.getRangeShotDistance();
+                    if (dist > 0) {
+                        this.sc_hoveredShotRange = {
+                            xy: hoverTargetUnit.getPosition(),
+                            distance: dist * GridConstants.STEP,
+                        };
+                    }
+                }
+            }
+        }
+
         // --- FIGHT MODE: active unit move-hover silhouette ---
         if (fightProps.hasFightStarted()) {
             if (!this.currentActiveUnit) {
@@ -2387,52 +2510,10 @@ export class Sandbox extends PixiScene {
                 return;
             }
 
-            // --- Aura Visualization ---
-            this.hoverManager.clearAuraVisuals();
-            const hoverTargetUnit = this.getUnitAtPosition(this.sc_mouseWorld);
-            if (hoverTargetUnit && !hoverTargetUnit.isDead()) {
-                const auraRanges = hoverTargetUnit.getAuraRanges();
-                const auraIsBuff = hoverTargetUnit.getAuraIsBuff();
+            this.hoverManager.clearAuraVisuals(); // Ensure legacy visual is cleared
+            // Generic Aura logic moved to top of function (sc_hoveredAuraRanges)
 
-                if (auraRanges && auraRanges.length > 0 && !this.isActiveUnitMoving) {
-                    for (let i = 0; i < auraRanges.length; i++) {
-                        if (auraRanges[i] <= 0) continue;
-
-                        const rangeCells =
-                            auraRanges[i] +
-                            FightStateManager.getInstance()
-                                .getFightProperties()
-                                .getAdditionalAuraRangePerTeam(hoverTargetUnit.getTeam());
-
-                        const radiusPixel = rangeCells * GridConstants.STEP;
-
-                        const isBuff = auraIsBuff && i < auraIsBuff.length ? auraIsBuff[i] : true;
-
-                        let groundCenter = { x: hoverTargetUnit.getPosition().x, y: hoverTargetUnit.getPosition().y };
-                        this.hoverManager.drawAuraArea(
-                            groundCenter,
-                            radiusPixel,
-                            isBuff,
-                            hoverTargetUnit.isSmallSize(),
-                        );
-                    }
-                }
-            }
-
-            // --- Range Attack Visualization on Hover ---
-            this.sc_hoveredShotRange = undefined;
-            if (hoverTargetUnit && !hoverTargetUnit.isDead() && !this.isActiveUnitMoving) {
-                const isRanged = hoverTargetUnit.getAttackType() === AttackVals.RANGE;
-                if (isRanged && !hoverTargetUnit.hasAbilityActive("Handyman")) {
-                    const rangeShotCells = hoverTargetUnit.getRangeShotDistance();
-                    if (rangeShotCells > 0) {
-                        this.sc_hoveredShotRange = {
-                            xy: hoverTargetUnit.getPosition(),
-                            distance: rangeShotCells * GridConstants.STEP,
-                        };
-                    }
-                }
-            }
+            // Generic Range logic moved to top of function (sc_hoveredShotRange)
 
             // Check for melee attack target
             let isAttacking = false;
@@ -2857,34 +2938,121 @@ export class Sandbox extends PixiScene {
         // CASE 3: No active selection → just passive hover highlight (mouse over unit)
         this.hoverManager.update(1 / 60);
         this.hoverManager.calculatePassiveHover();
-        const hoveredUnitId = this.hoverManager.hoveredUnitId;
-        if (hoveredUnitId) {
-            const u = this.unitsHolder.getAllUnits().get(hoveredUnitId) as RenderableUnit;
-            if (u) {
-                const range = u.getAttackRange();
-                if (range > 0 && u.getAttackType() === AttackVals.RANGE) {
+
+        // Unified Visual Target: Hovered > Shifted > Selected
+        let targetUnit: RenderableUnit | undefined;
+        if (this.hoverManager.hoveredUnitId) {
+            targetUnit = this.unitsHolder.getAllUnits().get(this.hoverManager.hoveredUnitId) as RenderableUnit;
+        } else if (this.currentShiftedUnit) {
+            targetUnit = this.currentShiftedUnit;
+        } else if (this.selectedBoardUnit) {
+            targetUnit = this.selectedBoardUnit;
+        }
+
+        // --- 1. Attack & Aura Range Visualization ---
+        if (targetUnit) {
+            // Attack Range
+            if (targetUnit.getAttackType() === AttackVals.RANGE) {
+                const shotDist = targetUnit.getRangeShotDistance();
+                if (shotDist > 0) {
                     this.sc_hoveredShotRange = {
-                        xy: u.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
-                        distance: range * GridConstants.STEP,
+                        xy: targetUnit.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
+                        distance: shotDist * GridConstants.STEP,
                     };
                 } else {
                     this.sc_hoveredShotRange = undefined;
                 }
-                const ar = u.getAuraRanges();
-                const ab = u.getAuraIsBuff();
-                if (ar && ar.length) {
-                    this.sc_hoveredAuraRanges = {
-                        xy: u.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
-                        auraRanges: ar.map((r, i) => ({ range: r, isBuff: ab[i] })).filter((x) => x.range > 0),
-                        isSmall: u.isSmallSize(),
-                    };
+                if (targetUnit) {
+                    const ar = targetUnit.getAuraRanges();
+                    const ab = targetUnit.getAuraIsBuff();
+                    const finalAuras: { range: number; isBuff: boolean }[] = [];
+                    if (ar && ar.length) {
+                        for (let i = 0; i < ar.length; i++) {
+                            if (ar[i] > 0) {
+                                finalAuras.push({
+                                    range: ar[i] + fightProps.getAdditionalAuraRangePerTeam(targetUnit.getTeam()),
+                                    isBuff: ab && i < ab.length ? ab[i] : true,
+                                });
+                            }
+                        }
+                    }
+                    if (finalAuras.length > 0) {
+                        this.sc_hoveredAuraRanges = {
+                            xy: targetUnit.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
+                            auraRanges: finalAuras,
+                            isSmall: targetUnit.isSmallSize(),
+                        };
+                    } else {
+                        this.sc_hoveredAuraRanges = undefined;
+                    }
                 } else {
                     this.sc_hoveredAuraRanges = undefined;
                 }
+            } else {
+                this.sc_hoveredShotRange = undefined;
+                this.sc_hoveredAuraRanges = undefined;
             }
         } else {
             this.sc_hoveredShotRange = undefined;
             this.sc_hoveredAuraRanges = undefined;
+        }
+
+        // --- 2. Movement Visualization (Placement Phase) ---
+        if (!fightProps.hasFightStarted()) {
+            if (targetUnit && targetUnit.canMove()) {
+                const pos = targetUnit.getPosition();
+                const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), pos);
+                if (cell) {
+                    const key = {
+                        unitId: targetUnit.getId(),
+                        x: cell.x,
+                        y: cell.y,
+                        steps: targetUnit.getSteps(),
+                        layoutVersion: this.layoutVersion,
+                    };
+
+                    // Optimization: If nothing changed for this unit's path, reuse last calculation
+                    if (
+                        !this.sc_lastCalcRef ||
+                        this.sc_lastCalcRef.unitId !== key.unitId ||
+                        this.sc_lastCalcRef.x !== key.x ||
+                        this.sc_lastCalcRef.y !== key.y ||
+                        this.sc_lastCalcRef.steps !== key.steps ||
+                        this.sc_lastCalcRef.layoutVersion !== key.layoutVersion
+                    ) {
+                        const tempMatrix = this.gridMatrix.map((row) => [...row]);
+                        const size = targetUnit.isSmallSize() ? 1 : 2;
+                        const gsVal = this.sc_sceneSettings.getGridSettings().getGridSize();
+                        for (let i = 0; i < size; i++) {
+                            for (let j = 0; j < size; j++) {
+                                const cx = cell.x + i;
+                                const cy = cell.y + j;
+                                if (cx >= 0 && cx < gsVal && cy >= 0 && cy < gsVal) {
+                                    tempMatrix[cx][cy] = 0; // Treat self footprint as free for pathfinding starts
+                                }
+                            }
+                        }
+
+                        const movePath = this.pathHelper.getMovePath(
+                            cell,
+                            tempMatrix,
+                            targetUnit.getSteps(),
+                            this.grid.getAggrMatrixByTeam(targetUnit.getOppositeTeam()),
+                            targetUnit.canFly(),
+                            targetUnit.isSmallSize(),
+                            targetUnit.hasAbilityActive("Made of Fire"),
+                        );
+                        this.sc_placementMoveRange = movePath.cells;
+                        this.sc_lastCalcRef = key;
+                    }
+                } else {
+                    this.sc_placementMoveRange = undefined;
+                    this.sc_lastCalcRef = undefined;
+                }
+            } else {
+                this.sc_placementMoveRange = undefined;
+                this.sc_lastCalcRef = undefined;
+            }
         }
     }
     public override MouseMove(p: HoCMath.XY, leftDrag: boolean): void {
@@ -2913,6 +3081,8 @@ export class Sandbox extends PixiScene {
         this.hoverManager.hoveredUnitHighlight = undefined;
         this.hoverManager.resetBoardHoverState();
         this.hoverManager.resetHover(false);
+        this.hoverManager.clear();
+        this.sc_hoveredAuraRanges = undefined;
         this.sc_hoveredShotRange = undefined;
     }
     private updateUnitsOverlayVisibility(): void {
@@ -3178,11 +3348,11 @@ export class Sandbox extends PixiScene {
     private drawGameplayVisuals(g: Graphics): void {
         let sidebarUnitRanges:
             | {
-                xy: HoCMath.XY;
-                attackRange: number;
-                auraRanges: { range: number; isBuff: boolean }[];
-                isSmall: boolean;
-            }
+                  xy: HoCMath.XY;
+                  attackRange: number;
+                  auraRanges: { range: number; isBuff: boolean }[];
+                  isSmall: boolean;
+              }
             | undefined;
 
         if (this.selectedBoardUnit) {
@@ -3191,29 +3361,33 @@ export class Sandbox extends PixiScene {
                 // If the selected board unit IS the current active unit, we rely on standard active unit visuals?
                 // Or maybe we want to force sidebar visuals too?
             } else {
+                // If the selected unit is also the hovered unit OR shift-selected, we want the "Interactive/Yellow" ring to take precedence.
+                // So we suppress the "Sidebar/Blue" ring by setting attackRange to 0 here.
+                const isHovered = this.hoverManager.hoveredUnitId === u.getId();
+                const isShifted = this.currentShiftedUnit?.getId() === u.getId();
+                // Restore Aura Range logic
+                const ar = u.getAuraRanges();
+                const ab = u.getAuraIsBuff();
+                const fightProps = FightStateManager.getInstance().getFightProperties();
+                const auraRanges =
+                    ar && ar.length > 0
+                        ? ar
+                              .map((range, i) => ({
+                                  range: range + fightProps.getAdditionalAuraRangePerTeam(u.getTeam()),
+                                  isBuff: ab && i < ab.length ? ab[i] : true,
+                              }))
+                              .filter((a) => a.range > 0)
+                        : [];
+
                 sidebarUnitRanges = {
                     xy: u.getPosition(),
                     attackRange:
-                        u.getAttackType() === AttackVals.RANGE ? u.getRangeShotDistance() * GridConstants.STEP : 0,
-                    auraRanges: [],
+                        !isHovered && !isShifted && u.getAttackType() === AttackVals.RANGE
+                            ? u.getRangeShotDistance() * GridConstants.STEP
+                            : 0,
+                    auraRanges,
                     isSmall: u.isSmallSize(),
                 };
-                const ar = u.getAuraRanges();
-                const ab = u.getAuraIsBuff();
-                if (ar && ar.length) {
-                    for (let i = 0; i < ar.length; i++) {
-                        if (ar[i] > 0) {
-                            sidebarUnitRanges.auraRanges.push({
-                                range:
-                                    ar[i] +
-                                    FightStateManager.getInstance()
-                                        .getFightProperties()
-                                        .getAdditionalAuraRangePerTeam(u.getTeam()),
-                                isBuff: ab && i < ab.length ? ab[i] : true,
-                            });
-                        }
-                    }
-                }
             }
         }
 
@@ -3229,10 +3403,13 @@ export class Sandbox extends PixiScene {
             }
         }
 
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        const currentActiveShotRange = this.sc_currentActiveShotRange;
+
         SandboxDrawer.drawGameplayVisuals(g, {
-            fightProps: FightStateManager.getInstance().getFightProperties(),
-            currentActiveShotRange: this.sc_currentActiveShotRange,
-            shiftSelectedShotRange, // [NEW] Pass it
+            fightProps,
+            currentActiveShotRange,
+            shiftSelectedShotRange,
             hoveredShotRange: this.sc_hoveredShotRange,
             isActiveUnitMoving: this.isActiveUnitMoving,
             gridSettings: this.sc_sceneSettings.getGridSettings(),
@@ -3244,6 +3421,7 @@ export class Sandbox extends PixiScene {
             sidebarUnitRanges,
             hoveredAuraRanges: this.sc_hoveredAuraRanges,
             lingeringTracks: this.lingeringTracks,
+            hoveredMoveRange: this.sc_placementMoveRange,
         });
     }
     private handleNextUnitActivation(nextUnit: RenderableUnit): void {
@@ -3534,6 +3712,9 @@ export class Sandbox extends PixiScene {
             }
         }
     }
+    public override getDamageStatisics(): IDamageStatistic[] {
+        return this.attackHandler.getDamageStatisticHolder().get();
+    }
     protected finishTurn = (isHourglass = false): void => {
         this.buttonManager.setButtonsRefreshLocked(true);
         if (!isHourglass && this.currentActiveUnit) {
@@ -3645,7 +3826,7 @@ export class Sandbox extends PixiScene {
             this.sc_sceneLog.updateLog(`Loading Animations... ${pct}%`);
         }
     }
-    protected verifyButtonsTrigger(): void { }
+    protected verifyButtonsTrigger(): void {}
     protected updateCurrentMovePath(currentCell: HoCMath.XY): void {
         if (!this.currentActiveUnit || this.moveAnimation) {
             return;

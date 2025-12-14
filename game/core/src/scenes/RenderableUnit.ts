@@ -196,11 +196,9 @@ export class RenderableUnit extends Unit {
             this.sprite.rotation = rotation;
         }
     }
-
     public getCurrentVisualScale(): number {
         return this.sprite ? Math.abs(this.sprite.scale.x) : 1;
     }
-
     public setVisualVisible(visible: boolean): void {
         this.visualMode = visible ? "normal" : "hidden";
         if (this.sprite) this.sprite.visible = visible;
@@ -208,7 +206,6 @@ export class RenderableUnit extends Unit {
         if (this.badgeContainer) this.badgeContainer.visible = visible;
         if (this.stackPowerContainer) this.stackPowerContainer.visible = visible;
     }
-
     public setVisualGhost(active: boolean): void {
         this.visualMode = active ? "ghost" : "normal";
         const visible = active || this.visualMode === "normal";
@@ -226,7 +223,6 @@ export class RenderableUnit extends Unit {
         if (this.badgeContainer) this.badgeContainer.visible = !active && visible;
         if (this.stackPowerContainer) this.stackPowerContainer.visible = !active && visible;
     }
-
     public applyMoveEffect(spawnPulsePhase: number): void {
         const sprite = this.sprite;
         if (!sprite) return;
@@ -402,7 +398,6 @@ export class RenderableUnit extends Unit {
         return this.getPosition();
     }
     private oneShotAnim?: OneShotAnimState;
-
     /**
      * Plays a one-shot animation sequence (like 'death', 'attack', 'hit')
      * @param stateName The animation state name (e.g. "death", "attack")
@@ -417,7 +412,6 @@ export class RenderableUnit extends Unit {
             return;
         }
 
-        const { meta, imageSrc, cacheKey } = config;
         // We override the state name to the requested one (e.g. "death") to find the right frames
         // But getDefaultAnimationConfig only returns the preferred/default state metadata.
         // We need to fetch specific state metadata.
@@ -438,7 +432,7 @@ export class RenderableUnit extends Unit {
             return;
         }
 
-        // @ts-ignore
+        // @ts-ignore: generic string key access to strictly typed map
         const targetMeta = unitStates[targetState] as AtlasMeta;
 
         // We need the cache key for THIS specific state
@@ -471,7 +465,6 @@ export class RenderableUnit extends Unit {
         // Set first frame immediately
         this.sprite.texture = frames[0];
     }
-
     public stepOneShotAnimation(dtMs: number): void {
         if (!this.oneShotAnim || !this.sprite) return;
 
@@ -494,7 +487,6 @@ export class RenderableUnit extends Unit {
             }
         }
     }
-
     public destroyVisuals(): void {
         console.log(`RenderableUnit: destroyVisuals id=${this.getId()} sprite=${!!this.sprite}`);
         if (this.sprite) {

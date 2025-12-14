@@ -361,12 +361,6 @@ export class UnitChip extends Container {
 
         // Ensure badge is on top?
         this.badgeCont.zIndex = 10;
-
-        // Debug
-        // if (this.forceBadgeVisible) console.log(`UnitChip: updateHighlight [${this.nameKey}] active=${anyActive} force=${this.forceBadgeVisible} amount=${amount} -> visible=${this.badgeCont.visible}`);
-        console.log(
-            `UnitChip: updateHighlight [${this.nameKey}] active=${anyActive} force=${this.forceBadgeVisible} amount=${amount} -> visible=${this.badgeCont.visible}`,
-        );
     }
     private startTween() {
         if (!this.ticker) {

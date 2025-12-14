@@ -86,6 +86,8 @@ export default function RightSideBar({ gameStarted, windowSize }: { gameStarted:
     const unitStats: IDamageStatistic[] = [];
     let maxDmg = Number.MIN_SAFE_INTEGER;
     for (const s of unitDamageStatistics) {
+        console.log("szzolotu damange stats");
+        console.log(s);
         let { unitName } = s;
         if (s.unitName.includes(" ")) {
             const stringParts = s.unitName.split(/\s/);

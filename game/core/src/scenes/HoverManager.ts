@@ -111,13 +111,17 @@ export class HoverManager {
         const halfSize = isSmallUnit ? gs.getHalfStep() : gs.getStep();
         const extent = radius + halfSize; // Total distance from center to edge of aura square
 
-        this.auraGraphics.lineStyle(strokeWidth, color, strokeAlpha);
-        this.auraGraphics.beginFill(fillColor, fillAlpha);
+        this.auraGraphics
+            .rect(center.x - extent, center.y - extent, extent * 2, extent * 2)
+            .fill({ color: fillColor, alpha: fillAlpha })
+            .stroke({ width: strokeWidth, color: color, alpha: strokeAlpha });
+    }
+    public drawAttackRange(center: HoCMath.XY, radius: number): void {
+        const color = 0xffff00; // Yellow (matches Active/Hovered Range)
+        const alpha = 0.8;
+        const width = 2;
 
-        // Draw Square centered at unit
-        // x, y is top-left of rect
-        this.auraGraphics.drawRect(center.x - extent, center.y - extent, extent * 2, extent * 2);
-        this.auraGraphics.endFill();
+        this.auraGraphics.circle(center.x, center.y, radius).stroke({ width: width, color: color, alpha: alpha });
     }
     public update(dt: number): void {
         this.hoverGlowPhase += dt * (5 / 3);
@@ -799,6 +803,7 @@ export class HoverManager {
         if (!selected) return;
 
         const cell = GridMath.getCellForPosition(gs, worldPos);
+        this.clearAuraVisuals();
         if (!cell) return;
 
         const isLarge = selected.size === 2;
@@ -813,7 +818,7 @@ export class HoverManager {
 
         if (!teamFromPlacement) {
             this.resetHover();
-            return;
+            // return; // Allow flow to proceed to effectiveTeam logic for visualization
         }
 
         const draggingUnitTeam = this.context.getDraggingUnitTeam();
@@ -823,8 +828,9 @@ export class HoverManager {
         if (draggingUnitTeam && teamFromPlacement !== draggingUnitTeam) {
             let cells: HoCMath.XY[];
             if (isLarge) {
-                const allowedForThatSide =
-                    this.context.placementManager.getAllowedPlacementCellHashesForTeam(teamFromPlacement);
+                const allowedForThatSide = teamFromPlacement
+                    ? this.context.placementManager.getAllowedPlacementCellHashesForTeam(teamFromPlacement)
+                    : undefined;
                 const occupiedKeys: string[] = [];
                 cells =
                     this.context.pathHelper.getClosestSquareCellIndices(
@@ -850,10 +856,9 @@ export class HoverManager {
             return;
         }
 
-        const allowedForTeam =
-            (teamFromPlacement &&
-                this.context.placementManager.getAllowedPlacementCellHashesForTeam(teamFromPlacement)) ??
-            undefined;
+        const allowedForTeam = teamFromPlacement
+            ? this.context.placementManager.getAllowedPlacementCellHashesForTeam(teamFromPlacement)
+            : undefined;
 
         let candidateCells: HoCMath.XY[];
 
@@ -885,6 +890,7 @@ export class HoverManager {
         if (isLarge) {
             if (candidateCells?.length !== 4) {
                 this.resetHover();
+                this.clearAuraVisuals();
                 return;
             } else if (!this.context.pathHelper.areCellsFormingSquare(candidateCells)) {
                 invalid = true;
@@ -918,11 +924,13 @@ export class HoverManager {
             gridType === GridVals.WATER_CENTER ||
             gridType === GridVals.BLOCK_CENTER;
 
-        if (!invalid && teamFromPlacement && !skipPreStartGeom) {
+        const effectiveTeam = teamFromPlacement ?? draggingUnitTeam ?? selected?.team ?? TeamVals.LOWER;
+
+        if (effectiveTeam && !skipPreStartGeom) {
             const mockUnit = Unit.createUnit(
                 selected,
                 gs,
-                teamFromPlacement,
+                effectiveTeam,
                 UnitVals.CREATURE,
                 this.context.abilityFactory,
                 this.context.abilityFactory.getEffectsFactory(),
@@ -932,6 +940,30 @@ export class HoverManager {
             const possiblePosition = GridMath.getPositionForCells(gs, candidateCells);
             if (possiblePosition) {
                 mockUnit.setPosition(possiblePosition.x, possiblePosition.y, false);
+
+                // Draw Aura (Available even if placement is invalid)
+                const auras = mockUnit.getAuraRanges();
+                const auraBuffs = mockUnit.getAuraIsBuff();
+                if (auras && auras.length > 0) {
+                    const center = possiblePosition;
+                    const bonus = fightProps.getAdditionalAuraRangePerTeam(effectiveTeam);
+                    for (let i = 0; i < auras.length; i++) {
+                        if (auras[i] > 0) {
+                            const range = (auras[i] + bonus) * gs.getStep();
+                            const isBuff = auraBuffs && i < auraBuffs.length ? auraBuffs[i] : true;
+                            this.drawAuraArea(center, range, isBuff, mockUnit.isSmallSize());
+                        }
+                    }
+                }
+
+                // Draw Attack Range (New Feature)
+                if (mockUnit.getAttackType() === 3 /* AttackVals.RANGE */ && !mockUnit.hasAbilityActive("Handyman")) {
+                    const dist = mockUnit.getRangeShotDistance();
+                    if (dist > 0) {
+                        const rangePixel = dist * gs.getStep();
+                        this.drawAttackRange(possiblePosition, rangePixel);
+                    }
+                }
             }
 
             const lowerLeftPlacement = this.context.getPlacement(TeamVals.LOWER, 0);
@@ -939,18 +971,25 @@ export class HoverManager {
             const lowerRightPlacement = this.context.getPlacement(TeamVals.LOWER, 1);
             const upperLeftPlacement = this.context.getPlacement(TeamVals.UPPER, 1);
 
-            if (
-                !this.context.pathHelper.isAllowedPreStartUnitPosition(
-                    mockUnit,
-                    candidateCells,
-                    this.context.unitsHolder,
-                    lowerLeftPlacement,
-                    upperRightPlacement,
-                    lowerRightPlacement,
-                    upperLeftPlacement,
-                )
-            ) {
-                invalid = true;
+            // Validation Check
+            // We only care about validation if we think it's valid so far, otherwise keep invalid=true
+            if (!invalid) {
+                // strict check: MUST match placement team for validity
+                if (!teamFromPlacement) {
+                    invalid = true; // dragging team used for aura, but actual placement team missing -> invalid
+                } else if (
+                    !this.context.pathHelper.isAllowedPreStartUnitPosition(
+                        mockUnit,
+                        candidateCells,
+                        this.context.unitsHolder,
+                        lowerLeftPlacement,
+                        upperRightPlacement,
+                        lowerRightPlacement,
+                        upperLeftPlacement,
+                    )
+                ) {
+                    invalid = true;
+                }
             }
         }
 

@@ -38,6 +38,7 @@ export interface IGameplayDrawContext {
         isSmall: boolean;
     };
     lingeringTracks: ILingeringTrack[];
+    hoveredMoveRange?: HoCMath.XY[];
 }
 
 export interface IPlacementDrawContext {
@@ -67,16 +68,37 @@ export class SandboxDrawer {
         } = ctx;
         const fightStarted = fightProps.hasFightStarted();
 
-        // 0. Hovered Unit Range (New Feature)
+        // 0. Hovered Move Range (Placement Phase)
+        if (ctx.hoveredMoveRange && ctx.hoveredMoveRange.length > 0) {
+            g.fillStyle = 0xffffff; // White
+            const alpha = 0.23;
+            const step = gs.getStep();
+            const hs = gs.getHalfStep();
+            const minX = gs.getMinX();
+
+            for (const cell of ctx.hoveredMoveRange) {
+                const pos = GridMath.getPositionForCell(cell, minX, step, hs);
+                if (pos) {
+                    // pos is center, draw rect from top-left
+                    g.rect(pos.x - hs, pos.y - hs, step, step).fill({ color: 0xffffff, alpha: alpha });
+                }
+            }
+        }
+
+        // 0. Hovered Unit Range (New Feature - Unified Visuals)
         if (hoveredShotRange && (!fightStarted || !isActiveUnitMoving)) {
             const { xy, distance } = hoveredShotRange;
-            // distinct color, e.g., Cyan or Light Blue to differentiate from active yellow
-            const hoverColor = 0x00ffff;
-            g.circle(xy.x, xy.y, distance).stroke({
-                width: 2,
-                color: hoverColor,
-                alpha: 0.6,
-            });
+            // Use Yellow (same as Active) for consistent "Expected Range" visualization
+            // even in placement mode.
+            SandboxDrawer.drawRangeRing(
+                g,
+                xy,
+                distance,
+                gs.getCellSize(),
+                hoverGlowPhase,
+                0xffff00, // Yellow
+                fightStarted,
+            );
         }
 
         // 0.5 Sidebar Unit Range (New Feature)
@@ -92,11 +114,11 @@ export class SandboxDrawer {
         }
 
         // 0.6 Active Unit Aura Range (Requested Feature)
-        if (currentActiveUnit && fightStarted && !isActiveUnitMoving) {
+        if (currentActiveUnit && !isActiveUnitMoving) {
             const ar = currentActiveUnit.getAuraRanges();
             const ab = currentActiveUnit.getAuraIsBuff();
             if (ar && ar.length > 0) {
-                const auraRanges = ar.map((range, i) => ({ range, isBuff: ab[i] })).filter(a => a.range > 0);
+                const auraRanges = ar.map((range, i) => ({ range, isBuff: ab[i] })).filter((a) => a.range > 0);
                 const xy = currentActiveUnit.getVisualCenter(gs);
                 const isSmall = currentActiveUnit.isSmallSize();
                 // Draw only Aura ranges (skip attack range as it's handled elsewhere or we can add it if needed)
@@ -107,101 +129,13 @@ export class SandboxDrawer {
         // 1. Shift Selected Shot Range (Same style as Active)
         if (shiftSelectedShotRange) {
             const { xy, distance } = shiftSelectedShotRange;
-            const cellSize = gs.getCellSize();
-            const baseColor = 0xffff00;
-            const ringWidth = fightStarted ? 3 : 2;
-
-            g.circle(xy.x, xy.y, distance).stroke({
-                width: ringWidth,
-                color: baseColor,
-                alpha: fightStarted ? 0.95 : 0.8,
-            });
-
-            const steps = 8;
-            const pulse = (Math.sin(hoverGlowPhase) + 1) / 2;
-            const tickLen = cellSize * (0.25 + 0.15 * pulse);
-            for (let i = 0; i < steps; i++) {
-                const angle = (Math.PI * 2 * i) / steps;
-                const cos = Math.cos(angle);
-                const sin = Math.sin(angle);
-                const r0 = distance - tickLen * 0.5;
-                const r1 = distance + tickLen * 0.5;
-                const x0 = xy.x + cos * r0;
-                const y0 = xy.y + sin * r0;
-                const x1 = xy.x + cos * r1;
-                const y1 = xy.y + sin * r1;
-                g.moveTo(x0, y0)
-                    .lineTo(x1, y1)
-                    .stroke({
-                        width: 1.5,
-                        color: baseColor,
-                        alpha: 0.6 + 0.3 * pulse,
-                    });
-            }
-
-            const glowSteps = 12;
-            const glowSpread = cellSize * 0.8;
-            const glowBaseAlpha = fightStarted ? 0.25 : 0.2;
-            for (let i = 1; i <= glowSteps; i++) {
-                const fraction = i / glowSteps;
-                const glowRadius = distance + fraction * glowSpread;
-                const glowAlpha = glowBaseAlpha * (1 - fraction) * (0.7 + 0.3 * pulse);
-                g.circle(xy.x, xy.y, glowRadius).stroke({
-                    width: 1.5,
-                    color: baseColor,
-                    alpha: glowAlpha,
-                });
-            }
+            SandboxDrawer.drawRangeRing(g, xy, distance, gs.getCellSize(), hoverGlowPhase, 0xffff00, fightStarted);
         }
 
         // 2. Shot range ring (Active Unit)
         if (currentActiveShotRange && !isActiveUnitMoving) {
             const { xy, distance } = currentActiveShotRange;
-            const cellSize = gs.getCellSize();
-            const baseColor = 0xffff00;
-            const ringWidth = fightStarted ? 3 : 2;
-
-            g.circle(xy.x, xy.y, distance).stroke({
-                width: ringWidth,
-                color: baseColor,
-                alpha: fightStarted ? 0.95 : 0.8,
-            });
-
-            const steps = 8;
-            const pulse = (Math.sin(hoverGlowPhase) + 1) / 2;
-            const tickLen = cellSize * (0.25 + 0.15 * pulse);
-            for (let i = 0; i < steps; i++) {
-                const angle = (Math.PI * 2 * i) / steps;
-                const cos = Math.cos(angle);
-                const sin = Math.sin(angle);
-                const r0 = distance - tickLen * 0.5;
-                const r1 = distance + tickLen * 0.5;
-                const x0 = xy.x + cos * r0;
-                const y0 = xy.y + sin * r0;
-                const x1 = xy.x + cos * r1;
-                const y1 = xy.y + sin * r1;
-                g.moveTo(x0, y0)
-                    .lineTo(x1, y1)
-                    .stroke({
-                        width: 1.5,
-                        color: baseColor,
-                        alpha: 0.6 + 0.3 * pulse,
-                    });
-            }
-
-            const glowSteps = 12;
-            const glowSpread = cellSize * 0.8;
-            const glowBaseAlpha = fightStarted ? 0.25 : 0.2;
-            for (let i = 1; i <= glowSteps; i++) {
-                const fraction = i / glowSteps;
-                const glowRadius = distance + fraction * glowSpread;
-                const glowAlpha = glowBaseAlpha * (1 - fraction) * (0.7 + 0.3 * pulse);
-                g.circle(xy.x, xy.y, glowRadius).stroke({
-                    width: 1.5,
-                    color: baseColor,
-                    alpha: glowAlpha,
-                });
-            }
+            SandboxDrawer.drawRangeRing(g, xy, distance, gs.getCellSize(), hoverGlowPhase, 0xffff00, fightStarted);
         }
 
         // 2. Active path lights
@@ -275,7 +209,6 @@ export class SandboxDrawer {
             }
         }
     }
-
     private static drawAuraAndAttackRanges(
         g: Graphics,
         xy: HoCMath.XY,
@@ -316,9 +249,66 @@ export class SandboxDrawer {
                 // Optional: Fill slightly
                 g.rect(xy.x - extent, xy.y - extent, extent * 2, extent * 2).fill({
                     color: color,
-                    alpha: 0.05,
+                    alpha: 0.2,
                 });
             }
+        }
+    }
+    private static drawRangeRing(
+        g: Graphics,
+        xy: HoCMath.XY,
+        distance: number,
+        cellSize: number,
+        pulsePhase: number,
+        color: number,
+        fightStarted: boolean,
+    ): void {
+        const ringWidth = fightStarted ? 3 : 2;
+
+        // Main Ring
+        g.circle(xy.x, xy.y, distance).stroke({
+            width: ringWidth,
+            color: color,
+            alpha: fightStarted ? 0.95 : 0.8,
+        });
+
+        const pulse = (Math.sin(pulsePhase) + 1) / 2;
+
+        // Ticks
+        const steps = 8;
+        const tickLen = cellSize * (0.25 + 0.15 * pulse);
+        for (let i = 0; i < steps; i++) {
+            const angle = (Math.PI * 2 * i) / steps;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            const r0 = distance - tickLen * 0.5;
+            const r1 = distance + tickLen * 0.5;
+            const x0 = xy.x + cos * r0;
+            const y0 = xy.y + sin * r0;
+            const x1 = xy.x + cos * r1;
+            const y1 = xy.y + sin * r1;
+            g.moveTo(x0, y0)
+                .lineTo(x1, y1)
+                .stroke({
+                    width: 1.5,
+                    color: color,
+                    alpha: 0.6 + 0.3 * pulse,
+                });
+        }
+
+        // Glow
+        const glowSteps = 12;
+        const glowSpread = cellSize * 0.8;
+        const glowBaseAlpha = fightStarted ? 0.25 : 0.2;
+        for (let i = 1; i <= glowSteps; i++) {
+            const fraction = i / glowSteps;
+            const glowRadius = distance + fraction * glowSpread;
+            const glowAlpha = glowBaseAlpha * (1 - fraction) * (0.7 + 0.3 * pulse);
+            g.circle(xy.x, xy.y, glowRadius).stroke({
+                width: 1.5,
+                color: color,
+                alpha: glowAlpha,
+            });
         }
     }
 }

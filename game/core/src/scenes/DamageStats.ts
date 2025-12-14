@@ -21,6 +21,8 @@ export class DamageStatisticHolder implements IStatisticHolder<IDamageStatistic>
     public add(singleDamageStatistic: IDamageStatistic): void {
         let added = false;
 
+        console.log("Adding damage statistic:", singleDamageStatistic);
+
         for (const ds of this.damageStatistics) {
             if (ds.unitName === singleDamageStatistic.unitName && ds.team === singleDamageStatistic.team) {
                 ds.damage += singleDamageStatistic.damage;
