@@ -42,7 +42,6 @@ import {
     ISystemMoveResult,
     AbilityHelper,
     AllAbilities,
-    IAttackResult,
     AI,
     IDamageStatistic,
 } from "@heroesofcrypto/common";
@@ -849,12 +848,16 @@ export class Sandbox extends PixiScene {
                 if (context.sc_world) {
                     // We need to look up the body. test_heroes uses unitsFactory.getUnitBody(id).
                     // We need to check if we can access unitsFactory.
-                    if (context.unitsFactory) {
-                        const unitBody = context.unitsFactory.getUnitBody(unitId);
-                        if (unitBody) {
-                            context.sc_world.DestroyBody(unitBody);
+                    try {
+                        if (context.unitsFactory) {
+                            const unitBody = context.unitsFactory.getUnitBody(unitId);
+                            if (unitBody) {
+                                context.sc_world.DestroyBody(unitBody);
+                            }
+                            context.unitsFactory.deleteUnitBody(unitId);
                         }
-                        context.unitsFactory.deleteUnitBody(unitId);
+                    } catch (e) {
+                        console.error("Error destroying physics body for unit " + unitId, e);
                     }
                 }
 
@@ -1058,6 +1061,7 @@ export class Sandbox extends PixiScene {
         preState: Map<string, { hp: number; amount: number }>,
         attackerCell?: HoCMath.XY,
         ignoredUnitIds?: Set<string>,
+        forcedDirection?: HoCMath.XY,
     ): void {
         const gs = this.sc_sceneSettings.getGridSettings();
 
@@ -1074,8 +1078,8 @@ export class Sandbox extends PixiScene {
                 const unitsDied = Math.max(0, oldState.amount - u.getAmountAlive());
 
                 // Determine direction
-                let direction: HoCMath.XY | undefined;
-                if (attackerCell) {
+                let direction: HoCMath.XY | undefined = forcedDirection;
+                if (!direction && attackerCell) {
                     const attPos = GridMath.getPositionForCell(
                         attackerCell,
                         gs.getMinX(),
@@ -1127,14 +1131,19 @@ export class Sandbox extends PixiScene {
             // Handle visual logic using detailed hits if available
             const ignoredIds = new Set<string>();
             const targetUnit = this.hoverManager.hoverAttackUnits?.[0]?.[0];
+            let direction: HoCMath.XY | undefined;
 
             if (targetUnit && damageForAnimation.hits && damageForAnimation.hits.length > 0) {
                 ignoredIds.add(targetUnit.getId());
 
                 const gs = this.sc_sceneSettings.getGridSettings();
-                const center = targetUnit instanceof RenderableUnit ? targetUnit.getVisualCenter(gs) : targetUnit.getPosition();
-                // If hoverAttackFromCell is missing (e.g. AI turn), fallback to currentActiveUnit position
-                const attCell = this.hoverManager.hoverAttackFromCell || (this.currentActiveUnit ? GridMath.getCellForPosition(gs, this.currentActiveUnit.getPosition()) : undefined);
+                const center =
+                    targetUnit instanceof RenderableUnit ? targetUnit.getVisualCenter(gs) : targetUnit.getPosition();
+                const attCell =
+                    this.hoverManager.hoverAttackFromCell ||
+                    (this.currentActiveUnit
+                        ? GridMath.getCellForPosition(gs, this.currentActiveUnit.getPosition())
+                        : undefined);
                 let direction: HoCMath.XY | undefined;
 
                 if (attCell) {
@@ -1144,42 +1153,49 @@ export class Sandbox extends PixiScene {
                     }
                 }
 
-                // Visualize hits
-                for (let i = 0; i < damageForAnimation.hits.length; i++) {
-                    const hit = damageForAnimation.hits[i];
-                    let pos = { ...center };
+                if (damageForAnimation.hits && damageForAnimation.hits.length > 0) {
+                    // Visualize hits
+                    for (let i = 0; i < damageForAnimation.hits.length; i++) {
+                        const hit = damageForAnimation.hits[i];
+                        let pos = { ...center };
 
-                    if (direction && damageForAnimation.hits.length > 1) {
-                        const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
-                        if (len > 0.001) {
-                            const ndx = direction.x / len;
-                            const ndy = direction.y / len;
-                            // Strategy: First hit is "Deep" (+30), Second hit is "Further" (+90)
-                            // "away from attacker" = +Direction
-                            let offset = 0;
-                            if (i === 0) {
-                                offset = 75;
-                            } else if (i === 1) {
-                                offset = 20;
+                        if (direction && damageForAnimation.hits.length > 1) {
+                            const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+                            if (len > 0.001) {
+                                const ndx = direction.x / len;
+                                const ndy = direction.y / len;
+                                // Strategy: First hit is "Deep" (+75), Second hit is "Closer" (+20)
+                                // "away from attacker" = +Direction
+                                let offset = 0;
+                                if (i === 0) {
+                                    offset = 75;
+                                } else if (i === 1) {
+                                    offset = 20;
+                                }
+
+                                pos.x += ndx * offset;
+                                pos.y += ndy * offset;
                             }
-
-                            pos.x += ndx * offset;
-                            pos.y += ndy * offset;
                         }
-                    }
 
-                    // Use the per-hit unitsDied value we captured in AttackHandler
-                    if (i === 0) {
-                        this.showFloatingDamage(pos, hit.amount, direction, hit.unitsDied);
-                    } else {
-                        setTimeout(() => {
+                        // Use the per-hit unitsDied value we captured in AttackHandler
+                        if (i === 0) {
                             this.showFloatingDamage(pos, hit.amount, direction, hit.unitsDied);
-                        }, i * 1000);
+                        } else {
+                            setTimeout(() => {
+                                this.showFloatingDamage(pos, hit.amount, direction, hit.unitsDied);
+                            }, i * 1000);
+                        }
                     }
                 }
             }
 
-            this.showDamageVisualsFromDiff(preHealth, this.hoverManager.hoverAttackFromCell, ignoredIds);
+            this.showDamageVisualsFromDiff(
+                preHealth,
+                this.hoverManager.hoverAttackFromCell,
+                ignoredIds,
+                direction, // Pass primary attack direction for AoE uniformity
+            );
 
             if (this.hoverManager.hoverAttackFromCell) {
                 // Animation logic if needed
@@ -1234,16 +1250,18 @@ export class Sandbox extends PixiScene {
             // Handle visual logic using detailed hits if available
             const ignoredIds = new Set<string>();
             const targetUnit = this.hoverManager.hoverAttackUnits?.[0]?.[0];
+            let direction: HoCMath.XY | undefined; // Lifted declaration
 
             if (targetUnit && rangeDamageData.hits && rangeDamageData.hits.length > 0) {
                 ignoredIds.add(targetUnit.getId());
 
                 const gs = this.sc_sceneSettings.getGridSettings();
-                const center = targetUnit instanceof RenderableUnit ? targetUnit.getVisualCenter(gs) : targetUnit.getPosition();
-                const attCell = this.currentActiveUnit.getPosition() ? GridMath.getCellForPosition(gs, this.currentActiveUnit.getPosition()) : undefined;
+                const center =
+                    targetUnit instanceof RenderableUnit ? targetUnit.getVisualCenter(gs) : targetUnit.getPosition();
+                const attCell = this.currentActiveUnit.getPosition()
+                    ? GridMath.getCellForPosition(gs, this.currentActiveUnit.getPosition())
+                    : undefined;
                 // Note: Range attack doesn't strictly have "hoverAttackFromCell". Uses unit position.
-
-                let direction: HoCMath.XY | undefined;
 
                 if (attCell) {
                     const attPos = GridMath.getPositionForCell(attCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
@@ -1252,42 +1270,48 @@ export class Sandbox extends PixiScene {
                     }
                 }
 
-                // Visualize hits
-                for (let i = 0; i < rangeDamageData.hits.length; i++) {
-                    const hit = rangeDamageData.hits[i];
-                    let pos = { ...center };
+                if (rangeDamageData.hits && rangeDamageData.hits.length > 0) {
+                    // Visualize hits
+                    for (let i = 0; i < rangeDamageData.hits.length; i++) {
+                        const hit = rangeDamageData.hits[i];
+                        let pos = { ...center };
 
-                    if (direction && rangeDamageData.hits.length > 1) {
-                        const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
-                        if (len > 0.001) {
-                            const ndx = direction.x / len;
-                            const ndy = direction.y / len;
-                            // Strategy: First hit is "Deep" (+30), Second hit is "Further" (+90)
-                            // "away from attacker" = +Direction
-                            let offset = 0;
-                            if (i === 0) {
-                                offset = 75;
-                            } else if (i === 1) {
-                                offset = 20;
+                        if (direction && rangeDamageData.hits.length > 1) {
+                            const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+                            if (len > 0.001) {
+                                const ndx = direction.x / len;
+                                const ndy = direction.y / len;
+                                // Strategy: First hit is "Deep" (+75), Second hit is "Closer" (+20)
+                                // "away from attacker" = +Direction
+                                let offset = 0;
+                                if (i === 0) {
+                                    offset = 75;
+                                } else if (i === 1) {
+                                    offset = 20;
+                                }
+                                pos.x += ndx * offset;
+                                pos.y += ndy * offset;
                             }
-
-                            pos.x += ndx * offset;
-                            pos.y += ndy * offset;
                         }
-                    }
 
-                    // Use the per-hit unitsDied value we captured in AttackHandler
-                    if (i === 0) {
-                        this.showFloatingDamage(pos, hit.amount, direction, hit.unitsDied);
-                    } else {
-                        setTimeout(() => {
+                        // Use the per-hit unitsDied value we captured in AttackHandler
+                        if (i === 0) {
                             this.showFloatingDamage(pos, hit.amount, direction, hit.unitsDied);
-                        }, i * 1000);
+                        } else {
+                            setTimeout(() => {
+                                this.showFloatingDamage(pos, hit.amount, direction, hit.unitsDied);
+                            }, i * 1000);
+                        }
                     }
                 }
             }
 
-            this.showDamageVisualsFromDiff(preHealth, undefined, ignoredIds);
+            this.showDamageVisualsFromDiff(
+                preHealth,
+                undefined,
+                ignoredIds,
+                direction, // Pass primary direction for AoE uniformity
+            );
 
             if (rangeAttackResult.completed) {
                 for (const uId of rangeAttackResult.unitIdsDied) {
@@ -1483,8 +1507,8 @@ export class Sandbox extends PixiScene {
         this.sc_possibleSynergiesPerTeam.set(teamType, newSynergies);
         this.sc_possibleSynergiesUpdateNeeded = synergies !== newSynergies;
     }
-    protected finishDrop(_p: HoCMath.XY): void { }
-    protected handleMouseDownForSelectedBody(): void { }
+    protected finishDrop(_p: HoCMath.XY): void {}
+    protected handleMouseDownForSelectedBody(): void {}
     public cloneObject(newAmount?: number): boolean {
         let cloned = false;
         if (this.sc_selectedUnitProperties) {
@@ -1592,7 +1616,7 @@ export class Sandbox extends PixiScene {
         }
         return cloned;
     }
-    public deleteObject(): void { }
+    public deleteObject(): void {}
     public override refreshScene(u: UnitProperties): void {
         // 1. Safety checks
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted() || !u.id) return;
@@ -1644,7 +1668,7 @@ export class Sandbox extends PixiScene {
     public getGridType(): GridType {
         return FightStateManager.getInstance().getFightProperties().getGridType();
     }
-    public requestTime(_team: number): void { }
+    public requestTime(_team: number): void {}
     private clearBoardSelection(_notifyUnitDeselected: boolean = true): void {
         // stop board selection animation if any
         if (this.selectedBoardUnit) {
@@ -1916,6 +1940,11 @@ export class Sandbox extends PixiScene {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         // 1. FIGHT STARTED INTERACTION
         if (fightProps.hasFightStarted()) {
+            // [AI Driven Check] If the current unit is controlled by AI (e.g. Berserker), block user input.
+            if (this.currentActiveUnit?.hasAbilityActive("AI Driven")) {
+                return;
+            }
+
             const gs = this.sc_sceneSettings.getGridSettings();
 
             // Melee Attack Interaction
@@ -2150,18 +2179,31 @@ export class Sandbox extends PixiScene {
             hits: [],
         };
 
+        // Pre-calculate primary attack direction (Target - Attacker) for uniform visuals
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const tVis = target instanceof RenderableUnit ? target.getVisualCenter(gs) : target.getPosition();
+        // Use 'attackFrom' cell to ensure direction is accurate even if unit moves during sequence
+        const attPos = GridMath.getPositionForCell(attackFrom, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        const primaryAttackDir = attPos ? { x: tVis.x - attPos.x, y: tVis.y - attPos.y } : { x: 0, y: -1 };
+
         const attackerBefore = { amount: attacker.getAmountAlive(), health: attacker.getHp() };
+
+        // 1. Target Damage
+
         // Capture Target Start Amount specifically for death calc
         const targetBeforeAmount = target.getAmountAlive();
 
         // SNAPSHOT for AOE / Secondary Damage
         // We capture state of ALL units to detect side-effects/AOE
-        const unitSnapshots = new Map<string, { amount: number; hp: number }>();
+        const unitSnapshots = new Map<string, { amount: number; hp: number; maxHp: number; pos: HoCMath.XY }>();
         for (const u of this.unitsHolder.getAllUnits().values()) {
-            unitSnapshots.set(u.getId(), { amount: u.getAmountAlive(), hp: u.getHp() });
+            unitSnapshots.set(u.getId(), {
+                amount: u.getAmountAlive(),
+                hp: u.getHp(),
+                maxHp: u.getMaxHp(),
+                pos: u.getPosition(),
+            });
         }
-
-        let result: IAttackResult;
 
         // Check for Range Attack
         // If attackFrom is current position AND target is far away (or strictly defined as range target), use Range logic.
@@ -2214,7 +2256,7 @@ export class Sandbox extends PixiScene {
                 responseUnits = respEval.affectedUnits[0];
             }
 
-            result = this.attackHandler.handleRangeAttack(
+            this.attackHandler.handleRangeAttack(
                 this.unitsHolder,
                 evalResult.rangeAttackDivisors,
                 responseDivisor,
@@ -2227,7 +2269,7 @@ export class Sandbox extends PixiScene {
                 true, // decreaseNumberOfShots
             );
         } else {
-            result = this.attackHandler.handleMeleeAttack(
+            this.attackHandler.handleMeleeAttack(
                 this.unitsHolder,
                 this.moveHandler,
                 damageForAnimation,
@@ -2294,9 +2336,9 @@ export class Sandbox extends PixiScene {
                         const ndy = dir.y / len;
                         let offset = 0;
                         if (index === 0) {
-                            offset = 70;
+                            offset = 75;
                         } else if (index === 1) {
-                            offset = 30;
+                            offset = 20;
                         }
                         pos.x += ndx * offset;
                         pos.y += ndy * offset;
@@ -2330,7 +2372,7 @@ export class Sandbox extends PixiScene {
 
             if (damageTaken > 0) {
                 // Attacker damage floats away from target
-                const gs = this.sc_sceneSettings.getGridSettings();
+                // const gs = this.sc_sceneSettings.getGridSettings(); // Hoisted
 
                 const aVis = attacker.getVisualCenter(gs);
 
@@ -2364,73 +2406,81 @@ export class Sandbox extends PixiScene {
 
         // 3. Secondary / AOE Damage
         // Compare current state with snapshot
-        const gs = this.sc_sceneSettings.getGridSettings();
-        for (const u of this.unitsHolder.getAllUnits().values()) {
-            const uId = u.getId();
-            // Skip Primary Target and Attacker (already handled above with specifics)
-            if (uId === target.getId() || uId === attacker.getId()) continue;
-
+        // We iterate keys of snapshot to ensure we catch units that might have been deleted/died
+        for (const uId of unitSnapshots.keys()) {
             const snap = unitSnapshots.get(uId);
             if (!snap) continue;
 
-            const currentAmount = u.getAmountAlive();
-            const currentHp = u.getHp();
+            const u = this.unitsHolder.getAllUnits().get(uId);
+            // If unit is missing, it means it died and was removed. Treat as 0/0.
+            const currentAmount = u ? u.getAmountAlive() : 0;
+            const currentHp = u ? u.getHp() : 0;
+
+            // Skip Attacker (Recall: Attacker damage is fully handled in Loop 2 via 'attackerAfter')
+            if (uId === attacker.getId()) continue;
 
             // Calculate total HP lost
-            // Note: If unit died, currentAmount might be 0? Yes.
-            // Formula: (OldAmount - 1) * MaxHP + OldHP  vs  (NewAmount - 1) * MaxHP + NewHP
-            const maxHp = u.getMaxHp();
-            const totalHpBefore = (snap.amount - 1) * maxHp + snap.hp;
-            const totalHpAfter = (currentAmount - 1) * maxHp + currentHp;
+            // Use snapshot MaxHP to ensure we can calc damage even if unit died/vanished
+            const unitMaxHp = snap.maxHp;
+            const totalHpBefore = (snap.amount - 1) * unitMaxHp + snap.hp;
+            const totalHpAfter = (currentAmount - 1) * unitMaxHp + currentHp;
             const diff = totalHpBefore - totalHpAfter;
+
             const diedCount = Math.max(0, snap.amount - currentAmount);
 
-            if (diff > 0) {
-                // Determine direction based on attacker?
-                // Or just straight up? Straight up is simpler for AOE.
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const ru = u as any;
-                const visPos = typeof ru.getVisualCenter === "function" ? ru.getVisualCenter(gs) : u.getPosition();
-                // "Up" direction (Negative Y), slightly to the right (Positive X)
-                // Normalized later in showFloatingDamage, but we want Y dominance.
-                const upDir = { x: 0.3, y: -1 };
-                this.showFloatingDamage(visPos, diff, upDir, diedCount);
+            // Deduct already shown damage
+            let alreadyShown = 0;
+            if (uId === target.getId()) {
+                alreadyShown = damageForAnimation.amount;
+            }
+
+            const unaccountedDiff = diff - alreadyShown;
+
+            if (unaccountedDiff > 0) {
+                // Use primary 'primaryAttackDir' so it matches the attacker's main attack angle
+                // Need visual center. If unitRef is valid, use it.
+
+                let visPos: HoCMath.XY;
+                const unitRef = u || this.unitsHolder.getAllUnits().get(uId); // Re-introduce unitRef for visPos
+                if (unitRef) {
+                    const ru = unitRef as RenderableUnit;
+                    visPos = typeof ru.getVisualCenter === "function" ? ru.getVisualCenter(gs) : unitRef.getPosition();
+                } else {
+                    // Unit Gone -> Use snapshot position
+                    visPos = snap.pos;
+                }
+
+                this.showFloatingDamage(visPos, unaccountedDiff, primaryAttackDir, diedCount);
             }
         }
 
         // Handle animations if needed (e.g. movement, hits)
-        if (result.animationData) {
-            // TODO: Port animation playback logic (move, bullet, etc)
-            // For now, we rely on state updates, but movement might jump without animation.
+        // if (result.animationData) {
+        // TODO: Port animation playback logic (move, bullet, etc)
+        // For now, we rely on state updates, but movement might jump without animation.
+
+        // Cleanup and finish turn
+        const unitsDied: RenderableUnit[] = [];
+        for (const u of this.unitsHolder.getAllUnits().values()) {
+            if (u.isDead()) {
+                unitsDied.push(u as RenderableUnit);
+            }
         }
 
-        if (result.completed) {
-            const unitsDied: RenderableUnit[] = [];
-            for (const uId of result.unitIdsDied) {
-                const u = this.unitsHolder.getAllUnits().get(uId);
-                // Note: If unit was already removed from map but is in result, we might miss it here if we don't look carefully.
-                // But unitsHolder.getAllUnits() should still have it until we delete it.
-                if (u) {
-                    unitsDied.push(u as RenderableUnit);
-                }
-            }
-            if (unitsDied.length > 0) {
-                this.destroySpecificUnits(unitsDied, true, true);
-            }
-            this.unitsHolder.refreshStackPowerForAllUnits();
-
-            // Log interaction
-            console.log(`Attack completed. Died: ${result.unitIdsDied.join(", ")}`);
-
-            this.finishTurn();
-            // Clear hover state
-            this.hoverManager.clearHoverSilhouette();
-            this.hoverManager.clearAttackVisuals(); // Clean up red blur/damage
-            this.hoverManager.hoverAttackFromCell = undefined;
+        if (unitsDied.length > 0) {
+            this.destroySpecificUnits(unitsDied, true, true);
         }
+
+        this.unitsHolder.refreshStackPowerForAllUnits();
+
+        this.finishTurn();
+
+        // Clear hover state
+        this.hoverManager.clearHoverSilhouette();
+        this.hoverManager.clearAttackVisuals();
+        this.hoverManager.hoverAttackFromCell = undefined;
 
         this.sc_moveBlocked = false;
-        // Trigger UI update
         this.sc_visibleStateUpdateNeeded = true;
     }
     private executeMoveSequence(unit: RenderableUnit, path: HoCMath.XY[], overrideFootprint?: HoCMath.XY[]): void {
@@ -2567,6 +2617,28 @@ export class Sandbox extends PixiScene {
         }
 
         // Once movement starts, kill previews & silhouettes.
+        const fightProperties = FightStateManager.getInstance().getFightProperties();
+
+        // [MoraleDebug] Verify paths are available before clearing
+        const debugKey = (destCell.x << 4) | destCell.y;
+        console.log(
+            `[MoraleDebug] Applying move modifiers. Unit: ${unit.getName()}, Dest: ${destCell.x},${destCell.y}, Key: ${debugKey}`,
+        );
+        console.log(`[MoraleDebug] KnownPaths size: ${this.currentActiveKnownPaths?.size}`);
+        if (this.currentActiveKnownPaths?.has(debugKey)) {
+            console.log(`[MoraleDebug] Path found for key.`);
+        } else {
+            console.log(`[MoraleDebug] Path NOT found for key!`);
+        }
+
+        this.moveHandler.applyMoveModifiers(
+            destCell,
+            unit,
+            fightProperties.getAdditionalAbilityPowerPerTeam(unit.getTeam()),
+            fightProperties.getAdditionalMoralePerTeam(unit.getTeam()),
+            this.currentActiveKnownPaths,
+        );
+
         this.currentActivePath = undefined;
         this.currentActiveKnownPaths = undefined;
         this.currentActivePathHashes = undefined;
@@ -2633,6 +2705,11 @@ export class Sandbox extends PixiScene {
                 return;
             }
             if (this.sc_isAnimating || !this.sc_mouseWorld) {
+                this.hoverManager.clearHoverSilhouette();
+                return;
+            }
+            // [AI Driven Check] If the current unit is controlled by AI (e.g. Berserker), don't show movement visuals.
+            if (this.currentActiveUnit.hasAbilityActive("AI Driven")) {
                 this.hoverManager.clearHoverSilhouette();
                 return;
             }
@@ -3303,6 +3380,7 @@ export class Sandbox extends PixiScene {
         this.attachToWorldRoot(this.gameplayGraphics, 55); // Above terrain, below units
     }
     public override Step(timeStep: number): void {
+        this.cleanupDeadUnits();
         if (timeStep > 0) this.sc_stepCount.increment();
         this.sc_isAnimating = this.pixiSceneManager.isAnimating();
         const fightStateManager = FightStateManager.getInstance();
@@ -3484,11 +3562,11 @@ export class Sandbox extends PixiScene {
     private drawGameplayVisuals(g: Graphics): void {
         let sidebarUnitRanges:
             | {
-                xy: HoCMath.XY;
-                attackRange: number;
-                auraRanges: { range: number; isBuff: boolean }[];
-                isSmall: boolean;
-            }
+                  xy: HoCMath.XY;
+                  attackRange: number;
+                  auraRanges: { range: number; isBuff: boolean }[];
+                  isSmall: boolean;
+              }
             | undefined;
 
         if (this.selectedBoardUnit) {
@@ -3508,11 +3586,11 @@ export class Sandbox extends PixiScene {
                 const auraRanges =
                     ar && ar.length > 0
                         ? ar
-                            .map((range, i) => ({
-                                range: range + fightProps.getAdditionalAuraRangePerTeam(u.getTeam()),
-                                isBuff: ab && i < ab.length ? ab[i] : true,
-                            }))
-                            .filter((a) => a.range > 0)
+                              .map((range, i) => ({
+                                  range: range + fightProps.getAdditionalAuraRangePerTeam(u.getTeam()),
+                                  isBuff: ab && i < ab.length ? ab[i] : true,
+                              }))
+                              .filter((a) => a.range > 0)
                         : [];
 
                 sidebarUnitRanges = {
@@ -3776,6 +3854,11 @@ export class Sandbox extends PixiScene {
         HoCLib.shuffle(allUnits);
         allUnits.sort((a, b) => b.getSpeed() - a.getSpeed());
 
+        HoCLib.shuffle(unitsUpper);
+        HoCLib.shuffle(unitsLower);
+        unitsUpper.sort((a, b) => b.getSpeed() - a.getSpeed());
+        unitsLower.sort((a, b) => b.getSpeed() - a.getSpeed());
+
         for (const u of allUnits) {
             if (!u.getMorale()) continue;
             const isPlusMorale = u.getMorale() > 0;
@@ -3962,7 +4045,7 @@ export class Sandbox extends PixiScene {
             this.sc_sceneLog.updateLog(`Loading Animations... ${pct}%`);
         }
     }
-    protected verifyButtonsTrigger(): void { }
+    protected verifyButtonsTrigger(): void {}
     protected updateCurrentMovePath(currentCell: HoCMath.XY): void {
         if (!this.currentActiveUnit || this.moveAnimation) {
             return;

@@ -9,6 +9,7 @@ import {
     Unit,
     GridMath,
     GridSettings,
+    HoCConstants,
 } from "@heroesofcrypto/common";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { VisibleButtonState, IVisibleButton, IVisibleState } from "./VisibleState";
@@ -267,6 +268,10 @@ export class ButtonManager {
         switch (name) {
             case "Next": {
                 if (!active || !fightProps.hasFightStarted()) return;
+                active.decreaseMorale(
+                    HoCConstants.MORALE_CHANGE_FOR_SKIP,
+                    fightProps.getAdditionalMoralePerTeam(active.getTeam()),
+                );
                 this.context.getSceneLog().updateLog(`${active.getName()} ends turn (player click)`);
                 this.context.finishTurn(false);
                 this.refreshButtons(true);
@@ -274,6 +279,10 @@ export class ButtonManager {
             }
             case "Hourglass": {
                 if (!active || !fightProps.hasFightStarted()) return;
+                active.decreaseMorale(
+                    HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK,
+                    fightProps.getAdditionalMoralePerTeam(active.getTeam()),
+                );
                 active.setOnHourglass(true);
                 this.context.getSceneLog().updateLog(`${active.getName()} waits (hourglass)`);
                 this.context.finishTurn(true);
@@ -300,6 +309,10 @@ export class ButtonManager {
             }
             case "LuckShield": {
                 if (!active || !fightProps.hasFightStarted()) return;
+                active.decreaseMorale(
+                    HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK,
+                    fightProps.getAdditionalMoralePerTeam(active.getTeam()),
+                );
                 this.context.getSceneLog().updateLog(`${active.getName()} uses Luck Shield (player click)`);
                 this.context.finishTurn(false);
                 this.refreshButtons(true);

@@ -123,7 +123,8 @@ const AtlasAnimation: React.FC<{
     meta: AtlasMeta;
     src: string;
     onLoaded: () => void;
-}> = ({ meta, src, onLoaded }) => {
+    fallbackSrc?: string;
+}> = ({ meta, src, onLoaded, fallbackSrc }) => {
     const [frameIndex, setFrameIndex] = React.useState(0);
     const [isImageLoaded, setIsImageLoaded] = React.useState(false);
 
@@ -210,15 +211,42 @@ const AtlasAnimation: React.FC<{
                 position: "relative",
                 width: "100%",
                 aspectRatio: `${frameWidth} / ${frameHeight}`,
-                backgroundImage: `url(${src})`,
-                backgroundRepeat: "no-repeat",
-                backgroundSize: `${bgSizeX}% ${bgSizeY}%`,
-                backgroundPosition: `${bgPosX}% ${bgPosY}%`,
-                imageRendering: "pixelated",
                 overflow: "visible",
-                zIndex: 5,
             }}
-        />
+        >
+            {!isImageLoaded && fallbackSrc && (
+                <Box
+                    component="img"
+                    src={fallbackSrc}
+                    sx={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        zIndex: 1,
+                    }}
+                />
+            )}
+            <Box
+                sx={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: "100%",
+                    backgroundImage: `url(${src})`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundSize: `${bgSizeX}% ${bgSizeY}%`,
+                    backgroundPosition: `${bgPosX}% ${bgPosY}%`,
+                    imageRendering: "pixelated",
+                    zIndex: 5,
+                    opacity: isImageLoaded ? 1 : 0,
+                    transition: "opacity 0.2s",
+                }}
+            />
+        </Box>
     );
 };
 
@@ -787,6 +815,7 @@ const UnitStatsLayout: React.FC<{
                                 meta={animationConfig.meta}
                                 src={animationConfig.imageSrc}
                                 onLoaded={onImageLoaded}
+                                fallbackSrc={images[largeTextureName]}
                             />
                         ) : (
                             <Avatar
@@ -843,6 +872,7 @@ const UnitStatsLayout: React.FC<{
                             meta={animationConfig.meta}
                             src={animationConfig.imageSrc}
                             onLoaded={onImageLoaded}
+                            fallbackSrc={images[largeTextureName]}
                         />
                     ) : (
                         <Avatar

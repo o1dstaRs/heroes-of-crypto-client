@@ -829,17 +829,19 @@ export class HoverManager {
             // Existing logic used "allowedForThatSide" inside "Wrong Team" block, and "allowedForTeam" later.
             // We'll try to find best fit.
             const targetTeamForPath = teamFromPlacement ?? draggingUnitTeam ?? TeamVals.LOWER;
-            const allowedForPath = this.context.placementManager.getAllowedPlacementCellHashesForTeam(targetTeamForPath);
+            const allowedForPath =
+                this.context.placementManager.getAllowedPlacementCellHashesForTeam(targetTeamForPath);
 
             const occupiedKeys: string[] = [];
-            candidateCells = this.context.pathHelper.getClosestSquareCellIndices(
-                this.context.getMouseWorld(),
-                allowedForPath,
-                occupiedKeys,
-                undefined,
-                undefined,
-                undefined,
-            ) ?? [];
+            candidateCells =
+                this.context.pathHelper.getClosestSquareCellIndices(
+                    this.context.getMouseWorld(),
+                    allowedForPath,
+                    occupiedKeys,
+                    undefined,
+                    undefined,
+                    undefined,
+                ) ?? [];
 
             // Fallback if pathing fails (e.g. void): just use the cell under mouse
             if (candidateCells.length === 0) {
@@ -960,7 +962,8 @@ export class HoverManager {
         }
 
         // Check 5: Max Units Limit
-        if (!invalid && !draggingUnitId) { // Only check count if spawning new, not moving existing
+        if (!invalid && !draggingUnitId) {
+            // Only check count if spawning new, not moving existing
             // ... existing max unit check ...
             // Simplified: logic was checking "alliesPlacedCount >= maxUnitsForTeam"
             const lowerLeftPlacement = this.context.getPlacement(TeamVals.LOWER, 0);
@@ -996,8 +999,8 @@ export class HoverManager {
         this.hoverSelectedCellsSwitchToRed = false; // Green
         this.hoverPlacementCell = cell;
         this.hoverPlacementCellTeam = teamFromPlacement;
-        // set silhouette if needed? existing code did clearHoverSilhouette() in failure cases. 
-        // Success case used generic drawHoverPlacementCell in SandboxDrawer? 
+        // set silhouette if needed? existing code did clearHoverSilhouette() in failure cases.
+        // Success case used generic drawHoverPlacementCell in SandboxDrawer?
         // No, SandboxDrawer draws hoverPlacementCell.
         if (!invalid && candidateCells.length > 0) {
             const size = gs.getCellSize();
