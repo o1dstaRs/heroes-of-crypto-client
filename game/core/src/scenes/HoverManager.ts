@@ -423,7 +423,12 @@ export class HoverManager {
         this.hoverAttackTargetUnit = undefined;
     }
     private hoverDamageText?: Text;
-    public drawDamagePrediction(text: string, position: HoCMath.XY, isLargeTarget: boolean): void {
+    private hoverDamageIcon?: Sprite;
+    public drawDamagePrediction(text: string, position: HoCMath.XY, isLargeTarget: boolean, iconPath?: string): void {
+        const scale = isLargeTarget ? 2 : 1;
+        const hasIcon = !!iconPath;
+
+        // 1. Setup Text
         if (!this.hoverDamageText) {
             this.hoverDamageText = new Text(text, {
                 fontFamily: "Arial",
@@ -433,18 +438,47 @@ export class HoverManager {
                 align: "center",
                 fontWeight: "bold",
             });
-            this.hoverDamageText.anchor.set(0.5);
-            this.context.attachToWorldRoot(this.hoverDamageText, 200);
+            this.context.attachToWorldRoot(this.hoverDamageText, 201);
         } else {
             this.hoverDamageText.text = text;
         }
-        this.hoverDamageText.scale.set(1, -1);
-        if (isLargeTarget) {
-            this.hoverDamageText.scale.set(2, -2);
+
+        // 2. Setup Icon (lazy init)
+        if (hasIcon) {
+            if (!this.hoverDamageIcon) {
+                this.hoverDamageIcon = new Sprite(Texture.from(iconPath!));
+                this.hoverDamageIcon.anchor.set(0.5);
+                this.context.attachToWorldRoot(this.hoverDamageIcon, 201);
+            } else {
+                this.hoverDamageIcon.texture = Texture.from(iconPath!);
+            }
         }
-        this.hoverDamageText.x = position.x;
-        this.hoverDamageText.y = position.y;
+
+        // 3. Visibility & Scaling
         this.hoverDamageText.visible = true;
+        this.hoverDamageText.scale.set(scale, -scale);
+
+        if (hasIcon && this.hoverDamageIcon) {
+            this.hoverDamageIcon.visible = true;
+            this.hoverDamageIcon.scale.set(scale, -scale);
+            const iconSize = 28 * scale;
+            this.hoverDamageIcon.width = iconSize;
+            this.hoverDamageIcon.height = iconSize;
+
+            // Positioning (Icon | Text)
+            this.hoverDamageText.anchor.set(0, 0.5);
+            const padding = 5 * scale;
+            const totalWidth = this.hoverDamageIcon.width + padding + this.hoverDamageText.width;
+            const startX = position.x - totalWidth / 2;
+
+            this.hoverDamageIcon.position.set(startX + this.hoverDamageIcon.width / 2, position.y);
+            this.hoverDamageText.position.set(startX + this.hoverDamageIcon.width + padding, position.y);
+        } else {
+            // Text only (Centered)
+            if (this.hoverDamageIcon) this.hoverDamageIcon.visible = false;
+            this.hoverDamageText.anchor.set(0.5);
+            this.hoverDamageText.position.set(position.x, position.y);
+        }
     }
     public clearAttackVisuals(): void {
         if (this.hoverAttackArrow) {
@@ -470,6 +504,9 @@ export class HoverManager {
 
         if (this.hoverDamageText) {
             this.hoverDamageText.visible = false;
+        }
+        if (this.hoverDamageIcon) {
+            this.hoverDamageIcon.visible = false;
         }
         this.hoverAttackTargetUnit = undefined;
     }

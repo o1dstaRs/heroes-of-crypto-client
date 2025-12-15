@@ -48,6 +48,7 @@ import {
 import { UnitsOverlay } from "./UnitsOverlay";
 import { DamageStatisticHolder } from "./DamageStats";
 import { VisibleButtonState, IVisibleUnit } from "./VisibleState";
+import { images } from "../generated/image_imports";
 import { SceneSettings } from "./SceneSettings";
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
 import { setSpawnFlowPhase } from "../pixi/PixiDrawablePlacement";
@@ -57,7 +58,6 @@ import { PixiRenderableSpell } from "./RenderableSpell";
 import { HoverManager } from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
 import { MAX_HOLE_LAYERS } from "@/statics";
-import { images } from "../generated/image_imports";
 
 export class Sandbox extends PixiScene {
     private readonly grid: Grid;
@@ -2948,12 +2948,14 @@ export class Sandbox extends PixiScene {
                         }
 
                         // Range Offset Logic (-0.5/-1.0)
-                        if (isRangeAttackContext) {
-                            const userOffset = this.currentActiveUnit.isSmallSize() ? gs.getHalfStep() : gs.getStep();
-                            arrowStartPos.x -= userOffset;
-                            arrowStartPos.y -= userOffset;
-                            console.log(`ssss3`);
-                        }
+                        // Range Offset Logic (-0.5/-1.0)
+                        // Removed as per user request (Arrow incorrectly started from corner)
+                        // if (isRangeAttackContext) {
+                        //     const userOffset = this.currentActiveUnit.isSmallSize() ? gs.getHalfStep() : gs.getStep();
+                        //     arrowStartPos.x -= userOffset;
+                        //     arrowStartPos.y -= userOffset;
+                        //     console.log(`ssss3`);
+                        // }
                         // Calculate Target Center (End)
                         // Use Legacy Helper for precise side selection for ALL units.
                         // This handles both Small (2 edges) and Large (outer perimeter edges) correctly.
@@ -3045,10 +3047,25 @@ export class Sandbox extends PixiScene {
                             multiplier,
                         );
 
+                        const minKills = targetUnit.calculatePossibleLosses(minDmg);
+                        const maxKills = targetUnit.calculatePossibleLosses(maxDmg);
+
+                        let predictionText = "";
+                        let iconPath: string | undefined = undefined;
+
+                        if (maxKills > 0) {
+                            predictionText = minKills === maxKills ? `${minKills}` : `${minKills}-${maxKills}`;
+                            iconPath = images.skull_white;
+                        } else {
+                            predictionText = minDmg === maxDmg ? `${minDmg}` : `${minDmg}-${maxDmg}`;
+                            // iconPath remains undefined
+                        }
+
                         this.hoverManager.drawDamagePrediction(
-                            `${minDmg}-${maxDmg}`,
+                            predictionText,
                             centerVis,
                             !targetUnit.isSmallSize(), // isLargeTarget
+                            iconPath,
                         );
                         this.hoverManager.drawAttackArrow(arrowStartPos, tVis);
                         isAttacking = true;
