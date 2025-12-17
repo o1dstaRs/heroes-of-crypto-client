@@ -1,4 +1,4 @@
-// game/core/src/PixiGameManager.ts
+// game/core/src/pixi/PixiGameManager.ts
 import { Application, Container } from "pixi.js";
 import {
     UnitProperties,
@@ -27,7 +27,7 @@ import { FpsCalculator } from "./FpsCalculator";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
 import type { UnitsOverlay } from "../scenes/UnitsOverlay";
 import { PixiApp } from "./PixiApp";
-import { PixiSceneManager } from "./PixiSceneManager";
+// import { PixiSceneManager } from "./PixiSceneManager"; // Deprecated
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
 
 import "../scenes";
@@ -90,7 +90,7 @@ export class PixiGameManager {
     private lastSentEmptyHoverInfo = false;
     private amountOfSelectedObjects = 1;
     private pixiApp: PixiApp | null = null;
-    private pixiSceneManager: PixiSceneManager | null = null;
+    // private pixiSceneManager: PixiSceneManager | null = null; // Deprecated
     private textures: PreloadedPixiTextures | null = null;
     private forwardOverlayInteraction?: (e: PointerEvent) => void;
     private overlayDebugCanvas?: HTMLCanvasElement;
@@ -102,10 +102,12 @@ export class PixiGameManager {
         if (!this.pixiApp) throw new Error("PixiGameManager: pixiApp not initialized yet");
         return this.pixiApp;
     }
+    /*
     private get _pixiSceneManager(): PixiSceneManager {
         if (!this.pixiSceneManager) throw new Error("PixiGameManager: pixiSceneManager not initialized yet");
         return this.pixiSceneManager;
     }
+    */
     private get _textures(): PreloadedPixiTextures {
         if (!this.textures) throw new Error("PixiGameManager: textures not initialized yet");
         return this.textures;
@@ -193,8 +195,8 @@ export class PixiGameManager {
         loadingScreen = undefined;
 
         // 4. Init Scene Manager & Game
-        const gridSettings = new GridSettings(32, 1024, 0, 1024, 0, 32, 16);
-        this.pixiSceneManager = new PixiSceneManager(this.pixiApp, gridSettings);
+        // const gridSettings = new GridSettings(32, 1024, 0, 1024, 0, 32, 16);
+        // this.pixiSceneManager = new PixiSceneManager(this.pixiApp, gridSettings);
 
         window.addEventListener("keydown", (e) => this.HandleKey(e, true));
         window.addEventListener("keyup", (e) => this.HandleKey(e, false));
@@ -259,26 +261,8 @@ export class PixiGameManager {
         this.isInitialized = true;
     }
     private screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
-        if (!this.pixiSceneManager || !this.pixiApp) {
-            return { x: screenX, y: screenY }; // fallback (shouldn't normally happen)
-        }
-
-        const app = this.pixiApp.getApplication();
-        const cam = this.pixiSceneManager.getCameraPosition();
-        const zoom = this.pixiSceneManager.getCameraZoom();
-
-        const viewW = app.renderer.width;
-        const viewH = app.renderer.height;
-
-        // Screen (0..viewW, 0..viewH) → centered, then scaled by zoom.
-        // Y is flipped (screen Y down, world Y up).
-        const nx = screenX - viewW * 0.5;
-        const ny = screenY - viewH * 0.5;
-
-        return {
-            x: cam.x + nx / zoom,
-            y: cam.y - ny / zoom,
-        };
+        if (!this.pixiApp) return { x: screenX, y: screenY };
+        return this.pixiApp.screenToWorld(screenX, screenY);
     }
     public getApplication(): Application {
         return this._pixiApp.getApplication();
@@ -293,15 +277,13 @@ export class PixiGameManager {
     }
     /** Fit board to window (no manual zoom controls). */
     private fitViewToWindow(): void {
-        if (!this.pixiSceneManager) return;
+        if (!this.m_scene) return;
 
-        // Pull the scene’s current grid bounds and fit to them.
         const gs = this.m_scene?.sc_sceneSettings?.getGridSettings?.();
         if (!gs) return;
 
-        this.pixiSceneManager.fitWorldToViewport(gs.getMinX(), gs.getMinY(), gs.getMaxX(), gs.getMaxY(), 0);
+        this.m_scene.fitWorldToViewport(gs.getMinX(), gs.getMinY(), gs.getMaxX(), gs.getMaxY(), 0);
 
-        // Tell scene the camera/container may have changed.
         this.m_scene?.CameraChanged?.();
     }
     public HomeCamera(): void {
@@ -386,7 +368,6 @@ export class PixiGameManager {
         else this.activateScene(this.flatScenes[index]);
     }
     public StartGame(): void {
-        console.log("JJJJJJ");
         if (this.m_scene && this.m_scene.startScene()) this.started = true;
         this.onHasStarted.emit(this.started);
         this.fitViewToWindow(); // keep neutral after start too
@@ -400,7 +381,7 @@ export class PixiGameManager {
 
         this.isInitialized = false;
         this.pixiApp?.destroy();
-        this.pixiSceneManager?.destroy();
+        // this.pixiSceneManager?.destroy();
     }
     public RequestTime(team?: number): void {
         if (this.started && this.m_scene && team !== undefined) this.m_scene.requestTime(team);
@@ -418,9 +399,13 @@ export class PixiGameManager {
         this.m_scene?.Destroy();
         this.started = false;
 
+        const gridSettings = new GridSettings(32, 1024, 0, 1024, 0, 32, 16);
+
         const context: PixiSceneContext = {
-            pixiSceneManager: this._pixiSceneManager,
+            pixiApp: this._pixiApp,
             textures: this._textures,
+            gridSettings: gridSettings,
+            onHasStarted: this.onHasStarted,
         };
         this.m_scene = new SceneClass(context);
 
@@ -464,6 +449,9 @@ export class PixiGameManager {
     }
     public Clone(): void {
         if (this.m_scene?.sc_selectedUnitProperties && !this.started) this.m_scene.cloneObject();
+    }
+    public Delete(): void {
+        if (this.m_scene?.sc_selectedUnitProperties && !this.started) this.m_scene.deleteObject();
     }
     public Split(newAmount: number): void {
         if (this.m_scene?.sc_selectedUnitProperties && !this.started) {
@@ -571,7 +559,6 @@ export class PixiGameManager {
 
         // Damage animation surface
         if (this.m_scene?.sc_damageForAnimation.render) {
-            console.log("EMIT2");
             this.onDamageReceived.emit(this.m_scene.sc_damageForAnimation.amount);
             this.m_scene.sc_damageForAnimation.render = false;
             this.m_scene.sc_damageForAnimation.amount = 0;

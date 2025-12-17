@@ -17,6 +17,7 @@ import { MessageBox } from "./MessageBox";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 const greenOverlayImage = new URL("../../../images/overlay_green.webp", import.meta.url).toString();
 const redOverlayImage = new URL("../../../images/overlay_red.webp", import.meta.url).toString();
+const sidebarOverlayImage = new URL("../../../images/sidebar_overlay.webp", import.meta.url).toString(); // [NEW]
 import { UnitStatsListItem } from "./UnitStatsListItem";
 import { UpNext } from "./UpNext";
 import SynergiesRow from "./SynergiesRow";
@@ -122,6 +123,10 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
                 borderColor: "divider",
                 overflowY: "auto",
                 overflowX: "hidden",
+                // Background Image Overlay
+                backgroundImage: `url(${sidebarOverlayImage})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
             }}
         >
             {hasSelectedUnit && (

@@ -1,18 +1,14 @@
 // game/core/src/ui/FightControlToggler.tsx
 import { UnitProperties, TeamVals } from "@heroesofcrypto/common";
 import React, { useEffect, useState, useRef } from "react";
-import { useTheme } from "@mui/joy/styles";
 import List from "@mui/joy/List";
 import ListItem from "@mui/joy/ListItem";
 import ListItemButton from "@mui/joy/ListItemButton";
 import ListItemContent from "@mui/joy/ListItemContent";
 import Typography from "@mui/joy/Typography";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import TerrainRoundedIcon from "@mui/icons-material/TerrainRounded";
-import GroupAddRoundedIcon from "@mui/icons-material/GroupAddRounded";
+import Box from "@mui/joy/Box";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { RedFlagIcon } from "../svg/flag_red";
-import { GreenFlagIcon } from "../svg/flag_green";
+import { images } from "../../generated/image_imports";
 import UnitInputAndActions from "./UnitInputAndActions";
 import Toggler from "../Toggler";
 import MapSettingsRadioButtons from "./MapSettingsRadioButtons";
@@ -21,7 +17,6 @@ import UnitSplitter from "./UnitSplitter";
 
 const FightControlToggler: React.FC = () => {
     const [unitProperties, setUnitProperties] = useState({} as UnitProperties);
-    const theme = useTheme();
     const manager = usePixiManager();
 
     // References to setOpen functions for each toggler
@@ -79,19 +74,49 @@ const FightControlToggler: React.FC = () => {
                                 setOpen(!open);
                             }}
                             sx={{
+                                py: 2, // 50% bigger Y-wise
                                 backgroundColor: open
-                                    ? theme.palette.mode === "dark"
-                                        ? "rgba(255, 255, 255, 0.1)"
-                                        : "rgba(0, 0, 0, 0.1)"
+                                    ? "rgba(255, 143, 0, 0.1)" // Gold tint
                                     : "inherit",
                                 transition: "background-color 0.3s",
+                                "&:hover": {
+                                    backgroundColor: open ? "rgba(255, 143, 0, 0.15)" : "rgba(255, 255, 255, 0.05)",
+                                },
                             }}
                         >
-                            <GroupAddRoundedIcon />
+                            <Box
+                                component="img"
+                                src={images.army_icon}
+                                sx={{
+                                    width: "36px",
+                                    height: "36px",
+                                    filter: open ? "none" : "grayscale(100%)", // Optional: grayscale when closed
+                                    opacity: open ? 1 : 0.7,
+                                }}
+                            />
                             <ListItemContent>
-                                <Typography level="title-sm">Army control</Typography>
+                                <Typography
+                                    level="title-sm"
+                                    sx={{
+                                        color: open ? "#FF8F00" : "inherit",
+                                        fontWeight: open ? "xl" : "md",
+                                    }}
+                                >
+                                    Army
+                                </Typography>
                             </ListItemContent>
-                            <KeyboardArrowDownIcon sx={{ transform: open ? "rotate(180deg)" : "none" }} />
+                            <Box
+                                component="img"
+                                src={images.tr_up}
+                                sx={{
+                                    width: "12px",
+                                    transform: open ? "none" : "rotate(180deg)",
+                                    transition: "transform 0.2s",
+                                    filter: open
+                                        ? "brightness(0) saturate(100%) invert(58%) sepia(91%) saturate(3089%) hue-rotate(2deg) brightness(103%) contrast(104%)"
+                                        : "none", // Gold filter approximation or just let it be
+                                }}
+                            />
                         </ListItemButton>
                     );
                 }}
@@ -118,19 +143,49 @@ const FightControlToggler: React.FC = () => {
                                 setOpen(!open);
                             }}
                             sx={{
+                                py: 2, // 50% bigger Y-wise
                                 backgroundColor: open
-                                    ? theme.palette.mode === "dark"
-                                        ? "rgba(255, 255, 255, 0.1)"
-                                        : "rgba(0, 0, 0, 0.1)"
+                                    ? "rgba(255, 143, 0, 0.1)" // Gold tint
                                     : "inherit",
                                 transition: "background-color 0.3s",
+                                "&:hover": {
+                                    backgroundColor: open ? "rgba(255, 143, 0, 0.15)" : "rgba(255, 255, 255, 0.05)",
+                                },
                             }}
                         >
-                            <TerrainRoundedIcon />
+                            <Box
+                                component="img"
+                                src={images.board_icon}
+                                sx={{
+                                    width: "36px",
+                                    height: "36px",
+                                    filter: open ? "none" : "grayscale(100%)",
+                                    opacity: open ? 1 : 0.7,
+                                }}
+                            />
                             <ListItemContent>
-                                <Typography level="title-sm">Map settings</Typography>
+                                <Typography
+                                    level="title-sm"
+                                    sx={{
+                                        color: open ? "#FF8F00" : "inherit",
+                                        fontWeight: open ? "xl" : "md",
+                                    }}
+                                >
+                                    Board
+                                </Typography>
                             </ListItemContent>
-                            <KeyboardArrowDownIcon sx={{ transform: open ? "rotate(180deg)" : "none" }} />
+                            <Box
+                                component="img"
+                                src={images.tr_up}
+                                sx={{
+                                    width: "12px",
+                                    transform: open ? "none" : "rotate(180deg)",
+                                    transition: "transform 0.2s",
+                                    filter: open
+                                        ? "brightness(0) saturate(100%) invert(58%) sepia(91%) saturate(3089%) hue-rotate(2deg) brightness(103%) contrast(104%)"
+                                        : "none",
+                                }}
+                            />
                         </ListItemButton>
                     );
                 }}
@@ -153,19 +208,47 @@ const FightControlToggler: React.FC = () => {
                                 setOpen(!open);
                             }}
                             sx={{
-                                backgroundColor: open
-                                    ? theme.palette.mode === "dark"
-                                        ? "rgba(255, 255, 255, 0.1)"
-                                        : "rgba(0, 0, 0, 0.1)"
-                                    : "inherit",
+                                py: 2,
+                                backgroundColor: open ? "rgba(255, 143, 0, 0.1)" : "inherit",
                                 transition: "background-color 0.3s",
+                                "&:hover": {
+                                    backgroundColor: open ? "rgba(255, 143, 0, 0.15)" : "rgba(255, 255, 255, 0.05)",
+                                },
                             }}
                         >
-                            <RedFlagIcon />
+                            <Box
+                                component="img"
+                                src={images.flag_red_icon}
+                                sx={{
+                                    width: "36px",
+                                    height: "36px",
+                                    filter: open ? "none" : "grayscale(100%)",
+                                    opacity: open ? 1 : 0.7,
+                                }}
+                            />
                             <ListItemContent>
-                                <Typography level="title-sm">Red side</Typography>
+                                <Typography
+                                    level="title-sm"
+                                    sx={{
+                                        color: open ? "#FF8F00" : "inherit",
+                                        fontWeight: open ? "xl" : "md",
+                                    }}
+                                >
+                                    Reds
+                                </Typography>
                             </ListItemContent>
-                            <KeyboardArrowDownIcon sx={{ transform: open ? "rotate(180deg)" : "none" }} />
+                            <Box
+                                component="img"
+                                src={images.tr_up}
+                                sx={{
+                                    width: "12px",
+                                    transform: open ? "none" : "rotate(180deg)",
+                                    transition: "transform 0.2s",
+                                    filter: open
+                                        ? "brightness(0) saturate(100%) invert(58%) sepia(91%) saturate(3089%) hue-rotate(2deg) brightness(103%) contrast(104%)"
+                                        : "none",
+                                }}
+                            />
                         </ListItemButton>
                     );
                 }}
@@ -188,19 +271,47 @@ const FightControlToggler: React.FC = () => {
                                 setOpen(!open);
                             }}
                             sx={{
-                                backgroundColor: open
-                                    ? theme.palette.mode === "dark"
-                                        ? "rgba(255, 255, 255, 0.1)"
-                                        : "rgba(0, 0, 0, 0.1)"
-                                    : "inherit",
+                                py: 2,
+                                backgroundColor: open ? "rgba(255, 143, 0, 0.1)" : "inherit",
                                 transition: "background-color 0.3s",
+                                "&:hover": {
+                                    backgroundColor: open ? "rgba(255, 143, 0, 0.15)" : "rgba(255, 255, 255, 0.05)",
+                                },
                             }}
                         >
-                            <GreenFlagIcon />
+                            <Box
+                                component="img"
+                                src={images.flag_green_icon}
+                                sx={{
+                                    width: "36px",
+                                    height: "36px",
+                                    filter: open ? "none" : "grayscale(100%)",
+                                    opacity: open ? 1 : 0.7,
+                                }}
+                            />
                             <ListItemContent>
-                                <Typography level="title-sm">Green side</Typography>
+                                <Typography
+                                    level="title-sm"
+                                    sx={{
+                                        color: open ? "#FF8F00" : "inherit",
+                                        fontWeight: open ? "xl" : "md",
+                                    }}
+                                >
+                                    Greens
+                                </Typography>
                             </ListItemContent>
-                            <KeyboardArrowDownIcon sx={{ transform: open ? "rotate(180deg)" : "none" }} />
+                            <Box
+                                component="img"
+                                src={images.tr_up}
+                                sx={{
+                                    width: "12px",
+                                    transform: open ? "none" : "rotate(180deg)",
+                                    transition: "transform 0.2s",
+                                    filter: open
+                                        ? "brightness(0) saturate(100%) invert(58%) sepia(91%) saturate(3089%) hue-rotate(2deg) brightness(103%) contrast(104%)"
+                                        : "none",
+                                }}
+                            />
                         </ListItemButton>
                     );
                 }}

@@ -1,5 +1,6 @@
 // game/core/src/pixi/PixiScene.ts
 import { Texture } from "pixi.js";
+import { Signal } from "typed-signals";
 import {
     HoCConstants,
     HoCLib,
@@ -17,6 +18,7 @@ import {
     GridType,
     SynergyWithLevel,
     AbilityHelper,
+    GridSettings,
 } from "@heroesofcrypto/common";
 
 import {
@@ -30,7 +32,9 @@ import { EDGES_SIZE, MAX_FPS } from "../statics";
 import { HotKey } from "../utils/hotkeys";
 import { SceneLog } from "../scenes/SceneLog";
 import { SceneSettings } from "../scenes/SceneSettings";
-import { PixiSceneManager } from "./PixiSceneManager";
+import { PixiApp } from "./PixiApp";
+import { PixiDrawer } from "./PixiDrawer";
+import { SimplePhysicsManager } from "./SimplePhysicsManager";
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
 
@@ -45,8 +49,10 @@ export interface BodyLike {
 export type MouseJointLike = object | null;
 
 export interface PixiSceneContext {
-    pixiSceneManager: PixiSceneManager;
+    pixiApp: PixiApp;
     textures: PreloadedPixiTextures;
+    gridSettings: GridSettings;
+    onHasStarted: Signal<(started: boolean) => void>;
 }
 
 export interface SceneConstructor {
@@ -138,16 +144,25 @@ export abstract class PixiScene {
     protected sc_isAnimating = false;
     protected sc_isAIActive = false;
     protected sc_renderSpellBookOverlay = false;
+    protected sc_onHasStarted!: Signal<(started: boolean) => void>;
     // PixiJS components
-    protected pixiSceneManager!: PixiSceneManager;
+    protected pixiApp!: PixiApp;
     protected textures!: PreloadedPixiTextures;
+    protected drawer!: PixiDrawer;
+    protected physicsManager!: SimplePhysicsManager;
+    protected animating = false;
     protected constructor(sceneSettings: SceneSettings) {
         this.sc_sceneSettings = sceneSettings;
     }
     /** Call this from your scene’s constructor: `this.initialize(context)` */
     protected initialize(context: PixiSceneContext) {
-        this.pixiSceneManager = context.pixiSceneManager;
+        this.pixiApp = context.pixiApp;
         this.textures = context.textures;
+        this.sc_onHasStarted = context.onHasStarted;
+
+        // Physics - initialized here as it doesn't need Grid
+        this.physicsManager = new SimplePhysicsManager();
+        // Drawer must be initialized by subclass (e.g. Sandbox) after Grid creation
     }
     public setupControls() {}
     protected selectedSmallUnit(): boolean {
@@ -226,7 +241,6 @@ export abstract class PixiScene {
     public abstract cloneObject(newAmount?: number): boolean;
     public abstract deleteObject(): void;
     public abstract refreshScene(unitData: UnitProperties): void;
-    public abstract setGridType(gridType: GridType): void;
     public abstract getGridType(): GridType;
     /** MouseDown from screen coords (already converted to world if needed by caller) */
     public MouseDown(_p: HoCMath.XY): void {
@@ -484,9 +498,79 @@ export abstract class PixiScene {
     public Step(timeStep: number): void {
         if (timeStep > 0) this.sc_stepCount.increment();
 
-        // Example: update scene manager, animations, AI, etc.
-        // this.pixiSceneManager.update(timeStep);
-        //
+        // Update physics
+        this.physicsManager.update(timeStep * 1000); // Physics wants ms? physicsManager.update(deltaTimeMs)
+
+        // Draw overlays / helpers
+        // Check drawer exists because it's initialized by subclass
+        if (this.drawer) {
+            this.drawer.update(timeStep * 1000);
+        }
+    }
+    public Destroy() {
+        if (this.drawer) this.drawer.destroy();
+    }
+    // ------- Delegates from Manager -------
+    public fitWorldToViewport(minX: number, minY: number, maxX: number, maxY: number, padding = 0): void {
+        const { width, height } = this.getViewportSize(); // CSS pixels
+        const worldW = Math.max(1, maxX - minX);
+        const worldH = Math.max(1, maxY - minY);
+        const viewW = Math.max(1, width - padding * 2);
+        const viewH = Math.max(1, height - padding * 2);
+
+        const zoom = Math.min(viewW / worldW, viewH / worldH);
+        const cx = (minX + maxX) * 0.5;
+        const cy = (minY + maxY) * 0.5;
+
+        // Use direct cam control if possible or via PixiSceneManager?
+        // Original code used this.pixiApp.setCameraZoom/Position
+        // PixiSceneManager delegates to PixiApp? Or usage changed?
+        // Using this.pixiSceneManager as it exposes setCamera methods in HomeCamera example
+        this.pixiApp.setCameraZoom(zoom);
+        // y-up: flip Y via scale if needed, but setCameraZoom handles generic zoom.
+        this.pixiApp.setCameraZoom(zoom);
+        // y-up: flip Y via scale if needed, but setCameraZoom handles generic zoom.
+        // If we need manual root manipulation:
+        this.pixiApp.getCamera(); // Assuming this exists or use pixiApp.getCamera()
+        // Wait, fitWorldToViewport logic in broken file lines 567 used this.pixiApp.getCamera()
+        // Let's use logic consistent with HomeCamera (lines 540 in clean file uses pixiSceneManager)
+        // But logic in broken file lines 569 changed scale.set(zoom, -zoom).
+        // Let's assume standard setCameraZoom is safer.
+        this.pixiApp.setCameraPosition(cx, cy);
+    }
+    public getViewportSize(): { width: number; height: number } {
+        const app = this.pixiApp.getApplication(); // Use pixiApp directly as restored
+        return { width: app.renderer.width, height: app.renderer.height };
+    }
+    // ------- Drawer delegates -------
+    public drawPath(
+        color: number,
+        currentActivePath?: HoCMath.XY[],
+        currentActiveUnitPositions?: HoCMath.XY[],
+        hoverAttackFromHashes?: Set<number>,
+        drawSolid = true,
+    ): void {
+        this.drawer?.drawPath(color, currentActivePath, currentActiveUnitPositions, hoverAttackFromHashes, drawSolid);
+    }
+    public drawAttackTo(targetPosition: HoCMath.XY, size: number): void {
+        this.drawer?.drawAttackTo(targetPosition, size);
+    }
+    public drawHoverCells(cells?: HoCMath.XY[], hoverSelectedCellsSwitchToRed = false): void {
+        this.drawer?.drawHoverCells(cells, hoverSelectedCellsSwitchToRed);
+    }
+    public setHoleLayers(numberOfLayers: number): void {
+        this.drawer?.setHoleLayers(numberOfLayers);
+    }
+    public setGridType(gridType: GridType): void {
+        this.drawer?.setGridType(gridType);
+    }
+    // ------- Animation flags -------
+    public setAnimating(animating: boolean) {
+        this.sc_isAnimating = animating;
+        // Old code used this.animating = animating; but sc_isAnimating is standard prefix
+    }
+    public isAnimating(): boolean {
+        return this.sc_isAnimating;
     }
     public GetDefaultViewZoom(edgesPx = EDGES_SIZE): number {
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -499,7 +583,7 @@ export abstract class PixiScene {
         const worldH = maxY - minY;
 
         // Read current render size from Pixi (device pixels already accounted for by renderer)
-        const app = this.pixiSceneManager.getApplication();
+        const app = this.pixiApp.getApplication();
         const viewW = Math.max(1, app.renderer.width - edgesPx);
         const viewH = Math.max(1, app.renderer.height - edgesPx);
 
@@ -519,7 +603,7 @@ export abstract class PixiScene {
         const worldH = maxY - minY; // 2048
 
         // read renderer size (you locked to 2048×2048, but this is general)
-        const app = this.pixiSceneManager.getApplication();
+        const app = this.pixiApp.getApplication();
         const viewW = app.renderer.width;
         const viewH = app.renderer.height;
 
@@ -527,11 +611,10 @@ export abstract class PixiScene {
         const cx = (minX + maxX) * 0.5; // 0
         const cy = (minY + maxY) * 0.5; // 1024
 
-        this.pixiSceneManager.setCameraZoom(z);
-        this.pixiSceneManager.setCameraPosition(cx, cy);
+        this.pixiApp.setCameraZoom(z);
+        this.pixiApp.setCameraPosition(cx, cy);
     }
     public getCenter(): HoCMath.XY {
         return { x: 0, y: 1024 };
     }
-    public Destroy() {}
 }

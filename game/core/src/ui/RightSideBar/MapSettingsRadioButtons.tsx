@@ -54,9 +54,66 @@ const MapSettingsRadioButtons: React.FC = () => {
                         value={gridType}
                         onChange={handleMapSettingChange}
                     >
-                        <Radio value={GridVals.NORMAL} label="Normal" />
-                        <Radio value={GridVals.LAVA_CENTER} label="Lava" />
-                        <Radio value={GridVals.BLOCK_CENTER} label="Mountain" />
+                        <Radio
+                            value={GridVals.NORMAL}
+                            label="Normal"
+                            sx={{
+                                color: "rgba(255, 143, 0, 0.5)",
+                                "&.Mui-checked": {
+                                    color: "#FF8F00",
+                                },
+                                "& .MuiTypography-root": {
+                                    color: "rgba(255, 143, 0, 0.5)",
+                                },
+                                "&.Mui-checked .MuiTypography-root": {
+                                    color: "#FF8F00",
+                                },
+                                "&:hover": {
+                                    "& .MuiTypography-root": { color: "rgba(255, 143, 0, 0.8)" },
+                                    color: "rgba(255, 143, 0, 0.8)",
+                                },
+                            }}
+                        />
+                        <Radio
+                            value={GridVals.LAVA_CENTER}
+                            label="Lava"
+                            sx={{
+                                color: "rgba(255, 143, 0, 0.5)",
+                                "&.Mui-checked": {
+                                    color: "#FF8F00",
+                                },
+                                "& .MuiTypography-root": {
+                                    color: "rgba(255, 143, 0, 0.5)",
+                                },
+                                "&.Mui-checked .MuiTypography-root": {
+                                    color: "#FF8F00",
+                                },
+                                "&:hover": {
+                                    "& .MuiTypography-root": { color: "rgba(255, 143, 0, 0.8)" },
+                                    color: "rgba(255, 143, 0, 0.8)",
+                                },
+                            }}
+                        />
+                        <Radio
+                            value={GridVals.BLOCK_CENTER}
+                            label="Mountain"
+                            sx={{
+                                color: "rgba(255, 143, 0, 0.5)",
+                                "&.Mui-checked": {
+                                    color: "#FF8F00",
+                                },
+                                "& .MuiTypography-root": {
+                                    color: "rgba(255, 143, 0, 0.5)",
+                                },
+                                "&.Mui-checked .MuiTypography-root": {
+                                    color: "#FF8F00",
+                                },
+                                "&:hover": {
+                                    "& .MuiTypography-root": { color: "rgba(255, 143, 0, 0.8)" },
+                                    color: "rgba(255, 143, 0, 0.8)",
+                                },
+                            }}
+                        />
                         {/* <Radio value={GridType.WATER_CENTER} label="Water" /> */}
                     </RadioGroup>
                 </FormControl>
@@ -66,9 +123,20 @@ const MapSettingsRadioButtons: React.FC = () => {
             <Box sx={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}>
                 <Button
                     variant="outlined"
-                    color="primary"
                     onClick={handleRandomButtonClick}
-                    sx={{ height: "100%", width: "100%" }}
+                    sx={{
+                        height: "100%",
+                        width: "100%",
+                        borderColor: "#FF8F00",
+                        color: "#FF8F00",
+                        "&:hover": {
+                            borderColor: "#FF8F00",
+                            backgroundColor: "rgba(255, 143, 0, 0.1)",
+                        },
+                        "&:active": {
+                            backgroundColor: "rgba(255, 143, 0, 0.2)",
+                        },
+                    }}
                 >
                     Random
                 </Button>

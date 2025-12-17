@@ -69,18 +69,27 @@ export class SandboxDrawer {
         const fightStarted = fightProps.hasFightStarted();
 
         // 0. Hovered Move Range (Placement Phase)
+        // 0. Hovered Move Range (Placement Phase) - Animated Dots
         if (ctx.hoveredMoveRange && ctx.hoveredMoveRange.length > 0) {
-            g.fillStyle = 0xffffff; // White
-            const alpha = 0.23;
             const step = gs.getStep();
             const hs = gs.getHalfStep();
             const minX = gs.getMinX();
 
+            // Animation Pulse
+            const pulse = (Math.sin(hoverGlowPhase * 3) + 1) / 2;
+            // [VISUAL TWEAK] Different sizes for Placement vs Combat
+            const dotBaseRadius = fightStarted ? step * 0.04 : step * 0.12;
+            const dotRadius = dotBaseRadius * (1 + 0.2 * pulse);
+            const dotAlpha = 0.4 + 0.3 * pulse;
+
             for (const cell of ctx.hoveredMoveRange) {
                 const pos = GridMath.getPositionForCell(cell, minX, step, hs);
                 if (pos) {
-                    // pos is center, draw rect from top-left
-                    g.rect(pos.x - hs, pos.y - hs, step, step).fill({ color: 0xffffff, alpha: alpha });
+                    // Draw animated dot at center
+                    g.circle(pos.x, pos.y, dotRadius).fill({ color: 0xffffff, alpha: dotAlpha });
+
+                    // Optional: Faint outer ring for better visibility on light terrain
+                    g.circle(pos.x, pos.y, dotRadius + 2).stroke({ width: 1, color: 0x000000, alpha: 0.1 });
                 }
             }
         }
@@ -104,13 +113,13 @@ export class SandboxDrawer {
         // 0.5 Sidebar Unit Range (New Feature)
         if (sidebarUnitRanges) {
             const { xy, attackRange, auraRanges, isSmall } = sidebarUnitRanges;
-            SandboxDrawer.drawAuraAndAttackRanges(g, xy, attackRange, auraRanges, isSmall, gs.getCellSize());
+            SandboxDrawer.drawAuraAndAttackRanges(g, xy, attackRange, auraRanges, isSmall, gs.getCellSize(), 0.7);
         }
 
         // 0.51 Hovered Aura Ranges
         if (hoveredAuraRanges) {
             const { xy, auraRanges, isSmall } = hoveredAuraRanges;
-            SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, isSmall, gs.getCellSize());
+            SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, isSmall, gs.getCellSize(), 0.7);
         }
 
         // 0.6 Active Unit Aura Range (Requested Feature)
@@ -122,7 +131,7 @@ export class SandboxDrawer {
                 const xy = currentActiveUnit.getVisualCenter(gs);
                 const isSmall = currentActiveUnit.isSmallSize();
                 // Draw only Aura ranges (skip attack range as it's handled elsewhere or we can add it if needed)
-                SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, isSmall, gs.getCellSize());
+                SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, isSmall, gs.getCellSize(), 0.5);
             }
         }
 
@@ -144,7 +153,7 @@ export class SandboxDrawer {
             if (path.length > 0) {
                 for (let i = 0; i < path.length; i++) {
                     const pos = GridMath.getPositionForCell(path[i], gs.getMinX(), gs.getStep(), gs.getHalfStep());
-                    const baseRadius = gs.getCellSize() * 0.18;
+                    const baseRadius = gs.getCellSize() * 0.12; // Reduced from 0.18 to 0.06 (Small dots)
                     const phase = hoverGlowPhase + i * 0.4;
                     const wave = (Math.sin(phase) + 1) / 2;
                     const innerRadius = baseRadius * (0.9 + 0.2 * wave);
@@ -216,6 +225,7 @@ export class SandboxDrawer {
         auraRanges: { range: number; isBuff: boolean }[],
         isSmall: boolean,
         cellSize: number,
+        alphaMultiplier = 1.0,
     ): void {
         // Attack Range
         if (attackRange > 0) {
@@ -223,7 +233,7 @@ export class SandboxDrawer {
             g.circle(xy.x, xy.y, attackRange).stroke({
                 width: 1.5,
                 color: 0x00ffff, // Cyan
-                alpha: 0.5,
+                alpha: 0.5 * alphaMultiplier,
             });
         }
 
@@ -244,12 +254,12 @@ export class SandboxDrawer {
                 g.rect(xy.x - extent, xy.y - extent, extent * 2, extent * 2).stroke({
                     width: 2,
                     color: color,
-                    alpha: 0.6,
+                    alpha: 0.6 * alphaMultiplier,
                 });
                 // Optional: Fill slightly
                 g.rect(xy.x - extent, xy.y - extent, extent * 2, extent * 2).fill({
                     color: color,
-                    alpha: 0.2,
+                    alpha: 0.2 * alphaMultiplier,
                 });
             }
         }

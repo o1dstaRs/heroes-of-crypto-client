@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
-import { Sprite, Graphics, Container, Text as PixiText, TextStyle, Texture } from "pixi.js";
+import { Sprite, Graphics, Container, Text as PixiText, TextStyle, Texture, BlurFilter } from "pixi.js";
+import { PixiDrawer } from "../pixi/PixiDrawer";
 import { SandboxDrawer } from "./SandboxDrawer";
 import {
     AttackHandler,
@@ -59,6 +60,11 @@ import { HoverManager } from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
 import { MAX_HOLE_LAYERS } from "@/statics";
 
+interface IFlickeringLight extends Graphics {
+    _flickerOffset: number;
+    _flickerSpeed: number;
+}
+
 export class Sandbox extends PixiScene {
     private readonly grid: Grid;
     private readonly pathHelper: PathHelper;
@@ -74,7 +80,7 @@ export class Sandbox extends PixiScene {
     private bgSprite?: Sprite;
     private placementManager: PlacementManager;
     private spawnPulsePhase = 0;
-    private bgKey: "background_dark" | "background_light" = "background_dark";
+    private bgKey = "background_new";
     private placementGraphics?: Graphics;
     private centerTerrainSprite?: Sprite;
     private selectedBoardUnit?: RenderableUnit;
@@ -87,6 +93,7 @@ export class Sandbox extends PixiScene {
         destCell: HoCMath.XY; // final destination cell for logging
         /** Last world position where a large-unit track cluster was dropped */
         lastTrackWorld: HoCMath.XY;
+        onComplete?: () => void;
     };
     private moveTrackPath?: HoCMath.XY[];
     private moveTrackProgress = 0; // float index along moveTrackPath (0..length)
@@ -127,6 +134,8 @@ export class Sandbox extends PixiScene {
     private sc_placementMoveRange?: HoCMath.XY[];
     private sc_lastCalcRef?: { unitId: string; x: number; y: number; steps: number; layoutVersion: number };
     private layoutVersion = 0; // Tracks board topology changes during placement
+    private atmosphereAlpha = 0; // [NEW] Transition alpha for night/lights
+    private atmosphereLights: Graphics[] = []; // [NEW] For flickering animation
     // --- Scene Setup ---
     private currentActiveUnit?: RenderableUnit;
     private currentShiftedUnit?: RenderableUnit;
@@ -162,6 +171,7 @@ export class Sandbox extends PixiScene {
             this.sc_sceneSettings.getGridSettings(),
             FightStateManager.getInstance().getFightProperties().getGridType(),
         );
+        this.drawer = new PixiDrawer(this.grid, this.pixiApp.getApplication(), this.pixiApp.getWorldRoot());
 
         this.holeContainer = new Container();
         this.holeContainer.sortableChildren = true;
@@ -179,7 +189,7 @@ export class Sandbox extends PixiScene {
         this.placementManager = new PlacementManager(this.sc_sceneSettings.getGridSettings());
 
         this.unitsOverlay = new UnitsOverlay(
-            context.pixiSceneManager.getApplication(),
+            context.pixiApp.getApplication(),
             (name) => this.texAny(name),
             (props) => {
                 if (props) {
@@ -277,8 +287,9 @@ export class Sandbox extends PixiScene {
         return this.unitsOverlay;
     }
     public override CameraChanged(): void {
-        this.attachToWorldRoot(this.placementGraphics, 100);
-        this.attachToWorldRoot(this.gameplayGraphics, 55);
+        // [FIXED] Use attachToWorldRoot with High Z-Index to ensure it overlays units
+        this.attachToWorldRoot(this.placementGraphics, 6000);
+        this.attachToWorldRoot(this.gameplayGraphics, 55); // Ranges below units (Units > 100)
         this.attachToWorldRoot(this.centerTerrainSprite, 50);
         this.hoverManager.onCameraChanged();
     }
@@ -511,7 +522,7 @@ export class Sandbox extends PixiScene {
     private finishMoveAnimation(): void {
         const anim = this.moveAnimation;
         if (!anim) return;
-        const { unit, worldPath, destCell } = anim;
+        const { unit, worldPath, destCell, onComplete } = anim;
         const end = worldPath[worldPath.length - 1] ?? unit.getPosition();
 
         // Ensure we end up exactly at the intended destination.
@@ -524,20 +535,29 @@ export class Sandbox extends PixiScene {
         }
 
         this.sc_sceneLog.updateLog(`${unit.getName()} moved to(${destCell.x}, ${destCell.y})`);
+
         this.moveAnimation = undefined;
         this.moveTrackPath = undefined;
         this.moveTrackProgress = 0;
         this.sc_moveBlocked = false;
         this.isActiveUnitMoving = false;
+        this.hoverManager.setSilhouetteLocked(false);
+        this.hoverManager.clearHoverSilhouette(true);
         if (this.sc_visibleState) {
             this.sc_visibleStateUpdateNeeded = true;
         }
         // Apply one final sync and default idle to reset any move effects
-        unit.syncVisual(this.pixiSceneManager.getWorldRoot(), this.sc_sceneSettings.getGridSettings());
+        unit.syncVisual(this.pixiApp.getCamera(), this.sc_sceneSettings.getGridSettings());
         // Reset sprite transform if we manipulated it
         unit.setSpriteRotation(0);
-        // End the turn as before.
-        this.finishTurn();
+
+        // If a callback is provided (e.g. "Move then Attack"), run it instead of finishing turn immediately.
+        if (onComplete) {
+            onComplete();
+        } else {
+            // Standard move-only action ends the turn.
+            this.finishTurn();
+        }
     }
     private updateLingeringTracks(dt: number): void {
         if (!this.lingeringTracks.length) return;
@@ -570,36 +590,130 @@ export class Sandbox extends PixiScene {
     }
     private ensureBackgroundSprite(): void {
         if (this.bgSprite) return;
-        const tex =
-            this.texAny(this.bgKey) ??
-            this.texAny(this.bgKey === "background_dark" ? "background_light" : "background_dark");
+        const tex = this.texAny("background_new");
         if (!tex) return;
         const bg = new Sprite(tex);
         bg.anchor.set(0.5);
-        const stage = this.pixiSceneManager.getApplication().stage;
+        const stage = this.pixiApp.getApplication().stage;
         stage.addChildAt(bg, 0);
         this.bgSprite = bg;
         this.layoutBackgroundSquare();
+    } // [FIX] Added missing brace
+    private dungeonOverlay?: Container;
+    private updateDungeonAtmosphere(started: boolean, alpha: number): void {
+        const stage = this.pixiApp.getApplication().stage;
+
+        // Hide if not started
+        if (!started) {
+            if (this.dungeonOverlay) {
+                this.dungeonOverlay.visible = false;
+            }
+            return;
+        }
+
+        // Create Container if missing
+        if (!this.dungeonOverlay) {
+            this.dungeonOverlay = new Container();
+            stage.addChildAt(this.dungeonOverlay, 1); // Above background (0)
+        }
+
+        const overlayContainer = this.dungeonOverlay;
+        overlayContainer.visible = true;
+        overlayContainer.alpha = alpha; // Control fade
+
+        // If already populated, just return (avoid rebuilding every frame)
+        if (overlayContainer.children.length > 0) return;
+
+        const { width: vw, height: vh } = this.getViewportSize();
+        const size = Math.min(vw, vh);
+        const x = vw * 0.5;
+        const y = vh * 0.5;
+        const halfSize = size / 2;
+
+        // 1. Dark Night Overlay
+        const overlay = new Graphics();
+        overlay.rect(x - halfSize, y - halfSize, size, size).fill({ color: 0x000000, alpha: 0.6 }); // Slightly darker night
+        overlayContainer.addChild(overlay);
+
+        // 2. Perimeter Lights (Fire Pits)
+        const radius = size * 0.25; // Large glow spread
+        const blur = new BlurFilter(45);
+        this.atmosphereLights = []; // Reset tracker
+
+        // Push lights OUTWARDS (Away from center)
+        // User requested "further from sides" -> increased from 0.12 to 0.22
+        const margin = size * 0.22;
+        const tl = { x: x - halfSize - margin, y: y - halfSize - margin };
+        const tr = { x: x + halfSize + margin, y: y - halfSize - margin };
+        const bl = { x: x - halfSize - margin, y: y + halfSize + margin };
+        const br = { x: x + halfSize + margin, y: y + halfSize + margin };
+
+        // Generate positions around the perimeter
+        const lightsInit: Array<{ x: number; y: number }> = [];
+        const steps = 6; // More lights due to larger perimeter
+
+        // Helper to add jitter
+        const jitter = () => (Math.random() - 0.5) * (size * 0.05);
+
+        // Top Edge (TL -> TR)
+        for (let i = 0; i <= steps; i++) {
+            lightsInit.push({ x: tl.x + (tr.x - tl.x) * (i / steps) + jitter(), y: tl.y + jitter() });
+        }
+        // Right Edge (TR -> BR)
+        for (let i = 0; i <= steps; i++) {
+            lightsInit.push({ x: tr.x + jitter(), y: tr.y + (br.y - tr.y) * (i / steps) + jitter() });
+        }
+        // Bottom Edge (BR -> BL)
+        for (let i = 0; i <= steps; i++) {
+            lightsInit.push({ x: br.x + (bl.x - br.x) * (i / steps) + jitter(), y: br.y + jitter() });
+        }
+        // Left Edge (BL -> TL)
+        for (let i = 0; i <= steps; i++) {
+            lightsInit.push({ x: bl.x + jitter(), y: bl.y + (tl.y - bl.y) * (i / steps) + jitter() });
+        }
+
+        // Draw Lights
+        lightsInit.forEach((pos) => {
+            const light = new Graphics();
+            // Core (Intense Orange)
+            light.circle(0, 0, radius * 0.4).fill({ color: 0xffaa00, alpha: 0.5 });
+            // Outer Glow (Reddish)
+            light.circle(0, 0, radius * 0.8).fill({ color: 0xff4500, alpha: 0.3 });
+
+            // Store offset/speed for flickering in the Graphics object itself (hacky but effective)
+            const fLight = light as unknown as IFlickeringLight;
+            fLight._flickerOffset = Math.random() * 100;
+            fLight._flickerSpeed = 2 + Math.random() * 3;
+
+            light.position.set(pos.x, pos.y);
+            light.filters = [blur];
+            overlayContainer.addChild(light);
+            this.atmosphereLights.push(light);
+        });
     }
     private layoutBackgroundSquare(): void {
         if (!this.bgSprite) return;
-        const { width: vw, height: vh } = this.pixiSceneManager.getViewportSize();
+        const { width: vw, height: vh } = this.getViewportSize();
         const size = Math.min(vw, vh);
         this.bgSprite.x = vw * 0.5;
         this.bgSprite.y = vh * 0.5;
         this.bgSprite.width = size;
         this.bgSprite.height = size;
-        const isLightMode = typeof localStorage !== "undefined" && localStorage.getItem("joy-mode") === "light";
-        const wantKey = isLightMode ? "background_light" : "background_dark";
+        const wantKey = "background_new";
         const wantTex = this.texAny(wantKey);
         if (wantTex && this.bgKey !== wantKey) {
             this.bgKey = wantKey;
             this.bgSprite.texture = wantTex;
         }
+
+        // Update overlay if active
+        if (this.dungeonOverlay && this.dungeonOverlay.visible) {
+            this.updateDungeonAtmosphere(true, this.atmosphereAlpha);
+        }
     }
     private attachToWorldRoot(obj: Graphics | Sprite | Container | undefined, zIndex: number): void {
         if (!obj) return;
-        const worldRoot = this.pixiSceneManager.getWorldRoot();
+        const worldRoot = this.pixiApp.getWorldRoot();
         if (obj.parent !== worldRoot) {
             obj.removeFromParent();
             worldRoot.addChild(obj);
@@ -636,6 +750,12 @@ export class Sandbox extends PixiScene {
         super.Resize(w, h);
         // 2) Background is in screen-space
         this.layoutBackgroundSquare();
+
+        // [FIX] Force rebuild of dungeon atmosphere on resize
+        if (this.dungeonOverlay) {
+            this.dungeonOverlay.removeChildren();
+        }
+
         // 3) Overlay only exists / matters pre-fight
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const fightStarted = fightProps.hasFightStarted();
@@ -648,7 +768,8 @@ export class Sandbox extends PixiScene {
             this.unitsOverlay.destroy();
         }
         // 4) Anything that lives in world space and might have been attached
-        // to the old worldRoot should be re-attached to the new one.
+        this.attachToWorldRoot(this.placementGraphics, 6000); // Overlay on top
+        // Holes
         this.attachToWorldRoot(this.holeContainer, 20);
         this.attachToWorldRoot(this.gameplayGraphics, 55);
         this.attachToWorldRoot(this.centerTerrainSprite, 50);
@@ -792,7 +913,7 @@ export class Sandbox extends PixiScene {
             if (unit) {
                 const rUnit = unit as RenderableUnit;
                 rUnit.setPosition(newPosition.x, newPosition.y);
-                rUnit.syncVisual(this.pixiSceneManager.getWorldRoot(), this.sc_sceneSettings.getGridSettings());
+                rUnit.syncVisual(this.pixiApp.getCamera(), this.sc_sceneSettings.getGridSettings());
             } else {
                 if (!result.unitIdsDestroyed.includes(uId)) {
                     result.unitIdsDestroyed.push(uId);
@@ -1197,9 +1318,6 @@ export class Sandbox extends PixiScene {
                 direction, // Pass primary attack direction for AoE uniformity
             );
 
-            if (this.hoverManager.hoverAttackFromCell) {
-                // Animation logic if needed
-            }
             if (meleeAttackResult.completed) {
                 for (const uId of meleeAttackResult.unitIdsDied) {
                     const unit = this.unitsHolder.getAllUnits().get(uId);
@@ -1220,121 +1338,130 @@ export class Sandbox extends PixiScene {
                 this.sc_damageStatsUpdateNeeded = true;
                 return true;
             }
-        }
 
-        // 2. RANGED
-        if (this.hoverManager.hoverAttackUnits && this.hoverManager.hoverAttackUnits.length > 0) {
-            const preHealth = this.captureHealthState();
+            // 2. RANGED
+            if (this.hoverManager.hoverAttackUnits && this.hoverManager.hoverAttackUnits.length > 0) {
+                const preHealth = this.captureHealthState();
 
-            const rangeDamageData: IVisibleDamage = {
-                amount: 0,
-                render: false,
-                unitPosition: { x: 0, y: 0 },
-                unitIsSmall: true,
-                hits: [],
-            };
+                const rangeDamageData: IVisibleDamage = {
+                    amount: 0,
+                    render: false,
+                    unitPosition: { x: 0, y: 0 },
+                    unitIsSmall: true,
+                    hits: [],
+                };
 
-            const rangeAttackResult = this.attackHandler.handleRangeAttack(
-                this.unitsHolder,
-                this.hoverRangeAttackDivisors,
-                1,
-                rangeDamageData,
-                this.currentActiveUnit,
-                this.hoverManager.hoverAttackUnits,
-                [],
-                this.sc_hoveredShotRange?.xy,
-                false,
-                false,
-            );
+                const rangeAttackResult = this.attackHandler.handleRangeAttack(
+                    this.unitsHolder,
+                    this.hoverRangeAttackDivisors,
+                    1,
+                    rangeDamageData,
+                    this.currentActiveUnit,
+                    this.hoverManager.hoverAttackUnits,
+                    [],
+                    this.sc_hoveredShotRange?.xy,
+                    false,
+                    false,
+                );
 
-            // Handle visual logic using detailed hits if available
-            const ignoredIds = new Set<string>();
-            const targetUnit = this.hoverManager.hoverAttackUnits?.[0]?.[0];
-            let direction: HoCMath.XY | undefined; // Lifted declaration
+                // Handle visual logic using detailed hits if available
+                const ignoredIds = new Set<string>();
+                const targetUnit = this.hoverManager.hoverAttackUnits?.[0]?.[0];
+                let direction: HoCMath.XY | undefined; // Lifted declaration
 
-            if (targetUnit && rangeDamageData.hits && rangeDamageData.hits.length > 0) {
-                ignoredIds.add(targetUnit.getId());
+                if (targetUnit && rangeDamageData.hits && rangeDamageData.hits.length > 0) {
+                    ignoredIds.add(targetUnit.getId());
 
-                const gs = this.sc_sceneSettings.getGridSettings();
-                const center =
-                    targetUnit instanceof RenderableUnit ? targetUnit.getVisualCenter(gs) : targetUnit.getPosition();
-                const attCell = this.currentActiveUnit.getPosition()
-                    ? GridMath.getCellForPosition(gs, this.currentActiveUnit.getPosition())
-                    : undefined;
-                // Note: Range attack doesn't strictly have "hoverAttackFromCell". Uses unit position.
+                    const gs = this.sc_sceneSettings.getGridSettings();
+                    const center =
+                        targetUnit instanceof RenderableUnit
+                            ? targetUnit.getVisualCenter(gs)
+                            : targetUnit.getPosition();
+                    const attCell = this.currentActiveUnit.getPosition()
+                        ? GridMath.getCellForPosition(gs, this.currentActiveUnit.getPosition())
+                        : undefined;
+                    // Note: Range attack doesn't strictly have "hoverAttackFromCell". Uses unit position.
 
-                if (attCell) {
-                    const attPos = GridMath.getPositionForCell(attCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-                    if (attPos) {
-                        direction = { x: center.x - attPos.x, y: center.y - attPos.y };
+                    if (attCell) {
+                        const attPos = GridMath.getPositionForCell(
+                            attCell,
+                            gs.getMinX(),
+                            gs.getStep(),
+                            gs.getHalfStep(),
+                        );
+                        if (attPos) {
+                            direction = { x: center.x - attPos.x, y: center.y - attPos.y };
+                        }
                     }
-                }
 
-                if (rangeDamageData.hits && rangeDamageData.hits.length > 0) {
-                    // Visualize hits
-                    for (let i = 0; i < rangeDamageData.hits.length; i++) {
-                        const hit = rangeDamageData.hits[i];
-                        let pos = { ...center };
+                    if (rangeDamageData.hits && rangeDamageData.hits.length > 0) {
+                        // Visualize hits
+                        for (let i = 0; i < rangeDamageData.hits.length; i++) {
+                            const hit = rangeDamageData.hits[i];
+                            let pos = { ...center };
 
-                        if (direction && rangeDamageData.hits.length > 1) {
-                            const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
-                            if (len > 0.001) {
-                                const ndx = direction.x / len;
-                                const ndy = direction.y / len;
-                                // Strategy: First hit is "Deep" (+75), Second hit is "Closer" (+20)
-                                // "away from attacker" = +Direction
-                                let offset = 0;
-                                if (i === 0) {
-                                    offset = 75;
-                                } else if (i === 1) {
-                                    offset = 20;
+                            if (direction && rangeDamageData.hits.length > 1) {
+                                const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+                                if (len > 0.001) {
+                                    const ndx = direction.x / len;
+                                    const ndy = direction.y / len;
+                                    // Strategy: First hit is "Deep" (+75), Second hit is "Closer" (+20)
+                                    // "away from attacker" = +Direction
+                                    let offset = 0;
+                                    if (i === 0) {
+                                        offset = 75;
+                                    } else if (i === 1) {
+                                        offset = 20;
+                                    }
+                                    pos.x += ndx * offset;
+                                    pos.y += ndy * offset;
                                 }
-                                pos.x += ndx * offset;
-                                pos.y += ndy * offset;
+                            }
+
+                            // Use the per-hit unitsDied value we captured in AttackHandler
+                            if (i === 0) {
+                                this.showFloatingDamage(pos, hit.amount, direction, hit.unitsDied);
+                            } else {
+                                setTimeout(() => {
+                                    this.showFloatingDamage(pos, hit.amount, direction, hit.unitsDied);
+                                }, i * 1000);
                             }
                         }
+                    }
+                }
 
-                        // Use the per-hit unitsDied value we captured in AttackHandler
-                        if (i === 0) {
-                            this.showFloatingDamage(pos, hit.amount, direction, hit.unitsDied);
-                        } else {
-                            setTimeout(() => {
-                                this.showFloatingDamage(pos, hit.amount, direction, hit.unitsDied);
-                            }, i * 1000);
+                this.showDamageVisualsFromDiff(
+                    preHealth,
+                    undefined,
+                    ignoredIds,
+                    direction, // Pass primary direction for AoE uniformity
+                );
+
+                if (rangeAttackResult.completed) {
+                    for (const uId of rangeAttackResult.unitIdsDied) {
+                        const unit = this.unitsHolder.getAllUnits().get(uId);
+                        this.unitsHolder.deleteUnitById(uId, true);
+                        this.layoutVersion++;
+                        this.grid.cleanupAll(uId, 0, true);
+                        if (unit && unit instanceof RenderableUnit) {
+                            unit.destroyVisuals();
                         }
                     }
+                    if (this.sc_selectedUnitProperties) {
+                        const u = this.unitsHolder.getAllUnits().get(this.sc_selectedUnitProperties.id);
+                        if (u) {
+                            this.sc_selectedUnitProperties = { ...u.getUnitProperties() };
+                        }
+                        this.sc_unitPropertiesUpdateNeeded = true;
+                    }
+                    this.sc_damageStatsUpdateNeeded = true;
+                    return true;
                 }
             }
 
-            this.showDamageVisualsFromDiff(
-                preHealth,
-                undefined,
-                ignoredIds,
-                direction, // Pass primary direction for AoE uniformity
-            );
-
-            if (rangeAttackResult.completed) {
-                for (const uId of rangeAttackResult.unitIdsDied) {
-                    const unit = this.unitsHolder.getAllUnits().get(uId);
-                    this.unitsHolder.deleteUnitById(uId, true);
-                    this.layoutVersion++;
-                    this.grid.cleanupAll(uId, 0, true);
-                    if (unit && unit instanceof RenderableUnit) {
-                        unit.destroyVisuals();
-                    }
-                }
-                if (this.sc_selectedUnitProperties) {
-                    const u = this.unitsHolder.getAllUnits().get(this.sc_selectedUnitProperties.id);
-                    if (u) {
-                        this.sc_selectedUnitProperties = { ...u.getUnitProperties() };
-                    }
-                    this.sc_unitPropertiesUpdateNeeded = true;
-                }
-                this.sc_damageStatsUpdateNeeded = true;
-                return true;
-            }
+            this.sc_sceneLog.updateLog("Damage Update Triggered");
+            return false;
         }
-
         return false;
     }
     private performAIAction(wasAIActive: boolean): void {
@@ -1391,15 +1518,8 @@ export class Sandbox extends PixiScene {
                 }
             }
             // Trigger attack
-            // Instead of `landAttack`, Sandbox prefers `executeAttackSequence`.
-            // But `executeAttackSequence` expects a click-like structure.
-            // Let's call `MouseDown` logic? No, too risky.
-            // Let's try to reuse `landAttack` if we implement it properly or use `executeAttackSequence` manually.
             if (this.hoverManager.hoverAttackUnits?.[0]?.[0]) {
-                // We need to move first if separate move?
-                // AI actions like MOVE_AND_MELEE are bundled.
-                // `test_heroes` `landAttack` handles both move and attack via `attackHandler`.
-                actionPerformed = this.landAttack(); // Rely on our ported landAttack
+                actionPerformed = this.landAttack();
             }
         } else if (action?.actionType() === AI.AIActionType.MELEE_ATTACK) {
             if (this.currentActiveUnit.selectAttackType(AttackVals.MELEE)) {
@@ -1424,9 +1544,6 @@ export class Sandbox extends PixiScene {
                 this.refreshUnits();
             }
             this.currentActiveKnownPaths = action.currentActiveKnownPaths();
-            // Setup hover for range
-            // ...
-            // For now, minimal support or use landAttack
             actionPerformed = this.landAttack();
         } else {
             // Move only
@@ -1597,7 +1714,7 @@ export class Sandbox extends PixiScene {
                     if (placePos) {
                         newUnit.setPosition(placePos.x, placePos.y);
                     }
-                    const scale = newUnit.ensureVisual(this.pixiSceneManager.getWorldRoot(), gs);
+                    const scale = newUnit.ensureVisual(this.pixiApp.getCamera(), gs);
                     if (scale) {
                         newUnit.startSpawnAnimation(scale);
                     }
@@ -1616,7 +1733,31 @@ export class Sandbox extends PixiScene {
         }
         return cloned;
     }
-    public deleteObject(): void {}
+    public deleteObject(): void {
+        const u = this.sc_selectedUnitProperties;
+        if (!u || !u.id || FightStateManager.getInstance().getFightProperties().hasFightStarted()) return;
+
+        const unit = this.unitsHolder.getAllUnits().get(u.id);
+        if (unit) {
+            // 1. Remove from Units Holder
+            this.unitsHolder.deleteUnitById(u.id);
+            // 2. Remove from Grid
+            const pos = unit.getPosition();
+            if (pos) {
+                this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
+            }
+
+            // 3. Destroy Visuals
+            this.destroySpecificUnits([unit as RenderableUnit], true);
+
+            // 4. Update Board State
+            this.refreshSynergyNumbers(unit.getTeam());
+            this.refreshUnits();
+
+            // 5. Clear Selection
+            this.Deselect();
+        }
+    }
     public override refreshScene(u: UnitProperties): void {
         // 1. Safety checks
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted() || !u.id) return;
@@ -1631,7 +1772,8 @@ export class Sandbox extends PixiScene {
             this.sc_unitPropertiesUpdateNeeded = true;
         }
     }
-    public setGridType(gridType: GridType): void {
+    public override setGridType(gridType: GridType): void {
+        super.setGridType(gridType);
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
             return;
         }
@@ -1857,7 +1999,7 @@ export class Sandbox extends PixiScene {
         unit.setPosition(placePos.x, placePos.y);
         this.refreshSynergyNumbers(unit.getTeam());
         this.refreshUnits();
-        const scale = unit.ensureVisual(this.pixiSceneManager.getWorldRoot(), gs);
+        const scale = unit.ensureVisual(this.pixiApp.getCamera(), gs);
         if (!scale) {
             console.log("Failed to ensure unit sprite");
             if (!this.selectionFromOverlay) this.clearBoardSelection();
@@ -1955,17 +2097,161 @@ export class Sandbox extends PixiScene {
                     if (occupantId) {
                         const targetUnit = this.unitsHolder.getAllUnits().get(occupantId);
                         if (targetUnit && targetUnit.getTeam() !== this.currentActiveUnit.getTeam()) {
-                            this.executeAttackSequence(
-                                this.currentActiveUnit,
-                                targetUnit as RenderableUnit,
-                                this.hoverManager.hoverAttackFromCell,
+                            const attackFrom = this.hoverManager.hoverAttackFromCell;
+                            const currentPos = this.currentActiveUnit.getPosition();
+
+                            // Check if we need to move (attackFrom is different from current unit visual center/position)
+                            // Note: For large units, getPosition() returns the anchor. attackFrom might be different even if same "logical" place?
+                            // However, pathHelper usually returns specific anchor cell.
+                            // Let's rely on pathfinding check or simple distance check.
+
+                            // If standard adjacent attack without movement, just attack.
+                            // If attackFrom is far, we need a path.
+                            // Distance check to prevent zero-length moves (more robust than isSameCell)
+                            // currentPos is already defined in outer scope
+                            const targetPos = GridMath.getPositionForCell(
+                                attackFrom,
+                                gs.getMinX(),
+                                gs.getStep(),
+                                gs.getHalfStep(),
                             );
+                            let isAtTarget = false;
+
+                            if (targetPos) {
+                                const dx = Math.abs(currentPos.x - targetPos.x);
+                                const dy = Math.abs(currentPos.y - targetPos.y);
+                                if (dx < 0.1 && dy < 0.1) {
+                                    isAtTarget = true;
+                                }
+                            }
+
+                            if (isAtTarget) {
+                                // No movement needed (already at attack spot)
+                                this.executeAttackSequence(
+                                    this.currentActiveUnit,
+                                    targetUnit as RenderableUnit,
+                                    attackFrom,
+                                );
+                            } else {
+                                // Movement needed!
+                                const props = this.currentActiveUnit.getUnitProperties();
+
+                                // Large Unit Logic (Adapted from test_heroes.ts "AI" working logic)
+                                if (props.size === 2) {
+                                    const key = (attackFrom.x << 4) | attackFrom.y;
+                                    const routes = this.currentActiveKnownPaths?.get(key);
+
+                                    if (routes && routes.length > 0) {
+                                        const route = routes[0].route;
+
+                                        // Calculate footprint exactly as test_heroes.ts does for large units
+                                        // It shifts the center by -halfStep, effectively treating attackFrom as Top-Right ??
+                                        // or ensuring collision detection center alignment.
+                                        const position = GridMath.getPositionForCell(
+                                            attackFrom,
+                                            gs.getMinX(),
+                                            gs.getStep(),
+                                            gs.getHalfStep(),
+                                        );
+                                        const candidate = GridMath.getCellsAroundPosition(gs, {
+                                            x: position.x - gs.getHalfStep(),
+                                            y: position.y - gs.getHalfStep(),
+                                        });
+
+                                        this.executeMoveSequence(
+                                            this.currentActiveUnit,
+                                            route, // Use the actual route!
+                                            candidate, // overrideFootprint
+                                            () => {
+                                                if (this.currentActiveUnit) {
+                                                    this.executeAttackSequence(
+                                                        this.currentActiveUnit,
+                                                        targetUnit as RenderableUnit,
+                                                        attackFrom,
+                                                    );
+                                                }
+                                            },
+                                        );
+                                    } else {
+                                        // Fallback: This should ideally not happen if attackFrom was valid
+                                        console.warn(
+                                            "Large Unit Move-Attack: No route found in knownPaths. Executing direct attack.",
+                                        );
+                                        this.executeAttackSequence(
+                                            this.currentActiveUnit,
+                                            targetUnit as RenderableUnit,
+                                            attackFrom,
+                                        );
+                                    }
+                                } else {
+                                    // Small Unit Logic (Route based)
+                                    const key = (attackFrom.x << 4) | attackFrom.y;
+                                    const routes = this.currentActiveKnownPaths?.get(key);
+                                    let route: HoCMath.XY[] | undefined;
+
+                                    if (routes && routes.length > 0) {
+                                        route = routes[0].route;
+                                    }
+
+                                    if (route && route.length > 0) {
+                                        this.executeMoveSequence(this.currentActiveUnit, route, undefined, () => {
+                                            if (this.currentActiveUnit) {
+                                                this.executeAttackSequence(
+                                                    this.currentActiveUnit,
+                                                    targetUnit as RenderableUnit,
+                                                    attackFrom,
+                                                );
+                                            }
+                                        });
+                                    } else {
+                                        // Fallback: Calculate path explicitly
+                                        const movePaths = this.pathHelper.getMovePath(
+                                            GridMath.getCellForPosition(gs, currentPos)!,
+                                            this.grid.getMatrix(),
+                                            this.currentActiveUnit.getSteps(),
+                                            undefined,
+                                            this.currentActiveUnit.hasAbilityActive("Flying"),
+                                            this.currentActiveUnit.isSmallSize(),
+                                            false,
+                                        );
+
+                                        const destKey = (attackFrom.x << 4) | attackFrom.y;
+                                        const fallbackRoutes = movePaths.knownPaths.get(destKey);
+
+                                        if (fallbackRoutes && fallbackRoutes.length > 0) {
+                                            this.executeMoveSequence(
+                                                this.currentActiveUnit,
+                                                fallbackRoutes[0].route,
+                                                undefined,
+                                                () => {
+                                                    if (this.currentActiveUnit) {
+                                                        this.executeAttackSequence(
+                                                            this.currentActiveUnit,
+                                                            targetUnit as RenderableUnit,
+                                                            attackFrom,
+                                                        );
+                                                    }
+                                                },
+                                            );
+                                        } else {
+                                            console.warn(
+                                                "Move-Attack path calculation failed, executing direct attack.",
+                                            );
+                                            this.executeAttackSequence(
+                                                this.currentActiveUnit,
+                                                targetUnit as RenderableUnit,
+                                                attackFrom,
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+
                             return;
                         }
                     }
                 }
             }
-
             if (this.currentActiveUnit && this.currentActiveKnownPaths && !this.sc_moveBlocked) {
                 const cell = GridMath.getCellForPosition(gs, p);
                 if (!cell) return;
@@ -2256,19 +2542,23 @@ export class Sandbox extends PixiScene {
                 responseUnits = respEval.affectedUnits[0];
             }
 
-            this.attackHandler.handleRangeAttack(
-                this.unitsHolder,
-                evalResult.rangeAttackDivisors,
-                responseDivisor,
-                damageForAnimation,
-                attacker,
-                evalResult.affectedUnits,
-                responseUnits,
-                attacker.getPosition(),
-                false, // isAOE
-                true, // decreaseNumberOfShots
-            );
-        } else {
+            if (
+                this.attackHandler.handleRangeAttack(
+                    this.unitsHolder,
+                    evalResult.rangeAttackDivisors,
+                    responseDivisor,
+                    damageForAnimation,
+                    attacker,
+                    evalResult.affectedUnits,
+                    responseUnits,
+                    attacker.getPosition(),
+                    false, // isAOE
+                    true, // decreaseNumberOfShots
+                ).completed
+            ) {
+                this.sc_damageStatsUpdateNeeded = true;
+            }
+        } else if (
             this.attackHandler.handleMeleeAttack(
                 this.unitsHolder,
                 this.moveHandler,
@@ -2277,7 +2567,9 @@ export class Sandbox extends PixiScene {
                 attacker,
                 target,
                 attackFrom,
-            );
+            ).completed
+        ) {
+            this.sc_damageStatsUpdateNeeded = true;
         }
 
         // 1. Target Damage
@@ -2483,7 +2775,12 @@ export class Sandbox extends PixiScene {
         this.sc_moveBlocked = false;
         this.sc_visibleStateUpdateNeeded = true;
     }
-    private executeMoveSequence(unit: RenderableUnit, path: HoCMath.XY[], overrideFootprint?: HoCMath.XY[]): void {
+    private executeMoveSequence(
+        unit: RenderableUnit,
+        path: HoCMath.XY[],
+        overrideFootprint?: HoCMath.XY[],
+        onComplete?: () => void,
+    ): void {
         if (!path || path.length === 0) return;
         const gs = this.sc_sceneSettings.getGridSettings();
         const cellSize = gs.getCellSize();
@@ -2562,23 +2859,58 @@ export class Sandbox extends PixiScene {
         worldPath.push({ x: startPos.x, y: startPos.y });
 
         if (pathLooksLikeFootprintOnly) {
-            // Large unit: we only know start and final footprint → straight line A → B.
+            // Large unit: we only know start and final footprint -> straight line A -> B.
             worldPath.push({ x: newWorldPos.x, y: newWorldPos.y });
         } else {
+            // Calculate offset if needed (for Large Units following an anchor path)
+            let offsetX = 0;
+            let offsetY = 0;
+
+            // If Large Unit, align the path visual to the Unit's Center, not the Anchor Cell center.
+            if (isLargeUnit && path.length > 0) {
+                const startCellPos = GridMath.getPositionForCell(path[0], gs.getMinX(), gs.getStep(), gs.getHalfStep());
+                if (startCellPos) {
+                    // If path[0] corresponds to our current location (start), calculating offset relative to current Center
+                    // startPos is unit.getPosition() (Center).
+                    // But path[0] might be the *next* cell?
+                    // Usually path[0] is the start cell or the first step.
+                    // If path includes start cell:
+                    // Offset = BoxCenter - CellCenter.
+                    // Let's assume constant offset for the whole path based on destination alignment, which is safer.
+
+                    // Align LAST path node to LAST world pos (Target Center)
+                    const lastPathCell = path[path.length - 1];
+                    const lastCellPos = GridMath.getPositionForCell(
+                        lastPathCell,
+                        gs.getMinX(),
+                        gs.getStep(),
+                        gs.getHalfStep(),
+                    );
+                    if (lastCellPos) {
+                        offsetX = newWorldPos.x - lastCellPos.x;
+                        offsetY = newWorldPos.y - lastCellPos.y;
+                    }
+                }
+            }
+
             // Small units (or future large units with real route): follow the full route.
             for (let i = 0; i < path.length; i++) {
                 const cell = path[i];
                 const pos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
                 if (pos) {
+                    const targetX = pos.x + offsetX;
+                    const targetY = pos.y + offsetY;
                     const last = worldPath[worldPath.length - 1];
-                    if (!last || last.x !== pos.x || last.y !== pos.y) {
-                        worldPath.push(pos);
+
+                    // Avoid duplicates
+                    if (!last || Math.abs(last.x - targetX) > 0.01 || Math.abs(last.y - targetY) > 0.01) {
+                        worldPath.push({ x: targetX, y: targetY });
                     }
                 }
             }
-            // Ensure last point matches logical final position.
+            // Ensure last point matches logical final position strictly.
             const last = worldPath[worldPath.length - 1];
-            if (!last || last.x !== newWorldPos.x || last.y !== newWorldPos.y) {
+            if (!last || Math.abs(last.x - newWorldPos.x) > 0.01 || Math.abs(last.y - newWorldPos.y) > 0.01) {
                 worldPath.push({ x: newWorldPos.x, y: newWorldPos.y });
             }
         }
@@ -2604,6 +2936,7 @@ export class Sandbox extends PixiScene {
             speed: cellSize * 16,
             destCell,
             lastTrackWorld: { x: startPos.x, y: startPos.y },
+            onComplete,
         };
 
         // Immediately drop starting 2x2 tracks for big units
@@ -2619,18 +2952,6 @@ export class Sandbox extends PixiScene {
         // Once movement starts, kill previews & silhouettes.
         const fightProperties = FightStateManager.getInstance().getFightProperties();
 
-        // [MoraleDebug] Verify paths are available before clearing
-        const debugKey = (destCell.x << 4) | destCell.y;
-        console.log(
-            `[MoraleDebug] Applying move modifiers. Unit: ${unit.getName()}, Dest: ${destCell.x},${destCell.y}, Key: ${debugKey}`,
-        );
-        console.log(`[MoraleDebug] KnownPaths size: ${this.currentActiveKnownPaths?.size}`);
-        if (this.currentActiveKnownPaths?.has(debugKey)) {
-            console.log(`[MoraleDebug] Path found for key.`);
-        } else {
-            console.log(`[MoraleDebug] Path NOT found for key!`);
-        }
-
         this.moveHandler.applyMoveModifiers(
             destCell,
             unit,
@@ -2639,6 +2960,7 @@ export class Sandbox extends PixiScene {
             this.currentActiveKnownPaths,
         );
 
+        this.hoverManager.setSilhouetteLocked(true);
         this.currentActivePath = undefined;
         this.currentActiveKnownPaths = undefined;
         this.currentActivePathHashes = undefined;
@@ -2678,6 +3000,7 @@ export class Sandbox extends PixiScene {
                             radiusPixel,
                             isBuff,
                             hoverTargetUnit.isSmallSize(),
+                            0.7,
                         );
                     }
                 }
@@ -2867,8 +3190,6 @@ export class Sandbox extends PixiScene {
 
                                     attackFromPos.x -= gs.getHalfStep();
                                     attackFromPos.y -= gs.getHalfStep();
-
-                                    console.log("ssss-1");
                                 }
                             }
 
@@ -2883,9 +3204,6 @@ export class Sandbox extends PixiScene {
                                     attackFromPos.x -= gs.getHalfStep();
                                     attackFromPos.y -= gs.getHalfStep();
                                 }
-                                console.log("attackFromPos-2");
-                                console.log(attackFromPos);
-                                console.log("ssss-2");
                             }
 
                             this.hoverManager.updateHoverSilhouette(attackFromPos);
@@ -2921,8 +3239,6 @@ export class Sandbox extends PixiScene {
                             } else {
                                 arrowStartPos = { ...this.currentActiveUnit.getCenter() };
                             }
-
-                            console.log(`ssss1`);
                         } else {
                             // Moving to new Anchor
                             arrowStartPos = { ...attackFromPos };
@@ -2943,8 +3259,6 @@ export class Sandbox extends PixiScene {
                             // Add 1 cell size in X and Y to get the visual center.
                             // arrowStartPos.x += centerOffset;
                             // arrowStartPos.y += centerOffset;
-
-                            console.log(`Calculated move-attack start: (${arrowStartPos.x}, ${arrowStartPos.y})`);
                         }
 
                         // Range Offset Logic (-0.5/-1.0)
@@ -2972,9 +3286,6 @@ export class Sandbox extends PixiScene {
                             this.currentActiveUnit.getTeam(),
                             this.currentActiveUnit.hasAbilityActive("Through Shot"),
                         );
-                        console.log("attackFromPos4");
-                        console.log(attackFromPos);
-                        console.log(`ssss4`);
 
                         // Fallback
                         if (!arrowEndPos) {
@@ -3374,20 +3685,15 @@ export class Sandbox extends PixiScene {
         window.removeEventListener("keyup", this.handleKeyUp);
     }
     private handleKeyDown = (e: KeyboardEvent) => {
-        console.log(`Sandbox: KeyDown key='${e.key}' code='${e.code}' alt=${e.altKey}`);
         if (e.key === "Alt" || e.code === "AltLeft" || e.code === "AltRight") {
             const fightProps = FightStateManager.getInstance().getFightProperties();
             if (!fightProps.hasFightStarted()) {
-                console.log("Sandbox: Showing all amounts");
                 this.unitsOverlay.setShowAllAmounts(true);
-            } else {
-                console.log("Sandbox: Fight started, ignoring Alt");
             }
         }
     };
     private handleKeyUp = (e: KeyboardEvent) => {
         if (e.key === "Alt") {
-            console.log("Sandbox: Alt released");
             this.unitsOverlay.setShowAllAmounts(false);
         }
     };
@@ -3399,7 +3705,7 @@ export class Sandbox extends PixiScene {
     public override Step(timeStep: number): void {
         this.cleanupDeadUnits();
         if (timeStep > 0) this.sc_stepCount.increment();
-        this.sc_isAnimating = this.pixiSceneManager.isAnimating();
+        this.sc_isAnimating = this.isAnimating();
         const fightStateManager = FightStateManager.getInstance();
         const fightProps = fightStateManager.getFightProperties();
         const fightStarted = fightProps.hasFightStarted();
@@ -3467,6 +3773,29 @@ export class Sandbox extends PixiScene {
         // CORE GAME LOGIC
         // ==========================================================================================
         if (fightStarted) {
+            // Atmosphere Transition & Animation
+            if (this.atmosphereAlpha < 1 || this.atmosphereLights.length > 0) {
+                // Fade In
+                if (this.atmosphereAlpha < 1) {
+                    this.atmosphereAlpha += timeStep / 3;
+                    if (this.atmosphereAlpha > 1) this.atmosphereAlpha = 1;
+                    this.updateDungeonAtmosphere(true, this.atmosphereAlpha);
+                }
+
+                // Fire Flicker
+                const now = HoCLib.getTimeMillis() / 1000;
+                for (const light of this.atmosphereLights) {
+                    const fLight = light as unknown as IFlickeringLight;
+                    const offset = fLight._flickerOffset || 0;
+                    const speed = fLight._flickerSpeed || 1;
+                    const flicker = 0.8 + 0.2 * Math.sin(now * speed + offset); // Base 0.8, varies +/- 0.2
+                    light.alpha = flicker;
+                    // Optional: slight scale pulse?
+                    // const s = 1.0 + 0.05 * Math.sin(now * speed * 1.5 + offset);
+                    // light.scale.set(s, s);
+                }
+            }
+
             this.cleanupDeadUnits();
             this.hoverManager.setLastPlacement(undefined);
 
@@ -3568,7 +3897,9 @@ export class Sandbox extends PixiScene {
 
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             const rUnit = unit as RenderableUnit;
-            rUnit.syncVisual(this.pixiSceneManager.getWorldRoot(), this.sc_sceneSettings.getGridSettings());
+            // Use PixiDrawer's unit container (Z=1000), not worldRoot directly.
+            // This ensures units are ALWAYS above terrain (Z=20) and overlay (Z=60) but depth sorted inside.
+            rUnit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
             if (this.isActiveUnitMoving && this.moveAnimation?.unit === rUnit) {
                 rUnit.applyMoveEffect(this.spawnPulsePhase);
             } else {
@@ -3658,7 +3989,7 @@ export class Sandbox extends PixiScene {
     private handleNextUnitActivation(nextUnit: RenderableUnit): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const gs = this.sc_sceneSettings.getGridSettings();
-        const worldRoot = this.pixiSceneManager.getWorldRoot();
+        const worldRoot = this.pixiApp.getCamera();
 
         // Clear Shifted Unit override so UI reverts to Active Unit
         this.currentShiftedUnit = undefined;
@@ -3947,6 +4278,25 @@ export class Sandbox extends PixiScene {
                 }
             }
         }
+        this.sc_onHasStarted.connect((started) => {
+            // Trigger Dungeon Atmosphere
+            // Trigger Dungeon Atmosphere
+            this.updateDungeonAtmosphere(started, this.atmosphereAlpha);
+
+            if (this.sc_visibleState) {
+                this.sc_visibleState.canBeStarted = false;
+                this.sc_visibleState.hasFinished = false;
+                this.sc_visibleStateUpdateNeeded = true;
+            }
+            // If fight ended (started=false), ensure we reset
+            if (!started) {
+                // Clear state
+                this.currentActiveUnit = undefined;
+                this.currentActiveSpell = undefined;
+                this.cleanActivePaths();
+                this.hoverManager.clear();
+            }
+        });
     }
     public override getDamageStatisics(): IDamageStatistic[] {
         return this.attackHandler.getDamageStatisticHolder().get();
@@ -3981,15 +4331,10 @@ export class Sandbox extends PixiScene {
                 .addAlreadyMadeTurn(this.currentActiveUnit.getTeam(), this.currentActiveUnit.getId());
             FightStateManager.getInstance().getFightProperties().removeFromUpNext(this.currentActiveUnit.getId());
             this.currentActiveUnit.setOnHourglass(false);
-            console.log(
-                `Finished turn ${this.currentActiveUnit.getName()} lap ${FightStateManager.getInstance()
-                    .getFightProperties()
-                    .getCurrentLap()}`,
-            );
             // Ensure visual state is reset (Orange Badge -> Default)
             this.currentActiveUnit.setActiveTurn(false);
             const gs = this.sc_sceneSettings.getGridSettings();
-            const worldRoot = this.pixiSceneManager.getWorldRoot();
+            const worldRoot = this.pixiApp.getCamera();
             this.currentActiveUnit.syncVisual(worldRoot, gs);
         }
         this.currentActiveUnit = undefined;

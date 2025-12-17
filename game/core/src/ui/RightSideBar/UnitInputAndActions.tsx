@@ -7,6 +7,7 @@ import Typography from "@mui/joy/Typography";
 import { TeamType } from "@heroesofcrypto/common";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { images } from "../../generated/image_imports";
 
 const DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT = 1;
 
@@ -97,6 +98,44 @@ const UnitInputAndActions = ({
                     value={unitCount}
                     onChange={(e) => changeUnitCount(e.target.value)}
                     placeholder="# of units"
+                    variant="outlined"
+                    sx={{
+                        color: "rgba(255, 143, 0, 0.5)",
+                        borderColor: "rgba(255, 143, 0, 0.5)",
+                        "--Input-focusedHighlight": "#FF8F00",
+                        "--Input-focusedThickness": "2px",
+                        "&:hover": {
+                            borderColor: "#FF8F00",
+                            color: "#FF8F00",
+                        },
+                        "&:focus-within": {
+                            borderColor: "#FF8F00",
+                            color: "#FF8F00",
+                            "--Input-focusedHighlight": "#FF8F00",
+                        },
+                        "&::before": {
+                            boxShadow: "none !important",
+                            outline: "none !important",
+                        },
+                        "&.Mui-focused::before": {
+                            boxShadow: "0 0 0 var(--Input-focusedThickness) var(--Input-focusedHighlight) !important",
+                        },
+                        "&.Mui-focused": {
+                            borderColor: "#FF8F00",
+                            color: "#FF8F00",
+                            boxShadow: "none",
+                            outline: "none",
+                            "& input::placeholder": {
+                                color: "#FF8F00",
+                                opacity: 0.6,
+                            },
+                        },
+                        "& input::placeholder": {
+                            color: "rgba(255, 143, 0, 0.5)",
+                            opacity: 0.6,
+                        },
+                        transition: "all 0.2s ease",
+                    }}
                     slotProps={{
                         input: {
                             min: DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT,
@@ -105,24 +144,46 @@ const UnitInputAndActions = ({
                 />
                 <Stack direction="row" spacing={2}>
                     <Button
-                        variant="solid"
-                        color="primary"
+                        variant="plain"
                         onClick={() => {
                             handleAccept(parseInt(unitCount) || DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT);
                         }}
-                        sx={{ flexGrow: 1 }}
+                        sx={{
+                            flex: 1,
+                            minWidth: 0,
+                            backgroundImage: `url(${images.button})`,
+                            backgroundSize: "100% 100%",
+                            backgroundRepeat: "no-repeat",
+                            color: "white",
+                            height: "40px",
+                            "&:hover": {
+                                filter: "brightness(1.5) saturate(1.2)",
+                                backgroundColor: "transparent",
+                            },
+                        }}
                     >
-                        Accept
+                        <img src={images.accept_text} alt="Accept" style={{ height: "40%" }} />
                     </Button>
                     <Button
-                        variant="outlined"
-                        color="primary"
+                        variant="plain"
                         onClick={() => {
                             manager.Clone();
                         }}
-                        sx={{ flexGrow: 1 }}
+                        sx={{
+                            flex: 1,
+                            minWidth: 0,
+                            backgroundImage: `url(${images.button})`,
+                            backgroundSize: "100% 100%",
+                            backgroundRepeat: "no-repeat",
+                            color: "white",
+                            height: "40px",
+                            "&:hover": {
+                                filter: "brightness(1.5) saturate(1.2)",
+                                backgroundColor: "transparent",
+                            },
+                        }}
                     >
-                        Clone
+                        <img src={images.clone_text} alt="Clone" style={{ height: "40%" }} />
                     </Button>
                 </Stack>
             </Stack>

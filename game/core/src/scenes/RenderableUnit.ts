@@ -137,7 +137,9 @@ export class RenderableUnit extends Unit {
             this.sprite.anchor.set(0.5);
             this.sprite.scale.y = -1; // y-up world → flip in Pixi
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
-            this.sprite.zIndex = 120;
+            // Dynamic Z: Objects lower on screen (low Y) draw last (high Z).
+            // Base ~ 3000. Range 0-2048.
+            this.sprite.zIndex = 4000 - pos.y;
             worldRoot.addChild(this.sprite);
         } else {
             // ⬇️ IMPORTANT: only force base texture if NOT in selection animation
@@ -145,7 +147,7 @@ export class RenderableUnit extends Unit {
             if (!selectionActive) {
                 this.sprite.texture = baseTex;
             }
-            if (!this.sprite.parent) {
+            if (!this.sprite.parent || this.sprite.parent !== worldRoot) {
                 worldRoot.addChild(this.sprite);
             }
         }
@@ -163,12 +165,12 @@ export class RenderableUnit extends Unit {
             this.shadow = new Sprite(baseTex);
             this.shadow.anchor.set(0.5);
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
-            this.shadow.zIndex = 110;
+            this.shadow.zIndex = 4000 - pos.y - 0.5; // Slightly below sprite
             worldRoot.addChild(this.shadow);
             this.shadow.filters = [];
         } else {
             this.shadow.texture = baseTex;
-            if (!this.shadow.parent) {
+            if (!this.shadow.parent || this.shadow.parent !== worldRoot) {
                 worldRoot.addChild(this.shadow);
             }
         }
@@ -249,6 +251,15 @@ export class RenderableUnit extends Unit {
             return;
         }
         this.ensureVisual(worldRoot, gs);
+
+        // Update Z-Index for depth sorting
+        if (this.sprite) {
+            const baseZ = 4000 - pos.y;
+            this.sprite.zIndex = baseZ;
+            if (this.shadow) this.shadow.zIndex = baseZ - 0.5;
+            if (this.badgeContainer) this.badgeContainer.zIndex = baseZ + 1;
+            if (this.stackPowerContainer) this.stackPowerContainer.zIndex = baseZ + 1;
+        }
     }
     public setBoardSelected(selected: boolean): void {
         if (this.boardSelected === selected) return;
@@ -530,7 +541,10 @@ export class RenderableUnit extends Unit {
             this.badgeText.scale.y = -1;
             this.badgeContainer.addChild(this.badgeCircle, this.badgeText);
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
-            this.badgeContainer.zIndex = 130;
+            this.badgeContainer.zIndex = 4000 - pos.y + 1; // Initial Set
+            worldRoot.addChild(this.badgeContainer);
+        } else if (this.badgeContainer.parent !== worldRoot) {
+            // Force re-parent if container changed (e.g. from worldRoot to unitsContainer)
             worldRoot.addChild(this.badgeContainer);
         }
         const iconSide = gs.getCellSize();
@@ -604,7 +618,7 @@ export class RenderableUnit extends Unit {
         if (!this.stackPowerContainer) {
             this.stackPowerContainer = new Container();
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
-            this.stackPowerContainer.zIndex = 130;
+            this.stackPowerContainer.zIndex = 4000 - pos.y + 1; // Initial Set
             worldRoot.addChild(this.stackPowerContainer);
 
             this.stackPowerPips = [];
@@ -613,6 +627,8 @@ export class RenderableUnit extends Unit {
                 this.stackPowerPips.push(pip);
                 this.stackPowerContainer.addChild(pip);
             }
+        } else if (this.stackPowerContainer.parent !== worldRoot) {
+            worldRoot.addChild(this.stackPowerContainer);
         }
 
         // 2. Geometry & Style Configuration

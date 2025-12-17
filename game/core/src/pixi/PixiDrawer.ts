@@ -30,6 +30,7 @@ export class PixiDrawer {
     private unitsContainer: Container; // you can attach real units elsewhere; this is for layering parity
     private terrainContainerFront: Container; // mountains/blocks etc. in front
     private overlayContainer: Container; // transient drawings (paths, hovers, aoe, grid)
+    private interactionContainer: Container; // high-priority UI overlays (cursor, attack target)
     private pathGfx: Graphics;
     private hoverCellsGfx: Graphics;
     private highlightedCellsGfx: Graphics;
@@ -57,7 +58,7 @@ export class PixiDrawer {
         ATTACK_TO: 0xff8080,
         ATTACK_FROM: 0x90ed90,
     };
-    public constructor(grid: Grid, app: Application) {
+    public constructor(grid: Grid, app: Application, root?: Container) {
         this.grid = grid;
         this.gridSettings = this.grid.getSettings();
         this.app = app;
@@ -66,15 +67,26 @@ export class PixiDrawer {
         this.backgroundContainer = new Container();
         this.terrainContainerBack = new Container();
         this.unitsContainer = new Container();
+        this.unitsContainer.sortableChildren = true; // CRITICAL: Enable Z-sorting inside this container!
         this.terrainContainerFront = new Container();
         this.overlayContainer = new Container();
 
-        const stage = this.app.stage;
-        stage.addChild(this.backgroundContainer);
-        stage.addChild(this.terrainContainerBack);
-        stage.addChild(this.unitsContainer);
-        stage.addChild(this.terrainContainerFront);
-        stage.addChild(this.overlayContainer);
+        // If root provided, use it (for world-space transform). Else stage.
+        const parent = root ?? this.app.stage;
+
+        parent.addChild(this.backgroundContainer);
+        parent.addChild(this.terrainContainerBack);
+        parent.addChild(this.unitsContainer);
+        parent.addChild(this.terrainContainerFront);
+        parent.addChild(this.overlayContainer);
+
+        // Z-Index setup (assuming parent sorts)
+        parent.sortableChildren = true;
+        this.backgroundContainer.zIndex = 10;
+        this.terrainContainerBack.zIndex = 20;
+        this.unitsContainer.zIndex = 1000; // Placeholder
+        this.terrainContainerFront.zIndex = 50;
+        this.overlayContainer.zIndex = 60; // Paths etc above terrain, below units (Units start ~3000)
 
         // Reusable graphics layers
         this.pathGfx = new Graphics();
@@ -89,15 +101,25 @@ export class PixiDrawer {
         this.overlayContainer.addChild(
             this.gridGfx,
             this.pathGfx,
-            this.hoverCellsGfx,
-            this.highlightedCellsGfx,
-            this.aoeGfx,
             this.auraGfx,
+            this.highlightedCellsGfx,
             this.hoverAreaGfx,
-            this.attackFromToGfx,
         );
 
+        // Interaction Container (Z=1500): Above units (Cursor, Attack Target, AOE)
+        this.interactionContainer = new Container();
+        parent.addChild(this.interactionContainer);
+        this.interactionContainer.zIndex = 1500;
+        this.interactionContainer.sortableChildren = false; // No internal sorting needed
+        this.interactionContainer.addChild(this.hoverCellsGfx, this.attackFromToGfx, this.aoeGfx);
+
         this.initHoleLayers();
+    }
+    public getUnitsContainer(): Container {
+        return this.unitsContainer; // Z=1000
+    }
+    public getOverlayContainer(): Container {
+        return this.overlayContainer; // Z=60
     }
     private initHoleLayers(): void {
         // Make 5 layers with EMPTY textures by default; caller can later set textures if needed.
@@ -192,49 +214,41 @@ export class PixiDrawer {
         this.animating = this.flyingUnits.length > 0;
     }
     public drawPath(
-        color: number,
-        currentActivePath?: HoCMath.XY[],
-        currentActiveUnitPositions?: HoCMath.XY[],
-        hoverAttackFromHashes?: Set<number>,
-        drawSolid = true,
+        _color: number,
+        _currentActivePath?: HoCMath.XY[],
+        _currentActiveUnitPositions?: HoCMath.XY[],
+        _hoverAttackFromHashes?: Set<number>,
+        _drawSolid = true,
     ): void {
-        this.pathGfx.clear();
-
-        if (!currentActivePath?.length) return;
-
-        for (const p of currentActivePath) {
-            const movePosition = GridMath.getPositionForCell(
-                p,
-                this.gridSettings.getMinX(),
-                this.gridSettings.getStep(),
-                this.gridSettings.getHalfStep(),
-            );
-            if (!movePosition) continue;
-
-            if (
-                hoverAttackFromHashes?.has((p.x << 4) | p.y) ||
-                GridMath.hasXY(movePosition, currentActiveUnitPositions)
-            ) {
-                continue;
-            }
-
-            const x = movePosition.x - this.gridSettings.getHalfStep();
-            const y = movePosition.y - this.gridSettings.getHalfStep();
-            const w = this.gridSettings.getStep();
-            const h = this.gridSettings.getStep();
-
-            if (drawSolid) {
-                this.pathGfx.rect(x, y, w, h).fill({ color, alpha: 0.5 });
-            } else {
-                this.pathGfx
-                    .rect(x, y, w, h)
-                    .stroke({ width: 1, color, alpha: 1 })
-                    .rect(x + 1, y + 1, w, h)
-                    .stroke({ width: 1, color, alpha: 1 })
-                    .rect(x - 1, y - 1, w, h)
-                    .stroke({ width: 1, color, alpha: 1 });
-            }
-        }
+        // this.pathGfx.clear();
+        // if (!currentActivePath?.length) return;
+        // for (const p of currentActivePath) {
+        //     const movePosition = GridMath.getPositionForCell(
+        //         p,
+        //         this.gridSettings.getMinX(),
+        //         this.gridSettings.getStep(),
+        //         this.gridSettings.getHalfStep(),
+        //     );
+        //     if (!movePosition) continue;
+        //     if (
+        //         hoverAttackFromHashes?.has((p.x << 4) | p.y) ||
+        //         GridMath.hasXY(movePosition, currentActiveUnitPositions)
+        //     ) {
+        //         continue;
+        //     }
+        //     const x = movePosition.x; // Center x
+        //     const y = movePosition.y; // Center y
+        //     const radius = this.gridSettings.getStep() * 0.08; // Small dot
+        //     if (drawSolid) {
+        //         this.pathGfx.circle(x, y, radius).fill({ color, alpha: 0.8 }); // Increased alpha for visibility
+        //     } else {
+        //         this.pathGfx
+        //             .circle(x, y, radius)
+        //             .stroke({ width: 1, color, alpha: 1 })
+        //             .circle(x, y, radius * 1.5) // Outer faint ring
+        //             .stroke({ width: 1, color, alpha: 0.3 });
+        //     }
+        // }
     }
     /** Draws a red-ish filled square at a target position (old drawAttackTo) */
     public drawAttackTo(targetPosition: HoCMath.XY, size: number): void {

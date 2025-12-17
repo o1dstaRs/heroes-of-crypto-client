@@ -1,8 +1,6 @@
 import { IDamageStatistic } from "@heroesofcrypto/common";
-import { TextareaAutosize } from "@mui/base/TextareaAutosize";
+import Textarea from "@mui/joy/Textarea";
 import Divider from "@mui/joy/Divider";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import QueryStatsRoundedIcon from "@mui/icons-material/QueryStatsRounded";
 import Box from "@mui/joy/Box";
 import LinearProgress from "@mui/joy/LinearProgress";
 import List from "@mui/joy/List";
@@ -13,6 +11,8 @@ import Sheet from "@mui/joy/Sheet";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState, useCallback } from "react";
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { images } from "../../generated/image_imports";
+const sidebarOverlayImage = new URL("../../../images/sidebar_overlay.webp", import.meta.url).toString(); // [NEW]
 import Toggler from "../Toggler";
 import FightControlToggler from "./FightControlToggler";
 import { VersionDisplay } from "./VersionDisplay";
@@ -21,6 +21,8 @@ import { IWindowSize } from "../../scenes/VisibleState";
 interface IDamageStatsTogglerProps {
     unitStatsElements: React.ReactNode;
 }
+
+const damageIcon = new URL("../../../images/damage_icon.webp", import.meta.url).toString(); // [NEW]
 
 const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
     unitStatsElements,
@@ -31,16 +33,47 @@ const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
     <ListItem style={{ "--List-nestedInsetStart": "0px" }} nested>
         <Toggler
             renderToggle={({ open, setOpen }) => (
-                <ListItemButton onClick={() => setOpen(!open)}>
-                    <QueryStatsRoundedIcon />
+                <ListItemButton
+                    onClick={() => setOpen(!open)}
+                    sx={{
+                        py: 2, // Consistent styling
+                        backgroundColor: open ? "rgba(255, 143, 0, 0.1)" : "inherit",
+                        transition: "background-color 0.3s",
+                        "&:hover": {
+                            backgroundColor: open ? "rgba(255, 143, 0, 0.15)" : "rgba(255, 255, 255, 0.05)",
+                        },
+                    }}
+                >
+                    <Box
+                        component="img"
+                        src={damageIcon} // Use the new icon
+                        sx={{
+                            width: "36px",
+                            height: "36px",
+                            filter: open ? "none" : "grayscale(100%)",
+                            opacity: open ? 1 : 0.7,
+                            mr: 1.5, // Slight spacing
+                        }}
+                    />
                     <ListItemContent>
                         <Typography level="title-sm">Damage</Typography>
                     </ListItemContent>
-                    <KeyboardArrowDownIcon sx={{ transform: open ? "rotate(180deg)" : "none" }} />
+                    <Box
+                        component="img"
+                        src={images.tr_up}
+                        sx={{
+                            width: "12px",
+                            transform: open ? "none" : "rotate(180deg)",
+                            transition: "transform 0.2s",
+                            filter: open
+                                ? "brightness(0) saturate(100%) invert(58%) sepia(91%) saturate(3089%) hue-rotate(2deg) brightness(103%) contrast(104%)"
+                                : "none",
+                        }}
+                    />
                 </ListItemButton>
             )}
         >
-            <List sx={{ gap: 0 }}>{unitStatsElements}</List>
+            <List sx={{ gap: 0, pt: 2 }}>{unitStatsElements}</List>
         </Toggler>
     </ListItem>
 );
@@ -86,8 +119,6 @@ export default function RightSideBar({ gameStarted, windowSize }: { gameStarted:
     const unitStats: IDamageStatistic[] = [];
     let maxDmg = Number.MIN_SAFE_INTEGER;
     for (const s of unitDamageStatistics) {
-        console.log("szzolotu damange stats");
-        console.log(s);
         let { unitName } = s;
         if (s.unitName.includes(" ")) {
             const stringParts = s.unitName.split(/\s/);
@@ -150,6 +181,10 @@ export default function RightSideBar({ gameStarted, windowSize }: { gameStarted:
                 borderColor: "divider",
                 overflowY: "auto", // Allow vertical scrolling
                 overflowX: "hidden", // Prevent horizontal scrolling
+                // Background Image Overlay
+                backgroundImage: `url(${sidebarOverlayImage})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
             }}
         >
             <Box
@@ -171,14 +206,49 @@ export default function RightSideBar({ gameStarted, windowSize }: { gameStarted:
                     {!gameStarted && <FightControlToggler />}
                     {gameStarted && <DamageStatsToggler unitStatsElements={unitStatsElements} />}
                     <Box sx={{ flexGrow: 1 }} />
-                    <TextareaAutosize
+                    <Textarea
                         placeholder="Fight log"
                         value={attackText}
-                        style={{
+                        minRows={3}
+                        maxRows={10}
+                        variant="outlined"
+                        sx={{
                             width: "100%",
+                            fontSize: "10px",
                             resize: "vertical",
                             overflow: "auto",
-                            fontSize: "10px",
+                            color: "rgba(255, 143, 0, 0.8)", // Brighter default
+                            borderColor: "rgba(255, 143, 0, 0.8)",
+                            "--Textarea-focusedHighlight": "#FF8F00",
+                            "--Textarea-focusedThickness": "2px",
+                            "&:hover": {
+                                borderColor: "#FF8F00",
+                                color: "#FF8F00",
+                            },
+                            "&:focus-within": {
+                                borderColor: "#FF8F00",
+                                color: "#FF8F00",
+                                "--Textarea-focusedHighlight": "#FF8F00",
+                            },
+                            "&::before": {
+                                boxShadow: "none !important",
+                                outline: "none !important",
+                            },
+                            "&.Mui-focused::before": {
+                                boxShadow:
+                                    "0 0 0 var(--Textarea-focusedThickness) var(--Textarea-focusedHighlight) !important",
+                            },
+                            "&.Mui-focused": {
+                                borderColor: "#FF8F00",
+                                color: "#FF8F00",
+                                boxShadow: "none",
+                                outline: "none",
+                            },
+                            "& ::placeholder": {
+                                color: "rgba(255, 143, 0, 0.5)",
+                                opacity: 0.6,
+                            },
+                            transition: "all 0.2s ease",
                         }}
                     />
                     <Divider />

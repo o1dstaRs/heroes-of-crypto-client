@@ -99,12 +99,18 @@ export class HoverManager {
         this.hoveredUnitId = undefined;
         this.clearAuraVisuals();
     }
-    public drawAuraArea(center: HoCMath.XY, radius: number, isBuff: boolean, isSmallUnit: boolean): void {
+    public drawAuraArea(
+        center: HoCMath.XY,
+        radius: number,
+        isBuff: boolean,
+        isSmallUnit: boolean,
+        alphaMultiplier = 1.0,
+    ): void {
         // Aesthetic Configuration
         const color = isBuff ? 0x00ff88 : 0xff4444; // Green vs Red
         const fillColor = isBuff ? 0x00ff88 : 0xff0000;
-        const fillAlpha = 0.15;
-        const strokeAlpha = 0.6;
+        const fillAlpha = 0.15 * alphaMultiplier;
+        const strokeAlpha = 0.6 * alphaMultiplier;
         const strokeWidth = 2;
 
         const gs = this.context.sceneSettings.getGridSettings();
@@ -405,7 +411,18 @@ export class HoverManager {
         this.clearHoverSilhouette();
     }
     public hoverAttackArrow?: Graphics;
-    public clearHoverSilhouette(): void {
+    private silhouetteLocked = false;
+    public setSilhouetteLocked(locked: boolean): void {
+        this.silhouetteLocked = locked;
+        if (!locked) {
+            // Check if we should clear immediately (optional, or let next update handle it)
+            // Usually safest to let logic handle it, but if we call unlock we might want to clear.
+            // Sandbox will call resetHover likely.
+        }
+    }
+    public clearHoverSilhouette(force = false): void {
+        if (this.silhouetteLocked && !force) return;
+
         if (this.hoverSilhouette) {
             this.hoverSilhouette.visible = false;
         }
@@ -430,15 +447,18 @@ export class HoverManager {
 
         // 1. Setup Text
         if (!this.hoverDamageText) {
-            this.hoverDamageText = new Text(text, {
-                fontFamily: "Arial",
-                fontSize: 24,
-                fill: 0xffffff,
-                stroke: { color: 0x000000, width: 4, join: "round" },
-                align: "center",
-                fontWeight: "bold",
+            this.hoverDamageText = new Text({
+                text: text,
+                style: {
+                    fontFamily: "Arial",
+                    fontSize: 24,
+                    fill: 0xffffff,
+                    stroke: { color: 0x000000, width: 4, join: "round" },
+                    align: "center",
+                    fontWeight: "bold",
+                },
             });
-            this.context.attachToWorldRoot(this.hoverDamageText, 201);
+            this.context.attachToWorldRoot(this.hoverDamageText, 2201); // Above Arrow (2200)
         } else {
             this.hoverDamageText.text = text;
         }
@@ -448,7 +468,7 @@ export class HoverManager {
             if (!this.hoverDamageIcon) {
                 this.hoverDamageIcon = new Sprite(Texture.from(iconPath!));
                 this.hoverDamageIcon.anchor.set(0.5);
-                this.context.attachToWorldRoot(this.hoverDamageIcon, 201);
+                this.context.attachToWorldRoot(this.hoverDamageIcon, 2201);
             } else {
                 this.hoverDamageIcon.texture = Texture.from(iconPath!);
             }
@@ -539,10 +559,10 @@ export class HoverManager {
         } else {
             silhouette = new Sprite(tex);
             silhouette.anchor.set(0.5);
-            this.context.attachToWorldRoot(silhouette, 140); // Above units (Z=120)
+            this.context.attachToWorldRoot(silhouette, 2100); // Above units (Z=1000)
             silhouette.scale.y = -1;
             // Static Dark Red + Blur as requested (set once if creating)
-            silhouette.filters = [new BlurFilter(4)];
+            silhouette.filters = [new BlurFilter({ strength: 4 })];
         }
 
         // Use new helper on RenderableUnit if available, else fallback
@@ -573,7 +593,7 @@ export class HoverManager {
 
         if (!this.hoverAttackArrow) {
             this.hoverAttackArrow = new Graphics();
-            this.context.attachToWorldRoot(this.hoverAttackArrow, 200); // Very high z-index
+            this.context.attachToWorldRoot(this.hoverAttackArrow, 2200); // Very high z-index
         }
 
         const g = this.hoverAttackArrow;
@@ -739,6 +759,8 @@ export class HoverManager {
         sprite.tint = 0xffffff;
     }
     public updateActiveMoveSilhouetteForCell(cell: HoCMath.XY): void {
+        if (this.silhouetteLocked) return;
+
         const currentActiveUnit = this.context.getCurrentActiveUnit();
         if (!currentActiveUnit) {
             this.clearHoverSilhouette();
@@ -920,7 +942,7 @@ export class HoverManager {
                         if (auras[i] > 0) {
                             const range = (auras[i] + bonus) * gs.getStep();
                             const isBuff = auraBuffs && i < auraBuffs.length ? auraBuffs[i] : true;
-                            this.drawAuraArea(center, range, isBuff, mockUnit.isSmallSize());
+                            this.drawAuraArea(center, range, isBuff, mockUnit.isSmallSize(), 0.7);
                         }
                     }
                 }

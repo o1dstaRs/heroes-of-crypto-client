@@ -1,6 +1,6 @@
 export * from "./PixiApp";
 export * from "./PixiDrawer";
-export * from "./PixiSceneManager";
+// export * from "./PixiSceneManager"; // Deprecated
 export * from "./SimplePhysicsManager";
 export * from "./PixiGameManager";
 export * from "./PixiTextureLoader";
