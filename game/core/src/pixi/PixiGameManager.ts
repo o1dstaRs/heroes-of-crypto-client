@@ -61,7 +61,7 @@ export class PixiGameManager {
     private sceneConstructor: SceneConstructor | null = null;
     private sceneTitle = "Heroes";
     public readonly onHasStarted = new Signal<(started: boolean) => void>();
-    public readonly onHasButtonsGroupUpdate = new Signal<(updated: boolean) => void>();
+    public readonly onHasButtonsGroupUpdate = new Signal<(buttons: IVisibleButton[]) => void>();
     public readonly onPlacementChanged = new Signal<(changed: boolean) => void>();
     public readonly onAugmentChanged = new Signal<(changed: boolean) => void>();
     public readonly onGridTypeChanged = new Signal<(gridType: GridType) => void>();
@@ -596,7 +596,7 @@ export class PixiGameManager {
 
         // Buttons group
         if (this.m_scene?.sc_buttonGroupUpdated) {
-            this.onHasButtonsGroupUpdate.emit(true);
+            this.onHasButtonsGroupUpdate.emit(this.m_scene?.sc_visibleButtonGroup ?? []);
             this.m_scene.sc_buttonGroupUpdated = false;
         }
     }

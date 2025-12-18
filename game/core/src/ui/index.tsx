@@ -79,6 +79,8 @@ const usePreventSelection = () => {
     }, []);
 };
 
+import { ButtonProvider } from "./context/ButtonContext";
+
 const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const manager = usePixiManager();
     const [started, setStarted] = useState(false);
@@ -101,17 +103,19 @@ const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     }, [manager]);
 
     return (
-        <div className="container" style={{ display: "flex" }}>
-            <CssVarsProvider>
-                <CssBaseline />
-                {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
-                {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
-                <UpNextOverlay />
-                <DraggableToolbar />
-            </CssVarsProvider>
-            <Main />
-            <Popover />
-        </div>
+        <ButtonProvider>
+            <div className="container" style={{ display: "flex" }}>
+                <CssVarsProvider>
+                    <CssBaseline />
+                    {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
+                    {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
+                    <UpNextOverlay />
+                    {!isLoading && started && <DraggableToolbar />}
+                </CssVarsProvider>
+                <Main />
+                <Popover />
+            </div>
+        </ButtonProvider>
     );
 };
 

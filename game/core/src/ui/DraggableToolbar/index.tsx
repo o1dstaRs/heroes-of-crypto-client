@@ -20,18 +20,10 @@ const inactiveOptionIconImage = new URL("../../../images/icon_inactive_option.we
 const blackImage = new URL("../../../images/overlay_black.webp", import.meta.url).toString();
 const lightImage = new URL("../../../images/overlay_light.webp", import.meta.url).toString();
 
-import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IVisibleButton, VisibleButtonState } from "../../scenes/VisibleState";
+import { useButtonContext } from "../context/ButtonContext";
 
 let SCREEN_RATIO = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
-
-const getDefaultSettings = (): { x: number; y: number; isVertical: boolean } => {
-    return {
-        x: window.innerHeight + (window.innerWidth - window.innerHeight) / 2,
-        y: window.innerHeight / 4,
-        isVertical: true,
-    };
-};
 
 const BUTTON_NAME_TO_ICON_IMAGE: Record<string, string> = {
     [`Spellbook${VisibleButtonState.FIRST}`]: spellbookIconImage,
@@ -237,29 +229,55 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     );
 };
 
+const getBarSize = (width: number, height: number) => {
+    const widthRatio = width / 2048;
+    const heightRatio = height / 2048;
+    const scaleRatio = Math.min(widthRatio, heightRatio);
+    const scaledBoardSize = 2048 * scaleRatio;
+    const rightBarEndAtBoard = (width - scaledBoardSize) / 2;
+    return rightBarEndAtBoard > 0 ? rightBarEndAtBoard : 0;
+};
+
 const DraggableToolbar: React.FC = () => {
-    const defaultSettings = getDefaultSettings();
-    const [position, setPosition] = useState<{ x: number; y: number }>({
-        x: defaultSettings.x,
-        y: defaultSettings.y,
+    const updateScreenRatios = useCallback(() => {
+        SCREEN_RATIO = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
+    }, []);
+
+    const getDefaultSettings = useCallback((): { x: number; y: number; isVertical: boolean } => {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const isLandscape = width / height >= 16 / 9;
+        const barSize = getBarSize(width, height);
+
+        // Landscape: Left side (right edge of Left Sidebar)
+        // Vertical: Right side (left edge of Right Sidebar)
+        const x = isLandscape ? barSize : width - barSize;
+
+        return {
+            x: x,
+            y: height / 4,
+            isVertical: true,
+        };
+    }, []);
+
+    const [position, setPosition] = useState<{ x: number; y: number }>(() => {
+        const ds = getDefaultSettings();
+        return { x: ds.x, y: ds.y };
     });
+
     const [isDragging, setIsDragging] = useState<boolean>(false);
     const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-    const [isVertical, setIsVertical] = useState<boolean>(defaultSettings.isVertical);
-    const [buttonGroupChanged, setButtonGroupChanged] = useState<boolean>(false);
-    const [buttonGroup, setButtonGroup] = useState<IVisibleButton[]>([]);
+    const [isVertical, setIsVertical] = useState<boolean>(() => getDefaultSettings().isVertical);
     const theme = useTheme();
-    const manager = usePixiManager();
+
+    const { buttons: buttonGroup, propagateClick } = useButtonContext();
+    const toolbarRef = React.useRef<HTMLDivElement>(null);
 
     const resetToDefaultPosition = useCallback(() => {
         const ds = getDefaultSettings();
         setPosition({ x: ds.x, y: ds.y });
         setIsVertical(ds.isVertical);
-    }, []);
-
-    const updateScreenRatios = useCallback(() => {
-        SCREEN_RATIO = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
-    }, []);
+    }, [getDefaultSettings]);
 
     useEffect(() => {
         const resetPositionIfNeeded = () => {
@@ -270,19 +288,29 @@ const DraggableToolbar: React.FC = () => {
                     y: prevPosition.y,
                 };
 
+                // If currently off-screen (or uninitialized), reset to default
                 if (
-                    dragIndicatorPosition.x < -20 ||
-                    dragIndicatorPosition.y < -20 ||
-                    dragIndicatorPosition.x + 45 * SCREEN_RATIO > window.innerWidth ||
-                    dragIndicatorPosition.y + 45 * SCREEN_RATIO > window.innerHeight
+                    dragIndicatorPosition.x < -50 ||
+                    dragIndicatorPosition.y < -50 ||
+                    dragIndicatorPosition.x > window.innerWidth ||
+                    dragIndicatorPosition.y > window.innerHeight
                 ) {
                     return { x: ds.x, y: ds.y };
                 }
+
+                // If the screen resized significantly, we might want to snap back or clamp?
+                // For now, let's keep the user's manual position UNLESS it's lost.
+                // But the user constraint implies "appear at..." which is initial.
 
                 return prevPosition;
             });
             setIsVertical(ds.isVertical);
         };
+
+        // Run once on mount to set initial correct position
+        // This is now handled by the functional useState initializer for position and isVertical.
+        // const ds = getDefaultSettings();
+        // setPosition({ x: ds.x, y: ds.y });
 
         const handleResizeOrZoom = () => {
             updateScreenRatios();
@@ -290,30 +318,15 @@ const DraggableToolbar: React.FC = () => {
         };
 
         window.addEventListener("resize", handleResizeOrZoom);
-        window.addEventListener("zoom", handleResizeOrZoom);
+        window.addEventListener("zoom", handleResizeOrZoom as EventListener);
         document.addEventListener("fullscreenchange", resetToDefaultPosition);
 
         return () => {
             window.removeEventListener("resize", handleResizeOrZoom);
-            window.removeEventListener("zoom", handleResizeOrZoom);
+            window.removeEventListener("zoom", handleResizeOrZoom as EventListener);
             document.removeEventListener("fullscreenchange", resetToDefaultPosition);
         };
-    }, [updateScreenRatios, buttonGroup.length, isVertical, resetToDefaultPosition]);
-
-    useEffect(() => {
-        manager.onHasButtonsGroupUpdate.connect(setButtonGroupChanged);
-
-        return () => {
-            manager.onHasButtonsGroupUpdate.disconnect(setButtonGroupChanged);
-        };
-    }, [manager]);
-
-    useEffect(() => {
-        if (buttonGroupChanged) {
-            setButtonGroup(manager.GetButtonGroup());
-            setButtonGroupChanged(false);
-        }
-    }, [buttonGroupChanged, manager]);
+    }, [updateScreenRatios, buttonGroup.length, isVertical, resetToDefaultPosition, getDefaultSettings]);
 
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
         setIsDragging(true);
@@ -325,31 +338,25 @@ const DraggableToolbar: React.FC = () => {
 
     const handleMouseMove = useCallback(
         (e: MouseEvent) => {
-            if (isDragging) {
-                const ds = getDefaultSettings();
-                setPosition(() => {
-                    const newX = e.clientX - dragOffset.x;
-                    const newY = e.clientY - dragOffset.y;
+            if (isDragging && toolbarRef.current) {
+                const rect = toolbarRef.current.getBoundingClientRect();
+                const width = rect.width;
+                const height = rect.height;
 
-                    const dragIndicatorPosition = {
-                        x: newX,
-                        y: newY,
-                    };
+                let newX = e.clientX - dragOffset.x;
+                let newY = e.clientY - dragOffset.y;
 
-                    if (
-                        dragIndicatorPosition.x < -20 ||
-                        dragIndicatorPosition.y < -20 ||
-                        dragIndicatorPosition.x + 45 * SCREEN_RATIO > window.innerWidth ||
-                        dragIndicatorPosition.y + 45 * SCREEN_RATIO > window.innerHeight
-                    ) {
-                        return { x: ds.x, y: ds.y, isVertical: ds.isVertical };
-                    }
+                // Clamp to window boundaries
+                newX = Math.max(0, Math.min(newX, window.innerWidth - width));
+                newY = Math.max(0, Math.min(newY, window.innerHeight - height));
 
-                    return { x: newX, y: newY };
+                setPosition({
+                    x: newX,
+                    y: newY,
                 });
             }
         },
-        [isDragging, dragOffset, buttonGroup.length, isVertical],
+        [isDragging, dragOffset, toolbarRef],
     );
 
     const handleMouseUp = useCallback(() => {
@@ -371,8 +378,17 @@ const DraggableToolbar: React.FC = () => {
 
     const isDark = theme.palette.mode === "dark";
 
+    const getButtonIcon = (button: IVisibleButton) => {
+        if (button.customSpriteName) {
+            // @ts-ignore: src params
+            return images[button.customSpriteName];
+        }
+        return BUTTON_NAME_TO_ICON_IMAGE[`${button.name}${button.state}`];
+    };
+
     return buttonGroup.length > 0 ? (
         <StyledSheet
+            ref={toolbarRef}
             sx={{
                 position: "absolute",
                 left: `${position.x}px`,
@@ -380,77 +396,79 @@ const DraggableToolbar: React.FC = () => {
                 display: "flex",
                 flexDirection: isVertical ? "column" : "row",
                 alignItems: "center",
-                gap: 0.7 * SCREEN_RATIO,
-                zIndex: 4,
-                transition: isDragging ? "none" : "left 0.5s ease, top 0.5s ease", // Add transition only when not dragging
+                gap: 1.5,
+                zIndex: 1000,
+                cursor: isDragging ? "grabbing" : "default",
+                userSelect: "none",
             }}
+            onMouseDown={handleMouseDown}
         >
             <Box
                 sx={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 0.7 * SCREEN_RATIO,
-                    bgcolor: isDark ? "rgba(255, 215, 0, 0.1)" : "rgba(53, 33, 0, 0.3)",
-                    borderRadius: "sm",
-                    p: 0.35 * SCREEN_RATIO,
+                    gap: 0,
+                    marginBottom: isVertical ? 0 : 0,
+                    marginRight: isVertical ? 0 : 0,
+                    cursor: "grab",
+                    color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)",
+                    "&:hover": {
+                        color: isDark ? "white" : "black",
+                    },
                 }}
             >
-                <Box onMouseDown={handleMouseDown} sx={{ cursor: "move", display: "flex", alignItems: "center" }}>
-                    <DragIndicatorIcon
-                        sx={{
-                            color: isDark ? "rgb(131, 112, 106)" : "#352100",
-                            width: "auto",
-                            height: 22.4 * SCREEN_RATIO,
-                        }}
-                    />
-                </Box>
-                <button
-                    onClick={handleRotate}
-                    style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: 0,
-                        display: "flex",
-                        alignItems: "center",
-                    }}
-                >
-                    <RotateRightIcon
-                        sx={{
-                            width: "auto",
-                            height: 22.4 * SCREEN_RATIO,
-                            color: isDark ? "rgb(230, 220, 212)" : "black",
-                        }}
-                    />
-                </button>
+                <DragIndicatorIcon />
             </Box>
-            <Divider
-                orientation={isVertical ? "horizontal" : "vertical"}
-                sx={{ bgcolor: isDark ? "rgb(131, 112, 106)" : "#352100" }}
-            />
-            {buttonGroup.map((button) => {
-                const iconImage = button.customSpriteName
-                    ? // @ts-ignore: src params
-                      images[button.customSpriteName]
-                    : BUTTON_NAME_TO_ICON_IMAGE[`${button.name}${button.state}`];
-                return (
+
+            <Divider orientation={isVertical ? "horizontal" : "vertical"} />
+
+            <Box
+                sx={{
+                    display: "flex",
+                    flexDirection: isVertical ? "column" : "row",
+                    gap: 1.5,
+                }}
+            >
+                {buttonGroup.map((button) => (
                     <ButtonComponent
                         key={button.name}
-                        iconImage={iconImage}
-                        text={button.text}
+                        iconImage={getButtonIcon(button)}
+                        text={button.name}
                         isVisible={button.isVisible}
                         isDisabled={button.isDisabled}
                         isDark={isDark}
-                        onClick={() => {
-                            manager.PropagateButtonClicked(button.name, button.state);
-                        }}
+                        onClick={() => propagateClick(button.name, button.state)}
                         isHourglass={button.name === "Hourglass"}
                         customSpriteName={button.customSpriteName}
                         numberOfOptions={button.numberOfOptions}
                         selectedOption={button.selectedOption}
                     />
-                );
-            })}
+                ))}
+            </Box>
+
+            <Divider orientation={isVertical ? "horizontal" : "vertical"} />
+
+            <Tooltip title="Rotate Toolbar" variant="soft">
+                <StyledIconButton
+                    rotationDegrees={0} // No rotation for the icon itself
+                    isDark={isDark}
+                    onClick={handleRotate}
+                    sx={{
+                        width: "auto",
+                        height: "auto",
+                        padding: "4px",
+                        borderRadius: "50%",
+                        color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)",
+                        "&:hover": {
+                            backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
+                            color: isDark ? "white" : "black",
+                            transform: "scale(1.1)",
+                        },
+                    }}
+                >
+                    <RotateRightIcon />
+                </StyledIconButton>
+            </Tooltip>
         </StyledSheet>
     ) : null;
 };

@@ -151,11 +151,12 @@ const UnitInputAndActions = ({
                         sx={{
                             flex: 1,
                             minWidth: 0,
+                            aspectRatio: "3.5 / 1",
                             backgroundImage: `url(${images.button})`,
                             backgroundSize: "100% 100%",
                             backgroundRepeat: "no-repeat",
                             color: "white",
-                            height: "40px",
+                            height: "auto",
                             "&:hover": {
                                 filter: "brightness(1.5) saturate(1.2)",
                                 backgroundColor: "transparent",
@@ -172,11 +173,12 @@ const UnitInputAndActions = ({
                         sx={{
                             flex: 1,
                             minWidth: 0,
+                            aspectRatio: "3.5 / 1",
                             backgroundImage: `url(${images.button})`,
                             backgroundSize: "100% 100%",
                             backgroundRepeat: "no-repeat",
                             color: "white",
-                            height: "40px",
+                            height: "auto",
                             "&:hover": {
                                 filter: "brightness(1.5) saturate(1.2)",
                                 backgroundColor: "transparent",

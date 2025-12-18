@@ -1280,18 +1280,23 @@ export class Sandbox extends PixiScene {
                         const hit = damageForAnimation.hits[i];
                         let pos = { ...center };
 
-                        if (direction && damageForAnimation.hits.length > 1) {
+                        if (direction && damageForAnimation.hits.length > 0) {
                             const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
                             if (len > 0.001) {
                                 const ndx = direction.x / len;
                                 const ndy = direction.y / len;
-                                // Strategy: First hit is "Deep" (+75), Second hit is "Closer" (+20)
-                                // "away from attacker" = +Direction
+                                // Strategy:
+                                // Single hit: Offset 20
+                                // Multi hit: First is "Deep" (+75), Second is "Closer" (+20)
                                 let offset = 0;
-                                if (i === 0) {
-                                    offset = 75;
-                                } else if (i === 1) {
+                                if (damageForAnimation.hits.length === 1) {
                                     offset = 20;
+                                } else {
+                                    if (i === 0) {
+                                        offset = 75;
+                                    } else if (i === 1) {
+                                        offset = 20;
+                                    }
                                 }
 
                                 pos.x += ndx * offset;
@@ -1400,18 +1405,23 @@ export class Sandbox extends PixiScene {
                             const hit = rangeDamageData.hits[i];
                             let pos = { ...center };
 
-                            if (direction && rangeDamageData.hits.length > 1) {
+                            if (direction && rangeDamageData.hits.length > 0) {
                                 const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
                                 if (len > 0.001) {
                                     const ndx = direction.x / len;
                                     const ndy = direction.y / len;
-                                    // Strategy: First hit is "Deep" (+75), Second hit is "Closer" (+20)
-                                    // "away from attacker" = +Direction
+                                    // Strategy:
+                                    // Single hit: Offset 20
+                                    // Multi hit: First is "Deep" (+75), Second is "Closer" (+20)
                                     let offset = 0;
-                                    if (i === 0) {
-                                        offset = 75;
-                                    } else if (i === 1) {
+                                    if (rangeDamageData.hits.length === 1) {
                                         offset = 20;
+                                    } else {
+                                        if (i === 0) {
+                                            offset = 75;
+                                        } else if (i === 1) {
+                                            offset = 20;
+                                        }
                                     }
                                     pos.x += ndx * offset;
                                     pos.y += ndy * offset;
@@ -2616,6 +2626,7 @@ export class Sandbox extends PixiScene {
             const targetDiedCount = Math.max(0, targetBeforeAmount - targetAfterAmount);
 
             if (damageForAnimation.hits && damageForAnimation.hits.length > 0) {
+                const totalHits = damageForAnimation.hits.length;
                 damageForAnimation.hits.forEach((dmg, index) => {
                     // Capture spawnPos for the closure.
                     const pos = { ...spawnPos };
@@ -2627,10 +2638,14 @@ export class Sandbox extends PixiScene {
                         const ndx = dir.x / len;
                         const ndy = dir.y / len;
                         let offset = 0;
-                        if (index === 0) {
-                            offset = 75;
-                        } else if (index === 1) {
+                        if (totalHits === 1) {
                             offset = 20;
+                        } else {
+                            if (index === 0) {
+                                offset = 75;
+                            } else if (index === 1) {
+                                offset = 20;
+                            }
                         }
                         pos.x += ndx * offset;
                         pos.y += ndy * offset;
@@ -3027,7 +3042,7 @@ export class Sandbox extends PixiScene {
                 this.hoverManager.clearHoverSilhouette();
                 return;
             }
-            if (this.sc_isAnimating || !this.sc_mouseWorld) {
+            if (this.sc_isAnimating || this.isActiveUnitMoving || !this.sc_mouseWorld) {
                 this.hoverManager.clearHoverSilhouette();
                 return;
             }
@@ -4429,13 +4444,15 @@ export class Sandbox extends PixiScene {
                 );
             } else {
                 // Paralysis: Can't move, but treat as staying at current cell to allow attack targeting
+                // Fix: Must use unit's base cell, not the cursor's currentCell, otherwise it thinks we teleported to cursor
+                const unitCell = this.currentActiveUnit.getBaseCell();
                 movePath = {
-                    cells: [currentCell],
+                    cells: [unitCell],
                     knownPaths: new Map<number, IWeightedRoute[]>(), // No paths to travel
-                    hashes: new Set<number>([(currentCell.x << 4) | currentCell.y]),
+                    hashes: new Set<number>([(unitCell.x << 4) | unitCell.y]),
                 };
                 // Explicitly valid "move" to self
-                movePath.knownPaths.set((currentCell.x << 4) | currentCell.y, []);
+                movePath.knownPaths.set((unitCell.x << 4) | unitCell.y, []);
             }
 
             this.currentActivePath = movePath.cells;
