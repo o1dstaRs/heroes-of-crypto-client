@@ -251,11 +251,12 @@ const DraggableToolbar: React.FC = () => {
 
         // Landscape: Left side (right edge of Left Sidebar)
         // Vertical: Right side (left edge of Right Sidebar)
-        const x = isLandscape ? barSize : width - barSize;
+        // Update: Landscape should stick to inside edge of sidebar (move left by button width)
+        const x = isLandscape ? barSize - 48 * SCREEN_RATIO : width - barSize;
 
         return {
             x: x,
-            y: height / 4,
+            y: height / 3.2,
             isVertical: true,
         };
     }, []);

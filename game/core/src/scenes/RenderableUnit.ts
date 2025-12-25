@@ -1,5 +1,16 @@
 import { Container, Sprite, Graphics, Text, TextStyle, Texture, Rectangle } from "pixi.js";
-import { Unit, UnitProperties, HoCMath, GridSettings, GridMath, TeamVals, HoCConstants } from "@heroesofcrypto/common";
+import {
+    Unit,
+    UnitProperties,
+    HoCMath,
+    GridSettings,
+    GridMath,
+    TeamVals,
+    HoCConstants,
+    HoCConfig,
+    SpellHelper,
+} from "@heroesofcrypto/common";
+import { PixiRenderableSpell } from "./RenderableSpell";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { animationAtlases, AnimationUnitName, AnimationStateName } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../generated/image_imports";
@@ -112,6 +123,10 @@ export class RenderableUnit extends Unit {
     private isActiveTurn = false;
     private isDestroyed = false;
     private visualMode: "normal" | "hidden" | "ghost" = "normal";
+    // Spells support
+    private pixiSpells: PixiRenderableSpell[] = [];
+    private spellBookLayer?: Container;
+    private digitTextures?: Map<number, Texture>; // 0-9 and -1
     /**
      * Attach rendering capabilities to an existing Unit instance.
      * (We rely on JS prototype + TS casting; Unit stays the core owner.)
@@ -120,7 +135,87 @@ export class RenderableUnit extends Unit {
         Object.setPrototypeOf(base, RenderableUnit.prototype);
         const ru = base as RenderableUnit;
         ru.texResolver = texResolver;
+        ru.pixiSpells = [];
         return ru;
+    }
+    public setSpellBookLayer(layer: Container, digitTextures: Map<number, Texture>): void {
+        this.spellBookLayer = layer;
+        this.digitTextures = digitTextures;
+        this.parseSpells();
+    }
+    public override parseSpells(): void {
+        if (!this.spellBookLayer || !this.digitTextures) return;
+
+        // Clear existing
+        this.pixiSpells.forEach((s) => s.destroy());
+        this.pixiSpells = [];
+
+        const spellsData = this.parseSpellData(this.unitProperties.spells);
+
+        for (const [k, v] of spellsData.entries()) {
+            const spArr = k.split(":");
+            if (spArr.length !== 2) continue;
+
+            const factionName = spArr[0];
+            const spellName = spArr[1];
+            if (!factionName) continue;
+
+            const spellProperties = HoCConfig.getSpellConfig(factionName, spellName);
+            const textureNames = SpellHelper.spellToTextureNames(spellName);
+
+            // Resolve textures
+            // textureNames[0] is the spell icon
+            // textureNames[1] is the title strip
+            const iconTex = this.texResolver(textureNames[0]);
+            const titleTex = this.texResolver(textureNames[1]);
+            const cellTex = this.texResolver("spell_cell_260");
+
+            if (iconTex && titleTex && cellTex) {
+                const newSpell = new PixiRenderableSpell(
+                    { spellProperties: spellProperties, amount: v },
+                    this.spellBookLayer,
+                    { spell_cell_260: cellTex },
+                    iconTex,
+                    titleTex,
+                    this.digitTextures,
+                );
+                this.pixiSpells.push(newSpell);
+            }
+        }
+    }
+    public renderSpells(pageNumber: number): void {
+        const windowLeft = (pageNumber - 1) * 6;
+        const windowRight = (pageNumber - 1) * 6 + 6;
+        let bookPosition = 1;
+        const rendered: number[] = [];
+
+        for (let i = windowLeft; i < windowRight; i++) {
+            if (i < this.pixiSpells.length && this.pixiSpells[i]) {
+                // Ensure spell book layer visibility is managed by Overlay
+                this.pixiSpells[i].renderOnPage(bookPosition++, this.getStackPower());
+                rendered.push(i);
+            }
+        }
+
+        // Cleanup non-rendered spells
+        for (let i = 0; i < this.pixiSpells.length; i++) {
+            if (!rendered.includes(i)) {
+                this.pixiSpells[i].cleanupPagePosition();
+            }
+        }
+    }
+    public hideSpells(): void {
+        for (const s of this.pixiSpells) {
+            s.cleanupPagePosition();
+        }
+    }
+    public getHoveredSpell(mousePosition: HoCMath.XY): PixiRenderableSpell | undefined {
+        for (const s of this.pixiSpells) {
+            if (s.isHover(mousePosition, this.getStackPower())) {
+                return s;
+            }
+        }
+        return undefined;
     }
     /** Ensure sprite + badge exist and are laid out for the current unit state. */
     public ensureVisual(worldRoot: Container, gs: GridSettings): number | undefined {

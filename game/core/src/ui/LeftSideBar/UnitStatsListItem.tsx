@@ -50,13 +50,10 @@ interface IAbilityStackProps {
     teamType: TeamType;
 }
 
-const ABILITIES_FIT_IN_ONE_ROW = 3;
-
-// --- Custom Style for "Heroes" Aesthetic Tooltips ---
 const commonTooltipSx = {
-    backgroundColor: "#2d1606", // Deep dark brown/wood
-    border: "2px solid #dcb158", // Metallic gold/bronze border
-    color: "#efe4cc", // Parchment/Cream text for contrast
+    backgroundColor: "#2d1606",
+    border: "2px solid #dcb158",
+    color: "#efe4cc",
     borderRadius: "8px",
     boxShadow: "0 6px 12px rgba(0,0,0,0.8)",
     fontSize: "0.85rem",
@@ -65,7 +62,6 @@ const commonTooltipSx = {
     zIndex: 10000,
 };
 
-// Normalize "Angel", "Wolf Rider" etc. to the keys in animationAtlases
 function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | null {
     if (!name) return null;
     const trimmed = name.trim();
@@ -74,48 +70,29 @@ function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | nu
     return null;
 }
 
-// Turn "Wolf Rider" + "default" -> "wolf_rider_default_atlas"
 function atlasImageKeyFromUnitAndState(unitName: string, state: string): ImageKey | null {
     const base = unitName.toLowerCase().replace(/\s+/g, "_");
     const stateLower = state.toLowerCase();
-
     const key = `${base}_${stateLower}_atlas` as ImageKey;
-
-    if (key in images) {
-        return key;
-    }
-
-    if (process.env.NODE_ENV === "development") {
-        console.warn(`[atlas] Missing atlas image for unit "${unitName}", state "${state}". Expected key: ${key}`);
-    }
-
+    if (key in images) return key;
     return null;
 }
 
 type AtlasMeta = (typeof animationAtlases)[AnimationUnitName][AnimationStateName];
 
-// Pick the "default" state if present, otherwise first available
 function getDefaultAnimationConfig(unitName?: string | null): { meta: AtlasMeta; imageSrc: string } | null {
     const normalized = normalizeUnitNameForAtlas(unitName);
     if (!normalized) return null;
-
     const unitStates = animationAtlases[normalized];
     const stateNames = Object.keys(unitStates) as AnimationStateName[];
-
     if (!stateNames.length) return null;
-
     const preferredState = (stateNames as string[]).includes("default")
         ? ("default" as AnimationStateName)
         : stateNames[0];
-
     const meta = unitStates[preferredState];
-
     const imageKey = atlasImageKeyFromUnitAndState(normalized, preferredState as string);
     if (!imageKey) return null;
-
     const imageSrc = images[imageKey];
-    if (!imageSrc) return null;
-
     return { meta, imageSrc };
 }
 
@@ -131,17 +108,14 @@ const AtlasAnimation: React.FC<{
     React.useEffect(() => {
         const img = new Image();
         img.src = src;
-
         const handleLoaded = () => {
             setIsImageLoaded(true);
             onLoaded();
         };
-
         img.onload = handleLoaded;
         img.onerror = handleLoaded;
 
         const frameCount = meta.frameCount ?? 1;
-
         const fallbackTotalSec =
             typeof meta.totalDurationSec === "number" && Number.isFinite(meta.totalDurationSec)
                 ? meta.totalDurationSec
@@ -150,7 +124,6 @@ const AtlasAnimation: React.FC<{
         const baseTotalMs = fallbackTotalSec * 1000;
         const loopDurationMs = meta.loopDurationMs ?? Math.round(baseTotalMs * 0.8);
         const pauseMs = meta.pauseMs ?? Math.round(loopDurationMs * 0.4);
-
         const stepDuration = loopDurationMs / Math.max(1, frameCount - 1);
 
         let cancelled = false;
@@ -158,9 +131,7 @@ const AtlasAnimation: React.FC<{
 
         const runForward = (idx: number) => {
             if (cancelled) return;
-
             setFrameIndex(idx);
-
             if (idx >= frameCount - 1) {
                 timer = window.setTimeout(() => runBackward(frameCount - 1), pauseMs);
             } else {
@@ -170,9 +141,7 @@ const AtlasAnimation: React.FC<{
 
         const runBackward = (idx: number) => {
             if (cancelled) return;
-
             setFrameIndex(idx);
-
             if (idx <= 0) {
                 timer = window.setTimeout(() => runForward(0), pauseMs);
             } else {
@@ -180,14 +149,10 @@ const AtlasAnimation: React.FC<{
             }
         };
 
-        // start at the beginning, going forward
         runForward(0);
-
         return () => {
             cancelled = true;
-            if (timer !== undefined) {
-                window.clearTimeout(timer);
-            }
+            if (timer !== undefined) window.clearTimeout(timer);
         };
     }, [isImageLoaded, meta]);
 
@@ -195,13 +160,10 @@ const AtlasAnimation: React.FC<{
     const frameHeight = meta.frameHeight ?? 512;
     const cols = meta.layout?.cols ?? 1;
     const rows = meta.layout?.rows ?? 1;
-
     const col = frameIndex % cols;
     const row = Math.floor(frameIndex / cols);
-
     const bgSizeX = cols * 100;
     const bgSizeY = rows * 100;
-
     const bgPosX = cols > 1 ? (col / (cols - 1)) * 100 : 0;
     const bgPosY = rows > 1 ? (row / (rows - 1)) * 100 : 0;
 
@@ -255,94 +217,41 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     teamType,
     isAura,
 }) => {
-    if (stackPower === 0) return null;
-
-    const backgroundColor = teamType === TeamVals.LOWER ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.4)";
-    const borderColor = teamType === TeamVals.LOWER ? "rgba(76, 175, 80, 0.6)" : "rgba(244, 67, 54, 0.4)";
-
-    if (isAura) {
-        const tileSize = 22;
-        const margin = 2;
-        const radius = 50 - tileSize / 2 - margin;
-
-        const count = stackPower;
-        const startAngle = 135;
-        const endAngle = 225;
-        const span = endAngle - startAngle;
-        const step = count > 1 ? span / (count - 1) : 0;
-
-        const minAlpha = 0.18;
-        const maxAlpha = 0.86;
-        const [baseR, baseG, baseB] = teamType === TeamVals.LOWER ? [76, 175, 80] : [244, 67, 54];
-
-        return (
-            <Box
-                sx={{
-                    position: "absolute",
-                    inset: 0,
-                    zIndex: 3,
-                    pointerEvents: "none",
-                }}
-            >
-                {Array.from({ length: count }).map((_, index) => {
-                    const angleDeg = endAngle - step * index;
-                    const angleRad = (angleDeg * Math.PI) / 180;
-
-                    const cx = 50 + radius * Math.cos(angleRad);
-                    const cy = 50 + radius * Math.sin(angleRad);
-
-                    const t = count > 1 ? index / (count - 1) : 0.5;
-                    const opacity = minAlpha + t * (maxAlpha - minAlpha);
-                    const tileBackground = `rgba(${baseR}, ${baseG}, ${baseB}, ${opacity})`;
-                    const tileBorder = `rgba(${baseR}, ${baseG}, ${baseB}, ${Math.min(1, opacity + 0.08)})`;
-
-                    return (
-                        <Box
-                            key={`stack_aura_${index}`}
-                            sx={{
-                                position: "absolute",
-                                left: `${cx - tileSize / 2}%`,
-                                top: `${cy - tileSize / 2}%`,
-                                width: `${tileSize + 4}%`,
-                                height: `${tileSize}%`,
-                                backgroundColor: tileBackground,
-                                border: `1px solid ${tileBorder}`,
-                                borderRadius: "6px",
-                                transform: `rotate(${angleDeg - 90}deg)`,
-                                transformOrigin: "center center",
-                                zIndex: index + 1,
-                            }}
-                        />
-                    );
-                })}
-            </Box>
-        );
-    }
+    if (stackPower <= 0) return null;
+    const isLower = teamType === TeamVals.LOWER;
+    const activeColor = isLower
+        ? "rgba(0, 255, 0, 1)"
+        : teamType === TeamVals.UPPER
+          ? "rgba(255, 0, 0, 1)"
+          : "rgba(255, 191, 0, 1)";
+    const emptyColor = "rgba(34, 34, 34, 0.7)";
 
     return (
         <Box
             sx={{
                 position: "absolute",
-                bottom: 0,
-                left: 0,
-                width: "20%",
-                height: "100%",
-                zIndex: 3,
+                bottom: "5%",
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: isAura ? "70%" : "85%", // Narrower for circles to stay inside curves
+                height: "12%",
+                minHeight: "4px",
+                display: "flex",
+                flexDirection: "row",
+                gap: "2%",
+                zIndex: 10,
+                pointerEvents: "none",
             }}
         >
-            {[...Array(stackPower)].map((_, index) => (
+            {Array.from({ length: 5 }).map((_, i) => (
                 <Box
-                    key={`stack_${index}`}
+                    key={`pip_${i}`}
                     sx={{
-                        position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        width: "100%",
-                        height: `${((index + 1) / HoCConstants.MAX_UNIT_STACK_POWER) * 100}%`,
-                        clipPath: "polygon(20% 100%, 100% 100%, 100% 20%, 0 0)",
-                        backgroundColor,
-                        border: `1px solid ${borderColor}`,
-                        zIndex: stackPower - index,
+                        flex: 1,
+                        backgroundColor: i < stackPower ? activeColor : emptyColor,
+                        borderRadius: "2px",
+                        border: `1px solid rgba(0, 0, 0, 0.8)`,
+                        boxSizing: "border-box",
                     }}
                 />
             ))}
@@ -361,88 +270,71 @@ const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean; hasBr
     const auraColor = isDarkMode ? "rgba(255, 255, 255, 0.75)" : "rgba(0, 0, 0, 0.75)";
 
     const filtered = abilities.filter((ability) => ability.laps > 0);
-    const rowsCount = Math.ceil(filtered.length / ABILITIES_FIT_IN_ONE_ROW);
 
     return (
-        <Stack spacing={2} sx={{ marginTop: 1 }}>
-            {Array.from({ length: rowsCount }).map((_, rowIndex) => (
-                <Stack key={`row_${rowIndex}`} direction="row" spacing={2} sx={{ width: "100%" }}>
-                    {filtered
-                        .slice(rowIndex * ABILITIES_FIT_IN_ONE_ROW, (rowIndex + 1) * ABILITIES_FIT_IN_ONE_ROW)
-                        .map((ability, index) => (
-                            <Tooltip
-                                title={
-                                    <>
-                                        {hasBreakApplied && "BREAK APPLIED!\n"}
-                                        {ability.name}:&nbsp;
-                                        {ability.description.split("\n").map((line, idx) => (
-                                            <React.Fragment key={idx}>
-                                                {line}
-                                                <br />
-                                            </React.Fragment>
-                                        ))}
-                                    </>
-                                }
-                                key={`tooltip_${rowIndex}_${index}`}
-                                sx={commonTooltipSx}
-                            >
-                                <Box
-                                    sx={{
-                                        position: "relative",
-                                        width: isWidescreen ? "22%" : "30%",
-                                        paddingBottom: isWidescreen ? "22%" : "30%",
-                                        overflow: "hidden",
-                                        borderRadius: ability.isAura ? "50%" : "15%",
-                                        "&::before": {
-                                            content: '""',
-                                            position: "absolute",
-                                            top: "50%",
-                                            left: "50%",
-                                            width: "100%",
-                                            height: "100%",
-                                            transform: "translate(-50%, -50%)",
-                                            borderRadius: ability.isAura ? "50%" : "20%",
-                                            boxShadow: ability.isAura ? `-20px 0 -20px 60px ${auraColor}` : "none",
-                                            zIndex: 0,
-                                        },
-                                        "&::after": {
-                                            content: '""',
-                                            position: "absolute",
-                                            top: 0,
-                                            left: 0,
-                                            right: 0,
-                                            bottom: 0,
-                                            borderRadius: ability.isAura ? "50%" : "15%",
-                                            border: ability.isAura ? `2px solid ${auraColor}` : "none",
-                                            zIndex: 2,
-                                            pointerEvents: "none",
-                                        },
-                                    }}
-                                >
-                                    <Box
-                                        component="img"
-                                        // @ts-ignore: src params
-                                        src={images[ability.smallTextureName]}
-                                        sx={{
-                                            position: "absolute",
-                                            top: 0,
-                                            left: 0,
-                                            width: "100%",
-                                            height: "100%",
-                                            objectFit: "cover",
-                                            zIndex: 1,
-                                        }}
-                                    />
-                                    {hasBreakApplied && <BreakOverlay />}
-                                    <StackPowerOverlay
-                                        stackPower={ability.isStackPowered ? ability.stackPower : 0}
-                                        teamType={teamType}
-                                        isAura={ability.isAura}
-                                    />
-                                </Box>
-                            </Tooltip>
-                        ))}
-                </Stack>
+        <Stack direction="row" flexWrap="wrap" gap={isWidescreen ? 2 : 1.5} sx={{ width: "100%", marginTop: 1 }}>
+            {filtered.map((ability, index) => (
+                <Tooltip
+                    title={
+                        <>
+                            {hasBreakApplied && "BREAK APPLIED!\n"}
+                            {ability.name}:&nbsp;
+                            {ability.description.split("\n").map((line, idx) => (
+                                <React.Fragment key={idx}>
+                                    {line}
+                                    <br />
+                                </React.Fragment>
+                            ))}
+                        </>
+                    }
+                    key={`tooltip_${index}`}
+                    sx={commonTooltipSx}
+                >
+                    <Box
+                        sx={{
+                            position: "relative",
+                            width: isWidescreen ? "22%" : `calc((100% - ${theme.spacing(3)}) / 3)`,
+                            paddingBottom: isWidescreen ? "22%" : `calc((100% - ${theme.spacing(3)}) / 3)`,
+                            overflow: "visible",
+                            borderRadius: ability.isAura ? "50%" : "15%",
+                            "&::before": {
+                                content: '""',
+                                position: "absolute",
+                                top: "50%",
+                                left: "50%",
+                                width: "100%",
+                                height: "100%",
+                                transform: "translate(-50%, -50%)",
+                                borderRadius: ability.isAura ? "50%" : "20%",
+                                boxShadow: ability.isAura ? `-20px 0 -20px 60px ${auraColor}` : "none",
+                                zIndex: 0,
+                            },
+                        }}
+                    >
+                        <Box
+                            component="img"
+                            // @ts-ignore: images index signature
+                            src={images[ability.smallTextureName]}
+                            sx={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                                zIndex: 1,
+                                // ✅ CLIP IMAGE ONLY
+                                borderRadius: ability.isAura ? "50%" : "15%",
+                            }}
+                        />
+                        {hasBreakApplied && <BreakOverlay isAura={ability.isAura} />}
+                        <StackPowerOverlay
+                            stackPower={ability.isStackPowered ? ability.stackPower : 0}
+                            teamType={teamType}
+                            isAura={ability.isAura}
+                        />
+                    </Box>
+                </Tooltip>
             ))}
         </Stack>
     );
@@ -485,27 +377,17 @@ const EffectColumnOrRow: React.FC<{
                     display: "flex",
                     flexDirection: isHorizontalLayout ? "row" : "column",
                     flexWrap: isHorizontalLayout ? "wrap" : "nowrap",
-                    "&::-webkit-scrollbar": { width: "4px" },
-                    "&::-webkit-scrollbar-track": { background: "#f1f1f1" },
-                    "&::-webkit-scrollbar-thumb": { background: "#888" },
-                    "&::-webkit-scrollbar-thumb:hover": { background: "#555" },
                 }}
             >
                 {effects.map((effect, index) => (
                     <Tooltip
                         key={index}
-                        title={`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${
-                            effect.laps > 0 &&
-                            effect.laps !== Number.MAX_SAFE_INTEGER &&
-                            effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL
-                                ? ` (remaining ${HoCLib.getLapString(effect.laps)})`
-                                : ""
-                        }`}
+                        title={`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${effect.laps > 0 && effect.laps !== Number.MAX_SAFE_INTEGER && effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL ? ` (remaining ${HoCLib.getLapString(effect.laps)})` : ""}`}
                         sx={commonTooltipSx}
                     >
                         <Box
                             component="img"
-                            // @ts-ignore: src params
+                            // @ts-ignore: images index signature
                             src={images[effect.smallTextureName]}
                             sx={{
                                 width: isHorizontalLayout ? "13%" : "auto",
@@ -562,15 +444,13 @@ const StatItem: React.FC<{
                 <Box sx={{ position: "relative", display: "inline-flex" }}>
                     <Typography
                         fontSize="0.75rem"
-                        sx={{
-                            ...(positiveFrame || negativeFrame ? { fontWeight: "bold", fontSize: "0.75rem" } : {}),
-                        }}
+                        sx={{ ...(positiveFrame || negativeFrame ? { fontWeight: "bold", fontSize: "0.75rem" } : {}) }}
                     >
                         {value}
                     </Typography>
                     <Badge
                         badgeContent={badgeContent}
-                        // @ts-ignore: style params
+                        // @ts-ignore: badge color type mismatch
                         color={badgeColor}
                         sx={{
                             position: "absolute",
@@ -584,9 +464,7 @@ const StatItem: React.FC<{
             ) : (
                 <Typography
                     fontSize="0.75rem"
-                    sx={{
-                        ...(positiveFrame || negativeFrame ? { fontWeight: "bold", fontSize: "0.75rem" } : {}),
-                    }}
+                    sx={{ ...(positiveFrame || negativeFrame ? { fontWeight: "bold", fontSize: "0.75rem" } : {}) }}
                 >
                     {value}
                 </Typography>
@@ -616,6 +494,8 @@ const UnitStatsLayout: React.FC<{
     abilities: IVisibleImpact[];
     hasBreakApplied: boolean;
     team: TeamType;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sx?: any;
 }> = ({
     unitProperties,
     damageRange,
@@ -637,31 +517,25 @@ const UnitStatsLayout: React.FC<{
     abilities,
     hasBreakApplied,
     team,
+    sx,
 }) => {
     const statsVisible = showStats;
     const abilitiesVisible = showAbilities;
-
-    const attackSign = attackMod > 0 ? "+" : "";
-    const attackModBadgeValue = `${attackMod ? `${attackSign}${unitProperties.attack_mod}` : ""}${
-        unitProperties.attack_multiplier !== 1 ? ` x${unitProperties.attack_multiplier}` : ""
-    }`;
-    const armorSign = armorMod > 0 ? "+" : "";
-    const armorModBadgeValue = armorMod ? `${armorSign}${armorMod}` : "";
-    const stepsSign = stepsMod > 0 ? "+" : "";
-    const stepsModBadgeValue = stepsMod ? `${stepsSign}${stepsMod}` : "";
-    const luckSign = unitProperties.luck_mod > 0 ? "+" : "";
-    const luckBadgeValue = unitProperties.luck_mod ? `${luckSign}${unitProperties.luck_mod}` : "";
+    const attackModBadgeValue = `${attackMod ? (attackMod > 0 ? "+" : "") + unitProperties.attack_mod : ""}${unitProperties.attack_multiplier !== 1 ? ` x${unitProperties.attack_multiplier}` : ""}`;
+    const armorModBadgeValue = armorMod ? (armorMod > 0 ? "+" : "") + armorMod : "";
+    const stepsModBadgeValue = stepsMod ? (stepsMod > 0 ? "+" : "") + stepsMod : "";
+    const luckBadgeValue = unitProperties.luck_mod
+        ? (unitProperties.luck_mod > 0 ? "+" : "") + unitProperties.luck_mod
+        : "";
 
     let attackColor: "success" | "danger" | "primary" | "neutral" | "warning" = "success";
-    if (unitProperties.attack_multiplier < 1) {
+    if (
+        unitProperties.attack_multiplier < 1 ||
+        (unitProperties.attack_multiplier === 1 && unitProperties.attack_mod < 0)
+    )
         attackColor = "danger";
-    } else if (unitProperties.attack_multiplier === 1 && unitProperties.attack_mod < 0) {
-        attackColor = "danger";
-    }
 
     const animationConfig = getDefaultAnimationConfig(unitProperties.name);
-    const hasAnimation = !!animationConfig;
-
     const statsContent = (
         <>
             <StatGroup>
@@ -753,7 +627,7 @@ const UnitStatsLayout: React.FC<{
                 <StatItem
                     icon={<SpeedIcon />}
                     value={unitProperties.speed}
-                    tooltip="Units with higher speed turn first on the battlefield"
+                    tooltip="Units with higher speed turn first"
                     color={isDarkMode ? "#f5fefd" : "#000000"}
                 />
             </StatGroup>
@@ -761,7 +635,7 @@ const UnitStatsLayout: React.FC<{
                 <StatItem
                     icon={<MoraleIcon />}
                     value={unitProperties.morale}
-                    tooltip="The morale parameter affects the chance of an out of regular order action depending on whether it is positive or negative"
+                    tooltip="Morale affects extra actions"
                     color={isDarkMode ? "#ffff00" : "#DC4D01"}
                     positiveFrame={
                         unitProperties.morale >= HoCConstants.MORALE_MAX_VALUE_TOTAL &&
@@ -775,7 +649,7 @@ const UnitStatsLayout: React.FC<{
                 <StatItem
                     icon={<LuckIcon />}
                     value={unitProperties.luck + unitProperties.luck_mod}
-                    tooltip="Luck increases or decreases damage received in combat, while also affecting the probability or power of abilities"
+                    tooltip="Luck affects damage variance"
                     color="#ff4040"
                     badgeContent={luckBadgeValue}
                     badgeColor={unitProperties.luck_mod > 0 ? "success" : "danger"}
@@ -787,13 +661,8 @@ const UnitStatsLayout: React.FC<{
     );
 
     const abilitiesBlock = (
-        <Box
-            sx={{
-                opacity: abilitiesVisible ? 1 : 0,
-                transition: "opacity 150ms ease-out",
-            }}
-        >
-            <Typography level="title-sm" sx={{ marginTop: columnize ? 1.5 : 0 }}>
+        <Box sx={{ opacity: abilitiesVisible ? 1 : 0, transition: "opacity 150ms ease-out" }}>
+            <Typography level="title-sm" sx={{ marginTop: columnize ? 1.5 : 3 }}>
                 Abilities
             </Typography>
             <AbilityStack
@@ -805,128 +674,62 @@ const UnitStatsLayout: React.FC<{
         </Box>
     );
 
-    if (columnize) {
-        return (
-            <>
-                <Box sx={{ display: "flex", width: "100%", overflow: "hidden", flexWrap: "wrap" }}>
-                    <Box sx={{ width: "60%", position: "relative" }}>
-                        {hasAnimation && animationConfig ? (
-                            <AtlasAnimation
-                                meta={animationConfig.meta}
-                                src={animationConfig.imageSrc}
-                                onLoaded={onImageLoaded}
-                                fallbackSrc={images[largeTextureName]}
-                            />
-                        ) : (
-                            <Avatar
-                                // @ts-ignore: src params
-                                src={images[largeTextureName]}
-                                variant="plain"
-                                sx={{
-                                    width: "100%",
-                                    zIndex: 5,
-                                    height: "auto",
-                                    objectFit: "contain",
-                                    overflow: "visible",
-                                    transition: "opacity 120ms ease-out",
-                                }}
-                                onLoad={onImageLoaded}
-                                onError={onImageLoaded}
-                            />
-                        )}
-                    </Box>
-                    <Box
+    return (
+        <Box
+            sx={{
+                position: "relative",
+                marginBottom: 1.5,
+                width: "100%",
+                display: columnize ? "flex" : "block",
+                flexWrap: columnize ? "wrap" : "nowrap",
+                ...sx,
+            }}
+        >
+            <Box sx={{ width: columnize ? "60%" : "100%", position: "relative" }}>
+                {animationConfig ? (
+                    <AtlasAnimation
+                        meta={animationConfig.meta}
+                        src={animationConfig.imageSrc}
+                        onLoaded={onImageLoaded}
+                        fallbackSrc={images[largeTextureName]}
+                    />
+                ) : (
+                    <Avatar
+                        // @ts-ignore: images index signature
+                        src={images[largeTextureName]}
+                        variant="plain"
                         sx={{
-                            width: "38%",
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "center",
-                            pl: 3,
-                            pt: 1,
-                            pb: 1,
-                            transformOrigin: "top left",
-                            opacity: statsVisible ? 1 : 0,
-                            transition: "opacity 140ms ease-out, transform 140ms ease-out",
-                            transform: statsVisible ? "scale(1.2)" : "scale(1.2) translateY(4px)",
-                            pointerEvents: statsVisible ? "auto" : "none",
+                            width: "100%",
+                            height: "auto",
+                            objectFit: "contain",
+                            transition: "opacity 120ms ease-out",
                         }}
-                    >
-                        {statsContent}
-                    </Box>
-                </Box>
-                <Box sx={{ width: "100%" }}>{abilitiesBlock}</Box>
-            </>
-        );
-    } else {
-        return (
+                        onLoad={onImageLoaded}
+                        onError={onImageLoaded}
+                    />
+                )}
+            </Box>
             <Box
                 sx={{
-                    position: "relative",
-                    marginBottom: 1.5,
-                    width: "100%",
+                    width: columnize ? "38%" : "90%",
+                    pl: columnize ? 3 : 4,
+                    pt: 1,
+                    pb: 1,
+                    transformOrigin: "top left",
+                    opacity: statsVisible ? 1 : 0,
+                    transition: "opacity 140ms ease-out, transform 140ms ease-out",
+                    transform: statsVisible ? "scale(1.2)" : "scale(1.2) translateY(4px)",
+                    pointerEvents: statsVisible ? "auto" : "none",
                 }}
             >
-                <Box sx={{ width: "100%" }}>
-                    {hasAnimation && animationConfig ? (
-                        <AtlasAnimation
-                            meta={animationConfig.meta}
-                            src={animationConfig.imageSrc}
-                            onLoaded={onImageLoaded}
-                            fallbackSrc={images[largeTextureName]}
-                        />
-                    ) : (
-                        <Avatar
-                            // @ts-ignore: src params
-                            src={images[largeTextureName]}
-                            variant="plain"
-                            sx={{
-                                zIndex: 5,
-                                width: "100%",
-                                height: "auto",
-                                maxWidth: "100%",
-                                maxHeight: "100%",
-                                objectFit: "contain",
-                                overflow: "visible",
-                                transition: "opacity 120ms ease-out",
-                            }}
-                            onLoad={onImageLoaded}
-                            onError={onImageLoaded}
-                        />
-                    )}
-                </Box>
-
-                <Box
-                    sx={{
-                        width: "90%",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                        pl: 4,
-                        py: 4,
-                        transformOrigin: "top left",
-                        opacity: statsVisible ? 1 : 0,
-                        transition: statsVisible ? "opacity 140ms ease-out, transform 140ms ease-out" : "none",
-                        transform: statsVisible ? "scale(1.2)" : "scale(1.2) translateY(4px)",
-                        pointerEvents: statsVisible ? "auto" : "none",
-                    }}
-                >
-                    {statsContent}
-                </Box>
-
-                <Box
-                    sx={{
-                        width: "100%",
-                        mt: 1,
-                    }}
-                >
-                    {abilitiesBlock}
-                </Box>
+                {statsContent}
             </Box>
-        );
-    }
+            {abilitiesVisible && <Box sx={{ width: "100%", mt: 1 }}>{abilitiesBlock}</Box>}
+        </Box>
+    );
 };
 
-const BreakOverlay: React.FC = () => (
+const BreakOverlay: React.FC<{ isAura?: boolean }> = ({ isAura }) => (
     <Box
         sx={{
             position: "absolute",
@@ -939,6 +742,7 @@ const BreakOverlay: React.FC = () => (
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            borderRadius: isAura ? "50%" : "15%",
             overflow: "hidden",
         }}
     >
@@ -973,45 +777,20 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
     overallImpact,
     factionType,
 }) => {
-    // ✅ FIX 1: We track the loaded texture NAME, not the full unit ID/State.
-    // const [loadedTexture, setLoadedTexture] = useState<string | null>(null);
     const theme = useTheme();
     const isDarkMode = theme.palette.mode === "dark";
-
     const abilities: IVisibleImpact[] = overallImpact.abilities || [];
     const buffs: IVisibleImpact[] = overallImpact.buffs || [];
     const debuffs: IVisibleImpact[] = overallImpact.debuffs || [];
     const hasHandymanAbility = abilities.some((ability) => ability.name === "Handyman");
-
     const hasBuffsOrDebuffs = buffs.length > 0 || debuffs.length > 0;
-    let hasBreakApplied = false;
-    for (const d of debuffs) {
-        if (d.name === "Break" && d.laps > 0) {
-            hasBreakApplied = true;
-            break;
-        }
-    }
-
-    // ✅ FIX 2: Calculate the texture key.
-    // We use the texture name (or unit name) as the dependency.
-    // This ensures that if 'amount_alive' or 'hp' changes, the key stays the same,
-    // so the UI does not reset to "Loading..." (invisible) state.
-    // const currentTexture = unitProperties?.large_texture_name || unitProperties?.name || "default";
-
-    // The image is "ready" if the texture we want to show matches what we have loaded.
-    // const isImageReady = loadedTexture === currentTexture;
-
-    // Show stats if we are in column mode OR if the image is fully loaded.
+    const hasBreakApplied = debuffs.some((d) => d.name === "Break" && d.laps > 0);
     const showStats = true;
+    const onImageLoaded = useCallback(() => {}, []);
 
-    const onImageLoaded = useCallback(() => {
-        // No-op to fix lint unused var, and purely for smooth transition
-    }, []);
-
-    // --- Faction List Item Logic ---
     if (factionType) {
         return (
-            // @ts-ignore: style params
+            // @ts-ignore: MUI type mismatch
             <ListItem style={{ "--List-nestedInsetStart": "0px" }} nested>
                 <Toggler
                     renderToggle={({ open, setOpen }) => (
@@ -1025,15 +804,10 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                 >
                     <List sx={{ gap: 0 }}>
                         <Avatar
-                            // @ts-ignore: src params
+                            // @ts-ignore: images index signature
                             src={images[`${factionType.toLowerCase()}_512`]}
                             variant="plain"
-                            sx={{ zIndex: "modal" }}
-                            style={{
-                                width: "auto",
-                                height: "auto",
-                                overflow: "visible",
-                            }}
+                            sx={{ zIndex: "modal", width: "auto", height: "auto", overflow: "visible" }}
                         />
                     </List>
                 </Toggler>
@@ -1041,7 +815,6 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
         );
     }
 
-    // --- Unit Stats Logic ---
     if (unitProperties && Object.keys(unitProperties).length) {
         const stackName = `${unitProperties.name} x${unitProperties.amount_alive}`;
         const damageRange = `${unitProperties.attack_damage_min} - ${unitProperties.attack_damage_max}`;
@@ -1055,19 +828,17 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
             attackTypeSelected === AttackVals.MELEE &&
             unitProperties.attack_type === AttackVals.RANGE &&
             !hasHandymanAbility
-        ) {
+        )
             attackDamage /= 2;
-        }
 
         const meleeArmor = Math.max(1, unitProperties.base_armor + unitProperties.armor_mod);
         const rangeArmor = Math.max(1, unitProperties.range_armor + unitProperties.armor_mod);
         const hasDifferentRangeArmor = meleeArmor !== rangeArmor;
         const largeTextureName = unitProperties.large_texture_name;
-
-        const buffsVisible = showStats; // Sync visibility with the main stats
+        const buffsVisible = showStats;
 
         return (
-            // @ts-ignore: style params
+            // @ts-ignore: MUI type mismatch
             <ListItem style={{ "--List-nestedInsetStart": "0px" }} nested>
                 <Toggler
                     renderToggle={({ open, setOpen }) => (
@@ -1111,14 +882,13 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                                 largeTextureName={largeTextureName}
                                 images={images}
                                 showStats={showStats}
-                                showAbilities={showStats}
+                                showAbilities={showStats && (columnize || !hasBuffsOrDebuffs)}
                                 onImageLoaded={onImageLoaded}
                                 abilities={abilities}
                                 hasBreakApplied={hasBreakApplied}
                                 team={unitProperties.team}
+                                sx={!columnize && hasBuffsOrDebuffs ? { marginBottom: 0 } : undefined}
                             />
-
-                            {/* Vertical Buffs (Normal View) */}
                             {hasBuffsOrDebuffs && !columnize && (
                                 <Box
                                     sx={{
@@ -1134,8 +904,19 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                                 </Box>
                             )}
                         </Box>
-
-                        {/* Horizontal Buffs (Widescreen/Columnize View) */}
+                        {showStats && !columnize && hasBuffsOrDebuffs && (
+                            <Box sx={{ width: "100%", mt: 1 }}>
+                                <Typography level="title-sm" sx={{ marginTop: 1.5 }}>
+                                    Abilities
+                                </Typography>
+                                <AbilityStack
+                                    abilities={abilities}
+                                    teamType={unitProperties.team}
+                                    isWidescreen={columnize}
+                                    hasBreakApplied={hasBreakApplied}
+                                />
+                            </Box>
+                        )}
                         {hasBuffsOrDebuffs && columnize && (
                             <Box
                                 sx={{
@@ -1155,46 +936,35 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
             </ListItem>
         );
     }
-
     return <ListItem nested />;
 };
 
 const arePropsEqual = (prev: UnitStatsListItemProps, next: UnitStatsListItemProps) => {
-    if (prev.barSize !== next.barSize) return false;
-    if (prev.columnize !== next.columnize) return false;
-    if (prev.factionType !== next.factionType) return false;
-
+    if (prev.barSize !== next.barSize || prev.columnize !== next.columnize || prev.factionType !== next.factionType)
+        return false;
     const pUnit = prev.unitProperties;
     const nUnit = next.unitProperties;
-
-    // 1. Handle Reference Equality
     if (pUnit === nUnit) return true;
-
-    // 2. Handle Nulls
-    if (!pUnit && !nUnit) return true;
     if (!pUnit || !nUnit) return false;
-
-    // 3. Handle Data Equality
-    // Key Identity Checks
-    if (pUnit.id !== nUnit.id) return false;
-    if (pUnit.amount_alive !== nUnit.amount_alive) return false;
-    if (pUnit.hp !== nUnit.hp) return false;
-    if (pUnit.steps !== nUnit.steps) return false;
-    if (pUnit.name !== nUnit.name) return false;
-
-    // ✅ ADDED: Modifier Checks
-    // Augments change these values, so we must check them to trigger a re-render
-    if (pUnit.attack_mod !== nUnit.attack_mod) return false;
-    if (pUnit.attack_multiplier !== nUnit.attack_multiplier) return false;
-    if (pUnit.armor_mod !== nUnit.armor_mod) return false;
-    if (pUnit.steps_mod !== nUnit.steps_mod) return false;
-    if (pUnit.luck_mod !== nUnit.luck_mod) return false;
-    if (pUnit.range_shots_mod !== nUnit.range_shots_mod) return false;
-    if (pUnit.magic_resist_mod !== nUnit.magic_resist_mod) return false;
-
-    // Handle Impact/Buff changes
+    if (
+        pUnit.id !== nUnit.id ||
+        pUnit.amount_alive !== nUnit.amount_alive ||
+        pUnit.hp !== nUnit.hp ||
+        pUnit.steps !== nUnit.steps ||
+        pUnit.name !== nUnit.name
+    )
+        return false;
+    if (
+        pUnit.attack_mod !== nUnit.attack_mod ||
+        pUnit.attack_multiplier !== nUnit.attack_multiplier ||
+        pUnit.armor_mod !== nUnit.armor_mod ||
+        pUnit.steps_mod !== nUnit.steps_mod ||
+        pUnit.luck_mod !== nUnit.luck_mod ||
+        pUnit.range_shots_mod !== nUnit.range_shots_mod ||
+        pUnit.magic_resist_mod !== nUnit.magic_resist_mod
+    )
+        return false;
     if (prev.overallImpact !== next.overallImpact) return false;
-
     return true;
 };
 

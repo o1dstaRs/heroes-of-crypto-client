@@ -77,24 +77,44 @@ export class ButtonManager {
     }
     private checkHourglassCondition(): boolean {
         const currentActiveUnit = this.context.getCurrentActiveUnit();
-        if (!currentActiveUnit) return false;
+        if (!currentActiveUnit) {
+            console.log("[HOURGLASS] No active unit");
+            return false;
+        }
 
         const fightState = FightStateManager.getInstance().getFightProperties();
+
+        // Must have fight started to use hourglass
+        if (!fightState.hasFightStarted()) {
+            console.log("[HOURGLASS] Fight not started");
+            return false;
+        }
+
         const lowerTeamUnitsAlive = fightState.getTeamUnitsAlive(TeamVals.LOWER);
         const upperTeamUnitsAlive = fightState.getTeamUnitsAlive(TeamVals.UPPER);
+        const unitTeam = currentActiveUnit.getTeam();
 
         const moreThanOneUnitAlive =
-            (currentActiveUnit.getTeam() === TeamVals.LOWER && lowerTeamUnitsAlive > 1) ||
-            (currentActiveUnit.getTeam() === TeamVals.UPPER && upperTeamUnitsAlive > 1);
+            (unitTeam === TeamVals.LOWER && lowerTeamUnitsAlive > 1) ||
+            (unitTeam === TeamVals.UPPER && upperTeamUnitsAlive > 1);
 
-        if (
-            moreThanOneUnitAlive &&
-            !fightState.hourglassIncludes(currentActiveUnit.getId()) &&
-            !fightState.hasAlreadyMadeTurn(currentActiveUnit.getId()) &&
-            !fightState.hasAlreadyHourglass(currentActiveUnit.getId())
-        ) {
+        const unitId = currentActiveUnit.getId();
+        const inHourglassQueue = fightState.hourglassIncludes(unitId);
+        const hasAlreadyMadeTurn = fightState.hasAlreadyMadeTurn(unitId);
+        const hasAlreadyHourglass = fightState.hasAlreadyHourglass(unitId);
+
+        console.log(
+            `[HOURGLASS] Team=${unitTeam}, LowerAlive=${lowerTeamUnitsAlive}, UpperAlive=${upperTeamUnitsAlive}, MoreThanOne=${moreThanOneUnitAlive}`,
+        );
+        console.log(
+            `[HOURGLASS] InQueue=${inHourglassQueue}, MadeTurn=${hasAlreadyMadeTurn}, AlreadyHourglass=${hasAlreadyHourglass}`,
+        );
+
+        if (moreThanOneUnitAlive && !inHourglassQueue && !hasAlreadyMadeTurn && !hasAlreadyHourglass) {
+            console.log("[HOURGLASS] ENABLED");
             return true;
         }
+        console.log("[HOURGLASS] DISABLED");
         return false;
     }
     private checkCastCondition(): boolean {
@@ -284,6 +304,7 @@ export class ButtonManager {
                     fightProps.getAdditionalMoralePerTeam(active.getTeam()),
                 );
                 active.setOnHourglass(true);
+                fightProps.enqueueHourglass(active.getId());
                 this.context.getSceneLog().updateLog(`${active.getName()} waits (hourglass)`);
                 this.context.finishTurn(true);
                 this.refreshButtons(true);

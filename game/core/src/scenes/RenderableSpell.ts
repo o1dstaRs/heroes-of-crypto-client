@@ -16,11 +16,11 @@ export enum BookPosition {
     SIX = 6,
 }
 
-const BOOK_POSITION_LEFT_X = -530;
-const BOOK_POSITION_RIGHT_X = 286;
-const BOOK_POSITION_Y = 1380;
-const BOOK_SPELL_SIZE = 320;
-const BOOK_CELL_SIZE = 500;
+const BOOK_POSITION_LEFT_X = -405;
+const BOOK_POSITION_RIGHT_X = 411;
+const BOOK_POSITION_Y = 1255;
+const BOOK_SPELL_SIZE = 160;
+const BOOK_CELL_SIZE = 250;
 
 export type DigitTextureMap = Map<number, Texture>;
 
@@ -68,14 +68,23 @@ export class PixiRenderableSpell extends Spell {
         this.digits = digits;
 
         this.bgSprite = new PixiSprite(textures.spell_cell_260);
+        this.bgSprite.anchor.set(0, 1);
+        this.bgSprite.scale.y = -1;
+
         this.iconSprite = new PixiSprite(iconTexture);
+        this.iconSprite.anchor.set(0, 1);
+        this.iconSprite.scale.y = -1;
+
         this.titleSprite = new PixiSprite(titleTexture);
+        this.titleSprite.anchor.set(0, 1);
+        this.titleSprite.scale.y = -1;
 
         this.bgSprite.visible = false;
         this.iconSprite.visible = false;
         this.titleSprite.visible = false;
 
         this.stackColumnGfx = new Graphics();
+        this.stackColumnGfx.scale.y = -1;
 
         this.layer.addChild(this.bgSprite, this.iconSprite, this.titleSprite, this.stackColumnGfx);
     }
@@ -85,6 +94,13 @@ export class PixiRenderableSpell extends Spell {
     }
     public cleanupPagePosition(): void {
         this.xMin = this.xMax = this.yMin = this.yMax = 0;
+        this.bgSprite.visible = false;
+        this.iconSprite.visible = false;
+        this.titleSprite.visible = false;
+        for (const s of this.amountDigitSprites) {
+            s.visible = false;
+        }
+        this.stackColumnGfx.clear();
     }
     public isHover(mousePosition: HoCMath.XY, ownerStackPower: number): boolean {
         return (
@@ -122,16 +138,16 @@ export class PixiRenderableSpell extends Spell {
             BOOK_POSITION_Y - (pagePosition - 1) * BOOK_SPELL_SIZE - 0.4 * (pagePosition - 1) * BOOK_SPELL_SIZE;
 
         // Background cell
-        this.bgSprite.x = xPos - 54;
-        this.bgSprite.y = yPos - 112;
         this.bgSprite.width = BOOK_CELL_SIZE;
         this.bgSprite.height = BOOK_CELL_SIZE;
+        this.bgSprite.x = xPos - 54;
+        this.bgSprite.y = yPos - 112;
 
         // Icon (main sprite)
-        this.iconSprite.x = xPos;
-        this.iconSprite.y = yPos;
         this.iconSprite.width = BOOK_SPELL_SIZE;
         this.iconSprite.height = BOOK_SPELL_SIZE;
+        this.iconSprite.x = xPos;
+        this.iconSprite.y = yPos;
 
         // Hover rect cache (icon bounds)
         this.xMin = xPos;
@@ -141,10 +157,10 @@ export class PixiRenderableSpell extends Spell {
 
         // Title strip just above icon
         const fifthStep = BOOK_SPELL_SIZE / 5;
-        this.titleSprite.x = xPos;
-        this.titleSprite.y = yPos - 70;
         this.titleSprite.width = BOOK_SPELL_SIZE;
         this.titleSprite.height = fifthStep;
+        this.titleSprite.x = xPos;
+        this.titleSprite.y = yPos - 70;
 
         // Visibility + alpha rules
         const canRenderStack = this.amountRemaining > 0;
@@ -193,10 +209,12 @@ export class PixiRenderableSpell extends Spell {
         // Position right-aligned inside the card
         let i = 1;
         for (const s of sprites) {
-            s.x = xPos + 106 + BOOK_SPELL_SIZE - sixthStep * i++;
-            s.y = yPos + 110;
+            s.anchor.set(0, 1);
+            s.scale.y = -1;
             s.width = fifthStep;
             s.height = BOOK_SPELL_SIZE / 3;
+            s.x = xPos + 106 + BOOK_SPELL_SIZE - sixthStep * i++;
+            s.y = yPos + 110;
             s.alpha = canRenderNumber ? 1 : 0.4;
             this.layer.addChild(s);
         }
@@ -221,7 +239,8 @@ export class PixiRenderableSpell extends Spell {
         let stackIndex = 1;
         let yShift = 0;
         while (stackIndex <= this.getMinimalCasterStackPower()) {
-            this.stackColumnGfx.rect(barX, yPos + yShift, barW, barH).fill({ color: fillColor, alpha });
+            const targetY = yPos + yShift;
+            this.stackColumnGfx.rect(barX, -targetY - barH, barW, barH).fill({ color: fillColor, alpha });
             stackIndex++;
             yShift += BOOK_SPELL_SIZE / 5;
         }

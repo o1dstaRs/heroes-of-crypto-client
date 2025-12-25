@@ -439,6 +439,23 @@ export class HoverManager {
         this.hoverAttackFromCell = undefined;
         this.hoverAttackTargetUnit = undefined;
     }
+    public hideSilhouettesOnly(): void {
+        if (this.silhouetteLocked) return;
+
+        if (this.hoverSilhouette) {
+            this.hoverSilhouette.visible = false;
+        }
+        if (this.hoverSilhouetteOutline) {
+            this.hoverSilhouetteOutline.visible = false;
+        }
+        if (this.hoverTargetSilhouette) {
+            this.hoverTargetSilhouette.visible = false;
+        }
+        if (this.hoverAttackArrow) {
+            this.hoverAttackArrow.clear();
+            this.hoverAttackArrow.visible = false;
+        }
+    }
     private hoverDamageText?: Text;
     private hoverDamageIcon?: Sprite;
     public drawDamagePrediction(text: string, position: HoCMath.XY, isLargeTarget: boolean, iconPath?: string): void {
@@ -712,6 +729,13 @@ export class HoverManager {
             sprite.tint = 0x000000;
             outline.tint = 0xffffff;
         }
+    }
+    /**
+     * Show silhouette for a unit at a specific position - used for AI moves/attacks
+     * Uses the same styling as normal hover silhouettes (black sprite + white outline)
+     */
+    public showSilhouetteForUnit(unitProps: UnitProperties, position: HoCMath.XY): void {
+        this.ensureHoverSilhouetteParams(unitProps, position, false);
     }
     public updateBoardHoverSilhouette(props: UnitProperties, center: HoCMath.XY): void {
         const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);

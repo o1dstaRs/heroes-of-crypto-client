@@ -1182,7 +1182,7 @@ class Sandbox extends GLScene {
         let laps =
             Math.floor(
                 (FightStateManager.getInstance().getFightProperties().getCurrentLap() - (encounterCurrent ? 1 : 0)) /
-                    FightStateManager.getInstance().getFightProperties().getNumberOfLapsTillNarrowing(),
+                FightStateManager.getInstance().getFightProperties().getNumberOfLapsTillNarrowing(),
             ) + FightStateManager.getInstance().getFightProperties().getAdditionalNarrowingLaps();
         if (laps < 1 || laps > HoCConstants.MAX_NARROWING_LAPS_TOTAL) {
             return undefined;
@@ -1844,12 +1844,12 @@ class Sandbox extends GLScene {
             if (luckyStrikeAbility) {
                 maxDmg = Math.floor(
                     maxDmg *
-                        this.currentActiveUnit.calculateAbilityMultiplier(
-                            luckyStrikeAbility,
-                            FightStateManager.getInstance()
-                                .getFightProperties()
-                                .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
-                        ),
+                    this.currentActiveUnit.calculateAbilityMultiplier(
+                        luckyStrikeAbility,
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
+                    ),
                 );
             }
             const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
@@ -2294,12 +2294,12 @@ class Sandbox extends GLScene {
                                 if (luckyStrikeAbility) {
                                     maxDmg = Math.floor(
                                         maxDmg *
-                                            this.currentActiveUnit.calculateAbilityMultiplier(
-                                                luckyStrikeAbility,
-                                                FightStateManager.getInstance()
-                                                    .getFightProperties()
-                                                    .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
-                                            ),
+                                        this.currentActiveUnit.calculateAbilityMultiplier(
+                                            luckyStrikeAbility,
+                                            FightStateManager.getInstance()
+                                                .getFightProperties()
+                                                .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam()),
+                                        ),
                                     );
                                 }
                                 const minDied = hoverAttackUnit.calculatePossibleLosses(minDmg);
@@ -2460,7 +2460,7 @@ class Sandbox extends GLScene {
                                 isThroughShot,
                                 this.sc_isSelection,
                                 this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
-                                    this.currentActiveUnit.hasAbilityActive("Area Throw"),
+                                this.currentActiveUnit.hasAbilityActive("Area Throw"),
                             );
                             this.hoverRangeAttackDivisors = evaluatedRangeAttack.rangeAttackDivisors;
                             this.hoverAttackUnits = evaluatedRangeAttack.affectedUnits;
@@ -2526,7 +2526,7 @@ class Sandbox extends GLScene {
                         false,
                         false,
                         this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
-                            this.currentActiveUnit.hasAbilityActive("Area Throw"),
+                        this.currentActiveUnit.hasAbilityActive("Area Throw"),
                     );
                     this.hoverRangeAttackDivisors = evaluatedRangeAttack.rangeAttackDivisors;
                     this.hoverAttackUnits = evaluatedRangeAttack.affectedUnits;
@@ -2625,7 +2625,7 @@ class Sandbox extends GLScene {
                             this.currentActiveUnit.hasAbilityActive("Through Shot"),
                             this.sc_isSelection,
                             this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
-                                this.currentActiveUnit.hasAbilityActive("Area Throw"),
+                            this.currentActiveUnit.hasAbilityActive("Area Throw"),
                         );
                         this.hoverRangeAttackDivisors = evaluatedRangeAttack.rangeAttackDivisors;
                         this.hoverAttackUnits = evaluatedRangeAttack.affectedUnits;
@@ -3900,10 +3900,10 @@ class Sandbox extends GLScene {
                                                     descStr.replace(
                                                         /\{\}/g,
                                                         (this.hoveredSpell.getMultiplierType() ===
-                                                        SpellMultiplierType.UNIT_AMOUNT
+                                                            SpellMultiplierType.UNIT_AMOUNT
                                                             ? this.currentActiveUnit.getAmountAlive()
                                                             : this.currentActiveUnit.getAmountAlive() *
-                                                              this.hoveredSpell.getPower()
+                                                            this.hoveredSpell.getPower()
                                                         ).toString(),
                                                     ),
                                                 );
@@ -4482,7 +4482,7 @@ class Sandbox extends GLScene {
                                 this.currentActiveUnit.getPosition(),
                                 this.sc_sceneSettings.getGridSettings(),
                             ) /
-                                this.sc_sceneSettings.getGridSettings().getStep() -
+                            this.sc_sceneSettings.getGridSettings().getStep() -
                             0.45
                         ).toFixed(2),
                     ),
@@ -4507,7 +4507,7 @@ class Sandbox extends GLScene {
                                     this.hoverUnit.getPosition(),
                                     this.sc_sceneSettings.getGridSettings(),
                                 ) /
-                                    this.sc_sceneSettings.getGridSettings().getStep() -
+                                this.sc_sceneSettings.getGridSettings().getStep() -
                                 0.45
                             ).toFixed(2),
                         ),
@@ -4686,11 +4686,11 @@ class Sandbox extends GLScene {
                         b.SetTransformXY(
                             isSmallUnit
                                 ? Math.floor(Math.round(bodyPosition.x) / GridConstants.STEP) * GridConstants.STEP +
-                                      GridConstants.HALF_STEP
+                                GridConstants.HALF_STEP
                                 : Math.floor(Math.round(bodyPosition.x) / GridConstants.STEP) * GridConstants.STEP,
                             isSmallUnit
                                 ? Math.floor(Math.round(bodyPosition.y) / GridConstants.STEP) * GridConstants.STEP +
-                                      GridConstants.HALF_STEP
+                                GridConstants.HALF_STEP
                                 : Math.floor(Math.round(bodyPosition.y) / GridConstants.STEP) * GridConstants.STEP,
                             b.GetAngle(),
                         );

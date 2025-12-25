@@ -1,21 +1,9 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { IVisibleButton, VisibleButtonState } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { ButtonContext, useButtonContext } from "./ButtonContextDefs";
 
-export interface IButtonContext {
-    buttons: IVisibleButton[];
-    propagateClick: (name: string, state: VisibleButtonState) => void;
-}
-
-const ButtonContext = createContext<IButtonContext | null>(null);
-
-export function useButtonContext() {
-    const context = useContext(ButtonContext);
-    if (!context) {
-        throw new Error("useButtonContext must be used within a ButtonProvider");
-    }
-    return context;
-}
+export { useButtonContext };
 
 export const ButtonProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const manager = usePixiManager();

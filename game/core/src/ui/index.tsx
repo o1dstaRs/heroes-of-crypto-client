@@ -250,12 +250,10 @@ const App: React.FC = () => {
 
     useEffect(() => {
         window.addEventListener("resize", updateWindowSize);
-        window.addEventListener("wheel", updateWindowSize);
         document.addEventListener("fullscreenchange", updateWindowSize);
 
         return () => {
             window.removeEventListener("resize", updateWindowSize);
-            window.removeEventListener("wheel", updateWindowSize);
             document.removeEventListener("fullscreenchange", updateWindowSize);
         };
     }, [updateWindowSize]);
