@@ -310,7 +310,6 @@ export abstract class PixiScene {
         // if (hit) this.setSelectedUnitProperties(hit.GetUserData?.() as UnitProperties);
     }
     protected hover(): void {}
-    public resetRightControls(): void {}
     /** Optional hook for scenes to react to background asset loading progress (Tier 2) */
     public onBackgroundAssetLoad?(progress: number): void;
     public MouseUp(): void {

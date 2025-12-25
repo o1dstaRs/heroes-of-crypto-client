@@ -37,6 +37,7 @@ import {
     IWeightedRoute,
     PathHelper,
     TeamType,
+    TeamVals,
     IAuraOnMap,
     UnitProperties,
     AbilityHelper,
@@ -5095,10 +5096,10 @@ class Sandbox extends GLScene {
 
                         FightStateManager.getInstance()
                             .getFightProperties()
-                            .setTeamUnitsAlive(TeamType.UPPER, unitsUpper.length);
+                            .setTeamUnitsAlive(TeamVals.UPPER, unitsUpper.length);
                         FightStateManager.getInstance()
                             .getFightProperties()
-                            .setTeamUnitsAlive(TeamType.LOWER, unitsLower.length);
+                            .setTeamUnitsAlive(TeamVals.LOWER, unitsLower.length);
 
                         if (turnFlipped) {
                             for (const u of units) {

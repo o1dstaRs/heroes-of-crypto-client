@@ -43,7 +43,6 @@ import {
     ISystemMoveResult,
     AbilityHelper,
     AllAbilities,
-    AI,
     IDamageStatistic,
 } from "@heroesofcrypto/common";
 import { UnitsOverlay } from "./UnitsOverlay";
@@ -59,6 +58,7 @@ import { PixiRenderableSpell } from "./RenderableSpell";
 import { HoverManager } from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
 import { SpellBookOverlay } from "./SpellBookOverlay";
+import { AIController } from "./AIController";
 import { MAX_HOLE_LAYERS } from "@/statics";
 
 interface IFlickeringLight extends Graphics {
@@ -144,7 +144,8 @@ export class Sandbox extends PixiScene {
     private currentActivePath?: HoCMath.XY[];
     private currentActiveKnownPaths?: Map<number, IWeightedRoute[]>;
     private spawnPulseDirection = 1;
-    private performingAIAction = false;
+    // AIController manages AI decision-making (created in constructor after super())
+    private aiController!: AIController;
     private hasInitializedLap = false;
     private gameplayGraphics?: Graphics;
     private currentActiveSpell?: PixiRenderableSpell;
@@ -318,6 +319,7 @@ export class Sandbox extends PixiScene {
                 },
                 setAIActive: (active) => {
                     this.sc_isAIActive = active;
+                    this.aiController.isAIActive = active; // Sync AIController state
                 },
                 setSpellBookOverlay: (active) => {
                     this.sc_renderSpellBookOverlay = active;
@@ -339,6 +341,31 @@ export class Sandbox extends PixiScene {
             this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
             this.sc_visibleStateUpdateNeeded = true;
         }, 500);
+
+        // Initialize AI Controller with IAIContext implementation
+        this.aiController = new AIController({
+            getCurrentActiveUnit: () => this.currentActiveUnit,
+            getGrid: () => this.grid,
+            getGridMatrix: () => this.gridMatrix,
+            getUnitsHolder: () => this.unitsHolder,
+            getPathHelper: () => this.pathHelper,
+            getHoverManager: () => this.hoverManager,
+            getButtonManager: () => this.buttonManager,
+            getSceneSettings: () => this.sc_sceneSettings,
+            getSceneLog: () => this.sc_sceneLog,
+            setCurrentActiveKnownPaths: (paths) => {
+                this.currentActiveKnownPaths = paths;
+            },
+            setSelectedAttackType: (type) => {
+                this.sc_selectedAttackType = type;
+            },
+            executeAttackSequence: (attacker, target, attackFrom) =>
+                this.executeAttackSequence(attacker, target, attackFrom),
+            executeMoveSequence: (unit, path, overrideFootprint, onComplete) =>
+                this.executeMoveSequence(unit, path, overrideFootprint, onComplete),
+            finishTurn: () => this.finishTurn(),
+            refreshUnits: () => this.refreshUnits(),
+        });
 
         this.spellBookOverlay = new SpellBookOverlay(
             context.pixiApp.getApplication().stage,
@@ -1725,179 +1752,7 @@ export class Sandbox extends PixiScene {
         }
         return false;
     }
-    private async performAIAction(wasAIActive: boolean): Promise<void> {
-        if (!this.currentActiveUnit) return;
-
-        let actionPerformed = false;
-
-        const action = AI.findTarget(
-            this.currentActiveUnit,
-            this.grid,
-            this.gridMatrix,
-            this.unitsHolder,
-            this.pathHelper,
-        );
-
-        if (action?.actionType() === AI.AIActionType.MOVE_AND_MELEE_ATTACK) {
-            if (this.currentActiveUnit.selectAttackType(AttackVals.MELEE)) {
-                this.buttonManager.refreshButtons(true);
-                this.refreshUnits();
-            }
-            // "Area Throw" checks ommitted for brevity unless critical
-            this.sc_selectedAttackType = this.currentActiveUnit.getAttackTypeSelection();
-            this.currentActiveKnownPaths = action.currentActiveKnownPaths();
-            const cellToAttack = action.cellToAttack();
-            const attackFromCell = action.cellToMove();
-
-            if (cellToAttack && attackFromCell) {
-                const targetUnitId = this.grid.getOccupantUnitId(cellToAttack);
-                if (targetUnitId !== undefined) {
-                    const unitToAttack = this.unitsHolder.getAllUnits().get(targetUnitId);
-                    if (unitToAttack && this.currentActiveUnit) {
-                        // Get the route to the attack position
-                        const movePaths = this.currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y);
-                        const route = movePaths && movePaths.length > 0 ? movePaths[0].route : undefined;
-
-                        // Show silhouette at attack destination for AI visual feedback
-                        const gs = this.sc_sceneSettings.getGridSettings();
-                        const attackFromPos = GridMath.getPositionForCell(
-                            attackFromCell,
-                            gs.getMinX(),
-                            gs.getStep(),
-                            gs.getHalfStep(),
-                        );
-                        if (attackFromPos) {
-                            // Adjust for large units (center position)
-                            if (!this.currentActiveUnit.isSmallSize()) {
-                                attackFromPos.x -= gs.getHalfStep();
-                                attackFromPos.y -= gs.getHalfStep();
-                            }
-                            // Use showSilhouetteForUnit with unit properties for AI (same styling as player)
-                            this.hoverManager.showSilhouetteForUnit(
-                                this.currentActiveUnit.getUnitProperties(),
-                                attackFromPos,
-                            );
-                        }
-
-                        // Execute move first, then attack in callback (matching player move+attack pattern)
-                        if (route && route.length > 0) {
-                            const activeUnit = this.currentActiveUnit;
-                            const target = unitToAttack;
-                            const attackCell = attackFromCell;
-                            this.executeMoveSequence(activeUnit, route, undefined, () => {
-                                // After move animation completes, execute the attack
-                                this.executeAttackSequence(activeUnit, target, attackCell);
-                            });
-                        } else {
-                            // No route (unit is already adjacent) - just attack directly
-                            await this.executeAttackSequence(this.currentActiveUnit, unitToAttack, attackFromCell);
-                        }
-                        // Don't set actionPerformed - executeMoveSequence callback handles cleanup
-                        // or executeAttackSequence does if no move needed
-                        return;
-                    }
-                }
-            }
-        } else if (action?.actionType() === AI.AIActionType.MELEE_ATTACK) {
-            if (this.currentActiveUnit.selectAttackType(AttackVals.MELEE)) {
-                this.buttonManager.refreshButtons(true);
-                this.refreshUnits();
-            }
-            this.currentActiveKnownPaths = action.currentActiveKnownPaths();
-            const cellToAttack = action.cellToAttack();
-            const attackFromCell =
-                action.cellToMove() ||
-                GridMath.getCellForPosition(
-                    this.sc_sceneSettings.getGridSettings(),
-                    this.currentActiveUnit.getPosition(),
-                );
-            if (cellToAttack && attackFromCell) {
-                const targetUnitId = this.grid.getOccupantUnitId(cellToAttack);
-                if (targetUnitId) {
-                    const targetUnit = this.unitsHolder.getAllUnits().get(targetUnitId);
-                    if (targetUnit && this.currentActiveUnit) {
-                        await this.executeAttackSequence(this.currentActiveUnit, targetUnit, attackFromCell);
-                        actionPerformed = true;
-                    }
-                }
-            }
-        } else if (action?.actionType() === AI.AIActionType.RANGE_ATTACK) {
-            if (this.currentActiveUnit.selectAttackType(AttackVals.RANGE)) {
-                this.buttonManager.refreshButtons(true);
-                this.refreshUnits();
-            }
-            this.currentActiveKnownPaths = action.currentActiveKnownPaths();
-            const cellToAttack = action.cellToAttack();
-            const attackFromCell = GridMath.getCellForPosition(
-                this.sc_sceneSettings.getGridSettings(),
-                this.currentActiveUnit.getPosition(),
-            );
-            if (cellToAttack && attackFromCell) {
-                const targetUnitId = this.grid.getOccupantUnitId(cellToAttack);
-                if (targetUnitId) {
-                    const targetUnit = this.unitsHolder.getAllUnits().get(targetUnitId);
-                    if (targetUnit && this.currentActiveUnit) {
-                        await this.executeAttackSequence(this.currentActiveUnit, targetUnit, attackFromCell);
-                        actionPerformed = true;
-                    }
-                }
-            }
-        } else {
-            // Move only
-            const cellToMove = action?.cellToMove();
-            if (cellToMove && this.currentActiveUnit.canMove()) {
-                // Sandbox move logic
-                // We can use `executeMoveSequence` if we have the path
-                const movePaths = action?.currentActiveKnownPaths()?.get((cellToMove.x << 4) | cellToMove.y);
-                if (movePaths?.length) {
-                    const route = movePaths[0].route;
-
-                    // Show silhouette at move destination for AI visual feedback
-                    const gs = this.sc_sceneSettings.getGridSettings();
-                    const moveToPos = GridMath.getPositionForCell(
-                        cellToMove,
-                        gs.getMinX(),
-                        gs.getStep(),
-                        gs.getHalfStep(),
-                    );
-                    if (moveToPos) {
-                        // Adjust for large units (center position)
-                        if (!this.currentActiveUnit.isSmallSize()) {
-                            moveToPos.x -= gs.getHalfStep();
-                            moveToPos.y -= gs.getHalfStep();
-                        }
-                        // Use showSilhouetteForUnit with unit properties for AI (same styling as player)
-                        this.hoverManager.showSilhouetteForUnit(this.currentActiveUnit.getUnitProperties(), moveToPos);
-                    }
-
-                    // For AI move-only, call finishTurn after move animation completes
-                    this.executeMoveSequence(this.currentActiveUnit, route, undefined, () => {
-                        this.finishTurn();
-                        this.sc_isAIActive = wasAIActive;
-                        this.performingAIAction = false;
-                    });
-                    // Don't set actionPerformed - the onComplete will handle cleanup
-                    return;
-                }
-            }
-        }
-
-        if (!actionPerformed) {
-            this.currentActiveUnit.decreaseMorale(
-                HoCConstants.MORALE_CHANGE_FOR_SKIP,
-                FightStateManager.getInstance()
-                    .getFightProperties()
-                    .getAdditionalMoralePerTeam(this.currentActiveUnit.getTeam()),
-            );
-            this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
-            // Only call finishTurn if no action was performed
-            // (executeAttackSequence already calls finishTurn internally)
-            this.finishTurn();
-        }
-
-        this.sc_isAIActive = wasAIActive;
-        this.performingAIAction = false;
-    }
+    // AI action logic has been moved to AIController
     protected refreshSynergyNumbers(teamType: TeamType): void {
         const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
         const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
@@ -4086,24 +3941,9 @@ export class Sandbox extends PixiScene {
         const fightProps = fightStateManager.getFightProperties();
         const fightStarted = fightProps.hasFightStarted();
 
-        // AI section
-        if (
-            fightStarted &&
-            this.currentActiveUnit &&
-            (this.sc_isAIActive || this.currentActiveUnit?.hasAbilityActive("AI Driven")) &&
-            !this.performingAIAction
-        ) {
-            this.performingAIAction = true;
-            setTimeout(async () => {
-                if (!this.currentActiveUnit) {
-                    this.performingAIAction = false;
-                    return;
-                }
-                const wasAIActive = this.sc_isAIActive;
-                this.sc_isAIActive = true;
-                this.buttonManager.refreshButtons(true);
-                await this.performAIAction(wasAIActive);
-            }, 1500);
+        // AI section - delegate to AIController
+        if (fightStarted && this.currentActiveUnit && this.aiController.shouldTriggerAI()) {
+            this.aiController.triggerAIAction(1500);
         }
 
         // Update floating texts
@@ -4235,21 +4075,14 @@ export class Sandbox extends PixiScene {
                 this.stepMoveAnimation(timeStep);
             }
 
-            // --- C. AI LOGIC ---
+            // --- C. AI LOGIC - delegate to AIController ---
             if (
                 this.currentActiveUnit &&
-                (this.sc_isAIActive || this.currentActiveUnit?.hasAbilityActive("AI Driven")) &&
-                !this.performingAIAction &&
+                this.aiController.shouldTriggerAI() &&
                 !this.sc_isAnimating &&
                 !this.moveAnimation
             ) {
-                const wasAIActive = this.sc_isAIActive;
-                this.performingAIAction = true;
-                setTimeout(async () => {
-                    this.sc_isAIActive = true;
-                    this.buttonManager.sc_isAIActive = true;
-                    await this.performAIAction(wasAIActive);
-                }, 2000); // 2000ms delay for smoothness
+                this.aiController.triggerAIAction(2000);
             }
         } else {
             // Pre-fight logic
