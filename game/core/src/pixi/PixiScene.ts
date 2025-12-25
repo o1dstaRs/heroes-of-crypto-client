@@ -227,9 +227,6 @@ export abstract class PixiScene {
     public getHotkeys(): HotKey[] {
         return [];
     }
-    protected abstract landAttack(): boolean;
-    protected abstract finishDrop(positionToDropTo: HoCMath.XY): void;
-    protected abstract handleMouseDownForSelectedBody(): void;
     protected abstract selectUnitPreStart(
         team: TeamType,
         isSmallUnit: boolean,
@@ -265,34 +262,7 @@ export abstract class PixiScene {
             return;
         }
         this.sc_mouseDownStep = this.sc_stepCount.getValue();
-
-        const hit_fixture: BodyLike | undefined = undefined;
-
-        if (hit_fixture || this.sc_isSelection || this.sc_hoverAttackIsTargetingObstacle) {
-            if (this.sc_mouseDropStep === this.sc_stepCount.getValue()) return;
-
-            let attackLanded = false;
-
-            if (this.sc_isSelection || this.sc_hoverAttackIsTargetingObstacle) {
-                attackLanded = this.landAttack();
-            } else {
-                if (this.sc_sceneStarted) {
-                    if (!this.sc_isAIActive) {
-                        attackLanded = this.landAttack();
-                    }
-                } else {
-                    // Pre-start selection logic placeholder (if you keep a body)
-                }
-            }
-
-            if (!attackLanded) {
-                // Optionally: setSelectedUnitProperties(...) based on hit
-            }
-        } else if (this.sc_selectedBody) {
-            this.handleMouseDownForSelectedBody();
-        } else {
-            this.verifyButtonsTrigger();
-        }
+        this.verifyButtonsTrigger();
     }
     public CameraChanged(): void {
         // default no-op; scenes can override to reattach overlays, relayout, etc.

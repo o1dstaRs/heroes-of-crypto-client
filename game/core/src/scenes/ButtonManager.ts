@@ -78,7 +78,6 @@ export class ButtonManager {
     private checkHourglassCondition(): boolean {
         const currentActiveUnit = this.context.getCurrentActiveUnit();
         if (!currentActiveUnit) {
-            console.log("[HOURGLASS] No active unit");
             return false;
         }
 
@@ -86,7 +85,6 @@ export class ButtonManager {
 
         // Must have fight started to use hourglass
         if (!fightState.hasFightStarted()) {
-            console.log("[HOURGLASS] Fight not started");
             return false;
         }
 
@@ -103,18 +101,9 @@ export class ButtonManager {
         const hasAlreadyMadeTurn = fightState.hasAlreadyMadeTurn(unitId);
         const hasAlreadyHourglass = fightState.hasAlreadyHourglass(unitId);
 
-        console.log(
-            `[HOURGLASS] Team=${unitTeam}, LowerAlive=${lowerTeamUnitsAlive}, UpperAlive=${upperTeamUnitsAlive}, MoreThanOne=${moreThanOneUnitAlive}`,
-        );
-        console.log(
-            `[HOURGLASS] InQueue=${inHourglassQueue}, MadeTurn=${hasAlreadyMadeTurn}, AlreadyHourglass=${hasAlreadyHourglass}`,
-        );
-
         if (moreThanOneUnitAlive && !inHourglassQueue && !hasAlreadyMadeTurn && !hasAlreadyHourglass) {
-            console.log("[HOURGLASS] ENABLED");
             return true;
         }
-        console.log("[HOURGLASS] DISABLED");
         return false;
     }
     private checkCastCondition(): boolean {
@@ -299,6 +288,9 @@ export class ButtonManager {
             }
             case "Hourglass": {
                 if (!active || !fightProps.hasFightStarted()) return;
+                // Added missing condition check
+                if (!this.checkHourglassCondition()) return;
+
                 active.decreaseMorale(
                     HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK,
                     fightProps.getAdditionalMoralePerTeam(active.getTeam()),
