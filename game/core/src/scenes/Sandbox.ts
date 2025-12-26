@@ -1369,8 +1369,8 @@ export class Sandbox extends PixiScene {
         }
         return false;
     }
-    public getNumberOfUnitsAvailableForPlacement(_t: TeamType): number {
-        return 0;
+    public getNumberOfUnitsAvailableForPlacement(teamType: TeamType): number {
+        return FightStateManager.getInstance().getFightProperties().getNumberOfUnitsAvailableForPlacement(teamType);
     }
     public override propagateButtonClicked(name: string, state: VisibleButtonState): void {
         this.buttonManager.propagateButtonClicked(name, state);
@@ -1494,7 +1494,7 @@ export class Sandbox extends PixiScene {
         this.sc_possibleSynergiesPerTeam.set(teamType, newSynergies);
         this.sc_possibleSynergiesUpdateNeeded = synergies !== newSynergies;
     }
-    protected handleMouseDownForSelectedBody(): void { }
+    protected handleMouseDownForSelectedBody(): void {}
     public cloneObject(newAmount?: number): boolean {
         let cloned = false;
         if (this.sc_selectedUnitProperties) {
@@ -1679,7 +1679,7 @@ export class Sandbox extends PixiScene {
     public getGridType(): GridType {
         return FightStateManager.getInstance().getFightProperties().getGridType();
     }
-    public requestTime(_team: number): void { }
+    public requestTime(_team: number): void {}
     private clearBoardSelection(_notifyUnitDeselected: boolean = true): void {
         // stop board selection animation if any
         if (this.selectedBoardUnit) {
@@ -2645,13 +2645,6 @@ export class Sandbox extends PixiScene {
             }
         }
 
-        // Handle animations if needed (e.g. movement, hits)
-        // if (result.animationData) {
-        // TODO: Port animation playback logic (move, bullet, etc)
-        // For now, we rely on state updates, but movement might jump without animation.
-
-        // Cleanup and finish turn
-        // Cleanup and finish turn
         const performCleanup = () => {
             const unitsDied: RenderableUnit[] = [];
             for (const u of this.unitsHolder.getAllUnits().values()) {
@@ -3174,13 +3167,6 @@ export class Sandbox extends PixiScene {
                         }
 
                         const centerVis = { x: tVis.x, y: tVis.y };
-
-                        // If we targeted a specific cell (Priority 1), force visual to that cell
-                        // FIX TRAJECTORY: Use Centers for Large Units for the Arrow
-                        // Calculate Attacker Center (Start)
-                        // If attackFromPos is defined, it is a Cell Center (0.5).
-                        // FIX TRAJECTORY: Use Centers for Large Units for the Arrow
-
                         let arrowStartPos: HoCMath.XY;
 
                         if (!attackFromPos) {
@@ -3237,7 +3223,61 @@ export class Sandbox extends PixiScene {
 
                         let isMelee = !isRangeAttackContext;
                         let rangeDivisor = 1;
-                        let multiplier = 1;
+                        let multiplier = 1; // Initialize BEFORE position logic usage
+
+                        // --- [FIX] Calculate Exact Attack Position for Multipliers (e.g. Backstab) ---
+                        // We need to know WHERE the attack comes from to trigger position-based abilities.
+                        // Logic from test_heroes.ts:
+                        let hoverAttackFromCell: HoCMath.XY | undefined;
+                        if (isMelee) {
+                            // strict melee movement math for Melee attacks
+                            // If we are already next to it, or moving to it.
+                            // We leverage pathHelper.calculateClosestAttackFrom just like test_heroes.
+                            if (this.canAttackByMeleeTargets && this.canAttackByMeleeTargets.attackCells.length > 0) {
+                                hoverAttackFromCell = this.pathHelper.calculateClosestAttackFrom(
+                                    this.sc_mouseWorld,
+                                    this.canAttackByMeleeTargets.attackCells,
+                                    this.currentActiveUnit.getCells(),
+                                    targetUnit.isSmallSize() ? [targetUnit.getBaseCell()] : targetUnit.getCells(),
+                                    this.currentActiveUnit.isSmallSize(),
+                                    this.currentActiveUnit.getAttackRange(),
+                                    targetUnit.isSmallSize(),
+                                    targetUnit.getTeam(),
+                                    this.canAttackByMeleeTargets.attackCellHashesToLargeCells,
+                                );
+                            } else {
+                                // Fallback for adjacent stationary attack
+                                hoverAttackFromCell = this.currentActiveUnit.getBaseCell();
+                            }
+                        } else {
+                            // Range: From current position
+                            hoverAttackFromCell = this.currentActiveUnit.getBaseCell();
+                        }
+
+                        // Apply Positional Ability Multipliers (Backstab)
+                        if (hoverAttackFromCell) {
+                            const abilitiesWithPositionCoeff = AbilityHelper.getAbilitiesWithPosisionCoefficient(
+                                this.currentActiveUnit.getAbilities(),
+                                hoverAttackFromCell,
+                                targetUnit.getBaseCell(),
+                                targetUnit.isSmallSize(),
+                                this.currentActiveUnit.getTeam(),
+                            );
+                            if (abilitiesWithPositionCoeff && abilitiesWithPositionCoeff.length) {
+                                for (const awpc of abilitiesWithPositionCoeff) {
+                                    multiplier *= this.currentActiveUnit.calculateAbilityMultiplier(awpc, abilityPower);
+                                }
+                            }
+                        }
+
+                        // Sync 'attackFromCell' usage for downstream logic (War Anger/Rapid Charge)
+                        // But wait! attackFromCell was used EARLIER (lines 3156 or passed from earlier).
+                        // If we overwrite it here, it only affects logic BELOW (which is what we want for damage calcs).
+                        if (hoverAttackFromCell) {
+                            attackFromCell = hoverAttackFromCell; // Update local 'attackFromCell' variable
+                        }
+
+                        // [Insert Positional Logic Here]
 
                         // Melee Penalty for Ranged Units doing Melee
                         if (
@@ -3257,50 +3297,114 @@ export class Sandbox extends PixiScene {
                             }
                         }
 
-                        // Double Shot Logic
+                        // Double Shot Logic (Legacy check)
                         if (isRangeAttackContext && this.currentActiveUnit.hasAbilityActive("Double Shot")) {
                             multiplier = 2; // Display double damage
                         }
 
-                        const minDmg = this.currentActiveUnit.calculateAttackDamageMin(
-                            attackRate,
-                            targetUnit,
-                            isMelee,
-                            abilityPower,
-                            rangeDivisor,
-                            multiplier,
-                        );
-                        const maxDmg = this.currentActiveUnit.calculateAttackDamageMax(
-                            attackRate,
-                            targetUnit,
-                            isMelee,
-                            abilityPower,
-                            rangeDivisor,
-                            multiplier,
-                        );
+                        // --- [PORTED] Advanced Damage Logic from test_heroes.ts ---
 
-                        const minKills = targetUnit.calculatePossibleLosses(minDmg);
-                        const maxKills = targetUnit.calculatePossibleLosses(maxDmg);
-
-                        let predictionText = "";
-                        let iconPath: string | undefined = undefined;
-
-                        if (maxKills > 0) {
-                            predictionText = minKills === maxKills ? `${minKills}` : `${minKills}-${maxKills}`;
-                            iconPath = images.skull_white;
-                        } else {
-                            predictionText = minDmg === maxDmg ? `${minDmg}` : `${minDmg}-${maxDmg}`;
-                            // iconPath remains undefined
+                        // 1. Ability Multipliers (Large Caliber, Area Throw)
+                        const largeCaliberAbility = this.currentActiveUnit.getAbility("Large Caliber");
+                        if (largeCaliberAbility) {
+                            multiplier *= this.currentActiveUnit.calculateAbilityMultiplier(
+                                largeCaliberAbility,
+                                abilityPower,
+                            );
+                        }
+                        const areaThrowAbility = this.currentActiveUnit.getAbility("Area Throw");
+                        if (areaThrowAbility) {
+                            multiplier *= this.currentActiveUnit.calculateAbilityMultiplier(
+                                areaThrowAbility,
+                                abilityPower,
+                            );
                         }
 
-                        this.hoverManager.drawDamagePrediction(
-                            predictionText,
-                            centerVis,
-                            !targetUnit.isSmallSize(), // isLargeTarget
-                            iconPath,
-                        );
-                        this.hoverManager.drawAttackArrow(arrowStartPos, tVis);
-                        isAttacking = true;
+                        // 2. Rapid Charge
+                        if (attackFromCell && this.currentActiveKnownPaths) {
+                            const key = (attackFromCell.x << 4) | attackFromCell.y;
+                            const paths = this.currentActiveKnownPaths.get(key);
+                            let rapidChargeCellsNumber = 1;
+                            if (paths && paths.length > 0) {
+                                rapidChargeCellsNumber = paths[0].route.length;
+                            }
+                            multiplier *= AllAbilities.processRapidChargeAbility(
+                                this.currentActiveUnit,
+                                rapidChargeCellsNumber,
+                            );
+                        }
+
+                        // 3. Paralysis (Attacker Effect)
+                        const paralysisAttackerEffect = this.currentActiveUnit.getEffect("Paralysis");
+                        if (paralysisAttackerEffect) {
+                            multiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
+                        }
+
+                        // 4. Deep Wounds (Target Effect -> Attacker Bonus)
+                        const deepWoundsEffect = targetUnit.getEffect("Deep Wounds");
+                        if (
+                            deepWoundsEffect &&
+                            (this.currentActiveUnit.hasAbilityActive("Deep Wounds Level 1") ||
+                                this.currentActiveUnit.hasAbilityActive("Deep Wounds Level 2") ||
+                                this.currentActiveUnit.hasAbilityActive("Deep Wounds Level 3"))
+                        ) {
+                            multiplier *= 1 + deepWoundsEffect.getPower() / 100;
+                        }
+
+                        // 5. War Anger (Attack Rate Modification based on Position)
+                        const warAngerAuraEffect = this.currentActiveUnit.getAuraEffect("War Anger");
+                        let effectiveAttackRate = attackRate;
+
+                        if (warAngerAuraEffect) {
+                            const cells: HoCMath.XY[] = attackFromCell
+                                ? [attackFromCell]
+                                : this.currentActiveUnit.getCells();
+                            if (!this.currentActiveUnit.isSmallSize() && attackFromCell) {
+                                cells.push({ x: attackFromCell.x + 1, y: attackFromCell.y });
+                                cells.push({ x: attackFromCell.x, y: attackFromCell.y + 1 });
+                                cells.push({ x: attackFromCell.x + 1, y: attackFromCell.y + 1 });
+                            }
+
+                            const newAttackRate =
+                                attackRate -
+                                this.currentActiveUnit.getCurrentAttackModIncrease() +
+                                this.unitsHolder.getUnitAuraAttackMod(this.currentActiveUnit, cells);
+                            effectiveAttackRate = Math.max(1, newAttackRate);
+                        }
+
+                        let minDmg =
+                            this.currentActiveUnit.calculateAttackDamageMin(
+                                effectiveAttackRate,
+                                targetUnit,
+                                isMelee,
+                                abilityPower,
+                                rangeDivisor,
+                                multiplier,
+                            ) + AllAbilities.processPenetratingBiteAbility(this.currentActiveUnit, targetUnit);
+
+                        let maxDmg =
+                            this.currentActiveUnit.calculateAttackDamageMax(
+                                effectiveAttackRate,
+                                targetUnit,
+                                isMelee,
+                                abilityPower,
+                                rangeDivisor,
+                                multiplier,
+                            ) + AllAbilities.processPenetratingBiteAbility(this.currentActiveUnit, targetUnit);
+
+                        // Lucky Strike (Legacy)
+                        const luckyStrikeAbility = this.currentActiveUnit.getAbility("Lucky Strike");
+                        if (luckyStrikeAbility) {
+                            maxDmg = Math.floor(
+                                maxDmg *
+                                    this.currentActiveUnit.calculateAbilityMultiplier(luckyStrikeAbility, abilityPower),
+                            );
+                        }
+
+                        let totalMinKills = targetUnit.calculatePossibleLosses(minDmg);
+                        let totalMaxKills = targetUnit.calculatePossibleLosses(maxDmg);
+                        let totalMinDmg = minDmg;
+                        let totalMaxDmg = maxDmg;
 
                         // --- Multi-Target Highlight (AOE) ---
                         const secondaryTargets: Unit[] = [];
@@ -3356,6 +3460,78 @@ export class Sandbox extends PixiScene {
                                 }
                             }
                         }
+
+                        // Calculate stats for secondary targets
+                        for (const enemy of secondaryTargets) {
+                            // Apply same modifiers to secondary targets
+                            // Note: Double Shot might physically mean 2 hits, but for stats we aggregate.
+                            // Assuming AOE scales with the same buffs (War Anger, Rapid Charge, etc).
+
+                            // Penetrating Bite applies to secondary?
+                            // Usually Penetrating Bite is "on attack target".
+                            // Skewer Strike description: "Deals damage to unit behind".
+                            // Assume simplified: Base dmg logic applies.
+                            // But explicit "Penetrating Bite" additive probably only on primary?
+                            // test_heroes.ts adds it explicitly: + processPenetratingBiteAbility...
+                            // It doesn't seem to loop for AOE in the test logic I saw.
+                            // I will exclude Penetrating Bite from secondary for safety unless known otherwise.
+
+                            const sMin = this.currentActiveUnit.calculateAttackDamageMin(
+                                effectiveAttackRate,
+                                enemy,
+                                isMelee,
+                                abilityPower,
+                                rangeDivisor,
+                                multiplier,
+                            );
+                            const sMax = this.currentActiveUnit.calculateAttackDamageMax(
+                                effectiveAttackRate,
+                                enemy,
+                                isMelee,
+                                abilityPower,
+                                rangeDivisor,
+                                multiplier,
+                            );
+
+                            // Lucky Strike for Secondary?
+                            let sMaxFinal = sMax;
+                            if (luckyStrikeAbility) {
+                                sMaxFinal = Math.floor(
+                                    sMax *
+                                        this.currentActiveUnit.calculateAbilityMultiplier(
+                                            luckyStrikeAbility,
+                                            abilityPower,
+                                        ),
+                                );
+                            }
+
+                            totalMinDmg += sMin;
+                            totalMaxDmg += sMaxFinal;
+                            totalMinKills += enemy.calculatePossibleLosses(sMin);
+                            totalMaxKills += enemy.calculatePossibleLosses(sMaxFinal);
+                        }
+
+                        const dmgStr = totalMinDmg === totalMaxDmg ? `${totalMinDmg}` : `${totalMinDmg}-${totalMaxDmg}`;
+                        let killStr: string | undefined;
+                        let iconPath: string | undefined;
+
+                        if (totalMaxKills > 0) {
+                            killStr =
+                                totalMinKills === totalMaxKills
+                                    ? `${totalMinKills}`
+                                    : `${totalMinKills}-${totalMaxKills}`;
+                            iconPath = images.skull_white;
+                        }
+
+                        this.hoverManager.drawDamagePrediction(
+                            dmgStr,
+                            killStr,
+                            centerVis,
+                            !targetUnit.isSmallSize(), // isLargeTarget
+                            iconPath,
+                        );
+                        this.hoverManager.drawAttackArrow(arrowStartPos, tVis);
+                        isAttacking = true;
 
                         // Add Red Highlight for Secondary Targets
                         for (const enemy of secondaryTargets) {
@@ -3838,11 +4014,11 @@ export class Sandbox extends PixiScene {
     private drawGameplayVisuals(g: Graphics): void {
         let sidebarUnitRanges:
             | {
-                xy: HoCMath.XY;
-                attackRange: number;
-                auraRanges: { range: number; isBuff: boolean }[];
-                isSmall: boolean;
-            }
+                  xy: HoCMath.XY;
+                  attackRange: number;
+                  auraRanges: { range: number; isBuff: boolean }[];
+                  isSmall: boolean;
+              }
             | undefined;
 
         if (this.selectedBoardUnit) {
@@ -3862,11 +4038,11 @@ export class Sandbox extends PixiScene {
                 const auraRanges =
                     ar && ar.length > 0
                         ? ar
-                            .map((range, i) => ({
-                                range: range + fightProps.getAdditionalAuraRangePerTeam(u.getTeam()),
-                                isBuff: ab && i < ab.length ? ab[i] : true,
-                            }))
-                            .filter((a) => a.range > 0)
+                              .map((range, i) => ({
+                                  range: range + fightProps.getAdditionalAuraRangePerTeam(u.getTeam()),
+                                  isBuff: ab && i < ab.length ? ab[i] : true,
+                              }))
+                              .filter((a) => a.range > 0)
                         : [];
 
                 sidebarUnitRanges = {
@@ -4337,7 +4513,7 @@ export class Sandbox extends PixiScene {
             this.sc_sceneLog.updateLog(`Loading Animations... ${pct}%`);
         }
     }
-    protected verifyButtonsTrigger(): void { }
+    protected verifyButtonsTrigger(): void {}
     protected updateCurrentMovePath(currentCell: HoCMath.XY): void {
         if (!this.currentActiveUnit || this.moveAnimation) {
             return;

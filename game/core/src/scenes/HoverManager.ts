@@ -457,15 +457,25 @@ export class HoverManager {
         }
     }
     private hoverDamageText?: Text;
+    private hoverKillText?: Text;
     private hoverDamageIcon?: Sprite;
-    public drawDamagePrediction(text: string, position: HoCMath.XY, isLargeTarget: boolean, iconPath?: string): void {
+    public drawDamagePrediction(
+        damageStr: string,
+        killStr: string | undefined, // undefined if 0 kills
+        position: HoCMath.XY,
+        isLargeTarget: boolean,
+        iconPath?: string,
+    ): void {
         const scale = isLargeTarget ? 2 : 1;
-        const hasIcon = !!iconPath;
+        const hasKills = !!killStr;
+        const hasIcon = !!iconPath && hasKills; // Only show icon if there's a kill string? Or always if passed?
+        // User request: "possible units killed... on top of"
+        // Usually icon goes with kills.
 
-        // 1. Setup Text
+        // 1. Setup Damage Text (Top Row)
         if (!this.hoverDamageText) {
             this.hoverDamageText = new Text({
-                text: text,
+                text: damageStr,
                 style: {
                     fontFamily: "Arial",
                     fontSize: 24,
@@ -475,45 +485,85 @@ export class HoverManager {
                     fontWeight: "bold",
                 },
             });
-            this.context.attachToWorldRoot(this.hoverDamageText, 2201); // Above Arrow (2200)
+            this.context.attachToWorldRoot(this.hoverDamageText, 2201);
         } else {
-            this.hoverDamageText.text = text;
-        }
-
-        // 2. Setup Icon (lazy init)
-        if (hasIcon) {
-            if (!this.hoverDamageIcon) {
-                this.hoverDamageIcon = new Sprite(Texture.from(iconPath!));
-                this.hoverDamageIcon.anchor.set(0.5);
-                this.context.attachToWorldRoot(this.hoverDamageIcon, 2201);
-            } else {
-                this.hoverDamageIcon.texture = Texture.from(iconPath!);
-            }
+            this.hoverDamageText.text = damageStr;
         }
 
         // 3. Visibility & Scaling
         this.hoverDamageText.visible = true;
         this.hoverDamageText.scale.set(scale, -scale);
 
-        if (hasIcon && this.hoverDamageIcon) {
-            this.hoverDamageIcon.visible = true;
-            this.hoverDamageIcon.scale.set(scale, -scale);
-            const iconSize = 28 * scale;
-            this.hoverDamageIcon.width = iconSize;
-            this.hoverDamageIcon.height = iconSize;
+        if (hasKills) {
+            if (this.hoverKillText) {
+                this.hoverKillText.text = killStr || "0";
+            } else {
+                this.hoverKillText = new Text({
+                    text: killStr || "0",
+                    style: {
+                        fontFamily: "Arial",
+                        fontSize: 24,
+                        fill: 0xff3333,
+                        stroke: { color: 0x000000, width: 4, join: "round" },
+                        align: "center",
+                        fontWeight: "bold",
+                    },
+                });
+                this.context.attachToWorldRoot(this.hoverKillText, 2201);
+            }
+            this.hoverKillText.visible = true;
+            this.hoverKillText.scale.set(scale, -scale);
 
-            // Positioning (Icon | Text)
-            this.hoverDamageText.anchor.set(0, 0.5);
-            const padding = 5 * scale;
-            const totalWidth = this.hoverDamageIcon.width + padding + this.hoverDamageText.width;
-            const startX = position.x - totalWidth / 2;
+            // Icon Init
+            if (hasIcon) {
+                if (!this.hoverDamageIcon) {
+                    this.hoverDamageIcon = new Sprite(this.context.texAny(iconPath!) || Texture.from(iconPath!)); // Use context if possible or raw path
+                    // Actually logic was just Texture.from
+                    this.hoverDamageIcon = new Sprite(Texture.from(iconPath!));
+                    this.hoverDamageIcon.anchor.set(0.5);
+                    this.context.attachToWorldRoot(this.hoverDamageIcon, 2201);
+                } else {
+                    this.hoverDamageIcon.texture = Texture.from(iconPath!);
+                }
+                this.hoverDamageIcon.visible = true;
+            } else if (this.hoverDamageIcon) {
+                this.hoverDamageIcon.visible = false;
+            }
 
-            this.hoverDamageIcon.position.set(startX + this.hoverDamageIcon.width / 2, position.y);
-            this.hoverDamageText.position.set(startX + this.hoverDamageIcon.width + padding, position.y);
+            // Layout: Stacked Centered
+            const spacing = 28 * scale;
+
+            this.hoverDamageText.anchor.set(0.5, 0.5);
+            this.hoverDamageText.position.set(position.x, position.y + spacing / 2);
+
+            // Icon placement
+            if (hasIcon && this.hoverDamageIcon) {
+                this.hoverDamageIcon.visible = true;
+                this.hoverDamageIcon.scale.set(scale, -scale);
+                const iconSize = 24 * scale;
+                this.hoverDamageIcon.width = iconSize;
+                this.hoverDamageIcon.height = iconSize;
+
+                // Align icon to left of Kill Text
+                const padding = 5 * scale;
+                const totalW = iconSize + padding + this.hoverKillText.width;
+                const startX = position.x - totalW / 2;
+
+                this.hoverDamageIcon.anchor.set(0, 0.5);
+                this.hoverDamageIcon.position.set(startX, position.y - spacing / 2);
+
+                this.hoverKillText.anchor.set(0, 0.5);
+                this.hoverKillText.position.set(startX + iconSize + padding, position.y - spacing / 2);
+            } else {
+                this.hoverKillText.anchor.set(0.5, 0.5);
+                this.hoverKillText.position.set(position.x, position.y - spacing / 2);
+            }
         } else {
-            // Text only (Centered)
+            // Text only (Centered) - Match ORIGINAL EXACTLY
             if (this.hoverDamageIcon) this.hoverDamageIcon.visible = false;
-            this.hoverDamageText.anchor.set(0.5);
+            if (this.hoverKillText) this.hoverKillText.visible = false;
+
+            this.hoverDamageText.anchor.set(0.5, 0.5);
             this.hoverDamageText.position.set(position.x, position.y);
         }
     }
@@ -541,6 +591,9 @@ export class HoverManager {
 
         if (this.hoverDamageText) {
             this.hoverDamageText.visible = false;
+        }
+        if (this.hoverKillText) {
+            this.hoverKillText.visible = false;
         }
         if (this.hoverDamageIcon) {
             this.hoverDamageIcon.visible = false;
