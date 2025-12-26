@@ -1,4 +1,4 @@
-import { TeamVals } from "@heroesofcrypto/common";
+import { TeamVals, TeamType } from "@heroesofcrypto/common";
 
 import Avatar from "@mui/joy/Avatar";
 import Badge from "@mui/joy/Badge";
@@ -26,6 +26,54 @@ const commonTooltipSx = {
     fontWeight: 500,
     maxWidth: "280px",
     zIndex: 10000,
+};
+
+// Copied from UnitStatsListItem.tsx
+const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAura: boolean }> = ({
+    stackPower,
+    teamType,
+    isAura,
+}) => {
+    if (stackPower <= 0) return null;
+    const isLower = teamType === TeamVals.LOWER;
+    const activeColor = isLower
+        ? "rgba(0, 255, 0, 1)"
+        : teamType === TeamVals.UPPER
+          ? "rgba(255, 0, 0, 1)"
+          : "rgba(255, 191, 0, 1)";
+    const emptyColor = "rgba(34, 34, 34, 0.7)";
+
+    return (
+        <Box
+            sx={{
+                position: "absolute",
+                bottom: "5%",
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: isAura ? "70%" : "85%", // Narrower for circles to stay inside curves
+                height: "12%",
+                minHeight: "4px",
+                display: "flex",
+                flexDirection: "row",
+                gap: "2%",
+                zIndex: 10,
+                pointerEvents: "none",
+            }}
+        >
+            {Array.from({ length: 5 }).map((_, i) => (
+                <Box
+                    key={`pip_${i}`}
+                    sx={{
+                        flex: 1,
+                        backgroundColor: i < stackPower ? activeColor : emptyColor,
+                        borderRadius: "2px",
+                        border: `1px solid rgba(0, 0, 0, 0.8)`,
+                        boxSizing: "border-box",
+                    }}
+                />
+            ))}
+        </Box>
+    );
 };
 
 export const UpNext: React.FC = () => {
@@ -64,16 +112,24 @@ export const UpNext: React.FC = () => {
                             {visibleUnits.length > 0 &&
                                 [...visibleUnits].reverse().map((unit, index) => (
                                     <Box key={index} sx={{ position: "relative" }}>
-                                        <Avatar
-                                            // @ts-ignore: src params
-                                            src={images[unit.smallTextureName]}
-                                            variant="plain"
-                                            sx={{
-                                                width: index === 0 ? "84px" : "72px",
-                                                height: index === 0 ? "84px" : "72px",
-                                                flexShrink: 0,
-                                            }}
-                                        />
+                                        <Box sx={{ position: "relative", display: "inline-block" }}>
+                                            <Avatar
+                                                // @ts-ignore: src params
+                                                src={images[unit.smallTextureName]}
+                                                variant="plain"
+                                                sx={{
+                                                    width: index === 0 ? "84px" : "72px",
+                                                    height: index === 0 ? "84px" : "72px",
+                                                    flexShrink: 0,
+                                                    borderRadius: "15%",
+                                                }}
+                                            />
+                                            <StackPowerOverlay
+                                                stackPower={unit.isStackPowered ? unit.stackPower : 0}
+                                                teamType={unit.teamType}
+                                                isAura={false}
+                                            />
+                                        </Box>
                                         {unit.isSkipping ? (
                                             <img
                                                 src={stopImg}
@@ -81,7 +137,7 @@ export const UpNext: React.FC = () => {
                                                 style={{
                                                     position: "absolute",
                                                     top: 0,
-                                                    right: index === 0 ? 10.5 : 8,
+                                                    left: 0, // Top Left
                                                     width: "20px",
                                                     height: "20px",
                                                     zIndex: 2,
@@ -94,7 +150,7 @@ export const UpNext: React.FC = () => {
                                                 style={{
                                                     position: "absolute",
                                                     top: 0,
-                                                    right: index === 0 ? 10.5 : 8,
+                                                    left: 0, // Top Left
                                                     width: "20px",
                                                     height: "20px",
                                                     zIndex: 2,
@@ -103,22 +159,24 @@ export const UpNext: React.FC = () => {
                                         ) : null}
                                         <Badge
                                             badgeContent={unit.amount.toString()}
+                                            max={99999}
                                             // @ts-ignore: style params
-                                            color="#ff0000"
                                             sx={{
                                                 position: "absolute",
-                                                bottom: index === 0 ? 12 : 18,
-                                                right: index === 0 ? 21 : 16,
+                                                top: 16,
+                                                right: 8,
                                                 zIndex: 1,
                                                 "& .MuiBadge-badge": {
-                                                    fontSize: "0.9rem",
-                                                    height: "22px",
-                                                    minWidth: "22px",
-                                                    color: "white",
-                                                    backgroundColor:
-                                                        unit.teamType === TeamVals.UPPER
-                                                            ? `rgba(244, 67, 54, ${index === 0 ? 1 : 0.6})`
-                                                            : `rgba(76, 175, 80, ${index === 0 ? 1 : 0.6})`,
+                                                    fontSize: "1rem",
+                                                    fontWeight: "bold",
+                                                    height: "26px",
+                                                    minWidth: "26px",
+                                                    width: "26px",
+                                                    borderRadius: "50%",
+                                                    padding: 0,
+                                                    color: "black",
+                                                    backgroundColor: "white",
+                                                    boxShadow: "0 0 2px 1px rgba(0,0,0,0.3)",
                                                 },
                                             }}
                                         />

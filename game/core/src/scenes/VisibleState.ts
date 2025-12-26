@@ -17,6 +17,8 @@ export interface IVisibleUnit {
     teamType: TeamType;
     isOnHourglass: boolean;
     isSkipping: boolean;
+    stackPower: number;
+    isStackPowered: boolean;
 }
 
 export interface IVisibleImpact {

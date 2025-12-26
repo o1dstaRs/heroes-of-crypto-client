@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-import { Sprite, Graphics, Container, Text as PixiText, TextStyle, Texture, BlurFilter } from "pixi.js";
+import { Sprite, Graphics, Container, Texture, BlurFilter } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
 import { SandboxDrawer } from "./SandboxDrawer";
 import {
@@ -36,7 +36,6 @@ import {
     ToMightSynergy,
     ToNatureSynergy,
     FactionVals,
-    GridVals,
     AttackVals,
     UnitVals,
     IVisibleDamage,
@@ -60,6 +59,9 @@ import { ButtonManager } from "./ButtonManager";
 import { SpellBookOverlay } from "./SpellBookOverlay";
 import { AIController } from "./AIController";
 import { MAX_HOLE_LAYERS } from "@/statics";
+import { DungeonVisuals } from "./sandbox/DungeonVisuals";
+import { MoveAnimationManager } from "./sandbox/MoveAnimationManager";
+import { CombatVisuals } from "./sandbox/CombatVisuals";
 
 interface IFlickeringLight extends Graphics {
     _flickerOffset: number;
@@ -78,38 +80,12 @@ export class Sandbox extends PixiScene {
     private buttonManager: ButtonManager;
     private currentEnemiesCellsWithinMovementRange?: HoCMath.XY[];
     private unitsOverlay: UnitsOverlay;
-    private bgSprite?: Sprite;
     private placementManager: PlacementManager;
     private spawnPulsePhase = 0;
     private bgKey = "background_new";
     private placementGraphics?: Graphics;
-    private centerTerrainSprite?: Sprite;
     private selectedBoardUnit?: RenderableUnit;
-    private moveAnimation?: {
-        unit: RenderableUnit;
-        worldPath: HoCMath.XY[]; // world coordinates along the path (includes start + each cell center)
-        currentSegment: number; // segment index in worldPath
-        t: number; // progress [0..1] along current segment
-        speed: number; // world units per second
-        destCell: HoCMath.XY; // final destination cell for logging
-        /** Last world position where a large-unit track cluster was dropped */
-        lastTrackWorld: HoCMath.XY;
-        onComplete?: () => void;
-    };
-    private moveTrackPath?: HoCMath.XY[];
-    private moveTrackProgress = 0; // float index along moveTrackPath (0..length)
-    /** Lingering “footprints” / grey glow left after movement. */
-    private lingeringTracks: {
-        x: number;
-        y: number;
-        radius: number;
-        life: number; // seconds remaining
-        maxLife: number; // initial life in seconds
-        phase: number;
-        team: TeamType;
-    }[] = [];
     private isActiveUnitMoving = false;
-    private lastTrackDropIndex: number = -1;
     private gridMatrix: number[][];
     private gridMatrixNoUnits: number[][];
     private cellToUnitPreRound?: Map<string, Unit>;
@@ -149,12 +125,15 @@ export class Sandbox extends PixiScene {
     private hasInitializedLap = false;
     private gameplayGraphics?: Graphics;
     private currentActiveSpell?: PixiRenderableSpell;
-    private holeContainer: Container;
     private drawnNarrowingLaps: Set<number> = new Set();
     // Spellbook
     private spellBookContainer: Container;
     private spellBookOverlay?: SpellBookOverlay;
     private digitTextures?: Map<number, Texture>;
+    // [NEW] Sub-Managers
+    private dungeonVisuals: DungeonVisuals;
+    private moveAnimManager: MoveAnimationManager;
+    private combatVisuals: CombatVisuals;
     public constructor(context: PixiSceneContext) {
         const gs = new GridSettings(
             GridConstants.GRID_SIZE,
@@ -179,9 +158,46 @@ export class Sandbox extends PixiScene {
         );
         this.drawer = new PixiDrawer(this.grid, this.pixiApp.getApplication(), this.pixiApp.getWorldRoot());
 
-        this.holeContainer = new Container();
-        this.holeContainer.sortableChildren = true;
+        // --- Init Sub-Managers (Early) ---
+        this.dungeonVisuals = new DungeonVisuals({
+            getStage: () => this.pixiApp.getApplication().stage,
+            getWorldRoot: () => this.pixiApp.getWorldRoot(),
+            getViewportSize: () => this.getViewportSize(),
+            getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
+            texAny: (n) => this.texAny(n),
+            attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
+        });
 
+        this.moveAnimManager = new MoveAnimationManager({
+            getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
+            updateSceneLog: (msg) => this.sc_sceneLog.updateLog(msg),
+            finishTurn: () => this.finishTurn(),
+            setMoveBlocked: (b) => {
+                this.sc_moveBlocked = b;
+            },
+            getHoverManager: () => this.hoverManager,
+            getWorldRoot: () => this.pixiApp.getWorldRoot(),
+            requestVisibleStateUpdate: () => {
+                if (this.sc_visibleState) this.sc_visibleStateUpdateNeeded = true;
+            },
+        });
+
+        this.combatVisuals = new CombatVisuals({
+            getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
+            attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
+            getUnitsHolder: () => this.unitsHolder,
+            getSelectedUnitProperties: () => this.sc_selectedUnitProperties,
+            updateSelectedUnitProperties: (p) => {
+                this.sc_selectedUnitProperties = p;
+            },
+            setUnitPropertiesUpdateNeeded: (b) => {
+                this.sc_unitPropertiesUpdateNeeded = b;
+            },
+        });
+
+        // Hole container init is now in DungeonVisuals
+        // We need to attach it here
+        this.attachToWorldRoot(this.dungeonVisuals.getHoleContainer(), 1);
         this.spellBookContainer = new Container();
         this.spellBookContainer.visible = false;
         this.spellBookContainer.sortableChildren = false;
@@ -357,6 +373,7 @@ export class Sandbox extends PixiScene {
             context.pixiApp.getApplication().screen.width,
             context.pixiApp.getApplication().screen.height,
         );
+        // --- Init Sub-Managers Moved UP ---
     }
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return this.unitsOverlay;
@@ -366,7 +383,7 @@ export class Sandbox extends PixiScene {
         this.attachToWorldRoot(this.placementGraphics, 6000);
         // spellBookContainer attached to stage in init
         this.attachToWorldRoot(this.gameplayGraphics, 55); // Ranges below units (Units > 100)
-        this.attachToWorldRoot(this.centerTerrainSprite, 50);
+        this.dungeonVisuals.attachCenterTerrainSprite();
         this.hoverManager.onCameraChanged();
     }
     private getPlacement(teamType: TeamType, placementIndex: number): IPlacement | undefined {
@@ -381,267 +398,12 @@ export class Sandbox extends PixiScene {
         if (!occupantId) return undefined;
         return this.unitsHolder.getAllUnits().get(occupantId);
     }
-    private ensureCenterTerrainSprite(): void {
-        // Decide which texture key to use based on grid type
-        let texKey: string | undefined;
-        switch (FightStateManager.getInstance().getFightProperties().getGridType()) {
-            case GridVals.WATER_CENTER:
-                texKey = "water_256";
-                break;
-            case GridVals.LAVA_CENTER:
-                texKey = "lava_256";
-                break;
-            case GridVals.BLOCK_CENTER:
-                texKey = "mountain_432_412";
-                break;
-            default:
-                texKey = undefined;
-                break;
-        }
-        // If no special center terrain → hide if exists and bail
-        if (!texKey) {
-            if (this.centerTerrainSprite) {
-                this.centerTerrainSprite.visible = false;
-            }
-            return;
-        }
-        const tex = this.texAny(texKey);
-        if (!tex) {
-            if (this.centerTerrainSprite) {
-                this.centerTerrainSprite.visible = false;
-            }
-            return;
-        }
-        // Lazily create sprite
-        if (!this.centerTerrainSprite) {
-            this.centerTerrainSprite = new Sprite(tex);
-            this.centerTerrainSprite.anchor.set(0.5);
-            // Place it under units & placements but above background
-            this.attachToWorldRoot(this.centerTerrainSprite, 50);
-            this.centerTerrainSprite.scale.y = -1; // world y-up
-        } else {
-            if (this.centerTerrainSprite.texture !== tex) {
-                this.centerTerrainSprite.texture = tex;
-            }
-            this.attachToWorldRoot(this.centerTerrainSprite, 50);
-        }
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const centerX = (gs.getMinX() + gs.getMaxX()) * 0.5;
-        const centerY = (gs.getMinY() + gs.getMaxY()) * 0.5;
-        const cellSize = gs.getCellSize();
-        // Target area: 4x4 cells in the middle
-        const targetW = cellSize * 4;
-        const targetH = cellSize * 4;
-        const texW = tex.width || 1;
-        const texH = tex.height || 1;
-        const sx = targetW / texW;
-        const sy = targetH / texH;
-        this.centerTerrainSprite.scale.set(sx, -sy);
-        this.centerTerrainSprite.x = centerX;
-        this.centerTerrainSprite.y = centerY;
-        this.centerTerrainSprite.visible = true;
+    protected ensureCenterTerrainSprite(): void {
+        this.dungeonVisuals.ensureCenterTerrainSprite();
     }
-    /**
-     * Drop a 2x2 cluster of lingering tracks at a given world position for a large (2x2) unit.
-     */
-    private dropLargeUnitTrackAtPosition(unit: RenderableUnit, worldPos: HoCMath.XY, gs: GridSettings): void {
-        const cellSize = gs.getCellSize();
-
-        // FIX: The worldPos passed here is the Visual Center of the 2x2 unit.
-        // That center lies exactly on the grid line between the anchor cell and the next cell.
-        // We subtract half a cell size to shift the coordinate back into the "Anchor Cell"
-        // so getCellForPosition doesn't round up to the next neighbor (+1 shift).
-        const halfSize = cellSize * 0.5;
-        const adjustedPos = { x: worldPos.x - halfSize, y: worldPos.y - halfSize };
-
-        const anchorCell = GridMath.getCellForPosition(gs, adjustedPos);
-        if (!anchorCell) return;
-
-        const footprintCells: HoCMath.XY[] = [
-            { x: anchorCell.x, y: anchorCell.y },
-            { x: anchorCell.x + 1, y: anchorCell.y },
-            { x: anchorCell.x, y: anchorCell.y + 1 },
-            { x: anchorCell.x + 1, y: anchorCell.y + 1 },
-        ];
-
-        for (const c of footprintCells) {
-            const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-            if (!pos) continue;
-            this.lingeringTracks.push({
-                x: pos.x,
-                y: pos.y,
-                radius: cellSize * 0.5,
-                life: 2.0,
-                maxLife: 2.0,
-                phase: Math.random() * Math.PI * 2,
-                team: unit.getTeam(),
-            });
-        }
-    }
-    /**
-     * Step movement animation for the active moving unit.
-     * Uses a piecewise-linear interpolation along worldPath and drops lingering track decals.
-     * For large units (2x2), tracks are dropped as 2x2 clusters along the path of travel.
-     */
     private stepMoveAnimation(dt: number): void {
-        const anim = this.moveAnimation;
-        if (!anim) return;
-
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const cellSize = gs.getCellSize();
-        const { unit, worldPath, speed } = anim;
-        const isLargeUnit = !unit.isSmallSize();
-
-        if (!worldPath || worldPath.length < 2 || speed <= 0) {
-            // Degenerate case – just snap to end and finish.
-            const end = worldPath[worldPath.length - 1] ?? unit.getPosition();
-            unit.setPosition(end.x, end.y);
-            this.finishMoveAnimation();
-            return;
-        }
-
-        let remaining = speed * dt;
-
-        while (remaining > 0 && this.moveAnimation) {
-            const a = this.moveAnimation!;
-            const segIndex = a.currentSegment;
-
-            if (segIndex >= a.worldPath.length - 1) {
-                // Reached the very end of the path.
-                const end = a.worldPath[a.worldPath.length - 1];
-                unit.setPosition(end.x, end.y);
-                this.moveTrackProgress = this.moveTrackPath ? this.moveTrackPath.length : a.worldPath.length - 1;
-                this.finishMoveAnimation();
-                return;
-            }
-
-            const p0 = a.worldPath[segIndex];
-            const p1 = a.worldPath[segIndex + 1];
-            const dx = p1.x - p0.x;
-            const dy = p1.y - p0.y;
-            const segLen = Math.sqrt(dx * dx + dy * dy) || 1e-6;
-            const segRemaining = (1 - a.t) * segLen;
-
-            let newPos: HoCMath.XY;
-
-            if (remaining >= segRemaining) {
-                // We can finish this segment and move to the next.
-                a.t = 1;
-                newPos = { x: p1.x, y: p1.y };
-                unit.setPosition(newPos.x, newPos.y);
-                a.currentSegment += 1;
-                a.t = 0;
-                remaining -= segRemaining;
-            } else {
-                // Move partially along the current segment.
-                const deltaT = remaining / segLen;
-                a.t += deltaT;
-                const nx = p0.x + dx * a.t;
-                const ny = p0.y + dy * a.t;
-                newPos = { x: nx, y: ny };
-                unit.setPosition(newPos.x, newPos.y);
-                remaining = 0;
-            }
-
-            // --- Track dropping ---
-            if (isLargeUnit) {
-                // For big units: drop 2x2 footprints along the world-space path between lastTrackWorld and newPos
-                const spacing = cellSize * 0.9; // ~one cluster per cell travelled
-                let lx = a.lastTrackWorld.x;
-                let ly = a.lastTrackWorld.y;
-
-                let vx = newPos.x - lx;
-                let vy = newPos.y - ly;
-                let dist = Math.sqrt(vx * vx + vy * vy);
-
-                // March along the segment, dropping clusters every `spacing`
-                while (dist >= spacing && dist > 1e-6) {
-                    const stepT = spacing / dist;
-                    lx += vx * stepT;
-                    ly += vy * stepT;
-
-                    this.dropLargeUnitTrackAtPosition(unit, { x: lx, y: ly }, gs);
-
-                    vx = newPos.x - lx;
-                    vy = newPos.y - ly;
-                    dist = Math.sqrt(vx * vx + vy * vy);
-                }
-
-                a.lastTrackWorld = { x: lx, y: ly };
-            }
-
-            // Update track head [0..pathLength] – segment index + local t.
-            this.moveTrackProgress = a.currentSegment + a.t;
-
-            // Small units still use the grid-path based tracking
-            if (!isLargeUnit && this.moveTrackPath && this.moveTrackPath.length > 0) {
-                const idx = Math.floor(this.moveTrackProgress);
-                if (idx >= 0 && idx < this.moveTrackPath.length && idx !== this.lastTrackDropIndex) {
-                    const cell = this.moveTrackPath[idx];
-                    const pos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-                    if (pos) {
-                        this.lingeringTracks.push({
-                            x: pos.x,
-                            y: pos.y,
-                            radius: cellSize * 0.5,
-                            life: 2.0,
-                            maxLife: 2.0,
-                            phase: Math.random() * Math.PI * 2,
-                            team: unit.getTeam(),
-                        });
-                        this.lastTrackDropIndex = idx;
-                    }
-                }
-            }
-        }
-    }
-    private finishMoveAnimation(): void {
-        const anim = this.moveAnimation;
-        if (!anim) return;
-        const { unit, worldPath, destCell, onComplete } = anim;
-        const end = worldPath[worldPath.length - 1] ?? unit.getPosition();
-
-        // Ensure we end up exactly at the intended destination.
-        unit.setPosition(end.x, end.y);
-
-        // Final 2x2 track cluster at destination for big units
-        if (!unit.isSmallSize()) {
-            const gs = this.sc_sceneSettings.getGridSettings();
-            this.dropLargeUnitTrackAtPosition(unit, end, gs);
-        }
-
-        this.sc_sceneLog.updateLog(`${unit.getName()} moved to(${destCell.x}, ${destCell.y})`);
-
-        this.moveAnimation = undefined;
-        this.moveTrackPath = undefined;
-        this.moveTrackProgress = 0;
-        this.sc_moveBlocked = false;
-        this.isActiveUnitMoving = false;
-        this.hoverManager.setSilhouetteLocked(false);
-        this.hoverManager.clearHoverSilhouette(true);
-        if (this.sc_visibleState) {
-            this.sc_visibleStateUpdateNeeded = true;
-        }
-        // Apply one final sync and default idle to reset any move effects
-        unit.syncVisual(this.pixiApp.getCamera(), this.sc_sceneSettings.getGridSettings());
-        // Reset sprite transform if we manipulated it
-        unit.setSpriteRotation(0);
-
-        // If a callback is provided (e.g. "Move then Attack"), run it instead of finishing turn immediately.
-        if (onComplete) {
-            onComplete();
-        } else {
-            // Standard move-only action ends the turn.
-            this.finishTurn();
-        }
-    }
-    private updateLingeringTracks(dt: number): void {
-        if (!this.lingeringTracks.length) return;
-        this.lingeringTracks = this.lingeringTracks.filter((t) => {
-            t.life -= dt;
-            t.phase += dt * 2; // for pulsing
-            return t.life > 0;
-        });
+        this.moveAnimManager.update(dt);
+        this.isActiveUnitMoving = this.moveAnimManager.isMoving();
     }
     protected selectUnitPreStart(
         _teamType: TeamType,
@@ -665,183 +427,20 @@ export class Sandbox extends PixiScene {
         this.attachToWorldRoot(this.placementGraphics, 100);
     }
     private ensureBackgroundSprite(): void {
-        if (this.bgSprite) return;
-        const tex = this.texAny("background_new");
-        if (!tex) return;
-        const bg = new Sprite(tex);
-        bg.anchor.set(0.5);
-        const stage = this.pixiApp.getApplication().stage;
-        stage.addChildAt(bg, 0);
-        this.bgSprite = bg;
-        this.layoutBackgroundSquare();
-    } // [FIX] Added missing brace
-    private dungeonOverlay?: Container;
+        this.dungeonVisuals.ensureBackgroundSprite();
+    }
+    private layoutBackgroundSquare(): void {
+        this.dungeonVisuals.layoutBackgroundSquare(this.atmosphereAlpha);
+    }
     private updateDungeonAtmosphere(started: boolean, alpha: number): void {
-        const stage = this.pixiApp.getApplication().stage;
-
-        // Hide if not started
-        if (!started) {
-            if (this.dungeonOverlay) {
-                this.dungeonOverlay.visible = false;
-            }
-            return;
-        }
-
-        // Create Container if missing
-        if (!this.dungeonOverlay) {
-            this.dungeonOverlay = new Container();
-            stage.addChildAt(this.dungeonOverlay, 1); // Above background (0)
-        }
-
-        const overlayContainer = this.dungeonOverlay;
-        overlayContainer.visible = true;
-        overlayContainer.alpha = alpha; // Control fade
-
-        // If already populated, just return (avoid rebuilding every frame)
-        if (overlayContainer.children.length > 0) return;
-
-        const { width: vw, height: vh } = this.getViewportSize();
-        const size = Math.min(vw, vh);
-        const x = vw * 0.5;
-        const y = vh * 0.5;
-        const halfSize = size / 2;
-
-        // 1. Dark Night Overlay
-        const overlay = new Graphics();
-        overlay.rect(x - halfSize, y - halfSize, size, size).fill({ color: 0x000000, alpha: 0.6 }); // Slightly darker night
-        overlayContainer.addChild(overlay);
-
-        // 2. Perimeter Lights (Fire Pits)
-        const radius = size * 0.25; // Large glow spread
-        const blur = new BlurFilter(45);
-        this.atmosphereLights = []; // Reset tracker
-
-        // Push lights OUTWARDS (Away from center)
-        // User requested "further from sides" -> increased from 0.12 to 0.22
-        // Update: User requested "closer into camera" -> reduced to 0.18
-        const margin = size * 0.18;
-        const tl = { x: x - halfSize - margin, y: y - halfSize - margin };
-        const tr = { x: x + halfSize + margin, y: y - halfSize - margin };
-        const bl = { x: x - halfSize - margin, y: y + halfSize + margin };
-        const br = { x: x + halfSize + margin, y: y + halfSize + margin };
-
-        // Generate positions around the perimeter
-        const lightsInit: Array<{ x: number; y: number }> = [];
-        const steps = 6; // More lights due to larger perimeter
-
-        // Helper to add jitter
-        const jitter = () => (Math.random() - 0.5) * (size * 0.05);
-
-        // Top Edge (TL -> TR)
-        for (let i = 0; i <= steps; i++) {
-            lightsInit.push({ x: tl.x + (tr.x - tl.x) * (i / steps) + jitter(), y: tl.y + jitter() });
-        }
-        // Right Edge (TR -> BR)
-        for (let i = 0; i <= steps; i++) {
-            lightsInit.push({ x: tr.x + jitter(), y: tr.y + (br.y - tr.y) * (i / steps) + jitter() });
-        }
-        // Bottom Edge (BR -> BL)
-        for (let i = 0; i <= steps; i++) {
-            lightsInit.push({ x: br.x + (bl.x - br.x) * (i / steps) + jitter(), y: br.y + jitter() });
-        }
-        // Left Edge (BL -> TL)
-        for (let i = 0; i <= steps; i++) {
-            lightsInit.push({ x: bl.x + jitter(), y: bl.y + (tl.y - bl.y) * (i / steps) + jitter() });
-        }
-
-        // Draw Lights
-        lightsInit.forEach((pos) => {
-            const light = new Graphics();
-            // Core (Intense Orange)
-            light.circle(0, 0, radius * 0.4).fill({ color: 0xffaa00, alpha: 0.5 });
-            // Outer Glow (Reddish)
-            light.circle(0, 0, radius * 0.8).fill({ color: 0xff4500, alpha: 0.3 });
-
-            // Store offset/speed for flickering in the Graphics object itself (hacky but effective)
-            const fLight = light as unknown as IFlickeringLight;
-            fLight._flickerOffset = Math.random() * 100;
-            fLight._flickerSpeed = 2 + Math.random() * 3;
-
-            light.position.set(pos.x, pos.y);
-            light.filters = [blur];
-            overlayContainer.addChild(light);
-            this.atmosphereLights.push(light);
-        });
+        this.dungeonVisuals.updateDungeonAtmosphere(started, alpha);
     }
     /**
      * Move fire perimeter lights inward toward the center when map narrows.
      * @param inwardOffset - Number of cells to move inward (based on narrowing laps)
      */
     private moveFiresInward(inwardOffset: number): void {
-        if (!this.atmosphereLights || this.atmosphereLights.length === 0) return;
-
-        const { width: vw, height: vh } = this.getViewportSize();
-        const size = Math.min(vw, vh);
-        const x = vw * 0.5;
-        const y = vh * 0.5;
-        const halfSize = size / 2;
-
-        // Calculate the inward shift based on cell size and offset
-        const cellSize = this.sc_sceneSettings.getGridSettings().getCellSize();
-        const inwardShift = (inwardOffset + 1) * cellSize * 0.5;
-
-        // Recalculate margin adjusted for narrowing
-        const baseMargin = size * 0.22;
-        const adjustedMargin = baseMargin - inwardShift;
-
-        const tl = { x: x - halfSize - adjustedMargin, y: y - halfSize - adjustedMargin };
-        const tr = { x: x + halfSize + adjustedMargin, y: y - halfSize - adjustedMargin };
-        const bl = { x: x - halfSize - adjustedMargin, y: y + halfSize + adjustedMargin };
-        const br = { x: x + halfSize + adjustedMargin, y: y + halfSize + adjustedMargin };
-
-        // Reposition each light based on its index position on the perimeter
-        const steps = 6;
-        const lightsPerEdge = steps + 1; // 7 lights per edge
-
-        this.atmosphereLights.forEach((light, idx) => {
-            let newPos: { x: number; y: number };
-            const edgeIndex = Math.floor(idx / lightsPerEdge);
-            const posOnEdge = (idx % lightsPerEdge) / steps;
-
-            switch (edgeIndex) {
-                case 0: // Top Edge
-                    newPos = { x: tl.x + (tr.x - tl.x) * posOnEdge, y: tl.y };
-                    break;
-                case 1: // Right Edge
-                    newPos = { x: tr.x, y: tr.y + (br.y - tr.y) * posOnEdge };
-                    break;
-                case 2: // Bottom Edge
-                    newPos = { x: br.x + (bl.x - br.x) * posOnEdge, y: br.y };
-                    break;
-                case 3: // Left Edge
-                    newPos = { x: bl.x, y: bl.y + (tl.y - bl.y) * posOnEdge };
-                    break;
-                default:
-                    newPos = { x: light.x, y: light.y };
-            }
-
-            light.position.set(newPos.x, newPos.y);
-        });
-    }
-    private layoutBackgroundSquare(): void {
-        if (!this.bgSprite) return;
-        const { width: vw, height: vh } = this.getViewportSize();
-        const size = Math.min(vw, vh);
-        this.bgSprite.x = vw * 0.5;
-        this.bgSprite.y = vh * 0.5;
-        this.bgSprite.width = size;
-        this.bgSprite.height = size;
-        const wantKey = "background_new";
-        const wantTex = this.texAny(wantKey);
-        if (wantTex && this.bgKey !== wantKey) {
-            this.bgKey = wantKey;
-            this.bgSprite.texture = wantTex;
-        }
-
-        // Update overlay if active
-        if (this.dungeonOverlay && this.dungeonOverlay.visible) {
-            this.updateDungeonAtmosphere(true, this.atmosphereAlpha);
-        }
+        this.dungeonVisuals.moveFiresInward(inwardOffset);
     }
     private attachToWorldRoot(obj: Graphics | Sprite | Container | undefined, zIndex: number): void {
         if (!obj) return;
@@ -922,9 +521,7 @@ export class Sandbox extends PixiScene {
         }
 
         // [FIX] Force rebuild of dungeon atmosphere on resize
-        if (this.dungeonOverlay) {
-            this.dungeonOverlay.removeChildren();
-        }
+        this.dungeonVisuals.onResize();
 
         // 3) Overlay only exists / matters pre-fight
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -940,12 +537,9 @@ export class Sandbox extends PixiScene {
         // 4) Anything that lives in world space and might have been attached
         this.attachToWorldRoot(this.placementGraphics, 6000); // Overlay on top
         // Holes
-        this.attachToWorldRoot(this.holeContainer, 20);
+        this.attachToWorldRoot(this.dungeonVisuals.getHoleContainer(), 20);
         this.attachToWorldRoot(this.gameplayGraphics, 55);
-        this.attachToWorldRoot(this.centerTerrainSprite, 50);
-        this.attachToWorldRoot(this.centerTerrainSprite, 50);
-        this.attachToWorldRoot(this.centerTerrainSprite, 50);
-        // this.attachToWorldRoot(this.spellBookContainer, 7000); // attached to stage
+        this.dungeonVisuals.attachCenterTerrainSprite();
         this.spellBookOverlay?.resize(w, h);
         this.hoverManager.onCameraChanged();
     }
@@ -979,13 +573,13 @@ export class Sandbox extends PixiScene {
 
         const logs: string[] = [];
 
-        this.attachToWorldRoot(this.holeContainer, 20);
+        this.attachToWorldRoot(this.dungeonVisuals.getHoleContainer(), 20);
 
         // 2. Loop from 1 up to totalLaps (Outermost ring -> Inwards)
         for (let layer = 1; layer <= totalLaps; layer++) {
             // A. VISUALS: Spawn the sprite for this layer if not already present
             if (!this.drawnNarrowingLaps.has(layer)) {
-                this.spawnHoleLayer(layer);
+                this.dungeonVisuals.spawnHoleLayer(layer);
                 this.drawnNarrowingLaps.add(layer);
                 // Move fire lights inward as map narrows
                 this.moveFiresInward(layer);
@@ -1058,56 +652,6 @@ export class Sandbox extends PixiScene {
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
 
         return logs.join("\n");
-    }
-    private spawnHoleLayer(layerIndex: number): void {
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const cellSize = gs.getCellSize();
-        // World coordinate bounds
-        const worldMinX = gs.getMinX(); // e.g., -1024
-        const worldMaxX = gs.getMaxX(); // e.g., 1024
-        const worldMinY = gs.getMinY(); // e.g., 0
-        const worldMaxY = gs.getMaxY(); // e.g., 2048
-
-        // Cell counts
-        const cellCountX = (worldMaxX - worldMinX) / cellSize; // e.g., 16
-        const cellCountY = (worldMaxY - worldMinY) / cellSize; // e.g., 16
-
-        // Offset for this layer (layer 1 = edge, layer 2 = edge+1, etc.)
-        const offset = layerIndex - 1;
-
-        // Create a Graphics object to draw all hole cells for this layer
-        const holeGfx = new Graphics();
-
-        // Simple black semi-transparent cell
-        const drawHoleCell = (cellIdxX: number, cellIdxY: number) => {
-            // Convert cell index to world coordinates
-            const worldX = worldMinX + cellIdxX * cellSize;
-            const worldY = worldMinY + cellIdxY * cellSize;
-
-            holeGfx.rect(worldX, worldY, cellSize, cellSize).fill({ color: 0x000000, alpha: 0.7 });
-        };
-
-        // TOP EDGE (y = offset, x varies across width)
-        for (let x = offset; x < cellCountX - offset; x++) {
-            drawHoleCell(x, offset);
-        }
-
-        // BOTTOM EDGE (y = cellCountY - layerIndex, x varies across width)
-        for (let x = offset; x < cellCountX - offset; x++) {
-            drawHoleCell(x, cellCountY - layerIndex);
-        }
-
-        // LEFT EDGE (x = offset, y varies excluding corners already drawn)
-        for (let y = offset + 1; y < cellCountY - offset - 1; y++) {
-            drawHoleCell(offset, y);
-        }
-
-        // RIGHT EDGE (x = cellCountX - layerIndex, y varies excluding corners)
-        for (let y = offset + 1; y < cellCountY - offset - 1; y++) {
-            drawHoleCell(cellCountX - layerIndex, y);
-        }
-
-        this.holeContainer.addChild(holeGfx);
     }
     private handleSystemMoveResult(result: ISystemMoveResult, logs: string[]) {
         if (result.log) {
@@ -1376,72 +920,8 @@ export class Sandbox extends PixiScene {
         this.buttonManager.propagateButtonClicked(name, state);
     }
     // Helper to capture total health state and amount of all units
-    // Helper to capture total health state and amount of all units
     private captureHealthState(): Map<string, { hp: number; maxHp: number; amount: number; pos: HoCMath.XY }> {
-        const m = new Map<string, { hp: number; maxHp: number; amount: number; pos: HoCMath.XY }>();
-        for (const u of this.unitsHolder.getAllUnits().values()) {
-            m.set(u.getId(), {
-                hp: u.getHp(), // Note: Use getHp() to match logic in showDamageVisualsFromDiff which constructs total from (amount-1)*max + hp
-                maxHp: u.getMaxHp(),
-                amount: u.getAmountAlive(),
-                pos: { ...u.getPosition() }, // Clone position
-            });
-        }
-        return m;
-    }
-    private showDamageVisualsFromDiff(
-        preState: Map<string, { hp: number; amount: number }>,
-        attackerCell?: HoCMath.XY,
-        ignoredUnitIds?: Set<string>,
-        forcedDirection?: HoCMath.XY,
-    ): void {
-        const gs = this.sc_sceneSettings.getGridSettings();
-
-        for (const [id, oldState] of preState) {
-            if (ignoredUnitIds && ignoredUnitIds.has(id)) {
-                console.log(`[DEBUG] showDamageVisualsFromDiff: Ignoring ${id}`);
-                continue;
-            } else if (ignoredUnitIds) {
-                console.log(
-                    `[DEBUG] showDamageVisualsFromDiff: Processing ${id} (Not in ignored: ${Array.from(ignoredUnitIds).join(",")})`,
-                );
-            }
-
-            const u = this.unitsHolder.getAllUnits().get(id);
-            if (!u) continue;
-
-            const newTotal = u.getCumulativeHp();
-
-            if (newTotal < oldState.hp) {
-                const diff = oldState.hp - newTotal;
-                const unitsDied = Math.max(0, oldState.amount - u.getAmountAlive());
-
-                // Determine direction
-                let direction: HoCMath.XY | undefined = forcedDirection;
-                if (!direction && attackerCell) {
-                    const attPos = GridMath.getPositionForCell(
-                        attackerCell,
-                        gs.getMinX(),
-                        gs.getStep(),
-                        gs.getHalfStep(),
-                    );
-                    if (attPos) {
-                        const center = u instanceof RenderableUnit ? u.getVisualCenter(gs) : u.getPosition();
-                        direction = { x: center.x - attPos.x, y: center.y - attPos.y };
-                    }
-                }
-
-                const center = u instanceof RenderableUnit ? u.getVisualCenter(gs) : u.getPosition();
-                console.log(`[DEBUG] showDamageVisualsFromDiff: Showing damage for ${id}, diff=${diff}`);
-                this.showFloatingDamage(center, diff, direction, unitsDied);
-
-                // UI Update
-                if (this.sc_selectedUnitProperties && this.sc_selectedUnitProperties.id === id) {
-                    this.sc_selectedUnitProperties = { ...u.getUnitProperties() };
-                    this.sc_unitPropertiesUpdateNeeded = true;
-                }
-            }
-        }
+        return this.combatVisuals.captureHealthState();
     }
     // AI action logic has been moved to AIController
     protected refreshSynergyNumbers(teamType: TeamType): void {
@@ -2192,6 +1672,7 @@ export class Sandbox extends PixiScene {
             this.tryPlaceUnit();
             return;
         }
+
         // 3. UNIT SELECTION (Clicking a unit on board)
         const unit = this.getUnitAtPosition(p);
         if (unit) {
@@ -2221,103 +1702,6 @@ export class Sandbox extends PixiScene {
             return;
         }
         super.MouseDown(p);
-    }
-    private floatingTexts: {
-        container: Container;
-        life: number;
-        maxLife: number;
-        startY: number;
-        startX: number;
-        velX: number;
-        velY: number;
-    }[] = [];
-    private showFloatingDamage(pos: HoCMath.XY, amount: number, direction?: HoCMath.XY, unitsDied?: number): void {
-        const container = new Container();
-
-        // 1. Damage Text
-        const textStyle = new TextStyle({
-            fontFamily: "Arial",
-            fontSize: 60, // [RESTORED] Bigger font
-            fontWeight: "900",
-            fill: "#ff3333",
-            stroke: { color: "#4a0000", width: 5 },
-            dropShadow: {
-                color: "#000000",
-                blur: 4,
-                angle: Math.PI / 6,
-                distance: 2,
-            },
-        });
-
-        const damageText = new PixiText({ text: `-${amount}`, style: textStyle });
-        damageText.anchor.set(0.5);
-        container.addChild(damageText);
-
-        // 2. Skull + Count if units died
-        if (unitsDied && unitsDied > 0) {
-            // New Skull Image
-            const skullTex = Texture.from(images.skull || "/skull.webp");
-            const skullSprite = new Sprite(skullTex);
-            skullSprite.anchor.set(0.5);
-            skullSprite.width = 40; // [FIXED] Explicit size
-            skullSprite.height = 40;
-
-            const countStyle = new TextStyle({
-                fontFamily: "Arial",
-                fontSize: 40, // [FIXED] Bigger font for count
-                fontWeight: "bold",
-                fill: "#ffffff",
-                stroke: { color: "#000000", width: 4 },
-            });
-            const countText = new PixiText({ text: `${unitsDied}`, style: countStyle });
-            countText.anchor.set(0.5);
-
-            // Container scale.y is -1.
-            const lineY = 55; // Lower it a bit more due to larger text
-            skullSprite.position.set(-25, lineY);
-            countText.position.set(25, lineY);
-
-            container.addChild(skullSprite, countText);
-        }
-
-        // Correct for Y-Up world
-        container.scale.y = -1;
-
-        // Initial Position
-        container.position.set(pos.x, pos.y + 20);
-
-        // [FIXED] Use attachToWorldRoot with High Z-Index to ensure it overlays units
-        this.attachToWorldRoot(container, 2000);
-
-        // Velocity: Match direction of attack
-        let vx = 0;
-        let vy = 80; // Default up
-
-        if (direction) {
-            const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
-            if (len > 0.001) {
-                // Scale velocity by 80
-                // Note: direction is likely the attack vector (Attacker -> Target).
-                // "Animation direction ... direction of attack" -> Text flies ALONG the attack?
-                // Or "knockback" (Target -> Away)?
-                // Usually "direction" passed here comes from `showFloatingDamage` call.
-                // In `landAttack`, we pass `target.getPosition().sub(attacker.getPosition())`?
-                // I need to verify what `direction` is.
-                // Assuming it is the vector.
-                vx = (direction.x / len) * 80;
-                vy = (direction.y / len) * 80;
-            }
-        }
-
-        this.floatingTexts.push({
-            container,
-            life: 1.5,
-            maxLife: 1.5,
-            startY: pos.y + 20,
-            startX: pos.x,
-            velX: vx,
-            velY: vy,
-        });
     }
     private async executeAttackSequence(attacker: RenderableUnit, target: Unit, attackFrom: HoCMath.XY): Promise<void> {
         this.sc_moveBlocked = true;
@@ -2500,15 +1884,15 @@ export class Sandbox extends PixiScene {
 
                     // Stagger animations by 1000ms
                     if (index === 0) {
-                        this.showFloatingDamage(pos, dmg.amount, dir, dmg.unitsDied);
+                        this.combatVisuals.showFloatingDamage(pos, dmg.amount, dir, dmg.unitsDied);
                     } else {
                         setTimeout(() => {
-                            this.showFloatingDamage(pos, dmg.amount, dir, dmg.unitsDied);
+                            this.combatVisuals.showFloatingDamage(pos, dmg.amount, dir, dmg.unitsDied);
                         }, index * 1000);
                     }
                 });
             } else {
-                this.showFloatingDamage(spawnPos, damageForAnimation.amount, dir, targetDiedCount);
+                this.combatVisuals.showFloatingDamage(spawnPos, damageForAnimation.amount, dir, targetDiedCount);
             }
         }
 
@@ -2554,7 +1938,7 @@ export class Sandbox extends PixiScene {
                 }
 
                 // Pass simplified stackLost as unitsDied
-                this.showFloatingDamage(spawnPos, damageTaken, dir, stackLost);
+                this.combatVisuals.showFloatingDamage(spawnPos, damageTaken, dir, stackLost);
             }
         }
 
@@ -2641,7 +2025,7 @@ export class Sandbox extends PixiScene {
                     }
                 }
 
-                this.showFloatingDamage(spawnPos, unaccountedDiff, primaryAttackDir, diedCount);
+                this.combatVisuals.showFloatingDamage(spawnPos, unaccountedDiff, primaryAttackDir, diedCount);
             }
         }
 
@@ -2825,34 +2209,16 @@ export class Sandbox extends PixiScene {
             }
         }
 
-        // --- Track effect path ---
-        if (pathLooksLikeFootprintOnly) {
-            // For large units we ignore moveTrackPath and rely on world-space tracking.
-            this.moveTrackPath = undefined;
-        } else {
-            this.moveTrackPath = [...path];
-        }
+        const moveSpeed = cellSize * 16; // Adjusted speed based on user feedback (was 12)
 
-        this.moveTrackProgress = 0;
-        this.lastTrackDropIndex = -1;
-
-        // --- Movement animation state ---
-        this.moveAnimation = {
+        this.moveAnimManager.startMoveAnimation(
             unit,
             worldPath,
-            currentSegment: 0,
-            t: 0,
-            // Adjusted speed based on user feedback (was 12)
-            speed: cellSize * 16,
+            moveSpeed,
             destCell,
-            lastTrackWorld: { x: startPos.x, y: startPos.y },
+            pathLooksLikeFootprintOnly ? undefined : path, // trackPath
             onComplete,
-        };
-
-        // Immediately drop starting 2x2 tracks for big units
-        if (isLargeUnit) {
-            this.dropLargeUnitTrackAtPosition(unit, startPos, gs);
-        }
+        );
 
         this.isActiveUnitMoving = true;
         if (this.sc_visibleState) {
@@ -2936,6 +2302,20 @@ export class Sandbox extends PixiScene {
                     hoverTargetUnit.getAttackType() === AttackVals.RANGE &&
                     !hoverTargetUnit.hasAbilityActive("Handyman")
                 ) {
+                    if (hoverTargetUnit.hasAbilityActive("Sniper")) {
+                        hoverTargetUnit.setRangeShotDistance(
+                            Number(
+                                (
+                                    GridMath.getDistanceToFurthestCorner(
+                                        hoverTargetUnit.getPosition(),
+                                        this.sc_sceneSettings.getGridSettings(),
+                                    ) /
+                                        this.sc_sceneSettings.getGridSettings().getStep() -
+                                    0.45
+                                ).toFixed(2),
+                            ),
+                        );
+                    }
                     const dist = hoverTargetUnit.getRangeShotDistance();
                     if (dist > 0) {
                         this.sc_hoveredShotRange = {
@@ -2957,10 +2337,25 @@ export class Sandbox extends PixiScene {
                 this.hoverManager.clearHoverSilhouette();
                 return;
             }
-            // [AI Driven Check] If the current unit is controlled by AI (e.g. Berserker), don't show movement visuals.
             if (this.currentActiveUnit.hasAbilityActive("AI Driven")) {
                 this.hoverManager.clearHoverSilhouette();
                 return;
+            }
+
+            // [Global Sniper Check] Ensure range is up-to-date before any calculations
+            if (this.currentActiveUnit.hasAbilityActive("Sniper")) {
+                this.currentActiveUnit.setRangeShotDistance(
+                    Number(
+                        (
+                            GridMath.getDistanceToFurthestCorner(
+                                this.currentActiveUnit.getPosition(),
+                                this.sc_sceneSettings.getGridSettings(),
+                            ) /
+                                this.sc_sceneSettings.getGridSettings().getStep() -
+                            0.45
+                        ).toFixed(2),
+                    ),
+                );
             }
             const gs = this.sc_sceneSettings.getGridSettings();
             const cell = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
@@ -3032,22 +2427,24 @@ export class Sandbox extends PixiScene {
                     }
 
                     // 2. Move-and-Shoot Logic (if not static shooting)
-                    if (
-                        canPerformRangeAttack &&
-                        !isRangeAttackContext &&
-                        isRangedUnit &&
-                        !this.currentActiveUnit.hasAbilityActive("Handyman")
-                    ) {
-                        // Handyman behaves as melee for some reason? Legacy checked it.
-                        // If we are not adjacent/melee preferred, try finding a shooting spot
-                        // Or if strictly out of range
-                        // Let's assume user wants to shoot if possible
-
+                    if (canPerformRangeAttack && !isRangeAttackContext && isRangedUnit) {
+                        if (this.currentActiveUnit.hasAbilityActive("Sniper")) {
+                            this.currentActiveUnit.setRangeShotDistance(
+                                Number(
+                                    (
+                                        GridMath.getDistanceToFurthestCorner(
+                                            this.currentActiveUnit.getPosition(),
+                                            this.sc_sceneSettings.getGridSettings(),
+                                        ) /
+                                            this.sc_sceneSettings.getGridSettings().getStep() -
+                                        0.45
+                                    ).toFixed(2),
+                                ),
+                            );
+                        }
                         const shotDist = this.currentActiveUnit.getRangeShotDistance();
                         const attackRangeForCalc = Math.max(1, shotDist); // Use Shot Distance for pathfinding!
 
-                        // Try to find a spot within shot_distance using existing pathfinding
-                        // Note: calculateClosestAttackFrom checks REACHABLE cells.
                         const possibleShootPos = this.pathHelper.calculateClosestAttackFrom(
                             this.sc_mouseWorld,
                             this.canAttackByMeleeTargets.attackCells,
@@ -3591,6 +2988,20 @@ export class Sandbox extends PixiScene {
         if (targetUnit) {
             // Attack Range
             if (targetUnit.getAttackType() === AttackVals.RANGE) {
+                if (targetUnit.hasAbilityActive("Sniper")) {
+                    targetUnit.setRangeShotDistance(
+                        Number(
+                            (
+                                GridMath.getDistanceToFurthestCorner(
+                                    targetUnit.getPosition(),
+                                    this.sc_sceneSettings.getGridSettings(),
+                                ) /
+                                    this.sc_sceneSettings.getGridSettings().getStep() -
+                                0.45
+                            ).toFixed(2),
+                        ),
+                    );
+                }
                 const shotDist = targetUnit.getRangeShotDistance();
                 if (shotDist > 0) {
                     this.sc_hoveredShotRange = {
@@ -3824,23 +3235,11 @@ export class Sandbox extends PixiScene {
             this.aiController.triggerAIAction(1500);
         }
 
-        // Update floating texts
-        if (this.floatingTexts.length > 0) {
-            this.floatingTexts = this.floatingTexts.filter((ft) => {
-                ft.life -= timeStep;
-                if (ft.life <= 0) {
-                    ft.container.destroy();
-                    return false;
-                }
-                const progress = 1 - ft.life / ft.maxLife;
-                ft.container.alpha = 1 - Math.pow(progress, 3); // Slow fade out at end
-
-                // Use velocity (total displacement) if set, otherwise default float up
-                ft.container.x = ft.startX + ft.velX * progress;
-                ft.container.y = ft.startY + ft.velY * progress;
-
-                return true;
-            });
+        if (this.dungeonVisuals) {
+            this.dungeonVisuals.update(timeStep);
+        }
+        if (this.combatVisuals) {
+            this.combatVisuals.update(timeStep);
         }
 
         // 1. Update Visual Overlays
@@ -3952,7 +3351,7 @@ export class Sandbox extends PixiScene {
             }
 
             // --- Movement animation (visual travel along route) ---
-            if (this.moveAnimation) {
+            if (this.moveAnimManager.isMoving()) {
                 this.stepMoveAnimation(timeStep);
             }
 
@@ -3961,7 +3360,7 @@ export class Sandbox extends PixiScene {
                 this.currentActiveUnit &&
                 this.aiController.shouldTriggerAI() &&
                 !this.sc_isAnimating &&
-                !this.moveAnimation
+                !this.moveAnimManager.isMoving()
             ) {
                 this.aiController.triggerAIAction(2000);
             }
@@ -3980,7 +3379,7 @@ export class Sandbox extends PixiScene {
         // ==========================================================================================
         // RENDERING SYNCHRONIZATION
         // ==========================================================================================
-        this.updateLingeringTracks(timeStep);
+        // this.updateLingeringTracks(timeStep); // Handled by moveAnimManager.update
         if (this.gameplayGraphics) {
             this.drawGameplayVisuals(this.gameplayGraphics);
         }
@@ -3990,7 +3389,7 @@ export class Sandbox extends PixiScene {
             // Use PixiDrawer's unit container (Z=1000), not worldRoot directly.
             // This ensures units are ALWAYS above terrain (Z=20) and overlay (Z=60) but depth sorted inside.
             rUnit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
-            if (this.isActiveUnitMoving && this.moveAnimation?.unit === rUnit) {
+            if (this.isActiveUnitMoving && this.moveAnimManager.getMovingUnit() === rUnit) {
                 rUnit.applyMoveEffect(this.spawnPulsePhase);
             } else {
                 rUnit.stepSpawnAnimation(timeStep);
@@ -4048,8 +3447,24 @@ export class Sandbox extends PixiScene {
                 sidebarUnitRanges = {
                     xy: u.getPosition(),
                     attackRange:
-                        !isHovered && !isShifted && u.getAttackType() === AttackVals.RANGE
-                            ? u.getRangeShotDistance() * GridConstants.STEP
+                        !isHovered && !isShifted && u.getAttackType() === AttackVals.RANGE && u.getRangeShots() > 0
+                            ? (() => {
+                                  if (u.hasAbilityActive("Sniper")) {
+                                      u.setRangeShotDistance(
+                                          Number(
+                                              (
+                                                  GridMath.getDistanceToFurthestCorner(
+                                                      u.getPosition(),
+                                                      this.sc_sceneSettings.getGridSettings(),
+                                                  ) /
+                                                      this.sc_sceneSettings.getGridSettings().getStep() -
+                                                  0.45
+                                              ).toFixed(2),
+                                          ),
+                                      );
+                                  }
+                                  return u.getRangeShotDistance() * GridConstants.STEP;
+                              })()
                             : 0,
                     auraRanges,
                     isSmall: u.isSmallSize(),
@@ -4086,7 +3501,7 @@ export class Sandbox extends PixiScene {
             hoverManager: this.hoverManager,
             sidebarUnitRanges,
             hoveredAuraRanges: this.sc_hoveredAuraRanges,
-            lingeringTracks: this.lingeringTracks,
+            lingeringTracks: this.moveAnimManager.getLingeringTracks(),
             hoveredMoveRange: this.sc_placementMoveRange,
         });
     }
@@ -4116,6 +3531,8 @@ export class Sandbox extends PixiScene {
                 teamType: unitNext.getTeam(),
                 isOnHourglass: unitNext.isOnHourglass(),
                 isSkipping: unitNext.isSkippingThisTurn(),
+                stackPower: unitNext.getStackPower(),
+                isStackPowered: unitNext.getStackPower() > 0,
             });
         }
         if (nextUnit) {
@@ -4125,6 +3542,8 @@ export class Sandbox extends PixiScene {
                 teamType: nextUnit.getTeam(),
                 isOnHourglass: nextUnit.isOnHourglass(),
                 isSkipping: nextUnit.isSkippingThisTurn(),
+                stackPower: nextUnit.getStackPower(),
+                isStackPowered: nextUnit.getStackPower() > 0,
             });
         }
         if (this.sc_visibleState) {
@@ -4212,7 +3631,7 @@ export class Sandbox extends PixiScene {
                     armageddonDamage = unitsDamaged * props.max_hp;
                 }
 
-                this.showFloatingDamage(u.getPosition(), armageddonDamage);
+                this.combatVisuals.showFloatingDamage(u.getPosition(), armageddonDamage);
             }
 
             u.applyArmageddonDamage(wave, this.sc_sceneLog);
@@ -4444,6 +3863,7 @@ export class Sandbox extends PixiScene {
         this.currentActiveUnit = undefined;
         this.sc_selectedAttackType = AttackVals.NO_ATTACK;
         this.sc_renderSpellBookOverlay = false;
+        this.sc_currentActiveShotRange = undefined;
         this.buttonManager.sc_renderSpellBookOverlay = false;
         this.spellBookOverlay?.setOpen(false);
         this.pixiApp.getWorldRoot().filters = [];
@@ -4515,7 +3935,7 @@ export class Sandbox extends PixiScene {
     }
     protected verifyButtonsTrigger(): void {}
     protected updateCurrentMovePath(currentCell: HoCMath.XY): void {
-        if (!this.currentActiveUnit || this.moveAnimation) {
+        if (!this.currentActiveUnit || this.moveAnimManager.isMoving()) {
             return;
         }
         if (
@@ -4569,6 +3989,22 @@ export class Sandbox extends PixiScene {
                 this.canAttackByRangeTargets = undefined;
                 // Range Attack Logic
                 // We use attackHandler.canLandRangeAttack to check general ability (no range bane, no adjacent enemies block)
+                // [Active Unit Sniper Check]
+                if (this.currentActiveUnit.hasAbilityActive("Sniper")) {
+                    this.currentActiveUnit.setRangeShotDistance(
+                        Number(
+                            (
+                                GridMath.getDistanceToFurthestCorner(
+                                    this.currentActiveUnit.getPosition(),
+                                    this.sc_sceneSettings.getGridSettings(),
+                                ) /
+                                    this.sc_sceneSettings.getGridSettings().getStep() -
+                                0.45
+                            ).toFixed(2),
+                        ),
+                    );
+                }
+
                 if (
                     this.currentActiveUnit.getAttackType() === AttackVals.RANGE &&
                     this.currentActiveUnit.getRangeShots() > 0 &&
