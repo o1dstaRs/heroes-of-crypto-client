@@ -173,8 +173,8 @@ export class MoveAnimationManager {
                             x: pos.x,
                             y: pos.y,
                             radius: cellSize * 0.5,
-                            life: 2.0,
-                            maxLife: 2.0,
+                            life: 0.25,
+                            maxLife: 0.25,
                             phase: Math.random() * Math.PI * 2,
                             team: unit.getTeam(),
                         });
@@ -248,8 +248,8 @@ export class MoveAnimationManager {
                 x: pos.x,
                 y: pos.y,
                 radius: cellSize * 0.5,
-                life: 2.0,
-                maxLife: 2.0,
+                life: 0.25,
+                maxLife: 0.25,
                 phase: Math.random() * Math.PI * 2,
                 team: unit.getTeam(),
             });

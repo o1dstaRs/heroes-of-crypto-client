@@ -106,16 +106,25 @@ const AtlasAnimation: React.FC<{
     const [isImageLoaded, setIsImageLoaded] = React.useState(false);
 
     React.useEffect(() => {
+        setFrameIndex(0);
+        setIsImageLoaded(false);
+
+        let cancelled = false;
+        let didResolveImage = false;
         const img = new Image();
-        img.src = src;
         const handleLoaded = () => {
+            if (cancelled || didResolveImage) return;
+            didResolveImage = true;
             setIsImageLoaded(true);
             onLoaded();
         };
+        img.decoding = "async";
         img.onload = handleLoaded;
         img.onerror = handleLoaded;
+        img.src = src;
+        if (img.complete) handleLoaded();
 
-        const frameCount = meta.frameCount ?? 1;
+        const frameCount = Math.max(1, meta.frameCount ?? 1);
         const fallbackTotalSec =
             typeof meta.totalDurationSec === "number" && Number.isFinite(meta.totalDurationSec)
                 ? meta.totalDurationSec
@@ -124,37 +133,48 @@ const AtlasAnimation: React.FC<{
         const baseTotalMs = fallbackTotalSec * 1000;
         const loopDurationMs = meta.loopDurationMs ?? Math.round(baseTotalMs * 0.8);
         const pauseMs = meta.pauseMs ?? Math.round(loopDurationMs * 0.4);
-        const stepDuration = loopDurationMs / Math.max(1, frameCount - 1);
+        const forwardMs = Math.max(1, loopDurationMs);
+        const holdMs = Math.max(0, pauseMs);
+        const cycleMs = forwardMs * 2 + holdMs * 2;
+        let animationFrame: number | undefined;
+        let startTime: number | undefined;
+        let lastFrame = -1;
 
-        let cancelled = false;
-        let timer: number | undefined;
+        const getFrameForElapsed = (elapsedMs: number) => {
+            if (frameCount <= 1) return 0;
 
-        const runForward = (idx: number) => {
-            if (cancelled) return;
-            setFrameIndex(idx);
-            if (idx >= frameCount - 1) {
-                timer = window.setTimeout(() => runBackward(frameCount - 1), pauseMs);
-            } else {
-                timer = window.setTimeout(() => runForward(idx + 1), stepDuration);
+            const cyclePosition = elapsedMs % cycleMs;
+            if (cyclePosition < forwardMs) {
+                return Math.min(frameCount - 1, Math.floor((cyclePosition / forwardMs) * frameCount));
             }
+            if (cyclePosition < forwardMs + holdMs) {
+                return frameCount - 1;
+            }
+
+            const reversePosition = cyclePosition - forwardMs - holdMs;
+            if (reversePosition < forwardMs) {
+                return Math.max(0, frameCount - 1 - Math.floor((reversePosition / forwardMs) * frameCount));
+            }
+            return 0;
         };
 
-        const runBackward = (idx: number) => {
+        const animate = (time: number) => {
             if (cancelled) return;
-            setFrameIndex(idx);
-            if (idx <= 0) {
-                timer = window.setTimeout(() => runForward(0), pauseMs);
-            } else {
-                timer = window.setTimeout(() => runBackward(idx - 1), stepDuration);
+            if (startTime === undefined) startTime = time;
+            const nextFrame = getFrameForElapsed(time - startTime);
+            if (nextFrame !== lastFrame) {
+                lastFrame = nextFrame;
+                setFrameIndex(nextFrame);
             }
+            animationFrame = window.requestAnimationFrame(animate);
         };
 
-        runForward(0);
+        animationFrame = window.requestAnimationFrame(animate);
         return () => {
             cancelled = true;
-            if (timer !== undefined) window.clearTimeout(timer);
+            if (animationFrame !== undefined) window.cancelAnimationFrame(animationFrame);
         };
-    }, [isImageLoaded, meta]);
+    }, [src, meta, onLoaded]);
 
     const frameWidth = meta.frameWidth ?? 512;
     const frameHeight = meta.frameHeight ?? 512;
@@ -176,7 +196,7 @@ const AtlasAnimation: React.FC<{
                 overflow: "visible",
             }}
         >
-            {!isImageLoaded && fallbackSrc && (
+            {fallbackSrc && (
                 <Box
                     component="img"
                     src={fallbackSrc}
@@ -188,6 +208,8 @@ const AtlasAnimation: React.FC<{
                         height: "100%",
                         objectFit: "contain",
                         zIndex: 1,
+                        opacity: isImageLoaded ? 0 : 1,
+                        transition: "opacity 160ms ease-out",
                     }}
                 />
             )}
@@ -202,10 +224,13 @@ const AtlasAnimation: React.FC<{
                     backgroundRepeat: "no-repeat",
                     backgroundSize: `${bgSizeX}% ${bgSizeY}%`,
                     backgroundPosition: `${bgPosX}% ${bgPosY}%`,
-                    imageRendering: "pixelated",
+                    imageRendering: "auto",
                     zIndex: 5,
                     opacity: isImageLoaded ? 1 : 0,
-                    transition: "opacity 0.2s",
+                    transform: "translateZ(0)",
+                    backfaceVisibility: "hidden",
+                    transition: "opacity 180ms ease-out",
+                    willChange: "background-position, opacity",
                 }}
             />
         </Box>
@@ -287,7 +312,7 @@ const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean; hasBr
                             ))}
                         </>
                     }
-                    key={`tooltip_${index}`}
+                    key={`${ability.name}-${ability.smallTextureName}-${index}`}
                     sx={commonTooltipSx}
                 >
                     <Box
@@ -325,6 +350,10 @@ const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean; hasBr
                                 zIndex: 1,
                                 // ✅ CLIP IMAGE ONLY
                                 borderRadius: ability.isAura ? "50%" : "15%",
+                                imageRendering: "auto",
+                                transform: "translateZ(0)",
+                                transition: "opacity 160ms ease-out, transform 160ms ease-out",
+                                willChange: "opacity, transform",
                             }}
                         />
                         {hasBreakApplied && <BreakOverlay isAura={ability.isAura} />}
@@ -381,7 +410,7 @@ const EffectColumnOrRow: React.FC<{
             >
                 {effects.map((effect, index) => (
                     <Tooltip
-                        key={index}
+                        key={`${title}-${effect.name}-${effect.smallTextureName}-${index}`}
                         title={`${effect.name}: ${effect.description.substring(0, effect.description.length - 1)}${effect.laps > 0 && effect.laps !== Number.MAX_SAFE_INTEGER && effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL ? ` (remaining ${HoCLib.getLapString(effect.laps)})` : ""}`}
                         sx={commonTooltipSx}
                     >
@@ -397,6 +426,10 @@ const EffectColumnOrRow: React.FC<{
                                 objectFit: "contain",
                                 zIndex: 3,
                                 margin: isHorizontalLayout && index !== 0 ? "0 2px" : "1px",
+                                imageRendering: "auto",
+                                transform: "translateZ(0)",
+                                transition: "opacity 160ms ease-out, transform 160ms ease-out",
+                                willChange: "opacity, transform",
                             }}
                         />
                     </Tooltip>
@@ -703,6 +736,8 @@ const UnitStatsLayout: React.FC<{
                             height: "auto",
                             objectFit: "contain",
                             transition: "opacity 120ms ease-out",
+                            imageRendering: "auto",
+                            transform: "translateZ(0)",
                         }}
                         onLoad={onImageLoaded}
                         onError={onImageLoaded}
@@ -807,7 +842,15 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                             // @ts-ignore: images index signature
                             src={images[`${factionType.toLowerCase()}_512`]}
                             variant="plain"
-                            sx={{ zIndex: "modal", width: "auto", height: "auto", overflow: "visible" }}
+                            sx={{
+                                zIndex: "modal",
+                                width: "auto",
+                                height: "auto",
+                                overflow: "visible",
+                                imageRendering: "auto",
+                                transform: "translateZ(0)",
+                                transition: "opacity 180ms ease-out",
+                            }}
                         />
                     </List>
                 </Toggler>

@@ -14,7 +14,9 @@ export class PixiApp {
     private uiContainer!: Container;
     public constructor() {}
     public async init(canvas: HTMLCanvasElement, width = 2048, height = 2048): Promise<void> {
-        const DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+        // Cap render resolution at 2x: 3x (dense phone/tablet screens) costs ~2.25x the fragment
+        // work for no perceptible gain over retina-sharp 2x — a big, safe fps win on weak GPUs.
+        const DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
 
         this.app = new Application();
         await this.app.init({
@@ -94,7 +96,9 @@ export class PixiApp {
         return this.effectsContainer;
     }
     public resize(width = 2048, height = 2048): void {
-        const DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+        // Cap render resolution at 2x: 3x (dense phone/tablet screens) costs ~2.25x the fragment
+        // work for no perceptible gain over retina-sharp 2x — a big, safe fps win on weak GPUs.
+        const DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
         this.app.renderer.resolution = DPR;
         this.app.renderer.resize(width, height);
         const c = this.app.canvas as HTMLCanvasElement;

@@ -11,6 +11,7 @@ import {
     TeamType,
     FactionType,
     GridType,
+    FightStateManager,
 } from "@heroesofcrypto/common";
 import { createContext, useContext } from "react";
 import { Signal } from "typed-signals";
@@ -94,6 +95,9 @@ export class PixiGameManager {
     private textures: PreloadedPixiTextures | null = null;
     private forwardOverlayInteraction?: (e: PointerEvent) => void;
     private overlayDebugCanvas?: HTMLCanvasElement;
+    private suppressNextMouseDown = false;
+    private suppressNextMouseUp = false;
+    private suppressOverlayMouseUntil = 0;
     public constructor() {
         for (const { scenes } of this.groupedScenes) this.flatScenes.push(...scenes);
     }
@@ -111,6 +115,13 @@ export class PixiGameManager {
     private get _textures(): PreloadedPixiTextures {
         if (!this.textures) throw new Error("PixiGameManager: textures not initialized yet");
         return this.textures;
+    }
+    private shouldSuppressOverlayMouseEvent(): boolean {
+        if (performance.now() <= this.suppressOverlayMouseUntil) return true;
+
+        this.suppressNextMouseDown = false;
+        this.suppressNextMouseUp = false;
+        return false;
     }
     public async init(
         glCanvas: HTMLCanvasElement,
@@ -246,6 +257,9 @@ export class PixiGameManager {
                 const gy = (e.clientY - cr.top) * scaleY;
                 const overlay = getUnitsOverlayFromScene(this.m_scene);
                 if (overlay && overlay.handlePointerDown(gx, gy)) {
+                    this.suppressNextMouseDown = true;
+                    this.suppressNextMouseUp = true;
+                    this.suppressOverlayMouseUntil = performance.now() + 750;
                     e.preventDefault();
                     e.stopPropagation();
                 }
@@ -309,6 +323,13 @@ export class PixiGameManager {
         // }
     }
     public HandleMouseDown(e: MouseEvent): void {
+        if (this.suppressNextMouseDown && this.shouldSuppressOverlayMouseEvent()) {
+            this.suppressNextMouseDown = false;
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
+
         const world = this.screenToWorld(e.offsetX, e.offsetY);
 
         switch (e.button) {
@@ -332,6 +353,14 @@ export class PixiGameManager {
         }
     }
     public HandleMouseUp(e: MouseEvent): void {
+        if (this.suppressNextMouseUp && this.shouldSuppressOverlayMouseEvent()) {
+            this.suppressNextMouseUp = false;
+            this.m_lMouseDown = false;
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
+
         switch (e.button) {
             case 0:
                 this.m_lMouseDown = false;
@@ -372,12 +401,29 @@ export class PixiGameManager {
         this.onHasStarted.emit(this.started);
         this.fitViewToWindow(); // keep neutral after start too
     }
+    /** Replay the previous fight with the exact same units, positions and map. */
+    public Rematch(): void {
+        console.log("[Rematch] manager.Rematch; m_scene =", !!this.m_scene);
+        if (this.m_scene && this.m_scene.rematchLastFight()) this.started = true;
+        this.onHasStarted.emit(this.started);
+        this.fitViewToWindow();
+    }
+    /** Clear the board and return to unit placement for a brand-new fight. */
+    public StartOver(): void {
+        FightStateManager.getInstance().reset();
+        this.LoadGame(true); // destroys the scene, rebuilds it fresh, sets started = false
+        this.onHasStarted.emit(false);
+        this.fitViewToWindow();
+    }
     public Uninitialize(): void {
         if (this.overlayDebugCanvas && this.forwardOverlayInteraction) {
-            this.overlayDebugCanvas.removeEventListener("pointerup", this.forwardOverlayInteraction);
+            this.overlayDebugCanvas.removeEventListener("pointerdown", this.forwardOverlayInteraction);
         }
         this.overlayDebugCanvas = undefined;
         this.forwardOverlayInteraction = undefined;
+        this.suppressNextMouseDown = false;
+        this.suppressNextMouseUp = false;
+        this.suppressOverlayMouseUntil = 0;
 
         this.isInitialized = false;
         this.pixiApp?.destroy();
@@ -494,6 +540,15 @@ export class PixiGameManager {
         this.fitViewToWindow();
     }
     private lastTime = 0;
+    private simAccumulator = 0;
+    // Fixed-timestep simulation: advance the game a constant amount per REAL second so that
+    // speed/animations are identical on every machine and refresh rate. We tick at 60 Hz and hand
+    // Step() the legacy 1/240 value, which reproduces the old "60fps feel" for everyone — no
+    // animation-constant retune required. SIM_STEP/SIM_HZ are the knobs to retune overall speed.
+    private static readonly SIM_HZ = 60;
+    private static readonly SIM_DT = 1 / PixiGameManager.SIM_HZ;
+    private static readonly SIM_STEP = 1 / 240;
+    private static readonly MAX_SIM_STEPS = 5;
     public SimulationLoop(currentTime: number): void {
         if (this.m_fpsCalculator.addFrame() <= 0) return;
 
@@ -511,8 +566,23 @@ export class PixiGameManager {
         // 0.1s = 10fps minimum
         if (dt > 0.1) dt = 0.1;
 
-        // Update scene
-        this.m_scene?.RunStep(this.m_fpsCalculator.getFps());
+        // Smoothed FPS for the on-screen counter — once per rendered frame.
+        if (this.m_scene) this.m_scene.sc_fps = this.m_fpsCalculator.getFps();
+
+        // Fixed-timestep simulation. Advance the sim in constant SIM_DT real-time slices, as many
+        // as fit this frame, so game/animation speed is independent of frame rate and hardware.
+        // The step cap (plus the dt clamp above) prevents a "spiral of death" on very slow frames.
+        this.simAccumulator += dt;
+        let simSteps = 0;
+        while (this.simAccumulator >= PixiGameManager.SIM_DT && simSteps < PixiGameManager.MAX_SIM_STEPS) {
+            this.m_scene?.RunStep(PixiGameManager.SIM_STEP);
+            this.simAccumulator -= PixiGameManager.SIM_DT;
+            simSteps++;
+        }
+        if (simSteps >= PixiGameManager.MAX_SIM_STEPS) {
+            // Hit the cap on a heavy frame — drop the backlog instead of accumulating lag.
+            this.simAccumulator = 0;
+        }
 
         // Hotkeys
         if (this.m_hoveringCanvas) {

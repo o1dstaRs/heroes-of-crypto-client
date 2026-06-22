@@ -16,6 +16,7 @@ import RightSideBar from "./RightSideBar";
 import "./style.scss";
 import Popover from "./Popover";
 import { UpNextOverlay } from "./UpNextOverlay";
+import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
 import { AuthProvider } from "./auth/context/auth_provider";
@@ -110,6 +111,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
                     {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
                     <UpNextOverlay />
+                    <FightFinishedOverlay />
                     {!isLoading && started && <DraggableToolbar />}
                 </CssVarsProvider>
                 <Main />

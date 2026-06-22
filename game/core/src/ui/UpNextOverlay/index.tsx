@@ -8,6 +8,7 @@ import Typography from "@mui/joy/Typography";
 import { images } from "../../generated/image_imports";
 import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { CasualtyChart, CasualtyPercents } from "../FightStats/CasualtyChart";
 const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
 const hourglassImg = new URL("../../../images/hourglass.webp", import.meta.url).toString();
 const meteorSvg = new URL("../../../images/meteor.svg", import.meta.url).toString();
@@ -103,6 +104,9 @@ export const UpNextOverlay: React.FC = () => {
 
     const maxVisibleUnits = Math.floor(window.innerWidth / 90); // Estimate based on each unit and space
 
+    const fightStats = visibleState.fightStats;
+    const lastSample = fightStats?.series?.length ? fightStats.series[fightStats.series.length - 1] : undefined;
+
     let defaultIcon =
         visibleState.lapNumber !== undefined &&
         visibleState.numberOfLapsTillNarrowing !== undefined &&
@@ -144,6 +148,25 @@ export const UpNextOverlay: React.FC = () => {
                 flexDirection: "column",
             }}
         >
+            {fightStats && lastSample && (
+                <Box
+                    sx={{
+                        position: "absolute",
+                        top: 18,
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        width: "min(440px, 82vw)",
+                        opacity: 0.9,
+                        pointerEvents: "none",
+                    }}
+                >
+                    <CasualtyPercents
+                        lowerKilledPct={lastSample.lowerKilledPct}
+                        upperKilledPct={lastSample.upperKilledPct}
+                    />
+                    <CasualtyChart series={fightStats.series} drawDurationSec={0.5} />
+                </Box>
+            )}
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Typography
                     level="h4"
@@ -239,6 +262,7 @@ export const UpNextOverlay: React.FC = () => {
                         </Box>
                     ))}
             </Stack>
+
         </Box>
     );
 };

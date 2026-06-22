@@ -41,6 +41,31 @@ function normalizeUrl(v: unknown, key: string): string {
 export type PreloadedPixiTextures = { [K in keyof ImagesMap]: Texture };
 
 let loadedTextures: Partial<PreloadedPixiTextures> = {};
+const registeredBundlesKey = "__hocPixiTextureLoaderRegisteredBundles";
+const coreBundleName = "hoc_core";
+const animationsBundleName = "hoc_animations";
+
+function getRegisteredBundles(): Set<string> {
+    const globalState = globalThis as Record<string, unknown>;
+    const registeredBundles = globalState[registeredBundlesKey];
+    if (registeredBundles instanceof Set) {
+        return registeredBundles as Set<string>;
+    }
+
+    const nextRegisteredBundles = new Set<string>();
+    globalState[registeredBundlesKey] = nextRegisteredBundles;
+    return nextRegisteredBundles;
+}
+
+function addBundleOnce(bundleName: string, bundle: Record<string, { src: string }>): void {
+    const registeredBundles = getRegisteredBundles();
+    if (registeredBundles.has(bundleName)) {
+        return;
+    }
+
+    Assets.addBundle(bundleName, bundle);
+    registeredBundles.add(bundleName);
+}
 
 function getSplitBundles() {
     const core: Record<string, { src: string }> = {};
@@ -63,8 +88,8 @@ export async function preloadCoreAssets(onProgress?: (p: number) => void): Promi
     const { core } = getSplitBundles();
     if (Object.keys(core).length === 0) return loadedTextures;
 
-    Assets.addBundle("hoc_core", core);
-    const loaded = await Assets.loadBundle("hoc_core", onProgress);
+    addBundleOnce(coreBundleName, core);
+    const loaded = await Assets.loadBundle(coreBundleName, onProgress);
     loadedTextures = { ...loadedTextures, ...loaded };
     return loadedTextures;
 }
@@ -75,8 +100,8 @@ export async function preloadAnimationAssets(
     const { animations } = getSplitBundles();
     if (Object.keys(animations).length === 0) return loadedTextures;
 
-    Assets.addBundle("hoc_animations", animations);
-    const loaded = await Assets.loadBundle("hoc_animations", onProgress);
+    addBundleOnce(animationsBundleName, animations);
+    const loaded = await Assets.loadBundle(animationsBundleName, onProgress);
     loadedTextures = { ...loadedTextures, ...loaded };
     return loadedTextures;
 }

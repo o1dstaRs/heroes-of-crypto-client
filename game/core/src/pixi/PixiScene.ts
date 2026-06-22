@@ -293,6 +293,10 @@ export abstract class PixiScene {
     // Mouse joint equivalent holder for API parity
     protected sc_mouseJoint: MouseJointLike = null;
     public abstract requestTime(team: number): void;
+    /** Overridden by scenes that support replaying the previous fight. */
+    public rematchLastFight(): boolean {
+        return false;
+    }
     public startScene(): boolean {
         if (!this.sc_sceneStarted) {
             this.sc_sceneStarted = true;
@@ -314,10 +318,11 @@ export abstract class PixiScene {
         this.hover();
     }
     public Resize(_width: number, _height: number) {}
-    public RunStep(fps: number) {
-        this.sc_fps = fps;
+    public RunStep(timeStep: number) {
+        // FPS is set once per rendered frame by the loop driver; this may run multiple times per
+        // frame (fixed-timestep accumulator), so only advance the sim here.
         this.sc_statisticLines.length = 0;
-        this.Step(1 / 240);
+        this.Step(timeStep);
     }
     public addDebug(label: string, value: string | number | boolean): void {
         this.sc_debugLines.push([label, `${value}`]);

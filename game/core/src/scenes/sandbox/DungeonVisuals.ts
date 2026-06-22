@@ -1,5 +1,5 @@
 import { Container, Graphics, Sprite, BlurFilter, Texture } from "pixi.js";
-import { GridSettings, GridVals, FightStateManager } from "@heroesofcrypto/common";
+import { GridSettings, GridVals, FightStateManager, HoCConstants } from "@heroesofcrypto/common";
 
 export interface IDungeonVisualsContext {
     getStage(): Container;
@@ -24,6 +24,7 @@ export class DungeonVisuals {
     private holeContainer: Container;
     private bgSprite?: Sprite;
     private centerTerrainSprite?: Sprite;
+    private centerHitBar?: Graphics;
     public constructor(context: IDungeonVisualsContext) {
         this.context = context;
         this.holeContainer = new Container();
@@ -213,6 +214,17 @@ export class DungeonVisuals {
 
         if (!texKey) {
             if (this.centerTerrainSprite) this.centerTerrainSprite.visible = false;
+            if (this.centerHitBar) this.centerHitBar.clear();
+            return;
+        }
+
+        // Mountain is destroyed once its hit points run out — hide sprite + hit bar.
+        if (
+            gridType === GridVals.BLOCK_CENTER &&
+            FightStateManager.getInstance().getFightProperties().getObstacleHitsLeft() <= 0
+        ) {
+            if (this.centerTerrainSprite) this.centerTerrainSprite.visible = false;
+            if (this.centerHitBar) this.centerHitBar.clear();
             return;
         }
 
@@ -247,6 +259,42 @@ export class DungeonVisuals {
         this.centerTerrainSprite.x = centerX;
         this.centerTerrainSprite.y = centerY;
         this.centerTerrainSprite.visible = true;
+
+        // Draw the mountain's remaining hit points (BLOCK_CENTER only, and only once the fight has
+        // started — there's nothing to attack during placement).
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        if (gridType === GridVals.BLOCK_CENTER && fightProps.hasFightStarted()) {
+            this.drawCenterHitBar(fightProps.getObstacleHitsLeft());
+        } else if (this.centerHitBar) {
+            this.centerHitBar.clear();
+        }
+    }
+
+    /** Draw the mountain hit-point bar at the grid center (mirrors the legacy obstacle hitbar). */
+    private drawCenterHitBar(hitsRemaining: number): void {
+        if (!this.centerHitBar) {
+            this.centerHitBar = new Graphics();
+            this.context.attachToWorldRoot(this.centerHitBar, 51);
+        }
+        const bar = this.centerHitBar;
+        bar.clear();
+        if (hitsRemaining <= 0) {
+            return;
+        }
+
+        const gs = this.context.getGridSettings();
+        const centerX = (gs.getMinX() + gs.getMaxX()) * 0.5;
+        const centerY = (gs.getMinY() + gs.getMaxY()) * 0.5;
+        const twoSteps = gs.getTwoSteps();
+        const startX = centerX - twoSteps;
+        const startY = centerY - twoSteps;
+        const shiftX = Math.floor((gs.getStep() / HoCConstants.MAX_HITS_MOUNTAIN) * (HoCConstants.MAX_HITS_MOUNTAIN - 1));
+        const barHeight = 40;
+        for (let i = 0; i < hitsRemaining; i++) {
+            const x = startX + shiftX * i;
+            bar.rect(x, startY, shiftX, barHeight).stroke({ width: 1, color: 0xffffff });
+            bar.rect(x + 2, startY + 2, Math.max(0, shiftX - 4), Math.max(0, barHeight - 4)).fill({ color: 0xfdfa70 });
+        }
     }
     public ensureBackgroundSprite(): void {
         if (this.bgSprite) return;

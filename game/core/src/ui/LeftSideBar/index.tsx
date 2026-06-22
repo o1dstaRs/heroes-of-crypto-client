@@ -31,6 +31,21 @@ type SidebarSelectionState = {
 
 const emptyUnit = {} as UnitProperties;
 const emptyImpact = {} as IVisibleOverallImpact;
+const sidebarImageUrls = [greenOverlayImage, redOverlayImage, sidebarOverlayImage];
+
+const teamOverlaySx = {
+    position: "absolute",
+    width: "350px",
+    height: "100%",
+    top: 0,
+    right: -350,
+    transform: "translateZ(0) rotate(65deg)",
+    transformOrigin: "top left",
+    zIndex: 0,
+    pointerEvents: "none",
+    transition: "opacity 220ms ease-out",
+    willChange: "opacity",
+} as const;
 
 export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: boolean; windowSize: IWindowSize }) {
     const [barSize, setBarSize] = useState(280);
@@ -58,12 +73,23 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
         const scaleRatio = Math.min(widthRatio, heightRatio);
         const scaledBoardSize = (2048 + additionalBoardPixels) * scaleRatio;
         const rightBarEndAtBoard = (windowSize.width - scaledBoardSize) / 2;
-        setBarSize(rightBarEndAtBoard > 0 ? rightBarEndAtBoard : 0);
+        const nextBarSize = Math.max(0, Math.round(rightBarEndAtBoard));
+        setBarSize((currentBarSize) => (currentBarSize === nextBarSize ? currentBarSize : nextBarSize));
     }, [windowSize.width, windowSize.height]);
 
     useEffect(() => {
         adjustBarSize();
     }, [adjustBarSize]);
+
+    useEffect(() => {
+        if (typeof Image === "undefined") return;
+
+        sidebarImageUrls.forEach((src) => {
+            const img = new Image();
+            img.decoding = "async";
+            img.src = src;
+        });
+    }, []);
 
     // ✅ Subscribe to combined selection event
     useEffect(() => {
@@ -72,15 +98,24 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
             impact: IVisibleOverallImpact | null;
             faction: FactionType;
         }) => {
-            const unit = (payload.unit ?? ({} as UnitProperties)) as UnitProperties;
-            const impact = (payload.impact ?? ({} as IVisibleOverallImpact)) as IVisibleOverallImpact;
+            const unit = (payload.unit ?? emptyUnit) as UnitProperties;
+            const impact = (payload.impact ?? emptyImpact) as IVisibleOverallImpact;
             const factionType = (payload.faction ?? (FactionVals.NO_FACTION as FactionType)) as FactionType;
 
-            // Always update – React will skip DOM work if nothing really changed
-            setSelection({
-                unit,
-                overallImpact: impact,
-                factionType,
+            setSelection((previousSelection) => {
+                if (
+                    previousSelection.unit === unit &&
+                    previousSelection.overallImpact === impact &&
+                    previousSelection.factionType === factionType
+                ) {
+                    return previousSelection;
+                }
+
+                return {
+                    unit,
+                    overallImpact: impact,
+                    factionType,
+                };
             });
         };
 
@@ -123,33 +158,35 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
                 borderColor: "divider",
                 overflowY: "auto",
                 overflowX: "hidden",
+                transition: "width 180ms ease-out",
+                willChange: "width",
                 // Background Image Overlay
                 backgroundImage: `url(${sidebarOverlayImage})`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
             }}
         >
-            {hasSelectedUnit && (
-                <Box
-                    component="img"
-                    src={
-                        unitProperties.team === 2
-                            ? ((greenOverlayImage as unknown as { default?: string }).default ?? greenOverlayImage)
-                            : ((redOverlayImage as unknown as { default?: string }).default ?? redOverlayImage)
-                    }
-                    sx={{
-                        position: "absolute",
-                        width: "350px",
-                        height: "100%",
-                        top: 0,
-                        right: -350,
-                        transform: "rotate(65deg)",
-                        transformOrigin: "top left",
-                        opacity: 1,
-                        zIndex: 0,
-                    }}
-                />
-            )}
+            <Box
+                component="img"
+                src={greenOverlayImage}
+                alt=""
+                aria-hidden
+                sx={{
+                    ...teamOverlaySx,
+                    opacity: hasSelectedUnit && unitProperties.team === 2 ? 1 : 0,
+                }}
+            />
+            <Box
+                component="img"
+                src={redOverlayImage}
+                alt=""
+                aria-hidden
+                sx={{
+                    ...teamOverlaySx,
+                    opacity: hasSelectedUnit && unitProperties.team !== 2 ? 1 : 0,
+                }}
+            />
 
             <Box
                 sx={{
@@ -159,6 +196,8 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
                     minHeight: "52px",
                     display: "flex",
                     alignItems: "center",
+                    opacity: hasSelectedUnit && hasSynergies ? 1 : 0,
+                    transition: "opacity 160ms ease-out",
                     // FLEX-SHRINK 0: Prevents flexbox from crushing this container if the list below grows
                     flexShrink: 0,
                     // OVERFLOW HIDDEN REMOVED: Allows glow effects/shadows to extend slightly outside

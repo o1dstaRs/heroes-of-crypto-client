@@ -182,25 +182,13 @@ export class SandboxDrawer {
         // 4. Lingering tracks
         if (lingeringTracks.length) {
             for (const t of lingeringTracks) {
-                const k = t.life / t.maxLife;
-                const numRings = 4;
-                for (let r = 0; r < numRings; r++) {
-                    const frac = r / (numRings - 1);
-                    const ringRadius = t.radius * (0.35 + frac * (0.55 + 0.5 * (1 - k)));
-                    const ringWidth = 0.8 * (1 - frac) + 0.4;
-                    const ringAlpha = 0.55 * k * (1 - frac) * (0.8 + 0.2 * Math.sin(t.phase + frac * Math.PI));
-                    g.circle(t.x, t.y, ringRadius).stroke({
-                        width: ringWidth,
-                        color: 0xffffff,
-                        alpha: ringAlpha,
-                    });
-                }
-                const innerRadius = t.radius * 0.3 * k;
-                const innerAlpha = 0.32 * k * (0.7 + 0.3 * Math.sin(t.phase));
-                g.circle(t.x, t.y, innerRadius).fill({
-                    color: 0xffffff,
-                    alpha: innerAlpha,
-                });
+                const k = Math.max(0, t.life / t.maxLife); // 1 → 0 over the track's life
+                // Soft dust mark: a faint halo over a slightly stronger core that gently shrinks and
+                // fades — no expanding rings or sinusoidal pulsing (those read as an artificial "ping").
+                const halo = t.radius * (0.45 + 0.2 * k);
+                const core = t.radius * (0.25 + 0.12 * k);
+                g.circle(t.x, t.y, halo).fill({ color: 0xffffff, alpha: 0.05 * k });
+                g.circle(t.x, t.y, core).fill({ color: 0xffffff, alpha: 0.1 * k });
             }
         }
     }

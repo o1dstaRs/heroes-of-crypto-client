@@ -17,6 +17,11 @@ import {
     HoCConstants,
     HoCLib,
     SpellTargetType,
+    SpellPowerType,
+    SpellMultiplierType,
+    SpellHelper,
+    EffectHelper,
+    ToFactionName,
     Spell,
     HoCMath,
     IWeightedRoute,
@@ -37,6 +42,7 @@ import {
     ToNatureSynergy,
     FactionVals,
     AttackVals,
+    GridVals,
     UnitVals,
     IVisibleDamage,
     ISystemMoveResult,
@@ -46,6 +52,7 @@ import {
 } from "@heroesofcrypto/common";
 import { UnitsOverlay } from "./UnitsOverlay";
 import { DamageStatisticHolder } from "./DamageStats";
+import { FightStatsTracker } from "./FightStatsTracker";
 import { VisibleButtonState, IVisibleUnit } from "./VisibleState";
 import { images } from "../generated/image_imports";
 import { SceneSettings } from "./SceneSettings";
@@ -68,6 +75,19 @@ interface IFlickeringLight extends Graphics {
     _flickerSpeed: number;
 }
 
+/** One unit captured at fight start, enough to recreate it exactly on "Rematch". */
+interface IUnitFightSnapshot {
+    properties: UnitProperties;
+    team: TeamType;
+    position: HoCMath.XY;
+}
+
+/** Full board snapshot taken at fight start (pre-supply) for "Rematch". */
+interface IFightSnapshot {
+    units: IUnitFightSnapshot[];
+    gridType: GridType;
+}
+
 export class Sandbox extends PixiScene {
     private readonly grid: Grid;
     private readonly pathHelper: PathHelper;
@@ -78,6 +98,8 @@ export class Sandbox extends PixiScene {
     private readonly moveHandler: MoveHandler;
     private hoverManager: HoverManager;
     private buttonManager: ButtonManager;
+    private readonly fightStatsTracker = new FightStatsTracker();
+    private lastFightSnapshot?: IFightSnapshot;
     private currentEnemiesCellsWithinMovementRange?: HoCMath.XY[];
     private unitsOverlay: UnitsOverlay;
     private placementManager: PlacementManager;
@@ -214,7 +236,9 @@ export class Sandbox extends PixiScene {
             const bookSprite = new Sprite(bookTex);
             bookSprite.anchor.set(0.5, 0);
             bookSprite.scale.set(-1, -1);
-            bookSprite.position.set(0, 1380);
+            // Container is Y-flipped, so a larger local Y raises the book on screen. Lifting it
+            // above the spells' title strips (~1185 local) also clears the top-border overlap.
+            bookSprite.position.set(0, 1450);
             this.spellBookContainer.addChild(bookSprite);
         }
 
@@ -282,16 +306,10 @@ export class Sandbox extends PixiScene {
             hasActiveSelection: () => this.hasActiveSelection,
         });
 
-        // Global input for closing spellbook
+        // Spellbook open/close and spell selection are handled authoritatively in MouseDown()
+        // (see the "SPELLBOOK" block there). A separate stage 'pointerdown' closer used to race
+        // with MouseDown and swallow spell-selection clicks, so it has been removed.
         context.pixiApp.getApplication().stage.eventMode = "static";
-        context.pixiApp.getApplication().stage.on("pointerdown", (_e) => {
-            if (this.sc_renderSpellBookOverlay) {
-                this.sc_renderSpellBookOverlay = false;
-                this.buttonManager.sc_renderSpellBookOverlay = false;
-                this.spellBookOverlay?.setOpen(false);
-                this.pixiApp.getWorldRoot().filters = [];
-            }
-        });
 
         this.buttonManager = new ButtonManager(
             {
@@ -494,6 +512,133 @@ export class Sandbox extends PixiScene {
             this.unitsHolder.addUnit(renderableUnit);
         }
         return renderableUnit;
+    }
+    private captureFightSnapshot(): IFightSnapshot {
+        const units: IUnitFightSnapshot[] = [];
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            units.push({
+                // getAllProperties() returns a deep (structuredClone) copy, so the snapshot
+                // is isolated from in-fight mutations.
+                properties: unit.getAllProperties(),
+                team: unit.getTeam(),
+                position: { ...unit.getPosition() },
+            });
+        }
+        return {
+            units,
+            gridType: FightStateManager.getInstance().getFightProperties().getGridType(),
+        };
+    }
+    /**
+     * Recreate and restart the exact same fight (same units, positions, map) captured at
+     * the start of the previous fight. Returns false if there is nothing to rematch.
+     */
+    public override rematchLastFight(): boolean {
+        const snapshot = this.lastFightSnapshot;
+        console.log("[Rematch] start; snapshot units =", snapshot?.units.length ?? "none");
+        if (!snapshot || !snapshot.units.length) {
+            console.warn("[Rematch] aborted: no saved fight snapshot");
+            return false;
+        }
+
+        try {
+            // 1. Reset shared fight state (laps/queues/started/finished). This also randomizes
+            //    the grid type, so we re-apply the saved one below.
+            FightStateManager.getInstance().reset();
+
+            // 2. Clear leftover combat VFX + wipe the current board (force, since units may be
+            //    mid/post-fight). destroySpecificUnits frees each unit's grid occupancy.
+            this.combatVisuals.clear();
+            const existing = Array.from(this.unitsHolder.getAllUnits().values()) as RenderableUnit[];
+            if (existing.length) this.destroySpecificUnits(existing, true, false);
+            console.log("[Rematch] wiped", existing.length, "units");
+
+            // 3. Restore the original map geometry + placement zones (setGridType no-ops once a
+            //    fight has started, which is why we reset() first).
+            this.setGridType(snapshot.gridType);
+            this.placementManager.rebuildFromFightProps();
+
+            // 4. Recreate every unit at its saved position, mirroring the normal placement path
+            //    (occupy the footprint cells, then snap to the canonical cell-center position).
+            const gs = this.sc_sceneSettings.getGridSettings();
+            const camera = this.pixiApp.getCamera();
+            for (const snap of snapshot.units) {
+                const base = Unit.createUnit(
+                    { ...snap.properties, id: uuidv4(), team: snap.team },
+                    gs,
+                    snap.team,
+                    UnitVals.CREATURE,
+                    this.abilityFactory,
+                    this.abilityFactory.getEffectsFactory(),
+                    false,
+                );
+                const unit = RenderableUnit.fromBase(base, this.texAny);
+                this.unitsHolder.addUnit(unit);
+
+                if (unit.getSpellsCount() > 0) {
+                    this.ensureDigitTextures();
+                    if (this.digitTextures) unit.setSpellBookLayer(this.spellBookContainer, this.digitTextures);
+                }
+
+                // Derive the footprint cells from the saved position.
+                unit.setPosition(snap.position.x, snap.position.y);
+                const cells = unit.getCells();
+                const hasMadeOfFire = unit.hasAbilityActive("Made of Fire");
+                const hasMadeOfWater = unit.hasAbilityActive("Made of Water");
+                const occupied =
+                    cells.length === 1
+                        ? this.grid.occupyCell(
+                              cells[0],
+                              unit.getId(),
+                              snap.team,
+                              unit.getAttackRange(),
+                              hasMadeOfFire,
+                              hasMadeOfWater,
+                          )
+                        : this.grid.occupyCells(
+                              cells,
+                              unit.getId(),
+                              snap.team,
+                              unit.getAttackRange(),
+                              hasMadeOfFire,
+                              hasMadeOfWater,
+                          );
+                // Snap to the exact cell-center position the placement flow uses.
+                if (occupied) {
+                    const placePos = GridMath.getPositionForCells(gs, cells);
+                    if (placePos) unit.setPosition(placePos.x, placePos.y);
+                }
+                const scale = unit.ensureVisual(camera, gs);
+                if (scale) unit.startSpawnAnimation(scale);
+            }
+            console.log("[Rematch] recreated", snapshot.units.length, "units");
+
+            // 5. Refresh derived state.
+            this.gridMatrix = this.grid.getMatrix();
+            this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+            this.unitsHolder.refreshStackPowerForAllUnits();
+            this.refreshSynergyNumbers(TeamVals.LOWER);
+            this.refreshSynergyNumbers(TeamVals.UPPER);
+            this.refreshUnits();
+
+            // 6. Start the fight again (re-snapshots, re-applies supply, calls startFight()).
+            const started = this.startScene();
+            console.log("[Rematch] startScene() ->", started);
+            return started;
+        } catch (err) {
+            console.error("[Rematch] FAILED:", err);
+            return false;
+        }
+    }
+    private ensureDigitTextures(): void {
+        if (this.digitTextures) return;
+        this.digitTextures = new Map<number, Texture>();
+        for (let i = 0; i <= 9; i++) {
+            const tex = this.texAny(`digit_${i}`);
+            if (tex) this.digitTextures.set(i, tex);
+        }
+        const minusOne = this.texAny("digit_-1");
+        if (minusOne) this.digitTextures.set(-1, minusOne);
     }
     public override Resize(w: number, h: number): void {
         // 1) Let the base scene update camera, worldRoot, etc.
@@ -1425,11 +1570,44 @@ export class Sandbox extends PixiScene {
     /** MouseDown from screen coords (already converted to world if needed by caller) */
     public override MouseDown(p: HoCMath.XY): void {
         this.sc_mouseWorld = p;
+
+        // --- SPELLBOOK: while the book is open, a click selects a spell or closes the book. ---
+        // This is the authoritative spellbook input handler (the stage pointerdown closer was
+        // removed to avoid a click-ordering race that swallowed spell-selection clicks).
+        if (this.sc_renderSpellBookOverlay) {
+            this.handleSpellbookClick(p);
+            return;
+        }
+
         const fightProps = FightStateManager.getInstance().getFightProperties();
         // 1. FIGHT STARTED INTERACTION
         if (fightProps.hasFightStarted()) {
             // [AI Driven Check] If the current unit is controlled by AI (e.g. Berserker), block user input.
             if (this.currentActiveUnit?.hasAbilityActive("AI Driven")) {
+                return;
+            }
+
+            // --- SPELL CASTING (single-target): a spell is armed, so this click chooses the target. ---
+            if (this.currentActiveSpell && this.currentActiveUnit) {
+                const spellTarget = this.getUnitAtPosition(p);
+                if (spellTarget && !spellTarget.isDead()) {
+                    if (this.castSpellOnTarget(spellTarget)) {
+                        return;
+                    }
+                    // Target invalid per spell rules — keep the spell armed for another pick.
+                    this.sc_sceneLog.updateLog(
+                        `Cannot cast ${this.currentActiveSpell.getName()} on ${spellTarget.getName()}`,
+                    );
+                    return;
+                }
+                // Clicked empty ground — cancel the armed spell.
+                this.currentActiveSpell = undefined;
+                this.sc_sceneLog.updateLog("Spell cancelled");
+                return;
+            }
+
+            // --- OBSTACLE ATTACK: striking the destructible center on BLOCK_CENTER maps. ---
+            if (this.attemptObstacleAttack(p)) {
                 return;
             }
 
@@ -1556,7 +1734,10 @@ export class Sandbox extends PixiScene {
                                             this.grid.getMatrix(),
                                             this.currentActiveUnit.getSteps(),
                                             undefined,
-                                            this.currentActiveUnit.hasAbilityActive("Flying"),
+                                            // Innate flyers use FLY movement type; no creature has a "Flying"
+                                            // ability, so canFly() is the correct check here (matches the
+                                            // other getMovePath call sites).
+                                            this.currentActiveUnit.canFly(),
                                             this.currentActiveUnit.isSmallSize(),
                                             false,
                                         );
@@ -1703,7 +1884,540 @@ export class Sandbox extends PixiScene {
         }
         super.MouseDown(p);
     }
-    private async executeAttackSequence(attacker: RenderableUnit, target: Unit, attackFrom: HoCMath.XY): Promise<void> {
+/** Close the spellbook overlay and clear its blur filter. */
+    private closeSpellBook(): void {
+        if (!this.sc_renderSpellBookOverlay) {
+            return;
+        }
+        this.sc_renderSpellBookOverlay = false;
+        this.buttonManager.sc_renderSpellBookOverlay = false;
+        this.spellBookOverlay?.setOpen(false);
+        this.pixiApp.getWorldRoot().filters = [];
+    }
+/**
+     * Map a world-space point to global/screen space for spell hit-testing. The spellbook is
+     * attached to the stage, so screen space == global space; spell hover/pick compares this
+     * against each icon's global getBounds().
+     */
+    private spellbookGlobalFromWorld(worldPos: HoCMath.XY): HoCMath.XY {
+        return this.pixiApp.worldToScreen(worldPos.x, worldPos.y);
+    }
+/**
+     * Handle a click while the spellbook overlay is open.
+     * - Single-target spell (ANY_ALLY / ANY_ENEMY / ANY_UNIT / ENEMY_WITHIN_MOVEMENT_RANGE):
+     *   arm it and close the book; the next board click on a unit casts it (see castSpellOnTarget).
+     * - Click outside the spells: just close the book.
+     * - Mass-cast / summon / free-cell types are not wired yet (Phases 3-4 in
+     *   PIXI_GAMEPLAY_PARITY_PLAN.md); they close the book with a log for now.
+     */
+    private handleSpellbookClick(worldPos: HoCMath.XY): void {
+        const caster = this.currentActiveUnit;
+        const hovered =
+            caster instanceof RenderableUnit
+                ? caster.getHoveredSpell(this.spellbookGlobalFromWorld(worldPos))
+                : undefined;
+        if (!hovered || !caster) {
+            this.closeSpellBook();
+            return;
+        }
+
+        const targetType = hovered.getSpellTargetType();
+        const isSingleTarget =
+            targetType === SpellTargetType.ANY_ALLY ||
+            targetType === SpellTargetType.ANY_ENEMY ||
+            targetType === SpellTargetType.ANY_UNIT ||
+            targetType === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE;
+
+        const isMassOrSummon =
+            targetType === SpellTargetType.RANDOM_CLOSE_TO_CASTER ||
+            targetType === SpellTargetType.ALL_FLYING ||
+            targetType === SpellTargetType.ALL_ALLIES ||
+            targetType === SpellTargetType.ALL_ENEMIES;
+
+        if (!isSingleTarget) {
+            this.closeSpellBook();
+            if (isMassOrSummon && this.currentActiveUnit instanceof RenderableUnit) {
+                // Mass-cast / summon spells apply immediately (no target click needed).
+                this.castMassOrSummonSpell(hovered, this.currentActiveUnit);
+            } else {
+                // FREE_CELL / AUTO / NO_TYPE are not wired yet (see PIXI_GAMEPLAY_PARITY_PLAN.md).
+                this.sc_sceneLog.updateLog(`${hovered.getName()}: this spell type is not supported yet`);
+            }
+            return;
+        }
+
+        // Arm the spell; the next board click on a valid unit casts it.
+        this.currentActiveSpell = hovered;
+        this.closeSpellBook();
+        this.sc_sceneLog.updateLog(`${caster.getName()} prepares ${hovered.getName()} - pick a target`);
+
+        // Recompute movement/targeting paths now that a spell is armed (parity with legacy).
+        const currentCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), caster.getPosition());
+        if (currentCell) {
+            this.updateCurrentMovePath(currentCell);
+        }
+    }
+/**
+     * Cast the currently-armed single-target spell on `targetUnit` via the shared magic-attack
+     * handler (handles heal / resurrect / buff / debuff, magic-resist rolls, and spell consumption).
+     * Returns true if the spell was applied (turn finished), false if the target was invalid.
+     */
+    private castSpellOnTarget(targetUnit: Unit): boolean {
+        const caster = this.currentActiveUnit;
+        const spell = this.currentActiveSpell;
+        if (!spell || !caster) {
+            return false;
+        }
+
+        const result = this.attackHandler.handleMagicAttack(
+            this.gridMatrix,
+            this.unitsHolder,
+            spell,
+            caster,
+            targetUnit,
+            this.currentEnemiesCellsWithinMovementRange,
+        );
+        if (!result.completed) {
+            return false;
+        }
+
+        this.cleanupAfterSpell();
+        return true;
+    }
+/**
+     * Shared post-cast cleanup: remove units killed by the spell, refresh stacks, clear the
+     * armed spell + hover visuals, and end the caster's turn.
+     */
+    private cleanupAfterSpell(): void {
+        const unitsDied: RenderableUnit[] = [];
+        for (const u of this.unitsHolder.getAllUnits().values()) {
+            if (u.isDead()) {
+                unitsDied.push(u as RenderableUnit);
+            }
+        }
+        if (unitsDied.length > 0) {
+            this.destroySpecificUnits(unitsDied, true, true);
+        }
+        this.unitsHolder.refreshStackPowerForAllUnits();
+
+        this.currentActiveSpell = undefined;
+        this.hoverManager.clearHoverSilhouette();
+        this.hoverManager.clearAttackVisuals();
+        this.hoverManager.hoverAttackFromCell = undefined;
+        this.sc_moveBlocked = false;
+        this.sc_visibleStateUpdateNeeded = true;
+        this.finishTurn();
+    }
+/**
+     * Apply a mass-cast spell (ALL_ALLIES / ALL_ENEMIES / ALL_FLYING) or a summon spell
+     * (RANDOM_CLOSE_TO_CASTER) immediately on selection. Ports the legacy dispatch
+     * (test_heroes.ts:3771-4007). Ends the turn if anything was applied.
+     */
+    private castMassOrSummonSpell(spell: PixiRenderableSpell, caster: RenderableUnit): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const team = caster.getTeam();
+
+        // 1. Summon path (e.g. RANDOM_CLOSE_TO_CASTER summon spells).
+        const randomCell = GridMath.getRandomGridCellAroundPosition(gs, this.gridMatrix, team, caster.getPosition());
+        const amountToSummon = Math.floor(caster.getAmountAlive() * spell.getPower());
+        if (amountToSummon > 0 && SpellHelper.canCastSummon(spell, this.gridMatrix, randomCell)) {
+            if (this.summonUnits(spell, caster, randomCell, amountToSummon)) {
+                caster.useSpell(spell.getName());
+                this.cleanupAfterSpell();
+            } else {
+                this.currentActiveSpell = undefined;
+            }
+            return;
+        }
+
+        // 2. Mass-cast path (buff allies / debuff enemies / buff flyers).
+        if (
+            SpellHelper.canMassCastSpell(
+                spell,
+                this.unitsHolder.getAllTeamUnitsBuffs(team),
+                this.unitsHolder.getAllEnemyUnitsBuffs(team),
+                this.unitsHolder.getAllEnemyUnitsDebuffs(team),
+                this.unitsHolder.getAllTeamUnitsMagicResist(team),
+                this.unitsHolder.getAllEnemyUnitsMagicResist(team),
+                this.unitsHolder.getAllTeamUnitsHp(team),
+                this.unitsHolder.getAllTeamUnitsMaxHp(team),
+                this.unitsHolder.getAllTeamUnitsCanFly(team),
+                this.unitsHolder.getAllEnemyUnitsCanFly(team),
+            )
+        ) {
+            const targetType = spell.getSpellTargetType();
+            if (targetType === SpellTargetType.ALL_FLYING) {
+                this.massCastOnFlyers(spell, caster, team);
+            } else if (targetType === SpellTargetType.ALL_ALLIES) {
+                this.massCastOnAllies(spell, caster, team);
+            } else {
+                this.massCastOnEnemies(spell, caster, team);
+            }
+            caster.useSpell(spell.getName());
+            this.cleanupAfterSpell();
+            return;
+        }
+
+        // 3. Nothing applicable — cancel quietly.
+        this.sc_sceneLog.updateLog(`Cannot cast ${spell.getName()}`);
+        this.currentActiveSpell = undefined;
+    }
+/** ALL_FLYING: buff every flying ally and enemy that is not fully magic-immune. */
+    private massCastOnFlyers(spell: PixiRenderableSpell, caster: RenderableUnit, team: TeamType): void {
+        const applyTo = (units: Unit[]) => {
+            for (const u of units) {
+                if (u.getMagicResist() === 100 || !u.canFly()) {
+                    continue;
+                }
+                if (!SpellHelper.hasAlreadyAppliedSpell(u, spell)) {
+                    u.applyBuff(spell, undefined, undefined, u.getId() === caster.getId());
+                }
+            }
+        };
+        applyTo(this.unitsHolder.getAllAllies(team));
+        applyTo(this.unitsHolder.getAllEnemyUnits(team));
+    }
+/** ALL_ALLIES: heal allies (HEAL spells) or buff them (scaling by caster amount when needed). */
+    private massCastOnAllies(spell: PixiRenderableSpell, caster: RenderableUnit, team: TeamType): void {
+        const isHeal = spell.getPowerType() === SpellPowerType.HEAL;
+        if (!isHeal) {
+            this.sc_sceneLog.updateLog(`${caster.getName()} cast ${spell.getName()} on allies`);
+        }
+        for (const u of this.unitsHolder.getAllAllies(team)) {
+            if (u.getMagicResist() === 100) {
+                continue;
+            }
+            if (isHeal) {
+                // NOTE: legacy applied the heal twice (likely a bug); we heal once.
+                if (u.canBeHealed()) {
+                    const healPower = u.applyHeal(Math.floor(spell.getPower() * caster.getAmountAlive()));
+                    if (healPower) {
+                        this.sc_sceneLog.updateLog(`${caster.getName()} mass healed ${u.getName()} for ${healPower} hp`);
+                    }
+                }
+                continue;
+            }
+            if (SpellHelper.hasAlreadyAppliedSpell(u, spell)) {
+                continue;
+            }
+            if (spell.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT) {
+                const scaledSpell = new Spell({ spellProperties: spell.getSpellProperties(), amount: spell.getAmount() });
+                scaledSpell.setPower(caster.getAmountAlive());
+                scaledSpell.setDesc(spell.getDesc().map((d) => d.replace(/\{\}/g, caster.getAmountAlive().toString())));
+                u.applyBuff(scaledSpell, undefined, undefined, u.getId() === caster.getId());
+            } else {
+                u.applyBuff(spell, undefined, undefined, u.getId() === caster.getId());
+            }
+        }
+    }
+/** ALL_ENEMIES: debuff every enemy, respecting magic resist, absorption, MIND resist and mirroring. */
+    private massCastOnEnemies(spell: PixiRenderableSpell, caster: RenderableUnit, team: TeamType): void {
+        this.sc_sceneLog.updateLog(`${caster.getName()} cast ${spell.getName()} on enemies`);
+        for (const enemy of this.unitsHolder.getAllEnemyUnits(team)) {
+            // The effect may be absorbed by another unit.
+            const absorptionTarget = EffectHelper.getAbsorptionTarget(enemy, this.grid, this.unitsHolder);
+            const debuffTarget = absorptionTarget ?? enemy;
+
+            if (debuffTarget.getMagicResist() === 100) {
+                continue;
+            }
+            if (HoCLib.getRandomInt(0, 100) < Math.floor(debuffTarget.getMagicResist())) {
+                this.sc_sceneLog.updateLog(`${debuffTarget.getName()} resisted from ${spell.getName()}`);
+                continue;
+            }
+            if (
+                SpellHelper.hasAlreadyAppliedSpell(debuffTarget, spell) ||
+                (spell.getPowerType() === SpellPowerType.MIND && debuffTarget.hasMindAttackResistance())
+            ) {
+                continue;
+            }
+
+            const laps = spell.getLapsTotal();
+            debuffTarget.applyDebuff(spell, undefined, undefined, debuffTarget.getId() === caster.getId());
+
+            // Mirrored debuffs reflect back onto the caster.
+            if (
+                SpellHelper.isMirrored(debuffTarget) &&
+                !SpellHelper.hasAlreadyAppliedSpell(caster, spell) &&
+                !(spell.getPowerType() === SpellPowerType.MIND && caster.hasMindAttackResistance())
+            ) {
+                caster.applyDebuff(spell, undefined, undefined, true);
+                this.sc_sceneLog.updateLog(
+                    `${debuffTarget.getName()} mirrored ${spell.getName()} to ${caster.getName()} for ${HoCLib.getLapString(
+                        laps,
+                    )}`,
+                );
+            }
+        }
+    }
+/**
+     * Summon a stack near the caster. Grows an existing same-named summoned stack, otherwise
+     * builds the creature from config and spawns it on the grid. Returns true on success.
+     * NOTE: highest-risk path (mid-fight spawn + texture loading) - verify at runtime.
+     */
+    private summonUnits(
+        spell: PixiRenderableSpell,
+        caster: RenderableUnit,
+        cell: HoCMath.XY | undefined,
+        amount: number,
+    ): boolean {
+        if (!cell) {
+            return false;
+        }
+        const team = caster.getTeam();
+        const summonName = spell.getSummonUnitName();
+        const summonFaction = spell.getSummonUnitRace();
+
+        // Existing stack of the same summoned creature: just grow it.
+        const existing = this.unitsHolder.getSummonedUnitByName(team, summonName);
+        if (existing) {
+            existing.increaseAmountAlive(amount);
+            this.unitsHolder.refreshStackPowerForAllUnits();
+            this.refreshUnits();
+            this.sc_sceneLog.updateLog(`${caster.getName()} summoned ${amount} x ${summonName}`);
+            return true;
+        }
+
+        const gs = this.sc_sceneSettings.getGridSettings();
+        let properties: UnitProperties;
+        try {
+            properties = HoCConfig.getCreatureConfig(team, ToFactionName[summonFaction], summonName, "", amount);
+        } catch (e) {
+            this.sc_sceneLog.updateLog(`Cannot summon ${summonName}`);
+            return false;
+        }
+
+        const baseUnit = Unit.createUnit(
+            { ...properties, id: uuidv4(), team },
+            gs,
+            team,
+            UnitVals.CREATURE,
+            this.abilityFactory,
+            this.abilityFactory.getEffectsFactory(),
+            true /* summoned */,
+        );
+        const renderable = RenderableUnit.fromBase(baseUnit, this.texAny);
+
+        const cellsToOccupy = renderable.isSmallSize()
+            ? [cell]
+            : [
+                  { x: cell.x - 1, y: cell.y },
+                  { x: cell.x, y: cell.y },
+                  { x: cell.x - 1, y: cell.y - 1 },
+                  { x: cell.x, y: cell.y - 1 },
+              ];
+
+        const occupied = this.grid.occupyCells(
+            cellsToOccupy,
+            renderable.getId(),
+            team,
+            renderable.getAttackRange(),
+            renderable.hasAbilityActive("Made of Fire"),
+            renderable.hasAbilityActive("Made of Water"),
+        );
+        if (!occupied) {
+            this.sc_sceneLog.updateLog(`No room to summon ${summonName}`);
+            return false;
+        }
+
+        this.layoutVersion++;
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+
+        const placePos = GridMath.getPositionForCells(gs, cellsToOccupy);
+        if (placePos) {
+            renderable.setPosition(placePos.x, placePos.y);
+        }
+        if (!this.unitsHolder.getAllUnits().has(renderable.getId())) {
+            this.unitsHolder.addUnit(renderable);
+        }
+        const scale = renderable.ensureVisual(this.pixiApp.getCamera(), gs);
+        if (scale) {
+            renderable.startSpawnAnimation(scale);
+        }
+
+        this.unitsHolder.refreshStackPowerForAllUnits();
+        this.refreshUnits();
+        this.sc_sceneLog.updateLog(`${caster.getName()} summoned ${amount} x ${summonName}`);
+        return true;
+    }
+/**
+     * Attempt to attack the destructible center obstacle (BLOCK_CENTER maps). Ranged units land
+     * automatically; melee units move to a cell adjacent to the obstacle (the shared handler does
+     * the movement). When the obstacle's hits run out, the center is cleared and the map reverts to
+     * NORMAL. Ports the obstacle branch of legacy landAttack (test_heroes.ts:3445-3485).
+     * Returns true if an obstacle hit was landed (turn consumed).
+     */
+    private attemptObstacleAttack(worldPos: HoCMath.XY): boolean {
+        const unit = this.currentActiveUnit;
+        if (!unit) {
+            return false;
+        }
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        if (fightProps.getGridType() !== GridVals.BLOCK_CENTER || fightProps.getObstacleHitsLeft() <= 0) {
+            return false;
+        }
+
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const targetCell = GridMath.getCellForPosition(gs, worldPos);
+        if (!targetCell) {
+            return false;
+        }
+
+        const centerCells = this.grid.getCenterCells();
+        const clickedObstacle = centerCells.some((c) => c.x === targetCell.x && c.y === targetCell.y);
+        if (!clickedObstacle) {
+            return false;
+        }
+
+        // Melee attackers need a cell adjacent to the obstacle to strike from; ranged units auto-land.
+        let attackFromCell = this.hoverManager.hoverAttackFromCell;
+        if (!attackFromCell && unit.getAttackType() !== AttackVals.RANGE) {
+            attackFromCell = this.findObstacleAttackFromCell(centerCells);
+            if (!attackFromCell) {
+                return false;
+            }
+        }
+
+        const result = this.attackHandler.handleObstacleAttack(
+            worldPos,
+            this.unitsHolder,
+            this.moveHandler,
+            unit,
+            attackFromCell,
+            this.currentActiveKnownPaths,
+        );
+        if (!result.completed) {
+            return false;
+        }
+
+        // Obstacle destroyed → clear it and revert the map visuals to NORMAL (parity with legacy).
+        if (fightProps.getObstacleHitsLeft() <= 0) {
+            this.drawer.switchToDryCenter();
+            this.grid.cleanupCenterObstacle();
+            this.drawer.setGridType(GridVals.NORMAL);
+            this.gridMatrix = this.grid.getMatrix();
+            this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+        }
+
+        this.unitsHolder.refreshStackPowerForAllUnits();
+        this.hoverManager.clearHoverSilhouette();
+        this.hoverManager.clearAttackVisuals();
+        this.hoverManager.hoverAttackFromCell = undefined;
+        this.sc_moveBlocked = false;
+        this.sc_visibleStateUpdateNeeded = true;
+        this.refreshUnits();
+        this.finishTurn();
+        return true;
+    }
+/** Find a reachable cell adjacent to the center obstacle for a melee strike, if any. */
+    private findObstacleAttackFromCell(centerCells: HoCMath.XY[]): HoCMath.XY | undefined {
+        const unit = this.currentActiveUnit;
+        if (!unit) {
+            return undefined;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const isAdjacentToCenter = (c: HoCMath.XY) =>
+            centerCells.some((cc) => Math.abs(c.x - cc.x) <= 1 && Math.abs(c.y - cc.y) <= 1);
+
+        // Already adjacent → strike without moving.
+        const currentCell = GridMath.getCellForPosition(gs, unit.getPosition());
+        if (currentCell && isAdjacentToCenter(currentCell)) {
+            return currentCell;
+        }
+        // Otherwise pick a reachable cell adjacent to the obstacle.
+        if (this.currentActivePath) {
+            for (const cell of this.currentActivePath) {
+                if (isAdjacentToCenter(cell)) {
+                    return cell;
+                }
+            }
+        }
+        return undefined;
+    }
+    /**
+     * When the active unit hovers the destructible center obstacle, preview the attack:
+     * a ranged unit shows it can shoot in place; a melee unit projects to the reachable cell
+     * closest to the cursor (move silhouette). Only shows when the unit can actually attack the
+     * hovered mountain cell, and clears the "Hit the mountain" info as soon as it cannot. Returns
+     * true when the obstacle is being targeted, so hover() skips the normal unit/cell hover logic.
+     */
+    private updateObstacleHover(): boolean {
+        // Clear any stale "Hit the mountain" state and report "not targeting the mountain".
+        const notHovering = (): boolean => {
+            if (this.sc_hoverInfoArr[0] === "Hit the mountain") {
+                this.sc_hoverInfoArr = [];
+                this.sc_hoverTextUpdateNeeded = true;
+                this.hoverManager.hoverAttackFromCell = undefined;
+                this.hoverManager.clearHoverSilhouette();
+            }
+            return false;
+        };
+        const showHit = (): void => {
+            if (this.sc_hoverInfoArr[0] !== "Hit the mountain") {
+                this.sc_hoverInfoArr = ["Hit the mountain"];
+                this.sc_hoverTextUpdateNeeded = true;
+            }
+        };
+
+        const unit = this.currentActiveUnit;
+        if (!unit || !this.sc_mouseWorld) {
+            return notHovering();
+        }
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        if (fightProps.getGridType() !== GridVals.BLOCK_CENTER || fightProps.getObstacleHitsLeft() <= 0) {
+            return notHovering();
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const mouseCell = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
+        if (!mouseCell) {
+            return notHovering();
+        }
+        // Only when the cursor is actually over a mountain cell.
+        const centerCells = this.grid.getCenterCells();
+        if (!centerCells.some((c) => c.x === mouseCell.x && c.y === mouseCell.y)) {
+            return notHovering();
+        }
+
+        // Ranged attackers can shoot the mountain in place (unless pinned into melee).
+        if (
+            unit.getAttackType() === AttackVals.RANGE &&
+            this.attackHandler.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId()))
+        ) {
+            this.hoverManager.hoverAttackFromCell = undefined;
+            showHit();
+            return true;
+        }
+
+        // Melee: only if the unit can reach a cell adjacent to *this* mountain cell. Pick the
+        // attack-from cell closest to the cursor (same logic as attacking a unit) so the preview
+        // tracks the mouse instead of snapping to an arbitrary cell.
+        if (!this.canAttackByMeleeTargets || unit.hasAbilityActive("No Melee")) {
+            return notHovering();
+        }
+        const attackFromCell = this.pathHelper.calculateClosestAttackFrom(
+            this.sc_mouseWorld,
+            this.canAttackByMeleeTargets.attackCells,
+            unit.getCells(),
+            [mouseCell],
+            unit.isSmallSize(),
+            unit.getAttackRange(),
+            true,
+            TeamVals.NO_TEAM,
+            this.canAttackByMeleeTargets.attackCellHashesToLargeCells,
+        );
+        if (!attackFromCell) {
+            return notHovering();
+        }
+        this.hoverManager.hoverAttackFromCell = attackFromCell;
+        const attackFromPos = GridMath.getPositionForCell(attackFromCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        if (attackFromPos) {
+            this.hoverManager.updateHoverSilhouette(attackFromPos);
+        }
+        showHit();
+        return true;
+    }
+private async executeAttackSequence(attacker: RenderableUnit, target: Unit, attackFrom: HoCMath.XY): Promise<void> {
         this.sc_moveBlocked = true;
 
         // Create a local damage object for animation
@@ -1882,13 +2596,14 @@ export class Sandbox extends PixiScene {
                         pos.y += ndy * offset;
                     }
 
-                    // Stagger animations by 1000ms
+                    // Stagger multi-hit numbers slightly so they read as distinct hits
+                    // (the floating-number system also stacks any that still overlap).
                     if (index === 0) {
                         this.combatVisuals.showFloatingDamage(pos, dmg.amount, dir, dmg.unitsDied);
                     } else {
                         setTimeout(() => {
                             this.combatVisuals.showFloatingDamage(pos, dmg.amount, dir, dmg.unitsDied);
-                        }, index * 1000);
+                        }, index * 240);
                     }
                 });
             } else {
@@ -2250,7 +2965,9 @@ export class Sandbox extends PixiScene {
         // 0. Spellbook Interaction
         if (this.sc_renderSpellBookOverlay && this.currentActiveUnit && this.sc_mouseWorld) {
             if (this.currentActiveUnit instanceof RenderableUnit) {
-                const hoveredSpell = this.currentActiveUnit.getHoveredSpell(this.sc_mouseWorld);
+                const hoveredSpell = this.currentActiveUnit.getHoveredSpell(
+                    this.spellbookGlobalFromWorld(this.sc_mouseWorld),
+                );
                 this.currentActiveSpell = hoveredSpell;
 
                 // If hovering inside spellbook, skip other board interactions?
@@ -2376,6 +3093,12 @@ export class Sandbox extends PixiScene {
             let isAttacking = false;
 
             this.hoverManager.hoverAttackFromCell = undefined; // Reset state
+
+            // --- OBSTACLE HOVER: previewing an attack on the destructible center (BLOCK_CENTER). ---
+            if (this.updateObstacleHover()) {
+                return;
+            }
+
             // Only checking for attack if we have melee targets calculated
             if (this.canAttackByMeleeTargets && this.currentActiveUnit) {
                 const targetUnit = this.getUnitAtPosition(this.sc_mouseWorld);
@@ -3178,6 +3901,9 @@ export class Sandbox extends PixiScene {
             ).length
         ) {
             this.sc_buttonGroupUpdated = true;
+            // Snapshot the exact roster + positions BEFORE the supply bump, so "Rematch"
+            // can recreate the identical fight (supply is re-applied on the next startScene).
+            this.lastFightSnapshot = this.captureFightSnapshot();
             this.unitsHolder.increaseUnitsSupplyIfNeededPerTeam(TeamVals.LOWER);
             this.unitsHolder.increaseUnitsSupplyIfNeededPerTeam(TeamVals.UPPER);
             this.unitsHolder.haveDistancesToClosestEnemiesDecreased();
@@ -3195,12 +3921,20 @@ export class Sandbox extends PixiScene {
             fightProps.setTeamUnitsAlive(TeamVals.LOWER, lowerCount);
             fightProps.setTeamUnitsAlive(TeamVals.UPPER, upperCount);
 
+            // Snapshot the starting roster so we can chart casualties over the fight.
+            this.fightStatsTracker.start(this.unitsHolder.getAllUnits().values());
+            this.refreshVisibleStateIfNeeded();
+            this.updateLiveFightStats();
+
             return super.startScene();
         }
         return false;
     }
     public override Destroy(): void {
         super.Destroy();
+        // Floating damage numbers are parented to the shared worldRoot; destroy them so
+        // they don't linger after the scene is replaced (e.g. on "New Battle").
+        this.combatVisuals?.clear();
         window.removeEventListener("keydown", this.handleKeyDown);
         window.removeEventListener("keyup", this.handleKeyUp);
     }
@@ -3290,6 +4024,9 @@ export class Sandbox extends PixiScene {
             }
 
             this.cleanupDeadUnits();
+            if (this.fightStatsTracker.sample(this.unitsHolder.getAllUnits().values(), fightProps.getCurrentLap())) {
+                this.updateLiveFightStats();
+            }
             this.hoverManager.setLastPlacement(undefined);
 
             // --- A. TURN TIMER LOGIC ---
@@ -3350,10 +4087,11 @@ export class Sandbox extends PixiScene {
                 }
             }
 
-            // --- Movement animation (visual travel along route) ---
-            if (this.moveAnimManager.isMoving()) {
-                this.stepMoveAnimation(timeStep);
-            }
+            // --- Movement animation + ground-track fade ---
+            // Always step: this advances the travel animation while a unit is moving, and keeps
+            // fading the lingering ground tracks afterwards. Gating it on isMoving() froze the
+            // tracks on screen forever once the move finished.
+            this.stepMoveAnimation(timeStep);
 
             // --- C. AI LOGIC - delegate to AIController ---
             if (
@@ -3882,7 +4620,31 @@ export class Sandbox extends PixiScene {
             this.destroySpecificUnits(unitsToDestroy, true, true);
         }
     }
+    /**
+     * Push the current casualty stats into the visible state so the ALT "up next"
+     * overlay can show the live chart/percentages mid-fight. Winner is NO_TEAM until
+     * the fight actually ends (finishFight overwrites this with the real winner).
+     */
+    private updateLiveFightStats(): void {
+        if (!this.sc_visibleState) return;
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        this.sc_visibleState.fightStats = this.fightStatsTracker.buildReport(
+            TeamVals.NO_TEAM,
+            this.unitsHolder.getAllUnits().values(),
+            fightProps.getCurrentLap(),
+        );
+        this.sc_visibleStateUpdateNeeded = true;
+    }
     protected finishFight(teamWin: TeamType): void {
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        // Guard re-entry: the win-condition check runs every frame while there is no active unit,
+        // so without marking the shared fight state finished we'd re-enter here and log
+        // "Fight finished!" (and reset state) on every frame.
+        if (fightProps.hasFightFinished()) {
+            return;
+        }
+        fightProps.finishFight();
+
         this.cleanupDeadUnits();
         this.selectedBoardUnit = undefined; // Force clear selection
         this.currentShiftedUnit = undefined;
@@ -3900,6 +4662,12 @@ export class Sandbox extends PixiScene {
         this.refreshVisibleStateIfNeeded();
         if (this.sc_visibleState) {
             this.sc_visibleState.hasFinished = true;
+            this.sc_visibleState.teamWin = teamWin;
+            this.sc_visibleState.fightStats = this.fightStatsTracker.buildReport(
+                teamWin,
+                this.unitsHolder.getAllUnits().values(),
+                fightProps.getCurrentLap(),
+            );
             this.sc_visibleStateUpdateNeeded = true;
         }
         this.buttonManager.refreshButtons(true);

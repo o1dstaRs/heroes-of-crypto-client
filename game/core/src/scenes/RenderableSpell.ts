@@ -16,8 +16,10 @@ export enum BookPosition {
     SIX = 6,
 }
 
-const BOOK_POSITION_LEFT_X = -405;
-const BOOK_POSITION_RIGHT_X = 411;
+// Icon left-edge X for the left/right pages. Icons are anchored at their left edge, so to center a
+// BOOK_SPELL_SIZE-wide icon on a page whose center is at local x≈±260 we offset by half the icon.
+const BOOK_POSITION_LEFT_X = -315;
+const BOOK_POSITION_RIGHT_X = 160;
 const BOOK_POSITION_Y = 1255;
 const BOOK_SPELL_SIZE = 160;
 const BOOK_CELL_SIZE = 250;
@@ -102,17 +104,18 @@ export class PixiRenderableSpell extends Spell {
         }
         this.stackColumnGfx.clear();
     }
-    public isHover(mousePosition: HoCMath.XY, ownerStackPower: number): boolean {
-        return (
-            this.amountRemaining > 0 &&
-            ownerStackPower >= this.getMinimalCasterStackPower() &&
-            this.xMin !== this.xMax &&
-            this.yMin !== this.yMax &&
-            mousePosition.x >= this.xMin &&
-            mousePosition.x < this.xMax &&
-            mousePosition.y >= this.yMin &&
-            mousePosition.y < this.yMax
-        );
+    public isHover(globalMouse: HoCMath.XY, ownerStackPower: number): boolean {
+        if (
+            this.amountRemaining <= 0 ||
+            ownerStackPower < this.getMinimalCasterStackPower() ||
+            !this.iconSprite.visible
+        ) {
+            return false;
+        }
+        // Hit-test against the icon's actual rendered bounds in global/screen space. This is robust
+        // to the spellbook container's nested Y-flips and scaling, unlike the manual local-rect math.
+        const b = this.iconSprite.getBounds();
+        return globalMouse.x >= b.minX && globalMouse.x <= b.maxX && globalMouse.y >= b.minY && globalMouse.y <= b.maxY;
     }
     public getOnPagePosition(): HoCMath.XY[] {
         return [

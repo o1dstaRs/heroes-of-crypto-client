@@ -111,7 +111,14 @@ export const UpNext: React.FC = () => {
                         >
                             {visibleUnits.length > 0 &&
                                 [...visibleUnits].reverse().map((unit, index) => (
-                                    <Box key={index} sx={{ position: "relative" }}>
+                                    <Box
+                                        key={`${unit.teamType}-${unit.smallTextureName}-${unit.amount}-${index}`}
+                                        sx={{
+                                            position: "relative",
+                                            transition: "opacity 160ms ease-out, transform 160ms ease-out",
+                                            transform: "translateZ(0)",
+                                        }}
+                                    >
                                         <Box sx={{ position: "relative", display: "inline-block" }}>
                                             <Avatar
                                                 // @ts-ignore: src params
@@ -122,6 +129,10 @@ export const UpNext: React.FC = () => {
                                                     height: index === 0 ? "84px" : "72px",
                                                     flexShrink: 0,
                                                     borderRadius: "15%",
+                                                    imageRendering: "auto",
+                                                    transform: "translateZ(0)",
+                                                    transition:
+                                                        "width 160ms ease-out, height 160ms ease-out, opacity 160ms ease-out",
                                                 }}
                                             />
                                             <StackPowerOverlay
@@ -141,6 +152,7 @@ export const UpNext: React.FC = () => {
                                                     width: "20px",
                                                     height: "20px",
                                                     zIndex: 2,
+                                                    transition: "opacity 140ms ease-out",
                                                 }}
                                             />
                                         ) : unit.isOnHourglass ? (
@@ -154,6 +166,7 @@ export const UpNext: React.FC = () => {
                                                     width: "20px",
                                                     height: "20px",
                                                     zIndex: 2,
+                                                    transition: "opacity 140ms ease-out",
                                                 }}
                                             />
                                         ) : null}

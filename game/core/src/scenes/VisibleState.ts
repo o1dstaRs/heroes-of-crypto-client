@@ -37,6 +37,38 @@ export interface IVisibleOverallImpact {
     debuffs: IVisibleImpact[];
 }
 
+/** One data point in the "casualties over time" series. */
+export interface IFightStatsSample {
+    lap: number;
+    lowerKilled: number;
+    upperKilled: number;
+    /** Percentage of that team's starting army killed so far (0..100). */
+    lowerKilledPct: number;
+    upperKilledPct: number;
+}
+
+/** A single unit type's casualties for one team. */
+export interface IFightDeathEntry {
+    name: string;
+    smallTextureName: string;
+    died: number;
+    start: number;
+    team: TeamType;
+}
+
+/** End-of-fight summary rendered by the Fight Finished overlay. */
+export interface IFightStatsReport {
+    winner: TeamType;
+    series: IFightStatsSample[];
+    lowerDeaths: IFightDeathEntry[];
+    upperDeaths: IFightDeathEntry[];
+    lowerStartTotal: number;
+    upperStartTotal: number;
+    lowerKilledTotal: number;
+    upperKilledTotal: number;
+    totalLaps: number;
+}
+
 export interface IVisibleState {
     canBeStarted: boolean;
     hasFinished: boolean;
@@ -50,6 +82,10 @@ export interface IVisibleState {
     canRequestAdditionalTime: boolean;
     upNext: IVisibleUnit[];
     lapsNarrowed: number;
+    /** Set when the fight ends: which team won (LOWER = green, UPPER = red). */
+    teamWin?: TeamType;
+    /** Set when the fight ends: casualty stats for the Fight Finished overlay. */
+    fightStats?: IFightStatsReport;
 }
 
 export enum VisibleButtonState {

@@ -2,19 +2,22 @@ import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "./SynergiesCo
 import { SynergyKeysToPower } from "@heroesofcrypto/common";
 import Box from "@mui/joy/Box";
 import Tooltip from "@mui/joy/Tooltip";
-import React from "react";
+import React, { useMemo } from "react";
 
 const SynergiesRow = ({ synergies }: { synergies: string[] }) => {
-    // Sort synergies by level in descending order
-    const sortedSynergies = [...synergies].sort((a, b) => {
-        const partsA = a.split(":");
-        const partsB = b.split(":");
+    const sortedSynergies = useMemo(
+        () =>
+            [...synergies].sort((a, b) => {
+                const partsA = a.split(":");
+                const partsB = b.split(":");
 
-        const levelA = partsA.length >= 3 ? parseInt(partsA[2]) : 0;
-        const levelB = partsB.length >= 3 ? parseInt(partsB[2]) : 0;
+                const levelA = partsA.length >= 3 ? parseInt(partsA[2]) : 0;
+                const levelB = partsB.length >= 3 ? parseInt(partsB[2]) : 0;
 
-        return levelB - levelA;
-    });
+                return levelB - levelA;
+            }),
+        [synergies],
+    );
 
     return (
         <Box
@@ -42,7 +45,7 @@ const SynergiesRow = ({ synergies }: { synergies: string[] }) => {
                 }
 
                 return (
-                    <Box key={index} sx={{ textAlign: "center" }}>
+                    <Box key={synergyKey} sx={{ textAlign: "center" }}>
                         <Tooltip
                             title={`Level ${level}: ${(
                                 SYNERGY_NAME_TO_DESCRIPTION[synergyKey as keyof typeof SYNERGY_NAME_TO_DESCRIPTION] ||
@@ -59,6 +62,10 @@ const SynergiesRow = ({ synergies }: { synergies: string[] }) => {
                                     width: "36px",
                                     height: "36px",
                                     display: "block", // Prevents any extra space from inline display
+                                    imageRendering: "auto",
+                                    transform: "translateZ(0)",
+                                    transition: "opacity 160ms ease-out, transform 160ms ease-out",
+                                    willChange: "opacity, transform",
                                 }}
                             />
                         </Tooltip>

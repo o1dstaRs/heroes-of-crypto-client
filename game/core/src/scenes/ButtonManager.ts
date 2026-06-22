@@ -322,6 +322,8 @@ export class ButtonManager {
             }
             case "LuckShield": {
                 if (!active || !fightProps.hasFightStarted()) return;
+                // Defend: clear this turn's randomized luck before skipping (parity with legacy).
+                active.cleanupLuckPerTurn();
                 active.decreaseMorale(
                     HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK,
                     fightProps.getAdditionalMoralePerTeam(active.getTeam()),
