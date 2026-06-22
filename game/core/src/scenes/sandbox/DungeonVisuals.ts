@@ -13,6 +13,8 @@ export interface IDungeonVisualsContext {
 interface IFlickeringLight extends Graphics {
     _flickerOffset: number;
     _flickerSpeed: number;
+    _baseScale: number;
+    _baseAlpha: number;
 }
 
 export class DungeonVisuals {
@@ -79,8 +81,8 @@ export class DungeonVisuals {
         overlayContainer.addChild(overlay);
 
         // B. Perimeter Lights
-        const radius = size * 0.25;
-        const blur = new BlurFilter({ strength: 45 });
+        const radius = size * 0.22;
+        const blur = new BlurFilter({ strength: 38 });
         this.atmosphereLights = [];
 
         const margin = size * 0.18;
@@ -112,18 +114,44 @@ export class DungeonVisuals {
 
         lightsInit.forEach((pos) => {
             const light = new Graphics();
-            light.circle(0, 0, radius * 0.4).fill({ color: 0xffaa00, alpha: 0.5 });
-            light.circle(0, 0, radius * 0.8).fill({ color: 0xff4500, alpha: 0.3 });
+            // Per-light variation so the perimeter reads as separate braziers, not a uniform band.
+            const r = radius * (0.55 + Math.random() * 0.85); // 0.55 .. 1.4 of base
+            const intensity = 0.7 + Math.random() * 0.5;
+            // Layered warm falloff: deep ember halo -> orange -> amber -> hot near-white core.
+            light.circle(0, 0, r * 0.95).fill({ color: 0xb83000, alpha: 0.14 * intensity });
+            light.circle(0, 0, r * 0.6).fill({ color: 0xff6a14, alpha: 0.22 * intensity });
+            light.circle(0, 0, r * 0.34).fill({ color: 0xffa83c, alpha: 0.34 * intensity });
+            light.circle(0, 0, r * 0.15).fill({ color: 0xffe9b0, alpha: 0.62 * intensity });
 
             const fLight = light as unknown as IFlickeringLight;
             fLight._flickerOffset = Math.random() * 100;
-            fLight._flickerSpeed = 2 + Math.random() * 3;
+            fLight._flickerSpeed = 1.4 + Math.random() * 3.2;
+            fLight._baseScale = 1;
+            fLight._baseAlpha = 0.8 + Math.random() * 0.2;
 
             light.position.set(pos.x, pos.y);
+            light.alpha = fLight._baseAlpha;
             light.filters = [blur];
             overlayContainer.addChild(light);
             this.atmosphereLights.push(light);
         });
+    }
+    public hasAtmosphereLights(): boolean {
+        return this.atmosphereLights.length > 0;
+    }
+    /** Organic two-octave flicker (intensity + a subtle scale "breath") for the perimeter fires. */
+    public updateAtmosphereFlicker(nowSec: number): void {
+        for (const light of this.atmosphereLights) {
+            const f = light as unknown as IFlickeringLight;
+            const offset = f._flickerOffset ?? 0;
+            const speed = f._flickerSpeed ?? 1;
+            // Sum of two sines (different rates) reads as flame, not a clean pulse. Range ~[-1, 1].
+            const n =
+                0.6 * Math.sin(nowSec * speed + offset) + 0.4 * Math.sin(nowSec * speed * 2.7 + offset * 1.7);
+            light.alpha = (f._baseAlpha ?? 0.9) * (0.72 + 0.28 * n);
+            const s = (f._baseScale ?? 1) * (1.0 + 0.07 * n);
+            light.scale.set(s, s);
+        }
     }
     public moveFiresInward(inwardOffset: number): void {
         if (!this.atmosphereLights || this.atmosphereLights.length === 0) return;

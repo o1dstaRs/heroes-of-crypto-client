@@ -271,6 +271,9 @@ export class UnitsOverlay {
     }
     public onResize(stageW: number, stageH: number): void {
         if (stageW <= 0 || stageH <= 0) return;
+        // The overlay is destroyed once the fight starts; a later resize (e.g. rematch's
+        // fitViewToWindow) must not touch its torn-down container.
+        if (this.container.destroyed) return;
 
         const boardSide = Math.min(stageW, stageH);
         const cell = boardSide / 16;

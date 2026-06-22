@@ -76,10 +76,6 @@ import { MoveAnimationManager } from "./sandbox/MoveAnimationManager";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
 import { RangedProjectiles, BIG_PROJECTILE_UNITS } from "./sandbox/RangedProjectiles";
 
-interface IFlickeringLight extends Graphics {
-    _flickerOffset: number;
-    _flickerSpeed: number;
-}
 
 /** One unit captured at fight start, enough to recreate it exactly on "Rematch". */
 interface IUnitFightSnapshot {
@@ -144,7 +140,6 @@ export class Sandbox extends PixiScene {
     private sc_lastCalcRef?: { unitId: string; x: number; y: number; steps: number; layoutVersion: number };
     private layoutVersion = 0; // Tracks board topology changes during placement
     private atmosphereAlpha = 0; // [NEW] Transition alpha for night/lights
-    private atmosphereLights: Graphics[] = []; // [NEW] For flickering animation
     // --- Scene Setup ---
     private currentActiveUnit?: RenderableUnit;
     private currentShiftedUnit?: RenderableUnit;
@@ -595,6 +590,12 @@ export class Sandbox extends PixiScene {
             // 1. Reset shared fight state (laps/queues/started/finished). This also randomizes
             //    the grid type, so we re-apply the saved one below.
             FightStateManager.getInstance().reset();
+
+            // reset() also wipes the per-team placement config; re-apply it (mirrors the scene
+            // constructor) so getAugmentPlacement / rebuildFromFightProps don't throw.
+            const freshProps = FightStateManager.getInstance().getFightProperties();
+            freshProps.setDefaultPlacementPerTeam(TeamVals.LOWER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+            freshProps.setDefaultPlacementPerTeam(TeamVals.UPPER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
 
             // 2. Clear leftover combat VFX + wipe the current board (force, since units may be
             //    mid/post-fight). destroySpecificUnits frees each unit's grid occupancy.
@@ -1358,6 +1359,10 @@ export class Sandbox extends PixiScene {
                     .requestAdditionalTurnTime(undefined, true),
                 upNext: [],
                 lapsNarrowed: FightStateManager.getInstance().getFightProperties().getLapsNarrowed(),
+                // Preserve accumulated fight stats (the ALT-view casualties / "damage dealt")
+                // across a forced rebuild; otherwise they're wiped on every lap flip and only
+                // reappear on the next casualty sample, so the ALT view looks broken.
+                fightStats: this.sc_visibleState?.fightStats,
             };
             this.sc_visibleStateUpdateNeeded = true;
         }
@@ -1962,6 +1967,11 @@ export class Sandbox extends PixiScene {
         this.sc_renderSpellBookOverlay = false;
         this.buttonManager.sc_renderSpellBookOverlay = false;
         this.spellBookOverlay?.setOpen(false);
+        // Hide the book + its spell cells immediately (they live under spellBookContainer) and
+        // drop the dim/blur filter, so the overlay is gone this frame rather than next render.
+        if (this.spellBookContainer) {
+            this.spellBookContainer.visible = false;
+        }
         this.pixiApp.getWorldRoot().filters = [];
     }
 /**
@@ -2714,7 +2724,7 @@ export class Sandbox extends PixiScene {
         // We can check if it is in canAttackByRangeTargets if available, or deduce from distance.
         const dist = HoCMath.getDistance(attackFrom, target.getPosition());
         const isRange =
-            attacker.getAttackType() === AttackVals.RANGE &&
+            attacker.getAttackTypeSelection() === AttackVals.RANGE &&
             (this.canAttackByRangeTargets?.has(target.getId()) ||
                 (dist > GridConstants.STEP * 1.5 &&
                     attackFrom.x === attacker.getPosition().x &&
@@ -2948,14 +2958,17 @@ export class Sandbox extends PixiScene {
 
             const diedCount = Math.max(0, snap.amount - currentAmount);
 
-            // Deduct already shown damage
+            // Deduct damage the attack's own hit numbers already showed (Section 1). Key off the
+            // unit the handler ACTUALLY hit (damageForAnimation.unitId — e.g. the first enemy on a
+            // ranged shot's line of fire), NOT the clicked `target`. When a different enemy
+            // intercepts the ray (or the target is switched after a kill) those differ, and keying
+            // on `target` left this at 0 — so Section 3 drew the full diff (standard + Petrifying
+            // Gaze = the sum) instead of the isolated gaze.
+            const primaryVictimId = damageForAnimation.unitId ?? target.getId();
             let alreadyShown = 0;
-            if (uId === target.getId()) {
+            if (uId === primaryVictimId) {
                 if (damageForAnimation.hits && damageForAnimation.hits.length > 0) {
                     alreadyShown = damageForAnimation.hits.reduce((sum, h) => sum + h.amount, 0);
-                    // If amount was used for logic but not equal to sum, this fixes it.
-                    // Also handles case where amount was only first shot.
-                    console.log(`[DEBUG] executeAttackSequence: Using hits sum for alreadyShown: ${alreadyShown}`);
                 } else {
                     alreadyShown = damageForAnimation.amount;
                 }
@@ -3009,7 +3022,7 @@ export class Sandbox extends PixiScene {
                 // Extra damage on the PRIMARY target beyond the main hit — Medusa's Petrifying Gaze,
                 // a Fire Shield burn, etc. Stagger it a beat after the standard attack number so it
                 // reads as its own distinct hit instead of looking summed into the standard damage.
-                if (uId === target.getId()) {
+                if (uId === primaryVictimId) {
                     setTimeout(() => {
                         this.combatVisuals.showFloatingDamage(spawnPos, unaccountedDiff, primaryAttackDir, diedCount);
                     }, 300);
@@ -3410,14 +3423,14 @@ export class Sandbox extends PixiScene {
                     // Check if mouse cell is actually part of the target unit (for precise targeting)
                     const isMouseInsideUnit = targetUnit.getCells().some((c) => c.x === cell.x && c.y === cell.y);
 
-                    const isRangedUnit = this.currentActiveUnit.getAttackType() === AttackVals.RANGE;
+                    const isRangedUnit = this.currentActiveUnit.getAttackTypeSelection() === AttackVals.RANGE;
                     const canStaticRangeAttack = this.canAttackByRangeTargets?.has(targetUnit.getId());
                     let isRangeAttackContext = false;
 
                     let skipMeleeCheck = this.currentActiveUnit.hasAbilityActive("No Melee");
 
                     const canPerformRangeAttack =
-                        this.currentActiveUnit.getAttackType() === AttackVals.RANGE &&
+                        this.currentActiveUnit.getAttackTypeSelection() === AttackVals.RANGE &&
                         this.currentActiveUnit.getRangeShots() > 0 &&
                         !this.attackHandler.canBeAttackedByMelee(
                             this.currentActiveUnit.getPosition(),
@@ -4171,6 +4184,9 @@ export class Sandbox extends PixiScene {
         }
     }
     public override Deselect(_onlyWhenNotStarted = false, _refreshStats = true): void {
+        // ESC routes here (HandleEscapeKey -> Deselect); also close the spellbook and drop its
+        // overlays. closeSpellBook() is a no-op when the book isn't open.
+        this.closeSpellBook();
         super.Deselect(_onlyWhenNotStarted, _refreshStats);
         if (this.selectedBoardUnit) {
             this.selectedBoardUnit.setBoardSelected(false);
@@ -4354,7 +4370,7 @@ export class Sandbox extends PixiScene {
         // ==========================================================================================
         if (fightStarted) {
             // Atmosphere Transition & Animation
-            if (this.atmosphereAlpha < 1 || this.atmosphereLights.length > 0) {
+            if (this.atmosphereAlpha < 1 || this.dungeonVisuals.hasAtmosphereLights()) {
                 // Fade In
                 if (this.atmosphereAlpha < 1) {
                     this.atmosphereAlpha += timeStep / 3;
@@ -4362,18 +4378,8 @@ export class Sandbox extends PixiScene {
                     this.updateDungeonAtmosphere(true, this.atmosphereAlpha);
                 }
 
-                // Fire Flicker
-                const now = HoCLib.getTimeMillis() / 1000;
-                for (const light of this.atmosphereLights) {
-                    const fLight = light as unknown as IFlickeringLight;
-                    const offset = fLight._flickerOffset || 0;
-                    const speed = fLight._flickerSpeed || 1;
-                    const flicker = 0.8 + 0.2 * Math.sin(now * speed + offset); // Base 0.8, varies +/- 0.2
-                    light.alpha = flicker;
-                    // Optional: slight scale pulse?
-                    // const s = 1.0 + 0.05 * Math.sin(now * speed * 1.5 + offset);
-                    // light.scale.set(s, s);
-                }
+                // Fire flicker (driven by the actual DungeonVisuals lights).
+                this.dungeonVisuals.updateAtmosphereFlicker(HoCLib.getTimeMillis() / 1000);
             }
 
             this.cleanupDeadUnits();
@@ -5194,7 +5200,7 @@ export class Sandbox extends PixiScene {
                 }
 
                 if (
-                    this.currentActiveUnit.getAttackType() === AttackVals.RANGE &&
+                    this.currentActiveUnit.getAttackTypeSelection() === AttackVals.RANGE &&
                     this.currentActiveUnit.getRangeShots() > 0 &&
                     this.attackHandler.canLandRangeAttack(
                         this.currentActiveUnit,
