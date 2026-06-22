@@ -152,6 +152,7 @@ export class Sandbox extends PixiScene {
     private hasInitializedLap = false;
     private gameplayGraphics?: Graphics;
     private currentActiveSpell?: PixiRenderableSpell;
+    private hoveredSpell?: PixiRenderableSpell;
     private drawnNarrowingLaps: Set<number> = new Set();
     // Debug: render the cell grid once (helps verify attack trajectories / cell alignment).
     private gridDebugRendered = false;
@@ -267,27 +268,23 @@ export class Sandbox extends PixiScene {
         this.attachToWorldRoot(this.dungeonVisuals.getHoleContainer(), 1);
         this.spellBookContainer = new Container();
         this.spellBookContainer.visible = false;
-        this.spellBookContainer.sortableChildren = false;
+        this.spellBookContainer.sortableChildren = true;
         this.spellBookContainer.zIndex = 7000;
-        // Fix for coordinates: The spell system uses a centered X and Y-up (Cartesian) system with top approx 1380.
-        // We attach to stage (Screen Space).
-        this.spellBookContainer.scale.y = -1;
-        const { width } = context.pixiApp.getApplication().screen;
-        this.spellBookContainer.position.set(width / 2, 1508);
+        const { width, height } = context.pixiApp.getApplication().screen;
+        this.spellBookContainer.position.set(width / 2, height / 2);
 
         // Add Book Background Graphic
         const bookTex = this.texAny("book_1024");
         if (bookTex) {
             const bookSprite = new Sprite(bookTex);
-            bookSprite.anchor.set(0.5, 0);
-            bookSprite.scale.set(-1, -1);
-            // Container is Y-flipped, so a larger local Y raises the book on screen. Lifting it
-            // above the spells' title strips (~1185 local) also clears the top-border overlap.
-            bookSprite.position.set(0, 1450);
+            bookSprite.anchor.set(0.5);
+            bookSprite.position.set(0, 0);
+            bookSprite.zIndex = 0;
             this.spellBookContainer.addChild(bookSprite);
         }
 
-        context.pixiApp.getApplication().stage.addChild(this.spellBookContainer);
+        context.pixiApp.getUIContainer().sortableChildren = true;
+        context.pixiApp.getUIContainer().addChild(this.spellBookContainer);
         context.pixiApp.getApplication().stage.sortableChildren = true;
 
         this.unitsHolder = new UnitsHolder(this.grid);
@@ -432,7 +429,7 @@ export class Sandbox extends PixiScene {
         });
 
         this.spellBookOverlay = new SpellBookOverlay(
-            context.pixiApp.getApplication().stage,
+            context.pixiApp.getUIContainer(),
             context.pixiApp.getApplication().screen.width,
             context.pixiApp.getApplication().screen.height,
         );
@@ -715,7 +712,7 @@ export class Sandbox extends PixiScene {
 
             // "Always occupy full camera view" => Scale to fit (Contain)
             // Remove cap of 1 to allow Upscaling on large screens
-            const scale = Math.min(scaleW, scaleH);
+            const scale = Math.min(scaleW, scaleH) * 0.85; // a touch smaller than full-fit
 
             this.spellBookContainer.scale.set(scale, -scale);
             // Shift up by 1/12 of the screen height as requested
@@ -1980,6 +1977,8 @@ export class Sandbox extends PixiScene {
      * against each icon's global getBounds().
      */
     private spellbookGlobalFromWorld(worldPos: HoCMath.XY): HoCMath.XY {
+        // isHover() hit-tests against each icon's global getBounds(), so return the click in
+        // global (screen) space to match.
         return this.pixiApp.worldToScreen(worldPos.x, worldPos.y);
     }
 /**

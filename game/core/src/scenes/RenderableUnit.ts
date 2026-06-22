@@ -221,6 +221,11 @@ export class RenderableUnit extends Unit {
             s.cleanupPagePosition();
         }
     }
+    public setHoveredSpell(spell: PixiRenderableSpell | undefined): void {
+        for (const s of this.pixiSpells) {
+            s.setHighlighted(s === spell);
+        }
+    }
     public getHoveredSpell(mousePosition: HoCMath.XY): PixiRenderableSpell | undefined {
         for (const s of this.pixiSpells) {
             if (s.isHover(mousePosition, this.getStackPower())) {

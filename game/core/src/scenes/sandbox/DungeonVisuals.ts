@@ -75,14 +75,17 @@ export class DungeonVisuals {
         const y = vh * 0.5;
         const halfSize = size / 2;
 
-        // A. Dark Night Overlay
+        // A. Dark Night Overlay — light enough that the background still reads through it.
         const overlay = new Graphics();
-        overlay.rect(x - halfSize, y - halfSize, size, size).fill({ color: 0x000000, alpha: 0.6 });
+        overlay.rect(x - halfSize, y - halfSize, size, size).fill({ color: 0x000000, alpha: 0.38 });
         overlayContainer.addChild(overlay);
 
         // B. Perimeter Lights
-        const radius = size * 0.22;
-        const blur = new BlurFilter({ strength: 38 });
+        const radius = size * 0.25;
+        const blur = new BlurFilter({ strength: 40, quality: 4 });
+        // Generous padding so the blur isn't clipped to its bounding box (the clip shows up as
+        // hard rectangular "lines" around each light).
+        blur.padding = Math.ceil(size * 0.14);
         this.atmosphereLights = [];
 
         const margin = size * 0.18;

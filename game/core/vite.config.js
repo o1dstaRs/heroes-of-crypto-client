@@ -83,9 +83,13 @@ export default defineConfig(({ mode }) => {
             // base: "./",
             rollupOptions: {
                 output: {
-                    // Optional: keep vendor split predictable
-                    manualChunks: {
-                        react: ["react", "react-dom"],
+                    // Optional: keep vendor split predictable.
+                    // Vite 8 (rolldown) requires manualChunks to be a function, not an object.
+                    manualChunks(id) {
+                        if (/[\\/]node_modules[\\/](react|react-dom)[\\/]/.test(id)) {
+                            return "react";
+                        }
+                        return undefined;
                     },
                 },
             },
