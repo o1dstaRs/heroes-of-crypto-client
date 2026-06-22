@@ -3006,7 +3006,16 @@ export class Sandbox extends PixiScene {
                     }
                 }
 
-                this.combatVisuals.showFloatingDamage(spawnPos, unaccountedDiff, primaryAttackDir, diedCount);
+                // Extra damage on the PRIMARY target beyond the main hit — Medusa's Petrifying Gaze,
+                // a Fire Shield burn, etc. Stagger it a beat after the standard attack number so it
+                // reads as its own distinct hit instead of looking summed into the standard damage.
+                if (uId === target.getId()) {
+                    setTimeout(() => {
+                        this.combatVisuals.showFloatingDamage(spawnPos, unaccountedDiff, primaryAttackDir, diedCount);
+                    }, 300);
+                } else {
+                    this.combatVisuals.showFloatingDamage(spawnPos, unaccountedDiff, primaryAttackDir, diedCount);
+                }
             }
         }
 
@@ -4819,8 +4828,12 @@ export class Sandbox extends PixiScene {
         const armageddonWave = fightProps.getArmageddonWave();
         let gotArmageddonKills = false;
         if (armageddonWave) {
-            // Jolt the board on each Armageddon wave; later waves hit harder.
-            this.triggerScreenShake(12 + armageddonWave * 3, 0.5);
+            // getArmageddonWave() is non-zero on most laps (negative before the phase, > max
+            // after), so guard the shake to the real waves (1..NUMBER_OF_ARMAGEDDON_WAVES) — the
+            // same range performArmageddon applies damage for. Later waves hit harder.
+            if (armageddonWave > 0 && armageddonWave <= HoCConstants.NUMBER_OF_ARMAGEDDON_WAVES) {
+                this.triggerScreenShake(12 + armageddonWave * 3, 0.5);
+            }
             gotArmageddonKills = this.performArmageddon(unitsLower, armageddonWave) || gotArmageddonKills;
             gotArmageddonKills = this.performArmageddon(unitsUpper, armageddonWave) || gotArmageddonKills;
             if (gotArmageddonKills) {

@@ -34,9 +34,13 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
             const loop = (time: number) => {
                 try {
                     manager.SimulationLoop(time);
-                    window.requestAnimationFrame(loop);
                 } catch (e) {
+                    // A transient error in one frame must NOT kill the loop — otherwise the game
+                    // freezes for good ("no units selected / not playable"). Log and keep going;
+                    // the per-frame logic (e.g. next-unit selection) recovers on the next frame.
                     console.error("Error during simulation loop", e);
+                } finally {
+                    window.requestAnimationFrame(loop);
                 }
             };
 

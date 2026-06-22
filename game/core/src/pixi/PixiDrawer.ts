@@ -453,7 +453,7 @@ export class PixiDrawer {
 
         this.hoverAreaGfx.rect(x, y, w, h).fill({ color, alpha: 0.8 });
     }
-    /** Draw the cell grid: one line at every internal cell boundary, each stroked on its own. */
+    /** Draw the cell grid: a thin filled bar at every internal cell boundary. */
     public drawGrid(): void {
         this.gridGfx.clear();
 
@@ -464,18 +464,21 @@ export class PixiDrawer {
         const step = this.gridSettings.getStep();
         const size = this.gridSettings.getGridSize();
         const color = localStorage.getItem("joy-mode") === "light" ? 0x333333 : 0xcccccc;
-        const style = { width: 1, color, alpha: 1 };
+        const fill = { color, alpha: 0.3 };
 
-        // Cells are spaced by `step` on both axes (see GridMath.getPositionForCell). Draw each
-        // internal boundary as its own stroked segment: stroking the whole lattice in a single
-        // call drops segments in PixiJS v8. Index-based (i * step) so a fractional step can't drift.
+        // Use thin filled rects, not 1px strokes. At the world->screen zoom a 1px stroke undersamples
+        // and whole lines drop out (e.g. every 4th), and stroking the lattice in one call also drops
+        // segments in PixiJS v8. A filled bar always rasterizes. Cells are spaced by `step` on both
+        // axes (see GridMath.getPositionForCell); index-based so a fractional step can't drift.
+        const lineW = Math.max(2, step * 0.03);
+        const half = lineW / 2;
         for (let i = 1; i < size; i++) {
             const x = minX + i * step;
-            this.gridGfx.moveTo(x, minY).lineTo(x, maxY).stroke(style);
+            this.gridGfx.rect(x - half, minY, lineW, maxY - minY).fill(fill);
         }
         for (let j = 1; j < size; j++) {
             const y = minY + j * step;
-            this.gridGfx.moveTo(minX, y).lineTo(maxX, y).stroke(style);
+            this.gridGfx.rect(minX, y - half, maxX - minX, lineW).fill(fill);
         }
     }
     public destroy(): void {
