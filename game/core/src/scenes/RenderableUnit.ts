@@ -112,8 +112,6 @@ export class RenderableUnit extends Unit {
     private stackPowerContainer?: Container;
     private stackPowerPips: Graphics[] = [];
     private hourglassContainer?: Container;
-    private hourglassBacking?: Graphics;
-    private hourglassGlyph?: Graphics;
     private hourglassSprite?: Sprite;
     private spawnAnim?: SpawnAnimState;
     private boardSelected = false;
@@ -268,7 +266,10 @@ export class RenderableUnit extends Unit {
         this.sprite.x = pos.x;
         this.sprite.y = pos.y;
         this.sprite.visible = this.visualMode !== "hidden";
-        this.sprite.alpha = this.visualMode === "ghost" ? 0.25 : 1;
+        // Units with the "Hidden" buff (e.g. White Tiger) are drawn semi-transparent as a cue.
+        const isHidden = this.hasBuffActive("Hidden");
+        const normalSpriteAlpha = isHidden ? 0.4 : 1;
+        this.sprite.alpha = this.visualMode === "ghost" ? 0.25 : normalSpriteAlpha;
         this.sprite.tint = 0xffffff;
         if (!this.shadow) {
             this.shadow = new Sprite(baseTex);
@@ -290,7 +291,8 @@ export class RenderableUnit extends Unit {
         this.shadow.x = pos.x + shadowOffsetX;
         this.shadow.y = pos.y + shadowOffsetY;
         this.shadow.visible = this.visualMode !== "hidden";
-        this.shadow.alpha = this.visualMode === "ghost" ? 0.1 : 0.35;
+        const normalShadowAlpha = isHidden ? 0.15 : 0.35;
+        this.shadow.alpha = this.visualMode === "ghost" ? 0.1 : normalShadowAlpha;
         this.shadow.tint = 0x000000;
         // --- badge ---
         this.ensureBadge(worldRoot, gs, props, pos);
@@ -629,8 +631,6 @@ export class RenderableUnit extends Unit {
         if (this.hourglassContainer) {
             this.hourglassContainer.destroy({ children: true });
             this.hourglassContainer = undefined;
-            this.hourglassBacking = undefined;
-            this.hourglassGlyph = undefined;
             this.hourglassSprite = undefined;
         }
         if (this.badgeContainer) {
@@ -720,21 +720,17 @@ export class RenderableUnit extends Unit {
         pos: HoCMath.XY,
     ): void {
         const tex = this.texResolver("hourglass");
-        const markerParent = this.badgeContainer ?? worldRoot;
-        const anchoredToBadge = markerParent === this.badgeContainer;
 
         if (!this.hourglassContainer) {
             this.hourglassContainer = new Container();
-            this.hourglassBacking = new Graphics();
             this.hourglassSprite = new Sprite(tex ?? Texture.EMPTY);
-            this.hourglassGlyph = new Graphics();
             this.hourglassSprite.anchor.set(0.5);
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
             this.hourglassContainer.zIndex = 4000 - pos.y + 2;
-            this.hourglassContainer.addChild(this.hourglassBacking, this.hourglassSprite, this.hourglassGlyph);
-            markerParent.addChild(this.hourglassContainer);
-        } else if (this.hourglassContainer.parent !== markerParent) {
-            markerParent.addChild(this.hourglassContainer);
+            this.hourglassContainer.addChild(this.hourglassSprite);
+            worldRoot.addChild(this.hourglassContainer);
+        } else if (this.hourglassContainer.parent !== worldRoot) {
+            worldRoot.addChild(this.hourglassContainer);
         }
 
         if (this.hourglassSprite) {
@@ -742,80 +738,31 @@ export class RenderableUnit extends Unit {
             this.hourglassSprite.visible = !!tex;
         }
 
-        if (this.hourglassGlyph) {
-            this.hourglassGlyph.visible = !tex;
-        }
-
-        if (!tex && this.hourglassSprite) {
-            this.hourglassSprite.visible = false;
-        }
-
         if (this.hourglassContainer) {
             this.hourglassContainer.zIndex = 4000 - pos.y + 2;
         }
 
-        const cellSize = gs.getCellSize();
         const visualSide = props.size === 2 ? 256 : 128;
-        const iconSide = Math.max(28, Math.floor(visualSide * 0.34));
+        const iconSide = Math.round((visualSide * 20) / 72);
         const unitHalfSize = visualSide / 2;
-        const margin = Math.max(8, Math.floor(cellSize * 0.25));
         const halfIcon = iconSide / 2;
-        const innerIconSide = iconSide * 0.78;
-
-        if (this.hourglassBacking) {
-            this.hourglassBacking
-                .clear()
-                .circle(0, 0, halfIcon)
-                .fill({ color: 0x160c04, alpha: 0.82 })
-                .stroke({ width: Math.max(2, iconSide * 0.08), color: 0xf2c96d, alpha: 0.95 });
-        }
 
         if (this.hourglassSprite) {
-            this.hourglassSprite.width = innerIconSide;
-            this.hourglassSprite.height = innerIconSide;
+            this.hourglassSprite.width = iconSide;
+            this.hourglassSprite.height = iconSide;
             this.hourglassSprite.scale.y = -Math.abs(this.hourglassSprite.scale.y);
         }
 
-        if (this.hourglassGlyph && !tex) {
-            const w = iconSide * 0.38;
-            const h = iconSide * 0.54;
-            const strokeWidth = Math.max(1.5, iconSide * 0.06);
-            this.hourglassGlyph
-                .clear()
-                .moveTo(-w / 2, -h / 2)
-                .lineTo(w / 2, -h / 2)
-                .lineTo(0, 0)
-                .closePath()
-                .fill({ color: 0xf6d17a, alpha: 1 })
-                .stroke({ width: strokeWidth, color: 0xffffff, alpha: 0.9 })
-                .moveTo(-w / 2, h / 2)
-                .lineTo(w / 2, h / 2)
-                .lineTo(0, 0)
-                .closePath()
-                .fill({ color: 0xf6d17a, alpha: 1 })
-                .stroke({ width: strokeWidth, color: 0xffffff, alpha: 0.9 });
-            this.hourglassGlyph
-                .moveTo(-w / 2, -h / 2)
-                .lineTo(w / 2, -h / 2)
-                .moveTo(-w / 2, h / 2)
-                .lineTo(w / 2, h / 2)
-                .stroke({ width: strokeWidth, color: 0xffffff, alpha: 1 });
-        }
-
         if (this.hourglassContainer) {
-            if (anchoredToBadge) {
-                this.hourglassContainer.x = -Math.max(iconSide * 0.95, halfIcon + margin);
-                this.hourglassContainer.y = 0;
-            } else {
-                this.hourglassContainer.x = pos.x - unitHalfSize + margin + halfIcon;
-                this.hourglassContainer.y = pos.y + unitHalfSize - margin - halfIcon;
-            }
+            this.hourglassContainer.x = pos.x - unitHalfSize + halfIcon;
+            this.hourglassContainer.y = pos.y + unitHalfSize - halfIcon;
             this.hourglassContainer.visible =
                 (this.visualMode ?? "normal") === "normal" &&
                 this.getAmountAlive() > 0 &&
+                !!tex &&
                 this.shouldShowHourglassIndicator();
             for (const child of this.hourglassContainer.children) {
-                if (child instanceof Graphics || child instanceof Sprite) {
+                if (child instanceof Sprite) {
                     child.scale.y = -Math.abs(child.scale.y);
                 }
             }

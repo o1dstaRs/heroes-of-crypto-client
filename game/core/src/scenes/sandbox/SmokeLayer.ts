@@ -88,12 +88,13 @@ void main(void) {
 
     vec4 col = texture(uTexture, sampleUv);
 
-    // Erode the density with finer animated noise so it breaks up into smoky tufts.
-    float n = fbm(uv * 7.0 - vec2(t * 0.10, t * 0.05));
-    float density = smoothstep(0.12, 0.9, n);
+    // Erode with animated noise to break the edges into wisps — but keep it continuous enough to
+    // read as a smoke body rather than scattered specks.
+    float n = fbm(uv * 7.0 - vec2(t * 0.08, t * 0.04));
+    float density = smoothstep(0.18, 0.9, n);
 
     // col is premultiplied; scaling by a scalar keeps it valid.
-    finalColor = col * (0.25 + 0.95 * density);
+    finalColor = col * (0.24 + 0.82 * density);
 }
 `;
 
@@ -114,6 +115,9 @@ export class SmokeLayer {
                     },
                 },
             });
+            // Render at display resolution; Filter.from defaults to resolution 1, which upscales the
+            // effect from a 1x texture on HiDPI/Retina screens and looks blocky.
+            this.filter.resolution = Math.min(window.devicePixelRatio || 1, 2);
             // Allow the domain-warp to bleed past the blob bounds without getting clipped.
             this.filter.padding = 28;
             this.container.filters = [this.filter];
@@ -148,25 +152,27 @@ export class SmokeLayer {
             const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
             return x - Math.floor(x);
         };
-        const dustTints = [0xd6d0c0, 0xcdc7b6, 0xded7c6];
+        // Muted grey-browns, but light enough to read against the darkened dungeon floor.
+        const dustTints = [0xc6bfb0, 0xbbb4a5, 0xcec7b8];
 
         for (const t of tracks) {
             const seed = t.phase;
             const k = Math.max(0, t.life / t.maxLife); // 1 -> 0
             const fade = Math.min(1, k * 1.6); // hold then fall off
             const age = 1 - k; // 0 -> 1
-            const puffCount = 4 + Math.floor(rnd(seed, 0) * 3); // 4..6
-            const scale = 0.85 + rnd(seed, 1) * 0.5;
+            const puffCount = 3 + Math.floor(rnd(seed, 0) * 2); // 3..4 — fewer, less busy
+            const scale = 0.8 + rnd(seed, 1) * 0.45;
             const tint = dustTints[Math.floor(rnd(seed, 2) * dustTints.length)];
 
-            // Solid-ish soft blobs: the shader carves them into wisps, so we want some density here.
+            // Low, faint blobs that barely spread — the shader erodes them into thin dust. Real
+            // kicked-up dust stays close to the ground rather than billowing up dramatically.
             for (let i = 0; i < puffCount; i++) {
-                const ang = seed + (i * 2 * Math.PI) / puffCount + (rnd(seed, i + 3) - 0.5) * 1.2 + age * 0.6;
-                const spread = t.radius * scale * (0.1 + (0.4 + rnd(seed, i + 9) * 0.4) * age);
+                const ang = seed + (i * 2 * Math.PI) / puffCount + (rnd(seed, i + 3) - 0.5) * 1.0 + age * 0.25;
+                const spread = t.radius * scale * (0.1 + (0.4 + rnd(seed, i + 9) * 0.35) * age);
                 const px = t.x + Math.cos(ang) * spread;
-                const py = t.y + Math.sin(ang) * spread + t.radius * (0.35 + rnd(seed, i + 17) * 0.4) * age;
-                const pr = t.radius * scale * (0.42 + 0.5 * age) * (0.7 + 0.6 * rnd(seed, i + 25));
-                g.circle(px, py, pr).fill({ color: tint, alpha: 0.5 * fade });
+                const py = t.y + Math.sin(ang) * spread + t.radius * (0.22 + rnd(seed, i + 17) * 0.3) * age;
+                const pr = t.radius * scale * (0.42 + 0.46 * age) * (0.7 + 0.6 * rnd(seed, i + 25));
+                g.circle(px, py, pr).fill({ color: tint, alpha: 0.4 * fade });
             }
         }
     }

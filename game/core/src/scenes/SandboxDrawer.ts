@@ -12,6 +12,11 @@ export interface ILingeringTrack {
     maxLife: number;
     phase: number;
     team: TeamType;
+    /** Flying units kick up wind instead of ground dust. */
+    flying: boolean;
+    /** Normalized movement direction at the moment this track was dropped. */
+    dirX: number;
+    dirY: number;
 }
 
 export interface IGameplayDrawContext {

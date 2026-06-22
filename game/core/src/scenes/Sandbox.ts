@@ -69,6 +69,9 @@ import { AIController } from "./AIController";
 import { MAX_HOLE_LAYERS } from "@/statics";
 import { DungeonVisuals } from "./sandbox/DungeonVisuals";
 import { SmokeLayer } from "./sandbox/SmokeLayer";
+import { WindLayer } from "./sandbox/WindLayer";
+import { createCinematicFilter } from "./sandbox/CinematicFilter";
+import { LightingLayer } from "./sandbox/LightingLayer";
 import { MoveAnimationManager } from "./sandbox/MoveAnimationManager";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
 import { RangedProjectiles, BIG_PROJECTILE_UNITS } from "./sandbox/RangedProjectiles";
@@ -162,6 +165,8 @@ export class Sandbox extends PixiScene {
     private dungeonVisuals: DungeonVisuals;
     private moveAnimManager: MoveAnimationManager;
     private smokeLayer?: SmokeLayer;
+    private windLayer?: WindLayer;
+    private lightingLayer?: LightingLayer;
     private combatVisuals: CombatVisuals;
     private rangedProjectiles: RangedProjectiles;
     public constructor(context: PixiSceneContext) {
@@ -215,6 +220,25 @@ export class Sandbox extends PixiScene {
         // Procedural smoke for movement tracks — its own layer so the fBM shader only touches dust.
         this.smokeLayer = new SmokeLayer();
         this.attachToWorldRoot(this.smokeLayer.getContainer(), 50);
+        this.windLayer = new WindLayer();
+        this.attachToWorldRoot(this.windLayer.getContainer(), 50);
+
+        // Cinematic full-scene grade + vignette: post-process the whole game world (camera), which
+        // leaves the React/DOM UI untouched and limits the blast radius if the shader misbehaves.
+        const cinematic = createCinematicFilter();
+        if (cinematic) {
+            // Match the display resolution. A camera-wide Filter.from defaults to resolution 1, so it
+            // rasterizes the entire world to a 1x render texture and upscales it on HiDPI/Retina
+            // displays → the whole scene looks blocky/pixelated (the DOM UI is unaffected).
+            cinematic.resolution = this.pixiApp.getApplication().renderer.resolution;
+            this.pixiApp.getCamera().filters = [cinematic];
+        }
+
+        // Warm torch lighting (additive pools) that follows the action over the darkened dungeon.
+        // zIndex must sit ABOVE the units (they use ~3200-4800 via `4000 - pos.y`) so the light
+        // actually falls on them, but below placement UI (6000).
+        this.lightingLayer = new LightingLayer(this.sc_sceneSettings.getGridSettings());
+        this.attachToWorldRoot(this.lightingLayer.getContainer(), 5500);
 
         this.combatVisuals = new CombatVisuals({
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
@@ -360,7 +384,7 @@ export class Sandbox extends PixiScene {
                 setSpellBookOverlay: (active) => {
                     this.sc_renderSpellBookOverlay = active;
                     this.spellBookOverlay?.setOpen(active);
-                    this.pixiApp.getWorldRoot().filters = active ? [new BlurFilter(8)] : [];
+                    this.pixiApp.getWorldRoot().filters = active ? [new BlurFilter({ strength: 8 })] : [];
                 },
             },
             this.sc_isAIActive,
@@ -1301,6 +1325,8 @@ export class Sandbox extends PixiScene {
         this.grid.refreshWithNewType(FightStateManager.getInstance().getFightProperties().getGridType());
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+        // Fresh terrain starts wet (un-dried) — reset the dried sprite state.
+        this.dungeonVisuals?.setCenterDried(false);
         // force as we might have changed the number of laps till narrowing
         this.refreshVisibleStateIfNeeded(true);
     }
@@ -2459,6 +2485,7 @@ export class Sandbox extends PixiScene {
      */
     private updateAreaThrowHover(): boolean {
         this.hoverManager.clearAOEArea();
+        this.hoverManager.clearAttackVisuals();
         const clearInfo = (): boolean => {
             if (this.sc_hoverInfoArr[0] === "Area attack") {
                 this.sc_hoverInfoArr = [];
@@ -2473,11 +2500,60 @@ export class Sandbox extends PixiScene {
         }
 
         this.hoverManager.drawAOEArea(cells);
+        // Outline every unit caught in the splash in red — same highlight as a single target.
+        for (const affectedGroup of AllAbilities.evaluateAffectedUnits(cells, this.unitsHolder, this.grid) ?? []) {
+            for (const affectedUnit of affectedGroup) {
+                this.hoverManager.addTargetHighlight(affectedUnit);
+            }
+        }
         if (this.sc_hoverInfoArr[0] !== "Area attack") {
             this.sc_hoverInfoArr = ["Area attack"];
             this.sc_hoverTextUpdateNeeded = true;
         }
         return true;
+    }
+    /**
+     * For mass / AOE ranged attackers (Cyclops = Large Caliber, Tsar Cannon = Through Shot,
+     * Gargantuan = Area Throw), outline EVERY unit the shot will hit — not just the one under the
+     * cursor — reusing the red target highlight. Returns true when it applied an AOE highlight, so
+     * the caller skips the single-target highlight.
+     */
+    private highlightRangeAttackUnits(targetUnit: Unit): boolean {
+        const attacker = this.currentActiveUnit;
+        if (!attacker) {
+            return false;
+        }
+        const largeCaliber = attacker.hasAbilityActive("Large Caliber");
+        const areaThrow = attacker.hasAbilityActive("Area Throw");
+        const throughShot = attacker.hasAbilityActive("Through Shot");
+        if (!largeCaliber && !areaThrow && !throughShot) {
+            return false;
+        }
+        const evalResult = this.attackHandler.evaluateRangeAttack(
+            this.unitsHolder.getAllUnits(),
+            attacker,
+            attacker.getPosition(),
+            targetUnit.getPosition(),
+            throughShot, // isThroughShot
+            false, // isSelection
+            largeCaliber || areaThrow, // splash (Large Caliber / Area Throw)
+        );
+        const seen = new Set<string>();
+        for (const affectedGroup of evalResult.affectedUnits) {
+            for (const affectedUnit of affectedGroup) {
+                if (seen.has(affectedUnit.getId())) {
+                    continue;
+                }
+                seen.add(affectedUnit.getId());
+                this.hoverManager.addTargetHighlight(affectedUnit);
+            }
+        }
+        // Always include the unit directly under the cursor.
+        if (!seen.has(targetUnit.getId())) {
+            this.hoverManager.addTargetHighlight(targetUnit);
+            seen.add(targetUnit.getId());
+        }
+        return seen.size > 0;
     }
     /**
      * The 3x3 splash cells for an Area Throw aimed at worldPos, or undefined when the active unit
@@ -2489,7 +2565,9 @@ export class Sandbox extends PixiScene {
         if (!unit || !worldPos || !unit.hasAbilityActive("Area Throw")) {
             return undefined;
         }
-        if (!this.attackHandler.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId()))) {
+        // Only while the unit is in RANGE mode and has shots. Switching to melee drops the area
+        // preview so the normal move/melee hover takes over (parity with legacy).
+        if (unit.getAttackTypeSelection() !== AttackVals.RANGE || unit.getRangeShots() <= 0) {
             return undefined;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -3273,7 +3351,26 @@ export class Sandbox extends PixiScene {
             // Only checking for attack if we have melee targets calculated
             if (this.canAttackByMeleeTargets && this.currentActiveUnit) {
                 const targetUnit = this.getUnitAtPosition(this.sc_mouseWorld);
-                if (targetUnit && targetUnit.getTeam() !== this.currentActiveUnit.getTeam()) {
+                // A unit with the "Hidden" buff cannot be hovered/targeted for attack; show a
+                // "Hidden" hover message instead (cleared once the cursor leaves the unit).
+                const isHiddenEnemy =
+                    !!targetUnit &&
+                    targetUnit.getTeam() !== this.currentActiveUnit.getTeam() &&
+                    targetUnit.hasBuffActive("Hidden");
+                if (isHiddenEnemy) {
+                    if (this.sc_hoverInfoArr[0] !== "Hidden") {
+                        this.sc_hoverInfoArr = ["Hidden"];
+                        this.sc_hoverTextUpdateNeeded = true;
+                    }
+                } else if (this.sc_hoverInfoArr[0] === "Hidden") {
+                    this.sc_hoverInfoArr = [];
+                    this.sc_hoverTextUpdateNeeded = true;
+                }
+                if (
+                    targetUnit &&
+                    targetUnit.getTeam() !== this.currentActiveUnit.getTeam() &&
+                    !targetUnit.hasBuffActive("Hidden")
+                ) {
                     let attackFrom: HoCMath.XY | undefined;
 
                     // Check if mouse cell is actually part of the target unit (for precise targeting)
@@ -3395,7 +3492,11 @@ export class Sandbox extends PixiScene {
                     if (attackFrom || isRangeAttackContext) {
                         // Clear previous frame's highlights/visuals before adding new ones
                         this.hoverManager.clearAttackVisuals();
-                        this.hoverManager.addTargetHighlight(targetUnit);
+                        // Mass/AOE ranged units (Cyclops/Tsar Cannon/Gargantuan) outline every unit
+                        // the shot will hit; everyone else highlights just the single target.
+                        if (!this.highlightRangeAttackUnits(targetUnit)) {
+                            this.hoverManager.addTargetHighlight(targetUnit);
+                        }
 
                         let attackFromPos: HoCMath.XY | undefined;
                         let attackFromCell: HoCMath.XY;
@@ -3850,9 +3951,11 @@ export class Sandbox extends PixiScene {
                             this.hoverManager.drawAttackArrow(arrowStartPos, tVis);
                             isAttacking = true;
 
-                            // Add Red Highlight for Secondary Targets
+                            // Add Red Highlight for Secondary Targets (Hidden units are not targetable)
                             for (const enemy of secondaryTargets) {
-                                this.hoverManager.addTargetHighlight(enemy);
+                                if (!enemy.hasBuffActive("Hidden")) {
+                                    this.hoverManager.addTargetHighlight(enemy);
+                                }
                             }
                         }
                     }
@@ -4301,7 +4404,17 @@ export class Sandbox extends PixiScene {
             // fading the lingering ground tracks afterwards. Gating it on isMoving() froze the
             // tracks on screen forever once the move finished.
             this.stepMoveAnimation(timeStep);
-            this.smokeLayer?.update(timeStep, this.moveAnimManager.getLingeringTracks());
+            const lingeringTracks = this.moveAnimManager.getLingeringTracks();
+            // Ground units kick up dust; flying units displace air into wind.
+            this.smokeLayer?.update(
+                timeStep,
+                lingeringTracks.filter((t) => !t.flying),
+            );
+            this.windLayer?.update(
+                timeStep,
+                lingeringTracks.filter((t) => t.flying),
+            );
+            this.lightingLayer?.update(timeStep);
 
             // --- C. AI LOGIC - delegate to AIController ---
             if (
@@ -4614,8 +4727,12 @@ export class Sandbox extends PixiScene {
         if (this.hasInitializedLap) {
             fightProps.flipLap();
             if (fightProps.isTimeToDryCenter()) {
-                this.ensureCenterTerrainSprite();
+                // Lava/water dries out: show the frozen/dry sprite and make the cells walkable.
+                this.dungeonVisuals.setCenterDried(true);
                 this.grid.cleanupCenterObstacle();
+                // Refresh the pathfinding matrices so units can actually path onto the dried cells.
+                this.gridMatrix = this.grid.getMatrix();
+                this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
             }
         } else {
             this.hasInitializedLap = true;

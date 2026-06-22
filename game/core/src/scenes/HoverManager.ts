@@ -94,20 +94,29 @@ export class HoverManager {
     public clearAOEArea(): void {
         this.aoeGraphics.clear();
     }
-    /** Paint a translucent square over each cell of an area-of-effect attack splash. */
+    /** Paint a single translucent square over the whole area-of-effect splash (its bounding box). */
     public drawAOEArea(cells: HoCMath.XY[]): void {
         this.aoeGraphics.clear();
+        if (!cells.length) return;
         const gs = this.context.sceneSettings.getGridSettings();
-        const size = gs.getCellSize();
-        const half = size / 2;
+        const half = gs.getCellSize() / 2;
+        let minX = Number.POSITIVE_INFINITY;
+        let maxX = Number.NEGATIVE_INFINITY;
+        let minY = Number.POSITIVE_INFINITY;
+        let maxY = Number.NEGATIVE_INFINITY;
         for (const c of cells) {
             const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
             if (!pos) continue;
-            this.aoeGraphics
-                .rect(pos.x - half + 1, pos.y - half + 1, size - 2, size - 2)
-                .fill({ color: 0xff3333, alpha: 0.22 })
-                .stroke({ width: 2, color: 0xff6666, alpha: 0.7 });
+            minX = Math.min(minX, pos.x - half);
+            maxX = Math.max(maxX, pos.x + half);
+            minY = Math.min(minY, pos.y - half);
+            maxY = Math.max(maxY, pos.y + half);
         }
+        if (!Number.isFinite(minX)) return;
+        this.aoeGraphics
+            .rect(minX + 1, minY + 1, maxX - minX - 2, maxY - minY - 2)
+            .fill({ color: 0xff3333, alpha: 0.18 })
+            .stroke({ width: 2, color: 0xff6666, alpha: 0.85 });
     }
     public clear(): void {
         this.hoverAttackUnits = undefined;

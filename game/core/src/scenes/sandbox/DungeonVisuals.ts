@@ -25,6 +25,8 @@ export class DungeonVisuals {
     private bgSprite?: Sprite;
     private centerTerrainSprite?: Sprite;
     private centerHitBar?: Graphics;
+    /** Once the lava/water center dries out it becomes walkable and shows a frozen/dry sprite. */
+    private centerDried = false;
     public constructor(context: IDungeonVisualsContext) {
         this.context = context;
         this.holeContainer = new Container();
@@ -78,7 +80,7 @@ export class DungeonVisuals {
 
         // B. Perimeter Lights
         const radius = size * 0.25;
-        const blur = new BlurFilter(45);
+        const blur = new BlurFilter({ strength: 45 });
         this.atmosphereLights = [];
 
         const margin = size * 0.18;
@@ -193,16 +195,22 @@ export class DungeonVisuals {
 
         this.holeContainer.addChild(holeGfx);
     }
+    /** Toggle the dried-out state of the lava/water center and re-render its sprite. */
+    public setCenterDried(dried: boolean): void {
+        if (this.centerDried === dried) return;
+        this.centerDried = dried;
+        this.ensureCenterTerrainSprite();
+    }
     public ensureCenterTerrainSprite(): void {
         const gridType = FightStateManager.getInstance().getFightProperties().getGridType();
         let texKey: string | undefined;
 
         switch (gridType) {
             case GridVals.WATER_CENTER:
-                texKey = "water_256";
+                texKey = this.centerDried ? "water_dry_256" : "water_256";
                 break;
             case GridVals.LAVA_CENTER:
-                texKey = "lava_256";
+                texKey = this.centerDried ? "lava_frozen_256" : "lava_256";
                 break;
             case GridVals.BLOCK_CENTER:
                 texKey = "mountain_432_412";
@@ -269,8 +277,7 @@ export class DungeonVisuals {
             this.centerHitBar.clear();
         }
     }
-
-    /** Draw the mountain hit-point bar at the grid center (mirrors the legacy obstacle hitbar). */
+/** Draw the mountain hit-point bar at the grid center (mirrors the legacy obstacle hitbar). */
     private drawCenterHitBar(hitsRemaining: number): void {
         if (!this.centerHitBar) {
             this.centerHitBar = new Graphics();

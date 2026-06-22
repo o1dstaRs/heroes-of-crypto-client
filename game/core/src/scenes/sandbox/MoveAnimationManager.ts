@@ -32,6 +32,9 @@ interface ILingeringTrack {
     maxLife: number;
     phase: number;
     team: TeamType;
+    flying: boolean;
+    dirX: number;
+    dirY: number;
 }
 
 export class MoveAnimationManager {
@@ -75,7 +78,8 @@ export class MoveAnimationManager {
             worldPath,
             currentSegment: 0,
             t: 0,
-            speed,
+            // Flying units glide 20% faster than ground units.
+            speed: unit.canFly() ? speed * 1.2 : speed,
             destCell,
             lastTrackWorld: { x: start.x, y: start.y },
             onComplete,
@@ -142,7 +146,9 @@ export class MoveAnimationManager {
             }
 
             if (isLargeUnit) {
-                const spacing = cellSize * 0.9;
+                // Space the large-unit puffs further apart so they read as one cohesive trailing
+                // cloud rather than a dense stream of many small particles.
+                const spacing = cellSize * 1.5;
                 let lx = a.lastTrackWorld.x;
                 let ly = a.lastTrackWorld.y;
                 let vx = newPos.x - lx;
@@ -153,7 +159,7 @@ export class MoveAnimationManager {
                     const stepT = spacing / dist;
                     lx += vx * stepT;
                     ly += vy * stepT;
-                    this.dropLargeUnitTrackAtPosition(unit, { x: lx, y: ly }, gs);
+                    this.dropLargeUnitTrackAtPosition(unit, { x: lx, y: ly }, gs, dx / segLen, dy / segLen);
                     vx = newPos.x - lx;
                     vy = newPos.y - ly;
                     dist = Math.sqrt(vx * vx + vy * vy);
@@ -165,18 +171,22 @@ export class MoveAnimationManager {
 
             if (!isLargeUnit && this.moveTrackPath && this.moveTrackPath.length > 0) {
                 const idx = Math.floor(this.moveTrackProgress);
-                if (idx >= 0 && idx < this.moveTrackPath.length && idx !== this.lastTrackDropIndex) {
+                // Skip the final cell (the destination) — dust only trails behind, not where it lands.
+                if (idx >= 0 && idx < this.moveTrackPath.length - 1 && idx !== this.lastTrackDropIndex) {
                     const cell = this.moveTrackPath[idx];
                     const pos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
                     if (pos) {
                         this.lingeringTracks.push({
                             x: pos.x,
                             y: pos.y,
-                            radius: cellSize * 0.5,
+                            radius: cellSize * 0.42,
                             life: 0.25,
                             maxLife: 0.25,
                             phase: Math.random() * Math.PI * 2,
                             team: unit.getTeam(),
+                            flying: unit.canFly(),
+                            dirX: dx / segLen,
+                            dirY: dy / segLen,
                         });
                         this.lastTrackDropIndex = idx;
                     }
@@ -192,10 +202,8 @@ export class MoveAnimationManager {
 
         unit.setPosition(end.x, end.y);
 
-        if (!unit.isSmallSize()) {
-            const gs = this.context.getGridSettings();
-            this.dropLargeUnitTrackAtPosition(unit, end, gs);
-        }
+        // No dust at the destination — the trail leads up to it and fades behind the unit. (Large
+        // units still drop their trail along the way via dropLargeUnitTrackAtPosition in stepMove.)
 
         this.context.updateSceneLog(`${unit.getName()} moved to(${destCell.x}, ${destCell.y})`);
 
@@ -227,7 +235,13 @@ export class MoveAnimationManager {
             return t.life > 0;
         });
     }
-    private dropLargeUnitTrackAtPosition(unit: RenderableUnit, worldPos: HoCMath.XY, gs: GridSettings): void {
+    private dropLargeUnitTrackAtPosition(
+        unit: RenderableUnit,
+        worldPos: HoCMath.XY,
+        gs: GridSettings,
+        dirX = 0,
+        dirY = 0,
+    ): void {
         const cellSize = gs.getCellSize();
         const halfSize = cellSize * 0.5;
         const adjustedPos = { x: worldPos.x - halfSize, y: worldPos.y - halfSize };
@@ -249,11 +263,15 @@ export class MoveAnimationManager {
         this.lingeringTracks.push({
             x: center.x,
             y: center.y,
-            radius: cellSize,
+            // Bigger than a single cell so the 2x2 unit's cloud overlaps into one body, not specks.
+            radius: cellSize * 1.05,
             life: 0.25,
             maxLife: 0.25,
             phase: Math.random() * Math.PI * 2,
             team: unit.getTeam(),
+            flying: unit.canFly(),
+            dirX,
+            dirY,
         });
     }
 }
