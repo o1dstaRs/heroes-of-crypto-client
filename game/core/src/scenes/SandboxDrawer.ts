@@ -17,6 +17,7 @@ export interface ILingeringTrack {
     /** Normalized movement direction at the moment this track was dropped. */
     dirX: number;
     dirY: number;
+    cellSize: number;
 }
 
 export interface IGameplayDrawContext {

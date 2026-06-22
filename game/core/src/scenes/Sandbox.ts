@@ -109,6 +109,7 @@ export class Sandbox extends PixiScene {
     // Set while hovering a ranged attack whose line of sight is blocked by the central
     // mountain — the shot (and the click) is redirected to the obstacle instead of the enemy.
     private hoverRangeAttackObstacle?: IAttackObstacle;
+    private obstacleHoverDbg?: string; // TEMP: throttle key for the mountain-hover diagnostic log
     private currentEnemiesCellsWithinMovementRange?: HoCMath.XY[];
     private unitsOverlay: UnitsOverlay;
     private placementManager: PlacementManager;
@@ -157,6 +158,8 @@ export class Sandbox extends PixiScene {
     private gameplayGraphics?: Graphics;
     private currentActiveSpell?: PixiRenderableSpell;
     private drawnNarrowingLaps: Set<number> = new Set();
+    // Debug: render the cell grid once (helps verify attack trajectories / cell alignment).
+    private gridDebugRendered = false;
     // Spellbook
     private spellBookContainer: Container;
     private spellBookOverlay?: SpellBookOverlay;
@@ -169,6 +172,12 @@ export class Sandbox extends PixiScene {
     private lightingLayer?: LightingLayer;
     private combatVisuals: CombatVisuals;
     private rangedProjectiles: RangedProjectiles;
+    // Screen-shake state (e.g. Armageddon wave): offsets the world root with a decaying jitter.
+    private shakeTimeLeft = 0;
+    private shakeDuration = 0;
+    private shakeMagnitude = 0;
+    private appliedShakeX = 0;
+    private appliedShakeY = 0;
     public constructor(context: PixiSceneContext) {
         const gs = new GridSettings(
             GridConstants.GRID_SIZE,
@@ -611,7 +620,7 @@ export class Sandbox extends PixiScene {
             // 4. Recreate every unit at its saved position, mirroring the normal placement path
             //    (occupy the footprint cells, then snap to the canonical cell-center position).
             const gs = this.sc_sceneSettings.getGridSettings();
-            const camera = this.pixiApp.getCamera();
+            const unitsContainer = this.drawer.getUnitsContainer();
             for (const snap of snapshot.units) {
                 const base = Unit.createUnit(
                     { ...snap.properties, id: uuidv4(), team: snap.team },
@@ -658,7 +667,7 @@ export class Sandbox extends PixiScene {
                     const placePos = GridMath.getPositionForCells(gs, cells);
                     if (placePos) unit.setPosition(placePos.x, placePos.y);
                 }
-                const scale = unit.ensureVisual(camera, gs);
+                const scale = unit.ensureVisual(unitsContainer, gs);
                 if (scale) unit.startSpawnAnimation(scale);
             }
             console.log("[Rematch] recreated", snapshot.units.length, "units");
@@ -857,7 +866,7 @@ export class Sandbox extends PixiScene {
             if (unit) {
                 const rUnit = unit as RenderableUnit;
                 rUnit.setPosition(newPosition.x, newPosition.y);
-                rUnit.syncVisual(this.pixiApp.getCamera(), this.sc_sceneSettings.getGridSettings());
+                rUnit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
             } else {
                 if (!result.unitIdsDestroyed.includes(uId)) {
                     result.unitIdsDestroyed.push(uId);
@@ -1258,7 +1267,7 @@ export class Sandbox extends PixiScene {
                     if (placePos) {
                         newUnit.setPosition(placePos.x, placePos.y);
                     }
-                    const scale = newUnit.ensureVisual(this.pixiApp.getCamera(), gs);
+                    const scale = newUnit.ensureVisual(this.drawer.getUnitsContainer(), gs);
                     if (scale) {
                         newUnit.startSpawnAnimation(scale);
                     }
@@ -1545,7 +1554,7 @@ export class Sandbox extends PixiScene {
         unit.setPosition(placePos.x, placePos.y);
         this.refreshSynergyNumbers(unit.getTeam());
         this.refreshUnits();
-        const scale = unit.ensureVisual(this.pixiApp.getCamera(), gs);
+        const scale = unit.ensureVisual(this.drawer.getUnitsContainer(), gs);
         if (!scale) {
             console.log("Failed to ensure unit sprite");
             if (!this.selectionFromOverlay) this.clearBoardSelection();
@@ -2292,7 +2301,7 @@ export class Sandbox extends PixiScene {
         if (!this.unitsHolder.getAllUnits().has(renderable.getId())) {
             this.unitsHolder.addUnit(renderable);
         }
-        const scale = renderable.ensureVisual(this.pixiApp.getCamera(), gs);
+        const scale = renderable.ensureVisual(this.drawer.getUnitsContainer(), gs);
         if (scale) {
             renderable.startSpawnAnimation(scale);
         }
@@ -2411,6 +2420,7 @@ export class Sandbox extends PixiScene {
                 this.sc_hoverTextUpdateNeeded = true;
                 this.hoverManager.hoverAttackFromCell = undefined;
                 this.hoverManager.clearHoverSilhouette();
+                this.hoverManager.clearAttackVisuals();
             }
             return false;
         };
@@ -2440,12 +2450,28 @@ export class Sandbox extends PixiScene {
             return notHovering();
         }
 
-        // Ranged attackers can shoot the mountain in place (unless pinned into melee).
-        if (
-            unit.getAttackType() === AttackVals.RANGE &&
-            this.attackHandler.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId()))
-        ) {
+        // TEMP DIAGNOSTIC: log (once per state change) why the ranged-mountain preview shows or not.
+        const canRangeObstacle = this.attackHandler.canLandRangeAttack(
+            unit,
+            this.grid.getEnemyAggrMatrixByUnitId(unit.getId()),
+        );
+        const dbgKey = `${unit.getName()} sel=${unit.getAttackTypeSelection()} canRange=${canRangeObstacle} shots=${unit.getRangeShots()} small=${unit.isSmallSize()}`;
+        if (dbgKey !== this.obstacleHoverDbg) {
+            this.obstacleHoverDbg = dbgKey;
+            console.log("[MountainHover]", dbgKey);
+        }
+
+        // Ranged attackers can shoot the mountain in place (unless pinned into melee). Show
+        // "Hit the mountain" plus a trajectory arrow from the unit to the obstacle centre. Uses
+        // getAttackTypeSelection() to match the click path (handleObstacleAttack), so units like the
+        // Tsar Cannon (RANGE selection, No Melee) preview correctly.
+        if (unit.getAttackTypeSelection() === AttackVals.RANGE && canRangeObstacle) {
             this.hoverManager.hoverAttackFromCell = undefined;
+            const obstacleCenter = {
+                x: (gs.getMinX() + gs.getMaxX()) * 0.5,
+                y: (gs.getMinY() + gs.getMaxY()) * 0.5,
+            };
+            this.hoverManager.drawAttackArrow(unit.getVisualCenter(gs), obstacleCenter);
             showHit();
             return true;
         }
@@ -2937,15 +2963,14 @@ export class Sandbox extends PixiScene {
 
             const unaccountedDiff = diff - alreadyShown;
 
-            // FIX: If we have detailed hits, we trust them to fully represent the attack's visual impact on the target.
-            // Any "unaccounted" difference here is likely a synchronization artifact (e.g. double counting) rather than hidden damage.
-            // We suppress the aggregate animation for the target if hits were shown.
-            // But for secondary targets (AOE, skewer strike, etc.), always show damage if they took any.
-            const isSecondaryTarget = uId !== target.getId();
-
-            const shouldShowDamage =
-                unaccountedDiff > 0 &&
-                (isSecondaryTarget || !damageForAnimation.hits || damageForAnimation.hits.length === 0);
+            // Show any damage beyond what the attack's own hit numbers already covered. For a normal
+            // hit, diff === sum(hits), so unaccountedDiff is 0 and nothing extra draws. When it's
+            // positive there's genuinely-hidden damage the hits didn't account for — most notably a
+            // Fire Shield reflection burning the TARGET on its counter-attack. This used to be
+            // suppressed for the primary target whenever hits existed, which is exactly why Fire
+            // Shield damage never animated. (Over-counting would make this negative, which `> 0`
+            // already ignores.)
+            const shouldShowDamage = unaccountedDiff > 0;
 
             if (shouldShowDamage) {
                 // Use primary 'primaryAttackDir' so it matches the attacker's main attack angle
@@ -4278,12 +4303,19 @@ export class Sandbox extends PixiScene {
             this.aiController.triggerAIAction(1500);
         }
 
+        // Debug grid overlay: draw the cell grid once so attack trajectories / cell coverage are visible.
+        if (!this.gridDebugRendered) {
+            this.drawer.drawGrid();
+            this.gridDebugRendered = true;
+        }
+
         if (this.dungeonVisuals) {
             this.dungeonVisuals.update(timeStep);
         }
         if (this.combatVisuals) {
             this.combatVisuals.update(timeStep);
         }
+        this.updateScreenShake(timeStep);
         if (this.rangedProjectiles) {
             this.rangedProjectiles.update(timeStep);
         }
@@ -4569,7 +4601,7 @@ export class Sandbox extends PixiScene {
     private handleNextUnitActivation(nextUnit: RenderableUnit): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const gs = this.sc_sceneSettings.getGridSettings();
-        const worldRoot = this.pixiApp.getCamera();
+        const worldRoot = this.drawer.getUnitsContainer();
 
         // Clear Shifted Unit override so UI reverts to Active Unit
         this.currentShiftedUnit = undefined;
@@ -4579,6 +4611,9 @@ export class Sandbox extends PixiScene {
             this.currentActiveUnit.syncVisual(worldRoot, gs);
         }
         this.currentActiveUnit = nextUnit;
+        if (nextUnit.isOnHourglass()) {
+            nextUnit.setOnHourglass(false);
+        }
         nextUnit.setActiveTurn(true);
         nextUnit.syncVisual(worldRoot, gs);
 
@@ -4711,6 +4746,39 @@ export class Sandbox extends PixiScene {
         }
         return killed;
     }
+    /**
+     * Start a screen shake (decaying random offset of the world root). Re-triggering while a
+     * shake is in progress takes the stronger/longer of the two so waves don't cut each other off.
+     */
+    public triggerScreenShake(magnitude = 16, durationSeconds = 0.5): void {
+        this.shakeMagnitude = Math.max(this.shakeMagnitude, magnitude);
+        this.shakeDuration = Math.max(this.shakeDuration, durationSeconds);
+        this.shakeTimeLeft = this.shakeDuration;
+    }
+    private updateScreenShake(timeStep: number): void {
+        const worldRoot = this.pixiApp.getWorldRoot();
+        // Undo the previous frame's offset first so the world's base position is preserved.
+        worldRoot.x -= this.appliedShakeX;
+        worldRoot.y -= this.appliedShakeY;
+        this.appliedShakeX = 0;
+        this.appliedShakeY = 0;
+        if (this.shakeTimeLeft <= 0) {
+            return;
+        }
+        this.shakeTimeLeft = Math.max(0, this.shakeTimeLeft - timeStep);
+        const progress = this.shakeDuration > 0 ? this.shakeTimeLeft / this.shakeDuration : 0; // 1 -> 0
+        const amplitude = this.shakeMagnitude * progress; // linear decay to zero
+        const offsetX = (Math.random() * 2 - 1) * amplitude;
+        const offsetY = (Math.random() * 2 - 1) * amplitude;
+        worldRoot.x += offsetX;
+        worldRoot.y += offsetY;
+        this.appliedShakeX = offsetX;
+        this.appliedShakeY = offsetY;
+        if (this.shakeTimeLeft <= 0) {
+            this.shakeMagnitude = 0;
+            this.shakeDuration = 0;
+        }
+    }
     private handleLapFlip(unitsUpper: RenderableUnit[], unitsLower: RenderableUnit[], allUnitsMadeTurn: boolean): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
 
@@ -4751,6 +4819,8 @@ export class Sandbox extends PixiScene {
         const armageddonWave = fightProps.getArmageddonWave();
         let gotArmageddonKills = false;
         if (armageddonWave) {
+            // Jolt the board on each Armageddon wave; later waves hit harder.
+            this.triggerScreenShake(12 + armageddonWave * 3, 0.5);
             gotArmageddonKills = this.performArmageddon(unitsLower, armageddonWave) || gotArmageddonKills;
             gotArmageddonKills = this.performArmageddon(unitsUpper, armageddonWave) || gotArmageddonKills;
             if (gotArmageddonKills) {
@@ -4933,7 +5003,7 @@ export class Sandbox extends PixiScene {
         // Ensure visual state is reset (Orange Badge -> Default)
         this.currentActiveUnit?.setActiveTurn(false);
         const gs = this.sc_sceneSettings.getGridSettings();
-        const worldRoot = this.pixiApp.getCamera();
+        const worldRoot = this.drawer.getUnitsContainer();
         this.currentActiveUnit?.syncVisual(worldRoot, gs);
         this.currentActiveUnit = undefined;
         this.sc_selectedAttackType = AttackVals.NO_ATTACK;

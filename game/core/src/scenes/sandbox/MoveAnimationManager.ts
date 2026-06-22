@@ -35,6 +35,7 @@ interface ILingeringTrack {
     flying: boolean;
     dirX: number;
     dirY: number;
+    cellSize: number;
 }
 
 export class MoveAnimationManager {
@@ -187,6 +188,7 @@ export class MoveAnimationManager {
                             flying: unit.canFly(),
                             dirX: dx / segLen,
                             dirY: dy / segLen,
+                            cellSize,
                         });
                         this.lastTrackDropIndex = idx;
                     }
@@ -272,6 +274,7 @@ export class MoveAnimationManager {
             flying: unit.canFly(),
             dirX,
             dirY,
+            cellSize,
         });
     }
 }

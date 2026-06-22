@@ -770,11 +770,7 @@ export class RenderableUnit extends Unit {
     }
     private shouldShowHourglassIndicator(): boolean {
         const fightProps = FightStateManager.getInstance().getFightProperties();
-        return (
-            this.isOnHourglass() ||
-            fightProps.hourglassIncludes(this.getId()) ||
-            fightProps.hasAlreadyHourglass(this.getId())
-        );
+        return this.isOnHourglass() || fightProps.hourglassIncludes(this.getId());
     }
     public setActiveTurn(active: boolean): void {
         if (this.isActiveTurn === active) return;

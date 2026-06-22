@@ -453,77 +453,29 @@ export class PixiDrawer {
 
         this.hoverAreaGfx.rect(x, y, w, h).fill({ color, alpha: 0.8 });
     }
-    /** Old drawGrid (with gap segments around large units) */
-    public drawGrid(largeUnitsCache: [Map<number, number[]>, Map<number, number[]>]): void {
+    /** Draw the cell grid: one line at every internal cell boundary, each stroked on its own. */
+    public drawGrid(): void {
         this.gridGfx.clear();
 
-        const largeUnitsXtoY = largeUnitsCache[0];
-        const largeUnitsYtoX = largeUnitsCache[1];
-        const mode = localStorage.getItem("joy-mode");
-        const color = mode === "light" ? 0x333333 : 0xcccccc;
+        const minX = this.gridSettings.getMinX();
+        const maxX = this.gridSettings.getMaxX();
+        const minY = this.gridSettings.getMinY();
+        const maxY = this.gridSettings.getMaxY();
+        const step = this.gridSettings.getStep();
+        const size = this.gridSettings.getGridSize();
+        const color = localStorage.getItem("joy-mode") === "light" ? 0x333333 : 0xcccccc;
+        const style = { width: 1, color, alpha: 1 };
 
-        const positions: HoCMath.XY[] = [];
-
-        // verticals
-        for (
-            let newX = this.gridSettings.getMinX() + this.gridSettings.getStep();
-            newX < this.gridSettings.getMaxX();
-            newX += this.gridSettings.getStep()
-        ) {
-            let fromY = this.gridSettings.getMinY();
-            for (
-                let y = this.gridSettings.getMinY();
-                y < this.gridSettings.getMaxY();
-                y += this.gridSettings.getCellSize()
-            ) {
-                const xs = largeUnitsYtoX.get(y);
-                if (xs?.length) {
-                    for (const px of xs) {
-                        if (px === newX) {
-                            positions.push({ x: newX, y: fromY });
-                            positions.push({ x: newX, y: y - this.gridSettings.getStep() });
-                            fromY = y + this.gridSettings.getStep();
-                        }
-                    }
-                }
-            }
-            positions.push({ x: newX, y: fromY });
-            positions.push({ x: newX, y: this.gridSettings.getMaxY() });
+        // Cells are spaced by `step` on both axes (see GridMath.getPositionForCell). Draw each
+        // internal boundary as its own stroked segment: stroking the whole lattice in a single
+        // call drops segments in PixiJS v8. Index-based (i * step) so a fractional step can't drift.
+        for (let i = 1; i < size; i++) {
+            const x = minX + i * step;
+            this.gridGfx.moveTo(x, minY).lineTo(x, maxY).stroke(style);
         }
-
-        // horizontals
-        for (
-            let newY = this.gridSettings.getStep();
-            newY < this.gridSettings.getMaxY();
-            newY += this.gridSettings.getStep()
-        ) {
-            let fromX = this.gridSettings.getMinX();
-            for (
-                let x = this.gridSettings.getMinX();
-                x < this.gridSettings.getMaxX();
-                x += this.gridSettings.getCellSize()
-            ) {
-                const ys = largeUnitsXtoY.get(x);
-                if (ys?.length) {
-                    for (const py of ys) {
-                        if (py === newY) {
-                            positions.push({ x: fromX, y: newY });
-                            positions.push({ x: x - this.gridSettings.getStep(), y: newY });
-                            fromX = x + this.gridSettings.getStep();
-                        }
-                    }
-                }
-            }
-            positions.push({ x: fromX, y: newY });
-            positions.push({ x: this.gridSettings.getMaxX(), y: newY });
-        }
-
-        // draw line segments
-        this.gridGfx.stroke({ width: 1, color, alpha: 1 });
-        for (let i = 0; i < positions.length - 1; i += 2) {
-            const p1 = positions[i];
-            const p2 = positions[i + 1];
-            this.gridGfx.moveTo(p1.x, p1.y).lineTo(p2.x, p2.y);
+        for (let j = 1; j < size; j++) {
+            const y = minY + j * step;
+            this.gridGfx.moveTo(minX, y).lineTo(maxX, y).stroke(style);
         }
     }
     public destroy(): void {

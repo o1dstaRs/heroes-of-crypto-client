@@ -124,6 +124,7 @@ export class UnitChip extends Container {
     private animationFrames?: Texture[];
     private animationFrameIndex = 0;
     private animationStepFn?: () => void;
+    private tweenStepFn?: () => void;
     public constructor(opts: UnitChipOptions) {
         super();
         this.nameKey = opts.unitName;
@@ -300,6 +301,11 @@ export class UnitChip extends Container {
     }
     public override destroy(options?: Parameters<Container["destroy"]>[0]): void {
         this.stopAtlasAnimation();
+        if (this.tweenStepFn && this.ticker) {
+            this.ticker.remove(this.tweenStepFn);
+        }
+        this.tweenStepFn = undefined;
+        this.isTweening = false;
         super.destroy(options);
     }
     private stopAtlasAnimation(): void {
@@ -378,6 +384,14 @@ export class UnitChip extends Container {
         if (!this.isTweening) {
             this.isTweening = true;
             const step = () => {
+                // The chip's content may be destroyed while a tween is still queued on the
+                // ticker — unhook and bail instead of touching a destroyed container.
+                if (this.content.destroyed) {
+                    this.isTweening = false;
+                    this.ticker?.remove(step);
+                    this.tweenStepFn = undefined;
+                    return;
+                }
                 const elapsed = performance.now() - this.tweenStartTime;
                 const progress = Math.min(1, elapsed / this.tweenDuration);
                 const ease = this.easeInOutCubic(progress);
@@ -388,8 +402,10 @@ export class UnitChip extends Container {
                 if (progress >= 1) {
                     this.isTweening = false;
                     this.ticker?.remove(step);
+                    this.tweenStepFn = undefined;
                 }
             };
+            this.tweenStepFn = step;
             this.ticker.add(step);
         }
     }

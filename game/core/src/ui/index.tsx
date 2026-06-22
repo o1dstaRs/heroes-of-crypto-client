@@ -273,5 +273,11 @@ const App: React.FC = () => {
     );
 };
 
-const root = createRoot(document.getElementById("root") as HTMLElement);
+// Reuse an existing root across hot-reloads / re-evaluations instead of calling createRoot()
+// on the same #root container twice (React warns and leaks the previous root otherwise).
+const container = document.getElementById("root") as HTMLElement & {
+    __appRoot?: ReturnType<typeof createRoot>;
+};
+const root = container.__appRoot ?? createRoot(container);
+container.__appRoot = root;
 root.render(<App />);

@@ -171,18 +171,29 @@ public getContainer(): Container {
             // seeded by phase so it's stable, and the shader adds the flowing shimmer.
             for (const side of [-1, 1]) {
                 const sBase = seed + side * 37.1;
-                const length = t.radius * (3.0 + rnd(sBase, 1) * 1.6) * (0.4 + 0.9 * age);
+                // Length is measured in CELLS (not the unit radius) so it's clearly multi-cell for
+                // small and large flyers alike — a long aeroplane-style trail.
+                const length = t.cellSize * (3.5 + rnd(sBase, 1) * 2.5) * (0.55 + 0.45 * age);
                 const bow = t.radius * (0.06 + rnd(sBase, 2) * 0.12); // gentle natural curve
-                const segs = 18;
+                const segs = 20;
+                // Draw as one continuous stroked, tapering line (so length never leaves gaps).
+                let prevX = 0;
+                let prevY = 0;
                 for (let s = 0; s < segs; s++) {
                     const f = s / (segs - 1); // 0 (at the edge) -> 1 (far behind)
                     const along = t.radius * 0.15 - length * f; // emerge at the rim, stream back
                     const lateral = side * (t.radius * (1.0 + 0.28 * f) + Math.sin(f * Math.PI) * bow);
                     const px = t.x + dx * along + perpX * lateral;
                     const py = t.y + dy * along + perpY * lateral;
-                    const pr = t.radius * 0.085 * (1.0 - 0.5 * f); // thin, tapering trail
-                    const alpha = 0.34 * fade * (1.0 - 0.7 * f);
-                    g.circle(px, py, pr).fill({ color: tint, alpha });
+                    if (s > 0) {
+                        const width = t.radius * 0.17 * (1.0 - 0.6 * f); // thin, tapering
+                        const alpha = 0.34 * fade * (1.0 - 0.72 * f);
+                        g.moveTo(prevX, prevY)
+                            .lineTo(px, py)
+                            .stroke({ width, color: tint, alpha, cap: "round" });
+                    }
+                    prevX = px;
+                    prevY = py;
                 }
             }
         }
