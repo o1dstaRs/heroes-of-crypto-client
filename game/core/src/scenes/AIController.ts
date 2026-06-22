@@ -182,10 +182,16 @@ export class AIController {
         const gs = this.context.getSceneSettings().getGridSettings();
         const attackFromPos = GridMath.getPositionForCell(attackFromCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
 
+        // For large (2x2) units the AI emits the top-right anchor cell and the stored position is
+        // the 2x2 center (anchor - halfStep). Build the occupied footprint from that center and
+        // hand it to executeMoveSequence so the unit lands exactly where the silhouette shows;
+        // otherwise the move fallback mis-anchors it by one cell diagonally (wrong stand/attack pos).
+        let moveFootprint: HoCMath.XY[] | undefined;
         if (attackFromPos) {
             if (!currentUnit.isSmallSize()) {
                 attackFromPos.x -= gs.getHalfStep();
                 attackFromPos.y -= gs.getHalfStep();
+                moveFootprint = GridMath.getCellsAroundPosition(gs, attackFromPos);
             }
             this.context.getHoverManager().showSilhouetteForUnit(currentUnit.getUnitProperties(), attackFromPos);
         }
@@ -196,7 +202,7 @@ export class AIController {
             const attackCell = attackFromCell;
             const aiActive = wasAIActive;
 
-            this.context.executeMoveSequence(currentUnit, route, undefined, async () => {
+            this.context.executeMoveSequence(currentUnit, route, moveFootprint, async () => {
                 await this.context.executeAttackSequence(currentUnit, target, attackCell);
                 this.isAIActive = aiActive;
                 this.performingAction = false;
@@ -284,16 +290,20 @@ export class AIController {
         const gs = this.context.getSceneSettings().getGridSettings();
         const moveToPos = GridMath.getPositionForCell(cellToMove, gs.getMinX(), gs.getStep(), gs.getHalfStep());
 
+        // Same 2x2 footprint correction as handleMoveAndMeleeAttack: land the large unit where the
+        // silhouette shows instead of letting the move fallback mis-anchor it by one cell diagonally.
+        let moveFootprint: HoCMath.XY[] | undefined;
         if (moveToPos) {
             if (!currentUnit.isSmallSize()) {
                 moveToPos.x -= gs.getHalfStep();
                 moveToPos.y -= gs.getHalfStep();
+                moveFootprint = GridMath.getCellsAroundPosition(gs, moveToPos);
             }
             this.context.getHoverManager().showSilhouetteForUnit(currentUnit.getUnitProperties(), moveToPos);
         }
 
         // Execute move with cleanup callback
-        this.context.executeMoveSequence(currentUnit, route, undefined, () => {
+        this.context.executeMoveSequence(currentUnit, route, moveFootprint, () => {
             this.context.finishTurn();
             this.isAIActive = wasAIActive;
             this.performingAction = false;

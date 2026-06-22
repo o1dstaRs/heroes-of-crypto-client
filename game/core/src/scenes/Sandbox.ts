@@ -68,6 +68,7 @@ import { SpellBookOverlay } from "./SpellBookOverlay";
 import { AIController } from "./AIController";
 import { MAX_HOLE_LAYERS } from "@/statics";
 import { DungeonVisuals } from "./sandbox/DungeonVisuals";
+import { SmokeLayer } from "./sandbox/SmokeLayer";
 import { MoveAnimationManager } from "./sandbox/MoveAnimationManager";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
 import { RangedProjectiles, BIG_PROJECTILE_UNITS } from "./sandbox/RangedProjectiles";
@@ -160,6 +161,7 @@ export class Sandbox extends PixiScene {
     // [NEW] Sub-Managers
     private dungeonVisuals: DungeonVisuals;
     private moveAnimManager: MoveAnimationManager;
+    private smokeLayer?: SmokeLayer;
     private combatVisuals: CombatVisuals;
     private rangedProjectiles: RangedProjectiles;
     public constructor(context: PixiSceneContext) {
@@ -209,6 +211,10 @@ export class Sandbox extends PixiScene {
                 if (this.sc_visibleState) this.sc_visibleStateUpdateNeeded = true;
             },
         });
+
+        // Procedural smoke for movement tracks — its own layer so the fBM shader only touches dust.
+        this.smokeLayer = new SmokeLayer();
+        this.attachToWorldRoot(this.smokeLayer.getContainer(), 50);
 
         this.combatVisuals = new CombatVisuals({
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
@@ -1635,6 +1641,10 @@ export class Sandbox extends PixiScene {
             if (this.hoverRangeAttackObstacle && this.attemptObstacleAttack(this.hoverRangeAttackObstacle.position)) {
                 return;
             }
+            // --- AREA THROW: Gargantuan-style AOE fired at a cell (incl. empty/terrain). ---
+            if (this.attemptAreaThrowAttack(p)) {
+                return;
+            }
 
             const gs = this.sc_sceneSettings.getGridSettings();
 
@@ -2442,7 +2452,122 @@ export class Sandbox extends PixiScene {
         showHit();
         return true;
     }
-private async executeAttackSequence(attacker: RenderableUnit, target: Unit, attackFrom: HoCMath.XY): Promise<void> {
+    /**
+     * Area Throw (e.g. Gargantuan): when the active ranged unit hovers any in-grid cell that
+     * isn't an enemy unit, preview the 3x3 splash AREA it will hit. Returns true while previewing
+     * so hover() skips the normal unit/cell hover logic (parity with legacy drawAOECells).
+     */
+    private updateAreaThrowHover(): boolean {
+        this.hoverManager.clearAOEArea();
+        const clearInfo = (): boolean => {
+            if (this.sc_hoverInfoArr[0] === "Area attack") {
+                this.sc_hoverInfoArr = [];
+                this.sc_hoverTextUpdateNeeded = true;
+            }
+            return false;
+        };
+
+        const cells = this.getAreaThrowCells(this.sc_mouseWorld);
+        if (!cells) {
+            return clearInfo();
+        }
+
+        this.hoverManager.drawAOEArea(cells);
+        if (this.sc_hoverInfoArr[0] !== "Area attack") {
+            this.sc_hoverInfoArr = ["Area attack"];
+            this.sc_hoverTextUpdateNeeded = true;
+        }
+        return true;
+    }
+    /**
+     * The 3x3 splash cells for an Area Throw aimed at worldPos, or undefined when the active unit
+     * can't area-throw there (not an Area Throw range unit, off-grid, or aiming directly at an
+     * enemy unit — that goes through the normal single-target path).
+     */
+    private getAreaThrowCells(worldPos?: HoCMath.XY): HoCMath.XY[] | undefined {
+        const unit = this.currentActiveUnit;
+        if (!unit || !worldPos || !unit.hasAbilityActive("Area Throw")) {
+            return undefined;
+        }
+        if (!this.attackHandler.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId()))) {
+            return undefined;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const mouseCell = GridMath.getCellForPosition(gs, worldPos);
+        if (!mouseCell || !GridMath.isCellWithinGrid(gs, mouseCell)) {
+            return undefined;
+        }
+        const occupantId = this.grid.getOccupantUnitId(mouseCell);
+        if (occupantId && occupantId !== "L" && occupantId !== "W") {
+            return undefined; // aiming at an enemy unit → single-target preview handles it
+        }
+        return [...GridMath.getCellsAroundCell(gs, mouseCell), mouseCell];
+    }
+    /** Execute an Area Throw at the clicked cell. Returns true if it handled the click. */
+    private attemptAreaThrowAttack(worldPos: HoCMath.XY): boolean {
+        const unit = this.currentActiveUnit;
+        const cells = this.getAreaThrowCells(worldPos);
+        if (!unit || !cells) {
+            return false;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const mouseCell = GridMath.getCellForPosition(gs, worldPos);
+        if (!mouseCell) {
+            return false;
+        }
+        const cellPosition = GridMath.getPositionForCell(mouseCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        if (!cellPosition) {
+            return false;
+        }
+        void this.performAreaThrow(unit, mouseCell, cellPosition, cells);
+        return true;
+    }
+    private async performAreaThrow(
+        unit: RenderableUnit,
+        mouseCell: HoCMath.XY,
+        cellPosition: HoCMath.XY,
+        cells: HoCMath.XY[],
+    ): Promise<void> {
+        const affectedUnits = AllAbilities.evaluateAffectedUnits(cells, this.unitsHolder, this.grid);
+        const divisor = this.attackHandler.getRangeAttackDivisor(unit, cellPosition);
+
+        // Snapshot health so the floating damage numbers can be derived from the diff.
+        const preState = new Map<string, { hp: number; amount: number }>();
+        for (const u of this.unitsHolder.getAllUnits().values()) {
+            preState.set(u.getId(), { hp: u.getCumulativeHp(), amount: u.getAmountAlive() });
+        }
+
+        const muzzle = unit.getVisualCenter(this.sc_sceneSettings.getGridSettings());
+        const bigProjectile = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
+        await this.rangedProjectiles.fire({ from: muzzle, to: cellPosition, big: bigProjectile });
+
+        const result = this.attackHandler.handleRangeAttack(
+            this.unitsHolder,
+            [divisor, divisor],
+            1,
+            this.sc_damageForAnimation,
+            unit,
+            affectedUnits,
+            undefined,
+            cellPosition,
+            true, // isAOE
+            true, // decreaseNumberOfShots
+        );
+        if (!result.completed) {
+            return;
+        }
+
+        this.combatVisuals.showDamageVisualsFromDiff(preState, mouseCell);
+        this.sc_damageStatsUpdateNeeded = true;
+        this.unitsHolder.refreshStackPowerForAllUnits();
+        this.hoverManager.clearAOEArea();
+        this.hoverManager.clearAttackVisuals();
+        this.hoverManager.clearHoverSilhouette();
+        this.cleanupDeadUnits();
+        this.refreshUnits();
+        this.finishTurn();
+    }
+    private async executeAttackSequence(attacker: RenderableUnit, target: Unit, attackFrom: HoCMath.XY): Promise<void> {
         this.sc_moveBlocked = true;
 
         // Create a local damage object for animation
@@ -3137,6 +3262,11 @@ private async executeAttackSequence(attacker: RenderableUnit, target: Unit, atta
 
             // --- OBSTACLE HOVER: previewing an attack on the destructible center (BLOCK_CENTER). ---
             if (this.updateObstacleHover()) {
+                return;
+            }
+
+            // --- AREA THROW HOVER: preview the splash area for Gargantuan-style AOE units. ---
+            if (this.updateAreaThrowHover()) {
                 return;
             }
 
@@ -4171,6 +4301,7 @@ private async executeAttackSequence(attacker: RenderableUnit, target: Unit, atta
             // fading the lingering ground tracks afterwards. Gating it on isMoving() froze the
             // tracks on screen forever once the move finished.
             this.stepMoveAnimation(timeStep);
+            this.smokeLayer?.update(timeStep, this.moveAnimManager.getLingeringTracks());
 
             // --- C. AI LOGIC - delegate to AIController ---
             if (

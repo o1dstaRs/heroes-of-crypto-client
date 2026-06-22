@@ -141,6 +141,12 @@ export class RenderableUnit extends Unit {
         const ru = base as RenderableUnit;
         ru.texResolver = texResolver;
         ru.pixiSpells = [];
+        ru.stackPowerPips = [];
+        ru.boardSelected = false;
+        ru.stackForcedHidden = false;
+        ru.isActiveTurn = false;
+        ru.isDestroyed = false;
+        ru.visualMode = "normal";
         return ru;
     }
     public setSpellBookLayer(layer: Container, digitTextures: Map<number, Texture>): void {
@@ -805,7 +811,9 @@ export class RenderableUnit extends Unit {
                 this.hourglassContainer.y = pos.y + unitHalfSize - margin - halfIcon;
             }
             this.hourglassContainer.visible =
-                this.visualMode === "normal" && this.getAmountAlive() > 0 && this.shouldShowHourglassIndicator();
+                (this.visualMode ?? "normal") === "normal" &&
+                this.getAmountAlive() > 0 &&
+                this.shouldShowHourglassIndicator();
             for (const child of this.hourglassContainer.children) {
                 if (child instanceof Graphics || child instanceof Sprite) {
                     child.scale.y = -Math.abs(child.scale.y);

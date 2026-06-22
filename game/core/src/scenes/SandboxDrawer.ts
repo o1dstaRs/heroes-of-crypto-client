@@ -64,7 +64,6 @@ export class SandboxDrawer {
             hoverManager,
             sidebarUnitRanges,
             hoveredAuraRanges,
-            lingeringTracks,
         } = ctx;
         const fightStarted = fightProps.hasFightStarted();
 
@@ -179,43 +178,8 @@ export class SandboxDrawer {
             hoverManager.drawHoveredUnitHighlight(g);
         }
 
-        // 4. Lingering tracks
-        if (lingeringTracks.length) {
-            // Stable per-(track, index) pseudo-random in [0,1) seeded by the track's phase: each
-            // cell's puff differs, but stays consistent across frames (no per-frame flicker).
-            const rnd = (a: number, b: number) => {
-                const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
-                return x - Math.floor(x);
-            };
-            // Soft feathered puff (fake radial falloff via stacked circles) — wispy smoke, not a disc.
-            const softPuff = (x: number, y: number, r: number, alpha: number, color: number) => {
-                // Two close, soft layers — a gentle radial falloff with no dense bright center dot.
-                g.circle(x, y, r).fill({ color, alpha: alpha * 0.5 });
-                g.circle(x, y, r * 0.62).fill({ color, alpha: alpha * 0.55 });
-            };
-            const dustTints = [0xd6d0c0, 0xcdc7b6, 0xded7c6];
-            for (const t of lingeringTracks) {
-                const seed = t.phase;
-                const k = Math.max(0, t.life / t.maxLife); // 1 → 0 over the track's life
-                // Hold near full for most of the life, then fall off at the end — keeps it visible.
-                const fade = Math.min(1, k * 1.6);
-                const age = 1 - k; // 0 → 1 as the puff ages
-                // Per-cell variety: number of billows, overall size, and tint all vary by seed.
-                const puffCount = 3 + Math.floor(rnd(seed, 0) * 3); // 3..5
-                const trackScale = 0.8 + rnd(seed, 1) * 0.5;
-                const tint = dustTints[Math.floor(rnd(seed, 2) * dustTints.length)];
-                for (let i = 0; i < puffCount; i++) {
-                    // Spread the billows around, with per-puff angle/offset/size jitter, drifting up
-                    // and swirling gently as they age.
-                    const ang = seed + (i * 2 * Math.PI) / puffCount + (rnd(seed, i + 3) - 0.5) * 1.3 + age * 0.7;
-                    const spread = t.radius * trackScale * (0.1 + (0.35 + rnd(seed, i + 9) * 0.45) * age);
-                    const px = t.x + Math.cos(ang) * spread;
-                    const py = t.y + Math.sin(ang) * spread + t.radius * (0.35 + rnd(seed, i + 17) * 0.45) * age;
-                    const pr = t.radius * trackScale * (0.28 + 0.5 * age) * (0.6 + 0.7 * rnd(seed, i + 25));
-                    softPuff(px, py, pr, 0.28 * fade, tint);
-                }
-            }
-        }
+        // 4. Lingering tracks (movement smoke) are now rendered by SmokeLayer, which runs an fBM
+        //    shader over its own dust layer — see scenes/sandbox/SmokeLayer.ts.
     }
     public static drawPlacements(ctx: IPlacementDrawContext): void {
         const { fightProps, placementManager, hoverManager, placementGraphics } = ctx;

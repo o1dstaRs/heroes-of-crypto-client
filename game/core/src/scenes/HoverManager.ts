@@ -76,17 +76,38 @@ export class HoverManager {
     private lastPlacementTimestampSec = 0;
     private readonly hoverRearmDelaySec = 2.0;
     private auraGraphics: Graphics;
+    private aoeGraphics: Graphics;
     public constructor(context: ISandboxHoverContext) {
         this.context = context;
         this.auraGraphics = new Graphics();
+        this.aoeGraphics = new Graphics();
     }
     public onCameraChanged(): void {
         if (this.hoverSilhouette) this.context.attachToWorldRoot(this.hoverSilhouette, 110);
         if (this.hoverSilhouetteOutline) this.context.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
         this.context.attachToWorldRoot(this.auraGraphics, 51); // Below units and movement path
+        this.context.attachToWorldRoot(this.aoeGraphics, 4500); // Above units: AOE splash area
     }
     public clearAuraVisuals(): void {
         this.auraGraphics.clear();
+    }
+    public clearAOEArea(): void {
+        this.aoeGraphics.clear();
+    }
+    /** Paint a translucent square over each cell of an area-of-effect attack splash. */
+    public drawAOEArea(cells: HoCMath.XY[]): void {
+        this.aoeGraphics.clear();
+        const gs = this.context.sceneSettings.getGridSettings();
+        const size = gs.getCellSize();
+        const half = size / 2;
+        for (const c of cells) {
+            const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+            if (!pos) continue;
+            this.aoeGraphics
+                .rect(pos.x - half + 1, pos.y - half + 1, size - 2, size - 2)
+                .fill({ color: 0xff3333, alpha: 0.22 })
+                .stroke({ width: 2, color: 0xff6666, alpha: 0.7 });
+        }
     }
     public clear(): void {
         this.hoverAttackUnits = undefined;
@@ -98,6 +119,7 @@ export class HoverManager {
         this.hoverAttackTargetUnit = undefined;
         this.hoveredUnitId = undefined;
         this.clearAuraVisuals();
+        this.clearAOEArea();
     }
     public drawAuraArea(
         center: HoCMath.XY,
@@ -409,6 +431,7 @@ export class HoverManager {
 
         this.hoveredUnitId = undefined; // Clear tracked unit ID
         this.clearHoverSilhouette();
+        this.clearAOEArea();
     }
     public hoverAttackArrow?: Graphics;
     private silhouetteLocked = false;
