@@ -189,9 +189,9 @@ export class SandboxDrawer {
             };
             // Soft feathered puff (fake radial falloff via stacked circles) — wispy smoke, not a disc.
             const softPuff = (x: number, y: number, r: number, alpha: number, color: number) => {
-                g.circle(x, y, r).fill({ color, alpha: alpha * 0.3 });
-                g.circle(x, y, r * 0.62).fill({ color, alpha: alpha * 0.5 });
-                g.circle(x, y, r * 0.32).fill({ color, alpha: alpha * 0.75 });
+                // Two close, soft layers — a gentle radial falloff with no dense bright center dot.
+                g.circle(x, y, r).fill({ color, alpha: alpha * 0.5 });
+                g.circle(x, y, r * 0.62).fill({ color, alpha: alpha * 0.55 });
             };
             const dustTints = [0xd6d0c0, 0xcdc7b6, 0xded7c6];
             for (const t of lingeringTracks) {
@@ -212,10 +212,8 @@ export class SandboxDrawer {
                     const px = t.x + Math.cos(ang) * spread;
                     const py = t.y + Math.sin(ang) * spread + t.radius * (0.35 + rnd(seed, i + 17) * 0.45) * age;
                     const pr = t.radius * trackScale * (0.28 + 0.5 * age) * (0.6 + 0.7 * rnd(seed, i + 25));
-                    softPuff(px, py, pr, 0.22 * fade, tint);
+                    softPuff(px, py, pr, 0.28 * fade, tint);
                 }
-                // soft settling base near the footprint
-                softPuff(t.x, t.y + t.radius * 0.1 * age, t.radius * trackScale * (0.3 + 0.12 * k), 0.18 * fade, 0xefeae0);
             }
         }
     }

@@ -242,18 +242,18 @@ export class MoveAnimationManager {
             { x: anchorCell.x + 1, y: anchorCell.y + 1 },
         ];
 
-        for (const c of footprintCells) {
-            const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-            if (!pos) continue;
-            this.lingeringTracks.push({
-                x: pos.x,
-                y: pos.y,
-                radius: cellSize * 0.5,
-                life: 0.25,
-                maxLife: 0.25,
-                phase: Math.random() * Math.PI * 2,
-                team: unit.getTeam(),
-            });
-        }
+        // One large puff centered on the whole 2x2 footprint (radius spans both cells) instead of
+        // four separate small puffs.
+        const center = GridMath.getPositionForCells(gs, footprintCells);
+        if (!center) return;
+        this.lingeringTracks.push({
+            x: center.x,
+            y: center.y,
+            radius: cellSize,
+            life: 0.25,
+            maxLife: 0.25,
+            phase: Math.random() * Math.PI * 2,
+            team: unit.getTeam(),
+        });
     }
 }
