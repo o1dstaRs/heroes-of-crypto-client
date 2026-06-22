@@ -171,7 +171,7 @@ export class SmokeLayer {
                 const spread = t.radius * scale * (0.1 + (0.4 + rnd(seed, i + 9) * 0.35) * age);
                 const px = t.x + Math.cos(ang) * spread;
                 const py = t.y + Math.sin(ang) * spread + t.radius * (0.22 + rnd(seed, i + 17) * 0.3) * age;
-                const pr = t.radius * scale * (0.42 + 0.46 * age) * (0.7 + 0.6 * rnd(seed, i + 25));
+                const pr = t.radius * scale * (0.36 + 0.4 * age) * (0.7 + 0.6 * rnd(seed, i + 25));
                 g.circle(px, py, pr).fill({ color: tint, alpha: 0.4 * fade });
             }
         }

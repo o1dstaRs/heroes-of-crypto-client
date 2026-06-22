@@ -165,32 +165,24 @@ public getContainer(): Container {
             const perpX = -dy;
             const perpY = dx;
 
-            // Streamlines that wrap AROUND the rim of the unit's circle: they enter near the front,
-            // hug the edge as they corner around each side (parametrized by the angle phi about the
-            // centre — the "flow around a cylinder" path), then peel off into the wake. Smooth
-            // curves, no per-particle scatter; seeded by phase → stable, no flicker.
+            // One clean contrail off each side EDGE of the unit — like the twin trails an aeroplane
+            // leaves across the sky: each starts at the rim, then streams far back, thinning, fading
+            // and spreading just slightly. A single gentle bow keeps it natural (not a ruler line);
+            // seeded by phase so it's stable, and the shader adds the flowing shimmer.
             for (const side of [-1, 1]) {
-                const streams = 2 + Math.floor(rnd(seed, side * 3 + 1) * 2); // 2..3 per side
-                for (let i = 0; i < streams; i++) {
-                    const sBase = seed + side * 31.3 + i * 17.7;
-                    const ro = 0.82 + i * 0.3 + rnd(sBase, 1) * 0.18; // outer streams ride farther out
-                    const phiStart = 0.45 + rnd(sBase, 2) * 0.4; // enter ~26-49° off the front
-                    const phiEnd = Math.PI * (0.92 + rnd(sBase, 3) * 0.13); // exit near the back
-                    const peel = (0.45 + rnd(sBase, 4) * 0.7) * (0.5 + age); // how far it flares behind
-                    const segs = 11;
-                    for (let s = 0; s < segs; s++) {
-                        const f = s / (segs - 1); // 0 (front) -> 1 (wake)
-                        const phi = phiStart + (phiEnd - phiStart) * f;
-                        const r = t.radius * ro * (1.0 + peel * f * f); // hug the rim, then peel off
-                        const cosP = Math.cos(phi);
-                        const sinP = Math.sin(phi);
-                        // point at angle phi around the circle, on the chosen side
-                        const px = t.x + r * cosP * dx + r * side * sinP * perpX;
-                        const py = t.y + r * cosP * dy + r * side * sinP * perpY;
-                        const pr = t.radius * 0.11 * (1.0 - 0.3 * f);
-                        const alpha = 0.3 * fade * (1.0 - 0.45 * f);
-                        g.circle(px, py, pr).fill({ color: tint, alpha });
-                    }
+                const sBase = seed + side * 37.1;
+                const length = t.radius * (3.0 + rnd(sBase, 1) * 1.6) * (0.4 + 0.9 * age);
+                const bow = t.radius * (0.06 + rnd(sBase, 2) * 0.12); // gentle natural curve
+                const segs = 18;
+                for (let s = 0; s < segs; s++) {
+                    const f = s / (segs - 1); // 0 (at the edge) -> 1 (far behind)
+                    const along = t.radius * 0.15 - length * f; // emerge at the rim, stream back
+                    const lateral = side * (t.radius * (1.0 + 0.28 * f) + Math.sin(f * Math.PI) * bow);
+                    const px = t.x + dx * along + perpX * lateral;
+                    const py = t.y + dy * along + perpY * lateral;
+                    const pr = t.radius * 0.085 * (1.0 - 0.5 * f); // thin, tapering trail
+                    const alpha = 0.34 * fade * (1.0 - 0.7 * f);
+                    g.circle(px, py, pr).fill({ color: tint, alpha });
                 }
             }
         }

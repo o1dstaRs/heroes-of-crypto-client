@@ -4726,8 +4726,18 @@ export class Sandbox extends PixiScene {
 
         if (this.hasInitializedLap) {
             fightProps.flipLap();
-            if (fightProps.isTimeToDryCenter()) {
-                // Lava/water dries out: show the frozen/dry sprite and make the cells walkable.
+            // Lava/water dries out once the board has narrowed enough times. We use a robust ">="
+            // check instead of fightProps.isTimeToDryCenter() (which only fires on an *exact* lap
+            // match and can be skipped when a narrowing lap and the lap-counter tick coincide —
+            // that's why it sometimes never dried). The dried state is sticky, so this only runs once.
+            const gridType = fightProps.getGridType();
+            const meltable = gridType === GridVals.LAVA_CENTER || gridType === GridVals.WATER_CENTER;
+            if (
+                meltable &&
+                !this.dungeonVisuals.isCenterDried() &&
+                fightProps.getLapsNarrowed() >= fightProps.getNumberOfLapsTillNarrowing()
+            ) {
+                // Show the frozen/dry sprite and make the cells walkable.
                 this.dungeonVisuals.setCenterDried(true);
                 this.grid.cleanupCenterObstacle();
                 // Refresh the pathfinding matrices so units can actually path onto the dried cells.

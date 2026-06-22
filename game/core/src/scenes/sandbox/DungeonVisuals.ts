@@ -195,6 +195,9 @@ export class DungeonVisuals {
 
         this.holeContainer.addChild(holeGfx);
     }
+    public isCenterDried(): boolean {
+        return this.centerDried;
+    }
     /** Toggle the dried-out state of the lava/water center and re-render its sprite. */
     public setCenterDried(dried: boolean): void {
         if (this.centerDried === dried) return;
