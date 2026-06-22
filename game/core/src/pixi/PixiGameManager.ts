@@ -95,9 +95,15 @@ export class PixiGameManager {
     private textures: PreloadedPixiTextures | null = null;
     private forwardOverlayInteraction?: (e: PointerEvent) => void;
     private overlayDebugCanvas?: HTMLCanvasElement;
-    private suppressNextMouseDown = false;
-    private suppressNextMouseUp = false;
-    private suppressOverlayMouseUntil = 0;
+    private overlayMouseSuppression?: {
+        clientX: number;
+        clientY: number;
+        expiresAt: number;
+        down: boolean;
+        up: boolean;
+    };
+    private static readonly OVERLAY_MOUSE_SUPPRESSION_MS = 350;
+    private static readonly OVERLAY_MOUSE_SUPPRESSION_DISTANCE_PX = 8;
     public constructor() {
         for (const { scenes } of this.groupedScenes) this.flatScenes.push(...scenes);
     }
@@ -116,12 +122,30 @@ export class PixiGameManager {
         if (!this.textures) throw new Error("PixiGameManager: textures not initialized yet");
         return this.textures;
     }
-    private shouldSuppressOverlayMouseEvent(): boolean {
-        if (performance.now() <= this.suppressOverlayMouseUntil) return true;
+    private shouldSuppressOverlayMouseEvent(e: MouseEvent, phase: "down" | "up"): boolean {
+        const suppression = this.overlayMouseSuppression;
+        if (!suppression) return false;
 
-        this.suppressNextMouseDown = false;
-        this.suppressNextMouseUp = false;
-        return false;
+        if (performance.now() > suppression.expiresAt) {
+            this.overlayMouseSuppression = undefined;
+            return false;
+        }
+
+        const dx = e.clientX - suppression.clientX;
+        const dy = e.clientY - suppression.clientY;
+        const maxDistance = PixiGameManager.OVERLAY_MOUSE_SUPPRESSION_DISTANCE_PX;
+        if (dx * dx + dy * dy > maxDistance * maxDistance) return false;
+
+        if (phase === "down") {
+            if (!suppression.down) return false;
+            suppression.down = false;
+        } else {
+            if (!suppression.up) return false;
+            suppression.up = false;
+        }
+
+        if (!suppression.down && !suppression.up) this.overlayMouseSuppression = undefined;
+        return true;
     }
     public async init(
         glCanvas: HTMLCanvasElement,
@@ -257,9 +281,13 @@ export class PixiGameManager {
                 const gy = (e.clientY - cr.top) * scaleY;
                 const overlay = getUnitsOverlayFromScene(this.m_scene);
                 if (overlay && overlay.handlePointerDown(gx, gy)) {
-                    this.suppressNextMouseDown = true;
-                    this.suppressNextMouseUp = true;
-                    this.suppressOverlayMouseUntil = performance.now() + 750;
+                    this.overlayMouseSuppression = {
+                        clientX: e.clientX,
+                        clientY: e.clientY,
+                        expiresAt: performance.now() + PixiGameManager.OVERLAY_MOUSE_SUPPRESSION_MS,
+                        down: true,
+                        up: true,
+                    };
                     e.preventDefault();
                     e.stopPropagation();
                 }
@@ -323,8 +351,7 @@ export class PixiGameManager {
         // }
     }
     public HandleMouseDown(e: MouseEvent): void {
-        if (this.suppressNextMouseDown && this.shouldSuppressOverlayMouseEvent()) {
-            this.suppressNextMouseDown = false;
+        if (this.shouldSuppressOverlayMouseEvent(e, "down")) {
             e.preventDefault();
             e.stopPropagation();
             return;
@@ -353,8 +380,7 @@ export class PixiGameManager {
         }
     }
     public HandleMouseUp(e: MouseEvent): void {
-        if (this.suppressNextMouseUp && this.shouldSuppressOverlayMouseEvent()) {
-            this.suppressNextMouseUp = false;
+        if (this.shouldSuppressOverlayMouseEvent(e, "up")) {
             this.m_lMouseDown = false;
             e.preventDefault();
             e.stopPropagation();
@@ -421,9 +447,7 @@ export class PixiGameManager {
         }
         this.overlayDebugCanvas = undefined;
         this.forwardOverlayInteraction = undefined;
-        this.suppressNextMouseDown = false;
-        this.suppressNextMouseUp = false;
-        this.suppressOverlayMouseUntil = 0;
+        this.overlayMouseSuppression = undefined;
 
         this.isInitialized = false;
         this.pixiApp?.destroy();

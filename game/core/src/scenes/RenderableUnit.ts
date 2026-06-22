@@ -9,6 +9,7 @@ import {
     HoCConstants,
     HoCConfig,
     SpellHelper,
+    FightStateManager,
 } from "@heroesofcrypto/common";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
@@ -110,6 +111,10 @@ export class RenderableUnit extends Unit {
     private badgeText?: Text;
     private stackPowerContainer?: Container;
     private stackPowerPips: Graphics[] = [];
+    private hourglassContainer?: Container;
+    private hourglassBacking?: Graphics;
+    private hourglassGlyph?: Graphics;
+    private hourglassSprite?: Sprite;
     private spawnAnim?: SpawnAnimState;
     private boardSelected = false;
     private selectionAnimFrames?: Texture[];
@@ -156,9 +161,12 @@ export class RenderableUnit extends Unit {
             const spArr = k.split(":");
             if (spArr.length !== 2) continue;
 
-            const factionName = spArr[0];
+            // Ability-derived spells are stored with an empty faction prefix (":SpellName").
+            // Treat an empty faction as "System" (matching getSpellConfig's own default) so those
+            // auto-parsed spells render in the spellbook instead of being skipped.
+            const factionName = spArr[0] || "System";
             const spellName = spArr[1];
-            if (!factionName) continue;
+            if (!spellName) continue;
 
             const spellProperties = HoCConfig.getSpellConfig(factionName, spellName);
             const textureNames = SpellHelper.spellToTextureNames(spellName);
@@ -282,6 +290,8 @@ export class RenderableUnit extends Unit {
         this.ensureBadge(worldRoot, gs, props, pos);
         // --- stack power indicator ---
         this.ensureStackPowerIndicator(worldRoot, gs, props, pos);
+        // --- turn status indicator ---
+        this.ensureHourglassIndicator(worldRoot, gs, props, pos);
         return scale;
     }
     public setSpriteRotation(rotation: number) {
@@ -298,6 +308,9 @@ export class RenderableUnit extends Unit {
         if (this.shadow) this.shadow.visible = visible;
         if (this.badgeContainer) this.badgeContainer.visible = visible;
         if (this.stackPowerContainer) this.stackPowerContainer.visible = visible;
+        if (this.hourglassContainer) {
+            this.hourglassContainer.visible = visible && this.shouldShowHourglassIndicator();
+        }
     }
     public setVisualGhost(active: boolean): void {
         this.visualMode = active ? "ghost" : "normal";
@@ -315,6 +328,9 @@ export class RenderableUnit extends Unit {
         // Hide badges in ghost mode
         if (this.badgeContainer) this.badgeContainer.visible = !active && visible;
         if (this.stackPowerContainer) this.stackPowerContainer.visible = !active && visible;
+        if (this.hourglassContainer) {
+            this.hourglassContainer.visible = !active && visible && this.shouldShowHourglassIndicator();
+        }
     }
     public applyMoveEffect(spawnPulsePhase: number): void {
         const sprite = this.sprite;
@@ -343,6 +359,7 @@ export class RenderableUnit extends Unit {
             if (this.shadow) this.shadow.visible = false;
             if (this.badgeContainer) this.badgeContainer.visible = false;
             if (this.stackPowerContainer) this.stackPowerContainer.visible = false;
+            if (this.hourglassContainer) this.hourglassContainer.visible = false;
             return;
         }
         this.ensureVisual(worldRoot, gs);
@@ -354,6 +371,7 @@ export class RenderableUnit extends Unit {
             if (this.shadow) this.shadow.zIndex = baseZ - 0.5;
             if (this.badgeContainer) this.badgeContainer.zIndex = baseZ + 1;
             if (this.stackPowerContainer) this.stackPowerContainer.zIndex = baseZ + 1;
+            if (this.hourglassContainer) this.hourglassContainer.zIndex = baseZ + 2;
         }
     }
     public setBoardSelected(selected: boolean): void {
@@ -602,6 +620,13 @@ export class RenderableUnit extends Unit {
             this.shadow.destroy();
             this.shadow = undefined;
         }
+        if (this.hourglassContainer) {
+            this.hourglassContainer.destroy({ children: true });
+            this.hourglassContainer = undefined;
+            this.hourglassBacking = undefined;
+            this.hourglassGlyph = undefined;
+            this.hourglassSprite = undefined;
+        }
         if (this.badgeContainer) {
             this.badgeContainer.destroy({ children: true });
             this.badgeContainer = undefined;
@@ -681,6 +706,120 @@ export class RenderableUnit extends Unit {
             // Default Black Border
             circle.stroke({ width: 1.5, color: 0x000000, alpha: 0.5 });
         }
+    }
+    private ensureHourglassIndicator(
+        worldRoot: Container,
+        gs: GridSettings,
+        props: UnitProperties,
+        pos: HoCMath.XY,
+    ): void {
+        const tex = this.texResolver("hourglass");
+        const markerParent = this.badgeContainer ?? worldRoot;
+        const anchoredToBadge = markerParent === this.badgeContainer;
+
+        if (!this.hourglassContainer) {
+            this.hourglassContainer = new Container();
+            this.hourglassBacking = new Graphics();
+            this.hourglassSprite = new Sprite(tex ?? Texture.EMPTY);
+            this.hourglassGlyph = new Graphics();
+            this.hourglassSprite.anchor.set(0.5);
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            this.hourglassContainer.zIndex = 4000 - pos.y + 2;
+            this.hourglassContainer.addChild(this.hourglassBacking, this.hourglassSprite, this.hourglassGlyph);
+            markerParent.addChild(this.hourglassContainer);
+        } else if (this.hourglassContainer.parent !== markerParent) {
+            markerParent.addChild(this.hourglassContainer);
+        }
+
+        if (this.hourglassSprite) {
+            this.hourglassSprite.texture = tex ?? Texture.EMPTY;
+            this.hourglassSprite.visible = !!tex;
+        }
+
+        if (this.hourglassGlyph) {
+            this.hourglassGlyph.visible = !tex;
+        }
+
+        if (!tex && this.hourglassSprite) {
+            this.hourglassSprite.visible = false;
+        }
+
+        if (this.hourglassContainer) {
+            this.hourglassContainer.zIndex = 4000 - pos.y + 2;
+        }
+
+        const cellSize = gs.getCellSize();
+        const visualSide = props.size === 2 ? 256 : 128;
+        const iconSide = Math.max(28, Math.floor(visualSide * 0.34));
+        const unitHalfSize = visualSide / 2;
+        const margin = Math.max(8, Math.floor(cellSize * 0.25));
+        const halfIcon = iconSide / 2;
+        const innerIconSide = iconSide * 0.78;
+
+        if (this.hourglassBacking) {
+            this.hourglassBacking
+                .clear()
+                .circle(0, 0, halfIcon)
+                .fill({ color: 0x160c04, alpha: 0.82 })
+                .stroke({ width: Math.max(2, iconSide * 0.08), color: 0xf2c96d, alpha: 0.95 });
+        }
+
+        if (this.hourglassSprite) {
+            this.hourglassSprite.width = innerIconSide;
+            this.hourglassSprite.height = innerIconSide;
+            this.hourglassSprite.scale.y = -Math.abs(this.hourglassSprite.scale.y);
+        }
+
+        if (this.hourglassGlyph && !tex) {
+            const w = iconSide * 0.38;
+            const h = iconSide * 0.54;
+            const strokeWidth = Math.max(1.5, iconSide * 0.06);
+            this.hourglassGlyph
+                .clear()
+                .moveTo(-w / 2, -h / 2)
+                .lineTo(w / 2, -h / 2)
+                .lineTo(0, 0)
+                .closePath()
+                .fill({ color: 0xf6d17a, alpha: 1 })
+                .stroke({ width: strokeWidth, color: 0xffffff, alpha: 0.9 })
+                .moveTo(-w / 2, h / 2)
+                .lineTo(w / 2, h / 2)
+                .lineTo(0, 0)
+                .closePath()
+                .fill({ color: 0xf6d17a, alpha: 1 })
+                .stroke({ width: strokeWidth, color: 0xffffff, alpha: 0.9 });
+            this.hourglassGlyph
+                .moveTo(-w / 2, -h / 2)
+                .lineTo(w / 2, -h / 2)
+                .moveTo(-w / 2, h / 2)
+                .lineTo(w / 2, h / 2)
+                .stroke({ width: strokeWidth, color: 0xffffff, alpha: 1 });
+        }
+
+        if (this.hourglassContainer) {
+            if (anchoredToBadge) {
+                this.hourglassContainer.x = -Math.max(iconSide * 0.95, halfIcon + margin);
+                this.hourglassContainer.y = 0;
+            } else {
+                this.hourglassContainer.x = pos.x - unitHalfSize + margin + halfIcon;
+                this.hourglassContainer.y = pos.y + unitHalfSize - margin - halfIcon;
+            }
+            this.hourglassContainer.visible =
+                this.visualMode === "normal" && this.getAmountAlive() > 0 && this.shouldShowHourglassIndicator();
+            for (const child of this.hourglassContainer.children) {
+                if (child instanceof Graphics || child instanceof Sprite) {
+                    child.scale.y = -Math.abs(child.scale.y);
+                }
+            }
+        }
+    }
+    private shouldShowHourglassIndicator(): boolean {
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        return (
+            this.isOnHourglass() ||
+            fightProps.hourglassIncludes(this.getId()) ||
+            fightProps.hasAlreadyHourglass(this.getId())
+        );
     }
     public setActiveTurn(active: boolean): void {
         if (this.isActiveTurn === active) return;

@@ -222,7 +222,8 @@ export class MoveAnimationManager {
         if (!this.lingeringTracks.length) return;
         this.lingeringTracks = this.lingeringTracks.filter((t) => {
             t.life -= dt;
-            t.phase += dt * 2;
+            // NOTE: do NOT advance `phase` here — the drawer uses it as a *stable* per-track seed for
+            // the dust puff's randomness; mutating it per frame makes the puff flicker.
             return t.life > 0;
         });
     }

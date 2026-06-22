@@ -1,6 +1,6 @@
 {
     "name": "@heroesofcrypto/core",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "description": "Core game logic for Heroes of Crypto",
     "homepage": "https://heroesofcrypto.io",
     "files": [

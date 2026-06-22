@@ -20,6 +20,10 @@ export class SceneLog implements ISceneLog {
         this.log = new Denque();
         this.updated = false;
     }
+    public clear(): void {
+        this.log.clear();
+        this.updated = true;
+    }
     public getLog(): string {
         this.updated = false;
         return this.log

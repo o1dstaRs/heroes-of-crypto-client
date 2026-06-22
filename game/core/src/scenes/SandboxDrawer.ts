@@ -181,14 +181,41 @@ export class SandboxDrawer {
 
         // 4. Lingering tracks
         if (lingeringTracks.length) {
+            // Stable per-(track, index) pseudo-random in [0,1) seeded by the track's phase: each
+            // cell's puff differs, but stays consistent across frames (no per-frame flicker).
+            const rnd = (a: number, b: number) => {
+                const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+                return x - Math.floor(x);
+            };
+            // Soft feathered puff (fake radial falloff via stacked circles) — wispy smoke, not a disc.
+            const softPuff = (x: number, y: number, r: number, alpha: number, color: number) => {
+                g.circle(x, y, r).fill({ color, alpha: alpha * 0.3 });
+                g.circle(x, y, r * 0.62).fill({ color, alpha: alpha * 0.5 });
+                g.circle(x, y, r * 0.32).fill({ color, alpha: alpha * 0.75 });
+            };
+            const dustTints = [0xd6d0c0, 0xcdc7b6, 0xded7c6];
             for (const t of lingeringTracks) {
+                const seed = t.phase;
                 const k = Math.max(0, t.life / t.maxLife); // 1 → 0 over the track's life
-                // Soft dust mark: a faint halo over a slightly stronger core that gently shrinks and
-                // fades — no expanding rings or sinusoidal pulsing (those read as an artificial "ping").
-                const halo = t.radius * (0.45 + 0.2 * k);
-                const core = t.radius * (0.25 + 0.12 * k);
-                g.circle(t.x, t.y, halo).fill({ color: 0xffffff, alpha: 0.05 * k });
-                g.circle(t.x, t.y, core).fill({ color: 0xffffff, alpha: 0.1 * k });
+                // Hold near full for most of the life, then fall off at the end — keeps it visible.
+                const fade = Math.min(1, k * 1.6);
+                const age = 1 - k; // 0 → 1 as the puff ages
+                // Per-cell variety: number of billows, overall size, and tint all vary by seed.
+                const puffCount = 3 + Math.floor(rnd(seed, 0) * 3); // 3..5
+                const trackScale = 0.8 + rnd(seed, 1) * 0.5;
+                const tint = dustTints[Math.floor(rnd(seed, 2) * dustTints.length)];
+                for (let i = 0; i < puffCount; i++) {
+                    // Spread the billows around, with per-puff angle/offset/size jitter, drifting up
+                    // and swirling gently as they age.
+                    const ang = seed + (i * 2 * Math.PI) / puffCount + (rnd(seed, i + 3) - 0.5) * 1.3 + age * 0.7;
+                    const spread = t.radius * trackScale * (0.1 + (0.35 + rnd(seed, i + 9) * 0.45) * age);
+                    const px = t.x + Math.cos(ang) * spread;
+                    const py = t.y + Math.sin(ang) * spread + t.radius * (0.35 + rnd(seed, i + 17) * 0.45) * age;
+                    const pr = t.radius * trackScale * (0.28 + 0.5 * age) * (0.6 + 0.7 * rnd(seed, i + 25));
+                    softPuff(px, py, pr, 0.22 * fade, tint);
+                }
+                // soft settling base near the footprint
+                softPuff(t.x, t.y + t.radius * 0.1 * age, t.radius * trackScale * (0.3 + 0.12 * k), 0.18 * fade, 0xefeae0);
             }
         }
     }

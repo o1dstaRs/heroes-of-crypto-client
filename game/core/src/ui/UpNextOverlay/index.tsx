@@ -136,7 +136,8 @@ export const UpNextOverlay: React.FC = () => {
                 left: 0,
                 width: "100%",
                 height: "100%",
-                backgroundColor: "rgba(0, 0, 0, 0.8)",
+                backgroundColor: "rgba(0, 0, 0, 0.92)",
+                backdropFilter: "blur(2px)",
                 padding: 2,
                 borderRadius: 2,
                 zIndex: 9998, // Increased z-index to ensure it's on top
@@ -156,7 +157,7 @@ export const UpNextOverlay: React.FC = () => {
                         left: "50%",
                         transform: "translateX(-50%)",
                         width: "min(440px, 82vw)",
-                        opacity: 0.9,
+                        opacity: 1,
                         pointerEvents: "none",
                     }}
                 >

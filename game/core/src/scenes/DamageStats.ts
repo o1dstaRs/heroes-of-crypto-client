@@ -18,6 +18,10 @@ export class DamageStatisticHolder implements IStatisticHolder<IDamageStatistic>
         this.damageStatistics = [];
         this.damageDealtLaps = new Set();
     }
+    public clear(): void {
+        this.damageStatistics.length = 0;
+        this.damageDealtLaps.clear();
+    }
     public add(singleDamageStatistic: IDamageStatistic): void {
         let added = false;
 

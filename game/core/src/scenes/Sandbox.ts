@@ -32,6 +32,7 @@ import {
     IPlacement,
     Unit,
     IAttackTargets,
+    IAttackObstacle,
     FightStateManager,
     UnitsHolder,
     MoveHandler,
@@ -69,6 +70,7 @@ import { MAX_HOLE_LAYERS } from "@/statics";
 import { DungeonVisuals } from "./sandbox/DungeonVisuals";
 import { MoveAnimationManager } from "./sandbox/MoveAnimationManager";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
+import { RangedProjectiles, BIG_PROJECTILE_UNITS } from "./sandbox/RangedProjectiles";
 
 interface IFlickeringLight extends Graphics {
     _flickerOffset: number;
@@ -100,6 +102,9 @@ export class Sandbox extends PixiScene {
     private buttonManager: ButtonManager;
     private readonly fightStatsTracker = new FightStatsTracker();
     private lastFightSnapshot?: IFightSnapshot;
+    // Set while hovering a ranged attack whose line of sight is blocked by the central
+    // mountain — the shot (and the click) is redirected to the obstacle instead of the enemy.
+    private hoverRangeAttackObstacle?: IAttackObstacle;
     private currentEnemiesCellsWithinMovementRange?: HoCMath.XY[];
     private unitsOverlay: UnitsOverlay;
     private placementManager: PlacementManager;
@@ -156,6 +161,7 @@ export class Sandbox extends PixiScene {
     private dungeonVisuals: DungeonVisuals;
     private moveAnimManager: MoveAnimationManager;
     private combatVisuals: CombatVisuals;
+    private rangedProjectiles: RangedProjectiles;
     public constructor(context: PixiSceneContext) {
         const gs = new GridSettings(
             GridConstants.GRID_SIZE,
@@ -215,6 +221,11 @@ export class Sandbox extends PixiScene {
             setUnitPropertiesUpdateNeeded: (b) => {
                 this.sc_unitPropertiesUpdateNeeded = b;
             },
+        });
+
+        this.rangedProjectiles = new RangedProjectiles({
+            getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
+            attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
         });
 
         // Hole container init is now in DungeonVisuals
@@ -549,9 +560,18 @@ export class Sandbox extends PixiScene {
             // 2. Clear leftover combat VFX + wipe the current board (force, since units may be
             //    mid/post-fight). destroySpecificUnits frees each unit's grid occupancy.
             this.combatVisuals.clear();
+            this.rangedProjectiles.clear();
             const existing = Array.from(this.unitsHolder.getAllUnits().values()) as RenderableUnit[];
             if (existing.length) this.destroySpecificUnits(existing, true, false);
             console.log("[Rematch] wiped", existing.length, "units");
+
+            // Drop selection/hover that referenced now-destroyed units so the side panels
+            // don't show stale info from the previous fight.
+            this.selectedBoardUnit = undefined;
+            this.currentShiftedUnit = undefined;
+            this.sc_selectedUnitProperties = undefined;
+            this.sc_unitPropertiesUpdateNeeded = true;
+            this.hoverManager.clear();
 
             // 3. Restore the original map geometry + placement zones (setGridType no-ops once a
             //    fight has started, which is why we reset() first).
@@ -1610,6 +1630,11 @@ export class Sandbox extends PixiScene {
             if (this.attemptObstacleAttack(p)) {
                 return;
             }
+            // A ranged shot whose line of sight is blocked by the mountain hits the mountain
+            // instead of the enemy behind it (the hover step armed this).
+            if (this.hoverRangeAttackObstacle && this.attemptObstacleAttack(this.hoverRangeAttackObstacle.position)) {
+                return;
+            }
 
             const gs = this.sc_sceneSettings.getGridSettings();
 
@@ -2506,6 +2531,12 @@ private async executeAttackSequence(attacker: RenderableUnit, target: Unit, atta
                 responseUnits = respEval.affectedUnits[0];
             }
 
+            // Fire the projectile BEFORE applying damage so the stack-count drop, damage
+            // number and death skull all land in sync with the projectile's arrival.
+            const muzzle = attacker.getVisualCenter(gs);
+            const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
+            await this.rangedProjectiles.fire({ from: muzzle, to: tVis, big: bigProjectile });
+
             if (
                 this.attackHandler.handleRangeAttack(
                     this.unitsHolder,
@@ -2521,6 +2552,13 @@ private async executeAttackSequence(attacker: RenderableUnit, target: Unit, atta
                 ).completed
             ) {
                 this.sc_damageStatsUpdateNeeded = true;
+            }
+
+            // Double Shot: a second projectile timed to land as the staggered second damage
+            // number appears (~240ms later). Gated on the ability so Through Shot (which also
+            // yields multiple hits) doesn't spawn extra projectiles at the primary target.
+            if (attacker.getAbility("Double Shot") && damageForAnimation.hits && damageForAnimation.hits.length > 1) {
+                this.rangedProjectiles.fire({ from: muzzle, to: tVis, big: bigProjectile });
             }
         } else if (
             this.attackHandler.handleMeleeAttack(
@@ -3050,7 +3088,9 @@ private async executeAttackSequence(attacker: RenderableUnit, target: Unit, atta
                 this.hoverManager.clearHoverSilhouette();
                 return;
             }
-            if (this.sc_isAnimating || this.isActiveUnitMoving || !this.sc_mouseWorld) {
+            if (this.sc_isAnimating || this.isActiveUnitMoving || this.sc_moveBlocked || !this.sc_mouseWorld) {
+                // While a projectile is in flight / the unit is landing an attack, it can't move —
+                // don't draw the move-preview silhouette.
                 this.hoverManager.clearHoverSilhouette();
                 return;
             }
@@ -3093,6 +3133,7 @@ private async executeAttackSequence(attacker: RenderableUnit, target: Unit, atta
             let isAttacking = false;
 
             this.hoverManager.hoverAttackFromCell = undefined; // Reset state
+            this.hoverRangeAttackObstacle = undefined; // Reset blocked-shot state
 
             // --- OBSTACLE HOVER: previewing an attack on the destructible center (BLOCK_CENTER). ---
             if (this.updateObstacleHover()) {
@@ -3643,19 +3684,46 @@ private async executeAttackSequence(attacker: RenderableUnit, target: Unit, atta
                             iconPath = images.skull_white;
                         }
 
-                        this.hoverManager.drawDamagePrediction(
-                            dmgStr,
-                            killStr,
-                            centerVis,
-                            !targetUnit.isSmallSize(), // isLargeTarget
-                            iconPath,
-                        );
-                        this.hoverManager.drawAttackArrow(arrowStartPos, tVis);
-                        isAttacking = true;
+                        // Ranged shot whose line of sight crosses the central mountain is blocked:
+                        // aim at the mountain (parity with legacy), not the enemy behind it.
+                        let blockedByObstacle: IAttackObstacle | undefined;
+                        if (isRangeAttackContext && !this.currentActiveUnit.hasAbilityActive("Through Shot")) {
+                            const fp = FightStateManager.getInstance().getFightProperties();
+                            if (fp.getGridType() === GridVals.BLOCK_CENTER && fp.getObstacleHitsLeft() > 0) {
+                                blockedByObstacle = this.attackHandler.evaluateRangeAttack(
+                                    this.unitsHolder.getAllUnits(),
+                                    this.currentActiveUnit,
+                                    this.currentActiveUnit.getPosition(),
+                                    targetUnit.getPosition(),
+                                    false,
+                                    this.sc_isSelection,
+                                    this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
+                                        this.currentActiveUnit.hasAbilityActive("Area Throw"),
+                                ).attackObstacle;
+                            }
+                        }
 
-                        // Add Red Highlight for Secondary Targets
-                        for (const enemy of secondaryTargets) {
-                            this.hoverManager.addTargetHighlight(enemy);
+                        if (blockedByObstacle) {
+                            this.hoverRangeAttackObstacle = blockedByObstacle;
+                            this.hoverManager.drawAttackArrow(arrowStartPos, blockedByObstacle.position);
+                            this.sc_hoverInfoArr = ["Hit the mountain"];
+                            this.sc_hoverTextUpdateNeeded = true;
+                            isAttacking = true;
+                        } else {
+                            this.hoverManager.drawDamagePrediction(
+                                dmgStr,
+                                killStr,
+                                centerVis,
+                                !targetUnit.isSmallSize(), // isLargeTarget
+                                iconPath,
+                            );
+                            this.hoverManager.drawAttackArrow(arrowStartPos, tVis);
+                            isAttacking = true;
+
+                            // Add Red Highlight for Secondary Targets
+                            for (const enemy of secondaryTargets) {
+                                this.hoverManager.addTargetHighlight(enemy);
+                            }
                         }
                     }
                 }
@@ -3921,6 +3989,14 @@ private async executeAttackSequence(attacker: RenderableUnit, target: Unit, atta
             fightProps.setTeamUnitsAlive(TeamVals.LOWER, lowerCount);
             fightProps.setTeamUnitsAlive(TeamVals.UPPER, upperCount);
 
+            // Reset the previous fight's accumulated stats. This matters on Rematch, where
+            // the scene + attack handler are reused (New Battle gets fresh ones via LoadGame).
+            // The holder is exposed as the shared IStatisticHolder interface, so cast to the
+            // concrete client type that has clear().
+            (this.attackHandler.getDamageStatisticHolder() as DamageStatisticHolder).clear();
+            this.sc_sceneLog.clear();
+            this.sc_damageStatsUpdateNeeded = true;
+
             // Snapshot the starting roster so we can chart casualties over the fight.
             this.fightStatsTracker.start(this.unitsHolder.getAllUnits().values());
             this.refreshVisibleStateIfNeeded();
@@ -3974,6 +4050,9 @@ private async executeAttackSequence(attacker: RenderableUnit, target: Unit, atta
         }
         if (this.combatVisuals) {
             this.combatVisuals.update(timeStep);
+        }
+        if (this.rangedProjectiles) {
+            this.rangedProjectiles.update(timeStep);
         }
 
         // 1. Update Visual Overlays
