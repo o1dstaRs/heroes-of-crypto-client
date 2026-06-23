@@ -440,7 +440,7 @@ export class RenderableUnit extends Unit {
 
         const cell = gs.getCellSize();
         const isLarge = this.getUnitProperties().size === 2;
-        const baseR = cell * (isLarge ? 1.35 : 0.8);
+        const baseR = cell * (isLarge ? 0.95 : 0.55);
         const t = performance.now() / 1000;
 
         const g = this.activeAura;
@@ -453,7 +453,7 @@ export class RenderableUnit extends Unit {
         // 2. Expanding light rings radiating outward, staggered so a new wave emerges as the last fades.
         const ringCount = 3;
         const cycleSec = 1.8;
-        const maxR = baseR * (isLarge ? 2.1 : 1.8);
+        const maxR = baseR * (isLarge ? 1.5 : 1.35);
         for (let i = 0; i < ringCount; i++) {
             const phase = ((t / cycleSec) + i / ringCount) % 1;
             const r = baseR + (maxR - baseR) * phase;

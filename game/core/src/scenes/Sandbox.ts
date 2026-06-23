@@ -645,8 +645,8 @@ export class Sandbox extends PixiScene {
             this.setGridType(snapshot.gridType);
             this.placementManager.rebuildFromFightProps();
 
-            // 4. Recreate every unit at its saved position, mirroring the normal placement path
-            //    (occupy the footprint cells, then snap to the canonical cell-center position).
+            // 4. Recreate every unit at its saved position through the common placement action
+            //    so rematch uses the same occupancy validation and placement event as normal setup.
             const gs = this.sc_sceneSettings.getGridSettings();
             const unitsContainer = this.drawer.getUnitsContainer();
             for (const snap of snapshot.units) {
@@ -670,31 +670,24 @@ export class Sandbox extends PixiScene {
                 // Derive the footprint cells from the saved position.
                 unit.setPosition(snap.position.x, snap.position.y);
                 const cells = unit.getCells();
-                const hasMadeOfFire = unit.hasAbilityActive("Made of Fire");
-                const hasMadeOfWater = unit.hasAbilityActive("Made of Water");
-                const occupied =
-                    cells.length === 1
-                        ? this.grid.occupyCell(
-                              cells[0],
-                              unit.getId(),
-                              snap.team,
-                              unit.getAttackRange(),
-                              hasMadeOfFire,
-                              hasMadeOfWater,
-                          )
-                        : this.grid.occupyCells(
-                              cells,
-                              unit.getId(),
-                              snap.team,
-                              unit.getAttackRange(),
-                              hasMadeOfFire,
-                              hasMadeOfWater,
-                          );
-                // Snap to the exact cell-center position the placement flow uses.
-                if (occupied) {
-                    const placePos = GridMath.getPositionForCells(gs, cells);
-                    if (placePos) unit.setPosition(placePos.x, placePos.y);
+                const placementResult = this.createActionEngine().apply({
+                    type: "place_unit",
+                    unitId: unit.getId(),
+                    team: unit.getTeam(),
+                    unitName: unit.getName(),
+                    cells,
+                });
+                if (!placementResult.completed) {
+                    this.unitsHolder.deleteUnitById(unit.getId());
+                    console.warn("[Rematch] skipped invalid placement for", unit.getName(), unit.getId(), cells);
+                    continue;
                 }
+
+                // Snap to the exact cell-center position the placement flow uses.
+                const placeEvent = placementResult.events.find((event) => event.type === "unit_placed");
+                const placePos =
+                    placeEvent?.type === "unit_placed" ? placeEvent.position : GridMath.getPositionForCells(gs, cells);
+                if (placePos) unit.setPosition(placePos.x, placePos.y);
                 const scale = unit.ensureVisual(unitsContainer, gs);
                 if (scale) unit.startSpawnAnimation(scale);
             }
@@ -757,8 +750,10 @@ export class Sandbox extends PixiScene {
             // Make sure it’s gone once fight has started
             this.unitsOverlay.destroy();
         }
-        // 4) Anything that lives in world space and might have been attached
-        this.attachToWorldRoot(this.placementGraphics, 6000); // Overlay on top
+        // 4) Anything that lives in world space and might have been attached.
+        // Placement zones must stay below unit sprites; otherwise placed units show badges/stack
+        // overlays while their actual art is painted over by the pre-fight placement tint.
+        this.attachToWorldRoot(this.placementGraphics, 90);
         // Holes
         this.attachToWorldRoot(this.dungeonVisuals.getHoleContainer(), 20);
         this.attachToWorldRoot(this.gameplayGraphics, 55);
@@ -2587,19 +2582,21 @@ export class Sandbox extends PixiScene {
 
         // Parse the engine's isolated Fire Shield burns from the new log lines, keyed by the burned
         // unit's name, so the snapshot deltas can be split into pure + Fire Shield numbers. Also
-        // collect names petrified by Petrifying Gaze ("N <name> killed by Petrifying Gaze") so that
-        // hit can be styled differently (grey damage + a recoil jerk on the target).
+        // collect Petrifying Gaze kills ("N <name> killed by Petrifying Gaze") with their count, so
+        // that hit can be styled differently (grey damage + a recoil jerk on the target) AND its
+        // kill count shown is the gaze-only count, not the target's total deaths.
         const fireShieldByName = new Map<string, number>();
-        const petrifiedNames = new Set<string>();
+        const petrifyKillsByName = new Map<string, number>();
         for (const entry of this.sc_sceneLog.getEntriesSince(logSizeBeforeAttack)) {
             const fsMatch = entry.match(/^(.+?) received \((\d+)\) from Fire Shield/);
             if (fsMatch) {
                 fireShieldByName.set(fsMatch[1], (fireShieldByName.get(fsMatch[1]) ?? 0) + parseInt(fsMatch[2], 10));
                 continue;
             }
-            const pgMatch = entry.match(/^\d+ (.+?) killed by Petrifying Gaze$/);
+            const pgMatch = entry.match(/^(\d+) (.+?) killed by Petrifying Gaze$/);
             if (pgMatch) {
-                petrifiedNames.add(pgMatch[1]);
+                const nm = pgMatch[2];
+                petrifyKillsByName.set(nm, (petrifyKillsByName.get(nm) ?? 0) + parseInt(pgMatch[1], 10));
             }
         }
 
@@ -2759,7 +2756,10 @@ export class Sandbox extends PixiScene {
                 // Style by source: Petrifying Gaze (when it killed) → light grey + yank the target
                 // back along the attack direction; Fire Shield burn → amber; otherwise red.
                 const uName = u?.getName();
-                const isPetrified = !!uName && petrifiedNames.has(uName);
+                const isPetrified = !!uName && petrifyKillsByName.has(uName);
+                // For Petrifying Gaze, show only the gaze's own kill count (parsed from the log),
+                // not the target's total deaths (which include the main attack's kills).
+                const extraDiedCount = isPetrified ? (petrifyKillsByName.get(uName!) ?? 0) : diedCount;
                 const uFireShield = uName ? (fireShieldByName.get(uName) ?? 0) : 0;
                 const isFsBurn = uFireShield > 0 && Math.abs(unaccountedDiff - uFireShield) <= 2;
                 const fsFill = isPetrified ? "#d8d8d8" : isFsBurn ? "#ffb13c" : "#ff3333";
@@ -2782,7 +2782,7 @@ export class Sandbox extends PixiScene {
                             spawnPos,
                             unaccountedDiff,
                             primaryAttackDir,
-                            diedCount,
+                            extraDiedCount,
                             fsFill,
                             fsStroke,
                         );
@@ -2792,7 +2792,7 @@ export class Sandbox extends PixiScene {
                         spawnPos,
                         unaccountedDiff,
                         primaryAttackDir,
-                        diedCount,
+                        extraDiedCount,
                         fsFill,
                         fsStroke,
                     );
@@ -4261,7 +4261,7 @@ export class Sandbox extends PixiScene {
                 this.applyTurnEngineEvents(result.events, unitSnapshot);
 
                 if (result.nextUnit) {
-                    this.handleNextUnitActivation(result.nextUnit as RenderableUnit, { mechanicsAlreadyApplied: true });
+                    this.handleNextUnitActivation(result.nextUnit as RenderableUnit);
                 }
             }
 
@@ -4707,7 +4707,7 @@ export class Sandbox extends PixiScene {
             }, 2500);
         });
     }
-    private handleNextUnitActivation(nextUnit: RenderableUnit, opts: { mechanicsAlreadyApplied?: boolean } = {}): void {
+    private handleNextUnitActivation(nextUnit: RenderableUnit): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const gs = this.sc_sceneSettings.getGridSettings();
         const worldRoot = this.drawer.getUnitsContainer();
@@ -4720,9 +4720,6 @@ export class Sandbox extends PixiScene {
             this.currentActiveUnit.syncVisual(worldRoot, gs);
         }
         this.currentActiveUnit = nextUnit;
-        if (!opts.mechanicsAlreadyApplied && nextUnit.isOnHourglass()) {
-            nextUnit.setOnHourglass(false);
-        }
         nextUnit.setActiveTurn(true);
         nextUnit.syncVisual(worldRoot, gs);
 
@@ -4761,9 +4758,6 @@ export class Sandbox extends PixiScene {
         }
 
         if (nextUnit.isSkippingThisTurn()) {
-            if (!opts.mechanicsAlreadyApplied) {
-                this.finishTurn(false, "effect");
-            }
             return;
         }
 
@@ -4772,13 +4766,7 @@ export class Sandbox extends PixiScene {
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         nextUnit.setBoardSelected(true);
-        if (!opts.mechanicsAlreadyApplied) {
-            fightProps.startTurn(nextUnit.getTeam());
-        }
         this.refreshVisibleStateIfNeeded();
-        if (!opts.mechanicsAlreadyApplied) {
-            nextUnit.refreshPreTurnState(this.sc_sceneLog);
-        }
         this.currentActiveUnit = nextUnit;
         this.buttonManager.setButtonsRefreshLocked(false);
 
@@ -4810,9 +4798,6 @@ export class Sandbox extends PixiScene {
             this.sc_currentActiveShotRange = undefined;
         }
 
-        if (!opts.mechanicsAlreadyApplied) {
-            fightProps.markFirstTurn();
-        }
         this.buttonManager.setButtonsRefreshLocked(false);
         this.buttonManager.refreshButtons(true);
     }
