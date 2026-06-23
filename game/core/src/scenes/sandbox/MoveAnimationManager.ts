@@ -38,10 +38,26 @@ interface ILingeringTrack {
     cellSize: number;
 }
 
+interface ISwapAnimSegment {
+    unit: RenderableUnit;
+    from: HoCMath.XY;
+    to: HoCMath.XY;
+    ctrl: HoCMath.XY;
+}
+
+interface ISwapAnimState {
+    a: ISwapAnimSegment;
+    b: ISwapAnimSegment;
+    elapsed: number;
+    duration: number;
+    onComplete?: () => void;
+}
+
 export class MoveAnimationManager {
     private context: IMoveAnimationContext;
     // State
     private moveAnimation?: IMoveAnimationState;
+    private swapAnimation?: ISwapAnimState;
     private moveTrackPath?: HoCMath.XY[];
     private moveTrackProgress = 0;
     private lingeringTracks: ILingeringTrack[] = [];
@@ -54,7 +70,7 @@ export class MoveAnimationManager {
         return this.lingeringTracks;
     }
     public isMoving(): boolean {
-        return !!this.moveAnimation;
+        return !!this.moveAnimation || !!this.swapAnimation;
     }
     public getMovingUnit(): RenderableUnit | undefined {
         return this.moveAnimation?.unit;
@@ -86,9 +102,77 @@ export class MoveAnimationManager {
             onComplete,
         };
     }
+    public startSwapAnimation(
+        unitA: RenderableUnit,
+        fromA: HoCMath.XY,
+        toA: HoCMath.XY,
+        unitB: RenderableUnit,
+        fromB: HoCMath.XY,
+        toB: HoCMath.XY,
+        onComplete?: () => void,
+    ) {
+        // Castling-style position swap: glide both units to each other's old cell along mirrored
+        // arcs (quadratic Bézier whose control point bows perpendicular to the path) so they curve
+        // around each other instead of clipping through the midpoint.
+        this.isActiveUnitMoving = true;
+        this.context.setMoveBlocked(true);
+        // Snapshot every coordinate: Unit.getPosition() returns a live reference to its internal
+        // position, and we call setPosition() during the animation — without copies, `to` would
+        // mutate each frame and both units would collapse toward the middle.
+        const snap = (p: HoCMath.XY): HoCMath.XY => ({ x: p.x, y: p.y });
+        const fA = snap(fromA);
+        const tA = snap(toA);
+        const fB = snap(fromB);
+        const tB = snap(toB);
+        const arcCtrl = (from: HoCMath.XY, to: HoCMath.XY, side: number): HoCMath.XY => {
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const px = -dy / len; // perpendicular (90° rotation)
+            const py = dx / len;
+            const mx = (from.x + to.x) / 2;
+            const my = (from.y + to.y) / 2;
+            const bow = len * 0.3;
+            return { x: mx + px * bow * side, y: my + py * bow * side };
+        };
+        this.swapAnimation = {
+            a: { unit: unitA, from: fA, to: tA, ctrl: arcCtrl(fA, tA, 1) },
+            b: { unit: unitB, from: fB, to: tB, ctrl: arcCtrl(fB, tB, -1) },
+            elapsed: 0,
+            duration: 0.45,
+            onComplete,
+        };
+    }
     public update(dt: number) {
         this.stepMoveAnimation(dt);
+        this.stepSwapAnimation(dt);
         this.updateLingeringTracks(dt);
+    }
+    private stepSwapAnimation(dt: number): void {
+        const s = this.swapAnimation;
+        if (!s) return;
+        s.elapsed += dt;
+        const raw = Math.min(1, s.elapsed / s.duration);
+        // ease-in-out for a smooth glide.
+        const t = raw < 0.5 ? 2 * raw * raw : 1 - Math.pow(-2 * raw + 2, 2) / 2;
+        const place = (seg: ISwapAnimSegment) => {
+            const it = 1 - t;
+            const x = it * it * seg.from.x + 2 * it * t * seg.ctrl.x + t * t * seg.to.x;
+            const y = it * it * seg.from.y + 2 * it * t * seg.ctrl.y + t * t * seg.to.y;
+            seg.unit.setPosition(x, y);
+        };
+        place(s.a);
+        place(s.b);
+        if (raw >= 1) {
+            s.a.unit.setPosition(s.a.to.x, s.a.to.y);
+            s.b.unit.setPosition(s.b.to.x, s.b.to.y);
+            const onComplete = s.onComplete;
+            this.swapAnimation = undefined;
+            this.isActiveUnitMoving = false;
+            this.context.setMoveBlocked(false);
+            this.context.requestVisibleStateUpdate();
+            if (onComplete) onComplete();
+        }
     }
     private stepMoveAnimation(dt: number): void {
         const anim = this.moveAnimation;

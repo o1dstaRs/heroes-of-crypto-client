@@ -4,7 +4,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Container, Graphics, Sprite as PixiSprite, Texture } from "pixi.js";
+import { Container, Graphics, Sprite as PixiSprite, Text, TextStyle, Texture } from "pixi.js";
 import { HoCConstants, HoCMath, ISpellParams, Spell } from "@heroesofcrypto/common";
 
 export enum BookPosition {
@@ -26,6 +26,7 @@ const BOOK_SPELL_SIZE = 160;
 const BOOK_CELL_SIZE = 250;
 const BOOK_CELL_OFFSET_X = -54;
 const BOOK_CELL_OFFSET_Y = -42;
+const AMOUNT_BADGE_HEIGHT = 42;
 
 export type DigitTextureMap = Map<number, Texture>;
 
@@ -42,7 +43,10 @@ export class PixiRenderableSpell extends Spell {
     private amountDigitSprites: PixiSprite[] = [];
     /** Column of stacks — drawn with Graphics for perf */
     private stackColumnGfx: Graphics;
+    private amountBadgeGfx: Graphics;
+    private disabledOverlayGfx: Graphics;
     private hoverFrameGfx: Graphics;
+    private amountText: Text;
     private highlighted = false;
     /** Cached hover rect */
     private xMin = 0;
@@ -88,9 +92,26 @@ export class PixiRenderableSpell extends Spell {
         this.titleSprite.visible = false;
 
         this.stackColumnGfx = new Graphics();
+        this.amountBadgeGfx = new Graphics();
+        this.disabledOverlayGfx = new Graphics();
         this.hoverFrameGfx = new Graphics();
+        this.amountText = new Text({
+            text: "",
+            style: new TextStyle({ fill: 0xffffff, fontSize: 30, fontWeight: "700" }),
+        });
+        this.amountText.anchor.set(0.5);
+        this.amountText.visible = false;
 
-        this.layer.addChild(this.bgSprite, this.iconSprite, this.titleSprite, this.stackColumnGfx, this.hoverFrameGfx);
+        this.layer.addChild(
+            this.bgSprite,
+            this.iconSprite,
+            this.titleSprite,
+            this.stackColumnGfx,
+            this.disabledOverlayGfx,
+            this.amountBadgeGfx,
+            this.amountText,
+            this.hoverFrameGfx,
+        );
     }
     /** Old API parity */
     public getSprite(): PixiSprite {
@@ -102,24 +123,44 @@ export class PixiRenderableSpell extends Spell {
         this.iconSprite.visible = false;
         this.titleSprite.visible = false;
         for (const s of this.amountDigitSprites) {
-            s.visible = false;
+            s.parent?.removeChild(s);
+            s.destroy();
         }
+        this.amountDigitSprites = [];
         this.stackColumnGfx.clear();
+        this.amountBadgeGfx.clear();
+        this.disabledOverlayGfx.clear();
         this.hoverFrameGfx.clear();
+        this.amountText.visible = false;
         this.highlighted = false;
     }
     public setHighlighted(highlighted: boolean): void {
         if (this.highlighted === highlighted) return;
         this.highlighted = highlighted;
     }
-    public isHover(globalMouse: HoCMath.XY, ownerStackPower: number): boolean {
-        if (
-            this.amountRemaining <= 0 ||
-            ownerStackPower < this.getMinimalCasterStackPower() ||
-            !this.iconSprite.visible
-        ) {
+    public syncAmount(amountRemaining: number): void {
+        this.amountRemaining = Math.max(0, Math.floor(amountRemaining));
+    }
+    public canUse(ownerStackPower: number): boolean {
+        return this.amountRemaining > 0 && ownerStackPower >= this.getMinimalCasterStackPower();
+    }
+    public getHoverInfo(ownerStackPower: number): string[] {
+        const lines = [this.getName(), `Scrolls: ${this.amountRemaining}`];
+        if (this.amountRemaining <= 0) {
+            lines.push("No scrolls left");
+        }
+        const minimalStackPower = this.getMinimalCasterStackPower();
+        if (ownerStackPower < minimalStackPower) {
+            lines.push(`Requires stack power ${minimalStackPower}`);
+        }
+        return [...lines, ...this.getDesc()];
+    }
+    public isHover(globalMouse: HoCMath.XY, ownerStackPower: number, includeUnavailable = false): boolean {
+        if (!this.iconSprite.visible) {
             return false;
         }
+        if (!includeUnavailable && !this.canUse(ownerStackPower)) return false;
+
         // Hit-test against the icon's actual rendered bounds.
         const b = this.iconSprite.getBounds();
         return globalMouse.x >= b.minX && globalMouse.x <= b.maxX && globalMouse.y >= b.minY && globalMouse.y <= b.maxY;
@@ -174,66 +215,90 @@ export class PixiRenderableSpell extends Spell {
         this.titleSprite.y = yPos + BOOK_SPELL_SIZE + 8;
 
         // Visibility + alpha rules
-        const canRenderStack = this.amountRemaining > 0;
-        const canRenderNumber = ownerStackPower >= this.getMinimalCasterStackPower();
+        const hasScrolls = this.amountRemaining > 0;
+        const hasStackPower = ownerStackPower >= this.getMinimalCasterStackPower();
+        const enabled = hasScrolls && hasStackPower;
 
-        this.bgSprite.alpha = canRenderNumber ? 1 : 0.4;
-        this.iconSprite.alpha = canRenderStack && canRenderNumber ? 1 : 0.4;
-        this.titleSprite.alpha = canRenderStack && canRenderNumber ? 1 : 0.4;
-        this.bgSprite.tint = this.highlighted ? 0xfff1bf : 0xffffff;
-        this.iconSprite.tint = this.highlighted ? 0xfff7cc : 0xffffff;
-        this.titleSprite.tint = this.highlighted ? 0xfff7cc : 0xffffff;
+        this.bgSprite.alpha = enabled ? 1 : 0.62;
+        this.iconSprite.alpha = enabled ? 1 : 0.42;
+        this.titleSprite.alpha = enabled ? 1 : 0.42;
+        this.bgSprite.tint = enabled ? (this.highlighted ? 0xfff1bf : 0xffffff) : 0x858585;
+        this.iconSprite.tint = enabled ? (this.highlighted ? 0xfff7cc : 0xffffff) : 0x777777;
+        this.titleSprite.tint = enabled ? (this.highlighted ? 0xfff7cc : 0xffffff) : 0x777777;
 
         this.bgSprite.visible = true;
         this.iconSprite.visible = true;
         this.titleSprite.visible = true;
 
-        this.renderHoverFrame(cellX, cellY, canRenderStack && canRenderNumber);
+        this.renderDisabledOverlay(xPos, yPos, !enabled);
+        this.renderHoverFrame(cellX, cellY, enabled);
 
-        // Digits for remaining
-        this.renderDigits(xPos, yPos, canRenderNumber);
+        // Number of scrolls remaining.
+        this.renderAmount(cellX, cellY, enabled, hasStackPower);
 
         // Stack column
-        this.renderStackColumn(xPos, yPos, ownerStackPower, canRenderStack);
+        this.renderStackColumn(xPos, yPos, ownerStackPower, hasScrolls);
     }
-    private renderDigits(xPos: number, yPos: number, canRenderNumber: boolean) {
-        // cleanup previous digit sprites
+    private clearAmountDigitSprites(): void {
         for (const s of this.amountDigitSprites) {
             s.parent?.removeChild(s);
             s.destroy();
         }
         this.amountDigitSprites = [];
+    }
+    private renderAmount(cellX: number, cellY: number, enabled: boolean, hasStackPower: boolean): void {
+        this.clearAmountDigitSprites();
 
-        const sixthStep = BOOK_SPELL_SIZE / 6;
-        const fifthStep = BOOK_SPELL_SIZE / 5;
+        const label = String(this.amountRemaining);
+        const badgeWidth = Math.max(48, label.length * 22 + 26);
+        const badgeX = cellX + BOOK_CELL_SIZE - badgeWidth - 12;
+        const badgeY = cellY + 12;
+        const fillColor = this.amountRemaining > 0 ? (hasStackPower ? 0x123c23 : 0x6d2c2c) : 0x303030;
+        const strokeColor = enabled ? 0xf6d87c : 0x888888;
 
-        // Decompose number into digits (right to left)
-        const sprites: PixiSprite[] = [];
-        if (this.amountRemaining < 10) {
-            const tex = this.digits.get(this.amountRemaining);
-            if (tex) sprites.push(new PixiSprite(tex));
-        } else {
-            let n = this.amountRemaining;
-            while (n) {
-                const digit = n % 10;
-                const tex = this.digits.get(digit);
-                if (tex) sprites.push(new PixiSprite(tex));
-                n = Math.floor(n / 10);
-            }
+        this.amountBadgeGfx
+            .clear()
+            .rect(badgeX, badgeY, badgeWidth, AMOUNT_BADGE_HEIGHT)
+            .fill({ color: fillColor, alpha: enabled ? 0.92 : 0.72 })
+            .stroke({ width: 2, color: strokeColor, alpha: enabled ? 0.95 : 0.72 });
+
+        const centerX = badgeX + badgeWidth / 2;
+        const centerY = badgeY + AMOUNT_BADGE_HEIGHT / 2 + 1;
+        const canRenderDigitTextures = [...label].every((digit) => this.digits.has(Number(digit)));
+
+        if (canRenderDigitTextures) {
+            this.renderDigitAmount(label, centerX, centerY, enabled);
+            this.amountText.visible = false;
+            return;
         }
 
-        // Position right-aligned inside the card
-        let i = 1;
-        for (const s of sprites) {
-            s.anchor.set(0, 1);
-            s.width = fifthStep;
-            s.height = BOOK_SPELL_SIZE / 3;
-            s.x = xPos + 106 + BOOK_SPELL_SIZE - sixthStep * i++;
-            s.y = yPos + BOOK_SPELL_SIZE + 62;
-            s.alpha = canRenderNumber ? 1 : 0.4;
+        this.amountText.text = label;
+        this.amountText.style = new TextStyle({
+            fill: enabled ? 0xffffff : 0xcfcfcf,
+            fontSize: label.length > 2 ? 24 : 30,
+            fontWeight: "700",
+        });
+        this.amountText.position.set(centerX, centerY);
+        this.amountText.alpha = enabled ? 1 : 0.7;
+        this.amountText.visible = true;
+    }
+    private renderDigitAmount(label: string, centerX: number, centerY: number, enabled: boolean): void {
+        const digitW = 22;
+        const digitH = 34;
+        const startX = centerX - ((label.length - 1) * digitW) / 2;
+
+        for (let i = 0; i < label.length; i++) {
+            const tex = this.digits.get(Number(label[i]));
+            if (!tex) continue;
+            const s = new PixiSprite(tex);
+            s.anchor.set(0.5);
+            s.width = digitW;
+            s.height = digitH;
+            s.position.set(startX + i * digitW, centerY);
+            s.alpha = enabled ? 1 : 0.55;
             this.layer.addChild(s);
+            this.amountDigitSprites.push(s);
         }
-        this.amountDigitSprites = sprites;
     }
     private renderStackColumn(xPos: number, yPos: number, ownerStackPower: number, canRenderStack: boolean) {
         // Clear previous vectors
@@ -262,22 +327,35 @@ export class PixiRenderableSpell extends Spell {
     }
     private renderHoverFrame(cellX: number, cellY: number, enabled: boolean): void {
         this.hoverFrameGfx.clear();
-        if (!this.highlighted || !enabled) return;
+        if (!this.highlighted) return;
+
+        const outerColor = enabled ? 0xf6d87c : 0x9a9a9a;
+        const innerColor = enabled ? 0x5b3508 : 0x555555;
 
         this.hoverFrameGfx
             .rect(cellX - 6, cellY - 6, BOOK_CELL_SIZE + 12, BOOK_CELL_SIZE + 12)
-            .stroke({ width: 5, color: 0xf6d87c, alpha: 0.95 })
+            .stroke({ width: 5, color: outerColor, alpha: enabled ? 0.95 : 0.7 })
             .rect(cellX + 2, cellY + 2, BOOK_CELL_SIZE - 4, BOOK_CELL_SIZE - 4)
-            .stroke({ width: 2, color: 0x5b3508, alpha: 0.85 });
+            .stroke({ width: 2, color: innerColor, alpha: enabled ? 0.85 : 0.65 });
+    }
+    private renderDisabledOverlay(xPos: number, yPos: number, disabled: boolean): void {
+        this.disabledOverlayGfx.clear();
+        if (!disabled) return;
+
+        this.disabledOverlayGfx
+            .rect(xPos, yPos, BOOK_SPELL_SIZE, BOOK_SPELL_SIZE)
+            .fill({ color: 0x000000, alpha: 0.24 })
+            .moveTo(xPos + 12, yPos + 12)
+            .lineTo(xPos + BOOK_SPELL_SIZE - 12, yPos + BOOK_SPELL_SIZE - 12)
+            .stroke({ width: 5, color: 0x111111, alpha: 0.48 });
     }
     public destroy(): void {
-        for (const s of this.amountDigitSprites) {
-            s.parent?.removeChild(s);
-            s.destroy();
-        }
-        this.amountDigitSprites = [];
+        this.clearAmountDigitSprites();
         this.stackColumnGfx.destroy();
+        this.amountBadgeGfx.destroy();
+        this.disabledOverlayGfx.destroy();
         this.hoverFrameGfx.destroy();
+        this.amountText.destroy();
         this.bgSprite.destroy();
         this.iconSprite.destroy();
         this.titleSprite.destroy();

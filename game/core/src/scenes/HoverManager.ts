@@ -87,6 +87,10 @@ export class HoverManager {
         if (this.hoverSilhouetteOutline) this.context.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
         this.context.attachToWorldRoot(this.auraGraphics, 51); // Below units and movement path
         this.context.attachToWorldRoot(this.aoeGraphics, 4500); // Above units: AOE splash area
+        if (this.spellBeam) this.context.attachToWorldRoot(this.spellBeam, 2199);
+        if (this.spellBadgeRing) this.context.attachToWorldRoot(this.spellBadgeRing, 2202);
+        if (this.spellBadgeIcon) this.context.attachToWorldRoot(this.spellBadgeIcon, 2203);
+        if (this.spellBadgeText) this.context.attachToWorldRoot(this.spellBadgeText, 2203);
     }
     public clearAuraVisuals(): void {
         this.auraGraphics.clear();
@@ -630,6 +634,7 @@ export class HoverManager {
         if (this.hoverDamageIcon) {
             this.hoverDamageIcon.visible = false;
         }
+        this.clearSpellPreview();
         this.hoverAttackTargetUnit = undefined;
     }
     private hoverTargetSilhouettes: Sprite[] = [];
@@ -733,6 +738,102 @@ export class HoverManager {
             .moveTo(endX, endY)
             .lineTo(endX - headLen * Math.cos(angle + headAngle), endY - headLen * Math.sin(angle + headAngle))
             .stroke({ width: 4, color: 0xffffff, alpha: 1.0 });
+    }
+    // --- Armed-spell on-board preview: a colored beam caster→target plus a persistent icon+name
+    // badge floating above the caster, so the player can always see which spell is about to fire. ---
+    private spellBeam?: Graphics;
+    private spellBadgeRing?: Graphics;
+    private spellBadgeIcon?: Sprite;
+    private spellBadgeText?: Text;
+    public drawSpellCastPreview(opts: {
+        casterPos: HoCMath.XY;
+        targetPos?: HoCMath.XY;
+        iconTex: Texture;
+        label: string;
+        color: number;
+    }): void {
+        const color = opts.color;
+
+        // 1. Beam from caster to hovered target (only when a target is hovered).
+        if (opts.targetPos) {
+            if (!this.spellBeam) {
+                this.spellBeam = new Graphics();
+                this.context.attachToWorldRoot(this.spellBeam, 2199);
+            }
+            const g = this.spellBeam;
+            g.clear();
+            g.visible = true;
+            const fx = opts.casterPos.x;
+            const fy = opts.casterPos.y;
+            const tx = opts.targetPos.x;
+            const ty = opts.targetPos.y;
+            const angle = Math.atan2(ty - fy, tx - fx);
+            g.moveTo(fx, fy).lineTo(tx, ty).stroke({ width: 16, color, alpha: 0.22 });
+            g.moveTo(fx, fy).lineTo(tx, ty).stroke({ width: 5, color, alpha: 0.9 });
+            const hl = 22;
+            const ha = Math.PI / 6;
+            g.moveTo(tx, ty)
+                .lineTo(tx - hl * Math.cos(angle - ha), ty - hl * Math.sin(angle - ha))
+                .moveTo(tx, ty)
+                .lineTo(tx - hl * Math.cos(angle + ha), ty - hl * Math.sin(angle + ha))
+                .stroke({ width: 5, color, alpha: 1.0 });
+        } else if (this.spellBeam) {
+            this.spellBeam.clear();
+        }
+
+        // 2. Badge above the caster (world is y-up, so +Y floats it higher on screen).
+        const cx = opts.casterPos.x;
+        const cy = opts.casterPos.y + 96;
+        const iconSize = 46;
+        if (!this.spellBadgeRing) {
+            this.spellBadgeRing = new Graphics();
+            this.context.attachToWorldRoot(this.spellBadgeRing, 2202);
+        }
+        const ring = this.spellBadgeRing;
+        ring.clear();
+        ring.visible = true;
+        ring.circle(cx, cy, iconSize / 2 + 7).fill({ color: 0x000000, alpha: 0.5 });
+        ring.circle(cx, cy, iconSize / 2 + 7).stroke({ width: 3, color, alpha: 0.95 });
+
+        if (!this.spellBadgeIcon) {
+            this.spellBadgeIcon = new Sprite(opts.iconTex);
+            this.spellBadgeIcon.anchor.set(0.5);
+            this.context.attachToWorldRoot(this.spellBadgeIcon, 2203);
+        } else {
+            this.spellBadgeIcon.texture = opts.iconTex;
+        }
+        const texW = opts.iconTex.width || iconSize;
+        this.spellBadgeIcon.visible = true;
+        this.spellBadgeIcon.scale.set(iconSize / texW, -iconSize / texW);
+        this.spellBadgeIcon.position.set(cx, cy);
+        this.spellBadgeIcon.tint = 0xffffff;
+
+        if (!this.spellBadgeText) {
+            this.spellBadgeText = new Text({
+                text: opts.label,
+                style: {
+                    fontFamily: "Arial",
+                    fontSize: 18,
+                    fill: 0xffffff,
+                    stroke: { color: 0x000000, width: 4, join: "round" },
+                    align: "center",
+                    fontWeight: "bold",
+                },
+            });
+            this.context.attachToWorldRoot(this.spellBadgeText, 2203);
+        } else {
+            this.spellBadgeText.text = opts.label;
+        }
+        this.spellBadgeText.visible = true;
+        this.spellBadgeText.anchor.set(0.5, 0.5);
+        this.spellBadgeText.scale.set(1, -1);
+        this.spellBadgeText.position.set(cx, cy - (iconSize / 2 + 18));
+    }
+    public clearSpellPreview(): void {
+        if (this.spellBeam) this.spellBeam.clear();
+        if (this.spellBadgeRing) this.spellBadgeRing.clear();
+        if (this.spellBadgeIcon) this.spellBadgeIcon.visible = false;
+        if (this.spellBadgeText) this.spellBadgeText.visible = false;
     }
     public updateHoverSilhouette(boundsCenter: HoCMath.XY): void {
         // Size/shape the move-preview from the ACTIVE unit's LIVE properties — this silhouette is

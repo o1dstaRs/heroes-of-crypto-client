@@ -137,15 +137,11 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     const handleClick = useCallback(() => {
         if (isHourglass) {
             setRotationDegrees((prev) => prev + 180);
-        } else if (customSpriteName) {
-            setRotationDegrees(180);
-        } else {
-            setRotationDegrees(0);
         }
         if (onClick) {
             onClick();
         }
-    }, [isHourglass, customSpriteName, onClick]);
+    }, [isHourglass, onClick]);
 
     useEffect(() => {
         if (iconImage === spellbookIconImage && !isDisabled && !customSpriteName) {
@@ -162,7 +158,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
         return null;
     }
 
-    const needRotate = ICON_IMAGE_NEED_ROTATE[iconImage] || !!customSpriteName;
+    const needRotate = ICON_IMAGE_NEED_ROTATE[iconImage];
     const initialRotation = needRotate ? 180 : 0;
 
     return (

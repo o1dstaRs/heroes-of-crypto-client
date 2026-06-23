@@ -43,6 +43,7 @@ import {
     ToNatureSynergy,
     FactionVals,
     AttackVals,
+    MovementVals,
     GridVals,
     UnitVals,
     IVisibleDamage,
@@ -152,6 +153,7 @@ export class Sandbox extends PixiScene {
     private gameplayGraphics?: Graphics;
     private currentActiveSpell?: PixiRenderableSpell;
     private hoveredSpell?: PixiRenderableSpell;
+    private spellHoverInfoKey = "";
     private drawnNarrowingLaps: Set<number> = new Set();
     // Debug: render the cell grid once (helps verify attack trajectories / cell alignment).
     private gridDebugRendered = false;
@@ -1962,11 +1964,29 @@ export class Sandbox extends PixiScene {
         }
         this.pixiApp.getWorldRoot().filters = [];
     }
-    private setHoveredSpell(spell: PixiRenderableSpell | undefined): void {
-        if (this.hoveredSpell === spell) return;
-        this.hoveredSpell?.setHighlighted(false);
-        spell?.setHighlighted(true);
-        this.hoveredSpell = spell;
+    private setHoveredSpell(spell: PixiRenderableSpell | undefined, caster?: RenderableUnit): void {
+        if (this.hoveredSpell !== spell) {
+            this.hoveredSpell?.setHighlighted(false);
+            spell?.setHighlighted(true);
+            this.hoveredSpell = spell;
+        }
+        this.setSpellHoverInfo(spell, caster);
+    }
+    private setSpellHoverInfo(spell: PixiRenderableSpell | undefined, caster?: RenderableUnit): void {
+        const lines = spell && caster ? spell.getHoverInfo(caster.getStackPower()) : [];
+        const key = lines.join("\n");
+        if (this.spellHoverInfoKey === key) return;
+
+        this.spellHoverInfoKey = key;
+        this.sc_attackDamageSpreadStr = "";
+        this.sc_attackRangeDamageDivisorStr = "";
+        this.sc_attackKillSpreadStr = "";
+        this.sc_hoverUnitNameStr = "";
+        this.sc_hoverUnitLevel = 0;
+        this.sc_hoverUnitMovementType = MovementVals.NO_MOVEMENT;
+        this.sc_selectedAttackType = AttackVals.NO_ATTACK;
+        this.sc_hoverInfoArr = lines;
+        this.sc_hoverTextUpdateNeeded = true;
     }
     /**
      * Map a world-space point to global/screen space for spell hit-testing. The spellbook is
@@ -1990,10 +2010,16 @@ export class Sandbox extends PixiScene {
         const caster = this.currentActiveUnit;
         const hovered =
             caster instanceof RenderableUnit
-                ? caster.getHoveredSpell(this.spellbookGlobalFromWorld(worldPos))
+                ? caster.getHoveredSpell(this.spellbookGlobalFromWorld(worldPos), true)
                 : undefined;
         if (!hovered || !caster) {
             this.closeSpellBook();
+            return;
+        }
+
+        if (!hovered.canUse(caster.getStackPower())) {
+            this.setHoveredSpell(hovered, caster);
+            this.sc_sceneLog.updateLog(`${hovered.getName()} is unavailable`);
             return;
         }
 
@@ -2027,10 +2053,45 @@ export class Sandbox extends PixiScene {
         this.closeSpellBook();
         this.sc_sceneLog.updateLog(`${caster.getName()} prepares ${hovered.getName()} - pick a target`);
 
+        // Switch to the MAGIC attack type (parity with legacy) so the toolbar shows the scepter and
+        // the melee hover/attack positions are suppressed while a spell is armed.
+        if (caster.selectAttackType(AttackVals.MAGIC)) {
+            this.sc_selectedAttackType = caster.getAttackTypeSelection();
+        }
+
         // Recompute movement/targeting paths now that a spell is armed (parity with legacy).
         const currentCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), caster.getPosition());
         if (currentCell) {
             this.updateCurrentMovePath(currentCell);
+        }
+
+        // Castling (ENEMY_WITHIN_MOVEMENT_RANGE) swaps the caster with a small enemy inside its
+        // movement range. canCastSpell — and thus the hover highlight + cast validation — needs the
+        // list of those enemies' base cells, so compute it here (parity with the legacy arming path).
+        this.currentEnemiesCellsWithinMovementRange = undefined;
+        if (
+            currentCell &&
+            targetType === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE &&
+            caster.canMove()
+        ) {
+            const moveCells = this.pathHelper.getMovePath(
+                currentCell,
+                this.gridMatrixNoUnits,
+                caster.getSteps(),
+                undefined,
+                caster.canFly(),
+                caster.isSmallSize(),
+                caster.hasAbilityActive("Made of Fire"),
+            ).cells;
+            const enemies: HoCMath.XY[] = [];
+            for (const c of moveCells) {
+                const enemyId = this.grid.getOccupantUnitId(c);
+                if (!enemyId) continue;
+                const enemy = this.unitsHolder.getAllUnits().get(enemyId);
+                if (!enemy || enemy.getTeam() === caster.getTeam() || !enemy.isSmallSize()) continue;
+                enemies.push(enemy.getBaseCell());
+            }
+            this.currentEnemiesCellsWithinMovementRange = enemies.length ? enemies : undefined;
         }
 
         // Refresh the toolbar so the spellbook button shows the armed spell's icon immediately.
@@ -2048,6 +2109,12 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
+        // Castling (POSITION_CHANGE) swaps caster↔target. The engine teleports both instantly, so
+        // capture their pre-swap positions and animate them arcing to their new cells afterwards.
+        const isSwap = spell.getPowerType() === SpellPowerType.POSITION_CHANGE;
+        const oldCasterPos = isSwap ? { ...caster.getPosition() } : undefined;
+        const oldTargetPos = isSwap ? { ...targetUnit.getPosition() } : undefined;
+
         const result = this.attackHandler.handleMagicAttack(
             this.gridMatrix,
             this.unitsHolder,
@@ -2058,6 +2125,31 @@ export class Sandbox extends PixiScene {
         );
         if (!result.completed) {
             return false;
+        }
+
+        if (isSwap && oldCasterPos && oldTargetPos) {
+            // Clear armed-spell state now; the turn ends when the swap animation finishes.
+            this.currentActiveSpell = undefined;
+            this.currentEnemiesCellsWithinMovementRange = undefined;
+            this.hoverManager.clearHoverSilhouette();
+            this.hoverManager.clearAttackVisuals();
+            this.hoverManager.hoverAttackFromCell = undefined;
+            this.sc_moveBlocked = true;
+            this.sc_visibleStateUpdateNeeded = true;
+            this.unitsHolder.refreshStackPowerForAllUnits();
+            this.moveAnimManager.startSwapAnimation(
+                caster,
+                oldCasterPos,
+                caster.getPosition(),
+                targetUnit as RenderableUnit,
+                oldTargetPos,
+                targetUnit.getPosition(),
+                () => {
+                    this.sc_moveBlocked = false;
+                    this.finishTurn();
+                },
+            );
+            return true;
         }
 
         this.cleanupAfterSpell();
@@ -3314,8 +3406,9 @@ export class Sandbox extends PixiScene {
             if (this.currentActiveUnit instanceof RenderableUnit) {
                 const hoveredSpell = this.currentActiveUnit.getHoveredSpell(
                     this.spellbookGlobalFromWorld(this.sc_mouseWorld),
+                    true,
                 );
-                this.setHoveredSpell(hoveredSpell);
+                this.setHoveredSpell(hoveredSpell, this.currentActiveUnit);
 
                 // If hovering inside spellbook, skip other board interactions?
                 // Probably yes, to avoid clicking units "through" the book.
@@ -3413,33 +3506,99 @@ export class Sandbox extends PixiScene {
             // --- SPELL TARGETING HOVER: a single-target spell is armed. Preview its effect on the
             // unit under the cursor — green silhouette for buffs/heals, red for debuffs/damage — and
             // only when the spell is actually castable on that unit (reusing SpellHelper.canCastSpell,
-            // which already encodes team / magic-resist / healable / mind-resist / stack rules). ---
+            // which already encodes team / magic-resist / healable / mind-resist / stack rules). A
+            // colored beam caster→target + a persistent icon/name badge above the caster make it
+            // obvious which spell is about to fire. Castling (position swap) is special: every valid
+            // swap target is highlighted up-front in dark yellow, not just the one under the cursor.---
             if (this.currentActiveSpell && this.currentActiveUnit) {
                 const spell = this.currentActiveSpell;
+                const caster = this.currentActiveUnit;
                 const gs2 = this.sc_sceneSettings.getGridSettings();
-                const targetUnit = this.getUnitAtPosition(this.sc_mouseWorld);
+                const hoveredUnit = this.getUnitAtPosition(this.sc_mouseWorld);
                 this.hoverManager.clearAttackVisuals();
                 this.hoverManager.clearHoverSilhouette();
                 this.hoverManager.hoverAttackFromCell = undefined;
-                if (
-                    targetUnit &&
-                    !targetUnit.isDead() &&
+
+                // Castling reads as dark yellow; buffs/heals green; debuffs/damage red.
+                const isSwap = spell.getSpellTargetType() === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE;
+                const spellColor = isSwap ? 0xb8860b : spell.isBuff() ? 0x1aa84a : 0xaa0000;
+                const casterPos = caster.getVisualCenter(gs2);
+                const iconTex =
+                    this.texAny(SpellHelper.spellToTextureNames(spell.getName())[0]) ?? Texture.EMPTY;
+
+                let targetCenter: HoCMath.XY | undefined;
+                if (isSwap && this.currentEnemiesCellsWithinMovementRange) {
+                    // Highlight every small enemy within movement range so the player sees all options.
+                    for (const c of this.currentEnemiesCellsWithinMovementRange) {
+                        const id = this.grid.getOccupantUnitId(c);
+                        const u = id ? this.unitsHolder.getAllUnits().get(id) : undefined;
+                        if (u && !u.isDead()) {
+                            this.hoverManager.addTargetHighlight(u, spellColor);
+                        }
+                    }
+                    // Beam only to the one actually under the cursor (if it's a valid swap target).
+                    const rTarget = hoveredUnit as RenderableUnit;
+                    if (
+                        hoveredUnit &&
+                        !hoveredUnit.isDead() &&
+                        typeof rTarget.getVisualCenter === "function" &&
+                        SpellHelper.canCastSpell(
+                            false,
+                            gs2,
+                            this.gridMatrix,
+                            caster,
+                            hoveredUnit,
+                            spell,
+                            hoveredUnit.getBaseCell(),
+                            hoveredUnit.getMagicResist(),
+                            hoveredUnit.hasMindAttackResistance(),
+                            hoveredUnit.canBeHealed(),
+                            this.currentEnemiesCellsWithinMovementRange,
+                        )
+                    ) {
+                        targetCenter = rTarget.getVisualCenter(gs2);
+                    }
+                } else if (
+                    hoveredUnit &&
+                    !hoveredUnit.isDead() &&
                     SpellHelper.canCastSpell(
                         false,
                         gs2,
                         this.gridMatrix,
-                        this.currentActiveUnit,
-                        targetUnit,
+                        caster,
+                        hoveredUnit,
                         spell,
-                        targetUnit.getBaseCell(),
-                        targetUnit.getMagicResist(),
-                        targetUnit.hasMindAttackResistance(),
-                        targetUnit.canBeHealed(),
+                        hoveredUnit.getBaseCell(),
+                        hoveredUnit.getMagicResist(),
+                        hoveredUnit.hasMindAttackResistance(),
+                        hoveredUnit.canBeHealed(),
                         this.currentEnemiesCellsWithinMovementRange,
                     )
                 ) {
-                    this.hoverManager.addTargetHighlight(targetUnit, spell.isBuff() ? 0x1aa84a : 0xaa0000);
+                    this.hoverManager.addTargetHighlight(hoveredUnit, spellColor);
+                    const rTarget = hoveredUnit as RenderableUnit;
+                    targetCenter =
+                        typeof rTarget.getVisualCenter === "function"
+                            ? rTarget.getVisualCenter(gs2)
+                            : hoveredUnit.getPosition();
                 }
+
+                this.hoverManager.drawSpellCastPreview({
+                    casterPos,
+                    targetPos: targetCenter,
+                    iconTex,
+                    label: spell.getName(),
+                    color: spellColor,
+                });
+                return;
+            }
+
+            // MAGIC attack type (spell-casting mode) doesn't have melee attack positions — suppress
+            // the move/attack hover so no melee cells or silhouettes show while casting.
+            if (this.currentActiveUnit.getAttackTypeSelection() === AttackVals.MAGIC) {
+                this.hoverManager.clearHoverSilhouette();
+                this.hoverManager.clearAttackVisuals();
+                this.hoverManager.hoverAttackFromCell = undefined;
                 return;
             }
 

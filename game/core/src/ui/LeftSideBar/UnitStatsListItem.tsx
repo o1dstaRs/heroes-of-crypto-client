@@ -10,7 +10,7 @@ import {
     TeamType,
 } from "@heroesofcrypto/common";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import { Box, Badge } from "@mui/joy";
+import { Box } from "@mui/joy";
 import Avatar from "@mui/joy/Avatar";
 import List from "@mui/joy/List";
 import ListItem from "@mui/joy/ListItem";
@@ -458,8 +458,12 @@ const StatItem: React.FC<{
             sx={{
                 display: "flex",
                 alignItems: "center",
-                gap: 0.25,
-                minWidth: "45%",
+                flexWrap: "nowrap",
+                overflow: "visible",
+                // A stat with an active modifier (badge) needs room for the modifier chip — give it
+                // the whole row instead of 45%, so "30 +10" always fits regardless of screen width.
+                minWidth: badgeContent ? "100%" : "45%",
+                pr: badgeContent ? 1 : 0,
                 backgroundColor: positiveFrame
                     ? "rgba(0, 255, 0, 0.3)"
                     : negativeFrame
@@ -473,33 +477,41 @@ const StatItem: React.FC<{
             }}
         >
             {React.cloneElement(icon, { sx: { color, fontSize: "1.25rem", pr: "4px" } })}
-            {badgeContent ? (
-                <Box sx={{ position: "relative", display: "inline-flex" }}>
-                    <Typography
-                        fontSize="0.75rem"
-                        sx={{ ...(positiveFrame || negativeFrame ? { fontWeight: "bold", fontSize: "0.75rem" } : {}) }}
-                    >
-                        {value}
-                    </Typography>
-                    <Badge
-                        badgeContent={badgeContent}
-                        // @ts-ignore: badge color type mismatch
-                        color={badgeColor}
-                        sx={{
-                            position: "absolute",
-                            bottom: 8.5,
-                            right: -15 - 2.5 * value.toString().length,
-                            transform: "scale(0.8) translate(50%, 50%)",
-                            opacity: 0.75,
-                        }}
-                    />
-                </Box>
-            ) : (
+            <Typography
+                fontSize="0.75rem"
+                component="span"
+                sx={{
+                    whiteSpace: "nowrap",
+                    ...(positiveFrame || negativeFrame ? { fontWeight: "bold" } : {}),
+                }}
+            >
+                {value}
+            </Typography>
+            {badgeContent && (
                 <Typography
-                    fontSize="0.75rem"
-                    sx={{ ...(positiveFrame || negativeFrame ? { fontWeight: "bold", fontSize: "0.75rem" } : {}) }}
+                    component="span"
+                    sx={{
+                        fontSize: "0.62rem",
+                        fontWeight: "bold",
+                        lineHeight: 1,
+                        px: "4px",
+                        py: "1px",
+                        ml: 0.5,
+                        borderRadius: "8px",
+                        color: "#fff",
+                        whiteSpace: "nowrap",
+                        backgroundColor:
+                            badgeColor === "success"
+                                ? "rgba(22, 163, 74, 0.9)"
+                                : badgeColor === "danger"
+                                  ? "rgba(220, 38, 38, 0.9)"
+                                  : badgeColor === "warning"
+                                    ? "rgba(217, 119, 6, 0.9)"
+                                    : "rgba(37, 99, 235, 0.9)",
+                        border: "1px solid rgba(0,0,0,0.45)",
+                    }}
                 >
-                    {value}
+                    {badgeContent}
                 </Typography>
             )}
         </Box>

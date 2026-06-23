@@ -196,6 +196,8 @@ export class RenderableUnit extends Unit {
         }
     }
     public renderSpells(pageNumber: number): void {
+        this.syncSpellAmountsFromProperties();
+
         const windowLeft = (pageNumber - 1) * 6;
         const windowRight = (pageNumber - 1) * 6 + 6;
         let bookPosition = 1;
@@ -226,13 +228,26 @@ export class RenderableUnit extends Unit {
             s.setHighlighted(s === spell);
         }
     }
-    public getHoveredSpell(mousePosition: HoCMath.XY): PixiRenderableSpell | undefined {
+    public getHoveredSpell(mousePosition: HoCMath.XY, includeUnavailable = false): PixiRenderableSpell | undefined {
         for (const s of this.pixiSpells) {
-            if (s.isHover(mousePosition, this.getStackPower())) {
+            if (s.isHover(mousePosition, this.getStackPower(), includeUnavailable)) {
                 return s;
             }
         }
         return undefined;
+    }
+    private syncSpellAmountsFromProperties(): void {
+        const spellsData = this.parseSpellData(this.unitProperties.spells);
+        for (const spell of this.pixiSpells) {
+            let amount = 0;
+            for (const [spellKey, spellAmount] of spellsData.entries()) {
+                const [, spellName] = spellKey.split(":");
+                if (spellName === spell.getName()) {
+                    amount += spellAmount;
+                }
+            }
+            spell.syncAmount(amount);
+        }
     }
     /** Ensure sprite + badge exist and are laid out for the current unit state. */
     public ensureVisual(worldRoot: Container, gs: GridSettings): number | undefined {
