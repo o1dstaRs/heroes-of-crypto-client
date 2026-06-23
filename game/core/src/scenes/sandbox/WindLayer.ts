@@ -180,9 +180,12 @@ public getContainer(): Container {
                 let prevX = 0;
                 let prevY = 0;
                 for (let s = 0; s < segs; s++) {
-                    const f = s / (segs - 1); // 0 (at the edge) -> 1 (far behind)
-                    const along = t.radius * 0.15 - length * f; // emerge at the rim, stream back
-                    const lateral = side * (t.radius * (1.0 + 0.28 * f) + Math.sin(f * Math.PI) * bow);
+                    const f = s / (segs - 1); // 0 (at the wingtip) -> 1 (far behind)
+                    // Emanate straight from ONE wingtip (mid-body, ±radius to the side of travel) and
+                    // stream straight back along -direction, near-parallel — twin aeroplane contrails
+                    // off the left/right wingtips, not lines fanning out from the footprint corners.
+                    const along = -length * f;
+                    const lateral = side * (t.radius + Math.sin(f * Math.PI) * bow * 0.6);
                     const px = t.x + dx * along + perpX * lateral;
                     const py = t.y + dy * along + perpY * lateral;
                     if (s > 0) {

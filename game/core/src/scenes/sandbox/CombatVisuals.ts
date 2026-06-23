@@ -86,7 +86,14 @@ export class CombatVisuals {
             ft.container.alpha = Math.max(0, Math.min(1, alpha));
         }
     }
-    public showFloatingDamage(pos: HoCMath.XY, amount: number, direction?: HoCMath.XY, unitsDied?: number): void {
+    public showFloatingDamage(
+        pos: HoCMath.XY,
+        amount: number,
+        direction?: HoCMath.XY,
+        unitsDied?: number,
+        fill = "#ff3333",
+        stroke = "#4a0000",
+    ): void {
         const container = new Container();
 
         // 1. Damage Text
@@ -94,8 +101,8 @@ export class CombatVisuals {
             fontFamily: "Arial",
             fontSize: 60,
             fontWeight: "900",
-            fill: "#ff3333",
-            stroke: { color: "#4a0000", width: 5 },
+            fill,
+            stroke: { color: stroke, width: 5 },
             dropShadow: {
                 color: "#000000",
                 blur: 4,

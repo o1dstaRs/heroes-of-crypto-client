@@ -120,8 +120,7 @@ export class PixiRenderableSpell extends Spell {
         ) {
             return false;
         }
-        // Hit-test against the icon's actual rendered bounds in global/screen space. This is robust
-        // to the spellbook container's nested Y-flips and scaling, unlike the manual local-rect math.
+        // Hit-test against the icon's actual rendered bounds.
         const b = this.iconSprite.getBounds();
         return globalMouse.x >= b.minX && globalMouse.x <= b.maxX && globalMouse.y >= b.minY && globalMouse.y <= b.maxY;
     }

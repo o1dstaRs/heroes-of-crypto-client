@@ -84,8 +84,10 @@ export class DungeonVisuals {
         const radius = size * 0.25;
         const blur = new BlurFilter({ strength: 40, quality: 4 });
         // Generous padding so the blur isn't clipped to its bounding box (the clip shows up as
-        // hard rectangular "lines" around each light).
-        blur.padding = Math.ceil(size * 0.14);
+        // hard rectangular "lines" — esp. horizontal bands along the top/bottom perimeter rows —
+        // when the blurred glow spills past the filter region). Keep this comfortably larger than
+        // the blur strength and the largest light radius.
+        blur.padding = Math.ceil(size * 0.35);
         this.atmosphereLights = [];
 
         const margin = size * 0.18;
@@ -120,11 +122,16 @@ export class DungeonVisuals {
             // Per-light variation so the perimeter reads as separate braziers, not a uniform band.
             const r = radius * (0.55 + Math.random() * 0.85); // 0.55 .. 1.4 of base
             const intensity = 0.7 + Math.random() * 0.5;
-            // Layered warm falloff: deep ember halo -> orange -> amber -> hot near-white core.
-            light.circle(0, 0, r * 0.95).fill({ color: 0xb83000, alpha: 0.14 * intensity });
-            light.circle(0, 0, r * 0.6).fill({ color: 0xff6a14, alpha: 0.22 * intensity });
-            light.circle(0, 0, r * 0.34).fill({ color: 0xffa83c, alpha: 0.34 * intensity });
-            light.circle(0, 0, r * 0.15).fill({ color: 0xffe9b0, alpha: 0.62 * intensity });
+            // Smooth radial falloff via many fine concentric layers (so there are no visible rings),
+            // warm deep-ember edge fading to a hot near-white core.
+            const layers = 10;
+            for (let L = layers; L >= 1; L--) {
+                const lr = (r * L) / layers;
+                const tcore = 1 - (L - 1) / (layers - 1); // 0 (edge) -> 1 (core)
+                const color = tcore > 0.66 ? 0xffe9b0 : tcore > 0.33 ? 0xffa83c : 0xc23e06;
+                const a = (0.04 + 0.34 * tcore * tcore) * intensity;
+                light.circle(0, 0, lr).fill({ color, alpha: a });
+            }
 
             const fLight = light as unknown as IFlickeringLight;
             fLight._flickerOffset = Math.random() * 100;

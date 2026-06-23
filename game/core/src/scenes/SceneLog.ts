@@ -40,4 +40,13 @@ export class SceneLog implements ISceneLog {
     public hasBeenUpdated(): boolean {
         return this.updated;
     }
+    public getLogSize(): number {
+        return this.log.length;
+    }
+    /** Returns the entries added since the log had `previousSize` items (newest first). */
+    public getEntriesSince(previousSize: number): string[] {
+        const added = this.log.length - previousSize;
+        if (added <= 0) return [];
+        return this.log.toArray().slice(0, added);
+    }
 }

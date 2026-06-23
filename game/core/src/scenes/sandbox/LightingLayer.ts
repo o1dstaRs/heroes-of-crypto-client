@@ -101,9 +101,9 @@ export class LightingLayer {
         for (const torch of this.torches) {
             const t = this.time + torch.phase;
             // Organic flicker from two out-of-phase sines.
-            const flicker = 0.85 + 0.15 * Math.sin(t * 6.3) * Math.sin(t * 2.4 + 0.7);
+            const flicker = 0.85 + 0.15 * Math.sin(t * 3.2) * Math.sin(t * 1.2 + 0.7);
             torch.sprite.alpha = TORCH_ALPHA * flicker;
-            torch.sprite.scale.set(torch.baseScale * (1 + 0.02 * Math.sin(t * 3.1)));
+            torch.sprite.scale.set(torch.baseScale * (1 + 0.02 * Math.sin(t * 1.6)));
         }
     }
 

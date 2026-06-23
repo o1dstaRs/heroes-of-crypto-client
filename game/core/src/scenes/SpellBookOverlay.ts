@@ -8,6 +8,7 @@ export class SpellBookOverlay {
     public constructor(parentContainer: Container, appWidth: number, appHeight: number) {
         this.overlayContainer = new Container();
         this.overlayContainer.visible = false;
+        this.overlayContainer.zIndex = 6990;
 
         // Create a semi-transparent dimmer background
         this.dimmer = new Graphics();
@@ -15,24 +16,18 @@ export class SpellBookOverlay {
         this.dimmer.interactive = true; // Block clicks passing through
 
         this.overlayContainer.addChild(this.dimmer);
+        parentContainer.sortableChildren = true;
         parentContainer.addChild(this.overlayContainer);
     }
     public setOpen(open: boolean): void {
         this.isOpen = open;
         this.overlayContainer.visible = open;
-        if (open) {
-            console.log(
-                `[SpellBookOverlay] setOpen(true). Pos: ${this.overlayContainer.x},${this.overlayContainer.y}. ScaleY: ${this.overlayContainer.scale.y}`,
-            );
-            // Force front?
-            // this.overlayContainer.parent.setChildIndex(this.overlayContainer, 0); // Background
-        }
     }
     public resize(width: number, height: number): void {
         this.dimmer.clear();
         this.dimmer.rect(0, 0, width, height).fill({ color: 0x000000, alpha: 0.0 });
 
-        // Reset transforms in case we are on Stage (Screen Space)
+        // Keep the dimmer in screen space.
         this.overlayContainer.position.set(0, 0);
         this.overlayContainer.scale.set(1, 1);
     }

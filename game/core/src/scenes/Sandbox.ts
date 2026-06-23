@@ -439,9 +439,7 @@ export class Sandbox extends PixiScene {
         return this.unitsOverlay;
     }
     public override CameraChanged(): void {
-        // [FIXED] Use attachToWorldRoot with High Z-Index to ensure it overlays units
         this.attachToWorldRoot(this.placementGraphics, 6000);
-        // spellBookContainer attached to stage in init
         this.attachToWorldRoot(this.gameplayGraphics, 55); // Ranges below units (Units > 100)
         this.dungeonVisuals.attachCenterTerrainSprite();
         this.hoverManager.onCameraChanged();
@@ -705,18 +703,9 @@ export class Sandbox extends PixiScene {
 
         // Update SpellBook Container Position on Resize to keep it centered
         if (this.spellBookContainer) {
-            // Content Size approx 1350x1150 based on layout
-            // Scale to fit this content into the screen
-            const scaleW = w / 1350;
-            const scaleH = h / 1150;
-
-            // "Always occupy full camera view" => Scale to fit (Contain)
-            // Remove cap of 1 to allow Upscaling on large screens
-            const scale = Math.min(scaleW, scaleH) * 0.85; // a touch smaller than full-fit
-
-            this.spellBookContainer.scale.set(scale, -scale);
-            // Shift up by 1/12 of the screen height as requested
-            this.spellBookContainer.position.set(w / 2, 1508 * scale - h / 12);
+            const scale = Math.min(w / 1120, h / 980) * 0.94;
+            this.spellBookContainer.scale.set(scale);
+            this.spellBookContainer.position.set(w / 2, h / 2);
         }
         if (this.spellBookOverlay) {
             this.spellBookOverlay.resize(w, h);
@@ -1956,11 +1945,12 @@ export class Sandbox extends PixiScene {
         }
         super.MouseDown(p);
     }
-/** Close the spellbook overlay and clear its blur filter. */
+    /** Close the spellbook overlay and clear its blur filter. */
     private closeSpellBook(): void {
         if (!this.sc_renderSpellBookOverlay) {
             return;
         }
+        this.setHoveredSpell(undefined);
         this.sc_renderSpellBookOverlay = false;
         this.buttonManager.sc_renderSpellBookOverlay = false;
         this.spellBookOverlay?.setOpen(false);
@@ -1971,9 +1961,15 @@ export class Sandbox extends PixiScene {
         }
         this.pixiApp.getWorldRoot().filters = [];
     }
-/**
+    private setHoveredSpell(spell: PixiRenderableSpell | undefined): void {
+        if (this.hoveredSpell === spell) return;
+        this.hoveredSpell?.setHighlighted(false);
+        spell?.setHighlighted(true);
+        this.hoveredSpell = spell;
+    }
+    /**
      * Map a world-space point to global/screen space for spell hit-testing. The spellbook is
-     * attached to the stage, so screen space == global space; spell hover/pick compares this
+     * attached to the UI container, so spell hover/pick compares this
      * against each icon's global getBounds().
      */
     private spellbookGlobalFromWorld(worldPos: HoCMath.XY): HoCMath.XY {
@@ -1981,7 +1977,7 @@ export class Sandbox extends PixiScene {
         // global (screen) space to match.
         return this.pixiApp.worldToScreen(worldPos.x, worldPos.y);
     }
-/**
+    /**
      * Handle a click while the spellbook overlay is open.
      * - Single-target spell (ANY_ALLY / ANY_ENEMY / ANY_UNIT / ENEMY_WITHIN_MOVEMENT_RANGE):
      *   arm it and close the book; the next board click on a unit casts it (see castSpellOnTarget).
@@ -2718,6 +2714,11 @@ export class Sandbox extends PixiScene {
             });
         }
 
+        // Capture the scene-log position so we can read the engine's *isolated* Fire Shield amounts
+        // ("X received (N) from Fire Shield") afterwards. The HP-snapshot deltas below lump the burn
+        // in with the retaliation on the same unit, so we split them back out into a separate number.
+        const logSizeBeforeAttack = this.sc_sceneLog.getLogSize();
+
         // Check for Range Attack
         // If attackFrom is current position AND target is far away (or strictly defined as range target), use Range logic.
         // We can check if it is in canAttackByRangeTargets if available, or deduce from distance.
@@ -2887,6 +2888,16 @@ export class Sandbox extends PixiScene {
             }
         }
 
+        // Parse the engine's isolated Fire Shield burns from the new log lines, keyed by the burned
+        // unit's name, so the snapshot deltas can be split into pure + Fire Shield numbers.
+        const fireShieldByName = new Map<string, number>();
+        for (const entry of this.sc_sceneLog.getEntriesSince(logSizeBeforeAttack)) {
+            const fsMatch = entry.match(/^(.+?) received \((\d+)\) from Fire Shield/);
+            if (fsMatch) {
+                fireShieldByName.set(fsMatch[1], (fireShieldByName.get(fsMatch[1]) ?? 0) + parseInt(fsMatch[2], 10));
+            }
+        }
+
         // 2. Attacker Damage (Counter-Attack)
         const attackerAfter = { amount: attacker.getAmountAlive(), health: attacker.getHp() };
 
@@ -2928,8 +2939,27 @@ export class Sandbox extends PixiScene {
                     spawnPos.y += gs.getCellSize();
                 }
 
-                // Pass simplified stackLost as unitsDied
-                this.combatVisuals.showFloatingDamage(spawnPos, damageTaken, dir, stackLost);
+                // Split the attacker's HP loss into the pure (retaliation) hit and the Fire Shield
+                // burn, shown as two separate numbers (parity with the log). Fire Shield is amber and
+                // staggered so it reads as its own distinct hit instead of a single summed number.
+                const attackerFireShield = fireShieldByName.get(attacker.getName()) ?? 0;
+                const pureDamage = Math.max(0, damageTaken - attackerFireShield);
+                if (pureDamage > 0) {
+                    this.combatVisuals.showFloatingDamage(spawnPos, pureDamage, dir, stackLost);
+                }
+                if (attackerFireShield > 0) {
+                    const fsPos = { ...spawnPos };
+                    setTimeout(() => {
+                        this.combatVisuals.showFloatingDamage(
+                            fsPos,
+                            attackerFireShield,
+                            dir,
+                            pureDamage > 0 ? 0 : stackLost,
+                            "#ffb13c",
+                            "#7a3800",
+                        );
+                    }, 280);
+                }
             }
         }
 
@@ -3021,12 +3051,33 @@ export class Sandbox extends PixiScene {
                 // Extra damage on the PRIMARY target beyond the main hit — Medusa's Petrifying Gaze,
                 // a Fire Shield burn, etc. Stagger it a beat after the standard attack number so it
                 // reads as its own distinct hit instead of looking summed into the standard damage.
+                // When this extra damage is the unit's Fire Shield burn, colour it amber so it reads
+                // as the shield (not a normal hit). Other "extra" (e.g. Petrifying Gaze) stays red.
+                const uName = u?.getName();
+                const uFireShield = uName ? fireShieldByName.get(uName) ?? 0 : 0;
+                const isFsBurn = uFireShield > 0 && Math.abs(unaccountedDiff - uFireShield) <= 2;
+                const fsFill = isFsBurn ? "#ffb13c" : "#ff3333";
+                const fsStroke = isFsBurn ? "#7a3800" : "#4a0000";
                 if (uId === primaryVictimId) {
                     setTimeout(() => {
-                        this.combatVisuals.showFloatingDamage(spawnPos, unaccountedDiff, primaryAttackDir, diedCount);
+                        this.combatVisuals.showFloatingDamage(
+                            spawnPos,
+                            unaccountedDiff,
+                            primaryAttackDir,
+                            diedCount,
+                            fsFill,
+                            fsStroke,
+                        );
                     }, 300);
                 } else {
-                    this.combatVisuals.showFloatingDamage(spawnPos, unaccountedDiff, primaryAttackDir, diedCount);
+                    this.combatVisuals.showFloatingDamage(
+                        spawnPos,
+                        unaccountedDiff,
+                        primaryAttackDir,
+                        diedCount,
+                        fsFill,
+                        fsStroke,
+                    );
                 }
             }
         }
@@ -3255,7 +3306,7 @@ export class Sandbox extends PixiScene {
                 const hoveredSpell = this.currentActiveUnit.getHoveredSpell(
                     this.spellbookGlobalFromWorld(this.sc_mouseWorld),
                 );
-                this.currentActiveSpell = hoveredSpell;
+                this.setHoveredSpell(hoveredSpell);
 
                 // If hovering inside spellbook, skip other board interactions?
                 // Probably yes, to avoid clicking units "through" the book.
@@ -3265,6 +3316,8 @@ export class Sandbox extends PixiScene {
                     return;
                 }
             }
+        } else {
+            this.setHoveredSpell(undefined);
         }
 
         // --- 1. Generic Hover Logic (Pre & Post Fight) ---

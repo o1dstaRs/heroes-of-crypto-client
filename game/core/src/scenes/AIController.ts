@@ -68,6 +68,17 @@ export class AIController {
         this.context = context;
     }
     /**
+     * Restore the AI toggle to the player's pre-auto-turn choice. AI-Driven units force AI on for
+     * their turn (and the toggle is disabled); afterwards we put it back where it was — keep it on
+     * only if the player had enabled AI for the whole fight, otherwise turn it back off.
+     */
+    private restoreAIState(priorAIActive: boolean): void {
+        this.isAIActive = priorAIActive;
+        const buttonManager = this.context.getButtonManager();
+        buttonManager.sc_isAIActive = priorAIActive;
+        buttonManager.refreshButtons(true);
+    }
+    /**
      * Check if AI should be triggered for the current turn.
      */
     public shouldTriggerAI(): boolean {
@@ -142,7 +153,7 @@ export class AIController {
             this.context.finishTurn();
         }
 
-        this.isAIActive = wasAIActive;
+        this.restoreAIState(wasAIActive);
         this.performingAction = false;
     }
     /**
@@ -204,14 +215,14 @@ export class AIController {
 
             this.context.executeMoveSequence(currentUnit, route, moveFootprint, async () => {
                 await this.context.executeAttackSequence(currentUnit, target, attackCell);
-                this.isAIActive = aiActive;
+                this.restoreAIState(aiActive);
                 this.performingAction = false;
             });
             return true; // Callback handles cleanup
         } else {
             // No route - attack directly
             await this.context.executeAttackSequence(currentUnit, unitToAttack, attackFromCell);
-            this.isAIActive = wasAIActive;
+            this.restoreAIState(wasAIActive);
             this.performingAction = false;
             return true;
         }
@@ -305,7 +316,7 @@ export class AIController {
         // Execute move with cleanup callback
         this.context.executeMoveSequence(currentUnit, route, moveFootprint, () => {
             this.context.finishTurn();
-            this.isAIActive = wasAIActive;
+            this.restoreAIState(wasAIActive);
             this.performingAction = false;
         });
 

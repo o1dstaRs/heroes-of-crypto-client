@@ -264,9 +264,14 @@ export class ButtonManager {
     }
     public propagateButtonClicked(name: string, _state: VisibleButtonState): void {
         const currentActiveUnit = this.context.getCurrentActiveUnit();
-        if (!currentActiveUnit || (currentActiveUnit && currentActiveUnit.hasAbilityActive("AI Driven"))) {
-            // Even if no unit, AI button might be clickable, check logic
-            if (name !== "AI") return;
+        // An AI-Driven unit is AI-controlled for its whole turn — the player can't interact with any
+        // button, including the AI toggle (it's restored to their prior choice when the turn ends).
+        if (currentActiveUnit?.hasAbilityActive("AI Driven")) {
+            return;
+        }
+        if (!currentActiveUnit && name !== "AI") {
+            // No active unit: only the AI toggle is meaningful.
+            return;
         }
 
         const fightProps = FightStateManager.getInstance().getFightProperties();

@@ -734,7 +734,11 @@ export class HoverManager {
             .stroke({ width: 4, color: 0xffffff, alpha: 1.0 });
     }
     public updateHoverSilhouette(boundsCenter: HoCMath.XY): void {
-        const selected = this.context.getSelectedUnitProperties();
+        // Size/shape the move-preview from the ACTIVE unit's LIVE properties — this silhouette is
+        // that unit's projected position. The cached selected-properties can be stale/mistyped and
+        // made large units (e.g. Hydra) render a small silhouette. Fall back to selected (placement).
+        const active = this.context.getCurrentActiveUnit();
+        const selected = active ? active.getUnitProperties() : this.context.getSelectedUnitProperties();
 
         if (this.hoverAttackTargetUnit) {
             // If we have a target unit (red highlight), we might want to keep it?
