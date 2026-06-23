@@ -9,9 +9,9 @@ import {
     Unit,
     GridMath,
     GridSettings,
-    HoCConstants,
     SpellHelper,
 } from "@heroesofcrypto/common";
+import type { GameAction } from "@heroesofcrypto/common";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { VisibleButtonState, IVisibleButton, IVisibleState } from "./VisibleState";
 
@@ -21,7 +21,7 @@ export interface ISandboxButtonContext {
     getGridSettings(): GridSettings;
 
     // Actions
-    finishTurn(isHourglass: boolean): void;
+    applyGameAction(action: GameAction): boolean;
     refreshUnits(): void;
     updateCurrentMovePath(cell: HoCMath.XY): void;
 
@@ -289,13 +289,9 @@ export class ButtonManager {
         switch (name) {
             case "Next": {
                 if (!active || !fightProps.hasFightStarted()) return;
-                active.decreaseMorale(
-                    HoCConstants.MORALE_CHANGE_FOR_SKIP,
-                    fightProps.getAdditionalMoralePerTeam(active.getTeam()),
-                );
-                this.context.getSceneLog().updateLog(`${active.getName()} ends turn (player click)`);
-                this.context.finishTurn(false);
-                this.refreshButtons(true);
+                if (this.context.applyGameAction({ type: "end_turn", unitId: active.getId() })) {
+                    this.refreshButtons(true);
+                }
                 return;
             }
             case "Hourglass": {
@@ -303,15 +299,9 @@ export class ButtonManager {
                 // Added missing condition check
                 if (!this.checkHourglassCondition()) return;
 
-                active.decreaseMorale(
-                    HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK,
-                    fightProps.getAdditionalMoralePerTeam(active.getTeam()),
-                );
-                active.setOnHourglass(true);
-                fightProps.enqueueHourglass(active.getId());
-                this.context.getSceneLog().updateLog(`${active.getName()} waits (hourglass)`);
-                this.context.finishTurn(true);
-                this.refreshButtons(true);
+                if (this.context.applyGameAction({ type: "wait_turn", unitId: active.getId() })) {
+                    this.refreshButtons(true);
+                }
                 return;
             }
             case "AI": {
@@ -334,20 +324,36 @@ export class ButtonManager {
             }
             case "LuckShield": {
                 if (!active || !fightProps.hasFightStarted()) return;
-                // Defend: clear this turn's randomized luck before skipping (parity with legacy).
-                active.cleanupLuckPerTurn();
-                active.decreaseMorale(
-                    HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK,
-                    fightProps.getAdditionalMoralePerTeam(active.getTeam()),
-                );
-                this.context.getSceneLog().updateLog(`${active.getName()} uses Luck Shield (player click)`);
-                this.context.finishTurn(false);
-                this.refreshButtons(true);
+                if (this.context.applyGameAction({ type: "defend_turn", unitId: active.getId() })) {
+                    this.refreshButtons(true);
+                }
                 return;
             }
             case "AttackType": {
                 if (!active || !fightProps.hasFightStarted()) return;
-                if (active.selectNextAttackType()) {
+                const possibleAttackTypes = active.getPossibleAttackTypes();
+                if (!possibleAttackTypes.length) return;
+                const currentAttackType = active.getAttackTypeSelection();
+                const currentIndex = possibleAttackTypes.indexOf(currentAttackType);
+                const baseIndex = currentIndex >= 0 ? currentIndex : -1;
+                let selected = false;
+                for (let offset = 1; offset <= possibleAttackTypes.length; offset++) {
+                    const nextAttackType = possibleAttackTypes[(baseIndex + offset) % possibleAttackTypes.length];
+                    if (nextAttackType === currentAttackType) {
+                        continue;
+                    }
+                    if (
+                        this.context.applyGameAction({
+                            type: "select_attack_type",
+                            unitId: active.getId(),
+                            attackType: nextAttackType,
+                        })
+                    ) {
+                        selected = true;
+                        break;
+                    }
+                }
+                if (selected) {
                     this.context.setCurrentEnemiesCellsWithinMovementRange(undefined);
                     // Manually switching attack type drops any armed spell (don't keep a spell ready
                     // while the player explicitly chose a melee/range attack instead).

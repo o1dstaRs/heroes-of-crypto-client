@@ -14,6 +14,7 @@ import { usePixiManager } from "../../pixi/PixiGameManager";
 import stopImg from "../../../images/stop.webp";
 import hourglassImg from "../../../images/hourglass.webp";
 import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
+import { prefetchUnitAtlas } from "./UnitStatsListItem";
 
 // --- Custom Style for "Heroes" Aesthetic Tooltips ---
 const commonTooltipSx = {
@@ -89,6 +90,27 @@ export const UpNext: React.FC = () => {
     }, [manager]);
 
     const visibleUnits: IVisibleUnit[] = visibleState.upNext ?? [];
+
+    // Pre-decode the up-next units' animation atlases during idle time so that selecting any of
+    // them later is instant (the decoded image is already cached). requestIdleCallback keeps this
+    // off the critical path; setTimeout is the fallback for browsers without it.
+    useEffect(() => {
+        const names = visibleUnits.map((u) => u.name).filter((n): n is string => !!n);
+        if (!names.length) return;
+        const schedule =
+            (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback ??
+            ((cb: () => void) => window.setTimeout(cb, 200));
+        const handle = schedule(() => {
+            for (const n of names) prefetchUnitAtlas(n);
+        });
+        return () => {
+            if ((window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback) {
+                (window as unknown as { cancelIdleCallback: (h: number) => void }).cancelIdleCallback(handle as number);
+            } else {
+                window.clearTimeout(handle as number);
+            }
+        };
+    }, [visibleUnits]);
 
     return (
         <>

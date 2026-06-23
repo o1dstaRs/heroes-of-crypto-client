@@ -67,7 +67,6 @@ export class SandboxDrawer {
             currentActivePath,
             sc_isAnimating,
             currentActiveUnit,
-            hoverManager,
             sidebarUnitRanges,
             hoveredAuraRanges,
         } = ctx;
@@ -177,12 +176,8 @@ export class SandboxDrawer {
             }
         }
 
-        // 3. Active unit highlight
-        if (currentActiveUnit) {
-            hoverManager.hoveredUnitHighlight = hoverManager.getHighlightRectForUnit(currentActiveUnit);
-            hoverManager.hoveredUnitId = currentActiveUnit.getId();
-            hoverManager.drawHoveredUnitHighlight(g);
-        }
+        // 3. Active unit indication is the pulsing light-wave aura rendered on the unit itself
+        //    (see RenderableUnit.updateActiveAura) — no separate highlight glow here.
 
         // 4. Lingering tracks (movement smoke) are now rendered by SmokeLayer, which runs an fBM
         //    shader over its own dust layer — see scenes/sandbox/SmokeLayer.ts.

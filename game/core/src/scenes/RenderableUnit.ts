@@ -126,6 +126,16 @@ export class RenderableUnit extends Unit {
     private isActiveTurn = false;
     private isDestroyed = false;
     private visualMode: "normal" | "hidden" | "ghost" = "normal";
+    // Animated "light waves" aura shown under the unit whose turn it is.
+    private activeAura?: Graphics;
+    // While the active unit is mid-move or mid-attack, the aura is suppressed so it doesn't
+    // distract from the action (set each frame by the scene).
+    private suppressActiveAura = false;
+    // Brief "jerk back" applied to the sprite/shadow (e.g. a petrifying-gaze hit yanking the
+    // target away from the attacker). Decays to zero over ~220ms.
+    private recoilStartMs = 0;
+    private recoilDx = 0;
+    private recoilDy = 0;
     // Spells support
     private pixiSpells: PixiRenderableSpell[] = [];
     private spellBookLayer?: Container;
@@ -283,8 +293,9 @@ export class RenderableUnit extends Unit {
         const currentWidth = currentTexture && currentTexture.width > 1 ? currentTexture.width : baseTex.width || 1;
         const scale = targetSize / currentWidth;
         this.sprite.scale.set(scale, -scale);
-        this.sprite.x = pos.x;
-        this.sprite.y = pos.y;
+        const recoil = this.currentRecoil();
+        this.sprite.x = pos.x + recoil.x;
+        this.sprite.y = pos.y + recoil.y;
         this.sprite.visible = this.visualMode !== "hidden";
         // Units with the "Hidden" buff (e.g. White Tiger) are drawn semi-transparent as a cue.
         const isHidden = this.hasBuffActive("Hidden");
@@ -308,8 +319,8 @@ export class RenderableUnit extends Unit {
         this.shadow.scale.set(scale, -scale);
         const shadowOffsetX = targetSize * 0.04;
         const shadowOffsetY = targetSize * 0.08;
-        this.shadow.x = pos.x + shadowOffsetX;
-        this.shadow.y = pos.y + shadowOffsetY;
+        this.shadow.x = pos.x + shadowOffsetX + recoil.x;
+        this.shadow.y = pos.y + shadowOffsetY + recoil.y;
         this.shadow.visible = this.visualMode !== "hidden";
         const normalShadowAlpha = isHidden ? 0.15 : 0.35;
         this.shadow.alpha = this.visualMode === "ghost" ? 0.1 : normalShadowAlpha;
@@ -400,6 +411,55 @@ export class RenderableUnit extends Unit {
             if (this.badgeContainer) this.badgeContainer.zIndex = baseZ + 1;
             if (this.stackPowerContainer) this.stackPowerContainer.zIndex = baseZ + 1;
             if (this.hourglassContainer) this.hourglassContainer.zIndex = baseZ + 2;
+        }
+
+        // Active-turn "light waves" aura: animated glow + radiating rings under the unit.
+        // Suppressed while the unit is moving/attacking so the action reads clearly.
+        if (this.isActiveTurn && !this.isDead() && !this.suppressActiveAura) {
+            this.updateActiveAura(worldRoot, gs, pos);
+        } else if (this.activeAura) {
+            this.activeAura.visible = false;
+        }
+    }
+    /**
+     * Animated golden aura under the active unit: a soft breathing glow plus staggered rings of
+     * light that radiate outward and fade — "waves of light" shining around it. Redrawn every
+     * frame from a time-based phase so it stays smooth and never stutters.
+     */
+    private updateActiveAura(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+        if (!this.activeAura) {
+            this.activeAura = new Graphics();
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            worldRoot.addChild(this.activeAura);
+        } else if (this.activeAura.parent !== worldRoot) {
+            worldRoot.addChild(this.activeAura);
+        }
+        // Sit on the ground beneath the unit (and its shadow) so the unit stands in the light.
+        this.activeAura.zIndex = 4000 - pos.y - 0.6;
+        this.activeAura.visible = true;
+
+        const cell = gs.getCellSize();
+        const isLarge = this.getUnitProperties().size === 2;
+        const baseR = cell * (isLarge ? 1.35 : 0.8);
+        const t = performance.now() / 1000;
+
+        const g = this.activeAura;
+        g.clear();
+
+        // 1. Soft pulsing inner glow that breathes with the waves.
+        const pulse = 0.5 + 0.5 * Math.sin(t * 3.0);
+        g.circle(pos.x, pos.y, baseR * (1.05 + 0.1 * pulse)).fill({ color: 0xffffff, alpha: 0.1 + 0.1 * pulse });
+
+        // 2. Expanding light rings radiating outward, staggered so a new wave emerges as the last fades.
+        const ringCount = 3;
+        const cycleSec = 1.8;
+        const maxR = baseR * (isLarge ? 2.1 : 1.8);
+        for (let i = 0; i < ringCount; i++) {
+            const phase = ((t / cycleSec) + i / ringCount) % 1;
+            const r = baseR + (maxR - baseR) * phase;
+            const a = (1 - phase) * 0.55;
+            const width = 2 + (1 - phase) * 2.5;
+            g.circle(pos.x, pos.y, r).stroke({ color: 0xffffff, alpha: a, width });
         }
     }
     public setBoardSelected(selected: boolean): void {
@@ -665,6 +725,10 @@ export class RenderableUnit extends Unit {
             this.stackPowerContainer = undefined;
             this.stackPowerPips = [];
         }
+        if (this.activeAura) {
+            this.activeAura.destroy({ children: true });
+            this.activeAura = undefined;
+        }
         this.spawnAnim = undefined;
         this.oneShotAnim = undefined;
         // ⬇️ NEW
@@ -700,7 +764,7 @@ export class RenderableUnit extends Unit {
         const container = this.badgeContainer!;
         // circle
         const br = Math.max(10, Math.floor(iconSide * 0.18));
-        const badgeColor = this.isActiveTurn ? 0xffaa00 : 0xffffff; // Orange if active, White otherwise
+        const badgeColor = 0xffffff; // White in all cases; the active turn is signalled by the aura.
         circle.clear().circle(0, 0, br).fill({ color: badgeColor, alpha: 1 });
         // text
         const fs = Math.max(12, Math.floor(iconSide * 0.22));
@@ -720,14 +784,10 @@ export class RenderableUnit extends Unit {
         container.y = pos.y + offsetY;
         container.visible = amount > 0;
 
-        // Active Turn Highlight (Orange Ring)
-        // Clear previous ring if any (it might be drawn on circle or container)
-        // Let's draw it on the `circle` graphics instance, expanding outwards.
+        // Active Turn Highlight — a crisp white ring (the golden aura around the unit carries the
+        // "active" signal, so the badge ring stays white, just thicker than the idle black border).
         if (this.isActiveTurn) {
-            const ringColor = 0xffaa00; // Orange
-            const ringWidth = 2; // Thinner
-            // Draw ring around the circle
-            circle.stroke({ width: ringWidth, color: ringColor, alpha: 1 });
+            circle.stroke({ width: 2, color: 0xffffff, alpha: 1 });
         } else {
             // Default Black Border
             circle.stroke({ width: 1.5, color: 0x000000, alpha: 0.5 });
@@ -795,13 +855,44 @@ export class RenderableUnit extends Unit {
     public setActiveTurn(active: boolean): void {
         if (this.isActiveTurn === active) return;
         this.isActiveTurn = active;
-        // Force immediate visual update to ensure ring appears/disappears instantly
-        // This requires accessing internal sprite logic or just relying on the next syncVisual.
-        // To be safe, we can try to mark it dirty if possible, but unit.ts doesn't have a dirty flag for visuals.
-        // However, ensuresBadge is called every syncVisual (every frame).
-        // If the ring is not disappearing, it's possible ensureBadge logic specifically for clearing isn't working?
-        // Ah, ensuring circle.clear() at the top of ensureBadge effectively clears it.
-        // But we must assume syncVisual IS called.
+    }
+    /** Temporarily hide the active-turn aura (e.g. while the unit is moving or attacking). */
+    public setSuppressActiveAura(suppress: boolean): void {
+        this.suppressActiveAura = suppress;
+    }
+    /**
+     * Apply a brief positional "recoil": the sprite/shadow jerk by (dx, dy) and spring back over
+     * ~220ms. Used for petrifying-gaze hits to yank the target away from the attacker.
+     */
+    public applyRecoil(dx: number, dy: number): void {
+        this.recoilStartMs = performance.now();
+        this.recoilDx = dx;
+        this.recoilDy = dy;
+    }
+    private currentRecoil(): { x: number; y: number } {
+        if (this.recoilStartMs === 0) return { x: 0, y: 0 };
+        const DURATION = 220;
+        const t = (performance.now() - this.recoilStartMs) / DURATION;
+        if (t >= 1) {
+            this.recoilStartMs = 0;
+            return { x: 0, y: 0 };
+        }
+        // Out-and-back envelope (0 → peak at t=0.5 → 0).
+        const env = Math.sin(Math.PI * t);
+        return { x: this.recoilDx * env, y: this.recoilDy * env };
+    }
+    /**
+     * Capture what's needed to spawn a "broken mirror" death shatter: the current sprite texture,
+     * its world position, and the sprite scale (which includes the y-up flip). Call before
+     * destroyVisuals(), while the sprite still exists.
+     */
+    public getShatterInfo():
+        | { texture: Texture; x: number; y: number; scaleX: number; scaleY: number }
+        | null {
+        const s = this.sprite;
+        if (!s || !s.texture) return null;
+        const pos = this.getPosition();
+        return { texture: s.texture, x: pos.x, y: pos.y, scaleX: s.scale.x, scaleY: s.scale.y };
     }
     private ensureStackPowerIndicator(
         worldRoot: Container,

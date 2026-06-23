@@ -96,96 +96,148 @@ function getDefaultAnimationConfig(unitName?: string | null): { meta: AtlasMeta;
     return { meta, imageSrc };
 }
 
+// Atlas WebP images are large (up to 4096x5120 ≈ 84MB decoded), and decoding on the main thread
+// is the main cause of selection jank. We decode them off-thread via HTMLImageElement.decode()
+// and cache the result per URL, so the first selection stays responsive and any repeat selection
+// is instant/zero-decode. The cache also lets us prefetch the up-next units' atlases in idle time.
+const decodedImageCache = new Map<string, Promise<void>>();
+// Srcs whose decoded image is already available. Lets the component mount showing the atlas's
+// first frame right away (no portrait fallback flash) when the atlas was prefetched/decoded.
+const readyAtlasSrcs = new Set<string>();
+
+function warmAtlas(src: string): Promise<void> {
+    let existing = decodedImageCache.get(src);
+    if (!existing) {
+        existing = new Promise<void>((resolve) => {
+            const img = new Image();
+            img.decoding = "async";
+            img.src = src;
+            // decode() resolves once the image is loaded AND decoded off the main thread. Resolve on
+            // either outcome so a broken URL still unblocks the UI (fallback stays in place).
+            img.decode().then(
+                () => resolve(),
+                () => resolve(),
+            );
+        });
+        decodedImageCache.set(src, existing);
+        existing.then(() => readyAtlasSrcs.add(src));
+    }
+    return existing;
+}
+
+/** True only if the decoded atlas is already in memory — i.e. frame 0 can render this tick. */
+function isAtlasReady(src: string): boolean {
+    return readyAtlasSrcs.has(src);
+}
+
+/** Pre-decode a unit's sidebar animation atlas so selecting it later is instant. */
+export function prefetchUnitAtlas(unitName?: string | null): void {
+    const config = getDefaultAnimationConfig(unitName);
+    if (config) void warmAtlas(config.imageSrc);
+}
+
 const AtlasAnimation: React.FC<{
     meta: AtlasMeta;
     src: string;
     onLoaded: () => void;
-    fallbackSrc?: string;
-}> = ({ meta, src, onLoaded, fallbackSrc }) => {
-    const [frameIndex, setFrameIndex] = React.useState(0);
-    const [isImageLoaded, setIsImageLoaded] = React.useState(false);
+}> = ({ meta, src, onLoaded }) => {
+    const [isImageLoaded, setIsImageLoaded] = React.useState(() => isAtlasReady(src));
+    const bgRef = React.useRef<HTMLDivElement | null>(null);
 
+    // Decode off-thread + cache per src: first selection stays responsive, repeats are instant.
+    // If the atlas is already decoded (prefetched), start on frame 0 right away — no portrait
+    // fallback flash. Otherwise show the portrait until the atlas finishes decoding.
     React.useEffect(() => {
-        setFrameIndex(0);
-        setIsImageLoaded(false);
-
         let cancelled = false;
-        let didResolveImage = false;
-        const img = new Image();
-        const handleLoaded = () => {
-            if (cancelled || didResolveImage) return;
-            didResolveImage = true;
-            setIsImageLoaded(true);
-            onLoaded();
+        setIsImageLoaded(isAtlasReady(src));
+        warmAtlas(src).then(() => {
+            if (!cancelled) {
+                setIsImageLoaded(true);
+                onLoaded();
+            }
+        });
+        return () => {
+            cancelled = true;
         };
-        img.decoding = "async";
-        img.onload = handleLoaded;
-        img.onerror = handleLoaded;
-        img.src = src;
-        if (img.complete) handleLoaded();
+    }, [src, onLoaded]);
 
+    // Derive a stable timing config from meta primitives so the rAF loop isn't restarted on every
+    // parent re-render (e.g. HP changes) — only when the actual atlas shape/timing changes.
+    const timing = React.useMemo(() => {
+        const cols = meta.layout?.cols ?? 1;
+        const rows = meta.layout?.rows ?? 1;
         const frameCount = Math.max(1, meta.frameCount ?? 1);
         const fallbackTotalSec =
             typeof meta.totalDurationSec === "number" && Number.isFinite(meta.totalDurationSec)
                 ? meta.totalDurationSec
                 : frameCount / (meta.fps || 12);
-
         const baseTotalMs = fallbackTotalSec * 1000;
         const loopDurationMs = meta.loopDurationMs ?? Math.round(baseTotalMs * 0.8);
         const pauseMs = meta.pauseMs ?? Math.round(loopDurationMs * 0.4);
         const forwardMs = Math.max(1, loopDurationMs);
         const holdMs = Math.max(0, pauseMs);
         const cycleMs = forwardMs * 2 + holdMs * 2;
-        let animationFrame: number | undefined;
-        let startTime: number | undefined;
-        let lastFrame = -1;
 
-        const getFrameForElapsed = (elapsedMs: number) => {
+        const frameForElapsed = (elapsedMs: number): number => {
             if (frameCount <= 1) return 0;
-
-            const cyclePosition = elapsedMs % cycleMs;
-            if (cyclePosition < forwardMs) {
-                return Math.min(frameCount - 1, Math.floor((cyclePosition / forwardMs) * frameCount));
-            }
-            if (cyclePosition < forwardMs + holdMs) {
-                return frameCount - 1;
-            }
-
-            const reversePosition = cyclePosition - forwardMs - holdMs;
-            if (reversePosition < forwardMs) {
-                return Math.max(0, frameCount - 1 - Math.floor((reversePosition / forwardMs) * frameCount));
-            }
+            const cp = elapsedMs % cycleMs;
+            if (cp < forwardMs) return Math.min(frameCount - 1, Math.floor((cp / forwardMs) * frameCount));
+            if (cp < forwardMs + holdMs) return frameCount - 1;
+            const rp = cp - forwardMs - holdMs;
+            if (rp < forwardMs) return Math.max(0, frameCount - 1 - Math.floor((rp / forwardMs) * frameCount));
             return 0;
         };
 
-        const animate = (time: number) => {
-            if (cancelled) return;
-            if (startTime === undefined) startTime = time;
-            const nextFrame = getFrameForElapsed(time - startTime);
-            if (nextFrame !== lastFrame) {
-                lastFrame = nextFrame;
-                setFrameIndex(nextFrame);
-            }
-            animationFrame = window.requestAnimationFrame(animate);
+        return { cols, rows, frameForElapsed };
+    }, [
+        meta.frameCount,
+        meta.fps,
+        meta.totalDurationSec,
+        meta.loopDurationMs,
+        meta.pauseMs,
+        meta.layout?.cols,
+        meta.layout?.rows,
+    ]);
+
+    // Imperative frame stepping: write backgroundPosition straight to the DOM each rAF tick instead
+    // of going through React state (no reconciliation 12x/sec).
+    React.useEffect(() => {
+        const el = bgRef.current;
+        if (!el) return;
+        const { cols, rows, frameForElapsed } = timing;
+
+        const applyFrame = (frame: number) => {
+            const col = frame % cols;
+            const row = Math.floor(frame / cols);
+            const bgPosX = cols > 1 ? (col / (cols - 1)) * 100 : 0;
+            const bgPosY = rows > 1 ? (row / (rows - 1)) * 100 : 0;
+            el.style.backgroundPosition = `${bgPosX}% ${bgPosY}%`;
         };
 
-        animationFrame = window.requestAnimationFrame(animate);
-        return () => {
-            cancelled = true;
-            if (animationFrame !== undefined) window.cancelAnimationFrame(animationFrame);
+        let raf: number | undefined;
+        let startTime: number | undefined;
+        let lastFrame = -1;
+        const animate = (time: number) => {
+            if (startTime === undefined) startTime = time;
+            const f = frameForElapsed(time - startTime);
+            if (f !== lastFrame) {
+                lastFrame = f;
+                applyFrame(f);
+            }
+            raf = window.requestAnimationFrame(animate);
         };
-    }, [src, meta, onLoaded]);
+        raf = window.requestAnimationFrame(animate);
+        return () => {
+            if (raf !== undefined) window.cancelAnimationFrame(raf);
+        };
+    }, [timing]);
 
     const frameWidth = meta.frameWidth ?? 512;
     const frameHeight = meta.frameHeight ?? 512;
     const cols = meta.layout?.cols ?? 1;
     const rows = meta.layout?.rows ?? 1;
-    const col = frameIndex % cols;
-    const row = Math.floor(frameIndex / cols);
     const bgSizeX = cols * 100;
     const bgSizeY = rows * 100;
-    const bgPosX = cols > 1 ? (col / (cols - 1)) * 100 : 0;
-    const bgPosY = rows > 1 ? (row / (rows - 1)) * 100 : 0;
 
     return (
         <Box
@@ -196,24 +248,12 @@ const AtlasAnimation: React.FC<{
                 overflow: "visible",
             }}
         >
-            {fallbackSrc && (
-                <Box
-                    component="img"
-                    src={fallbackSrc}
-                    sx={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                        zIndex: 1,
-                        opacity: isImageLoaded ? 0 : 1,
-                        transition: "opacity 160ms ease-out",
-                    }}
-                />
-            )}
+            {/* The atlas's own frame 0 fades straight in from transparent — no static-portrait
+                fallback. The portrait and frame 0 are different renders, so crossfading between
+                them reads as a "shift"; a single-image fade-in is smooth. The atlas is decoded
+                off-thread (and prefetched for up-next units) so this is usually instant. */}
             <Box
+                ref={bgRef}
                 sx={{
                     position: "absolute",
                     top: 0,
@@ -223,7 +263,7 @@ const AtlasAnimation: React.FC<{
                     backgroundImage: `url(${src})`,
                     backgroundRepeat: "no-repeat",
                     backgroundSize: `${bgSizeX}% ${bgSizeY}%`,
-                    backgroundPosition: `${bgPosX}% ${bgPosY}%`,
+                    backgroundPosition: "0% 0%",
                     imageRendering: "auto",
                     zIndex: 5,
                     opacity: isImageLoaded ? 1 : 0,
@@ -736,7 +776,6 @@ const UnitStatsLayout: React.FC<{
                         meta={animationConfig.meta}
                         src={animationConfig.imageSrc}
                         onLoaded={onImageLoaded}
-                        fallbackSrc={images[largeTextureName]}
                     />
                 ) : (
                     <Avatar

@@ -1,4 +1,4 @@
-import { ToGridType, GridType, GridVals } from "@heroesofcrypto/common";
+import { ToGridType, GridType, GridVals, HoCLib } from "@heroesofcrypto/common";
 import React, { useState, useEffect } from "react";
 import Box from "@mui/joy/Box";
 import FormControl from "@mui/joy/FormControl";
@@ -37,7 +37,7 @@ const MapSettingsRadioButtons: React.FC = () => {
         ];
 
         // Randomly select a grid type from the filtered list
-        const randomGridType = availableGridTypes[Math.floor(Math.random() * availableGridTypes.length)];
+        const randomGridType = availableGridTypes[HoCLib.getRandomInt(0, availableGridTypes.length)];
 
         setGridType(randomGridType);
         manager.SetGridType(randomGridType);

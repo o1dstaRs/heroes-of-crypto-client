@@ -1,4 +1,4 @@
-import { Container, Sprite, Text as PixiText, TextStyle, Texture } from "pixi.js";
+import { Container, Sprite, Text as PixiText, TextStyle, Texture, Rectangle } from "pixi.js";
 import { GridSettings, HoCMath, GridMath, UnitProperties, UnitsHolder } from "@heroesofcrypto/common";
 import { RenderableUnit } from "../RenderableUnit";
 import { images } from "../../generated/image_imports";
@@ -22,6 +22,23 @@ interface IFloatingText {
     driftX: number;
 }
 
+interface IShard {
+    sprite: Sprite;
+    vx: number;
+    vy: number;
+    rotSpeed: number;
+    delay: number;
+    age: number;
+    life: number;
+    x: number;
+    y: number;
+}
+
+interface IShatterGroup {
+    container: Container;
+    shards: IShard[];
+}
+
 // Tuning for the floating damage numbers.
 const FT_LIFE = 1.1; // seconds on screen
 const FT_RISE = 72; // world px the number floats up
@@ -43,6 +60,7 @@ const easeOutBack = (t: number): number => {
 export class CombatVisuals {
     private context: ICombatVisualsContext;
     private floatingTexts: IFloatingText[] = [];
+    private shatterGroups: IShatterGroup[] = [];
     public constructor(context: ICombatVisualsContext) {
         this.context = context;
     }
@@ -52,6 +70,10 @@ export class CombatVisuals {
             ft.container.destroy();
         }
         this.floatingTexts.length = 0;
+        for (const group of this.shatterGroups) {
+            group.container.destroy({ children: true });
+        }
+        this.shatterGroups.length = 0;
     }
     public update(dt: number) {
         for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
@@ -84,6 +106,110 @@ export class CombatVisuals {
                 alpha = 1 - (t - FT_FADE_OUT_FROM) / (1 - FT_FADE_OUT_FROM);
             }
             ft.container.alpha = Math.max(0, Math.min(1, alpha));
+        }
+
+        this.stepShatters(dt);
+    }
+    /**
+     * "Broken mirror" death effect: slice the unit's current texture into a grid of shards that
+     * start in place (composing the unit image), then burst outward, fall, spin, and fade.
+     */
+    public spawnShatter(info: {
+        texture: Texture;
+        x: number;
+        y: number;
+        scaleX: number;
+        scaleY: number;
+    }): void {
+        const tex = info.texture;
+        const source = tex?.source;
+        const frame = tex?.frame;
+        if (!source || !frame || frame.width <= 1 || frame.height <= 1) return;
+
+        const COLS = 6;
+        const ROWS = 6;
+        const tileTexW = frame.width / COLS;
+        const tileTexH = frame.height / ROWS;
+        const worldW = Math.abs(info.scaleX) * frame.width;
+        const worldH = Math.abs(info.scaleY) * frame.height;
+        const tileWorldW = worldW / COLS;
+        const tileWorldH = worldH / ROWS;
+
+        const container = new Container();
+        container.visible = true;
+        this.context.attachToWorldRoot(container, 4500);
+
+        const group: IShatterGroup = { container, shards: [] };
+
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                const subTex = new Texture({
+                    source,
+                    frame: new Rectangle(frame.x + c * tileTexW, frame.y + r * tileTexH, tileTexW, tileTexH),
+                });
+                const shard = new Sprite(subTex);
+                shard.anchor.set(0.5);
+                // Same orientation as the dying unit (scaleY carries the y-up flip).
+                shard.scale.set(info.scaleX, info.scaleY);
+                shard.tint = 0xffffff;
+                shard.alpha = 1;
+                // Texture row 0 is the top of the image; in world (y-up) that's the top of the
+                // rect, so walk rows from the top down to keep the composite upright.
+                const sx = info.x - worldW / 2 + (c + 0.5) * tileWorldW;
+                const sy = info.y + worldH / 2 - (r + 0.5) * tileWorldH;
+                shard.position.set(sx, sy);
+                container.addChild(shard);
+
+                // Outward burst from the unit centre + upward pop; pseudo-random per shard so the
+                // image "shatters" instead of moving as one block.
+                const ox = sx - info.x;
+                const oy = sy - info.y;
+                const dist = Math.hypot(ox, oy) || 1;
+                const speed = 60 + Math.random() * 120 + dist * 0.6;
+                const vx = (ox / dist) * speed + (Math.random() - 0.5) * 50;
+                const vy = (oy / dist) * speed + 40 + Math.random() * 90; // world +y is up → upward pop
+                group.shards.push({
+                    sprite: shard,
+                    vx,
+                    vy,
+                    rotSpeed: (Math.random() - 0.5) * 10,
+                    delay: Math.random() * 0.06,
+                    age: 0,
+                    life: 0.7 + Math.random() * 0.35,
+                    x: sx,
+                    y: sy,
+                });
+            }
+        }
+        this.shatterGroups.push(group);
+    }
+    private stepShatters(dt: number): void {
+        const GRAVITY = 260; // world px/s^2 pulling toward screen bottom (world -y)
+        const FADE_FROM = 0.6; // start fading each shard past this fraction of its life
+        for (let gi = this.shatterGroups.length - 1; gi >= 0; gi--) {
+            const group = this.shatterGroups[gi];
+            for (let si = group.shards.length - 1; si >= 0; si--) {
+                const s = group.shards[si];
+                s.age += dt;
+                if (s.age < s.delay) continue;
+                const tt = s.age - s.delay;
+                s.vy -= GRAVITY * dt;
+                s.x += s.vx * dt;
+                s.y += s.vy * dt;
+                s.sprite.position.set(s.x, s.y);
+                s.sprite.rotation += s.rotSpeed * dt;
+                const lifeT = tt / s.life;
+                if (lifeT >= 1) {
+                    s.sprite.destroy();
+                    group.shards.splice(si, 1);
+                } else if (lifeT > FADE_FROM) {
+                    s.sprite.alpha = 1 - (lifeT - FADE_FROM) / (1 - FADE_FROM);
+                }
+            }
+            if (group.shards.length === 0) {
+                group.container.destroy();
+                this.shatterGroups.splice(gi, 1);
+            }
         }
     }
     public showFloatingDamage(

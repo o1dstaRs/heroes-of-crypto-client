@@ -14,6 +14,8 @@ import { TeamType, MovementType, AttackType } from "@heroesofcrypto/common";
 export interface IVisibleUnit {
     amount: number;
     smallTextureName: string;
+    /** Unit name (used to prefetch the sidebar animation atlas). Optional for back-compat. */
+    name?: string;
     teamType: TeamType;
     isOnHourglass: boolean;
     isSkipping: boolean;

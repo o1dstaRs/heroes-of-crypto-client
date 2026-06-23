@@ -1,16 +1,15 @@
 import {
     AI,
     AttackVals,
-    FightStateManager,
     Grid,
     GridMath,
-    HoCConstants,
     HoCMath,
     IWeightedRoute,
     PathHelper,
     Unit,
     UnitsHolder,
 } from "@heroesofcrypto/common";
+import type { AttackType, GameAction } from "@heroesofcrypto/common";
 import { RenderableUnit } from "./RenderableUnit";
 import { HoverManager } from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
@@ -44,6 +43,7 @@ export interface IAIContext {
     setSelectedAttackType(type: number): void;
 
     // Actions
+    applyGameAction(action: GameAction): boolean;
     executeAttackSequence(attacker: RenderableUnit, target: Unit, attackFrom: HoCMath.XY): Promise<void>;
     executeMoveSequence(
         unit: RenderableUnit,
@@ -51,7 +51,6 @@ export interface IAIContext {
         overrideFootprint?: HoCMath.XY[],
         onComplete?: () => void,
     ): void;
-    finishTurn(): void;
     refreshUnits(): void;
 }
 
@@ -145,12 +144,7 @@ export class AIController {
         }
 
         if (!actionPerformed) {
-            currentUnit.decreaseMorale(
-                HoCConstants.MORALE_CHANGE_FOR_SKIP,
-                FightStateManager.getInstance().getFightProperties().getAdditionalMoralePerTeam(currentUnit.getTeam()),
-            );
-            this.context.getSceneLog().updateLog(`${currentUnit.getName()} skip turn`);
-            this.context.finishTurn();
+            this.context.applyGameAction({ type: "end_turn", unitId: currentUnit.getId() });
         }
 
         this.restoreAIState(wasAIActive);
@@ -165,7 +159,7 @@ export class AIController {
         action: AI.IAIAction,
         wasAIActive: boolean,
     ): Promise<boolean> {
-        if (currentUnit.selectAttackType(AttackVals.MELEE)) {
+        if (this.selectAttackType(currentUnit, AttackVals.MELEE)) {
             this.context.getButtonManager().refreshButtons(true);
             this.context.refreshUnits();
         }
@@ -231,7 +225,7 @@ export class AIController {
      * Handle MELEE_ATTACK action type (no move needed).
      */
     private async handleMeleeAttack(currentUnit: RenderableUnit, action: AI.IAIAction): Promise<boolean> {
-        if (currentUnit.selectAttackType(AttackVals.MELEE)) {
+        if (this.selectAttackType(currentUnit, AttackVals.MELEE)) {
             this.context.getButtonManager().refreshButtons(true);
             this.context.refreshUnits();
         }
@@ -257,7 +251,7 @@ export class AIController {
      * Handle RANGE_ATTACK action type.
      */
     private async handleRangeAttack(currentUnit: RenderableUnit, action: AI.IAIAction): Promise<boolean> {
-        if (currentUnit.selectAttackType(AttackVals.RANGE)) {
+        if (this.selectAttackType(currentUnit, AttackVals.RANGE)) {
             this.context.getButtonManager().refreshButtons(true);
             this.context.refreshUnits();
         }
@@ -315,11 +309,22 @@ export class AIController {
 
         // Execute move with cleanup callback
         this.context.executeMoveSequence(currentUnit, route, moveFootprint, () => {
-            this.context.finishTurn();
+            this.context.applyGameAction({ type: "end_turn", unitId: currentUnit.getId() });
             this.restoreAIState(wasAIActive);
             this.performingAction = false;
         });
 
         return true;
+    }
+
+    private selectAttackType(unit: RenderableUnit, attackType: AttackType): boolean {
+        if (unit.getAttackTypeSelection() === attackType) {
+            return false;
+        }
+        return this.context.applyGameAction({
+            type: "select_attack_type",
+            unitId: unit.getId(),
+            attackType,
+        });
     }
 }

@@ -341,7 +341,7 @@ export class HoverManager {
 
             // Check for Active Unit
             const isActive = this.hoveredUnitId && this.context.getCurrentActiveUnit()?.getId() === this.hoveredUnitId;
-            const color = isActive ? 0xffaa00 : 0xffffff;
+            const color = isActive ? 0xffffff : 0xffffff;
 
             gfx.ellipse(cx, cy - yOffset, w * 0.5, h * 0.5).fill({ color, alpha });
         }
@@ -353,7 +353,7 @@ export class HoverManager {
             const alpha = 0.22 * (1 - t * 0.8) * (1 - pulseFactor * 0.5);
 
             const isActive = this.hoveredUnitId && this.context.getCurrentActiveUnit()?.getId() === this.hoveredUnitId;
-            const color = isActive ? 0xffaa00 : 0xffffff;
+            const color = isActive ? 0xffffff : 0xffffff;
 
             gfx.circle(cx, cy, rg).fill({ color, alpha });
         }
