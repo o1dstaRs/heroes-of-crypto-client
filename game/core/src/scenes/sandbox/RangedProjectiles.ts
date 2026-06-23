@@ -53,15 +53,12 @@ const BOLT_WIDTH_FACTOR = 0.07; // default bolt core width relative to cell
 export class RangedProjectiles {
     private context: IRangedProjectilesContext;
     private projectiles: IProjectile[] = [];
-
     public constructor(context: IRangedProjectilesContext) {
         this.context = context;
     }
-
     public hasActive(): boolean {
         return this.projectiles.length > 0;
     }
-
     /** Spawn a projectile flying from -> to. Resolves when it lands. */
     public fire(opts: IFireProjectileOptions): Promise<void> {
         const cell = this.context.getGridSettings().getCellSize();
@@ -93,7 +90,6 @@ export class RangedProjectiles {
             this.projectiles.push(projectile);
         });
     }
-
     public update(dt: number): void {
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
@@ -115,7 +111,6 @@ export class RangedProjectiles {
             }
         }
     }
-
     /** Destroy all in-flight projectiles (e.g. fight reset). Resolves awaiters so callers don't hang. */
     public clear(): void {
         for (const p of this.projectiles) {
@@ -124,11 +119,9 @@ export class RangedProjectiles {
         }
         this.projectiles.length = 0;
     }
-
     public destroy(): void {
         this.clear();
     }
-
     /** Redraw the projectile at world position (x, y) using absolute coordinates. */
     private draw(p: IProjectile, x: number, y: number): void {
         const g = p.g;
@@ -153,7 +146,9 @@ export class RangedProjectiles {
             const headLen = len * 0.4;
             const headAngle = Math.PI / 6;
             // Glow.
-            g.moveTo(tailX, tailY).lineTo(tipX, tipY).stroke({ width: w * 2.4, color: 0xffd27f, alpha: 0.35 });
+            g.moveTo(tailX, tailY)
+                .lineTo(tipX, tipY)
+                .stroke({ width: w * 2.4, color: 0xffd27f, alpha: 0.35 });
             // Shaft.
             g.moveTo(tailX, tailY).lineTo(tipX, tipY).stroke({ width: w, color: 0xfff2cc, alpha: 1 });
             // Arrowhead.

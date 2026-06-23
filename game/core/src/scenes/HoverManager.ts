@@ -635,7 +635,7 @@ export class HoverManager {
     private hoverTargetSilhouettes: Sprite[] = [];
     private silhouettePool: Sprite[] = [];
     private highlightedUnits: Unit[] = [];
-    public addTargetHighlight(targetUnit: Unit): void {
+    public addTargetHighlight(targetUnit: Unit, tint: number = 0xaa0000): void {
         this.hoverAttackTargetUnit = targetUnit; // Keep referring to last added (primary usually added first, but overwritten here is fine for now as long as we track all in highlightedUnits)
         this.highlightedUnits.push(targetUnit);
 
@@ -663,7 +663,7 @@ export class HoverManager {
             silhouette.anchor.set(0.5);
             this.context.attachToWorldRoot(silhouette, 2100); // Above units (Z=1000)
             silhouette.scale.y = -1;
-            // Static Dark Red + Blur as requested (set once if creating)
+            // Static blur as requested (set once if creating)
             silhouette.filters = [new BlurFilter({ strength: 4 })];
         }
 
@@ -681,7 +681,8 @@ export class HoverManager {
         silhouette.position.set(centerPos.x, centerPos.y);
         silhouette.visible = true;
         silhouette.alpha = 0.8;
-        silhouette.tint = 0xaa0000; // Darker Red
+        // Caller-chosen tint: dark red for harmful targets, green for buff/heal spell targets.
+        silhouette.tint = tint;
 
         this.hoverTargetSilhouettes.push(silhouette);
     }

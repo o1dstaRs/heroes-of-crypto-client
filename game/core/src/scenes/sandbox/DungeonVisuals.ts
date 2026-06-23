@@ -156,8 +156,7 @@ export class DungeonVisuals {
             const offset = f._flickerOffset ?? 0;
             const speed = f._flickerSpeed ?? 1;
             // Sum of two sines (different rates) reads as flame, not a clean pulse. Range ~[-1, 1].
-            const n =
-                0.6 * Math.sin(nowSec * speed + offset) + 0.4 * Math.sin(nowSec * speed * 2.7 + offset * 1.7);
+            const n = 0.6 * Math.sin(nowSec * speed + offset) + 0.4 * Math.sin(nowSec * speed * 2.7 + offset * 1.7);
             light.alpha = (f._baseAlpha ?? 0.9) * (0.72 + 0.28 * n);
             const s = (f._baseScale ?? 1) * (1.0 + 0.07 * n);
             light.scale.set(s, s);
@@ -318,7 +317,7 @@ export class DungeonVisuals {
             this.centerHitBar.clear();
         }
     }
-/** Draw the mountain hit-point bar at the grid center (mirrors the legacy obstacle hitbar). */
+    /** Draw the mountain hit-point bar at the grid center (mirrors the legacy obstacle hitbar). */
     private drawCenterHitBar(hitsRemaining: number): void {
         if (!this.centerHitBar) {
             this.centerHitBar = new Graphics();
@@ -336,7 +335,9 @@ export class DungeonVisuals {
         const twoSteps = gs.getTwoSteps();
         const startX = centerX - twoSteps;
         const startY = centerY - twoSteps;
-        const shiftX = Math.floor((gs.getStep() / HoCConstants.MAX_HITS_MOUNTAIN) * (HoCConstants.MAX_HITS_MOUNTAIN - 1));
+        const shiftX = Math.floor(
+            (gs.getStep() / HoCConstants.MAX_HITS_MOUNTAIN) * (HoCConstants.MAX_HITS_MOUNTAIN - 1),
+        );
         const barHeight = 40;
         for (let i = 0; i < hitsRemaining; i++) {
             const x = startX + shiftX * i;

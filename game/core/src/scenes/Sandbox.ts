@@ -76,7 +76,6 @@ import { MoveAnimationManager } from "./sandbox/MoveAnimationManager";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
 import { RangedProjectiles, BIG_PROJECTILE_UNITS } from "./sandbox/RangedProjectiles";
 
-
 /** One unit captured at fight start, enough to recreate it exactly on "Rematch". */
 interface IUnitFightSnapshot {
     properties: UnitProperties;
@@ -373,6 +372,7 @@ export class Sandbox extends PixiScene {
                 setCurrentActiveSpell: (s) => {
                     this.currentActiveSpell = s;
                 },
+                getCurrentActiveSpell: () => this.currentActiveSpell,
                 getVisibleState: () => this.sc_visibleState,
                 setVisibleButtons: (buttons, updated) => {
                     this.sc_visibleButtonGroup = buttons;
@@ -1655,6 +1655,7 @@ export class Sandbox extends PixiScene {
                 // Clicked empty ground — cancel the armed spell.
                 this.currentActiveSpell = undefined;
                 this.sc_sceneLog.updateLog("Spell cancelled");
+                this.buttonManager.refreshButtons(true);
                 return;
             }
 
@@ -2031,8 +2032,11 @@ export class Sandbox extends PixiScene {
         if (currentCell) {
             this.updateCurrentMovePath(currentCell);
         }
+
+        // Refresh the toolbar so the spellbook button shows the armed spell's icon immediately.
+        this.buttonManager.refreshButtons(true);
     }
-/**
+    /**
      * Cast the currently-armed single-target spell on `targetUnit` via the shared magic-attack
      * handler (handles heal / resurrect / buff / debuff, magic-resist rolls, and spell consumption).
      * Returns true if the spell was applied (turn finished), false if the target was invalid.
@@ -2059,7 +2063,7 @@ export class Sandbox extends PixiScene {
         this.cleanupAfterSpell();
         return true;
     }
-/**
+    /**
      * Shared post-cast cleanup: remove units killed by the spell, refresh stacks, clear the
      * armed spell + hover visuals, and end the caster's turn.
      */
@@ -2083,7 +2087,7 @@ export class Sandbox extends PixiScene {
         this.sc_visibleStateUpdateNeeded = true;
         this.finishTurn();
     }
-/**
+    /**
      * Apply a mass-cast spell (ALL_ALLIES / ALL_ENEMIES / ALL_FLYING) or a summon spell
      * (RANDOM_CLOSE_TO_CASTER) immediately on selection. Ports the legacy dispatch
      * (test_heroes.ts:3771-4007). Ends the turn if anything was applied.
@@ -2137,7 +2141,7 @@ export class Sandbox extends PixiScene {
         this.sc_sceneLog.updateLog(`Cannot cast ${spell.getName()}`);
         this.currentActiveSpell = undefined;
     }
-/** ALL_FLYING: buff every flying ally and enemy that is not fully magic-immune. */
+    /** ALL_FLYING: buff every flying ally and enemy that is not fully magic-immune. */
     private massCastOnFlyers(spell: PixiRenderableSpell, caster: RenderableUnit, team: TeamType): void {
         const applyTo = (units: Unit[]) => {
             for (const u of units) {
@@ -2152,7 +2156,7 @@ export class Sandbox extends PixiScene {
         applyTo(this.unitsHolder.getAllAllies(team));
         applyTo(this.unitsHolder.getAllEnemyUnits(team));
     }
-/** ALL_ALLIES: heal allies (HEAL spells) or buff them (scaling by caster amount when needed). */
+    /** ALL_ALLIES: heal allies (HEAL spells) or buff them (scaling by caster amount when needed). */
     private massCastOnAllies(spell: PixiRenderableSpell, caster: RenderableUnit, team: TeamType): void {
         const isHeal = spell.getPowerType() === SpellPowerType.HEAL;
         if (!isHeal) {
@@ -2167,7 +2171,9 @@ export class Sandbox extends PixiScene {
                 if (u.canBeHealed()) {
                     const healPower = u.applyHeal(Math.floor(spell.getPower() * caster.getAmountAlive()));
                     if (healPower) {
-                        this.sc_sceneLog.updateLog(`${caster.getName()} mass healed ${u.getName()} for ${healPower} hp`);
+                        this.sc_sceneLog.updateLog(
+                            `${caster.getName()} mass healed ${u.getName()} for ${healPower} hp`,
+                        );
                     }
                 }
                 continue;
@@ -2176,7 +2182,10 @@ export class Sandbox extends PixiScene {
                 continue;
             }
             if (spell.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT) {
-                const scaledSpell = new Spell({ spellProperties: spell.getSpellProperties(), amount: spell.getAmount() });
+                const scaledSpell = new Spell({
+                    spellProperties: spell.getSpellProperties(),
+                    amount: spell.getAmount(),
+                });
                 scaledSpell.setPower(caster.getAmountAlive());
                 scaledSpell.setDesc(spell.getDesc().map((d) => d.replace(/\{\}/g, caster.getAmountAlive().toString())));
                 u.applyBuff(scaledSpell, undefined, undefined, u.getId() === caster.getId());
@@ -2185,7 +2194,7 @@ export class Sandbox extends PixiScene {
             }
         }
     }
-/** ALL_ENEMIES: debuff every enemy, respecting magic resist, absorption, MIND resist and mirroring. */
+    /** ALL_ENEMIES: debuff every enemy, respecting magic resist, absorption, MIND resist and mirroring. */
     private massCastOnEnemies(spell: PixiRenderableSpell, caster: RenderableUnit, team: TeamType): void {
         this.sc_sceneLog.updateLog(`${caster.getName()} cast ${spell.getName()} on enemies`);
         for (const enemy of this.unitsHolder.getAllEnemyUnits(team)) {
@@ -2225,7 +2234,7 @@ export class Sandbox extends PixiScene {
             }
         }
     }
-/**
+    /**
      * Summon a stack near the caster. Grows an existing same-named summoned stack, otherwise
      * builds the creature from config and spawns it on the grid. Returns true on success.
      * NOTE: highest-risk path (mid-fight spawn + texture loading) - verify at runtime.
@@ -2257,7 +2266,7 @@ export class Sandbox extends PixiScene {
         let properties: UnitProperties;
         try {
             properties = HoCConfig.getCreatureConfig(team, ToFactionName[summonFaction], summonName, "", amount);
-        } catch (e) {
+        } catch {
             this.sc_sceneLog.updateLog(`Cannot summon ${summonName}`);
             return false;
         }
@@ -2316,7 +2325,7 @@ export class Sandbox extends PixiScene {
         this.sc_sceneLog.updateLog(`${caster.getName()} summoned ${amount} x ${summonName}`);
         return true;
     }
-/**
+    /**
      * Attempt to attack the destructible center obstacle (BLOCK_CENTER maps). Ranged units land
      * automatically; melee units move to a cell adjacent to the obstacle (the shared handler does
      * the movement). When the obstacle's hits run out, the center is cleared and the map reverts to
@@ -2385,7 +2394,7 @@ export class Sandbox extends PixiScene {
         this.finishTurn();
         return true;
     }
-/** Find a reachable cell adjacent to the center obstacle for a melee strike, if any. */
+    /** Find a reachable cell adjacent to the center obstacle for a melee strike, if any. */
     private findObstacleAttackFromCell(centerCells: HoCMath.XY[]): HoCMath.XY | undefined {
         const unit = this.currentActiveUnit;
         if (!unit) {
@@ -3054,7 +3063,7 @@ export class Sandbox extends PixiScene {
                 // When this extra damage is the unit's Fire Shield burn, colour it amber so it reads
                 // as the shield (not a normal hit). Other "extra" (e.g. Petrifying Gaze) stays red.
                 const uName = u?.getName();
-                const uFireShield = uName ? fireShieldByName.get(uName) ?? 0 : 0;
+                const uFireShield = uName ? (fireShieldByName.get(uName) ?? 0) : 0;
                 const isFsBurn = uFireShield > 0 && Math.abs(unaccountedDiff - uFireShield) <= 2;
                 const fsFill = isFsBurn ? "#ffb13c" : "#ff3333";
                 const fsStroke = isFsBurn ? "#7a3800" : "#4a0000";
@@ -3398,6 +3407,39 @@ export class Sandbox extends PixiScene {
             }
             if (this.currentActiveUnit.hasAbilityActive("AI Driven")) {
                 this.hoverManager.clearHoverSilhouette();
+                return;
+            }
+
+            // --- SPELL TARGETING HOVER: a single-target spell is armed. Preview its effect on the
+            // unit under the cursor — green silhouette for buffs/heals, red for debuffs/damage — and
+            // only when the spell is actually castable on that unit (reusing SpellHelper.canCastSpell,
+            // which already encodes team / magic-resist / healable / mind-resist / stack rules). ---
+            if (this.currentActiveSpell && this.currentActiveUnit) {
+                const spell = this.currentActiveSpell;
+                const gs2 = this.sc_sceneSettings.getGridSettings();
+                const targetUnit = this.getUnitAtPosition(this.sc_mouseWorld);
+                this.hoverManager.clearAttackVisuals();
+                this.hoverManager.clearHoverSilhouette();
+                this.hoverManager.hoverAttackFromCell = undefined;
+                if (
+                    targetUnit &&
+                    !targetUnit.isDead() &&
+                    SpellHelper.canCastSpell(
+                        false,
+                        gs2,
+                        this.gridMatrix,
+                        this.currentActiveUnit,
+                        targetUnit,
+                        spell,
+                        targetUnit.getBaseCell(),
+                        targetUnit.getMagicResist(),
+                        targetUnit.hasMindAttackResistance(),
+                        targetUnit.canBeHealed(),
+                        this.currentEnemiesCellsWithinMovementRange,
+                    )
+                ) {
+                    this.hoverManager.addTargetHighlight(targetUnit, spell.isBuff() ? 0x1aa84a : 0xaa0000);
+                }
                 return;
             }
 

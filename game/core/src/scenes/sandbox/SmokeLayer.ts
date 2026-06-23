@@ -103,7 +103,6 @@ export class SmokeLayer {
     private readonly graphics = new Graphics();
     private filter?: Filter;
     private time = 0;
-
     public constructor() {
         this.container.addChild(this.graphics);
         try {
@@ -126,11 +125,9 @@ export class SmokeLayer {
             this.filter = undefined;
         }
     }
-
     public getContainer(): Container {
         return this.container;
     }
-
     /** Advance the smoke and redraw the blobs for the current tracks. */
     public update(dt: number, tracks: ILingeringTrack[]): void {
         this.time += dt;
@@ -176,7 +173,6 @@ export class SmokeLayer {
             }
         }
     }
-
     public destroy(): void {
         this.container.destroy({ children: true });
     }

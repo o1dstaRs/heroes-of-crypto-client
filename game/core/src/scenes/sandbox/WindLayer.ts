@@ -100,7 +100,7 @@ export class WindLayer {
     private readonly graphics = new Graphics();
     private filter?: Filter;
     private time = 0;
-public constructor() {
+    public constructor() {
         this.container.addChild(this.graphics);
         try {
             this.filter = Filter.from({
@@ -121,10 +121,10 @@ public constructor() {
             this.filter = undefined;
         }
     }
-public getContainer(): Container {
+    public getContainer(): Container {
         return this.container;
     }
-/** Advance the wind and redraw the streaks for the current flying-unit tracks. */
+    /** Advance the wind and redraw the streaks for the current flying-unit tracks. */
     public update(dt: number, tracks: ILingeringTrack[]): void {
         this.time += dt;
         if (this.filter) {
@@ -191,9 +191,7 @@ public getContainer(): Container {
                     if (s > 0) {
                         const width = t.radius * 0.17 * (1.0 - 0.6 * f); // thin, tapering
                         const alpha = 0.34 * fade * (1.0 - 0.72 * f);
-                        g.moveTo(prevX, prevY)
-                            .lineTo(px, py)
-                            .stroke({ width, color: tint, alpha, cap: "round" });
+                        g.moveTo(prevX, prevY).lineTo(px, py).stroke({ width, color: tint, alpha, cap: "round" });
                     }
                     prevX = px;
                     prevY = py;
@@ -201,7 +199,7 @@ public getContainer(): Container {
             }
         }
     }
-public destroy(): void {
+    public destroy(): void {
         this.container.destroy({ children: true });
     }
 }

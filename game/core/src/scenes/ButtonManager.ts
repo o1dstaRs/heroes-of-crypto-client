@@ -10,6 +10,7 @@ import {
     GridMath,
     GridSettings,
     HoCConstants,
+    SpellHelper,
 } from "@heroesofcrypto/common";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { VisibleButtonState, IVisibleButton, IVisibleState } from "./VisibleState";
@@ -29,6 +30,8 @@ export interface ISandboxButtonContext {
     setCurrentEnemiesCellsWithinMovementRange(cells: HoCMath.XY[] | undefined): void;
     setSelectedAttackType(type: AttackType): void;
     setCurrentActiveSpell(spell: PixiRenderableSpell | undefined): void;
+    /** The currently armed spell (single-target spells wait for a target click). */
+    getCurrentActiveSpell(): PixiRenderableSpell | undefined;
 
     // 👇 NEW: Push UI state back to Sandbox
     setVisibleButtons(buttons: IVisibleButton[], updated: boolean): void;
@@ -223,16 +226,12 @@ export class ButtonManager {
 
                     switch (active.getAttackTypeSelection()) {
                         case AttackVals.RANGE:
-                            this.context.setCurrentActiveSpell(undefined);
-                            spellBookButton.customSpriteName = undefined;
                             state = VisibleButtonState.SECOND;
                             break;
                         case AttackVals.MAGIC:
                             state = VisibleButtonState.THIRD;
                             break;
                         default:
-                            this.context.setCurrentActiveSpell(undefined);
-                            spellBookButton.customSpriteName = undefined;
                             state = VisibleButtonState.FIRST;
                             // Side effect: recalc path if switching back to melee
                             const currentCell = GridMath.getCellForPosition(
@@ -254,6 +253,14 @@ export class ButtonManager {
                     };
                 }
             }
+        }
+
+        // Show the armed spell's icon on the spellbook button (parity with legacy adjustSpellBookSprite).
+        // Only clear the armed spell on an EXPLICIT attack-type change (see "AttackType" case), not on
+        // every recompute — otherwise arming a spell while the unit is still on MELEE disarms it instantly.
+        const armedSpell = this.context.getCurrentActiveSpell();
+        if (armedSpell) {
+            spellBookButton.customSpriteName = SpellHelper.spellToTextureNames(armedSpell.getName())[0];
         }
 
         pushAll(hourglassButton, shieldButton, nextButton, aiButton, attackTypeButton, spellBookButton);
@@ -342,6 +349,9 @@ export class ButtonManager {
                 if (!active || !fightProps.hasFightStarted()) return;
                 if (active.selectNextAttackType()) {
                     this.context.setCurrentEnemiesCellsWithinMovementRange(undefined);
+                    // Manually switching attack type drops any armed spell (don't keep a spell ready
+                    // while the player explicitly chose a melee/range attack instead).
+                    this.context.setCurrentActiveSpell(undefined);
                     this.context.setUnitPropertiesUpdateNeeded(true);
                     this.refreshButtons(true);
                     this.context.setSelectedAttackType(active.getAttackTypeSelection());

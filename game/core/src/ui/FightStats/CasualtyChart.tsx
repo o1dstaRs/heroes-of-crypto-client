@@ -66,7 +66,11 @@ export const CasualtyChart: React.FC<{ series: IFightStatsSample[]; drawDuration
     const finalRed = pts[n - 1].upperKilledPct;
 
     return (
-        <Box component="svg" viewBox={`0 0 ${ChartW} ${ChartH}`} sx={{ width: "100%", height: "auto", display: "block" }}>
+        <Box
+            component="svg"
+            viewBox={`0 0 ${ChartW} ${ChartH}`}
+            sx={{ width: "100%", height: "auto", display: "block" }}
+        >
             <defs>
                 <linearGradient id="hocGreenGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={GREEN} stopOpacity={0.45} />
@@ -187,7 +191,16 @@ export const CasualtyPercents: React.FC<{
                                 }}
                             />
                         </Box>
-                        <Box component="span" sx={{ color: PARCHMENT, fontWeight: 700, fontSize: "0.8rem", width: 48, textAlign: "right" }}>
+                        <Box
+                            component="span"
+                            sx={{
+                                color: PARCHMENT,
+                                fontWeight: 700,
+                                fontSize: "0.8rem",
+                                width: 48,
+                                textAlign: "right",
+                            }}
+                        >
                             {Math.round(pct)}%
                         </Box>
                     </Box>

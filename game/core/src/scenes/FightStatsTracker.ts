@@ -46,7 +46,7 @@ export class FightStatsTracker {
     private series: IFightStatsSample[] = [];
     private readonly lowerRoster = new Map<string, IRosterEntry>();
     private readonly upperRoster = new Map<string, IRosterEntry>();
-public reset(): void {
+    public reset(): void {
         this.started = false;
         this.lowerStartTotal = 0;
         this.upperStartTotal = 0;
@@ -56,14 +56,15 @@ public reset(): void {
         this.lowerRoster.clear();
         this.upperRoster.clear();
     }
-/** Snapshot the starting roster. Call once, right after the fight starts. */
+    /** Snapshot the starting roster. Call once, right after the fight starts. */
     public start(units: Iterable<IStatUnit>): void {
         this.reset();
         for (const unit of units) {
             const team = unit.getTeam();
             const amount = unit.getAmountAlive();
             if (amount <= 0) continue;
-            const roster = team === TeamVals.LOWER ? this.lowerRoster : team === TeamVals.UPPER ? this.upperRoster : undefined;
+            const roster =
+                team === TeamVals.LOWER ? this.lowerRoster : team === TeamVals.UPPER ? this.upperRoster : undefined;
             if (!roster) continue;
 
             if (team === TeamVals.LOWER) this.lowerStartTotal += amount;
@@ -80,7 +81,7 @@ public reset(): void {
         this.started = true;
         this.series = [{ lap: 1, lowerKilled: 0, upperKilled: 0, lowerKilledPct: 0, upperKilledPct: 0 }];
     }
-/**
+    /**
      * Record a data point if the casualty count changed. Cheap to call every frame:
      * it dedupes against the last recorded totals, so the series only grows on real
      * losses.
@@ -111,7 +112,7 @@ public reset(): void {
         });
         return true;
     }
-/** Build the end-of-fight report consumed by the overlay. */
+    /** Build the end-of-fight report consumed by the overlay. */
     public buildReport(winner: TeamType, units: Iterable<IStatUnit>, lap: number): IFightStatsReport {
         const unitArray = Array.from(units);
         // Capture the final state in the time series.
@@ -121,7 +122,8 @@ public reset(): void {
         const aliveByNameUpper = new Map<string, number>();
         for (const unit of unitArray) {
             const team = unit.getTeam();
-            const target = team === TeamVals.LOWER ? aliveByNameLower : team === TeamVals.UPPER ? aliveByNameUpper : undefined;
+            const target =
+                team === TeamVals.LOWER ? aliveByNameLower : team === TeamVals.UPPER ? aliveByNameUpper : undefined;
             if (!target) continue;
             const name = unit.getName();
             target.set(name, (target.get(name) ?? 0) + unit.getAmountAlive());
@@ -139,7 +141,7 @@ public reset(): void {
             totalLaps: lap,
         };
     }
-private static buildDeaths(
+    private static buildDeaths(
         roster: Map<string, IRosterEntry>,
         aliveByName: Map<string, number>,
         team: TeamType,
@@ -153,7 +155,7 @@ private static buildDeaths(
         deaths.sort((a, b) => b.died - a.died);
         return deaths;
     }
-private static pct(killed: number, total: number): number {
+    private static pct(killed: number, total: number): number {
         if (total <= 0) return 0;
         return Math.round((killed / total) * 1000) / 10;
     }

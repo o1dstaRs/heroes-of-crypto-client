@@ -10,15 +10,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IFightDeathEntry, IFightStatsReport, IVisibleState } from "../../scenes/VisibleState";
-import {
-    CasualtyChart,
-    GOLD,
-    PARCHMENT,
-    WOOD_DARK,
-    imgSrc,
-    teamColor,
-    teamName,
-} from "../FightStats/CasualtyChart";
+import { CasualtyChart, GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor, teamName } from "../FightStats/CasualtyChart";
 
 // =============================================================================
 // Casualty roster column (per team): unit icons + how many fell
@@ -35,7 +27,15 @@ const CasualtyColumn: React.FC<{
     return (
         <Box sx={{ flex: 1, minWidth: 220 }}>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
-                <Box sx={{ width: 12, height: 12, borderRadius: "50%", backgroundColor: color, boxShadow: `0 0 8px ${color}` }} />
+                <Box
+                    sx={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: "50%",
+                        backgroundColor: color,
+                        boxShadow: `0 0 8px ${color}`,
+                    }}
+                />
                 <Typography sx={{ color: PARCHMENT, fontWeight: 700 }}>{teamName(team)} army</Typography>
                 <Typography sx={{ color, fontWeight: 700, ml: "auto" }}>
                     {killedTotal} / {startTotal} fell ({pct}%)
@@ -63,7 +63,12 @@ const CasualtyColumn: React.FC<{
                         key={d.name}
                         title={`${d.name}: ${d.died} of ${d.start} lost`}
                         placement="top"
-                        sx={{ backgroundColor: "#2d1606", border: `2px solid ${GOLD}`, color: PARCHMENT, zIndex: 10001 }}
+                        sx={{
+                            backgroundColor: "#2d1606",
+                            border: `2px solid ${GOLD}`,
+                            color: PARCHMENT,
+                            zIndex: 10001,
+                        }}
                     >
                         <Box sx={{ position: "relative" }}>
                             <Avatar
@@ -262,7 +267,14 @@ export const FightFinishedOverlay: React.FC = () => {
                 <Stack direction="row" spacing={3} sx={{ justifyContent: "center", mb: 0.5 }}>
                     {[TeamVals.LOWER, TeamVals.UPPER].map((t) => (
                         <Stack key={t} direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                            <Box sx={{ width: 22, height: 4, borderRadius: 2, backgroundColor: teamColor(t as TeamType) }} />
+                            <Box
+                                sx={{
+                                    width: 22,
+                                    height: 4,
+                                    borderRadius: 2,
+                                    backgroundColor: teamColor(t as TeamType),
+                                }}
+                            />
                             <Typography sx={{ color: PARCHMENT, fontSize: "0.82rem", opacity: 0.85 }}>
                                 {teamName(t as TeamType)} army losses
                             </Typography>

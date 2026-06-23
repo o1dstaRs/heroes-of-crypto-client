@@ -44,7 +44,6 @@ export class LightingLayer {
     private readonly container = new Container();
     private readonly torches: Torch[] = [];
     private time = 0;
-
     public constructor(gs: GridSettings) {
         const minX = gs.getMinX();
         const maxX = gs.getMaxX();
@@ -90,11 +89,9 @@ export class LightingLayer {
             this.torches.push({ sprite, baseScale, phase: i * 1.7 });
         });
     }
-
     public getContainer(): Container {
         return this.container;
     }
-
     /** Flicker the torches. */
     public update(dt: number): void {
         this.time += dt;
@@ -106,7 +103,6 @@ export class LightingLayer {
             torch.sprite.scale.set(torch.baseScale * (1 + 0.02 * Math.sin(t * 1.6)));
         }
     }
-
     public destroy(): void {
         this.container.destroy({ children: true });
     }

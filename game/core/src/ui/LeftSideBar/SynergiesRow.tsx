@@ -28,7 +28,7 @@ const SynergiesRow = ({ synergies }: { synergies: string[] }) => {
                 alignItems: "center",
             }}
         >
-            {sortedSynergies.map((synergyKey, index) => {
+            {sortedSynergies.map((synergyKey) => {
                 const level = synergyKey.split(":").length < 3 ? 0 : parseInt(synergyKey.split(":")[2]);
                 let dotColor: string;
 

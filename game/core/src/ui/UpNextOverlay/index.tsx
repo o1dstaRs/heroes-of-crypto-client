@@ -263,7 +263,6 @@ export const UpNextOverlay: React.FC = () => {
                         </Box>
                     ))}
             </Stack>
-
         </Box>
     );
 };
