@@ -26,16 +26,15 @@ const gameClientUrl =
 
 <script define:vars={{ gameClientUrl }}>
     const token = localStorage.getItem("accessToken");
+    const target = new URL(gameClientUrl, window.location.href);
 
-    if (!token) {
-        window.location.replace("/auth/login/");
-    } else {
-        const target = new URL(gameClientUrl, window.location.href);
+    if (token) {
         const hashParams = new URLSearchParams(target.hash.startsWith("#") ? target.hash.slice(1) : target.hash);
         hashParams.set("access_token", token);
         target.hash = hashParams.toString();
-        window.location.replace(target.toString());
     }
+
+    window.location.replace(target.toString());
 </script>
 
 <style>
