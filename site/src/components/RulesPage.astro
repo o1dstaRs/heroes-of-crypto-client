@@ -1,5 +1,6 @@
 ---
 import { links, localPath, type Language } from "../lib/site-data";
+import { localizedFactionName } from "../lib/localization";
 import { abilityCount, factionColors, factionUnits, unitCount, type FactionName, type Unit } from "../lib/units-data";
 
 interface Props {
@@ -13,8 +14,9 @@ const byName = new Map(allUnits.map((unit) => [unit.name, unit]));
 const pickUnits = (names: string[]) => names.map((name) => byName.get(name)).filter(Boolean) as Unit[];
 const heroUnits = pickUnits(["Black Dragon", "Angel", "Behemoth", "Pegasus"]);
 const exampleUnits = pickUnits(["Medusa", "Arbalester", "Hydra", "Thunderbird", "Satyr", "Gargantuan"]);
-const rulesHref = localPath(lang, "rules");
 const unitsHref = localPath(lang, "units");
+const playHref = isRu ? "/ru/play/" : links.play;
+const factionLabel = (faction: string) => localizedFactionName(lang, faction);
 
 const attackLabels = isRu
     ? {
@@ -49,7 +51,7 @@ const copy = isRu
           secondaryCta: "Открыть юнитов",
           heroLabel: "Примеры боевых юнитов",
           stats: [
-              { value: String(unitCount), label: "юнита в публичном ростере" },
+              { value: String(unitCount), label: "юнита в публичном списке" },
               { value: String(factionUnits.length), label: "игровые фракции" },
               { value: String(abilityCount), label: "способностей" },
           ],
@@ -59,7 +61,7 @@ const copy = isRu
           phases: [
               {
                   title: "1. Драфт",
-                  text: "Вы берете компактный ростер по уровням: два юнита 1 уровня, два 2 уровня, один 3 уровня и один 4 уровня. Баны и reveal-инструменты помогают контролировать скрытую информацию.",
+                  text: "Вы берете компактный состав по уровням: два юнита 1 уровня, два 2 уровня, один 3 уровня и один 4 уровня. Баны и инструменты раскрытия помогают контролировать скрытую информацию.",
               },
               {
                   title: "2. Апгрейды и синергии",
@@ -71,13 +73,13 @@ const copy = isRu
               },
               {
                   title: "4. Бой",
-                  text: "Активный юнит двигается, атакует, кастует, ждет через Hourglass или заканчивает ход. После действия движок выбирает следующего юнита.",
+                  text: "Активный юнит двигается, атакует, применяет заклинание, ждет через Hourglass или заканчивает ход. После действия движок выбирает следующего юнита.",
               },
           ],
           winTitle: "Цель простая: оставить на доске свою армию",
           winParagraphs: [
               "Каждый юнит на поле - это стек, а не один солдат. Урон снимает здоровье текущей фигуры внутри стека, затем убивает следующую. Когда живых существ в стеке не остается, стек исчезает с доски.",
-              "Вы выигрываете, когда у соперника не осталось живых стеков. Если обе стороны тянут время, игра давит сама: карта сужается, крайние клетки превращаются в провалы, а после 12-го круга начинается Armageddon.",
+              "Вы выигрываете, когда у соперника не осталось живых стеков. Если обе стороны тянут время, игра давит сама: карта сужается, крайние клетки превращаются в провалы, а после 12-го круга начинается Армагеддон.",
           ],
           readBoard: [
               "Смотрите на очередь ходов, а не только на активного юнита.",
@@ -86,22 +88,22 @@ const copy = isRu
           ],
           draftTitle: "Драфт: выбирайте план, а не красивые портреты",
           draftParagraphs: [
-              "Уровень юнита важен, но это не единственный критерий. В Heroes of Crypto слабый на вид юнит может включить нужную синергию, закрыть ауру, дать контроль или принести spellbook в отряд.",
-              "Публичный ростер сейчас сфокусирован на четырех игровых фракциях: Chaos, Life, Might и Nature. Внутри них есть ближние бойцы, стрелки, маги, летающие юниты, крупные 2x2 существа и утилити-юниты с аурами.",
+              "Уровень юнита важен, но это не единственный критерий. В Heroes of Crypto слабый на вид юнит может включить нужную синергию, закрыть ауру, дать контроль или принести книгу заклинаний в отряд.",
+              "Публичный список сейчас сфокусирован на четырех игровых фракциях: Хаос, Жизнь, Сила и Природа. Внутри них есть ближние бойцы, стрелки, маги, летающие юниты, крупные 2x2 существа и утилити-юниты с аурами.",
           ],
           draftNotes: [
               "Базовый пул драфта по уровням: 2/2/1/1.",
               "Баны по уровню разрешены только если в пуле остается достаточно вариантов.",
-              "Reveal полезен, когда важнее узнать угрозу соперника, чем забрать еще один неизвестный слот.",
+              "Раскрытие полезно, когда важнее узнать угрозу соперника, чем забрать еще один неизвестный слот.",
           ],
           unitsTitle: "Как читать юнита",
           unitStats: [
-              { label: "HP", text: "сколько здоровья у одного существа внутри стека" },
-              { label: "Damage", text: "базовый разброс удара до брони, удачи и модификаторов" },
-              { label: "Speed", text: "сильно влияет на порядок ходов внутри круга" },
-              { label: "Steps", text: "сколько клеток юнит может пройти за ход" },
-              { label: "Shots", text: "боезапас дальних атак, если юнит стреляет" },
-              { label: "Magic resist", text: "шанс сопротивляться дебаффам и магическим эффектам" },
+              { label: "Здоровье", text: "сколько здоровья у одного существа внутри стека" },
+              { label: "Урон", text: "базовый разброс удара до брони, удачи и модификаторов" },
+              { label: "Скорость", text: "сильно влияет на порядок ходов внутри круга" },
+              { label: "Шаги", text: "сколько клеток юнит может пройти за ход" },
+              { label: "Выстрелы", text: "боезапас дальних атак, если юнит стреляет" },
+              { label: "Маг. сопротивление", text: "шанс сопротивляться дебаффам и магическим эффектам" },
           ],
           upgradesTitle: "Апгрейды команды: 7 очков, настоящие компромиссы",
           upgradesIntro:
@@ -109,27 +111,27 @@ const copy = isRu
           upgrades: [
               {
                   icon: "/assets/images/units/abilities/board_augment_256.webp",
-                  title: "Placement",
-                  text: "Расширяет зону расстановки. Стартовый уровень ограничивает количество выставленных стеков; максимальный уровень открывает базовый потолок в 8 стеков до бонусов Nature.",
+                  title: "Расстановка",
+                  text: "Расширяет зону расстановки. Стартовый уровень ограничивает количество выставленных стеков; максимальный уровень открывает базовый потолок в 8 стеков до бонусов Природы.",
               },
               {
                   icon: "/assets/images/units/abilities/armor_augment_256.webp",
-                  title: "Armor",
+                  title: "Броня",
                   text: "+6%, +13% или +21% к броне команды. Хорошо работает с армиями, которые хотят пережить первый контакт.",
               },
               {
                   icon: "/assets/images/units/abilities/might_augment_256.webp",
-                  title: "Might",
+                  title: "Ближний бой",
                   text: "+8%, +17% или +27% к ближней атаке. Это выбор для армий, которые готовы драться лицом к лицу.",
               },
               {
                   icon: "/assets/images/units/abilities/sniper_augment_256.webp",
-                  title: "Sniper",
+                  title: "Стрельба",
                   text: "+7/15/24% к атаке стрелков и +20/40/70% к дистанции выстрела. Берите, если ваша победа зависит от линий огня.",
               },
               {
                   icon: "/assets/images/units/abilities/movement_augment_256.webp",
-                  title: "Movement",
+                  title: "Движение",
                   text: "+1 или +2 шага. Иногда лишняя клетка важнее лишнего урона.",
               },
           ],
@@ -141,55 +143,55 @@ const copy = isRu
               {
                   faction: "Life",
                   icon: "/assets/images/units/factions/life_128.webp",
-                  options: ["Supply: +6% / +12% / +19% существ в стеках", "Morale & luck: +6/+2, +13/+5, +20/+9"],
+                  options: ["Снабжение: +6% / +12% / +19% существ в стеках", "Мораль и удача: +6/+2, +13/+5, +20/+9"],
               },
               {
                   faction: "Chaos",
                   icon: "/assets/images/units/factions/chaos_128.webp",
-                  options: ["Movement: +1 / +2 / +3 клетки", "Break on attack: 8% / 13% / 19% шанс выключить способности"],
+                  options: ["Движение: +1 / +2 / +3 клетки", "Срыв при атаке: 8% / 13% / 19% шанс выключить способности"],
               },
               {
                   faction: "Might",
                   icon: "/assets/images/units/factions/might_128.webp",
-                  options: ["Aura range: +1 / +2 / +3 клетки", "Stack abilities power: +5% / +8% / +12%"],
+                  options: ["Радиус аур: +1 / +2 / +3 клетки", "Сила способностей от стека: +5% / +8% / +12%"],
               },
               {
                   faction: "Nature",
                   icon: "/assets/images/units/factions/nature_128.webp",
-                  options: ["Board units: +1 / +2 / +3 выставленных стека", "Flying armor: +10% / +20% / +30%"],
+                  options: ["Юниты на поле: +1 / +2 / +3 выставленных стека", "Броня летающих юнитов: +10% / +20% / +30%"],
               },
           ],
           placementTitle: "Расстановка: бой часто выигрывается до первого удара",
           placementParagraphs: [
-              "Вы выбираете юнита из ростера, задаете количество существ в стеке и ставите его в разрешенную зону. Можно двигать уже поставленные стеки, клонировать выбранный стек, удалять его и подгонять финальную формацию перед стартом.",
+              "Вы выбираете юнита из списка, задаете количество существ в стеке и ставите его в разрешенную зону. Можно двигать уже поставленные стеки, клонировать выбранный стек, удалять его и подгонять финальную формацию перед стартом.",
               "Большие юниты занимают 2x2 клетки. Это сильные фигуры, но они требуют места: их сложнее протащить через узкий центр и тяжелее спасти при сужении карты.",
               "Перед стартом проверьте три вещи: кто получает ауру, кого можно достать первым ходом, и где окажутся ваши стрелки, если враг ворвется в ближний бой.",
           ],
           turnsTitle: "Ход: одно решение, потом очередь идет дальше",
           turnActions: [
               {
-                  title: "Move",
-                  text: "Путь должен быть легальным и помещаться в Steps юнита. Движение к ближайшему врагу повышает мораль; отход может ее снизить.",
+                  title: "Движение",
+                  text: "Путь должен быть легальным и помещаться в запас шагов юнита. Движение к ближайшему врагу повышает мораль; отход может ее снизить.",
               },
               {
-                  title: "Melee attack",
+                  title: "Ближняя атака",
                   text: "Юнит должен оказаться рядом с целью. Стрелок, вынужденный бить в ближнем бою, наносит меньше урона, если у него нет подходящей способности.",
               },
               {
-                  title: "Ranged attack",
-                  text: "Нужны выстрелы, линия атаки и отсутствие ближней угрозы. Дальние выстрелы режутся делителем до x8, если Sniper не снимает это ограничение.",
+                  title: "Дальняя атака",
+                  text: "Нужны выстрелы, линия атаки и отсутствие ближней угрозы. Дальние выстрелы режутся делителем до x8, если способность Sniper не снимает это ограничение.",
               },
               {
-                  title: "Spellbook",
-                  text: "Маги и spellbook-юниты кастуют баффы, дебаффы, лечение, массовые эффекты, summon и позиционные трюки. Magic resist и mind resistance могут остановить эффект.",
+                  title: "Книга заклинаний",
+                  text: "Маги и юниты с книгой заклинаний применяют баффы, дебаффы, лечение, массовые эффекты, призыв и позиционные трюки. Магическое и ментальное сопротивление могут остановить эффект.",
               },
               {
                   title: "Hourglass",
                   text: "Юнит добровольно ждет и возвращается позже в очередь. Это стоит морали, зато помогает дождаться лучшего момента.",
               },
               {
-                  title: "Luck Shield / Skip",
-                  text: "Luck Shield сбрасывает рандомизированную удачу текущего хода и завершает ход. Skip тоже заканчивает ход, но снижает мораль.",
+                  title: "Luck Shield / пропуск",
+                  text: "Luck Shield сбрасывает случайный сдвиг удачи текущего хода и завершает ход. Пропуск тоже заканчивает ход, но снижает мораль.",
               },
           ],
           combatTitle: "Как считается бой без формул",
@@ -198,24 +200,24 @@ const copy = isRu
               "Ответный удар существует. Ближние и дальние юниты могут отвечать, если не потратили ответ, не заблокированы эффектом и действительно могут достать атакующего.",
               "Способности добавляют характер: Lucky Strike может резко поднять урон, Stun и Blindness ломают темп, Petrifying Gaze может добить, Fire Shield возвращает урон, Range Null Field выключает стрельбу вокруг себя.",
           ],
-          moraleTitle: "Мораль, удача и stack power",
+          moraleTitle: "Мораль, удача и сила стека",
           moraleItems: [
               "Мораль ограничена диапазоном от -20 до +20. Положительная мораль может поднять юнита в очереди, отрицательная - задержать.",
               "Убийство дает сильный моральный толчок атакующему, а похожие стеки на стороне погибшего могут просесть по морали.",
               "Удача влияет на шанс и силу многих способностей. Каждый ход может добавить случайный сдвиг, а Luck Shield позволяет очистить этот момент.",
-              "Stack power пересчитывается от ценности стека на доске: опыт юнита умножается на количество живых существ и сравнивается с крупнейшим стеком. Диапазон - от 1 до 5.",
+              "Сила стека пересчитывается от ценности стека на доске: опыт юнита умножается на количество живых существ и сравнивается с крупнейшим стеком. Диапазон - от 1 до 5.",
           ],
           mapTitle: "Карта не ждет вечно",
           mapParagraphs: [
-              "Поле - сетка 16x16. В текущей ротации есть обычные карты, карты с lava center и карты с block center. Центральная гора может блокировать выстрелы и выдерживает 5 ударов; lava center может дать смысл способностям Made of Fire.",
-              "На обычных картах сужение идет примерно каждые 3 круга. На block-center картах - каждые 4 круга. Если команды не сближаются и не наносят урон, игра может добавить дополнительное сужение.",
-              "После 12-го круга начинается Armageddon: четыре волны урона постепенно превращают затянутый бой в финал.",
+              "Поле - сетка 16x16. В текущей ротации есть обычные карты, карты с лавовым центром и карты с заблокированным центром. Центральная гора может блокировать выстрелы и выдерживает 5 ударов; лавовый центр может дать смысл способностям Made of Fire.",
+              "На обычных картах сужение идет примерно каждые 3 круга. На картах с заблокированным центром - каждые 4 круга. Если команды не сближаются и не наносят урон, игра может добавить дополнительное сужение.",
+              "После 12-го круга начинается Армагеддон: четыре волны урона постепенно превращают затянутый бой в финал.",
           ],
           examplesTitle: "Мини-шпаргалка по ролям",
           examples: [
               "Black Dragon и Angel показывают силу крупных летающих финишеров, но им нужно место для 2x2 тела.",
               "Medusa, Arbalester и Gargantuan учат уважать линии стрельбы, боезапас и дистанцию.",
-              "Satyr и Ogre Mage напоминают, что spellbook часто важнее прямого урона.",
+              "Satyr и Ogre Mage напоминают, что книга заклинаний часто важнее прямого урона.",
               "Pegasus, Griffin, Peasant и Valkyrie доказывают, что ауры выигрывают бои еще до первого удара.",
           ],
           finalTitle: "Как играть лучше уже в следующей партии",
@@ -422,11 +424,11 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         Death: "Reserved and summon-facing pieces in the current public data.",
     },
     ru: {
-        Chaos: "Давление, огонь, неприятные стрелковые трюки и планы через Break.",
-        Life: "Надежные тела, броня, resurrection, мораль и поддержка построения.",
-        Might: "Прямой урон, сильный melee pressure, усиление аур и тяжелые финишеры.",
-        Nature: "Мобильность, летающие юниты, summon, camouflage и контроль поля.",
-        Death: "Резервные и summon-связанные существа в текущих публичных данных.",
+        Chaos: "Давление, огонь, неприятные стрелковые трюки и планы через срыв атак.",
+        Life: "Надежные стеки, броня, воскрешение, мораль и поддержка построения.",
+        Might: "Прямой урон, сильное давление в ближнем бою, усиление аур и тяжелые финишеры.",
+        Nature: "Мобильность, летающие юниты, призыв, маскировка и контроль поля.",
+        Death: "Резервные и связанные с призывом существа в текущих публичных данных.",
     },
 };
 ---
@@ -440,7 +442,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
             <h1>{copy.title}</h1>
             <p>{copy.description}</p>
             <div class="rules-hero-actions">
-                <a class="button primary" href={links.betaApp} target="_blank" rel="noopener">
+                <a class="button primary" href={playHref}>
                     <img src="/assets/icons/navbar/joystick.svg" alt="" width="22" height="22" />
                     {copy.primaryCta}
                 </a>
@@ -449,8 +451,28 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         </div>
 
         <div class="rules-showcase" aria-label={copy.heroLabel}>
-            <div class="rules-board-shot">
-                <img src="/assets/images/home/livestream.webp" alt="" width="1792" height="1024" loading="eager" />
+            <div class="rules-board-shot rules-hero-board" aria-hidden="true">
+                <div class="rules-hero-board-grid">
+                    {
+                        Array.from({ length: 64 }).map((_, i) => (
+                            <span
+                                class:list={[
+                                    {
+                                        "is-deploy-left": i % 8 < 2,
+                                        "is-deploy-right": i % 8 > 5,
+                                        "is-center": i === 27 || i === 28 || i === 35 || i === 36,
+                                        "is-hole": i < 8 || i > 55,
+                                    },
+                                ]}
+                            />
+                        ))
+                    }
+                </div>
+                <img class="rules-hero-piece dragon" src="/assets/images/units/units/black_dragon_512.webp" alt="" width="512" height="512" loading="eager" />
+                <img class="rules-hero-piece angel" src="/assets/images/units/units/angel_512.webp" alt="" width="512" height="512" loading="eager" />
+                <img class="rules-hero-piece arbalester" src="/assets/images/units/units/arbalester_512.webp" alt="" width="512" height="512" loading="eager" />
+                <img class="rules-hero-piece pegasus" src="/assets/images/units/units/pegasus_512.webp" alt="" width="512" height="512" loading="eager" />
+                <img class="rules-hero-piece medusa" src="/assets/images/units/units/medusa_512.webp" alt="" width="512" height="512" loading="eager" />
             </div>
             <div class="rules-unit-line">
                 {
@@ -459,7 +481,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                             href={unitsHref}
                             class="rules-hero-unit"
                             style={`--faction: ${factionColors[unit.faction]}`}
-                            aria-label={`${unit.name}, ${unit.faction}`}
+                            aria-label={`${unit.name}, ${factionLabel(unit.faction)}`}
                         >
                             <img src={unit.icon} alt="" width="512" height="512" loading="eager" />
                             <span>{unit.name}</span>
@@ -480,7 +502,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
 <section class="section rules-section">
     <div class="page-shell">
         <div class="section-heading">
-            <p class="eyebrow">{copy.loopTitle}</p>
+            <p class="eyebrow">{isRu ? "Цикл боя" : "Fight loop"}</p>
             <h2>{copy.loopTitle}</h2>
             <p>{copy.loopIntro}</p>
         </div>
@@ -519,7 +541,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                     <a href={unitsHref} class="rules-faction" style={`--faction: ${faction.color}`}>
                         <span class="rules-faction-head">
                             <img src={faction.icon} alt="" width="34" height="34" loading="lazy" />
-                            <strong>{faction.faction}</strong>
+                            <strong>{factionLabel(faction.faction)}</strong>
                             <em>{faction.units.length}</em>
                         </span>
                         <span>{factionDescriptions[lang][faction.faction]}</span>
@@ -608,7 +630,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                         <div class="rules-synergy-head">
                             <img src={synergy.icon} alt="" width="128" height="128" loading="lazy" />
                             <div>
-                                <h3>{synergy.faction}</h3>
+                                <h3>{factionLabel(synergy.faction)}</h3>
                                 <span>{copy.synergyLevels}: 2 / 4 / 6</span>
                             </div>
                         </div>
@@ -717,8 +739,8 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
             <h3>{copy.finalTitle}</h3>
             {copy.finalItems.map((item) => <p>{item}</p>)}
             <div class="rules-final-actions">
-                <a class="button primary" href={links.betaApp} target="_blank" rel="noopener">{copy.primaryCta}</a>
-                <a class="button secondary" href={rulesHref}>{copy.eyebrow}</a>
+                <a class="button primary" href={playHref}>{copy.primaryCta}</a>
+                <a class="button secondary" href={unitsHref}>{copy.secondaryCta}</a>
             </div>
         </div>
     </div>
@@ -790,10 +812,90 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         box-shadow: var(--shadow);
     }
 
-    .rules-board-shot img {
+    .rules-board-shot > img:not(.rules-hero-piece) {
         width: 100%;
         aspect-ratio: 16 / 9;
         object-fit: cover;
+    }
+
+    .rules-hero-board {
+        position: relative;
+        min-height: 344px;
+        aspect-ratio: 16 / 10;
+        background:
+            linear-gradient(135deg, rgba(103, 174, 246, 0.08), rgba(99, 210, 138, 0.12)),
+            #080b0d;
+    }
+
+    .rules-hero-board-grid {
+        position: absolute;
+        inset: 6% 7%;
+        display: grid;
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        gap: 5px;
+        transform: perspective(980px) rotateX(50deg) rotateZ(-38deg) translate(-2%, 6%);
+        transform-origin: center;
+    }
+
+    .rules-hero-board-grid span {
+        aspect-ratio: 1 / 1;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
+            #11181b;
+        box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.34);
+    }
+
+    .rules-hero-board-grid span.is-deploy-left {
+        background: rgba(103, 174, 246, 0.18);
+    }
+
+    .rules-hero-board-grid span.is-deploy-right {
+        background: rgba(239, 74, 63, 0.2);
+    }
+
+    .rules-hero-board-grid span.is-center {
+        background: rgba(242, 199, 93, 0.28);
+    }
+
+    .rules-hero-board-grid span.is-hole {
+        background: rgba(5, 6, 6, 0.72);
+    }
+
+    .rules-hero-piece {
+        position: absolute;
+        width: clamp(86px, 19%, 142px);
+        height: auto;
+        filter: drop-shadow(0 18px 20px rgba(0, 0, 0, 0.62));
+        pointer-events: none;
+    }
+
+    .rules-hero-piece.dragon {
+        right: 12%;
+        bottom: 13%;
+        width: clamp(130px, 28%, 210px);
+    }
+
+    .rules-hero-piece.angel {
+        left: 41%;
+        top: 8%;
+    }
+
+    .rules-hero-piece.arbalester {
+        left: 12%;
+        bottom: 17%;
+        width: clamp(76px, 16%, 118px);
+    }
+
+    .rules-hero-piece.pegasus {
+        left: 24%;
+        top: 20%;
+    }
+
+    .rules-hero-piece.medusa {
+        right: 33%;
+        bottom: 9%;
+        width: clamp(82px, 17%, 126px);
     }
 
     .rules-unit-line {
@@ -1376,6 +1478,26 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
 
         .rules-hero-unit span {
             text-align: left;
+        }
+
+        .rules-hero-board {
+            min-height: 260px;
+        }
+
+        .rules-hero-board-grid {
+            inset: 9% 6%;
+            gap: 3px;
+            transform: perspective(820px) rotateX(50deg) rotateZ(-38deg) translate(-2%, 8%);
+        }
+
+        .rules-hero-piece.dragon {
+            right: 6%;
+            bottom: 10%;
+        }
+
+        .rules-hero-piece.angel {
+            left: 39%;
+            top: 4%;
         }
 
         .rules-board-diagram {

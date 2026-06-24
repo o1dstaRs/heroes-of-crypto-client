@@ -1,0 +1,133 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { content } from "../../../lib/site-data";
+import { ruBlogPosts } from "../../../lib/blog-ru";
+
+const lang = "ru";
+const copy = content[lang];
+const posts = [...ruBlogPosts].sort((a, b) => new Date(b.date).valueOf() - new Date(a.date).valueOf());
+---
+
+<BaseLayout
+    lang={lang}
+    title="Блог Heroes of Crypto"
+    description="Заметки о браузерной тактике Heroes of Crypto: фракции, позиционирование, порядок ходов, мораль, удача и развитие игры."
+>
+    <section class="blog-index">
+        <div class="page-shell">
+            <header class="blog-head">
+                <p class="eyebrow">Дневник разработки</p>
+                <h1>Блог</h1>
+                <p class="blog-lead">
+                    Практичные разборы механик Heroes of Crypto: как читать доску, выбирать фракцию,
+                    ставить юнитов и выигрывать больше боев.
+                </p>
+            </header>
+
+            <ul class="post-list">
+                {
+                    posts.map((post) => (
+                        <li class="post-card">
+                            <a href={`/ru/blog/${post.id}/`} class="post-card-link">
+                                <div class="post-card-meta">
+                                    <time datetime={new Date(post.date).toISOString()}>
+                                        {new Date(post.date).toLocaleDateString("ru-RU", {
+                                            year: "numeric",
+                                            month: "long",
+                                            day: "numeric",
+                                            timeZone: "UTC",
+                                        })}
+                                    </time>
+                                    <span class="post-tags">
+                                        {post.tags.map((tag) => (
+                                            <span class="post-tag">{tag}</span>
+                                        ))}
+                                    </span>
+                                </div>
+                                <h2>{post.title}</h2>
+                                <p>{post.excerpt}</p>
+                                <span class="post-read">Читать -></span>
+                            </a>
+                        </li>
+                    ))
+                }
+            </ul>
+        </div>
+    </section>
+</BaseLayout>
+
+<style>
+    .blog-index {
+        padding: 80px 0 96px;
+    }
+    .blog-head {
+        max-width: 680px;
+        margin-bottom: 56px;
+    }
+    .blog-lead {
+        font-size: 1.12rem;
+        color: var(--muted);
+    }
+    .post-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 20px;
+    }
+    .post-card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: linear-gradient(180deg, var(--surface-2), var(--surface));
+        transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+    }
+    .post-card:hover {
+        transform: translateY(-3px);
+        border-color: var(--line-strong);
+        box-shadow: 0 22px 48px rgba(0, 0, 0, 0.4);
+    }
+    .post-card-link {
+        display: block;
+        padding: 28px 30px;
+    }
+    .post-card-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+    }
+    .post-card-meta time {
+        color: var(--gold);
+        font-size: 0.84rem;
+        font-weight: 700;
+    }
+    .post-tags {
+        display: flex;
+        gap: 6px;
+    }
+    .post-tag {
+        padding: 2px 9px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        font-size: 0.74rem;
+        font-weight: 600;
+    }
+    .post-card h2 {
+        font-size: 1.4rem;
+        margin-bottom: 8px;
+        transition: color 0.15s ease;
+    }
+    .post-card:hover h2 {
+        color: var(--gold-soft);
+    }
+    .post-card p {
+        margin-bottom: 14px;
+    }
+    .post-read {
+        color: var(--gold-soft);
+        font-weight: 700;
+        font-size: 0.92rem;
+    }
+</style>

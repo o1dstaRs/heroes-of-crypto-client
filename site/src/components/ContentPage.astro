@@ -1,5 +1,6 @@
 ---
 import { content, contractAddress, links, type Language, type PageSlug } from "../lib/site-data";
+import { localizedFactionName } from "../lib/localization";
 
 interface Props {
     lang: Language;
@@ -11,6 +12,20 @@ const copy = content[lang];
 const page = copy.pages[slug];
 const legalDoc =
     slug === "terms-of-service" ? copy.legal.terms : slug === "privacy-policy" ? copy.legal.privacy : undefined;
+const labels =
+    lang === "ru"
+        ? {
+              highlights: "ключевые изменения",
+              lastUpdated: "Последнее обновление",
+              rosterRelease: "Ростер релиз-кандидата",
+          }
+        : {
+              highlights: "highlights",
+              lastUpdated: "Last Updated",
+              rosterRelease: "Release-candidate roster",
+          };
+const formatRosterAbilities = (abilities: string) =>
+    lang === "ru" ? abilities.replace(/; spells:/g, "; заклинания:") : abilities;
 ---
 
 <section class="subhero">
@@ -86,7 +101,7 @@ const legalDoc =
                                 <p>{patch.impact}</p>
                             </div>
 
-                            <div class="patch-stats" aria-label={`${patch.version} highlights`}>
+                            <div class="patch-stats" aria-label={`${patch.version} ${labels.highlights}`}>
                                 {(patch.stats ?? []).map((stat) => (
                                     <div>
                                         <strong>{stat.value}</strong>
@@ -106,16 +121,16 @@ const legalDoc =
 
                             {(patch.roster ?? []).length > 0 && (
                                 <section class="patch-section-block roster-release">
-                                    <h3>{lang === "ru" ? "Roster release candidate" : "Release-candidate roster"}</h3>
+                                    <h3>{labels.rosterRelease}</h3>
                                     <div class="release-roster-grid">
                                         {(patch.roster ?? []).map((faction) => (
                                             <div class="release-roster-faction">
-                                                <h4>{faction.faction}</h4>
+                                                <h4>{localizedFactionName(lang, faction.faction)}</h4>
                                                 <dl>
                                                     {(faction.units ?? []).map((unit) => (
                                                         <>
                                                             <dt>{unit.name}</dt>
-                                                            <dd>{unit.abilities}</dd>
+                                                            <dd>{formatRosterAbilities(unit.abilities)}</dd>
                                                         </>
                                                     ))}
                                                 </dl>
@@ -201,7 +216,7 @@ const legalDoc =
         <section class="section legal-section">
             <article class="page-shell legal-doc">
                 <p class="updated">
-                    <strong>Last Updated:</strong> {legalDoc.updated}
+                    <strong>{labels.lastUpdated}:</strong> {legalDoc.updated}
                 </p>
                 <p class="lead">{legalDoc.intro}</p>
                 {legalDoc.sections.map((section) => (

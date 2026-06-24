@@ -244,7 +244,21 @@ code {
     gap: 10px;
 }
 
-.header-play,
+.header-start-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.footer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.header-start,
+.header-login-link,
 .footer-play {
     display: inline-flex;
     align-items: center;
@@ -253,12 +267,25 @@ code {
     min-height: 38px;
     padding: 9px 13px;
     border-radius: 8px;
-    background: var(--red);
-    color: #fff;
     font-size: 0.9rem;
     font-weight: 820;
     white-space: nowrap;
+}
+
+.header-start-primary,
+.footer-play {
+    background: var(--red);
+    color: #fff;
     box-shadow: 0 12px 28px rgba(239, 74, 63, 0.28);
+}
+
+.header-start-secondary,
+.header-login-link,
+.footer-play-secondary {
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--ink);
+    box-shadow: none;
 }
 
 .language-switcher {
@@ -353,6 +380,86 @@ code {
     align-items: center;
 }
 
+.play-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: 620px;
+}
+
+.play-option {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    min-height: 76px;
+    padding: 13px 14px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: #fff;
+    transition:
+        transform 0.14s ease,
+        box-shadow 0.18s ease,
+        background 0.18s ease,
+        border-color 0.18s ease;
+}
+
+.play-option-primary {
+    background: linear-gradient(180deg, #ff6256 0%, var(--red-strong) 100%);
+    box-shadow: 0 18px 44px rgba(239, 74, 63, 0.36);
+}
+
+.play-option-secondary {
+    border-color: rgba(255, 255, 255, 0.24);
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(8px);
+}
+
+.play-option:hover {
+    transform: translateY(-1px);
+}
+
+.play-option-primary:hover {
+    background: linear-gradient(180deg, #ff7268 0%, #b92721 100%);
+    box-shadow: 0 20px 48px rgba(239, 74, 63, 0.44);
+}
+
+.play-option-secondary:hover {
+    border-color: rgba(242, 199, 93, 0.62);
+    background: rgba(242, 199, 93, 0.12);
+}
+
+.play-option-icon {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.22);
+}
+
+.play-option-copy {
+    min-width: 0;
+}
+
+.play-option-copy strong,
+.play-option-copy em {
+    display: block;
+}
+
+.play-option-copy strong {
+    font-weight: 860;
+    line-height: 1.12;
+}
+
+.play-option-copy em {
+    margin-top: 4px;
+    color: rgba(251, 244, 232, 0.72);
+    font-size: 0.82rem;
+    font-style: normal;
+    font-weight: 640;
+    line-height: 1.25;
+}
+
 .button {
     display: inline-flex;
     align-items: center;
@@ -383,19 +490,28 @@ code {
 }
 
 .button.primary:hover,
-.header-play:hover,
+.header-start-primary:hover,
 .footer-play:hover,
-.proof-action:hover {
+.proof-action-primary:hover {
     background: linear-gradient(180deg, #ff7268 0%, #b92721 100%);
     box-shadow: 0 20px 48px rgba(239, 74, 63, 0.44);
     transform: translateY(-1px);
 }
 
 .button.primary:active,
-.header-play:active,
+.header-start:active,
+.header-login-link:active,
 .footer-play:active,
 .proof-action:active {
     transform: translateY(1px);
+}
+
+.header-start-secondary:hover,
+.header-login-link:hover,
+.footer-play-secondary:hover {
+    border-color: rgba(255, 255, 255, 0.36);
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
 }
 
 .button.secondary {
@@ -628,13 +744,12 @@ code {
 
 .proof-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(190px, 0.65fr);
     align-items: stretch;
     gap: 1px;
 }
 
-.proof-item,
-.proof-action {
+.proof-item {
     min-height: 108px;
     padding: 22px 24px;
     background: rgba(255, 255, 255, 0.035);
@@ -655,11 +770,20 @@ code {
     font-weight: 700;
 }
 
+.proof-actions {
+    display: grid;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    min-width: 0;
+}
+
 .proof-action {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 180px;
+    min-width: 0;
+    min-height: 53px;
+    padding: 14px 18px;
     background: var(--red);
     color: #fff;
     font-weight: 840;
@@ -667,6 +791,18 @@ code {
         transform 0.14s ease,
         box-shadow 0.18s ease,
         background 0.18s ease;
+}
+
+.proof-action-secondary {
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(251, 244, 232, 0.9);
+}
+
+.proof-action-secondary:hover {
+    border-color: rgba(242, 199, 93, 0.5);
+    background: rgba(242, 199, 93, 0.12);
+    transform: translateY(-1px);
 }
 
 .faction-rail-section {
@@ -1299,6 +1435,14 @@ code {
     gap: 24px;
 }
 
+.final-cta-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
 .final-cta h2 {
     max-width: 780px;
     margin-bottom: 0;
@@ -1607,17 +1751,18 @@ code {
     min-height: calc(100svh - 68px);
     padding: 76px 0;
     background:
-        linear-gradient(90deg, rgba(7, 8, 8, 0.92), rgba(7, 8, 8, 0.58)),
+        linear-gradient(90deg, rgba(7, 8, 8, 0.96), rgba(7, 8, 8, 0.68)),
+        linear-gradient(180deg, rgba(7, 8, 8, 0.1), #070808),
         center / cover no-repeat url("/assets/images/preview_game.webp"),
         #111;
 }
 
 .auth-shell {
     display: grid;
-    grid-template-columns: minmax(0, 0.95fr) minmax(340px, 0.8fr);
-    gap: 56px;
-    align-items: start;
-    width: min(1040px, calc(100vw - 48px));
+    grid-template-columns: minmax(0, 0.9fr) minmax(360px, 0.72fr);
+    gap: 48px;
+    align-items: center;
+    width: min(1080px, calc(100vw - 48px));
     margin-inline: auto;
 }
 
@@ -1630,14 +1775,102 @@ code {
     color: rgba(251, 244, 232, 0.76);
 }
 
+.auth-mode-preview {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    max-width: 620px;
+    margin-top: 28px;
+}
+
+.auth-mode-card {
+    display: grid;
+    gap: 12px;
+    min-height: 132px;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--ink);
+    backdrop-filter: blur(10px);
+    transition:
+        transform 0.16s ease,
+        border-color 0.18s ease,
+        background 0.18s ease;
+}
+
+.auth-mode-card:hover {
+    transform: translateY(-1px);
+    border-color: rgba(242, 199, 93, 0.52);
+    background: rgba(242, 199, 93, 0.1);
+}
+
+.auth-mode-card span {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.auth-mode-card strong {
+    color: #fff;
+    line-height: 1.1;
+}
+
+.auth-mode-card em {
+    color: rgba(251, 244, 232, 0.72);
+    font-size: 0.84rem;
+    font-style: normal;
+    font-weight: 650;
+    line-height: 1.35;
+}
+
+.auth-mode-card.is-beta {
+    border-color: rgba(242, 199, 93, 0.26);
+}
+
 .auth-form {
     display: grid;
     gap: 16px;
     min-width: 0;
     overflow: hidden;
-    padding: 28px;
-    background: rgba(12, 16, 20, 0.9);
+    padding: 26px;
+    border-color: rgba(255, 255, 255, 0.16);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
+        rgba(10, 13, 16, 0.9);
+    backdrop-filter: blur(14px);
     box-shadow: var(--shadow);
+}
+
+.auth-form-head {
+    display: grid;
+    gap: 4px;
+    padding-bottom: 2px;
+}
+
+.auth-form-head span {
+    color: var(--gold);
+    font-size: 0.78rem;
+    font-weight: 820;
+    text-transform: uppercase;
+}
+
+.auth-form-head strong {
+    color: #fff;
+    font-size: 1.28rem;
+    line-height: 1.15;
+}
+
+.auth-form input {
+    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--ink);
+    outline: none;
+}
+
+.auth-form input:focus {
+    border-color: rgba(242, 199, 93, 0.58);
+    box-shadow: 0 0 0 3px rgba(242, 199, 93, 0.12);
 }
 
 .password-field {
@@ -1654,11 +1887,11 @@ code {
 
 .password-field button {
     min-width: 74px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     border-left: 0;
     border-radius: 0 8px 8px 0;
-    background: #e8edf2;
-    color: #0d1114;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--ink);
     font: inherit;
     font-weight: 760;
     cursor: pointer;
@@ -1671,8 +1904,8 @@ code {
 }
 
 .auth-form .button.secondary {
-    border-color: var(--line);
-    background: transparent;
+    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.06);
     color: var(--ink);
 }
 
@@ -1817,8 +2050,13 @@ code {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    .proof-action {
+    .proof-actions {
         grid-column: 1 / -1;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: auto;
+    }
+
+    .proof-action {
         min-height: 58px;
     }
 
@@ -1891,7 +2129,8 @@ code {
         gap: 6px;
     }
 
-    .header-play {
+    .header-start-secondary,
+    .header-login-link {
         display: none;
     }
 
@@ -2191,6 +2430,10 @@ code {
         justify-items: start;
     }
 
+    .final-cta-actions {
+        justify-content: flex-start;
+    }
+
     .final-cta h2 {
         font-size: 1.65rem;
     }
@@ -2212,6 +2455,7 @@ code {
         gap: 8px 14px;
     }
 
+    .footer-actions,
     .footer-play {
         width: fit-content;
     }
@@ -2263,11 +2507,12 @@ code {
         max-width: 136px;
     }
 
-    .header-play {
+    .header-start {
         max-width: 148px;
     }
 
-    .hero-actions {
+    .hero-actions,
+    .play-options {
         display: grid;
         grid-template-columns: 1fr;
     }
@@ -2338,6 +2583,10 @@ code {
         min-height: 72px;
     }
 
+    .proof-actions {
+        grid-template-columns: 1fr;
+    }
+
     .section {
         padding: 50px 0;
     }
@@ -2372,6 +2621,13 @@ code {
     .arena-actions .button,
     .final-cta .button,
     .contact-channels a {
+        width: 100%;
+    }
+
+    .final-cta-actions,
+    .footer-actions {
+        display: grid;
+        grid-template-columns: 1fr;
         width: 100%;
     }
 
@@ -2435,9 +2691,11 @@ code {
 
 @media (hover: none) {
     .button:hover,
-    .header-play:hover,
+    .header-start:hover,
+    .header-login-link:hover,
     .footer-play:hover,
     .proof-action:hover,
+    .play-option:hover,
     .feature-card:hover,
     .faction-quick:hover,
     .home-unit-tile:hover img,

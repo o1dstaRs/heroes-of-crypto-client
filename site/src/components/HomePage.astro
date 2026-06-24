@@ -1,5 +1,6 @@
 ---
 import { content, contractAddress, links, localPath, type Language } from "../lib/site-data";
+import { localizedFactionName } from "../lib/localization";
 import { abilityCount, factionColors, factionUnits, unitCount, type Unit } from "../lib/units-data";
 
 interface Props {
@@ -17,6 +18,8 @@ const homeLabels =
               units: "юнитов",
               level: "Ур.",
               featured: "Готовы к бою",
+              gameStats: "Статистика игры",
+              arenaImage: "Сцена боя Heroes of Crypto",
           }
         : {
               rosterEyebrow: "Live roster",
@@ -25,6 +28,8 @@ const homeLabels =
               units: "units",
               level: "Lv.",
               featured: "Ready to deploy",
+              gameStats: "Game stats",
+              arenaImage: "Heroes of Crypto livestream battle scene",
           };
 const heroStats = [
     { value: String(factionUnits.length), label: copy.hero.stats[0]?.label ?? "Factions" },
@@ -74,6 +79,9 @@ const featureCards = copy.features.items.map((item, index) => ({
     visual: featureVisuals[index] ?? featureVisuals[0],
 }));
 const unitsHref = localPath(lang, "units");
+const playHref = lang === "ru" ? "/ru/play/" : links.play;
+const factionUnitsHref = (faction: string) => `${unitsHref}?faction=${encodeURIComponent(faction.toLowerCase())}`;
+const factionLabel = (faction: string) => localizedFactionName(lang, faction);
 ---
 
 <section class="hero">
@@ -93,11 +101,11 @@ const unitsHref = localPath(lang, "units");
             <p class="hero-tagline">{copy.hero.tagline}</p>
             <p class="hero-copy">{copy.hero.body}</p>
             <div class="hero-actions">
-                <a class="button primary hero-play" href={links.betaApp} target="_blank" rel="noopener">
+                <a class="button primary hero-play" href={playHref}>
                     <img src="/assets/icons/navbar/joystick.svg" alt="" width="22" height="22" />
                     {copy.hero.primaryCta}
                 </a>
-                <a class="button secondary" href={links.proposal} target="_blank" rel="noopener">
+                <a class="button secondary" href={unitsHref}>
                     {copy.hero.secondaryCta}
                 </a>
             </div>
@@ -116,16 +124,16 @@ const unitsHref = localPath(lang, "units");
                     spotlightUnits.map((unit) => (
                         <a
                             class="hero-unit-chip"
-                            href={unitsHref}
+                            href={factionUnitsHref(unit.faction)}
                             style={`--faction: ${factionColors[unit.faction]}`}
-                            aria-label={`${unit.name}, ${unit.faction}`}
+                            aria-label={`${unit.name}, ${factionLabel(unit.faction)}`}
                         >
                             <span class="hero-unit-image">
                                 <img src={unit.portrait} alt="" width="512" height="512" />
                             </span>
                             <span class="hero-unit-text">
                                 <strong>{unit.name}</strong>
-                                <span>{unit.faction}</span>
+                                <span>{factionLabel(unit.faction)}</span>
                             </span>
                             <em>{homeLabels.level} {unit.level}</em>
                         </a>
@@ -139,7 +147,7 @@ const unitsHref = localPath(lang, "units");
     </div>
 </section>
 
-<section class="proof-strip" aria-label="Game stats">
+<section class="proof-strip" aria-label={homeLabels.gameStats}>
     <div class="page-shell proof-grid">
         {
             heroStats.map((stat) => (
@@ -149,9 +157,7 @@ const unitsHref = localPath(lang, "units");
                 </div>
             ))
         }
-        <a class="proof-action" href={links.betaApp} target="_blank" rel="noopener">
-            {copy.progress.cta}
-        </a>
+        <a class="proof-action proof-action-primary" href={playHref}>{copy.progress.cta}</a>
     </div>
 </section>
 
@@ -159,11 +165,11 @@ const unitsHref = localPath(lang, "units");
     <div class="page-shell faction-rail">
         {
             factionHighlights.map((faction) => (
-                <a class="faction-quick" href={unitsHref} style={`--faction: ${faction.color}`}>
+                <a class="faction-quick" href={factionUnitsHref(faction.faction)} style={`--faction: ${faction.color}`}>
                     <span class="faction-quick-head">
                         <img src={faction.icon} alt="" width="34" height="34" loading="lazy" />
                         <span>
-                            <strong>{faction.faction}</strong>
+                            <strong>{factionLabel(faction.faction)}</strong>
                             <em>{faction.unitCount} {homeLabels.units}</em>
                         </span>
                     </span>
@@ -185,14 +191,14 @@ const unitsHref = localPath(lang, "units");
             <h2>{copy.progress.title}</h2>
             <p>{copy.progress.body}</p>
             <div class="arena-actions">
-                <a class="button primary" href={links.betaApp} target="_blank" rel="noopener">
+                <a class="button primary" href={playHref}>
                     <img src="/assets/icons/navbar/joystick.svg" alt="" width="21" height="21" />
                     {copy.progress.cta}
                 </a>
             </div>
         </div>
         <div class="arena-media">
-            <img src="/assets/images/home/livestream.webp" alt="Heroes of Crypto livestream battle scene" loading="lazy" width="1792" height="1024" />
+            <img src="/assets/images/home/livestream.webp" alt={homeLabels.arenaImage} loading="lazy" width="1792" height="1024" />
         </div>
     </div>
 </section>
@@ -205,11 +211,11 @@ const unitsHref = localPath(lang, "units");
                     <article class="home-faction-panel" style={`--faction: ${faction.color}`}>
                         <div class="home-faction-title">
                             <img src={faction.icon} alt="" width="28" height="28" loading="lazy" />
-                            <strong>{faction.faction}</strong>
+                            <strong>{factionLabel(faction.faction)}</strong>
                         </div>
                         <div class="home-unit-grid">
                             {faction.featuredUnits.map((unit) => (
-                                <a class="home-unit-tile" href={unitsHref}>
+                                <a class="home-unit-tile" href={factionUnitsHref(faction.faction)}>
                                     <img src={unit.icon} alt="" width="512" height="512" loading="lazy" />
                                     <span>{unit.name}</span>
                                 </a>
@@ -270,7 +276,7 @@ const unitsHref = localPath(lang, "units");
                                         {item.visual.units.map((unit) => (
                                             <span class="mechanic-faction-unit" style={`--faction: ${factionColors[unit.faction]}`}>
                                                 <img src={unit.icon} alt="" width="512" height="512" loading="lazy" />
-                                                <em>{unit.faction}</em>
+                                                <em>{factionLabel(unit.faction)}</em>
                                             </span>
                                         ))}
                                     </div>
@@ -339,10 +345,15 @@ const unitsHref = localPath(lang, "units");
             <p class="eyebrow">{copy.hero.kicker}</p>
             <h2>{copy.hero.tagline}</h2>
         </div>
-        <a class="button primary" href={links.betaApp} target="_blank" rel="noopener">
-            <img src="/assets/icons/navbar/joystick.svg" alt="" width="22" height="22" />
-            {copy.hero.primaryCta}
-        </a>
+        <div class="final-cta-actions">
+            <a class="button primary" href={playHref}>
+                <img src="/assets/icons/navbar/joystick.svg" alt="" width="22" height="22" />
+                {copy.hero.primaryCta}
+            </a>
+            <a class="button secondary" href={unitsHref}>
+                {copy.hero.secondaryCta}
+            </a>
+        </div>
     </div>
 </section>
 

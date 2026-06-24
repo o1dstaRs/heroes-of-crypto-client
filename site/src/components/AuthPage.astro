@@ -36,6 +36,8 @@ const successMessages = {
 };
 const passwordId = `${normalizedMode}-password`;
 const confirmPasswordId = `${normalizedMode}-confirm-password`;
+const rankedHref = lang === "ru" ? "/ru/play/" : links.rankedApp;
+const sandboxHref = lang === "ru" ? "/ru/sandbox/" : links.sandboxApp;
 ---
 
 <section class="auth-section">
@@ -48,6 +50,22 @@ const confirmPasswordId = `${normalizedMode}-confirm-password`;
             <p class="eyebrow">{copy.nav.login}</p>
             <h1>{titles[normalizedMode]}</h1>
             <p>{descriptions[normalizedMode]}</p>
+            <div class="auth-mode-preview" aria-label={copy.play.startLabel}>
+                <a class="auth-mode-card" href={rankedHref}>
+                    <span>
+                        <img src="/assets/icons/navbar/joystick.svg" alt="" width="22" height="22" />
+                        <strong>{copy.play.rankedLabel}</strong>
+                    </span>
+                    <em>{copy.play.rankedHint}</em>
+                </a>
+                <a class="auth-mode-card is-beta" href={sandboxHref}>
+                    <span>
+                        <img src="/assets/icons/navbar/settings.svg" alt="" width="22" height="22" />
+                        <strong>{copy.play.sandboxLabel}</strong>
+                    </span>
+                    <em>{copy.play.sandboxHint}</em>
+                </a>
+            </div>
         </div>
 
         <form
@@ -55,6 +73,10 @@ const confirmPasswordId = `${normalizedMode}-confirm-password`;
             data-auth-action={action}
             data-success-message={successMessages[normalizedMode]}
         >
+            <div class="auth-form-head">
+                <span>{copy.nav.login}</span>
+                <strong>{titles[normalizedMode]}</strong>
+            </div>
             <div class="auth-status" data-auth-status hidden></div>
 
             {
@@ -204,7 +226,7 @@ const confirmPasswordId = `${normalizedMode}-confirm-password`;
                 )
             }
 
-            <a class="button secondary auth-game-link" href={links.betaApp} data-game-client-link>
+            <a class="button secondary auth-game-link" href={rankedHref}>
                 {auth.continueToGame}
             </a>
         </form>

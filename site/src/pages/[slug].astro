@@ -1,6 +1,7 @@
 ---
 import ContentPage from "../components/ContentPage.astro";
 import HomePage from "../components/HomePage.astro";
+import RulesPage from "../components/RulesPage.astro";
 import UnitsPage from "../components/UnitsPage.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { content, pageSlugs, type PageSlug } from "../lib/site-data";
@@ -19,5 +20,15 @@ const page = copy.pages[slug];
 ---
 
 <BaseLayout lang={lang} title={page.title} description={page.description}>
-    {slug === "game" ? <HomePage lang={lang} /> : slug === "units" ? <UnitsPage lang={lang} /> : <ContentPage lang={lang} slug={slug} />}
+    {
+        slug === "game" ? (
+            <HomePage lang={lang} />
+        ) : slug === "rules" ? (
+            <RulesPage lang={lang} />
+        ) : slug === "units" ? (
+            <UnitsPage lang={lang} />
+        ) : (
+            <ContentPage lang={lang} slug={slug} />
+        )
+    }
 </BaseLayout>

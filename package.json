@@ -19,6 +19,7 @@
     "workspaces": [
         "game/heroes-of-crypto-common",
         "game/core",
+        "game/mcp",
         "site"
     ],
     "scripts": {
@@ -26,9 +27,10 @@
         "build:common": "bun run --cwd game/heroes-of-crypto-common build",
         "build:core": "bun run --cwd game/core build",
         "build:game": "bun workspace @heroesofcrypto/common build && bun workspace @heroesofcrypto/core build",
+        "build:mcp": "bun run --cwd game/mcp build",
         "build:site": "bun run --cwd site build",
         "build:skip": "bun run --cwd game/core build:skip",
-        "build:ws": "bun run build:common && bun run build:core && bun run build:site",
+        "build:ws": "bun run build:common && bun run build:core && bun run build:site && bun run build:mcp",
         "lint": "bun run lint:es && bun run lint:scss && bun run lint:package && bun run lint:style",
         "lint:es": "bunx eslint \"game/**/src/**/*.{ts,tsx}\" --ignore-pattern .prettierignore",
         "lint:es:fix": "bun run lint:es -- --fix",

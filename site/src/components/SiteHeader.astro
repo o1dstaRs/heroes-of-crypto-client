@@ -10,8 +10,11 @@ interface Props {
 const { lang, currentPath } = Astro.props;
 const copy = content[lang];
 const versionLabel = `v${corePackage.version}`;
+const mainNavigationLabel = lang === "ru" ? "Основная навигация" : "Main navigation";
+const playHref = lang === "ru" ? "/ru/play/" : links.play;
 const navItems = [
     { label: copy.nav.game, href: localPath(lang, "game") },
+    { label: copy.nav.rules, href: localPath(lang, "rules") },
     { label: copy.nav.blog, href: `${localPath(lang, "home")}blog/` },
     { label: copy.nav.units, href: localPath(lang, "units") },
     { label: copy.nav.token, href: localPath(lang, "token") },
@@ -32,7 +35,7 @@ const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? curren
         </a>
     </div>
 
-    <nav class="main-nav" aria-label="Main navigation">
+    <nav class="main-nav" aria-label={mainNavigationLabel}>
         {
             navItems.map((item) => {
                 const itemPath = item.href.endsWith("/") && item.href !== "/" ? item.href.slice(0, -1) : item.href;
@@ -47,9 +50,6 @@ const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? curren
                 );
             })
         }
-        <a class="nav-link external" href={links.proposal} target="_blank" rel="noopener">
-            {copy.nav.proposal}
-        </a>
         <span class="nav-language" aria-label={copy.ui.language}>
             <a class:list={["language-option", { active: lang === "en" }]} href={languageSwitchPath(currentPath, "en")}>
                 {copy.ui.english}
@@ -61,7 +61,11 @@ const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? curren
     </nav>
 
     <div class="header-actions">
-        <a class="header-play header-login" href={`${localPath(lang, "home")}auth/login/`}>
+        <a class="header-start header-start-primary" href={playHref} aria-label={copy.play.startLabel}>
+            <img src="/assets/icons/navbar/joystick.svg" alt="" width="17" height="17" />
+            <span>{copy.play.startCta}</span>
+        </a>
+        <a class="header-login-link" href={`${localPath(lang, "home")}auth/login/`}>
             {copy.nav.login}
         </a>
         <div class="language-switcher" aria-label={copy.ui.language}>
@@ -76,12 +80,16 @@ const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? curren
 </header>
 
 <style>
-    .header-login {
+    .header-login-link {
         min-width: 88px;
     }
 
     @media (max-width: 720px) {
-        .header-login {
+        .header-login-link {
+            display: none;
+        }
+
+        .header-start-primary {
             display: inline-flex;
             min-height: 34px;
             max-width: none;

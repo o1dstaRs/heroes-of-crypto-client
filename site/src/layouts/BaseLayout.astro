@@ -20,6 +20,26 @@ const resolvedTitle = title && title !== copy.meta.title ? `${title} | ${copy.me
 const resolvedDescription = description ?? copy.meta.description;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const ogImage = new URL("/assets/images/preview_game.webp", Astro.site);
+const schemaCopy =
+    lang === "ru"
+        ? {
+              videoGameDescription:
+                  "Бесплатная браузерная пошаговая стратегия с 4 фракциями, 44 юнитами и 74 способностями.",
+              genre: ["Стратегия", "Пошаговая тактика", "Тактика"],
+              gamePlatform: ["Браузер"],
+              applicationCategory: "Игра",
+              operatingSystem: "Любая ОС с браузером",
+              ogImageAlt: "Поле боя Heroes of Crypto",
+          }
+        : {
+              videoGameDescription:
+                  "Free-to-play turn-based strategy game with 4 factions, 44 units, and 74 abilities. Play in your browser.",
+              genre: ["Strategy", "Turn-based", "Tactics"],
+              gamePlatform: ["Web Browser"],
+              applicationCategory: "Game",
+              operatingSystem: "Any (Web)",
+              ogImageAlt: "Heroes of Crypto battlefield",
+          };
 const extraStructuredData = structuredData
     ? Array.isArray(structuredData)
         ? structuredData
@@ -33,12 +53,11 @@ const jsonLd = {
         {
             "@type": "VideoGame",
             name: "Heroes of Crypto",
-            description:
-                "Free-to-play turn-based strategy game with 4 factions, 46 units, and 74 abilities. Play in your browser.",
-            genre: ["Strategy", "Turn-based", "Tactics"],
-            gamePlatform: ["Web Browser"],
-            applicationCategory: "Game",
-            operatingSystem: "Any (Web)",
+            description: schemaCopy.videoGameDescription,
+            genre: schemaCopy.genre,
+            gamePlatform: schemaCopy.gamePlatform,
+            applicationCategory: schemaCopy.applicationCategory,
+            operatingSystem: schemaCopy.operatingSystem,
             offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
             url: canonicalURL.toString(),
         },
@@ -70,7 +89,7 @@ const jsonLd = {
         <meta property="og:image" content={ogImage} />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
-        <meta property="og:image:alt" content="Heroes of Crypto battlefield" />
+        <meta property="og:image:alt" content={schemaCopy.ogImageAlt} />
 
         <!-- Twitter -->
         <meta name="twitter:card" content="summary_large_image" />

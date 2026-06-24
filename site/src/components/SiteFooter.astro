@@ -7,6 +7,8 @@ interface Props {
 
 const { lang } = Astro.props;
 const copy = content[lang];
+const socialLinksLabel = lang === "ru" ? "Социальные ссылки" : "Social links";
+const playHref = lang === "ru" ? "/ru/play/" : links.play;
 ---
 
 <footer class="site-footer">
@@ -26,12 +28,12 @@ const copy = content[lang];
             <a href={localPath(lang, "privacy-policy")}>{copy.nav.privacy}</a>
         </div>
 
-        <a class="footer-play" href={links.betaApp} target="_blank" rel="noopener">
+        <a class="footer-play" href={playHref}>
             <img src="/assets/icons/navbar/joystick.svg" alt="" width="18" height="18" />
             {copy.hero.primaryCta}
         </a>
 
-        <div class="social-links" aria-label="Social links">
+        <div class="social-links" aria-label={socialLinksLabel}>
             {
                 copy.socials.map((social) => (
                     <a href={social.href} target="_blank" rel="noopener" aria-label={social.name}>

@@ -179,6 +179,8 @@ export const endpoints = {
         requestCode: IS_PROD ? "/v1/request-verification-code" : "/v1/auth/request-verification-code",
         requestPasswordReset: IS_PROD ? "/v1/request-password-reset" : "/v1/auth/request-password-reset",
         resetPassword: IS_PROD ? "/v1/reset-password" : "/v1/auth/reset-password",
+        requestEmailLink: IS_PROD ? "/v1/request-email-link" : "/v1/auth/request-email-link",
+        confirmEmailLink: IS_PROD ? "/v1/confirm-email-link" : "/v1/auth/confirm-email-link",
         walletNonce: IS_PROD ? "/v1/wallet-nonce" : "/v1/auth/wallet-nonce",
         walletLogin: IS_PROD ? "/v1/wallet-login" : "/v1/auth/wallet-login",
         walletLink: IS_PROD ? "/v1/wallet-link" : "/v1/auth/wallet-link",

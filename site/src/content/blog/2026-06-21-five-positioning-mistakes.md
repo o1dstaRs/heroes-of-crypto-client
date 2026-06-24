@@ -10,7 +10,7 @@ excerpt: "Stats matter, but positioning wins fights. Here are five common mistak
 
 You drafted a strong army. Your synergies are solid. Your spells are ready. And you still lost. In most cases, the reason is not your stats or your faction choice. It is where your units are standing.
 
-Positioning is the skill that separates players who win half their matches from players who win most of them. These are the five mistakes that show up again and again in the beta, and how to fix them.
+Positioning is the skill that separates players who win half their matches from players who win most of them. These are the five mistakes that show up again and again in live matches, and how to fix them.
 
 ## 1. Clumping everything together
 

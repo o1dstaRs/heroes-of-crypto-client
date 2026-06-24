@@ -149,14 +149,18 @@ const walletAddressesFrom = (data: unknown): string[] => {
 };
 
 const tokenFromWalletResponse = (authorization: unknown, data: unknown): string | null => {
+    const normalizeToken = (token: string): string => {
+        return token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+    };
+
     if (typeof authorization === "string" && authorization.length > 0) {
-        return authorization;
+        return normalizeToken(authorization);
     }
     if (!isRecord(data)) {
         return null;
     }
     const accessToken = data.accessToken ?? data.token;
-    return typeof accessToken === "string" && accessToken.length > 0 ? accessToken : null;
+    return typeof accessToken === "string" && accessToken.length > 0 ? normalizeToken(accessToken) : null;
 };
 
 export function AuthProvider({ children }: Props) {
@@ -568,6 +572,40 @@ export function AuthProvider({ children }: Props) {
         });
     }, []);
 
+    const requestEmailLink = useCallback(async (email: string) => {
+        const accessToken = getAccessToken();
+        if (!accessToken) {
+            throw new Error("Unauthorized");
+        }
+
+        await axiosAuthInstance.post(
+            endpoints.auth.requestEmailLink,
+            { email },
+            {
+                headers: authJsonHeaders(accessToken),
+            },
+        );
+    }, []);
+
+    const confirmEmailLink = useCallback(
+        async (email: string, password: string, code: string) => {
+            const accessToken = getAccessToken();
+            if (!accessToken) {
+                throw new Error("Unauthorized");
+            }
+
+            await axiosAuthInstance.post(
+                endpoints.auth.confirmEmailLink,
+                { email, password, code },
+                {
+                    headers: authJsonHeaders(accessToken),
+                },
+            );
+            await me();
+        },
+        [me],
+    );
+
     // REGISTER
     const register = useCallback(async (email: string, password: string, username: string) => {
         const newPlayer = new NewPlayer({ username, email, password });
@@ -627,6 +665,8 @@ export function AuthProvider({ children }: Props) {
             requestCode,
             requestPasswordReset,
             resetPassword,
+            requestEmailLink,
+            confirmEmailLink,
             startGameSearch,
             stopGameSearch,
             confirmGame,
@@ -650,6 +690,8 @@ export function AuthProvider({ children }: Props) {
             requestCode,
             requestPasswordReset,
             resetPassword,
+            requestEmailLink,
+            confirmEmailLink,
             startGameSearch,
             stopGameSearch,
             confirmGame,

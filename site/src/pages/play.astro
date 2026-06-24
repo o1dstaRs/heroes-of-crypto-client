@@ -1,60 +1,194 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { content, links } from "../lib/site-data";
 
 const lang = "en";
-const isProd =
-    import.meta.env.PROD ||
-    import.meta.env.VITE_IS_PROD === "true" ||
-    import.meta.env.VITE_IS_PROD === true;
-const gameClientUrl =
-    import.meta.env.VITE_GAME_CLIENT ||
-    import.meta.env.VITE_HOST_GAME_CLIENT ||
-    (isProd ? "https://game.heroesofcrypto.io/play" : "http://127.0.0.1:5173/play");
+const copy = content[lang];
 ---
 
 <BaseLayout
     lang={lang}
-    title="Play"
-    description="Open the Heroes of Crypto game client."
+    title="Play Heroes of Crypto"
+    description={copy.play.modeBody}
 >
-    <section class="redirect-page">
-        <h1>Opening Game Client</h1>
-        <p>Redirecting to the Heroes of Crypto client.</p>
-        <p><a href={gameClientUrl}>Open game client</a></p>
+    <section class="mode-select-page">
+        <img class="mode-select-bg" src="/assets/images/preview_game.webp" alt="" width="1200" height="630" />
+        <div class="mode-select-shade"></div>
+        <div class="page-shell mode-select-layout">
+            <div class="mode-select-copy">
+                <p class="eyebrow">{copy.play.startLabel}</p>
+                <h1>{copy.play.modeTitle}</h1>
+                <p>{copy.play.modeBody}</p>
+                <div class="hero-highlights" aria-label={copy.hero.availability}>
+                    {copy.hero.highlights.map((item) => <span>{item}</span>)}
+                </div>
+            </div>
+
+            <div class="mode-card-grid" aria-label={copy.play.startLabel}>
+                <a class="mode-card mode-card-ranked" href={links.rankedApp}>
+                    <span class="mode-card-top">
+                        <span class="mode-card-icon">
+                            <img src="/assets/icons/navbar/joystick.svg" alt="" width="28" height="28" />
+                        </span>
+                        <em>{copy.play.rankedBadge}</em>
+                    </span>
+                    <strong>{copy.play.rankedCta}</strong>
+                    <span>{copy.play.rankedHint}</span>
+                </a>
+                <a class="mode-card mode-card-sandbox" href={links.sandboxApp}>
+                    <span class="mode-card-top">
+                        <span class="mode-card-icon">
+                            <img src="/assets/icons/navbar/settings.svg" alt="" width="28" height="28" />
+                        </span>
+                        <em>{copy.play.sandboxBadge}</em>
+                    </span>
+                    <strong>{copy.play.sandboxCta}</strong>
+                    <span>{copy.play.sandboxHint}</span>
+                </a>
+            </div>
+        </div>
     </section>
 </BaseLayout>
 
-<script define:vars={{ gameClientUrl }}>
-    const token = localStorage.getItem("accessToken");
-    const target = new URL(gameClientUrl, window.location.href);
-
-    if (token) {
-        const hashParams = new URLSearchParams(target.hash.startsWith("#") ? target.hash.slice(1) : target.hash);
-        hashParams.set("access_token", token);
-        target.hash = hashParams.toString();
+<style>
+    .mode-select-page {
+        position: relative;
+        overflow: hidden;
+        min-height: calc(100svh - 68px);
+        background: #050606;
     }
 
-    window.location.replace(target.toString());
-</script>
+    .mode-select-bg,
+    .mode-select-shade {
+        position: absolute;
+        inset: 0;
+    }
 
-<style>
-    .redirect-page {
-        min-height: 52vh;
+    .mode-select-bg {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.56;
+    }
+
+    .mode-select-shade {
+        background:
+            linear-gradient(90deg, rgba(5, 6, 6, 0.96), rgba(5, 6, 6, 0.72)),
+            linear-gradient(180deg, rgba(5, 6, 6, 0.18), #070808);
+    }
+
+    .mode-select-layout {
+        position: relative;
+        z-index: 1;
         display: grid;
-        align-content: center;
-        gap: 12px;
-        width: min(720px, calc(100% - 40px));
-        margin: 0 auto;
+        grid-template-columns: minmax(0, 0.8fr) minmax(360px, 0.72fr);
+        gap: 44px;
+        align-items: center;
+        min-height: calc(100svh - 68px);
         padding: 64px 0;
     }
 
-    .redirect-page h1 {
-        margin: 0;
-        font-size: clamp(2rem, 5vw, 4rem);
+    .mode-select-copy p:not(.eyebrow) {
+        max-width: 620px;
+        color: rgba(251, 244, 232, 0.8);
+        font-size: 1.06rem;
     }
 
-    .redirect-page p {
-        margin: 0;
-        color: var(--muted);
+    .mode-card-grid {
+        display: grid;
+        gap: 14px;
+    }
+
+    .mode-card {
+        display: grid;
+        gap: 18px;
+        min-height: 218px;
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.04));
+        box-shadow: var(--shadow);
+        transition:
+            transform 0.16s ease,
+            border-color 0.18s ease,
+            background 0.18s ease,
+            box-shadow 0.18s ease;
+    }
+
+    .mode-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(242, 199, 93, 0.56);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.05));
+    }
+
+    .mode-card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .mode-card-icon {
+        display: grid;
+        place-items: center;
+        width: 52px;
+        height: 52px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.26);
+    }
+
+    .mode-card em {
+        padding: 7px 10px;
+        border: 1px solid rgba(242, 199, 93, 0.32);
+        border-radius: 8px;
+        background: rgba(242, 199, 93, 0.12);
+        color: var(--gold);
+        font-size: 0.78rem;
+        font-style: normal;
+        font-weight: 860;
+        text-transform: uppercase;
+    }
+
+    .mode-card strong {
+        color: #fff;
+        font-size: 1.42rem;
+        line-height: 1.08;
+    }
+
+    .mode-card span:last-child {
+        color: rgba(251, 244, 232, 0.74);
+        font-weight: 650;
+        line-height: 1.45;
+    }
+
+    .mode-card-ranked {
+        border-color: rgba(239, 74, 63, 0.36);
+    }
+
+    .mode-card-sandbox {
+        border-color: rgba(242, 199, 93, 0.28);
+    }
+
+    @media (max-width: 900px) {
+        .mode-select-layout {
+            grid-template-columns: 1fr;
+            align-items: start;
+            min-height: auto;
+        }
+    }
+
+    @media (max-width: 520px) {
+        .mode-select-layout {
+            padding: 42px 0;
+        }
+
+        .mode-card {
+            min-height: 0;
+            padding: 18px;
+        }
+
+        .mode-card strong {
+            font-size: 1.2rem;
+        }
     }
 </style>

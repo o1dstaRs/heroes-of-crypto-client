@@ -8,10 +8,7 @@ import {
 
 type AuthAction = "login" | "register" | "verify" | "forgot-password" | "reset-password";
 
-const isProd =
-    import.meta.env.PROD ||
-    import.meta.env.VITE_IS_PROD === "true" ||
-    import.meta.env.VITE_IS_PROD === true;
+const isProd = import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true" || import.meta.env.VITE_IS_PROD === true;
 
 const sameOrigin = globalThis.location?.origin ?? "";
 
@@ -19,11 +16,6 @@ const authBaseUrl =
     import.meta.env.VITE_HOST_AUTH_API ||
     import.meta.env.VITE_AUTH_API ||
     (isProd ? "https://auth.heroesofcrypto.io" : sameOrigin || "http://localhost:3001");
-
-const gameClientUrl =
-    import.meta.env.VITE_GAME_CLIENT ||
-    import.meta.env.VITE_HOST_GAME_CLIENT ||
-    "/play";
 
 const endpoints = {
     login: isProd ? "/v1/login" : "/v1/auth/login",
@@ -38,6 +30,40 @@ const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d
 const usernamePattern = /^[a-zA-Z0-9]{3,42}$/;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const hexPattern = /^[0-9a-fA-F]+$/;
+const isRussian = typeof document !== "undefined" && document.documentElement.lang === "ru";
+const messages = isRussian
+    ? {
+          requestFailed: (text: string) => `Запрос не выполнен: ${text}`,
+          invalidInputs: "Запрос не выполнен: проверьте введенные данные",
+          failedStatus: (status: number) => `Запрос не выполнен, статус ${status}`,
+          emailInvalid: "Введите корректный email.",
+          usernameInvalid: "Имя пользователя должно содержать 3-42 латинские буквы или цифры.",
+          passwordInvalid:
+              "Пароль должен быть 8-50 символов и включать заглавную букву, строчную букву, цифру и спецсимвол.",
+          passwordsMustMatch: "Пароли должны совпадать.",
+          codeShort: "Код должен содержать минимум 6 символов.",
+          tokenInvalid: "Токен должен быть 64-символьной шестнадцатеричной строкой.",
+          success: "Готово.",
+          show: "Показать",
+          hide: "Скрыть",
+          verificationRequested: "Код подтверждения запрошен.",
+      }
+    : {
+          requestFailed: (text: string) => `Request failed: ${text}`,
+          invalidInputs: "Request failed: Invalid inputs",
+          failedStatus: (status: number) => `Request failed with status ${status}`,
+          emailInvalid: "Email must be a valid email address",
+          usernameInvalid: "Username must be 3-42 letters or numbers",
+          passwordInvalid:
+              "Password must be 8-50 characters and include uppercase, lowercase, number, and special character",
+          passwordsMustMatch: "Passwords must match",
+          codeShort: "Code must be at least 6 characters",
+          tokenInvalid: "Token must be a 64-character hexadecimal string",
+          success: "Success",
+          show: "Show",
+          hide: "Hide",
+          verificationRequested: "Verification code requested.",
+      };
 
 function requestId() {
     return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -60,14 +86,14 @@ function hexToBytes(hex: string) {
 async function responseMessage(response: Response) {
     const text = await response.text();
     if (text && text !== "Bad Request") {
-        return `Request failed: ${text}`;
+        return messages.requestFailed(text);
     }
 
     if (response.status === 400) {
-        return "Request failed: Invalid inputs";
+        return messages.invalidInputs;
     }
 
-    return `Request failed with status ${response.status}`;
+    return messages.failedStatus(response.status);
 }
 
 async function postProto(path: string, body: Uint8Array, parseResponse = false) {
@@ -126,30 +152,33 @@ function validate(action: AuthAction, form: HTMLFormElement) {
     const email = value(form, "email");
     const password = value(form, "password");
 
-    if (["login", "register", "verify", "forgot-password", "reset-password"].includes(action) && !emailPattern.test(email)) {
-        return "Email must be a valid email address";
+    if (
+        ["login", "register", "verify", "forgot-password", "reset-password"].includes(action) &&
+        !emailPattern.test(email)
+    ) {
+        return messages.emailInvalid;
     }
 
     if (action === "register" && !usernamePattern.test(value(form, "username"))) {
-        return "Username must be 3-42 letters or numbers";
+        return messages.usernameInvalid;
     }
 
     if (["login", "register", "reset-password"].includes(action) && !passwordPattern.test(password)) {
-        return "Password must be 8-50 characters and include uppercase, lowercase, number, and special character";
+        return messages.passwordInvalid;
     }
 
     if (action === "reset-password" && value(form, "confirmPassword") !== password) {
-        return "Passwords must match";
+        return messages.passwordsMustMatch;
     }
 
     if (action === "verify" && value(form, "code").length < 6) {
-        return "Code must be at least 6 characters";
+        return messages.codeShort;
     }
 
     if (action === "reset-password") {
         const token = value(form, "token");
         if (token.length !== 64 || !hexPattern.test(token)) {
-            return "Token must be a 64-character hexadecimal string";
+            return messages.tokenInvalid;
         }
     }
 
@@ -158,7 +187,7 @@ function validate(action: AuthAction, form: HTMLFormElement) {
 
 async function submitAuthForm(form: HTMLFormElement) {
     const action = form.dataset.authAction as AuthAction;
-    const successMessage = form.dataset.successMessage || "Success";
+    const successMessage = form.dataset.successMessage || messages.success;
     const validationError = validate(action, form);
 
     if (validationError) {
@@ -239,8 +268,8 @@ function bindPasswordToggles() {
             if (!(input instanceof HTMLInputElement)) return;
 
             input.type = input.type === "password" ? "text" : "password";
-            const show = button.dataset.showLabel || "Show";
-            const hide = button.dataset.hideLabel || "Hide";
+            const show = button.dataset.showLabel || messages.show;
+            const hide = button.dataset.hideLabel || messages.hide;
             button.textContent = input.type === "password" ? show : hide;
         });
     }
@@ -254,7 +283,7 @@ function bindResendCode() {
 
             const email = value(form, "email");
             if (!emailPattern.test(email)) {
-                setStatus(form, "Email must be a valid email address", "error");
+                setStatus(form, messages.emailInvalid, "error");
                 return;
             }
 
@@ -262,7 +291,7 @@ function bindResendCode() {
             try {
                 const request = new RequestCode({ email });
                 await postProto(endpoints.requestCode, request.serializeBinary());
-                setStatus(form, button.dataset.successMessage || "Verification code requested.", "info");
+                setStatus(form, button.dataset.successMessage || messages.verificationRequested, "info");
             } catch (error) {
                 setStatus(form, error instanceof Error ? error.message : String(error), "error");
             } finally {
@@ -272,16 +301,9 @@ function bindResendCode() {
     }
 }
 
-function bindContinueLinks() {
-    for (const link of document.querySelectorAll<HTMLAnchorElement>("[data-game-client-link]")) {
-        link.href = gameClientUrl;
-    }
-}
-
 for (const form of document.querySelectorAll<HTMLFormElement>("form[data-auth-action]")) {
     bindAuthForm(form);
 }
 
 bindPasswordToggles();
 bindResendCode();
-bindContinueLinks();

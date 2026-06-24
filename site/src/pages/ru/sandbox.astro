@@ -1,0 +1,108 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const lang = "ru";
+const isProd =
+    import.meta.env.PROD ||
+    import.meta.env.VITE_IS_PROD === "true" ||
+    import.meta.env.VITE_IS_PROD === true;
+const sandboxPath = (url: string) => url.replace(/\/play\/?$/, "/");
+const configuredGameClientUrls = [
+    import.meta.env.VITE_GAME_CLIENT_SANDBOX,
+    import.meta.env.VITE_HOST_GAME_CLIENT,
+    import.meta.env.VITE_GAME_CLIENT,
+]
+    .filter(Boolean)
+    .map((url) => sandboxPath(String(url)));
+const fallbackGameClientUrls = isProd
+    ? ["https://game.heroesofcrypto.io/"]
+    : [
+          "http://127.0.0.1:5175/",
+          "http://localhost:5175/",
+          "http://127.0.0.1:5174/",
+          "http://localhost:5174/",
+          "http://127.0.0.1:5173/",
+          "http://localhost:5173/",
+      ];
+const gameClientUrls = [...new Set([...configuredGameClientUrls, ...fallbackGameClientUrls])];
+const fallbackUrl = gameClientUrls[0];
+---
+
+<BaseLayout
+    lang={lang}
+    title="Открыть песочницу"
+    description="Открыть режим песочницы Heroes of Crypto."
+>
+    <section class="redirect-page">
+        <h1>Открываем песочницу</h1>
+        <p>Перенаправляем в режим песочницы Heroes of Crypto.</p>
+        <p><a href={fallbackUrl}>Открыть песочницу</a></p>
+    </section>
+</BaseLayout>
+
+<script define:vars={{ gameClientUrls }}>
+    const localHosts = new Set(["127.0.0.1", "localhost", "::1"]);
+
+    function targetWithToken(url) {
+        const token = localStorage.getItem("accessToken");
+        const target = new URL(url, window.location.href);
+
+        if (token) {
+            const hashParams = new URLSearchParams(target.hash.startsWith("#") ? target.hash.slice(1) : target.hash);
+            hashParams.set("access_token", token);
+            target.hash = hashParams.toString();
+        }
+
+        return target;
+    }
+
+    async function canReach(url) {
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 700);
+        try {
+            await fetch(url, {
+                cache: "no-store",
+                mode: "no-cors",
+                signal: controller.signal,
+            });
+            return true;
+        } catch {
+            return false;
+        } finally {
+            window.clearTimeout(timeout);
+        }
+    }
+
+    async function resolveTarget() {
+        for (const url of gameClientUrls) {
+            const candidate = targetWithToken(url);
+            if (candidate.href === window.location.href) continue;
+            if (!localHosts.has(candidate.hostname)) return candidate;
+            if (!localHosts.has(window.location.hostname) || await canReach(candidate.href)) return candidate;
+        }
+
+        return targetWithToken(gameClientUrls[0]);
+    }
+
+    resolveTarget().then((target) => window.location.replace(target.toString()));
+</script>
+
+<style>
+    .redirect-page {
+        min-height: 52vh;
+        display: grid;
+        align-content: center;
+        gap: 14px;
+        width: min(720px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: 64px 0;
+    }
+    .redirect-page h1 {
+        margin: 0;
+        font-size: clamp(2rem, 5vw, 4rem);
+    }
+    .redirect-page p {
+        margin: 0;
+        color: var(--muted);
+    }
+</style>

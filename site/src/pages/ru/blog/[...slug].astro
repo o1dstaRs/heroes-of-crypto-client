@@ -1,0 +1,196 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { ruBlogPosts, type RuBlogPost } from "../../../lib/blog-ru";
+
+const lang = "ru";
+
+export function getStaticPaths() {
+    return ruBlogPosts.map((post) => ({
+        params: { slug: post.id },
+        props: { post },
+    }));
+}
+
+const { post } = Astro.props as { post: RuBlogPost };
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const previewImage = new URL("/assets/images/preview_game.webp", Astro.site);
+const publishedTime = new Date(post.date).toISOString();
+const blogPostStructuredData = {
+    "@type": "BlogPosting",
+    headline: post.title,
+    description: post.excerpt,
+    datePublished: publishedTime,
+    dateModified: publishedTime,
+    mainEntityOfPage: canonicalURL.toString(),
+    image: previewImage.toString(),
+    keywords: post.tags.join(", "),
+    author: {
+        "@type": "Organization",
+        name: "Old Stars Gaming",
+        url: "https://heroesofcrypto.io",
+    },
+    publisher: {
+        "@type": "Organization",
+        name: "Old Stars Gaming",
+        url: "https://heroesofcrypto.io",
+    },
+};
+---
+
+<BaseLayout
+    lang={lang}
+    title={post.title}
+    description={post.excerpt}
+    ogType="article"
+    publishedTime={publishedTime}
+    tags={post.tags}
+    structuredData={blogPostStructuredData}
+>
+    <article class="blog-post">
+        <div class="post-shell">
+            <a href="/ru/blog/" class="back-link">← Все статьи</a>
+
+            <header class="post-header">
+                <div class="post-meta">
+                    <time datetime={publishedTime}>
+                        {
+                            new Date(post.date).toLocaleDateString("ru-RU", {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                                timeZone: "UTC",
+                            })
+                        }
+                    </time>
+                    <span class="post-tags">
+                        {post.tags.map((tag) => <span class="post-tag">{tag}</span>)}
+                    </span>
+                </div>
+                <h1>{post.title}</h1>
+                <p class="post-excerpt">{post.excerpt}</p>
+            </header>
+
+            <div class="prose">
+                {
+                    post.blocks.map((block) => {
+                        if (block.type === "h2") {
+                            return <h2>{block.text}</h2>;
+                        }
+
+                        if (block.type === "table") {
+                            return (
+                                <table>
+                                    <thead>
+                                        <tr>{block.headers.map((header) => <th>{header}</th>)}</tr>
+                                    </thead>
+                                    <tbody>
+                                        {block.rows.map((row) => (
+                                            <tr>{row.map((cell) => <td>{cell}</td>)}</tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            );
+                        }
+
+                        return <p>{block.text}</p>;
+                    })
+                }
+            </div>
+
+            <footer class="post-footer">
+                <a href="/ru/blog/" class="back-link">← Вернуться в блог</a>
+            </footer>
+        </div>
+    </article>
+</BaseLayout>
+
+<style is:global>
+    .blog-post {
+        padding: 56px 0 96px;
+    }
+    .post-shell {
+        max-width: 720px;
+        margin-inline: auto;
+        width: min(720px, calc(100vw - 32px));
+    }
+    .back-link {
+        display: inline-block;
+        margin-bottom: 32px;
+        color: var(--muted);
+        font-size: 0.9rem;
+        font-weight: 600;
+        transition: color 0.15s ease;
+    }
+    .back-link:hover {
+        color: var(--gold-soft);
+    }
+    .post-header {
+        margin-bottom: 40px;
+        padding-bottom: 28px;
+        border-bottom: 1px solid var(--line);
+    }
+    .post-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+    }
+    .post-meta time {
+        color: var(--gold);
+        font-size: 0.86rem;
+        font-weight: 700;
+    }
+    .post-tags {
+        display: flex;
+        gap: 6px;
+    }
+    .post-tag {
+        padding: 2px 9px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        font-size: 0.74rem;
+        font-weight: 600;
+    }
+    .post-excerpt {
+        font-size: 1.14rem;
+        color: var(--muted);
+        margin-top: 12px;
+    }
+    .prose {
+        color: var(--text);
+        line-height: 1.75;
+    }
+    .prose h2 {
+        margin-top: 42px;
+        margin-bottom: 12px;
+        font-size: 1.55rem;
+    }
+    .prose p {
+        margin: 0 0 20px;
+        color: var(--muted);
+    }
+    .prose table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 28px 0;
+        font-size: 0.92rem;
+    }
+    .prose th,
+    .prose td {
+        border: 1px solid var(--line);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+    }
+    .prose th {
+        color: var(--gold-soft);
+        background: var(--surface-2);
+    }
+    .post-footer {
+        margin-top: 48px;
+        padding-top: 24px;
+        border-top: 1px solid var(--line);
+    }
+</style>

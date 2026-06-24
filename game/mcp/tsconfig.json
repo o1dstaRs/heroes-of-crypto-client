@@ -1,0 +1,23 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "rootDir": ".",
+        "outDir": "dist",
+        "declaration": true,
+        "declarationMap": false,
+        "emitDeclarationOnly": false,
+        "composite": true,
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "target": "ES2022",
+        "types": ["bun-types"],
+        "baseUrl": "../..",
+        "paths": {
+            "@heroesofcrypto/common": ["game/heroes-of-crypto-common/dist/index.d.ts"]
+        },
+        "verbatimModuleSyntax": true,
+        "skipLibCheck": true
+    },
+    "include": ["src/**/*"],
+    "exclude": ["dist", "node_modules"]
+}

@@ -6,6 +6,7 @@ export type Language = (typeof supportedLanguages)[number];
 
 export const pageSlugs = [
     "game",
+    "rules",
     "units",
     "token",
     "patches",
@@ -18,7 +19,9 @@ export const pageSlugs = [
 export type PageSlug = (typeof pageSlugs)[number];
 
 export const links = {
-    betaApp: "/play",
+    play: "/play",
+    rankedApp: "/play/ranked",
+    sandboxApp: "/sandbox",
     proposal: "https://heroes-of-crypto.gitbook.io/heroes-of-crypto-ai/",
     pool: "https://dexscreener.com/base/0x84b33ed897690bfb627f6cb966ce6a945cf6c6df",
     swap: "https://app.uniswap.org/swap?chain=base&exactField=input&inputCurrency=ETH&outputCurrency=0x48bb4b12098Fc65b261Dfb3584AE95FDCd847343",
@@ -52,7 +55,7 @@ export function languageSwitchPath(pathname: string, targetLanguage: Language) {
         return cleanPath === "/" ? "/ru/" : `/ru${cleanPath}/`;
     }
 
-    const withoutRussianPrefix = cleanPath.replace(/^\/ru/, "") || "/";
+    const withoutRussianPrefix = cleanPath.replace(/^\/ru(?=\/|$)/, "") || "/";
     return withoutRussianPrefix === "/" ? "/" : `${withoutRussianPrefix}/`;
 }
 
@@ -72,6 +75,7 @@ export const content = {
         },
         nav: {
             game: "Game",
+            rules: "Rules",
             blog: "Blog",
             units: "Units",
             token: "Token",
@@ -83,11 +87,26 @@ export const content = {
             terms: "Terms",
             privacy: "Privacy",
         },
+        play: {
+            startCta: "Play",
+            rankedCta: "Play ranked",
+            sandboxCta: "Play sandbox beta",
+            rankedLabel: "Ranked",
+            sandboxLabel: "Sandbox beta",
+            rankedBadge: "Ranked",
+            sandboxBadge: "Beta",
+            rankedHint: "Matchmaking with real opponents",
+            sandboxHint: "Practice builds, spells, and board states before ranked.",
+            startLabel: "Start game",
+            modeTitle: "Choose how to play",
+            modeBody:
+                "Start ranked matchmaking when you want a real opponent, or open the sandbox beta when you want to test armies and board states.",
+        },
         auth: {
             loginTitle: "Login",
-            loginDescription: "Use your Heroes of Crypto account to continue to the beta.",
+            loginDescription: "Use your Heroes of Crypto account to continue to the game.",
             registerTitle: "Create Account",
-            registerDescription: "Create a Heroes of Crypto account for beta access and future multiplayer features.",
+            registerDescription: "Create a Heroes of Crypto account for ranked and sandbox play.",
             verifyTitle: "Enter Verification Code",
             verifyDescription: "Enter the confirmation code sent to your email.",
             forgotTitle: "Forgot Password",
@@ -122,7 +141,7 @@ export const content = {
             successCode: "Verification code requested.",
             successForgot: "Password reset request sent. Check your email for the token.",
             successReset: "Password updated.",
-            continueToGame: "Continue to beta",
+            continueToGame: "Choose play mode",
             termsPrefix: "By signing up, you agree to the",
             termsAnd: "and",
         },
@@ -132,6 +151,12 @@ export const content = {
                 eyebrow: "Browser strategy game",
                 description:
                     "Free-to-play tactical battles with factions, spells, abilities, and community-shaped development.",
+            },
+            rules: {
+                title: "How to Play Heroes of Crypto",
+                eyebrow: "Game rules",
+                description:
+                    "A complete, readable guide to Heroes of Crypto rules: draft, placement, turns, attacks, spells, augments, faction synergies, morale, luck, stack power, map narrowing, and Armageddon.",
             },
             units: {
                 title: "Units",
@@ -148,12 +173,12 @@ export const content = {
             patches: {
                 title: "Patch Notes",
                 eyebrow: "Game updates",
-                description: "A compact history of public beta milestones and balance work.",
+                description: "A compact history of game milestones and balance work.",
             },
             faq: {
                 title: "FAQ",
                 eyebrow: "Quick answers",
-                description: "Common questions about the game, token, beta, and community.",
+                description: "Common questions about the game, token, play modes, and community.",
             },
             "contact-us": {
                 title: "Contact Us",
@@ -175,11 +200,11 @@ export const content = {
             kicker: "Free browser strategy",
             title: "Heroes of Crypto",
             tagline: "Click play. Build an army. Win the board.",
-            body: "A tactical battle game where positioning, faction synergies, and 75+ spells and abilities decide every fight. No download, no wallet gate - open the beta and start commanding in seconds.",
-            primaryCta: "Play free now",
-            secondaryCta: "Read proposal",
-            availability: "Desktop beta",
-            highlights: ["No download", "No wallet gate", "Desktop beta live"],
+            body: "A tactical battle game where positioning, faction synergies, and 75+ spells and abilities decide every fight. No download, no wallet gate - click play and choose ranked or the sandbox beta.",
+            primaryCta: "Play",
+            secondaryCta: "Browse units",
+            availability: "Ranked and sandbox beta",
+            highlights: ["No download", "No wallet gate", "Ranked or sandbox beta"],
             stats: [
                 { value: "4", label: "Factions" },
                 { value: "44", label: "Combat units" },
@@ -245,10 +270,10 @@ export const content = {
             },
         },
         progress: {
-            eyebrow: "Live beta",
-            title: "The battlefield is already open",
-            body: "Jump into tactical battles right now from a desktop browser. Multiplayer matchmaking, lobbies, ranking, and a richer PIXI-powered client are actively in development.",
-            cta: "Open beta",
+            eyebrow: "Play now",
+            title: "Choose your mode after Play",
+            body: "The Play screen lets you enter ranked matchmaking or use the sandbox beta to test armies, spells, and board states from a desktop browser.",
+            cta: "Play",
         },
         token: {
             eyebrow: "HOCAI",
@@ -318,7 +343,7 @@ export const content = {
             },
             {
                 question: "Can I play now?",
-                answer: "Yes. The current beta is available at beta.heroesofcrypto.io and is intended for desktop browsers.",
+                answer: "Yes. Click Play, then choose ranked matchmaking or the sandbox beta from a desktop browser.",
             },
             {
                 question: "Is the game open source?",
@@ -504,34 +529,50 @@ export const content = {
         },
         nav: {
             game: "Игра",
+            rules: "Правила",
             blog: "Блог",
             units: "Юниты",
             token: "Токен",
             patches: "Патчи",
-            faq: "FAQ",
+            faq: "Вопросы",
             contact: "Контакты",
             login: "Войти",
             proposal: "Документ",
             terms: "Условия",
             privacy: "Приватность",
         },
+        play: {
+            startCta: "Играть",
+            rankedCta: "Играть в рейтинге",
+            sandboxCta: "Открыть песочницу",
+            rankedLabel: "Рейтинг",
+            sandboxLabel: "Песочница",
+            rankedBadge: "Рейтинг",
+            sandboxBadge: "Бета",
+            rankedHint: "Матчмейкинг против реальных соперников",
+            sandboxHint: "Практика армий, заклинаний и состояний поля перед рейтинговыми матчами.",
+            startLabel: "Запуск игры",
+            modeTitle: "Выберите режим",
+            modeBody:
+                "Запускайте рейтинговый матч против реального соперника или открывайте песочницу для тестов армий и состояний поля.",
+        },
         auth: {
             loginTitle: "Вход",
-            loginDescription: "Используйте аккаунт Heroes of Crypto, чтобы продолжить в бету.",
+            loginDescription: "Используйте аккаунт Heroes of Crypto, чтобы продолжить в игру.",
             registerTitle: "Создать аккаунт",
-            registerDescription: "Создайте аккаунт Heroes of Crypto для beta access и будущих multiplayer-функций.",
+            registerDescription: "Создайте аккаунт Heroes of Crypto для рейтинговых матчей и песочницы.",
             verifyTitle: "Введите код подтверждения",
             verifyDescription: "Введите код подтверждения, отправленный на ваш email.",
             forgotTitle: "Забыли пароль",
-            forgotDescription: "Запросите reset token по email.",
+            forgotDescription: "Запросите токен для сброса пароля по email.",
             resetTitle: "Сброс пароля",
-            resetDescription: "Введите reset token из письма и новый пароль.",
-            username: "Username",
-            email: "Email",
+            resetDescription: "Введите токен из письма и новый пароль.",
+            username: "Имя пользователя",
+            email: "Электронная почта",
             password: "Пароль",
             confirmPassword: "Повторите пароль",
             code: "Код подтверждения",
-            token: "Reset token",
+            token: "Токен сброса",
             loginAction: "Войти",
             registerAction: "Создать аккаунт",
             verifyAction: "Подтвердить аккаунт",
@@ -552,9 +593,9 @@ export const content = {
             successRegister: "Регистрация успешна. Проверьте email для кода подтверждения.",
             successVerify: "Аккаунт подтвержден.",
             successCode: "Код подтверждения запрошен.",
-            successForgot: "Запрос на сброс пароля отправлен. Проверьте email для token.",
+            successForgot: "Запрос на сброс пароля отправлен. Проверьте email для токена.",
             successReset: "Пароль обновлен.",
-            continueToGame: "Продолжить в бету",
+            continueToGame: "Выбрать режим игры",
             termsPrefix: "Регистрируясь, вы соглашаетесь с",
             termsAnd: "и",
         },
@@ -564,6 +605,12 @@ export const content = {
                 eyebrow: "Браузерная стратегия",
                 description:
                     "Бесплатные тактические бои с фракциями, заклинаниями, способностями и развитием вместе с сообществом.",
+            },
+            rules: {
+                title: "Как играть в Heroes of Crypto",
+                eyebrow: "Правила игры",
+                description:
+                    "Подробное и понятное руководство по правилам Heroes of Crypto: драфт, расстановка, ходы, атаки, заклинания, апгрейды, синергии фракций, мораль, удача, сила отряда, сужение карты и Армагеддон.",
             },
             units: {
                 title: "Юниты",
@@ -580,12 +627,12 @@ export const content = {
             patches: {
                 title: "Патч-ноты",
                 eyebrow: "Обновления игры",
-                description: "Краткая история публичной беты, баланса и ключевых игровых изменений.",
+                description: "Краткая история игровых обновлений, баланса и ключевых изменений.",
             },
             faq: {
-                title: "FAQ",
+                title: "Частые вопросы",
                 eyebrow: "Короткие ответы",
-                description: "Частые вопросы об игре, токене, бете и сообществе.",
+                description: "Частые вопросы об игре, токене, режимах игры и сообществе.",
             },
             "contact-us": {
                 title: "Контакты",
@@ -606,12 +653,12 @@ export const content = {
         hero: {
             kicker: "Бесплатная браузерная стратегия",
             title: "Heroes of Crypto",
-            tagline: "Нажмите Play. Соберите отряд. Заберите поле.",
-            body: "Тактические бои, где позиционирование, фракционные синергии и 75+ заклинаний и способностей решают исход каждой схватки. Без скачивания и без wallet gate - откройте бету и командуйте через несколько секунд.",
-            primaryCta: "Играть бесплатно",
-            secondaryCta: "Открыть документ",
-            availability: "Desktop beta",
-            highlights: ["Без скачивания", "Без wallet gate", "Desktop beta live"],
+            tagline: "Нажмите «Играть». Соберите отряд. Заберите поле.",
+            body: "Тактические бои, где позиционирование, фракционные синергии и 75+ заклинаний и способностей решают исход каждой схватки. Без скачивания и без привязки кошелька: нажмите «Играть» и выберите рейтинг или песочницу.",
+            primaryCta: "Играть",
+            secondaryCta: "Открыть юнитов",
+            availability: "Рейтинг и песочница",
+            highlights: ["Без скачивания", "Без привязки кошелька", "Рейтинг или песочница"],
             stats: [
                 { value: "4", label: "Фракции" },
                 { value: "44", label: "Боевых юнита" },
@@ -625,7 +672,7 @@ export const content = {
             { name: "GitHub", href: links.github, icon: "/assets/icons/platforms/ic_github.svg" },
         ],
         features: {
-            eyebrow: "Почему стоит нажать Play",
+            eyebrow: "Почему стоит нажать «Играть»",
             title: "Быстрый старт. Глубокая тактика.",
             items: [
                 {
@@ -637,7 +684,7 @@ export const content = {
                 {
                     title: "Выберите стиль фракции",
                     description:
-                        "Chaos, Life, Might и Nature дают разные роли, контрпики и бонусы под разные стили игры.",
+                        "Хаос, Жизнь, Сила и Природа дают разные роли, контрпики и бонусы под разные стили игры.",
                     icon: "/assets/icons/home/ai_powered.svg",
                 },
                 {
@@ -651,7 +698,7 @@ export const content = {
         roster: {
             eyebrow: "Что внутри",
             title: "Фракции, способности и контроль поля",
-            body: "Chaos, Life, Might и Nature дают разные наборы юнитов, тактические роли, магию и фракционные бонусы. Улучшения расстановки и синергии добавляют еще один слой решений до начала боя.",
+            body: "Хаос, Жизнь, Сила и Природа дают разные наборы юнитов, тактические роли, магию и фракционные бонусы. Улучшения расстановки и синергии добавляют еще один слой решений до начала боя.",
             points: ["Фракционные бонусы", "Улучшаемая расстановка", "Магия и ауры", "Сужающиеся карты"],
         },
         units: {
@@ -677,18 +724,18 @@ export const content = {
             },
         },
         progress: {
-            eyebrow: "Бета уже live",
-            title: "Поле боя уже открыто",
-            body: "Заходите в тактические бои прямо сейчас с desktop-браузера. Дальше в работе matchmaking, лобби, рейтинг и более чистый PIXI-клиент.",
-            cta: "Открыть бету",
+            eyebrow: "Играйте сейчас",
+            title: "Выберите режим после запуска",
+            body: "Экран игры ведет в рейтинговый матчмейкинг или песочницу для тестов армий, заклинаний и состояний поля с настольного браузера.",
+            cta: "Играть",
         },
         token: {
             eyebrow: "HOCAI",
             title: "Простая модель токена",
-            body: "$HOCAI - ERC-20 токен в Base L2 для governance, игровой утилити-модели и будущих наград. Большая часть supply с самого начала принадлежит сообществу.",
+            body: "$HOCAI - ERC-20 токен в Base L2 для управления, игровой утилити-модели и будущих наград. Большая часть предложения с самого начала принадлежит сообществу.",
             contractLabel: "Контракт",
             links: [
-                { label: "Swap на Uniswap", href: links.swap },
+                { label: "Обменять на Uniswap", href: links.swap },
                 { label: "Пул", href: links.pool },
                 { label: "CoinMarketCap", href: links.coinMarketCap },
             ],
@@ -709,72 +756,72 @@ export const content = {
                 "Голосование по выбранным игровым и экосистемным предложениям.",
                 "Внутриигровые операции и участие в событиях.",
                 "Будущие механики стейкинга, наград и турниров.",
-                "Игровая экономика вокруг ассетов и сервисов.",
+                "Игровая экономика вокруг игровых предметов и сервисов.",
             ],
         },
         roadmap: {
             eyebrow: "Что строим сейчас",
-            title: "Roadmap",
+            title: "Дорожная карта",
             items: [
                 {
                     time: "Июнь 2026",
                     title: "Основа мультиплеера",
                     description:
-                        "Строим live multiplayer loop: создание матча, две стороны, server-authoritative ходы, reconnect и чистый переход от placement к fight phase.",
+                        "Строим живой мультиплеер: создание матча, две стороны, серверно-авторитетные ходы, переподключение и чистый переход от расстановки к бою.",
                 },
                 {
                     time: "После мультиплеера",
-                    title: "Ranked matches",
+                    title: "Рейтинговые матчи",
                     description:
-                        "Добавим ranking, правила matchmaking, пересчет рейтинга, историю матчей и первые leaderboard-экраны вокруг реальных multiplayer игр.",
+                        "Добавим рейтинг, правила матчмейкинга, пересчет очков, историю матчей и первые таблицы лидеров вокруг реальных мультиплеерных игр.",
                 },
                 {
-                    time: "После ranking",
+                    time: "После рейтинга",
                     title: "Лобби и сезоны",
                     description:
-                        "Откроем custom lobbies, сезонные resets и понятную progression-структуру, чтобы competitive play не ограничивался одиночными матчами.",
+                        "Откроем пользовательские лобби, сезонные сбросы и понятную структуру прогресса, чтобы соревновательная игра не ограничивалась одиночными матчами.",
                 },
                 {
                     time: "Затем",
-                    title: "Marketplace и экономика игроков",
+                    title: "Маркетплейс и экономика игроков",
                     description:
-                        "Свяжем игровой прогресс с marketplace, asset и reward systems после стабилизации multiplayer и ranking.",
+                        "Свяжем игровой прогресс с маркетплейсом, активами и системами наград после стабилизации мультиплеера и рейтинга.",
                 },
             ],
         },
         faq: [
             {
                 question: "Что такое $HOCAI?",
-                answer: "$HOCAI - utility и governance токен для внутриигровых операций, наград, планов стейкинга и голосования по развитию игры.",
+                answer: "$HOCAI - утилити-токен и токен управления для внутриигровых операций, наград, планов стейкинга и голосования по развитию игры.",
             },
             {
                 question: "Можно ли играть сейчас?",
-                answer: "Да. Текущая бета доступна на beta.heroesofcrypto.io и рассчитана на desktop-браузеры.",
+                answer: "Да. Нажмите «Играть», затем выберите рейтинговый матчмейкинг или песочницу с настольного браузера.",
             },
             {
-                question: "Игра open source?",
+                question: "У игры открытый исходный код?",
                 answer: "Клиент и общая игровая логика находятся в публичных GitHub-репозиториях. Проект развивается с учетом прозрачности для сообщества.",
             },
             {
-                question: "Где treasury-раздел?",
-                answer: "Treasury-раздел намеренно не включен в этот минимальный сайт. Сейчас сайт сфокусирован на игре, токене, сообществе и правовых страницах.",
+                question: "Где раздел казны?",
+                answer: "Раздел казны намеренно не включен в этот минимальный сайт. Сейчас сайт сфокусирован на игре, токене, сообществе и правовых страницах.",
             },
         ],
         contact: {
             headline: "По вопросам игры, токена или команды используйте официальные каналы.",
-            emailLabel: "Email",
+            emailLabel: "Почта",
             email: "support@heroesofcrypto.io",
             formName: "Имя или 0x адрес",
-            formEmail: "Email",
+            formEmail: "Электронная почта",
             formSubject: "Тема",
             formMessage: "Сообщение",
-            formSubmit: "Открыть email",
+            formSubmit: "Открыть письмо",
         },
         patches: patchNotes.ru,
         legal: {
             terms: {
                 updated: "14.11.2024",
-                intro: "Добро пожаловать в Heroes of Crypto AI, open-source blockchain-based игру, разработанную Old Stars Gaming (OSG). Регистрируясь, получая доступ или используя игру, связанные сервисы, сайты или приложения, вы соглашаетесь с этими Условиями использования.",
+                intro: "Добро пожаловать в Heroes of Crypto AI, блокчейн-игру с открытым исходным кодом, разработанную Old Stars Gaming (OSG). Регистрируясь, получая доступ или используя игру, связанные сервисы, сайты или приложения, вы соглашаетесь с этими Условиями использования.",
                 sections: [
                     {
                         title: "1. Право на использование",
@@ -814,10 +861,10 @@ export const content = {
                         ],
                     },
                     {
-                        title: "6. Сообщество и governance",
+                        title: "6. Сообщество и управление",
                         body: [
                             "Heroes of Crypto AI развивается вместе с сообществом. Участвуя, вы соглашаетесь действовать добросовестно и уважать других пользователей.",
-                            "OSG может собирать feedback или проводить голосования, сохраняя за собой финальное право принятия решений по Сервисам.",
+                            "OSG может собирать обратную связь или проводить голосования, сохраняя за собой финальное право принятия решений по Сервисам.",
                         ],
                     },
                     {
@@ -829,7 +876,7 @@ export const content = {
                     {
                         title: "8. Ограничение ответственности",
                         body: [
-                            "Сервисы предоставляются AS IS и AS AVAILABLE без каких-либо гарантий.",
+                            "Сервисы предоставляются «как есть» и «по доступности» без каких-либо гарантий.",
                             "OSG не несет ответственности за косвенные, случайные, специальные, последующие или штрафные убытки, возникшие из использования Сервисов.",
                             "Вы соглашаетесь защищать OSG от претензий, связанных с вашим нарушением этих Условий.",
                         ],
@@ -849,7 +896,7 @@ export const content = {
                     {
                         title: "11. Применимое право",
                         body: [
-                            "Эти Условия регулируются законами штата Washington, United States. Споры разрешаются арбитражем в Seattle, Washington, если иное не требуется законом.",
+                            "Эти Условия регулируются законами штата Вашингтон, США. Споры разрешаются арбитражем в Сиэтле, штат Вашингтон, если иное не требуется законом.",
                         ],
                     },
                     {
@@ -865,33 +912,33 @@ export const content = {
                     {
                         title: "1. Какую информацию мы собираем",
                         body: [
-                            "Мы можем собирать персональную информацию, такую как username, email, wallet address и данные аккаунта.",
-                            "Мы можем собирать usage data, информацию об устройстве, blockchain data и сообщения, которые вы отправляете через поддержку или community-каналы.",
+                            "Мы можем собирать персональную информацию, такую как имя пользователя, email, адрес кошелька и данные аккаунта.",
+                            "Мы можем собирать данные об использовании, информацию об устройстве, данные блокчейна и сообщения, которые вы отправляете через поддержку или каналы сообщества.",
                         ],
                     },
                     {
                         title: "2. Как мы используем информацию",
                         body: [
-                            "Мы используем информацию для предоставления, поддержки и улучшения Сервисов, связи с вами, персонализации опыта и соблюдения legal obligations.",
+                            "Мы используем информацию для предоставления, поддержки и улучшения Сервисов, связи с вами, персонализации опыта и соблюдения юридических обязательств.",
                         ],
                     },
                     {
                         title: "3. Передача информации",
                         body: [
-                            "Мы можем передавать информацию service providers, юридическим или регуляторным органам, open-source community channels или правопреемнику при business transfer.",
+                            "Мы можем передавать информацию поставщикам услуг, юридическим или регуляторным органам, каналам сообщества с открытым исходным кодом или правопреемнику при передаче бизнеса.",
                         ],
                     },
                     {
                         title: "4. Безопасность",
                         body: [
-                            "Мы принимаем разумные меры защиты, но ни передача данных через интернет, ни blockchain-транзакции не являются полностью безопасными. Используя Сервисы, вы признаете эти риски.",
+                            "Мы принимаем разумные меры защиты, но ни передача данных через интернет, ни блокчейн-транзакции не являются полностью безопасными. Используя Сервисы, вы признаете эти риски.",
                         ],
                     },
                     {
                         title: "5. Ваши права и выбор",
                         body: [
                             "В рамках применимого закона вы можете получать доступ к аккаунту, обновлять данные, запросить удаление через support@heroesofcrypto.io или отказаться от промо-коммуникаций.",
-                            "Некоторые blockchain data являются публичными и неизменяемыми, поэтому их нельзя изменить или удалить.",
+                            "Некоторые данные блокчейна являются публичными и неизменяемыми, поэтому их нельзя изменить или удалить.",
                         ],
                     },
                     {
@@ -903,13 +950,13 @@ export const content = {
                     {
                         title: "7. Сторонние ссылки",
                         body: [
-                            "Сервисы могут содержать ссылки на сторонние сайты или приложения. Мы не отвечаем за их privacy practices.",
+                            "Сервисы могут содержать ссылки на сторонние сайты или приложения. Мы не отвечаем за их практики конфиденциальности.",
                         ],
                     },
                     {
                         title: "8. Изменения",
                         body: [
-                            "Мы можем периодически обновлять эту Политику, меняя дату Last Updated и, при необходимости, предоставляя дополнительное уведомление.",
+                            "Мы можем периодически обновлять эту Политику, меняя дату последнего обновления и, при необходимости, предоставляя дополнительное уведомление.",
                         ],
                     },
                     {

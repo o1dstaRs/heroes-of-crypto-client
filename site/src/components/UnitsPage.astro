@@ -1,5 +1,6 @@
 ---
 import { content, type Language } from "../lib/site-data";
+import { localizedFactionName } from "../lib/localization";
 import { abilityCount, factionColors, factionUnits, unitCount, type Unit } from "../lib/units-data";
 
 interface Props {
@@ -12,7 +13,19 @@ const ui = copy.units;
 const s = ui.stats;
 
 const unitIndex: Unit[] = factionUnits.flatMap((f) => f.units);
-const serialized = JSON.stringify(unitIndex);
+const serialized = JSON.stringify(
+    unitIndex.map((unit) => ({
+        ...unit,
+        factionLabel: localizedFactionName(lang, unit.faction),
+        abilities: unit.abilities.map((ability) => ({
+            name: ability.name,
+            description: lang === "ru" ? ability.descriptionRu : ability.description,
+            icon: ability.icon,
+            isAura: ability.isAura,
+            isCastable: ability.isCastable,
+        })),
+    })),
+);
 const labels =
     lang === "ru"
         ? {
@@ -28,9 +41,10 @@ const labels =
               factions: "Фракции",
               abilities: "Способности",
               roles: "Роли атак",
-              hp: "HP",
-              atk: "ATK",
-              dmg: "DMG",
+              hp: "ЗД",
+              atk: "АТК",
+              dmg: "УРН",
+              levelShort: "Ур.",
               noAbilityShort: "Базовый юнит",
           }
         : {
@@ -49,6 +63,7 @@ const labels =
               hp: "HP",
               atk: "ATK",
               dmg: "DMG",
+              levelShort: "L",
               noAbilityShort: "Core unit",
           };
 const attackLabels =
@@ -87,6 +102,10 @@ function localizedMovementLabel(value: string) {
     return movementLabels[value as keyof typeof movementLabels] ?? value;
 }
 
+function factionLabel(faction: string) {
+    return localizedFactionName(lang, faction);
+}
+
 function abilityLine(unit: Unit) {
     return unit.abilities.length ? unit.abilities.slice(0, 2).map((ability) => ability.name).join(" + ") : labels.noAbilityShort;
 }
@@ -95,6 +114,7 @@ function unitSearchText(unit: Unit) {
     return [
         unit.name,
         unit.faction,
+        factionLabel(unit.faction),
         localizedAttackLabel(unit.attackType),
         localizedMovementLabel(unit.movementType),
         unit.spells.join(" "),
@@ -147,7 +167,7 @@ function unitSearchText(unit: Unit) {
                             aria-pressed="false"
                         >
                             <img src={f.icon} alt="" width="22" height="22" loading="lazy" />
-                            <span>{f.faction}</span>
+                            <span>{factionLabel(f.faction)}</span>
                             <em>{f.units.length}</em>
                         </button>
                     ))
@@ -180,7 +200,7 @@ function unitSearchText(unit: Unit) {
                             data-search={searchText}
                             type="button"
                             style={`--faction: ${factionColors[unit.faction]}`}
-                            aria-label={`${unit.name}, ${unit.faction}, ${ui.level} ${unit.level}`}
+                            aria-label={`${unit.name}, ${factionLabel(unit.faction)}, ${ui.level} ${unit.level}`}
                         >
                             <span class="unit-portrait">
                                 <img
@@ -191,7 +211,7 @@ function unitSearchText(unit: Unit) {
                                     loading="lazy"
                                     onerror="this.onerror=null;this.src='/assets/images/units/units/unknown_creature_512.webp'"
                                 />
-                                <span class="unit-level">L{unit.level}</span>
+                                <span class="unit-level">{labels.levelShort}{unit.level}</span>
                                 <span class="unit-attack-type">{attackType}</span>
                             </span>
                             <span class="unit-card-body">
@@ -202,7 +222,7 @@ function unitSearchText(unit: Unit) {
                                     <span><b>{labels.dmg}</b>{unit.damageMin}-{unit.damageMax}</span>
                                 </span>
                                 <span class="unit-tags">
-                                    <span class="unit-faction" data-faction={unit.faction}>{unit.faction}</span>
+                                    <span class="unit-faction" data-faction={unit.faction}>{factionLabel(unit.faction)}</span>
                                     <span>{movementType}</span>
                                 </span>
                                 <span class="unit-ability-line">{abilityLine(unit)}</span>
@@ -268,6 +288,7 @@ function unitSearchText(unit: Unit) {
     type Unit = {
         name: string;
         faction: string;
+        factionLabel?: string;
         level: number;
         size: number;
         hp: number;
@@ -315,6 +336,10 @@ function unitSearchText(unit: Unit) {
         Nature: "/assets/images/units/factions/nature_128.webp",
         Death: "/assets/images/units/factions/death_128.webp",
     };
+    const FACTION_LABEL: Record<string, string> =
+        LANG === "ru"
+            ? { Chaos: "Хаос", Life: "Жизнь", Might: "Сила", Nature: "Природа", Death: "Смерть" }
+            : { Chaos: "Chaos", Life: "Life", Might: "Might", Nature: "Nature", Death: "Death" };
     const NO_ABILITIES =
         document.getElementById("units-data")?.dataset.noAbilities ?? "No special abilities.";
 
@@ -345,7 +370,7 @@ function unitSearchText(unit: Unit) {
             metaEl.textContent = `${LEVEL_LABEL} ${unit.level} · ${ATTACK_LABEL[unit.attackType] ?? unit.attackType} · ${MOVE_LABEL[unit.movementType] ?? unit.movementType}`;
             factionP.style.setProperty("--faction", factionColor(unit.faction));
             factionImg.src = FACTION_ICON[unit.faction] ?? "";
-            factionTxt.textContent = unit.faction;
+            factionTxt.textContent = unit.factionLabel ?? FACTION_LABEL[unit.faction] ?? unit.faction;
 
             statEls.hp.textContent = String(unit.hp);
             statEls.armor.textContent = String(unit.armor);
@@ -451,11 +476,21 @@ function unitSearchText(unit: Unit) {
         });
     }
 
-    const pills = document.querySelectorAll<HTMLButtonElement>(".faction-pill");
+    const pills = Array.from(document.querySelectorAll<HTMLButtonElement>(".faction-pill"));
     const cards = document.querySelectorAll<HTMLElement>(".unit-card");
     const searchInput = document.querySelector<HTMLInputElement>("[data-unit-search]");
     const emptyState = document.querySelector<HTMLElement>("[data-units-empty]");
     let activeFaction = "all";
+
+    const syncFactionParam = (faction: string) => {
+        const url = new URL(window.location.href);
+        if (faction && faction !== "all") {
+            url.searchParams.set("faction", faction.toLowerCase());
+        } else {
+            url.searchParams.delete("faction");
+        }
+        window.history.replaceState(null, "", url);
+    };
 
     const applyFilters = () => {
         const query = searchInput?.value.trim().toLowerCase() ?? "";
@@ -474,18 +509,24 @@ function unitSearchText(unit: Unit) {
         }
     };
 
-    pills.forEach((pill) => {
-        pill.addEventListener("click", () => {
-            pills.forEach((p) => {
-                p.classList.remove("active");
-                p.setAttribute("aria-pressed", "false");
-            });
-            pill.classList.add("active");
-            pill.setAttribute("aria-pressed", "true");
-            activeFaction = pill.dataset.faction ?? "all";
-            applyFilters();
+    const setActiveFaction = (faction: string) => {
+        activeFaction = faction;
+        pills.forEach((pill) => {
+            const isActive = (pill.dataset.faction ?? "all") === faction;
+            pill.classList.toggle("active", isActive);
+            pill.setAttribute("aria-pressed", isActive ? "true" : "false");
         });
+        syncFactionParam(faction);
+        applyFilters();
+    };
+
+    pills.forEach((pill) => {
+        pill.addEventListener("click", () => setActiveFaction(pill.dataset.faction ?? "all"));
     });
+
+    const requestedFaction = new URLSearchParams(window.location.search).get("faction")?.trim().toLowerCase() ?? "";
+    const matchingPill = pills.find((pill) => (pill.dataset.faction ?? "").toLowerCase() === requestedFaction);
+    setActiveFaction(matchingPill ? (matchingPill.dataset.faction ?? "all") : "all");
 
     searchInput?.addEventListener("input", applyFilters);
 </script>

@@ -5,6 +5,7 @@ import { useNavigate } from "react-router";
 
 import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
 import { useAuthContext } from "./auth/context/auth_context";
+import { WalletLinker } from "./WalletLinker";
 
 type MatchmakingEvent = {
     ps?: string;
@@ -213,6 +214,8 @@ export const MatchmakingRoute: React.FC = () => {
                             {statusText}
                         </Typography>
                     </Box>
+
+                    <WalletLinker />
 
                     {(state === "searching" || state === "accepted") && (
                         <Stack direction="row" spacing={1.5} alignItems="center">
