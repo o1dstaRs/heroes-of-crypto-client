@@ -163,11 +163,69 @@ const tokenFromWalletResponse = (authorization: unknown, data: unknown): string 
     return typeof accessToken === "string" && accessToken.length > 0 ? normalizeToken(accessToken) : null;
 };
 
+const isE2eLoginEnabled = (): boolean => {
+    return !import.meta.env.PROD && import.meta.env.VITE_IS_PROD !== "true";
+};
+
+const readE2eLoginParams = (): { email: string; password: string; cleanUrl: string } | null => {
+    if (!isE2eLoginEnabled()) {
+        return null;
+    }
+
+    const url = new URL(window.location.href);
+    const email = url.searchParams.get("e2eEmail") ?? url.searchParams.get("email");
+    const password = url.searchParams.get("e2ePassword") ?? url.searchParams.get("password");
+
+    if (!email || !password) {
+        return null;
+    }
+
+    url.searchParams.delete("e2eEmail");
+    url.searchParams.delete("e2ePassword");
+    url.searchParams.delete("email");
+    url.searchParams.delete("password");
+
+    return { email, password, cleanUrl: `${url.pathname}${url.search}${url.hash}` };
+};
+
+const authenticateWithEmailPassword = async (email: string, password: string): Promise<AuthUserType> => {
+    const newPlayer = new NewPlayer({ email, password });
+    const data = newPlayer.serializeBinary();
+
+    const res = await axiosAuthInstance.post(endpoints.auth.login, data, {
+        responseType: "arraybuffer",
+        headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
+    });
+
+    const authHeader = res.headers.authorization;
+    const reponseData = res.data;
+    const responseMe = ResponseMe.deserializeBinary(reponseData);
+
+    setSession(authHeader);
+
+    return {
+        ...responseMe.toObject(),
+    };
+};
+
 export function AuthProvider({ children }: Props) {
     const [state, dispatch] = useReducer(reducer, initialState);
 
     const initialize = useCallback(async () => {
         try {
+            const e2eLogin = readE2eLoginParams();
+            if (e2eLogin) {
+                const user = await authenticateWithEmailPassword(e2eLogin.email, e2eLogin.password);
+                window.history.replaceState(null, document.title, e2eLogin.cleanUrl);
+                dispatch({
+                    type: Types.INITIAL,
+                    payload: {
+                        user,
+                    },
+                });
+                return;
+            }
+
             refreshLocalStorageFromCookie();
 
             const accessToken = localStorage.getItem(STORAGE_KEY);
@@ -391,26 +449,12 @@ export function AuthProvider({ children }: Props) {
 
     // LOGIN
     const login = useCallback(async (email: string, password: string) => {
-        const newPlayer = new NewPlayer({ email, password });
-        const data = newPlayer.serializeBinary();
-
-        const res = await axiosAuthInstance.post(endpoints.auth.login, data, {
-            responseType: "arraybuffer",
-            headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
-        });
-
-        const authHeader = res.headers.authorization;
-        const reponseData = res.data;
-        const responseMe = ResponseMe.deserializeBinary(reponseData);
-
-        setSession(authHeader);
+        const user = await authenticateWithEmailPassword(email, password);
 
         dispatch({
             type: Types.LOGIN,
             payload: {
-                user: {
-                    ...responseMe.toObject(),
-                },
+                user,
             },
         });
     }, []);

@@ -29,6 +29,21 @@ import type { SceneGameActionTransport } from "../game_action_transport";
 import { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 import { RankedGameView } from "./RankedGameView";
 
+const isEditableTarget = (target: EventTarget | null): boolean => {
+    if (!(target instanceof HTMLElement)) {
+        return false;
+    }
+
+    return Boolean(target.closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])"));
+};
+
+const readE2ePlayerId = (): string | null => {
+    if (import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true") {
+        return null;
+    }
+    return new URL(window.location.href).searchParams.get("e2ePlayerId");
+};
+
 const usePreventSelection = () => {
     useEffect(() => {
         // Prevent text selection via CSS
@@ -51,11 +66,17 @@ const usePreventSelection = () => {
 
         // Prevent context menu
         const preventContextMenu = (e: Event) => {
+            if (isEditableTarget(e.target)) {
+                return;
+            }
             e.preventDefault();
         };
 
         // Prevent clipboard operations
         const preventClipboard = (e: ClipboardEvent) => {
+            if (isEditableTarget(e.target)) {
+                return;
+            }
             e.preventDefault();
         };
 
@@ -199,6 +220,55 @@ const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType; ga
     );
 };
 
+const MatchLoadingOverlay: React.FC = () => (
+    <div
+        style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "#0f1117",
+            color: "#f8fafc",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 1000,
+            padding: 24,
+        }}
+    >
+        <style>
+            {`
+                @keyframes hoc-route-progress {
+                    0% { transform: translateX(-80%); }
+                    50% { transform: translateX(20%); }
+                    100% { transform: translateX(140%); }
+                }
+            `}
+        </style>
+        <div style={{ width: "min(440px, 100%)" }}>
+            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Waiting for opponent</div>
+            <div style={{ color: "#aeb7c5", fontSize: 14, lineHeight: 1.4, marginBottom: 18 }}>
+                Syncing your seat and loading the latest match state.
+            </div>
+            <div
+                style={{
+                    height: 8,
+                    overflow: "hidden",
+                    borderRadius: 999,
+                    backgroundColor: "rgba(148, 163, 184, 0.24)",
+                }}
+            >
+                <div
+                    style={{
+                        width: "55%",
+                        height: "100%",
+                        borderRadius: 999,
+                        background: "linear-gradient(90deg, #f97316, #22c55e)",
+                        animation: "hoc-route-progress 1.25s ease-in-out infinite",
+                    }}
+                />
+            </div>
+        </div>
+    </div>
+);
+
 const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const { gameId } = useParams<{ gameId: string }>();
     const { getCurrentGame } = useAuthContext();
@@ -231,6 +301,25 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                 }
             } catch (err) {
                 console.error(err);
+                if (gameId) {
+                    try {
+                        const snapshot = await fetchRankedPlaySnapshot(gameId);
+                        const e2ePlayerId = readE2ePlayerId();
+                        const e2ePlayer = e2ePlayerId
+                            ? snapshot.players.find((player) => player.playerId === e2ePlayerId)
+                            : undefined;
+                        if (!e2ePlayer) {
+                            throw new Error("Unable to resolve player team for this direct game link");
+                        }
+                        setUserTeam(e2ePlayer.team as TeamType);
+                        setRouteMode("play");
+                        setShowOverlay(false);
+                        setErrorMessage("");
+                        return;
+                    } catch (snapshotErr) {
+                        console.error(snapshotErr);
+                    }
+                }
                 setShowOverlay(true);
                 setErrorMessage((err as Error).message || "An unexpected error occurred");
             }
@@ -294,25 +383,9 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                     {errorMessage}
                 </div>
             )}
-            {!showOverlay && userTeam !== TeamVals.NO_TEAM && gameId && (
+            {!showOverlay && gameId && routeMode === "checking" && <MatchLoadingOverlay />}
+            {!showOverlay && userTeam !== TeamVals.NO_TEAM && gameId && routeMode !== "checking" && (
                 <>
-                    {routeMode === "checking" && (
-                        <div
-                            style={{
-                                position: "fixed",
-                                inset: 0,
-                                backgroundColor: "#0f1117",
-                                color: "white",
-                                display: "flex",
-                                justifyContent: "center",
-                                alignItems: "center",
-                                zIndex: 1000,
-                                fontSize: "20px",
-                            }}
-                        >
-                            Loading game...
-                        </div>
-                    )}
                     {routeMode === "pick" && (
                         <PickAndBanView windowSize={windowSize} userTeam={userTeam} gameId={gameId} />
                     )}
