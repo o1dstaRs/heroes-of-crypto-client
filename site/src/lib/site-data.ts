@@ -282,65 +282,32 @@ export const content = {
             ],
         },
         roadmap: {
-            eyebrow: "Community driven",
+            eyebrow: "Now building",
             title: "Roadmap",
             items: [
                 {
-                    time: "Q3 2023",
-                    title: "Brainstorm",
+                    time: "June 2026",
+                    title: "Multiplayer foundation",
                     description:
-                        "Team formation, early game-engine design, mechanics research, token design, and asset production.",
+                        "Build the live multiplayer loop: match creation, two-player sessions, server-authoritative turns, reconnects, and a clean handoff between placement and fight phases.",
                 },
                 {
-                    time: "Q4 2023",
-                    title: "BUIDL",
+                    time: "After multiplayer",
+                    title: "Ranked matches",
                     description:
-                        "Smart contract work, arenas, battlefields, exploration environments, and beta gameplay.",
+                        "Add ranking, matchmaking rules, rating updates, match history, and the first leaderboard surfaces around real multiplayer games.",
                 },
                 {
-                    time: "Q1 2024",
-                    title: "Initial game offering",
+                    time: "After ranking",
+                    title: "Lobbies and seasons",
                     description:
-                        "Launch HOCAI, open the game to a wider audience, collect feedback, and stress-test the beta.",
+                        "Open custom lobbies, seasonal resets, and clearer progression hooks so competitive play has structure beyond one-off matches.",
                 },
                 {
-                    time: "Q2 2024",
-                    title: "AI and open source",
+                    time: "Then",
+                    title: "Marketplace and player economy",
                     description:
-                        "Open source the client and continue security, exploit prevention, and AI-oriented server logic.",
-                },
-                {
-                    time: "Q3-Q4 2024",
-                    title: "Finalized game balance",
-                    description:
-                        "Finalize mechanics, balance the unit roster, and prepare the fight phase for broader play.",
-                },
-                {
-                    time: "Q1 2025",
-                    title: "Pick phase and multiplayer",
-                    description: "Build networking for multiplayer and support the pre-fight pick phase.",
-                },
-                {
-                    time: "Q2 2025",
-                    title: "Weighted lobbies",
-                    description: "Allow players to create and join lobbies with bid-weighted rewards.",
-                },
-                {
-                    time: "Q3 2025",
-                    title: "Engine upgrade",
-                    description:
-                        "Move rendering to PIXI for better performance, animation support, and richer audio-visual feedback.",
-                },
-                {
-                    time: "Q4 2025",
-                    title: "Marketplace and ranking",
-                    description:
-                        "Launch marketplace features, ranked matchmaking, leaderboards, statistics, and progression systems.",
-                },
-                {
-                    time: "2026",
-                    title: "The new era",
-                    description: "Expand toward guilds, crafting, mining, tournaments, seasons, and staking.",
+                        "Connect gameplay progression with marketplace, asset, and reward systems once multiplayer and ranking are stable.",
                 },
             ],
         },
@@ -746,63 +713,32 @@ export const content = {
             ],
         },
         roadmap: {
-            eyebrow: "Развитие с сообществом",
+            eyebrow: "Что строим сейчас",
             title: "Roadmap",
             items: [
                 {
-                    time: "Q3 2023",
-                    title: "Brainstorm",
+                    time: "Июнь 2026",
+                    title: "Основа мультиплеера",
                     description:
-                        "Формирование команды, ранний дизайн движка, исследование механик, токен-дизайн и производство ассетов.",
+                        "Строим live multiplayer loop: создание матча, две стороны, server-authoritative ходы, reconnect и чистый переход от placement к fight phase.",
                 },
                 {
-                    time: "Q4 2023",
-                    title: "BUIDL",
-                    description: "Смарт-контракт, арены, поля боя, окружения для исследования и запуск beta gameplay.",
-                },
-                {
-                    time: "Q1 2024",
-                    title: "Initial game offering",
+                    time: "После мультиплеера",
+                    title: "Ranked matches",
                     description:
-                        "Запуск HOCAI, выход к более широкой аудитории, сбор обратной связи и стресс-тест беты.",
+                        "Добавим ranking, правила matchmaking, пересчет рейтинга, историю матчей и первые leaderboard-экраны вокруг реальных multiplayer игр.",
                 },
                 {
-                    time: "Q2 2024",
-                    title: "AI и open source",
+                    time: "После ranking",
+                    title: "Лобби и сезоны",
                     description:
-                        "Открытие клиентского кода и продолжение работы над безопасностью, анти-эксплойт логикой и AI-частью сервера.",
+                        "Откроем custom lobbies, сезонные resets и понятную progression-структуру, чтобы competitive play не ограничивался одиночными матчами.",
                 },
                 {
-                    time: "Q3-Q4 2024",
-                    title: "Финальный баланс",
+                    time: "Затем",
+                    title: "Marketplace и экономика игроков",
                     description:
-                        "Финализация механик, балансировка ростера и подготовка боевой фазы к более широкому использованию.",
-                },
-                {
-                    time: "Q1 2025",
-                    title: "Pick phase и мультиплеер",
-                    description: "Сетевая часть для мультиплеера и поддержка pre-fight pick phase.",
-                },
-                {
-                    time: "Q2 2025",
-                    title: "Weighted lobbies",
-                    description: "Лобби, где игроки могут подключаться к боям с наградами, зависящими от веса ставки.",
-                },
-                {
-                    time: "Q3 2025",
-                    title: "Обновление движка",
-                    description:
-                        "Переход рендера на PIXI для производительности, анимаций и более богатой визуальной обратной связи.",
-                },
-                {
-                    time: "Q4 2025",
-                    title: "Marketplace и рейтинг",
-                    description: "Marketplace, ranked matchmaking, leaderboard, статистика и progression systems.",
-                },
-                {
-                    time: "2026",
-                    title: "Новая эра",
-                    description: "Расширение к guilds, crafting, mining, tournaments, seasons и staking.",
+                        "Свяжем игровой прогресс с marketplace, asset и reward systems после стабилизации multiplayer и ranking.",
                 },
             ],
         },

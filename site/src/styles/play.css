@@ -45,6 +45,18 @@
     text-transform: none;
 }
 
+.play-flow {
+    min-height: 46px;
+    margin-bottom: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #f7f7f3;
+    color: var(--ink);
+    font-size: 0.92rem;
+    line-height: 1.35;
+}
+
 .play-status-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(140px, 1fr));
@@ -162,6 +174,46 @@
     color: var(--muted);
     font-size: 0.78rem;
     line-height: 1.25;
+}
+
+.play-pick-panel {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+}
+
+.play-pick-panel[hidden] {
+    display: none;
+}
+
+.play-pick-panel strong {
+    font-size: 0.95rem;
+}
+
+.play-pick-panel span {
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+.play-pick-choice {
+    width: 100%;
+    min-height: 40px;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fdfdf9;
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.84rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.play-pick-choice:hover {
+    border-color: var(--blue);
 }
 
 .play-wide-action {

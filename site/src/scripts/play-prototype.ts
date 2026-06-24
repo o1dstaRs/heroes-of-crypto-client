@@ -199,7 +199,7 @@ const routes = {
     playAction: (gameId: string) => `${isProd ? "/v1/play-action" : "/v1/game/play-action"}/${encodeURIComponent(gameId)}`,
 };
 
-const authHeaders = (): HeadersInit => {
+const authHeaders = (): Record<string, string> => {
     state.token = window.localStorage.getItem("accessToken") ?? state.token;
     return state.token ? { Authorization: state.token, "x-request-id": crypto.randomUUID() } : { "x-request-id": crypto.randomUUID() };
 };
