@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 
 import { useAuthContext } from "../auth/context/auth_context";
+import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
 
 type Mode = "login" | "register";
 
@@ -84,7 +85,7 @@ export const LoginScreen: React.FC = () => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: "rgba(10, 12, 20, 0.96)",
+                backgroundColor: hocColors.black,
             }}
         >
             <Sheet
@@ -94,17 +95,15 @@ export const LoginScreen: React.FC = () => {
                     maxWidth: "92vw",
                     p: 3,
                     borderRadius: "md",
-                    bgcolor: "rgba(20, 24, 36, 0.9)",
-                    borderColor: "rgba(255,255,255,0.12)",
-                    color: "#fff",
+                    ...hocPanelSx,
                 }}
             >
                 <Stack spacing={2}>
                     <Box>
-                        <Typography level="h4" textColor="#fff">
+                        <Typography level="h4" textColor={hocColors.parchment}>
                             Heroes of Crypto
                         </Typography>
-                        <Typography level="body-sm" textColor="rgba(255,255,255,0.6)">
+                        <Typography level="body-sm" textColor={hocColors.muted}>
                             Sign in to continue
                         </Typography>
                     </Box>
@@ -113,16 +112,16 @@ export const LoginScreen: React.FC = () => {
                         <Button
                             fullWidth
                             variant={mode === "login" ? "solid" : "soft"}
-                            color="primary"
                             onClick={() => setMode("login")}
+                            sx={mode === "login" ? hocPrimaryButtonSx : hocSoftButtonSx}
                         >
                             Sign In
                         </Button>
                         <Button
                             fullWidth
                             variant={mode === "register" ? "solid" : "soft"}
-                            color="primary"
                             onClick={() => setMode("register")}
+                            sx={mode === "register" ? hocPrimaryButtonSx : hocSoftButtonSx}
                         >
                             Create Account
                         </Button>
@@ -132,51 +131,47 @@ export const LoginScreen: React.FC = () => {
                         <Stack spacing={1.5}>
                             {mode === "register" && (
                                 <FormControl>
-                                    <FormLabel sx={{ color: "rgba(255,255,255,0.7)" }}>Username</FormLabel>
+                                    <FormLabel sx={{ color: hocColors.mutedStrong }}>Username</FormLabel>
                                     <Input
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
                                         placeholder="username"
                                         required
+                                        sx={hocInputSx}
                                     />
                                 </FormControl>
                             )}
                             <FormControl>
-                                <FormLabel sx={{ color: "rgba(255,255,255,0.7)" }}>Email</FormLabel>
+                                <FormLabel sx={{ color: hocColors.mutedStrong }}>Email</FormLabel>
                                 <Input
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder="you@example.com"
                                     required
+                                    sx={hocInputSx}
                                 />
                             </FormControl>
                             <FormControl>
-                                <FormLabel sx={{ color: "rgba(255,255,255,0.7)" }}>Password</FormLabel>
+                                <FormLabel sx={{ color: hocColors.mutedStrong }}>Password</FormLabel>
                                 <Input
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="••••••••"
                                     required
+                                    sx={hocInputSx}
                                 />
                             </FormControl>
-                            <Button type="submit" variant="solid" color="primary" disabled={busy}>
+                            <Button type="submit" variant="solid" disabled={busy} sx={hocPrimaryButtonSx}>
                                 {busy ? "Please wait…" : mode === "login" ? "Sign In" : "Create Account"}
                             </Button>
                         </Stack>
                     </form>
 
-                    <Divider sx={{ color: "rgba(255,255,255,0.4)" }}>or</Divider>
+                    <Divider sx={{ color: hocColors.muted, borderColor: hocColors.orangeBorder }}>or</Divider>
 
-                    <Button
-                        fullWidth
-                        variant="soft"
-                        color="neutral"
-                        disabled={busy}
-                        onClick={handleConnectClick}
-                        sx={{ color: "#fff" }}
-                    >
+                    <Button fullWidth variant="soft" disabled={busy} onClick={handleConnectClick} sx={hocSoftButtonSx}>
                         {busy
                             ? "Waiting for signature…"
                             : isConnected && address

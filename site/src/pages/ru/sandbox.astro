@@ -2,30 +2,26 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 
 const lang = "ru";
-const isProd =
-    import.meta.env.PROD ||
-    import.meta.env.VITE_IS_PROD === "true" ||
-    import.meta.env.VITE_IS_PROD === true;
 const sandboxPath = (url: string) => url.replace(/\/play\/?$/, "/");
-const configuredGameClientUrls = [
+const remoteGameClientUrls = [
     import.meta.env.VITE_GAME_CLIENT_SANDBOX,
-    import.meta.env.VITE_HOST_GAME_CLIENT,
-    import.meta.env.VITE_GAME_CLIENT,
+    "https://beta.heroesofcrypto.io/",
 ]
     .filter(Boolean)
     .map((url) => sandboxPath(String(url)));
-const fallbackGameClientUrls = isProd
-    ? ["https://game.heroesofcrypto.io/"]
-    : [
-          "http://127.0.0.1:5175/",
-          "http://localhost:5175/",
-          "http://127.0.0.1:5174/",
-          "http://localhost:5174/",
-          "http://127.0.0.1:5173/",
-          "http://localhost:5173/",
-      ];
-const gameClientUrls = [...new Set([...configuredGameClientUrls, ...fallbackGameClientUrls])];
-const fallbackUrl = gameClientUrls[0];
+const localGameClientUrls = [
+    import.meta.env.VITE_HOST_GAME_CLIENT,
+    import.meta.env.VITE_GAME_CLIENT,
+    "http://127.0.0.1:5175/",
+    "http://localhost:5175/",
+    "http://127.0.0.1:5174/",
+    "http://localhost:5174/",
+    "http://127.0.0.1:5173/",
+    "http://localhost:5173/",
+]
+    .filter(Boolean)
+    .map((url) => sandboxPath(String(url)));
+const fallbackUrl = remoteGameClientUrls[0];
 ---
 
 <BaseLayout
@@ -40,7 +36,12 @@ const fallbackUrl = gameClientUrls[0];
     </section>
 </BaseLayout>
 
-<script define:vars={{ gameClientUrls }}>
+<script
+    define:vars={{
+        localGameClientUrls: [...new Set(localGameClientUrls)],
+        remoteGameClientUrls: [...new Set(remoteGameClientUrls)],
+    }}
+>
     const localHosts = new Set(["127.0.0.1", "localhost", "::1"]);
 
     function targetWithToken(url) {
@@ -74,11 +75,13 @@ const fallbackUrl = gameClientUrls[0];
     }
 
     async function resolveTarget() {
+        const isLocalSite = localHosts.has(window.location.hostname);
+        const gameClientUrls = isLocalSite ? localGameClientUrls : remoteGameClientUrls;
+
         for (const url of gameClientUrls) {
             const candidate = targetWithToken(url);
             if (candidate.href === window.location.href) continue;
-            if (!localHosts.has(candidate.hostname)) return candidate;
-            if (!localHosts.has(window.location.hostname) || await canReach(candidate.href)) return candidate;
+            if (!isLocalSite || await canReach(candidate.href)) return candidate;
         }
 
         return targetWithToken(gameClientUrls[0]);

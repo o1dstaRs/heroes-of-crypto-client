@@ -73,7 +73,8 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
 // Helper to pick an active scene; adjust to your registry flow if needed.
 import { useActiveSceneEntry } from "../hooks/useActiveSceneEntry";
 
-export const Main: React.FC = () => {
-    const entry = useActiveSceneEntry();
+export const Main: React.FC<{ entry?: SceneEntry }> = ({ entry: entryOverride }) => {
+    const activeEntry = useActiveSceneEntry();
+    const entry = entryOverride ?? activeEntry;
     return entry ? <GameScreen entry={entry} /> : <span />;
 };

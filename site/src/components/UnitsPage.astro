@@ -13,6 +13,10 @@ const ui = copy.units;
 const s = ui.stats;
 
 const unitIndex: Unit[] = factionUnits.flatMap((f) => f.units);
+const allUnitsDisplay = [...unitIndex]
+    .map((unit, dataIndex) => ({ unit, dataIndex }))
+    .sort((a, b) => a.unit.name.localeCompare(b.unit.name) || a.unit.faction.localeCompare(b.unit.faction));
+const alphaOrder = new Map(allUnitsDisplay.map(({ dataIndex }, order) => [dataIndex, order]));
 const serialized = JSON.stringify(
     unitIndex.map((unit) => ({
         ...unit,
@@ -187,7 +191,7 @@ function unitSearchText(unit: Unit) {
 
         <div class="units-grid" data-units-grid>
             {
-                unitIndex.map((unit, i) => {
+                allUnitsDisplay.map(({ unit, dataIndex }) => {
                     const attackType = localizedAttackLabel(unit.attackType);
                     const movementType = localizedMovementLabel(unit.movementType);
                     const searchText = unitSearchText(unit);
@@ -195,8 +199,10 @@ function unitSearchText(unit: Unit) {
                     return (
                         <button
                             class="unit-card"
-                            data-unit={i}
+                            data-unit={dataIndex}
                             data-faction={unit.faction}
+                            data-alpha-order={alphaOrder.get(dataIndex)}
+                            data-faction-order={dataIndex}
                             data-search={searchText}
                             type="button"
                             style={`--faction: ${factionColors[unit.faction]}`}
@@ -477,10 +483,22 @@ function unitSearchText(unit: Unit) {
     }
 
     const pills = Array.from(document.querySelectorAll<HTMLButtonElement>(".faction-pill"));
-    const cards = document.querySelectorAll<HTMLElement>(".unit-card");
+    const grid = document.querySelector<HTMLElement>("[data-units-grid]");
+    const cards = Array.from(document.querySelectorAll<HTMLElement>(".unit-card"));
     const searchInput = document.querySelector<HTMLInputElement>("[data-unit-search]");
     const emptyState = document.querySelector<HTMLElement>("[data-units-empty]");
     let activeFaction = "all";
+
+    const cardOrder = (card: HTMLElement, key: "alphaOrder" | "factionOrder") =>
+        Number(card.dataset[key] ?? "0");
+
+    const syncCardOrder = () => {
+        if (!grid) return;
+
+        const orderKey = activeFaction === "all" ? "alphaOrder" : "factionOrder";
+        const sortedCards = [...cards].sort((a, b) => cardOrder(a, orderKey) - cardOrder(b, orderKey));
+        grid.append(...sortedCards);
+    };
 
     const syncFactionParam = (faction: string) => {
         const url = new URL(window.location.href);
@@ -517,6 +535,7 @@ function unitSearchText(unit: Unit) {
             pill.setAttribute("aria-pressed", isActive ? "true" : "false");
         });
         syncFactionParam(faction);
+        syncCardOrder();
         applyFilters();
     };
 

@@ -15,9 +15,18 @@ type Props = {
 
 export const WalletProvider = ({ children }: Props) => {
     return (
-        <WagmiProvider config={wagmiConfig}>
+        <WagmiProvider config={wagmiConfig} reconnectOnMount={false}>
             <QueryClientProvider client={queryClient}>
-                <RainbowKitProvider theme={darkTheme()}>{children}</RainbowKitProvider>
+                <RainbowKitProvider
+                    theme={darkTheme({
+                        accentColor: "#ff8f00",
+                        accentColorForeground: "#070504",
+                        borderRadius: "small",
+                        overlayBlur: "small",
+                    })}
+                >
+                    {children}
+                </RainbowKitProvider>
             </QueryClientProvider>
         </WagmiProvider>
     );

@@ -35,6 +35,7 @@ import "../scenes";
 import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
 import type { LoadingScreen } from "../scenes/LoadingScreen";
 import { getScenesGrouped } from "./PixiScene";
+import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 
 // A scene that (optionally) exposes the overlay
 type SceneWithUnitsOverlay = PixiScene & {
@@ -95,6 +96,7 @@ export class PixiGameManager {
     private textures: PreloadedPixiTextures | null = null;
     private forwardOverlayInteraction?: (e: PointerEvent) => void;
     private overlayDebugCanvas?: HTMLCanvasElement;
+    private gameActionTransport?: SceneGameActionTransport;
     private overlayMouseSuppression?: {
         clientX: number;
         clientY: number;
@@ -314,8 +316,27 @@ export class PixiGameManager {
         return this._pixiApp.getTerrainContainer();
     }
     public setScene(title: string, constructor: SceneConstructor) {
+        const changed = this.sceneTitle !== title || this.sceneConstructor !== constructor;
         this.sceneTitle = title;
         this.sceneConstructor = constructor;
+        if (this.isInitialized && changed) {
+            this.LoadGame(true);
+        }
+    }
+    public SetGameActionTransport(transport?: SceneGameActionTransport): void {
+        this.gameActionTransport = transport;
+        this.m_scene?.setGameActionTransport(transport);
+    }
+    public ApplyAuthoritativeSnapshot(snapshot: AuthoritativeGameSnapshot): void {
+        this.m_scene?.applyAuthoritativeSnapshot(snapshot);
+        this.started = snapshot.fightStarted && !snapshot.fightFinished;
+        this.onHasStarted.emit(this.started);
+        this.fitViewToWindow();
+        this.UpdateHoverInfo();
+    }
+    public SelectAuthoritativeUnit(unitId: string): void {
+        this.m_scene?.selectAuthoritativeUnit(unitId);
+        this.UpdateHoverInfo();
     }
     /** Fit board to window (no manual zoom controls). */
     private fitViewToWindow(): void {
@@ -476,6 +497,7 @@ export class PixiGameManager {
             textures: this._textures,
             gridSettings: gridSettings,
             onHasStarted: this.onHasStarted,
+            gameActionTransport: this.gameActionTransport,
         };
         this.m_scene = new SceneClass(context);
 

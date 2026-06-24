@@ -316,7 +316,6 @@ export class AIController {
 
         return true;
     }
-
     private selectAttackType(unit: RenderableUnit, attackType: AttackType): boolean {
         if (unit.getAttackTypeSelection() === attackType) {
             return false;

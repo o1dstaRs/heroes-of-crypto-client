@@ -3,6 +3,17 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
+const isKnownDependencyWarning = (log) => {
+    const id = typeof log?.id === "string" ? log.id : "";
+    const message = typeof log?.message === "string" ? log.message : "";
+    const code = log?.code;
+
+    return (
+        (code === "EVAL" && (id.includes("google-protobuf") || message.includes("google-protobuf"))) ||
+        (code === "INVALID_ANNOTATION" && (id.includes("/ox/") || id.includes("\\ox\\")))
+    );
+};
+
 export default defineConfig(({ mode }) => {
     // Load .env / .env.production from this directory
     const env = loadEnv(mode, __dirname, ""); // expose PROD + VITE_*
@@ -78,10 +89,17 @@ export default defineConfig(({ mode }) => {
         build: {
             outDir: path.resolve(__dirname, "dist"),
             emptyOutDir: true,
+            chunkSizeWarningLimit: 4096,
             // base: "./" keeps relative asset paths if you deploy static to a subdir
             // uncomment if you serve from a subpath or file://
             // base: "./",
             rollupOptions: {
+                onLog(level, log, handler) {
+                    if (level === "warn" && isKnownDependencyWarning(log)) {
+                        return;
+                    }
+                    handler(level, log);
+                },
                 output: {
                     // Optional: keep vendor split predictable.
                     // Vite 8 (rolldown) requires manualChunks to be a function, not an object.

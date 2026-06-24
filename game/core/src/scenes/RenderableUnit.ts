@@ -462,7 +462,7 @@ export class RenderableUnit extends Unit {
         const cycleSec = 1.8;
         const maxR = baseR * (isLarge ? 1.5 : 1.35);
         for (let i = 0; i < ringCount; i++) {
-            const phase = ((t / cycleSec) + i / ringCount) % 1;
+            const phase = (t / cycleSec + i / ringCount) % 1;
             const r = baseR + (maxR - baseR) * phase;
             const a = (1 - phase) * 0.55;
             const width = 2 + (1 - phase) * 2.5;
@@ -893,9 +893,7 @@ export class RenderableUnit extends Unit {
      * its world position, and the sprite scale (which includes the y-up flip). Call before
      * destroyVisuals(), while the sprite still exists.
      */
-    public getShatterInfo():
-        | { texture: Texture; x: number; y: number; scaleX: number; scaleY: number }
-        | null {
+    public getShatterInfo(): { texture: Texture; x: number; y: number; scaleX: number; scaleY: number } | null {
         const s = this.sprite;
         if (!s || !s.texture) return null;
         const pos = this.getPosition();

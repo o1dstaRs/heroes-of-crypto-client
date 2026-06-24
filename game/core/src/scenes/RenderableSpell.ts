@@ -18,15 +18,18 @@ export enum BookPosition {
 
 // Coordinates are local to the centered 1024x1024 book texture.
 // Keep the spell cells inside the parchment rectangles instead of tuning against screen pixels.
-const BOOK_POSITION_LEFT_X = -340;
-const BOOK_POSITION_RIGHT_X = 135;
-const BOOK_POSITION_TOP_Y = -260;
-const BOOK_POSITION_ROW_STEP = 215;
-const BOOK_SPELL_SIZE = 160;
-const BOOK_CELL_SIZE = 250;
-const BOOK_CELL_OFFSET_X = -54;
-const BOOK_CELL_OFFSET_Y = -42;
-const AMOUNT_BADGE_HEIGHT = 42;
+const BOOK_POSITION_LEFT_X = -380;
+const BOOK_POSITION_RIGHT_X = 96;
+const BOOK_POSITION_TOP_Y = -292;
+const BOOK_POSITION_ROW_STEP = 226;
+const BOOK_CELL_SIZE = 220;
+const BOOK_SPELL_SIZE = 140;
+const BOOK_ICON_OFFSET_X = 40;
+const BOOK_ICON_OFFSET_Y = 28;
+const BOOK_TITLE_MARGIN_X = 11;
+const BOOK_TITLE_MARGIN_BOTTOM = 8;
+const BOOK_STACK_BAR_X = 14;
+const AMOUNT_BADGE_HEIGHT = 38;
 
 export type DigitTextureMap = Map<number, Texture>;
 
@@ -184,10 +187,10 @@ export class PixiRenderableSpell extends Spell {
         const mod = bookPosition % 3;
         const pagePosition = mod || 3;
 
-        const xPos = page === 1 ? BOOK_POSITION_LEFT_X : BOOK_POSITION_RIGHT_X;
-        const yPos = BOOK_POSITION_TOP_Y + (pagePosition - 1) * BOOK_POSITION_ROW_STEP;
-        const cellX = xPos + BOOK_CELL_OFFSET_X;
-        const cellY = yPos + BOOK_CELL_OFFSET_Y;
+        const cellX = page === 1 ? BOOK_POSITION_LEFT_X : BOOK_POSITION_RIGHT_X;
+        const cellY = BOOK_POSITION_TOP_Y + (pagePosition - 1) * BOOK_POSITION_ROW_STEP;
+        const iconX = cellX + BOOK_ICON_OFFSET_X;
+        const iconY = cellY + BOOK_ICON_OFFSET_Y;
 
         // Background cell
         this.bgSprite.width = BOOK_CELL_SIZE;
@@ -198,21 +201,20 @@ export class PixiRenderableSpell extends Spell {
         // Icon (main sprite)
         this.iconSprite.width = BOOK_SPELL_SIZE;
         this.iconSprite.height = BOOK_SPELL_SIZE;
-        this.iconSprite.x = xPos;
-        this.iconSprite.y = yPos;
+        this.iconSprite.x = iconX;
+        this.iconSprite.y = iconY;
 
         // Hover rect cache (icon bounds)
-        this.xMin = xPos;
-        this.xMax = xPos + BOOK_SPELL_SIZE;
-        this.yMin = yPos;
-        this.yMax = yPos + BOOK_SPELL_SIZE;
+        this.xMin = iconX;
+        this.xMax = iconX + BOOK_SPELL_SIZE;
+        this.yMin = iconY;
+        this.yMax = iconY + BOOK_SPELL_SIZE;
 
-        // Title strip just above icon
-        const fifthStep = BOOK_SPELL_SIZE / 5;
-        this.titleSprite.width = BOOK_SPELL_SIZE;
-        this.titleSprite.height = fifthStep;
-        this.titleSprite.x = xPos;
-        this.titleSprite.y = yPos + BOOK_SPELL_SIZE + 8;
+        // Keep long spell names inside the cell instead of matching the smaller icon width.
+        this.titleSprite.width = BOOK_CELL_SIZE - BOOK_TITLE_MARGIN_X * 2;
+        this.titleSprite.height = 38;
+        this.titleSprite.x = cellX + BOOK_TITLE_MARGIN_X;
+        this.titleSprite.y = cellY + BOOK_CELL_SIZE - BOOK_TITLE_MARGIN_BOTTOM - this.titleSprite.height;
 
         // Visibility + alpha rules
         const hasScrolls = this.amountRemaining > 0;
@@ -230,14 +232,14 @@ export class PixiRenderableSpell extends Spell {
         this.iconSprite.visible = true;
         this.titleSprite.visible = true;
 
-        this.renderDisabledOverlay(xPos, yPos, !enabled);
+        this.renderDisabledOverlay(iconX, iconY, !enabled);
         this.renderHoverFrame(cellX, cellY, enabled);
 
         // Number of scrolls remaining.
         this.renderAmount(cellX, cellY, enabled, hasStackPower);
 
         // Stack column
-        this.renderStackColumn(xPos, yPos, ownerStackPower, hasScrolls);
+        this.renderStackColumn(cellX, cellY, ownerStackPower, hasScrolls);
     }
     private clearAmountDigitSprites(): void {
         for (const s of this.amountDigitSprites) {
@@ -300,13 +302,13 @@ export class PixiRenderableSpell extends Spell {
             this.amountDigitSprites.push(s);
         }
     }
-    private renderStackColumn(xPos: number, yPos: number, ownerStackPower: number, canRenderStack: boolean) {
+    private renderStackColumn(cellX: number, cellY: number, ownerStackPower: number, canRenderStack: boolean) {
         // Clear previous vectors
         this.stackColumnGfx.clear();
 
         // Draw thin rectangles using Graphics (Pixi v8 API)
         const sixthStep = BOOK_SPELL_SIZE / 6;
-        const barX = xPos + BOOK_CELL_OFFSET_X + 14;
+        const barX = cellX + BOOK_STACK_BAR_X;
         const barW = sixthStep - 8;
         const barH = BOOK_SPELL_SIZE / HoCConstants.MAX_UNIT_STACK_POWER;
 
@@ -319,7 +321,7 @@ export class PixiRenderableSpell extends Spell {
         let stackIndex = 1;
         let yShift = 0;
         while (stackIndex <= this.getMinimalCasterStackPower()) {
-            const targetY = yPos + BOOK_SPELL_SIZE - barH - yShift;
+            const targetY = cellY + BOOK_ICON_OFFSET_Y + BOOK_SPELL_SIZE - barH - yShift;
             this.stackColumnGfx.rect(barX, targetY, barW, barH - 3).fill({ color: fillColor, alpha });
             stackIndex++;
             yShift += BOOK_SPELL_SIZE / 5;

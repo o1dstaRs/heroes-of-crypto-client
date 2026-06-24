@@ -36,8 +36,8 @@ const successMessages = {
 };
 const passwordId = `${normalizedMode}-password`;
 const confirmPasswordId = `${normalizedMode}-confirm-password`;
-const rankedHref = lang === "ru" ? "/ru/play/" : links.rankedApp;
-const sandboxHref = lang === "ru" ? "/ru/sandbox/" : links.sandboxApp;
+const rankedHref = links.rankedApp;
+const sandboxHref = links.sandboxApp;
 ---
 
 <section class="auth-section">
@@ -226,7 +226,7 @@ const sandboxHref = lang === "ru" ? "/ru/sandbox/" : links.sandboxApp;
                 )
             }
 
-            <a class="button secondary auth-game-link" href={rankedHref}>
+            <a class="button secondary auth-game-link" href={links.play}>
                 {auth.continueToGame}
             </a>
         </form>

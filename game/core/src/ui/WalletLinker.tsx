@@ -6,12 +6,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAccount, useDisconnect, useSignMessage } from "wagmi";
 
 import { useAuthContext } from "./auth/context/auth_context";
+import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 
 const shortAddress = (address: string): string => `${address.slice(0, 6)}…${address.slice(-4)}`;
 const normalizeAddress = (address: string): string => address.toLowerCase();
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,50}$/;
-const passwordRequirements = "Password must be 8-50 characters and include uppercase, lowercase, number, and special character";
+const passwordRequirements =
+    "Password must be 8-50 characters and include uppercase, lowercase, number, and special character";
 
 const messageFromError = (error: unknown, fallback: string): string => {
     if (typeof error === "string") {
@@ -23,16 +25,13 @@ const messageFromError = (error: unknown, fallback: string): string => {
     return fallback;
 };
 
-export const WalletLinker: React.FC = () => {
-    const {
-        authenticated,
-        user,
-        getWallets,
-        linkWallet,
-        unlinkWallet,
-        requestEmailLink,
-        confirmEmailLink,
-    } = useAuthContext();
+interface WalletLinkerProps {
+    compact?: boolean;
+}
+
+export const WalletLinker: React.FC<WalletLinkerProps> = ({ compact = false }) => {
+    const { authenticated, user, getWallets, linkWallet, unlinkWallet, requestEmailLink, confirmEmailLink } =
+        useAuthContext();
     const { address, isConnected } = useAccount();
     const { signMessageAsync } = useSignMessage();
     const { disconnectAsync } = useDisconnect();
@@ -74,20 +73,23 @@ export const WalletLinker: React.FC = () => {
         void loadWallets();
     }, [loadWallets]);
 
-    const handleLink = useCallback(async (walletAddress: string) => {
-        setError("");
-        setNotice("");
-        setBusy(true);
-        try {
-            const addresses = await linkWallet(walletAddress, (message) => signMessageAsync({ message }));
-            setLinked(addresses);
-            setNotice(`Linked ${shortAddress(walletAddress)}`);
-        } catch (err: unknown) {
-            setError(messageFromError(err, "Failed to link wallet"));
-        } finally {
-            setBusy(false);
-        }
-    }, [linkWallet, signMessageAsync]);
+    const handleLink = useCallback(
+        async (walletAddress: string) => {
+            setError("");
+            setNotice("");
+            setBusy(true);
+            try {
+                const addresses = await linkWallet(walletAddress, (message) => signMessageAsync({ message }));
+                setLinked(addresses);
+                setNotice(`Linked ${shortAddress(walletAddress)}`);
+            } catch (err: unknown) {
+                setError(messageFromError(err, "Failed to link wallet"));
+            } finally {
+                setBusy(false);
+            }
+        },
+        [linkWallet, signMessageAsync],
+    );
 
     useEffect(() => {
         if (!connectIntent || !isConnected || !address || busy) {
@@ -240,66 +242,67 @@ export const WalletLinker: React.FC = () => {
             variant="outlined"
             sx={{
                 width: "100%",
-                p: 1.25,
+                p: compact ? 1 : 1.25,
                 borderRadius: "md",
-                bgcolor: "rgba(12, 14, 20, 0.74)",
-                borderColor: "rgba(255,255,255,0.14)",
-                color: "#fff",
+                ...hocPanelSx,
             }}
         >
-            <Stack spacing={1.1}>
+            <Stack spacing={compact ? 0.85 : 1.1}>
                 <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1 }}>
                     <Box sx={{ minWidth: 0 }}>
-                        <Typography level="title-sm" textColor="#fff">
-                            Account
+                        <Typography level="title-sm" textColor={hocColors.parchment}>
+                            {compact ? "Wallet" : "Account"}
                         </Typography>
-                        <Typography level="body-xs" textColor="rgba(255,255,255,0.62)" noWrap>
+                        <Typography level="body-xs" textColor={hocColors.muted} noWrap>
                             {hasEmail ? user?.email : "Wallet account"}
                         </Typography>
                     </Box>
-                    <Typography level="body-xs" textColor="rgba(255,255,255,0.5)">
+                    <Typography level="body-xs" textColor="rgba(239, 228, 204, 0.5)">
                         {linked.length} wallet{linked.length === 1 ? "" : "s"}
                     </Typography>
                 </Box>
 
-                {!hasEmail && (
+                {!compact && !hasEmail && (
                     <Box component="form" onSubmit={emailCodeSent ? handleConfirmEmail : handleRequestEmail}>
                         <Stack spacing={0.75}>
-                            <Typography level="body-xs" textColor="rgba(255,255,255,0.66)">
+                            <Typography level="body-xs" textColor={hocColors.muted}>
                                 Add email login
                             </Typography>
                             <FormControl size="sm">
-                                <FormLabel sx={{ color: "rgba(255,255,255,0.68)" }}>Email</FormLabel>
+                                <FormLabel sx={{ color: hocColors.mutedStrong }}>Email</FormLabel>
                                 <Input
                                     type="email"
                                     value={email}
                                     onChange={(event) => setEmail(event.target.value)}
                                     placeholder="you@example.com"
                                     disabled={busy || emailCodeSent}
+                                    sx={hocInputSx}
                                 />
                             </FormControl>
                             <FormControl size="sm">
-                                <FormLabel sx={{ color: "rgba(255,255,255,0.68)" }}>Password</FormLabel>
+                                <FormLabel sx={{ color: hocColors.mutedStrong }}>Password</FormLabel>
                                 <Input
                                     type="password"
                                     value={password}
                                     onChange={(event) => setPassword(event.target.value)}
                                     placeholder="8+ characters"
                                     disabled={busy}
+                                    sx={hocInputSx}
                                 />
                             </FormControl>
                             {emailCodeSent && (
                                 <FormControl size="sm">
-                                    <FormLabel sx={{ color: "rgba(255,255,255,0.68)" }}>Code</FormLabel>
+                                    <FormLabel sx={{ color: hocColors.mutedStrong }}>Code</FormLabel>
                                     <Input
                                         value={code}
                                         onChange={(event) => setCode(event.target.value)}
                                         placeholder="verification code"
                                         disabled={busy}
+                                        sx={hocInputSx}
                                     />
                                 </FormControl>
                             )}
-                            <Button type="submit" size="sm" variant="soft" color="primary" disabled={busy}>
+                            <Button type="submit" size="sm" variant="solid" disabled={busy} sx={hocPrimaryButtonSx}>
                                 {emailCodeSent ? "Confirm Email" : "Send Code"}
                             </Button>
                             {emailCodeSent && (
@@ -312,6 +315,7 @@ export const WalletLinker: React.FC = () => {
                                         setEmailCodeSent(false);
                                         setCode("");
                                     }}
+                                    sx={{ color: hocColors.mutedStrong }}
                                 >
                                     Change Email
                                 </Button>
@@ -320,66 +324,75 @@ export const WalletLinker: React.FC = () => {
                     </Box>
                 )}
 
-                <Divider sx={{ borderColor: "rgba(255,255,255,0.12)" }} />
+                {!compact && <Divider sx={{ borderColor: hocColors.orangeBorder }} />}
 
                 <Stack spacing={0.75}>
                     <Box sx={{ display: "flex", gap: 0.75, alignItems: "center" }}>
-                        <Button size="sm" variant="soft" color="primary" onClick={handleConnectClick} disabled={busy}>
+                        <Button
+                            size="sm"
+                            variant="solid"
+                            fullWidth={compact}
+                            onClick={handleConnectClick}
+                            disabled={busy}
+                            sx={hocPrimaryButtonSx}
+                        >
                             {walletActionLabel}
                         </Button>
                         <Button
                             size="sm"
-                            variant="plain"
-                            color="neutral"
+                            variant={compact ? "soft" : "plain"}
                             onClick={handleSwitchWallet}
                             disabled={busy || !openConnectModal}
+                            sx={compact ? hocSoftButtonSx : { color: hocColors.mutedStrong }}
                         >
                             Switch
                         </Button>
                     </Box>
 
-                    {loadingWallets ? (
-                        <Typography level="body-xs" textColor="rgba(255,255,255,0.52)">
-                            Loading wallets...
-                        </Typography>
-                    ) : linked.length ? (
-                        <Stack spacing={0.5}>
-                            {linked.map((walletAddress) => {
-                                const connected =
-                                    !!address && normalizeAddress(walletAddress) === normalizeAddress(address);
-                                return (
-                                    <Box
-                                        key={walletAddress}
-                                        sx={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "space-between",
-                                            gap: 1,
-                                            minWidth: 0,
-                                        }}
-                                    >
-                                        <Typography level="body-xs" textColor="rgba(255,255,255,0.72)" noWrap>
-                                            {shortAddress(walletAddress)}
-                                            {connected ? " connected" : ""}
-                                        </Typography>
-                                        <Button
-                                            size="sm"
-                                            variant="plain"
-                                            color="neutral"
-                                            onClick={() => void handleUnlink(walletAddress)}
-                                            disabled={busy || !canUnlink}
+                    {!compact &&
+                        (loadingWallets ? (
+                            <Typography level="body-xs" textColor="rgba(239, 228, 204, 0.52)">
+                                Loading wallets...
+                            </Typography>
+                        ) : linked.length ? (
+                            <Stack spacing={0.5}>
+                                {linked.map((walletAddress) => {
+                                    const connected =
+                                        !!address && normalizeAddress(walletAddress) === normalizeAddress(address);
+                                    return (
+                                        <Box
+                                            key={walletAddress}
+                                            sx={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "space-between",
+                                                gap: 1,
+                                                minWidth: 0,
+                                            }}
                                         >
-                                            Unlink
-                                        </Button>
-                                    </Box>
-                                );
-                            })}
-                        </Stack>
-                    ) : (
-                        <Typography level="body-xs" textColor="rgba(255,255,255,0.52)">
-                            No linked wallet
-                        </Typography>
-                    )}
+                                            <Typography level="body-xs" textColor={hocColors.mutedStrong} noWrap>
+                                                {shortAddress(walletAddress)}
+                                                {connected ? " connected" : ""}
+                                            </Typography>
+                                            <Button
+                                                size="sm"
+                                                variant="plain"
+                                                color="neutral"
+                                                onClick={() => void handleUnlink(walletAddress)}
+                                                disabled={busy || !canUnlink}
+                                                sx={{ color: hocColors.mutedStrong }}
+                                            >
+                                                Unlink
+                                            </Button>
+                                        </Box>
+                                    );
+                                })}
+                            </Stack>
+                        ) : (
+                            <Typography level="body-xs" textColor="rgba(239, 228, 204, 0.52)">
+                                No linked wallet
+                            </Typography>
+                        ))}
                 </Stack>
 
                 {notice && (

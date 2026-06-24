@@ -80,7 +80,15 @@ const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
     </ListItem>
 );
 
-export default function RightSideBar({ gameStarted, windowSize }: { gameStarted: boolean; windowSize: IWindowSize }) {
+export default function RightSideBar({
+    gameStarted,
+    windowSize,
+    showWallet = false,
+}: {
+    gameStarted: boolean;
+    windowSize: IWindowSize;
+    showWallet?: boolean;
+}) {
     const [unitDamageStatistics, setUnitDamageStatistics] = useState([] as IDamageStatistic[]);
     const manager = usePixiManager();
     const [barSize, setBarSize] = useState(280);
@@ -254,7 +262,7 @@ export default function RightSideBar({ gameStarted, windowSize }: { gameStarted:
                         }}
                     />
                     <Divider />
-                    <WalletLinker />
+                    {showWallet && <WalletLinker />}
                     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <FullscreenToggle />
                         <VersionDisplay />

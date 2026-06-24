@@ -5,6 +5,7 @@ import { useNavigate } from "react-router";
 
 import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
 import { useAuthContext } from "./auth/context/auth_context";
+import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { WalletLinker } from "./WalletLinker";
 
 type MatchmakingEvent = {
@@ -189,7 +190,7 @@ export const MatchmakingRoute: React.FC = () => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                bgcolor: "rgba(9, 10, 14, 0.96)",
+                bgcolor: hocColors.black,
                 px: 2,
             }}
         >
@@ -200,17 +201,15 @@ export const MatchmakingRoute: React.FC = () => {
                     maxWidth: "100%",
                     p: 3,
                     borderRadius: "md",
-                    bgcolor: "rgba(21, 25, 34, 0.92)",
-                    borderColor: "rgba(255,255,255,0.12)",
-                    color: "#fff",
+                    ...hocPanelSx,
                 }}
             >
                 <Stack spacing={2.25}>
                     <Box>
-                        <Typography level="h3" textColor="#fff">
+                        <Typography level="h3" textColor={hocColors.parchment}>
                             Ranked Match
                         </Typography>
-                        <Typography level="body-sm" textColor="rgba(255,255,255,0.62)">
+                        <Typography level="body-sm" textColor={hocColors.muted}>
                             {statusText}
                         </Typography>
                     </Box>
@@ -220,27 +219,27 @@ export const MatchmakingRoute: React.FC = () => {
                     {(state === "searching" || state === "accepted") && (
                         <Stack direction="row" spacing={1.5} alignItems="center">
                             <CircularProgress size="sm" />
-                            <Typography level="body-sm" textColor="rgba(255,255,255,0.72)">
+                            <Typography level="body-sm" textColor={hocColors.mutedStrong}>
                                 {state === "accepted" ? "Waiting for server confirmation" : "Queue stream connected"}
                             </Typography>
                         </Stack>
                     )}
 
                     {pendingGameId && (
-                        <Typography level="body-xs" textColor="rgba(255,255,255,0.46)">
+                        <Typography level="body-xs" textColor="rgba(239, 228, 204, 0.46)">
                             Game {pendingGameId}
                         </Typography>
                     )}
 
                     <Stack direction="row" spacing={1}>
                         {state === "idle" || state === "error" ? (
-                            <Button fullWidth variant="solid" color="primary" onClick={handleStart}>
+                            <Button fullWidth variant="solid" onClick={handleStart} sx={hocPrimaryButtonSx}>
                                 Find Opponent
                             </Button>
                         ) : null}
 
                         {state === "searching" ? (
-                            <Button fullWidth variant="soft" color="neutral" onClick={handleCancel}>
+                            <Button fullWidth variant="soft" onClick={handleCancel} sx={hocSoftButtonSx}>
                                 Leave Queue
                             </Button>
                         ) : null}
@@ -249,9 +248,9 @@ export const MatchmakingRoute: React.FC = () => {
                             <Button
                                 fullWidth
                                 variant="solid"
-                                color="success"
                                 disabled={state === "accepted"}
                                 onClick={handleAccept}
+                                sx={hocPrimaryButtonSx}
                             >
                                 Accept Match
                             </Button>

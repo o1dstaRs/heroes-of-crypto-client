@@ -114,13 +114,7 @@ export class CombatVisuals {
      * "Broken mirror" death effect: slice the unit's current texture into a grid of shards that
      * start in place (composing the unit image), then burst outward, fall, spin, and fade.
      */
-    public spawnShatter(info: {
-        texture: Texture;
-        x: number;
-        y: number;
-        scaleX: number;
-        scaleY: number;
-    }): void {
+    public spawnShatter(info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number }): void {
         const tex = info.texture;
         const source = tex?.source;
         const frame = tex?.frame;

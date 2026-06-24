@@ -25,6 +25,9 @@ import { AuthProvider } from "./auth/context/auth_provider";
 import { useAuthContext } from "./auth/context/auth_context";
 import { LoginScreen } from "./LoginScreen/LoginScreen";
 import { MatchmakingRoute } from "./MatchmakingRoute";
+import type { SceneGameActionTransport } from "../game_action_transport";
+import { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
+import { RankedGameView } from "./RankedGameView";
 
 const usePreventSelection = () => {
     useEffect(() => {
@@ -86,10 +89,20 @@ const usePreventSelection = () => {
 
 import { ButtonProvider } from "./context/ButtonContext";
 
-const Heroes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
+const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGameActionTransport }> = ({
+    windowSize,
+    gameActionTransport,
+}) => {
     const manager = usePixiManager();
     const [started, setStarted] = useState(false);
     const [isLoading, setIsLoading] = useState(manager.isLoading);
+
+    useEffect(() => {
+        manager.SetGameActionTransport(gameActionTransport);
+        return () => {
+            manager.SetGameActionTransport(undefined);
+        };
+    }, [gameActionTransport, manager]);
 
     useEffect(() => {
         const connection = manager.onHasStarted.connect((hasStarted) => {
@@ -192,6 +205,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const [showOverlay, setShowOverlay] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const [userTeam, setUserTeam] = useState<TeamType>(TeamVals.NO_TEAM as TeamType);
+    const [routeMode, setRouteMode] = useState<"checking" | "pick" | "play">("checking");
 
     useEffect(() => {
         const fetchGame = async () => {
@@ -211,6 +225,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                         setShowOverlay(true);
                         setErrorMessage("The game is no longer active or you don't have access to it");
                     } else {
+                        setRouteMode("checking");
                         setShowOverlay(false);
                     }
                 }
@@ -223,6 +238,38 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
 
         fetchGame();
     }, [gameId, getCurrentGame]);
+
+    useEffect(() => {
+        if (!gameId || showOverlay || userTeam === TeamVals.NO_TEAM || routeMode === "play") {
+            return;
+        }
+
+        let cancelled = false;
+        let intervalId: number | undefined;
+
+        const probePlaySnapshot = async () => {
+            try {
+                await fetchRankedPlaySnapshot(gameId);
+                if (!cancelled) {
+                    setRouteMode("play");
+                }
+            } catch {
+                if (!cancelled) {
+                    setRouteMode("pick");
+                }
+            }
+        };
+
+        void probePlaySnapshot();
+        intervalId = window.setInterval(probePlaySnapshot, 2500);
+
+        return () => {
+            cancelled = true;
+            if (intervalId) {
+                window.clearInterval(intervalId);
+            }
+        };
+    }, [gameId, routeMode, showOverlay, userTeam]);
 
     return (
         <>
@@ -248,7 +295,31 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                 </div>
             )}
             {!showOverlay && userTeam !== TeamVals.NO_TEAM && gameId && (
-                <PickAndBanView windowSize={windowSize} userTeam={userTeam} gameId={gameId ?? ""} />
+                <>
+                    {routeMode === "checking" && (
+                        <div
+                            style={{
+                                position: "fixed",
+                                inset: 0,
+                                backgroundColor: "#0f1117",
+                                color: "white",
+                                display: "flex",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                zIndex: 1000,
+                                fontSize: "20px",
+                            }}
+                        >
+                            Loading game...
+                        </div>
+                    )}
+                    {routeMode === "pick" && (
+                        <PickAndBanView windowSize={windowSize} userTeam={userTeam} gameId={gameId} />
+                    )}
+                    {routeMode === "play" && (
+                        <RankedGameView windowSize={windowSize} gameId={gameId} userTeam={userTeam} />
+                    )}
+                </>
             )}
         </>
     );
@@ -261,16 +332,24 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
         return null;
     }
 
-    if (!authenticated) {
-        return <LoginScreen />;
-    }
-
     return (
         <Routes>
+            {/* Offline sandbox is available without login */}
             <Route path="/" element={<Heroes windowSize={windowSize} />} />
-            <Route path="/play" element={<MatchmakingRoute />} />
-            {/* <Route path="/game" element={<PickAndBanView windowSize={windowSize} />} /> */}
-            <Route path="/game/:gameId" element={<GameRoute windowSize={windowSize} />} />
+            {/* Online routes require authentication */}
+            <Route
+                path="/play"
+                element={<WalletProvider>{authenticated ? <MatchmakingRoute /> : <LoginScreen />}</WalletProvider>}
+            />
+            <Route
+                path="/game/:gameId"
+                element={
+                    <WalletProvider>
+                        {authenticated ? <GameRoute windowSize={windowSize} /> : <LoginScreen />}
+                    </WalletProvider>
+                }
+            />
+            <Route path="*" element={<Heroes windowSize={windowSize} />} />
         </Routes>
     );
 };
@@ -301,13 +380,11 @@ const App: React.FC = () => {
     }, [updateWindowSize]);
 
     return (
-        <WalletProvider>
-            <AuthProvider>
-                <Router>
-                    <AuthedRoutes windowSize={windowSize} />
-                </Router>
-            </AuthProvider>
-        </WalletProvider>
+        <AuthProvider>
+            <Router>
+                <AuthedRoutes windowSize={windowSize} />
+            </Router>
+        </AuthProvider>
     );
 };
 

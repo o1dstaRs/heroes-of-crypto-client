@@ -12,7 +12,8 @@ module.exports = [
             "game/engine/**/*.ts",
             "docs/**/*.js",
             "game/heroes-of-crypto-common/**/*.{ts,js}",
-            "game/core/dist/*.js",
+            "game/**/dist/**",
+            "game/core/src/generated/**",
             "node_modules/**", // Added to ignore node_modules contents
         ],
         plugins: {

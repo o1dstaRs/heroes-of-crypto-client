@@ -7,14 +7,23 @@ import Divider from "@mui/joy/Divider";
 import Stack from "@mui/joy/Stack";
 import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
-import React, { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import React, { useEffect, useMemo, useState } from "react";
 
 import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import stopImg from "../../../images/stop.webp";
-import hourglassImg from "../../../images/hourglass.webp";
 import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
 import { prefetchUnitAtlas } from "./UnitStatsListItem";
+
+const stopImg = images.stop;
+const hourglassImg = images.hourglass;
+
+const queueItemTransition = {
+    type: "spring",
+    stiffness: 420,
+    damping: 34,
+    mass: 0.7,
+};
 
 // --- Custom Style for "Heroes" Aesthetic Tooltips ---
 const commonTooltipSx = {
@@ -79,6 +88,7 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
 
 export const UpNext: React.FC = () => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
+    const [stableVisibleUnits, setStableVisibleUnits] = useState<IVisibleUnit[]>([]);
 
     const manager = usePixiManager();
 
@@ -90,12 +100,24 @@ export const UpNext: React.FC = () => {
     }, [manager]);
 
     const visibleUnits: IVisibleUnit[] = visibleState.upNext ?? [];
+    useEffect(() => {
+        if (visibleUnits.length > 0) {
+            setStableVisibleUnits(visibleUnits);
+            return;
+        }
+
+        if (visibleState.hasFinished || !visibleState.lapNumber) {
+            setStableVisibleUnits([]);
+        }
+    }, [visibleState.hasFinished, visibleState.lapNumber, visibleUnits]);
+
+    const displayedUnits = useMemo(() => [...stableVisibleUnits].reverse(), [stableVisibleUnits]);
 
     // Pre-decode the up-next units' animation atlases during idle time so that selecting any of
     // them later is instant (the decoded image is already cached). requestIdleCallback keeps this
     // off the critical path; setTimeout is the fallback for browsers without it.
     useEffect(() => {
-        const names = visibleUnits.map((u) => u.name).filter((n): n is string => !!n);
+        const names = stableVisibleUnits.map((u) => u.name).filter((n): n is string => !!n);
         if (!names.length) return;
         const schedule =
             (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback ??
@@ -110,7 +132,7 @@ export const UpNext: React.FC = () => {
                 window.clearTimeout(handle as number);
             }
         };
-    }, [visibleUnits]);
+    }, [stableVisibleUnits]);
 
     return (
         <>
@@ -131,14 +153,34 @@ export const UpNext: React.FC = () => {
                                 scrollbarWidth: "none",
                             }}
                         >
-                            {visibleUnits.length > 0 &&
-                                [...visibleUnits].reverse().map((unit, index) => (
-                                    <Box
-                                        key={`${unit.teamType}-${unit.smallTextureName}-${unit.amount}-${index}`}
-                                        sx={{
+                            <AnimatePresence initial={false} mode="popLayout">
+                                {displayedUnits.map((unit, index) => (
+                                    <motion.div
+                                        key={unit.id}
+                                        layout
+                                        initial={{ opacity: 0, scale: 0.82, x: 24 }}
+                                        animate={{
+                                            opacity: 1,
+                                            scale: 1,
+                                            x: 0,
+                                            y: 0,
+                                            rotate: 0,
+                                            filter: "brightness(1)",
+                                        }}
+                                        exit={{
+                                            opacity: 0,
+                                            scale: 0.72,
+                                            x: -28,
+                                            y: -14,
+                                            rotate: -8,
+                                            filter: "brightness(1.55)",
+                                        }}
+                                        transition={queueItemTransition}
+                                        style={{
                                             position: "relative",
-                                            transition: "opacity 160ms ease-out, transform 160ms ease-out",
-                                            transform: "translateZ(0)",
+                                            flexShrink: 0,
+                                            transformOrigin: "50% 50%",
+                                            willChange: "transform, opacity, filter",
                                         }}
                                     >
                                         <Box sx={{ position: "relative", display: "inline-block" }}>
@@ -215,8 +257,9 @@ export const UpNext: React.FC = () => {
                                                 },
                                             }}
                                         />
-                                    </Box>
+                                    </motion.div>
                                 ))}
+                            </AnimatePresence>
                         </Stack>
                     </Box>
                 </Box>

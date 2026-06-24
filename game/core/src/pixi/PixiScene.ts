@@ -20,6 +20,11 @@ import {
     AbilityHelper,
     GridSettings,
 } from "@heroesofcrypto/common";
+import type {
+    AuthoritativeGameSnapshot,
+    SceneGameActionTransport,
+    SceneGameActionTransportResult,
+} from "../game_action_transport";
 
 import {
     IVisibleButton,
@@ -53,6 +58,7 @@ export interface PixiSceneContext {
     textures: PreloadedPixiTextures;
     gridSettings: GridSettings;
     onHasStarted: Signal<(started: boolean) => void>;
+    gameActionTransport?: SceneGameActionTransport;
 }
 
 export interface SceneConstructor {
@@ -150,6 +156,7 @@ export abstract class PixiScene {
     protected textures!: PreloadedPixiTextures;
     protected drawer!: PixiDrawer;
     protected physicsManager!: SimplePhysicsManager;
+    protected sc_gameActionTransport?: SceneGameActionTransport;
     protected animating = false;
     protected constructor(sceneSettings: SceneSettings) {
         this.sc_sceneSettings = sceneSettings;
@@ -159,10 +166,24 @@ export abstract class PixiScene {
         this.pixiApp = context.pixiApp;
         this.textures = context.textures;
         this.sc_onHasStarted = context.onHasStarted;
+        this.sc_gameActionTransport = context.gameActionTransport;
 
         // Physics - initialized here as it doesn't need Grid
         this.physicsManager = new SimplePhysicsManager();
         // Drawer must be initialized by subclass (e.g. Sandbox) after Grid creation
+    }
+    public setGameActionTransport(transport?: SceneGameActionTransport): void {
+        this.sc_gameActionTransport = transport;
+    }
+    public applyAuthoritativeSnapshot(_snapshot: AuthoritativeGameSnapshot): void {}
+    public selectAuthoritativeUnit(_unitId: string): void {}
+    protected dispatchExternalGameAction(
+        action: Parameters<SceneGameActionTransport>[0],
+    ): SceneGameActionTransportResult {
+        if (!this.sc_gameActionTransport) {
+            return { handled: false };
+        }
+        return this.sc_gameActionTransport(action);
     }
     public setupControls() {}
     protected selectedSmallUnit(): boolean {
