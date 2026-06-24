@@ -6,3 +6,8 @@ dist.zip
 lerna-debug.log
 images/
 src/generated/
+
+# env / secrets
+.env
+.env.*
+!.env.example
