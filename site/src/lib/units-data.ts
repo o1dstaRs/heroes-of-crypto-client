@@ -171,6 +171,8 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
 
 const creatures = creaturesJson as unknown as { version: number } & Record<FactionName, CreatureMap>;
 
+const hiddenUnits = new Set(["Faerie Dragon", "Phoenix"]);
+
 export const factionUnits: FactionUnits[] = factionOrder
     .filter((faction) => creatures[faction])
     .map((faction) => ({
@@ -178,6 +180,7 @@ export const factionUnits: FactionUnits[] = factionOrder
         color: factionColors[faction],
         icon: `/assets/images/units/factions/${faction.toLowerCase()}_128.webp`,
         units: Object.values(creatures[faction])
+            .filter((raw) => !hiddenUnits.has(raw.name))
             .map((raw) => buildUnit(faction, raw))
             .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)),
     }));

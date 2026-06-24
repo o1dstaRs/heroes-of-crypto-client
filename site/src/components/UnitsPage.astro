@@ -17,8 +17,6 @@ const labels =
     lang === "ru"
         ? {
               eyebrow: "Боевой ростер",
-              title: "Соберите армию под свой стиль",
-              body: "Фильтруйте фракции, сравнивайте роли и открывайте карточки юнитов, чтобы быстро понять их место в бою.",
               search: "Поиск юнитов",
               searchPlaceholder: "Имя, фракция, способность...",
               empty: "Юниты не найдены.",
@@ -37,8 +35,6 @@ const labels =
           }
         : {
               eyebrow: "Battle roster",
-              title: "Build the army that fits your style",
-              body: "Filter factions, compare combat roles, and open any unit card to read its stats, spells, and signature abilities.",
               search: "Search units",
               searchPlaceholder: "Name, faction, ability...",
               empty: "No units found.",
@@ -110,43 +106,27 @@ function unitSearchText(unit: Unit) {
 ---
 
 <section class="subhero units-subhero">
-    <div class="page-shell">
-        <p class="eyebrow">{copy.pages.units.eyebrow}</p>
-        <h1>{copy.pages.units.title}</h1>
-        <p>{copy.pages.units.description}</p>
+    <div class="page-shell units-hero-shell">
+        <div class="units-hero-copy">
+            <p class="eyebrow">{copy.pages.units.eyebrow}</p>
+            <h1>{copy.pages.units.title}</h1>
+            <p>{copy.pages.units.description}</p>
+        </div>
+        <div class="units-summary" aria-label={labels.eyebrow}>
+            {
+                summaryStats.map((item) => (
+                    <div>
+                        <strong>{item.value}</strong>
+                        <span>{item.label}</span>
+                    </div>
+                ))
+            }
+        </div>
     </div>
 </section>
 
 <section class="section units-section">
     <div class="page-shell">
-        <div class="units-command">
-            <div class="units-command-copy">
-                <p class="eyebrow">{labels.eyebrow}</p>
-                <h2>{labels.title}</h2>
-                <p>{labels.body}</p>
-            </div>
-            <div class="units-summary" aria-label={labels.eyebrow}>
-                {
-                    summaryStats.map((item) => (
-                        <div>
-                            <strong>{item.value}</strong>
-                            <span>{item.label}</span>
-                        </div>
-                    ))
-                }
-            </div>
-            <div class="role-strip" aria-label={labels.roles}>
-                {
-                    Object.entries(attackRoleCounts).map(([role, count]) => (
-                        <span>
-                            <strong>{count}</strong>
-                            {localizedAttackLabel(role)}
-                        </span>
-                    ))
-                }
-            </div>
-        </div>
-
         <div class="units-controls">
             <label class="unit-search">
                 <span>{labels.search}</span>
@@ -170,6 +150,16 @@ function unitSearchText(unit: Unit) {
                             <span>{f.faction}</span>
                             <em>{f.units.length}</em>
                         </button>
+                    ))
+                }
+            </div>
+            <div class="role-strip" aria-label={labels.roles}>
+                {
+                    Object.entries(attackRoleCounts).map(([role, count]) => (
+                        <span>
+                            <strong>{count}</strong>
+                            {localizedAttackLabel(role)}
+                        </span>
                     ))
                 }
             </div>
@@ -501,42 +491,36 @@ function unitSearchText(unit: Unit) {
 </script>
 
 <style>
+    .units-subhero {
+        padding: 38px 0 30px;
+    }
+
+    .units-hero-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(290px, 0.48fr);
+        gap: 24px;
+        align-items: end;
+    }
+
+    .units-subhero .eyebrow {
+        margin-bottom: 8px;
+    }
+
+    .units-subhero h1 {
+        margin-bottom: 12px;
+        font-size: clamp(2.6rem, 6vw, 4.6rem);
+    }
+
     .units-subhero p {
         max-width: 760px;
+        margin-bottom: 0;
     }
 
     .units-section {
+        padding-top: 24px;
         background:
-            linear-gradient(180deg, rgba(103, 174, 246, 0.06), rgba(7, 8, 8, 0) 220px),
+            linear-gradient(180deg, rgba(103, 174, 246, 0.045), rgba(7, 8, 8, 0) 170px),
             #0b0f12;
-    }
-
-    .units-command {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
-        gap: 18px;
-        align-items: stretch;
-        margin-bottom: 20px;
-    }
-
-    .units-command-copy {
-        padding: 26px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background:
-            linear-gradient(135deg, rgba(239, 74, 63, 0.14), rgba(103, 174, 246, 0.07)),
-            rgba(255, 255, 255, 0.045);
-    }
-
-    .units-command-copy h2 {
-        max-width: 720px;
-        margin-bottom: 12px;
-        font-size: 2.2rem;
-    }
-
-    .units-command-copy p:last-child {
-        max-width: 700px;
-        margin-bottom: 0;
     }
 
     .units-summary {
@@ -556,13 +540,13 @@ function unitSearchText(unit: Unit) {
     .units-summary div {
         display: grid;
         align-content: center;
-        min-height: 118px;
-        padding: 18px;
+        min-height: 82px;
+        padding: 14px 16px;
     }
 
     .units-summary strong {
         color: var(--gold);
-        font-size: 2rem;
+        font-size: 1.74rem;
         line-height: 1;
     }
 
@@ -585,8 +569,8 @@ function unitSearchText(unit: Unit) {
         display: inline-flex;
         align-items: center;
         gap: 7px;
-        min-height: 34px;
-        padding: 7px 10px;
+        min-height: 32px;
+        padding: 6px 10px;
         border: 1px solid var(--line);
         border-radius: 8px;
         color: var(--ink);
@@ -603,7 +587,7 @@ function unitSearchText(unit: Unit) {
         grid-template-columns: minmax(260px, 0.5fr) minmax(0, 1fr);
         gap: 12px;
         align-items: center;
-        margin-bottom: 22px;
+        margin-bottom: 18px;
         padding: 12px;
     }
 
@@ -1049,23 +1033,26 @@ function unitSearchText(unit: Unit) {
     }
 
     @media (max-width: 640px) {
-        .units-command,
+        .units-hero-shell,
         .units-controls,
         .unit-dialog-body {
             grid-template-columns: 1fr;
         }
 
-        .units-command-copy,
-        .units-summary div {
-            padding: 18px;
+        .units-subhero {
+            padding: 34px 0 24px;
         }
 
-        .units-command-copy h2 {
-            font-size: 1.65rem;
+        .units-summary div {
+            padding: 14px;
+        }
+
+        .units-subhero h1 {
+            font-size: 2.35rem;
         }
 
         .units-summary {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
         .units-toolbar {

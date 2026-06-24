@@ -21,6 +21,7 @@ import { isValidToken, setSession } from "./auth_utils";
 import { ActionMapType, AuthStateType, AuthUserType } from "./types";
 import { AuthContext } from "./auth_context";
 import { axiosAuthInstance, axiosMMInstance, axiosGameInstance, endpoints } from "../../../api/axios";
+import { buildSiweMessage, type SignMessageFn } from "../../../wallet/siwe";
 
 enum Types {
     INITIAL = "INITIAL",
@@ -102,6 +103,46 @@ const refreshLocalStorageFromCookie = () => {
     if (accessTokenCookie) {
         localStorage.setItem(STORAGE_KEY, accessTokenCookie);
     }
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+    return typeof value === "object" && value !== null;
+};
+
+const authJsonHeaders = (accessToken?: string | null): Record<string, string> => ({
+    "Content-Type": "application/json",
+    "x-request-id": uuidv4(),
+    ...(accessToken ? { Authorization: accessToken } : {}),
+});
+
+const getAccessToken = (): string | null => {
+    refreshLocalStorageFromCookie();
+    return localStorage.getItem(STORAGE_KEY);
+};
+
+const stringArrayFrom = (value: unknown): string[] => {
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+};
+
+const walletAddressesFrom = (data: unknown): string[] => {
+    if (Array.isArray(data)) {
+        return stringArrayFrom(data);
+    }
+    if (!isRecord(data)) {
+        return [];
+    }
+    return stringArrayFrom(data.walletAddresses).concat(stringArrayFrom(data.wallets));
+};
+
+const tokenFromWalletResponse = (authorization: unknown, data: unknown): string | null => {
+    if (typeof authorization === "string" && authorization.length > 0) {
+        return authorization;
+    }
+    if (!isRecord(data)) {
+        return null;
+    }
+    const accessToken = data.accessToken ?? data.token;
+    return typeof accessToken === "string" && accessToken.length > 0 ? accessToken : null;
 };
 
 export function AuthProvider({ children }: Props) {
@@ -350,6 +391,93 @@ export function AuthProvider({ children }: Props) {
         });
     }, []);
 
+    const buildWalletProof = useCallback(async (address: string, signMessage: SignMessageFn) => {
+        const nonceResponse = await axiosAuthInstance.post(
+            endpoints.auth.walletNonce,
+            { address },
+            { headers: authJsonHeaders() },
+        );
+        const nonceData = nonceResponse.data as unknown;
+        const nonce =
+            typeof nonceData === "string"
+                ? nonceData
+                : isRecord(nonceData) && typeof nonceData.nonce === "string"
+                  ? nonceData.nonce
+                  : "";
+
+        if (!nonce) {
+            throw new Error("Wallet nonce was not returned by the auth service");
+        }
+
+        const chainId =
+            isRecord(nonceData) && typeof nonceData.chainId === "number" && Number.isFinite(nonceData.chainId)
+                ? nonceData.chainId
+                : 1;
+        const message =
+            isRecord(nonceData) && typeof nonceData.message === "string"
+                ? nonceData.message
+                : buildSiweMessage({
+                      domain: window.location.host,
+                      uri: window.location.origin,
+                      address,
+                      nonce,
+                      chainId,
+                  });
+        const signature = await signMessage(message);
+
+        return { address, message, signature };
+    }, []);
+
+    const loginWithWallet = useCallback(
+        async (address: string, signMessage: SignMessageFn) => {
+            const proof = await buildWalletProof(address, signMessage);
+            const res = await axiosAuthInstance.post(endpoints.auth.walletLogin, proof, {
+                headers: authJsonHeaders(),
+            });
+            const accessToken = tokenFromWalletResponse(res.headers.authorization, res.data);
+            if (!accessToken) {
+                throw new Error("Wallet login did not return an access token");
+            }
+            setSession(accessToken);
+            await me();
+        },
+        [buildWalletProof, me],
+    );
+
+    const getWallets = useCallback(async (): Promise<string[]> => {
+        const accessToken = getAccessToken();
+        const res = await axiosAuthInstance.get(endpoints.auth.walletList, {
+            headers: authJsonHeaders(accessToken),
+        });
+        return walletAddressesFrom(res.data);
+    }, []);
+
+    const linkWallet = useCallback(
+        async (address: string, signMessage: SignMessageFn): Promise<string[]> => {
+            const accessToken = getAccessToken();
+            const proof = await buildWalletProof(address, signMessage);
+            const res = await axiosAuthInstance.post(endpoints.auth.walletLink, proof, {
+                headers: authJsonHeaders(accessToken),
+            });
+            const wallets = walletAddressesFrom(res.data);
+            return wallets.length ? wallets : getWallets();
+        },
+        [buildWalletProof, getWallets],
+    );
+
+    const unlinkWallet = useCallback(
+        async (address: string): Promise<string[]> => {
+            const accessToken = getAccessToken();
+            const res = await axiosAuthInstance.delete(endpoints.auth.walletUnlink, {
+                data: { address },
+                headers: authJsonHeaders(accessToken),
+            });
+            const wallets = walletAddressesFrom(res.data);
+            return wallets.length ? wallets : getWallets();
+        },
+        [getWallets],
+    );
+
     const confirmCode = useCallback(
         async (email: string, code: string) => {
             const confirmRequest = new ConfirmCode({ email, code });
@@ -468,6 +596,10 @@ export function AuthProvider({ children }: Props) {
             reveal,
             getCurrentGame,
             me,
+            loginWithWallet,
+            linkWallet,
+            unlinkWallet,
+            getWallets,
         }),
         [
             login,
@@ -487,6 +619,10 @@ export function AuthProvider({ children }: Props) {
             reveal,
             getCurrentGame,
             me,
+            loginWithWallet,
+            linkWallet,
+            unlinkWallet,
+            getWallets,
             state.user,
             status,
         ],

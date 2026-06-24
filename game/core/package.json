@@ -28,6 +28,8 @@
         "@mui/joy": "^5.0.0-beta.52",
         "@mui/material": "^7.3.5",
         "@mui/system": "^7.3.5",
+        "@rainbow-me/rainbowkit": "^2.2.2",
+        "@tanstack/react-query": "^5.62.0",
         "@types/node-schedule": "^2.1.7",
         "@types/randomcolor": "^0.5.9",
         "@types/react": "^18.3.12",
@@ -51,7 +53,9 @@
         "typed-glsl": "^0.11.2",
         "typed-signals": "^2.5.0",
         "typeface-open-sans": "1.1.13",
-        "uuid": "^11.1.1"
+        "uuid": "^11.1.1",
+        "viem": "^2.21.53",
+        "wagmi": "^2.14.0"
     },
     "devDependencies": {
         "@parcel/config-default": "^2.16.4",

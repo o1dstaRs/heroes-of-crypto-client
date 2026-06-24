@@ -1,5 +1,5 @@
 ---
-import { content, localPath, type Language } from "../lib/site-data";
+import { content, links, localPath, type Language } from "../lib/site-data";
 
 export type AuthMode = "login" | "register" | "verify" | "forgot-password" | "reset-password" | "new-password";
 
@@ -204,7 +204,7 @@ const confirmPasswordId = `${normalizedMode}-confirm-password`;
                 )
             }
 
-            <a class="button secondary auth-game-link" href="https://beta.heroesofcrypto.io" data-game-client-link>
+            <a class="button secondary auth-game-link" href={links.betaApp} data-game-client-link>
                 {auth.continueToGame}
             </a>
         </form>

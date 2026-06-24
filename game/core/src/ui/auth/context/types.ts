@@ -1,5 +1,7 @@
 import { GamePublicObject, ResponseMeObject } from "@heroesofcrypto/common";
 
+import type { SignMessageFn } from "../../../wallet/siwe";
+
 // import { PopupLoginOptions, RedirectLoginOptions } from "@auth0/auth0-react";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -65,4 +67,8 @@ export type JWTContextType = {
     reveal: (slot: number) => Promise<void>;
     getCurrentGame: () => Promise<GamePublicObject | null>;
     logout: () => Promise<void>;
+    loginWithWallet: (address: string, signMessage: SignMessageFn) => Promise<void>;
+    linkWallet: (address: string, signMessage: SignMessageFn) => Promise<string[]>;
+    unlinkWallet: (address: string) => Promise<string[]>;
+    getWallets: () => Promise<string[]>;
 };

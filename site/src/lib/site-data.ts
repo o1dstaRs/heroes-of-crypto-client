@@ -61,7 +61,7 @@ export const content = {
         meta: {
             title: "Heroes of Crypto - Free Browser Strategy Game",
             description:
-                "Play Heroes of Crypto in your browser: fast tactical battles, 4 factions, 46 units, and 74 abilities. Free to play, no download.",
+                "Play Heroes of Crypto in your browser: fast tactical battles, 4 factions, 44 units, and 74 abilities. Free to play, no download.",
         },
         ui: {
             language: "Language",
@@ -182,7 +182,7 @@ export const content = {
             highlights: ["No download", "No wallet gate", "Desktop beta live"],
             stats: [
                 { value: "4", label: "Factions" },
-                { value: "46", label: "Combat units" },
+                { value: "44", label: "Combat units" },
                 { value: "74", label: "Abilities" },
             ],
         },
@@ -219,7 +219,7 @@ export const content = {
         roster: {
             eyebrow: "What's in the game",
             title: "Every army tells a different story",
-            body: "Four factions, 46 units, and layer after layer of strategy: faction bonuses, upgradeable placement, magic, auras, and maps that shrink as the fight wears on. No two battles play the same.",
+            body: "Four factions, 44 units, and layer after layer of strategy: faction bonuses, upgradeable placement, magic, auras, and maps that shrink as the fight wears on. No two battles play the same.",
             points: ["Faction bonuses", "Upgradeable placement", "Magic and aura effects", "Shrinking maps"],
         },
         units: {
@@ -493,7 +493,7 @@ export const content = {
         meta: {
             title: "Heroes of Crypto - браузерная стратегия",
             description:
-                "Играйте в Heroes of Crypto в браузере: быстрые тактические бои, 4 фракции, 46 юнитов и 74 способности. Бесплатно и без скачивания.",
+                "Играйте в Heroes of Crypto в браузере: быстрые тактические бои, 4 фракции, 44 юнита и 74 способности. Бесплатно и без скачивания.",
         },
         ui: {
             language: "Язык",
@@ -614,7 +614,7 @@ export const content = {
             highlights: ["Без скачивания", "Без wallet gate", "Desktop beta live"],
             stats: [
                 { value: "4", label: "Фракции" },
-                { value: "46", label: "Боевых юнитов" },
+                { value: "44", label: "Боевых юнита" },
                 { value: "74", label: "Способности" },
             ],
         },

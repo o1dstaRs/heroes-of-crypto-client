@@ -162,6 +162,11 @@ export const endpoints = {
         requestCode: IS_PROD ? "/v1/request-verification-code" : "/v1/auth/request-verification-code",
         requestPasswordReset: IS_PROD ? "/v1/request-password-reset" : "/v1/auth/request-password-reset",
         resetPassword: IS_PROD ? "/v1/reset-password" : "/v1/auth/reset-password",
+        walletNonce: IS_PROD ? "/v1/wallet-nonce" : "/v1/auth/wallet-nonce",
+        walletLogin: IS_PROD ? "/v1/wallet-login" : "/v1/auth/wallet-login",
+        walletLink: IS_PROD ? "/v1/wallet-link" : "/v1/auth/wallet-link",
+        walletUnlink: IS_PROD ? "/v1/wallet-unlink" : "/v1/auth/wallet-unlink",
+        walletList: IS_PROD ? "/v1/wallet-list" : "/v1/auth/wallet-list",
     },
     mm: {
         queue: IS_PROD ? "/v1/queue" : "/v1/mm/queue",

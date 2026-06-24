@@ -56,22 +56,43 @@ const { Content } = await render(post);
     </article>
 
     <script>
-        // Render mermaid diagrams client-side (rehype-mermaid "pre-mermaid" strategy leaves
-        // <pre class="mermaid"> elements for us to process).
-        const mermaidBlocks = document.querySelectorAll("pre.mermaid, code.language-mermaid");
+        // Render Mermaid diagrams client-side. Astro/Shiki outputs these as
+        // <pre data-language="mermaid"> blocks, while rehype-mermaid may leave
+        // <pre class="mermaid"> elements depending on the transform path.
+        const mermaidBlocks = document.querySelectorAll(
+            'pre.mermaid, pre[data-language="mermaid"], code.language-mermaid',
+        );
         if (mermaidBlocks.length > 0) {
-            const { default: mermaid } = await import(
-                "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs"
-            );
-            mermaid.initialize({ startOnLoad: false, theme: "dark" });
+            const { default: mermaid } = await import("mermaid");
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: "base",
+                themeVariables: {
+                    background: "#090b0d",
+                    darkMode: true,
+                    edgeLabelBackground: "#090b0d",
+                    fontFamily: "Inter, sans-serif",
+                    lineColor: "#d7aa4b",
+                    mainBkg: "#151b1d",
+                    nodeBorder: "#d7aa4b",
+                    primaryColor: "#151b1d",
+                    primaryTextColor: "#f8f2e5",
+                    secondaryColor: "#111719",
+                    tertiaryColor: "#1f2a2d",
+                },
+            });
             mermaidBlocks.forEach((block, i) => {
-                const text = block.textContent || "";
-                block.removeAttribute("data-processed");
-                block.id = `mermaid-${i}`;
-                // For <code> blocks (shiki-wrapped), replace the parent <pre> entirely.
-                if (block.tagName === "CODE" && block.parentElement?.tagName === "PRE") {
-                    block.parentElement.outerHTML = `<pre class="mermaid" id="mermaid-${i}">${text}</pre>`;
-                }
+                const text = block.textContent?.trim() || "";
+                const diagram = document.createElement("pre");
+                diagram.className = "mermaid mermaid-diagram";
+                diagram.id = `mermaid-${i}`;
+                diagram.textContent = text;
+
+                const target =
+                    block.tagName === "CODE" && block.parentElement?.tagName === "PRE"
+                        ? block.parentElement
+                        : block;
+                target.replaceWith(diagram);
             });
             await mermaid.run({ querySelector: "pre.mermaid" });
         }
@@ -198,6 +219,22 @@ const { Content } = await render(post);
         padding: 0;
         background: none;
         color: #e8e0d0;
+    }
+    .prose pre.mermaid {
+        display: flex;
+        justify-content: center;
+        padding: 20px;
+        border-color: rgba(215, 170, 75, 0.28);
+        background: #090b0d;
+        font-family: Inter, sans-serif;
+        overflow-x: auto;
+    }
+    .prose pre.mermaid svg {
+        display: block;
+        width: 100%;
+        max-width: 680px;
+        height: auto;
+        margin-inline: auto;
     }
     .prose table {
         width: 100%;

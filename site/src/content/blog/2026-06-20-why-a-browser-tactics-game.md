@@ -51,12 +51,12 @@ Read that table as a strategy, not a spec sheet. We are not claiming the browser
 A match is not a single simulation. It is a sequence of discrete decisions, each of which can be inspected.
 
 ```mermaid
-flowchart LR
-    A[Army draft and placement] --> B[Faction synergies and auras computed]
+flowchart TD
+    A[Army draft and placement] --> B[Faction synergies and auras]
     B --> C[Turn order by speed and morale]
-    C --> D[Positioning, attack type, spells]
-    D --> E[Damage resolved and split by source]
-    E --> F[Map narrows, dead units shatter]
+    C --> D[Positioning, attacks, spells]
+    D --> E[Damage split by source]
+    E --> F[Map narrows and units shatter]
     F --> C
 ```
 
