@@ -3,7 +3,7 @@ import abilitiesJson from "@heroesofcrypto/common/src/configuration/abilities.js
 
 export type FactionName = "Life" | "Nature" | "Chaos" | "Death" | "Might";
 
-export const factionOrder: FactionName[] = ["Chaos", "Life", "Might", "Nature", "Death"];
+export const factionOrder: FactionName[] = ["Chaos", "Life", "Might", "Nature"];
 
 export const factionColors: Record<FactionName, string> = {
     Chaos: "#c63d33",
@@ -48,7 +48,11 @@ interface RawAbility {
 
 type CreatureMap = Record<string, RawCreature>;
 
-const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+const slug = (name: string) =>
+    name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_|_$/g, "");
 
 function abilityDescription(name: string): string {
     const ability = (abilitiesJson as Record<string, RawAbility>)[name];
@@ -130,9 +134,8 @@ export const movementLabel = (t: string) => movementTypeLabel[t] ?? t;
 
 function buildUnit(faction: FactionName, raw: RawCreature): Unit {
     const base = slug(raw.name);
-    const cardSize = raw.size === 1 ? 128 : 256;
     const portrait = `/assets/images/units/units/${base}_512.webp`;
-    const icon = `/assets/images/units/units/${base}_${cardSize}.webp`;
+    const icon = `/assets/images/units/units/${base}_512.webp`;
 
     const abilities: UnitAbility[] = raw.abilities.map((name) => ({
         name,

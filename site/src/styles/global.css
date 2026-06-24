@@ -14,6 +14,7 @@
     --red: #ef4a3f;
     --red-strong: #c8332b;
     --gold: #f2c75d;
+    --gold-soft: #ffe4a3;
     --green: #63d28a;
     --blue: #67aef6;
     --shadow: 0 22px 70px rgba(0, 0, 0, 0.42);
@@ -137,6 +138,13 @@ code {
     backdrop-filter: blur(18px);
 }
 
+.brand-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
 .brand,
 .footer-brand,
 .auth-logo {
@@ -145,6 +153,28 @@ code {
     gap: 10px;
     min-width: 0;
     font-weight: 840;
+}
+
+.version-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 5px 8px;
+    border: 1px solid rgba(242, 199, 93, 0.28);
+    border-radius: 8px;
+    background: rgba(242, 199, 93, 0.1);
+    color: var(--gold);
+    font-size: 0.78rem;
+    font-weight: 840;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.version-badge:hover {
+    border-color: rgba(242, 199, 93, 0.54);
+    background: rgba(242, 199, 93, 0.16);
+    color: var(--ink-strong);
 }
 
 .brand span,
@@ -284,7 +314,7 @@ code {
     gap: 54px;
     align-items: center;
     min-height: min(720px, calc(100vh - 128px));
-    padding: 42px 0 52px;
+    padding: 30px 0 38px;
 }
 
 .hero-content {
@@ -807,190 +837,6 @@ code {
     padding: 20px;
 }
 
-.units-section {
-    background: #0b0f12;
-}
-
-.units-summary {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-    margin-bottom: 34px;
-}
-
-.units-summary div {
-    padding: 22px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.035));
-}
-
-.units-summary strong {
-    display: block;
-    color: var(--gold);
-    font-size: 2.1rem;
-    line-height: 1;
-}
-
-.units-summary span {
-    display: block;
-    margin-top: 8px;
-    color: var(--muted);
-    font-weight: 760;
-}
-
-.faction-roster {
-    display: grid;
-    gap: 28px;
-}
-
-.faction-panel {
-    padding: 22px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background:
-        linear-gradient(90deg, color-mix(in srgb, var(--faction-color) 18%, transparent), transparent 42%),
-        rgba(255, 255, 255, 0.035);
-}
-
-.faction-header {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 14px;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.faction-header img {
-    width: 54px;
-    height: 54px;
-}
-
-.faction-header .eyebrow,
-.faction-header h2 {
-    margin-bottom: 0;
-}
-
-.faction-header strong {
-    display: grid;
-    place-items: center;
-    min-width: 44px;
-    min-height: 44px;
-    border: 1px solid color-mix(in srgb, var(--faction-color) 54%, var(--line));
-    border-radius: 8px;
-    color: var(--ink);
-    font-size: 1.1rem;
-}
-
-.unit-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-}
-
-.unit-card {
-    display: grid;
-    grid-template-columns: 132px minmax(0, 1fr);
-    min-width: 0;
-    overflow: hidden;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: rgba(8, 10, 12, 0.84);
-}
-
-.unit-art {
-    min-height: 100%;
-    background: color-mix(in srgb, var(--faction-color) 18%, #090b0d);
-}
-
-.unit-art img {
-    width: 100%;
-    height: 100%;
-    min-height: 182px;
-    object-fit: cover;
-}
-
-.unit-body {
-    display: grid;
-    gap: 12px;
-    min-width: 0;
-    padding: 16px;
-}
-
-.unit-title {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 10px;
-}
-
-.unit-title h3 {
-    margin-bottom: 0;
-}
-
-.unit-title span,
-.unit-tags span,
-.unit-abilities span {
-    display: inline-flex;
-    align-items: center;
-    min-height: 28px;
-    padding: 5px 8px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    color: var(--ink);
-    font-size: 0.78rem;
-    font-weight: 760;
-}
-
-.unit-stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-    margin: 0;
-}
-
-.unit-stats div {
-    min-width: 0;
-    padding: 8px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.055);
-}
-
-.unit-stats dt {
-    color: var(--muted-2);
-    font-size: 0.72rem;
-    font-weight: 760;
-}
-
-.unit-stats dd {
-    margin: 2px 0 0;
-    color: var(--ink);
-    font-weight: 820;
-}
-
-.unit-tags,
-.unit-abilities div {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px;
-}
-
-.unit-abilities {
-    display: grid;
-    gap: 7px;
-}
-
-.unit-abilities strong {
-    color: var(--muted);
-    font-size: 0.82rem;
-    text-transform: uppercase;
-}
-
-.unit-abilities p {
-    margin-bottom: 0;
-    font-size: 0.9rem;
-}
-
 .patch-list {
     display: grid;
     gap: 34px;
@@ -1028,7 +874,7 @@ code {
 
 .patch-body {
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
     padding: 30px;
 }
 
@@ -1045,6 +891,7 @@ code {
     margin-bottom: 0;
     color: rgba(251, 244, 232, 0.82);
     font-size: 1.06rem;
+    overflow-wrap: anywhere;
 }
 
 .patch-stats {
@@ -1097,6 +944,10 @@ code {
 
 .patch-body li + li {
     margin-top: 8px;
+}
+
+.patch-body li {
+    overflow-wrap: anywhere;
 }
 
 .release-roster-grid {
@@ -1452,7 +1303,6 @@ code {
 
     .feature-grid,
     .roadmap-grid,
-    .unit-grid,
     .release-roster-grid,
     .utility-list {
         grid-template-columns: 1fr;
@@ -1493,8 +1343,18 @@ code {
         height: 28px;
     }
 
+    .brand-lockup {
+        gap: 8px;
+    }
+
     .brand span {
         font-size: 0.95rem;
+    }
+
+    .version-badge {
+        min-height: 26px;
+        padding: 5px 7px;
+        font-size: 0.74rem;
     }
 
     .header-actions .language-switcher {
@@ -1516,19 +1376,32 @@ code {
     }
 
     .main-nav {
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         gap: 2px;
+        overflow-x: auto;
         padding-top: 2px;
     }
 
     .nav-link {
+        flex: 0 1 auto;
         min-height: 34px;
         padding: 8px 9px;
         font-size: 0.87rem;
     }
 
     .patch-heading h2 {
-        font-size: 1.78rem;
+        font-size: 1.62rem;
+        line-height: 1.08;
+    }
+
+    .patch-heading p,
+    .patch-body li,
+    .patch-closing {
+        font-size: 0.96rem;
+    }
+
+    .patch-body ul {
+        padding-left: 18px;
     }
 
     .hero {
@@ -1548,6 +1421,10 @@ code {
     .hero-grid {
         min-height: auto;
         padding: 44px 0 38px;
+    }
+
+    .hero-preview {
+        display: none;
     }
 
     .hero-tagline {
@@ -1603,8 +1480,18 @@ code {
         padding: 22px;
     }
 
+    .patch-meta,
+    .patch-body {
+        width: 100%;
+        max-width: 100%;
+    }
+
     .patch-stats {
         grid-template-columns: 1fr;
+    }
+
+    .patch-stats div {
+        padding: 12px 14px;
     }
 
     .release-roster-faction dl {
@@ -1634,27 +1521,10 @@ code {
         align-items: flex-start;
     }
 
-    .units-summary {
-        grid-template-columns: 1fr;
-    }
-
     .contract-box,
     .allocation-item,
-    .roadmap-item,
-    .faction-panel {
+    .roadmap-item {
         padding: 20px;
-    }
-
-    .unit-card {
-        grid-template-columns: 112px minmax(0, 1fr);
-    }
-
-    .unit-art img {
-        min-height: 172px;
-    }
-
-    .unit-stats {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .final-cta-inner {
@@ -1742,15 +1612,6 @@ code {
     .faction-header strong {
         grid-column: 1 / -1;
         width: fit-content;
-    }
-
-    .unit-card {
-        grid-template-columns: 1fr;
-    }
-
-    .unit-art img {
-        aspect-ratio: 4 / 3;
-        min-height: 0;
     }
 
     .proof-item,

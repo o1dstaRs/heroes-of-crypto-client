@@ -1,4 +1,5 @@
 ---
+import corePackage from "../../../game/core/package.json";
 import { content, languageSwitchPath, links, localPath, type Language } from "../lib/site-data";
 
 interface Props {
@@ -8,8 +9,10 @@ interface Props {
 
 const { lang, currentPath } = Astro.props;
 const copy = content[lang];
+const versionLabel = `v${corePackage.version}`;
 const navItems = [
     { label: copy.nav.game, href: localPath(lang, "game") },
+    { label: copy.nav.blog, href: `${localPath(lang, "home")}blog/` },
     { label: copy.nav.units, href: localPath(lang, "units") },
     { label: copy.nav.token, href: localPath(lang, "token") },
     { label: copy.nav.patches, href: localPath(lang, "patches") },
@@ -22,10 +25,15 @@ const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? curren
 ---
 
 <header class="site-header">
-    <a class="brand" href={localPath(lang, "game")} aria-label="Heroes of Crypto">
-        <img src="/assets/images/home/logo/hocai_logo_96.png" alt="" width="32" height="32" />
-        <span>Heroes of Crypto</span>
-    </a>
+    <div class="brand-lockup">
+        <a class="brand" href={localPath(lang, "game")} aria-label="Heroes of Crypto">
+            <img src="/assets/images/home/logo/hocai_logo_96.png" alt="" width="32" height="32" />
+            <span>Heroes of Crypto</span>
+        </a>
+        <a class="version-badge" href={localPath(lang, "patches")} aria-label={`${copy.nav.patches} ${versionLabel}`}>
+            {versionLabel}
+        </a>
+    </div>
 
     <nav class="main-nav" aria-label="Main navigation">
         {

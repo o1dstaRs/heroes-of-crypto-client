@@ -1,0 +1,238 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection, render } from "astro:content";
+import { content } from "../../lib/site-data";
+
+const lang = "en";
+
+export async function getStaticPaths() {
+    const posts = await getCollection("blog");
+    return posts.map((post) => ({
+        params: { slug: post.id },
+        props: { post },
+    }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+---
+
+<BaseLayout
+    lang={lang}
+    title={post.data.title}
+    description={post.data.excerpt}
+>
+    <article class="blog-post">
+        <div class="post-shell">
+            <a href="/blog/" class="back-link">← All posts</a>
+
+            <header class="post-header">
+                <div class="post-meta">
+                    <time datetime={post.data.date.toISOString()}>
+                        {
+                            post.data.date.toLocaleDateString("en-US", {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                            })
+                        }
+                    </time>
+                    <span class="post-tags">
+                        {post.data.tags.map((tag) => <span class="post-tag">{tag}</span>)}
+                    </span>
+                </div>
+                <h1>{post.data.title}</h1>
+                <p class="post-excerpt">{post.data.excerpt}</p>
+            </header>
+
+            <div class="prose">
+                <Content />
+            </div>
+
+            <footer class="post-footer">
+                <a href="/blog/" class="back-link">← Back to blog</a>
+            </footer>
+        </div>
+    </article>
+
+    <script>
+        // Render mermaid diagrams client-side (rehype-mermaid "pre-mermaid" strategy leaves
+        // <pre class="mermaid"> elements for us to process).
+        const mermaidBlocks = document.querySelectorAll("pre.mermaid, code.language-mermaid");
+        if (mermaidBlocks.length > 0) {
+            const { default: mermaid } = await import(
+                "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs"
+            );
+            mermaid.initialize({ startOnLoad: false, theme: "dark" });
+            mermaidBlocks.forEach((block, i) => {
+                const text = block.textContent || "";
+                block.removeAttribute("data-processed");
+                block.id = `mermaid-${i}`;
+                // For <code> blocks (shiki-wrapped), replace the parent <pre> entirely.
+                if (block.tagName === "CODE" && block.parentElement?.tagName === "PRE") {
+                    block.parentElement.outerHTML = `<pre class="mermaid" id="mermaid-${i}">${text}</pre>`;
+                }
+            });
+            await mermaid.run({ querySelector: "pre.mermaid" });
+        }
+    </script>
+</BaseLayout>
+
+<style is:global>
+    .blog-post {
+        padding: 56px 0 96px;
+    }
+    .post-shell {
+        max-width: 720px;
+        margin-inline: auto;
+        width: min(720px, calc(100vw - 32px));
+    }
+    .back-link {
+        display: inline-block;
+        margin-bottom: 32px;
+        color: var(--muted);
+        font-size: 0.9rem;
+        font-weight: 600;
+        transition: color 0.15s ease;
+    }
+    .back-link:hover {
+        color: var(--gold-soft);
+    }
+    .post-header {
+        margin-bottom: 40px;
+        padding-bottom: 28px;
+        border-bottom: 1px solid var(--line);
+    }
+    .post-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+    }
+    .post-meta time {
+        color: var(--gold);
+        font-size: 0.86rem;
+        font-weight: 700;
+    }
+    .post-tags {
+        display: flex;
+        gap: 6px;
+    }
+    .post-tag {
+        padding: 2px 9px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        font-size: 0.74rem;
+        font-weight: 600;
+    }
+    .post-excerpt {
+        font-size: 1.14rem;
+        color: var(--muted);
+        margin-top: 8px;
+    }
+
+    /* Prose — clean, readable, dark-theme. */
+    .prose {
+        font-size: 1.06rem;
+        line-height: 1.72;
+        color: var(--ink);
+    }
+    .prose > * + * {
+        margin-top: 1.4em;
+    }
+    .prose h2 {
+        font-size: 1.5rem;
+        margin-top: 2.2em;
+        margin-bottom: 0.5em;
+        color: var(--ink);
+    }
+    .prose h3 {
+        font-size: 1.2rem;
+        margin-top: 1.8em;
+        margin-bottom: 0.4em;
+        color: var(--gold-soft);
+    }
+    .prose strong {
+        color: #fff;
+    }
+    .prose a {
+        color: var(--gold-soft);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+    .prose ul,
+    .prose ol {
+        padding-left: 1.4em;
+    }
+    .prose li {
+        margin-top: 0.5em;
+    }
+    .prose blockquote {
+        margin-inline: 0;
+        padding: 12px 18px;
+        border-left: 3px solid var(--gold);
+        background: var(--surface);
+        border-radius: 0 8px 8px 0;
+        color: var(--muted);
+        font-style: italic;
+    }
+    .prose code {
+        padding: 2px 6px;
+        border-radius: 5px;
+        background: var(--surface-2);
+        font-size: 0.9em;
+        color: var(--gold-soft);
+    }
+    .prose pre {
+        padding: 18px 20px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #0a0908;
+        overflow-x: auto;
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }
+    .prose pre code {
+        padding: 0;
+        background: none;
+        color: #e8e0d0;
+    }
+    .prose table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.94rem;
+    }
+    .prose th,
+    .prose td {
+        padding: 10px 14px;
+        border: 1px solid var(--line);
+        text-align: left;
+    }
+    .prose th {
+        background: var(--surface-2);
+        color: var(--gold-soft);
+        font-weight: 700;
+    }
+    .prose td {
+        color: var(--muted);
+    }
+    .prose img {
+        border-radius: 12px;
+        border: 1px solid var(--line);
+    }
+
+    /* Mermaid diagrams render as inline SVG; keep them readable. */
+    .prose .mermaid,
+    .prose svg {
+        max-width: 100%;
+        height: auto;
+    }
+
+    .post-footer {
+        margin-top: 56px;
+        padding-top: 28px;
+        border-top: 1px solid var(--line);
+    }
+</style>

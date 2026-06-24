@@ -1,13 +1,5 @@
 ---
 import { content, contractAddress, links, type Language, type PageSlug } from "../lib/site-data";
-import {
-    abilityCount,
-    attackLabel,
-    factionUnits,
-    movementLabel,
-    unitCount,
-    type Unit,
-} from "../lib/units-data";
 
 interface Props {
     lang: Language;
@@ -19,54 +11,6 @@ const copy = content[lang];
 const page = copy.pages[slug];
 const legalDoc =
     slug === "terms-of-service" ? copy.legal.terms : slug === "privacy-policy" ? copy.legal.privacy : undefined;
-const rosterTotals =
-    lang === "ru"
-        ? [
-              { value: unitCount, label: "Юнитов" },
-              { value: factionUnits.length, label: "Фракций" },
-              { value: abilityCount, label: "Способностей" },
-          ]
-        : [
-              { value: unitCount, label: "Units" },
-              { value: factionUnits.length, label: "Factions" },
-              { value: abilityCount, label: "Abilities" },
-          ];
-const attackLabels =
-    lang === "ru"
-        ? {
-              MELEE: "Ближняя",
-              RANGE: "Дальняя",
-              MAGIC: "Магия",
-              MELEE_MAGIC: "Ближняя / магия",
-          }
-        : undefined;
-const movementLabels =
-    lang === "ru"
-        ? {
-              WALK: "Пешком",
-              FLY: "Полет",
-              TELEPORT: "Телепорт",
-          }
-        : undefined;
-
-function localizedAttackLabel(value: string) {
-    return attackLabels?.[value as keyof typeof attackLabels] ?? attackLabel(value);
-}
-
-function localizedMovementLabel(value: string) {
-    return movementLabels?.[value as keyof typeof movementLabels] ?? movementLabel(value);
-}
-
-function unitStatList(unit: Unit) {
-    return [
-        { label: copy.units.stats.hp, value: unit.hp },
-        { label: copy.units.stats.attack, value: unit.attack },
-        { label: copy.units.stats.damage, value: `${unit.damageMin}-${unit.damageMax}` },
-        { label: copy.units.stats.armor, value: unit.armor },
-        { label: copy.units.stats.speed, value: unit.speed },
-        { label: copy.units.stats.steps, value: unit.steps },
-    ];
-}
 ---
 
 <section class="subhero">
@@ -76,83 +20,6 @@ function unitStatList(unit: Unit) {
         <p>{page.description}</p>
     </div>
 </section>
-
-{
-    slug === "units" && (
-        <section class="section units-section">
-            <div class="page-shell">
-                <div class="units-summary">
-                    {rosterTotals.map((item) => (
-                        <div>
-                            <strong>{item.value}</strong>
-                            <span>{item.label}</span>
-                        </div>
-                    ))}
-                </div>
-
-                <div class="faction-roster">
-                    {factionUnits.map((faction) => (
-                        <section class="faction-panel" style={`--faction-color: ${faction.color}`}>
-                            <header class="faction-header">
-                                <img src={faction.icon} alt="" width="64" height="64" loading="lazy" />
-                                <div>
-                                    <p class="eyebrow">{copy.units.stats.faction}</p>
-                                    <h2>{faction.faction}</h2>
-                                </div>
-                                <strong>{faction.units.length}</strong>
-                            </header>
-
-                            <div class="unit-grid">
-                                {faction.units.map((unit) => (
-                                    <article class="unit-card">
-                                        <div class="unit-art">
-                                            <img src={unit.portrait} alt={unit.name} width="512" height="512" loading="lazy" />
-                                        </div>
-                                        <div class="unit-body">
-                                            <div class="unit-title">
-                                                <h3>{unit.name}</h3>
-                                                <span>
-                                                    {copy.units.level} {unit.level}
-                                                </span>
-                                            </div>
-
-                                            <dl class="unit-stats">
-                                                {unitStatList(unit).map((stat) => (
-                                                    <div>
-                                                        <dt>{stat.label}</dt>
-                                                        <dd>{stat.value}</dd>
-                                                    </div>
-                                                ))}
-                                            </dl>
-
-                                            <div class="unit-tags">
-                                                <span>{localizedAttackLabel(unit.attackType)}</span>
-                                                <span>{localizedMovementLabel(unit.movementType)}</span>
-                                            </div>
-
-                                            <div class="unit-abilities">
-                                                <strong>{copy.units.abilities}</strong>
-                                                {unit.abilities.length ? (
-                                                    <div>
-                                                        {unit.abilities.slice(0, 3).map((ability) => (
-                                                            <span title={ability.description}>{ability.name}</span>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <p>{copy.units.noAbilities}</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </article>
-                                ))}
-                            </div>
-                        </section>
-                    ))}
-                </div>
-            </div>
-        </section>
-    )
-}
 
 {
     slug === "token" && (

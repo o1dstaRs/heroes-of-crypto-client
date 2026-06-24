@@ -18,7 +18,7 @@ export const pageSlugs = [
 export type PageSlug = (typeof pageSlugs)[number];
 
 export const links = {
-    betaApp: "https://beta.heroesofcrypto.io",
+    betaApp: "/play",
     proposal: "https://heroes-of-crypto.gitbook.io/heroes-of-crypto-ai/",
     pool: "https://dexscreener.com/base/0x84b33ed897690bfb627f6cb966ce6a945cf6c6df",
     swap: "https://app.uniswap.org/swap?chain=base&exactField=input&inputCurrency=ETH&outputCurrency=0x48bb4b12098Fc65b261Dfb3584AE95FDCd847343",
@@ -61,7 +61,7 @@ export const content = {
         meta: {
             title: "Heroes of Crypto - Free Browser Strategy Game",
             description:
-                "Play Heroes of Crypto in your browser: fast tactical battles, 5 factions, 50 units, and 75+ spells and abilities. Free to play, no download.",
+                "Play Heroes of Crypto in your browser: fast tactical battles, 4 factions, 46 units, and 74 abilities. Free to play, no download.",
         },
         ui: {
             language: "Language",
@@ -72,6 +72,7 @@ export const content = {
         },
         nav: {
             game: "Game",
+            blog: "Blog",
             units: "Units",
             token: "Token",
             patches: "Patches",
@@ -180,9 +181,9 @@ export const content = {
             availability: "Desktop beta",
             highlights: ["No download", "No wallet gate", "Desktop beta live"],
             stats: [
-                { value: "5", label: "Factions" },
-                { value: "50", label: "Combat units" },
-                { value: "75+", label: "Spells & abilities" },
+                { value: "4", label: "Factions" },
+                { value: "46", label: "Combat units" },
+                { value: "74", label: "Abilities" },
             ],
         },
         socials: [
@@ -204,7 +205,7 @@ export const content = {
                 {
                     title: "Pick your faction style",
                     description:
-                        "Chaos, Death, Life, Might, and Nature bring distinct combat roles, counters, and stacking bonuses for different play styles.",
+                        "Chaos, Life, Might, and Nature bring distinct combat roles, counters, and stacking bonuses for different play styles.",
                     icon: "/assets/icons/home/ai_powered.svg",
                 },
                 {
@@ -218,7 +219,7 @@ export const content = {
         roster: {
             eyebrow: "What's in the game",
             title: "Every army tells a different story",
-            body: "Five factions, 50 units, and layer after layer of strategy: faction bonuses, upgradeable placement, magic, auras, and maps that shrink as the fight wears on. No two battles play the same.",
+            body: "Four factions, 46 units, and layer after layer of strategy: faction bonuses, upgradeable placement, magic, auras, and maps that shrink as the fight wears on. No two battles play the same.",
             points: ["Faction bonuses", "Upgradeable placement", "Magic and aura effects", "Shrinking maps"],
         },
         units: {
@@ -525,7 +526,7 @@ export const content = {
         meta: {
             title: "Heroes of Crypto - браузерная стратегия",
             description:
-                "Играйте в Heroes of Crypto в браузере: быстрые тактические бои, 5 фракций, 50 юнитов и 75+ заклинаний и способностей. Бесплатно и без скачивания.",
+                "Играйте в Heroes of Crypto в браузере: быстрые тактические бои, 4 фракции, 46 юнитов и 74 способности. Бесплатно и без скачивания.",
         },
         ui: {
             language: "Язык",
@@ -536,6 +537,7 @@ export const content = {
         },
         nav: {
             game: "Игра",
+            blog: "Блог",
             units: "Юниты",
             token: "Токен",
             patches: "Патчи",
@@ -644,9 +646,9 @@ export const content = {
             availability: "Desktop beta",
             highlights: ["Без скачивания", "Без wallet gate", "Desktop beta live"],
             stats: [
-                { value: "5", label: "Фракций" },
-                { value: "50", label: "Боевых юнитов" },
-                { value: "75+", label: "Способности и заклинания" },
+                { value: "4", label: "Фракции" },
+                { value: "46", label: "Боевых юнитов" },
+                { value: "74", label: "Способности" },
             ],
         },
         socials: [
@@ -668,7 +670,7 @@ export const content = {
                 {
                     title: "Выберите стиль фракции",
                     description:
-                        "Chaos, Death, Life, Might и Nature дают разные роли, контрпики и бонусы под разные стили игры.",
+                        "Chaos, Life, Might и Nature дают разные роли, контрпики и бонусы под разные стили игры.",
                     icon: "/assets/icons/home/ai_powered.svg",
                 },
                 {
@@ -682,7 +684,7 @@ export const content = {
         roster: {
             eyebrow: "Что внутри",
             title: "Фракции, способности и контроль поля",
-            body: "Chaos, Death, Life, Might и Nature дают разные наборы юнитов, тактические роли, магию и фракционные бонусы. Улучшения расстановки и синергии добавляют еще один слой решений до начала боя.",
+            body: "Chaos, Life, Might и Nature дают разные наборы юнитов, тактические роли, магию и фракционные бонусы. Улучшения расстановки и синергии добавляют еще один слой решений до начала боя.",
             points: ["Фракционные бонусы", "Улучшаемая расстановка", "Магия и ауры", "Сужающиеся карты"],
         },
         units: {

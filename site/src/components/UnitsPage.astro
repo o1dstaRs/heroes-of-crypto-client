@@ -1,6 +1,6 @@
 ---
 import { content, type Language } from "../lib/site-data";
-import { factionUnits, factionColors, type Unit } from "../lib/units-data";
+import { abilityCount, factionColors, factionUnits, unitCount, type Unit } from "../lib/units-data";
 
 interface Props {
     lang: Language;
@@ -13,6 +13,100 @@ const s = ui.stats;
 
 const unitIndex: Unit[] = factionUnits.flatMap((f) => f.units);
 const serialized = JSON.stringify(unitIndex);
+const labels =
+    lang === "ru"
+        ? {
+              eyebrow: "Боевой ростер",
+              title: "Соберите армию под свой стиль",
+              body: "Фильтруйте фракции, сравнивайте роли и открывайте карточки юнитов, чтобы быстро понять их место в бою.",
+              search: "Поиск юнитов",
+              searchPlaceholder: "Имя, фракция, способность...",
+              empty: "Юниты не найдены.",
+              factionFilter: "Фильтр фракций",
+              close: "Закрыть",
+              aura: "аура",
+              active: "активно",
+              units: "Юнитов",
+              factions: "Фракции",
+              abilities: "Способности",
+              roles: "Роли атак",
+              hp: "HP",
+              atk: "ATK",
+              dmg: "DMG",
+              noAbilityShort: "Базовый юнит",
+          }
+        : {
+              eyebrow: "Battle roster",
+              title: "Build the army that fits your style",
+              body: "Filter factions, compare combat roles, and open any unit card to read its stats, spells, and signature abilities.",
+              search: "Search units",
+              searchPlaceholder: "Name, faction, ability...",
+              empty: "No units found.",
+              factionFilter: "Faction filter",
+              close: "Close",
+              aura: "aura",
+              active: "active",
+              units: "Units",
+              factions: "Factions",
+              abilities: "Abilities",
+              roles: "Attack roles",
+              hp: "HP",
+              atk: "ATK",
+              dmg: "DMG",
+              noAbilityShort: "Core unit",
+          };
+const attackLabels =
+    lang === "ru"
+        ? {
+              MELEE: "Ближняя",
+              RANGE: "Дальняя",
+              MAGIC: "Магия",
+              MELEE_MAGIC: "Ближняя / магия",
+          }
+        : {
+              MELEE: "Melee",
+              RANGE: "Ranged",
+              MAGIC: "Magic",
+              MELEE_MAGIC: "Melee / Magic",
+          };
+const movementLabels =
+    lang === "ru"
+        ? { WALK: "Пешком", FLY: "Полет", TELEPORT: "Телепорт" }
+        : { WALK: "Walk", FLY: "Fly", TELEPORT: "Teleport" };
+const summaryStats = [
+    { value: unitCount, label: labels.units },
+    { value: factionUnits.length, label: labels.factions },
+    { value: abilityCount, label: labels.abilities },
+];
+const attackRoleCounts = unitIndex.reduce<Record<string, number>>((counts, unit) => {
+    counts[unit.attackType] = (counts[unit.attackType] ?? 0) + 1;
+    return counts;
+}, {});
+
+function localizedAttackLabel(value: string) {
+    return attackLabels[value as keyof typeof attackLabels] ?? value;
+}
+
+function localizedMovementLabel(value: string) {
+    return movementLabels[value as keyof typeof movementLabels] ?? value;
+}
+
+function abilityLine(unit: Unit) {
+    return unit.abilities.length ? unit.abilities.slice(0, 2).map((ability) => ability.name).join(" + ") : labels.noAbilityShort;
+}
+
+function unitSearchText(unit: Unit) {
+    return [
+        unit.name,
+        unit.faction,
+        localizedAttackLabel(unit.attackType),
+        localizedMovementLabel(unit.movementType),
+        unit.spells.join(" "),
+        unit.abilities.map((ability) => ability.name).join(" "),
+    ]
+        .join(" ")
+        .toLowerCase();
+}
 ---
 
 <section class="subhero units-subhero">
@@ -25,62 +119,117 @@ const serialized = JSON.stringify(unitIndex);
 
 <section class="section units-section">
     <div class="page-shell">
-        <div class="units-toolbar" role="tablist" aria-label="Faction filter">
-            <button class="faction-pill active" data-faction="all" type="button" aria-pressed="true">
-                {ui.all}
-            </button>
+        <div class="units-command">
+            <div class="units-command-copy">
+                <p class="eyebrow">{labels.eyebrow}</p>
+                <h2>{labels.title}</h2>
+                <p>{labels.body}</p>
+            </div>
+            <div class="units-summary" aria-label={labels.eyebrow}>
+                {
+                    summaryStats.map((item) => (
+                        <div>
+                            <strong>{item.value}</strong>
+                            <span>{item.label}</span>
+                        </div>
+                    ))
+                }
+            </div>
+            <div class="role-strip" aria-label={labels.roles}>
+                {
+                    Object.entries(attackRoleCounts).map(([role, count]) => (
+                        <span>
+                            <strong>{count}</strong>
+                            {localizedAttackLabel(role)}
+                        </span>
+                    ))
+                }
+            </div>
+        </div>
+
+        <div class="units-controls">
+            <label class="unit-search">
+                <span>{labels.search}</span>
+                <input data-unit-search type="search" autocomplete="off" placeholder={labels.searchPlaceholder} />
+            </label>
+
+            <div class="units-toolbar" role="tablist" aria-label={labels.factionFilter}>
+                <button class="faction-pill active" data-faction="all" type="button" aria-pressed="true">
+                    {ui.all}
+                </button>
+                {
+                    factionUnits.map((f) => (
+                        <button
+                            class="faction-pill"
+                            data-faction={f.faction}
+                            type="button"
+                            style={`--faction: ${f.color}`}
+                            aria-pressed="false"
+                        >
+                            <img src={f.icon} alt="" width="22" height="22" loading="lazy" />
+                            <span>{f.faction}</span>
+                            <em>{f.units.length}</em>
+                        </button>
+                    ))
+                }
+            </div>
+        </div>
+
+        <div class="units-grid" data-units-grid>
             {
-                factionUnits.map((f) => (
-                    <button
-                        class="faction-pill"
-                        data-faction={f.faction}
-                        type="button"
-                        style={`--faction: ${f.color}`}
-                        aria-pressed="false"
-                    >
-                        <img src={f.icon} alt="" width="22" height="22" loading="lazy" />
-                        <span>{f.faction}</span>
-                        <em>{f.units.length}</em>
-                    </button>
-                ))
+                unitIndex.map((unit, i) => {
+                    const attackType = localizedAttackLabel(unit.attackType);
+                    const movementType = localizedMovementLabel(unit.movementType);
+                    const searchText = unitSearchText(unit);
+
+                    return (
+                        <button
+                            class="unit-card"
+                            data-unit={i}
+                            data-faction={unit.faction}
+                            data-search={searchText}
+                            type="button"
+                            style={`--faction: ${factionColors[unit.faction]}`}
+                            aria-label={`${unit.name}, ${unit.faction}, ${ui.level} ${unit.level}`}
+                        >
+                            <span class="unit-portrait">
+                                <img
+                                    src={unit.icon}
+                                    alt=""
+                                    width="512"
+                                    height="512"
+                                    loading="lazy"
+                                    onerror="this.onerror=null;this.src='/assets/images/units/units/unknown_creature_512.webp'"
+                                />
+                                <span class="unit-level">L{unit.level}</span>
+                                <span class="unit-attack-type">{attackType}</span>
+                            </span>
+                            <span class="unit-card-body">
+                                <span class="unit-name">{unit.name}</span>
+                                <span class="unit-stat-row">
+                                    <span><b>{labels.hp}</b>{unit.hp}</span>
+                                    <span><b>{labels.atk}</b>{unit.attack}</span>
+                                    <span><b>{labels.dmg}</b>{unit.damageMin}-{unit.damageMax}</span>
+                                </span>
+                                <span class="unit-tags">
+                                    <span class="unit-faction" data-faction={unit.faction}>{unit.faction}</span>
+                                    <span>{movementType}</span>
+                                </span>
+                                <span class="unit-ability-line">{abilityLine(unit)}</span>
+                            </span>
+                        </button>
+                    );
+                })
             }
         </div>
 
-        <div class="units-grid">
-            {
-                unitIndex.map((unit, i) => (
-                    <button
-                        class="unit-card"
-                        data-unit={i}
-                        data-faction={unit.faction}
-                        type="button"
-                        style={`--faction: ${factionColors[unit.faction]}`}
-                    >
-                        <span class="unit-portrait">
-                            <img
-                                src={unit.icon}
-                                alt=""
-                                width="128"
-                                height="128"
-                                loading="lazy"
-                                onerror="this.onerror=null;this.src='/assets/images/units/units/unknown_creature_512.webp'"
-                            />
-                            <span class="unit-level">L{unit.level}</span>
-                        </span>
-                        <span class="unit-name">{unit.name}</span>
-                        <span class="unit-tags">
-                            <span class="unit-faction" data-faction={unit.faction}>{unit.faction}</span>
-                        </span>
-                    </button>
-                ))
-            }
-        </div>
+        <p class="units-empty" data-units-empty hidden>{labels.empty}</p>
     </div>
 </section>
 
 <dialog class="unit-dialog" id="unit-dialog" aria-labelledby="unit-dialog-name">
     <div class="unit-dialog-inner">
-        <button class="unit-dialog-close" type="button" data-close aria-label="Close">×</button>
+        <button class="unit-dialog-close" type="button" data-close aria-label={labels.close}>×</button>
         <header class="unit-dialog-head">
             <img
                 class="unit-dialog-portrait"
@@ -149,13 +298,26 @@ const serialized = JSON.stringify(unitIndex);
         icon: string;
     };
 
-    const ATTACK_LABEL: Record<string, string> = {
-        MELEE: "Melee",
-        RANGE: "Ranged",
-        MAGIC: "Magic",
-        MELEE_MAGIC: "Melee / Magic",
-    };
-    const MOVE_LABEL: Record<string, string> = { WALK: "Walk", FLY: "Fly", TELEPORT: "Teleport" };
+    const LANG = document.documentElement.lang;
+    const LEVEL_LABEL = LANG === "ru" ? "Уровень" : "Level";
+    const AURA_LABEL = LANG === "ru" ? "аура" : "aura";
+    const ACTIVE_LABEL = LANG === "ru" ? "активно" : "active";
+    const ATTACK_LABEL: Record<string, string> =
+        LANG === "ru"
+            ? {
+                  MELEE: "Ближняя",
+                  RANGE: "Дальняя",
+                  MAGIC: "Магия",
+                  MELEE_MAGIC: "Ближняя / магия",
+              }
+            : {
+                  MELEE: "Melee",
+                  RANGE: "Ranged",
+                  MAGIC: "Magic",
+                  MELEE_MAGIC: "Melee / Magic",
+              };
+    const MOVE_LABEL: Record<string, string> =
+        LANG === "ru" ? { WALK: "Пешком", FLY: "Полет", TELEPORT: "Телепорт" } : { WALK: "Walk", FLY: "Fly", TELEPORT: "Teleport" };
     const FACTION_ICON: Record<string, string> = {
         Chaos: "/assets/images/units/factions/chaos_128.webp",
         Life: "/assets/images/units/factions/life_128.webp",
@@ -190,7 +352,7 @@ const serialized = JSON.stringify(unitIndex);
             nameEl.textContent = unit.name;
             portrait.src = unit.portrait;
             portrait.alt = unit.name;
-            metaEl.textContent = `Level ${unit.level} · ${ATTACK_LABEL[unit.attackType] ?? unit.attackType} · ${MOVE_LABEL[unit.movementType] ?? unit.movementType}`;
+            metaEl.textContent = `${LEVEL_LABEL} ${unit.level} · ${ATTACK_LABEL[unit.attackType] ?? unit.attackType} · ${MOVE_LABEL[unit.movementType] ?? unit.movementType}`;
             factionP.style.setProperty("--faction", factionColor(unit.faction));
             factionImg.src = FACTION_ICON[unit.faction] ?? "";
             factionTxt.textContent = unit.faction;
@@ -232,13 +394,13 @@ const serialized = JSON.stringify(unitIndex);
                     if (a.isAura) {
                         const tag = document.createElement("span");
                         tag.className = "ability-tag aura";
-                        tag.textContent = "aura";
+                        tag.textContent = AURA_LABEL;
                         head.appendChild(tag);
                     }
                     if (a.isCastable) {
                         const tag = document.createElement("span");
                         tag.className = "ability-tag cast";
-                        tag.textContent = "active";
+                        tag.textContent = ACTIVE_LABEL;
                         head.appendChild(tag);
                     }
                     const desc = document.createElement("p");
@@ -299,9 +461,29 @@ const serialized = JSON.stringify(unitIndex);
         });
     }
 
-    // Faction filter
     const pills = document.querySelectorAll<HTMLButtonElement>(".faction-pill");
     const cards = document.querySelectorAll<HTMLElement>(".unit-card");
+    const searchInput = document.querySelector<HTMLInputElement>("[data-unit-search]");
+    const emptyState = document.querySelector<HTMLElement>("[data-units-empty]");
+    let activeFaction = "all";
+
+    const applyFilters = () => {
+        const query = searchInput?.value.trim().toLowerCase() ?? "";
+        let visibleCount = 0;
+
+        cards.forEach((card) => {
+            const factionMatch = activeFaction === "all" || card.dataset.faction === activeFaction;
+            const searchMatch = !query || (card.dataset.search ?? "").includes(query);
+            const show = factionMatch && searchMatch;
+            card.hidden = !show;
+            if (show) visibleCount += 1;
+        });
+
+        if (emptyState) {
+            emptyState.hidden = visibleCount > 0;
+        }
+    };
+
     pills.forEach((pill) => {
         pill.addEventListener("click", () => {
             pills.forEach((p) => {
@@ -310,13 +492,12 @@ const serialized = JSON.stringify(unitIndex);
             });
             pill.classList.add("active");
             pill.setAttribute("aria-pressed", "true");
-            const f = pill.dataset.faction;
-            cards.forEach((c) => {
-                const show = f === "all" || c.dataset.faction === f;
-                c.style.display = show ? "" : "none";
-            });
+            activeFaction = pill.dataset.faction ?? "all";
+            applyFilters();
         });
     });
+
+    searchInput?.addEventListener("input", applyFilters);
 </script>
 
 <style>
@@ -324,15 +505,141 @@ const serialized = JSON.stringify(unitIndex);
         max-width: 760px;
     }
 
+    .units-section {
+        background:
+            linear-gradient(180deg, rgba(103, 174, 246, 0.06), rgba(7, 8, 8, 0) 220px),
+            #0b0f12;
+    }
+
+    .units-command {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
+        gap: 18px;
+        align-items: stretch;
+        margin-bottom: 20px;
+    }
+
+    .units-command-copy {
+        padding: 26px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background:
+            linear-gradient(135deg, rgba(239, 74, 63, 0.14), rgba(103, 174, 246, 0.07)),
+            rgba(255, 255, 255, 0.045);
+    }
+
+    .units-command-copy h2 {
+        max-width: 720px;
+        margin-bottom: 12px;
+        font-size: 2.2rem;
+    }
+
+    .units-command-copy p:last-child {
+        max-width: 700px;
+        margin-bottom: 0;
+    }
+
+    .units-summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .units-summary div,
+    .role-strip,
+    .units-controls {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.045);
+    }
+
+    .units-summary div {
+        display: grid;
+        align-content: center;
+        min-height: 118px;
+        padding: 18px;
+    }
+
+    .units-summary strong {
+        color: var(--gold);
+        font-size: 2rem;
+        line-height: 1;
+    }
+
+    .units-summary span {
+        margin-top: 7px;
+        color: var(--muted);
+        font-size: 0.9rem;
+        font-weight: 760;
+    }
+
+    .role-strip {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px;
+    }
+
+    .role-strip span {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 34px;
+        padding: 7px 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--ink);
+        font-size: 0.9rem;
+        font-weight: 720;
+    }
+
+    .role-strip strong {
+        color: var(--gold);
+    }
+
+    .units-controls {
+        display: grid;
+        grid-template-columns: minmax(260px, 0.5fr) minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 22px;
+        padding: 12px;
+    }
+
+    .unit-search {
+        display: grid;
+        gap: 6px;
+    }
+
+    .unit-search span {
+        color: var(--muted);
+        font-size: 0.82rem;
+        font-weight: 760;
+    }
+
+    .unit-search input {
+        width: 100%;
+        min-height: 44px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(7, 8, 8, 0.72);
+        color: var(--ink);
+        font: inherit;
+        padding: 10px 12px;
+        outline: none;
+    }
+
+    .unit-search input:focus {
+        border-color: rgba(242, 199, 93, 0.62);
+        box-shadow: 0 0 0 3px rgba(242, 199, 93, 0.12);
+    }
+
     .units-toolbar {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
-        margin-bottom: 28px;
-        padding: 10px;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: var(--surface);
+        justify-content: flex-end;
     }
 
     .faction-pill {
@@ -340,10 +647,10 @@ const serialized = JSON.stringify(unitIndex);
         align-items: center;
         gap: 8px;
         min-height: 38px;
-        padding: 7px 14px;
-        border: 1px solid transparent;
+        padding: 7px 12px;
+        border: 1px solid var(--line);
         border-radius: 8px;
-        background: transparent;
+        background: rgba(7, 8, 8, 0.52);
         color: var(--muted);
         font: inherit;
         font-weight: 700;
@@ -367,24 +674,28 @@ const serialized = JSON.stringify(unitIndex);
 
     .faction-pill.active {
         border-color: color-mix(in srgb, var(--faction, var(--gold)) 60%, transparent);
-        background: color-mix(in srgb, var(--faction, var(--gold)) 14%, transparent);
+        background: color-mix(in srgb, var(--faction, var(--gold)) 18%, rgba(7, 8, 8, 0.6));
         color: var(--ink);
     }
 
     .units-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
-        gap: 14px;
+        grid-template-columns: repeat(auto-fill, minmax(238px, 1fr));
+        gap: 16px;
     }
 
     .unit-card {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        padding: 12px;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: 0;
+        min-width: 0;
+        overflow: hidden;
+        padding: 0;
         border: 1px solid var(--line);
-        border-radius: 12px;
-        background: var(--surface);
+        border-radius: 8px;
+        background:
+            linear-gradient(180deg, color-mix(in srgb, var(--faction) 16%, transparent), transparent 42%),
+            var(--surface);
         color: inherit;
         font: inherit;
         text-align: left;
@@ -397,17 +708,21 @@ const serialized = JSON.stringify(unitIndex);
 
     .unit-card:hover {
         transform: translateY(-3px);
-        border-color: color-mix(in srgb, var(--faction) 55%, transparent);
+        border-color: color-mix(in srgb, var(--faction) 62%, transparent);
         box-shadow: 0 16px 36px rgba(0, 0, 0, 0.34);
+    }
+
+    .unit-card[hidden] {
+        display: none;
     }
 
     .unit-portrait {
         position: relative;
         display: block;
-        aspect-ratio: 1 / 1;
+        aspect-ratio: 16 / 11;
         overflow: hidden;
-        border-radius: 8px;
-        background: #0c0b09;
+        border-bottom: 1px solid var(--line);
+        background: #0b0d0f;
         box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--faction) 40%, transparent);
     }
 
@@ -415,53 +730,122 @@ const serialized = JSON.stringify(unitIndex);
         width: 100%;
         height: 100%;
         object-fit: cover;
+        object-position: center 22%;
+        transition: transform 0.2s ease;
+    }
+
+    .unit-card:hover .unit-portrait img {
+        transform: scale(1.04);
+    }
+
+    .unit-level,
+    .unit-attack-type {
+        position: absolute;
+        min-height: 28px;
+        padding: 5px 8px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.62);
+        color: #fff;
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0;
     }
 
     .unit-level {
-        position: absolute;
-        top: 6px;
-        right: 6px;
-        padding: 2px 6px;
-        border-radius: 6px;
-        background: rgba(0, 0, 0, 0.66);
-        color: #fff;
-        font-size: 0.72rem;
-        font-weight: 800;
-        letter-spacing: 0.02em;
+        top: 8px;
+        right: 8px;
+    }
+
+    .unit-attack-type {
+        left: 8px;
+        bottom: 8px;
+    }
+
+    .unit-card-body {
+        display: grid;
+        gap: 11px;
+        padding: 15px;
     }
 
     .unit-name {
         color: var(--ink);
-        font-weight: 760;
-        font-size: 0.96rem;
-        line-height: 1.2;
+        font-size: 1.05rem;
+        font-weight: 820;
+        line-height: 1.15;
+    }
+
+    .unit-stat-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 7px;
+    }
+
+    .unit-stat-row > span {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+        padding: 8px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.055);
+        color: var(--ink);
+        font-size: 0.9rem;
+        font-weight: 800;
+    }
+
+    .unit-stat-row b {
+        color: var(--muted-2);
+        font-size: 0.68rem;
+        font-weight: 800;
     }
 
     .unit-tags {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: 6px;
     }
 
+    .unit-tags span,
     .unit-faction {
-        padding: 2px 8px;
-        border-radius: 999px;
+        padding: 4px 8px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--muted);
+        font-size: 0.74rem;
+        font-weight: 740;
+    }
+
+    .unit-faction {
         background: color-mix(in srgb, var(--faction) 18%, transparent);
         color: color-mix(in srgb, var(--faction) 80%, #fff);
-        font-size: 0.74rem;
-        font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
+    }
+
+    .unit-ability-line {
+        min-height: 34px;
+        color: var(--muted);
+        font-size: 0.88rem;
+        line-height: 1.35;
+    }
+
+    .units-empty {
+        margin: 24px 0 0;
+        padding: 22px;
+        border: 1px dashed var(--line-strong);
+        border-radius: 8px;
+        color: var(--muted);
+        text-align: center;
     }
 
     /* Dialog */
     .unit-dialog {
-        width: min(720px, calc(100vw - 32px));
+        width: min(860px, calc(100vw - 32px));
         max-height: calc(100svh - 48px);
         padding: 0;
         overflow: hidden;
         border: 1px solid var(--line-strong);
-        border-radius: 16px;
+        border-radius: 8px;
         background: var(--background-2);
         color: var(--ink);
         box-shadow: 0 32px 90px rgba(0, 0, 0, 0.6);
@@ -498,19 +882,21 @@ const serialized = JSON.stringify(unitIndex);
 
     .unit-dialog-head {
         display: grid;
-        grid-template-columns: 160px minmax(0, 1fr);
-        gap: 20px;
+        grid-template-columns: 220px minmax(0, 1fr);
+        gap: 24px;
         align-items: center;
-        padding: 24px 24px 20px;
+        padding: 28px;
         border-bottom: 1px solid var(--line);
-        background: linear-gradient(180deg, color-mix(in srgb, var(--faction, #e0b04a) 16%, transparent), transparent);
+        background:
+            linear-gradient(135deg, color-mix(in srgb, var(--faction, #e0b04a) 22%, transparent), transparent 64%),
+            rgba(255, 255, 255, 0.035);
     }
 
     .unit-dialog-portrait {
-        width: 160px;
-        height: 160px;
+        width: 220px;
+        height: 220px;
         object-fit: cover;
-        border-radius: 12px;
+        border-radius: 8px;
         box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
     }
 
@@ -523,7 +909,7 @@ const serialized = JSON.stringify(unitIndex);
         font-weight: 800;
         font-size: 0.82rem;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
+        letter-spacing: 0;
     }
 
     .unit-dialog-name,
@@ -540,8 +926,9 @@ const serialized = JSON.stringify(unitIndex);
 
     .unit-dialog-body {
         display: grid;
+        grid-template-columns: minmax(260px, 0.78fr) minmax(0, 1fr);
         gap: 22px;
-        padding: 22px 24px 28px;
+        padding: 24px 28px 30px;
     }
 
     .unit-stats {
@@ -619,13 +1006,13 @@ const serialized = JSON.stringify(unitIndex);
 
     .ability-tag {
         padding: 1px 7px;
-        border-radius: 999px;
+        border-radius: 8px;
         background: rgba(224, 176, 74, 0.16);
-        color: var(--gold-soft);
+        color: var(--gold);
         font-size: 0.68rem;
         font-weight: 800;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
+        letter-spacing: 0;
     }
 
     .ability-tag.cast {
@@ -654,7 +1041,7 @@ const serialized = JSON.stringify(unitIndex);
     .spell-chip {
         padding: 6px 12px;
         border: 1px solid var(--line);
-        border-radius: 999px;
+        border-radius: 8px;
         background: var(--surface);
         color: var(--blue);
         font-size: 0.84rem;
@@ -662,6 +1049,40 @@ const serialized = JSON.stringify(unitIndex);
     }
 
     @media (max-width: 640px) {
+        .units-command,
+        .units-controls,
+        .unit-dialog-body {
+            grid-template-columns: 1fr;
+        }
+
+        .units-command-copy,
+        .units-summary div {
+            padding: 18px;
+        }
+
+        .units-command-copy h2 {
+            font-size: 1.65rem;
+        }
+
+        .units-summary {
+            grid-template-columns: 1fr;
+        }
+
+        .units-toolbar {
+            justify-content: flex-start;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            padding-bottom: 2px;
+        }
+
+        .faction-pill {
+            flex: 0 0 auto;
+        }
+
+        .units-grid {
+            grid-template-columns: 1fr;
+        }
+
         .unit-dialog-head {
             grid-template-columns: 92px minmax(0, 1fr);
             gap: 14px;
@@ -680,10 +1101,6 @@ const serialized = JSON.stringify(unitIndex);
         }
         .unit-stats {
             grid-template-columns: 1fr;
-        }
-        .units-grid {
-            grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
-            gap: 10px;
         }
     }
 </style>

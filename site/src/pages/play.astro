@@ -21,11 +21,16 @@ const lang = "en";
                     <span>API</span>
                     <input id="play-api-base" type="url" autocomplete="off" spellcheck="false" />
                 </label>
-                <button id="play-create" class="button primary" type="button">Create Match</button>
+                <a id="play-auth-link" class="button secondary" href="/auth/login/">Login</a>
+                <button id="play-create" class="button primary" type="button">Find Opponent</button>
+                <button id="play-accept" class="button primary" type="button">Accept Match</button>
+                <button id="play-cancel-queue" class="button secondary" type="button">Leave Queue</button>
                 <button id="play-connect" class="button secondary" type="button">Connect</button>
                 <button id="play-refresh" class="button secondary" type="button">Refresh</button>
             </div>
         </div>
+
+        <div id="play-match-flow" class="play-flow"></div>
 
         <div class="play-status-grid" aria-live="polite">
             <div>
@@ -64,6 +69,7 @@ const lang = "en";
                     <button id="play-ready" class="button primary" type="button">Ready</button>
                 </div>
                 <div id="play-unit-list" class="play-unit-list"></div>
+                <div id="play-pick-panel" class="play-pick-panel"></div>
                 <button id="play-end-turn" class="button secondary play-wide-action" type="button">End Turn</button>
             </aside>
 

@@ -12,7 +12,9 @@
     "dependencies": {
         "@astrojs/sitemap": "^3.7.1",
         "@heroesofcrypto/common": "workspace:*",
-        "astro": "^6.0.8"
+        "astro": "^6.0.8",
+        "playwright": "^1.61.1",
+        "rehype-mermaid": "^3.0.0"
     },
     "engines": {
         "node": ">=22.12.0"

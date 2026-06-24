@@ -13,15 +13,17 @@ const isProd =
     import.meta.env.VITE_IS_PROD === "true" ||
     import.meta.env.VITE_IS_PROD === true;
 
+const sameOrigin = globalThis.location?.origin ?? "";
+
 const authBaseUrl =
     import.meta.env.VITE_HOST_AUTH_API ||
     import.meta.env.VITE_AUTH_API ||
-    (isProd ? "https://auth.heroesofcrypto.io" : "http://localhost:3001");
+    (isProd ? "https://auth.heroesofcrypto.io" : sameOrigin || "http://localhost:3001");
 
 const gameClientUrl =
     import.meta.env.VITE_GAME_CLIENT ||
     import.meta.env.VITE_HOST_GAME_CLIENT ||
-    (isProd ? "https://beta.heroesofcrypto.io/game" : "https://beta.heroesofcrypto.io");
+    "/play";
 
 const endpoints = {
     login: isProd ? "/v1/login" : "/v1/auth/login",
