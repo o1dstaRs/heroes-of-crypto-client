@@ -17,6 +17,7 @@ import Toggler from "../Toggler";
 import FightControlToggler from "./FightControlToggler";
 import { VersionDisplay } from "./VersionDisplay";
 import { FullscreenToggle } from "./FullscreenToggle";
+import { WalletLinker } from "../WalletLinker";
 import { IWindowSize } from "../../scenes/VisibleState";
 
 interface IDamageStatsTogglerProps {
@@ -253,6 +254,7 @@ export default function RightSideBar({ gameStarted, windowSize }: { gameStarted:
                         }}
                     />
                     <Divider />
+                    <WalletLinker />
                     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <FullscreenToggle />
                         <VersionDisplay />

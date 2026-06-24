@@ -41,9 +41,26 @@ function readIsProd(): boolean {
 
 const IS_PROD = readIsProd();
 
-const HOST_AUTH_API = readEnvString("VITE_HOST_AUTH_API", "HOST_AUTH_API");
-const HOST_MATCHMAKING_API = readEnvString("VITE_HOST_MATCHMAKING_API", "HOST_MATCHMAKING_API");
-const HOST_GAME_API = readEnvString("VITE_HOST_GAME_API", "HOST_GAME_API");
+export const HOST_AUTH_API = readEnvString("VITE_HOST_AUTH_API", "HOST_AUTH_API");
+export const HOST_MATCHMAKING_API = readEnvString("VITE_HOST_MATCHMAKING_API", "HOST_MATCHMAKING_API");
+export const HOST_GAME_API = readEnvString("VITE_HOST_GAME_API", "HOST_GAME_API");
+
+const isAbsoluteUrl = (url: string): boolean => /^[a-z][a-z\d+\-.]*:\/\//i.test(url) || url.startsWith("//");
+
+export const buildApiUrl = (baseUrl: string | undefined, path: string): string => {
+    if (isAbsoluteUrl(path)) {
+        return path;
+    }
+
+    const base = baseUrl && baseUrl.length > 0 ? baseUrl : typeof window !== "undefined" ? window.location.origin : "";
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+
+    if (!base) {
+        return normalizedPath;
+    }
+
+    return `${base.replace(/\/+$/, "")}${normalizedPath}`;
+};
 
 /** Create axios instance with optional baseURL */
 function createAxios(baseURL?: string): AxiosInstance {
@@ -170,11 +187,16 @@ export const endpoints = {
     },
     mm: {
         queue: IS_PROD ? "/v1/queue" : "/v1/mm/queue",
+        events: IS_PROD ? "/v1/events" : "/v1/mm/events",
     },
     game: {
         confirm: IS_PROD ? "/v1/confirm" : "/v1/game/confirm",
         abandon: IS_PROD ? "/v1/abandon" : "/v1/game/abandon",
         current: IS_PROD ? "/v1/current" : "/v1/game/current",
+        pickEvents: IS_PROD ? "/v1/pick-events" : "/v1/game/pick-events",
+        playEvents: IS_PROD ? "/v1/play-events" : "/v1/game/play-events",
+        playSnapshot: IS_PROD ? "/v1/play-snapshot" : "/v1/game/play-snapshot",
+        playAction: IS_PROD ? "/v1/play-action" : "/v1/game/play-action",
         pickPair: IS_PROD ? "/v1/pick-pair" : "/v1/game/pick-pair",
         pick: IS_PROD ? "/v1/pick" : "/v1/game/pick",
         ban: IS_PROD ? "/v1/ban" : "/v1/game/ban",

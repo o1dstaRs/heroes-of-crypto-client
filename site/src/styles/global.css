@@ -27,6 +27,7 @@
 html {
     scroll-behavior: smooth;
     overflow-x: clip;
+    -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -281,7 +282,7 @@ code {
 .hero {
     position: relative;
     overflow: hidden;
-    min-height: min(720px, calc(100vh - 128px));
+    min-height: clamp(620px, calc(100svh - 86px), 760px);
     background: #050606;
 }
 
@@ -310,15 +311,15 @@ code {
     position: relative;
     z-index: 1;
     display: grid;
-    grid-template-columns: minmax(0, 0.92fr) minmax(360px, 0.78fr);
-    gap: 54px;
+    grid-template-columns: minmax(420px, 0.92fr) minmax(420px, 0.78fr);
+    gap: 48px;
     align-items: center;
-    min-height: min(720px, calc(100vh - 128px));
-    padding: 30px 0 38px;
+    min-height: clamp(620px, calc(100svh - 86px), 760px);
+    padding: 42px 0 46px;
 }
 
 .hero-content {
-    max-width: 720px;
+    max-width: 610px;
 }
 
 .hero h1 {
@@ -357,6 +358,7 @@ code {
     align-items: center;
     justify-content: center;
     gap: 10px;
+    min-width: 0;
     min-height: 48px;
     max-width: 100%;
     padding: 12px 19px;
@@ -365,6 +367,7 @@ code {
     font: inherit;
     font-weight: 820;
     line-height: 1.2;
+    text-align: center;
     cursor: pointer;
     transition:
         transform 0.14s ease,
@@ -456,6 +459,151 @@ code {
     transform: scale(1.025);
 }
 
+.hero-roster-stage {
+    display: grid;
+    gap: 14px;
+    justify-self: end;
+    width: min(520px, 100%);
+    min-width: 0;
+}
+
+.hero-roster-heading,
+.hero-roster-caption {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.hero-roster-heading span,
+.hero-roster-heading a,
+.hero-roster-caption span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 7px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    background: rgba(5, 6, 6, 0.54);
+    color: rgba(251, 244, 232, 0.9);
+    font-size: 0.86rem;
+    font-weight: 780;
+    backdrop-filter: blur(10px);
+}
+
+.hero-roster-heading a {
+    color: var(--gold);
+}
+
+.hero-unit-battleline {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-items: end;
+}
+
+.hero-unit-chip {
+    position: relative;
+    display: grid;
+    min-width: 0;
+    min-height: clamp(168px, 15vw, 208px);
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--faction) 48%, rgba(255, 255, 255, 0.1));
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--faction) 18%, transparent), rgba(5, 6, 6, 0.42)), #090b0d;
+    color: #fff;
+    box-shadow: 0 22px 52px rgba(0, 0, 0, 0.34);
+    isolation: isolate;
+    transition:
+        transform 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.hero-unit-chip:nth-child(2),
+.hero-unit-chip:nth-child(3) {
+    transform: translateY(10px);
+}
+
+.hero-unit-chip:hover {
+    border-color: color-mix(in srgb, var(--faction) 76%, #fff);
+    box-shadow: 0 28px 64px rgba(0, 0, 0, 0.48);
+}
+
+.hero-unit-chip:nth-child(2):hover,
+.hero-unit-chip:nth-child(3):hover {
+    transform: translateY(4px);
+}
+
+.hero-unit-chip:hover:not(:nth-child(2)):not(:nth-child(3)) {
+    transform: translateY(-6px);
+}
+
+.hero-unit-image {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+}
+
+.hero-unit-image::after {
+    position: absolute;
+    inset: 0;
+    content: "";
+    background:
+        linear-gradient(180deg, rgba(5, 6, 6, 0) 0%, rgba(5, 6, 6, 0.22) 42%, rgba(5, 6, 6, 0.9) 100%),
+        radial-gradient(circle at 50% 8%, color-mix(in srgb, var(--faction) 34%, transparent), transparent 48%);
+}
+
+.hero-unit-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 18%;
+    transform: scale(1.05);
+    transition: transform 0.22s ease;
+}
+
+.hero-unit-chip:hover .hero-unit-image img {
+    transform: scale(1.1);
+}
+
+.hero-unit-text {
+    align-self: end;
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    padding: 16px;
+}
+
+.hero-unit-text strong {
+    font-size: 1.02rem;
+    font-weight: 860;
+    line-height: 1.1;
+}
+
+.hero-unit-text span {
+    color: color-mix(in srgb, var(--faction) 78%, #fff);
+    font-size: 0.82rem;
+    font-weight: 820;
+    text-transform: uppercase;
+}
+
+.hero-unit-chip em {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    min-height: 28px;
+    padding: 5px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(5, 6, 6, 0.62);
+    color: #fff;
+    font-size: 0.75rem;
+    font-style: normal;
+    font-weight: 860;
+}
+
 .preview-play {
     position: absolute;
     right: 18px;
@@ -474,6 +622,8 @@ code {
 .proof-strip {
     border-block: 1px solid var(--line);
     background: #10161b;
+    position: relative;
+    z-index: 2;
 }
 
 .proof-grid {
@@ -517,6 +667,96 @@ code {
         transform 0.14s ease,
         box-shadow 0.18s ease,
         background 0.18s ease;
+}
+
+.faction-rail-section {
+    padding: 18px 0 22px;
+    border-bottom: 1px solid var(--line);
+    background: #0c1115;
+}
+
+.faction-rail {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.faction-quick {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid color-mix(in srgb, var(--faction) 34%, var(--line));
+    border-radius: 8px;
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--faction) 14%, transparent), transparent),
+        rgba(255, 255, 255, 0.035);
+    transition:
+        transform 0.16s ease,
+        border-color 0.16s ease,
+        background 0.16s ease;
+}
+
+.faction-quick:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--faction) 68%, #fff);
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--faction) 21%, transparent), transparent),
+        rgba(255, 255, 255, 0.05);
+}
+
+.faction-quick-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.faction-quick-head img {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+}
+
+.faction-quick-head span {
+    display: grid;
+    min-width: 0;
+}
+
+.faction-quick-head strong {
+    overflow: hidden;
+    color: var(--ink);
+    font-size: 0.98rem;
+    font-weight: 840;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.faction-quick-head em {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-style: normal;
+    font-weight: 720;
+}
+
+.faction-mini-units {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.faction-mini-units img {
+    width: 54px;
+    height: 54px;
+    overflow: hidden;
+    border: 2px solid #0c1115;
+    border-radius: 8px;
+    background: #090b0d;
+    object-fit: cover;
+}
+
+.faction-mini-units img + img {
+    margin-left: -14px;
 }
 
 .section {
@@ -587,6 +827,7 @@ code {
 
 .section-copy {
     max-width: 560px;
+    min-width: 0;
 }
 
 .roster-section {
@@ -595,6 +836,86 @@ code {
 
 .visual-panel {
     aspect-ratio: 1 / 1;
+}
+
+.home-roster-board {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.home-faction-panel {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid color-mix(in srgb, var(--faction) 34%, var(--line));
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--faction) 13%, transparent), transparent 42%),
+        rgba(255, 255, 255, 0.04);
+}
+
+.home-faction-title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 12px;
+}
+
+.home-faction-title img {
+    width: 28px;
+    height: 28px;
+}
+
+.home-faction-title strong {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ink);
+    font-size: 0.94rem;
+    font-weight: 840;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.home-unit-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.home-unit-tile {
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+    border-radius: 8px;
+    aspect-ratio: 1 / 1;
+    background: #090b0d;
+}
+
+.home-unit-tile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 18%;
+    transition: transform 0.2s ease;
+}
+
+.home-unit-tile:hover img {
+    transform: scale(1.06);
+}
+
+.home-unit-tile span {
+    position: absolute;
+    inset: auto 6px 6px;
+    overflow: hidden;
+    padding: 5px 7px;
+    border-radius: 6px;
+    background: rgba(5, 6, 6, 0.66);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1.12;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .pill-list {
@@ -630,8 +951,10 @@ code {
 }
 
 .feature-card {
-    min-height: 260px;
-    padding: 28px;
+    min-width: 0;
+    overflow: hidden;
+    min-height: 430px;
+    padding: 0;
     transition:
         transform 0.2s ease,
         box-shadow 0.2s ease,
@@ -644,15 +967,202 @@ code {
     box-shadow: 0 22px 56px rgba(0, 0, 0, 0.36);
 }
 
-.feature-card img {
-    width: 54px;
-    height: 54px;
-    margin-bottom: 30px;
-    filter: drop-shadow(0 8px 18px rgba(242, 199, 93, 0.18));
+.mechanic-card {
+    display: grid;
+    grid-template-rows: minmax(220px, auto) 1fr;
+}
+
+.mechanic-visual {
+    position: relative;
+    min-height: 228px;
+    overflow: hidden;
+    border-bottom: 1px solid var(--line);
+    background: #090b0d;
+}
+
+.mechanic-copy {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    padding: 24px;
 }
 
 .feature-card h3 {
+    margin-bottom: 0;
     color: var(--gold);
+}
+
+.feature-card p {
+    margin-bottom: 0;
+}
+
+.mechanic-board,
+.mechanic-factions,
+.mechanic-abilities {
+    position: absolute;
+    inset: 0;
+}
+
+.mechanic-board > img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    opacity: 0.72;
+    transform: scale(1.08);
+}
+
+.mechanic-board::after,
+.mechanic-factions::after,
+.mechanic-abilities::after {
+    position: absolute;
+    inset: 0;
+    content: "";
+    background:
+        linear-gradient(180deg, rgba(5, 6, 6, 0.04), rgba(5, 6, 6, 0.38)),
+        radial-gradient(circle at 50% 8%, rgba(242, 199, 93, 0.2), transparent 46%);
+    pointer-events: none;
+}
+
+.board-path {
+    position: absolute;
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    box-shadow: 0 0 18px rgba(242, 199, 93, 0.55);
+    transform-origin: left center;
+}
+
+.board-path.one {
+    top: 38%;
+    left: 22%;
+    width: 48%;
+    transform: rotate(-13deg);
+}
+
+.board-path.two {
+    top: 58%;
+    left: 34%;
+    width: 38%;
+    transform: rotate(18deg);
+}
+
+.board-marker {
+    position: absolute;
+    width: 17px;
+    height: 17px;
+    border: 3px solid var(--gold);
+    border-radius: 50%;
+    background: rgba(7, 8, 8, 0.74);
+    box-shadow: 0 0 22px rgba(242, 199, 93, 0.48);
+}
+
+.board-marker.one {
+    top: 32%;
+    left: 22%;
+}
+
+.board-marker.two {
+    top: 47%;
+    left: 52%;
+}
+
+.board-marker.three {
+    top: 60%;
+    left: 72%;
+}
+
+.mechanic-icon-row {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    z-index: 1;
+    display: flex;
+    gap: 8px;
+}
+
+.mechanic-icon-row img,
+.mechanic-abilities img {
+    width: 48px;
+    height: 48px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    background: #090b0d;
+    object-fit: cover;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34);
+}
+
+.mechanic-factions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+}
+
+.mechanic-faction-unit {
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--faction) 22%, transparent), rgba(5, 6, 6, 0.2)), #090b0d;
+}
+
+.mechanic-faction-unit img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 18%;
+    transform: scale(1.08);
+}
+
+.mechanic-faction-unit em {
+    position: absolute;
+    left: 7px;
+    right: 7px;
+    bottom: 7px;
+    overflow: hidden;
+    padding: 5px 7px;
+    border-radius: 7px;
+    background: rgba(5, 6, 6, 0.68);
+    color: color-mix(in srgb, var(--faction) 78%, #fff);
+    font-size: 0.68rem;
+    font-style: normal;
+    font-weight: 860;
+    text-align: center;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.mechanic-abilities {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    align-content: center;
+    padding: 28px;
+    background:
+        radial-gradient(circle at 50% 48%, rgba(239, 74, 63, 0.32), transparent 46%),
+        linear-gradient(135deg, rgba(242, 199, 93, 0.15), rgba(103, 174, 246, 0.13)), #090b0d;
+}
+
+.mechanic-abilities span {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1 / 1;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(5, 6, 6, 0.44);
+}
+
+.mechanic-abilities span:nth-child(2),
+.mechanic-abilities span:nth-child(3) {
+    transform: translateY(18px);
+}
+
+.mechanic-abilities img {
+    width: min(74px, 72%);
+    height: min(74px, 72%);
 }
 
 .feature-card p,
@@ -700,6 +1210,7 @@ code {
 
 .token-links.compact a {
     display: inline-flex;
+    min-width: 0;
     min-height: 34px;
     padding: 7px 10px;
     border: 1px solid var(--line);
@@ -1285,11 +1796,21 @@ code {
 
     .hero-grid {
         gap: 34px;
+        min-height: auto;
         padding-top: 52px;
+    }
+
+    .hero {
+        min-height: auto;
     }
 
     .hero-preview {
         max-width: 720px;
+    }
+
+    .hero-roster-stage {
+        justify-self: start;
+        width: min(760px, 100%);
     }
 
     .proof-grid {
@@ -1306,6 +1827,10 @@ code {
     .release-roster-grid,
     .utility-list {
         grid-template-columns: 1fr;
+    }
+
+    .faction-rail {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .patch-meta {
@@ -1333,7 +1858,7 @@ code {
 
     .site-header {
         grid-template-columns: minmax(0, 1fr) auto;
-        min-height: 62px;
+        min-height: 58px;
         padding: 9px 14px;
         gap: 8px;
     }
@@ -1348,6 +1873,7 @@ code {
     }
 
     .brand span {
+        max-width: min(42vw, 170px);
         font-size: 0.95rem;
     }
 
@@ -1359,6 +1885,10 @@ code {
 
     .header-actions .language-switcher {
         display: none;
+    }
+
+    .header-actions {
+        gap: 6px;
     }
 
     .header-play {
@@ -1379,14 +1909,22 @@ code {
         flex-wrap: nowrap;
         gap: 2px;
         overflow-x: auto;
-        padding-top: 2px;
+        width: calc(100% + 28px);
+        margin-inline: -14px;
+        padding: 2px 14px 0;
+        scroll-padding-inline: 14px;
     }
 
     .nav-link {
-        flex: 0 1 auto;
-        min-height: 34px;
-        padding: 8px 9px;
+        flex: 0 0 auto;
+        min-height: 32px;
+        padding: 7px 9px;
         font-size: 0.87rem;
+    }
+
+    .nav-language,
+    .nav-language .language-option {
+        flex: 0 0 auto;
     }
 
     .patch-heading h2 {
@@ -1420,11 +1958,71 @@ code {
 
     .hero-grid {
         min-height: auto;
-        padding: 44px 0 38px;
+        gap: 22px;
+        padding: 28px 0 24px;
+    }
+
+    .hero-content,
+    .hero h1,
+    .hero-tagline,
+    .hero-copy {
+        max-width: none;
     }
 
     .hero-preview {
         display: none;
+    }
+
+    .hero-roster-stage {
+        width: 100%;
+        margin-top: 2px;
+    }
+
+    .hero-roster-heading,
+    .hero-roster-caption {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    .hero-roster-caption {
+        display: none;
+    }
+
+    .hero-unit-battleline {
+        display: flex;
+        gap: 10px;
+        align-items: stretch;
+        width: calc(100% + 28px);
+        margin-inline: -14px;
+        overflow-x: auto;
+        padding: 0 14px 2px;
+        scroll-padding-inline: 14px;
+        scrollbar-width: none;
+    }
+
+    .hero-unit-battleline::-webkit-scrollbar {
+        display: none;
+    }
+
+    .hero-unit-chip {
+        flex: 0 0 min(42vw, 164px);
+        min-height: 150px;
+    }
+
+    .hero-unit-chip:nth-child(2),
+    .hero-unit-chip:nth-child(3),
+    .hero-unit-chip:nth-child(2):hover,
+    .hero-unit-chip:nth-child(3):hover,
+    .hero-unit-chip:hover:not(:nth-child(2)):not(:nth-child(3)) {
+        transform: none;
+    }
+
+    .hero-unit-text {
+        padding: 12px;
+    }
+
+    .hero-unit-text strong {
+        font-size: 0.9rem;
     }
 
     .hero-tagline {
@@ -1432,11 +2030,30 @@ code {
     }
 
     .hero-copy {
+        margin-bottom: 22px;
         font-size: 1rem;
     }
 
     .hero-actions .button {
         flex: 1 1 190px;
+    }
+
+    .hero-highlights {
+        flex-wrap: nowrap;
+        width: calc(100% + 28px);
+        margin-inline: -14px;
+        overflow-x: auto;
+        padding: 0 14px 2px;
+        scroll-padding-inline: 14px;
+        scrollbar-width: none;
+    }
+
+    .hero-highlights::-webkit-scrollbar {
+        display: none;
+    }
+
+    .hero-highlights span {
+        flex: 0 0 auto;
     }
 
     .preview-play {
@@ -1465,6 +2082,23 @@ code {
         font-size: 0.78rem;
     }
 
+    .faction-rail-section {
+        padding: 12px 0;
+    }
+
+    .faction-rail {
+        gap: 9px;
+    }
+
+    .faction-quick {
+        padding: 12px;
+    }
+
+    .faction-mini-units img {
+        width: 48px;
+        height: 48px;
+    }
+
     .section {
         padding: 62px 0;
     }
@@ -1473,7 +2107,6 @@ code {
         margin-bottom: 28px;
     }
 
-    .feature-card,
     .patch-body,
     .contact-form,
     .auth-form {
@@ -1507,14 +2140,40 @@ code {
         min-height: 0;
     }
 
-    .feature-card img {
-        width: 46px;
-        height: 46px;
-        margin-bottom: 24px;
+    .mechanic-card {
+        grid-template-rows: minmax(190px, auto) 1fr;
+    }
+
+    .mechanic-visual {
+        min-height: 190px;
+    }
+
+    .mechanic-copy {
+        padding: 20px;
+    }
+
+    .mechanic-abilities {
+        gap: 8px;
+        padding: 20px;
+    }
+
+    .mechanic-icon-row img,
+    .mechanic-abilities img {
+        width: 42px;
+        height: 42px;
     }
 
     .visual-panel {
         aspect-ratio: 4 / 3;
+    }
+
+    .home-roster-board {
+        grid-template-columns: 1fr;
+        order: 2;
+    }
+
+    .roster-section .section-copy {
+        order: 1;
     }
 
     .allocation-title {
@@ -1529,6 +2188,7 @@ code {
 
     .final-cta-inner {
         display: grid;
+        justify-items: start;
     }
 
     .final-cta h2 {
@@ -1579,6 +2239,30 @@ code {
         font-size: 2.38rem;
     }
 
+    h2 {
+        font-size: 1.72rem;
+    }
+
+    .page-shell,
+    .auth-shell {
+        width: min(1160px, calc(100vw - 24px));
+    }
+
+    .site-header {
+        padding-inline: 12px;
+    }
+
+    .main-nav {
+        width: calc(100% + 24px);
+        margin-inline: -12px;
+        padding-inline: 12px;
+        scroll-padding-inline: 12px;
+    }
+
+    .brand span {
+        max-width: 136px;
+    }
+
     .header-play {
         max-width: 148px;
     }
@@ -1601,7 +2285,42 @@ code {
         font-size: 0.84rem;
     }
 
+    .hero-unit-battleline {
+        width: calc(100% + 24px);
+        margin-inline: -12px;
+        padding-inline: 12px;
+        scroll-padding-inline: 12px;
+    }
+
+    .hero-unit-chip {
+        flex-basis: min(46vw, 156px);
+        min-height: 136px;
+    }
+
+    .hero-unit-text {
+        padding: 10px;
+    }
+
+    .hero-unit-text strong {
+        font-size: 0.84rem;
+    }
+
+    .hero-unit-text span {
+        font-size: 0.72rem;
+    }
+
+    .hero-highlights {
+        width: calc(100% + 24px);
+        margin-inline: -12px;
+        padding-inline: 12px;
+        scroll-padding-inline: 12px;
+    }
+
     .proof-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .faction-rail {
         grid-template-columns: 1fr;
     }
 
@@ -1619,9 +2338,115 @@ code {
         min-height: 72px;
     }
 
+    .section {
+        padding: 50px 0;
+    }
+
+    .home-faction-panel,
+    .mechanic-copy,
+    .contract-box,
+    .allocation-item,
+    .roadmap-item,
+    .patch-body,
+    .contact-form,
+    .auth-form {
+        padding: 16px;
+    }
+
+    .home-unit-grid {
+        gap: 6px;
+    }
+
+    .home-unit-tile span {
+        inset: auto 5px 5px;
+        padding: 4px 6px;
+        font-size: 0.66rem;
+    }
+
+    .token-links.compact {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .token-links.compact a,
+    .arena-actions .button,
+    .final-cta .button,
+    .contact-channels a {
+        width: 100%;
+    }
+
     .preview-play {
         position: static;
         display: flex;
         border-radius: 0 0 8px 8px;
+    }
+}
+
+@media (max-width: 380px) {
+    h1 {
+        font-size: 2.18rem;
+    }
+
+    .version-badge {
+        display: none;
+    }
+
+    .brand span {
+        max-width: 168px;
+    }
+
+    .hero-unit-chip {
+        min-height: 136px;
+    }
+
+    .hero-grid {
+        gap: 0;
+        padding: 22px 0 20px;
+    }
+
+    .hero-tagline {
+        margin-bottom: 12px;
+        font-size: 1.28rem;
+    }
+
+    .hero-copy {
+        margin-bottom: 18px;
+        font-size: 0.96rem;
+        line-height: 1.54;
+    }
+
+    .hero-actions {
+        gap: 10px;
+    }
+
+    .hero-actions .button {
+        min-height: 46px;
+        padding: 11px 14px;
+    }
+
+    .hero-highlights {
+        margin-top: 14px;
+    }
+
+    .hero-roster-stage {
+        display: none;
+    }
+}
+
+@media (hover: none) {
+    .button:hover,
+    .header-play:hover,
+    .footer-play:hover,
+    .proof-action:hover,
+    .feature-card:hover,
+    .faction-quick:hover,
+    .home-unit-tile:hover img,
+    .hero-preview:hover .preview-frame img,
+    .hero-unit-chip:hover,
+    .hero-unit-chip:nth-child(2):hover,
+    .hero-unit-chip:nth-child(3):hover,
+    .hero-unit-chip:hover:not(:nth-child(2)):not(:nth-child(3)),
+    .hero-unit-chip:hover .hero-unit-image img {
+        transform: none;
     }
 }

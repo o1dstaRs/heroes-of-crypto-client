@@ -3,12 +3,13 @@ import { PICK_EVENT_SOURCE } from "./env";
 
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter as Router, Route, Routes, useParams } from "react-router";
 import "typeface-open-sans";
 
 import { usePixiManager } from "../pixi/PixiGameManager";
+import { WalletProvider } from "../wallet/WalletProvider";
 import LeftSideBar from "./LeftSideBar";
 import DraggableToolbar from "./DraggableToolbar";
 import { Main } from "./Main";
@@ -19,8 +20,11 @@ import { UpNextOverlay } from "./UpNextOverlay";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
+import { buildApiUrl, endpoints, HOST_GAME_API } from "../api/axios";
 import { AuthProvider } from "./auth/context/auth_provider";
 import { useAuthContext } from "./auth/context/auth_context";
+import { LoginScreen } from "./LoginScreen/LoginScreen";
+import { MatchmakingRoute } from "./MatchmakingRoute";
 
 const usePreventSelection = () => {
     useEffect(() => {
@@ -125,10 +129,25 @@ export type { IPickPhaseEventData } from "./context/PickBanContext";
 import { PickBanEventProvider, usePickBanEvents } from "./context/PickBanContext";
 export { PickBanEventProvider, usePickBanEvents };
 
-const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType }> = ({ windowSize, userTeam }) => {
+const appendEncodedPath = (baseUrl: string, value: string): string =>
+    `${baseUrl.replace(/\/+$/, "")}/${encodeURIComponent(value)}`;
+
+const pickEventUrl = (gameId: string): string => {
+    if (PICK_EVENT_SOURCE) {
+        return appendEncodedPath(PICK_EVENT_SOURCE, gameId);
+    }
+    return appendEncodedPath(buildApiUrl(HOST_GAME_API, endpoints.game.pickEvents), gameId);
+};
+
+const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType; gameId: string }> = ({
+    windowSize,
+    userTeam,
+    gameId,
+}) => {
     const manager = usePixiManager();
     const [started, setStarted] = useState(false);
     const [isLoading, setIsLoading] = useState(manager.isLoading);
+    const pickEventsUrl = useMemo(() => pickEventUrl(gameId), [gameId]);
 
     useEffect(() => {
         const connection = manager.onHasStarted.connect((hasStarted) => {
@@ -146,7 +165,7 @@ const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType }> 
     }, [manager]);
 
     return (
-        <PickBanEventProvider url={PICK_EVENT_SOURCE ?? ""} userTeam={userTeam}>
+        <PickBanEventProvider url={pickEventsUrl} userTeam={userTeam}>
             <div
                 className="container"
                 style={{
@@ -228,10 +247,31 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                     {errorMessage}
                 </div>
             )}
-            {(userTeam !== TeamVals.NO_TEAM || errorMessage) && (
-                <PickAndBanView windowSize={windowSize} userTeam={userTeam} />
+            {!showOverlay && userTeam !== TeamVals.NO_TEAM && gameId && (
+                <PickAndBanView windowSize={windowSize} userTeam={userTeam} gameId={gameId ?? ""} />
             )}
         </>
+    );
+};
+
+const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
+    const { loading, authenticated } = useAuthContext();
+
+    if (loading) {
+        return null;
+    }
+
+    if (!authenticated) {
+        return <LoginScreen />;
+    }
+
+    return (
+        <Routes>
+            <Route path="/" element={<Heroes windowSize={windowSize} />} />
+            <Route path="/play" element={<MatchmakingRoute />} />
+            {/* <Route path="/game" element={<PickAndBanView windowSize={windowSize} />} /> */}
+            <Route path="/game/:gameId" element={<GameRoute windowSize={windowSize} />} />
+        </Routes>
     );
 };
 
@@ -261,15 +301,13 @@ const App: React.FC = () => {
     }, [updateWindowSize]);
 
     return (
-        <AuthProvider>
-            <Router>
-                <Routes>
-                    <Route path="/" element={<Heroes windowSize={windowSize} />} />
-                    {/* <Route path="/game" element={<PickAndBanView windowSize={windowSize} />} /> */}
-                    <Route path="/game/:gameId" element={<GameRoute windowSize={windowSize} />} />
-                </Routes>
-            </Router>
-        </AuthProvider>
+        <WalletProvider>
+            <AuthProvider>
+                <Router>
+                    <AuthedRoutes windowSize={windowSize} />
+                </Router>
+            </AuthProvider>
+        </WalletProvider>
     );
 };
 

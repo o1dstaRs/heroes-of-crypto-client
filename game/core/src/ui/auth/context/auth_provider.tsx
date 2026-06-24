@@ -103,6 +103,18 @@ const refreshLocalStorageFromCookie = () => {
     if (accessTokenCookie) {
         localStorage.setItem(STORAGE_KEY, accessTokenCookie);
     }
+
+    const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+    if (!hash.includes("access_token=") && !hash.includes("accessToken=")) {
+        return;
+    }
+
+    const hashParams = new URLSearchParams(hash);
+    const accessToken = hashParams.get("access_token") ?? hashParams.get(STORAGE_KEY);
+    if (accessToken) {
+        localStorage.setItem(STORAGE_KEY, accessToken);
+        window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.search}`);
+    }
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -131,7 +143,9 @@ const walletAddressesFrom = (data: unknown): string[] => {
     if (!isRecord(data)) {
         return [];
     }
-    return stringArrayFrom(data.walletAddresses).concat(stringArrayFrom(data.wallets));
+    return stringArrayFrom(data.walletAddresses)
+        .concat(stringArrayFrom(data.addresses))
+        .concat(stringArrayFrom(data.wallets));
 };
 
 const tokenFromWalletResponse = (authorization: unknown, data: unknown): string | null => {
@@ -199,9 +213,15 @@ export function AuthProvider({ children }: Props) {
     }, []);
 
     const startGameSearch = useCallback(async () => {
+        const accessToken = getAccessToken();
+
         const res = await axiosMMInstance.post(endpoints.mm.queue, null, {
             responseType: "arraybuffer",
-            headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
+            headers: {
+                "Content-Type": "application/octet-stream",
+                "x-request-id": uuidv4(),
+                ...(accessToken ? { Authorization: accessToken } : {}),
+            },
         });
 
         const reponseData = res.data;
@@ -219,9 +239,15 @@ export function AuthProvider({ children }: Props) {
     }, [state]);
 
     const stopGameSearch = useCallback(async () => {
+        const accessToken = getAccessToken();
+
         await axiosMMInstance.delete(endpoints.mm.queue, {
             responseType: "arraybuffer",
-            headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
+            headers: {
+                "Content-Type": "application/octet-stream",
+                "x-request-id": uuidv4(),
+                ...(accessToken ? { Authorization: accessToken } : {}),
+            },
         });
 
         dispatch({
@@ -236,17 +262,29 @@ export function AuthProvider({ children }: Props) {
     }, [state]);
 
     const confirmGame = useCallback(async (gameId: string) => {
-        await axiosGameInstance.post(`${endpoints.game.confirm}/${gameId}`, {
+        const accessToken = getAccessToken();
+
+        await axiosGameInstance.post(`${endpoints.game.confirm}/${gameId}`, null, {
             responseType: "arraybuffer",
-            headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
+            headers: {
+                "Content-Type": "application/octet-stream",
+                "x-request-id": uuidv4(),
+                ...(accessToken ? { Authorization: accessToken } : {}),
+            },
         });
     }, []);
 
     const abandonGame = useCallback(
         async (gameId: string) => {
-            await axiosGameInstance.post(`${endpoints.game.abandon}/${gameId}`, {
+            const accessToken = getAccessToken();
+
+            await axiosGameInstance.post(`${endpoints.game.abandon}/${gameId}`, null, {
                 responseType: "arraybuffer",
-                headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
+                headers: {
+                    "Content-Type": "application/octet-stream",
+                    "x-request-id": uuidv4(),
+                    ...(accessToken ? { Authorization: accessToken } : {}),
+                },
             });
 
             dispatch({
@@ -468,10 +506,13 @@ export function AuthProvider({ children }: Props) {
     const unlinkWallet = useCallback(
         async (address: string): Promise<string[]> => {
             const accessToken = getAccessToken();
-            const res = await axiosAuthInstance.delete(endpoints.auth.walletUnlink, {
-                data: { address },
-                headers: authJsonHeaders(accessToken),
-            });
+            const res = await axiosAuthInstance.post(
+                endpoints.auth.walletUnlink,
+                { address },
+                {
+                    headers: authJsonHeaders(accessToken),
+                },
+            );
             const wallets = walletAddressesFrom(res.data);
             return wallets.length ? wallets : getWallets();
         },

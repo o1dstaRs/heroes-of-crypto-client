@@ -16,7 +16,6 @@ const navItems = [
     { label: copy.nav.units, href: localPath(lang, "units") },
     { label: copy.nav.token, href: localPath(lang, "token") },
     { label: copy.nav.patches, href: localPath(lang, "patches") },
-    { label: copy.nav.login, href: `${localPath(lang, "home")}auth/login/` },
 ];
 
 const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? currentPath.slice(0, -1) : currentPath;
@@ -62,9 +61,8 @@ const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? curren
     </nav>
 
     <div class="header-actions">
-        <a class="header-play" href={links.betaApp} target="_blank" rel="noopener">
-            <img src="/assets/icons/navbar/joystick.svg" alt="" width="18" height="18" />
-            {copy.hero.primaryCta}
+        <a class="header-play header-login" href={`${localPath(lang, "home")}auth/login/`}>
+            {copy.nav.login}
         </a>
         <div class="language-switcher" aria-label={copy.ui.language}>
             <a class:list={["language-option", { active: lang === "en" }]} href={languageSwitchPath(currentPath, "en")}>
@@ -76,3 +74,19 @@ const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? curren
         </div>
     </div>
 </header>
+
+<style>
+    .header-login {
+        min-width: 88px;
+    }
+
+    @media (max-width: 720px) {
+        .header-login {
+            display: inline-flex;
+            min-height: 34px;
+            max-width: none;
+            padding: 8px 12px;
+            font-size: 0.84rem;
+        }
+    }
+</style>

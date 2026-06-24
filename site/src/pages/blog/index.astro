@@ -11,7 +11,11 @@ const posts = (await getCollection("blog")).sort(
 );
 ---
 
-<BaseLayout lang={lang} title="Blog">
+<BaseLayout
+    lang={lang}
+    title="Heroes of Crypto Blog"
+    description="Read Heroes of Crypto devlogs about browser turn-based tactics, faction synergies, shrinking-map strategy, multiplayer work, and game balance."
+>
     <section class="blog-index">
         <div class="page-shell">
             <header class="blog-head">
@@ -34,6 +38,7 @@ const posts = (await getCollection("blog")).sort(
                                             year: "numeric",
                                             month: "short",
                                             day: "numeric",
+                                            timeZone: "UTC",
                                         })}
                                     </time>
                                     <span class="post-tags">

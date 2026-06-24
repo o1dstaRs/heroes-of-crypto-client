@@ -1,5 +1,6 @@
 ---
-import { content, contractAddress, links, type Language } from "../lib/site-data";
+import { content, contractAddress, links, localPath, type Language } from "../lib/site-data";
+import { abilityCount, factionColors, factionUnits, unitCount, type Unit } from "../lib/units-data";
 
 interface Props {
     lang: Language;
@@ -7,6 +8,72 @@ interface Props {
 
 const { lang } = Astro.props;
 const copy = content[lang];
+const homeLabels =
+    lang === "ru"
+        ? {
+              rosterEyebrow: "Живой ростер",
+              rosterCta: "Все юниты",
+              factionRail: "Выберите фракцию",
+              units: "юнитов",
+              level: "Ур.",
+              featured: "Готовы к бою",
+          }
+        : {
+              rosterEyebrow: "Live roster",
+              rosterCta: "All units",
+              factionRail: "Choose a faction",
+              units: "units",
+              level: "Lv.",
+              featured: "Ready to deploy",
+          };
+const heroStats = [
+    { value: String(factionUnits.length), label: copy.hero.stats[0]?.label ?? "Factions" },
+    { value: String(unitCount), label: copy.hero.stats[1]?.label ?? "Combat units" },
+    { value: String(abilityCount), label: copy.hero.stats[2]?.label ?? "Abilities" },
+];
+const allUnits = factionUnits.flatMap((faction) => faction.units);
+const findUnit = (name: string) => allUnits.find((unit) => unit.name === name);
+const fallbackHeroUnits = factionUnits.map((faction) => faction.units[faction.units.length - 1]).filter(Boolean);
+const heroUnits = [
+    findUnit("Black Dragon"),
+    findUnit("Angel"),
+    findUnit("Behemoth"),
+    findUnit("Thunderbird"),
+].filter(Boolean) as Unit[];
+const spotlightUnits = heroUnits.length === 4 ? heroUnits : fallbackHeroUnits;
+const factionHighlights = factionUnits.map((faction) => ({
+    ...faction,
+    featuredUnits: [...faction.units].sort((a, b) => b.level - a.level || a.name.localeCompare(b.name)).slice(0, 4),
+    unitCount: faction.units.length,
+}));
+const featureVisuals = [
+    {
+        variant: "board",
+        icons: [
+            "/assets/images/units/abilities/movement_augment_256.webp",
+            "/assets/images/units/abilities/through_shot_256.webp",
+            "/assets/images/units/abilities/tie_up_the_horses_aura_256.webp",
+        ],
+    },
+    {
+        variant: "factions",
+        units: factionHighlights.map((faction) => faction.featuredUnits[0]).filter(Boolean),
+    },
+    {
+        variant: "abilities",
+        icons: [
+            "/assets/images/units/abilities/chain_lightning_256.webp",
+            "/assets/images/units/abilities/resurrection_256.webp",
+            "/assets/images/units/abilities/fire_breath_256.webp",
+            "/assets/images/units/abilities/mass_magic_mirror_256.webp",
+        ],
+    },
+] as const;
+const featureCards = copy.features.items.map((item, index) => ({
+    ...item,
+    visual: featureVisuals[index] ?? featureVisuals[0],
+}));
+const unitsHref = localPath(lang, "units");
 ---
 
 <section class="hero">
@@ -39,22 +106,43 @@ const copy = content[lang];
             </div>
         </div>
 
-        <a class="hero-preview" href={links.betaApp} target="_blank" rel="noopener" aria-label={copy.hero.primaryCta}>
-            <span class="preview-frame">
-                <img src="/assets/images/preview_game.webp" alt="Heroes of Crypto beta battlefield preview" width="1200" height="630" />
-            </span>
-            <span class="preview-play">
-                <img src="/assets/icons/navbar/joystick.svg" alt="" width="24" height="24" />
-                {copy.hero.primaryCta}
-            </span>
-        </a>
+        <div class="hero-roster-stage" aria-label={homeLabels.rosterEyebrow}>
+            <div class="hero-roster-heading">
+                <span>{homeLabels.rosterEyebrow}</span>
+                <a href={unitsHref}>{homeLabels.rosterCta}</a>
+            </div>
+            <div class="hero-unit-battleline">
+                {
+                    spotlightUnits.map((unit) => (
+                        <a
+                            class="hero-unit-chip"
+                            href={unitsHref}
+                            style={`--faction: ${factionColors[unit.faction]}`}
+                            aria-label={`${unit.name}, ${unit.faction}`}
+                        >
+                            <span class="hero-unit-image">
+                                <img src={unit.portrait} alt="" width="512" height="512" />
+                            </span>
+                            <span class="hero-unit-text">
+                                <strong>{unit.name}</strong>
+                                <span>{unit.faction}</span>
+                            </span>
+                            <em>{homeLabels.level} {unit.level}</em>
+                        </a>
+                    ))
+                }
+            </div>
+            <div class="hero-roster-caption">
+                <span>{homeLabels.featured}</span>
+            </div>
+        </div>
     </div>
 </section>
 
 <section class="proof-strip" aria-label="Game stats">
     <div class="page-shell proof-grid">
         {
-            copy.hero.stats.map((stat) => (
+            heroStats.map((stat) => (
                 <div class="proof-item">
                     <strong>{stat.value}</strong>
                     <span>{stat.label}</span>
@@ -64,6 +152,29 @@ const copy = content[lang];
         <a class="proof-action" href={links.betaApp} target="_blank" rel="noopener">
             {copy.progress.cta}
         </a>
+    </div>
+</section>
+
+<section class="faction-rail-section" aria-label={homeLabels.factionRail}>
+    <div class="page-shell faction-rail">
+        {
+            factionHighlights.map((faction) => (
+                <a class="faction-quick" href={unitsHref} style={`--faction: ${faction.color}`}>
+                    <span class="faction-quick-head">
+                        <img src={faction.icon} alt="" width="34" height="34" loading="lazy" />
+                        <span>
+                            <strong>{faction.faction}</strong>
+                            <em>{faction.unitCount} {homeLabels.units}</em>
+                        </span>
+                    </span>
+                    <span class="faction-mini-units">
+                        {faction.featuredUnits.slice(0, 3).map((unit) => (
+                            <img src={unit.icon} alt="" width="72" height="72" loading="lazy" />
+                        ))}
+                    </span>
+                </a>
+            ))
+        }
     </div>
 </section>
 
@@ -88,14 +199,25 @@ const copy = content[lang];
 
 <section class="section roster-section">
     <div class="page-shell split">
-        <div class="visual-panel">
-            <img
-                src="/assets/images/home/variety.webp"
-                alt="Heroes of Crypto factions and unit art"
-                loading="lazy"
-                width="792"
-                height="792"
-            />
+        <div class="home-roster-board" aria-label={copy.roster.title}>
+            {
+                factionHighlights.map((faction) => (
+                    <article class="home-faction-panel" style={`--faction: ${faction.color}`}>
+                        <div class="home-faction-title">
+                            <img src={faction.icon} alt="" width="28" height="28" loading="lazy" />
+                            <strong>{faction.faction}</strong>
+                        </div>
+                        <div class="home-unit-grid">
+                            {faction.featuredUnits.map((unit) => (
+                                <a class="home-unit-tile" href={unitsHref}>
+                                    <img src={unit.icon} alt="" width="512" height="512" loading="lazy" />
+                                    <span>{unit.name}</span>
+                                </a>
+                            ))}
+                        </div>
+                    </article>
+                ))
+            }
         </div>
         <div class="section-copy">
             <p class="eyebrow">{copy.roster.eyebrow}</p>
@@ -114,13 +236,62 @@ const copy = content[lang];
             <p class="eyebrow">{copy.features.eyebrow}</p>
             <h2>{copy.features.title}</h2>
         </div>
-        <div class="feature-grid">
+        <div class="feature-grid mechanic-grid">
             {
-                copy.features.items.map((item) => (
-                    <article class="feature-card">
-                        <img src={item.icon} alt="" width="54" height="54" />
-                        <h3>{item.title}</h3>
-                        <p>{item.description}</p>
+                featureCards.map((item) => (
+                    <article class={`feature-card mechanic-card is-${item.visual.variant}`}>
+                        <div class="mechanic-visual" aria-hidden="true">
+                            {
+                                item.visual.variant === "board" && (
+                                    <div class="mechanic-board">
+                                        <img
+                                            src="/assets/images/preview_game.webp"
+                                            alt=""
+                                            width="1200"
+                                            height="630"
+                                            loading="lazy"
+                                        />
+                                        <span class="board-path one"></span>
+                                        <span class="board-path two"></span>
+                                        <span class="board-marker one"></span>
+                                        <span class="board-marker two"></span>
+                                        <span class="board-marker three"></span>
+                                        <span class="mechanic-icon-row">
+                                            {item.visual.icons.map((icon) => (
+                                                <img src={icon} alt="" width="256" height="256" loading="lazy" />
+                                            ))}
+                                        </span>
+                                    </div>
+                                )
+                            }
+                            {
+                                item.visual.variant === "factions" && (
+                                    <div class="mechanic-factions">
+                                        {item.visual.units.map((unit) => (
+                                            <span class="mechanic-faction-unit" style={`--faction: ${factionColors[unit.faction]}`}>
+                                                <img src={unit.icon} alt="" width="512" height="512" loading="lazy" />
+                                                <em>{unit.faction}</em>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )
+                            }
+                            {
+                                item.visual.variant === "abilities" && (
+                                    <div class="mechanic-abilities">
+                                        {item.visual.icons.map((icon) => (
+                                            <span>
+                                                <img src={icon} alt="" width="256" height="256" loading="lazy" />
+                                            </span>
+                                        ))}
+                                    </div>
+                                )
+                            }
+                        </div>
+                        <div class="mechanic-copy">
+                            <h3>{item.title}</h3>
+                            <p>{item.description}</p>
+                        </div>
                     </article>
                 ))
             }

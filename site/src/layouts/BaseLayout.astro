@@ -8,14 +8,23 @@ interface Props {
     lang: Language;
     title?: string;
     description?: string;
+    ogType?: "website" | "article";
+    publishedTime?: string;
+    tags?: string[];
+    structuredData?: Record<string, unknown> | Record<string, unknown>[];
 }
 
-const { lang, title, description } = Astro.props;
+const { lang, title, description, ogType = "website", publishedTime, tags = [], structuredData } = Astro.props;
 const copy = content[lang];
 const resolvedTitle = title && title !== copy.meta.title ? `${title} | ${copy.meta.title}` : copy.meta.title;
 const resolvedDescription = description ?? copy.meta.description;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const ogImage = new URL("/assets/images/preview_game.webp", Astro.site);
+const extraStructuredData = structuredData
+    ? Array.isArray(structuredData)
+        ? structuredData
+        : [structuredData]
+    : [];
 
 // Structured data: helps search engines understand this is a playable game + org.
 const jsonLd = {
@@ -25,7 +34,7 @@ const jsonLd = {
             "@type": "VideoGame",
             name: "Heroes of Crypto",
             description:
-                "Free-to-play turn-based strategy game with 4 factions, 44 units, and 74 abilities. Play in your browser.",
+                "Free-to-play turn-based strategy game with 4 factions, 46 units, and 74 abilities. Play in your browser.",
             genre: ["Strategy", "Turn-based", "Tactics"],
             gamePlatform: ["Web Browser"],
             applicationCategory: "Game",
@@ -38,6 +47,7 @@ const jsonLd = {
             name: "Old Stars Gaming",
             url: "https://heroesofcrypto.io",
         },
+        ...extraStructuredData,
     ],
 };
 ---
@@ -52,7 +62,7 @@ const jsonLd = {
         <link rel="canonical" href={canonicalURL} />
 
         <!-- Open Graph -->
-        <meta property="og:type" content="website" />
+        <meta property="og:type" content={ogType} />
         <meta property="og:site_name" content="Heroes of Crypto" />
         <meta property="og:title" content={resolvedTitle} />
         <meta property="og:description" content={resolvedDescription} />
@@ -67,6 +77,9 @@ const jsonLd = {
         <meta name="twitter:title" content={resolvedTitle} />
         <meta name="twitter:description" content={resolvedDescription} />
         <meta name="twitter:image" content={ogImage} />
+
+        {publishedTime && <meta property="article:published_time" content={publishedTime} />}
+        {tags.map((tag) => <meta property="article:tag" content={tag} />)}
 
         <link rel="preload" as="image" href="/assets/images/preview_game.webp" />
         <link rel="icon" href="/favicon/favicon.ico" sizes="any" />

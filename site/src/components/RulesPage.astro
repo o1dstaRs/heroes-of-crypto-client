@@ -1,0 +1,1406 @@
+---
+import { links, localPath, type Language } from "../lib/site-data";
+import { abilityCount, factionColors, factionUnits, unitCount, type FactionName, type Unit } from "../lib/units-data";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+const isRu = lang === "ru";
+const allUnits = factionUnits.flatMap((faction) => faction.units);
+const byName = new Map(allUnits.map((unit) => [unit.name, unit]));
+const pickUnits = (names: string[]) => names.map((name) => byName.get(name)).filter(Boolean) as Unit[];
+const heroUnits = pickUnits(["Black Dragon", "Angel", "Behemoth", "Pegasus"]);
+const exampleUnits = pickUnits(["Medusa", "Arbalester", "Hydra", "Thunderbird", "Satyr", "Gargantuan"]);
+const rulesHref = localPath(lang, "rules");
+const unitsHref = localPath(lang, "units");
+
+const attackLabels = isRu
+    ? {
+          MELEE: "Ближний бой",
+          RANGE: "Стрельба",
+          MAGIC: "Магия",
+          MELEE_MAGIC: "Ближний бой / магия",
+      }
+    : {
+          MELEE: "Melee",
+          RANGE: "Ranged",
+          MAGIC: "Magic",
+          MELEE_MAGIC: "Melee / magic",
+      };
+
+const movementLabels = isRu
+    ? { WALK: "Пеший", FLY: "Летающий", TELEPORT: "Телепорт" }
+    : { WALK: "Walk", FLY: "Fly", TELEPORT: "Teleport" };
+
+const roleCounts = allUnits.reduce<Record<string, number>>((counts, unit) => {
+    counts[unit.attackType] = (counts[unit.attackType] ?? 0) + 1;
+    return counts;
+}, {});
+
+const copy = isRu
+    ? {
+          eyebrow: "Правила игры",
+          title: "Как играть в Heroes of Crypto",
+          description:
+              "Соберите небольшой отряд, расставьте его на поле 16x16 и выиграйте бой через позиционирование, синергии, мораль, магию и сужающуюся карту. Этот раздел описывает реальные правила из общего TypeScript-движка игры.",
+          primaryCta: "Играть",
+          secondaryCta: "Открыть юнитов",
+          heroLabel: "Примеры боевых юнитов",
+          stats: [
+              { value: String(unitCount), label: "юнита в публичном ростере" },
+              { value: String(factionUnits.length), label: "игровые фракции" },
+              { value: String(abilityCount), label: "способностей" },
+          ],
+          loopTitle: "Партия в одну минуту",
+          loopIntro:
+              "Думайте о матче как о цепочке понятных решений. Вы не смотрите симуляцию в черном ящике: выборы игрока проходят через общий движок, а клиент показывает события на доске.",
+          phases: [
+              {
+                  title: "1. Драфт",
+                  text: "Вы берете компактный ростер по уровням: два юнита 1 уровня, два 2 уровня, один 3 уровня и один 4 уровня. Баны и reveal-инструменты помогают контролировать скрытую информацию.",
+              },
+              {
+                  title: "2. Апгрейды и синергии",
+                  text: "До боя вы тратите до 7 очков на апгрейды и выбираете бонусы фракций, если в армии есть 2, 4 или 6 юнитов одной фракции.",
+              },
+              {
+                  title: "3. Расстановка",
+                  text: "Вы выставляете стеки в своей зоне. Большие существа занимают 2x2 клетки, дальники хотят линии огня, а ауры работают только там, где их зона реально достает.",
+              },
+              {
+                  title: "4. Бой",
+                  text: "Активный юнит двигается, атакует, кастует, ждет через Hourglass или заканчивает ход. После действия движок выбирает следующего юнита.",
+              },
+          ],
+          winTitle: "Цель простая: оставить на доске свою армию",
+          winParagraphs: [
+              "Каждый юнит на поле - это стек, а не один солдат. Урон снимает здоровье текущей фигуры внутри стека, затем убивает следующую. Когда живых существ в стеке не остается, стек исчезает с доски.",
+              "Вы выигрываете, когда у соперника не осталось живых стеков. Если обе стороны тянут время, игра давит сама: карта сужается, крайние клетки превращаются в провалы, а после 12-го круга начинается Armageddon.",
+          ],
+          readBoard: [
+              "Смотрите на очередь ходов, а не только на активного юнита.",
+              "Держите дальников вне ближнего контакта: рядом с врагом стрельба может выключиться.",
+              "Не игнорируйте край карты. Сужение сначала пытается вытолкнуть стек к центру, но если места нет, стек погибает.",
+          ],
+          draftTitle: "Драфт: выбирайте план, а не красивые портреты",
+          draftParagraphs: [
+              "Уровень юнита важен, но это не единственный критерий. В Heroes of Crypto слабый на вид юнит может включить нужную синергию, закрыть ауру, дать контроль или принести spellbook в отряд.",
+              "Публичный ростер сейчас сфокусирован на четырех игровых фракциях: Chaos, Life, Might и Nature. Внутри них есть ближние бойцы, стрелки, маги, летающие юниты, крупные 2x2 существа и утилити-юниты с аурами.",
+          ],
+          draftNotes: [
+              "Базовый пул драфта по уровням: 2/2/1/1.",
+              "Баны по уровню разрешены только если в пуле остается достаточно вариантов.",
+              "Reveal полезен, когда важнее узнать угрозу соперника, чем забрать еще один неизвестный слот.",
+          ],
+          unitsTitle: "Как читать юнита",
+          unitStats: [
+              { label: "HP", text: "сколько здоровья у одного существа внутри стека" },
+              { label: "Damage", text: "базовый разброс удара до брони, удачи и модификаторов" },
+              { label: "Speed", text: "сильно влияет на порядок ходов внутри круга" },
+              { label: "Steps", text: "сколько клеток юнит может пройти за ход" },
+              { label: "Shots", text: "боезапас дальних атак, если юнит стреляет" },
+              { label: "Magic resist", text: "шанс сопротивляться дебаффам и магическим эффектам" },
+          ],
+          upgradesTitle: "Апгрейды команды: 7 очков, настоящие компромиссы",
+          upgradesIntro:
+              "Апгрейды не являются косметикой. Они меняют размер зоны расстановки, живучесть армии, дальнюю игру, ближний урон и темп перемещения.",
+          upgrades: [
+              {
+                  icon: "/assets/images/units/abilities/board_augment_256.webp",
+                  title: "Placement",
+                  text: "Расширяет зону расстановки. Стартовый уровень ограничивает количество выставленных стеков; максимальный уровень открывает базовый потолок в 8 стеков до бонусов Nature.",
+              },
+              {
+                  icon: "/assets/images/units/abilities/armor_augment_256.webp",
+                  title: "Armor",
+                  text: "+6%, +13% или +21% к броне команды. Хорошо работает с армиями, которые хотят пережить первый контакт.",
+              },
+              {
+                  icon: "/assets/images/units/abilities/might_augment_256.webp",
+                  title: "Might",
+                  text: "+8%, +17% или +27% к ближней атаке. Это выбор для армий, которые готовы драться лицом к лицу.",
+              },
+              {
+                  icon: "/assets/images/units/abilities/sniper_augment_256.webp",
+                  title: "Sniper",
+                  text: "+7/15/24% к атаке стрелков и +20/40/70% к дистанции выстрела. Берите, если ваша победа зависит от линий огня.",
+              },
+              {
+                  icon: "/assets/images/units/abilities/movement_augment_256.webp",
+                  title: "Movement",
+                  text: "+1 или +2 шага. Иногда лишняя клетка важнее лишнего урона.",
+              },
+          ],
+          synergiesTitle: "Синергии фракций: 2, 4 и 6 юнитов",
+          synergiesIntro:
+              "Когда в армии есть 2/4/6 юнитов одной фракции, открывается уровень синергии 1/2/3. Для каждой фракции вы выбираете один из двух бонусов.",
+          synergyLevels: "Уровни силы",
+          synergies: [
+              {
+                  faction: "Life",
+                  icon: "/assets/images/units/factions/life_128.webp",
+                  options: ["Supply: +6% / +12% / +19% существ в стеках", "Morale & luck: +6/+2, +13/+5, +20/+9"],
+              },
+              {
+                  faction: "Chaos",
+                  icon: "/assets/images/units/factions/chaos_128.webp",
+                  options: ["Movement: +1 / +2 / +3 клетки", "Break on attack: 8% / 13% / 19% шанс выключить способности"],
+              },
+              {
+                  faction: "Might",
+                  icon: "/assets/images/units/factions/might_128.webp",
+                  options: ["Aura range: +1 / +2 / +3 клетки", "Stack abilities power: +5% / +8% / +12%"],
+              },
+              {
+                  faction: "Nature",
+                  icon: "/assets/images/units/factions/nature_128.webp",
+                  options: ["Board units: +1 / +2 / +3 выставленных стека", "Flying armor: +10% / +20% / +30%"],
+              },
+          ],
+          placementTitle: "Расстановка: бой часто выигрывается до первого удара",
+          placementParagraphs: [
+              "Вы выбираете юнита из ростера, задаете количество существ в стеке и ставите его в разрешенную зону. Можно двигать уже поставленные стеки, клонировать выбранный стек, удалять его и подгонять финальную формацию перед стартом.",
+              "Большие юниты занимают 2x2 клетки. Это сильные фигуры, но они требуют места: их сложнее протащить через узкий центр и тяжелее спасти при сужении карты.",
+              "Перед стартом проверьте три вещи: кто получает ауру, кого можно достать первым ходом, и где окажутся ваши стрелки, если враг ворвется в ближний бой.",
+          ],
+          turnsTitle: "Ход: одно решение, потом очередь идет дальше",
+          turnActions: [
+              {
+                  title: "Move",
+                  text: "Путь должен быть легальным и помещаться в Steps юнита. Движение к ближайшему врагу повышает мораль; отход может ее снизить.",
+              },
+              {
+                  title: "Melee attack",
+                  text: "Юнит должен оказаться рядом с целью. Стрелок, вынужденный бить в ближнем бою, наносит меньше урона, если у него нет подходящей способности.",
+              },
+              {
+                  title: "Ranged attack",
+                  text: "Нужны выстрелы, линия атаки и отсутствие ближней угрозы. Дальние выстрелы режутся делителем до x8, если Sniper не снимает это ограничение.",
+              },
+              {
+                  title: "Spellbook",
+                  text: "Маги и spellbook-юниты кастуют баффы, дебаффы, лечение, массовые эффекты, summon и позиционные трюки. Magic resist и mind resistance могут остановить эффект.",
+              },
+              {
+                  title: "Hourglass",
+                  text: "Юнит добровольно ждет и возвращается позже в очередь. Это стоит морали, зато помогает дождаться лучшего момента.",
+              },
+              {
+                  title: "Luck Shield / Skip",
+                  text: "Luck Shield сбрасывает рандомизированную удачу текущего хода и завершает ход. Skip тоже заканчивает ход, но снижает мораль.",
+              },
+          ],
+          combatTitle: "Как считается бой без формул",
+          combatParagraphs: [
+              "Урон зависит от атаки, количества живых существ в стеке, брони цели, удачи, дальности выстрела, выбранного типа атаки и активных способностей. Поэтому один и тот же юнит может ударить совсем по-разному в разных позициях.",
+              "Ответный удар существует. Ближние и дальние юниты могут отвечать, если не потратили ответ, не заблокированы эффектом и действительно могут достать атакующего.",
+              "Способности добавляют характер: Lucky Strike может резко поднять урон, Stun и Blindness ломают темп, Petrifying Gaze может добить, Fire Shield возвращает урон, Range Null Field выключает стрельбу вокруг себя.",
+          ],
+          moraleTitle: "Мораль, удача и stack power",
+          moraleItems: [
+              "Мораль ограничена диапазоном от -20 до +20. Положительная мораль может поднять юнита в очереди, отрицательная - задержать.",
+              "Убийство дает сильный моральный толчок атакующему, а похожие стеки на стороне погибшего могут просесть по морали.",
+              "Удача влияет на шанс и силу многих способностей. Каждый ход может добавить случайный сдвиг, а Luck Shield позволяет очистить этот момент.",
+              "Stack power пересчитывается от ценности стека на доске: опыт юнита умножается на количество живых существ и сравнивается с крупнейшим стеком. Диапазон - от 1 до 5.",
+          ],
+          mapTitle: "Карта не ждет вечно",
+          mapParagraphs: [
+              "Поле - сетка 16x16. В текущей ротации есть обычные карты, карты с lava center и карты с block center. Центральная гора может блокировать выстрелы и выдерживает 5 ударов; lava center может дать смысл способностям Made of Fire.",
+              "На обычных картах сужение идет примерно каждые 3 круга. На block-center картах - каждые 4 круга. Если команды не сближаются и не наносят урон, игра может добавить дополнительное сужение.",
+              "После 12-го круга начинается Armageddon: четыре волны урона постепенно превращают затянутый бой в финал.",
+          ],
+          examplesTitle: "Мини-шпаргалка по ролям",
+          examples: [
+              "Black Dragon и Angel показывают силу крупных летающих финишеров, но им нужно место для 2x2 тела.",
+              "Medusa, Arbalester и Gargantuan учат уважать линии стрельбы, боезапас и дистанцию.",
+              "Satyr и Ogre Mage напоминают, что spellbook часто важнее прямого урона.",
+              "Pegasus, Griffin, Peasant и Valkyrie доказывают, что ауры выигрывают бои еще до первого удара.",
+          ],
+          finalTitle: "Как играть лучше уже в следующей партии",
+          finalItems: [
+              "Начните с плана фракции: какие 2/4/6 юнитов включат нужную синергию?",
+              "Ставьте дальников так, чтобы первый вражеский рывок не выключил им стрельбу.",
+              "Не тратьте Hourglass автоматически. Ждать стоит только ради конкретного следующего хода.",
+              "Следите за сужением карты с первого круга, а не когда край уже стал дырой.",
+          ],
+      }
+    : {
+          eyebrow: "Game rules",
+          title: "How to play Heroes of Crypto",
+          description:
+              "Build a compact army, place it on a 16x16 battlefield, then win through positioning, faction synergies, morale, spells, and a map that keeps closing in. This guide follows the real shared TypeScript fight engine used by the browser client.",
+          primaryCta: "Play",
+          secondaryCta: "Browse units",
+          heroLabel: "Example combat units",
+          stats: [
+              { value: String(unitCount), label: "public roster units" },
+              { value: String(factionUnits.length), label: "playable factions" },
+              { value: String(abilityCount), label: "unit abilities" },
+          ],
+          loopTitle: "The match in one minute",
+          loopIntro:
+              "Read a match as a chain of visible decisions. You are not watching a black-box simulation: player actions go through the shared rules engine, then the browser client renders the events on the board.",
+          phases: [
+              {
+                  title: "1. Draft",
+                  text: "Build a tight roster by level: two level-1 units, two level-2 units, one level-3 unit, and one level-4 unit. Bans and reveals help manage hidden information.",
+              },
+              {
+                  title: "2. Upgrade and synergize",
+                  text: "Before the fight, spend up to 7 augment points and choose faction bonuses when your army reaches 2, 4, or 6 units from the same faction.",
+              },
+              {
+                  title: "3. Place",
+                  text: "Put stacks inside your deployment zone. Large creatures need a 2x2 footprint, ranged units need lanes, and aura units need friends inside their real range.",
+              },
+              {
+                  title: "4. Fight",
+                  text: "The active unit moves, attacks, casts, waits on Hourglass, or ends its turn. After the action resolves, the engine selects the next unit.",
+              },
+          ],
+          winTitle: "The goal is simple: keep your army on the board",
+          winParagraphs: [
+              "Each unit on the board is a stack, not a single model. Damage burns through the current body in that stack, then starts killing the next one. When the stack has no living bodies left, it shatters off the board.",
+              "You win when the enemy has no living stacks. If both sides stall, the game applies pressure by narrowing the map, turning outer cells into holes, and eventually starting Armageddon after lap 12.",
+          ],
+          readBoard: [
+              "Watch the turn queue, not only the active unit.",
+              "Keep ranged units out of melee contact: adjacent pressure can shut down shooting.",
+              "Respect the edge. Narrowing tries to push a stack inward first, but if there is no legal space, the stack dies.",
+          ],
+          draftTitle: "Draft: pick a plan, not just portraits",
+          draftParagraphs: [
+              "Unit level matters, but it is not the whole game. A low-level unit can unlock the right synergy, carry an aura, bring control, or give your army a spellbook.",
+              "The public roster is currently focused on four playable factions: Chaos, Life, Might, and Nature. Across them you get melee fighters, ranged units, spellcasters, flyers, large 2x2 creatures, and utility pieces with auras.",
+          ],
+          draftNotes: [
+              "The baseline draft pool by level is 2/2/1/1.",
+              "A level can only be banned if enough units of that level remain available.",
+              "Reveal is best when knowing the opponent's threat matters more than taking another unknown slot.",
+          ],
+          unitsTitle: "How to read a unit",
+          unitStats: [
+              { label: "HP", text: "health of one body inside the stack" },
+              { label: "Damage", text: "base attack spread before armor, luck, and modifiers" },
+              { label: "Speed", text: "a major input into turn order inside each lap" },
+              { label: "Steps", text: "how far the unit can move on its turn" },
+              { label: "Shots", text: "ammo for ranged attacks, when the unit has a ranged attack" },
+              { label: "Magic resist", text: "chance to resist debuffs and magical effects" },
+          ],
+          upgradesTitle: "Team upgrades: 7 points, real tradeoffs",
+          upgradesIntro:
+              "Augments are not cosmetics. They change deployment size, durability, ranged plans, melee damage, and tempo before the first unit acts.",
+          upgrades: [
+              {
+                  icon: "/assets/images/units/abilities/board_augment_256.webp",
+                  title: "Placement",
+                  text: "Expands deployment. The starting tier limits how many stacks can be fielded; the highest tier opens the baseline cap of 8 stacks before Nature bonuses.",
+              },
+              {
+                  icon: "/assets/images/units/abilities/armor_augment_256.webp",
+                  title: "Armor",
+                  text: "+6%, +13%, or +21% team armor. Strong when your army needs to survive first contact.",
+              },
+              {
+                  icon: "/assets/images/units/abilities/might_augment_256.webp",
+                  title: "Might",
+                  text: "+8%, +17%, or +27% melee attack. This is for armies that intend to fight up close.",
+              },
+              {
+                  icon: "/assets/images/units/abilities/sniper_augment_256.webp",
+                  title: "Sniper",
+                  text: "+7/15/24% ranged attack and +20/40/70% shot distance. Take it when firing lanes are your win condition.",
+              },
+              {
+                  icon: "/assets/images/units/abilities/movement_augment_256.webp",
+                  title: "Movement",
+                  text: "+1 or +2 movement steps. Sometimes one extra cell is worth more than another damage buff.",
+              },
+          ],
+          synergiesTitle: "Faction synergies: 2, 4, and 6 units",
+          synergiesIntro:
+              "When you field 2/4/6 units from the same faction, that faction reaches synergy level 1/2/3. For each faction, you choose one of two bonuses.",
+          synergyLevels: "Power by level",
+          synergies: [
+              {
+                  faction: "Life",
+                  icon: "/assets/images/units/factions/life_128.webp",
+                  options: ["Supply: +6% / +12% / +19% bodies in each stack", "Morale & luck: +6/+2, +13/+5, +20/+9"],
+              },
+              {
+                  faction: "Chaos",
+                  icon: "/assets/images/units/factions/chaos_128.webp",
+                  options: ["Movement: +1 / +2 / +3 cells", "Break on attack: 8% / 13% / 19% chance to shut off abilities"],
+              },
+              {
+                  faction: "Might",
+                  icon: "/assets/images/units/factions/might_128.webp",
+                  options: ["Aura range: +1 / +2 / +3 cells", "Stack abilities power: +5% / +8% / +12%"],
+              },
+              {
+                  faction: "Nature",
+                  icon: "/assets/images/units/factions/nature_128.webp",
+                  options: ["Board units: +1 / +2 / +3 fielded stacks", "Flying armor: +10% / +20% / +30%"],
+              },
+          ],
+          placementTitle: "Placement: many fights are won before the first hit",
+          placementParagraphs: [
+              "Choose a unit from the roster, set the stack amount, and place it in your allowed deployment zone. You can move placed stacks, clone the selected stack, delete it, and tune the final shape before starting the fight.",
+              "Large units occupy 2x2 cells. They are powerful pieces, but they ask for space: harder to route through a crowded center and harder to save when narrowing starts.",
+              "Before pressing start, check three things: who is inside your auras, who can be reached on the first turn, and where your ranged units will stand if the enemy dives them.",
+          ],
+          turnsTitle: "Turns: one decision, then the queue moves",
+          turnActions: [
+              {
+                  title: "Move",
+                  text: "The path must be legal and fit inside the unit's Steps. Moving closer to the nearest enemy raises morale; backing away can lower it.",
+              },
+              {
+                  title: "Melee attack",
+                  text: "The unit must stand next to the target. A ranged unit forced into melee hits at reduced damage unless an ability covers it.",
+              },
+              {
+                  title: "Ranged attack",
+                  text: "You need shots, a valid line, and no melee lock. Long shots are reduced by a range divisor up to x8 unless Sniper avoids the penalty.",
+              },
+              {
+                  title: "Spellbook",
+                  text: "Spellbook units cast buffs, debuffs, healing, mass effects, summons, and position tricks. Magic resist and mind resistance can stop effects.",
+              },
+              {
+                  title: "Hourglass",
+                  text: "The unit waits and comes back later in the queue. It costs morale, but it can turn a bad action now into a better action later.",
+              },
+              {
+                  title: "Luck Shield / Skip",
+                  text: "Luck Shield clears the turn's randomized luck and ends the turn. Skip also ends the turn, with a morale cost.",
+              },
+          ],
+          combatTitle: "Combat, without the formula sheet",
+          combatParagraphs: [
+              "Damage depends on attack, living bodies in the stack, target armor, luck, range distance, selected attack type, and active abilities. That is why the same unit can hit very differently from two different board states.",
+              "Responses exist. Melee and ranged units can answer an attack if they have not already replied, are not blocked by an effect, and can actually reach the attacker.",
+              "Abilities give fights their character: Lucky Strike can spike damage, Stun and Blindness break tempo, Petrifying Gaze can finish a target, Fire Shield returns damage, and Range Null Field shuts down shooting around it.",
+          ],
+          moraleTitle: "Morale, luck, and stack power",
+          moraleItems: [
+              "Morale is capped from -20 to +20. Positive morale can pull a unit forward in the queue; negative morale can delay it.",
+              "A kill gives the attacker a large morale push, while matching stacks on the dead unit's team can lose morale.",
+              "Luck changes the chance and strength of many abilities. Each turn can add a random luck swing, and Luck Shield lets you clean that swing off.",
+              "Stack power is recalculated from a stack's board value: unit experience times living amount, compared with the largest stack present. It ranges from 1 to 5.",
+          ],
+          mapTitle: "The map does not wait forever",
+          mapParagraphs: [
+              "The board is a 16x16 grid. The current random map rotation includes normal, lava-center, and block-center maps. The center mountain can block shots and has 5 hits; lava-center maps make Made of Fire matter.",
+              "Normal maps narrow roughly every 3 laps. Block-center maps narrow every 4 laps. If neither army closes distance or deals damage, the engine can add extra narrowing pressure.",
+              "After lap 12, Armageddon starts: four damage waves gradually force a stalled fight to end.",
+          ],
+          examplesTitle: "Role cheat sheet",
+          examples: [
+              "Black Dragon and Angel show what large flying finishers can do, but both need room for a 2x2 body.",
+              "Medusa, Arbalester, and Gargantuan teach firing lanes, ammo, and range distance.",
+              "Satyr and Ogre Mage are reminders that a spellbook can matter more than raw damage.",
+              "Pegasus, Griffin, Peasant, and Valkyrie prove that aura placement wins fights before the first attack lands.",
+          ],
+          finalTitle: "How to play better next match",
+          finalItems: [
+              "Start with a faction plan: which 2/4/6 units unlock the synergy you actually want?",
+              "Place ranged units so the enemy's first dive does not shut off their shooting.",
+              "Do not press Hourglass automatically. Wait only when you know what better turn you are creating.",
+              "Track the narrowing map from lap one, not when the edge is already a hole.",
+          ],
+      };
+
+const factionDescriptions: Record<Language, Record<FactionName, string>> = {
+    en: {
+        Chaos: "Disruption, fire pressure, nasty ranged tricks, and Break plans.",
+        Life: "Reliable bodies, armor, resurrection, morale, and formation support.",
+        Might: "Direct damage, strong melee pressure, aura scaling, and heavy finishers.",
+        Nature: "Mobility, flyers, summons, camouflage, and board-control tools.",
+        Death: "Reserved and summon-facing pieces in the current public data.",
+    },
+    ru: {
+        Chaos: "Давление, огонь, неприятные стрелковые трюки и планы через Break.",
+        Life: "Надежные тела, броня, resurrection, мораль и поддержка построения.",
+        Might: "Прямой урон, сильный melee pressure, усиление аур и тяжелые финишеры.",
+        Nature: "Мобильность, летающие юниты, summon, camouflage и контроль поля.",
+        Death: "Резервные и summon-связанные существа в текущих публичных данных.",
+    },
+};
+---
+
+<section class="rules-hero">
+    <img class="rules-hero-bg" src="/assets/images/preview_game.webp" alt="" width="1200" height="630" />
+    <div class="rules-hero-shade"></div>
+    <div class="page-shell rules-hero-shell">
+        <div class="rules-hero-copy">
+            <p class="eyebrow">{copy.eyebrow}</p>
+            <h1>{copy.title}</h1>
+            <p>{copy.description}</p>
+            <div class="rules-hero-actions">
+                <a class="button primary" href={links.betaApp} target="_blank" rel="noopener">
+                    <img src="/assets/icons/navbar/joystick.svg" alt="" width="22" height="22" />
+                    {copy.primaryCta}
+                </a>
+                <a class="button secondary" href={unitsHref}>{copy.secondaryCta}</a>
+            </div>
+        </div>
+
+        <div class="rules-showcase" aria-label={copy.heroLabel}>
+            <div class="rules-board-shot">
+                <img src="/assets/images/home/livestream.webp" alt="" width="1792" height="1024" loading="eager" />
+            </div>
+            <div class="rules-unit-line">
+                {
+                    heroUnits.map((unit) => (
+                        <a
+                            href={unitsHref}
+                            class="rules-hero-unit"
+                            style={`--faction: ${factionColors[unit.faction]}`}
+                            aria-label={`${unit.name}, ${unit.faction}`}
+                        >
+                            <img src={unit.icon} alt="" width="512" height="512" loading="eager" />
+                            <span>{unit.name}</span>
+                        </a>
+                    ))
+                }
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="rules-stat-strip" aria-label={copy.eyebrow}>
+    <div class="page-shell rules-stats">
+        {copy.stats.map((stat) => <div><strong>{stat.value}</strong><span>{stat.label}</span></div>)}
+    </div>
+</section>
+
+<section class="section rules-section">
+    <div class="page-shell">
+        <div class="section-heading">
+            <p class="eyebrow">{copy.loopTitle}</p>
+            <h2>{copy.loopTitle}</h2>
+            <p>{copy.loopIntro}</p>
+        </div>
+        <div class="rules-phase-grid">
+            {copy.phases.map((phase) => <article class="rules-card"><h3>{phase.title}</h3><p>{phase.text}</p></article>)}
+        </div>
+    </div>
+</section>
+
+<section class="section rules-band">
+    <div class="page-shell rules-two-col">
+        <div class="rules-copy-block">
+            <p class="eyebrow">{isRu ? "Победа" : "Victory"}</p>
+            <h2>{copy.winTitle}</h2>
+            {copy.winParagraphs.map((paragraph) => <p>{paragraph}</p>)}
+        </div>
+        <div class="rules-note-list">
+            {copy.readBoard.map((item) => <p>{item}</p>)}
+        </div>
+    </div>
+</section>
+
+<section class="section rules-section">
+    <div class="page-shell rules-two-col wide">
+        <div class="rules-copy-block">
+            <p class="eyebrow">{isRu ? "Драфт" : "Draft"}</p>
+            <h2>{copy.draftTitle}</h2>
+            {copy.draftParagraphs.map((paragraph) => <p>{paragraph}</p>)}
+            <ul class="rules-clean-list">
+                {copy.draftNotes.map((note) => <li>{note}</li>)}
+            </ul>
+        </div>
+        <div class="rules-faction-grid">
+            {
+                factionUnits.map((faction) => (
+                    <a href={unitsHref} class="rules-faction" style={`--faction: ${faction.color}`}>
+                        <span class="rules-faction-head">
+                            <img src={faction.icon} alt="" width="34" height="34" loading="lazy" />
+                            <strong>{faction.faction}</strong>
+                            <em>{faction.units.length}</em>
+                        </span>
+                        <span>{factionDescriptions[lang][faction.faction]}</span>
+                    </a>
+                ))
+            }
+        </div>
+    </div>
+</section>
+
+<section class="section rules-band">
+    <div class="page-shell">
+        <div class="section-heading">
+            <p class="eyebrow">{isRu ? "Карточка юнита" : "Unit card"}</p>
+            <h2>{copy.unitsTitle}</h2>
+        </div>
+        <div class="rules-unit-reader">
+            <div class="rules-example-units">
+                {
+                    exampleUnits.map((unit) => (
+                        <a href={unitsHref} class="rules-example-unit" style={`--faction: ${factionColors[unit.faction]}`}>
+                            <img src={unit.icon} alt="" width="512" height="512" loading="lazy" />
+                            <span>
+                                <strong>{unit.name}</strong>
+                                <em>
+                                    {attackLabels[unit.attackType as keyof typeof attackLabels] ?? unit.attackType} ·{" "}
+                                    {movementLabels[unit.movementType as keyof typeof movementLabels] ?? unit.movementType}
+                                </em>
+                            </span>
+                        </a>
+                    ))
+                }
+            </div>
+            <div class="rules-stat-reader">
+                {copy.unitStats.map((stat) => <div><strong>{stat.label}</strong><p>{stat.text}</p></div>)}
+                <div class="rules-role-row">
+                    {
+                        Object.entries(roleCounts).map(([role, count]) => (
+                            <span>
+                                <strong>{count}</strong>
+                                {attackLabels[role as keyof typeof attackLabels] ?? role}
+                            </span>
+                        ))
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section rules-section">
+    <div class="page-shell">
+        <div class="section-heading">
+            <p class="eyebrow">{isRu ? "Апгрейды" : "Augments"}</p>
+            <h2>{copy.upgradesTitle}</h2>
+            <p>{copy.upgradesIntro}</p>
+        </div>
+        <div class="rules-upgrade-grid">
+            {
+                copy.upgrades.map((upgrade) => (
+                    <article class="rules-upgrade">
+                        <img src={upgrade.icon} alt="" width="256" height="256" loading="lazy" />
+                        <h3>{upgrade.title}</h3>
+                        <p>{upgrade.text}</p>
+                    </article>
+                ))
+            }
+        </div>
+    </div>
+</section>
+
+<section class="section rules-band">
+    <div class="page-shell">
+        <div class="section-heading">
+            <p class="eyebrow">{isRu ? "Синергии" : "Synergies"}</p>
+            <h2>{copy.synergiesTitle}</h2>
+            <p>{copy.synergiesIntro}</p>
+        </div>
+        <div class="rules-synergy-grid">
+            {
+                copy.synergies.map((synergy) => (
+                    <article
+                        class="rules-synergy"
+                        style={`--faction: ${factionColors[synergy.faction as FactionName]}`}
+                    >
+                        <div class="rules-synergy-head">
+                            <img src={synergy.icon} alt="" width="128" height="128" loading="lazy" />
+                            <div>
+                                <h3>{synergy.faction}</h3>
+                                <span>{copy.synergyLevels}: 2 / 4 / 6</span>
+                            </div>
+                        </div>
+                        <ul>
+                            {synergy.options.map((option) => <li>{option}</li>)}
+                        </ul>
+                    </article>
+                ))
+            }
+        </div>
+    </div>
+</section>
+
+<section class="section rules-section">
+    <div class="page-shell rules-two-col">
+        <div class="rules-copy-block">
+            <p class="eyebrow">{isRu ? "Расстановка" : "Placement"}</p>
+            <h2>{copy.placementTitle}</h2>
+            {copy.placementParagraphs.map((paragraph) => <p>{paragraph}</p>)}
+        </div>
+        <div class="rules-board-diagram" aria-hidden="true">
+            <div class="rules-board-grid">
+                {Array.from({ length: 64 }).map((_, i) => <span class:list={[{ "is-hole": i < 8 || i > 55, "is-center": i === 27 || i === 28 || i === 35 || i === 36 }]}></span>)}
+            </div>
+            <img class="rules-board-unit one" src="/assets/images/units/units/black_dragon_512.webp" alt="" width="512" height="512" loading="lazy" />
+            <img class="rules-board-unit two" src="/assets/images/units/units/arbalester_512.webp" alt="" width="512" height="512" loading="lazy" />
+            <img class="rules-board-unit three" src="/assets/images/units/units/pegasus_512.webp" alt="" width="512" height="512" loading="lazy" />
+        </div>
+    </div>
+</section>
+
+<section class="section rules-band">
+    <div class="page-shell">
+        <div class="section-heading">
+            <p class="eyebrow">{isRu ? "Ход" : "Turn"}</p>
+            <h2>{copy.turnsTitle}</h2>
+        </div>
+        <div class="rules-action-grid">
+            {copy.turnActions.map((action) => <article class="rules-card compact"><h3>{action.title}</h3><p>{action.text}</p></article>)}
+        </div>
+    </div>
+</section>
+
+<section class="section rules-section">
+    <div class="page-shell rules-two-col">
+        <div class="rules-copy-block">
+            <p class="eyebrow">{isRu ? "Бой" : "Combat"}</p>
+            <h2>{copy.combatTitle}</h2>
+            {copy.combatParagraphs.map((paragraph) => <p>{paragraph}</p>)}
+        </div>
+        <div class="rules-ability-wall">
+            {
+                [
+                    "/assets/images/units/abilities/lucky_strike_256.webp",
+                    "/assets/images/units/abilities/stun_256.webp",
+                    "/assets/images/units/abilities/petrifying_gaze_256.webp",
+                    "/assets/images/units/abilities/fire_shield_256.webp",
+                    "/assets/images/units/abilities/range_null_field_aura_256.webp",
+                    "/assets/images/units/abilities/chain_lightning_256.webp",
+                    "/assets/images/units/abilities/resurrection_256.webp",
+                    "/assets/images/units/abilities/break_256.webp",
+                ].map((icon) => <img src={icon} alt="" width="256" height="256" loading="lazy" />)
+            }
+        </div>
+    </div>
+</section>
+
+<section class="section rules-band">
+    <div class="page-shell rules-two-col">
+        <div class="rules-copy-block">
+            <p class="eyebrow">{isRu ? "Темп" : "Tempo"}</p>
+            <h2>{copy.moraleTitle}</h2>
+        </div>
+        <div class="rules-note-list large">
+            {copy.moraleItems.map((item) => <p>{item}</p>)}
+        </div>
+    </div>
+</section>
+
+<section class="section rules-section map-pressure">
+    <div class="page-shell rules-two-col">
+        <div class="rules-copy-block">
+            <p class="eyebrow">{isRu ? "Карта" : "Map pressure"}</p>
+            <h2>{copy.mapTitle}</h2>
+            {copy.mapParagraphs.map((paragraph) => <p>{paragraph}</p>)}
+        </div>
+        <div class="rules-map-visual" aria-hidden="true">
+            <img src="/assets/images/preview_game.webp" alt="" width="1200" height="630" loading="lazy" />
+            <span class="map-ring one"></span>
+            <span class="map-ring two"></span>
+            <span class="map-ring three"></span>
+        </div>
+    </div>
+</section>
+
+<section class="section rules-band">
+    <div class="page-shell rules-two-col">
+        <div class="rules-copy-block">
+            <p class="eyebrow">{isRu ? "Роли" : "Roles"}</p>
+            <h2>{copy.examplesTitle}</h2>
+            <ul class="rules-clean-list">
+                {copy.examples.map((example) => <li>{example}</li>)}
+            </ul>
+        </div>
+        <div class="rules-final-list">
+            <h3>{copy.finalTitle}</h3>
+            {copy.finalItems.map((item) => <p>{item}</p>)}
+            <div class="rules-final-actions">
+                <a class="button primary" href={links.betaApp} target="_blank" rel="noopener">{copy.primaryCta}</a>
+                <a class="button secondary" href={rulesHref}>{copy.eyebrow}</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    .rules-hero {
+        position: relative;
+        overflow: hidden;
+        background: #060708;
+    }
+
+    .rules-hero-bg,
+    .rules-hero-shade {
+        position: absolute;
+        inset: 0;
+    }
+
+    .rules-hero-bg {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.45;
+        transform: scale(1.04);
+    }
+
+    .rules-hero-shade {
+        background:
+            linear-gradient(90deg, rgba(6, 7, 8, 0.96), rgba(6, 7, 8, 0.7) 52%, rgba(6, 7, 8, 0.42)),
+            linear-gradient(180deg, rgba(6, 7, 8, 0.12), #070808 100%);
+    }
+
+    .rules-hero-shell {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 0.88fr) minmax(420px, 0.82fr);
+        gap: 48px;
+        align-items: center;
+        min-height: clamp(650px, calc(100svh - 68px), 780px);
+        padding: 64px 0 58px;
+    }
+
+    .rules-hero-copy p {
+        max-width: 720px;
+        color: rgba(251, 244, 232, 0.82);
+        font-size: 1.08rem;
+    }
+
+    .rules-hero-actions,
+    .rules-final-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 28px;
+    }
+
+    .rules-showcase {
+        display: grid;
+        gap: 14px;
+        min-width: 0;
+    }
+
+    .rules-board-shot {
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 8px;
+        background: #070808;
+        box-shadow: var(--shadow);
+    }
+
+    .rules-board-shot img {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+    }
+
+    .rules-unit-line {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .rules-hero-unit,
+    .rules-example-unit {
+        display: grid;
+        min-width: 0;
+        overflow: hidden;
+        border: 1px solid color-mix(in srgb, var(--faction) 44%, rgba(255, 255, 255, 0.14));
+        border-radius: 8px;
+        background:
+            linear-gradient(180deg, color-mix(in srgb, var(--faction) 18%, transparent), rgba(6, 7, 8, 0.42)),
+            #090b0d;
+    }
+
+    .rules-hero-unit img {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+        object-position: center 18%;
+    }
+
+    .rules-hero-unit span {
+        overflow: hidden;
+        padding: 8px;
+        color: var(--ink);
+        font-size: 0.76rem;
+        font-weight: 820;
+        line-height: 1.08;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .rules-stat-strip {
+        border-block: 1px solid var(--line);
+        background: #10161b;
+    }
+
+    .rules-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1px;
+    }
+
+    .rules-stats div {
+        min-height: 104px;
+        padding: 22px 24px;
+        background: rgba(255, 255, 255, 0.035);
+    }
+
+    .rules-stats strong {
+        display: block;
+        color: var(--gold);
+        font-size: 2rem;
+        line-height: 1;
+    }
+
+    .rules-stats span {
+        display: block;
+        margin-top: 8px;
+        color: rgba(251, 244, 232, 0.72);
+        font-size: 0.9rem;
+        font-weight: 760;
+    }
+
+    .rules-section {
+        background: #080a0c;
+    }
+
+    .rules-band {
+        background: #10151a;
+    }
+
+    .rules-phase-grid,
+    .rules-action-grid,
+    .rules-synergy-grid,
+    .rules-upgrade-grid {
+        display: grid;
+        gap: 14px;
+    }
+
+    .rules-phase-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .rules-action-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .rules-upgrade-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .rules-synergy-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .rules-card,
+    .rules-upgrade,
+    .rules-synergy,
+    .rules-note-list p,
+    .rules-stat-reader div,
+    .rules-final-list {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.035));
+    }
+
+    .rules-card {
+        min-width: 0;
+        padding: 22px;
+    }
+
+    .rules-card.compact {
+        min-height: 174px;
+    }
+
+    .rules-card h3,
+    .rules-upgrade h3,
+    .rules-synergy h3 {
+        color: var(--gold);
+    }
+
+    .rules-card p,
+    .rules-upgrade p,
+    .rules-synergy li,
+    .rules-note-list p,
+    .rules-stat-reader p,
+    .rules-final-list p {
+        margin-bottom: 0;
+    }
+
+    .rules-two-col {
+        display: grid;
+        grid-template-columns: minmax(0, 0.86fr) minmax(360px, 1fr);
+        gap: 46px;
+        align-items: center;
+    }
+
+    .rules-two-col.wide {
+        grid-template-columns: minmax(0, 0.76fr) minmax(420px, 1fr);
+    }
+
+    .rules-copy-block {
+        max-width: 680px;
+    }
+
+    .rules-copy-block p {
+        color: rgba(251, 244, 232, 0.78);
+        font-size: 1.02rem;
+    }
+
+    .rules-note-list {
+        display: grid;
+        gap: 12px;
+    }
+
+    .rules-note-list p {
+        padding: 18px 20px;
+        color: rgba(251, 244, 232, 0.82);
+        font-weight: 700;
+    }
+
+    .rules-note-list.large p {
+        font-weight: 620;
+    }
+
+    .rules-clean-list {
+        display: grid;
+        gap: 10px;
+        margin: 24px 0 0;
+        padding-left: 20px;
+        color: var(--muted);
+    }
+
+    .rules-clean-list li {
+        padding-left: 4px;
+    }
+
+    .rules-faction-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .rules-faction {
+        display: grid;
+        gap: 12px;
+        min-width: 0;
+        padding: 16px;
+        border: 1px solid color-mix(in srgb, var(--faction) 38%, var(--line));
+        border-radius: 8px;
+        background:
+            linear-gradient(135deg, color-mix(in srgb, var(--faction) 16%, transparent), transparent),
+            rgba(255, 255, 255, 0.04);
+    }
+
+    .rules-faction-head {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .rules-faction-head strong {
+        overflow: hidden;
+        color: var(--ink);
+        font-weight: 860;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .rules-faction-head em {
+        color: var(--gold);
+        font-style: normal;
+        font-weight: 840;
+    }
+
+    .rules-faction span:last-child {
+        color: rgba(251, 244, 232, 0.72);
+        font-size: 0.9rem;
+    }
+
+    .rules-unit-reader {
+        display: grid;
+        grid-template-columns: minmax(360px, 0.9fr) minmax(0, 1fr);
+        gap: 24px;
+        align-items: start;
+    }
+
+    .rules-example-units {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .rules-example-unit {
+        position: relative;
+        min-height: 184px;
+        isolation: isolate;
+    }
+
+    .rules-example-unit img {
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center 16%;
+        opacity: 0.88;
+    }
+
+    .rules-example-unit::after {
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        content: "";
+        background: linear-gradient(180deg, rgba(5, 6, 6, 0.02), rgba(5, 6, 6, 0.9));
+    }
+
+    .rules-example-unit span {
+        align-self: end;
+        display: grid;
+        gap: 3px;
+        min-width: 0;
+        padding: 14px;
+    }
+
+    .rules-example-unit strong {
+        color: #fff;
+        line-height: 1.08;
+    }
+
+    .rules-example-unit em {
+        overflow: hidden;
+        color: color-mix(in srgb, var(--faction) 80%, #fff);
+        font-size: 0.78rem;
+        font-style: normal;
+        font-weight: 820;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .rules-stat-reader {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .rules-stat-reader div {
+        min-width: 0;
+        padding: 16px;
+    }
+
+    .rules-stat-reader strong {
+        color: var(--gold);
+        font-size: 0.9rem;
+    }
+
+    .rules-stat-reader p {
+        margin-top: 6px;
+        font-size: 0.92rem;
+    }
+
+    .rules-role-row {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .rules-role-row span {
+        color: rgba(251, 244, 232, 0.78);
+        font-size: 0.88rem;
+        font-weight: 760;
+    }
+
+    .rules-role-row span + span {
+        padding-left: 9px;
+        border-left: 1px solid var(--line);
+    }
+
+    .rules-upgrade {
+        min-width: 0;
+        padding: 18px;
+    }
+
+    .rules-upgrade img {
+        width: 54px;
+        height: 54px;
+        margin-bottom: 16px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #090b0d;
+    }
+
+    .rules-upgrade p {
+        font-size: 0.9rem;
+    }
+
+    .rules-synergy {
+        min-width: 0;
+        padding: 20px;
+        border-color: color-mix(in srgb, var(--faction) 40%, var(--line));
+        background:
+            linear-gradient(135deg, color-mix(in srgb, var(--faction) 14%, transparent), transparent),
+            rgba(255, 255, 255, 0.04);
+    }
+
+    .rules-synergy-head {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 14px;
+    }
+
+    .rules-synergy-head img {
+        width: 42px;
+        height: 42px;
+    }
+
+    .rules-synergy-head h3 {
+        margin: 0;
+    }
+
+    .rules-synergy-head span {
+        color: rgba(251, 244, 232, 0.65);
+        font-size: 0.84rem;
+        font-weight: 740;
+    }
+
+    .rules-synergy ul {
+        display: grid;
+        gap: 8px;
+        margin: 0;
+        padding-left: 18px;
+    }
+
+    .rules-board-diagram {
+        position: relative;
+        min-height: 420px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background:
+            linear-gradient(135deg, rgba(103, 174, 246, 0.12), rgba(99, 210, 138, 0.1)),
+            #090b0d;
+        box-shadow: var(--shadow);
+    }
+
+    .rules-board-grid {
+        position: absolute;
+        inset: 22px;
+        display: grid;
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        gap: 4px;
+        transform: perspective(900px) rotateX(52deg) rotateZ(-38deg) translate(-18px, 36px);
+        transform-origin: center;
+    }
+
+    .rules-board-grid span {
+        aspect-ratio: 1 / 1;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(251, 244, 232, 0.08);
+    }
+
+    .rules-board-grid span.is-hole {
+        background: rgba(239, 74, 63, 0.36);
+    }
+
+    .rules-board-grid span.is-center {
+        background: rgba(242, 199, 93, 0.34);
+    }
+
+    .rules-board-unit {
+        position: absolute;
+        width: 38%;
+        max-width: 210px;
+        filter: drop-shadow(0 24px 26px rgba(0, 0, 0, 0.55));
+    }
+
+    .rules-board-unit.one {
+        right: 8%;
+        bottom: 16%;
+    }
+
+    .rules-board-unit.two {
+        left: 10%;
+        bottom: 22%;
+        width: 30%;
+    }
+
+    .rules-board-unit.three {
+        left: 36%;
+        top: 6%;
+        width: 34%;
+    }
+
+    .rules-ability-wall {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background:
+            radial-gradient(circle at 50% 42%, rgba(239, 74, 63, 0.22), transparent 45%),
+            linear-gradient(135deg, rgba(242, 199, 93, 0.12), rgba(103, 174, 246, 0.12)),
+            #090b0d;
+    }
+
+    .rules-ability-wall img {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        background: rgba(5, 6, 6, 0.44);
+        object-fit: cover;
+    }
+
+    .map-pressure {
+        background: #090b0d;
+    }
+
+    .rules-map-visual {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        aspect-ratio: 16 / 10;
+        background: #060708;
+        box-shadow: var(--shadow);
+    }
+
+    .rules-map-visual img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.74;
+    }
+
+    .map-ring {
+        position: absolute;
+        border: 2px solid rgba(239, 74, 63, 0.76);
+        box-shadow: inset 0 0 22px rgba(239, 74, 63, 0.16), 0 0 28px rgba(239, 74, 63, 0.22);
+    }
+
+    .map-ring.one {
+        inset: 8%;
+    }
+
+    .map-ring.two {
+        inset: 19%;
+        border-color: rgba(242, 199, 93, 0.7);
+    }
+
+    .map-ring.three {
+        inset: 31%;
+        border-color: rgba(99, 210, 138, 0.7);
+    }
+
+    .rules-final-list {
+        display: grid;
+        gap: 12px;
+        padding: 24px;
+    }
+
+    .rules-final-list h3 {
+        margin-bottom: 4px;
+        color: var(--gold);
+        font-size: 1.35rem;
+    }
+
+    @media (max-width: 1080px) {
+        .rules-hero-shell,
+        .rules-two-col,
+        .rules-two-col.wide,
+        .rules-unit-reader {
+            grid-template-columns: 1fr;
+        }
+
+        .rules-hero-shell {
+            min-height: auto;
+        }
+
+        .rules-phase-grid,
+        .rules-upgrade-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .rules-action-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 720px) {
+        .rules-hero-shell {
+            gap: 30px;
+            padding: 44px 0 38px;
+        }
+
+        .rules-hero-copy p {
+            font-size: 1rem;
+        }
+
+        .rules-unit-line,
+        .rules-stats,
+        .rules-phase-grid,
+        .rules-action-grid,
+        .rules-upgrade-grid,
+        .rules-synergy-grid,
+        .rules-faction-grid,
+        .rules-example-units,
+        .rules-stat-reader {
+            grid-template-columns: 1fr;
+        }
+
+        .rules-stats div {
+            min-height: 84px;
+            padding: 18px;
+        }
+
+        .rules-hero-unit {
+            grid-template-columns: 72px minmax(0, 1fr);
+            align-items: center;
+        }
+
+        .rules-hero-unit img {
+            width: 72px;
+            height: 72px;
+        }
+
+        .rules-hero-unit span {
+            text-align: left;
+        }
+
+        .rules-board-diagram {
+            min-height: 310px;
+        }
+
+        .rules-board-grid {
+            inset: 16px;
+            transform: perspective(800px) rotateX(52deg) rotateZ(-38deg) translate(-10px, 28px);
+        }
+
+        .rules-board-unit.one {
+            width: 46%;
+        }
+
+        .rules-board-unit.two {
+            width: 36%;
+        }
+
+        .rules-board-unit.three {
+            width: 40%;
+        }
+
+        .rules-ability-wall {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+</style>

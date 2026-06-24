@@ -1,92 +1,61 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import "../styles/play.css";
 
 const lang = "en";
+const isProd =
+    import.meta.env.PROD ||
+    import.meta.env.VITE_IS_PROD === "true" ||
+    import.meta.env.VITE_IS_PROD === true;
+const gameClientUrl =
+    import.meta.env.VITE_GAME_CLIENT ||
+    import.meta.env.VITE_HOST_GAME_CLIENT ||
+    (isProd ? "https://game.heroesofcrypto.io/play" : "http://127.0.0.1:5173/play");
 ---
 
 <BaseLayout
     lang={lang}
-    title="Prototype Match"
-    description="Server-authoritative Heroes of Crypto play protocol prototype."
+    title="Play"
+    description="Open the Heroes of Crypto game client."
 >
-    <section class="play-page">
-        <div class="play-topbar">
-            <div>
-                <p class="eyebrow">Ranked protocol prototype</p>
-                <h1>Two-seat match test</h1>
-            </div>
-            <div class="play-controls">
-                <label>
-                    <span>API</span>
-                    <input id="play-api-base" type="url" autocomplete="off" spellcheck="false" />
-                </label>
-                <a id="play-auth-link" class="button secondary" href="/auth/login/">Login</a>
-                <button id="play-create" class="button primary" type="button">Find Opponent</button>
-                <button id="play-accept" class="button primary" type="button">Accept Match</button>
-                <button id="play-cancel-queue" class="button secondary" type="button">Leave Queue</button>
-                <button id="play-connect" class="button secondary" type="button">Connect</button>
-                <button id="play-refresh" class="button secondary" type="button">Refresh</button>
-            </div>
-        </div>
-
-        <div id="play-match-flow" class="play-flow"></div>
-
-        <div class="play-status-grid" aria-live="polite">
-            <div>
-                <span>Status</span>
-                <strong id="play-status">Not connected</strong>
-            </div>
-            <div>
-                <span>Phase</span>
-                <strong id="play-phase">No match</strong>
-            </div>
-            <div>
-                <span>Placement timer</span>
-                <strong id="play-deadline">-</strong>
-            </div>
-            <div>
-                <span>Seat</span>
-                <strong id="play-seat">-</strong>
-            </div>
-            <div>
-                <span>Current turn</span>
-                <strong id="play-current-turn">-</strong>
-            </div>
-        </div>
-
-        <div class="play-seat-links">
-            <a id="play-open-lower" class="button secondary" href="#" target="_blank" rel="noreferrer">Open Red Seat</a>
-            <button id="play-copy-lower" class="button secondary" type="button">Copy Red Link</button>
-            <a id="play-open-upper" class="button secondary" href="#" target="_blank" rel="noreferrer">Open Green Seat</a>
-            <button id="play-copy-upper" class="button secondary" type="button">Copy Green Link</button>
-        </div>
-
-        <div class="play-workspace">
-            <aside class="play-panel">
-                <div class="play-panel-header">
-                    <h2>Units</h2>
-                    <button id="play-ready" class="button primary" type="button">Ready</button>
-                </div>
-                <div id="play-unit-list" class="play-unit-list"></div>
-                <div id="play-pick-panel" class="play-pick-panel"></div>
-                <button id="play-end-turn" class="button secondary play-wide-action" type="button">End Turn</button>
-            </aside>
-
-            <div class="play-board-wrap">
-                <div id="play-board" class="play-board" aria-label="Game board"></div>
-            </div>
-
-            <aside class="play-panel">
-                <div class="play-panel-header">
-                    <h2>Events</h2>
-                </div>
-                <pre id="play-log" class="play-log"></pre>
-            </aside>
-        </div>
+    <section class="redirect-page">
+        <h1>Opening Game Client</h1>
+        <p>Redirecting to the Heroes of Crypto client.</p>
+        <p><a href={gameClientUrl}>Open game client</a></p>
     </section>
 </BaseLayout>
 
-<script>
-    import "../scripts/play-prototype";
+<script define:vars={{ gameClientUrl }}>
+    const token = localStorage.getItem("accessToken");
+
+    if (!token) {
+        window.location.replace("/auth/login/");
+    } else {
+        const target = new URL(gameClientUrl, window.location.href);
+        const hashParams = new URLSearchParams(target.hash.startsWith("#") ? target.hash.slice(1) : target.hash);
+        hashParams.set("access_token", token);
+        target.hash = hashParams.toString();
+        window.location.replace(target.toString());
+    }
 </script>
+
+<style>
+    .redirect-page {
+        min-height: 52vh;
+        display: grid;
+        align-content: center;
+        gap: 12px;
+        width: min(720px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: 64px 0;
+    }
+
+    .redirect-page h1 {
+        margin: 0;
+        font-size: clamp(2rem, 5vw, 4rem);
+    }
+
+    .redirect-page p {
+        margin: 0;
+        color: var(--muted);
+    }
+</style>
