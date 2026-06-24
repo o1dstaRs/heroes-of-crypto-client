@@ -168,13 +168,20 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const manager = usePixiManager();
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [dismissed, setDismissed] = useState(false);
+    const [replayResult, setReplayResult] = useState(false);
+    const replayInProgress = useRef(false);
     const replayTimers = useRef<number[]>([]);
 
     useEffect(() => {
         const connection = manager.onVisibleStateUpdated.connect((s: IVisibleState) => {
             setVisibleState(s);
             // A new fight has begun — re-arm the overlay for next time.
-            if (!s.hasFinished) setDismissed(false);
+            if (!s.hasFinished) {
+                setDismissed(false);
+                if (!replayInProgress.current) {
+                    setReplayResult(false);
+                }
+            }
         });
         return () => {
             connection.disconnect();
@@ -197,6 +204,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
         !visibleState.hasFinished ||
         !stats ||
         dismissed ||
+        stats.lowerStartTotal <= 0 ||
+        stats.upperStartTotal <= 0 ||
         visibleState.teamWin === undefined ||
         visibleState.teamWin === TeamVals.NO_TEAM ||
         stats.winner === TeamVals.NO_TEAM ||
@@ -208,31 +217,32 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const winnerColor = teamColor(stats.winner);
     const canReplay = canReplayOverride ?? manager.CanPlayCurrentSandboxReplay();
     const showSandboxActions = mode === "sandbox";
+    const showRematchAction = showSandboxActions && !replayResult;
     const clearReplayTimers = (): void => {
         replayTimers.current.forEach(window.clearTimeout);
         replayTimers.current = [];
     };
-    const replayFight = (): void => {
+    const replayFight = async (): Promise<void> => {
         clearReplayTimers();
         setDismissed(true);
-        if (onReplay) {
-            void onReplay();
-            return;
-        }
+        replayInProgress.current = true;
+        try {
+            if (onReplay) {
+                await onReplay();
+                setReplayResult(true);
+                return;
+            }
 
-        const replay = manager.GetCurrentSandboxReplay();
-        if (!replay?.actions.length) {
-            return;
-        }
+            const replay = manager.GetCurrentSandboxReplay();
+            if (!replay?.actions.length) {
+                return;
+            }
 
-        manager.PlaySandboxReplay(replay, 0);
-        const stepDelayMs = 550;
-        for (let sequence = 1; sequence <= replay.actions.length; sequence += 1) {
-            replayTimers.current.push(
-                window.setTimeout(() => {
-                    manager.PlaySandboxReplay(replay, sequence);
-                }, sequence * stepDelayMs),
-            );
+            await manager.PlaySandboxReplay(replay);
+            setReplayResult(true);
+        } finally {
+            replayInProgress.current = false;
+            setDismissed(false);
         }
     };
 
@@ -371,7 +381,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
 
                 <Stack direction="row" spacing={2} sx={{ justifyContent: "center", mt: 3 }}>
                     {canReplay && <ActionButton label="Replay" onClick={replayFight} />}
-                    {showSandboxActions && (
+                    {showRematchAction && (
                         <ActionButton
                             label="⚔ Rematch"
                             primary
@@ -408,8 +418,9 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     <Typography
                         sx={{ color: PARCHMENT, opacity: 0.45, fontSize: "0.72rem", textAlign: "center", mt: 1.5 }}
                     >
-                        Replay watches the finished fight again · Rematch uses the same army · New Battle clears the
-                        board
+                        {showRematchAction
+                            ? "Replay watches the finished fight again · Rematch uses the same army · New Battle clears the board"
+                            : "Replay watches the finished fight again · New Battle clears the board"}
                     </Typography>
                 )}
             </motion.div>

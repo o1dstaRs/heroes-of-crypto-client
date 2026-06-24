@@ -328,7 +328,7 @@ export abstract class PixiScene {
     public canPlayCurrentSandboxReplay(): boolean {
         return false;
     }
-    public playSandboxReplay(_replay: SandboxReplay, _throughSequence?: number): boolean {
+    public playSandboxReplay(_replay: SandboxReplay, _throughSequence?: number): boolean | Promise<boolean> {
         return false;
     }
     public startScene(): boolean {

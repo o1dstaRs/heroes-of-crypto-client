@@ -469,8 +469,8 @@ export class PixiGameManager {
     public CanPlayCurrentSandboxReplay(): boolean {
         return this.m_scene?.canPlayCurrentSandboxReplay() ?? false;
     }
-    public PlaySandboxReplay(replay: SandboxReplay, throughSequence?: number): boolean {
-        const applied = this.m_scene?.playSandboxReplay(replay, throughSequence) ?? false;
+    public async PlaySandboxReplay(replay: SandboxReplay, throughSequence?: number): Promise<boolean> {
+        const applied = (await this.m_scene?.playSandboxReplay(replay, throughSequence)) ?? false;
         if (applied) {
             const sequence = throughSequence ?? replay.actions.length;
             const state =

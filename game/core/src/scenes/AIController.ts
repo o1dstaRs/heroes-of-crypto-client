@@ -44,13 +44,13 @@ export interface IAIContext {
 
     // Actions
     applyGameAction(action: GameAction): boolean;
-    executeAttackSequence(attacker: RenderableUnit, target: Unit, attackFrom: HoCMath.XY): Promise<void>;
+    executeAttackSequence(attacker: RenderableUnit, target: Unit, attackFrom: HoCMath.XY): Promise<boolean>;
     executeMoveSequence(
         unit: RenderableUnit,
         path: HoCMath.XY[],
         overrideFootprint?: HoCMath.XY[],
         onComplete?: () => void,
-    ): void;
+    ): boolean;
     refreshUnits(): void;
 }
 
@@ -245,10 +245,13 @@ export class AIController {
             const aiActive = wasAIActive;
             const watchdog = this.scheduleMoveWatchdog(currentUnit, aiActive);
 
-            this.context.executeMoveSequence(currentUnit, route, moveFootprint, async () => {
+            const moveStarted = this.context.executeMoveSequence(currentUnit, route, moveFootprint, async () => {
                 clearTimeout(watchdog);
                 try {
-                    await this.context.executeAttackSequence(currentUnit, target, attackCell);
+                    const attackCompleted = await this.context.executeAttackSequence(currentUnit, target, attackCell);
+                    if (!attackCompleted) {
+                        this.endTurnIfStillActive(currentUnit);
+                    }
                 } catch (err) {
                     console.error("AI move-and-attack failed", err);
                     this.endTurnIfStillActive(currentUnit);
@@ -256,10 +259,18 @@ export class AIController {
                     this.finishAIAction(aiActive);
                 }
             });
+            if (!moveStarted) {
+                clearTimeout(watchdog);
+                this.endTurnIfStillActive(currentUnit);
+                this.finishAIAction(aiActive);
+            }
             return true; // Callback handles cleanup
         } else {
             // No route - attack directly
-            await this.context.executeAttackSequence(currentUnit, unitToAttack, attackFromCell);
+            const attackCompleted = await this.context.executeAttackSequence(currentUnit, unitToAttack, attackFromCell);
+            if (!attackCompleted) {
+                this.endTurnIfStillActive(currentUnit);
+            }
             this.finishAIAction(wasAIActive);
             return true;
         }
@@ -287,8 +298,7 @@ export class AIController {
         const targetUnit = this.context.getUnitsHolder().getAllUnits().get(targetUnitId);
         if (!targetUnit) return false;
 
-        await this.context.executeAttackSequence(currentUnit, targetUnit, attackFromCell);
-        return true;
+        return this.context.executeAttackSequence(currentUnit, targetUnit, attackFromCell);
     }
     /**
      * Handle RANGE_ATTACK action type.
@@ -313,8 +323,7 @@ export class AIController {
         const targetUnit = this.context.getUnitsHolder().getAllUnits().get(targetUnitId);
         if (!targetUnit) return false;
 
-        await this.context.executeAttackSequence(currentUnit, targetUnit, attackFromCell);
-        return true;
+        return this.context.executeAttackSequence(currentUnit, targetUnit, attackFromCell);
     }
     /**
      * Handle move-only action.
@@ -352,11 +361,16 @@ export class AIController {
 
         // Execute move with cleanup callback
         const watchdog = this.scheduleMoveWatchdog(currentUnit, wasAIActive);
-        this.context.executeMoveSequence(currentUnit, route, moveFootprint, () => {
+        const moveStarted = this.context.executeMoveSequence(currentUnit, route, moveFootprint, () => {
             clearTimeout(watchdog);
             this.endTurnIfStillActive(currentUnit);
             this.finishAIAction(wasAIActive);
         });
+        if (!moveStarted) {
+            clearTimeout(watchdog);
+            this.endTurnIfStillActive(currentUnit);
+            this.finishAIAction(wasAIActive);
+        }
 
         return true;
     }

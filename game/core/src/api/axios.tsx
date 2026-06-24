@@ -42,10 +42,12 @@ function readIsProd(): boolean {
 const IS_PROD = readIsProd();
 const DEFAULT_DEV_API = "http://127.0.0.1:3001";
 
-export const HOST_AUTH_API = readEnvString("VITE_HOST_AUTH_API", "HOST_AUTH_API") ?? (IS_PROD ? undefined : DEFAULT_DEV_API);
+export const HOST_AUTH_API =
+    readEnvString("VITE_HOST_AUTH_API", "HOST_AUTH_API") ?? (IS_PROD ? undefined : DEFAULT_DEV_API);
 export const HOST_MATCHMAKING_API =
     readEnvString("VITE_HOST_MATCHMAKING_API", "HOST_MATCHMAKING_API") ?? (IS_PROD ? undefined : DEFAULT_DEV_API);
-export const HOST_GAME_API = readEnvString("VITE_HOST_GAME_API", "HOST_GAME_API") ?? (IS_PROD ? undefined : DEFAULT_DEV_API);
+export const HOST_GAME_API =
+    readEnvString("VITE_HOST_GAME_API", "HOST_GAME_API") ?? (IS_PROD ? undefined : DEFAULT_DEV_API);
 
 const isAbsoluteUrl = (url: string): boolean => /^[a-z][a-z\d+\-.]*:\/\//i.test(url) || url.startsWith("//");
 
