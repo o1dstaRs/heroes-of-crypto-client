@@ -18,8 +18,9 @@ const { lang, title, description, ogType = "website", publishedTime, tags = [], 
 const copy = content[lang];
 const resolvedTitle = title && title !== copy.meta.title ? `${title} | ${copy.meta.title}` : copy.meta.title;
 const resolvedDescription = description ?? copy.meta.description;
-const canonicalURL = new URL(Astro.url.pathname, Astro.site);
-const ogImage = new URL("/assets/images/preview_game.webp", Astro.site);
+const siteOrigin = Astro.site ?? new URL("https://heroesofcrypto.io");
+const canonicalURL = new URL(Astro.url.pathname, siteOrigin);
+const ogImage = new URL("/assets/images/preview_game.webp", siteOrigin);
 const schemaCopy =
     lang === "ru"
         ? {

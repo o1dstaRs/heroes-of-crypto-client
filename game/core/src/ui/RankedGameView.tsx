@@ -71,10 +71,13 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const [pixiReady, setPixiReady] = useState(!manager.isLoading);
     const abortRef = useRef<AbortController | null>(null);
     const latestSequenceRef = useRef(0);
+    const snapshotRef = useRef<PlaySnapshot | null>(null);
+    const actionQueueRef = useRef<Promise<void>>(Promise.resolve());
     const replayTimersRef = useRef<number[]>([]);
 
     const applySnapshot = useCallback((nextSnapshot: PlaySnapshot) => {
         latestSequenceRef.current = Math.max(latestSequenceRef.current, nextSnapshot.latestSequence);
+        snapshotRef.current = nextSnapshot;
         setSnapshot(nextSnapshot);
     }, []);
 
@@ -219,11 +222,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         (snapshot.fightStarted || snapshot.phase === PlayPhase.PLAY || snapshot.phase === PlayPhase.FINISHED);
 
     const sendPlayAction = useCallback(
-        async (payload: PlayAction) => {
+        async (payload: PlayAction): Promise<boolean> => {
             setBusy(true);
             setError("");
             try {
                 const result = await sendRankedPlayAction(gameId, payload);
+                latestSequenceRef.current = Math.max(latestSequenceRef.current, result.sequence);
                 if (result.event?.snapshot) {
                     applySnapshot(result.event.snapshot);
                 } else {
@@ -231,9 +235,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 }
                 if (!result.accepted) {
                     setError(result.rejectionReason || result.message || "Action rejected");
+                    return false;
                 }
+                return true;
             } catch (err: unknown) {
                 setError((err as Error).message || "Unable to submit action");
+                return false;
             } finally {
                 setBusy(false);
             }
@@ -242,40 +249,52 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     );
 
     const buildActionEnvelope = useCallback(() => {
-        if (!snapshot || !myPlayer) {
+        const latestSnapshot = snapshotRef.current;
+        const currentPlayer = latestSnapshot?.players.find((player) => player.team === userTeam);
+        if (!latestSnapshot || !currentPlayer) {
             return undefined;
         }
         return {
             actionId: uuidv4(),
             gameId,
-            playerId: myPlayer.playerId,
-            expectedSequence: snapshot.latestSequence,
+            playerId: currentPlayer.playerId,
+            expectedSequence: latestSequenceRef.current || latestSnapshot.latestSequence,
             team: userTeam,
         };
-    }, [gameId, myPlayer, snapshot, userTeam]);
+    }, [gameId, userTeam]);
+
+    const queueActionSubmission = useCallback((submit: () => Promise<void>): Promise<void> => {
+        const nextSubmission = actionQueueRef.current.catch(() => undefined).then(submit);
+        actionQueueRef.current = nextSubmission.catch(() => undefined);
+        return nextSubmission;
+    }, []);
 
     const submitProtocolAction = useCallback(
         async (action: Partial<PlayAction>) => {
-            const envelope = buildActionEnvelope();
-            if (!envelope) return;
+            await queueActionSubmission(async () => {
+                const envelope = buildActionEnvelope();
+                if (!envelope) return;
 
-            await sendPlayAction({
-                ...envelope,
-                type: PlayActionType.UNKNOWN,
-                ...action,
+                await sendPlayAction({
+                    ...envelope,
+                    type: PlayActionType.UNKNOWN,
+                    ...action,
+                });
             });
         },
-        [buildActionEnvelope, sendPlayAction],
+        [buildActionEnvelope, queueActionSubmission, sendPlayAction],
     );
 
     const submitGameAction = useCallback(
         async (action: GameAction) => {
-            const envelope = buildActionEnvelope();
-            if (!envelope) return;
+            await queueActionSubmission(async () => {
+                const envelope = buildActionEnvelope();
+                if (!envelope) return;
 
-            await sendPlayAction(createPlayActionFromGameAction(action, envelope));
+                await sendPlayAction(createPlayActionFromGameAction(action, envelope));
+            });
         },
-        [buildActionEnvelope, sendPlayAction],
+        [buildActionEnvelope, queueActionSubmission, sendPlayAction],
     );
 
     const transport = useCallback<SceneGameActionTransport>(

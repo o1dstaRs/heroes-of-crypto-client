@@ -50,7 +50,7 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
         ? "rgba(0, 255, 0, 1)"
         : teamType === TeamVals.UPPER
           ? "rgba(255, 0, 0, 1)"
-          : "rgba(255, 191, 0, 1)";
+          : "rgba(255, 255, 255, 0.85)";
     const emptyColor = "rgba(34, 34, 34, 0.7)";
 
     return (

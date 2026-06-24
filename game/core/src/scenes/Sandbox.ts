@@ -2970,6 +2970,50 @@ export class Sandbox extends PixiScene {
         const logSizeBeforeAttack = this.sc_sceneLog.getLogSize();
         const actionEventSnapshot = this.snapshotRenderableUnits();
         let attackActionEvents: GameEvent[] | undefined;
+        let attackTurnEventsApplied = false;
+        let attackCleanupWatchdog: ReturnType<typeof setTimeout> | undefined;
+        const clearAttackCleanupWatchdog = (): void => {
+            if (attackCleanupWatchdog !== undefined) {
+                clearTimeout(attackCleanupWatchdog);
+                attackCleanupWatchdog = undefined;
+            }
+        };
+        const applyAttackTurnEventsOnce = (): void => {
+            if (!attackActionEvents || attackTurnEventsApplied) {
+                return;
+            }
+            attackTurnEventsApplied = true;
+            this.applyTurnEngineEvents(attackActionEvents, actionEventSnapshot);
+        };
+        const scheduleAttackCleanupWatchdog = (): void => {
+            clearAttackCleanupWatchdog();
+            attackCleanupWatchdog = setTimeout(() => {
+                if (
+                    attackTurnEventsApplied ||
+                    !attackActionEvents ||
+                    !this.currentActiveUnit ||
+                    this.currentActiveUnit.getId() !== attacker.getId()
+                ) {
+                    return;
+                }
+
+                const fightProps = FightStateManager.getInstance().getFightProperties();
+                if (!fightProps.hasAlreadyMadeTurn(attacker.getId())) {
+                    return;
+                }
+
+                console.warn("Recovering delayed attack cleanup for completed turn", {
+                    attackerId: attacker.getId(),
+                    attackerName: attacker.getName(),
+                });
+                this.hoverManager.clearHoverSilhouette();
+                this.hoverManager.clearAttackVisuals();
+                this.hoverManager.hoverAttackFromCell = undefined;
+                this.sc_moveBlocked = false;
+                this.sc_visibleStateUpdateNeeded = true;
+                applyAttackTurnEventsOnce();
+            }, 3500);
+        };
         const applyAttackActionResult = (result: ReturnType<GameActionEngine["apply"]>): boolean => {
             if (!result.completed) {
                 this.sc_moveBlocked = false;
@@ -2988,6 +3032,7 @@ export class Sandbox extends PixiScene {
             damageForAnimation.unitId = attackEvent.damage.unitId;
             damageForAnimation.hits = attackEvent.damage.hits?.map((hit) => ({ ...hit }));
             attackActionEvents = result.events;
+            scheduleAttackCleanupWatchdog();
             this.sc_damageStatsUpdateNeeded = true;
             return true;
         };
@@ -3338,6 +3383,7 @@ export class Sandbox extends PixiScene {
         }
 
         const performCleanup = () => {
+            clearAttackCleanupWatchdog();
             const unitsDied: RenderableUnit[] = [];
             for (const u of this.unitsHolder.getAllUnits().values()) {
                 if (u.isDead()) {
@@ -3352,7 +3398,7 @@ export class Sandbox extends PixiScene {
             this.unitsHolder.refreshStackPowerForAllUnits();
 
             if (attackActionEvents) {
-                this.applyTurnEngineEvents(attackActionEvents, actionEventSnapshot);
+                applyAttackTurnEventsOnce();
             } else {
                 this.finishTurn();
             }
