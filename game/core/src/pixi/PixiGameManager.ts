@@ -36,6 +36,7 @@ import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "
 import type { LoadingScreen } from "../scenes/LoadingScreen";
 import { getScenesGrouped } from "./PixiScene";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
+import type { SandboxReplay } from "../replay/sandbox_replay";
 
 // A scene that (optionally) exposes the overlay
 type SceneWithUnitsOverlay = PixiScene & {
@@ -334,6 +335,13 @@ export class PixiGameManager {
         this.fitViewToWindow();
         this.UpdateHoverInfo();
     }
+    public ApplyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
+        this.m_scene?.applyAuthoritativeReplaySnapshot(snapshot);
+        this.started = snapshot.fightStarted && !snapshot.fightFinished;
+        this.onHasStarted.emit(this.started);
+        this.fitViewToWindow();
+        this.UpdateHoverInfo();
+    }
     public SelectAuthoritativeUnit(unitId: string): void {
         this.m_scene?.selectAuthoritativeUnit(unitId);
         this.UpdateHoverInfo();
@@ -454,6 +462,27 @@ export class PixiGameManager {
         if (this.m_scene && this.m_scene.rematchLastFight()) this.started = true;
         this.onHasStarted.emit(this.started);
         this.fitViewToWindow();
+    }
+    public GetCurrentSandboxReplay(): SandboxReplay | undefined {
+        return this.m_scene?.getCurrentSandboxReplay();
+    }
+    public CanPlayCurrentSandboxReplay(): boolean {
+        return this.m_scene?.canPlayCurrentSandboxReplay() ?? false;
+    }
+    public PlaySandboxReplay(replay: SandboxReplay, throughSequence?: number): boolean {
+        const applied = this.m_scene?.playSandboxReplay(replay, throughSequence) ?? false;
+        if (applied) {
+            const sequence = throughSequence ?? replay.actions.length;
+            const state =
+                sequence <= 0
+                    ? replay.initialState
+                    : replay.actions[Math.min(sequence, replay.actions.length) - 1]?.stateAfter;
+            this.started = state ? state.fightStarted && !state.fightFinished : false;
+            this.onHasStarted.emit(this.started);
+            this.fitViewToWindow();
+            this.UpdateHoverInfo();
+        }
+        return applied;
     }
     /** Clear the board and return to unit placement for a brand-new fight. */
     public StartOver(): void {

@@ -6,7 +6,7 @@ import Stack from "@mui/joy/Stack";
 import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
 import { motion } from "framer-motion";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IFightDeathEntry, IFightStatsReport, IVisibleState } from "../../scenes/VisibleState";
@@ -110,31 +110,39 @@ const CasualtyColumn: React.FC<{
     );
 };
 
-const ActionButton: React.FC<{ label: string; primary?: boolean; onClick: () => void }> = ({
+const ActionButton: React.FC<{ label: string; disabled?: boolean; primary?: boolean; onClick: () => void }> = ({
+    disabled,
     label,
     primary,
     onClick,
 }) => (
     <Box
-        onClick={onClick}
+        onClick={disabled ? undefined : onClick}
         sx={{
             px: 3,
             py: 1.1,
             borderRadius: "10px",
-            cursor: "pointer",
+            cursor: disabled ? "not-allowed" : "pointer",
             fontWeight: 800,
             letterSpacing: "0.04em",
             fontSize: "0.95rem",
             userSelect: "none",
             border: `2px solid ${GOLD}`,
-            color: primary ? WOOD_DARK : PARCHMENT,
+            color: disabled ? `${PARCHMENT}66` : primary ? WOOD_DARK : PARCHMENT,
             background: primary ? `linear-gradient(180deg, #f3d488 0%, ${GOLD} 100%)` : "transparent",
             boxShadow: primary ? `0 0 16px ${GOLD}66` : "none",
+            opacity: disabled ? 0.45 : 1,
             transition: "all 0.15s ease",
             "&:hover": {
-                transform: "translateY(-1px)",
-                boxShadow: `0 0 20px ${GOLD}aa`,
-                background: primary ? `linear-gradient(180deg, #ffe5a0 0%, ${GOLD} 100%)` : `${GOLD}22`,
+                transform: disabled ? "none" : "translateY(-1px)",
+                boxShadow: disabled ? (primary ? `0 0 16px ${GOLD}66` : "none") : `0 0 20px ${GOLD}aa`,
+                background: disabled
+                    ? primary
+                        ? `linear-gradient(180deg, #f3d488 0%, ${GOLD} 100%)`
+                        : "transparent"
+                    : primary
+                      ? `linear-gradient(180deg, #ffe5a0 0%, ${GOLD} 100%)`
+                      : `${GOLD}22`,
             },
             "&:active": { transform: "translateY(0)" },
         }}
@@ -143,13 +151,24 @@ const ActionButton: React.FC<{ label: string; primary?: boolean; onClick: () => 
     </Box>
 );
 
+interface FightFinishedOverlayProps {
+    mode?: "sandbox" | "ranked";
+    canReplay?: boolean;
+    onReplay?: () => void | Promise<void>;
+}
+
 // =============================================================================
 // Overlay
 // =============================================================================
-export const FightFinishedOverlay: React.FC = () => {
+export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
+    canReplay: canReplayOverride,
+    mode = "sandbox",
+    onReplay,
+}) => {
     const manager = usePixiManager();
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [dismissed, setDismissed] = useState(false);
+    const replayTimers = useRef<number[]>([]);
 
     useEffect(() => {
         const connection = manager.onVisibleStateUpdated.connect((s: IVisibleState) => {
@@ -159,6 +178,8 @@ export const FightFinishedOverlay: React.FC = () => {
         });
         return () => {
             connection.disconnect();
+            replayTimers.current.forEach(window.clearTimeout);
+            replayTimers.current = [];
         };
     }, [manager]);
 
@@ -172,9 +193,48 @@ export const FightFinishedOverlay: React.FC = () => {
     }, [stats]);
 
     // Only a finished fight (with a real winner) shows this overlay.
-    if (!visibleState.hasFinished || !stats || stats.winner === TeamVals.NO_TEAM || dismissed) return null;
+    if (
+        !visibleState.hasFinished ||
+        !stats ||
+        dismissed ||
+        visibleState.teamWin === undefined ||
+        visibleState.teamWin === TeamVals.NO_TEAM ||
+        stats.winner === TeamVals.NO_TEAM ||
+        stats.winner !== visibleState.teamWin
+    ) {
+        return null;
+    }
 
     const winnerColor = teamColor(stats.winner);
+    const canReplay = canReplayOverride ?? manager.CanPlayCurrentSandboxReplay();
+    const showSandboxActions = mode === "sandbox";
+    const clearReplayTimers = (): void => {
+        replayTimers.current.forEach(window.clearTimeout);
+        replayTimers.current = [];
+    };
+    const replayFight = (): void => {
+        clearReplayTimers();
+        setDismissed(true);
+        if (onReplay) {
+            void onReplay();
+            return;
+        }
+
+        const replay = manager.GetCurrentSandboxReplay();
+        if (!replay?.actions.length) {
+            return;
+        }
+
+        manager.PlaySandboxReplay(replay, 0);
+        const stepDelayMs = 550;
+        for (let sequence = 1; sequence <= replay.actions.length; sequence += 1) {
+            replayTimers.current.push(
+                window.setTimeout(() => {
+                    manager.PlaySandboxReplay(replay, sequence);
+                }, sequence * stepDelayMs),
+            );
+        }
+    };
 
     return (
         <Box
@@ -310,26 +370,48 @@ export const FightFinishedOverlay: React.FC = () => {
                 </Stack>
 
                 <Stack direction="row" spacing={2} sx={{ justifyContent: "center", mt: 3 }}>
-                    <ActionButton
-                        label="⚔ Rematch"
-                        primary
-                        onClick={() => {
-                            console.log("[Rematch] button clicked");
-                            setDismissed(true);
-                            manager.Rematch();
-                        }}
-                    />
-                    <ActionButton
-                        label="+ New Battle"
-                        onClick={() => {
-                            setDismissed(true);
-                            manager.StartOver();
-                        }}
-                    />
+                    {canReplay && <ActionButton label="Replay" onClick={replayFight} />}
+                    {showSandboxActions && (
+                        <ActionButton
+                            label="⚔ Rematch"
+                            primary
+                            onClick={() => {
+                                console.log("[Rematch] button clicked");
+                                clearReplayTimers();
+                                setDismissed(true);
+                                manager.Rematch();
+                            }}
+                        />
+                    )}
+                    {showSandboxActions && (
+                        <ActionButton
+                            label="+ New Battle"
+                            onClick={() => {
+                                clearReplayTimers();
+                                setDismissed(true);
+                                manager.StartOver();
+                            }}
+                        />
+                    )}
+                    {!showSandboxActions && (
+                        <ActionButton
+                            label="Close"
+                            primary
+                            onClick={() => {
+                                clearReplayTimers();
+                                setDismissed(true);
+                            }}
+                        />
+                    )}
                 </Stack>
-                <Typography sx={{ color: PARCHMENT, opacity: 0.45, fontSize: "0.72rem", textAlign: "center", mt: 1.5 }}>
-                    Rematch replays the same army · New Battle clears the board
-                </Typography>
+                {showSandboxActions && (
+                    <Typography
+                        sx={{ color: PARCHMENT, opacity: 0.45, fontSize: "0.72rem", textAlign: "center", mt: 1.5 }}
+                    >
+                        Replay watches the finished fight again · Rematch uses the same army · New Battle clears the
+                        board
+                    </Typography>
+                )}
             </motion.div>
         </Box>
     );

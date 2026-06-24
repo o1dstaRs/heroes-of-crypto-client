@@ -1,7 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getCollection, render } from "astro:content";
-import { content } from "../../lib/site-data";
 
 const lang = "en";
 
@@ -148,9 +147,9 @@ const blogPostStructuredData = {
         color: var(--gold-soft);
     }
     .post-header {
-        margin-bottom: 40px;
-        padding-bottom: 28px;
-        border-bottom: 1px solid var(--line);
+        margin-bottom: 44px;
+        padding-bottom: 30px;
+        border-bottom: 1px solid rgba(215, 170, 75, 0.22);
     }
     .post-meta {
         display: flex;
@@ -166,15 +165,15 @@ const blogPostStructuredData = {
     }
     .post-tags {
         display: flex;
+        flex-wrap: wrap;
         gap: 6px;
     }
     .post-tag {
-        padding: 2px 9px;
-        border: 1px solid var(--line);
-        border-radius: 999px;
         color: var(--muted);
-        font-size: 0.74rem;
-        font-weight: 600;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
     }
     .post-excerpt {
         font-size: 1.14rem;
@@ -266,19 +265,26 @@ const blogPostStructuredData = {
     }
     .prose table {
         width: 100%;
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 0;
+        border-top: 1px solid rgba(215, 170, 75, 0.24);
+        border-bottom: 1px solid rgba(232, 224, 208, 0.1);
         font-size: 0.94rem;
     }
     .prose th,
     .prose td {
-        padding: 10px 14px;
-        border: 1px solid var(--line);
+        padding: 12px 14px;
+        border: 0;
+        border-bottom: 1px solid rgba(232, 224, 208, 0.09);
         text-align: left;
+        vertical-align: top;
     }
     .prose th {
-        background: var(--surface-2);
         color: var(--gold-soft);
         font-weight: 700;
+    }
+    .prose tr:last-child td {
+        border-bottom: 0;
     }
     .prose td {
         color: var(--muted);

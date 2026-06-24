@@ -9,7 +9,7 @@ import { images } from "../../generated/image_imports";
 import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { CasualtyChart, CasualtyPercents } from "../FightStats/CasualtyChart";
-const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
+const stopImg = new URL("../../../images/icon_skip_black.webp", import.meta.url).toString();
 const hourglassImg = new URL("../../../images/hourglass.webp", import.meta.url).toString();
 const meteorSvg = new URL("../../../images/meteor.svg", import.meta.url).toString();
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";

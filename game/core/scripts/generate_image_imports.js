@@ -18,6 +18,9 @@ const SEGMENT_NAME_TO_IMPORT_NAME = {
     8: "eight",
     9: "nine",
 };
+const EXCLUDED_IMAGE_FILES = new Set([
+    "stop.webp", // Legacy skip badge; UI uses icon_skip_black.webp directly.
+]);
 
 if (!fs.existsSync(generatedDir)) fs.mkdirSync(generatedDir, { recursive: true });
 
@@ -27,6 +30,7 @@ const entries = [];
 for (const file of files) {
     if (
         file.endsWith(".webp") &&
+        !EXCLUDED_IMAGE_FILES.has(file) &&
         !file.startsWith("synergy_") &&
         !file.startsWith("overlay_") &&
         !file.startsWith("icon_")

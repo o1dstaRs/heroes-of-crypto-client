@@ -197,6 +197,7 @@ export const endpoints = {
         current: IS_PROD ? "/v1/current" : "/v1/game/current",
         pickEvents: IS_PROD ? "/v1/pick-events" : "/v1/game/pick-events",
         playEvents: IS_PROD ? "/v1/play-events" : "/v1/game/play-events",
+        playReplay: IS_PROD ? "/v1/play-replay" : "/v1/game/play-replay",
         playSnapshot: IS_PROD ? "/v1/play-snapshot" : "/v1/game/play-snapshot",
         playAction: IS_PROD ? "/v1/play-action" : "/v1/game/play-action",
         pickPair: IS_PROD ? "/v1/pick-pair" : "/v1/game/pick-pair",

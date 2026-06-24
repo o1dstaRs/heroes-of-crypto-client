@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import { createPlayActionFromGameAction } from "../api/game_action_play_codec";
 import {
+    fetchRankedPlayReplay,
     fetchRankedPlaySnapshot,
     parseRankedPlaySseFrame,
     playEventsUrl,
@@ -70,6 +71,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const [pixiReady, setPixiReady] = useState(!manager.isLoading);
     const abortRef = useRef<AbortController | null>(null);
     const latestSequenceRef = useRef(0);
+    const replayTimersRef = useRef<number[]>([]);
 
     const applySnapshot = useCallback((nextSnapshot: PlaySnapshot) => {
         latestSequenceRef.current = Math.max(latestSequenceRef.current, nextSnapshot.latestSequence);
@@ -81,6 +83,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         applySnapshot(nextSnapshot);
     }, [applySnapshot, gameId]);
 
+    const clearReplayTimers = useCallback(() => {
+        replayTimersRef.current.forEach(window.clearTimeout);
+        replayTimersRef.current = [];
+    }, []);
+
     useEffect(() => {
         const connection = manager.onLoadingChanged.connect((loading) => {
             setPixiReady(!loading);
@@ -89,6 +96,13 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             connection.disconnect();
         };
     }, [manager]);
+
+    useEffect(
+        () => () => {
+            clearReplayTimers();
+        },
+        [clearReplayTimers],
+    );
 
     useEffect(() => {
         if (!snapshot || !pixiReady) {
@@ -272,6 +286,57 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         [submitGameAction],
     );
 
+    const replayRankedFight = useCallback(async () => {
+        clearReplayTimers();
+        setBusy(true);
+        setStatus("Loading replay");
+        setError("");
+
+        try {
+            const replay = await fetchRankedPlayReplay(gameId);
+            const bySequence = new Map<number, PlaySnapshot>();
+            if (replay.initialSnapshot) {
+                bySequence.set(replay.initialSnapshot.latestSequence, replay.initialSnapshot);
+            }
+            for (const event of replay.events) {
+                if (event.snapshot) {
+                    bySequence.set(event.snapshot.latestSequence, event.snapshot);
+                }
+            }
+            if (replay.currentSnapshot) {
+                bySequence.set(replay.currentSnapshot.latestSequence, replay.currentSnapshot);
+            }
+
+            const replaySnapshots = [...bySequence.values()].sort((a, b) => a.latestSequence - b.latestSequence);
+            if (!replaySnapshots.length) {
+                throw new Error("Replay has no snapshots to play");
+            }
+
+            setStatus("Replaying");
+            const stepDelayMs = 550;
+            replaySnapshots.forEach((replaySnapshot, index) => {
+                const playSnapshot = () => {
+                    manager.ApplyAuthoritativeReplaySnapshot(toAuthoritativeGameSnapshot(replaySnapshot));
+                    if (index === replaySnapshots.length - 1) {
+                        setStatus("Connected");
+                    }
+                };
+
+                if (index === 0) {
+                    playSnapshot();
+                    return;
+                }
+
+                replayTimersRef.current.push(window.setTimeout(playSnapshot, index * stepDelayMs));
+            });
+        } catch (err: unknown) {
+            setStatus("Replay failed");
+            setError((err as Error).message || "Unable to load replay");
+        } finally {
+            setBusy(false);
+        }
+    }, [clearReplayTimers, gameId, manager]);
+
     useEffect(() => {
         manager.SetGameActionTransport(transport);
         return () => manager.SetGameActionTransport(undefined);
@@ -305,7 +370,13 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     {gameStarted && <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />}
                     {gameStarted && <RightSideBar gameStarted={gameStarted} windowSize={windowSize} />}
                     {gameStarted && <UpNextOverlay />}
-                    {gameStarted && <FightFinishedOverlay />}
+                    {gameStarted && (
+                        <FightFinishedOverlay
+                            canReplay={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}
+                            mode="ranked"
+                            onReplay={replayRankedFight}
+                        />
+                    )}
                     {gameStarted && <DraggableToolbar />}
                 </CssVarsProvider>
                 <Main entry={RANKED_SCENE_ENTRY} />

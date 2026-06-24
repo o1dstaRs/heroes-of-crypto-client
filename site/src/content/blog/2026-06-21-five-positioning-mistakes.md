@@ -1,59 +1,85 @@
 ---
-title: "Five positioning mistakes that cost matches"
+title: "Heroes of Crypto positioning guide for better fights"
 date: "2026-06-21"
 tags:
-    - guide
-    - tactics
-    - positioning
-excerpt: "Stats matter, but positioning wins fights. Here are five common mistakes that lose matches, and how to spot them before they cost you the game."
+    - positioning guide
+    - strategy
+    - community
+excerpt: "Use spacing, map edges, turn order, and unit roles to win cleaner fights in this Heroes of Crypto positioning guide."
 ---
 
-You drafted a strong army. Your synergies are solid. Your spells are ready. And you still lost. In most cases, the reason is not your stats or your faction choice. It is where your units are standing.
+Most lost matches do not feel lost at first.
 
-Positioning is the skill that separates players who win half their matches from players who win most of them. These are the five mistakes that show up again and again in live matches, and how to fix them.
+Your army looks strong. Your faction makes sense. Your best unit is still alive. Then the board tightens, a ranged unit gets trapped, one stack falls in the wrong place, and suddenly the fight belongs to the other player.
 
-## 1. Clumping everything together
+That is why positioning matters so much in Heroes of Crypto. Not because it is a dry rule to memorize, but because every cell is a promise. Stand here and you threaten the center. Stand there and you protect a healer. Step too far and you invite the enemy to write the next chapter.
 
-It feels safe to keep your army in a tight group. You cover each other, your auras overlap, and you can respond to threats from any direction.
+These are five habits that make the board feel less chaotic and more like your battlefield.
 
-The problem is that a tight group is a perfect target. Area attacks, chain lightning, and abilities like Skewer Strike hit multiple units when they are clustered. A single well-placed spell can wipe out a third of your army in one turn.
+Use this as a practical positioning guide for your next match, not a lecture. Read one habit, try it on the board, then look at the replay in your head when the fight turns.
 
-The fix is to spread into a loose formation, not a ball. Keep your melee units forward, your ranged units behind, and your spellcasters on the flank where they can reach the fight without being in it. Leave a cell or two between stacks when you can.
+## 1. Give your army room to breathe
 
-## 2. Ignoring the map edges
+New commanders often keep everyone packed together. It feels loyal. It feels safe. It looks like an army.
 
-The map shrinks every few laps. The outer cells collapse into holes, and any unit standing on one when it falls is destroyed.
+Then the first area hit lands.
 
-If you position your army near the edge early in the match, you are betting that the edge will still be there when you need it. It will not. The cells closest to the border are the first to go, and a unit caught on a collapsing cell is removed from the fight with no save.
+A good formation is not a crowd. Your melee units need space to receive the charge. Your ranged units need space to shoot. Your support units need space to survive after the first line bends. A tight ball gives the opponent one perfect target. A loose formation makes them choose.
 
-The fix is simple. In the early game, fight in the outer ring if you want, but always have a retreat path toward the center. As the match goes on, start moving inward before the narrowing forces you to. A unit that retreats on its own terms is alive. A unit that retreats because the map is collapsing is dead.
+The value here is trust. Trust your units to hold their roles instead of hiding them all in the same square of danger.
 
-## 3. Leaving ranged units in melee
+## 2. Treat the edges like a ticking clock
 
-Ranged units like the Arbalester and Elf deal damage from a distance. Up close, they are weaker than a basic melee unit, and some ranged units take a penalty when forced to attack in melee.
+The board in Heroes of Crypto has history. It does not stay still. The outer cells are temporary ground, and the center becomes more important as the fight grows older.
 
-The mistake is letting an enemy close the distance and pin your ranged unit in melee. Once that happens, your ranged unit is trading at a disadvantage, and its shots are wasted.
+Fighting near the edge can be correct. Living there is dangerous.
 
-The fix is to think about your ranged units last, not first. Position your melee wall, then place your ranged units behind it where enemies have to go through your frontline to reach them. If an enemy does break through, use your next turn to reposition the ranged unit, not to attack from melee.
+A player who ignores the shrinking map eventually has no choice left. A player who respects it moves before panic starts. That is the difference between retreating as a plan and running because the floor is gone.
 
-## 4. Wasting the first turn
+Before you end a turn near the border, ask one simple question: if this cell disappears soon, where is my unit's next safe story?
 
-The first turn of a match sets the tempo. The player who acts first can claim the center, force the enemy to react, and choose where the first engagement happens.
+## 3. Protect the units that tell your plan
 
-The mistake is using the first turn to make a small repositioning move that does not threaten anything. You gave up the initiative for nothing.
+Every army has a few units that explain what the army is trying to do.
 
-The fix is to use the first turn to advance toward the center, place a unit on a key cell, or set up an aura that covers your formation. Do something that forces the opponent to respond. Even if you are playing defensively, claiming space early means the opponent has to come to you on worse terms.
+Maybe it is the archer that forces the enemy forward. Maybe it is the healer that keeps the line alive. Maybe it is the heavy melee stack that will win the fight if it ever reaches contact.
 
-## 5. Forgetting about turn order
+Do not place those units like they are ordinary pieces. Give them bodyguards, escape lanes, and time. If a ranged unit gets pinned in melee, the opponent did not just attack a unit; they attacked your plan.
 
-Units take turns based on speed. Faster units act before slower ones. That means a fast enemy can attack your unit before your unit gets to act this lap.
+Good players do not only protect hit points. They protect purpose.
 
-The mistake is positioning a slow, valuable unit within range of a fast enemy, assuming you will get to attack first. You will not. The fast unit goes, your unit takes damage, and by the time your unit acts, it is already wounded.
+## 4. Make the first turn say something
 
-The fix is to check the turn order before you position. If a fast enemy can reach your unit before it acts, either move the unit out of range, or screen it with a cheaper unit that can absorb the first hit.
+The first turn is a handshake with the enemy commander. It tells them whether you came to claim space, bait a mistake, defend the center, or test a flank.
 
-## The takeaway
+A wasted first turn says nothing.
 
-Positioning is not a one-time decision. It is something you adjust every turn based on what the board looks like, what the turn order is, and which cells are about to collapse. The players who win consistently are not the ones with the best drafts. They are the ones who never stop thinking about where their units are standing.
+You do not always need to attack early. Sometimes the strongest opening is a quiet one: move a unit into aura range, take a central cell, make a lane unsafe, or force the opponent to reveal their plan first. But the move should matter.
 
-If you are losing matches that felt winnable, go back and check these five things. One of them is probably the reason.
+In a good tactics match, even a small step has intent.
+
+## 5. Watch the queue like a campfire story
+
+The up-next queue is not just UI. It is the order in which the next part of the story will be told.
+
+If a fast enemy acts before your wounded stack, that stack is already in danger. If your own unit acts next, a risky position may be worth it. If a slow unit is exposed and cannot move until later, the opponent can punish it before you get a word in.
+
+Players who ignore turn order feel unlucky. Players who read it feel prepared.
+
+Before every move, look at who speaks next.
+
+## The kind of play we value
+
+Heroes of Crypto is at its best when a win feels earned on the board, not handed over by a menu.
+
+We want players to feel that their judgment matters: the cell they chose, the unit they saved, the moment they committed, the retreat they made before anyone else saw danger. The game should reward courage, patience, and adaptation in equal measure.
+
+That is why positioning is not just a mechanic. It is the player's signature.
+
+When you lose, look at the board from three turns earlier. You will usually find the first crack there. When you win, remember the cell that made it possible. That is where the match really turned.
+
+## Bring better replays to the community
+
+The strongest player discussions usually start with a simple question: where did the match turn? A saved ranged stack, a disciplined retreat, one step away from the edge, or a melee unit that finally found contact can teach more than a scoreboard.
+
+Share those moments. Heroes of Crypto gets better when players talk about decisions, not just results.

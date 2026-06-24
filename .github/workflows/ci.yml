@@ -1,0 +1,105 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+jobs:
+    lint:
+        name: Lint
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+
+            - name: Init common submodule (HTTPS)
+              run: |
+                  git config --global url."https://github.com/".insteadOf "git@github.com:"
+                  git submodule update --init --recursive
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+
+            - name: Install dependencies
+              run: bun install
+
+            - name: Lint
+              run: bun run lint
+
+    typecheck:
+        name: Typecheck
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+
+            - name: Init common submodule (HTTPS)
+              run: |
+                  git config --global url."https://github.com/".insteadOf "git@github.com:"
+                  git submodule update --init --recursive
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+
+            - name: Install dependencies
+              run: bun install
+
+            - name: Typecheck core
+              run: bunx tsc --noEmit -p game/core/tsconfig.json
+
+    common-tests:
+        name: Common tests
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+
+            - name: Init common submodule (HTTPS)
+              run: |
+                  git config --global url."https://github.com/".insteadOf "git@github.com:"
+                  git submodule update --init --recursive
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+
+            - name: Install dependencies
+              run: bun install
+
+            - name: Run common tests
+              run: bun run --cwd game/heroes-of-crypto-common test
+
+    site:
+        name: Site build
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+              with:
+                  fetch-depth: 0
+
+            - name: Init common submodule (HTTPS)
+              run: |
+                  git config --global url."https://github.com/".insteadOf "git@github.com:"
+                  git submodule update --init --recursive
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+
+            - name: Install dependencies
+              run: bun install
+
+            - name: Build site
+              run: bun run --cwd site build
+
+            - name: Check output
+              run: |
+                  test -f site/dist/index.html
+                  test -f site/dist/game/index.html
+                  test -f site/dist/units/index.html
+                  echo "Site build checks passed."

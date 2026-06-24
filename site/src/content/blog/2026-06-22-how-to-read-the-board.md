@@ -1,63 +1,91 @@
 ---
-title: "How to read the board: turn order, morale, and luck"
+title: "How to read the Heroes of Crypto board"
 date: "2026-06-22"
 tags:
-    - guide
-    - mechanics
-    - beginners
-excerpt: "Three systems decide who acts first, who hits hardest, and when a unit gets a second chance. They are not hidden. They are right there on the board. Here is how to read them."
+    - board guide
+    - strategy
+    - community
+excerpt: "Read turn order, morale, luck, and the shrinking map so every Heroes of Crypto move has purpose before the final fight."
 ---
 
-When you first start playing, the fight screen looks like a lot of units hitting each other. After a few matches, you start noticing patterns. Some units always go first. Sometimes a unit gets a surprise extra turn. Sometimes an attack that should have killed a stack leaves it alive.
+The first few matches can look like a storm of attacks, spells, and fallen stacks.
 
-Those patterns are not random. They are three systems working together: turn order, morale, and luck. Once you can read them, the board stops being chaotic and starts being a puzzle you can solve.
+Then something changes. You start seeing the fight before it happens. A fast unit is about to punish a greedy move. A wounded stack is still worth saving. A morale swing is coming. The shrinking map is quietly pushing both armies toward the same ugly center.
 
-## Turn order: who goes next
+That is when Heroes of Crypto becomes more than pieces trading damage. It becomes a battlefield you can read.
 
-Every unit has a speed stat. Faster units take their turn before slower ones. When a lap ends and a new one begins, the turn order resets based on current speed.
+This board-reading guide is for players who want fewer random-feeling losses and more turns where the plan is visible before the attack lands.
 
-Speed is not fixed. Abilities, auras, and debuffs can change it mid-fight. A unit that was fast at the start of the match might slow down after an enemy aura hits it. That means the turn order you see on lap one is not the same one you will see on lap three.
+## The board remembers time
 
-The practical takeaway is this: before you commit to an attack, check whether your target will get to act before your unit. If the enemy is faster, it will hit you first. You might still want to attack, but you should know you are taking damage before you deal it.
+Turn order is the heartbeat of a match. It tells you who gets to act, who has to wait, and which threat is real right now.
 
-## Morale: the hidden turn
+A slow unit can be powerful and still be helpless for one crucial moment. A fast unit can be fragile and still decide the fight because it speaks first. The up-next queue is the campfire list of who gets the next line in the story.
 
-Morale is the system that gives units a chance to act again, or forces them to skip a turn. It builds up and down based on what happens in the fight.
+Do not use it only when you are confused. Use it before you commit.
 
-When morale is high enough, a unit can get a bonus action. That is why sometimes a unit seems to attack twice in a row. It did not break the rules. Its morale triggered a second turn.
+If your target moves before your attacker, your plan may already be late. If your support unit acts soon, maybe you can hold one more turn. If the enemy's fastest piece has already moved, a risky advance may suddenly become safe.
 
-When morale drops too low, a unit can freeze and skip its turn entirely. This is why a unit that was fighting fine suddenly stops. It did not bug out. Its morale collapsed.
+Great turns often start with one quiet glance at the queue.
 
-Morale changes come from a few sources. Winning an engagement raises morale for the winning side. Losing units lowers it. Abilities like Battle Roar and effects like Sadness directly modify morale. The Life faction's synergies are built around morale manipulation, which is why Life armies tend to get stronger as the match goes on.
+## The board has morale
 
-The key thing to watch is the morale threshold. If your unit is close to a positive trigger, pushing for one more kill might give it a bonus turn that swings the fight. If your unit is close to a negative trigger, pulling it back for a lap might save it from skipping a turn at a critical moment.
+Armies in Heroes of Crypto are not machines. They can surge, hesitate, rally, and break.
 
-## Luck: why that unit survived
+Morale gives the fight emotional texture. A unit that gets another action feels heroic. A unit that freezes at the wrong time feels like a line losing courage. These moments create the kind of stories players remember after the match ends.
 
-Luck is the variance system. It affects how much damage an attack actually deals, within the unit's damage range. Every unit has a damage spread, say 10 to 20, and luck shifts where in that range the actual damage lands.
+The lesson is not "hope for morale." The lesson is to make morale matter.
 
-High luck means attacks tend toward the top of the range. Low luck means they tend toward the bottom. When a stack that should have died survives with a few hit points, it is usually because the attacker had bad luck on that hit.
+Finish a wounded stack when it can swing the mood of the fight. Protect a unit that is close to becoming useful again. Push when the enemy army looks shaken. Pull back when your own line is about to crack.
 
-Luck can be modified by abilities and auras. The Luck Aura ability, for example, shifts luck for nearby allies. Some units have passive luck modifiers that make them more consistent over the course of a match.
+Morale rewards players who understand momentum.
 
-The important thing is not to chase luck. Over a full match, luck averages out. What matters is positioning and timing, because those are the things you control. Luck just adds texture to each individual hit.
+## The board allows luck, but respects decisions
 
-## Putting it together
+Luck is part of battle. Sometimes a stack survives with a sliver of health. Sometimes a hit lands harder than expected. Those moments make matches feel alive.
 
-Here is how these three systems interact in a real fight.
+But luck should not be the whole story.
 
-| Situation | What is happening | What you should do |
-| --- | --- | --- |
-| Enemy unit attacks before yours | It has higher speed | Reposition or screen with a faster unit |
-| Your unit gets a surprise second action | Morale triggered a bonus turn | Use it to finish a target or reposition |
-| Enemy unit skips its turn | Its morale dropped | Push the advantage while it cannot respond |
-| Your attack leaves a stack alive | Bad luck on the damage roll | Follow up with another attack before it heals |
-| Enemy hits much harder than expected | Good luck on their roll | Do not panic, it will average out over the match |
+The best players do not build a plan that only works on a perfect roll. They create follow-ups. They leave another attacker ready. They position so a bad roll is annoying, not fatal. They accept that a single hit can surprise them, but a whole match should still reward better decisions.
 
-Reading the board means checking these three things every turn. Who acts next. Whether morale is about to trigger. Whether your damage will be consistent or swingy. Once that becomes a habit, you stop reacting to the fight and start controlling it.
+That is one of the values of Heroes of Crypto: drama without helplessness.
 
-## Where to see all of this
+## The board is getting smaller
 
-The sidebar shows unit stats, including speed, morale, and luck. The turn order is visible in the up-next queue. Morale changes are logged in the fight log. None of this is hidden.
+Every match has pressure built into the ground itself. The edges will not protect you forever. Safe corners become traps. Long retreats become shorter. The center becomes a place everyone must eventually respect.
 
-The best habit you can build is checking the up-next queue before every move. If you know who acts after you, you know whether your positioning will hold or whether the enemy will punish it before you can respond. That one habit is worth more than any faction guide.
+This gives battles a natural history.
+
+Early turns are about claiming space and testing lanes. Middle turns are about deciding which units matter enough to save. Late turns are about courage: who can stand in the center, who can force one last trade, who has kept enough of their army alive to finish the job.
+
+When you read the board, read the future board too. The cell that is safe now may be a grave later.
+
+## A commander's checklist
+
+Before you end a turn, ask:
+
+| Question                         | Why it matters                                                     |
+| -------------------------------- | ------------------------------------------------------------------ |
+| Who acts next?                   | The next unit can punish or protect the position you leave behind. |
+| Which stack matters most?        | Protecting your plan is often better than chasing damage.          |
+| Where is the board pushing us?   | The shrinking map decides where the final fight will happen.       |
+| What happens if luck goes badly? | Good plans survive one bad roll.                                   |
+| What story does this move tell?  | A clear move forces the opponent to answer.                        |
+
+That last question matters more than it sounds. A move with a story has intent. It claims space, saves a unit, threatens a flank, sets up a kill, or invites the enemy into a bad trade.
+
+A move with no story is just motion.
+
+## Why this matters
+
+Heroes of Crypto is built for players who want their choices to be visible.
+
+We want a match to feel like a contest between commanders, not a spreadsheet hidden behind fantasy art. The numbers matter, but the memorable moments happen when a player sees the board one turn earlier than the opponent.
+
+Read the queue. Feel the morale. Respect luck without worshipping it. Watch the ground. Then make a move that your opponent has to remember.
+
+## Bring sharper questions to the community
+
+When a match feels confusing, do not only ask whether a unit is strong. Ask what the board was saying before the mistake: who moved next, which stack mattered, where the edge was pushing everyone, and what would happen if luck went badly.
+
+Those questions make community advice useful. They turn a frustrating loss into a shared puzzle and a better next match.

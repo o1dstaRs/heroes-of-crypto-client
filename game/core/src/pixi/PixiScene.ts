@@ -25,6 +25,7 @@ import type {
     SceneGameActionTransport,
     SceneGameActionTransportResult,
 } from "../game_action_transport";
+import type { SandboxReplay } from "../replay/sandbox_replay";
 
 import {
     IVisibleButton,
@@ -176,6 +177,9 @@ export abstract class PixiScene {
         this.sc_gameActionTransport = transport;
     }
     public applyAuthoritativeSnapshot(_snapshot: AuthoritativeGameSnapshot): void {}
+    public applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
+        this.applyAuthoritativeSnapshot(snapshot);
+    }
     public selectAuthoritativeUnit(_unitId: string): void {}
     protected dispatchExternalGameAction(
         action: Parameters<SceneGameActionTransport>[0],
@@ -316,6 +320,15 @@ export abstract class PixiScene {
     public abstract requestTime(team: number): void;
     /** Overridden by scenes that support replaying the previous fight. */
     public rematchLastFight(): boolean {
+        return false;
+    }
+    public getCurrentSandboxReplay(): SandboxReplay | undefined {
+        return undefined;
+    }
+    public canPlayCurrentSandboxReplay(): boolean {
+        return false;
+    }
+    public playSandboxReplay(_replay: SandboxReplay, _throughSequence?: number): boolean {
         return false;
     }
     public startScene(): boolean {

@@ -2,6 +2,7 @@ import type { GameAction, TeamType } from "@heroesofcrypto/common";
 import { v4 as uuidv4 } from "uuid";
 
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
+import { createRankedReplayFromPayload, type RankedReplay, type RankedReplayPayload } from "../replay/ranked_replay";
 import { buildApiUrl, endpoints, HOST_GAME_API, axiosGameInstance } from "./axios";
 import { createPlayActionFromGameAction } from "./game_action_play_codec";
 import {
@@ -36,6 +37,7 @@ const appendEncodedPath = (baseUrl: string, value: string): string =>
     `${baseUrl.replace(/\/+$/, "")}/${encodeURIComponent(value)}`;
 
 const playSnapshotUrl = (gameId: string): string => appendEncodedPath(endpoints.game.playSnapshot, gameId);
+const playReplayUrl = (gameId: string): string => appendEncodedPath(endpoints.game.playReplay, gameId);
 const playActionUrl = (gameId: string): string => appendEncodedPath(endpoints.game.playAction, gameId);
 
 export const playEventsUrl = (gameId: string, afterSequence: number): string => {
@@ -59,6 +61,13 @@ export const fetchRankedPlaySnapshot = async (gameId: string): Promise<PlaySnaps
         headers: authHeaders(),
     });
     return decodePlaySnapshot(toBytes(response.data));
+};
+
+export const fetchRankedPlayReplay = async (gameId: string): Promise<RankedReplay> => {
+    const response = await axiosGameInstance.get<RankedReplayPayload>(playReplayUrl(gameId), {
+        headers: authHeaders(),
+    });
+    return createRankedReplayFromPayload(response.data);
 };
 
 export const sendRankedPlayAction = async (gameId: string, payload: PlayAction): Promise<PlayActionResponse> => {

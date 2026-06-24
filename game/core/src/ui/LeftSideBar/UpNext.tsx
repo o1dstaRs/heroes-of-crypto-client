@@ -15,7 +15,7 @@ import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
 import { prefetchUnitAtlas } from "./UnitStatsListItem";
 
-const stopImg = images.stop;
+const stopImg = new URL("../../../images/icon_skip_black.webp", import.meta.url).toString();
 const hourglassImg = images.hourglass;
 
 const queueItemTransition = {

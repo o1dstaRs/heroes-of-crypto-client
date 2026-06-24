@@ -42,11 +42,18 @@ export class RankedPlayScene extends Sandbox {
             }),
         } satisfies SandboxSceneState);
     }
+    public override applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
+        this.lastAuthoritativeSequence = snapshot.latestSequence - 1;
+        this.applyAuthoritativeSnapshot(snapshot);
+    }
     public override startScene(): boolean {
         this.createActionEngine().apply({ type: "start_fight" });
         return false;
     }
     public override rematchLastFight(): boolean {
+        return false;
+    }
+    public override canPlayCurrentSandboxReplay(): boolean {
         return false;
     }
     protected override createActionEngine(): SceneActionEngine {
