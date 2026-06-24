@@ -1,0 +1,216 @@
+---
+import { content, localPath, type Language } from "../lib/site-data";
+
+export type AuthMode = "login" | "register" | "verify" | "forgot-password" | "reset-password" | "new-password";
+
+interface Props {
+    lang: Language;
+    mode: AuthMode;
+}
+
+const { lang, mode } = Astro.props;
+const copy = content[lang];
+const auth = copy.auth;
+const normalizedMode = mode === "new-password" ? "reset-password" : mode;
+const titles = {
+    login: auth.loginTitle,
+    register: auth.registerTitle,
+    verify: auth.verifyTitle,
+    "forgot-password": auth.forgotTitle,
+    "reset-password": auth.resetTitle,
+};
+const descriptions = {
+    login: auth.loginDescription,
+    register: auth.registerDescription,
+    verify: auth.verifyDescription,
+    "forgot-password": auth.forgotDescription,
+    "reset-password": auth.resetDescription,
+};
+const action = normalizedMode;
+const successMessages = {
+    login: auth.successLogin,
+    register: auth.successRegister,
+    verify: auth.successVerify,
+    "forgot-password": auth.successForgot,
+    "reset-password": auth.successReset,
+};
+const passwordId = `${normalizedMode}-password`;
+const confirmPasswordId = `${normalizedMode}-confirm-password`;
+---
+
+<section class="auth-section">
+    <div class="auth-shell">
+        <div class="auth-copy">
+            <a class="auth-logo" href={localPath(lang, "game")}>
+                <img src="/assets/images/home/logo/hocai_logo_96.png" alt="" width="38" height="38" />
+                <span>Heroes of Crypto</span>
+            </a>
+            <p class="eyebrow">{copy.nav.login}</p>
+            <h1>{titles[normalizedMode]}</h1>
+            <p>{descriptions[normalizedMode]}</p>
+        </div>
+
+        <form
+            class="auth-form"
+            data-auth-action={action}
+            data-success-message={successMessages[normalizedMode]}
+        >
+            <div class="auth-status" data-auth-status hidden></div>
+
+            {
+                normalizedMode === "register" && (
+                    <label>
+                        <span>{auth.username}</span>
+                        <input name="username" autocomplete="username" required />
+                    </label>
+                )
+            }
+
+            <label>
+                <span>{auth.email}</span>
+                <input name="email" type="email" autocomplete="email" required />
+            </label>
+
+            {
+                normalizedMode === "verify" && (
+                    <label>
+                        <span>{auth.code}</span>
+                        <input name="code" inputmode="numeric" autocomplete="one-time-code" minlength="6" required />
+                    </label>
+                )
+            }
+
+            {
+                normalizedMode === "reset-password" && (
+                    <label>
+                        <span>{auth.token}</span>
+                        <input name="token" autocomplete="one-time-code" minlength="64" maxlength="64" required />
+                    </label>
+                )
+            }
+
+            {
+                ["login", "register", "reset-password"].includes(normalizedMode) && (
+                    <label>
+                        <span>{auth.password}</span>
+                        <span class="password-field">
+                            <input id={passwordId} name="password" type="password" autocomplete={normalizedMode === "login" ? "current-password" : "new-password"} required />
+                            <button
+                                type="button"
+                                data-password-toggle={passwordId}
+                                data-show-label={auth.showPassword}
+                                data-hide-label={auth.hidePassword}
+                            >
+                                {auth.showPassword}
+                            </button>
+                        </span>
+                    </label>
+                )
+            }
+
+            {
+                normalizedMode === "reset-password" && (
+                    <label>
+                        <span>{auth.confirmPassword}</span>
+                        <span class="password-field">
+                            <input id={confirmPasswordId} name="confirmPassword" type="password" autocomplete="new-password" required />
+                            <button
+                                type="button"
+                                data-password-toggle={confirmPasswordId}
+                                data-show-label={auth.showPassword}
+                                data-hide-label={auth.hidePassword}
+                            >
+                                {auth.showPassword}
+                            </button>
+                        </span>
+                    </label>
+                )
+            }
+
+            <button class="button primary auth-submit" type="submit">
+                {
+                    normalizedMode === "login"
+                        ? auth.loginAction
+                        : normalizedMode === "register"
+                          ? auth.registerAction
+                          : normalizedMode === "verify"
+                            ? auth.verifyAction
+                            : normalizedMode === "forgot-password"
+                              ? auth.forgotAction
+                              : auth.resetAction
+                }
+            </button>
+
+            {
+                normalizedMode === "verify" && (
+                    <button
+                        class="button secondary auth-secondary"
+                        type="button"
+                        data-auth-request-code
+                        data-success-message={auth.successCode}
+                    >
+                        {auth.requestCodeAction}
+                    </button>
+                )
+            }
+
+            {
+                normalizedMode === "login" && (
+                    <div class="auth-links">
+                        <a href={`${localPath(lang, "home")}auth/forgot-password/`}>{auth.forgotPassword}</a>
+                        <span>
+                            {auth.noAccount} <a href={`${localPath(lang, "home")}auth/register/`}>{auth.goRegister}</a>
+                        </span>
+                    </div>
+                )
+            }
+
+            {
+                normalizedMode === "register" && (
+                    <div class="auth-links">
+                        <span>
+                            {auth.haveAccount} <a href={`${localPath(lang, "home")}auth/login/`}>{auth.goLogin}</a>
+                        </span>
+                        <span>
+                            {auth.termsPrefix} <a href={localPath(lang, "terms-of-service")}>{copy.nav.terms}</a> {auth.termsAnd}{" "}
+                            <a href={localPath(lang, "privacy-policy")}>{copy.nav.privacy}</a>.
+                        </span>
+                    </div>
+                )
+            }
+
+            {
+                normalizedMode === "forgot-password" && (
+                    <div class="auth-links">
+                        <a href={`${localPath(lang, "home")}auth/login/`}>{auth.rememberPassword}</a>
+                        <a href={`${localPath(lang, "home")}auth/reset-password/`}>{auth.goReset}</a>
+                    </div>
+                )
+            }
+
+            {
+                normalizedMode === "reset-password" && (
+                    <div class="auth-links">
+                        <a href={`${localPath(lang, "home")}auth/login/`}>{auth.goLogin}</a>
+                    </div>
+                )
+            }
+
+            {
+                normalizedMode === "verify" && (
+                    <div class="auth-links">
+                        <a href={`${localPath(lang, "home")}auth/login/`}>{auth.goLogin}</a>
+                    </div>
+                )
+            }
+
+            <a class="button secondary auth-game-link" href="https://beta.heroesofcrypto.io" data-game-client-link>
+                {auth.continueToGame}
+            </a>
+        </form>
+    </div>
+</section>
+
+<script>
+    import "../lib/auth-client";
+</script>

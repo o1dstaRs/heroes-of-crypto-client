@@ -1,0 +1,196 @@
+---
+import { content, contractAddress, links, type Language } from "../lib/site-data";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+const copy = content[lang];
+---
+
+<section class="hero">
+    <img
+        class="hero-bg"
+        src="/assets/images/preview_game.webp"
+        alt=""
+        width="1200"
+        height="630"
+        fetchpriority="high"
+    />
+    <div class="hero-shade"></div>
+    <div class="hero-grid page-shell">
+        <div class="hero-content">
+            <p class="eyebrow">{copy.hero.kicker}</p>
+            <h1>{copy.hero.title}</h1>
+            <p class="hero-tagline">{copy.hero.tagline}</p>
+            <p class="hero-copy">{copy.hero.body}</p>
+            <div class="hero-actions">
+                <a class="button primary hero-play" href={links.betaApp} target="_blank" rel="noopener">
+                    <img src="/assets/icons/navbar/joystick.svg" alt="" width="22" height="22" />
+                    {copy.hero.primaryCta}
+                </a>
+                <a class="button secondary" href={links.proposal} target="_blank" rel="noopener">
+                    {copy.hero.secondaryCta}
+                </a>
+            </div>
+            <div class="hero-highlights" aria-label={copy.hero.availability}>
+                {copy.hero.highlights.map((item) => <span>{item}</span>)}
+            </div>
+        </div>
+
+        <a class="hero-preview" href={links.betaApp} target="_blank" rel="noopener" aria-label={copy.hero.primaryCta}>
+            <span class="preview-frame">
+                <img src="/assets/images/preview_game.webp" alt="Heroes of Crypto beta battlefield preview" width="1200" height="630" />
+            </span>
+            <span class="preview-play">
+                <img src="/assets/icons/navbar/joystick.svg" alt="" width="24" height="24" />
+                {copy.hero.primaryCta}
+            </span>
+        </a>
+    </div>
+</section>
+
+<section class="proof-strip" aria-label="Game stats">
+    <div class="page-shell proof-grid">
+        {
+            copy.hero.stats.map((stat) => (
+                <div class="proof-item">
+                    <strong>{stat.value}</strong>
+                    <span>{stat.label}</span>
+                </div>
+            ))
+        }
+        <a class="proof-action" href={links.betaApp} target="_blank" rel="noopener">
+            {copy.progress.cta}
+        </a>
+    </div>
+</section>
+
+<section class="section arena-section">
+    <div class="page-shell arena-layout">
+        <div class="arena-copy">
+            <p class="eyebrow">{copy.progress.eyebrow}</p>
+            <h2>{copy.progress.title}</h2>
+            <p>{copy.progress.body}</p>
+            <div class="arena-actions">
+                <a class="button primary" href={links.betaApp} target="_blank" rel="noopener">
+                    <img src="/assets/icons/navbar/joystick.svg" alt="" width="21" height="21" />
+                    {copy.progress.cta}
+                </a>
+            </div>
+        </div>
+        <div class="arena-media">
+            <img src="/assets/images/home/livestream.webp" alt="Heroes of Crypto livestream battle scene" loading="lazy" width="1792" height="1024" />
+        </div>
+    </div>
+</section>
+
+<section class="section roster-section">
+    <div class="page-shell split">
+        <div class="visual-panel">
+            <img
+                src="/assets/images/home/variety.webp"
+                alt="Heroes of Crypto factions and unit art"
+                loading="lazy"
+                width="792"
+                height="792"
+            />
+        </div>
+        <div class="section-copy">
+            <p class="eyebrow">{copy.roster.eyebrow}</p>
+            <h2>{copy.roster.title}</h2>
+            <p>{copy.roster.body}</p>
+            <div class="pill-list">
+                {copy.roster.points.map((point) => <span>{point}</span>)}
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section feature-section" id="features">
+    <div class="page-shell">
+        <div class="section-heading centered">
+            <p class="eyebrow">{copy.features.eyebrow}</p>
+            <h2>{copy.features.title}</h2>
+        </div>
+        <div class="feature-grid">
+            {
+                copy.features.items.map((item) => (
+                    <article class="feature-card">
+                        <img src={item.icon} alt="" width="54" height="54" />
+                        <h3>{item.title}</h3>
+                        <p>{item.description}</p>
+                    </article>
+                ))
+            }
+        </div>
+    </div>
+</section>
+
+<section class="section token-preview">
+    <div class="page-shell">
+        <div class="section-heading">
+            <p class="eyebrow">{copy.token.eyebrow}</p>
+            <h2>{copy.token.title}</h2>
+            <p>{copy.token.body}</p>
+        </div>
+
+        <div class="token-layout">
+            <div class="contract-box">
+                <span>{copy.token.contractLabel}</span>
+                <code>{contractAddress}</code>
+                <div class="token-links compact">
+                    {copy.token.links.map((link) => <a href={link.href} target="_blank" rel="noopener">{link.label}</a>)}
+                </div>
+            </div>
+            <div class="allocation-list">
+                {
+                    copy.token.allocation.map((item) => (
+                        <article class="allocation-item" style={`--bar-value: ${item.value}%`}>
+                            <div class="allocation-title">
+                                <h3>{item.label}</h3>
+                                <strong>{item.value}%</strong>
+                            </div>
+                            <div class="allocation-bar" aria-hidden="true"><span></span></div>
+                            <p>{item.description}</p>
+                        </article>
+                    ))
+                }
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="final-cta">
+    <div class="page-shell final-cta-inner">
+        <div>
+            <p class="eyebrow">{copy.hero.kicker}</p>
+            <h2>{copy.hero.tagline}</h2>
+        </div>
+        <a class="button primary" href={links.betaApp} target="_blank" rel="noopener">
+            <img src="/assets/icons/navbar/joystick.svg" alt="" width="22" height="22" />
+            {copy.hero.primaryCta}
+        </a>
+    </div>
+</section>
+
+<section class="section roadmap-section">
+    <div class="page-shell">
+        <div class="section-heading centered">
+            <p class="eyebrow">{copy.roadmap.eyebrow}</p>
+            <h2>{copy.roadmap.title}</h2>
+        </div>
+        <div class="roadmap-grid">
+            {
+                copy.roadmap.items.map((item) => (
+                    <article class="roadmap-item">
+                        <time>{item.time}</time>
+                        <h3>{item.title}</h3>
+                        <p>{item.description}</p>
+                    </article>
+                ))
+            }
+        </div>
+    </div>
+</section>

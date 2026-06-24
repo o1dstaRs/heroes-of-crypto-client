@@ -1,0 +1,349 @@
+---
+import { content, contractAddress, links, type Language, type PageSlug } from "../lib/site-data";
+import {
+    abilityCount,
+    attackLabel,
+    factionUnits,
+    movementLabel,
+    unitCount,
+    type Unit,
+} from "../lib/units-data";
+
+interface Props {
+    lang: Language;
+    slug: PageSlug;
+}
+
+const { lang, slug } = Astro.props;
+const copy = content[lang];
+const page = copy.pages[slug];
+const legalDoc =
+    slug === "terms-of-service" ? copy.legal.terms : slug === "privacy-policy" ? copy.legal.privacy : undefined;
+const rosterTotals =
+    lang === "ru"
+        ? [
+              { value: unitCount, label: "Юнитов" },
+              { value: factionUnits.length, label: "Фракций" },
+              { value: abilityCount, label: "Способностей" },
+          ]
+        : [
+              { value: unitCount, label: "Units" },
+              { value: factionUnits.length, label: "Factions" },
+              { value: abilityCount, label: "Abilities" },
+          ];
+const attackLabels =
+    lang === "ru"
+        ? {
+              MELEE: "Ближняя",
+              RANGE: "Дальняя",
+              MAGIC: "Магия",
+              MELEE_MAGIC: "Ближняя / магия",
+          }
+        : undefined;
+const movementLabels =
+    lang === "ru"
+        ? {
+              WALK: "Пешком",
+              FLY: "Полет",
+              TELEPORT: "Телепорт",
+          }
+        : undefined;
+
+function localizedAttackLabel(value: string) {
+    return attackLabels?.[value as keyof typeof attackLabels] ?? attackLabel(value);
+}
+
+function localizedMovementLabel(value: string) {
+    return movementLabels?.[value as keyof typeof movementLabels] ?? movementLabel(value);
+}
+
+function unitStatList(unit: Unit) {
+    return [
+        { label: copy.units.stats.hp, value: unit.hp },
+        { label: copy.units.stats.attack, value: unit.attack },
+        { label: copy.units.stats.damage, value: `${unit.damageMin}-${unit.damageMax}` },
+        { label: copy.units.stats.armor, value: unit.armor },
+        { label: copy.units.stats.speed, value: unit.speed },
+        { label: copy.units.stats.steps, value: unit.steps },
+    ];
+}
+---
+
+<section class="subhero">
+    <div class="page-shell">
+        <p class="eyebrow">{page.eyebrow}</p>
+        <h1>{page.title}</h1>
+        <p>{page.description}</p>
+    </div>
+</section>
+
+{
+    slug === "units" && (
+        <section class="section units-section">
+            <div class="page-shell">
+                <div class="units-summary">
+                    {rosterTotals.map((item) => (
+                        <div>
+                            <strong>{item.value}</strong>
+                            <span>{item.label}</span>
+                        </div>
+                    ))}
+                </div>
+
+                <div class="faction-roster">
+                    {factionUnits.map((faction) => (
+                        <section class="faction-panel" style={`--faction-color: ${faction.color}`}>
+                            <header class="faction-header">
+                                <img src={faction.icon} alt="" width="64" height="64" loading="lazy" />
+                                <div>
+                                    <p class="eyebrow">{copy.units.stats.faction}</p>
+                                    <h2>{faction.faction}</h2>
+                                </div>
+                                <strong>{faction.units.length}</strong>
+                            </header>
+
+                            <div class="unit-grid">
+                                {faction.units.map((unit) => (
+                                    <article class="unit-card">
+                                        <div class="unit-art">
+                                            <img src={unit.portrait} alt={unit.name} width="512" height="512" loading="lazy" />
+                                        </div>
+                                        <div class="unit-body">
+                                            <div class="unit-title">
+                                                <h3>{unit.name}</h3>
+                                                <span>
+                                                    {copy.units.level} {unit.level}
+                                                </span>
+                                            </div>
+
+                                            <dl class="unit-stats">
+                                                {unitStatList(unit).map((stat) => (
+                                                    <div>
+                                                        <dt>{stat.label}</dt>
+                                                        <dd>{stat.value}</dd>
+                                                    </div>
+                                                ))}
+                                            </dl>
+
+                                            <div class="unit-tags">
+                                                <span>{localizedAttackLabel(unit.attackType)}</span>
+                                                <span>{localizedMovementLabel(unit.movementType)}</span>
+                                            </div>
+
+                                            <div class="unit-abilities">
+                                                <strong>{copy.units.abilities}</strong>
+                                                {unit.abilities.length ? (
+                                                    <div>
+                                                        {unit.abilities.slice(0, 3).map((ability) => (
+                                                            <span title={ability.description}>{ability.name}</span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p>{copy.units.noAbilities}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                        </section>
+                    ))}
+                </div>
+            </div>
+        </section>
+    )
+}
+
+{
+    slug === "token" && (
+        <section class="section">
+            <div class="page-shell token-page">
+                <div class="section-heading">
+                    <p class="eyebrow">{copy.token.eyebrow}</p>
+                    <h2>{copy.token.title}</h2>
+                    <p>{copy.token.body}</p>
+                </div>
+
+                <div class="contract-box wide">
+                    <span>{copy.token.contractLabel}</span>
+                    <code>{contractAddress}</code>
+                </div>
+
+                <div class="token-links">
+                    {copy.token.links.map((link) => (
+                        <a class="button secondary" href={link.href} target="_blank" rel="noopener">
+                            {link.label}
+                        </a>
+                    ))}
+                </div>
+
+                <div class="allocation-list large">
+                    {copy.token.allocation.map((item) => (
+                        <article class="allocation-item" style={`--bar-value: ${item.value}%`}>
+                            <div class="allocation-title">
+                                <h3>{item.label}</h3>
+                                <strong>{item.value}%</strong>
+                            </div>
+                            <div class="allocation-bar" aria-hidden="true"><span></span></div>
+                            <p>{item.description}</p>
+                        </article>
+                    ))}
+                </div>
+
+                <div class="utility-list">
+                    {copy.token.utility.map((item) => <p>{item}</p>)}
+                </div>
+            </div>
+        </section>
+    )
+}
+
+{
+    slug === "patches" && (
+        <section class="section">
+            <div class="page-shell patch-list">
+                {(copy.patches ?? []).map((patch) => (
+                    <article class="patch-item">
+                        <div class="patch-meta">
+                            <strong>{patch.version}</strong>
+                            <time>{patch.date}</time>
+                            {patch.href && (
+                                <a href={patch.href} target="_blank" rel="noopener">
+                                    {patch.commit}
+                                </a>
+                            )}
+                        </div>
+                        <div class="patch-body">
+                            <div class="patch-heading">
+                                <h2>{patch.title}</h2>
+                                <p>{patch.impact}</p>
+                            </div>
+
+                            <div class="patch-stats" aria-label={`${patch.version} highlights`}>
+                                {(patch.stats ?? []).map((stat) => (
+                                    <div>
+                                        <strong>{stat.value}</strong>
+                                        <span>{stat.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {(patch.sections ?? []).map((section) => (
+                                <section class="patch-section-block">
+                                    <h3>{section.title}</h3>
+                                    <ul>
+                                        {(section.items ?? []).map((item) => <li>{item}</li>)}
+                                    </ul>
+                                </section>
+                            ))}
+
+                            {(patch.roster ?? []).length > 0 && (
+                                <section class="patch-section-block roster-release">
+                                    <h3>{lang === "ru" ? "Roster release candidate" : "Release-candidate roster"}</h3>
+                                    <div class="release-roster-grid">
+                                        {(patch.roster ?? []).map((faction) => (
+                                            <div class="release-roster-faction">
+                                                <h4>{faction.faction}</h4>
+                                                <dl>
+                                                    {(faction.units ?? []).map((unit) => (
+                                                        <>
+                                                            <dt>{unit.name}</dt>
+                                                            <dd>{unit.abilities}</dd>
+                                                        </>
+                                                    ))}
+                                                </dl>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+                            )}
+
+                            {patch.closing && <p class="patch-closing">{patch.closing}</p>}
+                        </div>
+                    </article>
+                ))}
+            </div>
+        </section>
+    )
+}
+
+{
+    slug === "faq" && (
+        <section class="section">
+            <div class="page-shell faq-list">
+                {copy.faq.map((item) => (
+                    <details>
+                        <summary>{item.question}</summary>
+                        <p>{item.answer}</p>
+                    </details>
+                ))}
+            </div>
+        </section>
+    )
+}
+
+{
+    slug === "contact-us" && (
+        <section class="section contact-section">
+            <div class="page-shell split">
+                <div class="section-copy">
+                    <h2>{copy.contact.headline}</h2>
+                    <p>
+                        {copy.contact.emailLabel}: <a href={`mailto:${copy.contact.email}`}>{copy.contact.email}</a>
+                    </p>
+                    <div class="contact-channels">
+                        {copy.socials.map((social) => (
+                            <a href={social.href} target="_blank" rel="noopener">
+                                <img src={social.icon} alt="" width="20" height="20" />
+                                {social.name}
+                            </a>
+                        ))}
+                    </div>
+                </div>
+                <form
+                    class="contact-form"
+                    action={`mailto:${copy.contact.email}`}
+                    method="post"
+                    enctype="text/plain"
+                >
+                    <label>
+                        <span>{copy.contact.formName}</span>
+                        <input name="name" autocomplete="name" />
+                    </label>
+                    <label>
+                        <span>{copy.contact.formEmail}</span>
+                        <input name="email" type="email" autocomplete="email" />
+                    </label>
+                    <label>
+                        <span>{copy.contact.formSubject}</span>
+                        <input name="subject" />
+                    </label>
+                    <label>
+                        <span>{copy.contact.formMessage}</span>
+                        <textarea name="message" rows="5"></textarea>
+                    </label>
+                    <button class="button primary" type="submit">{copy.contact.formSubmit}</button>
+                </form>
+            </div>
+        </section>
+    )
+}
+
+{
+    legalDoc && (
+        <section class="section legal-section">
+            <article class="page-shell legal-doc">
+                <p class="updated">
+                    <strong>Last Updated:</strong> {legalDoc.updated}
+                </p>
+                <p class="lead">{legalDoc.intro}</p>
+                {legalDoc.sections.map((section) => (
+                    <section>
+                        <h2>{section.title}</h2>
+                        {section.body.map((paragraph) => <p>{paragraph}</p>)}
+                    </section>
+                ))}
+            </article>
+        </section>
+    )
+}

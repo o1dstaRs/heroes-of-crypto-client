@@ -1,0 +1,20 @@
+{
+    "name": "@heroesofcrypto/site",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "astro": "astro",
+        "build": "astro build",
+        "dev": "astro dev",
+        "preview": "astro preview"
+    },
+    "dependencies": {
+        "@astrojs/sitemap": "^3.7.1",
+        "@heroesofcrypto/common": "workspace:*",
+        "astro": "^6.0.8"
+    },
+    "engines": {
+        "node": ">=22.12.0"
+    }
+}

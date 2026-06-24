@@ -1,0 +1,22 @@
+---
+import AuthPage, { type AuthMode } from "../../components/AuthPage.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { content } from "../../lib/site-data";
+
+export function getStaticPaths() {
+    const authModes = ["login", "register", "verify", "forgot-password", "reset-password", "new-password"] as const;
+
+    return authModes.map((mode) => ({
+        params: { mode },
+        props: { mode },
+    }));
+}
+
+const lang = "en";
+const { mode } = Astro.props as { mode: AuthMode };
+const copy = content[lang];
+---
+
+<BaseLayout lang={lang} title={copy.auth.loginTitle} description={copy.auth.loginDescription}>
+    <AuthPage lang={lang} mode={mode} />
+</BaseLayout>

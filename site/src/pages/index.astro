@@ -1,0 +1,12 @@
+---
+import HomePage from "../components/HomePage.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { content } from "../lib/site-data";
+
+const lang = "en";
+const copy = content[lang];
+---
+
+<BaseLayout lang={lang} title={copy.meta.title} description={copy.meta.description}>
+    <HomePage lang={lang} />
+</BaseLayout>

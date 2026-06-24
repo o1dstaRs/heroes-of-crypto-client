@@ -165,17 +165,17 @@ export class CombatVisuals {
                 const ox = sx - info.x;
                 const oy = sy - info.y;
                 const dist = Math.hypot(ox, oy) || 1;
-                const speed = 60 + Math.random() * 120 + dist * 0.6;
-                const vx = (ox / dist) * speed + (Math.random() - 0.5) * 50;
-                const vy = (oy / dist) * speed + 40 + Math.random() * 90; // world +y is up → upward pop
+                const speed = 75 + Math.random() * 150 + dist * 0.75;
+                const vx = (ox / dist) * speed + (Math.random() - 0.5) * 60;
+                const vy = (oy / dist) * speed + 50 + Math.random() * 112; // world +y is up → upward pop
                 group.shards.push({
                     sprite: shard,
                     vx,
                     vy,
-                    rotSpeed: (Math.random() - 0.5) * 10,
+                    rotSpeed: (Math.random() - 0.5) * 12,
                     delay: Math.random() * 0.06,
                     age: 0,
-                    life: 0.7 + Math.random() * 0.35,
+                    life: 0.56 + Math.random() * 0.28,
                     x: sx,
                     y: sy,
                 });
@@ -184,7 +184,7 @@ export class CombatVisuals {
         this.shatterGroups.push(group);
     }
     private stepShatters(dt: number): void {
-        const GRAVITY = 260; // world px/s^2 pulling toward screen bottom (world -y)
+        const GRAVITY = 325; // world px/s^2 pulling toward screen bottom (world -y)
         const FADE_FROM = 0.6; // start fading each shard past this fraction of its life
         for (let gi = this.shatterGroups.length - 1; gi >= 0; gi--) {
             const group = this.shatterGroups[gi];

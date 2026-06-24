@@ -1,0 +1,86 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import "../styles/play.css";
+
+const lang = "en";
+---
+
+<BaseLayout
+    lang={lang}
+    title="Prototype Match"
+    description="Server-authoritative Heroes of Crypto play protocol prototype."
+>
+    <section class="play-page">
+        <div class="play-topbar">
+            <div>
+                <p class="eyebrow">Ranked protocol prototype</p>
+                <h1>Two-seat match test</h1>
+            </div>
+            <div class="play-controls">
+                <label>
+                    <span>API</span>
+                    <input id="play-api-base" type="url" autocomplete="off" spellcheck="false" />
+                </label>
+                <button id="play-create" class="button primary" type="button">Create Match</button>
+                <button id="play-connect" class="button secondary" type="button">Connect</button>
+                <button id="play-refresh" class="button secondary" type="button">Refresh</button>
+            </div>
+        </div>
+
+        <div class="play-status-grid" aria-live="polite">
+            <div>
+                <span>Status</span>
+                <strong id="play-status">Not connected</strong>
+            </div>
+            <div>
+                <span>Phase</span>
+                <strong id="play-phase">No match</strong>
+            </div>
+            <div>
+                <span>Placement timer</span>
+                <strong id="play-deadline">-</strong>
+            </div>
+            <div>
+                <span>Seat</span>
+                <strong id="play-seat">-</strong>
+            </div>
+            <div>
+                <span>Current turn</span>
+                <strong id="play-current-turn">-</strong>
+            </div>
+        </div>
+
+        <div class="play-seat-links">
+            <a id="play-open-lower" class="button secondary" href="#" target="_blank" rel="noreferrer">Open Red Seat</a>
+            <button id="play-copy-lower" class="button secondary" type="button">Copy Red Link</button>
+            <a id="play-open-upper" class="button secondary" href="#" target="_blank" rel="noreferrer">Open Green Seat</a>
+            <button id="play-copy-upper" class="button secondary" type="button">Copy Green Link</button>
+        </div>
+
+        <div class="play-workspace">
+            <aside class="play-panel">
+                <div class="play-panel-header">
+                    <h2>Units</h2>
+                    <button id="play-ready" class="button primary" type="button">Ready</button>
+                </div>
+                <div id="play-unit-list" class="play-unit-list"></div>
+                <button id="play-end-turn" class="button secondary play-wide-action" type="button">End Turn</button>
+            </aside>
+
+            <div class="play-board-wrap">
+                <div id="play-board" class="play-board" aria-label="Game board"></div>
+            </div>
+
+            <aside class="play-panel">
+                <div class="play-panel-header">
+                    <h2>Events</h2>
+                </div>
+                <pre id="play-log" class="play-log"></pre>
+            </aside>
+        </div>
+    </section>
+</BaseLayout>
+
+<script>
+    import "../scripts/play-prototype";
+</script>

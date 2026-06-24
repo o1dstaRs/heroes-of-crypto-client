@@ -1,7 +1,8 @@
 {
   "packages": [
     "game/heroes-of-crypto-common",
-    "game/core"
+    "game/core",
+    "site"
   ],
   "version": "independent"
 }

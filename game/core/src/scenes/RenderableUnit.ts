@@ -155,6 +155,13 @@ export class RenderableUnit extends Unit {
         ru.isActiveTurn = false;
         ru.isDestroyed = false;
         ru.visualMode = "normal";
+        // fromBase() bypasses the constructor (it re-prototypes an existing Unit), so class field
+        // defaults never run — initialise every added field explicitly or it stays `undefined`.
+        ru.activeAura = undefined;
+        ru.suppressActiveAura = false;
+        ru.recoilStartMs = 0;
+        ru.recoilDx = 0;
+        ru.recoilDy = 0;
         return ru;
     }
     public setSpellBookLayer(layer: Container, digitTextures: Map<number, Texture>): void {
@@ -870,7 +877,7 @@ export class RenderableUnit extends Unit {
         this.recoilDy = dy;
     }
     private currentRecoil(): { x: number; y: number } {
-        if (this.recoilStartMs === 0) return { x: 0, y: 0 };
+        if (!this.recoilStartMs) return { x: 0, y: 0 };
         const DURATION = 220;
         const t = (performance.now() - this.recoilStartMs) / DURATION;
         if (t >= 1) {

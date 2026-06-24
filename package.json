@@ -18,27 +18,30 @@
     "license": "MIT",
     "workspaces": [
         "game/heroes-of-crypto-common",
-        "game/core"
+        "game/core",
+        "site"
     ],
     "scripts": {
         "build": "bun run lint:fix && bun run lint && bun run build:ws",
         "build:common": "bun run --cwd game/heroes-of-crypto-common build",
         "build:core": "bun run --cwd game/core build",
         "build:game": "bun workspace @heroesofcrypto/common build && bun workspace @heroesofcrypto/core build",
+        "build:site": "bun run --cwd site build",
         "build:skip": "bun run --cwd game/core build:skip",
-        "build:ws": "bun run build:common && bun run build:core",
+        "build:ws": "bun run build:common && bun run build:core && bun run build:site",
         "lint": "bun run lint:es && bun run lint:scss && bun run lint:package && bun run lint:style",
         "lint:es": "bunx eslint \"game/**/src/**/*.{ts,tsx}\" --ignore-pattern .prettierignore",
         "lint:es:fix": "bun run lint:es -- --fix",
         "lint:fix": "bun run lint:es:fix && bun run lint:scss:fix && bun run lint:package:fix && bun run lint:style:fix",
         "lint:package": "bun run lint:package:fix -- --check",
-        "lint:package:fix": "bunx sort-package-json package.json \"game/*/package.json\"",
+        "lint:package:fix": "bunx sort-package-json package.json \"game/*/package.json\" site/package.json",
         "lint:scss": "bunx stylelint --ignore-path .prettierignore \"game/**/src/**/*.scss\"",
         "lint:scss:fix": "bun run lint:scss -- --fix",
         "lint:style": "bun run lint:style:base -- --check",
         "lint:style:base": "bunx prettier \"game/**/src/**/*.{ts,tsx,js,json,scss}\" \"game/*/*.{ts,tsx,js,json,scss}\"",
         "lint:style:fix": "bun run lint:style:base -- --write",
-        "start": "bun --cwd game/core start"
+        "start": "bun --cwd game/core start",
+        "start:site": "bun --cwd site dev"
     },
     "resolutions": {
         "@typescript-eslint/eslint-plugin": "^8.61.1",

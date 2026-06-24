@@ -215,9 +215,25 @@ export class ButtonManager {
                 const currentIdx = idx + 1;
 
                 if (currentIdx <= 0 || options <= 1) {
+                    // Only one usable attack type (e.g. an Archer in a Range Null Field falls back
+                    // to melee). The button is disabled, but its icon must still match the actually
+                    // selected type — otherwise it keeps the stale previous icon (e.g. bow).
+                    let singleState = VisibleButtonState.FIRST;
+                    switch (active.getAttackTypeSelection()) {
+                        case AttackVals.RANGE:
+                            singleState = VisibleButtonState.SECOND;
+                            break;
+                        case AttackVals.MAGIC:
+                            singleState = VisibleButtonState.THIRD;
+                            break;
+                        default:
+                            singleState = VisibleButtonState.FIRST;
+                            break;
+                    }
                     attackTypeButton = {
                         ...attackTypeButton,
                         isDisabled: true,
+                        state: singleState,
                         numberOfOptions: 1,
                         selectedOption: 1,
                     };

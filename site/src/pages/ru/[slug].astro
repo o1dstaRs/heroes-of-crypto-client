@@ -1,0 +1,23 @@
+---
+import ContentPage from "../../components/ContentPage.astro";
+import HomePage from "../../components/HomePage.astro";
+import UnitsPage from "../../components/UnitsPage.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { content, pageSlugs, type PageSlug } from "../../lib/site-data";
+
+export function getStaticPaths() {
+    return pageSlugs.map((slug) => ({
+        params: { slug },
+        props: { slug },
+    }));
+}
+
+const lang = "ru";
+const { slug } = Astro.props as { slug: PageSlug };
+const copy = content[lang];
+const page = copy.pages[slug];
+---
+
+<BaseLayout lang={lang} title={page.title} description={page.description}>
+    {slug === "game" ? <HomePage lang={lang} /> : slug === "units" ? <UnitsPage lang={lang} /> : <ContentPage lang={lang} slug={slug} />}
+</BaseLayout>

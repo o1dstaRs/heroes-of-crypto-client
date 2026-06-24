@@ -1,0 +1,95 @@
+---
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import { content, type Language } from "../lib/site-data";
+import "../styles/global.css";
+
+interface Props {
+    lang: Language;
+    title?: string;
+    description?: string;
+}
+
+const { lang, title, description } = Astro.props;
+const copy = content[lang];
+const resolvedTitle = title && title !== copy.meta.title ? `${title} | ${copy.meta.title}` : copy.meta.title;
+const resolvedDescription = description ?? copy.meta.description;
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const ogImage = new URL("/assets/images/preview_game.webp", Astro.site);
+
+// Structured data: helps search engines understand this is a playable game + org.
+const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+        {
+            "@type": "VideoGame",
+            name: "Heroes of Crypto",
+            description:
+                "Free-to-play turn-based strategy game with 5 factions, 50 units, and 75+ spells and abilities. Play in your browser.",
+            genre: ["Strategy", "Turn-based", "Tactics"],
+            gamePlatform: ["Web Browser"],
+            applicationCategory: "Game",
+            operatingSystem: "Any (Web)",
+            offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+            url: canonicalURL.toString(),
+        },
+        {
+            "@type": "Organization",
+            name: "Old Stars Gaming",
+            url: "https://heroesofcrypto.io",
+        },
+    ],
+};
+---
+
+<!doctype html>
+<html lang={lang}>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <meta name="theme-color" content="#070808" />
+        <meta name="description" content={resolvedDescription} />
+        <link rel="canonical" href={canonicalURL} />
+
+        <!-- Open Graph -->
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Heroes of Crypto" />
+        <meta property="og:title" content={resolvedTitle} />
+        <meta property="og:description" content={resolvedDescription} />
+        <meta property="og:url" content={canonicalURL} />
+        <meta property="og:image" content={ogImage} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content="Heroes of Crypto battlefield" />
+
+        <!-- Twitter -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={resolvedTitle} />
+        <meta name="twitter:description" content={resolvedDescription} />
+        <meta name="twitter:image" content={ogImage} />
+
+        <link rel="preload" as="image" href="/assets/images/preview_game.webp" />
+        <link rel="icon" href="/favicon/favicon.ico" sizes="any" />
+        <link rel="icon" type="image/png" href="/favicon/favicon-32x32.png" />
+        <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
+        <link rel="manifest" href="/manifest.json" />
+
+        <!-- Fonts: Inter (variable) with preconnect + swap to avoid invisible-text flash. -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400..900&display=swap"
+            rel="stylesheet"
+        />
+
+        <title>{resolvedTitle}</title>
+        <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    </head>
+    <body>
+        <SiteHeader lang={lang} currentPath={Astro.url.pathname} />
+        <main>
+            <slot />
+        </main>
+        <SiteFooter lang={lang} />
+    </body>
+</html>

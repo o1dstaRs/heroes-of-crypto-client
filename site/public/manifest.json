@@ -1,0 +1,21 @@
+{
+    "name": "Heroes of Crypto",
+    "short_name": "Heroes of Crypto",
+    "description": "Free-to-play turn-based strategy game with tactical battles, factions, spells, and community-shaped development.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0c0b09",
+    "theme_color": "#0c0b09",
+    "icons": [
+        {
+            "src": "/favicon/android-chrome-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/favicon/android-chrome-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

@@ -1,0 +1,689 @@
+---
+import { content, type Language } from "../lib/site-data";
+import { factionUnits, factionColors, type Unit } from "../lib/units-data";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+const copy = content[lang];
+const ui = copy.units;
+const s = ui.stats;
+
+const unitIndex: Unit[] = factionUnits.flatMap((f) => f.units);
+const serialized = JSON.stringify(unitIndex);
+---
+
+<section class="subhero units-subhero">
+    <div class="page-shell">
+        <p class="eyebrow">{copy.pages.units.eyebrow}</p>
+        <h1>{copy.pages.units.title}</h1>
+        <p>{copy.pages.units.description}</p>
+    </div>
+</section>
+
+<section class="section units-section">
+    <div class="page-shell">
+        <div class="units-toolbar" role="tablist" aria-label="Faction filter">
+            <button class="faction-pill active" data-faction="all" type="button" aria-pressed="true">
+                {ui.all}
+            </button>
+            {
+                factionUnits.map((f) => (
+                    <button
+                        class="faction-pill"
+                        data-faction={f.faction}
+                        type="button"
+                        style={`--faction: ${f.color}`}
+                        aria-pressed="false"
+                    >
+                        <img src={f.icon} alt="" width="22" height="22" loading="lazy" />
+                        <span>{f.faction}</span>
+                        <em>{f.units.length}</em>
+                    </button>
+                ))
+            }
+        </div>
+
+        <div class="units-grid">
+            {
+                unitIndex.map((unit, i) => (
+                    <button
+                        class="unit-card"
+                        data-unit={i}
+                        data-faction={unit.faction}
+                        type="button"
+                        style={`--faction: ${factionColors[unit.faction]}`}
+                    >
+                        <span class="unit-portrait">
+                            <img
+                                src={unit.icon}
+                                alt=""
+                                width="128"
+                                height="128"
+                                loading="lazy"
+                                onerror="this.onerror=null;this.src='/assets/images/units/units/unknown_creature_512.webp'"
+                            />
+                            <span class="unit-level">L{unit.level}</span>
+                        </span>
+                        <span class="unit-name">{unit.name}</span>
+                        <span class="unit-tags">
+                            <span class="unit-faction" data-faction={unit.faction}>{unit.faction}</span>
+                        </span>
+                    </button>
+                ))
+            }
+        </div>
+    </div>
+</section>
+
+<dialog class="unit-dialog" id="unit-dialog" aria-labelledby="unit-dialog-name">
+    <div class="unit-dialog-inner">
+        <button class="unit-dialog-close" type="button" data-close aria-label="Close">×</button>
+        <header class="unit-dialog-head">
+            <img
+                class="unit-dialog-portrait"
+                alt=""
+                width="256"
+                height="256"
+                onerror="this.onerror=null;this.src='/assets/images/units/units/unknown_creature_512.webp'"
+            />
+            <div class="unit-dialog-title">
+                <p class="unit-dialog-faction"><img alt="" width="20" height="20" /> <span></span></p>
+                <h2 id="unit-dialog-name"></h2>
+                <p class="unit-dialog-meta"></p>
+            </div>
+        </header>
+
+        <div class="unit-dialog-body">
+            <dl class="unit-stats">
+                <div><dt>{s.hp}</dt><dd data-stat="hp"></dd></div>
+                <div><dt>{s.armor}</dt><dd data-stat="armor"></dd></div>
+                <div><dt>{s.attack}</dt><dd data-stat="attack"></dd></div>
+                <div><dt>{s.damage}</dt><dd data-stat="damage"></dd></div>
+                <div><dt>{s.speed}</dt><dd data-stat="speed"></dd></div>
+                <div><dt>{s.steps}</dt><dd data-stat="steps"></dd></div>
+                <div><dt>{s.rangeShots}</dt><dd data-stat="rangeShots"></dd></div>
+                <div><dt>{s.magicResist}</dt><dd data-stat="magicResist"></dd></div>
+                <div><dt>{s.attackType}</dt><dd data-stat="attackType"></dd></div>
+                <div><dt>{s.movement}</dt><dd data-stat="movement"></dd></div>
+            </dl>
+
+            <div class="unit-abilities">
+                <h3>{ui.abilities}</h3>
+                <ul class="ability-list" data-ability-list></ul>
+            </div>
+
+            <div class="unit-spells" data-spells hidden>
+                <h3>{ui.spells}</h3>
+                <div class="spell-chips" data-spell-chips></div>
+            </div>
+        </div>
+    </div>
+</dialog>
+
+<script type="application/json" id="units-data" data-no-abilities={ui.noAbilities} set:html={serialized} />
+
+<script>
+    type Unit = {
+        name: string;
+        faction: string;
+        level: number;
+        size: number;
+        hp: number;
+        armor: number;
+        attack: number;
+        attackType: string;
+        damageMin: number;
+        damageMax: number;
+        speed: number;
+        steps: number;
+        rangeShots: number;
+        shotDistance: number;
+        magicResist: number;
+        movementType: string;
+        spells: string[];
+        abilities: { name: string; description: string; icon: string; isAura: boolean; isCastable: boolean }[];
+        portrait: string;
+        icon: string;
+    };
+
+    const ATTACK_LABEL: Record<string, string> = {
+        MELEE: "Melee",
+        RANGE: "Ranged",
+        MAGIC: "Magic",
+        MELEE_MAGIC: "Melee / Magic",
+    };
+    const MOVE_LABEL: Record<string, string> = { WALK: "Walk", FLY: "Fly", TELEPORT: "Teleport" };
+    const FACTION_ICON: Record<string, string> = {
+        Chaos: "/assets/images/units/factions/chaos_128.webp",
+        Life: "/assets/images/units/factions/life_128.webp",
+        Might: "/assets/images/units/factions/might_128.webp",
+        Nature: "/assets/images/units/factions/nature_128.webp",
+        Death: "/assets/images/units/factions/death_128.webp",
+    };
+    const NO_ABILITIES =
+        document.getElementById("units-data")?.dataset.noAbilities ?? "No special abilities.";
+
+    const data = JSON.parse(
+        document.getElementById("units-data")?.textContent ?? "[]",
+    ) as Unit[];
+
+    const dialog = document.getElementById("unit-dialog") as HTMLDialogElement | null;
+    if (dialog) {
+        const portrait = dialog.querySelector<HTMLImageElement>(".unit-dialog-portrait")!;
+        const nameEl = dialog.querySelector<HTMLHeadingElement>("#unit-dialog-name")!;
+        const metaEl = dialog.querySelector<HTMLParagraphElement>(".unit-dialog-meta")!;
+        const factionImg = dialog.querySelector<HTMLImageElement>(".unit-dialog-faction img")!;
+        const factionTxt = dialog.querySelector<HTMLSpanElement>(".unit-dialog-faction span")!;
+        const factionP = dialog.querySelector<HTMLParagraphElement>(".unit-dialog-faction")!;
+        const abilityList = dialog.querySelector<HTMLUListElement>("[data-ability-list]")!;
+        const spellsWrap = dialog.querySelector<HTMLDivElement>("[data-spells]")!;
+        const spellChips = dialog.querySelector<HTMLDivElement>("[data-spell-chips]")!;
+        const statEls: Record<string, HTMLElement> = {};
+        dialog.querySelectorAll<HTMLElement>("[data-stat]").forEach((el) => {
+            statEls[el.dataset.stat as string] = el;
+        });
+
+        const openUnit = (unit: Unit) => {
+            nameEl.textContent = unit.name;
+            portrait.src = unit.portrait;
+            portrait.alt = unit.name;
+            metaEl.textContent = `Level ${unit.level} · ${ATTACK_LABEL[unit.attackType] ?? unit.attackType} · ${MOVE_LABEL[unit.movementType] ?? unit.movementType}`;
+            factionP.style.setProperty("--faction", factionColor(unit.faction));
+            factionImg.src = FACTION_ICON[unit.faction] ?? "";
+            factionTxt.textContent = unit.faction;
+
+            statEls.hp.textContent = String(unit.hp);
+            statEls.armor.textContent = String(unit.armor);
+            statEls.attack.textContent = String(unit.attack);
+            statEls.damage.textContent = `${unit.damageMin}–${unit.damageMax}`;
+            statEls.speed.textContent = String(unit.speed);
+            statEls.steps.textContent = String(unit.steps);
+            statEls.rangeShots.textContent = unit.rangeShots > 0 ? String(unit.rangeShots) : "—";
+            statEls.magicResist.textContent = unit.magicResist > 0 ? `${unit.magicResist}%` : "—";
+            statEls.attackType.textContent = ATTACK_LABEL[unit.attackType] ?? unit.attackType;
+            statEls.movement.textContent = MOVE_LABEL[unit.movementType] ?? unit.movementType;
+
+            abilityList.innerHTML = "";
+            if (unit.abilities.length === 0) {
+                const li = document.createElement("li");
+                li.className = "ability-empty";
+                li.textContent = NO_ABILITIES;
+                abilityList.appendChild(li);
+            } else {
+                for (const a of unit.abilities) {
+                    const li = document.createElement("li");
+                    const icon = document.createElement("img");
+                    icon.src = a.icon;
+                    icon.alt = "";
+                    icon.width = 40;
+                    icon.height = 40;
+                    icon.loading = "lazy";
+                    icon.onerror = () => {
+                        icon.onerror = null;
+                        icon.style.visibility = "hidden";
+                    };
+                    const body = document.createElement("div");
+                    const head = document.createElement("p");
+                    head.className = "ability-name";
+                    head.textContent = a.name;
+                    if (a.isAura) {
+                        const tag = document.createElement("span");
+                        tag.className = "ability-tag aura";
+                        tag.textContent = "aura";
+                        head.appendChild(tag);
+                    }
+                    if (a.isCastable) {
+                        const tag = document.createElement("span");
+                        tag.className = "ability-tag cast";
+                        tag.textContent = "active";
+                        head.appendChild(tag);
+                    }
+                    const desc = document.createElement("p");
+                    desc.className = "ability-desc";
+                    desc.textContent = a.description;
+                    body.appendChild(head);
+                    body.appendChild(desc);
+                    li.appendChild(icon);
+                    li.appendChild(body);
+                    abilityList.appendChild(li);
+                }
+            }
+
+            spellChips.innerHTML = "";
+            const spells = [...new Set(unit.spells.map((sp) => sp.replace(/^[^:]+:/, "")))];
+            if (spells.length > 0) {
+                for (const sp of spells) {
+                    const chip = document.createElement("span");
+                    chip.className = "spell-chip";
+                    chip.textContent = sp;
+                    spellChips.appendChild(chip);
+                }
+                spellsWrap.hidden = false;
+            } else {
+                spellsWrap.hidden = true;
+            }
+
+            dialog.showModal();
+        };
+
+        function factionColor(f: string): string {
+            const map: Record<string, string> = {
+                Chaos: "#c63d33",
+                Life: "#4ea36e",
+                Might: "#e0b04a",
+                Nature: "#6f9bd6",
+                Death: "#8a76bf",
+            };
+            return map[f] ?? "#e0b04a";
+        }
+
+        dialog.addEventListener("click", (e) => {
+            const t = e.target as HTMLElement;
+            if (t.matches("[data-close]") || t === dialog) {
+                dialog.close();
+            }
+        });
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && dialog.open) dialog.close();
+        });
+
+        document.querySelectorAll<HTMLElement>("[data-unit]").forEach((card) => {
+            card.addEventListener("click", () => {
+                const idx = Number(card.dataset.unit);
+                const unit = data[idx];
+                if (unit) openUnit(unit);
+            });
+        });
+    }
+
+    // Faction filter
+    const pills = document.querySelectorAll<HTMLButtonElement>(".faction-pill");
+    const cards = document.querySelectorAll<HTMLElement>(".unit-card");
+    pills.forEach((pill) => {
+        pill.addEventListener("click", () => {
+            pills.forEach((p) => {
+                p.classList.remove("active");
+                p.setAttribute("aria-pressed", "false");
+            });
+            pill.classList.add("active");
+            pill.setAttribute("aria-pressed", "true");
+            const f = pill.dataset.faction;
+            cards.forEach((c) => {
+                const show = f === "all" || c.dataset.faction === f;
+                c.style.display = show ? "" : "none";
+            });
+        });
+    });
+</script>
+
+<style>
+    .units-subhero p {
+        max-width: 760px;
+    }
+
+    .units-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 28px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface);
+    }
+
+    .faction-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 38px;
+        padding: 7px 14px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        transition:
+            color 0.15s ease,
+            background 0.15s ease,
+            border-color 0.15s ease;
+    }
+
+    .faction-pill em {
+        color: var(--muted);
+        font-style: normal;
+        font-size: 0.84rem;
+    }
+
+    .faction-pill:hover {
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .faction-pill.active {
+        border-color: color-mix(in srgb, var(--faction, var(--gold)) 60%, transparent);
+        background: color-mix(in srgb, var(--faction, var(--gold)) 14%, transparent);
+        color: var(--ink);
+    }
+
+    .units-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+        gap: 14px;
+    }
+
+    .unit-card {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface);
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition:
+            transform 0.16s ease,
+            border-color 0.16s ease,
+            box-shadow 0.16s ease;
+    }
+
+    .unit-card:hover {
+        transform: translateY(-3px);
+        border-color: color-mix(in srgb, var(--faction) 55%, transparent);
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.34);
+    }
+
+    .unit-portrait {
+        position: relative;
+        display: block;
+        aspect-ratio: 1 / 1;
+        overflow: hidden;
+        border-radius: 8px;
+        background: #0c0b09;
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--faction) 40%, transparent);
+    }
+
+    .unit-portrait img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .unit-level {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.66);
+        color: #fff;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+    }
+
+    .unit-name {
+        color: var(--ink);
+        font-weight: 760;
+        font-size: 0.96rem;
+        line-height: 1.2;
+    }
+
+    .unit-tags {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .unit-faction {
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--faction) 18%, transparent);
+        color: color-mix(in srgb, var(--faction) 80%, #fff);
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    /* Dialog */
+    .unit-dialog {
+        width: min(720px, calc(100vw - 32px));
+        max-height: calc(100svh - 48px);
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid var(--line-strong);
+        border-radius: 16px;
+        background: var(--background-2);
+        color: var(--ink);
+        box-shadow: 0 32px 90px rgba(0, 0, 0, 0.6);
+    }
+
+    .unit-dialog::backdrop {
+        background: rgba(4, 3, 2, 0.74);
+        backdrop-filter: blur(4px);
+    }
+
+    .unit-dialog-inner {
+        position: relative;
+        max-height: calc(100svh - 48px);
+        overflow: auto;
+    }
+
+    .unit-dialog-close {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 2;
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.5);
+        color: #fff;
+        font-size: 1.4rem;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .unit-dialog-head {
+        display: grid;
+        grid-template-columns: 160px minmax(0, 1fr);
+        gap: 20px;
+        align-items: center;
+        padding: 24px 24px 20px;
+        border-bottom: 1px solid var(--line);
+        background: linear-gradient(180deg, color-mix(in srgb, var(--faction, #e0b04a) 16%, transparent), transparent);
+    }
+
+    .unit-dialog-portrait {
+        width: 160px;
+        height: 160px;
+        object-fit: cover;
+        border-radius: 12px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .unit-dialog-faction {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        color: color-mix(in srgb, var(--faction, var(--gold)) 85%, #fff);
+        font-weight: 800;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .unit-dialog-name,
+    #unit-dialog-name {
+        margin-bottom: 6px;
+        font-size: 1.9rem;
+    }
+
+    .unit-dialog-meta {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.94rem;
+    }
+
+    .unit-dialog-body {
+        display: grid;
+        gap: 22px;
+        padding: 22px 24px 28px;
+    }
+
+    .unit-stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin: 0;
+    }
+
+    .unit-stats > div {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+    }
+
+    .unit-stats dt {
+        color: var(--muted);
+        font-size: 0.84rem;
+        font-weight: 700;
+    }
+
+    .unit-stats dd {
+        margin: 0;
+        color: var(--ink);
+        font-weight: 760;
+        font-size: 0.98rem;
+    }
+
+    .unit-abilities h3,
+    .unit-spells h3 {
+        margin-bottom: 12px;
+        font-size: 1.05rem;
+    }
+
+    .ability-list {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .ability-list li {
+        display: grid;
+        grid-template-columns: 40px minmax(0, 1fr);
+        gap: 12px;
+        align-items: start;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+    }
+
+    .ability-list li img {
+        width: 40px;
+        height: 40px;
+        border-radius: 6px;
+        background: #0c0b09;
+    }
+
+    .ability-name {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 4px;
+        color: var(--ink);
+        font-weight: 780;
+    }
+
+    .ability-tag {
+        padding: 1px 7px;
+        border-radius: 999px;
+        background: rgba(224, 176, 74, 0.16);
+        color: var(--gold-soft);
+        font-size: 0.68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .ability-tag.cast {
+        background: rgba(78, 163, 110, 0.18);
+        color: var(--green);
+    }
+
+    .ability-desc {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+        white-space: pre-line;
+    }
+
+    .ability-empty {
+        color: var(--muted) !important;
+        font-style: italic;
+    }
+
+    .spell-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .spell-chip {
+        padding: 6px 12px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--blue);
+        font-size: 0.84rem;
+        font-weight: 700;
+    }
+
+    @media (max-width: 640px) {
+        .unit-dialog-head {
+            grid-template-columns: 92px minmax(0, 1fr);
+            gap: 14px;
+            padding: 20px 18px 16px;
+        }
+        .unit-dialog-portrait {
+            width: 92px;
+            height: 92px;
+        }
+        .unit-dialog-name,
+        #unit-dialog-name {
+            font-size: 1.5rem;
+        }
+        .unit-dialog-body {
+            padding: 18px;
+        }
+        .unit-stats {
+            grid-template-columns: 1fr;
+        }
+        .units-grid {
+            grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+            gap: 10px;
+        }
+    }
+</style>
