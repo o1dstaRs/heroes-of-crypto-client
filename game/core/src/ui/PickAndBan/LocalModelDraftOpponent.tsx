@@ -43,8 +43,63 @@ interface CreatureConfig {
     abilities?: string[];
 }
 
+interface LocalModelDraftLogEntry {
+    id: string;
+    timestamp: string;
+    kind: "decision" | "result";
+    team: string;
+    phase: string;
+    state: {
+        signature: string;
+        activeTeams: string[];
+        picked: Array<{ id: number; name: string }>;
+        knownOpponentPicked: Array<{ id: number; name: string }>;
+        banned: Array<{ id: number; name: string }>;
+        initialPairs: Array<Array<{ id: number; name: string }>>;
+        secondsRemaining: number;
+        revealsRemaining: number;
+    };
+    prompt?: string;
+    model?: string;
+    choices?: Array<{
+        label: string;
+        index: number;
+        type: DraftChoice["type"];
+        summary: string;
+        creatureId?: number;
+        pairIndex?: number;
+        pair?: [number, number];
+        score: number;
+        tags: string[];
+    }>;
+    rawResponse?: string;
+    selectedChoice?: {
+        label: string;
+        index: number;
+        type: DraftChoice["type"];
+        summary: string;
+        creatureId?: number;
+        pairIndex?: number;
+        pair?: [number, number];
+        score: number;
+        tags: string[];
+    };
+    usedFallback?: boolean;
+    completed?: boolean;
+    error?: string;
+}
+
+interface DraftChoiceDecision {
+    choice: DraftChoice;
+    decisionId: string;
+    usedFallback: boolean;
+    error?: string;
+}
+
 const actionLabels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const KEY_RANGED_NAMES = new Set(["Tsar Cannon", "Gargantuan"]);
+const LOCAL_MODEL_DRAFT_LOG_KEY = "hoc.localModelDraftLog";
+const LOCAL_MODEL_DRAFT_LOG_LIMIT = 120;
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -70,6 +125,56 @@ const phaseName = (phase: number): string => {
             return "handoff";
         default:
             return `phase ${phase}`;
+    }
+};
+
+const nextDraftDecisionId = (): string => `lm-draft-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const namedCreature = (creatureId: number): { id: number; name: string } => ({
+    id: creatureId,
+    name: creatureName(creatureId),
+});
+
+const serializeDraftChoice = (choice: DraftChoice): NonNullable<LocalModelDraftLogEntry["selectedChoice"]> => ({
+    label: choice.label,
+    index: choice.index,
+    type: choice.type,
+    summary: choice.summary,
+    creatureId: choice.creatureId,
+    pairIndex: choice.pairIndex,
+    pair: choice.pair,
+    score: choice.score,
+    tags: choice.tags,
+});
+
+const draftStateSummary = (event: IPickPhaseEventData): LocalModelDraftLogEntry["state"] => ({
+    signature: draftSignature(event),
+    activeTeams: event.a.map(teamName),
+    picked: event.p.filter(normalizeVisibleCreature).map(namedCreature),
+    knownOpponentPicked: event.op.filter(normalizeVisibleCreature).map(namedCreature),
+    banned: event.b.filter(normalizeVisibleCreature).map(namedCreature),
+    initialPairs: event.ip.map((pair) => pair.map(namedCreature)),
+    secondsRemaining: event.t,
+    revealsRemaining: event.r,
+});
+
+const recordLocalModelDraftLog = (entry: LocalModelDraftLogEntry): void => {
+    console.info("[local model draft log]", entry);
+    if (typeof window === "undefined") {
+        return;
+    }
+    const globalState = window as Window & {
+        __hocLocalModelDraftLog?: LocalModelDraftLogEntry[];
+        __hocDumpLocalModelDraftLog?: () => string;
+    };
+    const current = globalState.__hocLocalModelDraftLog ?? [];
+    const next = [...current, entry].slice(-LOCAL_MODEL_DRAFT_LOG_LIMIT);
+    globalState.__hocLocalModelDraftLog = next;
+    globalState.__hocDumpLocalModelDraftLog = () => JSON.stringify(globalState.__hocLocalModelDraftLog ?? [], null, 2);
+    try {
+        window.localStorage.setItem(LOCAL_MODEL_DRAFT_LOG_KEY, JSON.stringify(next));
+    } catch {
+        // The console/in-memory copy is enough if localStorage is unavailable.
     }
 };
 
@@ -323,8 +428,10 @@ const chooseDraftChoice = async (
     config: LocalModelOpponentConfig,
     event: IPickPhaseEventData,
     choices: DraftChoice[],
-): Promise<DraftChoice> => {
+): Promise<DraftChoiceDecision> => {
+    const decisionId = nextDraftDecisionId();
     const fallback = [...choices].sort((a, b) => b.score - a.score)[0];
+    const prompt = buildDraftPrompt(config, event, choices);
     try {
         const model = await resolveModelName(config);
         const response = await fetch(modelUrl(config.apiBase, "/chat/completions"), {
@@ -343,16 +450,64 @@ const chooseDraftChoice = async (
                         content:
                             "You are a deterministic controller for a local strategy-game draft. Choose one legal draft action. Output only valid JSON.",
                     },
-                    { role: "user", content: buildDraftPrompt(config, event, choices) },
+                    { role: "user", content: prompt },
                 ],
             }),
         });
         if (!response.ok) {
-            return fallback;
+            const error = `http_${response.status}`;
+            recordLocalModelDraftLog({
+                id: decisionId,
+                timestamp: new Date().toISOString(),
+                kind: "decision",
+                team: teamName(config.modelTeam),
+                phase: phaseName(event.pp),
+                state: draftStateSummary(event),
+                prompt,
+                model,
+                choices: choices.map(serializeDraftChoice),
+                selectedChoice: serializeDraftChoice(fallback),
+                usedFallback: true,
+                error,
+            });
+            return { choice: fallback, decisionId, usedFallback: true, error };
         }
-        return extractChoice(readChatContent(await response.json()), choices) ?? fallback;
-    } catch {
-        return fallback;
+        const rawResponse = readChatContent(await response.json());
+        const parsedChoice = extractChoice(rawResponse, choices);
+        const choice = parsedChoice ?? fallback;
+        const error = parsedChoice ? undefined : "no_parseable_choice";
+        recordLocalModelDraftLog({
+            id: decisionId,
+            timestamp: new Date().toISOString(),
+            kind: "decision",
+            team: teamName(config.modelTeam),
+            phase: phaseName(event.pp),
+            state: draftStateSummary(event),
+            prompt,
+            model,
+            choices: choices.map(serializeDraftChoice),
+            rawResponse,
+            selectedChoice: serializeDraftChoice(choice),
+            usedFallback: !parsedChoice,
+            error,
+        });
+        return { choice, decisionId, usedFallback: !parsedChoice, error };
+    } catch (err) {
+        const error = (err as Error).message;
+        recordLocalModelDraftLog({
+            id: decisionId,
+            timestamp: new Date().toISOString(),
+            kind: "decision",
+            team: teamName(config.modelTeam),
+            phase: phaseName(event.pp),
+            state: draftStateSummary(event),
+            prompt,
+            choices: choices.map(serializeDraftChoice),
+            selectedChoice: serializeDraftChoice(fallback),
+            usedFallback: true,
+            error,
+        });
+        return { choice: fallback, decisionId, usedFallback: true, error };
     }
 };
 
@@ -433,19 +588,54 @@ export const LocalModelDraftOpponent: React.FC<{ eventUrl: string }> = ({ eventU
             for (let attempt = 0; attempt < 6; attempt++) {
                 const choices = buildDraftChoices(modelEvent, failedChoiceIds);
                 if (!choices.length) {
+                    recordLocalModelDraftLog({
+                        id: nextDraftDecisionId(),
+                        timestamp: new Date().toISOString(),
+                        kind: "decision",
+                        team: teamName(config.modelTeam),
+                        phase: phaseName(modelEvent.pp),
+                        state: draftStateSummary(modelEvent),
+                        choices: [],
+                        usedFallback: false,
+                        error: "no_legal_choices",
+                    });
                     break;
                 }
-                const choice = await chooseDraftChoice(config, modelEvent, choices);
+                const decision = await chooseDraftChoice(config, modelEvent, choices);
+                const choice = decision.choice;
                 const failedId =
                     choice.type === "pick_pair" ? `pair:${choice.pairIndex ?? 0}` : `${choice.type}:${choice.creatureId ?? 0}`;
                 try {
                     console.info("[local model draft]", choice.summary);
                     await submitDraftChoice(choice, authorization);
+                    recordLocalModelDraftLog({
+                        id: decision.decisionId,
+                        timestamp: new Date().toISOString(),
+                        kind: "result",
+                        team: teamName(config.modelTeam),
+                        phase: phaseName(modelEvent.pp),
+                        state: draftStateSummary(modelEvent),
+                        selectedChoice: serializeDraftChoice(choice),
+                        usedFallback: decision.usedFallback,
+                        completed: true,
+                    });
                     completedSignaturesRef.current.add(signature);
                     return;
                 } catch (err) {
                     const message = (err as Error).message;
                     console.warn("[local model draft] rejected", choice.summary, message);
+                    recordLocalModelDraftLog({
+                        id: decision.decisionId,
+                        timestamp: new Date().toISOString(),
+                        kind: "result",
+                        team: teamName(config.modelTeam),
+                        phase: phaseName(modelEvent.pp),
+                        state: draftStateSummary(modelEvent),
+                        selectedChoice: serializeDraftChoice(choice),
+                        usedFallback: decision.usedFallback,
+                        completed: false,
+                        error: message,
+                    });
                     if (/not your turn|current phase/i.test(message)) {
                         completedSignaturesRef.current.add(signature);
                         return;

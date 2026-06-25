@@ -1,4 +1,4 @@
-import type { GameAction, TeamType } from "@heroesofcrypto/common";
+import type { GameAction, IDamageStatistic, TeamType } from "@heroesofcrypto/common";
 
 export interface AuthoritativeCell {
     x: number;
@@ -25,6 +25,17 @@ export interface AuthoritativeUnitState {
     stackPower: number;
 }
 
+export interface AuthoritativeJournalEntry {
+    sequence: number;
+    actionId: string;
+    playerId: string;
+    team: TeamType | number;
+    actionType: number;
+    actionJson: string;
+    eventsJson: string;
+    acceptedAtMs: number;
+}
+
 export interface AuthoritativeGameSnapshot {
     gameId: string;
     viewerTeam?: TeamType | number;
@@ -37,10 +48,15 @@ export interface AuthoritativeGameSnapshot {
     currentUnitId: string;
     currentTurnTeam: TeamType | number;
     latestSequence: number;
+    serverTimeMs?: number;
+    currentTurnStartMs?: number;
+    currentTurnEndMs?: number;
     narrowingLayers: number;
     centerDried: boolean;
     units: AuthoritativeUnitState[];
     upNext?: string[];
+    damageStats?: IDamageStatistic[];
+    journalTail?: AuthoritativeJournalEntry[];
 }
 
 export type SceneGameActionTransportResult =

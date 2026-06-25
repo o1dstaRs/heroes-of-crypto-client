@@ -1,4 +1,4 @@
-import { AttackVals, TeamVals, type GameAction, type GameEvent, type TeamType } from "@heroesofcrypto/common";
+import { AttackVals, TeamVals, type GameAction, type TeamType } from "@heroesofcrypto/common";
 import { Alert, Box, Button, Chip, CircularProgress, Sheet, Slider, Stack, Typography } from "@mui/joy";
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
@@ -39,6 +39,10 @@ import { UpNextOverlay } from "./UpNextOverlay";
 import { WalletLinker } from "./WalletLinker";
 import { ButtonProvider } from "./context/ButtonContext";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
+import {
+    resolveEffectiveLocalModelOpponentConfig,
+    shouldApplyActionResponseSnapshotToViewer,
+} from "./rankedActionResponse";
 import { resolveUnitImage } from "./unitImage";
 
 export { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
@@ -103,6 +107,7 @@ const isTurnResolvingAction = (action: GameAction): boolean => {
         case "end_turn":
         case "wait_turn":
         case "defend_turn":
+        case "move_unit":
         case "melee_attack":
         case "range_attack":
         case "obstacle_attack":
@@ -240,6 +245,10 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const localModelConfig = useMemo(() => getLocalModelOpponentConfig(), []);
     const viewerTeam = userTeam === TeamVals.NO_TEAM ? undefined : userTeam;
     const [snapshot, setSnapshot] = useState<PlaySnapshot | null>(null);
+    const effectiveLocalModelConfig = useMemo(
+        () => resolveEffectiveLocalModelOpponentConfig(localModelConfig, snapshot),
+        [localModelConfig, snapshot],
+    );
     const [selectedUnitId, setSelectedUnitId] = useState("");
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState("Connecting");
@@ -262,19 +271,68 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         setSnapshot(nextSnapshot);
     }, []);
 
-    const rememberAuthoritativeRecord = useCallback((entry: PlaySnapshot["journalTail"][number] | undefined) => {
-        if (!entry || playedAuthoritativeSequencesRef.current.has(entry.sequence)) {
+    const rememberAuthoritativeRecord = useCallback(
+        (
+            entry: PlaySnapshot["journalTail"][number] | undefined,
+            options: { snapshotSequence?: number } = {},
+        ) => {
+            if (!entry || playedAuthoritativeSequencesRef.current.has(entry.sequence)) {
+                return;
+            }
+            if (options.snapshotSequence !== undefined && options.snapshotSequence >= entry.sequence) {
+                return;
+            }
+            const record = parseRankedReplayAction(entry);
+            if (!record || !record.events.length) {
+                return;
+            }
+            if (!canPlayAuthoritativeRecord(record.action, snapshotRef.current)) {
+                return;
+            }
+            pendingAuthoritativeRecordsRef.current.set(record.sequence, record);
+        },
+        [],
+    );
+
+    const waitForAuthoritativePlayback = useCallback(async (): Promise<void> => {
+        try {
+            await authoritativePlaybackQueueRef.current;
+        } catch {
             return;
         }
-        const record = parseRankedReplayAction(entry);
-        if (!record || !record.events.length) {
-            return;
-        }
-        if (!canPlayAuthoritativeRecord(record.action, snapshotRef.current)) {
-            return;
-        }
-        pendingAuthoritativeRecordsRef.current.set(record.sequence, record);
     }, []);
+
+    const playAuthoritativeRecord = useCallback(
+        async (
+            entry: PlaySnapshot["journalTail"][number] | undefined,
+            stateAfterSnapshot?: PlaySnapshot,
+        ): Promise<boolean> => {
+            if (!entry || !pixiReady || playedAuthoritativeSequencesRef.current.has(entry.sequence)) {
+                return false;
+            }
+            const record = parseRankedReplayAction(entry);
+            if (!record || !record.events.length || !canPlayAuthoritativeRecord(record.action, snapshotRef.current)) {
+                return false;
+            }
+
+            playedAuthoritativeSequencesRef.current.add(record.sequence);
+            pendingAuthoritativeRecordsRef.current.delete(record.sequence);
+            authoritativePlaybackQueueRef.current = authoritativePlaybackQueueRef.current
+                .catch(() => undefined)
+                .then(async () => {
+                    await manager.PlayAuthoritativeActionRecord(
+                        record.action,
+                        record.events,
+                        stateAfterSnapshot
+                            ? toAuthoritativeGameSnapshot(stateAfterSnapshot, viewerTeam)
+                            : undefined,
+                    );
+                });
+            await authoritativePlaybackQueueRef.current;
+            return true;
+        },
+        [manager, pixiReady, viewerTeam],
+    );
 
     const refreshSnapshot = useCallback(async () => {
         const nextSnapshot = await fetchRankedPlaySnapshot(gameId);
@@ -322,17 +380,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         const records = [...pendingAuthoritativeRecordsRef.current.entries()]
             .filter(([sequence]) => sequence <= snapshot.latestSequence)
             .sort(([a], [b]) => a - b);
-        for (const [sequence, record] of records) {
+        for (const [sequence] of records) {
             pendingAuthoritativeRecordsRef.current.delete(sequence);
-            if (playedAuthoritativeSequencesRef.current.has(sequence)) {
-                continue;
-            }
-            playedAuthoritativeSequencesRef.current.add(sequence);
-            authoritativePlaybackQueueRef.current = authoritativePlaybackQueueRef.current
-                .catch(() => undefined)
-                .then(async () => {
-                    await manager.PlayAuthoritativeActionRecord(record.action, record.events);
-                });
         }
     }, [manager, pixiReady, selectedUnitId, snapshot, viewerTeam]);
 
@@ -398,19 +447,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                         if (!event) continue;
 
                         latestSequenceRef.current = Math.max(latestSequenceRef.current, event.sequence);
-                        rememberAuthoritativeRecord(event.journalEntry);
-                        // Feed real GameEvents (damage, kills, animations) into the VFX system.
-                        if (event.journalEntry?.eventsJson) {
-                            try {
-                                const gameEvents = JSON.parse(event.journalEntry.eventsJson) as unknown;
-                                if (Array.isArray(gameEvents) && gameEvents.length > 0) {
-                                    manager.ApplyAuthoritativeVfx(gameEvents as GameEvent[]);
-                                }
-                            } catch {
-                                // Older journal entries may not have parseable events.
-                            }
+                        const played = await playAuthoritativeRecord(event.journalEntry, event.snapshot);
+                        if (!played) {
+                            rememberAuthoritativeRecord(event.journalEntry, {
+                                snapshotSequence: event.snapshot?.latestSequence,
+                            });
                         }
                         if (event.snapshot) {
+                            await waitForAuthoritativePlayback();
                             applySnapshot(event.snapshot);
                         }
                         if (event.rejectionReason || event.message) {
@@ -436,7 +480,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             }
             abortRef.current?.abort();
         };
-    }, [applySnapshot, gameId, rememberAuthoritativeRecord]);
+    }, [applySnapshot, gameId, playAuthoritativeRecord, rememberAuthoritativeRecord, waitForAuthoritativePlayback]);
 
     const myPlayer = useMemo(() => snapshot?.players.find((player) => player.team === userTeam), [snapshot, userTeam]);
     const isObserver = userTeam === TeamVals.NO_TEAM || !myPlayer;
@@ -454,7 +498,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const sendPlayAction = useCallback(
         async (payload: PlayAction, options?: { authorization?: string }): Promise<boolean> => {
             const isModelSubmission =
-                !!options?.authorization && localModelConfig.enabled && payload.team === localModelConfig.modelTeam;
+                !!options?.authorization &&
+                effectiveLocalModelConfig.enabled &&
+                payload.team === effectiveLocalModelConfig.modelTeam;
             if (isObserver && !isModelSubmission) {
                 setError("Observer mode is read-only");
                 return false;
@@ -469,10 +515,21 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 if (payload.type === PlayActionType.PING && result.accepted) {
                     return true;
                 }
-                rememberAuthoritativeRecord(result.event?.journalEntry);
-                if (result.event?.snapshot) {
-                    applySnapshot(result.event.snapshot);
+                const responseSnapshot = result.event?.snapshot;
+                const played = await playAuthoritativeRecord(result.event?.journalEntry, responseSnapshot);
+                if (!played) {
+                    rememberAuthoritativeRecord(result.event?.journalEntry, {
+                        snapshotSequence: responseSnapshot?.latestSequence,
+                    });
+                }
+                if (
+                    responseSnapshot &&
+                    shouldApplyActionResponseSnapshotToViewer(responseSnapshot, { isModelSubmission })
+                ) {
+                    await waitForAuthoritativePlayback();
+                    applySnapshot(responseSnapshot);
                 } else {
+                    await waitForAuthoritativePlayback();
                     await refreshSnapshot();
                 }
                 if (!result.accepted) {
@@ -495,16 +552,18 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             applySnapshot,
             gameId,
             isObserver,
-            localModelConfig.enabled,
-            localModelConfig.modelTeam,
+            effectiveLocalModelConfig.enabled,
+            effectiveLocalModelConfig.modelTeam,
+            playAuthoritativeRecord,
             refreshSnapshot,
             rememberAuthoritativeRecord,
+            waitForAuthoritativePlayback,
         ],
     );
 
     const buildActionEnvelope = useCallback(
         (team: TeamType = userTeam) => {
-            const isModelTeam = localModelConfig.enabled && team === localModelConfig.modelTeam;
+            const isModelTeam = effectiveLocalModelConfig.enabled && team === effectiveLocalModelConfig.modelTeam;
             if (isObserver && !isModelTeam) {
                 return undefined;
             }
@@ -521,7 +580,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 team,
             };
         },
-        [gameId, isObserver, localModelConfig.enabled, localModelConfig.modelTeam, userTeam],
+        [gameId, isObserver, effectiveLocalModelConfig.enabled, effectiveLocalModelConfig.modelTeam, userTeam],
     );
 
     const queueActionSubmission = useCallback((submit: () => Promise<void>): Promise<void> => {
@@ -562,8 +621,26 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 const envelope = buildActionEnvelope(team);
                 if (!envelope) return;
 
-                await sendPlayAction(
+                const accepted = await sendPlayAction(
                     createPlayActionFromGameAction(action, envelope),
+                    authorization ? { authorization } : undefined,
+                );
+                if (!accepted || action.type !== "move_unit") {
+                    return;
+                }
+
+                const endTurnEnvelope = buildActionEnvelope(team);
+                if (!endTurnEnvelope) {
+                    pendingTurnResolutionRef.current = false;
+                    return;
+                }
+                pendingTurnResolutionRef.current = true;
+                await sendPlayAction(
+                    {
+                        ...endTurnEnvelope,
+                        type: PlayActionType.END_TURN,
+                        unitId: action.unitId,
+                    },
                     authorization ? { authorization } : undefined,
                 );
             });
@@ -579,15 +656,15 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     );
 
     useEffect(() => {
-        if (!localModelConfig.enabled || !localModelConfig.authorization) {
+        if (!effectiveLocalModelConfig.enabled || !effectiveLocalModelConfig.authorization) {
             return undefined;
         }
 
         const pingModelPlayer = () => {
             void submitProtocolActionForTeam(
                 { type: PlayActionType.PING },
-                localModelConfig.modelTeam,
-                localModelConfig.authorization,
+                effectiveLocalModelConfig.modelTeam,
+                effectiveLocalModelConfig.authorization,
             );
         };
         const timer = window.setInterval(pingModelPlayer, 8_000);
@@ -595,9 +672,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         return () => window.clearInterval(timer);
     }, [
         gameId,
-        localModelConfig.authorization,
-        localModelConfig.enabled,
-        localModelConfig.modelTeam,
+        effectiveLocalModelConfig.authorization,
+        effectiveLocalModelConfig.enabled,
+        effectiveLocalModelConfig.modelTeam,
         submitProtocolActionForTeam,
     ]);
 
@@ -613,9 +690,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
 
             const actionTeam = teamForAction(snapshotRef.current, action);
             const isModelSubmission =
-                localModelConfig.enabled &&
-                localModelConfig.authorization &&
-                actionTeam === localModelConfig.modelTeam &&
+                effectiveLocalModelConfig.enabled &&
+                effectiveLocalModelConfig.authorization &&
+                actionTeam === effectiveLocalModelConfig.modelTeam &&
                 isLocalModelAction(action);
 
             if (actionTeam !== undefined && actionTeam !== userTeam && !isModelSubmission) {
@@ -633,7 +710,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 if (isTurnResolvingAction(action)) {
                     pendingTurnResolutionRef.current = true;
                 }
-                void submitGameActionForTeam(action, localModelConfig.modelTeam, localModelConfig.authorization);
+                void submitGameActionForTeam(
+                    action,
+                    effectiveLocalModelConfig.modelTeam,
+                    effectiveLocalModelConfig.authorization,
+                );
                 return { handled: true, completed: true };
             }
             if (isObserver) {
@@ -647,9 +728,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         },
         [
             isObserver,
-            localModelConfig.authorization,
-            localModelConfig.enabled,
-            localModelConfig.modelTeam,
+            effectiveLocalModelConfig.authorization,
+            effectiveLocalModelConfig.enabled,
+            effectiveLocalModelConfig.modelTeam,
             submitGameAction,
             submitGameActionForTeam,
             userTeam,
@@ -716,14 +797,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const modelPlacementRunKeyRef = useRef("");
     useEffect(() => {
         if (
-            !localModelConfig.enabled ||
-            !localModelConfig.authorization ||
+            !effectiveLocalModelConfig.enabled ||
+            !effectiveLocalModelConfig.authorization ||
             !snapshot ||
             snapshot.phase !== PlayPhase.PLACEMENT
         ) {
             return;
         }
-        const modelPlayer = snapshot.players.find((player) => player.team === localModelConfig.modelTeam);
+        const modelPlayer = snapshot.players.find((player) => player.team === effectiveLocalModelConfig.modelTeam);
         if (!modelPlayer || snapshot.readyPlayerIds.includes(modelPlayer.playerId)) {
             return;
         }
@@ -738,7 +819,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 let latestSnapshot = snapshotRef.current;
                 try {
                     latestSnapshot = await fetchRankedPlaySnapshot(gameId, {
-                        authorization: localModelConfig.authorization,
+                        authorization: effectiveLocalModelConfig.authorization,
                     });
                 } catch {
                     latestSnapshot = snapshotRef.current;
@@ -747,30 +828,30 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     return;
                 }
                 const latestModelPlayer = latestSnapshot.players.find(
-                    (player) => player.team === localModelConfig.modelTeam,
+                    (player) => player.team === effectiveLocalModelConfig.modelTeam,
                 );
                 if (!latestModelPlayer || latestSnapshot.readyPlayerIds.includes(latestModelPlayer.playerId)) {
                     return;
                 }
 
-                for (const action of createModelPlacementActions(latestSnapshot, localModelConfig.modelTeam)) {
+                for (const action of createModelPlacementActions(latestSnapshot, effectiveLocalModelConfig.modelTeam)) {
                     await submitProtocolActionForTeam(
                         action,
-                        localModelConfig.modelTeam,
-                        localModelConfig.authorization,
+                        effectiveLocalModelConfig.modelTeam,
+                        effectiveLocalModelConfig.authorization,
                     );
                 }
                 await submitProtocolActionForTeam(
                     { type: PlayActionType.READY_PLACEMENT },
-                    localModelConfig.modelTeam,
-                    localModelConfig.authorization,
+                    effectiveLocalModelConfig.modelTeam,
+                    effectiveLocalModelConfig.authorization,
                 );
             })();
         }, 650);
     }, [
-        localModelConfig.authorization,
-        localModelConfig.enabled,
-        localModelConfig.modelTeam,
+        effectiveLocalModelConfig.authorization,
+        effectiveLocalModelConfig.enabled,
+        effectiveLocalModelConfig.modelTeam,
         snapshot,
         submitProtocolActionForTeam,
     ]);

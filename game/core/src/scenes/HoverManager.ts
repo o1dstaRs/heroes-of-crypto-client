@@ -82,25 +82,79 @@ export class HoverManager {
         this.auraGraphics = new Graphics();
         this.aoeGraphics = new Graphics();
     }
+    private isGraphicsUsable(graphics?: Graphics): graphics is Graphics {
+        const state = graphics as (Graphics & { destroyed?: boolean; context?: unknown }) | undefined;
+        return !!state && state.destroyed !== true && state.context !== null;
+    }
+    private safeClearGraphics(graphics?: Graphics): boolean {
+        if (!this.isGraphicsUsable(graphics)) {
+            return false;
+        }
+        try {
+            graphics.clear();
+            return true;
+        } catch {
+            return false;
+        }
+    }
+    private safeAttachGraphics(graphics: Graphics, zIndex: number): boolean {
+        if (!this.isGraphicsUsable(graphics)) {
+            return false;
+        }
+        try {
+            this.context.attachToWorldRoot(graphics, zIndex);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+    private ensureAuraGraphics(): Graphics | undefined {
+        if (this.isGraphicsUsable(this.auraGraphics)) {
+            return this.auraGraphics;
+        }
+        const graphics = new Graphics();
+        if (!this.safeAttachGraphics(graphics, 51)) {
+            graphics.destroy();
+            return undefined;
+        }
+        this.auraGraphics = graphics;
+        return graphics;
+    }
+    private ensureAOEGraphics(): Graphics | undefined {
+        if (this.isGraphicsUsable(this.aoeGraphics)) {
+            return this.aoeGraphics;
+        }
+        const graphics = new Graphics();
+        if (!this.safeAttachGraphics(graphics, 4500)) {
+            graphics.destroy();
+            return undefined;
+        }
+        this.aoeGraphics = graphics;
+        return graphics;
+    }
     public onCameraChanged(): void {
         if (this.hoverSilhouette) this.context.attachToWorldRoot(this.hoverSilhouette, 110);
         if (this.hoverSilhouetteOutline) this.context.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
-        this.context.attachToWorldRoot(this.auraGraphics, 51); // Below units and movement path
-        this.context.attachToWorldRoot(this.aoeGraphics, 4500); // Above units: AOE splash area
-        if (this.spellBeam) this.context.attachToWorldRoot(this.spellBeam, 2199);
-        if (this.spellBadgeRing) this.context.attachToWorldRoot(this.spellBadgeRing, 2202);
+        const auraGraphics = this.ensureAuraGraphics();
+        const aoeGraphics = this.ensureAOEGraphics();
+        if (auraGraphics) this.safeAttachGraphics(auraGraphics, 51); // Below units and movement path
+        if (aoeGraphics) this.safeAttachGraphics(aoeGraphics, 4500); // Above units: AOE splash area
+        if (this.isGraphicsUsable(this.spellBeam)) this.safeAttachGraphics(this.spellBeam, 2199);
+        if (this.isGraphicsUsable(this.spellBadgeRing)) this.safeAttachGraphics(this.spellBadgeRing, 2202);
         if (this.spellBadgeIcon) this.context.attachToWorldRoot(this.spellBadgeIcon, 2203);
         if (this.spellBadgeText) this.context.attachToWorldRoot(this.spellBadgeText, 2203);
     }
     public clearAuraVisuals(): void {
-        this.auraGraphics.clear();
+        this.safeClearGraphics(this.auraGraphics);
     }
     public clearAOEArea(): void {
-        this.aoeGraphics.clear();
+        this.safeClearGraphics(this.aoeGraphics);
     }
     /** Paint a single translucent square over the whole area-of-effect splash (its bounding box). */
     public drawAOEArea(cells: HoCMath.XY[]): void {
-        this.aoeGraphics.clear();
+        const aoeGraphics = this.ensureAOEGraphics();
+        if (!aoeGraphics) return;
+        aoeGraphics.clear();
         if (!cells.length) return;
         const gs = this.context.sceneSettings.getGridSettings();
         const half = gs.getCellSize() / 2;
@@ -117,7 +171,7 @@ export class HoverManager {
             maxY = Math.max(maxY, pos.y + half);
         }
         if (!Number.isFinite(minX)) return;
-        this.aoeGraphics
+        aoeGraphics
             .rect(minX + 1, minY + 1, maxX - minX - 2, maxY - minY - 2)
             .fill({ color: 0xff3333, alpha: 0.18 })
             .stroke({ width: 2, color: 0xff6666, alpha: 0.85 });
@@ -152,7 +206,9 @@ export class HoverManager {
         const halfSize = isSmallUnit ? gs.getHalfStep() : gs.getStep();
         const extent = radius + halfSize; // Total distance from center to edge of aura square
 
-        this.auraGraphics
+        const auraGraphics = this.ensureAuraGraphics();
+        if (!auraGraphics) return;
+        auraGraphics
             .rect(center.x - extent, center.y - extent, extent * 2, extent * 2)
             .fill({ color: fillColor, alpha: fillAlpha })
             .stroke({ width: strokeWidth, color: color, alpha: strokeAlpha });
@@ -162,7 +218,9 @@ export class HoverManager {
         const alpha = 0.8;
         const width = 2;
 
-        this.auraGraphics.circle(center.x, center.y, radius).stroke({ width: width, color: color, alpha: alpha });
+        const auraGraphics = this.ensureAuraGraphics();
+        if (!auraGraphics) return;
+        auraGraphics.circle(center.x, center.y, radius).stroke({ width: width, color: color, alpha: alpha });
     }
     public update(dt: number): void {
         this.hoverGlowPhase += dt * (5 / 3);
@@ -469,7 +527,7 @@ export class HoverManager {
             this.hoverTargetSilhouette.visible = false;
         }
         if (this.hoverAttackArrow) {
-            this.hoverAttackArrow.clear();
+            this.safeClearGraphics(this.hoverAttackArrow);
             this.hoverAttackArrow.visible = false;
         }
         this.hoverAttackFromCell = undefined;
@@ -488,7 +546,7 @@ export class HoverManager {
             this.hoverTargetSilhouette.visible = false;
         }
         if (this.hoverAttackArrow) {
-            this.hoverAttackArrow.clear();
+            this.safeClearGraphics(this.hoverAttackArrow);
             this.hoverAttackArrow.visible = false;
         }
     }
@@ -699,9 +757,13 @@ export class HoverManager {
             return;
         }
 
-        if (!this.hoverAttackArrow) {
+        if (!this.isGraphicsUsable(this.hoverAttackArrow)) {
             this.hoverAttackArrow = new Graphics();
-            this.context.attachToWorldRoot(this.hoverAttackArrow, 2200); // Very high z-index
+            if (!this.safeAttachGraphics(this.hoverAttackArrow, 2200)) {
+                this.hoverAttackArrow.destroy();
+                this.hoverAttackArrow = undefined;
+                return;
+            }
         }
 
         const g = this.hoverAttackArrow;
@@ -756,9 +818,13 @@ export class HoverManager {
 
         // 1. Beam from caster to hovered target (only when a target is hovered).
         if (opts.targetPos) {
-            if (!this.spellBeam) {
+            if (!this.isGraphicsUsable(this.spellBeam)) {
                 this.spellBeam = new Graphics();
-                this.context.attachToWorldRoot(this.spellBeam, 2199);
+                if (!this.safeAttachGraphics(this.spellBeam, 2199)) {
+                    this.spellBeam.destroy();
+                    this.spellBeam = undefined;
+                    return;
+                }
             }
             const g = this.spellBeam;
             g.clear();
@@ -778,16 +844,20 @@ export class HoverManager {
                 .lineTo(tx - hl * Math.cos(angle + ha), ty - hl * Math.sin(angle + ha))
                 .stroke({ width: 5, color, alpha: 1.0 });
         } else if (this.spellBeam) {
-            this.spellBeam.clear();
+            this.safeClearGraphics(this.spellBeam);
         }
 
         // 2. Badge above the caster (world is y-up, so +Y floats it higher on screen).
         const cx = opts.casterPos.x;
         const cy = opts.casterPos.y + 96;
         const iconSize = 46;
-        if (!this.spellBadgeRing) {
+        if (!this.isGraphicsUsable(this.spellBadgeRing)) {
             this.spellBadgeRing = new Graphics();
-            this.context.attachToWorldRoot(this.spellBadgeRing, 2202);
+            if (!this.safeAttachGraphics(this.spellBadgeRing, 2202)) {
+                this.spellBadgeRing.destroy();
+                this.spellBadgeRing = undefined;
+                return;
+            }
         }
         const ring = this.spellBadgeRing;
         ring.clear();
@@ -830,8 +900,8 @@ export class HoverManager {
         this.spellBadgeText.position.set(cx, cy - (iconSize / 2 + 18));
     }
     public clearSpellPreview(): void {
-        if (this.spellBeam) this.spellBeam.clear();
-        if (this.spellBadgeRing) this.spellBadgeRing.clear();
+        if (this.spellBeam) this.safeClearGraphics(this.spellBeam);
+        if (this.spellBadgeRing) this.safeClearGraphics(this.spellBadgeRing);
         if (this.spellBadgeIcon) this.spellBadgeIcon.visible = false;
         if (this.spellBadgeText) this.spellBadgeText.visible = false;
     }

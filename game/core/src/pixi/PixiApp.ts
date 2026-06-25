@@ -122,16 +122,25 @@ export class PixiApp {
         }
     }
     public setCameraPosition(cx: number, cy: number): void {
+        if (!this.app?.renderer || !this.camera) {
+            return;
+        }
         const z = this.camera.scale.x || 1;
         const { width: W, height: H } = this.app.renderer;
         this.camera.position.set(W / 2 - z * cx, H / 2 + z * cy);
     }
     public setCameraZoom(zoom: number): void {
+        if (!this.app?.renderer || !this.camera) {
+            return;
+        }
         const { x, y } = this.getCameraPosition(); // current world center
         this.camera.scale.set(zoom, zoom);
         this.setCameraPosition(x, y); // keep same center after zoom
     }
     public getCameraPosition(): { x: number; y: number } {
+        if (!this.app?.renderer || !this.camera) {
+            return { x: 0, y: 0 };
+        }
         const z = this.camera.scale.x || 1;
         const { width: W, height: H } = this.app.renderer;
         // invert formulas:

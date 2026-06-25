@@ -35,6 +35,7 @@ import { PreloadedPixiTextures } from "./PixiTextureLoader";
 
 import "../scenes";
 import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
+import type { AuthoritativeSnapshotOptions } from "./PixiScene";
 import type { LoadingScreen } from "../scenes/LoadingScreen";
 import { getScenesGrouped } from "./PixiScene";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
@@ -100,6 +101,7 @@ export class PixiGameManager {
     private forwardOverlayInteraction?: (e: PointerEvent) => void;
     private overlayDebugCanvas?: HTMLCanvasElement;
     private gameActionTransport?: SceneGameActionTransport;
+    private lastAuthoritativeViewportKey = "";
     private overlayMouseSuppression?: {
         clientX: number;
         clientY: number;
@@ -387,11 +389,18 @@ export class PixiGameManager {
         this.gameActionTransport = transport;
         this.m_scene?.setGameActionTransport(transport);
     }
-    public ApplyAuthoritativeSnapshot(snapshot: AuthoritativeGameSnapshot): void {
-        this.m_scene?.applyAuthoritativeSnapshot(snapshot);
+    public ApplyAuthoritativeSnapshot(
+        snapshot: AuthoritativeGameSnapshot,
+        options?: AuthoritativeSnapshotOptions,
+    ): void {
+        this.m_scene?.applyAuthoritativeSnapshot(snapshot, options);
+        const wasStarted = this.started;
         this.started = snapshot.fightStarted && !snapshot.fightFinished;
         this.onHasStarted.emit(this.started);
-        this.fitViewToWindow();
+        if (this.shouldFitAuthoritativeSnapshot(snapshot, wasStarted)) {
+            this.fitViewToWindow();
+        }
+        this.emitAuthoritativeDamageStats(snapshot);
         this.UpdateHoverInfo();
     }
     public ApplyAuthoritativeVfx(events: GameEvent[]): void {
@@ -399,13 +408,21 @@ export class PixiGameManager {
     }
     public ApplyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
         this.m_scene?.applyAuthoritativeReplaySnapshot(snapshot);
+        const wasStarted = this.started;
         this.started = snapshot.fightStarted && !snapshot.fightFinished;
         this.onHasStarted.emit(this.started);
-        this.fitViewToWindow();
+        if (this.shouldFitAuthoritativeSnapshot(snapshot, wasStarted)) {
+            this.fitViewToWindow();
+        }
+        this.emitAuthoritativeDamageStats(snapshot);
         this.UpdateHoverInfo();
     }
-    public PlayAuthoritativeActionRecord(action: GameAction, events: GameEvent[]): Promise<boolean> {
-        return this.m_scene?.playAuthoritativeActionRecord(action, events) ?? Promise.resolve(false);
+    public PlayAuthoritativeActionRecord(
+        action: GameAction,
+        events: GameEvent[],
+        stateAfter?: AuthoritativeGameSnapshot,
+    ): Promise<boolean> {
+        return this.m_scene?.playAuthoritativeActionRecord(action, events, stateAfter) ?? Promise.resolve(false);
     }
     public SelectAuthoritativeUnit(unitId: string): void {
         this.m_scene?.selectAuthoritativeUnit(unitId);
@@ -421,6 +438,23 @@ export class PixiGameManager {
         this.m_scene.fitWorldToViewport(gs.getMinX(), gs.getMinY(), gs.getMaxX(), gs.getMaxY(), 0);
 
         this.m_scene?.CameraChanged?.();
+    }
+    private emitAuthoritativeDamageStats(snapshot: AuthoritativeGameSnapshot): void {
+        if (snapshot.damageStats) {
+            this.onDamageStatisticsUpdated.emit(structuredClone(snapshot.damageStats));
+        }
+    }
+    private shouldFitAuthoritativeSnapshot(snapshot: AuthoritativeGameSnapshot, wasStarted: boolean): boolean {
+        const viewportKey = [
+            snapshot.gridType,
+            snapshot.fightStarted ? 1 : 0,
+            snapshot.fightFinished ? 1 : 0,
+            snapshot.narrowingLayers ?? 0,
+            snapshot.centerDried ? 1 : 0,
+        ].join(":");
+        const shouldFit = viewportKey !== this.lastAuthoritativeViewportKey || wasStarted !== this.started;
+        this.lastAuthoritativeViewportKey = viewportKey;
+        return shouldFit;
     }
     public HomeCamera(): void {
         this.fitViewToWindow();
@@ -592,6 +626,7 @@ export class PixiGameManager {
 
         this.m_scene?.Destroy();
         this.started = false;
+        this.lastAuthoritativeViewportKey = "";
 
         const gridSettings = new GridSettings(32, 1024, 0, 1024, 0, 32, 16);
 

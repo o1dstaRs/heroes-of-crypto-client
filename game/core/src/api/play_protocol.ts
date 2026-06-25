@@ -89,6 +89,13 @@ export interface PlayJournalEntry {
     acceptedAtMs: number;
 }
 
+export interface PlayDamageStatistic {
+    unitName: string;
+    damage: number;
+    team: number;
+    lap: number;
+}
+
 export interface PlaySnapshot {
     gameId: string;
     phase: PlayPhaseValue;
@@ -101,6 +108,8 @@ export interface PlaySnapshot {
     latestSequence: number;
     serverTimeMs: number;
     placementDeadlineMs: number;
+    currentTurnStartMs: number;
+    currentTurnEndMs: number;
     units: PlayUnitState[];
     players: PlayPlayerState[];
     readyPlayerIds: string[];
@@ -110,6 +119,7 @@ export interface PlaySnapshot {
     narrowingLayers: number;
     centerDried: boolean;
     upNext: string[];
+    damageStats: PlayDamageStatistic[];
 }
 
 export interface PlayAction {
@@ -163,6 +173,7 @@ export interface DevCreatePlayGameRequest {
     upperCreatureIds?: number[];
     unitAmount?: number;
     placementSeconds?: number;
+    gridType?: number;
 }
 
 export interface DevCreatePlayGameResponse {
@@ -343,6 +354,7 @@ export const encodeDevCreatePlayGameRequest = (request: DevCreatePlayGameRequest
     }
     writer.int32(5, request.unitAmount);
     writer.int32(6, request.placementSeconds);
+    writer.int32(7, request.gridType);
     return writer.finish();
 };
 
@@ -479,6 +491,8 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         latestSequence: 0,
         serverTimeMs: 0,
         placementDeadlineMs: 0,
+        currentTurnStartMs: 0,
+        currentTurnEndMs: 0,
         units: [],
         players: [],
         readyPlayerIds: [],
@@ -488,6 +502,7 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         narrowingLayers: 0,
         centerDried: false,
         upNext: [],
+        damageStats: [],
     };
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
@@ -531,6 +546,12 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             snapshot.centerDried = reader.bool();
         } else if (field === 20) {
             snapshot.upNext.push(reader.string());
+        } else if (field === 21) {
+            snapshot.damageStats.push(decodeDamageStatistic(reader.bytesValue()));
+        } else if (field === 22) {
+            snapshot.currentTurnStartMs = reader.varintNumber();
+        } else if (field === 23) {
+            snapshot.currentTurnEndMs = reader.varintNumber();
         } else {
             reader.skip(wireType);
         }
@@ -628,6 +649,31 @@ const decodePlayerState = (bytes: Uint8Array): PlayPlayerState => {
         }
     }
     return player;
+};
+
+const decodeDamageStatistic = (bytes: Uint8Array): PlayDamageStatistic => {
+    const reader = new ProtoReader(bytes);
+    const stat: PlayDamageStatistic = {
+        unitName: "",
+        damage: 0,
+        team: 0,
+        lap: 0,
+    };
+    while (!reader.done()) {
+        const { field, wireType } = reader.tag();
+        if (field === 1) {
+            stat.unitName = reader.string();
+        } else if (field === 2) {
+            stat.damage = reader.varintNumber();
+        } else if (field === 3) {
+            stat.team = reader.varintNumber();
+        } else if (field === 4) {
+            stat.lap = reader.varintNumber();
+        } else {
+            reader.skip(wireType);
+        }
+    }
+    return stat;
 };
 
 const decodeJournalEntry = (bytes: Uint8Array): PlayJournalEntry => {

@@ -85,6 +85,8 @@ const createSnapshot = (journalTail: PlayJournalEntry[], latestSequence: number)
     latestSequence,
     serverTimeMs: 2000,
     placementDeadlineMs: 0,
+    currentTurnStartMs: 0,
+    currentTurnEndMs: 0,
     units: [],
     players: [],
     readyPlayerIds: [],
@@ -94,6 +96,7 @@ const createSnapshot = (journalTail: PlayJournalEntry[], latestSequence: number)
     maxUpperUnits: 0,
     narrowingLayers: 0,
     centerDried: false,
+    damageStats: [],
 });
 
 describe("ranked replay helpers", () => {

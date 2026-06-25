@@ -17,9 +17,13 @@ import { ButtonManager } from "./ButtonManager";
 import { SceneSettings } from "./SceneSettings";
 import {
     chooseLocalModelAction,
+    createLocalModelFightStateSummary,
     createLocalModelActions,
+    describeLocalModelActiveUnit,
+    getLocalModelTeamName,
     getLocalModelOpponentConfig,
     markLocalModelAction,
+    recordLocalModelFightLog,
     type LocalModelLegalAction,
     type LocalModelOpponentConfig,
 } from "./LocalModelOpponent";
@@ -87,7 +91,7 @@ export class AIController {
         if (this.localModelOpponent.enabled) {
             this.context
                 .getSceneLog()
-                .updateLog(`Local model opponent enabled for ${this.localModelOpponent.modelTeam === 1 ? "UPPER" : "LOWER"}`);
+                .updateLog(`Local model opponent enabled for ${getLocalModelTeamName(this.localModelOpponent.modelTeam)}`);
         }
     }
     /**
@@ -111,7 +115,11 @@ export class AIController {
             this.context.applyGameAction(this.modelAction(unit, { type: "end_turn", unitId: unit.getId() }));
         }
     }
-    private scheduleMoveWatchdog(unit: RenderableUnit, priorAIActive: boolean): ReturnType<typeof setTimeout> {
+    private scheduleMoveWatchdog(
+        unit: RenderableUnit,
+        priorAIActive: boolean,
+        onTimeout?: () => void,
+    ): ReturnType<typeof setTimeout> {
         return setTimeout(() => {
             if (!this.performingAction) {
                 return;
@@ -124,6 +132,7 @@ export class AIController {
             }
 
             this.context.getSceneLog().updateLog(`${unit.getName()} AI action timed out`);
+            onTimeout?.();
             this.endTurnIfStillActive(unit);
             this.finishAIAction(priorAIActive);
         }, AIController.MOVE_ACTION_TIMEOUT_MS);
@@ -171,8 +180,10 @@ export class AIController {
             }
 
             this.isAIActive = true;
+            if (!this.shouldControlUnit(currentUnit)) {
+                this.context.getButtonManager().sc_isAIActive = true;
+            }
             this.context.getButtonManager().refreshButtons(true);
-            this.context.getButtonManager().sc_isAIActive = true;
 
             try {
                 await this.performAction(wasAIActive);
@@ -249,36 +260,77 @@ export class AIController {
             activeUnit: currentUnit,
             unitsHolder: this.context.getUnitsHolder(),
             actions: legalActions,
+            matchId: "ui-local-model",
+            stateVersion: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
         });
         if (!choice.action) {
             const reason = choice.error ?? choice.rawContent?.slice(0, 80) ?? "invalid model action";
             this.context.getSceneLog().updateLog(`Local model returned no legal action (${reason})`);
+            this.recordLocalModelResult(currentUnit, undefined, choice.decisionId, false, `fallback_builtin_ai:${reason}`);
             return false;
         }
 
         this.context.getSceneLog().updateLog(`Local model: ${choice.action.summary}`);
-        return this.executeLocalModelAction(currentUnit, choice.action, wasAIActive);
+        return this.executeLocalModelAction(currentUnit, choice.action, wasAIActive, choice.decisionId);
+    }
+    private recordLocalModelResult(
+        currentUnit: RenderableUnit,
+        legalAction: LocalModelLegalAction | undefined,
+        decisionId: string | undefined,
+        completed: boolean,
+        error?: string,
+    ): void {
+        if (!decisionId) {
+            return;
+        }
+        recordLocalModelFightLog({
+            id: decisionId,
+            timestamp: new Date().toISOString(),
+            kind: "result",
+            matchId: "ui-local-model",
+            stateVersion: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
+            team: getLocalModelTeamName(currentUnit.getTeam()),
+            activeUnit: describeLocalModelActiveUnit(currentUnit),
+            stateSummary: createLocalModelFightStateSummary(currentUnit, this.context.getUnitsHolder()),
+            selectedAction: legalAction
+                ? {
+                      index: legalAction.index,
+                      label: legalAction.label,
+                      kind: legalAction.kind,
+                      summary: legalAction.summary,
+                      action: legalAction.action,
+                  }
+                : undefined,
+            completed,
+            error,
+        });
     }
     private async executeLocalModelAction(
         currentUnit: RenderableUnit,
         legalAction: LocalModelLegalAction,
         wasAIActive: boolean,
+        decisionId?: string,
     ): Promise<boolean> {
         const action = legalAction.action;
         if (action.type === "move_unit") {
             if (!action.path?.length) {
+                this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "missing_path");
                 return false;
             }
-            const watchdog = this.scheduleMoveWatchdog(currentUnit, wasAIActive);
+            const watchdog = this.scheduleMoveWatchdog(currentUnit, wasAIActive, () => {
+                this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "move_timeout");
+            });
             const started = this.context.executeMoveSequence(currentUnit, action.path, action.targetCells, () => {
                 clearTimeout(watchdog);
                 this.endTurnIfStillActive(currentUnit);
+                this.recordLocalModelResult(currentUnit, legalAction, decisionId, true);
                 this.finishAIAction(wasAIActive);
             }, this.modelAction(currentUnit, action));
             if (!started) {
                 clearTimeout(watchdog);
                 this.endTurnIfStillActive(currentUnit);
                 this.finishAIAction(wasAIActive);
+                this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "move_not_started");
             }
             return true;
         }
@@ -287,11 +339,14 @@ export class AIController {
             const target = this.context.getUnitsHolder().getAllUnits().get(action.targetId);
             const attackFrom = action.attackFrom ?? currentUnit.getBaseCell();
             if (!target || !attackFrom) {
+                this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "missing_melee_target");
                 return false;
             }
 
             if (action.path?.length) {
-                const watchdog = this.scheduleMoveWatchdog(currentUnit, wasAIActive);
+                const watchdog = this.scheduleMoveWatchdog(currentUnit, wasAIActive, () => {
+                    this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "move_before_melee_timeout");
+                });
                 const started = this.context.executeMoveSequence(currentUnit, action.path, undefined, async () => {
                     clearTimeout(watchdog);
                     try {
@@ -304,6 +359,22 @@ export class AIController {
                         if (!completed) {
                             this.endTurnIfStillActive(currentUnit);
                         }
+                        this.recordLocalModelResult(
+                            currentUnit,
+                            legalAction,
+                            decisionId,
+                            completed,
+                            completed ? undefined : "melee_after_move_failed",
+                        );
+                    } catch (err) {
+                        this.endTurnIfStillActive(currentUnit);
+                        this.recordLocalModelResult(
+                            currentUnit,
+                            legalAction,
+                            decisionId,
+                            false,
+                            `melee_after_move_error:${(err as Error).message}`,
+                        );
                     } finally {
                         this.finishAIAction(wasAIActive);
                     }
@@ -316,6 +387,7 @@ export class AIController {
                     clearTimeout(watchdog);
                     this.endTurnIfStillActive(currentUnit);
                     this.finishAIAction(wasAIActive);
+                    this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "move_before_melee_not_started");
                 }
                 return true;
             }
@@ -330,6 +402,7 @@ export class AIController {
                 this.endTurnIfStillActive(currentUnit);
             }
             this.finishAIAction(wasAIActive);
+            this.recordLocalModelResult(currentUnit, legalAction, decisionId, completed, completed ? undefined : "melee_failed");
             return true;
         }
 
@@ -338,6 +411,7 @@ export class AIController {
             const gs = this.context.getSceneSettings().getGridSettings();
             const attackFrom = GridMath.getCellForPosition(gs, currentUnit.getPosition());
             if (!target || !attackFrom) {
+                this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "missing_range_target");
                 return false;
             }
             const completed = await this.context.executeAttackSequence(
@@ -350,14 +424,17 @@ export class AIController {
                 this.endTurnIfStillActive(currentUnit);
             }
             this.finishAIAction(wasAIActive);
+            this.recordLocalModelResult(currentUnit, legalAction, decisionId, completed, completed ? undefined : "range_failed");
             return true;
         }
 
         if (this.context.applyGameAction(this.modelAction(currentUnit, action))) {
             this.finishAIAction(wasAIActive);
+            this.recordLocalModelResult(currentUnit, legalAction, decisionId, true);
             return true;
         }
 
+        this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "apply_game_action_failed");
         return false;
     }
     /**

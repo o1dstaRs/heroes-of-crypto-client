@@ -46,6 +46,16 @@ import { SimplePhysicsManager } from "./SimplePhysicsManager";
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
 
+export interface AuthoritativeSnapshotOptions {
+    /**
+     * Set when the caller already animated+applied this snapshot's board changes
+     * (e.g. by playing the matching authoritative action record). The scene should
+     * then skip its destructive full rebuild (which would restart unit animations)
+     * and only reconcile lightweight state (turn queue, visible state).
+     */
+    skipBoardRebuild?: boolean;
+}
+
 const STEPS_BETWEEN_MOUSE_ACTIONS_MIN = 2;
 
 /** Minimal shape of objects your scene selects / manipulates. */
@@ -178,12 +188,19 @@ export abstract class PixiScene {
     public setGameActionTransport(transport?: SceneGameActionTransport): void {
         this.sc_gameActionTransport = transport;
     }
-    public applyAuthoritativeSnapshot(_snapshot: AuthoritativeGameSnapshot): void {}
+    public applyAuthoritativeSnapshot(
+        _snapshot: AuthoritativeGameSnapshot,
+        _options?: AuthoritativeSnapshotOptions,
+    ): void {}
     public applyAuthoritativeVfx(_events: GameEvent[]): void {}
     public applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
         this.applyAuthoritativeSnapshot(snapshot);
     }
-    public playAuthoritativeActionRecord(_action: GameAction, _events: GameEvent[]): Promise<boolean> {
+    public playAuthoritativeActionRecord(
+        _action: GameAction,
+        _events: GameEvent[],
+        _stateAfter?: unknown,
+    ): Promise<boolean> {
         return Promise.resolve(false);
     }
     public selectAuthoritativeUnit(_unitId: string): void {}
@@ -554,7 +571,11 @@ export abstract class PixiScene {
     }
     public getViewportSize(): { width: number; height: number } {
         const app = this.pixiApp.getApplication(); // Use pixiApp directly as restored
-        return { width: app.renderer.width, height: app.renderer.height };
+        const renderer = app.renderer as { width?: number; height?: number } | null | undefined;
+        if (renderer?.width && renderer?.height) {
+            return { width: renderer.width, height: renderer.height };
+        }
+        return { width: window.innerWidth || 2048, height: window.innerHeight || 2048 };
     }
     // ------- Drawer delegates -------
     public drawPath(
@@ -597,9 +618,9 @@ export abstract class PixiScene {
         const worldH = maxY - minY;
 
         // Read current render size from Pixi (device pixels already accounted for by renderer)
-        const app = this.pixiApp.getApplication();
-        const viewW = Math.max(1, app.renderer.width - edgesPx);
-        const viewH = Math.max(1, app.renderer.height - edgesPx);
+        const { width, height } = this.getViewportSize();
+        const viewW = Math.max(1, width - edgesPx);
+        const viewH = Math.max(1, height - edgesPx);
 
         // Fit whole board
         return Math.min(viewW / worldW, viewH / worldH);
@@ -617,9 +638,7 @@ export abstract class PixiScene {
         const worldH = maxY - minY; // 2048
 
         // read renderer size (you locked to 2048×2048, but this is general)
-        const app = this.pixiApp.getApplication();
-        const viewW = app.renderer.width;
-        const viewH = app.renderer.height;
+        const { width: viewW, height: viewH } = this.getViewportSize();
 
         const z = Math.min(viewW / worldW, viewH / worldH); // fit
         const cx = (minX + maxX) * 0.5; // 0

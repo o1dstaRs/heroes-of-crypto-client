@@ -444,15 +444,7 @@ export class Sandbox extends PixiScene {
 
         this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
 
-        HoCLib.interval(() => {
-            if (!this.sc_visibleState) return;
-            const fightProps = FightStateManager.getInstance().getFightProperties();
-            this.sc_visibleState.secondsMax =
-                (fightProps.getCurrentTurnEnd() - fightProps.getCurrentTurnStart()) / 1000;
-            const remaining = (fightProps.getCurrentTurnEnd() - HoCLib.getTimeMillis()) / 1000;
-            this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
-            this.sc_visibleStateUpdateNeeded = true;
-        }, 500);
+        HoCLib.interval(() => this.updateVisibleTurnTimer(), 500);
 
         // Initialize AI Controller with IAIContext implementation
         this.aiController = new AIController({
@@ -486,6 +478,14 @@ export class Sandbox extends PixiScene {
             context.pixiApp.getApplication().screen.height,
         );
         // --- Init Sub-Managers Moved UP ---
+    }
+    protected updateVisibleTurnTimer(): void {
+        if (!this.sc_visibleState) return;
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        this.sc_visibleState.secondsMax = (fightProps.getCurrentTurnEnd() - fightProps.getCurrentTurnStart()) / 1000;
+        const remaining = (fightProps.getCurrentTurnEnd() - HoCLib.getTimeMillis()) / 1000;
+        this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
+        this.sc_visibleStateUpdateNeeded = true;
     }
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return this.sc_gameActionTransport ? undefined : this.unitsOverlay;
@@ -522,7 +522,14 @@ export class Sandbox extends PixiScene {
     protected shouldRenderUnplacedUnitBench(_unitState: SandboxSceneUnitState): boolean {
         return false;
     }
-    protected getUnplacedUnitBenchPosition(index: number, total: number): HoCMath.XY | undefined {
+    protected getUnplacedUnitBenchGroupKey(_unitState: SandboxSceneUnitState): string {
+        return "default";
+    }
+    protected getUnplacedUnitBenchPosition(
+        index: number,
+        total: number,
+        _unitState?: SandboxSceneUnitState,
+    ): HoCMath.XY | undefined {
         if (total <= 0) {
             return undefined;
         }
@@ -552,25 +559,29 @@ export class Sandbox extends PixiScene {
         this.attachToWorldRoot(this.placementBenchGraphics, 2500);
         return this.placementBenchGraphics;
     }
-    private drawPlacementBenchBackdrop(positions: HoCMath.XY[]): void {
-        if (!positions.length) {
+    private drawPlacementBenchBackdrops(positionGroups: HoCMath.XY[][]): void {
+        const groups = positionGroups.filter((positions) => positions.length > 0);
+        if (!groups.length) {
             this.placementBenchGraphics?.clear();
             return;
         }
 
+        const graphics = this.ensurePlacementBenchGraphicsWorld().clear();
         const gs = this.sc_sceneSettings.getGridSettings();
         const cell = gs.getCellSize();
-        const minX = Math.min(...positions.map((position) => position.x)) - cell * 0.95;
-        const maxX = Math.max(...positions.map((position) => position.x)) + cell * 0.95;
-        const minY = Math.min(...positions.map((position) => position.y)) - cell * 0.9;
-        const maxY = Math.max(...positions.map((position) => position.y)) + cell * 0.9;
         const radius = Math.max(6, cell * 0.18);
 
-        this.ensurePlacementBenchGraphicsWorld()
-            .clear()
-            .roundRect(minX, minY, maxX - minX, maxY - minY, radius)
-            .fill({ color: 0x05070c, alpha: 0.56 })
-            .stroke({ color: 0xf6d87c, alpha: 0.28, width: Math.max(1, cell * 0.025) });
+        for (const positions of groups) {
+            const minX = Math.min(...positions.map((position) => position.x)) - cell * 0.95;
+            const maxX = Math.max(...positions.map((position) => position.x)) + cell * 0.95;
+            const minY = Math.min(...positions.map((position) => position.y)) - cell * 0.9;
+            const maxY = Math.max(...positions.map((position) => position.y)) + cell * 0.9;
+
+            graphics
+                .roundRect(minX, minY, maxX - minX, maxY - minY, radius)
+                .fill({ color: 0x05070c, alpha: 0.56 })
+                .stroke({ color: 0xf6d87c, alpha: 0.28, width: Math.max(1, cell * 0.025) });
+        }
     }
     private renderUnplacedBenchUnit(unit: RenderableUnit, position: HoCMath.XY): void {
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -883,17 +894,36 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const unitsContainer = this.drawer.getUnitsContainer();
         const benchPositions = new Map<string, HoCMath.XY>();
+        const benchPositionsByGroup = new Map<string, HoCMath.XY[]>();
         if (!snapshot.fightStarted) {
             const benchUnitStates = snapshot.units.filter(
                 (unitState) => !unitState.dead && !unitState.placed && this.shouldRenderUnplacedUnitBench(unitState),
             );
-            benchUnitStates.forEach((unitState, index) => {
-                const position = this.getUnplacedUnitBenchPosition(index, benchUnitStates.length);
-                if (position) {
-                    benchPositions.set(unitState.properties.id, position);
+            const benchGroups = new Map<string, SandboxSceneUnitState[]>();
+            for (const unitState of benchUnitStates) {
+                const groupKey = this.getUnplacedUnitBenchGroupKey(unitState);
+                const group = benchGroups.get(groupKey);
+                if (group) {
+                    group.push(unitState);
+                } else {
+                    benchGroups.set(groupKey, [unitState]);
                 }
-            });
-            this.drawPlacementBenchBackdrop([...benchPositions.values()]);
+            }
+            for (const [groupKey, group] of benchGroups.entries()) {
+                group.forEach((unitState, index) => {
+                    const position = this.getUnplacedUnitBenchPosition(index, group.length, unitState);
+                    if (position) {
+                        benchPositions.set(unitState.properties.id, position);
+                        const groupPositions = benchPositionsByGroup.get(groupKey);
+                        if (groupPositions) {
+                            groupPositions.push(position);
+                        } else {
+                            benchPositionsByGroup.set(groupKey, [position]);
+                        }
+                    }
+                });
+            }
+            this.drawPlacementBenchBackdrops([...benchPositionsByGroup.values()]);
         }
 
         for (const unitState of snapshot.units) {
@@ -901,7 +931,7 @@ export class Sandbox extends PixiScene {
             this.unitsHolder.addUnit(unit);
             if (!unitState.placed || !unitState.cells.length) {
                 const benchPosition = benchPositions.get(unitState.properties.id);
-                if (benchPosition && !unitState.dead) {
+                if (benchPosition) {
                     this.renderUnplacedBenchUnit(unit, benchPosition);
                 }
                 continue;
@@ -1104,7 +1134,11 @@ export class Sandbox extends PixiScene {
             this.replayPlaybackActive = false;
         }
     }
-    public override async playAuthoritativeActionRecord(action: GameAction, events: GameEvent[]): Promise<boolean> {
+    public override async playAuthoritativeActionRecord(
+        action: GameAction,
+        events: GameEvent[],
+        stateAfter?: unknown,
+    ): Promise<boolean> {
         if (!events.length) {
             return false;
         }
@@ -1114,7 +1148,7 @@ export class Sandbox extends PixiScene {
             clientTimeMs: Date.now(),
             action: cloneReplayData(action),
             events: cloneReplayData(events),
-            stateAfter: this.captureSceneState(),
+            stateAfter: this.isSandboxSceneState(stateAfter) ? cloneReplayData(stateAfter) : this.captureSceneState(),
         };
 
         const priorPlaybackActive = this.replayPlaybackActive;
@@ -1133,6 +1167,16 @@ export class Sandbox extends PixiScene {
         return new Promise((resolve) => {
             globalThis.setTimeout(resolve, ms);
         });
+    }
+    private isSandboxSceneState(value: unknown): value is SandboxSceneState {
+        if (!value || typeof value !== "object") {
+            return false;
+        }
+        const state = value as Partial<SandboxSceneState>;
+        if (!Array.isArray(state.units)) {
+            return false;
+        }
+        return state.units.every((unit) => !!unit && typeof unit === "object" && "properties" in unit);
     }
     private shouldApplyReplayRecordAsCheckpoint(
         record: SandboxReplay["actions"][number],
@@ -1453,10 +1497,6 @@ export class Sandbox extends PixiScene {
         record: SandboxReplay["actions"][number],
     ): void {
         const damage = attackEvent.damage;
-        if (!damage.render || (damage.amount <= 0 && !damage.hits?.length)) {
-            return;
-        }
-
         const damageUnitId = damage.unitId ?? attackEvent.targetId;
         const victim = (this.unitsHolder.getAllUnits().get(damageUnitId) as RenderableUnit | undefined) ?? target;
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -1465,6 +1505,20 @@ export class Sandbox extends PixiScene {
         const direction = { x: victimCenter.x - attackerCenter.x, y: victimCenter.y - attackerCenter.y };
         const spawnPos = this.offsetReplayDamagePosition(damage.unitPosition ?? victimCenter, victim, direction);
         const hits = damage.hits ?? [];
+
+        if (!damage.render || (damage.amount <= 0 && !hits.length)) {
+            const fallbackDamage = this.getReplayUnitDamage(record, damageUnitId);
+            if (fallbackDamage.amount <= 0) {
+                return;
+            }
+            this.combatVisuals.showFloatingDamage(
+                spawnPos,
+                fallbackDamage.amount,
+                direction,
+                fallbackDamage.unitsDied,
+            );
+            return;
+        }
 
         if (hits.length) {
             hits.forEach((hit, index) => {
@@ -1502,9 +1556,27 @@ export class Sandbox extends PixiScene {
         return spawnPos;
     }
     private getReplayUnitLoss(record: SandboxReplay["actions"][number], unitId: string): number {
-        const before = this.unitsHolder.getAllUnits().get(unitId)?.getAmountAlive() ?? 0;
+        return this.getReplayUnitDamage(record, unitId).unitsDied;
+    }
+    private getReplayUnitDamage(
+        record: SandboxReplay["actions"][number],
+        unitId: string,
+    ): { amount: number; unitsDied: number } {
+        const before = this.unitsHolder.getAllUnits().get(unitId);
+        if (!before) {
+            return { amount: 0, unitsDied: 0 };
+        }
         const after = record.stateAfter.units.find((unitState) => unitState.properties.id === unitId);
-        return Math.max(0, before - (after?.properties.amount_alive ?? 0));
+        const beforeAmount = before.getAmountAlive();
+        const beforeTotalHp = before.getCumulativeHp();
+        const afterAmount = Math.max(0, Math.floor(after?.properties.amount_alive ?? 0));
+        const maxHp = Math.max(1, after?.properties.max_hp ?? before.getMaxHp());
+        const afterHp = afterAmount > 0 ? Math.max(0, after?.properties.hp ?? maxHp) : 0;
+        const afterTotalHp = afterAmount > 0 ? (afterAmount - 1) * maxHp + afterHp : 0;
+        return {
+            amount: Math.max(0, beforeTotalHp - afterTotalHp),
+            unitsDied: Math.max(0, beforeAmount - afterAmount),
+        };
     }
     private applyReplayAttackRecoil(
         attacker: RenderableUnit,
@@ -1535,7 +1607,7 @@ export class Sandbox extends PixiScene {
         const hitCount = attackEvent.damage.hits?.length ?? 0;
         return Math.max(520, (Math.max(1, hitCount) - 1) * 240 + 520);
     }
-    private applyReplayEvents(events: GameEvent[]): void {
+    protected applyReplayEvents(events: GameEvent[]): void {
         const visibleEvents = events.filter((event) => event.type !== "fight_finished");
         if (!visibleEvents.length) {
             return;
@@ -2987,6 +3059,9 @@ export class Sandbox extends PixiScene {
             targetId: targetUnit.getId(),
             targetCell: targetUnit.getBaseCell(),
         };
+        if (this.shouldDeferActionToAuthoritativeReplay(action)) {
+            return this.submitActionForAuthoritativeReplay(action);
+        }
         const unitSnapshot = this.snapshotRenderableUnits();
         const result = this.createActionEngine().apply(action);
         if (!result.completed) {
@@ -3072,6 +3147,10 @@ export class Sandbox extends PixiScene {
                 spellName: spell.getName(),
                 targetCell: randomCell,
             };
+            if (this.shouldDeferActionToAuthoritativeReplay(action)) {
+                this.submitActionForAuthoritativeReplay(action);
+                return;
+            }
             const unitSnapshot = this.snapshotRenderableUnits();
             const result = this.createActionEngine().apply(action);
             if (result.completed) {
@@ -3094,6 +3173,10 @@ export class Sandbox extends PixiScene {
                 casterId: caster.getId(),
                 spellName: spell.getName(),
             };
+            if (this.shouldDeferActionToAuthoritativeReplay(action)) {
+                this.submitActionForAuthoritativeReplay(action);
+                return;
+            }
             const unitSnapshot = this.snapshotRenderableUnits();
             const result = this.createActionEngine().apply(action);
             if (result.completed) {
@@ -3811,6 +3894,9 @@ export class Sandbox extends PixiScene {
                           attackerId: attacker.getId(),
                           targetId: target.getId(),
                       };
+            if (this.shouldDeferActionToAuthoritativeReplay(action)) {
+                return this.submitActionForAuthoritativeReplay(action);
+            }
 
             // Fire the projectile BEFORE applying damage so the stack-count drop, damage
             // number and death skull all land in sync with the projectile's arrival.
@@ -3842,6 +3928,9 @@ export class Sandbox extends PixiScene {
                           hasLavaCell: routeMetadata?.hasLavaCell,
                           hasWaterCell: routeMetadata?.hasWaterCell,
                       };
+            if (this.shouldDeferActionToAuthoritativeReplay(action)) {
+                return this.submitActionForAuthoritativeReplay(action);
+            }
             if (!applyAttackActionResult(this.createActionEngine().apply(action))) {
                 return false;
             }
@@ -4249,6 +4338,9 @@ export class Sandbox extends PixiScene {
                   hasLavaCell: routeMetadata?.hasLavaCell,
                   hasWaterCell: routeMetadata?.hasWaterCell,
               };
+        if (this.shouldDeferActionToAuthoritativeReplay(action)) {
+            return this.submitActionForAuthoritativeReplay(action);
+        }
         const moveResult = this.createActionEngine().apply(action);
         if (!moveResult.completed) {
             console.error(
@@ -5940,6 +6032,29 @@ export class Sandbox extends PixiScene {
         };
         const engine = new GameActionEngine(context);
         return this.createReplayRecordingActionEngine(engine);
+    }
+    protected shouldDeferActionToAuthoritativeReplay(_action: GameAction): boolean {
+        return false;
+    }
+    protected isPlayingAuthoritativeReplay(): boolean {
+        return this.replayPlaybackActive;
+    }
+    private submitActionForAuthoritativeReplay(action: GameAction): boolean {
+        const result = this.createActionEngine().apply(action);
+        if (!result.completed) {
+            this.sc_moveBlocked = false;
+            this.sc_sceneLog.updateLog(result.message ?? result.rejectionReason ?? "Action rejected");
+            return false;
+        }
+        this.currentActivePath = undefined;
+        this.currentActiveKnownPaths = undefined;
+        this.currentActivePathHashes = undefined;
+        this.hoverManager.clearHoverSilhouette();
+        this.hoverManager.clearAttackVisuals();
+        this.hoverManager.hoverAttackFromCell = undefined;
+        this.sc_moveBlocked = false;
+        this.sc_visibleStateUpdateNeeded = true;
+        return true;
     }
     private canLandRangeAttack(unit: Unit): boolean {
         return (

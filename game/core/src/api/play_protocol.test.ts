@@ -20,6 +20,8 @@ const stringField = (field: number, value: string): number[] => {
     return [...tag(field, 2), ...encodeVarint(encoded.length), ...encoded];
 };
 
+const intField = (field: number, value: number): number[] => [...tag(field, 0), ...encodeVarint(value)];
+
 const messageField = (field: number, value: number[]): number[] => [
     ...tag(field, 2),
     ...encodeVarint(value.length),
@@ -42,5 +44,26 @@ describe("play protobuf decoder", () => {
         expect(decoded.gameId).toBe("game-1");
         expect(decoded.units[0]?.id).toBe("unit-1");
         expect(decoded.units[0]?.speed).toBe(2.5);
+    });
+
+    test("decodes authoritative damage stats from snapshots", () => {
+        const damageStat = [
+            ...stringField(1, "Arbalester"),
+            ...intField(2, 30),
+            ...intField(3, 2),
+            ...intField(4, 1),
+        ];
+        const snapshot = new Uint8Array([
+            ...stringField(1, "game-1"),
+            ...messageField(21, damageStat),
+            ...intField(22, 1000),
+            ...intField(23, 46000),
+        ]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.damageStats).toEqual([{ unitName: "Arbalester", damage: 30, team: 2, lap: 1 }]);
+        expect(decoded.currentTurnStartMs).toBe(1000);
+        expect(decoded.currentTurnEndMs).toBe(46000);
     });
 });

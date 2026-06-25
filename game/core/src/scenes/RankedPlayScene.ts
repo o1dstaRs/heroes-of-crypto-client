@@ -1,5 +1,6 @@
 import {
     allFactions,
+    AttackVals,
     getFactionOf,
     HoCConfig,
     TeamVals,
@@ -17,13 +18,16 @@ import {
 
 import type {
     AuthoritativeGameSnapshot,
+    AuthoritativeJournalEntry,
     AuthoritativeUnitState,
     SceneGameActionTransport,
 } from "../game_action_transport";
 import type { IFightDeathEntry, IFightStatsReport, IFightStatsSample } from "./VisibleState";
 import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
 import { Sandbox, type SandboxSceneState, type SandboxSceneUnitState, type SceneActionEngine } from "./Sandbox";
+import type { RenderableUnit } from "./RenderableUnit";
 import type { UnitsOverlay } from "./UnitsOverlay";
+import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
 
 export const authoritativeUnitToSandboxUnitState = (
     unitState: AuthoritativeUnitState,
@@ -44,6 +48,21 @@ export const authoritativeUnitToSandboxUnitState = (
     };
 };
 
+const isKnownPlacementOpponentUnit = (unitState: AuthoritativeUnitState): boolean =>
+    unitState.creatureId > 0 && unitState.name !== "Unknown";
+
+const shouldHidePreFightOpponentUnit = (
+    snapshot: AuthoritativeGameSnapshot,
+    unitState: AuthoritativeUnitState,
+    options: { hideOpponentPlacements?: boolean },
+): boolean =>
+    !!options.hideOpponentPlacements &&
+    !snapshot.fightStarted &&
+    !snapshot.fightFinished &&
+    snapshot.viewerTeam !== undefined &&
+    unitState.team !== snapshot.viewerTeam &&
+    !isKnownPlacementOpponentUnit(unitState);
+
 export const authoritativeSnapshotToSandboxSceneState = (
     snapshot: AuthoritativeGameSnapshot,
     options: { hideOpponentPlacements?: boolean } = {},
@@ -56,16 +75,27 @@ export const authoritativeSnapshotToSandboxSceneState = (
     narrowingLayers: snapshot.narrowingLayers,
     centerDried: snapshot.centerDried,
     units: snapshot.units.flatMap((unit) => {
+        if (shouldHidePreFightOpponentUnit(snapshot, unit, options)) {
+            return [];
+        }
+        const restored = authoritativeUnitToSandboxUnitState(unit);
         if (
+            restored &&
             options.hideOpponentPlacements &&
             !snapshot.fightStarted &&
             !snapshot.fightFinished &&
             snapshot.viewerTeam !== undefined &&
             unit.team !== snapshot.viewerTeam
         ) {
-            return [];
+            return [
+                {
+                    ...restored,
+                    placed: false,
+                    cells: [],
+                    baseCell: { x: 0, y: 0 },
+                },
+            ];
         }
-        const restored = authoritativeUnitToSandboxUnitState(unit);
         return restored ? [restored] : [];
     }),
 });
@@ -108,13 +138,31 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
     return undefined;
 };
 
+interface RankedFightRosterEntry {
+    smallTextureName: string;
+    start: number;
+}
+
 export class RankedPlayScene extends Sandbox {
     private lastAuthoritativeSequence = -1;
     private lastBoardSignature = "";
     private lastPlacementUnitIdsKey = "";
     private readonly lastPlacementStateByUnitId = new Map<string, string>();
+    private readonly rankedStatsLowerRoster = new Map<string, RankedFightRosterEntry>();
+    private readonly rankedStatsUpperRoster = new Map<string, RankedFightRosterEntry>();
     private viewerTeam?: TeamType;
     private upNextUnitIds?: string[];
+    private rankedStatsGameId = "";
+    private rankedStatsStarted = false;
+    private rankedStatsLowerStartTotal = 0;
+    private rankedStatsUpperStartTotal = 0;
+    private rankedStatsLastLowerKilled = 0;
+    private rankedStatsLastUpperKilled = 0;
+    private rankedStatsSeries: IFightStatsSample[] = [];
+    private rankedSceneLogGameId = "";
+    private rankedSceneLogSequence = -1;
+    private rankedTurnStartLocalMs = 0;
+    private rankedTurnEndLocalMs = 0;
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return undefined;
     }
@@ -129,14 +177,63 @@ export class RankedPlayScene extends Sandbox {
     public override selectAuthoritativeUnit(unitId: string): void {
         this.selectSceneUnitForPlacement(unitId);
     }
+    public override applyAuthoritativeVfx(events: GameEvent[]): void {
+        for (const event of events) {
+            if (event.type === "unit_attacked") {
+                if (!event.damage?.render) continue;
+                const target = this.unitsHolder.getAllUnits().get(event.targetId) as RenderableUnit | undefined;
+                const pos = target?.getPosition() ?? event.damage?.unitPosition ?? { x: 0, y: 0 };
+                const dir = this.getAttackDirection(event.attackerId, event.targetId);
+                if (event.damage.hits?.length) {
+                    for (const hit of event.damage.hits) {
+                        this.combatVisuals?.showFloatingDamage(pos, hit.amount, dir, hit.unitsDied);
+                    }
+                } else if (event.damage.amount > 0) {
+                    this.combatVisuals?.showFloatingDamage(pos, event.damage.amount, dir);
+                }
+            } else if (event.type === "area_attacked") {
+                if (!event.damage?.render) continue;
+                const centerPos = event.damage?.unitPosition ?? event.targetPosition ?? { x: 0, y: 0 };
+                if (event.damage.hits?.length) {
+                    for (const hit of event.damage.hits) {
+                        this.combatVisuals?.showFloatingDamage(centerPos, hit.amount, undefined, hit.unitsDied);
+                    }
+                } else if (event.damage.amount > 0) {
+                    this.combatVisuals?.showFloatingDamage(centerPos, event.damage.amount);
+                }
+            } else if (event.type === "armageddon_applied") {
+                const u = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
+                if (u) this.combatVisuals?.showFloatingDamage(u.getPosition(), event.damage);
+                this.triggerScreenShake(12 + event.wave * 3, 0.5);
+            } else if (event.type === "unit_destroyed" || event.type === "unit_deleted") {
+                const u = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
+                const info = u?.getShatterInfo();
+                if (info) this.combatVisuals?.spawnShatter(info);
+            }
+        }
+    }
+    private getAttackDirection(attackerId: string, targetId: string): HoCMath.XY | undefined {
+        const a = this.unitsHolder.getAllUnits().get(attackerId) as RenderableUnit | undefined;
+        const t = this.unitsHolder.getAllUnits().get(targetId) as RenderableUnit | undefined;
+        if (!a || !t) return undefined;
+        const dx = t.getPosition().x - a.getPosition().x;
+        const dy = t.getPosition().y - a.getPosition().y;
+        const len = Math.hypot(dx, dy);
+        return len < 0.001 ? undefined : { x: dx / len, y: dy / len };
+    }
     protected override getUpNextUnitIds(): string[] | undefined {
         return this.upNextUnitIds;
     }
-    public override applyAuthoritativeSnapshot(snapshot: AuthoritativeGameSnapshot): void {
+    public override applyAuthoritativeSnapshot(
+        snapshot: AuthoritativeGameSnapshot,
+        options?: AuthoritativeSnapshotOptions,
+    ): void {
         const boardSignature = this.createBoardSignature(snapshot);
         if (snapshot.latestSequence < this.lastAuthoritativeSequence) {
             return;
         }
+        this.applyRankedTurnTimer(snapshot);
+        this.applyAuthoritativeSceneLog(snapshot);
         this.lastAuthoritativeSequence = snapshot.latestSequence;
         if (boardSignature === this.lastBoardSignature) {
             return;
@@ -144,6 +241,23 @@ export class RankedPlayScene extends Sandbox {
         this.lastBoardSignature = boardSignature;
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
         this.upNextUnitIds = snapshot.upNext;
+
+        // If the caller already animated + applied this snapshot's board changes by playing
+        // the matching authoritative action record, skip the destructive full rebuild.
+        // hydrateSceneState destroys and recreates every unit, which restarts their idle/move
+        // animations — the "re-animates / starts over" glitch. Records already moved units and
+        // applied mechanics, so the snapshot's board is redundant here; we only refresh the
+        // turn queue / visible state.
+        const skipBoardRebuild =
+            !!options?.skipBoardRebuild && snapshot.fightStarted && !snapshot.fightFinished;
+        if (skipBoardRebuild) {
+            if (this.sc_visibleState) {
+                this.sc_visibleState.lapNumber = Math.max(snapshot.currentLap || 0, 0);
+                this.sc_visibleStateUpdateNeeded = true;
+            }
+            return;
+        }
+
         const placementUnitIdsKey =
             !snapshot.fightStarted && !snapshot.fightFinished ? this.createPlacementUnitIdsKey(snapshot) : "";
         const canSkipPreFightHydrate =
@@ -151,7 +265,8 @@ export class RankedPlayScene extends Sandbox {
             !snapshot.fightFinished &&
             this.viewerTeam !== undefined &&
             this.lastPlacementUnitIdsKey !== "" &&
-            placementUnitIdsKey === this.lastPlacementUnitIdsKey;
+            placementUnitIdsKey === this.lastPlacementUnitIdsKey &&
+            !this.hasVisibleOpponentPlacementChange(snapshot);
         this.lastPlacementUnitIdsKey = placementUnitIdsKey;
         this.rememberPlacementStates(snapshot);
         if (canSkipPreFightHydrate) {
@@ -162,7 +277,7 @@ export class RankedPlayScene extends Sandbox {
         const state = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
 
         this.hydrateSceneState(state);
-        this.applyFinishedVisibleState(snapshot, state.units);
+        this.applyRankedFightStats(snapshot, state.units);
         if (selectedUnitId && !snapshot.fightStarted && !snapshot.fightFinished) {
             this.selectSceneUnitForPlacement(selectedUnitId);
         }
@@ -172,6 +287,9 @@ export class RankedPlayScene extends Sandbox {
         this.lastBoardSignature = "";
         this.lastPlacementUnitIdsKey = "";
         this.lastPlacementStateByUnitId.clear();
+        this.resetRankedFightStats();
+        this.rankedSceneLogGameId = "";
+        this.rankedSceneLogSequence = -1;
         this.applyAuthoritativeSnapshot(snapshot);
     }
     public override startScene(): boolean {
@@ -184,112 +302,439 @@ export class RankedPlayScene extends Sandbox {
     public override canPlayCurrentSandboxReplay(): boolean {
         return false;
     }
+    public override playAuthoritativeActionRecord(
+        action: GameAction,
+        events: GameEvent[],
+        stateAfter?: unknown,
+    ): Promise<boolean> {
+        const replayStateAfter = this.isAuthoritativeSnapshot(stateAfter)
+            ? authoritativeSnapshotToSandboxSceneState(stateAfter, { hideOpponentPlacements: true })
+            : undefined;
+        if (
+            action.type === "cast_spell" ||
+            action.type === "obstacle_attack" ||
+            action.type === "area_throw_attack"
+        ) {
+            if (events.length) {
+                this.applyReplayEvents(events);
+            }
+            return Promise.resolve(events.length > 0);
+        }
+        return super.playAuthoritativeActionRecord(action, events, replayStateAfter);
+    }
     protected override shouldRenderUnplacedUnitBench(unitState: SandboxSceneUnitState): boolean {
-        return this.viewerTeam === undefined || unitState.team === this.viewerTeam;
+        return (
+            this.viewerTeam !== undefined &&
+            (unitState.team === this.viewerTeam || unitState.properties.name !== "Unknown")
+        );
+    }
+    protected override getUnplacedUnitBenchGroupKey(unitState: SandboxSceneUnitState): string {
+        if (this.viewerTeam !== undefined && unitState.team !== this.viewerTeam) {
+            return `opponent:${unitState.team}`;
+        }
+        return `viewer:${unitState.team}`;
+    }
+    protected override getUnplacedUnitBenchPosition(
+        index: number,
+        total: number,
+        unitState?: SandboxSceneUnitState,
+    ): HoCMath.XY | undefined {
+        if (!unitState || this.viewerTeam === undefined || unitState.team === this.viewerTeam) {
+            return super.getUnplacedUnitBenchPosition(index, total, unitState);
+        }
+
+        if (total <= 0) {
+            return undefined;
+        }
+
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cell = gs.getCellSize();
+        const columns = Math.min(6, total);
+        const column = index % columns;
+        const row = Math.floor(index / columns);
+        const centerX = (gs.getMinX() + gs.getMaxX()) / 2;
+        const centerY = (gs.getMinY() + gs.getMaxY()) / 2;
+        const enemyIsUpper = unitState.team === TeamVals.UPPER;
+        const sideDirection = enemyIsUpper ? 1 : -1;
+
+        return {
+            x: centerX + (column - (columns - 1) / 2) * cell * 1.28,
+            y: centerY + sideDirection * cell * (2.15 + row * 1.1),
+        };
     }
     protected override canSelectUnitForPlacement(unit: Unit): boolean {
         return this.viewerTeam !== undefined && unit.getTeam() === this.viewerTeam;
     }
-    private applyFinishedVisibleState(snapshot: AuthoritativeGameSnapshot, units: SandboxSceneUnitState[]): void {
-        const winner = snapshot.winnerTeam as TeamType | undefined;
+    protected override updateVisibleTurnTimer(): void {
+        if (this.rankedTurnEndLocalMs <= this.rankedTurnStartLocalMs) {
+            super.updateVisibleTurnTimer();
+            return;
+        }
+        this.syncRankedTurnTimerToVisibleState();
+    }
+    private applyRankedTurnTimer(snapshot: AuthoritativeGameSnapshot): void {
         if (
-            !snapshot.fightFinished ||
-            (winner !== TeamVals.LOWER && winner !== TeamVals.UPPER) ||
-            !this.sc_visibleState
+            !snapshot.fightStarted ||
+            snapshot.fightFinished ||
+            !snapshot.currentTurnStartMs ||
+            !snapshot.currentTurnEndMs ||
+            snapshot.currentTurnEndMs <= snapshot.currentTurnStartMs
         ) {
+            this.rankedTurnStartLocalMs = 0;
+            this.rankedTurnEndLocalMs = 0;
             return;
         }
 
-        const fightStats = this.buildFinishedFightStats(
-            winner,
-            units,
-            Math.max(1, Math.floor(snapshot.currentLap || 1)),
+        const localNowMs = Date.now();
+        const serverNowMs = snapshot.serverTimeMs || localNowMs;
+        const localOffsetMs = localNowMs - serverNowMs;
+        this.rankedTurnStartLocalMs = snapshot.currentTurnStartMs + localOffsetMs;
+        this.rankedTurnEndLocalMs = snapshot.currentTurnEndMs + localOffsetMs;
+        this.syncRankedTurnTimerToVisibleState();
+    }
+    private syncRankedTurnTimerToVisibleState(): void {
+        if (!this.sc_visibleState || this.rankedTurnEndLocalMs <= this.rankedTurnStartLocalMs) {
+            return;
+        }
+
+        this.sc_visibleState.secondsMax = Math.max(
+            0.001,
+            (this.rankedTurnEndLocalMs - this.rankedTurnStartLocalMs) / 1000,
         );
+        const remaining = (this.rankedTurnEndLocalMs - Date.now()) / 1000;
+        this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
+        this.sc_visibleStateUpdateNeeded = true;
+    }
+    private applyAuthoritativeSceneLog(snapshot: AuthoritativeGameSnapshot): void {
+        const journalTail = snapshot.journalTail;
+        if (!journalTail) {
+            return;
+        }
+
+        const maxSequence = journalTail.reduce((max, entry) => Math.max(max, entry.sequence), 0);
+        const gameChanged = this.rankedSceneLogGameId !== snapshot.gameId;
+        if (!gameChanged && maxSequence <= this.rankedSceneLogSequence) {
+            return;
+        }
+
+        this.rankedSceneLogGameId = snapshot.gameId;
+        this.rankedSceneLogSequence = maxSequence;
+        const unitNames = new Map(snapshot.units.map((unit) => [unit.id, unit.name]));
+        const lines = this.buildAuthoritativeSceneLogLines(journalTail, unitNames);
+
+        this.sc_sceneLog.clear();
+        for (const line of lines) {
+            this.sc_sceneLog.updateLog(line);
+        }
+    }
+    private buildAuthoritativeSceneLogLines(
+        journalTail: AuthoritativeJournalEntry[],
+        unitNames: ReadonlyMap<string, string>,
+    ): string[] {
+        const lines: string[] = [];
+        const sortedEntries = [...journalTail].sort((a, b) => a.sequence - b.sequence);
+        for (const entry of sortedEntries) {
+            const events = this.parseJournalEvents(entry);
+            for (const event of events) {
+                const line = this.eventToSceneLogLine(event, unitNames);
+                if (line) {
+                    lines.push(line);
+                }
+            }
+        }
+        return lines;
+    }
+    private parseJournalEvents(entry: AuthoritativeJournalEntry): GameEvent[] {
+        if (!entry.eventsJson.trim()) {
+            return [];
+        }
+        try {
+            const parsed = JSON.parse(entry.eventsJson) as unknown;
+            return Array.isArray(parsed) ? (parsed as GameEvent[]) : [];
+        } catch {
+            return [];
+        }
+    }
+    private eventToSceneLogLine(event: GameEvent, unitNames: ReadonlyMap<string, string>): string | undefined {
+        const nameOf = (unitId: string): string => unitNames.get(unitId) ?? "Unit";
+        const cellLabel = (cell?: HoCMath.XY): string => (cell ? `(${cell.x}, ${cell.y})` : "");
+
+        switch (event.type) {
+            case "fight_started":
+                return "Fight started!";
+            case "lap_initialized":
+                return `Lap ${event.lap} started`;
+            case "lap_flipped":
+                return `Lap ${event.currentLap} started`;
+            case "center_dried":
+                return "Center dried";
+            case "center_obstacle_cleared":
+                return "Center obstacle cleared";
+            case "narrowing_applied":
+                return "Map narrowed";
+            case "unit_moved_by_system":
+                return `${nameOf(event.unitId)} moved by ${event.reason}`;
+            case "unit_destroyed":
+                return `${nameOf(event.unitId)} ${
+                    event.reason === "dead_cleanup"
+                        ? "died"
+                        : event.reason === "armageddon"
+                          ? "destroyed by Armageddon"
+                          : "destroyed by narrowing"
+                }`;
+            case "unit_resurrected":
+                return `${nameOf(event.unitId)} resurrected (${event.amount})`;
+            case "armageddon_applied":
+                return `${nameOf(event.unitId)} received (${event.damage}) from Armageddon`;
+            case "morale_applied":
+                return `${nameOf(event.unitId)} is on ${event.kind === "plus" ? "Morale" : "Dismorale"} this lap!`;
+            case "unit_skipped":
+                return event.reason === "timeout"
+                    ? `${nameOf(event.unitId)} turn timed out`
+                    : event.reason === "manual"
+                      ? `${nameOf(event.unitId)} ends turn`
+                      : `${nameOf(event.unitId)} skip turn`;
+            case "unit_waited":
+                return `${nameOf(event.unitId)} waits (hourglass)`;
+            case "unit_defended":
+                return `${nameOf(event.unitId)} uses Luck Shield`;
+            case "attack_type_selected":
+                return `${nameOf(event.unitId)} selected ${this.attackTypeLabel(event.attackType)} attack`;
+            case "unit_moved":
+                return `${nameOf(event.unitId)} moved to${cellLabel(event.targetCells[0] ?? event.path.at(-1))}`;
+            case "unit_placed":
+                return undefined;
+            case "unit_split":
+                return `${nameOf(event.sourceUnitId)} split ${event.splitAmount}`;
+            case "unit_deleted":
+                return `${nameOf(event.unitId)} removed`;
+            case "unit_summoned":
+                return `${nameOf(event.casterId)} summoned ${event.amount} x ${event.unitName}`;
+            case "unit_attacked":
+                return `${nameOf(event.attackerId)} attk ${nameOf(event.targetId)} (${event.damage.amount})`;
+            case "obstacle_attacked":
+                return `${nameOf(event.attackerId)} attacked obstacle (${event.hitsAfter})`;
+            case "area_attacked":
+                return `${nameOf(event.attackerId)} area attk (${event.damage.amount})`;
+            case "spell_cast":
+                return `${nameOf(event.casterId)} cast ${event.spellName}`;
+            case "fight_finished":
+                return `Fight finished! ${event.winningTeam === TeamVals.LOWER ? "Green" : "Red"} team wins!`;
+            case "turn_completed":
+            case "next_unit_selected":
+                return undefined;
+            default:
+                return undefined;
+        }
+    }
+    private attackTypeLabel(attackType: AttackType): string {
+        if (attackType === AttackVals.RANGE) {
+            return "range";
+        }
+        if (attackType === AttackVals.MAGIC || attackType === AttackVals.MELEE_MAGIC) {
+            return "magic";
+        }
+        if (attackType === AttackVals.MELEE) {
+            return "melee";
+        }
+        return "new";
+    }
+    private applyRankedFightStats(snapshot: AuthoritativeGameSnapshot, units: SandboxSceneUnitState[]): void {
+        if (this.rankedStatsGameId && this.rankedStatsGameId !== snapshot.gameId) {
+            this.resetRankedFightStats();
+        }
+        this.rankedStatsGameId = snapshot.gameId;
+
+        if (!snapshot.fightStarted && !snapshot.fightFinished) {
+            this.resetRankedFightStats();
+            return;
+        }
+        if (!this.sc_visibleState) {
+            return;
+        }
+
+        const lap = Math.max(1, Math.floor(snapshot.currentLap || 1));
+        this.ensureRankedFightStatsStarted(units);
+        this.sampleRankedFightStats(units, lap);
+
+        const finishedWinner = snapshot.winnerTeam as TeamType | undefined;
+        const winner =
+            snapshot.fightFinished && (finishedWinner === TeamVals.LOWER || finishedWinner === TeamVals.UPPER)
+                ? finishedWinner
+                : TeamVals.NO_TEAM;
+        const fightStats = this.buildRankedFightStats(winner, units, lap);
         if (fightStats.lowerStartTotal <= 0 || fightStats.upperStartTotal <= 0) {
             return;
         }
 
-        this.sc_visibleState.hasFinished = true;
-        this.sc_visibleState.teamWin = winner;
+        this.sc_visibleState.hasFinished = winner !== TeamVals.NO_TEAM;
+        this.sc_visibleState.teamWin = winner !== TeamVals.NO_TEAM ? winner : undefined;
         this.sc_visibleState.fightStats = fightStats;
         this.sc_visibleState.lapNumber = fightStats.totalLaps;
         this.sc_visibleStateUpdateNeeded = true;
     }
-    private buildFinishedFightStats(winner: TeamType, units: SandboxSceneUnitState[], lap: number): IFightStatsReport {
-        const lowerDeaths = this.buildDeathEntries(units, TeamVals.LOWER as TeamType);
-        const upperDeaths = this.buildDeathEntries(units, TeamVals.UPPER as TeamType);
-        const lowerStartTotal = this.startTotal(units, TeamVals.LOWER as TeamType);
-        const upperStartTotal = this.startTotal(units, TeamVals.UPPER as TeamType);
-        const lowerKilledTotal = this.killedTotal(units, TeamVals.LOWER as TeamType);
-        const upperKilledTotal = this.killedTotal(units, TeamVals.UPPER as TeamType);
-        const series: IFightStatsSample[] = [
-            { lap: 1, lowerKilled: 0, upperKilled: 0, lowerKilledPct: 0, upperKilledPct: 0 },
-            {
-                lap,
-                lowerKilled: lowerKilledTotal,
-                upperKilled: upperKilledTotal,
-                lowerKilledPct: this.percent(lowerKilledTotal, lowerStartTotal),
-                upperKilledPct: this.percent(upperKilledTotal, upperStartTotal),
-            },
-        ];
-
-        return {
-            winner,
-            series,
-            lowerDeaths,
-            upperDeaths,
-            lowerStartTotal,
-            upperStartTotal,
-            lowerKilledTotal,
-            upperKilledTotal,
-            totalLaps: lap,
-        };
+    private resetRankedFightStats(): void {
+        this.rankedStatsGameId = "";
+        this.rankedStatsStarted = false;
+        this.rankedStatsLowerStartTotal = 0;
+        this.rankedStatsUpperStartTotal = 0;
+        this.rankedStatsLastLowerKilled = 0;
+        this.rankedStatsLastUpperKilled = 0;
+        this.rankedStatsSeries = [];
+        this.rankedStatsLowerRoster.clear();
+        this.rankedStatsUpperRoster.clear();
     }
-    private buildDeathEntries(units: SandboxSceneUnitState[], team: TeamType): IFightDeathEntry[] {
-        const byName = new Map<string, IFightDeathEntry>();
-        for (const unit of units.filter((candidate) => candidate.team === team)) {
-            const died = Math.max(0, Math.floor(unit.properties.amount_died));
-            if (died <= 0) {
+    private ensureRankedFightStatsStarted(units: SandboxSceneUnitState[]): void {
+        if (this.rankedStatsStarted) {
+            return;
+        }
+
+        this.rankedStatsLowerRoster.clear();
+        this.rankedStatsUpperRoster.clear();
+        this.rankedStatsLowerStartTotal = 0;
+        this.rankedStatsUpperStartTotal = 0;
+        this.rankedStatsLastLowerKilled = 0;
+        this.rankedStatsLastUpperKilled = 0;
+        this.rankedStatsSeries = [{ lap: 1, lowerKilled: 0, upperKilled: 0, lowerKilledPct: 0, upperKilledPct: 0 }];
+
+        for (const unit of units) {
+            const start = this.unitStartAmount(unit);
+            if (start <= 0) {
                 continue;
             }
-            const current = byName.get(unit.properties.name);
-            const start = Math.max(0, Math.floor(unit.properties.amount_alive)) + died;
+
+            const roster =
+                unit.team === TeamVals.LOWER
+                    ? this.rankedStatsLowerRoster
+                    : unit.team === TeamVals.UPPER
+                      ? this.rankedStatsUpperRoster
+                      : undefined;
+            if (!roster) {
+                continue;
+            }
+            if (unit.team === TeamVals.LOWER) {
+                this.rankedStatsLowerStartTotal += start;
+            } else {
+                this.rankedStatsUpperStartTotal += start;
+            }
+
+            const current = roster.get(unit.properties.name);
             if (current) {
-                current.died += died;
                 current.start += start;
             } else {
-                byName.set(unit.properties.name, {
-                    name: unit.properties.name,
+                roster.set(unit.properties.name, {
                     smallTextureName: unit.properties.small_texture_name,
-                    died,
                     start,
-                    team,
                 });
             }
         }
-        return [...byName.values()].sort((a, b) => b.died - a.died);
+
+        this.rankedStatsStarted = true;
     }
-    private startTotal(units: SandboxSceneUnitState[], team: TeamType): number {
+    private sampleRankedFightStats(units: SandboxSceneUnitState[], lap: number): boolean {
+        if (!this.rankedStatsStarted) {
+            return false;
+        }
+
+        const lowerKilled = Math.max(
+            0,
+            this.rankedStatsLowerStartTotal - this.aliveTotal(units, TeamVals.LOWER as TeamType),
+        );
+        const upperKilled = Math.max(
+            0,
+            this.rankedStatsUpperStartTotal - this.aliveTotal(units, TeamVals.UPPER as TeamType),
+        );
+        if (lowerKilled === this.rankedStatsLastLowerKilled && upperKilled === this.rankedStatsLastUpperKilled) {
+            return false;
+        }
+
+        this.rankedStatsLastLowerKilled = lowerKilled;
+        this.rankedStatsLastUpperKilled = upperKilled;
+        this.rankedStatsSeries.push({
+            lap,
+            lowerKilled,
+            upperKilled,
+            lowerKilledPct: this.percent(lowerKilled, this.rankedStatsLowerStartTotal),
+            upperKilledPct: this.percent(upperKilled, this.rankedStatsUpperStartTotal),
+        });
+        return true;
+    }
+    private buildRankedFightStats(winner: TeamType, units: SandboxSceneUnitState[], lap: number): IFightStatsReport {
+        return {
+            winner,
+            series: this.rankedStatsSeries.slice(),
+            lowerDeaths: this.buildRankedDeathEntries(
+                this.rankedStatsLowerRoster,
+                units,
+                TeamVals.LOWER as TeamType,
+            ),
+            upperDeaths: this.buildRankedDeathEntries(
+                this.rankedStatsUpperRoster,
+                units,
+                TeamVals.UPPER as TeamType,
+            ),
+            lowerStartTotal: this.rankedStatsLowerStartTotal,
+            upperStartTotal: this.rankedStatsUpperStartTotal,
+            lowerKilledTotal: this.rankedStatsLastLowerKilled,
+            upperKilledTotal: this.rankedStatsLastUpperKilled,
+            totalLaps: lap,
+        };
+    }
+    private buildRankedDeathEntries(
+        roster: ReadonlyMap<string, RankedFightRosterEntry>,
+        units: SandboxSceneUnitState[],
+        team: TeamType,
+    ): IFightDeathEntry[] {
+        const aliveByName = new Map<string, number>();
+        for (const unit of units) {
+            if (unit.team !== team) {
+                continue;
+            }
+            const alive = Math.max(0, Math.floor(unit.properties.amount_alive));
+            aliveByName.set(unit.properties.name, (aliveByName.get(unit.properties.name) ?? 0) + alive);
+        }
+
+        const deaths: IFightDeathEntry[] = [];
+        for (const [name, entry] of roster) {
+            const died = Math.max(0, entry.start - (aliveByName.get(name) ?? 0));
+            if (died <= 0) {
+                continue;
+            }
+            deaths.push({ name, smallTextureName: entry.smallTextureName, died, start: entry.start, team });
+        }
+        return deaths.sort((a, b) => b.died - a.died);
+    }
+    private aliveTotal(units: SandboxSceneUnitState[], team: TeamType): number {
         return units
             .filter((unit) => unit.team === team)
-            .reduce(
-                (sum, unit) =>
-                    sum +
-                    Math.max(0, Math.floor(unit.properties.amount_alive)) +
-                    Math.max(0, Math.floor(unit.properties.amount_died)),
-                0,
-            );
+            .reduce((sum, unit) => sum + Math.max(0, Math.floor(unit.properties.amount_alive)), 0);
     }
-    private killedTotal(units: SandboxSceneUnitState[], team: TeamType): number {
-        return units
-            .filter((unit) => unit.team === team)
-            .reduce((sum, unit) => sum + Math.max(0, Math.floor(unit.properties.amount_died)), 0);
+    private unitStartAmount(unit: SandboxSceneUnitState): number {
+        return (
+            Math.max(0, Math.floor(unit.properties.amount_alive)) +
+            Math.max(0, Math.floor(unit.properties.amount_died))
+        );
     }
     private percent(value: number, total: number): number {
         if (total <= 0) {
             return 0;
         }
         return Math.round((value / total) * 1000) / 10;
+    }
+    protected override shouldDeferActionToAuthoritativeReplay(action: GameAction): boolean {
+        if (this.isPlayingAuthoritativeReplay()) {
+            return false;
+        }
+
+        switch (action.type) {
+            case "move_unit":
+            case "melee_attack":
+            case "range_attack":
+            case "cast_spell":
+                return true;
+            default:
+                return false;
+        }
     }
     protected override createActionEngine(): SceneActionEngine {
         return {
@@ -307,7 +752,7 @@ export class RankedPlayScene extends Sandbox {
                     this.sc_sceneLog.updateLog(result.message);
                 }
                 let events: GameEvent[] = [];
-                if (result.completed && action.type === "place_unit") {
+                if (result.completed && (action.type === "place_unit" || action.type === "select_attack_type")) {
                     const localResult = super.createActionEngine().apply(action);
                     if (!localResult.completed) {
                         return localResult;
@@ -328,6 +773,14 @@ export class RankedPlayScene extends Sandbox {
             .sort()
             .join("|");
     }
+    private isAuthoritativeSnapshot(value: unknown): value is AuthoritativeGameSnapshot {
+        return (
+            !!value &&
+            typeof value === "object" &&
+            typeof (value as AuthoritativeGameSnapshot).gameId === "string" &&
+            Array.isArray((value as AuthoritativeGameSnapshot).units)
+        );
+    }
     private rememberPlacementStates(snapshot: AuthoritativeGameSnapshot): void {
         this.lastPlacementStateByUnitId.clear();
         if (snapshot.fightStarted || snapshot.fightFinished) {
@@ -337,9 +790,23 @@ export class RankedPlayScene extends Sandbox {
             this.lastPlacementStateByUnitId.set(unit.id, this.placementStateKey(unit));
         }
     }
+    private hasVisibleOpponentPlacementChange(snapshot: AuthoritativeGameSnapshot): boolean {
+        if (snapshot.fightStarted || snapshot.fightFinished || this.viewerTeam === undefined) {
+            return false;
+        }
+        for (const unit of snapshot.units) {
+            if (unit.team === this.viewerTeam || !isKnownPlacementOpponentUnit(unit)) {
+                continue;
+            }
+            if (this.lastPlacementStateByUnitId.get(unit.id) !== this.placementStateKey(unit)) {
+                return true;
+            }
+        }
+        return false;
+    }
     private placementStateKey(unit: AuthoritativeUnitState): string {
         const cells = unit.cells.map((cell) => `${cell.x}:${cell.y}`).join(",");
-        return `${unit.team}|${unit.placed ? 1 : 0}|${unit.dead ? 1 : 0}|${unit.amountAlive}|${cells}`;
+        return `${unit.team}|${unit.name}|${unit.creatureId}|${unit.placed ? 1 : 0}|${unit.dead ? 1 : 0}|${unit.amountAlive}|${cells}`;
     }
     private createBoardSignature(snapshot: AuthoritativeGameSnapshot): string {
         return JSON.stringify({
@@ -358,6 +825,7 @@ export class RankedPlayScene extends Sandbox {
             units: snapshot.units.map((unit) => ({
                 id: unit.id,
                 team: unit.team,
+                name: unit.name,
                 creatureId: unit.creatureId,
                 amountAlive: unit.amountAlive,
                 amountDied: unit.amountDied,

@@ -73,7 +73,70 @@ export interface LocalModelOpponentConfig {
     style: "balanced" | "aggressive" | "defensive";
 }
 
+export interface LocalModelFightStateSummary {
+    lap: number;
+    activeUnitId: string;
+    units: Array<{
+        id: string;
+        team: string;
+        name: string;
+        attackType: string;
+        cells: string[];
+        hp: number;
+        maxHp: number;
+        amountAlive: number;
+        amountDied: number;
+        speed: number;
+        rangeShots: number;
+        abilities: string[];
+        spells: Array<{ name: string; remaining: number }>;
+    }>;
+}
+
+export interface LocalModelFightLogEntry {
+    id: string;
+    timestamp: string;
+    kind: "decision" | "result";
+    matchId: string;
+    stateVersion: number;
+    team: string;
+    activeUnit: {
+        id: string;
+        name: string;
+        attackType: string;
+        cells: string[];
+        hp: number;
+        amountAlive: number;
+    };
+    stateSummary?: LocalModelFightStateSummary;
+    prompt?: string;
+    model?: string;
+    style?: LocalModelOpponentConfig["style"];
+    legalActions?: Array<{
+        index: number;
+        label: string;
+        kind: string;
+        summary: string;
+        action: GameAction;
+        tacticalTags: string[];
+        risks: string[];
+        evaluation?: LocalModelLegalAction["evaluation"];
+    }>;
+    rawResponse?: string;
+    selectedAction?: {
+        index: number;
+        label: string;
+        kind: string;
+        summary: string;
+        action: GameAction;
+    };
+    completed?: boolean;
+    error?: string;
+}
+
 const actionLabels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const LOCAL_MODEL_FIGHT_LOG_KEY = "hoc.localModelFightLog";
+const LOCAL_MODEL_FIGHT_LOG_LIMIT = 160;
 
 const actionLabel = (index: number): string => actionLabels[index] ?? String(index + 1);
 
@@ -98,6 +161,90 @@ export const markLocalModelAction = <T extends GameAction>(action: T): T =>
 
 export const isLocalModelAction = (action: GameAction): boolean =>
     (action as LocalModelMarkedAction)[LOCAL_MODEL_ACTION_FLAG] === true;
+
+export const getLocalModelTeamName = (team: TeamType): string =>
+    team === TeamVals.LOWER ? "LOWER" : team === TeamVals.UPPER ? "UPPER" : "NONE";
+
+export const describeLocalModelActiveUnit = (unit: Unit): LocalModelFightLogEntry["activeUnit"] => ({
+    id: unit.getId(),
+    name: unit.getName(),
+    attackType: enumName(AttackVals, unit.getAttackTypeSelection()),
+    cells: unit.getCells().map((cell) => `${cell.x},${cell.y}`),
+    hp: unit.getHp(),
+    amountAlive: unit.getAmountAlive(),
+});
+
+export const createLocalModelFightStateSummary = (
+    activeUnit: Unit,
+    unitsHolder: UnitsHolder,
+): LocalModelFightStateSummary => ({
+    lap: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
+    activeUnitId: activeUnit.getId(),
+    units: [...unitsHolder.getAllUnits().values()]
+        .filter((unit) => !unit.isDead())
+        .map((unit) => ({
+            id: unit.getId(),
+            team: getLocalModelTeamName(unit.getTeam()),
+            name: unit.getName(),
+            attackType: enumName(AttackVals, unit.getAttackTypeSelection()),
+            cells: unit.getCells().map((cell) => `${cell.x},${cell.y}`),
+            hp: unit.getHp(),
+            maxHp: unit.getMaxHp(),
+            amountAlive: unit.getAmountAlive(),
+            amountDied: unit.getAmountDied(),
+            speed: unit.getSpeed(),
+            rangeShots: unit.getRangeShots(),
+            abilities: unit.getAbilities().map((ability) => ability.getName()),
+            spells: unit.getSpells().map((spell) => ({ name: spell.getName(), remaining: spell.getAmount() })),
+        })),
+});
+
+const serializeLegalAction = (action: LocalModelLegalAction): NonNullable<LocalModelFightLogEntry["legalActions"]>[number] => ({
+    index: action.index,
+    label: action.label,
+    kind: action.kind,
+    summary: action.summary,
+    action: action.action,
+    tacticalTags: action.tacticalTags,
+    risks: action.risks,
+    evaluation: action.evaluation,
+});
+
+const serializeSelectedAction = (
+    action?: LocalModelLegalAction,
+): LocalModelFightLogEntry["selectedAction"] | undefined =>
+    action
+        ? {
+              index: action.index,
+              label: action.label,
+              kind: action.kind,
+              summary: action.summary,
+              action: action.action,
+          }
+        : undefined;
+
+const nextDecisionId = (): string => `lm-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+export const recordLocalModelFightLog = (entry: LocalModelFightLogEntry): void => {
+    console.info("[local model fight log]", entry);
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    const globalState = window as Window & {
+        __hocLocalModelFightLog?: LocalModelFightLogEntry[];
+        __hocDumpLocalModelFightLog?: () => string;
+    };
+    const current = globalState.__hocLocalModelFightLog ?? [];
+    const next = [...current, entry].slice(-LOCAL_MODEL_FIGHT_LOG_LIMIT);
+    globalState.__hocLocalModelFightLog = next;
+    globalState.__hocDumpLocalModelFightLog = () => JSON.stringify(globalState.__hocLocalModelFightLog ?? [], null, 2);
+    try {
+        window.localStorage.setItem(LOCAL_MODEL_FIGHT_LOG_KEY, JSON.stringify(next));
+    } catch {
+        // Keep the in-memory log even if storage quota or privacy settings block persistence.
+    }
+};
 
 export const getLocalModelOpponentConfig = (): LocalModelOpponentConfig => {
     const params =
@@ -126,7 +273,7 @@ export const getLocalModelOpponentConfig = (): LocalModelOpponentConfig => {
     };
 };
 
-const teamName = (team: TeamType): string => (team === TeamVals.LOWER ? "LOWER" : team === TeamVals.UPPER ? "UPPER" : "NONE");
+const teamName = getLocalModelTeamName;
 
 const enumName = (enumLike: Record<string, string | number>, value: number): string => {
     const name = enumLike[value];
@@ -772,9 +919,27 @@ export const chooseLocalModelAction = async (input: {
     activeUnit: Unit;
     unitsHolder: UnitsHolder;
     actions: LocalModelLegalAction[];
-}): Promise<{ action?: LocalModelLegalAction; rawContent?: string; error?: string }> => {
+    matchId?: string;
+    stateVersion?: number;
+}): Promise<{ action?: LocalModelLegalAction; rawContent?: string; error?: string; decisionId?: string }> => {
+    const decisionId = nextDecisionId();
+    const matchId = input.matchId ?? "ui-local-model";
+    const stateVersion = input.stateVersion ?? FightStateManager.getInstance().getFightProperties().getCurrentLap();
     if (!input.actions.length) {
-        return { error: "no_legal_actions" };
+        recordLocalModelFightLog({
+            id: decisionId,
+            timestamp: new Date().toISOString(),
+            kind: "decision",
+            matchId,
+            stateVersion,
+            team: teamName(input.activeUnit.getTeam()),
+            activeUnit: describeLocalModelActiveUnit(input.activeUnit),
+            stateSummary: createLocalModelFightStateSummary(input.activeUnit, input.unitsHolder),
+            style: input.config.style,
+            legalActions: [],
+            error: "no_legal_actions",
+        });
+        return { error: "no_legal_actions", decisionId };
     }
     try {
         const model = await resolveModelName(input.config);
@@ -800,11 +965,59 @@ export const chooseLocalModelAction = async (input: {
             }),
         });
         if (!response.ok) {
-            return { error: `http_${response.status}` };
+            const error = `http_${response.status}`;
+            recordLocalModelFightLog({
+                id: decisionId,
+                timestamp: new Date().toISOString(),
+                kind: "decision",
+                matchId,
+                stateVersion,
+                team: teamName(input.activeUnit.getTeam()),
+                activeUnit: describeLocalModelActiveUnit(input.activeUnit),
+                stateSummary: createLocalModelFightStateSummary(input.activeUnit, input.unitsHolder),
+                prompt,
+                model,
+                style: input.config.style,
+                legalActions: input.actions.map(serializeLegalAction),
+                error,
+            });
+            return { error, decisionId };
         }
         const rawContent = readChatContent(await response.json());
-        return { action: extractAction(rawContent, input.actions), rawContent };
+        const action = extractAction(rawContent, input.actions);
+        recordLocalModelFightLog({
+            id: decisionId,
+            timestamp: new Date().toISOString(),
+            kind: "decision",
+            matchId,
+            stateVersion,
+            team: teamName(input.activeUnit.getTeam()),
+            activeUnit: describeLocalModelActiveUnit(input.activeUnit),
+            stateSummary: createLocalModelFightStateSummary(input.activeUnit, input.unitsHolder),
+            prompt,
+            model,
+            style: input.config.style,
+            legalActions: input.actions.map(serializeLegalAction),
+            rawResponse: rawContent,
+            selectedAction: serializeSelectedAction(action),
+            error: action ? undefined : "no_parseable_action",
+        });
+        return { action, rawContent, decisionId };
     } catch (err) {
-        return { error: (err as Error).message };
+        const error = (err as Error).message;
+        recordLocalModelFightLog({
+            id: decisionId,
+            timestamp: new Date().toISOString(),
+            kind: "decision",
+            matchId,
+            stateVersion,
+            team: teamName(input.activeUnit.getTeam()),
+            activeUnit: describeLocalModelActiveUnit(input.activeUnit),
+            stateSummary: createLocalModelFightStateSummary(input.activeUnit, input.unitsHolder),
+            style: input.config.style,
+            legalActions: input.actions.map(serializeLegalAction),
+            error,
+        });
+        return { error, decisionId };
     }
 };

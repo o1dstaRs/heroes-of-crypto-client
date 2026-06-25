@@ -1,4 +1,4 @@
-import { TeamVals, type GameAction, type TeamType } from "@heroesofcrypto/common";
+import { TeamVals, type GameAction, type IDamageStatistic, type TeamType } from "@heroesofcrypto/common";
 import { v4 as uuidv4 } from "uuid";
 
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
@@ -171,10 +171,22 @@ export const toAuthoritativeGameSnapshot = (
     currentUnitId: snapshot.currentUnitId,
     currentTurnTeam: snapshot.currentTurnTeam,
     latestSequence: snapshot.latestSequence,
+    serverTimeMs: snapshot.serverTimeMs,
+    currentTurnStartMs: snapshot.currentTurnStartMs,
+    currentTurnEndMs: snapshot.currentTurnEndMs,
     narrowingLayers: snapshot.narrowingLayers,
     centerDried: snapshot.centerDried,
     units: snapshot.units,
     upNext: snapshot.upNext,
+    journalTail: snapshot.journalTail,
+    damageStats: snapshot.damageStats.map(
+        (stat): IDamageStatistic => ({
+            unitName: stat.unitName,
+            damage: stat.damage,
+            team: stat.team as TeamType,
+            lap: stat.lap,
+        }),
+    ),
 });
 
 interface RankedGameActionTransportOptions {
