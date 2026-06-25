@@ -13,6 +13,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
+import { resolveUnitImage } from "../unitImage";
 import { prefetchUnitAtlas } from "./UnitStatsListItem";
 
 const stopImg = new URL("../../../images/icon_skip_black.webp", import.meta.url).toString();
@@ -204,7 +205,7 @@ export const UpNext: React.FC = () => {
                                         <Box sx={{ position: "relative", display: "inline-block" }}>
                                             <Avatar
                                                 // @ts-ignore: src params
-                                                src={images[unit.smallTextureName]}
+                                                src={resolveUnitImage(unit.smallTextureName, unit.name)}
                                                 variant="plain"
                                                 sx={{
                                                     width: index === 0 ? "84px" : "72px",

@@ -179,6 +179,7 @@ export abstract class PixiScene {
         this.sc_gameActionTransport = transport;
     }
     public applyAuthoritativeSnapshot(_snapshot: AuthoritativeGameSnapshot): void {}
+    public applyAuthoritativeVfx(_events: GameEvent[]): void {}
     public applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
         this.applyAuthoritativeSnapshot(snapshot);
     }

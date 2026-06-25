@@ -1,5 +1,5 @@
-import { TeamVals, type GameAction, type TeamType } from "@heroesofcrypto/common";
-import { Alert, Box, Button, Chip, CircularProgress, Sheet, Stack, Typography } from "@mui/joy";
+import { AttackVals, TeamVals, type GameAction, type GameEvent, type TeamType } from "@heroesofcrypto/common";
+import { Alert, Box, Button, Chip, CircularProgress, Sheet, Slider, Stack, Typography } from "@mui/joy";
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -39,6 +39,7 @@ import { UpNextOverlay } from "./UpNextOverlay";
 import { WalletLinker } from "./WalletLinker";
 import { ButtonProvider } from "./context/ButtonContext";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
+import { resolveUnitImage } from "./unitImage";
 
 export { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 
@@ -70,6 +71,7 @@ const controlledUnitIdForAction = (action: GameAction): string | undefined => {
         case "defend_turn":
         case "end_turn":
         case "delete_unit":
+        case "split_unit":
             return action.unitId;
         case "place_unit":
             return action.unitId;
@@ -112,6 +114,121 @@ const isTurnResolvingAction = (action: GameAction): boolean => {
     }
 };
 
+const canPlayAuthoritativeRecord = (action: GameAction, snapshot: PlaySnapshot | null): boolean => {
+    if (snapshot?.phase !== PlayPhase.PLAY && snapshot?.phase !== PlayPhase.FINISHED) {
+        return false;
+    }
+
+    switch (action.type) {
+        case "start_fight":
+        case "place_unit":
+        case "delete_unit":
+        case "split_unit":
+            return false;
+        default:
+            return true;
+    }
+};
+
+const isRangedSnapshotUnit = (unit: PlayUnitState): boolean => unit.attackType === AttackVals.RANGE;
+
+const cellsForSnapshotUnitAt = (unit: PlayUnitState, cell: { x: number; y: number }): { x: number; y: number }[] => {
+    if (unit.size <= 1) {
+        return [{ x: cell.x, y: cell.y }];
+    }
+    return [
+        { x: cell.x, y: cell.y },
+        { x: cell.x + 1, y: cell.y },
+        { x: cell.x, y: cell.y + 1 },
+        { x: cell.x + 1, y: cell.y + 1 },
+    ];
+};
+
+const cellKey = (cell: { x: number; y: number }): string => `${cell.x}:${cell.y}`;
+
+const isDefaultPlacementCell = (cell: { x: number; y: number }, team: TeamType): boolean => {
+    const inX = cell.x >= 1 && cell.x <= 14;
+    const inY = team === TeamVals.UPPER ? cell.y >= 12 && cell.y <= 14 : cell.y >= 1 && cell.y <= 3;
+    return inX && inY;
+};
+
+const fallbackPlacementAnchors = (team: TeamType, large: boolean, ranged: boolean): Array<{ x: number; y: number }> => {
+    const xs = large ? [7, 5, 9, 3, 11, 1, 13] : [7, 8, 6, 9, 5, 10, 4, 11, 3, 12, 2, 13, 1, 14];
+    const ys =
+        team === TeamVals.UPPER
+            ? large
+                ? ranged
+                    ? [13, 12]
+                    : [12, 13]
+                : ranged
+                  ? [14, 13, 12]
+                  : [12, 13, 14]
+            : large
+              ? ranged
+                  ? [1, 2]
+                  : [2, 1]
+              : ranged
+                ? [1, 2, 3]
+                : [3, 2, 1];
+
+    return ys.flatMap((y) => xs.map((x) => ({ x, y })));
+};
+
+const modelPlacementAnchors = (unit: PlayUnitState, team: TeamType): { x: number; y: number }[] => {
+    const ranged = isRangedSnapshotUnit(unit);
+    const large = unit.size > 1;
+    return fallbackPlacementAnchors(team, large, ranged);
+};
+
+const createModelPlacementActions = (snapshot: PlaySnapshot, team: TeamType): Partial<PlayAction>[] => {
+    const occupied = new Set<string>();
+    for (const unit of snapshot.units) {
+        if (!unit.placed) {
+            continue;
+        }
+        for (const cell of unit.cells) {
+            occupied.add(cellKey(cell));
+        }
+    }
+
+    const unplaced = snapshot.units
+        .filter((unit) => unit.team === team && !unit.dead && (!unit.placed || !unit.cells.length))
+        .sort((a, b) => {
+            if (a.size !== b.size) return b.size - a.size;
+            if (isRangedSnapshotUnit(a) !== isRangedSnapshotUnit(b)) return isRangedSnapshotUnit(a) ? 1 : -1;
+            return b.speed - a.speed;
+        });
+
+    const actions: Partial<PlayAction>[] = [];
+    for (const unit of unplaced) {
+        for (const anchor of modelPlacementAnchors(unit, team)) {
+            const cells = cellsForSnapshotUnitAt(unit, anchor);
+            if (
+                cells.every(
+                    (cell) =>
+                        isDefaultPlacementCell(cell, team) &&
+                        !occupied.has(cellKey(cell)) &&
+                        Number.isInteger(cell.x) &&
+                        Number.isInteger(cell.y),
+                )
+            ) {
+                for (const cell of cells) {
+                    occupied.add(cellKey(cell));
+                }
+                actions.push({
+                    type: PlayActionType.PLACE_UNIT,
+                    unitId: unit.id,
+                    team,
+                    unitName: unit.name,
+                    cells,
+                });
+                break;
+            }
+        }
+    }
+    return actions;
+};
+
 type Props = {
     gameId: string;
     userTeam: TeamType;
@@ -151,6 +268,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         }
         const record = parseRankedReplayAction(entry);
         if (!record || !record.events.length) {
+            return;
+        }
+        if (!canPlayAuthoritativeRecord(record.action, snapshotRef.current)) {
             return;
         }
         pendingAuthoritativeRecordsRef.current.set(record.sequence, record);
@@ -279,6 +399,17 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
 
                         latestSequenceRef.current = Math.max(latestSequenceRef.current, event.sequence);
                         rememberAuthoritativeRecord(event.journalEntry);
+                        // Feed real GameEvents (damage, kills, animations) into the VFX system.
+                        if (event.journalEntry?.eventsJson) {
+                            try {
+                                const gameEvents = JSON.parse(event.journalEntry.eventsJson) as unknown;
+                                if (Array.isArray(gameEvents) && gameEvents.length > 0) {
+                                    manager.ApplyAuthoritativeVfx(gameEvents as GameEvent[]);
+                                }
+                            } catch {
+                                // Older journal entries may not have parseable events.
+                            }
+                        }
                         if (event.snapshot) {
                             applySnapshot(event.snapshot);
                         }
@@ -371,24 +502,27 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         ],
     );
 
-    const buildActionEnvelope = useCallback((team: TeamType = userTeam) => {
-        const isModelTeam = localModelConfig.enabled && team === localModelConfig.modelTeam;
-        if (isObserver && !isModelTeam) {
-            return undefined;
-        }
-        const latestSnapshot = snapshotRef.current;
-        const currentPlayer = latestSnapshot?.players.find((player) => player.team === team);
-        if (!latestSnapshot || !currentPlayer) {
-            return undefined;
-        }
-        return {
-            actionId: uuidv4(),
-            gameId,
-            playerId: currentPlayer.playerId,
-            expectedSequence: latestSequenceRef.current || latestSnapshot.latestSequence,
-            team,
-        };
-    }, [gameId, isObserver, localModelConfig.enabled, localModelConfig.modelTeam, userTeam]);
+    const buildActionEnvelope = useCallback(
+        (team: TeamType = userTeam) => {
+            const isModelTeam = localModelConfig.enabled && team === localModelConfig.modelTeam;
+            if (isObserver && !isModelTeam) {
+                return undefined;
+            }
+            const latestSnapshot = snapshotRef.current;
+            const currentPlayer = latestSnapshot?.players.find((player) => player.team === team);
+            if (!latestSnapshot || !currentPlayer) {
+                return undefined;
+            }
+            return {
+                actionId: uuidv4(),
+                gameId,
+                playerId: currentPlayer.playerId,
+                expectedSequence: latestSequenceRef.current || latestSnapshot.latestSequence,
+                team,
+            };
+        },
+        [gameId, isObserver, localModelConfig.enabled, localModelConfig.modelTeam, userTeam],
+    );
 
     const queueActionSubmission = useCallback((submit: () => Promise<void>): Promise<void> => {
         const nextSubmission = actionQueueRef.current.catch(() => undefined).then(submit);
@@ -402,11 +536,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 const envelope = buildActionEnvelope(team);
                 if (!envelope) return;
 
-                await sendPlayAction({
-                    ...envelope,
-                    type: PlayActionType.UNKNOWN,
-                    ...action,
-                }, authorization ? { authorization } : undefined);
+                await sendPlayAction(
+                    {
+                        ...envelope,
+                        type: PlayActionType.UNKNOWN,
+                        ...action,
+                    },
+                    authorization ? { authorization } : undefined,
+                );
             });
         },
         [buildActionEnvelope, queueActionSubmission, sendPlayAction],
@@ -425,7 +562,10 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 const envelope = buildActionEnvelope(team);
                 if (!envelope) return;
 
-                await sendPlayAction(createPlayActionFromGameAction(action, envelope), authorization ? { authorization } : undefined);
+                await sendPlayAction(
+                    createPlayActionFromGameAction(action, envelope),
+                    authorization ? { authorization } : undefined,
+                );
             });
         },
         [buildActionEnvelope, queueActionSubmission, sendPlayAction],
@@ -454,6 +594,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         pingModelPlayer();
         return () => window.clearInterval(timer);
     }, [
+        gameId,
         localModelConfig.authorization,
         localModelConfig.enabled,
         localModelConfig.modelTeam,
@@ -482,7 +623,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     handled: true,
                     completed: false,
                     message:
-                        action.type === "place_unit" || action.type === "delete_unit"
+                        action.type === "place_unit" || action.type === "delete_unit" || action.type === "split_unit"
                             ? "Opponent placement is controlled by the opponent"
                             : "Opponent turn is controlled by the opponent",
                 };
@@ -493,7 +634,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     pendingTurnResolutionRef.current = true;
                 }
                 void submitGameActionForTeam(action, localModelConfig.modelTeam, localModelConfig.authorization);
-                return { handled: true, completed: true, message: "Submitted model action to ranked server" };
+                return { handled: true, completed: true };
             }
             if (isObserver) {
                 return { handled: true, completed: false, message: "Observer mode is read-only" };
@@ -502,7 +643,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 pendingTurnResolutionRef.current = true;
             }
             void submitGameAction(action);
-            return { handled: true, completed: true, message: "Submitted to ranked server" };
+            return { handled: true, completed: true };
         },
         [
             isObserver,
@@ -572,7 +713,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         return () => manager.SetGameActionTransport(undefined);
     }, [manager, transport]);
 
-    const modelPlacementReadyKeyRef = useRef("");
+    const modelPlacementRunKeyRef = useRef("");
     useEffect(() => {
         if (
             !localModelConfig.enabled ||
@@ -587,19 +728,52 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             return;
         }
 
-        const readyKey = `${snapshot.gameId}:${snapshot.latestSequence}:${modelPlayer.playerId}`;
-        if (modelPlacementReadyKeyRef.current === readyKey) {
+        const runKey = `${snapshot.gameId}:${modelPlayer.playerId}`;
+        if (modelPlacementRunKeyRef.current === runKey) {
             return;
         }
-        modelPlacementReadyKeyRef.current = readyKey;
+        modelPlacementRunKeyRef.current = runKey;
         window.setTimeout(() => {
-            void submitProtocolActionForTeam(
-                { type: PlayActionType.READY_PLACEMENT },
-                localModelConfig.modelTeam,
-                localModelConfig.authorization,
-            );
+            void (async () => {
+                let latestSnapshot = snapshotRef.current;
+                try {
+                    latestSnapshot = await fetchRankedPlaySnapshot(gameId, {
+                        authorization: localModelConfig.authorization,
+                    });
+                } catch {
+                    latestSnapshot = snapshotRef.current;
+                }
+                if (!latestSnapshot || latestSnapshot.phase !== PlayPhase.PLACEMENT) {
+                    return;
+                }
+                const latestModelPlayer = latestSnapshot.players.find(
+                    (player) => player.team === localModelConfig.modelTeam,
+                );
+                if (!latestModelPlayer || latestSnapshot.readyPlayerIds.includes(latestModelPlayer.playerId)) {
+                    return;
+                }
+
+                for (const action of createModelPlacementActions(latestSnapshot, localModelConfig.modelTeam)) {
+                    await submitProtocolActionForTeam(
+                        action,
+                        localModelConfig.modelTeam,
+                        localModelConfig.authorization,
+                    );
+                }
+                await submitProtocolActionForTeam(
+                    { type: PlayActionType.READY_PLACEMENT },
+                    localModelConfig.modelTeam,
+                    localModelConfig.authorization,
+                );
+            })();
         }, 650);
-    }, [localModelConfig, snapshot, submitProtocolActionForTeam]);
+    }, [
+        localModelConfig.authorization,
+        localModelConfig.enabled,
+        localModelConfig.modelTeam,
+        snapshot,
+        submitProtocolActionForTeam,
+    ]);
 
     if (!snapshot) {
         return (
@@ -686,6 +860,206 @@ interface RankedOverlayProps {
     isObserver: boolean;
 }
 
+interface RankedPlacementStackActionsProps {
+    canSubmit: boolean;
+    selectedUnit: PlayUnitState;
+    snapshot: PlaySnapshot;
+    submitGameAction: (action: GameAction) => Promise<void>;
+    userTeam: TeamType;
+}
+
+const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = ({
+    canSubmit,
+    selectedUnit,
+    snapshot,
+    submitGameAction,
+    userTeam,
+}) => {
+    const amountAlive = Math.max(0, Math.floor(selectedUnit.amountAlive));
+    const maxSplitAmount = Math.max(0, amountAlive - 1);
+    const [splitAmount, setSplitAmount] = useState(Math.max(1, Math.floor(amountAlive / 2)));
+    const maxUnits = userTeam === TeamVals.LOWER ? snapshot.maxLowerUnits : snapshot.maxUpperUnits;
+    const effectiveMaxUnits = maxUnits > 0 ? maxUnits : Number.POSITIVE_INFINITY;
+    const teamUnitCount = snapshot.units.filter((unit) => unit.team === userTeam && !unit.dead).length;
+    const hasStackCapacity = teamUnitCount < effectiveMaxUnits;
+    const canSplit = canSubmit && maxSplitAmount >= 1 && hasStackCapacity;
+    const sliderValue = Math.min(Math.max(1, splitAmount), Math.max(1, maxSplitAmount));
+
+    useEffect(() => {
+        setSplitAmount(Math.max(1, Math.floor(amountAlive / 2)));
+    }, [amountAlive, selectedUnit.id]);
+
+    return (
+        <Stack spacing={0.75}>
+            {maxSplitAmount >= 1 && (
+                <Sheet
+                    variant="soft"
+                    sx={{
+                        p: 1,
+                        borderRadius: 6,
+                        bgcolor: "rgba(255,255,255,0.05)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                    }}
+                >
+                    <Stack spacing={0.5}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography level="body-sm" textColor={hocColors.parchment}>
+                                Split stack
+                            </Typography>
+                            <Typography level="body-sm" textColor={hocColors.mutedStrong}>
+                                {sliderValue} / {amountAlive - sliderValue}
+                            </Typography>
+                        </Stack>
+                        <Slider
+                            size="sm"
+                            min={1}
+                            max={Math.max(1, maxSplitAmount)}
+                            value={sliderValue}
+                            disabled={!canSplit}
+                            onChange={(_, value) => setSplitAmount(Array.isArray(value) ? value[0] : value)}
+                        />
+                        <Button
+                            variant="soft"
+                            disabled={!canSplit}
+                            onClick={() =>
+                                void submitGameAction({
+                                    type: "split_unit",
+                                    unitId: selectedUnit.id,
+                                    amount: sliderValue,
+                                })
+                            }
+                        >
+                            Split Selected
+                        </Button>
+                        {!hasStackCapacity && maxUnits > 0 && (
+                            <Typography level="body-xs" textColor={hocColors.muted}>
+                                Board stack limit reached ({teamUnitCount}/{maxUnits})
+                            </Typography>
+                        )}
+                    </Stack>
+                </Sheet>
+            )}
+            <Button
+                variant="soft"
+                color="danger"
+                disabled={!canSubmit}
+                onClick={() => void submitGameAction({ type: "delete_unit", unitId: selectedUnit.id })}
+            >
+                Remove Selected
+            </Button>
+        </Stack>
+    );
+};
+
+const formatPlacementCountdown = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainder = Math.max(0, seconds % 60);
+    return `${minutes}:${remainder.toString().padStart(2, "0")}`;
+};
+
+const PlacementCountdownChip: React.FC<{ snapshot: PlaySnapshot }> = ({ snapshot }) => {
+    const [nowMs, setNowMs] = useState(Date.now());
+
+    useEffect(() => {
+        if (snapshot.phase !== PlayPhase.PLACEMENT || snapshot.placementDeadlineMs <= 0) {
+            return undefined;
+        }
+        const timer = window.setInterval(() => setNowMs(Date.now()), 500);
+        return () => window.clearInterval(timer);
+    }, [snapshot.phase, snapshot.placementDeadlineMs]);
+
+    if (snapshot.phase !== PlayPhase.PLACEMENT || snapshot.placementDeadlineMs <= 0) {
+        return null;
+    }
+
+    const remainingSeconds = Math.max(0, Math.ceil((snapshot.placementDeadlineMs - nowMs) / 1000));
+    return (
+        <Chip
+            size="sm"
+            variant="soft"
+            sx={{
+                bgcolor: remainingSeconds <= 10 ? "rgba(185,28,28,0.22)" : "rgba(22,101,52,0.18)",
+                color: remainingSeconds <= 10 ? "#fecaca" : "#bbf7d0",
+                border: `1px solid ${remainingSeconds <= 10 ? "rgba(248,113,113,0.35)" : "rgba(74,222,128,0.28)"}`,
+            }}
+        >
+            {formatPlacementCountdown(remainingSeconds)}
+        </Chip>
+    );
+};
+
+const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamType }> = ({
+    snapshot,
+    userTeam,
+}) => {
+    if (snapshot.phase !== PlayPhase.PLACEMENT) {
+        return null;
+    }
+
+    const opponentUnits = snapshot.units.filter((unit) => unit.team !== userTeam && !unit.dead);
+    if (!opponentUnits.length) {
+        return null;
+    }
+
+    const knownCount = opponentUnits.filter((unit) => unit.creatureId > 0 && unit.name !== "Unknown").length;
+
+    return (
+        <Stack spacing={0.5}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Typography level="body-sm" textColor={hocColors.parchment}>
+                    Opponent army
+                </Typography>
+                <Typography level="body-xs" textColor={hocColors.muted}>
+                    {knownCount}/{opponentUnits.length} known
+                </Typography>
+            </Stack>
+            <Box
+                sx={{
+                    display: "flex",
+                    gap: 0.6,
+                    overflowX: "auto",
+                    pb: 0.25,
+                }}
+            >
+                {opponentUnits.map((unit) => {
+                    const known = unit.creatureId > 0 && unit.name !== "Unknown";
+                    return (
+                        <Box
+                            key={unit.id}
+                            sx={{
+                                position: "relative",
+                                flex: "0 0 auto",
+                                width: 42,
+                                height: 42,
+                                borderRadius: 6,
+                                border: `1px solid ${known ? "rgba(245,158,11,0.28)" : "rgba(148,163,184,0.18)"}`,
+                                bgcolor: known ? "rgba(245,158,11,0.08)" : "rgba(15,23,42,0.45)",
+                                display: "grid",
+                                placeItems: "center",
+                                overflow: "hidden",
+                            }}
+                        >
+                            <Box
+                                component="img"
+                                src={resolveUnitImage(undefined, known ? unit.name : undefined)}
+                                alt=""
+                                sx={{
+                                    width: 36,
+                                    height: 36,
+                                    objectFit: "contain",
+                                    filter: known
+                                        ? "brightness(0) saturate(0) opacity(0.72)"
+                                        : "grayscale(1) brightness(0.42) opacity(0.55)",
+                                }}
+                            />
+                        </Box>
+                    );
+                })}
+            </Box>
+        </Stack>
+    );
+};
+
 const RankedOverlay: React.FC<RankedOverlayProps> = ({
     busy,
     canSubmit,
@@ -733,6 +1107,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                 >
                     {phaseLabel(snapshot.phase)}
                 </Chip>
+                <PlacementCountdownChip snapshot={snapshot} />
                 <Chip size="sm" variant="soft" color={status === "Connected" ? "success" : "warning"}>
                     {status}
                 </Chip>
@@ -755,6 +1130,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 
             {snapshot.phase === PlayPhase.PLACEMENT && !isObserver && (
                 <Stack spacing={0.75}>
+                    <RankedOpponentPlacementIntel snapshot={snapshot} userTeam={userTeam} />
                     <Button
                         variant="solid"
                         disabled={!canSubmit || ready}
@@ -764,14 +1140,13 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                         {ready ? "Ready" : "Ready Placement"}
                     </Button>
                     {selectedUnit?.placed && selectedUnit.team === userTeam && (
-                        <Button
-                            variant="soft"
-                            color="danger"
-                            disabled={!canSubmit}
-                            onClick={() => void submitGameAction({ type: "delete_unit", unitId: selectedUnit.id })}
-                        >
-                            Remove Selected
-                        </Button>
+                        <RankedPlacementStackActions
+                            canSubmit={canSubmit}
+                            selectedUnit={selectedUnit}
+                            snapshot={snapshot}
+                            submitGameAction={submitGameAction}
+                            userTeam={userTeam}
+                        />
                     )}
                 </Stack>
             )}

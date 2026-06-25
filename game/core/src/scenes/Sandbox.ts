@@ -154,7 +154,7 @@ export class Sandbox extends PixiScene {
     private gridMatrix: number[][];
     private gridMatrixNoUnits: number[][];
     private cellToUnitPreRound?: Map<string, Unit>;
-    private readonly unitsHolder: UnitsHolder;
+    protected readonly unitsHolder: UnitsHolder;
     private readonly abilityFactory: AbilityFactory;
     private readonly replayRecorder = new SandboxReplayRecorder(() => this.captureSceneState());
     private replayRecordingSuspended = false;
@@ -208,7 +208,7 @@ export class Sandbox extends PixiScene {
     private smokeLayer?: SmokeLayer;
     private windLayer?: WindLayer;
     private lightingLayer?: LightingLayer;
-    private combatVisuals: CombatVisuals;
+    protected combatVisuals: CombatVisuals;
     private rangedProjectiles: RangedProjectiles;
     // Screen-shake state (e.g. Armageddon wave): offsets the world root with a decaying jitter.
     private shakeTimeLeft = 0;
@@ -800,6 +800,37 @@ export class Sandbox extends PixiScene {
         }
         return renderableUnit;
     }
+    private createSplitRenderableUnit(sourceUnit: Unit, amount: number): RenderableUnit | undefined {
+        if (amount <= 0) {
+            return undefined;
+        }
+        const sourceProperties = sourceUnit.getUnitProperties();
+        const baseUnit = Unit.createUnit(
+            {
+                ...sourceProperties,
+                id: HoCLib.createSecureUuid(),
+                team: sourceUnit.getTeam(),
+                hp: sourceProperties.max_hp,
+                amount_alive: amount,
+                amount_died: 0,
+                attack_type_selected: sourceProperties.attack_type,
+            },
+            this.sc_sceneSettings.getGridSettings(),
+            sourceUnit.getTeam(),
+            UnitVals.CREATURE,
+            this.abilityFactory,
+            this.abilityFactory.getEffectsFactory(),
+            false,
+        );
+        const renderableUnit = RenderableUnit.fromBase(baseUnit, this.texAny);
+        if (renderableUnit.getSpellsCount() > 0) {
+            this.ensureDigitTextures();
+            if (this.digitTextures) {
+                renderableUnit.setSpellBookLayer(this.spellBookContainer, this.digitTextures);
+            }
+        }
+        return renderableUnit;
+    }
     protected hydrateSceneState(snapshot: SandboxSceneState): void {
         FightStateManager.getInstance().reset();
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -1114,6 +1145,7 @@ export class Sandbox extends PixiScene {
         return (
             record.action.type === "start_fight" ||
             record.action.type === "place_unit" ||
+            record.action.type === "split_unit" ||
             record.action.type === "delete_unit"
         );
     }
@@ -1146,6 +1178,7 @@ export class Sandbox extends PixiScene {
             case "select_attack_type":
                 return this.playReplayControlRecord(record);
             case "place_unit":
+            case "split_unit":
             case "delete_unit":
                 return this.applyGameAction(action);
             default:
@@ -1169,6 +1202,7 @@ export class Sandbox extends PixiScene {
                 return action.casterId;
             case "start_fight":
             case "place_unit":
+            case "split_unit":
             case "delete_unit":
                 return undefined;
             default:
@@ -2378,6 +2412,8 @@ export class Sandbox extends PixiScene {
             if (!this.selectionFromOverlay) this.clearBoardSelection();
             return;
         }
+        const wasRepositioningPlacedUnit =
+            !!this.draggingUnitId && unit.getCells().some((cell) => this.grid.getOccupantUnitId(cell) === unit.getId());
         const placementAction: GameAction = {
             type: "place_unit",
             unitId: unit.getId(),
@@ -2410,7 +2446,9 @@ export class Sandbox extends PixiScene {
         // Sync pathfinding matrices
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
-        unit.startSpawnAnimation(scale);
+        if (!wasRepositioningPlacedUnit) {
+            unit.startSpawnAnimation(scale);
+        }
         this.unitsHolder.refreshStackPowerForAllUnits();
         // 10. Clear Selection / Hover State
         // 10. Update Selection (Don't Clear)
@@ -5895,6 +5933,8 @@ export class Sandbox extends PixiScene {
             createSummonedUnit: ({ team, faction, unitName, amount }) =>
                 this.createSummonedRenderableUnit(team, faction, unitName, amount),
             canPlaceUnit: (unit, cells, action) => this.canPlaceUnitWithCommonRules(unit, cells, action),
+            canSplitUnit: (unit) => this.canSplitUnitWithCommonRules(unit),
+            createSplitUnit: (unit, amount) => this.createSplitRenderableUnit(unit, amount),
         } satisfies ConstructorParameters<typeof GameActionEngine>[0] & {
             canLandRangeAttack?: (unit: Unit) => boolean;
         };
@@ -5975,6 +6015,15 @@ export class Sandbox extends PixiScene {
             alliesPlacedCount <
             FightStateManager.getInstance().getFightProperties().getNumberOfUnitsAvailableForPlacement(action.team)
         );
+    }
+    private canSplitUnitWithCommonRules(unit: Unit): boolean {
+        const maxUnits = FightStateManager.getInstance()
+            .getFightProperties()
+            .getNumberOfUnitsAvailableForPlacement(unit.getTeam());
+        const currentUnits = Array.from(this.unitsHolder.getAllUnits().values()).filter(
+            (candidate) => candidate.getTeam() === unit.getTeam() && !candidate.isDead(),
+        ).length;
+        return currentUnits < maxUnits;
     }
     private applyGameAction(action: GameAction): boolean {
         const unitSnapshot = this.snapshotRenderableUnits();
@@ -6061,6 +6110,7 @@ export class Sandbox extends PixiScene {
                 case "attack_type_selected":
                 case "unit_moved":
                 case "unit_placed":
+                case "unit_split":
                 case "unit_attacked":
                 case "obstacle_attacked":
                 case "area_attacked":
@@ -6195,6 +6245,14 @@ export class Sandbox extends PixiScene {
             }, 2500);
         });
     }
+    /**
+     * Override the UpNext turn queue. Sandbox returns undefined so the engine-maintained
+     * fightProperties queue is used. Ranked (snapshot-driven, no local turn loop) overrides
+     * this to supply the authoritative queue from the server snapshot.
+     */
+    protected getUpNextUnitIds(): string[] | undefined {
+        return undefined;
+    }
     private handleNextUnitActivation(nextUnit: RenderableUnit): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -6212,7 +6270,10 @@ export class Sandbox extends PixiScene {
         nextUnit.syncVisual(worldRoot, gs);
 
         const unitsNext: IVisibleUnit[] = [];
-        for (const unitIdNext of FightStateManager.getInstance().getFightProperties().getUpNextQueueIterable()) {
+        const upNextOverride = this.getUpNextUnitIds();
+        const upNextQueue =
+            upNextOverride ?? FightStateManager.getInstance().getFightProperties().getUpNextQueueIterable();
+        for (const unitIdNext of upNextQueue) {
             const unitNext = this.unitsHolder.getAllUnits().get(unitIdNext);
             if (!unitNext) continue;
             unitsNext.unshift({

@@ -690,7 +690,7 @@ const buildPrompt = (
             const risks = action.risks.length ? ` risks ${action.risks.join(", ")}` : "";
             return `${action.label}. ${action.summary}${tags}${risks}${evaluationText(action)}`;
         }),
-        "Return only one choice label, such as A. Do not explain. Do not invent a move.",
+        "Return JSON only: {\"actionIndex\": 1}. Use the 1-based index of exactly one listed legal choice. Do not explain.",
     ].join("\n");
 };
 
@@ -725,6 +725,10 @@ const extractAction = (content: string, actions: LocalModelLegalAction[]): Local
             // Fall through to loose parsing.
         }
     }
+    const bracketLabelMatch = cleaned.match(/^\s*[*_\s]*(?:\[\s*([A-Z])\s*\]|\(\s*([A-Z])\s*\))/i);
+    if (bracketLabelMatch) {
+        return actions.find((action) => action.label === (bracketLabelMatch[1] ?? bracketLabelMatch[2]).toUpperCase());
+    }
     const labelMatch =
         cleaned.match(/^\s*(?:choice|action|option|move|answer)?\s*[:#-]?\s*([A-Z])\b/i) ??
         cleaned.match(/\b(?:choose|pick|select|selected|answer|option|move|choice|action)\s*(?:is|:|#|-)?\s*([A-Z])\b/i);
@@ -732,6 +736,7 @@ const extractAction = (content: string, actions: LocalModelLegalAction[]): Local
         return actions.find((action) => action.label === labelMatch[1].toUpperCase());
     }
     const indexMatch =
+        cleaned.match(/^\s*\(?\s*(\d+)\s*\)?\b/i) ??
         cleaned.match(/^\s*(?:choice|action|option|move|answer)?\s*[:#-]?\s*(\d+)\b/i) ??
         cleaned.match(/\b(?:choose|pick|select|selected|answer|option|move|choice|action)\s*(?:is|:|#|-)?\s*(\d+)\b/i);
     if (indexMatch) {
@@ -784,7 +789,14 @@ export const chooseLocalModelAction = async (input: {
                 temperature: Number((import.meta.env as Record<string, string | undefined>).VITE_HOC_MODEL_TEMPERATURE ?? 0),
                 max_tokens: 120,
                 enable_thinking: false,
-                messages: [{ role: "user", content: prompt }],
+                messages: [
+                    {
+                        role: "system",
+                        content:
+                            "You are a deterministic controller for a local strategy game. Choose one legal action. Output only valid JSON.",
+                    },
+                    { role: "user", content: prompt },
+                ],
             }),
         });
         if (!response.ok) {

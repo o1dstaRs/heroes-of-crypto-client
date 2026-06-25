@@ -40,6 +40,7 @@ export interface AuthoritativeGameSnapshot {
     narrowingLayers: number;
     centerDried: boolean;
     units: AuthoritativeUnitState[];
+    upNext?: string[];
 }
 
 export type SceneGameActionTransportResult =

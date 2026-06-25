@@ -302,7 +302,11 @@ export class UnitChip extends Container {
     public override destroy(options?: Parameters<Container["destroy"]>[0]): void {
         this.stopAtlasAnimation();
         if (this.tweenStepFn && this.ticker) {
-            this.ticker.remove(this.tweenStepFn);
+            try {
+                this.ticker.remove(this.tweenStepFn);
+            } catch {
+                // Pixi may already have torn down ticker internals during HMR/app destroy.
+            }
         }
         this.tweenStepFn = undefined;
         this.isTweening = false;
@@ -310,14 +314,20 @@ export class UnitChip extends Container {
     }
     private stopAtlasAnimation(): void {
         if (this.animationStepFn && this.ticker) {
-            this.ticker.remove(this.animationStepFn);
+            try {
+                this.ticker.remove(this.animationStepFn);
+            } catch {
+                // Pixi may already have torn down ticker internals during HMR/app destroy.
+            }
         }
         this.animationStepFn = undefined;
         this.animationFrames = undefined;
         this.animationFrameIndex = 0;
 
         // Restore static idle texture when not selected
-        this.sprite.texture = this.idleTexture;
+        if (!this.sprite.destroyed) {
+            this.sprite.texture = this.idleTexture;
+        }
     }
     public setBanned(v: boolean) {
         if (this.banned === v) return;

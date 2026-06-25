@@ -135,7 +135,7 @@ describe("createPlayActionFromGameAction", () => {
         });
     });
 
-    it("maps placement, deletion, and attack type selection", () => {
+    it("maps placement, splitting, deletion, and attack type selection", () => {
         const placement: GameAction = {
             type: "place_unit",
             unitId: "u1",
@@ -167,6 +167,14 @@ describe("createPlayActionFromGameAction", () => {
             type: PlayActionType.DELETE_UNIT,
             unitId: "u3",
         });
+
+        expect(createPlayActionFromGameAction({ type: "split_unit", unitId: "u4", amount: 3 }, envelope)).toMatchObject(
+            {
+                type: PlayActionType.SPLIT_UNIT,
+                unitId: "u4",
+                amount: 3,
+            },
+        );
     });
 });
 
@@ -232,6 +240,14 @@ describe("createGameActionFromPlayAction", () => {
                 reason: "timeout",
             }),
         ).toEqual({ type: "end_turn", unitId: "u2", reason: "timeout" });
+
+        expect(
+            createGameActionFromPlayAction({
+                type: PlayActionType.SPLIT_UNIT,
+                unitId: "u3",
+                amount: 4,
+            }),
+        ).toEqual({ type: "split_unit", unitId: "u3", amount: 4 });
     });
 
     it("skips protocol entries that do not describe one concrete common action", () => {

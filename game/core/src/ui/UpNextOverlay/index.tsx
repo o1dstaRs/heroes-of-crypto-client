@@ -10,6 +10,7 @@ import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { CasualtyChart, CasualtyPercents } from "../FightStats/CasualtyChart";
 import { meteorIconDataUrl } from "../meteorIcon";
+import { resolveUnitImage } from "../unitImage";
 const stopImg = new URL("../../../images/icon_skip_black.webp", import.meta.url).toString();
 const hourglassImg = new URL("../../../images/hourglass.webp", import.meta.url).toString();
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
@@ -196,7 +197,7 @@ export const UpNextOverlay: React.FC = () => {
                             <Box sx={{ position: "relative", display: "inline-block" }}>
                                 <Avatar
                                     // @ts-ignore: src params
-                                    src={images[unit.smallTextureName]}
+                                    src={resolveUnitImage(unit.smallTextureName, unit.name)}
                                     variant="plain"
                                     sx={{
                                         width: index === 0 ? "86.4px" : "72px",

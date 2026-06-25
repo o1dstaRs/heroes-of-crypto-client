@@ -7,7 +7,9 @@ import {
     type AttackType,
     type CreatureId,
     type GameAction,
+    type GameEvent,
     type GridType,
+    type HoCMath,
     type TeamType,
     type Unit,
     type UnitProperties,
@@ -44,6 +46,7 @@ export const authoritativeUnitToSandboxUnitState = (
 
 export const authoritativeSnapshotToSandboxSceneState = (
     snapshot: AuthoritativeGameSnapshot,
+    options: { hideOpponentPlacements?: boolean } = {},
 ): SandboxSceneState => ({
     gridType: snapshot.gridType as GridType,
     currentLap: snapshot.currentLap,
@@ -53,6 +56,15 @@ export const authoritativeSnapshotToSandboxSceneState = (
     narrowingLayers: snapshot.narrowingLayers,
     centerDried: snapshot.centerDried,
     units: snapshot.units.flatMap((unit) => {
+        if (
+            options.hideOpponentPlacements &&
+            !snapshot.fightStarted &&
+            !snapshot.fightFinished &&
+            snapshot.viewerTeam !== undefined &&
+            unit.team !== snapshot.viewerTeam
+        ) {
+            return [];
+        }
         const restored = authoritativeUnitToSandboxUnitState(unit);
         return restored ? [restored] : [];
     }),
@@ -99,7 +111,10 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
 export class RankedPlayScene extends Sandbox {
     private lastAuthoritativeSequence = -1;
     private lastBoardSignature = "";
+    private lastPlacementUnitIdsKey = "";
+    private readonly lastPlacementStateByUnitId = new Map<string, string>();
     private viewerTeam?: TeamType;
+    private upNextUnitIds?: string[];
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return undefined;
     }
@@ -114,6 +129,9 @@ export class RankedPlayScene extends Sandbox {
     public override selectAuthoritativeUnit(unitId: string): void {
         this.selectSceneUnitForPlacement(unitId);
     }
+    protected override getUpNextUnitIds(): string[] | undefined {
+        return this.upNextUnitIds;
+    }
     public override applyAuthoritativeSnapshot(snapshot: AuthoritativeGameSnapshot): void {
         const boardSignature = this.createBoardSignature(snapshot);
         if (snapshot.latestSequence < this.lastAuthoritativeSequence) {
@@ -125,8 +143,23 @@ export class RankedPlayScene extends Sandbox {
         }
         this.lastBoardSignature = boardSignature;
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
+        this.upNextUnitIds = snapshot.upNext;
+        const placementUnitIdsKey =
+            !snapshot.fightStarted && !snapshot.fightFinished ? this.createPlacementUnitIdsKey(snapshot) : "";
+        const canSkipPreFightHydrate =
+            !snapshot.fightStarted &&
+            !snapshot.fightFinished &&
+            this.viewerTeam !== undefined &&
+            this.lastPlacementUnitIdsKey !== "" &&
+            placementUnitIdsKey === this.lastPlacementUnitIdsKey;
+        this.lastPlacementUnitIdsKey = placementUnitIdsKey;
+        this.rememberPlacementStates(snapshot);
+        if (canSkipPreFightHydrate) {
+            return;
+        }
+
         const selectedUnitId = this.sc_selectedUnitProperties?.id;
-        const state = authoritativeSnapshotToSandboxSceneState(snapshot);
+        const state = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
 
         this.hydrateSceneState(state);
         this.applyFinishedVisibleState(snapshot, state.units);
@@ -137,6 +170,8 @@ export class RankedPlayScene extends Sandbox {
     public override applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
         this.lastAuthoritativeSequence = snapshot.latestSequence - 1;
         this.lastBoardSignature = "";
+        this.lastPlacementUnitIdsKey = "";
+        this.lastPlacementStateByUnitId.clear();
         this.applyAuthoritativeSnapshot(snapshot);
     }
     public override startScene(): boolean {
@@ -271,13 +306,40 @@ export class RankedPlayScene extends Sandbox {
                 if (result.message) {
                     this.sc_sceneLog.updateLog(result.message);
                 }
+                let events: GameEvent[] = [];
+                if (result.completed && action.type === "place_unit") {
+                    const localResult = super.createActionEngine().apply(action);
+                    if (!localResult.completed) {
+                        return localResult;
+                    }
+                    events = localResult.events;
+                }
                 return {
                     completed: result.completed,
-                    events: [],
+                    events,
                     message: result.message,
                 };
             },
         };
+    }
+    private createPlacementUnitIdsKey(snapshot: AuthoritativeGameSnapshot): string {
+        return snapshot.units
+            .map((unit) => unit.id)
+            .sort()
+            .join("|");
+    }
+    private rememberPlacementStates(snapshot: AuthoritativeGameSnapshot): void {
+        this.lastPlacementStateByUnitId.clear();
+        if (snapshot.fightStarted || snapshot.fightFinished) {
+            return;
+        }
+        for (const unit of snapshot.units) {
+            this.lastPlacementStateByUnitId.set(unit.id, this.placementStateKey(unit));
+        }
+    }
+    private placementStateKey(unit: AuthoritativeUnitState): string {
+        const cells = unit.cells.map((cell) => `${cell.x}:${cell.y}`).join(",");
+        return `${unit.team}|${unit.placed ? 1 : 0}|${unit.dead ? 1 : 0}|${unit.amountAlive}|${cells}`;
     }
     private createBoardSignature(snapshot: AuthoritativeGameSnapshot): string {
         return JSON.stringify({
@@ -292,6 +354,7 @@ export class RankedPlayScene extends Sandbox {
             centerDried: snapshot.centerDried,
             viewerTeam: snapshot.viewerTeam,
             winnerTeam: snapshot.winnerTeam,
+            upNext: snapshot.upNext,
             units: snapshot.units.map((unit) => ({
                 id: unit.id,
                 team: unit.team,

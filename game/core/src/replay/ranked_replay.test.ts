@@ -89,6 +89,7 @@ const createSnapshot = (journalTail: PlayJournalEntry[], latestSequence: number)
     players: [],
     readyPlayerIds: [],
     journalTail,
+    upNext: [],
     maxLowerUnits: 0,
     maxUpperUnits: 0,
     narrowingLayers: 0,

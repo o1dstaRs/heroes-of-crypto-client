@@ -109,6 +109,7 @@ export interface PlaySnapshot {
     maxUpperUnits: number;
     narrowingLayers: number;
     centerDried: boolean;
+    upNext: string[];
 }
 
 export interface PlayAction {
@@ -486,6 +487,7 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         maxUpperUnits: 0,
         narrowingLayers: 0,
         centerDried: false,
+        upNext: [],
     };
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
@@ -527,6 +529,8 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             snapshot.narrowingLayers = reader.varintNumber();
         } else if (field === 19) {
             snapshot.centerDried = reader.bool();
+        } else if (field === 20) {
+            snapshot.upNext.push(reader.string());
         } else {
             reader.skip(wireType);
         }

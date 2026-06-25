@@ -55,10 +55,13 @@ export const toBytes = (data: unknown): Uint8Array => {
     return new Uint8Array(data as ArrayBuffer);
 };
 
-export const fetchRankedPlaySnapshot = async (gameId: string): Promise<PlaySnapshot> => {
+export const fetchRankedPlaySnapshot = async (
+    gameId: string,
+    options?: { authorization?: string },
+): Promise<PlaySnapshot> => {
     const response = await axiosGameInstance.get(playSnapshotUrl(gameId), {
         responseType: "arraybuffer",
-        headers: authHeaders(),
+        headers: authHeaders(options?.authorization),
     });
     return decodePlaySnapshot(toBytes(response.data));
 };
@@ -171,6 +174,7 @@ export const toAuthoritativeGameSnapshot = (
     narrowingLayers: snapshot.narrowingLayers,
     centerDried: snapshot.centerDried,
     units: snapshot.units,
+    upNext: snapshot.upNext,
 });
 
 interface RankedGameActionTransportOptions {
@@ -219,6 +223,6 @@ export const createRankedGameActionTransport = ({
                 onError?.(err instanceof Error ? err : new Error(String(err)));
             });
 
-        return { handled: true, completed: true, message: "Submitted to ranked server" };
+        return { handled: true, completed: true };
     };
 };

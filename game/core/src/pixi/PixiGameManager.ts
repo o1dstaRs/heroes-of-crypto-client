@@ -394,6 +394,9 @@ export class PixiGameManager {
         this.fitViewToWindow();
         this.UpdateHoverInfo();
     }
+    public ApplyAuthoritativeVfx(events: GameEvent[]): void {
+        this.m_scene?.applyAuthoritativeVfx(events);
+    }
     public ApplyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
         this.m_scene?.applyAuthoritativeReplaySnapshot(snapshot);
         this.started = snapshot.fightStarted && !snapshot.fightFinished;

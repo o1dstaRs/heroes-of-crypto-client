@@ -253,6 +253,7 @@ const extractChoice = (content: string, choices: DraftChoice[]): DraftChoice | u
     if (jsonMatch) {
         try {
             const parsed = JSON.parse(jsonMatch[0]) as {
+                actionIndex?: unknown;
                 choice?: unknown;
                 label?: unknown;
                 index?: unknown;
@@ -262,7 +263,7 @@ const extractChoice = (content: string, choices: DraftChoice[]): DraftChoice | u
             const label = String(parsed.label ?? parsed.choice ?? "").trim().toUpperCase();
             const byLabel = choices.find((choice) => choice.label === label);
             if (byLabel) return byLabel;
-            const index = Number(parsed.index ?? parsed.choice);
+            const index = Number(parsed.actionIndex ?? parsed.index ?? parsed.choice);
             if (Number.isInteger(index) && index >= 1 && index <= choices.length) {
                 return choices[index - 1];
             }
@@ -278,6 +279,10 @@ const extractChoice = (content: string, choices: DraftChoice[]): DraftChoice | u
             // Fall through to loose parsing.
         }
     }
+    const bracketLabelMatch = cleaned.match(/^\s*[*_\s]*(?:\[\s*([A-Z])\s*\]|\(\s*([A-Z])\s*\))/i);
+    if (bracketLabelMatch) {
+        return choices.find((choice) => choice.label === (bracketLabelMatch[1] ?? bracketLabelMatch[2]).toUpperCase());
+    }
     const labelMatch =
         cleaned.match(/^\s*(?:choice|action|option|answer)?\s*[:#-]?\s*([A-Z])\b/i) ??
         cleaned.match(/\b(?:choose|pick|ban|select|selected|answer|option|choice|action)\s*(?:is|:|#|-)?\s*([A-Z])\b/i);
@@ -285,6 +290,7 @@ const extractChoice = (content: string, choices: DraftChoice[]): DraftChoice | u
         return choices.find((choice) => choice.label === labelMatch[1].toUpperCase());
     }
     const indexMatch =
+        cleaned.match(/^\s*\(?\s*(\d+)\s*\)?\b/i) ??
         cleaned.match(/^\s*(?:choice|action|option|answer)?\s*[:#-]?\s*(\d+)\b/i) ??
         cleaned.match(/\b(?:choose|pick|ban|select|selected|answer|option|choice|action)\s*(?:is|:|#|-)?\s*(\d+)\b/i);
     if (indexMatch) {
@@ -310,7 +316,7 @@ const buildDraftPrompt = (
     `Banned creatures: ${event.b.map(creatureName).join(", ") || "none"}.`,
     "Legal choices:",
     ...choices.map((choice) => `${choice.label}. ${choice.summary}; score ${choice.score}; tags ${choice.tags.join(", ")}`),
-    "Return only one listed choice label, such as A. Do not explain.",
+    "Return JSON only: {\"actionIndex\": 1}. Use the 1-based index of exactly one listed legal choice. Do not explain.",
 ].join("\n");
 
 const chooseDraftChoice = async (
@@ -331,7 +337,14 @@ const chooseDraftChoice = async (
                 temperature: Number((import.meta.env as Record<string, string | undefined>).VITE_HOC_MODEL_TEMPERATURE ?? 0),
                 max_tokens: 80,
                 enable_thinking: false,
-                messages: [{ role: "user", content: buildDraftPrompt(config, event, choices) }],
+                messages: [
+                    {
+                        role: "system",
+                        content:
+                            "You are a deterministic controller for a local strategy-game draft. Choose one legal draft action. Output only valid JSON.",
+                    },
+                    { role: "user", content: buildDraftPrompt(config, event, choices) },
+                ],
             }),
         });
         if (!response.ok) {
@@ -431,7 +444,12 @@ export const LocalModelDraftOpponent: React.FC<{ eventUrl: string }> = ({ eventU
                     completedSignaturesRef.current.add(signature);
                     return;
                 } catch (err) {
-                    console.warn("[local model draft] rejected", choice.summary, (err as Error).message);
+                    const message = (err as Error).message;
+                    console.warn("[local model draft] rejected", choice.summary, message);
+                    if (/not your turn|current phase/i.test(message)) {
+                        completedSignaturesRef.current.add(signature);
+                        return;
+                    }
                     failedChoiceIds.add(failedId);
                     await sleep(250);
                 }
