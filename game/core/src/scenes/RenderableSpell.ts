@@ -16,12 +16,15 @@ export enum BookPosition {
     SIX = 6,
 }
 
-// Coordinates are local to the centered 1024x1024 book texture.
-// Keep the spell cells inside the parchment rectangles instead of tuning against screen pixels.
-const BOOK_POSITION_LEFT_X = -380;
-const BOOK_POSITION_RIGHT_X = 96;
-const BOOK_POSITION_TOP_Y = -292;
-const BOOK_POSITION_ROW_STEP = 226;
+// Coordinates are local to the centered 1024x1024 book texture (origin = book centre / spine).
+// Each parchment page's writable frame is centred at local x ≈ ±206 (cell centre = X + CELL/2),
+// and both pages share a vertical writable centre at y ≈ -35. The cell column on each page and the
+// 3-row stack are centred against those so the spells sit squarely on the parchment, not drifting
+// left or hanging past the bottom border.
+const BOOK_POSITION_LEFT_X = -316; // centre -206 — mirrors the right page (was -380 → drifted left)
+const BOOK_POSITION_RIGHT_X = 96; // centre +206
+const BOOK_POSITION_TOP_Y = -375; // top row so the 3-row stack is vertically centred on the page
+const BOOK_POSITION_ROW_STEP = 230;
 const BOOK_CELL_SIZE = 220;
 const BOOK_SPELL_SIZE = 140;
 const BOOK_ICON_OFFSET_X = 40;

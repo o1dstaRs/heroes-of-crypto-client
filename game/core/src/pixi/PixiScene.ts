@@ -14,6 +14,7 @@ import {
     MovementVals,
     TeamType,
     FactionType,
+    FactionVals,
     AttackType,
     GridType,
     SynergyWithLevel,
@@ -400,6 +401,8 @@ export abstract class PixiScene {
     }
     protected setSelectedUnitProperties(unitProperties: UnitProperties): void {
         this.sc_selectedUnitProperties = unitProperties;
+        this.sc_selectedFactionType = FactionVals.NO_FACTION as FactionType;
+        this.sc_factionNameUpdateNeeded = true;
 
         const visibleAbilitiesImpact: IVisibleImpact[] = [];
         const visibleBuffsImpact: IVisibleImpact[] = [];

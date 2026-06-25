@@ -4,7 +4,7 @@ import Box from "@mui/joy/Box";
 import Tooltip from "@mui/joy/Tooltip";
 import React, { useMemo } from "react";
 
-const SynergiesRow = ({ synergies }: { synergies: string[] }) => {
+const SynergiesRow = ({ synergies, wrap = false }: { synergies: string[]; wrap?: boolean }) => {
     const sortedSynergies = useMemo(
         () =>
             [...synergies].sort((a, b) => {
@@ -24,8 +24,12 @@ const SynergiesRow = ({ synergies }: { synergies: string[] }) => {
             sx={{
                 display: "flex",
                 gap: 1,
-                height: "40px", // 32px for images + 4px padding top and bottom
-                alignItems: "center",
+                rowGap: wrap ? 1.5 : undefined,
+                flexWrap: wrap ? "wrap" : "nowrap",
+                justifyContent: wrap ? "center" : "flex-start",
+                height: wrap ? "auto" : "40px", // 32px for images + 4px padding top and bottom
+                minHeight: "40px",
+                alignItems: wrap ? "flex-start" : "center",
             }}
         >
             {sortedSynergies.map((synergyKey) => {

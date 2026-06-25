@@ -2,19 +2,21 @@ import { Container, Sprite, Texture, Graphics } from "pixi.js";
 import { GridSettings, HoCMath } from "@heroesofcrypto/common";
 
 /**
- * Moody dungeon lighting: a soft darkening over the board with warm orange "torch" glow ringing the
- * perimeter, so the centre reads dark and the surround is lit — like a room lit by wall torches.
+ * Moody dungeon lighting: a soft darkening over the board with warm orange "torch" glow spilling in
+ * from the midpoint of each of the four walls, so the centre reads dark and the surround is lit —
+ * like a room lit by wall sconces. This is the world-space pass that actually falls on the units;
+ * it mirrors the wall-sconce shader (DungeonLightFilter) that lights the background floor.
  *
  * Built from a darkening overlay + additive radial sprites (no fragile full-screen shader), so it
  * can't break the scene render. Tune the constants below to taste.
  */
 // Darkening laid over the board so the lit surround has something to read against.
 const DARK_COLOR = 0x080a14;
-const DARK_ALPHA = 0.3;
+const DARK_ALPHA = 0.4;
 // Warm torch glow.
 const TORCH_TINT = 0xff7c2e;
-const TORCH_ALPHA = 0.42;
-const TORCH_RADIUS_FACTOR = 0.36; // of the board's larger side — small enough that the centre stays dim
+const TORCH_ALPHA = 0.3;
+const TORCH_RADIUS_FACTOR = 0.34; // of the board's larger side — reach inward from each wall, centre stays dim
 
 /** White radial-falloff texture (soft, non-hot center -> transparent edge); tinted per-light. */
 function makeRadialTexture(): Texture {
@@ -62,19 +64,16 @@ export class LightingLayer {
         dark.rect(minX - m, minY - m, w + 2 * m, h + 2 * m).fill({ color: DARK_COLOR, alpha: DARK_ALPHA });
         this.container.addChild(dark);
 
-        // 2. Warm torches around the perimeter (corners + edge midpoints).
+        // 2. Warm sconces at the midpoint of each of the four walls (no corner lights — the corners
+        //    stay shadowed, which is what sells the "lit by wall torches" look).
         const tex = makeRadialTexture();
         const texW = tex.width || 512;
         const radius = Math.max(w, h) * TORCH_RADIUS_FACTOR;
         const positions: HoCMath.XY[] = [
-            { x: minX, y: minY },
-            { x: cx, y: minY },
-            { x: maxX, y: minY },
-            { x: minX, y: cy },
-            { x: maxX, y: cy },
-            { x: minX, y: maxY },
-            { x: cx, y: maxY },
-            { x: maxX, y: maxY },
+            { x: cx, y: minY }, // top wall
+            { x: cx, y: maxY }, // bottom wall
+            { x: minX, y: cy }, // left wall
+            { x: maxX, y: cy }, // right wall
         ];
         positions.forEach((p, i) => {
             const sprite = new Sprite(tex);

@@ -40,7 +40,7 @@ interface IShatterGroup {
 }
 
 // Tuning for the floating damage numbers.
-const FT_LIFE = 1.1; // seconds on screen
+const FT_LIFE = 0.8; // seconds on screen
 const FT_RISE = 72; // world px the number floats up
 const FT_DRIFT = 26; // world px horizontal drift in the hit direction
 const FT_POP_DUR = 0.16; // seconds of the spawn "pop"
@@ -167,9 +167,9 @@ export class CombatVisuals {
                     vx,
                     vy,
                     rotSpeed: (Math.random() - 0.5) * 12,
-                    delay: Math.random() * 0.06,
+                    delay: Math.random() * 0.04,
                     age: 0,
-                    life: 0.56 + Math.random() * 0.28,
+                    life: 0.4 + Math.random() * 0.2,
                     x: sx,
                     y: sy,
                 });

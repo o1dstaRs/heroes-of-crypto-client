@@ -1,5 +1,7 @@
-import { Container, Graphics, Sprite, Texture } from "pixi.js";
+import { Container, Filter, Graphics, Sprite, Texture } from "pixi.js";
 import { GridSettings, GridVals, FightStateManager, HoCConstants } from "@heroesofcrypto/common";
+
+import { createDungeonLightFilter, updateDungeonLightUniforms } from "./DungeonLightFilter";
 
 export interface IDungeonVisualsContext {
     getStage(): Container;
@@ -10,18 +12,17 @@ export interface IDungeonVisualsContext {
     attachToWorldRoot(obj: Container, zIndex?: number): void;
 }
 
-interface IFlickeringLight extends Graphics {
-    _flickerOffset: number;
-    _flickerSpeed: number;
-    _baseScale: number;
-    _baseAlpha: number;
-}
-
 export class DungeonVisuals {
     private context: IDungeonVisualsContext;
     // State
     private atmosphereAlpha = 0;
-    private atmosphereLights: Graphics[] = [];
+    /** GLSL "wall-sconce" lighting applied over the board square; replaces the old circle fills. */
+    private lightFilter?: Filter;
+    private lightOverlay?: Graphics;
+    private lightBuilt = false;
+    /** Sconce inset (board-square uv units) so the light tracks the board as holes eat the edges. */
+    private lightInward = 0;
+    private lightTimeSec = 0;
     private dungeonOverlay?: Container;
     private holeContainer: Container;
     private bgSprite?: Sprite;
@@ -78,126 +79,44 @@ export class DungeonVisuals {
         const y = vh * 0.5;
         const halfSize = size / 2;
 
-        // A. Dark Night Overlay — light enough that the background still reads through it.
+        // A single board-square quad carries the "wall-sconce" lighting. The dark fill is what the
+        // GLSL pass composites over: unlit cells stay dark, warm pools bleed inward from each wall.
+        // (Replaces the old stack of concentric circle fills, which read as flat rings.)
         const overlay = new Graphics();
-        overlay.rect(x - halfSize, y - halfSize, size, size).fill({ color: 0x000000, alpha: 0.38 });
+        overlay.rect(x - halfSize, y - halfSize, size, size).fill({ color: 0x000000, alpha: 1 });
         overlayContainer.addChild(overlay);
+        this.lightOverlay = overlay;
 
-        // B. Perimeter Lights
-        const radius = size * 0.25;
-        this.atmosphereLights = [];
-
-        const margin = size * 0.18;
-        const tl = { x: x - halfSize - margin, y: y - halfSize - margin };
-        const tr = { x: x + halfSize + margin, y: y - halfSize - margin };
-        const bl = { x: x - halfSize - margin, y: y + halfSize + margin };
-        const br = { x: x + halfSize + margin, y: y + halfSize + margin };
-
-        const lightsInit: Array<{ x: number; y: number }> = [];
-        const steps = 6;
-        const jitter = () => (Math.random() - 0.5) * (size * 0.05);
-
-        // Top
-        for (let i = 0; i <= steps; i++) {
-            lightsInit.push({ x: tl.x + (tr.x - tl.x) * (i / steps) + jitter(), y: tl.y + jitter() });
+        if (!this.lightFilter) {
+            this.lightFilter = createDungeonLightFilter();
         }
-        // Right
-        for (let i = 0; i <= steps; i++) {
-            lightsInit.push({ x: tr.x + jitter(), y: tr.y + (br.y - tr.y) * (i / steps) + jitter() });
+        if (this.lightFilter) {
+            overlay.filters = [this.lightFilter];
+            updateDungeonLightUniforms(this.lightFilter, this.lightTimeSec, this.lightInward);
+        } else {
+            // Shader unavailable — keep a plain dark night overlay so the scene still reads as a dungeon.
+            overlay.clear();
+            overlay.rect(x - halfSize, y - halfSize, size, size).fill({ color: 0x05060c, alpha: 0.5 });
         }
-        // Bottom
-        for (let i = 0; i <= steps; i++) {
-            lightsInit.push({ x: br.x + (bl.x - br.x) * (i / steps) + jitter(), y: br.y + jitter() });
-        }
-        // Left
-        for (let i = 0; i <= steps; i++) {
-            lightsInit.push({ x: bl.x + jitter(), y: bl.y + (tl.y - bl.y) * (i / steps) + jitter() });
-        }
-
-        lightsInit.forEach((pos) => {
-            const light = new Graphics();
-            // Per-light variation so the perimeter reads as separate braziers, not a uniform band.
-            const r = radius * (0.55 + Math.random() * 0.85); // 0.55 .. 1.4 of base
-            const intensity = 0.7 + Math.random() * 0.5;
-            // Smooth radial falloff via fine concentric layers. Avoid a per-light BlurFilter here:
-            // large blurred Graphics clipped near the viewport edge produce hard horizontal bands.
-            const layers = 22;
-            for (let L = layers; L >= 1; L--) {
-                const lr = (r * L) / layers;
-                const tcore = 1 - (L - 1) / (layers - 1); // 0 (edge) -> 1 (core)
-                const color = tcore > 0.66 ? 0xffe9b0 : tcore > 0.33 ? 0xffa83c : 0xc23e06;
-                const edgeFade = 1 - L / layers;
-                const a = (0.015 * edgeFade + 0.2 * tcore * tcore) * intensity;
-                light.circle(0, 0, lr).fill({ color, alpha: a });
-            }
-
-            const fLight = light as unknown as IFlickeringLight;
-            fLight._flickerOffset = Math.random() * 100;
-            fLight._flickerSpeed = 1.4 + Math.random() * 3.2;
-            fLight._baseScale = 1;
-            fLight._baseAlpha = 0.8 + Math.random() * 0.2;
-
-            light.position.set(pos.x, pos.y);
-            light.alpha = fLight._baseAlpha;
-            overlayContainer.addChild(light);
-            this.atmosphereLights.push(light);
-        });
+        this.lightBuilt = true;
     }
     public hasAtmosphereLights(): boolean {
-        return this.atmosphereLights.length > 0;
+        return this.lightBuilt;
     }
-    /** Organic two-octave flicker (intensity + a subtle scale "breath") for the perimeter fires. */
+    /** Advance the per-sconce flicker by pushing absolute time into the lighting shader. */
     public updateAtmosphereFlicker(nowSec: number): void {
-        for (const light of this.atmosphereLights) {
-            const f = light as unknown as IFlickeringLight;
-            const offset = f._flickerOffset ?? 0;
-            const speed = f._flickerSpeed ?? 1;
-            // Sum of two sines (different rates) reads as flame, not a clean pulse. Range ~[-1, 1].
-            const n = 0.6 * Math.sin(nowSec * speed + offset) + 0.4 * Math.sin(nowSec * speed * 2.7 + offset * 1.7);
-            light.alpha = (f._baseAlpha ?? 0.9) * (0.72 + 0.28 * n);
-            const s = (f._baseScale ?? 1) * (1.0 + 0.07 * n);
-            light.scale.set(s, s);
+        this.lightTimeSec = nowSec;
+        if (this.lightFilter) {
+            updateDungeonLightUniforms(this.lightFilter, this.lightTimeSec, this.lightInward);
         }
     }
+    /** Pull the sconces toward the centre as the board shrinks (holes eat the perimeter). */
     public moveFiresInward(inwardOffset: number): void {
-        if (!this.atmosphereLights || this.atmosphereLights.length === 0) return;
-
-        const { width: vw, height: vh } = this.context.getViewportSize();
-        const size = Math.min(vw, vh);
-        const x = vw * 0.5;
-        const y = vh * 0.5;
-        const halfSize = size / 2;
-
-        const cellSize = this.context.getGridSettings().getCellSize();
-        const inwardShift = (inwardOffset + 1) * cellSize * 0.5;
-
-        const baseMargin = size * 0.22;
-        const adjustedMargin = baseMargin - inwardShift;
-
-        const tl = { x: x - halfSize - adjustedMargin, y: y - halfSize - adjustedMargin };
-        const tr = { x: x + halfSize + adjustedMargin, y: y - halfSize - adjustedMargin };
-        const bl = { x: x - halfSize - adjustedMargin, y: y + halfSize + adjustedMargin };
-        const br = { x: x + halfSize + adjustedMargin, y: y + halfSize + adjustedMargin };
-
-        const steps = 6;
-        const lightsPerEdge = steps + 1;
-
-        const getPos = (edgeIdx: number, stepIdx: number): { x: number; y: number } => {
-            const t = stepIdx / steps;
-            if (edgeIdx === 0) return { x: tl.x + (tr.x - tl.x) * t, y: tl.y }; // Top
-            if (edgeIdx === 1) return { x: tr.x, y: tr.y + (br.y - tr.y) * t }; // Right
-            if (edgeIdx === 2) return { x: br.x + (bl.x - br.x) * t, y: br.y }; // Bottom
-            return { x: bl.x, y: bl.y + (tl.y - bl.y) * t }; // Left
-        };
-
-        this.atmosphereLights.forEach((light, i) => {
-            const edgeIndex = Math.floor(i / lightsPerEdge);
-            const stepIndex = i % lightsPerEdge;
-            const newPos = getPos(edgeIndex, stepIndex);
-
-            // Should we animate? Logic was simple assignment
-            light.position.set(newPos.x, newPos.y);
-        });
+        // ~one grid cell per hole layer, expressed in board-square uv (16 cells across the square).
+        this.lightInward = Math.min(0.42, Math.max(0, inwardOffset) / 16);
+        if (this.lightFilter) {
+            updateDungeonLightUniforms(this.lightFilter, this.lightTimeSec, this.lightInward);
+        }
     }
     public spawnHoleLayer(layerIndex: number): void {
         const gs = this.context.getGridSettings();
@@ -375,7 +294,12 @@ export class DungeonVisuals {
     }
     public onResize(): void {
         if (this.dungeonOverlay) {
+            // Detach the (reused) light filter before tearing the overlay down, then force a rebuild
+            // at the new viewport size on the next updateDungeonAtmosphere.
+            if (this.lightOverlay) this.lightOverlay.filters = [];
             this.dungeonOverlay.removeChildren();
+            this.lightOverlay = undefined;
+            this.lightBuilt = false;
         }
     }
     public attachCenterTerrainSprite(): void {
@@ -384,12 +308,11 @@ export class DungeonVisuals {
         }
     }
     public update(dt: number) {
-        if (this.atmosphereLights.length > 0) {
-            this.atmosphereLights.forEach((light) => {
-                const fLight = light as unknown as IFlickeringLight;
-                fLight._flickerOffset += dt * fLight._flickerSpeed;
-                light.alpha = 0.5 + Math.sin(fLight._flickerOffset) * 0.1;
-            });
+        // Keep the shader's clock advancing even when updateAtmosphereFlicker isn't driving it (e.g.
+        // before the fight starts), so the sconces never freeze mid-flicker.
+        if (this.lightBuilt && this.lightFilter) {
+            this.lightTimeSec += dt;
+            updateDungeonLightUniforms(this.lightFilter, this.lightTimeSec, this.lightInward);
         }
     }
 }

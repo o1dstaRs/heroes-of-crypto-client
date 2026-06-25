@@ -15,6 +15,7 @@ import { PixiRenderableSpell } from "./RenderableSpell";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { animationAtlases, AnimationUnitName, AnimationStateName } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../generated/image_imports";
+import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationTiming";
 export type TexResolver = (name: string) => Texture | undefined;
 // --- Atlas helpers (same logic as UnitChip) ---
 type AtlasMeta = (typeof animationAtlases)[AnimationUnitName][AnimationStateName];
@@ -116,12 +117,9 @@ export class RenderableUnit extends Unit {
     private spawnAnim?: SpawnAnimState;
     private boardSelected = false;
     private selectionAnimFrames?: Texture[];
-    private selectionAnimFrameIndex = 0;
-    private selectionAnimDirection: 1 | -1 = 1;
-    private selectionAnimInPause = false;
-    private selectionAnimStepMs = 0;
-    private selectionAnimPauseMs = 0;
-    private selectionAnimNextStepAtMs = 0;
+    private selectionAnimTiming?: AtlasPingPongTiming;
+    // Last frame written to the sprite; -1 forces the next step to apply the in-phase frame.
+    private selectionAnimFrameIndex = -1;
     private stackForcedHidden = false;
     private isActiveTurn = false;
     private isDestroyed = false;
@@ -491,54 +489,25 @@ export class RenderableUnit extends Unit {
         }
         if (!frames.length) return;
         this.selectionAnimFrames = frames;
-        this.selectionAnimFrameIndex = 0;
-        this.selectionAnimDirection = 1;
-        this.selectionAnimInPause = false;
-        const frameCount = meta.frameCount ?? frames.length;
-        const fallbackTotalSec =
-            typeof meta.totalDurationSec === "number" && Number.isFinite(meta.totalDurationSec)
-                ? meta.totalDurationSec
-                : frameCount / (meta.fps || 12);
-        const baseTotalMs = fallbackTotalSec * 1000;
-        const loopDurationMs = meta.loopDurationMs ?? Math.round(baseTotalMs * 0.8);
-        const pauseMs = meta.pauseMs ?? Math.round(loopDurationMs * 0.4);
-        this.selectionAnimStepMs = loopDurationMs / Math.max(1, frameCount - 1);
-        this.selectionAnimPauseMs = pauseMs;
-        // start timing like UnitChip’s ticker version
-        const now = performance.now();
-        this.selectionAnimNextStepAtMs = now + this.selectionAnimStepMs;
-        // show first frame
-        this.sprite.texture = frames[0];
+        this.selectionAnimTiming = buildAtlasPingPongTiming(meta);
+        this.selectionAnimFrameIndex = -1;
+        // Render the in-phase frame immediately so the board lines up with the sidebar portrait
+        // even before the next ticker step.
+        this.stepSelectionAnimation();
     }
     public stepSelectionAnimation(): void {
         if (!this.boardSelected) return;
-        if (!this.selectionAnimFrames || !this.sprite) return;
         const frames = this.selectionAnimFrames;
-        const frameCount = frames.length;
-        if (frameCount <= 1) return;
-        const now = performance.now();
-        if (now < this.selectionAnimNextStepAtMs) return;
-        if (this.selectionAnimInPause) {
-            // end of pause → flip direction and resume stepping
-            this.selectionAnimInPause = false;
-            this.selectionAnimDirection = (this.selectionAnimDirection * -1) as 1 | -1;
-            this.selectionAnimNextStepAtMs = now + this.selectionAnimStepMs;
-            return;
-        }
-        this.selectionAnimNextStepAtMs = now + this.selectionAnimStepMs;
-        let index = this.selectionAnimFrameIndex + this.selectionAnimDirection;
-        const last = frameCount - 1;
-        if (index <= 0) {
-            index = 0;
-            this.selectionAnimInPause = true;
-            this.selectionAnimNextStepAtMs = now + this.selectionAnimPauseMs;
-        } else if (index >= last) {
-            index = last;
-            this.selectionAnimInPause = true;
-            this.selectionAnimNextStepAtMs = now + this.selectionAnimPauseMs;
-        }
-        this.selectionAnimFrameIndex = index;
-        const tex = frames[index];
+        const timing = this.selectionAnimTiming;
+        if (!frames || !timing || !this.sprite) return;
+        if (frames.length <= 1) return;
+        // Derive the frame purely from the absolute wall clock so the board sprite and the
+        // sidebar's CSS animation (which uses the same helper on the rAF timestamp) stay
+        // phase-locked. See buildAtlasPingPongTiming for why absolute time keeps them in sync.
+        const frame = timing.frameForElapsed(performance.now());
+        if (frame === this.selectionAnimFrameIndex) return;
+        this.selectionAnimFrameIndex = frame;
+        const tex = frames[frame];
         if (tex) this.sprite.texture = tex;
     }
     public stepSpawnAnimation(dt: number): void {
@@ -571,12 +540,8 @@ export class RenderableUnit extends Unit {
     }
     private stopSelectionAnimationInternal(): void {
         this.selectionAnimFrames = undefined;
-        this.selectionAnimFrameIndex = 0;
-        this.selectionAnimDirection = 1;
-        this.selectionAnimInPause = false;
-        this.selectionAnimStepMs = 0;
-        this.selectionAnimPauseMs = 0;
-        this.selectionAnimNextStepAtMs = 0;
+        this.selectionAnimTiming = undefined;
+        this.selectionAnimFrameIndex = -1;
         // restore original small board texture
         if (this.sprite) {
             const props = this.getUnitProperties();

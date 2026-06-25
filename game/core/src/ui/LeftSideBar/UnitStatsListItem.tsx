@@ -8,6 +8,8 @@ import {
     AttackType,
     FactionType,
     TeamType,
+    ToFactionName,
+    SynergyKeysToPower,
 } from "@heroesofcrypto/common";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { Box } from "@mui/joy";
@@ -24,6 +26,7 @@ import React, { useCallback } from "react";
 
 import { animationAtlases, AnimationUnitName, AnimationStateName } from "../../generated/animation_atlases";
 import { images, type ImageKey } from "../../generated/image_imports";
+import { buildAtlasPingPongTiming } from "../../scenes/atlasAnimationTiming";
 import { IVisibleImpact, IVisibleOverallImpact } from "../../scenes/VisibleState";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
 import { BootIcon } from "../svg/boot";
@@ -44,6 +47,7 @@ import { RedUserIcon } from "../svg/user_red";
 import { GrayUserIcon } from "../svg/user_gray";
 import { WingIcon } from "../svg/wing";
 import Toggler from "../Toggler";
+import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "./SynergiesConstants";
 
 interface IAbilityStackProps {
     abilities: IVisibleImpact[];
@@ -61,6 +65,59 @@ const commonTooltipSx = {
     maxWidth: "280px",
     zIndex: 10000,
 };
+
+const FACTION_SYNERGY_IDS = [1, 2] as const;
+const FACTION_SYNERGY_LEVELS = [1, 2, 3] as const;
+const FACTION_SYNERGY_LEVEL_TO_UNITS: Record<number, number> = {
+    1: 2,
+    2: 4,
+    3: 6,
+};
+const FACTION_SYNERGY_LABELS: Record<string, Record<number, string>> = {
+    Life: {
+        1: "Supply",
+        2: "Morale & Luck",
+    },
+    Chaos: {
+        1: "Movement",
+        2: "Break",
+    },
+    Might: {
+        1: "Aura Range",
+        2: "Ability Power",
+    },
+    Nature: {
+        1: "Board Units",
+        2: "Flying Armor",
+    },
+};
+
+type FactionSynergyItem = Readonly<{
+    key: string;
+    label: string;
+    level: number;
+}>;
+
+function getFactionSynergyGroups(factionName: string): FactionSynergyItem[][] {
+    return FACTION_SYNERGY_IDS.map((synergyId) =>
+        FACTION_SYNERGY_LEVELS.map((level) => {
+            const synergyKey = `${factionName}:${synergyId}:${level}`;
+            return {
+                key: synergyKey,
+                label: FACTION_SYNERGY_LABELS[factionName]?.[synergyId] ?? "Synergy",
+                level,
+            };
+        }).filter((synergy) => synergy.key in SYNERGY_KEY_TO_IMAGE),
+    ).filter((group) => group.length > 0);
+}
+
+function getSynergyTooltip(synergyKey: string, level: number): string {
+    return `Level ${level}: ${(
+        SYNERGY_NAME_TO_DESCRIPTION[synergyKey as keyof typeof SYNERGY_NAME_TO_DESCRIPTION] || "Unknown Synergy"
+    )
+        .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[0]?.toString() || "0")
+        .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[1]?.toString() || "0")}`;
+}
 
 function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | null {
     if (!name) return null;
@@ -162,42 +219,20 @@ const AtlasAnimation: React.FC<{
     }, [src, onLoaded]);
 
     // Derive a stable timing config from meta primitives so the rAF loop isn't restarted on every
-    // parent re-render (e.g. HP changes) — only when the actual atlas shape/timing changes.
-    const timing = React.useMemo(() => {
-        const cols = meta.layout?.cols ?? 1;
-        const rows = meta.layout?.rows ?? 1;
-        const frameCount = Math.max(1, meta.frameCount ?? 1);
-        const fallbackTotalSec =
-            typeof meta.totalDurationSec === "number" && Number.isFinite(meta.totalDurationSec)
-                ? meta.totalDurationSec
-                : frameCount / (meta.fps || 12);
-        const baseTotalMs = fallbackTotalSec * 1000;
-        const loopDurationMs = meta.loopDurationMs ?? Math.round(baseTotalMs * 0.8);
-        const pauseMs = meta.pauseMs ?? Math.round(loopDurationMs * 0.4);
-        const forwardMs = Math.max(1, loopDurationMs);
-        const holdMs = Math.max(0, pauseMs);
-        const cycleMs = forwardMs * 2 + holdMs * 2;
-
-        const frameForElapsed = (elapsedMs: number): number => {
-            if (frameCount <= 1) return 0;
-            const cp = elapsedMs % cycleMs;
-            if (cp < forwardMs) return Math.min(frameCount - 1, Math.floor((cp / forwardMs) * frameCount));
-            if (cp < forwardMs + holdMs) return frameCount - 1;
-            const rp = cp - forwardMs - holdMs;
-            if (rp < forwardMs) return Math.max(0, frameCount - 1 - Math.floor((rp / forwardMs) * frameCount));
-            return 0;
-        };
-
-        return { cols, rows, frameForElapsed };
-    }, [
-        meta.frameCount,
-        meta.fps,
-        meta.totalDurationSec,
-        meta.loopDurationMs,
-        meta.pauseMs,
-        meta.layout?.cols,
-        meta.layout?.rows,
-    ]);
+    // parent re-render (e.g. HP changes) — only when the actual atlas shape/timing changes. Uses the
+    // same shared helper as the board sprite so both views ping-pong identically and stay in phase.
+    const timing = React.useMemo(
+        () => buildAtlasPingPongTiming(meta),
+        [
+            meta.frameCount,
+            meta.fps,
+            meta.totalDurationSec,
+            meta.loopDurationMs,
+            meta.pauseMs,
+            meta.layout?.cols,
+            meta.layout?.rows,
+        ],
+    );
 
     // Imperative frame stepping: write backgroundPosition straight to the DOM each rAF tick instead
     // of going through React state (no reconciliation 12x/sec).
@@ -215,11 +250,12 @@ const AtlasAnimation: React.FC<{
         };
 
         let raf: number | undefined;
-        let startTime: number | undefined;
         let lastFrame = -1;
+        // Absolute timestamp (not start-relative): the rAF `time` arg shares its origin with the
+        // board's performance.now(), so feeding it straight in keeps this portrait phase-locked
+        // with the board sprite. A late-mounting sidebar snaps into the board's current phase.
         const animate = (time: number) => {
-            if (startTime === undefined) startTime = time;
-            const f = frameForElapsed(time - startTime);
+            const f = frameForElapsed(time);
             if (f !== lastFrame) {
                 lastFrame = f;
                 applyFrame(f);
@@ -492,71 +528,93 @@ const StatItem: React.FC<{
     badgeColor?: string;
     positiveFrame?: boolean;
     negativeFrame?: boolean;
-}> = ({ icon, value, tooltip, color, badgeContent, badgeColor, positiveFrame, negativeFrame }) => (
-    <Tooltip title={tooltip} sx={commonTooltipSx}>
-        <Box
-            sx={{
-                display: "flex",
-                alignItems: "center",
-                flexWrap: "nowrap",
-                overflow: "visible",
-                // A stat with an active modifier (badge) needs room for the modifier chip — give it
-                // the whole row instead of 45%, so "30 +10" always fits regardless of screen width.
-                minWidth: badgeContent ? "100%" : "45%",
-                pr: badgeContent ? 1 : 0,
-                backgroundColor: positiveFrame
-                    ? "rgba(0, 255, 0, 0.3)"
-                    : negativeFrame
-                      ? "rgba(255, 0, 0, 0.3)"
-                      : "transparent",
-                ...(positiveFrame
-                    ? { boxShadow: "0 0 5px 5px green", borderRadius: "20px" }
-                    : negativeFrame
-                      ? { boxShadow: "0 0 5px 5px red", borderRadius: "20px" }
-                      : {}),
-            }}
-        >
-            {React.cloneElement(icon, { sx: { color, fontSize: "1.25rem", pr: "4px" } })}
-            <Typography
-                fontSize="0.75rem"
-                component="span"
+}> = ({ icon, value, tooltip, color, badgeContent, badgeColor, positiveFrame, negativeFrame }) => {
+    const framed = Boolean(positiveFrame || negativeFrame);
+    // Accent reuses the modifier-chip palette: green for a buff, red for a debuff.
+    const accent = positiveFrame ? "22, 163, 74" : "220, 38, 38";
+    const pulseName = positiveFrame ? "hocStatPulseUp" : "hocStatPulseDown";
+
+    return (
+        <Tooltip title={tooltip} sx={commonTooltipSx}>
+            <Box
                 sx={{
-                    whiteSpace: "nowrap",
-                    ...(positiveFrame || negativeFrame ? { fontWeight: "bold" } : {}),
+                    display: "flex",
+                    alignItems: "center",
+                    flexWrap: "nowrap",
+                    overflow: "visible",
+                    // A stat with an active modifier (badge) needs room for the modifier chip — give it
+                    // the whole row instead of 45%, so "30 +10" always fits regardless of screen width.
+                    minWidth: badgeContent ? "100%" : "45%",
                 }}
             >
-                {value}
-            </Typography>
-            {badgeContent && (
-                <Typography
-                    component="span"
+                {/* The highlight hugs only the icon + value + modifier chip (not the whole row) and
+                    softly pulses, so an active buff/debuff reads as a tight, accurate accent rather
+                    than a long fuzzy bar. */}
+                <Box
                     sx={{
-                        fontSize: "0.62rem",
-                        fontWeight: "bold",
-                        lineHeight: 1,
-                        px: "4px",
-                        py: "1px",
-                        ml: 0.5,
-                        borderRadius: "8px",
-                        color: "#fff",
-                        whiteSpace: "nowrap",
-                        backgroundColor:
-                            badgeColor === "success"
-                                ? "rgba(22, 163, 74, 0.9)"
-                                : badgeColor === "danger"
-                                  ? "rgba(220, 38, 38, 0.9)"
-                                  : badgeColor === "warning"
-                                    ? "rgba(217, 119, 6, 0.9)"
-                                    : "rgba(37, 99, 235, 0.9)",
-                        border: "1px solid rgba(0,0,0,0.45)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        width: "fit-content",
+                        ...(framed
+                            ? {
+                                  px: 0.75,
+                                  py: 0.25,
+                                  borderRadius: "9px",
+                                  border: `1.5px solid rgba(${accent}, 0.85)`,
+                                  backgroundColor: `rgba(${accent}, 0.14)`,
+                                  animation: `${pulseName} 1.6s ease-in-out infinite`,
+                                  [`@keyframes ${pulseName}`]: {
+                                      "0%, 100%": { boxShadow: `0 0 0 0 rgba(${accent}, 0)` },
+                                      "50%": { boxShadow: `0 0 0 3px rgba(${accent}, 0.35)` },
+                                  },
+                                  "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                              }
+                            : {}),
                     }}
                 >
-                    {badgeContent}
-                </Typography>
-            )}
-        </Box>
-    </Tooltip>
-);
+                    {React.cloneElement(icon, { sx: { color, fontSize: "1.25rem", pr: "4px" } })}
+                    <Typography
+                        fontSize="0.75rem"
+                        component="span"
+                        sx={{
+                            whiteSpace: "nowrap",
+                            ...(framed ? { fontWeight: "bold" } : {}),
+                        }}
+                    >
+                        {value}
+                    </Typography>
+                    {badgeContent && (
+                        <Typography
+                            component="span"
+                            sx={{
+                                fontSize: "0.62rem",
+                                fontWeight: "bold",
+                                lineHeight: 1,
+                                px: "4px",
+                                py: "1px",
+                                ml: 0.5,
+                                borderRadius: "8px",
+                                color: "#fff",
+                                whiteSpace: "nowrap",
+                                backgroundColor:
+                                    badgeColor === "success"
+                                        ? "rgba(22, 163, 74, 0.9)"
+                                        : badgeColor === "danger"
+                                          ? "rgba(220, 38, 38, 0.9)"
+                                          : badgeColor === "warning"
+                                            ? "rgba(217, 119, 6, 0.9)"
+                                            : "rgba(37, 99, 235, 0.9)",
+                                border: "1px solid rgba(0,0,0,0.45)",
+                            }}
+                        >
+                            {badgeContent}
+                        </Typography>
+                    )}
+                </Box>
+            </Box>
+        </Tooltip>
+    );
+};
 
 const UnitStatsLayout: React.FC<{
     unitProperties: UnitProperties;
@@ -874,7 +932,11 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
     const showStats = true;
     const onImageLoaded = useCallback(() => {}, []);
 
-    if (factionType) {
+    const factionName = factionType ? ToFactionName[factionType] : "";
+    const factionImageKey = factionName ? (`${factionName.toLowerCase()}_512` as ImageKey) : undefined;
+    const factionSynergyGroups = factionName ? getFactionSynergyGroups(factionName) : [];
+
+    if (factionName) {
         return (
             // @ts-ignore: MUI type mismatch
             <ListItem style={{ "--List-nestedInsetStart": "0px" }} nested>
@@ -882,7 +944,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                     renderToggle={({ open, setOpen }) => (
                         <ListItemButton onClick={() => setOpen(!open)}>
                             <ListItemContent>
-                                <Typography level="title-sm">{factionType}</Typography>
+                                <Typography level="title-sm">{factionName}</Typography>
                             </ListItemContent>
                             <KeyboardArrowDownIcon />
                         </ListItemButton>
@@ -890,8 +952,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                 >
                     <List sx={{ gap: 0 }}>
                         <Avatar
-                            // @ts-ignore: images index signature
-                            src={images[`${factionType.toLowerCase()}_512`]}
+                            src={factionImageKey ? images[factionImageKey] : undefined}
                             variant="plain"
                             sx={{
                                 zIndex: "modal",
@@ -901,8 +962,111 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                                 imageRendering: "auto",
                                 transform: "translateZ(0)",
                                 transition: "opacity 180ms ease-out",
+                                mb: 1.25,
                             }}
                         />
+                        {factionSynergyGroups.length > 0 && (
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 0.75,
+                                    px: 0.5,
+                                    pb: 1.5,
+                                }}
+                            >
+                                <Typography
+                                    sx={{
+                                        fontSize: "0.78rem",
+                                        fontWeight: 800,
+                                        letterSpacing: 0,
+                                        lineHeight: 1,
+                                        textTransform: "uppercase",
+                                    }}
+                                >
+                                    Synergies
+                                </Typography>
+                                <Box
+                                    sx={{
+                                        display: "grid",
+                                        gridTemplateColumns: `repeat(${factionSynergyGroups.length}, minmax(0, 1fr))`,
+                                        gap: 1,
+                                    }}
+                                >
+                                    {factionSynergyGroups.map((group) => (
+                                        <Box
+                                            key={group[0]?.key ?? "synergy-group"}
+                                            sx={{
+                                                display: "flex",
+                                                flexDirection: "column",
+                                                gap: 0.75,
+                                                minWidth: 0,
+                                            }}
+                                        >
+                                            {group.map((synergy) => {
+                                                const imageSize = 32 + synergy.level * 6;
+                                                return (
+                                                    <Tooltip
+                                                        key={synergy.key}
+                                                        title={getSynergyTooltip(synergy.key, synergy.level)}
+                                                        placement="bottom"
+                                                        sx={commonTooltipSx}
+                                                    >
+                                                        <Box
+                                                            sx={{
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                gap: 0.75,
+                                                                minHeight: "50px",
+                                                                minWidth: 0,
+                                                            }}
+                                                        >
+                                                            <Box
+                                                                component="img"
+                                                                src={
+                                                                    SYNERGY_KEY_TO_IMAGE[
+                                                                        synergy.key as keyof typeof SYNERGY_KEY_TO_IMAGE
+                                                                    ]
+                                                                }
+                                                                sx={{
+                                                                    width: `${imageSize}px`,
+                                                                    height: `${imageSize}px`,
+                                                                    flexShrink: 0,
+                                                                    imageRendering: "auto",
+                                                                    transform: "translateZ(0)",
+                                                                }}
+                                                            />
+                                                            <Box sx={{ minWidth: 0 }}>
+                                                                <Typography
+                                                                    sx={{
+                                                                        fontSize: "0.72rem",
+                                                                        fontWeight: 700,
+                                                                        lineHeight: 1.05,
+                                                                        overflowWrap: "anywhere",
+                                                                    }}
+                                                                >
+                                                                    {synergy.label}
+                                                                </Typography>
+                                                                <Typography
+                                                                    sx={{
+                                                                        color: "text.tertiary",
+                                                                        fontSize: "0.64rem",
+                                                                        lineHeight: 1.1,
+                                                                    }}
+                                                                >
+                                                                    {FACTION_SYNERGY_LEVEL_TO_UNITS[synergy.level]}{" "}
+                                                                    units
+                                                                </Typography>
+                                                            </Box>
+                                                        </Box>
+                                                    </Tooltip>
+                                                );
+                                            })}
+                                        </Box>
+                                    ))}
+                                </Box>
+                            </Box>
+                        )}
                     </List>
                 </Toggler>
             </ListItem>

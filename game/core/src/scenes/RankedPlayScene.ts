@@ -234,7 +234,7 @@ export class RankedPlayScene extends Sandbox {
                 }
             } else if (event.type === "armageddon_applied") {
                 const u = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
-                if (u) this.combatVisuals?.showFloatingDamage(u.getPosition(), event.damage);
+                if (u) this.combatVisuals?.showFloatingDamage(u.getPosition(), event.damage, undefined, event.unitsDied);
                 this.triggerScreenShake(12 + event.wave * 3, 0.5);
             } else if (event.type === "unit_destroyed" || event.type === "unit_deleted") {
                 const u = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
@@ -601,7 +601,9 @@ export class RankedPlayScene extends Sandbox {
             case "spell_cast":
                 return `${nameOf(event.casterId)} cast ${event.spellName}`;
             case "fight_finished":
-                return `Fight finished! ${event.winningTeam === TeamVals.LOWER ? "Green" : "Red"} team wins!`;
+                return event.winningTeam === TeamVals.NO_TEAM
+                    ? "Fight finished! Draw!"
+                    : `Fight finished! ${event.winningTeam === TeamVals.LOWER ? "Green" : "Red"} team wins!`;
             case "turn_completed":
             case "next_unit_selected":
                 return undefined;

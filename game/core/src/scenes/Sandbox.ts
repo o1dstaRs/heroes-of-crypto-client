@@ -127,7 +127,12 @@ interface PlacementBenchHitBox {
 }
 
 export class Sandbox extends PixiScene {
-    private static readonly AUTHORITATIVE_MOVE_MIN_DURATION_SECONDS = 0.55;
+    private static readonly MOVE_SPEED_FACTOR = 16;
+    private static readonly REPLAY_ACTION_GAP_MS = 80;
+    private static readonly REPLAY_CONTROL_HOLD_MS = 120;
+    private static readonly REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS = 300;
+    private static readonly REPLAY_ATTACK_AFTER_APPLY_HOLD_MS = 160;
+    private static readonly REPLAY_SPELL_HOLD_MS = 150;
     private readonly grid: Grid;
     private readonly pathHelper: PathHelper;
     private canAttackByMeleeTargets?: IAttackTargets;
@@ -170,6 +175,8 @@ export class Sandbox extends PixiScene {
     private readonly replayRecorder = new SandboxReplayRecorder(() => this.captureSceneState());
     private replayRecordingSuspended = false;
     private replayPlaybackActive = false;
+    /** Re-entrancy guard so the eager turn-handoff in applyTurnEngineEvents can't recurse. */
+    private isAdvancingTurnEvents = false;
     private pendingReplayRecords: { action: GameAction; result: IGameActionResult }[] = [];
     /** Active-board-selection state (move existing unit) */
     private draggingUnitId?: string;
@@ -293,11 +300,12 @@ export class Sandbox extends PixiScene {
             this.pixiApp.getCamera().filters = [cinematic];
         }
 
-        // Warm torch lighting (additive pools) that follows the action over the darkened dungeon.
-        // zIndex must sit ABOVE the units (they use ~3200-4800 via `4000 - pos.y`) so the light
-        // actually falls on them, but below placement UI (6000).
+        // Warm torch lighting (additive pools) over the darkened dungeon floor.
+        // zIndex sits BELOW the units (they use ~3200-4800 via `4000 - pos.y`) so the darkening
+        // overlay falls only on the floor/terrain/placement decals — units keep their full brightness
+        // ("shine") instead of being dimmed by the dungeon dark. Stays above the bench UI (≤2501).
         this.lightingLayer = new LightingLayer(this.sc_sceneSettings.getGridSettings());
-        this.attachToWorldRoot(this.lightingLayer.getContainer(), 5500);
+        this.attachToWorldRoot(this.lightingLayer.getContainer(), 3100);
 
         this.combatVisuals = new CombatVisuals({
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
@@ -361,6 +369,8 @@ export class Sandbox extends PixiScene {
                 if (props) {
                     this.selectionFromOverlay = true;
                     this.hasActiveSelection = true;
+                    this.sc_selectedFactionType = FactionVals.NO_FACTION as FactionType;
+                    this.sc_factionNameUpdateNeeded = true;
                     if (this.selectedBoardUnit) {
                         this.selectedBoardUnit.setBoardSelected(false);
                         this.selectedBoardUnit = undefined;
@@ -380,6 +390,7 @@ export class Sandbox extends PixiScene {
                 const p = this.unitsOverlay?.getUnitProperties(name);
                 return p ? p.amount_alive : 99;
             },
+            (faction) => this.selectFactionFromOverlay(faction),
         );
         this.unitsOverlay.build();
         if (this.sc_gameActionTransport) {
@@ -505,6 +516,27 @@ export class Sandbox extends PixiScene {
     }
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return this.sc_gameActionTransport ? undefined : this.unitsOverlay;
+    }
+    private selectFactionFromOverlay(faction: FactionType | null): void {
+        if (this.selectedBoardUnit) {
+            this.selectedBoardUnit.setBoardSelected(false);
+            this.selectedBoardUnit = undefined;
+        }
+        this.currentShiftedUnit = undefined;
+        this.hasActiveSelection = false;
+        this.selectionFromOverlay = false;
+        this.draggingUnitId = undefined;
+        this.draggingUnitTeam = undefined;
+        this.sc_selectedUnitProperties = undefined;
+        this.sc_visibleOverallImpact = undefined;
+        this.sc_selectedFactionType = (faction ?? FactionVals.NO_FACTION) as FactionType;
+        this.sc_unitPropertiesUpdateNeeded = true;
+        this.sc_factionNameUpdateNeeded = true;
+        this.hoverManager.resetHover(true);
+        this.hoverManager.resetBoardHoverState();
+        this.hoverManager.hoverPlacementCell = undefined;
+        this.hoverManager.hoverPlacementCellTeam = undefined;
+        this.hoverManager.hoverSelectedCells = undefined;
     }
     public override setGameActionTransport(transport?: Parameters<PixiScene["setGameActionTransport"]>[0]): void {
         super.setGameActionTransport(transport);
@@ -1171,8 +1203,10 @@ export class Sandbox extends PixiScene {
         this.sc_currentActiveShotRange = undefined;
         this.sc_currentActiveAuraRanges = [];
         this.sc_selectedUnitProperties = undefined;
+        this.sc_selectedFactionType = FactionVals.NO_FACTION as FactionType;
         this.sc_visibleOverallImpact = undefined;
         this.sc_unitPropertiesUpdateNeeded = true;
+        this.sc_factionNameUpdateNeeded = true;
         this.sc_moveBlocked = false;
         this.sc_isAnimating = false;
         this.drawnNarrowingLaps.clear();
@@ -1419,7 +1453,7 @@ export class Sandbox extends PixiScene {
                     console.warn("Replay could not animate action", record.action.type, record.action);
                 }
                 this.hydrateSceneState(cloneReplayData(record.stateAfter));
-                await this.delayReplay(180);
+                await this.delayReplay(Sandbox.REPLAY_ACTION_GAP_MS);
             }
 
             if (finalRecord?.stateAfter) {
@@ -1598,7 +1632,7 @@ export class Sandbox extends PixiScene {
         }
 
         this.applyReplayEvents(record.events);
-        await this.delayReplay(220);
+        await this.delayReplay(Sandbox.REPLAY_CONTROL_HOLD_MS);
         return true;
     }
     private playReplayMoveRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
@@ -1634,11 +1668,7 @@ export class Sandbox extends PixiScene {
 
         return new Promise((resolve) => {
             const gs = this.sc_sceneSettings.getGridSettings();
-            const pathDistance = this.worldPathDistance(worldPath);
-            const speed = Math.min(
-                gs.getCellSize() * 16,
-                pathDistance / Sandbox.AUTHORITATIVE_MOVE_MIN_DURATION_SECONDS,
-            );
+            const speed = gs.getCellSize() * Sandbox.MOVE_SPEED_FACTOR;
             this.moveAnimManager.startMoveAnimation(
                 unit,
                 worldPath,
@@ -1660,15 +1690,6 @@ export class Sandbox extends PixiScene {
             this.hoverManager.hoveredUnitHighlight = undefined;
             this.sc_moveBlocked = true;
         });
-    }
-    private worldPathDistance(path: HoCMath.XY[]): number {
-        let distance = 0;
-        for (let index = 1; index < path.length; index += 1) {
-            const previous = path[index - 1];
-            const current = path[index];
-            distance += Math.hypot(current.x - previous.x, current.y - previous.y);
-        }
-        return distance;
     }
     private createRecordedMoveWorldPath(
         unit: RenderableUnit,
@@ -1783,7 +1804,7 @@ export class Sandbox extends PixiScene {
         await this.delayReplay(this.getReplayAttackDamageHoldMs(attackEvent));
         this.applyReplayEvents(record.events);
         this.sc_moveBlocked = false;
-        await this.delayReplay(420);
+        await this.delayReplay(Sandbox.REPLAY_ATTACK_AFTER_APPLY_HOLD_MS);
         return true;
     }
     private async playReplayProjectile(attacker: RenderableUnit, target: RenderableUnit): Promise<void> {
@@ -1921,7 +1942,10 @@ export class Sandbox extends PixiScene {
     }
     private getReplayAttackDamageHoldMs(attackEvent: Extract<GameEvent, { type: "unit_attacked" }>): number {
         const hitCount = attackEvent.damage.hits?.length ?? 0;
-        return Math.max(520, (Math.max(1, hitCount) - 1) * 240 + 520);
+        return Math.max(
+            Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS,
+            (Math.max(1, hitCount) - 1) * 240 + Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS,
+        );
     }
     protected applyReplayEvents(events: GameEvent[]): void {
         const visibleEvents = events.filter((event) => event.type !== "fight_finished");
@@ -1998,7 +2022,7 @@ export class Sandbox extends PixiScene {
         }
 
         this.cleanupAfterSpell(result.events, unitSnapshot);
-        await this.delayReplay(250);
+        await this.delayReplay(Sandbox.REPLAY_SPELL_HOLD_MS);
         return true;
     }
     private captureFightSnapshot(): IFightSnapshot {
@@ -4753,7 +4777,7 @@ export class Sandbox extends PixiScene {
             }
         }
 
-        const moveSpeed = cellSize * 16; // Adjusted speed based on user feedback (was 12)
+        const moveSpeed = cellSize * Sandbox.MOVE_SPEED_FACTOR; // Adjusted speed based on user feedback (was 12)
 
         const handleMoveComplete = (): void => {
             if (onComplete) {
@@ -4788,21 +4812,34 @@ export class Sandbox extends PixiScene {
         return true;
     }
     private finishMovedUnitTurn(unit: RenderableUnit): void {
+        // [PERF-PROBE] temporary instrumentation to localize the end-of-move turn-handoff lag.
+        const _p = (label: string, t0: number): void =>
+            console.warn(`[perf] ${label}: ${(performance.now() - t0).toFixed(1)}ms`);
+        const _tAll = performance.now();
         const action: GameAction = {
             type: "end_turn",
             unitId: unit.getId(),
             reason: "manual",
         };
+        let _t = performance.now();
         const unitSnapshot = this.snapshotRenderableUnits();
+        _p("snapshotRenderableUnits", _t);
+        _t = performance.now();
         const result = this.createActionEngine().apply(action);
+        _p("actionEngine.apply(end_turn)", _t);
         if (!result.completed) {
             this.sc_sceneLog.updateLog(
                 result.message ?? `Cannot finish move turn: ${result.rejectionReason ?? "unknown"}`,
             );
             return;
         }
+        _t = performance.now();
         this.applyTurnEngineEvents(result.events, unitSnapshot);
+        _p("applyTurnEngineEvents", _t);
+        _t = performance.now();
         this.advanceAfterNoActiveUnitIfNeeded();
+        _p("advanceAfterNoActiveUnitIfNeeded", _t);
+        _p("finishMovedUnitTurn TOTAL", _tAll);
     }
     private advanceAfterNoActiveUnitIfNeeded(): void {
         if (this.currentActiveUnit) {
@@ -5363,7 +5400,18 @@ export class Sandbox extends PixiScene {
                             }
                             arrowEndPos = fallbackPos;
                         }
-                        const finalArrowEndPos = arrowEndPos!;
+                        let finalArrowEndPos = arrowEndPos!;
+                        // Through Shot keeps flying past the aimed target to the field edge, so the
+                        // trajectory line matches every unit it actually hits (parity with legacy).
+                        if (this.currentActiveUnit.hasAbilityActive("Through Shot")) {
+                            finalArrowEndPos = GridMath.projectLineToFieldEdge(
+                                gs,
+                                arrowStartPos.x,
+                                arrowStartPos.y,
+                                finalArrowEndPos.x,
+                                finalArrowEndPos.y,
+                            );
+                        }
                         tVis = finalArrowEndPos;
 
                         // Calculate projected damage
@@ -5906,6 +5954,8 @@ export class Sandbox extends PixiScene {
             this.selectedBoardUnit = undefined;
         }
         this.currentShiftedUnit = undefined;
+        this.sc_selectedFactionType = FactionVals.NO_FACTION as FactionType;
+        this.sc_factionNameUpdateNeeded = true;
         this.hasActiveSelection = false;
         this.selectionFromOverlay = false;
         this.draggingUnitId = undefined;
@@ -6481,6 +6531,7 @@ export class Sandbox extends PixiScene {
         const armageddonWaves = new Set<number>();
         let shouldRefreshVisibleState = false;
         let sawFightFinished = false;
+        let sawTurnCompleted = false;
         const activeUnitIdAtStart = this.currentActiveUnit?.getId();
 
         for (const event of events) {
@@ -6530,7 +6581,12 @@ export class Sandbox extends PixiScene {
                 case "armageddon_applied": {
                     const unit = unitSnapshot.get(event.unitId);
                     if (unit) {
-                        this.combatVisuals.showFloatingDamage(unit.getPosition(), event.damage);
+                        this.combatVisuals.showFloatingDamage(
+                            unit.getPosition(),
+                            event.damage,
+                            undefined,
+                            event.unitsDied,
+                        );
                     }
                     if (!armageddonWaves.has(event.wave)) {
                         armageddonWaves.add(event.wave);
@@ -6542,6 +6598,7 @@ export class Sandbox extends PixiScene {
                     if (this.currentActiveUnit?.getId() === event.unitId || activeUnitIdAtStart === event.unitId) {
                         this.finishTurnVisualState(event.hourglass);
                     }
+                    sawTurnCompleted = true;
                     shouldRefreshVisibleState = true;
                     break;
                 case "fight_finished":
@@ -6578,6 +6635,28 @@ export class Sandbox extends PixiScene {
             }
         }
         this.flushPendingReplayRecords();
+
+        // Hand off to the next unit in the same tick a turn completes, instead of waiting for the
+        // next Step() frame to pick it up. The deferral was a small but noticeable lag between a
+        // unit finishing (attack/spell/wait/manual end-turn/timeout) and the next unit becoming
+        // active. The move path already advances eagerly (finishMovedUnitTurn), so this also makes
+        // every turn-ending action consistent. Local-sandbox only: replay drives its own
+        // sequencing and ranked is snapshot/transport-driven, so leave those untouched.
+        if (
+            sawTurnCompleted &&
+            !this.currentActiveUnit &&
+            !this.isAdvancingTurnEvents &&
+            !this.replayPlaybackActive &&
+            !this.sc_gameActionTransport &&
+            !sawFightFinished
+        ) {
+            this.isAdvancingTurnEvents = true;
+            try {
+                this.advanceAfterNoActiveUnitIfNeeded();
+            } finally {
+                this.isAdvancingTurnEvents = false;
+            }
+        }
     }
     private renderNarrowingLayers(layers: number): void {
         this.attachToWorldRoot(this.dungeonVisuals.getHoleContainer(), 20);
@@ -6777,12 +6856,23 @@ export class Sandbox extends PixiScene {
             return;
         }
 
+        // [PERF-PROBE] temporary instrumentation for the end-of-move turn-handoff lag.
+        const _p = (label: string, t0: number): void =>
+            console.warn(`[perf]   ${label}: ${(performance.now() - t0).toFixed(1)}ms`);
+        const _tAct = performance.now();
+
         this.sc_moveBlocked = false;
+        let _t = performance.now();
         this.refreshUnits();
+        _p("refreshUnits", _t);
+        _t = performance.now();
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+        _p("grid.getMatrix x2", _t);
         nextUnit.setBoardSelected(true);
+        _t = performance.now();
         this.refreshVisibleStateIfNeeded();
+        _p("refreshVisibleStateIfNeeded", _t);
         this.currentActiveUnit = nextUnit;
         this.buttonManager.setButtonsRefreshLocked(false);
 
@@ -6791,17 +6881,21 @@ export class Sandbox extends PixiScene {
         this.setSelectedUnitProperties(props);
         this.sc_unitPropertiesUpdateNeeded = true;
 
+        _t = performance.now();
         const canLandRange =
             this.attackHandler?.canLandRangeAttack(nextUnit, this.grid.getEnemyAggrMatrixByUnitId(nextUnit.getId())) ??
             false;
         nextUnit.refreshPossibleAttackTypes(canLandRange);
+        _p("canLandRange+attackTypes", _t);
 
         const currentCell = GridMath.getCellForPosition(
             this.sc_sceneSettings.getGridSettings(),
             nextUnit.getPosition(),
         );
         if (currentCell) {
+            _t = performance.now();
             this.updateCurrentMovePath(currentCell);
+            _p("updateCurrentMovePath", _t);
         }
 
         const rangeShotCells = nextUnit.getRangeShotDistance();
@@ -6815,7 +6909,10 @@ export class Sandbox extends PixiScene {
         }
 
         this.buttonManager.setButtonsRefreshLocked(false);
+        _t = performance.now();
         this.buttonManager.refreshButtons(true);
+        _p("refreshButtons", _t);
+        _p("handleNextUnitActivation TOTAL", _tAct);
     }
     /**
      * Start a screen shake (decaying random offset of the world root). Re-triggering while a
@@ -7028,7 +7125,11 @@ export class Sandbox extends PixiScene {
         this.currentActiveUnit = undefined;
         this.currentActivePath = undefined;
         this.currentActiveKnownPaths = undefined;
-        this.sc_sceneLog.updateLog(`Fight finished! ${teamWin === TeamVals.LOWER ? "Green" : "Red"} team wins!`);
+        this.sc_sceneLog.updateLog(
+            teamWin === TeamVals.NO_TEAM
+                ? "Fight finished! Draw!"
+                : `Fight finished! ${teamWin === TeamVals.LOWER ? "Green" : "Red"} team wins!`,
+        );
         this.refreshVisibleStateIfNeeded();
         if (this.sc_visibleState) {
             this.sc_visibleState.hasFinished = true;

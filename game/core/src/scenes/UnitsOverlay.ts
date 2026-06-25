@@ -22,6 +22,7 @@ import { BASE_UNIT_STACK_TO_SPAWN_EXP } from "@/statics";
 
 type GetTexture = (key: string) => Texture | undefined;
 type LevelBucket = Readonly<{ label: string; count: number; unitSize: 1 | 2 }>;
+type FactionIcon = Readonly<{ type: FactionType; sprite: Sprite }>;
 
 export class UnitsOverlay {
     private app: Application;
@@ -47,7 +48,10 @@ export class UnitsOverlay {
     private isOpen = true;
     private tweenCancel?: () => void;
     private allChips: UnitChip[] = [];
+    private chipFactions = new Map<UnitChip, FactionType>();
+    private factionIcons: FactionIcon[] = [];
     private selectedName: string | null = null;
+    private selectedFaction: FactionType | null = null;
     private readonly factions: { type: FactionType; iconName: string }[] = [
         { type: FactionVals.LIFE, iconName: "life_128" },
         { type: FactionVals.NATURE, iconName: "nature_128" },
@@ -62,6 +66,7 @@ export class UnitsOverlay {
         getTexture: GetTexture,
         onUnitSelected?: (unitProperties: UnitProperties | null) => void,
         private getAmount?: (unitName: string) => number,
+        private onFactionSelected?: (faction: FactionType | null) => void,
     ) {
         this.app = app;
         this.getTex = getTexture;
@@ -154,6 +159,27 @@ export class UnitsOverlay {
 
         if (!this.isOpen) return false;
 
+        for (const factionIcon of this.factionIcons) {
+            const b = factionIcon.sprite.getBounds();
+            if (!b) continue;
+
+            if (globalX >= b.x && globalX <= b.x + b.width && globalY >= b.y && globalY <= b.y + b.height) {
+                const next = this.selectedFaction === factionIcon.type ? null : factionIcon.type;
+                this.selectedFaction = next;
+                this.selectedName = null;
+
+                for (const c of this.allChips) {
+                    c.setSelected(false);
+                }
+                this.updateFactionIconSelection();
+
+                if (this.onFactionSelected) {
+                    this.onFactionSelected(next);
+                }
+                return true;
+            }
+        }
+
         for (const chip of this.allChips) {
             const b = chip.getBounds();
             if (!b) continue;
@@ -162,10 +188,12 @@ export class UnitsOverlay {
                 const unitName = (chip as UnitChip).nameKey as string;
                 const next = this.selectedName === unitName ? null : unitName;
                 this.selectedName = next;
+                this.selectedFaction = null;
 
                 for (const c of this.allChips) {
                     c.setSelected((c as UnitChip).nameKey === next);
                 }
+                this.updateFactionIconSelection();
 
                 if (this.onUnitSelected) {
                     this.onUnitSelected(next ? this.getUnitProperties(unitName) : null);
@@ -175,7 +203,7 @@ export class UnitsOverlay {
         }
 
         if (insideOverlay) {
-            if (this.selectedName) this.clearSelection(true);
+            if (this.hasSelection()) this.clearSelection(true);
             return true;
         }
 
@@ -215,7 +243,10 @@ export class UnitsOverlay {
         this.headerContainer.removeChildren();
         this.rowsContainer.removeChildren();
         this.allChips = [];
+        this.chipFactions.clear();
+        this.factionIcons = [];
         this.selectedName = null;
+        this.selectedFaction = null;
 
         // --- Render Textures instead of Text ---
         for (let i = 0; i < this.levelBuckets.length; i++) {
@@ -235,7 +266,10 @@ export class UnitsOverlay {
 
             const iconTex = this.getTex(this.factions[r].iconName);
             const icon = new Sprite(iconTex ?? Texture.EMPTY);
+            icon.eventMode = "static";
+            icon.cursor = "pointer";
             row.addChild(icon);
+            this.factionIcons.push({ type: this.factions[r].type, sprite: icon });
 
             for (let b = 0; b < this.levelBuckets.length; b++) {
                 const bucketCont = new Container();
@@ -260,11 +294,13 @@ export class UnitsOverlay {
                     chip.setTicker(this.app.ticker);
                     bucketCont.addChild(chip);
                     this.allChips.push(chip);
+                    this.chipFactions.set(chip, this.factions[r].type);
                 }
             }
         }
 
         this.updateButtonVisuals(false);
+        this.updateFactionIconSelection();
 
         this.onResize(this.app.renderer.width, this.app.renderer.height);
         this.container.sortChildren();
@@ -423,15 +459,32 @@ export class UnitsOverlay {
         if (this.tweenCancel) this.tweenCancel();
         this.container.destroy({ children: true });
         this.allChips.length = 0;
+        this.chipFactions.clear();
     }
     public hasSelection(): boolean {
-        return this.selectedName !== null;
+        return this.selectedName !== null || this.selectedFaction !== null;
     }
     public clearSelection(notify: boolean = true): void {
-        if (!this.selectedName) return;
+        if (!this.hasSelection()) return;
+        const hadUnitSelection = this.selectedName !== null;
+        const hadFactionSelection = this.selectedFaction !== null;
         this.selectedName = null;
+        this.selectedFaction = null;
         for (const c of this.allChips) c.setSelected(false);
-        if (notify && this.onUnitSelected) this.onUnitSelected(null);
+        this.updateFactionIconSelection();
+        if (notify && hadUnitSelection && this.onUnitSelected) this.onUnitSelected(null);
+        if (notify && hadFactionSelection && this.onFactionSelected) this.onFactionSelected(null);
+    }
+    private updateFactionIconSelection(): void {
+        for (const factionIcon of this.factionIcons) {
+            const selected = this.selectedFaction === factionIcon.type;
+            factionIcon.sprite.alpha = !this.selectedFaction || selected ? 1 : 0.55;
+            factionIcon.sprite.tint = selected ? 0xffffff : 0xd0d0d0;
+        }
+        for (const chip of this.allChips) {
+            const chipFaction = this.chipFactions.get(chip);
+            chip.alpha = !this.selectedFaction || chipFaction === this.selectedFaction ? 1 : 0.38;
+        }
     }
     public setShowAllAmounts(show: boolean): void {
         for (const c of this.allChips) {
