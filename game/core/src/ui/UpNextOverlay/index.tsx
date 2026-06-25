@@ -9,9 +9,9 @@ import { images } from "../../generated/image_imports";
 import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { CasualtyChart, CasualtyPercents } from "../FightStats/CasualtyChart";
+import { meteorIconDataUrl } from "../meteorIcon";
 const stopImg = new URL("../../../images/icon_skip_black.webp", import.meta.url).toString();
 const hourglassImg = new URL("../../../images/hourglass.webp", import.meta.url).toString();
-const meteorSvg = new URL("../../../images/meteor.svg", import.meta.url).toString();
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
 import { Tooltip } from "@mui/joy";
 
@@ -123,7 +123,7 @@ export const UpNextOverlay: React.FC = () => {
     if (visibleState.lapNumber && visibleState.lapNumber >= HoCConstants.NUMBER_OF_LAPS_FIRST_ARMAGEDDON) {
         defaultIcon = (
             <Tooltip title="Armageddon wave after this turn." placement="top" sx={{ zIndex: 9999 }}>
-                <Box component="img" src={meteorSvg} sx={{ width: 50, height: 50, pb: 2 }} />
+                <Box component="img" src={meteorIconDataUrl} sx={{ width: 50, height: 50, pb: 2 }} />
             </Tooltip>
         );
     }

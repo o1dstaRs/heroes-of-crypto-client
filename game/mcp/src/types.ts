@@ -10,6 +10,118 @@ export type AIReason =
     | "benchmark";
 export type AIStyle = "balanced" | "aggressive" | "defensive";
 
+export type DraftPhaseName =
+    | "initial_pick"
+    | "extended_pick"
+    | "extended_ban"
+    | "pick"
+    | "ban"
+    | "complete";
+export type DraftActionKind = "pick_initial_pair" | "pick_unit" | "ban_unit" | "reveal";
+
+export interface DraftCreatureState {
+    id: number;
+    name: string;
+    faction: string;
+    level: number;
+    size: number;
+    hp: number;
+    speed: number;
+    steps: number;
+    armor: number;
+    attackType: string;
+    attack: number;
+    damage: { min: number; max: number };
+    attackRange: number;
+    rangeShots: number;
+    shotDistance: number;
+    magicResist: number;
+    movementType: string;
+    spells: string[];
+    abilities: string[];
+    draftValue: number;
+}
+
+export interface DraftTeamState {
+    team: TeamName;
+    picked: DraftCreatureState[];
+    revealsRemaining: number;
+}
+
+export interface PublicDraftState {
+    matchId: string;
+    stateVersion: number;
+    phase: "draft" | "complete";
+    draftPhase: DraftPhaseName;
+    activeTeams: TeamName[];
+    requiredLevel?: number;
+    initialCreaturePairs: Array<[DraftCreatureState, DraftCreatureState]>;
+    banned: DraftCreatureState[];
+    lower: DraftTeamState;
+    upper: DraftTeamState;
+    completedMatchId?: string;
+}
+
+export interface DraftAction {
+    id: string;
+    kind: DraftActionKind;
+    team: TeamName;
+    summary: string;
+    pairIndex?: number;
+    creatureId?: number;
+    creatureIds?: number[];
+    targetLevel?: number;
+    tacticalTags: string[];
+    risks: string[];
+    evaluation: {
+        value: number;
+        level?: number;
+        faction?: string;
+        role?: string;
+        deniesOpponent?: boolean;
+        notes: string[];
+    };
+}
+
+export interface EvaluatedDraftAction extends DraftAction {
+    rank: number;
+    score: number;
+}
+
+export interface AIDraftRequest {
+    matchId: string;
+    reason: AIReason;
+    style?: AIStyle;
+    state: PublicDraftState;
+    legalActions: DraftAction[];
+    team: TeamName;
+}
+
+export interface AIDraftDecision {
+    actionId: string;
+    action: DraftAction;
+    confidence: number;
+    explanation: string;
+}
+
+export interface SubmitDraftActionResult {
+    completed: boolean;
+    message?: string;
+    state: PublicDraftState;
+    nextLegalActions: DraftAction[];
+    completedMatch?: PublicMatchState;
+}
+
+export interface PlayAiDraftResult {
+    completed: boolean;
+    team?: TeamName;
+    stoppedReason: "draft_complete" | "wrong_team" | "no_legal_actions" | "action_rejected" | "max_actions";
+    decisions: AIDraftDecision[];
+    actionResults: SubmitDraftActionResult[];
+    state: PublicDraftState;
+    completedMatch?: PublicMatchState;
+}
+
 export interface PublicUnitState {
     id: string;
     name: string;

@@ -24,11 +24,13 @@ import {
     type IGameActionResult,
     type IGameRuntime,
     type IWeightedRoute,
+    type TeamType,
     Unit,
     UnitVals,
 } from "@heroesofcrypto/common";
 
 import { createLegalActionBundle, getAvailableSummonCells, getEnemiesWithinMovementRange } from "./legal_actions";
+import { createUnitFromCreatureId, placeDraftUnit } from "./draft";
 import { RuleBasedModelAI, scoreAction } from "./model_ai";
 import { createMcpGameRuntime } from "./runtime";
 import { DamageStatisticStore, BufferedSceneLog } from "./scene_log";
@@ -117,6 +119,14 @@ export class HeadlessMatch {
     public static createSummonScenario(options: CreateHeadlessMatchOptions = {}): HeadlessMatch {
         const match = new HeadlessMatch(options);
         match.seedSummonDuel();
+        match.startFight();
+        return match;
+    }
+    public static createFromDraft(
+        options: CreateHeadlessMatchOptions & { lowerCreatures: number[]; upperCreatures: number[] },
+    ): HeadlessMatch {
+        const match = new HeadlessMatch(options);
+        match.seedDraftArmies(options.lowerCreatures, options.upperCreatures);
         match.startFight();
         return match;
     }
@@ -472,6 +482,57 @@ export class HeadlessMatch {
             }),
             { x: 8, y: 3 },
         );
+    }
+    private seedDraftArmies(lowerCreatures: number[], upperCreatures: number[]): void {
+        this.placeDraftArmy(TeamVals.LOWER, lowerCreatures);
+        this.placeDraftArmy(TeamVals.UPPER, upperCreatures);
+    }
+    private placeDraftArmy(team: TeamType, creatureIds: number[]): void {
+        for (const creatureId of creatureIds) {
+            const unit = createUnitFromCreatureId(creatureId, team, gridSettings);
+            const baseCell = this.findDraftPlacementCell(unit, team);
+            const cells = placeDraftUnit(gridSettings, unit, baseCell);
+            const occupied = this.grid.occupyCells(
+                cells,
+                unit.getId(),
+                unit.getTeam(),
+                unit.getAttackRange(),
+                unit.hasAbilityActive("Made of Fire"),
+                unit.hasAbilityActive("Made of Water"),
+            );
+            if (!occupied) {
+                throw new Error(`Unable to occupy drafted unit ${unit.getName()} at ${baseCell.x}:${baseCell.y}`);
+            }
+            this.unitsHolder.addUnit(unit);
+        }
+    }
+    private findDraftPlacementCell(unit: Unit, team: TeamType): { x: number; y: number } {
+        const rowOrder = team === TeamVals.LOWER ? [1, 2, 3, 4, 5] : [13, 12, 11, 10, 9];
+        const columnOrder = [2, 4, 6, 8, 10, 12, 1, 3, 5, 7, 9, 11, 13];
+
+        for (const y of rowOrder) {
+            for (const x of columnOrder) {
+                const cells = unit.isSmallSize()
+                    ? [{ x, y }]
+                    : [
+                          { x, y },
+                          { x: x + 1, y },
+                          { x, y: y + 1 },
+                          { x: x + 1, y: y + 1 },
+                      ];
+                if (
+                    this.grid.canOccupyCells(
+                        cells,
+                        unit.hasAbilityActive("Made of Fire"),
+                        unit.hasAbilityActive("Made of Water"),
+                    )
+                ) {
+                    return { x, y };
+                }
+            }
+        }
+
+        throw new Error(`No draft placement cell is available for ${unit.getName()}`);
     }
     private startFight(): void {
         this.getFightProperties().setGridType(GridVals.NORMAL);

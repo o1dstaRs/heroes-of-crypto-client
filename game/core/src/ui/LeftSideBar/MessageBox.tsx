@@ -13,8 +13,8 @@ import React, { useEffect, useState, useRef } from "react";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IVisibleState } from "../../scenes/VisibleState";
-import meteorSvg from "../../../images/meteor.svg";
 import { images } from "../../generated/image_imports";
+import { meteorIconDataUrl } from "../meteorIcon";
 
 // --- Configuration for the Start Button Atlas ---
 const START_BUTTON_META = {
@@ -271,7 +271,7 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
             <Tooltip title="Armageddon wave after this turn." placement="top" sx={{ ...commonTooltipSx, zIndex: 2 }}>
                 {/* Wrapped in a Box to separate styling context */}
                 <Box component="span" sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                    <Box component="img" src={meteorSvg} sx={{ width: 26, height: 26 }} />
+                    <Box component="img" src={meteorIconDataUrl} sx={{ width: 26, height: 26 }} />
                 </Box>
             </Tooltip>
         );

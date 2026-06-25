@@ -34,6 +34,135 @@ export function createHeroesMcpServer(store = new HeadlessMatchStore()): McpServ
     registerGamePrompts(server);
 
     server.tool(
+        "create_draft",
+        "Create a headless Heroes of Crypto pick/ban draft. Completing the draft creates a playable headless match.",
+        {
+            matchId: z.string().optional(),
+        },
+        async ({ matchId }) => {
+            const draft = store.createDraft(matchId);
+            return jsonResponse({
+                state: draft.getState(),
+                legalActions: draft.listLegalActions(),
+            });
+        },
+    );
+
+    server.tool(
+        "get_draft_state",
+        "Get public pick/ban draft state.",
+        {
+            matchId: z.string(),
+        },
+        async ({ matchId }) => jsonResponse(store.getDraftOrThrow(matchId).getState()),
+    );
+
+    server.tool(
+        "list_draft_actions",
+        "List legal pick/ban actions for the active drafting team.",
+        {
+            matchId: z.string(),
+            team: z.enum(["LOWER", "UPPER"]).optional(),
+        },
+        async ({ matchId, team }) =>
+            jsonResponse(store.getDraftOrThrow(matchId).listLegalActions(team as TeamName | undefined)),
+    );
+
+    server.tool(
+        "evaluate_draft_actions",
+        "List legal pick/ban actions ranked by the built-in draft scorer.",
+        {
+            matchId: z.string(),
+            team: z.enum(["LOWER", "UPPER"]).optional(),
+            style: z.enum(["balanced", "aggressive", "defensive"]).default("balanced"),
+        },
+        async ({ matchId, style, team }) =>
+            jsonResponse(
+                store.getDraftOrThrow(matchId).evaluateActions({
+                    style: style as AIStyle,
+                    team: team as TeamName | undefined,
+                }),
+            ),
+    );
+
+    server.tool(
+        "choose_draft_action",
+        "Choose an AI pick/ban action for the current draft step.",
+        {
+            matchId: z.string(),
+            team: z.enum(["LOWER", "UPPER"]).optional(),
+            reason: z
+                .enum([
+                    "sandbox_toggle",
+                    "pc_opponent",
+                    "opponent_timeout",
+                    "opponent_disconnected",
+                    "server_bot",
+                    "benchmark",
+                ])
+                .default("server_bot"),
+            style: z.enum(["balanced", "aggressive", "defensive"]).default("balanced"),
+        },
+        async ({ matchId, reason, style, team }) =>
+            jsonResponse(
+                store.getDraftOrThrow(matchId).chooseAction({
+                    reason: reason as AIReason,
+                    style: style as AIStyle,
+                    team: team as TeamName | undefined,
+                }),
+            ),
+    );
+
+    server.tool(
+        "submit_draft_action",
+        "Submit a legal pick/ban action by action id. When the draft completes, the response includes the created match.",
+        {
+            matchId: z.string(),
+            team: z.enum(["LOWER", "UPPER"]),
+            actionId: z.string(),
+        },
+        async ({ actionId, matchId, team }) =>
+            jsonResponse(
+                store.submitDraftAction({
+                    matchId,
+                    team: team as TeamName,
+                    actionId,
+                }),
+            ),
+    );
+
+    server.tool(
+        "play_ai_draft",
+        "Choose and submit pick/ban actions until the requested bot team is no longer active, the draft completes, or the action cap is hit.",
+        {
+            matchId: z.string(),
+            team: z.enum(["LOWER", "UPPER"]).optional(),
+            reason: z
+                .enum([
+                    "sandbox_toggle",
+                    "pc_opponent",
+                    "opponent_timeout",
+                    "opponent_disconnected",
+                    "server_bot",
+                    "benchmark",
+                ])
+                .default("server_bot"),
+            style: z.enum(["balanced", "aggressive", "defensive"]).default("balanced"),
+            maxActions: z.number().int().positive().max(32).default(16),
+        },
+        async ({ matchId, maxActions, reason, style, team }) =>
+            jsonResponse(
+                store.playAiDraft({
+                    matchId,
+                    reason: reason as AIReason,
+                    style: style as AIStyle,
+                    team: team as TeamName | undefined,
+                    maxActions,
+                }),
+            ),
+    );
+
+    server.tool(
         "create_match",
         "Create a quick headless Heroes of Crypto match for AI play.",
         {

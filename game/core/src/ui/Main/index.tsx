@@ -27,11 +27,17 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
         const glCanvas = glCanvasRef.current;
         const debugCanvas = debugCanvasRef.current;
         const wrapper = wrapperRef.current;
+        let cancelled = false;
+        let frameId = 0;
 
         if (glCanvas && debugCanvas && wrapper && !initializedRef.current) {
             initializedRef.current = true;
+            manager.setScene(name, SceneClass);
 
             const loop = (time: number) => {
+                if (cancelled) {
+                    return;
+                }
                 try {
                     manager.SimulationLoop(time);
                 } catch (e) {
@@ -40,19 +46,32 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
                     // the per-frame logic (e.g. next-unit selection) recovers on the next frame.
                     console.error("Error during simulation loop", e);
                 } finally {
-                    window.requestAnimationFrame(loop);
+                    frameId = window.requestAnimationFrame(loop);
                 }
             };
 
             const init = async () => {
                 const setSceneInUrl = (test: SceneEntry) => navigate(getSceneLink(test));
                 await manager.init(glCanvas, debugCanvas, wrapper, setSceneInUrl);
-                window.requestAnimationFrame(loop);
+                if (cancelled) {
+                    manager.Uninitialize();
+                    return;
+                }
+                frameId = window.requestAnimationFrame(loop);
             };
 
             void init().catch((e) => console.error("Initialization failed", e));
         }
-    }, [manager, navigate]);
+
+        return () => {
+            cancelled = true;
+            if (frameId) {
+                window.cancelAnimationFrame(frameId);
+            }
+            initializedRef.current = false;
+            manager.Uninitialize();
+        };
+    }, [manager, navigate, name, SceneClass]);
 
     // Switch active scene
     useEffect(() => {

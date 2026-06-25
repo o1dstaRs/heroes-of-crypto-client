@@ -83,13 +83,21 @@ const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
 export default function RightSideBar({
     gameStarted,
     windowSize,
+    rankedPanel,
     showWallet = false,
 }: {
     gameStarted: boolean;
     windowSize: IWindowSize;
+    rankedPanel?: React.ReactNode;
     showWallet?: boolean;
 }) {
     const [unitDamageStatistics, setUnitDamageStatistics] = useState([] as IDamageStatistic[]);
+
+    useEffect(() => {
+        if (!gameStarted) {
+            setUnitDamageStatistics([]);
+        }
+    }, [gameStarted]);
     const manager = usePixiManager();
     const [barSize, setBarSize] = useState(280);
 
@@ -213,8 +221,11 @@ export default function RightSideBar({
                         "--ListItem-radius": (t) => t.vars.radius.sm,
                     }}
                 >
+                    {rankedPanel && <Box sx={{ mb: 1 }}>{rankedPanel}</Box>}
                     {!gameStarted && <FightControlToggler />}
-                    {gameStarted && <DamageStatsToggler unitStatsElements={unitStatsElements} />}
+                    {gameStarted && unitStats.length > 0 && (
+                        <DamageStatsToggler unitStatsElements={unitStatsElements} />
+                    )}
                     <Box sx={{ flexGrow: 1 }} />
                     <Textarea
                         placeholder="Fight log"

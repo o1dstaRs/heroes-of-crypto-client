@@ -491,6 +491,12 @@ const createMoveAndMeleeActionFromAi = (
     if (!attackFrom || !cellToAttack) {
         return undefined;
     }
+    if (
+        activeUnit.getAttackTypeSelection() !== AttackVals.MELEE &&
+        activeUnit.getAttackTypeSelection() !== AttackVals.MELEE_MAGIC
+    ) {
+        return undefined;
+    }
 
     const targetUnitId = grid.getOccupantUnitId(cellToAttack);
     const targetUnit = targetUnitId ? unitsHolder.getAllUnits().get(targetUnitId) : undefined;
@@ -500,14 +506,33 @@ const createMoveAndMeleeActionFromAi = (
 
     const knownPaths = aiAction.currentActiveKnownPaths();
     const route = getRouteForCell(knownPaths, attackFrom);
+    if (!route?.route.length) {
+        return undefined;
+    }
+    const attackFromCells = getTargetCells(activeUnit, grid, attackFrom);
+    if (!grid.areCellsAdjacent(attackFromCells, targetUnit.getCells())) {
+        return undefined;
+    }
+    const currentCell = activeUnit.getBaseCell();
+    const stationaryAttack = currentCell.x === attackFrom.x && currentCell.y === attackFrom.y;
+    if (
+        !stationaryAttack &&
+        !grid.canOccupyCells(
+            attackFromCells,
+            activeUnit.hasAbilityActive("Made of Fire"),
+            activeUnit.hasAbilityActive("Made of Water"),
+        )
+    ) {
+        return undefined;
+    }
     const action: GameAction = {
         type: "melee_attack",
         attackerId: activeUnit.getId(),
         targetId: targetUnit.getId(),
         attackFrom: { ...attackFrom },
-        path: route?.route.map((cell) => ({ ...cell })),
-        hasLavaCell: route?.hasLavaCell,
-        hasWaterCell: route?.hasWaterCell,
+        path: route.route.map((cell) => ({ ...cell })),
+        hasLavaCell: route.hasLavaCell,
+        hasWaterCell: route.hasWaterCell,
     };
 
     return {

@@ -15,6 +15,11 @@
         "prebuild": "rimraf dist",
         "build": "tsc -p tsconfig.json",
         "dev": "bun run src/server.ts",
+        "harness:export-replay": "bun scripts/export_replay.ts",
+        "harness:match": "bun scripts/run_match.ts",
+        "harness:round-robin": "bun scripts/run_round_robin.ts",
+        "model:probe": "bun scripts/probe_model.ts",
+        "model-opponent": "scripts/hoc-model-opponent.sh play",
         "test": "bun test test/*.test.ts"
     },
     "dependencies": {

@@ -109,8 +109,11 @@ export class PixiApp {
         this.ticker?.stop();
         this.app?.destroy(true, {
             children: true,
-            texture: true,
-            textureSource: true,
+            // Textures are owned by Pixi's global Assets cache. Destroying them here leaves the
+            // resolver/cache believing bundles are loaded while their texture sources are gone,
+            // which can strand later scene mounts on the loading screen.
+            texture: false,
+            textureSource: false,
             context: true,
         });
     }

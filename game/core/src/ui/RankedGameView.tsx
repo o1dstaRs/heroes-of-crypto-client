@@ -101,6 +101,15 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         };
     }, [manager]);
 
+    useEffect(() => {
+        const connection = manager.onSelectionCombined.connect(({ unit }) => {
+            setSelectedUnitId(unit?.id ?? "");
+        });
+        return () => {
+            connection.disconnect();
+        };
+    }, [manager]);
+
     useEffect(
         () => () => {
             clearReplayTimers();
@@ -215,11 +224,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         [selectedUnitId, snapshot],
     );
     const currentUnit = useMemo(() => snapshot?.units.find((unit) => unit.id === snapshot.currentUnitId), [snapshot]);
-    const myUnits = useMemo(
-        () => (isObserver ? [] : (snapshot?.units ?? []).filter((unit) => unit.team === userTeam)),
-        [isObserver, snapshot, userTeam],
-    );
-    const unplacedUnits = useMemo(() => myUnits.filter((unit) => !unit.placed), [myUnits]);
     const ready = !isObserver && !!myPlayer && !!snapshot?.readyPlayerIds.includes(myPlayer.playerId);
     const canSubmit = !!snapshot && !isObserver && !!myPlayer && !busy;
     const gameStarted =
@@ -376,14 +380,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         return () => manager.SetGameActionTransport(undefined);
     }, [manager, transport]);
 
-    const selectUnit = useCallback(
-        (unit: PlayUnitState) => {
-            setSelectedUnitId(unit.id);
-            manager.SelectAuthoritativeUnit(unit.id);
-        },
-        [manager],
-    );
-
     if (!snapshot) {
         return (
             <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", bgcolor: "#07090d", color: "#fff" }}>
@@ -396,13 +392,44 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         );
     }
 
+    const rankedPanel = (
+        <RankedOverlay
+            busy={busy}
+            canSubmit={canSubmit}
+            currentUnit={currentUnit}
+            embedded={gameStarted}
+            error={error}
+            gameStarted={gameStarted}
+            ready={ready}
+            selectedUnit={selectedUnit}
+            snapshot={snapshot}
+            status={status}
+            submitGameAction={submitGameAction}
+            submitProtocolAction={submitProtocolAction}
+            userTeam={userTeam}
+            isObserver={isObserver}
+        />
+    );
+
     return (
         <ButtonProvider>
-            <div className="container" style={{ display: "flex", position: "relative" }}>
+            <div
+                className="container"
+                style={{
+                    display: "flex",
+                    position: "relative",
+                    width: "100vw",
+                    height: "100vh",
+                    overflow: "hidden",
+                    backgroundColor: "#07090d",
+                }}
+            >
                 <CssVarsProvider>
                     <CssBaseline />
                     {gameStarted && <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />}
-                    {gameStarted && <RightSideBar gameStarted={gameStarted} windowSize={windowSize} />}
+                    {gameStarted && (
+                        <RightSideBar gameStarted={gameStarted} windowSize={windowSize} rankedPanel={rankedPanel} />
+                    )}
                     {gameStarted && <UpNextOverlay />}
                     {gameStarted && (
                         <FightFinishedOverlay
@@ -415,23 +442,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 </CssVarsProvider>
                 <Main entry={RANKED_SCENE_ENTRY} />
                 <Popover />
-                <RankedOverlay
-                    busy={busy}
-                    canSubmit={canSubmit}
-                    currentUnit={currentUnit}
-                    error={error}
-                    gameStarted={gameStarted}
-                    ready={ready}
-                    selectedUnit={selectedUnit}
-                    selectUnit={selectUnit}
-                    snapshot={snapshot}
-                    status={status}
-                    submitGameAction={submitGameAction}
-                    submitProtocolAction={submitProtocolAction}
-                    unplacedUnits={unplacedUnits}
-                    userTeam={userTeam}
-                    isObserver={isObserver}
-                />
+                {!gameStarted && rankedPanel}
             </div>
         </ButtonProvider>
     );
@@ -441,16 +452,15 @@ interface RankedOverlayProps {
     busy: boolean;
     canSubmit: boolean;
     currentUnit?: PlayUnitState;
+    embedded?: boolean;
     error: string;
     gameStarted: boolean;
     ready: boolean;
     selectedUnit?: PlayUnitState;
-    selectUnit: (unit: PlayUnitState) => void;
     snapshot: PlaySnapshot;
     status: string;
     submitGameAction: (action: GameAction) => Promise<void>;
     submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
-    unplacedUnits: PlayUnitState[];
     userTeam: TeamType;
     isObserver: boolean;
 }
@@ -459,29 +469,28 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     busy,
     canSubmit,
     currentUnit,
+    embedded = false,
     error,
     gameStarted,
     ready,
     selectedUnit,
-    selectUnit,
     snapshot,
     status,
     submitGameAction,
     submitProtocolAction,
-    unplacedUnits,
     userTeam,
     isObserver,
 }) => (
     <Sheet
         variant="outlined"
         sx={{
-            position: "fixed",
-            top: 12,
-            right: 12,
-            zIndex: 20,
-            width: { xs: "calc(100vw - 24px)", sm: 340 },
-            maxHeight: "calc(100vh - 24px)",
-            overflow: "auto",
+            position: embedded ? "static" : "fixed",
+            top: embedded ? undefined : 12,
+            right: embedded ? undefined : 12,
+            zIndex: embedded ? "auto" : 20,
+            width: embedded ? "100%" : { xs: "calc(100vw - 24px)", sm: 340 },
+            maxHeight: embedded ? "none" : "calc(100vh - 24px)",
+            overflow: embedded ? "visible" : "auto",
             p: 1.25,
             ...hocPanelSx,
             backdropFilter: "blur(10px)",
@@ -543,26 +552,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             Remove Selected
                         </Button>
                     )}
-                    <Typography level="body-xs" textColor={hocColors.muted}>
-                        Pick a unit here, then place it on your highlighted side of the board.
-                    </Typography>
-                    <Stack spacing={0.5}>
-                        {unplacedUnits.map((unit) => (
-                            <Button
-                                key={unit.id}
-                                size="sm"
-                                variant={selectedUnit?.id === unit.id ? "solid" : "soft"}
-                                onClick={() => selectUnit(unit)}
-                                sx={{
-                                    justifyContent: "space-between",
-                                    ...(selectedUnit?.id === unit.id ? hocPrimaryButtonSx : hocSoftButtonSx),
-                                }}
-                            >
-                                <span>{unit.name}</span>
-                                <span>x{unit.amountAlive}</span>
-                            </Button>
-                        ))}
-                    </Stack>
                 </Stack>
             )}
 

@@ -130,12 +130,20 @@ Implemented today:
 - default deterministic `RuleBasedModelAI` for local tests and fallback behavior, now prioritizing lethal/high-value threats and spell tempo
 - full-turn bot runner that chains decisions until the active team changes or the fight finishes
 - ranked tactical action view through `evaluate_actions`
-- read-only MCP resources: `hoc://rules/summary`, `hoc://units`, `hoc://abilities`, `hoc://spells`, `hoc://effects`, `hoc://auras`, `hoc://synergies`
-- model-facing MCP prompt: `play-turn`
-- MCP stdio tools: `create_match`, `get_state`, `list_legal_actions`, `evaluate_actions`, `choose_action`, `submit_action`, `play_ai_turn`
-- isolated Bun tests for legal actions, AI choice, action submission, cross-team rejection, movement, full-turn execution, resources, competitive target priority, spell casting, summoning, ranked evaluation, and SDK-level MCP tool calls
+- read-only MCP resources: `hoc://rules/summary`, `hoc://strategy/primer`, `hoc://units`, `hoc://abilities`, `hoc://spells`, `hoc://effects`, `hoc://auras`, `hoc://synergies`
+- model-facing MCP prompts: `draft-army`, `play-turn`
+- MCP stdio draft tools: `create_draft`, `get_draft_state`, `list_draft_actions`, `evaluate_draft_actions`, `choose_draft_action`, `submit_draft_action`, `play_ai_draft`
+- MCP stdio fight tools: `create_match`, `get_state`, `list_legal_actions`, `evaluate_actions`, `choose_action`, `submit_action`, `play_ai_turn`
+- local terminal opponent runner: `game/mcp/scripts/hoc-model-opponent.sh play`, defaulting model calls to `http://127.0.0.1:9091/` and normalizing to OpenAI-compatible `/v1` routes
+- local model API probe: `game/mcp/scripts/hoc-model-opponent.sh status` or `bun --cwd game/mcp run model:probe`, which verifies `/v1/models`, a simple chat control prompt, and a quickstart legal-action choice
+- mechanics-aware evaluation harnesses: `game/mcp/scripts/run_match.ts`, `game/mcp/scripts/run_round_robin.ts`, and `game/mcp/scripts/export_replay.ts`
+- compact tactical prompt builder for local models, avoiding raw public-state JSON and including legal labels, action evaluations, board state, rules, and synergy notes
+- OpenAI-compatible chat request handling with root URL normalization, streaming support, non-streaming retry, NUL-byte stripping, hard action validation, and deterministic fallback when a model returns invalid text
+- isolated Bun tests for legal actions, AI choice, draft completion, action submission, cross-team rejection, movement, full-turn execution, resources, competitive target priority, spell casting, summoning, ranked evaluation, and SDK-level MCP tool calls
 
 Current limitation: `@heroesofcrypto/common` stores fight properties in a singleton, so the MCP session store intentionally keeps one active headless match per process. A hosted multiplayer service should isolate each match in its own worker/process or move the common fight state behind an explicit match instance before running many matches concurrently.
+
+Local model note: `http://127.0.0.1:9091/` is accepted as the configured model API root and normalized to `http://127.0.0.1:9091/v1`. The harness always validates returned labels/action ids against the current legal action list. If the endpoint is reachable but the loaded model emits unrelated or empty text, the local runner records `builtin_fallback` and continues so the game does not stall. Use `HOC_MODEL_STREAM=0` to force non-streaming requests if the local server resets streaming sockets.
 
 ## Core Principle
 
@@ -208,6 +216,18 @@ Public unit roster derived from `CREATURES_JSON`:
 
 Do not include hidden or unrevealed draft state.
 
+### `hoc://strategy/primer`
+
+Compact player-facing strategy context:
+
+- win condition and action goals
+- draft composition and ban priorities
+- faction synergy guidance
+- spell priorities
+- board, lap, retaliation, and evaluation-metadata heuristics
+
+This is a model teaching aid, not an authority for legality. The legal action tools and common engine remain authoritative.
+
 ### `hoc://abilities`
 
 Ability and spell reference indexed by name.
@@ -260,7 +280,7 @@ Prompt behavior:
 
 ### `draft-army`
 
-Purpose: choose draft picks and bans when MCP draft support is added.
+Purpose: choose draft picks and bans before handing a completed army into the normal fight tools.
 
 ### `review-match`
 
@@ -740,9 +760,9 @@ Add model benchmark scripts after the headless package exists:
 
 ```text
 game/mcp/scripts/
-  run_match.ts
-  run_round_robin.ts
-  export_replay.ts
+  run_match.ts       # one full draft/fight replay with mechanics context
+  run_round_robin.ts # ordered player/style/scenario matrix
+  export_replay.ts   # Markdown report from replay JSON
 ```
 
 Useful metrics:

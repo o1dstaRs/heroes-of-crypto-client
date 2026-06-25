@@ -105,6 +105,8 @@ export class PixiGameManager {
         down: boolean;
         up: boolean;
     };
+    private lifecycleId = 0;
+    private initEventCleanups: Array<() => void> = [];
     private static readonly OVERLAY_MOUSE_SUPPRESSION_MS = 350;
     private static readonly OVERLAY_MOUSE_SUPPRESSION_DISTANCE_PX = 8;
     public constructor() {
@@ -150,6 +152,20 @@ export class PixiGameManager {
         if (!suppression.down && !suppression.up) this.overlayMouseSuppression = undefined;
         return true;
     }
+    private addInitEventListener(
+        target: EventTarget,
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | AddEventListenerOptions,
+    ): void {
+        target.addEventListener(type, listener, options);
+        this.initEventCleanups.push(() => target.removeEventListener(type, listener, options));
+    }
+    private removeInitEventListeners(): void {
+        for (const cleanup of this.initEventCleanups.splice(0)) {
+            cleanup();
+        }
+    }
     public async init(
         glCanvas: HTMLCanvasElement,
         debugCanvas: HTMLCanvasElement,
@@ -157,24 +173,40 @@ export class PixiGameManager {
         activateScene: (entry: SceneEntry) => void,
     ) {
         if (this.isInitialized) return;
+        const lifecycleId = ++this.lifecycleId;
+        const isCurrentLifecycle = () => lifecycleId === this.lifecycleId;
         this.activateScene = activateScene;
 
         // Input handlers (unchanged) ...
-        debugCanvas.addEventListener("mousedown", (e) => this.HandleMouseDown(e));
-        debugCanvas.addEventListener("mouseup", (e) => this.HandleMouseUp(e));
-        debugCanvas.addEventListener("mousemove", (e) => this.HandleMouseMove(e));
-        window.addEventListener("keydown", (e) => {
+        this.addInitEventListener(debugCanvas, "mousedown", (e) => this.HandleMouseDown(e as MouseEvent));
+        this.addInitEventListener(debugCanvas, "mouseup", (e) => this.HandleMouseUp(e as MouseEvent));
+        this.addInitEventListener(debugCanvas, "mousemove", (e) => this.HandleMouseMove(e as MouseEvent));
+        this.addInitEventListener(window, "keydown", (e) => {
+            if (!(e instanceof KeyboardEvent)) return;
             if (e.key === "Escape") this.HandleEscapeKey(true);
         });
-        debugCanvas.addEventListener("mouseenter", () => (this.m_hoveringCanvas = true));
-        debugCanvas.addEventListener("mouseleave", () => (this.m_hoveringCanvas = false));
+        this.addInitEventListener(debugCanvas, "mouseenter", () => (this.m_hoveringCanvas = true));
+        this.addInitEventListener(debugCanvas, "mouseleave", () => (this.m_hoveringCanvas = false));
 
         // Init Pixi using wrapper size
-        this.pixiApp = new PixiApp(); // sync constructor
-        await this.pixiApp.init(glCanvas, 2048, 2048); // async init, safe to await here
+        const pixiApp = new PixiApp(); // sync constructor
+        this.pixiApp = pixiApp;
+        await pixiApp.init(glCanvas, 2048, 2048); // async init, safe to await here
+        if (!isCurrentLifecycle()) {
+            pixiApp.destroy();
+            return;
+        }
 
         // Declare loadingScreen early so onResize can close over it
         let loadingScreen: LoadingScreen | undefined;
+        const cleanupLoadingScreen = () => {
+            if (!loadingScreen) return;
+            if (!loadingScreen.destroyed) {
+                loadingScreen.removeFromParent();
+                loadingScreen.destroy();
+            }
+            loadingScreen = undefined;
+        };
 
         // --- IMPORTANT: don't set glCanvas.width/height; let Pixi own it. ---
         // Only resize via Pixi + notify scene.
@@ -195,9 +227,13 @@ export class PixiGameManager {
             this.fitViewToWindow();
         };
 
-        window.addEventListener("resize", onResize);
-        window.addEventListener("orientationchange", onResize);
+        this.addInitEventListener(window, "resize", onResize);
+        this.addInitEventListener(window, "orientationchange", onResize);
         onResize(); // first sizing pass to set correct canvas size
+        if (!isCurrentLifecycle()) {
+            pixiApp.destroy();
+            return;
+        }
 
         // --- NEW: TIERED LOADING ---
         const stage = this.pixiApp.getStage();
@@ -206,6 +242,10 @@ export class PixiGameManager {
 
         // 1. Show Blocking Loading Screen
         const { LoadingScreen } = await import("../scenes/LoadingScreen");
+        if (!isCurrentLifecycle()) {
+            pixiApp.destroy();
+            return;
+        }
         loadingScreen = new LoadingScreen(width, height);
         // Ensure it's on top of everything (UI container usually) but for now just add to stage
         stage.addChild(loadingScreen);
@@ -217,30 +257,37 @@ export class PixiGameManager {
 
         loadingScreen.setProgress(0.1);
         const { preloadCoreAssets, preloadAnimationAssets } = await import("./PixiTextureLoader");
+        if (!isCurrentLifecycle()) {
+            cleanupLoadingScreen();
+            pixiApp.destroy();
+            return;
+        }
 
         this.textures = (await preloadCoreAssets((p) => {
+            if (!isCurrentLifecycle()) return;
             // scale 0.1 -> 1.0
             if (loadingScreen) loadingScreen.setProgress(0.1 + p * 0.9);
         })) as PreloadedPixiTextures;
+        if (!isCurrentLifecycle()) {
+            cleanupLoadingScreen();
+            pixiApp.destroy();
+            return;
+        }
 
         // 3. Remove Loading Screen & Start Game
-        // Loading Done
-        this._isLoading = false;
-        this.onLoadingChanged.emit(false);
-
-        stage.removeChild(loadingScreen);
-        loadingScreen.destroy();
-        loadingScreen = undefined;
+        cleanupLoadingScreen();
 
         // 4. Init Scene Manager & Game
         // const gridSettings = new GridSettings(32, 1024, 0, 1024, 0, 32, 16);
         // this.pixiSceneManager = new PixiSceneManager(this.pixiApp, gridSettings);
 
-        window.addEventListener("keydown", (e) => this.HandleKey(e, true));
-        window.addEventListener("keyup", (e) => this.HandleKey(e, false));
-        window.addEventListener(
+        this.addInitEventListener(window, "keydown", (e) => this.HandleKey(e as KeyboardEvent, true));
+        this.addInitEventListener(window, "keyup", (e) => this.HandleKey(e as KeyboardEvent, false));
+        this.addInitEventListener(
+            window,
             "contextmenu",
             (e) => {
+                if (!(e instanceof MouseEvent)) return;
                 if (e.target instanceof HTMLElement && e.target.closest("main")) e.preventDefault();
             },
             true,
@@ -251,11 +298,13 @@ export class PixiGameManager {
         // 5. Tier 2: Background Load Animations
         // We can pass a callback to update UI if needed
         preloadAnimationAssets((p) => {
+            if (!isCurrentLifecycle()) return;
             // TODO: Emit signal to UI / Scene about progress
             // For now just log
             // console.log("Background Asset Load:", p);
             this.m_scene?.onBackgroundAssetLoad?.(p);
         }).then((newTextures) => {
+            if (!isCurrentLifecycle()) return;
             this.textures = { ...this.textures, ...newTextures } as PreloadedPixiTextures;
             // Notify scene that assets are fully ready?
             // Ideally Pixi handles texture updates automatically if we reference them by new Texture objects?
@@ -296,6 +345,9 @@ export class PixiGameManager {
                 }
             };
             debugCanvas.addEventListener("pointerdown", forwardOverlayInteraction);
+            this.initEventCleanups.push(() =>
+                debugCanvas.removeEventListener("pointerdown", forwardOverlayInteraction),
+            );
             this.forwardOverlayInteraction = forwardOverlayInteraction; // For cleanup if needed
             this.overlayDebugCanvas = debugCanvas;
         }
@@ -304,6 +356,11 @@ export class PixiGameManager {
         this._pixiApp.getTicker().addOnce(() => this.fitViewToWindow());
 
         this.isInitialized = true;
+        // Signal readiness only after LoadGame() has created m_scene. Ranked routes apply the
+        // authoritative snapshot as soon as this flips; emitting earlier can drop the first PLAY
+        // snapshot and leave a direct fight link with an empty board until another SSE event arrives.
+        this._isLoading = false;
+        this.onLoadingChanged.emit(false);
     }
     private screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
         if (!this.pixiApp) return { x: screenX, y: screenY };
@@ -492,6 +549,8 @@ export class PixiGameManager {
         this.fitViewToWindow();
     }
     public Uninitialize(): void {
+        this.lifecycleId++;
+        this.removeInitEventListeners();
         if (this.overlayDebugCanvas && this.forwardOverlayInteraction) {
             this.overlayDebugCanvas.removeEventListener("pointerdown", this.forwardOverlayInteraction);
         }
@@ -499,9 +558,16 @@ export class PixiGameManager {
         this.forwardOverlayInteraction = undefined;
         this.overlayMouseSuppression = undefined;
 
+        this.m_scene?.Destroy();
+        this.m_scene = null;
         this.isInitialized = false;
+        this._isLoading = true;
         this.pixiApp?.destroy();
-        // this.pixiSceneManager?.destroy();
+        this.pixiApp = null;
+        this.textures = null;
+        this.started = false;
+        this.lastTime = 0;
+        this.simAccumulator = 0;
     }
     public RequestTime(team?: number): void {
         if (this.started && this.m_scene && team !== undefined) this.m_scene.requestTime(team);

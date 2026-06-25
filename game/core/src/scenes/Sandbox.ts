@@ -140,7 +140,7 @@ export class Sandbox extends PixiScene {
     // mountain — the shot (and the click) is redirected to the obstacle instead of the enemy.
     private hoverRangeAttackObstacle?: IAttackObstacle;
     private currentEnemiesCellsWithinMovementRange?: HoCMath.XY[];
-    private unitsOverlay: UnitsOverlay;
+    protected unitsOverlay: UnitsOverlay;
     private placementManager: PlacementManager;
     private spawnPulsePhase = 0;
     private bgKey = "background_new";
@@ -5401,7 +5401,7 @@ export class Sandbox extends PixiScene {
         this.sc_hoveredAuraRanges = undefined;
         this.sc_hoveredShotRange = undefined;
     }
-    private updateUnitsOverlayVisibility(): void {
+    protected updateUnitsOverlayVisibility(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const started = fightProps.hasFightStarted();
         if (this.unitsOverlay?.container) {

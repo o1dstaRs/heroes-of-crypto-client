@@ -12,7 +12,11 @@ import {
     type UnitProperties,
 } from "@heroesofcrypto/common";
 
-import type { AuthoritativeGameSnapshot, AuthoritativeUnitState } from "../game_action_transport";
+import type {
+    AuthoritativeGameSnapshot,
+    AuthoritativeUnitState,
+    SceneGameActionTransport,
+} from "../game_action_transport";
 import type { IFightDeathEntry, IFightStatsReport, IFightStatsSample } from "./VisibleState";
 import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
 import { Sandbox, type SandboxSceneState, type SandboxSceneUnitState, type SceneActionEngine } from "./Sandbox";
@@ -24,6 +28,14 @@ export class RankedPlayScene extends Sandbox {
     private viewerTeam?: TeamType;
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return undefined;
+    }
+    public override setGameActionTransport(transport?: SceneGameActionTransport): void {
+        super.setGameActionTransport(transport);
+        this.updateUnitsOverlayVisibility();
+    }
+    protected override updateUnitsOverlayVisibility(): void {
+        this.unitsOverlay?.setVisible(false);
+        this.unitsOverlay?.clearSelection(false);
     }
     public override selectAuthoritativeUnit(unitId: string): void {
         this.selectSceneUnitForPlacement(unitId);
