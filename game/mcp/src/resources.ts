@@ -88,6 +88,7 @@ Draft goals:
 - Required level, available creatures, bans, and already-picked creatures are enforced by the legal draft action list.
 - Prefer an army with complementary jobs: frontline durability, ranged pressure, magic support, speed/tempo, and at least one high-impact threat.
 - In this version, ranged pressure is a core draft axis: try to out-pick the opponent in ranged units, not merely match them.
+- Stay balanced while doing this: do not draft more than three ranged units in your six-stack army. Once you have two or three ranged units, prioritize frontline durability, caster/support, tempo, or synergy unless a premium ranged secure/deny action is clearly decisive.
 - Tsar Cannon and Gargantuan are premium ranged threats. Secure one when legal and useful; otherwise ban them or confirm they are already banned/unavailable before allowing the opponent to build around them.
 - Ban high-value level 4 units, strong ranged units, strong casters, or creatures that complete an opponent's visible faction plan.
 - Do not tunnel on raw stats. A lower-level caster, summon, aura, or fast stack can be worth more than a slow body.

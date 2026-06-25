@@ -246,8 +246,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const viewerTeam = userTeam === TeamVals.NO_TEAM ? undefined : userTeam;
     const [snapshot, setSnapshot] = useState<PlaySnapshot | null>(null);
     const effectiveLocalModelConfig = useMemo(
-        () => resolveEffectiveLocalModelOpponentConfig(localModelConfig, snapshot),
-        [localModelConfig, snapshot],
+        () => resolveEffectiveLocalModelOpponentConfig(localModelConfig, snapshot, viewerTeam),
+        [localModelConfig, snapshot, viewerTeam],
     );
     const [selectedUnitId, setSelectedUnitId] = useState("");
     const [busy, setBusy] = useState(false);
@@ -274,6 +274,15 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         snapshotRef.current = nextSnapshot;
         setSnapshot(nextSnapshot);
     }, []);
+    const toSceneSnapshot = useCallback(
+        (playSnapshot: PlaySnapshot) =>
+            toAuthoritativeGameSnapshot(
+                playSnapshot,
+                viewerTeam,
+                effectiveLocalModelConfig.enabled ? effectiveLocalModelConfig.modelTeam : undefined,
+            ),
+        [effectiveLocalModelConfig.enabled, effectiveLocalModelConfig.modelTeam, viewerTeam],
+    );
 
     const rememberAuthoritativeRecord = useCallback(
         (entry: PlaySnapshot["journalTail"][number] | undefined, options: { snapshotSequence?: number } = {}) => {
@@ -324,13 +333,13 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     await manager.PlayAuthoritativeActionRecord(
                         record.action,
                         record.events,
-                        stateAfterSnapshot ? toAuthoritativeGameSnapshot(stateAfterSnapshot, viewerTeam) : undefined,
+                        stateAfterSnapshot ? toSceneSnapshot(stateAfterSnapshot) : undefined,
                     );
                 });
             await authoritativePlaybackQueueRef.current;
             return true;
         },
-        [manager, pixiReady, viewerTeam],
+        [manager, pixiReady, toSceneSnapshot],
     );
 
     const refreshSnapshot = useCallback(async () => {
@@ -372,7 +381,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         if (!snapshot || !pixiReady) {
             return;
         }
-        manager.ApplyAuthoritativeSnapshot(toAuthoritativeGameSnapshot(snapshot, viewerTeam), {
+        manager.ApplyAuthoritativeSnapshot(toSceneSnapshot(snapshot), {
             skipBoardRebuild: skipBoardRebuildRef.current,
         });
         if (selectedUnitId && snapshot.units.some((unit) => unit.id === selectedUnitId && !unit.dead)) {
@@ -384,7 +393,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         for (const [sequence] of records) {
             pendingAuthoritativeRecordsRef.current.delete(sequence);
         }
-    }, [manager, pixiReady, selectedUnitId, snapshot, viewerTeam]);
+    }, [manager, pixiReady, selectedUnitId, snapshot, toSceneSnapshot]);
 
     useEffect(() => {
         let cancelled = false;
@@ -607,12 +616,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     }, []);
 
     const submitProtocolActionForTeam = useCallback(
-        async (
-            action: Partial<PlayAction>,
-            team: TeamType,
-            authorization?: string,
-            options?: { silent?: boolean },
-        ) => {
+        async (action: Partial<PlayAction>, team: TeamType, authorization?: string, options?: { silent?: boolean }) => {
             await queueActionSubmission(async () => {
                 const envelope = buildActionEnvelope(team);
                 if (!envelope) return;
@@ -689,12 +693,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         }
 
         const pingHumanPlayer = () => {
-            void submitProtocolActionForTeam(
-                { type: PlayActionType.PING, expectedSequence: 0 },
-                userTeam,
-                undefined,
-                { silent: true },
-            );
+            void submitProtocolActionForTeam({ type: PlayActionType.PING, expectedSequence: 0 }, userTeam, undefined, {
+                silent: true,
+            });
         };
         const timer = window.setInterval(pingHumanPlayer, 8_000);
         pingHumanPlayer();
@@ -770,7 +771,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             const replay = await fetchRankedPlayReplay(gameId);
             const sandboxReplay = createSandboxReplayFromRankedReplay(replay, {
                 snapshotToState: (playSnapshot) =>
-                    authoritativeSnapshotToSandboxSceneState(toAuthoritativeGameSnapshot(playSnapshot, viewerTeam)),
+                    authoritativeSnapshotToSandboxSceneState(toSceneSnapshot(playSnapshot)),
             });
 
             setStatus("Replaying");
@@ -800,7 +801,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 }
                 const replaySnapshot = replaySnapshots[index];
                 if (replaySnapshot) {
-                    manager.ApplyAuthoritativeReplaySnapshot(toAuthoritativeGameSnapshot(replaySnapshot, viewerTeam));
+                    manager.ApplyAuthoritativeReplaySnapshot(toSceneSnapshot(replaySnapshot));
                 }
             }
             setStatus("Connected");
@@ -810,7 +811,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         } finally {
             setBusy(false);
         }
-    }, [clearReplayTimers, gameId, manager, viewerTeam]);
+    }, [clearReplayTimers, gameId, manager, toSceneSnapshot]);
 
     useEffect(() => {
         manager.SetGameActionTransport(transport);

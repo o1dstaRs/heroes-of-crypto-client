@@ -1139,16 +1139,22 @@ export class HoverManager {
         this.hoverPlacementCellTeam = undefined;
         this.hoverSelectedCells = undefined;
         this.hoverSelectedCellsSwitchToRed = false;
-        this.clearHoverSilhouette();
 
         // ⬅️ IMPORTANT: only require a selected unit,
         // do NOT depend on hasActiveSelection() here,
         // otherwise bench-placement hover dies.
-        if (!selected) return;
+        if (!selected) {
+            this.clearAuraVisuals();
+            this.clearHoverSilhouette();
+            return;
+        }
 
         const cell = GridMath.getCellForPosition(gs, worldPos);
         this.clearAuraVisuals();
-        if (!cell) return;
+        if (!cell) {
+            this.clearHoverSilhouette();
+            return;
+        }
 
         const isLarge = selected.size === 2;
         const cellHash = (cell.x << 4) | cell.y;

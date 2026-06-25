@@ -38,6 +38,7 @@ import type {
 
 const DRAFT_UNIT_TOTAL_EXP = 1000;
 const TARGET_LEVEL_COUNTS = [0, ...CreaturePoolByLevel] as const;
+export const MAX_DRAFT_RANGED_UNITS = 3;
 
 type DraftStep = {
     phase: DraftPhaseName;
@@ -125,6 +126,9 @@ const draftTagsForCreature = (creature: DraftCreatureState): string[] => {
     }
     return [...tags];
 };
+
+export const isDraftCreatureRanged = (creature: DraftCreatureState): boolean =>
+    creature.attackRange > 1 || creature.attackType === "range" || creature.rangeShots > 0;
 
 export const createDraftCreatureState = (creatureId: number): DraftCreatureState => {
     const faction = getCreatureFactionName(creatureId);
@@ -249,8 +253,9 @@ export class HeadlessDraft {
 
         const team = options.team ?? step.team;
         const style = options.style ?? "balanced";
+        const state = this.toPublicState();
         return this.listLegalActions(team)
-            .map((action) => ({ ...action, score: scoreDraftAction(action, style) }))
+            .map((action) => ({ ...action, score: scoreDraftAction(action, style, { state, team }) }))
             .sort((left, right) => {
                 const scoreDelta = right.score - left.score;
                 if (scoreDelta !== 0) {
@@ -330,6 +335,7 @@ export class HeadlessDraft {
             const creatures = pair.map(createDraftCreatureState);
             const value = creatures.reduce((sum, creature) => sum + creature.draftValue, 0);
             const tags = [...new Set(creatures.flatMap(draftTagsForCreature))];
+            const rangedCount = creatures.filter(isDraftCreatureRanged).length;
             return [
                 {
                     id: this.actionId(step.team, "pair", pairIndex),
@@ -343,6 +349,7 @@ export class HeadlessDraft {
                     evaluation: {
                         value,
                         role: tags.includes("ranged") ? "mixed ranged opener" : "balanced opener",
+                        rangedCount,
                         notes: creatures.map(
                             (creature) =>
                                 `${creature.name} is a level ${creature.level} ${creature.faction} ${creatureRole(creature)}`,
@@ -360,6 +367,7 @@ export class HeadlessDraft {
             .map((creatureId) => {
                 const creature = createDraftCreatureState(creatureId);
                 const tags = draftTagsForCreature(creature);
+                const rangedCount = isDraftCreatureRanged(creature) ? 1 : 0;
                 return {
                     id: this.actionId(step.team, "pick", creatureId),
                     kind: "pick_unit",
@@ -375,6 +383,7 @@ export class HeadlessDraft {
                         level: creature.level,
                         faction: creature.faction,
                         role: creatureRole(creature),
+                        rangedCount,
                         notes: [
                             `${creature.attackType} attack, speed ${creature.speed}, armor ${creature.armor}`,
                             ...(creature.spells.length ? [`spells: ${creature.spells.join(", ")}`] : []),
@@ -431,6 +440,7 @@ export class HeadlessDraft {
                 );
                 const deniesOpponent = opponentFactions.has(creature.faction) || creature.draftValue >= 120;
                 const tags = draftTagsForCreature(creature);
+                const rangedCount = isDraftCreatureRanged(creature) ? 1 : 0;
                 return {
                     id: this.actionId(step.team, "ban", creatureId),
                     kind: "ban_unit",
@@ -447,6 +457,7 @@ export class HeadlessDraft {
                         faction: creature.faction,
                         role: creatureRole(creature),
                         deniesOpponent,
+                        rangedCount,
                         notes: [
                             deniesOpponent
                                 ? "removes a high-value or faction-relevant opponent option"

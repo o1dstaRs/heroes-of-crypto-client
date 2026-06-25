@@ -15,18 +15,20 @@ export const shouldApplyActionResponseSnapshotToViewer = (
 export const resolveEffectiveLocalModelOpponentConfig = (
     config: LocalModelOpponentConfig,
     snapshot: PlaySnapshot | null,
+    viewerTeam?: TeamType,
 ): LocalModelOpponentConfig => {
     if (!config.enabled || !snapshot || !config.playerId) {
-        return config;
+        return viewerTeam !== undefined && config.modelTeam === viewerTeam ? { ...config, enabled: false } : config;
     }
 
     const modelPlayer = snapshot.players.find((player) => player.playerId === config.playerId);
-    if (!modelPlayer || modelPlayer.team === config.modelTeam) {
-        return config;
+    const resolvedModelTeam = (modelPlayer?.team as TeamType | undefined) ?? config.modelTeam;
+    if (viewerTeam !== undefined && resolvedModelTeam === viewerTeam) {
+        return { ...config, enabled: false, modelTeam: resolvedModelTeam };
     }
 
     return {
         ...config,
-        modelTeam: modelPlayer.team as TeamType,
+        modelTeam: resolvedModelTeam,
     };
 };

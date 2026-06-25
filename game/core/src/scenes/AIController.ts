@@ -10,7 +10,7 @@ import {
     UnitsHolder,
     FightStateManager,
 } from "@heroesofcrypto/common";
-import type { AttackHandler, AttackType, GameAction } from "@heroesofcrypto/common";
+import type { AttackHandler, AttackType, GameAction, TeamType } from "@heroesofcrypto/common";
 import { RenderableUnit } from "./RenderableUnit";
 import { HoverManager } from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
@@ -58,6 +58,13 @@ export interface IAIContext {
 
     // Actions
     isAuthoritativeAction?(action: GameAction): boolean;
+    /**
+     * Whether the generic "AI toggle" (isAIActive) may auto-play the active unit.
+     * Sandbox (no external transport) allows it for single-player AI. Ranked must
+     * disallow it — otherwise the heuristic AI would drive BOTH teams' units,
+     * since the toggle isn't team-gated. The local-model team path is separate.
+     */
+    isToggleDrivenAiAllowed?(): boolean;
     applyGameAction(action: GameAction): boolean;
     executeAttackSequence(
         attacker: RenderableUnit,
@@ -83,6 +90,8 @@ export class AIController {
     private static readonly MOVE_ACTION_TIMEOUT_MS = 6000;
     private context: IAIContext;
     private readonly localModelOpponent: LocalModelOpponentConfig;
+    private localModelTeamOverride?: TeamType;
+    private localModelTeamOverrideSet = false;
     private lastLocalModelUnitId: string | undefined;
     private attackTypeSetupUnitId: string | undefined;
     // AI State
@@ -140,7 +149,8 @@ export class AIController {
     public shouldTriggerAI(): boolean {
         const currentUnit = this.context.getCurrentActiveUnit();
         if (!currentUnit) return false;
-        const playerAIEnabled = this.localModelOpponent.enabled ? false : this.isAIActive;
+        const toggleAllowed = this.context.isToggleDrivenAiAllowed?.() ?? true;
+        const playerAIEnabled = this.localModelOpponent.enabled ? false : toggleAllowed && this.isAIActive;
 
         return (
             (this.shouldControlUnit(currentUnit) || playerAIEnabled || currentUnit.hasAbilityActive("AI Driven")) &&
@@ -151,8 +161,13 @@ export class AIController {
         const currentUnit = this.context.getCurrentActiveUnit();
         return !!currentUnit && this.shouldControlUnit(currentUnit);
     }
+    public setLocalModelTeamOverride(team: TeamType | undefined): void {
+        this.localModelTeamOverride = team;
+        this.localModelTeamOverrideSet = true;
+    }
     private shouldControlUnit(unit: Unit): boolean {
-        return this.localModelOpponent.enabled && unit.getTeam() === this.localModelOpponent.modelTeam;
+        const modelTeam = this.localModelTeamOverrideSet ? this.localModelTeamOverride : this.localModelOpponent.modelTeam;
+        return this.localModelOpponent.enabled && unit.getTeam() === modelTeam;
     }
     private modelAction<T extends GameAction>(unit: Unit, action: T): T {
         return this.shouldControlUnit(unit) ? markLocalModelAction(action) : action;

@@ -73,6 +73,7 @@ export interface DraftAction {
         faction?: string;
         role?: string;
         deniesOpponent?: boolean;
+        rangedCount?: number;
         notes: string[];
     };
 }

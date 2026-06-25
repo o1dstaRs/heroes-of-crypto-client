@@ -215,7 +215,7 @@ const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType; ga
                     {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
                 </CssVarsProvider>
                 <StainedGlassWindow userTeam={userTeam} />
-                <LocalModelDraftOpponent eventUrl={pickEventsUrl} />
+                <LocalModelDraftOpponent eventUrl={pickEventsUrl} userTeam={userTeam} />
                 <Popover />
             </div>
         </PickBanEventProvider>

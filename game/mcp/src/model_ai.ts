@@ -9,9 +9,57 @@ import type {
 } from "./types";
 
 const PREMIUM_RANGED_THREATS = ["Tsar Cannon", "Gargantuan"];
+const MAX_DRAFT_RANGED_UNITS = 3;
 
 const isPremiumRangedDraftAction = (action: DraftAction): boolean =>
     PREMIUM_RANGED_THREATS.some((name) => action.summary.includes(name) || action.evaluation.notes.includes(name));
+
+const isDraftPickAction = (action: DraftAction): boolean =>
+    action.kind === "pick_unit" || action.kind === "pick_initial_pair";
+
+const isDraftCreatureRanged = (creature: AIDraftRequest["state"]["lower"]["picked"][number]): boolean =>
+    creature.attackRange > 1 || creature.attackType === "range" || creature.rangeShots > 0;
+
+const ownRangedCount = (request: Pick<AIDraftRequest, "state" | "team">): number => {
+    const picked = request.team === "LOWER" ? request.state.lower.picked : request.state.upper.picked;
+    return picked.filter(isDraftCreatureRanged).length;
+};
+
+const actionRangedCount = (action: DraftAction): number =>
+    action.evaluation.rangedCount ?? (action.tacticalTags.includes("ranged") ? 1 : 0);
+
+const draftRangedBalanceScore = (
+    action: DraftAction,
+    request?: Pick<AIDraftRequest, "state" | "team">,
+): number => {
+    if (!request || !isDraftPickAction(action)) {
+        return 0;
+    }
+
+    const currentRanged = ownRangedCount(request);
+    const addedRanged = actionRangedCount(action);
+    if (addedRanged <= 0) {
+        return currentRanged >= 2 ? 85 : 0;
+    }
+
+    const afterPickRanged = currentRanged + addedRanged;
+    if (afterPickRanged > MAX_DRAFT_RANGED_UNITS) {
+        return -10000;
+    }
+    if (afterPickRanged === MAX_DRAFT_RANGED_UNITS && !isPremiumRangedDraftAction(action)) {
+        return -65;
+    }
+    return 0;
+};
+
+const capAwareDraftActions = (request: AIDraftRequest): DraftAction[] => {
+    const viableActions = request.legalActions.filter(
+        (action) =>
+            !isDraftPickAction(action) ||
+            ownRangedCount(request) + actionRangedCount(action) <= MAX_DRAFT_RANGED_UNITS,
+    );
+    return viableActions.length ? viableActions : request.legalActions;
+};
 
 export const scoreAction = (action: LegalAction, style: AITurnRequest["style"]): number => {
     let score = 0;
@@ -59,7 +107,11 @@ export const scoreAction = (action: LegalAction, style: AITurnRequest["style"]):
     return score;
 };
 
-export const scoreDraftAction = (action: DraftAction, style: AIDraftRequest["style"]): number => {
+export const scoreDraftAction = (
+    action: DraftAction,
+    style: AIDraftRequest["style"],
+    request?: Pick<AIDraftRequest, "state" | "team">,
+): number => {
     let score = action.evaluation.value;
 
     if (action.kind === "pick_initial_pair") {
@@ -104,6 +156,7 @@ export const scoreDraftAction = (action: DraftAction, style: AIDraftRequest["sty
     if (style === "balanced" && !action.risks.length) {
         score += 6;
     }
+    score += draftRangedBalanceScore(action, request);
 
     return score;
 };
@@ -139,8 +192,8 @@ export class RuleBasedDraftAI {
         }
 
         const style = request.style ?? "balanced";
-        const action = [...request.legalActions].sort((left, right) => {
-            const scoreDelta = scoreDraftAction(right, style) - scoreDraftAction(left, style);
+        const action = [...capAwareDraftActions(request)].sort((left, right) => {
+            const scoreDelta = scoreDraftAction(right, style, request) - scoreDraftAction(left, style, request);
             if (scoreDelta !== 0) {
                 return scoreDelta;
             }
@@ -150,7 +203,7 @@ export class RuleBasedDraftAI {
         return {
             actionId: action.id,
             action,
-            confidence: Math.min(0.95, Math.max(0.35, scoreDraftAction(action, style) / 180)),
+            confidence: Math.min(0.95, Math.max(0.35, scoreDraftAction(action, style, request) / 180)),
             explanation: action.summary,
         };
     }

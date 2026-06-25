@@ -1,16 +1,25 @@
 import { describe, expect, it, mock } from "bun:test";
 
-import { AttackVals, GridSettings, type GameAction, type HoCMath, type IWeightedRoute } from "@heroesofcrypto/common";
+import {
+    AttackVals,
+    GridSettings,
+    TeamVals,
+    type GameAction,
+    type HoCMath,
+    type IWeightedRoute,
+} from "@heroesofcrypto/common";
 
 import { AIController, type IAIContext } from "./AIController";
+import type { LocalModelOpponentConfig } from "./LocalModelOpponent";
 import type { RenderableUnit } from "./RenderableUnit";
 import { SceneSettings } from "./SceneSettings";
 
-const createUnit = (id = "ai-unit-1"): RenderableUnit =>
+const createUnit = (id = "ai-unit-1", team = TeamVals.LOWER): RenderableUnit =>
     ({
         canMove: () => true,
         getId: () => id,
         getName: () => "AI Unit",
+        getTeam: () => team,
         getPosition: () => ({ x: 0, y: 0 }),
         getUnitProperties: () => ({}),
         getAttackTypeSelection: () => AttackVals.MELEE,
@@ -45,6 +54,48 @@ const createMoveAndAttackAction = (cellToMove: HoCMath.XY, cellToAttack: HoCMath
 };
 
 describe("AIController", () => {
+    it("uses the resolved ranked model team instead of the raw URL team", () => {
+        const unit = createUnit("human-unit-1", TeamVals.LOWER);
+        const context = {
+            getCurrentActiveUnit: () => unit,
+        } as unknown as IAIContext;
+        const controller = new AIController(context);
+        (controller as unknown as { localModelOpponent: LocalModelOpponentConfig }).localModelOpponent = {
+            enabled: true,
+            modelTeam: TeamVals.UPPER,
+            apiBase: "/hoc-local-model",
+            modelName: "auto",
+            authorization: "Bearer model-token",
+            playerId: "model-player",
+            style: "balanced",
+        };
+
+        expect(controller.shouldControlCurrentUnit()).toBe(false);
+        controller.setLocalModelTeamOverride(TeamVals.LOWER);
+        expect(controller.shouldControlCurrentUnit()).toBe(true);
+    });
+
+    it("can explicitly disable local model control for ranked viewer safety", () => {
+        const unit = createUnit("human-unit-1", TeamVals.UPPER);
+        const context = {
+            getCurrentActiveUnit: () => unit,
+        } as unknown as IAIContext;
+        const controller = new AIController(context);
+        (controller as unknown as { localModelOpponent: LocalModelOpponentConfig }).localModelOpponent = {
+            enabled: true,
+            modelTeam: TeamVals.UPPER,
+            apiBase: "/hoc-local-model",
+            modelName: "auto",
+            authorization: "Bearer model-token",
+            playerId: "model-player",
+            style: "balanced",
+        };
+
+        expect(controller.shouldControlCurrentUnit()).toBe(true);
+        controller.setLocalModelTeamOverride(undefined);
+        expect(controller.shouldControlCurrentUnit()).toBe(false);
+    });
+
     it("ends and unlocks an AI turn when the move animation cannot start", () => {
         const unit = createUnit();
         const appliedActions: GameAction[] = [];

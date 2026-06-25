@@ -93,4 +93,42 @@ describe("ranked action response snapshots", () => {
             ).modelTeam,
         ).toBe(TeamVals.LOWER);
     });
+
+    test("disables local model control if the resolved model player is the viewer team", () => {
+        const config: LocalModelOpponentConfig = {
+            enabled: true,
+            modelTeam: TeamVals.UPPER,
+            apiBase: "/hoc-local-model",
+            modelName: "auto",
+            authorization: "Bearer model-token",
+            playerId: "human-player",
+            style: "balanced",
+        };
+
+        const resolved = resolveEffectiveLocalModelOpponentConfig(
+            config,
+            snapshot({
+                players: [
+                    {
+                        playerId: "human-player",
+                        team: TeamVals.LOWER,
+                        connected: true,
+                        aiControlled: false,
+                        lastSeenMs: 0,
+                    },
+                    {
+                        playerId: "model-player",
+                        team: TeamVals.UPPER,
+                        connected: false,
+                        aiControlled: false,
+                        lastSeenMs: 0,
+                    },
+                ],
+            }),
+            TeamVals.LOWER,
+        );
+
+        expect(resolved.enabled).toBe(false);
+        expect(resolved.modelTeam).toBe(TeamVals.LOWER);
+    });
 });

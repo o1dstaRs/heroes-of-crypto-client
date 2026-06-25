@@ -98,6 +98,7 @@ interface DraftChoiceDecision {
 
 const actionLabels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const KEY_RANGED_NAMES = new Set(["Tsar Cannon", "Gargantuan"]);
+const MAX_MODEL_RANGED_UNITS = 3;
 const LOCAL_MODEL_DRAFT_LOG_KEY = "hoc.localModelDraftLog";
 const LOCAL_MODEL_DRAFT_LOG_LIMIT = 120;
 
@@ -199,6 +200,9 @@ const isRangedCreature = (creatureId: number): boolean => {
     return config?.attack_type === "RANGE" || (config?.range_shots ?? 0) > 0;
 };
 
+const rangedCreatureCount = (creatureIds: number[]): number =>
+    creatureIds.filter((creatureId) => normalizeVisibleCreature(creatureId) && isRangedCreature(creatureId)).length;
+
 const scoreCreature = (creatureId: number, intent: "pick" | "ban"): number => {
     const config = creatureConfig(creatureId);
     const name = creatureName(creatureId);
@@ -231,6 +235,26 @@ const choiceTags = (creatureId: number): string[] => {
     ];
 };
 
+const balanceDraftPickScore = (baseScore: number, ownRangedCount: number, creatureIds: number[]): number => {
+    const addedRangedCount = rangedCreatureCount(creatureIds);
+    if (addedRangedCount <= 0) {
+        return ownRangedCount >= 2 ? baseScore + 85 : baseScore;
+    }
+
+    const hasKeyRanged = creatureIds.some((creatureId) => KEY_RANGED_NAMES.has(creatureName(creatureId)));
+    const afterPickRangedCount = ownRangedCount + addedRangedCount;
+    if (afterPickRangedCount > MAX_MODEL_RANGED_UNITS) {
+        return baseScore - 10000;
+    }
+    if (afterPickRangedCount === MAX_MODEL_RANGED_UNITS && !hasKeyRanged) {
+        return baseScore - 65;
+    }
+    return baseScore;
+};
+
+const choiceCreatureIds = (choice: DraftChoice): number[] =>
+    choice.pair ?? (choice.creatureId === undefined ? [] : [choice.creatureId]);
+
 const remainingByLevel = (picked: number[]): number[] => {
     const remaining: number[] = [...CreaturePoolByLevel];
     for (const creatureId of picked) {
@@ -259,6 +283,7 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
     const ownPicked = event.p.filter(normalizeVisibleCreature);
     const knownOpponentPicked = event.op.filter(normalizeVisibleCreature);
     const unavailable = new Set([...event.b, ...ownPicked, ...knownOpponentPicked]);
+    const ownRangedCount = rangedCreatureCount(ownPicked);
     const choices: DraftChoice[] = [];
 
     if (event.pp === PickPhaseVals.INITIAL_PICK) {
@@ -267,7 +292,8 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
             if (failedChoiceIds.has(choiceId)) {
                 continue;
             }
-            const score = pair.reduce((total, creatureId) => total + scoreCreature(creatureId, "pick"), 0);
+            const baseScore = pair.reduce((total, creatureId) => total + scoreCreature(creatureId, "pick"), 0);
+            const score = balanceDraftPickScore(baseScore, ownRangedCount, pair);
             choices.push({
                 label: labels[choices.length] ?? String(choices.length + 1),
                 index: choices.length + 1,
@@ -306,18 +332,28 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
             continue;
         }
 
+        const baseScore = scoreCreature(creatureId, isBan ? "ban" : "pick");
         choices.push({
             label: labels[choices.length] ?? String(choices.length + 1),
             index: choices.length + 1,
             type: isBan ? "ban" : "pick",
             creatureId,
-            score: scoreCreature(creatureId, isBan ? "ban" : "pick"),
+            score: isPick ? balanceDraftPickScore(baseScore, ownRangedCount, [creatureId]) : baseScore,
             summary: `${isBan ? "Ban" : "Pick"} ${creatureName(creatureId)}`,
             tags: choiceTags(creatureId),
         });
     }
 
-    return choices.sort((a, b) => b.score - a.score).slice(0, labels.length);
+    const rankedChoices = choices.sort((a, b) => b.score - a.score);
+    if (isPick) {
+        const capSafeChoices = rankedChoices.filter(
+            (choice) => ownRangedCount + rangedCreatureCount(choiceCreatureIds(choice)) <= MAX_MODEL_RANGED_UNITS,
+        );
+        if (capSafeChoices.length) {
+            return capSafeChoices.slice(0, labels.length);
+        }
+    }
+    return rankedChoices.slice(0, labels.length);
 };
 
 const modelUrl = (base: string, path: string): string => `${base.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
@@ -415,9 +451,10 @@ const buildDraftPrompt = (
         `Style: ${config.style}. Current phase: ${phaseName(event.pp)}.`,
         "Goal: draft a stronger army than the opponent before the fight starts.",
         "This game version rewards out-picking the opponent in ranged units.",
+        `Balanced roster rule: do not finish with more than ${MAX_MODEL_RANGED_UNITS} ranged units. Once you have 2-3 ranged units, prioritize durable frontline, caster/support, tempo, or faction synergy unless Tsar Cannon/Gargantuan is still the best legal secure-or-deny action.`,
         "Critical priority: secure Tsar Cannon and Gargantuan when legal; if you cannot secure them, ban them or ensure they stay banned.",
         "Prefer ranged pressure, Double Shot, Through Shot, Area Throw, Large Caliber, high damage, and strong level-4 stacks.",
-        `Your picked creatures: ${event.p.filter(normalizeVisibleCreature).map(creatureName).join(", ") || "none"}.`,
+        `Your picked creatures: ${event.p.filter(normalizeVisibleCreature).map(creatureName).join(", ") || "none"} (${rangedCreatureCount(event.p.filter(normalizeVisibleCreature))}/${MAX_MODEL_RANGED_UNITS} ranged).`,
         `Known opponent creatures: ${event.op.filter(normalizeVisibleCreature).map(creatureName).join(", ") || "hidden/none"}.`,
         `Banned creatures: ${event.b.map(creatureName).join(", ") || "none"}.`,
         "Legal choices:",
@@ -549,14 +586,14 @@ const submitDraftChoice = async (choice: DraftChoice, authorization: string): Pr
     );
 };
 
-export const LocalModelDraftOpponent: React.FC<{ eventUrl: string }> = ({ eventUrl }) => {
+export const LocalModelDraftOpponent: React.FC<{ eventUrl: string; userTeam: TeamType }> = ({ eventUrl, userTeam }) => {
     const config = useMemo(() => getLocalModelOpponentConfig(), []);
     const [modelEvent, setModelEvent] = useState<IPickPhaseEventData | null>(null);
     const completedSignaturesRef = useRef(new Set<string>());
     const inFlightRef = useRef(false);
 
     useEffect(() => {
-        if (!config.enabled || !config.authorization) {
+        if (!config.enabled || !config.authorization || config.modelTeam === userTeam) {
             return undefined;
         }
 
@@ -571,11 +608,11 @@ export const LocalModelDraftOpponent: React.FC<{ eventUrl: string }> = ({ eventU
         return () => {
             eventSource.close();
         };
-    }, [config.authorization, config.enabled, eventUrl]);
+    }, [config.authorization, config.enabled, config.modelTeam, eventUrl, userTeam]);
 
     useEffect(() => {
         const authorization = config.authorization;
-        if (!config.enabled || !authorization || !modelEvent || modelEvent.ia) {
+        if (!config.enabled || config.modelTeam === userTeam || !authorization || !modelEvent || modelEvent.ia) {
             return;
         }
         if (!modelEvent.a.includes(config.modelTeam)) {
@@ -658,7 +695,7 @@ export const LocalModelDraftOpponent: React.FC<{ eventUrl: string }> = ({ eventU
         })().finally(() => {
             inFlightRef.current = false;
         });
-    }, [config, modelEvent]);
+    }, [config, modelEvent, userTeam]);
 
     return null;
 };

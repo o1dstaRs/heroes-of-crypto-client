@@ -6,6 +6,12 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 import { createHeroesMcpServer } from "../src/server";
 
+type DraftCreature = {
+    attackRange: number;
+    attackType: string;
+    rangeShots: number;
+};
+
 const callJsonTool = async <T>(client: Client, name: string, args: Record<string, unknown>): Promise<T> => {
     const result = (await client.callTool({ name, arguments: args })) as CallToolResult;
     const first = result.content[0];
@@ -14,6 +20,10 @@ const callJsonTool = async <T>(client: Client, name: string, args: Record<string
     }
     return JSON.parse(first.text) as T;
 };
+
+const rangedDraftCount = (picked: DraftCreature[]): number =>
+    picked.filter((creature) => creature.attackRange > 1 || creature.attackType === "range" || creature.rangeShots > 0)
+        .length;
 
 describe("MCP server tools", () => {
     test("creates, inspects, chooses, and submits a headless match action", async () => {
@@ -145,7 +155,11 @@ describe("MCP server tools", () => {
             const played = await callJsonTool<{
                 completed: boolean;
                 stoppedReason: string;
-                state: { phase: string };
+                state: {
+                    phase: string;
+                    lower: { picked: DraftCreature[] };
+                    upper: { picked: DraftCreature[] };
+                };
                 completedMatch?: { phase: string; activeTeam?: string; units: unknown[] };
             }>(client, "play_ai_draft", {
                 matchId: "mcp-draft-test",
@@ -157,6 +171,8 @@ describe("MCP server tools", () => {
             expect(played.completed).toBe(true);
             expect(played.stoppedReason).toBe("draft_complete");
             expect(played.state.phase).toBe("complete");
+            expect(rangedDraftCount(played.state.lower.picked)).toBeLessThanOrEqual(3);
+            expect(rangedDraftCount(played.state.upper.picked)).toBeLessThanOrEqual(3);
             expect(played.completedMatch?.phase).toBe("fight");
             expect(played.completedMatch?.units).toHaveLength(12);
 
@@ -216,6 +232,7 @@ describe("MCP server tools", () => {
             const strategy = await client.readResource({ uri: "hoc://strategy/primer" });
             const strategyText = strategy.contents[0]?.type === undefined ? strategy.contents[0]?.text : undefined;
             expect(strategyText).toContain("Win by destroying every enemy stack");
+            expect(strategyText).toContain("do not draft more than three ranged units");
             expect(strategyText).toContain("Faction synergy goals");
 
             const roster = await client.readResource({ uri: "hoc://units" });

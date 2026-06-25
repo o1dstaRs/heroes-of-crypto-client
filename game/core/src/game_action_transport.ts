@@ -39,6 +39,7 @@ export interface AuthoritativeJournalEntry {
 export interface AuthoritativeGameSnapshot {
     gameId: string;
     viewerTeam?: TeamType | number;
+    localModelTeam?: TeamType | number;
     winnerTeam?: TeamType | number;
     phase: number;
     gridType: number;

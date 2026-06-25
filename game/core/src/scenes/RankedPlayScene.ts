@@ -171,6 +171,8 @@ export class RankedPlayScene extends Sandbox {
     private lastBoardSignature = "";
     private lastPlacementUnitIdsKey = "";
     private readonly lastPlacementStateByUnitId = new Map<string, string>();
+    private readonly playedAuthoritativeActionSequences = new Set<number>();
+    private authoritativePlaybackGameId = "";
     private readonly rankedStatsLowerRoster = new Map<string, RankedFightRosterEntry>();
     private readonly rankedStatsUpperRoster = new Map<string, RankedFightRosterEntry>();
     private viewerTeam?: TeamType;
@@ -256,6 +258,13 @@ export class RankedPlayScene extends Sandbox {
     }
     private applyRankedSnapshotMetadata(snapshot: AuthoritativeGameSnapshot): void {
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
+        this.setLocalModelTeamOverride(
+            snapshot.localModelTeam === undefined ? undefined : (snapshot.localModelTeam as TeamType),
+        );
+        if (snapshot.gameId !== this.authoritativePlaybackGameId) {
+            this.authoritativePlaybackGameId = snapshot.gameId;
+            this.playedAuthoritativeActionSequences.clear();
+        }
         this.upNextUnitIds = [...(snapshot.upNext ?? [])];
     }
     private syncRankedVisibleTurnState(snapshot: AuthoritativeGameSnapshot): void {
@@ -353,6 +362,17 @@ export class RankedPlayScene extends Sandbox {
         events: GameEvent[],
         stateAfter?: unknown,
     ): Promise<boolean> {
+        const authoritativeSequence = this.isAuthoritativeSnapshot(stateAfter) ? stateAfter.latestSequence : undefined;
+        if (
+            authoritativeSequence !== undefined &&
+            this.playedAuthoritativeActionSequences.has(authoritativeSequence)
+        ) {
+            return Promise.resolve(true);
+        }
+        if (authoritativeSequence !== undefined) {
+            this.playedAuthoritativeActionSequences.add(authoritativeSequence);
+        }
+
         const replayStateAfter = this.isAuthoritativeSnapshot(stateAfter)
             ? authoritativeSnapshotToSandboxSceneState(stateAfter, { hideOpponentPlacements: true })
             : undefined;
@@ -389,6 +409,10 @@ export class RankedPlayScene extends Sandbox {
             return undefined;
         }
 
+        if (unitState.team === this.viewerTeam) {
+            return super.getUnplacedUnitBenchPosition(index, total, unitState);
+        }
+
         return (
             this.getRankedPlacementBenchPosition(index, total, unitState) ??
             super.getUnplacedUnitBenchPosition(index, total, unitState)
@@ -396,6 +420,12 @@ export class RankedPlayScene extends Sandbox {
     }
     protected override shouldGhostUnplacedUnitBenchUnit(unitState: SandboxSceneUnitState): boolean {
         return this.viewerTeam !== undefined && unitState.team !== this.viewerTeam;
+    }
+    protected override shouldShowPlacementBenchToggle(): boolean {
+        return this.viewerTeam !== undefined;
+    }
+    protected override shouldGhostCurrentPlacementBenchUnit(unit: Unit): boolean {
+        return this.viewerTeam !== undefined && unit.getTeam() !== this.viewerTeam;
     }
     private getRankedPlacementBenchPosition(
         index: number,
@@ -685,11 +715,7 @@ export class RankedPlayScene extends Sandbox {
         this.ensureRankedFightStatsStarted(units);
         this.sampleRankedFightStats(units, lap);
 
-        const finishedWinner = snapshot.winnerTeam as TeamType | undefined;
-        const winner =
-            snapshot.fightFinished && (finishedWinner === TeamVals.LOWER || finishedWinner === TeamVals.UPPER)
-                ? finishedWinner
-                : TeamVals.NO_TEAM;
+        const winner = this.inferRankedWinner(snapshot, units);
         const fightStats = this.buildRankedFightStats(winner, units, lap);
         if (fightStats.lowerStartTotal <= 0 || fightStats.upperStartTotal <= 0) {
             return;
@@ -700,6 +726,26 @@ export class RankedPlayScene extends Sandbox {
         this.sc_visibleState.fightStats = fightStats;
         this.sc_visibleState.lapNumber = fightStats.totalLaps;
         this.sc_visibleStateUpdateNeeded = true;
+    }
+    private inferRankedWinner(snapshot: AuthoritativeGameSnapshot, units: SandboxSceneUnitState[]): TeamType {
+        if (!snapshot.fightFinished) {
+            return TeamVals.NO_TEAM;
+        }
+
+        const finishedWinner = snapshot.winnerTeam as TeamType | undefined;
+        if (finishedWinner === TeamVals.LOWER || finishedWinner === TeamVals.UPPER) {
+            return finishedWinner;
+        }
+
+        const lowerAlive = this.aliveTotal(units, TeamVals.LOWER as TeamType);
+        const upperAlive = this.aliveTotal(units, TeamVals.UPPER as TeamType);
+        if (lowerAlive > 0 && upperAlive <= 0) {
+            return TeamVals.LOWER as TeamType;
+        }
+        if (upperAlive > 0 && lowerAlive <= 0) {
+            return TeamVals.UPPER as TeamType;
+        }
+        return TeamVals.NO_TEAM;
     }
     private resetRankedFightStats(): void {
         this.rankedStatsGameId = "";

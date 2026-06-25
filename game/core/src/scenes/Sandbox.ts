@@ -127,6 +127,7 @@ interface PlacementBenchHitBox {
 }
 
 export class Sandbox extends PixiScene {
+    private static readonly AUTHORITATIVE_MOVE_MIN_DURATION_SECONDS = 0.55;
     private readonly grid: Grid;
     private readonly pathHelper: PathHelper;
     private canAttackByMeleeTargets?: IAttackTargets;
@@ -148,6 +149,16 @@ export class Sandbox extends PixiScene {
     private bgKey = "background_new";
     private placementGraphics?: Graphics;
     private placementBenchGraphics?: Graphics;
+    private placementBenchToggleSprite?: Sprite;
+    private placementBenchToggleFallback?: Graphics;
+    private placementBenchCollapsed = false;
+    private placementBenchToggleHitBox?: PlacementBenchHitBox;
+    private placementBenchToggleHovered = false;
+    private placementBenchSlideOffsetX = 0;
+    private placementBenchSlideCancel?: () => void;
+    private placementBenchBounds?: { minX: number; maxX: number; minY: number; maxY: number };
+    private placementBenchLastGroups: HoCMath.XY[][] = [];
+    private readonly placementBenchBaseHitBoxes = new Map<string, PlacementBenchHitBox>();
     private readonly placementBenchHitBoxes = new Map<string, PlacementBenchHitBox>();
     private selectedBoardUnit?: RenderableUnit;
     private isActiveUnitMoving = false;
@@ -465,6 +476,7 @@ export class Sandbox extends PixiScene {
                 this.sc_selectedAttackType = type;
             },
             isAuthoritativeAction: (action) => this.shouldDeferActionToAuthoritativeReplay(action),
+            isToggleDrivenAiAllowed: () => this.sc_gameActionTransport === undefined,
             applyGameAction: (action) => this.applyGameAction(action),
             executeAttackSequence: (attacker, target, attackFrom, replayAction) =>
                 this.executeAttackSequence(attacker, target, attackFrom, replayAction),
@@ -488,6 +500,9 @@ export class Sandbox extends PixiScene {
         this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
         this.sc_visibleStateUpdateNeeded = true;
     }
+    protected setLocalModelTeamOverride(team: TeamType | undefined): void {
+        this.aiController.setLocalModelTeamOverride(team);
+    }
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return this.sc_gameActionTransport ? undefined : this.unitsOverlay;
     }
@@ -501,6 +516,11 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
+        const alreadySelected =
+            this.selectedBoardUnit?.getId() === unit.getId() &&
+            this.draggingUnitId === unit.getId() &&
+            this.hasActiveSelection &&
+            !this.selectionFromOverlay;
         if (this.selectedBoardUnit && this.selectedBoardUnit !== unit) {
             this.selectedBoardUnit.setBoardSelected(false);
         }
@@ -513,8 +533,10 @@ export class Sandbox extends PixiScene {
         this.sc_selectedUnitProperties = unit.getUnitProperties();
         this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
         this.sc_unitPropertiesUpdateNeeded = true;
-        this.hoverManager.resetBoardHoverState();
-        this.hoverManager.resetHover(true);
+        if (!alreadySelected) {
+            this.hoverManager.resetBoardHoverState();
+            this.hoverManager.resetHover(true);
+        }
         return true;
     }
     public override selectAuthoritativeUnit(unitId: string): void {
@@ -552,24 +574,138 @@ export class Sandbox extends PixiScene {
     protected shouldGhostUnplacedUnitBenchUnit(_unitState: SandboxSceneUnitState): boolean {
         return false;
     }
+    protected shouldShowPlacementBenchToggle(): boolean {
+        return false;
+    }
+    protected shouldGhostCurrentPlacementBenchUnit(_unit: Unit): boolean {
+        return false;
+    }
     protected getCurrentActiveUnit(): RenderableUnit | undefined {
         return this.currentActiveUnit;
     }
     private clearPlacementBench(): void {
+        this.stopPlacementBenchSlideAnimation();
+        this.placementBenchBaseHitBoxes.clear();
         this.placementBenchHitBoxes.clear();
+        this.placementBenchToggleHitBox = undefined;
+        this.placementBenchToggleHovered = false;
+        this.placementBenchBounds = undefined;
+        this.placementBenchLastGroups = [];
         this.placementBenchGraphics?.clear();
+        this.placementBenchGraphics?.position.set(0, 0);
+        if (this.placementBenchToggleSprite) {
+            this.placementBenchToggleSprite.visible = false;
+        }
+        if (this.placementBenchToggleFallback) {
+            this.placementBenchToggleFallback.clear();
+            this.placementBenchToggleFallback.visible = false;
+        }
     }
     private ensurePlacementBenchGraphicsWorld(): Graphics {
         if (!this.placementBenchGraphics) {
             this.placementBenchGraphics = new Graphics();
         }
-        this.attachToWorldRoot(this.placementBenchGraphics, 2500);
+        this.attachToWorldRoot(this.placementBenchGraphics, 900);
         return this.placementBenchGraphics;
+    }
+    private ensurePlacementBenchToggleSpriteWorld(): Sprite {
+        if (!this.placementBenchToggleSprite) {
+            this.placementBenchToggleSprite = new Sprite(Texture.EMPTY);
+            this.placementBenchToggleSprite.anchor.set(0.5);
+        }
+        this.attachToWorldRoot(this.placementBenchToggleSprite, 2501);
+        return this.placementBenchToggleSprite;
+    }
+    private ensurePlacementBenchToggleFallbackWorld(): Graphics {
+        if (!this.placementBenchToggleFallback) {
+            this.placementBenchToggleFallback = new Graphics();
+        }
+        this.attachToWorldRoot(this.placementBenchToggleFallback, 2501);
+        return this.placementBenchToggleFallback;
+    }
+    private placementBenchButtonSize(cell: number): number {
+        return Math.max(28, cell * 0.8);
+    }
+    private getPlacementBenchCollapsedOffset(bounds = this.placementBenchBounds): number {
+        if (!bounds) {
+            return 0;
+        }
+        const cell = this.sc_sceneSettings.getGridSettings().getCellSize();
+        const width = Math.max(1, bounds.maxX - bounds.minX);
+        return -(width + this.placementBenchButtonSize(cell) * 1.35);
+    }
+    private stopPlacementBenchSlideAnimation(): void {
+        this.placementBenchSlideCancel?.();
+        this.placementBenchSlideCancel = undefined;
+    }
+    private applyPlacementBenchSlideOffset(offsetX: number): void {
+        this.placementBenchSlideOffsetX = offsetX;
+        this.placementBenchGraphics?.position.set(offsetX, 0);
+
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const worldRoot = this.drawer.getUnitsContainer();
+        for (const [unitId, baseHitBox] of this.placementBenchBaseHitBoxes.entries()) {
+            const unit = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
+            const position = { x: baseHitBox.center.x + offsetX, y: baseHitBox.center.y };
+            if (unit) {
+                unit.setPosition(position.x, position.y);
+                unit.syncVisual(worldRoot, gs);
+                unit.setVisualGhost(this.shouldGhostCurrentPlacementBenchUnit(unit));
+            }
+            this.placementBenchHitBoxes.set(unitId, {
+                center: position,
+                radius: baseHitBox.radius,
+            });
+        }
+    }
+    private animatePlacementBenchSlide(collapsed: boolean): void {
+        this.stopPlacementBenchSlideAnimation();
+
+        const startOffset = this.placementBenchSlideOffsetX;
+        const endOffset = collapsed ? this.getPlacementBenchCollapsedOffset() : 0;
+        const startRotation =
+            this.placementBenchToggleSprite?.rotation ?? this.placementBenchToggleFallback?.rotation ?? 0;
+        const endRotation = collapsed ? Math.PI : 0;
+        const start = performance.now();
+        const durationMs = 350;
+        const ticker = this.pixiApp.getTicker();
+        const easeInOutQuad = (t: number): number => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
+        const step = (): void => {
+            const progress = Math.min(1, (performance.now() - start) / durationMs);
+            const eased = easeInOutQuad(progress);
+            this.applyPlacementBenchSlideOffset(startOffset + (endOffset - startOffset) * eased);
+            const rotation = startRotation + (endRotation - startRotation) * eased;
+            if (this.placementBenchToggleSprite) {
+                this.placementBenchToggleSprite.rotation = rotation;
+            }
+            if (this.placementBenchToggleFallback) {
+                this.placementBenchToggleFallback.rotation = rotation;
+            }
+            if (progress >= 1) {
+                ticker.remove(step);
+                this.placementBenchSlideCancel = undefined;
+                this.applyPlacementBenchSlideOffset(endOffset);
+            }
+        };
+
+        ticker.add(step);
+        this.placementBenchSlideCancel = () => ticker.remove(step);
     }
     private drawPlacementBenchBackdrops(positionGroups: HoCMath.XY[][]): void {
         const groups = positionGroups.filter((positions) => positions.length > 0);
+        this.placementBenchLastGroups = groups.map((positions) => positions.map((position) => ({ ...position })));
         if (!groups.length) {
+            this.placementBenchToggleHitBox = undefined;
+            this.placementBenchBounds = undefined;
             this.placementBenchGraphics?.clear();
+            this.placementBenchGraphics?.position.set(0, 0);
+            if (this.placementBenchToggleSprite) {
+                this.placementBenchToggleSprite.visible = false;
+            }
+            if (this.placementBenchToggleFallback) {
+                this.placementBenchToggleFallback.clear();
+                this.placementBenchToggleFallback.visible = false;
+            }
             return;
         }
 
@@ -577,6 +713,19 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const cell = gs.getCellSize();
         const radius = Math.max(6, cell * 0.18);
+        const allPositions = groups.flat();
+        const bounds = {
+            minX: Math.min(...allPositions.map((position) => position.x)) - cell * 0.95,
+            maxX: Math.max(...allPositions.map((position) => position.x)) + cell * 0.95,
+            minY: Math.min(...allPositions.map((position) => position.y)) - cell * 0.9,
+            maxY: Math.max(...allPositions.map((position) => position.y)) + cell * 0.9,
+        };
+        this.placementBenchBounds = bounds;
+        if (!this.placementBenchSlideCancel) {
+            this.placementBenchSlideOffsetX = this.placementBenchCollapsed
+                ? this.getPlacementBenchCollapsedOffset(bounds)
+                : 0;
+        }
 
         for (const positions of groups) {
             const minX = Math.min(...positions.map((position) => position.x)) - cell * 0.95;
@@ -589,6 +738,108 @@ export class Sandbox extends PixiScene {
                 .fill({ color: 0x05070c, alpha: 0.56 })
                 .stroke({ color: 0xf6d87c, alpha: 0.28, width: Math.max(1, cell * 0.025) });
         }
+        this.drawPlacementBenchToggle(graphics, bounds, cell);
+        this.applyPlacementBenchSlideOffset(this.placementBenchSlideOffsetX);
+    }
+    private drawPlacementBenchToggle(
+        graphics: Graphics,
+        bounds: { minX: number; maxX: number; minY: number; maxY: number },
+        cell: number,
+    ): void {
+        if (!this.shouldShowPlacementBenchToggle()) {
+            this.placementBenchToggleHitBox = undefined;
+            if (this.placementBenchToggleSprite) {
+                this.placementBenchToggleSprite.visible = false;
+            }
+            return;
+        }
+
+        const size = this.placementBenchButtonSize(cell);
+        const center = {
+            x: bounds.minX - size * 0.64,
+            y: (bounds.minY + bounds.maxY) * 0.5,
+        };
+        const radius = size * 0.5;
+        const tex = this.texAny(this.placementBenchToggleHovered ? "arrow_button_active" : "arrow_button_inactive");
+        if (tex) {
+            const sprite = this.ensurePlacementBenchToggleSpriteWorld();
+            sprite.texture = tex;
+            sprite.position.set(center.x, center.y);
+            sprite.width = size;
+            sprite.height = size;
+            sprite.rotation = this.placementBenchCollapsed ? Math.PI : 0;
+            sprite.visible = true;
+            if (this.placementBenchToggleFallback) {
+                this.placementBenchToggleFallback.clear();
+                this.placementBenchToggleFallback.visible = false;
+            }
+            this.placementBenchToggleHitBox = { center, radius };
+            return;
+        }
+
+        if (this.placementBenchToggleSprite) {
+            this.placementBenchToggleSprite.visible = false;
+        }
+        const fallback = this.ensurePlacementBenchToggleFallbackWorld();
+        fallback
+            .clear()
+            .roundRect(-radius, -radius, radius * 2, radius * 2, radius * 0.42)
+            .fill({ color: 0x05070c, alpha: 0.82 })
+            .stroke({ color: 0xf6d87c, alpha: 0.55, width: Math.max(1, cell * 0.028) });
+        fallback
+            .moveTo(-radius * 0.42, 0)
+            .lineTo(radius * 0.22, radius * 0.44)
+            .lineTo(radius * 0.22, -radius * 0.44)
+            .closePath()
+            .fill({ color: 0xf6d87c, alpha: 0.95 });
+        fallback.position.set(center.x, center.y);
+        fallback.rotation = this.placementBenchCollapsed ? Math.PI : 0;
+        fallback.visible = true;
+        this.placementBenchToggleHitBox = { center, radius };
+    }
+    private isPlacementBenchToggleAt(worldPos: HoCMath.XY): boolean {
+        const hitBox = this.placementBenchToggleHitBox;
+        if (!hitBox) {
+            return false;
+        }
+        const dx = worldPos.x - hitBox.center.x;
+        const dy = worldPos.y - hitBox.center.y;
+        return dx * dx + dy * dy <= hitBox.radius * hitBox.radius;
+    }
+    private updatePlacementBenchToggleHover(worldPos: HoCMath.XY): void {
+        const hovered = this.isPlacementBenchToggleAt(worldPos);
+        if (hovered === this.placementBenchToggleHovered) {
+            return;
+        }
+        this.placementBenchToggleHovered = hovered;
+        const sprite = this.placementBenchToggleSprite;
+        if (!sprite?.visible) {
+            return;
+        }
+        const tex = this.texAny(hovered ? "arrow_button_active" : "arrow_button_inactive");
+        if (tex) {
+            sprite.texture = tex;
+        }
+    }
+    private handlePlacementBenchToggleAt(worldPos: HoCMath.XY): boolean {
+        if (!this.isPlacementBenchToggleAt(worldPos)) {
+            return false;
+        }
+
+        const startOffset = this.placementBenchSlideOffsetX;
+        const startRotation =
+            this.placementBenchToggleSprite?.rotation ?? this.placementBenchToggleFallback?.rotation ?? 0;
+        this.placementBenchCollapsed = !this.placementBenchCollapsed;
+        this.drawPlacementBenchBackdrops(this.placementBenchLastGroups);
+        this.applyPlacementBenchSlideOffset(startOffset);
+        if (this.placementBenchToggleSprite) {
+            this.placementBenchToggleSprite.rotation = startRotation;
+        }
+        if (this.placementBenchToggleFallback) {
+            this.placementBenchToggleFallback.rotation = startRotation;
+        }
+        this.animatePlacementBenchSlide(this.placementBenchCollapsed);
+        return true;
     }
     private renderUnplacedBenchUnit(
         unit: RenderableUnit,
@@ -600,13 +851,22 @@ export class Sandbox extends PixiScene {
         const cell = gs.getCellSize();
         const isLarge = unit.getUnitProperties().size === 2;
 
-        unit.setPosition(position.x, position.y);
+        const visualPosition = {
+            x: position.x + this.placementBenchSlideOffsetX,
+            y: position.y,
+        };
+        unit.setPosition(visualPosition.x, visualPosition.y);
         unit.ensureVisual(worldRoot, gs);
         unit.syncVisual(worldRoot, gs);
         unit.setVisualGhost(this.shouldGhostUnplacedUnitBenchUnit(unitState));
-        this.placementBenchHitBoxes.set(unit.getId(), {
+        const baseHitBox = {
             center: { x: position.x, y: position.y },
             radius: cell * (isLarge ? 1.05 : 0.7),
+        };
+        this.placementBenchBaseHitBoxes.set(unit.getId(), baseHitBox);
+        this.placementBenchHitBoxes.set(unit.getId(), {
+            center: visualPosition,
+            radius: baseHitBox.radius,
         });
     }
     private getBenchUnitAtPosition(worldPos: HoCMath.XY): Unit | undefined {
@@ -1170,7 +1430,7 @@ export class Sandbox extends PixiScene {
             if (!played) {
                 this.applyReplayEvents(record.events);
             }
-            return true;
+            return played;
         } finally {
             this.replayPlaybackActive = priorPlaybackActive;
         }
@@ -1346,7 +1606,11 @@ export class Sandbox extends PixiScene {
 
         return new Promise((resolve) => {
             const gs = this.sc_sceneSettings.getGridSettings();
-            const speed = gs.getCellSize() * 16;
+            const pathDistance = this.worldPathDistance(worldPath);
+            const speed = Math.min(
+                gs.getCellSize() * 16,
+                pathDistance / Sandbox.AUTHORITATIVE_MOVE_MIN_DURATION_SECONDS,
+            );
             this.moveAnimManager.startMoveAnimation(
                 unit,
                 worldPath,
@@ -1368,6 +1632,15 @@ export class Sandbox extends PixiScene {
             this.hoverManager.hoveredUnitHighlight = undefined;
             this.sc_moveBlocked = true;
         });
+    }
+    private worldPathDistance(path: HoCMath.XY[]): number {
+        let distance = 0;
+        for (let index = 1; index < path.length; index += 1) {
+            const previous = path[index - 1];
+            const current = path[index];
+            distance += Math.hypot(current.x - previous.x, current.y - previous.y);
+        }
+        return distance;
     }
     private createRecordedMoveWorldPath(
         unit: RenderableUnit,
@@ -2825,6 +3098,9 @@ export class Sandbox extends PixiScene {
             return;
         }
         // 2. PRE-FIGHT PLACEMENT INTERACTION
+        if (this.handlePlacementBenchToggleAt(p)) {
+            return;
+        }
         const unitUnderMouse = this.getUnitAtPosition(p);
         if (unitUnderMouse && !this.canSelectUnitForPlacement(unitUnderMouse)) {
             this.clearBoardSelection();
@@ -5577,6 +5853,7 @@ export class Sandbox extends PixiScene {
     }
     public override MouseMove(p: HoCMath.XY, leftDrag: boolean): void {
         super.MouseMove(p, leftDrag);
+        this.updatePlacementBenchToggleHover(p);
         const fightProps = FightStateManager.getInstance().getFightProperties();
         if (fightProps.hasFightStarted()) {
             this.hoverManager.hoverPlacementCell = undefined;

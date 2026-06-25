@@ -173,6 +173,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const replayTimers = useRef<number[]>([]);
 
     useEffect(() => {
+        setVisibleState(manager.GetCurrentVisibleState());
         const connection = manager.onVisibleStateUpdated.connect((s: IVisibleState) => {
             setVisibleState(s);
             // A new fight has begun — re-arm the overlay for next time.
@@ -215,8 +216,9 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     }
 
     const winnerColor = teamColor(stats.winner);
-    const canReplay = canReplayOverride ?? manager.CanPlayCurrentSandboxReplay();
-    const showSandboxActions = mode === "sandbox";
+    const canSandboxReplay = manager.CanPlayCurrentSandboxReplay();
+    const canReplay = canReplayOverride ?? canSandboxReplay;
+    const showSandboxActions = mode === "sandbox" && canSandboxReplay;
     const showRematchAction = showSandboxActions && !replayResult;
     const clearReplayTimers = (): void => {
         replayTimers.current.forEach(window.clearTimeout);

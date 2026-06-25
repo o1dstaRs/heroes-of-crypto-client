@@ -568,6 +568,11 @@ export class PixiGameManager {
     public CanPlayCurrentSandboxReplay(): boolean {
         return this.m_scene?.canPlayCurrentSandboxReplay() ?? false;
     }
+    public GetCurrentVisibleState(): IVisibleState {
+        return this.m_scene?.sc_visibleState
+            ? structuredClone(this.m_scene.sc_visibleState as IVisibleState)
+            : ({} as IVisibleState);
+    }
     public async PlaySandboxReplay(replay: SandboxReplay, throughSequence?: number): Promise<boolean> {
         const applied = (await this.m_scene?.playSandboxReplay(replay, throughSequence)) ?? false;
         if (applied) {

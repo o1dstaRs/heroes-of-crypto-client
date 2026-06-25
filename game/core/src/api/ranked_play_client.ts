@@ -159,9 +159,11 @@ const winnerTeamFromSnapshot = (snapshot: PlaySnapshot): TeamType | undefined =>
 export const toAuthoritativeGameSnapshot = (
     snapshot: PlaySnapshot,
     viewerTeam?: TeamType,
+    localModelTeam?: TeamType,
 ): AuthoritativeGameSnapshot => ({
     gameId: snapshot.gameId,
     viewerTeam,
+    localModelTeam,
     winnerTeam: winnerTeamFromSnapshot(snapshot),
     phase: snapshot.phase,
     gridType: snapshot.gridType,
