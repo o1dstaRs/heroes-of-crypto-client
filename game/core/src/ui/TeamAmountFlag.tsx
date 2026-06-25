@@ -15,7 +15,7 @@ const getTeamFlagColor = (teamType: TeamType): string => {
     return "rgba(139, 148, 166, 1)";
 };
 
-export const TeamAmountFlag = ({ amount, teamType, top = "5px", right = "-3px" }: TeamAmountFlagProps) => {
+export const TeamAmountFlag = ({ amount, teamType, top = "-2px", right = "-5px" }: TeamAmountFlagProps) => {
     const label = String(amount);
     const width = Math.max(26, label.length * 8 + 16);
     const height = 18;
@@ -27,7 +27,7 @@ export const TeamAmountFlag = ({ amount, teamType, top = "5px", right = "-3px" }
                 top,
                 right,
                 width: `${width}px`,
-                height: `${height + 5}px`,
+                height: `${height + 3}px`,
                 pointerEvents: "none",
                 zIndex: 12,
             }}
@@ -38,7 +38,7 @@ export const TeamAmountFlag = ({ amount, teamType, top = "5px", right = "-3px" }
                     left: 0,
                     top: 0,
                     width: "2px",
-                    height: `${height + 5}px`,
+                    height: `${height + 3}px`,
                     borderRadius: "2px",
                     backgroundColor: "#1b140f",
                     boxShadow: "0 1px 2px rgba(0, 0, 0, 0.6)",
@@ -48,7 +48,7 @@ export const TeamAmountFlag = ({ amount, teamType, top = "5px", right = "-3px" }
                 sx={{
                     position: "absolute",
                     left: 0,
-                    top: "2px",
+                    top: 0,
                     width: `${width}px`,
                     height: `${height}px`,
                     display: "flex",

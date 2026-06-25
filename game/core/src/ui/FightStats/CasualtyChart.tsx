@@ -38,11 +38,7 @@ export const CasualtyChart: React.FC<{
     series: IFightStatsSample[];
     drawDurationSec?: number;
     metric?: FightStatsChartMetric;
-}> = ({
-    series,
-    drawDurationSec = 1.1,
-    metric = "casualties",
-}) => {
+}> = ({ series, drawDurationSec = 1.1, metric = "casualties" }) => {
     const pts = series.length >= 2 ? series : series.length === 1 ? [series[0], series[0]] : [];
     const n = pts.length;
     if (!n) return null;

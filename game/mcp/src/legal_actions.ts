@@ -562,6 +562,7 @@ export interface LegalActionOptions {
     attackHandler: AttackHandler;
     fightProperties: FightProperties;
     pathHelper: PathHelper;
+    allowAttackTypeSetup?: boolean;
 }
 
 export interface LegalActionBundle {
@@ -617,20 +618,23 @@ export const createLegalActionBundle = (options: LegalActionOptions): LegalActio
         .filter((unit) => !unit.isDead());
     const enemies = unitsHolder.getAllEnemyUnits(activeUnit.getTeam()).filter((unit) => !unit.isDead());
 
-    for (const attackType of activeUnit.getPossibleAttackTypes()) {
-        if (attackType !== activeUnit.getAttackTypeSelection()) {
-            addUniqueAction(
-                actions,
-                createAction(
-                    matchId,
-                    stateVersion,
-                    activeUnit,
-                    `Switch ${activeUnit.getName()} to ${AttackVals[attackType].toLowerCase().replaceAll("_", " ")}`,
-                    { type: "select_attack_type", unitId: activeUnitId, attackType },
-                    ["setup"],
-                ),
-                knownPathsByActionId,
-            );
+    if (options.allowAttackTypeSetup !== false) {
+        for (const attackType of activeUnit.getPossibleAttackTypes()) {
+            if (attackType !== activeUnit.getAttackTypeSelection()) {
+                addUniqueAction(
+                    actions,
+                    createAction(
+                        matchId,
+                        stateVersion,
+                        activeUnit,
+                        `Switch ${activeUnit.getName()} to ${AttackVals[attackType].toLowerCase().replaceAll("_", " ")}`,
+                        { type: "select_attack_type", unitId: activeUnitId, attackType },
+                        ["setup"],
+                        ["setup only; does not finish the turn; do not repeat for the same active unit"],
+                    ),
+                    knownPathsByActionId,
+                );
+            }
         }
     }
 

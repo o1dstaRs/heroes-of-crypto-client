@@ -139,7 +139,7 @@ export class HeadlessMatch {
     public getActiveUnit(): Unit | undefined {
         return this.activeUnitId ? this.unitsHolder.getAllUnits().get(this.activeUnitId) : undefined;
     }
-    public listLegalActions(team?: TeamName): LegalAction[] {
+    public listLegalActions(team?: TeamName, options: { allowAttackTypeSetup?: boolean } = {}): LegalAction[] {
         const activeUnit = this.getActiveUnit();
         if (!activeUnit) {
             return [];
@@ -157,18 +157,24 @@ export class HeadlessMatch {
             attackHandler: this.attackHandler,
             fightProperties: this.getFightProperties(),
             pathHelper: this.pathHelper,
+            allowAttackTypeSetup: options.allowAttackTypeSetup,
         });
         this.legalActionKnownPathsById = bundle.knownPathsByActionId;
         return bundle.actions;
     }
-    public chooseAction(options: { reason: AIReason; style?: AIStyle; team?: TeamName }): AITurnDecision {
+    public chooseAction(options: {
+        reason: AIReason;
+        style?: AIStyle;
+        team?: TeamName;
+        allowAttackTypeSetup?: boolean;
+    }): AITurnDecision {
         const activeUnit = this.getActiveUnit();
         if (!activeUnit) {
             throw new Error("No active unit is available");
         }
 
         const team = options.team ?? teamToName(activeUnit.getTeam());
-        const legalActions = this.listLegalActions(team);
+        const legalActions = this.listLegalActions(team, { allowAttackTypeSetup: options.allowAttackTypeSetup });
         return new RuleBasedModelAI().chooseAction({
             matchId: this.matchId,
             reason: options.reason,
@@ -264,6 +270,7 @@ export class HeadlessMatch {
         const decisions: AITurnDecision[] = [];
         const actionResults: SubmitActionResult[] = [];
         const maxActions = options.maxActions ?? 8;
+        let attackTypeSetupUnitId: string | undefined;
 
         for (let i = 0; i < maxActions; i++) {
             const currentUnit = this.getActiveUnit();
@@ -288,7 +295,8 @@ export class HeadlessMatch {
                 };
             }
 
-            const legalActions = this.listLegalActions(team);
+            const allowAttackTypeSetup = attackTypeSetupUnitId !== currentUnit.getId();
+            const legalActions = this.listLegalActions(team, { allowAttackTypeSetup });
             if (!legalActions.length) {
                 return {
                     completed: false,
@@ -300,10 +308,17 @@ export class HeadlessMatch {
                 };
             }
 
-            const decision = this.chooseAction({ reason: options.reason, style: options.style, team });
+            const decision = this.chooseAction({
+                reason: options.reason,
+                style: options.style,
+                team,
+                allowAttackTypeSetup,
+            });
             const result = this.submitAction({ team, actionId: decision.actionId });
             decisions.push(decision);
             actionResults.push(result);
+            attackTypeSetupUnitId =
+                decision.action.type === "select_attack_type" && result.completed ? currentUnit.getId() : undefined;
 
             if (!result.completed) {
                 return {

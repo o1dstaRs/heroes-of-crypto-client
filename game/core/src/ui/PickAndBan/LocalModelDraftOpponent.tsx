@@ -191,7 +191,8 @@ const creatureConfigs = (() => {
 
 const creatureName = (creatureId: number): string => UNIT_ID_TO_NAME[creatureId] ?? `Creature ${creatureId}`;
 
-const creatureConfig = (creatureId: number): CreatureConfig | undefined => creatureConfigs.get(creatureName(creatureId));
+const creatureConfig = (creatureId: number): CreatureConfig | undefined =>
+    creatureConfigs.get(creatureName(creatureId));
 
 const isRangedCreature = (creatureId: number): boolean => {
     const config = creatureConfig(creatureId);
@@ -301,10 +302,7 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
         if (isPick && (ownRemainingByLevel[level - 1] ?? 0) <= 0) {
             continue;
         }
-        if (
-            isBan &&
-            !PickHelper.canBanCreatureLevel(level, event.b, knownOpponentPicked, ownPicked)
-        ) {
+        if (isBan && !PickHelper.canBanCreatureLevel(level, event.b, knownOpponentPicked, ownPicked)) {
             continue;
         }
 
@@ -365,7 +363,9 @@ const extractChoice = (content: string, choices: DraftChoice[]): DraftChoice | u
                 creatureId?: unknown;
                 pairIndex?: unknown;
             };
-            const label = String(parsed.label ?? parsed.choice ?? "").trim().toUpperCase();
+            const label = String(parsed.label ?? parsed.choice ?? "")
+                .trim()
+                .toUpperCase();
             const byLabel = choices.find((choice) => choice.label === label);
             if (byLabel) return byLabel;
             const index = Number(parsed.actionIndex ?? parsed.index ?? parsed.choice);
@@ -409,20 +409,23 @@ const buildDraftPrompt = (
     config: LocalModelOpponentConfig,
     event: IPickPhaseEventData,
     choices: DraftChoice[],
-): string => [
-    `You are drafting for Heroes of Crypto team ${teamName(config.modelTeam)}.`,
-    `Style: ${config.style}. Current phase: ${phaseName(event.pp)}.`,
-    "Goal: draft a stronger army than the opponent before the fight starts.",
-    "This game version rewards out-picking the opponent in ranged units.",
-    "Critical priority: secure Tsar Cannon and Gargantuan when legal; if you cannot secure them, ban them or ensure they stay banned.",
-    "Prefer ranged pressure, Double Shot, Through Shot, Area Throw, Large Caliber, high damage, and strong level-4 stacks.",
-    `Your picked creatures: ${event.p.filter(normalizeVisibleCreature).map(creatureName).join(", ") || "none"}.`,
-    `Known opponent creatures: ${event.op.filter(normalizeVisibleCreature).map(creatureName).join(", ") || "hidden/none"}.`,
-    `Banned creatures: ${event.b.map(creatureName).join(", ") || "none"}.`,
-    "Legal choices:",
-    ...choices.map((choice) => `${choice.label}. ${choice.summary}; score ${choice.score}; tags ${choice.tags.join(", ")}`),
-    "Return JSON only: {\"actionIndex\": 1}. Use the 1-based index of exactly one listed legal choice. Do not explain.",
-].join("\n");
+): string =>
+    [
+        `You are drafting for Heroes of Crypto team ${teamName(config.modelTeam)}.`,
+        `Style: ${config.style}. Current phase: ${phaseName(event.pp)}.`,
+        "Goal: draft a stronger army than the opponent before the fight starts.",
+        "This game version rewards out-picking the opponent in ranged units.",
+        "Critical priority: secure Tsar Cannon and Gargantuan when legal; if you cannot secure them, ban them or ensure they stay banned.",
+        "Prefer ranged pressure, Double Shot, Through Shot, Area Throw, Large Caliber, high damage, and strong level-4 stacks.",
+        `Your picked creatures: ${event.p.filter(normalizeVisibleCreature).map(creatureName).join(", ") || "none"}.`,
+        `Known opponent creatures: ${event.op.filter(normalizeVisibleCreature).map(creatureName).join(", ") || "hidden/none"}.`,
+        `Banned creatures: ${event.b.map(creatureName).join(", ") || "none"}.`,
+        "Legal choices:",
+        ...choices.map(
+            (choice) => `${choice.label}. ${choice.summary}; score ${choice.score}; tags ${choice.tags.join(", ")}`,
+        ),
+        'Return JSON only: {"actionIndex": 1}. Use the 1-based index of exactly one listed legal choice. Do not explain.',
+    ].join("\n");
 
 const chooseDraftChoice = async (
     config: LocalModelOpponentConfig,
@@ -441,7 +444,9 @@ const chooseDraftChoice = async (
                 model,
                 session_id: `hoc-draft-${Date.now()}-${Math.random().toString(16).slice(2)}`,
                 stream: false,
-                temperature: Number((import.meta.env as Record<string, string | undefined>).VITE_HOC_MODEL_TEMPERATURE ?? 0),
+                temperature: Number(
+                    (import.meta.env as Record<string, string | undefined>).VITE_HOC_MODEL_TEMPERATURE ?? 0,
+                ),
                 max_tokens: 80,
                 enable_thinking: false,
                 messages: [
@@ -537,7 +542,11 @@ const submitDraftChoice = async (choice: DraftChoice, authorization: string): Pr
     }
 
     const request = new PickBanRequest({ creature: choice.creatureId ?? 0 });
-    await postPickBody(choice.type === "ban" ? endpoints.game.ban : endpoints.game.pick, request.serializeBinary(), authorization);
+    await postPickBody(
+        choice.type === "ban" ? endpoints.game.ban : endpoints.game.pick,
+        request.serializeBinary(),
+        authorization,
+    );
 };
 
 export const LocalModelDraftOpponent: React.FC<{ eventUrl: string }> = ({ eventUrl }) => {
@@ -604,7 +613,9 @@ export const LocalModelDraftOpponent: React.FC<{ eventUrl: string }> = ({ eventU
                 const decision = await chooseDraftChoice(config, modelEvent, choices);
                 const choice = decision.choice;
                 const failedId =
-                    choice.type === "pick_pair" ? `pair:${choice.pairIndex ?? 0}` : `${choice.type}:${choice.creatureId ?? 0}`;
+                    choice.type === "pick_pair"
+                        ? `pair:${choice.pairIndex ?? 0}`
+                        : `${choice.type}:${choice.creatureId ?? 0}`;
                 try {
                     console.info("[local model draft]", choice.summary);
                     await submitDraftChoice(choice, authorization);

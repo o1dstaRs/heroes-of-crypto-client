@@ -27,7 +27,7 @@ Use the tools and resources in this order:
 9. If you are asked to act directly, call submit_action with that actionId.
 10. If you are asked to play the whole bot turn, call play_ai_turn instead.
 
-Prefer actions that produce damage, deny enemy tempo, or improve a clear future attack. Use action evaluation metadata: priorityScore, damage range, targetTotalHp, killsTarget, targetValue, retaliation, spell target type, spell power type, spell duration, remaining casts, and estimated spell value. Use movement when the target is not reachable yet. Defend or end turn only when the legal actions do not offer useful pressure. The common game engine is authoritative; your job is tactical selection from legal actions.`;
+Prefer actions that produce damage, deny enemy tempo, or improve a clear future attack. Use action evaluation metadata: priorityScore, damage range, targetTotalHp, killsTarget, targetValue, retaliation, spell target type, spell power type, spell duration, remaining casts, and estimated spell value. Attack-type switches are setup only; use at most one for the active unit, then submit a non-setup action and never switch back and forth. Use movement when the target is not reachable yet. Defend or end turn only when the legal actions do not offer useful pressure. The common game engine is authoritative; your job is tactical selection from legal actions.`;
 };
 
 export const createDraftArmyPromptText = (input: {

@@ -1290,7 +1290,7 @@ export class Sandbox extends PixiScene {
         switch (action.type) {
             case "end_turn":
                 if (actor) {
-                    this.sc_sceneLog.updateLog(`${actor.getName()} ends turn`);
+                    this.sc_sceneLog.updateLog(`${actor.getName()} skips turn`);
                 }
                 break;
             case "wait_turn":

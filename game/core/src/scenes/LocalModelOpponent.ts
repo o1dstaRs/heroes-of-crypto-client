@@ -61,6 +61,7 @@ export interface LocalModelActionOptions {
     attackHandler: AttackHandler;
     fightProperties: FightProperties;
     pathHelper: PathHelper;
+    allowAttackTypeSetup?: boolean;
 }
 
 export interface LocalModelOpponentConfig {
@@ -199,7 +200,9 @@ export const createLocalModelFightStateSummary = (
         })),
 });
 
-const serializeLegalAction = (action: LocalModelLegalAction): NonNullable<LocalModelFightLogEntry["legalActions"]>[number] => ({
+const serializeLegalAction = (
+    action: LocalModelLegalAction,
+): NonNullable<LocalModelFightLogEntry["legalActions"]>[number] => ({
     index: action.index,
     label: action.label,
     kind: action.kind,
@@ -247,8 +250,7 @@ export const recordLocalModelFightLog = (entry: LocalModelFightLogEntry): void =
 };
 
 export const getLocalModelOpponentConfig = (): LocalModelOpponentConfig => {
-    const params =
-        typeof window !== "undefined" ? new URL(window.location.href).searchParams : new URLSearchParams();
+    const params = typeof window !== "undefined" ? new URL(window.location.href).searchParams : new URLSearchParams();
     const env = import.meta.env as Record<string, string | undefined>;
     const enabled =
         normalizeBoolean(params.get("localModelOpponent")) ||
@@ -495,14 +497,20 @@ const createMoveActionFromAi = (
         return;
     }
 
-    createAction(actions, activeUnit, `${activeUnit.getName()} moves to ${destination.x},${destination.y}`, {
-        type: "move_unit",
-        unitId: activeUnit.getId(),
-        path: route.route.map((cell) => ({ ...cell })),
-        targetCells: getTargetCells(activeUnit, grid, destination),
-        hasLavaCell: route.hasLavaCell,
-        hasWaterCell: route.hasWaterCell,
-    }, ["movement", "positioning"]);
+    createAction(
+        actions,
+        activeUnit,
+        `${activeUnit.getName()} moves to ${destination.x},${destination.y}`,
+        {
+            type: "move_unit",
+            unitId: activeUnit.getId(),
+            path: route.route.map((cell) => ({ ...cell })),
+            targetCells: getTargetCells(activeUnit, grid, destination),
+            hasLavaCell: route.hasLavaCell,
+            hasWaterCell: route.hasWaterCell,
+        },
+        ["movement", "positioning"],
+    );
 };
 
 const createMoveAndMeleeActionFromAi = (
@@ -689,15 +697,18 @@ export const createLocalModelActions = (options: LocalModelActionOptions): Local
         activeUnit.selectAttackType(selectedBeforeRefresh);
     }
 
-    for (const attackType of activeUnit.getPossibleAttackTypes()) {
-        if (attackType !== activeUnit.getAttackTypeSelection()) {
-            createAction(
-                actions,
-                activeUnit,
-                `Switch ${activeUnit.getName()} to ${enumName(AttackVals, attackType).toLowerCase().replaceAll("_", " ")}`,
-                { type: "select_attack_type", unitId: activeUnitId, attackType },
-                ["setup"],
-            );
+    if (options.allowAttackTypeSetup !== false) {
+        for (const attackType of activeUnit.getPossibleAttackTypes()) {
+            if (attackType !== activeUnit.getAttackTypeSelection()) {
+                createAction(
+                    actions,
+                    activeUnit,
+                    `Switch ${activeUnit.getName()} to ${enumName(AttackVals, attackType).toLowerCase().replaceAll("_", " ")}`,
+                    { type: "select_attack_type", unitId: activeUnitId, attackType },
+                    ["setup"],
+                    ["setup only; does not finish the turn; do not repeat for the same active unit"],
+                );
+            }
         }
     }
 
@@ -713,7 +724,12 @@ export const createLocalModelActions = (options: LocalModelActionOptions): Local
                 actions,
                 activeUnit,
                 `${activeUnit.getName()} attacks ${enemy.getName()} in melee`,
-                { type: "melee_attack", attackerId: activeUnitId, targetId: enemy.getId(), attackFrom: { ...activeUnit.getBaseCell() } },
+                {
+                    type: "melee_attack",
+                    attackerId: activeUnitId,
+                    targetId: enemy.getId(),
+                    attackFrom: { ...activeUnit.getBaseCell() },
+                },
                 ["damage", "adjacent"],
                 enemy.canRespond(activeUnit.getAttackTypeSelection()) ? ["may draw a retaliation"] : [],
                 createAttackEvaluation(activeUnit, enemy, fightProperties, {
@@ -758,16 +774,28 @@ export const createLocalModelActions = (options: LocalModelActionOptions): Local
         !fightProperties.hasAlreadyMadeTurn(activeUnitId) &&
         !fightProperties.hasAlreadyHourglass(activeUnitId)
     ) {
-        createAction(actions, activeUnit, `${activeUnit.getName()} waits for a later slot`, {
-            type: "wait_turn",
-            unitId: activeUnitId,
-        }, ["tempo"]);
+        createAction(
+            actions,
+            activeUnit,
+            `${activeUnit.getName()} waits for a later slot`,
+            {
+                type: "wait_turn",
+                unitId: activeUnitId,
+            },
+            ["tempo"],
+        );
     }
 
-    createAction(actions, activeUnit, `${activeUnit.getName()} uses Luck Shield`, {
-        type: "defend_turn",
-        unitId: activeUnitId,
-    }, ["defense"]);
+    createAction(
+        actions,
+        activeUnit,
+        `${activeUnit.getName()} uses Luck Shield`,
+        {
+            type: "defend_turn",
+            unitId: activeUnitId,
+        },
+        ["defense"],
+    );
     createAction(
         actions,
         activeUnit,
@@ -786,8 +814,18 @@ const unitLine = (unit: Unit, activeUnitId: string): string =>
     `speed ${unit.getSpeed()} shots ${unit.getRangeShots()} at ${unit
         .getCells()
         .map((cell) => `${cell.x},${cell.y}`)
-        .join(";")} abilities ${unit.getAbilities().map((ability) => ability.getName()).join(", ") || "none"} ` +
-    `spells ${unit.getSpells().map((spell) => `${spell.getName()}:${spell.getAmount()}`).join(", ") || "none"}`;
+        .join(";")} abilities ${
+        unit
+            .getAbilities()
+            .map((ability) => ability.getName())
+            .join(", ") || "none"
+    } ` +
+    `spells ${
+        unit
+            .getSpells()
+            .map((spell) => `${spell.getName()}:${spell.getAmount()}`)
+            .join(", ") || "none"
+    }`;
 
 const evaluationText = (action: LocalModelLegalAction): string => {
     const evaluation = action.evaluation;
@@ -801,7 +839,11 @@ const evaluationText = (action: LocalModelLegalAction): string => {
                   evaluation.damage.killsTarget ? " lethal" : ""
               }`
             : "",
-        typeof evaluation.retaliation === "boolean" ? (evaluation.retaliation ? "retaliation risk" : "no retaliation") : "",
+        typeof evaluation.retaliation === "boolean"
+            ? evaluation.retaliation
+                ? "retaliation risk"
+                : "no retaliation"
+            : "",
         evaluation.spell
             ? `spell ${evaluation.spell.name} value ${evaluation.spell.estimatedValue} remaining ${evaluation.spell.remaining}${
                   evaluation.spell.isMass ? " mass" : ""
@@ -827,6 +869,7 @@ const buildPrompt = (
         "Goal: destroy every enemy stack before your own army is destroyed.",
         "The legal choices below are authoritative; choose exactly one listed label.",
         "Usually prefer lethal damage, removing enemy turns, valuable targets, strong summons/control, and safe ranged pressure.",
+        "Attack-type switches are setup only and do not finish the turn; never switch back and forth.",
         "Wait only when delaying creates a better same-lap action. Defend/end only when no useful pressure exists.",
         `Lap ${fightProps.getCurrentLap()}. Active unit: ${activeUnit.getName()}.`,
         "Units:",
@@ -837,7 +880,7 @@ const buildPrompt = (
             const risks = action.risks.length ? ` risks ${action.risks.join(", ")}` : "";
             return `${action.label}. ${action.summary}${tags}${risks}${evaluationText(action)}`;
         }),
-        "Return JSON only: {\"actionIndex\": 1}. Use the 1-based index of exactly one listed legal choice. Do not explain.",
+        'Return JSON only: {"actionIndex": 1}. Use the 1-based index of exactly one listed legal choice. Do not explain.',
     ].join("\n");
 };
 
@@ -866,7 +909,9 @@ const extractAction = (content: string, actions: LocalModelLegalAction[]): Local
             if (Number.isInteger(index) && index >= 1 && index <= actions.length) {
                 return actions[index - 1];
             }
-            const label = String(parsed.label ?? parsed.actionLabel ?? parsed.choice ?? "").trim().toUpperCase();
+            const label = String(parsed.label ?? parsed.actionLabel ?? parsed.choice ?? "")
+                .trim()
+                .toUpperCase();
             return actions.find((action) => action.label === label);
         } catch {
             // Fall through to loose parsing.
@@ -878,7 +923,9 @@ const extractAction = (content: string, actions: LocalModelLegalAction[]): Local
     }
     const labelMatch =
         cleaned.match(/^\s*(?:choice|action|option|move|answer)?\s*[:#-]?\s*([A-Z])\b/i) ??
-        cleaned.match(/\b(?:choose|pick|select|selected|answer|option|move|choice|action)\s*(?:is|:|#|-)?\s*([A-Z])\b/i);
+        cleaned.match(
+            /\b(?:choose|pick|select|selected|answer|option|move|choice|action)\s*(?:is|:|#|-)?\s*([A-Z])\b/i,
+        );
     if (labelMatch) {
         return actions.find((action) => action.label === labelMatch[1].toUpperCase());
     }
@@ -943,7 +990,13 @@ export const chooseLocalModelAction = async (input: {
     }
     try {
         const model = await resolveModelName(input.config);
-        const prompt = buildPrompt(input.activeUnit.getTeam(), input.config.style, input.activeUnit, input.unitsHolder, input.actions);
+        const prompt = buildPrompt(
+            input.activeUnit.getTeam(),
+            input.config.style,
+            input.activeUnit,
+            input.unitsHolder,
+            input.actions,
+        );
         const response = await fetch(modelUrl(input.config.apiBase, "/chat/completions"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -951,7 +1004,9 @@ export const chooseLocalModelAction = async (input: {
                 model,
                 session_id: `hoc-ui-${Date.now()}-${Math.random().toString(16).slice(2)}`,
                 stream: false,
-                temperature: Number((import.meta.env as Record<string, string | undefined>).VITE_HOC_MODEL_TEMPERATURE ?? 0),
+                temperature: Number(
+                    (import.meta.env as Record<string, string | undefined>).VITE_HOC_MODEL_TEMPERATURE ?? 0,
+                ),
                 max_tokens: 120,
                 enable_thinking: false,
                 messages: [

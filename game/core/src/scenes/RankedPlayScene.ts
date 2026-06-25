@@ -290,8 +290,7 @@ export class RankedPlayScene extends Sandbox {
         // animations — the "re-animates / starts over" glitch. Records already moved units and
         // applied mechanics, so the snapshot's board is redundant here; we only refresh the
         // turn queue / visible state.
-        const skipBoardRebuild =
-            !!options?.skipBoardRebuild && snapshot.fightStarted && !snapshot.fightFinished;
+        const skipBoardRebuild = !!options?.skipBoardRebuild && snapshot.fightStarted && !snapshot.fightFinished;
         if (skipBoardRebuild) {
             this.lastBoardSignature = boardSignature;
             this.syncRankedVisibleTurnState(snapshot);
@@ -357,11 +356,7 @@ export class RankedPlayScene extends Sandbox {
         const replayStateAfter = this.isAuthoritativeSnapshot(stateAfter)
             ? authoritativeSnapshotToSandboxSceneState(stateAfter, { hideOpponentPlacements: true })
             : undefined;
-        if (
-            action.type === "cast_spell" ||
-            action.type === "obstacle_attack" ||
-            action.type === "area_throw_attack"
-        ) {
+        if (action.type === "cast_spell" || action.type === "obstacle_attack" || action.type === "area_throw_attack") {
             if (events.length) {
                 this.applyReplayEvents(events);
             }
@@ -410,10 +405,9 @@ export class RankedPlayScene extends Sandbox {
         const gs = this.sc_sceneSettings.getGridSettings();
         const cell = gs.getCellSize();
         const isSmallUnit = unitState.properties.size !== 2;
-        const placementCells = [
-            this.getPlacement(unitState.team, 0),
-            this.getPlacement(unitState.team, 1),
-        ].flatMap((placement) => placement?.possibleCellPositions(isSmallUnit) ?? []);
+        const placementCells = [this.getPlacement(unitState.team, 0), this.getPlacement(unitState.team, 1)].flatMap(
+            (placement) => placement?.possibleCellPositions(isSmallUnit) ?? [],
+        );
         const placementPositions = placementCells
             .map((placementCell) =>
                 GridMath.getPositionForCell(placementCell, gs.getMinX(), gs.getStep(), gs.getHalfStep()),
@@ -627,9 +621,7 @@ export class RankedPlayScene extends Sandbox {
             case "unit_skipped":
                 return event.reason === "timeout"
                     ? `${nameOf(event.unitId)} turn timed out`
-                    : event.reason === "manual"
-                      ? `${nameOf(event.unitId)} ends turn`
-                      : `${nameOf(event.unitId)} skip turn`;
+                    : `${nameOf(event.unitId)} skips turn`;
             case "unit_waited":
                 return `${nameOf(event.unitId)} waits (hourglass)`;
             case "unit_defended":
@@ -841,16 +833,8 @@ export class RankedPlayScene extends Sandbox {
         return {
             winner,
             series: this.rankedStatsSeries.slice(),
-            lowerDeaths: this.buildRankedDeathEntries(
-                this.rankedStatsLowerRoster,
-                units,
-                TeamVals.LOWER as TeamType,
-            ),
-            upperDeaths: this.buildRankedDeathEntries(
-                this.rankedStatsUpperRoster,
-                units,
-                TeamVals.UPPER as TeamType,
-            ),
+            lowerDeaths: this.buildRankedDeathEntries(this.rankedStatsLowerRoster, units, TeamVals.LOWER as TeamType),
+            upperDeaths: this.buildRankedDeathEntries(this.rankedStatsUpperRoster, units, TeamVals.UPPER as TeamType),
             lowerStartTotal: this.rankedStatsLowerStartTotal,
             upperStartTotal: this.rankedStatsUpperStartTotal,
             lowerKilledTotal: this.rankedStatsLastLowerKilled,

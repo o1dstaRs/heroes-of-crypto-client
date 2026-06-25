@@ -1,24 +1,15 @@
 import { HeadlessDraft } from "./draft";
 import { HeadlessMatch } from "./headless_match";
-import type {
-    AIDraftDecision,
-    AIReason,
-    AIStyle,
-    PlayAiDraftResult,
-    SubmitDraftActionResult,
-    TeamName,
-} from "./types";
+import type { AIDraftDecision, AIReason, AIStyle, PlayAiDraftResult, SubmitDraftActionResult, TeamName } from "./types";
 
 export class HeadlessMatchStore {
     private activeDraft: HeadlessDraft | undefined;
     private activeMatch: HeadlessMatch | undefined;
-
     public createDraft(matchId?: string): HeadlessDraft {
         this.activeDraft = new HeadlessDraft({ matchId });
         this.activeMatch = undefined;
         return this.activeDraft;
     }
-
     public createQuickstart(matchId?: string): HeadlessMatch {
         this.activeDraft = undefined;
         this.activeMatch = HeadlessMatch.createQuickstart({ matchId });

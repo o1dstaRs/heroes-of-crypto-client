@@ -500,24 +500,30 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const currentUnit = useMemo(() => snapshot?.units.find((unit) => unit.id === snapshot.currentUnitId), [snapshot]);
     const ready = !isObserver && !!myPlayer && !!snapshot?.readyPlayerIds.includes(myPlayer.playerId);
     const canSubmit = !!snapshot && !isObserver && !!myPlayer && !busy;
+    const hasSnapshot = !!snapshot;
     const gameStarted =
         !!snapshot &&
         (snapshot.fightStarted || snapshot.phase === PlayPhase.PLAY || snapshot.phase === PlayPhase.FINISHED);
 
     const sendPlayAction = useCallback(
-        async (payload: PlayAction, options?: { authorization?: string }): Promise<boolean> => {
+        async (payload: PlayAction, options?: { authorization?: string; silent?: boolean }): Promise<boolean> => {
             const isModelSubmission =
                 !!options?.authorization &&
                 effectiveLocalModelConfig.enabled &&
                 payload.team === effectiveLocalModelConfig.modelTeam;
+            const isSilent = options?.silent === true;
             if (isObserver && !isModelSubmission) {
-                setError("Observer mode is read-only");
+                if (!isSilent) {
+                    setError("Observer mode is read-only");
+                }
                 return false;
             }
-            if (!isModelSubmission) {
+            if (!isModelSubmission && !isSilent) {
                 setBusy(true);
             }
-            setError("");
+            if (!isSilent) {
+                setError("");
+            }
             try {
                 const result = await sendRankedPlayAction(gameId, payload, options);
                 latestSequenceRef.current = Math.max(latestSequenceRef.current, result.sequence);
@@ -549,10 +555,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 return true;
             } catch (err: unknown) {
                 pendingTurnResolutionRef.current = false;
-                setError((err as Error).message || "Unable to submit action");
+                if (!isSilent) {
+                    setError((err as Error).message || "Unable to submit action");
+                }
                 return false;
             } finally {
-                if (!isModelSubmission) {
+                if (!isModelSubmission && !isSilent) {
                     setBusy(false);
                 }
             }
@@ -599,7 +607,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     }, []);
 
     const submitProtocolActionForTeam = useCallback(
-        async (action: Partial<PlayAction>, team: TeamType, authorization?: string) => {
+        async (
+            action: Partial<PlayAction>,
+            team: TeamType,
+            authorization?: string,
+            options?: { silent?: boolean },
+        ) => {
             await queueActionSubmission(async () => {
                 const envelope = buildActionEnvelope(team);
                 if (!envelope) return;
@@ -610,7 +623,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                         type: PlayActionType.UNKNOWN,
                         ...action,
                     },
-                    authorization ? { authorization } : undefined,
+                    { authorization, silent: options?.silent },
                 );
             });
         },
@@ -653,9 +666,10 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
 
         const pingModelPlayer = () => {
             void submitProtocolActionForTeam(
-                { type: PlayActionType.PING },
+                { type: PlayActionType.PING, expectedSequence: 0 },
                 effectiveLocalModelConfig.modelTeam,
                 effectiveLocalModelConfig.authorization,
+                { silent: true },
             );
         };
         const timer = window.setInterval(pingModelPlayer, 8_000);
@@ -668,6 +682,24 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         effectiveLocalModelConfig.modelTeam,
         submitProtocolActionForTeam,
     ]);
+
+    useEffect(() => {
+        if (isObserver || !hasSnapshot) {
+            return undefined;
+        }
+
+        const pingHumanPlayer = () => {
+            void submitProtocolActionForTeam(
+                { type: PlayActionType.PING, expectedSequence: 0 },
+                userTeam,
+                undefined,
+                { silent: true },
+            );
+        };
+        const timer = window.setInterval(pingHumanPlayer, 8_000);
+        pingHumanPlayer();
+        return () => window.clearInterval(timer);
+    }, [gameId, hasSnapshot, isObserver, submitProtocolActionForTeam, userTeam]);
 
     const transport = useCallback<SceneGameActionTransport>(
         (action) => {

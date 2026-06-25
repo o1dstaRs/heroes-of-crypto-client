@@ -274,7 +274,7 @@ export function createHeroesMcpServer(store = new HeadlessMatchStore()): McpServ
 
     server.tool(
         "play_ai_turn",
-        "Choose and submit actions until the bot-controlled active team finishes its turn or the fight ends.",
+        "Choose and submit actions until the bot-controlled active team finishes its turn or the fight ends. Suppresses repeated attack-type setup switches for one active unit.",
         {
             matchId: z.string(),
             team: z.enum(["LOWER", "UPPER"]).optional(),

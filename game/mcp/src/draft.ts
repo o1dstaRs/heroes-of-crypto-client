@@ -129,14 +129,7 @@ const draftTagsForCreature = (creature: DraftCreatureState): string[] => {
 export const createDraftCreatureState = (creatureId: number): DraftCreatureState => {
     const faction = getCreatureFactionName(creatureId);
     const name = creatureNameFromId(creatureId);
-    const properties = HoCConfig.getCreatureConfig(
-        TeamVals.NO_TEAM,
-        faction,
-        name,
-        "",
-        0,
-        DRAFT_UNIT_TOTAL_EXP,
-    );
+    const properties = HoCConfig.getCreatureConfig(TeamVals.NO_TEAM, faction, name, "", 0, DRAFT_UNIT_TOTAL_EXP);
     const attackType = enumLabel(AttackVals, properties.attack_type);
     const movementType = enumLabel(MovementVals, properties.movement_type);
     const averageDamage = (properties.attack_damage_min + properties.attack_damage_max) / 2;
@@ -183,11 +176,7 @@ export const createDraftCreatureState = (creatureId: number): DraftCreatureState
     };
 };
 
-export const createUnitFromCreatureId = (
-    creatureId: number,
-    team: TeamType,
-    gridSettings: GridSettings,
-): Unit => {
+export const createUnitFromCreatureId = (creatureId: number, team: TeamType, gridSettings: GridSettings): Unit => {
     const faction = getCreatureFactionName(creatureId);
     const name = creatureNameFromId(creatureId);
     const effectFactory = new EffectFactory();
@@ -219,28 +208,22 @@ export class HeadlessDraft {
     private banned: number[] = [];
     private stepIndex = 0;
     private stateVersion = 0;
-
     public constructor(options: { matchId?: string; initialPairs?: Array<[number, number]> } = {}) {
         this.matchId = options.matchId ?? `mcp-draft-${Date.now()}`;
         this.initialPairs = options.initialPairs ?? DEFAULT_INITIAL_PAIRS;
     }
-
     public getId(): string {
         return this.matchId;
     }
-
     public getState(): PublicDraftState {
         return this.toPublicState();
     }
-
     public isComplete(): boolean {
         return this.currentStep() === undefined;
     }
-
     public getPickedCreatures(team: TeamName): number[] {
         return [...this.pickedByTeam[team]];
     }
-
     public listLegalActions(team?: TeamName): DraftAction[] {
         const step = this.currentStep();
         if (!step || (team && team !== step.team)) {
@@ -258,7 +241,6 @@ export class HeadlessDraft {
         }
         return [];
     }
-
     public evaluateActions(options: { style?: AIStyle; team?: TeamName } = {}): EvaluatedDraftAction[] {
         const step = this.currentStep();
         if (!step) {
@@ -278,7 +260,6 @@ export class HeadlessDraft {
             })
             .map((action, index) => ({ ...action, rank: index + 1 }));
     }
-
     public chooseAction(options: { reason: AIReason; style?: AIStyle; team?: TeamName }): AIDraftDecision {
         const step = this.currentStep();
         if (!step) {
@@ -296,7 +277,6 @@ export class HeadlessDraft {
             team,
         });
     }
-
     public submitAction(input: { team: TeamName; actionId: string }): SubmitDraftActionResult {
         const step = this.currentStep();
         if (!step) {
@@ -340,7 +320,6 @@ export class HeadlessDraft {
             nextLegalActions: state.phase === "complete" ? [] : this.listLegalActions(),
         };
     }
-
     private createInitialPairActions(step: DraftStep): DraftAction[] {
         return this.initialPairs.flatMap((pair, pairIndex) => {
             const blocked = pair.some((creatureId) => this.isCreatureUnavailable(creatureId));
@@ -373,7 +352,6 @@ export class HeadlessDraft {
             ];
         });
     }
-
     private createPickActions(step: DraftStep): DraftAction[] {
         const allowedLevels = this.allowedPickLevels(step.team);
         return allCreatureIds
@@ -406,7 +384,6 @@ export class HeadlessDraft {
                 };
             });
     }
-
     private assignAutomaticInitialPair(team: TeamName): void {
         const opponent = team === "LOWER" ? "UPPER" : "LOWER";
         const existing = this.pickedByTeam[opponent];
@@ -415,13 +392,13 @@ export class HeadlessDraft {
         }
 
         const pair =
-            this.initialPairs.find((candidate) => candidate.every((creatureId) => !this.isCreatureUnavailable(creatureId))) ??
-            this.createFallbackInitialPair();
+            this.initialPairs.find((candidate) =>
+                candidate.every((creatureId) => !this.isCreatureUnavailable(creatureId)),
+            ) ?? this.createFallbackInitialPair();
         for (const creatureId of pair) {
             this.pickedByTeam[opponent].push(creatureId);
         }
     }
-
     private createFallbackInitialPair(): [number, number] {
         const levelOne = allCreatureIds.find(
             (creatureId) => getLevelOf(creatureId) === 1 && !this.isCreatureUnavailable(creatureId),
@@ -434,7 +411,6 @@ export class HeadlessDraft {
         }
         return [levelOne, levelTwo];
     }
-
     private allowedPickLevels(team: TeamName): number[] {
         return [1, 2, 3, 4].filter((level) => {
             const targetCount = TARGET_LEVEL_COUNTS[level] ?? 0;
@@ -444,7 +420,6 @@ export class HeadlessDraft {
             return pickedAtLevel < targetCount;
         });
     }
-
     private createBanActions(step: DraftStep): DraftAction[] {
         return allCreatureIds
             .filter((creatureId) => this.canBanCreature(creatureId))
@@ -481,16 +456,17 @@ export class HeadlessDraft {
                 };
             });
     }
-
     private canPickCreature(team: TeamName, creatureId: CreatureId): boolean {
         const level = getLevelOf(creatureId);
         if (this.isCreatureUnavailable(creatureId)) {
             return false;
         }
         const targetCount = TARGET_LEVEL_COUNTS[level] ?? 0;
-        return this.pickedByTeam[team].filter((pickedId) => getLevelOf(pickedId as CreatureId) === level).length < targetCount;
+        return (
+            this.pickedByTeam[team].filter((pickedId) => getLevelOf(pickedId as CreatureId) === level).length <
+            targetCount
+        );
     }
-
     private canBanCreature(creatureId: CreatureId): boolean {
         if (this.isCreatureUnavailable(creatureId)) {
             return false;
@@ -508,7 +484,6 @@ export class HeadlessDraft {
             PickHelper.canBanCreatureLevel(level, this.banned, allKnownPicked, allKnownPicked)
         );
     }
-
     private remainingNeededAtLevel(level: number): number {
         return (["LOWER", "UPPER"] as TeamName[]).reduce((sum, team) => {
             const pickedAtLevel = this.pickedByTeam[team].filter(
@@ -517,7 +492,6 @@ export class HeadlessDraft {
             return sum + Math.max(0, (TARGET_LEVEL_COUNTS[level] ?? 0) - pickedAtLevel);
         }, 0);
     }
-
     private isCreatureUnavailable(creatureId: number): boolean {
         return (
             this.banned.includes(creatureId) ||
@@ -525,7 +499,6 @@ export class HeadlessDraft {
             this.pickedByTeam.UPPER.includes(creatureId)
         );
     }
-
     private toPublicState(): PublicDraftState {
         const step = this.currentStep();
         return {
@@ -552,15 +525,12 @@ export class HeadlessDraft {
             completedMatchId: step ? undefined : this.matchId,
         };
     }
-
     private currentStep(): DraftStep | undefined {
         return DRAFT_STEPS[this.stepIndex];
     }
-
     private actionId(team: TeamName, prefix: string, value: number): string {
         return `draft:${this.stateVersion}:${team}:${prefix}:${value}`;
     }
-
     private rejected(message: string): SubmitDraftActionResult {
         return {
             completed: false,

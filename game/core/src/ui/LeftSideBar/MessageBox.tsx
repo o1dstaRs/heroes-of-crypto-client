@@ -189,9 +189,7 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     }, [visibleState.secondsRemaining]);
 
     const hasTimer =
-        Number.isFinite(visibleState.secondsMax) &&
-        visibleState.secondsMax > 0 &&
-        visibleState.secondsRemaining >= 0;
+        Number.isFinite(visibleState.secondsMax) && visibleState.secondsMax > 0 && visibleState.secondsRemaining >= 0;
     const timerProgressValue = hasTimer
         ? Math.max(0, Math.min(100, 100 - (visibleState.secondsRemaining / visibleState.secondsMax) * 100))
         : 0;

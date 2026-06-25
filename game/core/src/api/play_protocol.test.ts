@@ -47,12 +47,7 @@ describe("play protobuf decoder", () => {
     });
 
     test("decodes authoritative damage stats from snapshots", () => {
-        const damageStat = [
-            ...stringField(1, "Arbalester"),
-            ...intField(2, 30),
-            ...intField(3, 2),
-            ...intField(4, 1),
-        ];
+        const damageStat = [...stringField(1, "Arbalester"), ...intField(2, 30), ...intField(3, 2), ...intField(4, 1)];
         const snapshot = new Uint8Array([
             ...stringField(1, "game-1"),
             ...messageField(21, damageStat),

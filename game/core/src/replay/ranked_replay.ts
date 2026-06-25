@@ -65,9 +65,7 @@ const parseJson = <T>(raw: string): T | undefined => {
 };
 
 const isCommonGameAction = (value: unknown): value is GameAction =>
-    !!value &&
-    typeof value === "object" &&
-    typeof (value as { type?: unknown }).type === "string";
+    !!value && typeof value === "object" && typeof (value as { type?: unknown }).type === "string";
 
 const parseRankedJournalGameAction = (entry: PlayJournalEntry): GameAction | undefined => {
     const parsed = parseJson<unknown>(entry.actionJson);

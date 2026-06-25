@@ -83,19 +83,14 @@ export class AIController {
     private static readonly MOVE_ACTION_TIMEOUT_MS = 6000;
     private context: IAIContext;
     private readonly localModelOpponent: LocalModelOpponentConfig;
+    private lastLocalModelUnitId: string | undefined;
+    private attackTypeSetupUnitId: string | undefined;
     // AI State
     public isAIActive = false;
     public performingAction = false;
     public constructor(context: IAIContext) {
         this.context = context;
         this.localModelOpponent = getLocalModelOpponentConfig();
-        if (this.localModelOpponent.enabled) {
-            this.context
-                .getSceneLog()
-                .updateLog(
-                    `Local model opponent enabled for ${getLocalModelTeamName(this.localModelOpponent.modelTeam)}`,
-                );
-        }
     }
     /**
      * Restore the AI toggle to the player's pre-auto-turn choice. AI-Driven units force AI on for
@@ -134,7 +129,6 @@ export class AIController {
                 return;
             }
 
-            this.context.getSceneLog().updateLog(`${unit.getName()} AI action timed out`);
             onTimeout?.();
             this.endTurnIfStillActive(unit);
             this.finishAIAction(priorAIActive);
@@ -216,7 +210,6 @@ export class AIController {
             if (actionPerformed) {
                 return;
             }
-            this.context.getSceneLog().updateLog(`${currentUnit.getName()} uses fallback AI`);
         }
 
         const action = AI.findTarget(
@@ -247,6 +240,11 @@ export class AIController {
         this.finishAIAction(wasAIActive);
     }
     private async performLocalModelAction(currentUnit: RenderableUnit, wasAIActive: boolean): Promise<boolean> {
+        if (this.lastLocalModelUnitId !== currentUnit.getId()) {
+            this.lastLocalModelUnitId = currentUnit.getId();
+            this.attackTypeSetupUnitId = undefined;
+        }
+        const allowAttackTypeSetup = this.attackTypeSetupUnitId !== currentUnit.getId();
         const legalActions = createLocalModelActions({
             matchId: "ui-local-model",
             stateVersion: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
@@ -256,6 +254,7 @@ export class AIController {
             attackHandler: this.context.getAttackHandler(),
             fightProperties: FightStateManager.getInstance().getFightProperties(),
             pathHelper: this.context.getPathHelper(),
+            allowAttackTypeSetup,
         });
 
         const choice = await chooseLocalModelAction({
@@ -268,7 +267,6 @@ export class AIController {
         });
         if (!choice.action) {
             const reason = choice.error ?? choice.rawContent?.slice(0, 80) ?? "invalid model action";
-            this.context.getSceneLog().updateLog(`Local model returned no legal action (${reason})`);
             this.recordLocalModelResult(
                 currentUnit,
                 undefined,
@@ -279,7 +277,11 @@ export class AIController {
             return false;
         }
 
-        this.context.getSceneLog().updateLog(`Local model: ${choice.action.summary}`);
+        if (choice.action.action.type === "select_attack_type") {
+            this.attackTypeSetupUnitId = currentUnit.getId();
+        } else {
+            this.attackTypeSetupUnitId = undefined;
+        }
         return this.executeLocalModelAction(currentUnit, choice.action, wasAIActive, choice.decisionId);
     }
     private recordLocalModelResult(
@@ -321,6 +323,17 @@ export class AIController {
         decisionId?: string,
     ): Promise<boolean> {
         const action = legalAction.action;
+        if (action.type === "select_attack_type") {
+            if (this.context.applyGameAction(this.modelAction(currentUnit, action))) {
+                this.finishAIAction(wasAIActive);
+                this.recordLocalModelResult(currentUnit, legalAction, decisionId, true);
+                return true;
+            }
+
+            this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "attack_type_setup_failed");
+            return false;
+        }
+
         if (action.type === "move_unit") {
             if (!action.path?.length) {
                 this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "missing_path");

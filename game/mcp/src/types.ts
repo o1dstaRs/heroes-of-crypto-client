@@ -10,13 +10,7 @@ export type AIReason =
     | "benchmark";
 export type AIStyle = "balanced" | "aggressive" | "defensive";
 
-export type DraftPhaseName =
-    | "initial_pick"
-    | "extended_pick"
-    | "extended_ban"
-    | "pick"
-    | "ban"
-    | "complete";
+export type DraftPhaseName = "initial_pick" | "extended_pick" | "extended_ban" | "pick" | "ban" | "complete";
 export type DraftActionKind = "pick_initial_pair" | "pick_unit" | "ban_unit" | "reveal";
 
 export interface DraftCreatureState {
