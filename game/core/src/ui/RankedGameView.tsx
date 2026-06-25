@@ -63,6 +63,7 @@ type Props = {
 
 export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }) => {
     const manager = usePixiManager();
+    const viewerTeam = userTeam === TeamVals.NO_TEAM ? undefined : userTeam;
     const [snapshot, setSnapshot] = useState<PlaySnapshot | null>(null);
     const [selectedUnitId, setSelectedUnitId] = useState("");
     const [busy, setBusy] = useState(false);
@@ -111,8 +112,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         if (!snapshot || !pixiReady) {
             return;
         }
-        manager.ApplyAuthoritativeSnapshot(toAuthoritativeGameSnapshot(snapshot));
-    }, [manager, pixiReady, snapshot]);
+        manager.ApplyAuthoritativeSnapshot(toAuthoritativeGameSnapshot(snapshot, viewerTeam));
+        if (selectedUnitId && snapshot.units.some((unit) => unit.id === selectedUnitId && !unit.dead)) {
+            manager.SelectAuthoritativeUnit(selectedUnitId);
+        }
+    }, [manager, pixiReady, selectedUnitId, snapshot, viewerTeam]);
 
     useEffect(() => {
         let cancelled = false;
@@ -205,24 +209,29 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     }, [applySnapshot, gameId]);
 
     const myPlayer = useMemo(() => snapshot?.players.find((player) => player.team === userTeam), [snapshot, userTeam]);
+    const isObserver = userTeam === TeamVals.NO_TEAM || !myPlayer;
     const selectedUnit = useMemo(
         () => snapshot?.units.find((unit) => unit.id === selectedUnitId),
         [selectedUnitId, snapshot],
     );
     const currentUnit = useMemo(() => snapshot?.units.find((unit) => unit.id === snapshot.currentUnitId), [snapshot]);
     const myUnits = useMemo(
-        () => (snapshot?.units ?? []).filter((unit) => unit.team === userTeam),
-        [snapshot, userTeam],
+        () => (isObserver ? [] : (snapshot?.units ?? []).filter((unit) => unit.team === userTeam)),
+        [isObserver, snapshot, userTeam],
     );
     const unplacedUnits = useMemo(() => myUnits.filter((unit) => !unit.placed), [myUnits]);
-    const ready = !!myPlayer && !!snapshot?.readyPlayerIds.includes(myPlayer.playerId);
-    const canSubmit = !!snapshot && !!myPlayer && !busy;
+    const ready = !isObserver && !!myPlayer && !!snapshot?.readyPlayerIds.includes(myPlayer.playerId);
+    const canSubmit = !!snapshot && !isObserver && !!myPlayer && !busy;
     const gameStarted =
         !!snapshot &&
         (snapshot.fightStarted || snapshot.phase === PlayPhase.PLAY || snapshot.phase === PlayPhase.FINISHED);
 
     const sendPlayAction = useCallback(
         async (payload: PlayAction): Promise<boolean> => {
+            if (isObserver) {
+                setError("Observer mode is read-only");
+                return false;
+            }
             setBusy(true);
             setError("");
             try {
@@ -245,10 +254,13 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 setBusy(false);
             }
         },
-        [applySnapshot, gameId, refreshSnapshot],
+        [applySnapshot, gameId, isObserver, refreshSnapshot],
     );
 
     const buildActionEnvelope = useCallback(() => {
+        if (isObserver) {
+            return undefined;
+        }
         const latestSnapshot = snapshotRef.current;
         const currentPlayer = latestSnapshot?.players.find((player) => player.team === userTeam);
         if (!latestSnapshot || !currentPlayer) {
@@ -261,7 +273,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             expectedSequence: latestSequenceRef.current || latestSnapshot.latestSequence,
             team: userTeam,
         };
-    }, [gameId, userTeam]);
+    }, [gameId, isObserver, userTeam]);
 
     const queueActionSubmission = useCallback((submit: () => Promise<void>): Promise<void> => {
         const nextSubmission = actionQueueRef.current.catch(() => undefined).then(submit);
@@ -299,10 +311,13 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
 
     const transport = useCallback<SceneGameActionTransport>(
         (action) => {
+            if (isObserver) {
+                return { handled: true, completed: false, message: "Observer mode is read-only" };
+            }
             void submitGameAction(action);
             return { handled: true, completed: true, message: "Submitted to ranked server" };
         },
-        [submitGameAction],
+        [isObserver, submitGameAction],
     );
 
     const replayRankedFight = useCallback(async () => {
@@ -335,7 +350,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             const stepDelayMs = 550;
             replaySnapshots.forEach((replaySnapshot, index) => {
                 const playSnapshot = () => {
-                    manager.ApplyAuthoritativeReplaySnapshot(toAuthoritativeGameSnapshot(replaySnapshot));
+                    manager.ApplyAuthoritativeReplaySnapshot(toAuthoritativeGameSnapshot(replaySnapshot, viewerTeam));
                     if (index === replaySnapshots.length - 1) {
                         setStatus("Connected");
                     }
@@ -354,7 +369,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         } finally {
             setBusy(false);
         }
-    }, [clearReplayTimers, gameId, manager]);
+    }, [clearReplayTimers, gameId, manager, viewerTeam]);
 
     useEffect(() => {
         manager.SetGameActionTransport(transport);
@@ -415,6 +430,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     submitProtocolAction={submitProtocolAction}
                     unplacedUnits={unplacedUnits}
                     userTeam={userTeam}
+                    isObserver={isObserver}
                 />
             </div>
         </ButtonProvider>
@@ -436,6 +452,7 @@ interface RankedOverlayProps {
     submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
     unplacedUnits: PlayUnitState[];
     userTeam: TeamType;
+    isObserver: boolean;
 }
 
 const RankedOverlay: React.FC<RankedOverlayProps> = ({
@@ -453,6 +470,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     submitProtocolAction,
     unplacedUnits,
     userTeam,
+    isObserver,
 }) => (
     <Sheet
         variant="outlined"
@@ -491,16 +509,21 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                 <Chip size="sm" variant="soft" color="neutral">
                     Seq {snapshot.latestSequence}
                 </Chip>
+                {isObserver && (
+                    <Chip size="sm" variant="soft" color="primary">
+                        Observer
+                    </Chip>
+                )}
             </Stack>
 
             <WalletLinker compact />
 
             <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                You: {teamLabel(userTeam)}
+                {isObserver ? "Watching as observer" : `You: ${teamLabel(userTeam)}`}
                 {currentUnit ? ` | Active: ${currentUnit.name} (${teamLabel(currentUnit.team)})` : ""}
             </Typography>
 
-            {snapshot.phase === PlayPhase.PLACEMENT && (
+            {snapshot.phase === PlayPhase.PLACEMENT && !isObserver && (
                 <Stack spacing={0.75}>
                     <Button
                         variant="solid"
@@ -543,9 +566,15 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                 </Stack>
             )}
 
-            {gameStarted && (
+            {gameStarted && !isObserver && (
                 <Typography level="body-xs" textColor={hocColors.muted}>
                     Use the board and combat toolbar for movement, attacks, spells, and turn actions.
+                </Typography>
+            )}
+
+            {isObserver && (
+                <Typography level="body-xs" textColor={hocColors.muted}>
+                    Live observer mode. Controls are disabled; replay is available after the fight ends.
                 </Typography>
             )}
 

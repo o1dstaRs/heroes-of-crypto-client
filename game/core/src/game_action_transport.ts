@@ -27,6 +27,8 @@ export interface AuthoritativeUnitState {
 
 export interface AuthoritativeGameSnapshot {
     gameId: string;
+    viewerTeam?: TeamType | number;
+    winnerTeam?: TeamType | number;
     phase: number;
     gridType: number;
     currentLap: number;

@@ -271,14 +271,47 @@ const MatchLoadingOverlay: React.FC = () => (
 
 const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const { gameId } = useParams<{ gameId: string }>();
-    const { getCurrentGame } = useAuthContext();
+    const { authenticated, getCurrentGame } = useAuthContext();
     const [showOverlay, setShowOverlay] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const [userTeam, setUserTeam] = useState<TeamType>(TeamVals.NO_TEAM as TeamType);
     const [routeMode, setRouteMode] = useState<"checking" | "pick" | "play">("checking");
 
     useEffect(() => {
+        const openObserverMode = async (): Promise<boolean> => {
+            if (!gameId) {
+                return false;
+            }
+
+            try {
+                const snapshot = await fetchRankedPlaySnapshot(gameId);
+                const e2ePlayerId = readE2ePlayerId();
+                const e2ePlayer = e2ePlayerId
+                    ? snapshot.players.find((player) => player.playerId === e2ePlayerId)
+                    : undefined;
+
+                setUserTeam((e2ePlayer?.team as TeamType | undefined) ?? (TeamVals.NO_TEAM as TeamType));
+                setRouteMode("play");
+                setShowOverlay(false);
+                setErrorMessage("");
+                return true;
+            } catch (snapshotErr) {
+                console.error(snapshotErr);
+                return false;
+            }
+        };
+
         const fetchGame = async () => {
+            if (!authenticated) {
+                if (await openObserverMode()) {
+                    return;
+                }
+
+                setShowOverlay(true);
+                setErrorMessage("This game is not available to observe yet");
+                return;
+            }
+
             try {
                 const currentGame = await getCurrentGame?.();
 
@@ -292,6 +325,9 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                     setUserTeam((currentGame?.team as TeamType) ?? TeamVals.NO_TEAM);
 
                     if (!gameId || currentGame?.id !== gameId) {
+                        if (await openObserverMode()) {
+                            return;
+                        }
                         setShowOverlay(true);
                         setErrorMessage("The game is no longer active or you don't have access to it");
                     } else {
@@ -301,24 +337,8 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                 }
             } catch (err) {
                 console.error(err);
-                if (gameId) {
-                    try {
-                        const snapshot = await fetchRankedPlaySnapshot(gameId);
-                        const e2ePlayerId = readE2ePlayerId();
-                        const e2ePlayer = e2ePlayerId
-                            ? snapshot.players.find((player) => player.playerId === e2ePlayerId)
-                            : undefined;
-                        if (!e2ePlayer) {
-                            throw new Error("Unable to resolve player team for this direct game link");
-                        }
-                        setUserTeam(e2ePlayer.team as TeamType);
-                        setRouteMode("play");
-                        setShowOverlay(false);
-                        setErrorMessage("");
-                        return;
-                    } catch (snapshotErr) {
-                        console.error(snapshotErr);
-                    }
+                if (await openObserverMode()) {
+                    return;
                 }
                 setShowOverlay(true);
                 setErrorMessage((err as Error).message || "An unexpected error occurred");
@@ -326,7 +346,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         };
 
         fetchGame();
-    }, [gameId, getCurrentGame]);
+    }, [authenticated, gameId, getCurrentGame]);
 
     useEffect(() => {
         if (!gameId || showOverlay || userTeam === TeamVals.NO_TEAM || routeMode === "play") {
@@ -384,7 +404,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                 </div>
             )}
             {!showOverlay && gameId && routeMode === "checking" && <MatchLoadingOverlay />}
-            {!showOverlay && userTeam !== TeamVals.NO_TEAM && gameId && routeMode !== "checking" && (
+            {!showOverlay && gameId && routeMode !== "checking" && (
                 <>
                     {routeMode === "pick" && (
                         <PickAndBanView windowSize={windowSize} userTeam={userTeam} gameId={gameId} />
@@ -418,7 +438,7 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                 path="/game/:gameId"
                 element={
                     <WalletProvider>
-                        {authenticated ? <GameRoute windowSize={windowSize} /> : <LoginScreen />}
+                        <GameRoute windowSize={windowSize} />
                     </WalletProvider>
                 }
             />

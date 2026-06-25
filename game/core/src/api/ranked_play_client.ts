@@ -1,4 +1,4 @@
-import type { GameAction, TeamType } from "@heroesofcrypto/common";
+import { TeamVals, type GameAction, type TeamType } from "@heroesofcrypto/common";
 import { v4 as uuidv4 } from "uuid";
 
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
@@ -100,8 +100,62 @@ export const parseRankedPlaySseFrame = (frame: string): PlayEvent | null => {
     return decodeSsePlayEvent(data.join("\n"));
 };
 
-export const toAuthoritativeGameSnapshot = (snapshot: PlaySnapshot): AuthoritativeGameSnapshot => ({
+const isTeam = (team: unknown): team is TeamType => team === TeamVals.LOWER || team === TeamVals.UPPER;
+
+const winnerTeamFromJournal = (snapshot: PlaySnapshot): TeamType | undefined => {
+    for (const entry of [...snapshot.journalTail].sort((a, b) => b.sequence - a.sequence)) {
+        try {
+            const events = JSON.parse(entry.eventsJson) as unknown;
+            if (!Array.isArray(events)) {
+                continue;
+            }
+            const finishEvent = events.find(
+                (event): event is { type: string; winningTeam: unknown } =>
+                    typeof event === "object" &&
+                    event !== null &&
+                    (event as { type?: unknown }).type === "fight_finished",
+            );
+            if (finishEvent && isTeam(finishEvent.winningTeam)) {
+                return finishEvent.winningTeam;
+            }
+        } catch {
+            // Older journal rows may not have parseable event payloads.
+        }
+    }
+    return undefined;
+};
+
+const winnerTeamFromUnits = (snapshot: PlaySnapshot): TeamType | undefined => {
+    if (!snapshot.fightFinished && snapshot.phase !== PlayPhase.FINISHED) {
+        return undefined;
+    }
+
+    const lowerAlive = snapshot.units
+        .filter((unit) => unit.team === TeamVals.LOWER)
+        .reduce((sum, unit) => sum + Math.max(0, Math.floor(unit.amountAlive)), 0);
+    const upperAlive = snapshot.units
+        .filter((unit) => unit.team === TeamVals.UPPER)
+        .reduce((sum, unit) => sum + Math.max(0, Math.floor(unit.amountAlive)), 0);
+
+    if (lowerAlive > 0 && upperAlive <= 0) {
+        return TeamVals.LOWER as TeamType;
+    }
+    if (upperAlive > 0 && lowerAlive <= 0) {
+        return TeamVals.UPPER as TeamType;
+    }
+    return undefined;
+};
+
+const winnerTeamFromSnapshot = (snapshot: PlaySnapshot): TeamType | undefined =>
+    winnerTeamFromJournal(snapshot) ?? winnerTeamFromUnits(snapshot);
+
+export const toAuthoritativeGameSnapshot = (
+    snapshot: PlaySnapshot,
+    viewerTeam?: TeamType,
+): AuthoritativeGameSnapshot => ({
     gameId: snapshot.gameId,
+    viewerTeam,
+    winnerTeam: winnerTeamFromSnapshot(snapshot),
     phase: snapshot.phase,
     gridType: snapshot.gridType,
     currentLap: snapshot.currentLap,

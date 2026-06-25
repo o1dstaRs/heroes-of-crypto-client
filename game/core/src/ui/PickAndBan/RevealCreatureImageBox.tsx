@@ -1,4 +1,4 @@
-import { CreatureByLevel } from "@heroesofcrypto/common";
+import { getCreaturesByLevel } from "@heroesofcrypto/common";
 import { Box, IconButton } from "@mui/joy";
 import React, { useCallback } from "react";
 import { UNIT_ID_TO_IMAGE } from "../unit_ui_constants";
@@ -64,7 +64,7 @@ export const RevealCreatureImageBox = ({
                 transform:
                     !transformY &&
                     initialCreaturesPairs.length &&
-                    initialCreaturesPairs[0].indexOf(creatureId) % 2 < CreatureByLevel[3].length / 2
+                    initialCreaturesPairs[0].indexOf(creatureId) % 2 < getCreaturesByLevel(4).length / 2
                         ? "translateY(-15%)"
                         : !transformY
                           ? "translateY(25%)"

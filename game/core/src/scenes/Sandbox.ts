@@ -119,6 +119,11 @@ interface MountainEdgeTarget {
     cell: HoCMath.XY;
 }
 
+interface PlacementBenchHitBox {
+    center: HoCMath.XY;
+    radius: number;
+}
+
 export class Sandbox extends PixiScene {
     private readonly grid: Grid;
     private readonly pathHelper: PathHelper;
@@ -140,6 +145,8 @@ export class Sandbox extends PixiScene {
     private spawnPulsePhase = 0;
     private bgKey = "background_new";
     private placementGraphics?: Graphics;
+    private placementBenchGraphics?: Graphics;
+    private readonly placementBenchHitBoxes = new Map<string, PlacementBenchHitBox>();
     private selectedBoardUnit?: RenderableUnit;
     private isActiveUnitMoving = false;
     private gridMatrix: number[][];
@@ -508,6 +515,84 @@ export class Sandbox extends PixiScene {
     public override selectAuthoritativeUnit(unitId: string): void {
         this.selectSceneUnitForPlacement(unitId);
     }
+    protected shouldRenderUnplacedUnitBench(_unitState: SandboxSceneUnitState): boolean {
+        return false;
+    }
+    protected getUnplacedUnitBenchPosition(index: number, total: number): HoCMath.XY | undefined {
+        if (total <= 0) {
+            return undefined;
+        }
+
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cell = gs.getCellSize();
+        const columns = Math.min(4, total);
+        const rows = Math.ceil(total / columns);
+        const column = index % columns;
+        const row = Math.floor(index / columns);
+        const centerX = (gs.getMinX() + gs.getMaxX()) / 2;
+        const centerY = (gs.getMinY() + gs.getMaxY()) / 2;
+
+        return {
+            x: centerX + (column - (columns - 1) / 2) * cell * 1.45,
+            y: centerY + (row - (rows - 1) / 2) * cell * 1.35,
+        };
+    }
+    private clearPlacementBench(): void {
+        this.placementBenchHitBoxes.clear();
+        this.placementBenchGraphics?.clear();
+    }
+    private ensurePlacementBenchGraphicsWorld(): Graphics {
+        if (!this.placementBenchGraphics) {
+            this.placementBenchGraphics = new Graphics();
+        }
+        this.attachToWorldRoot(this.placementBenchGraphics, 2500);
+        return this.placementBenchGraphics;
+    }
+    private drawPlacementBenchBackdrop(positions: HoCMath.XY[]): void {
+        if (!positions.length) {
+            this.placementBenchGraphics?.clear();
+            return;
+        }
+
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cell = gs.getCellSize();
+        const minX = Math.min(...positions.map((position) => position.x)) - cell * 0.95;
+        const maxX = Math.max(...positions.map((position) => position.x)) + cell * 0.95;
+        const minY = Math.min(...positions.map((position) => position.y)) - cell * 0.9;
+        const maxY = Math.max(...positions.map((position) => position.y)) + cell * 0.9;
+        const radius = Math.max(6, cell * 0.18);
+
+        this.ensurePlacementBenchGraphicsWorld()
+            .clear()
+            .roundRect(minX, minY, maxX - minX, maxY - minY, radius)
+            .fill({ color: 0x05070c, alpha: 0.56 })
+            .stroke({ color: 0xf6d87c, alpha: 0.28, width: Math.max(1, cell * 0.025) });
+    }
+    private renderUnplacedBenchUnit(unit: RenderableUnit, position: HoCMath.XY): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const worldRoot = this.drawer.getUnitsContainer();
+        const cell = gs.getCellSize();
+        const isLarge = unit.getUnitProperties().size === 2;
+
+        unit.setPosition(position.x, position.y);
+        unit.ensureVisual(worldRoot, gs);
+        unit.syncVisual(worldRoot, gs);
+        this.placementBenchHitBoxes.set(unit.getId(), {
+            center: { x: position.x, y: position.y },
+            radius: cell * (isLarge ? 1.05 : 0.7),
+        });
+    }
+    private getBenchUnitAtPosition(worldPos: HoCMath.XY): Unit | undefined {
+        const hitEntries = Array.from(this.placementBenchHitBoxes.entries()).reverse();
+        for (const [unitId, hitBox] of hitEntries) {
+            const dx = worldPos.x - hitBox.center.x;
+            const dy = worldPos.y - hitBox.center.y;
+            if (dx * dx + dy * dy <= hitBox.radius * hitBox.radius) {
+                return this.unitsHolder.getAllUnits().get(unitId);
+            }
+        }
+        return undefined;
+    }
     public override applyAuthoritativeSnapshot(snapshot: AuthoritativeGameSnapshot): void {
         if (snapshot.latestSequence <= this.sandboxAuthoritativeSequence) {
             return;
@@ -568,10 +653,16 @@ export class Sandbox extends PixiScene {
     private getUnitAtPosition(worldPos: HoCMath.XY): Unit | undefined {
         const gs = this.sc_sceneSettings.getGridSettings();
         const cell = GridMath.getCellForPosition(gs, worldPos);
-        if (!cell) return undefined;
-        const occupantId = this.grid.getOccupantUnitId(cell);
-        if (!occupantId) return undefined;
-        return this.unitsHolder.getAllUnits().get(occupantId);
+        if (cell) {
+            const occupantId = this.grid.getOccupantUnitId(cell);
+            if (occupantId) {
+                return this.unitsHolder.getAllUnits().get(occupantId);
+            }
+        }
+        if (!FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            return this.getBenchUnitAtPosition(worldPos);
+        }
+        return undefined;
     }
     protected ensureCenterTerrainSprite(): void {
         this.dungeonVisuals.ensureCenterTerrainSprite();
@@ -744,13 +835,32 @@ export class Sandbox extends PixiScene {
         if (existingUnits.length) {
             this.destroySpecificUnits(existingUnits, true, false);
         }
+        this.clearPlacementBench();
 
         const gs = this.sc_sceneSettings.getGridSettings();
         const unitsContainer = this.drawer.getUnitsContainer();
+        const benchPositions = new Map<string, HoCMath.XY>();
+        if (!snapshot.fightStarted) {
+            const benchUnitStates = snapshot.units.filter(
+                (unitState) => !unitState.dead && !unitState.placed && this.shouldRenderUnplacedUnitBench(unitState),
+            );
+            benchUnitStates.forEach((unitState, index) => {
+                const position = this.getUnplacedUnitBenchPosition(index, benchUnitStates.length);
+                if (position) {
+                    benchPositions.set(unitState.properties.id, position);
+                }
+            });
+            this.drawPlacementBenchBackdrop([...benchPositions.values()]);
+        }
+
         for (const unitState of snapshot.units) {
             const unit = this.createRenderableUnitFromSceneState(unitState);
             this.unitsHolder.addUnit(unit);
             if (!unitState.placed || !unitState.cells.length) {
+                const benchPosition = benchPositions.get(unitState.properties.id);
+                if (benchPosition && !unitState.dead) {
+                    this.renderUnplacedBenchUnit(unit, benchPosition);
+                }
                 continue;
             }
 
@@ -2547,6 +2657,13 @@ export class Sandbox extends PixiScene {
         }
         // 2. PRE-FIGHT PLACEMENT INTERACTION
         const unitUnderMouse = this.getUnitAtPosition(p);
+        const isSameBenchSelection =
+            unitUnderMouse &&
+            this.draggingUnitId === unitUnderMouse.getId() &&
+            this.placementBenchHitBoxes.has(unitUnderMouse.getId());
+        if (isSameBenchSelection) {
+            return;
+        }
         // Allow switching selection to another unit immediately, instead of trying to place and failing
         const isSwitchingSelection =
             unitUnderMouse && (!this.draggingUnitId || unitUnderMouse.getId() !== this.draggingUnitId);
