@@ -32,9 +32,16 @@ const BASE_Y = MT + PLOT_H;
  * Hand-rolled SVG chart of "% of each army killed over time". Used both in the
  * end-of-fight overlay and live in the ALT "up next" overlay.
  */
-export const CasualtyChart: React.FC<{ series: IFightStatsSample[]; drawDurationSec?: number }> = ({
+type FightStatsChartMetric = "casualties" | "damage";
+
+export const CasualtyChart: React.FC<{
+    series: IFightStatsSample[];
+    drawDurationSec?: number;
+    metric?: FightStatsChartMetric;
+}> = ({
     series,
     drawDurationSec = 1.1,
+    metric = "casualties",
 }) => {
     const pts = series.length >= 2 ? series : series.length === 1 ? [series[0], series[0]] : [];
     const n = pts.length;
@@ -48,8 +55,11 @@ export const CasualtyChart: React.FC<{ series: IFightStatsSample[]; drawDuration
     const areaPath = (acc: (s: IFightStatsSample) => number): string =>
         `${linePath(acc)} L ${xFor(n - 1).toFixed(1)} ${BASE_Y} L ${xFor(0).toFixed(1)} ${BASE_Y} Z`;
 
-    const accGreen = (s: IFightStatsSample): number => s.lowerKilledPct;
-    const accRed = (s: IFightStatsSample): number => s.upperKilledPct;
+    const useDamage = metric === "damage";
+    const accGreen = (s: IFightStatsSample): number =>
+        useDamage ? (s.lowerDamagePct ?? s.lowerKilledPct) : s.lowerKilledPct;
+    const accRed = (s: IFightStatsSample): number =>
+        useDamage ? (s.upperDamagePct ?? s.upperKilledPct) : s.upperKilledPct;
 
     // Lap boundary ticks
     const lapTicks: { x: number; lap: number }[] = [];
@@ -62,8 +72,8 @@ export const CasualtyChart: React.FC<{ series: IFightStatsSample[]; drawDuration
     });
     const labelEvery = Math.max(1, Math.ceil(lapTicks.length / 8));
 
-    const finalGreen = pts[n - 1].lowerKilledPct;
-    const finalRed = pts[n - 1].upperKilledPct;
+    const finalGreen = accGreen(pts[n - 1]);
+    const finalRed = accRed(pts[n - 1]);
 
     return (
         <Box

@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { HoCConstants, TeamVals, TeamType } from "@heroesofcrypto/common";
 import Avatar from "@mui/joy/Avatar";
-import Badge from "@mui/joy/Badge";
 import Box from "@mui/joy/Box";
 import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
-import { images } from "../../generated/image_imports";
 import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { CasualtyChart, CasualtyPercents } from "../FightStats/CasualtyChart";
 import { meteorIconDataUrl } from "../meteorIcon";
 import { resolveUnitImage } from "../unitImage";
+import { TeamAmountFlag } from "../TeamAmountFlag";
 const stopImg = new URL("../../../images/icon_skip_black.webp", import.meta.url).toString();
 const hourglassImg = new URL("../../../images/hourglass.webp", import.meta.url).toString();
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
@@ -107,6 +106,12 @@ export const UpNextOverlay: React.FC = () => {
 
     const fightStats = visibleState.fightStats;
     const lastSample = fightStats?.series?.length ? fightStats.series[fightStats.series.length - 1] : undefined;
+    const chartMetric =
+        lastSample?.lowerDamagePct !== undefined || lastSample?.upperDamagePct !== undefined ? "damage" : "casualties";
+    const lowerChartPct =
+        chartMetric === "damage" ? (lastSample?.lowerDamagePct ?? 0) : (lastSample?.lowerKilledPct ?? 0);
+    const upperChartPct =
+        chartMetric === "damage" ? (lastSample?.upperDamagePct ?? 0) : (lastSample?.upperKilledPct ?? 0);
 
     let defaultIcon =
         visibleState.lapNumber !== undefined &&
@@ -162,11 +167,8 @@ export const UpNextOverlay: React.FC = () => {
                         pointerEvents: "none",
                     }}
                 >
-                    <CasualtyPercents
-                        lowerKilledPct={lastSample.lowerKilledPct}
-                        upperKilledPct={lastSample.upperKilledPct}
-                    />
-                    <CasualtyChart series={fightStats.series} drawDurationSec={0.5} />
+                    <CasualtyPercents lowerKilledPct={lowerChartPct} upperKilledPct={upperChartPct} />
+                    <CasualtyChart series={fightStats.series} drawDurationSec={0.5} metric={chartMetric} />
                 </Box>
             )}
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -239,28 +241,7 @@ export const UpNextOverlay: React.FC = () => {
                                     }}
                                 />
                             ) : null}
-                            <Badge
-                                badgeContent={unit.amount.toString()}
-                                max={99999}
-                                sx={{
-                                    position: "absolute",
-                                    top: 16,
-                                    right: 8,
-                                    zIndex: 1,
-                                    "& .MuiBadge-badge": {
-                                        fontSize: "1rem",
-                                        fontWeight: "bold",
-                                        height: "26px",
-                                        minWidth: "26px",
-                                        width: "26px",
-                                        borderRadius: "50%",
-                                        padding: 0,
-                                        color: "black",
-                                        backgroundColor: "white",
-                                        boxShadow: "0 0 2px 1px rgba(0,0,0,0.3)",
-                                    },
-                                }}
-                            />
+                            <TeamAmountFlag amount={unit.amount} teamType={unit.teamType} />
                         </Box>
                     ))}
             </Stack>

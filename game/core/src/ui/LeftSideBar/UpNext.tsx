@@ -1,7 +1,6 @@
 import { TeamVals, TeamType } from "@heroesofcrypto/common";
 
 import Avatar from "@mui/joy/Avatar";
-import Badge from "@mui/joy/Badge";
 import Box from "@mui/joy/Box";
 import Divider from "@mui/joy/Divider";
 import Stack from "@mui/joy/Stack";
@@ -13,6 +12,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
+import { TeamAmountFlag } from "../TeamAmountFlag";
 import { resolveUnitImage } from "../unitImage";
 import { prefetchUnitAtlas } from "./UnitStatsListItem";
 
@@ -253,29 +253,7 @@ export const UpNext: React.FC = () => {
                                                 }}
                                             />
                                         ) : null}
-                                        <Badge
-                                            badgeContent={unit.amount.toString()}
-                                            max={99999}
-                                            // @ts-ignore: style params
-                                            sx={{
-                                                position: "absolute",
-                                                top: 16,
-                                                right: 8,
-                                                zIndex: 1,
-                                                "& .MuiBadge-badge": {
-                                                    fontSize: "1rem",
-                                                    fontWeight: "bold",
-                                                    height: "26px",
-                                                    minWidth: "26px",
-                                                    width: "26px",
-                                                    borderRadius: "50%",
-                                                    padding: 0,
-                                                    color: "black",
-                                                    backgroundColor: "white",
-                                                    boxShadow: "0 0 2px 1px rgba(0,0,0,0.3)",
-                                                },
-                                            }}
-                                        />
+                                        <TeamAmountFlag amount={unit.amount} teamType={unit.teamType} />
                                     </motion.div>
                                 ))}
                             </AnimatePresence>

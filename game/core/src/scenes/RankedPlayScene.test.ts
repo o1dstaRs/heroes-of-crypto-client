@@ -3,7 +3,12 @@ import { describe, expect, test } from "bun:test";
 import { CreatureVals, TeamVals } from "@heroesofcrypto/common";
 
 import type { AuthoritativeGameSnapshot, AuthoritativeUnitState } from "../game_action_transport";
-import { authoritativeSnapshotToSandboxSceneState } from "./RankedPlayScene";
+import {
+    authoritativeSnapshotToSandboxSceneState,
+    rankedUnitAliveHealth,
+    rankedUnitStartAmount,
+    rankedUnitStartHealth,
+} from "./RankedPlayScene";
 
 const unitState = (overrides: Partial<AuthoritativeUnitState>): AuthoritativeUnitState => ({
     id: "unit",
@@ -106,5 +111,29 @@ describe("ranked placement scene state", () => {
             cells: [{ x: 9, y: 13 }],
             baseCell: { x: 9, y: 13 },
         });
+    });
+
+    test("computes ranked HP damage for partially wounded stacks", () => {
+        const state = authoritativeSnapshotToSandboxSceneState({
+            ...placementSnapshot([
+                unitState({ id: "healthy", amountAlive: 10, amountDied: 0, hp: 10, maxHp: 10 }),
+                unitState({ id: "wounded", amountAlive: 10, amountDied: 0, hp: 4, maxHp: 10 }),
+                unitState({ id: "losses", amountAlive: 8, amountDied: 2, hp: 3, maxHp: 10 }),
+            ]),
+            phase: 2,
+            fightStarted: true,
+            currentLap: 1,
+        });
+
+        const byId = new Map(state.units.map((unit) => [unit.properties.id, unit]));
+        const healthy = byId.get("healthy")!;
+        const wounded = byId.get("wounded")!;
+        const losses = byId.get("losses")!;
+
+        expect(rankedUnitStartAmount(healthy)).toBe(10);
+        expect(rankedUnitStartHealth(healthy)).toBe(100);
+        expect(rankedUnitAliveHealth(healthy)).toBe(100);
+        expect(rankedUnitStartHealth(wounded) - rankedUnitAliveHealth(wounded)).toBe(6);
+        expect(rankedUnitStartHealth(losses) - rankedUnitAliveHealth(losses)).toBe(27);
     });
 });

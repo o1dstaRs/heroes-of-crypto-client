@@ -144,6 +144,28 @@ interface RankedFightRosterEntry {
     start: number;
 }
 
+export const rankedUnitStartAmount = (unit: SandboxSceneUnitState): number =>
+    Math.max(0, Math.floor(unit.properties.amount_alive)) + Math.max(0, Math.floor(unit.properties.amount_died));
+
+export const rankedUnitAliveHealth = (unit: SandboxSceneUnitState): number => {
+    const alive = Math.max(0, Math.floor(unit.properties.amount_alive));
+    if (alive <= 0) {
+        return 0;
+    }
+
+    const maxHp = Math.max(1, Math.floor(unit.properties.max_hp));
+    const topHp = Math.min(maxHp, Math.max(0, Math.floor(unit.properties.hp)));
+    return (alive - 1) * maxHp + topHp;
+};
+
+export const rankedUnitStartHealth = (unit: SandboxSceneUnitState): number => {
+    const startAmount = rankedUnitStartAmount(unit);
+    if (startAmount <= 0) {
+        return 0;
+    }
+    return startAmount * Math.max(1, Math.floor(unit.properties.max_hp));
+};
+
 export class RankedPlayScene extends Sandbox {
     private lastAuthoritativeSequence = -1;
     private lastBoardSignature = "";
@@ -157,8 +179,12 @@ export class RankedPlayScene extends Sandbox {
     private rankedStatsStarted = false;
     private rankedStatsLowerStartTotal = 0;
     private rankedStatsUpperStartTotal = 0;
+    private rankedStatsLowerStartHealthTotal = 0;
+    private rankedStatsUpperStartHealthTotal = 0;
     private rankedStatsLastLowerKilled = 0;
     private rankedStatsLastUpperKilled = 0;
+    private rankedStatsLastLowerDamage = 0;
+    private rankedStatsLastUpperDamage = 0;
     private rankedStatsSeries: IFightStatsSample[] = [];
     private rankedSceneLogGameId = "";
     private rankedSceneLogSequence = -1;
@@ -228,6 +254,17 @@ export class RankedPlayScene extends Sandbox {
     protected override getUpNextUnitIds(): string[] | undefined {
         return this.upNextUnitIds;
     }
+    private applyRankedSnapshotMetadata(snapshot: AuthoritativeGameSnapshot): void {
+        this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
+        this.upNextUnitIds = snapshot.upNext.slice();
+    }
+    private syncRankedVisibleTurnState(snapshot: AuthoritativeGameSnapshot): void {
+        if (!snapshot.fightStarted || snapshot.fightFinished) {
+            return;
+        }
+
+        this.syncAuthoritativeActiveUnit(snapshot.currentUnitId || undefined, snapshot.currentLap);
+    }
     public override applyAuthoritativeSnapshot(
         snapshot: AuthoritativeGameSnapshot,
         options?: AuthoritativeSnapshotOptions,
@@ -239,11 +276,13 @@ export class RankedPlayScene extends Sandbox {
         this.applyRankedTimer(snapshot);
         this.applyAuthoritativeSceneLog(snapshot);
         this.lastAuthoritativeSequence = snapshot.latestSequence;
+        this.applyRankedSnapshotMetadata(snapshot);
+        const state = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
         if (boardSignature === this.lastBoardSignature) {
+            this.syncRankedVisibleTurnState(snapshot);
+            this.applyRankedFightStats(snapshot, state.units);
             return;
         }
-        this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
-        this.upNextUnitIds = snapshot.upNext;
 
         // If the caller already animated + applied this snapshot's board changes by playing
         // the matching authoritative action record, skip the destructive full rebuild.
@@ -255,10 +294,12 @@ export class RankedPlayScene extends Sandbox {
             !!options?.skipBoardRebuild && snapshot.fightStarted && !snapshot.fightFinished;
         if (skipBoardRebuild) {
             this.lastBoardSignature = boardSignature;
+            this.syncRankedVisibleTurnState(snapshot);
             if (this.sc_visibleState) {
                 this.sc_visibleState.lapNumber = Math.max(snapshot.currentLap || 0, 0);
                 this.sc_visibleStateUpdateNeeded = true;
             }
+            this.applyRankedFightStats(snapshot, state.units);
             return;
         }
 
@@ -278,11 +319,11 @@ export class RankedPlayScene extends Sandbox {
         }
 
         const selectedUnitId = this.sc_selectedUnitProperties?.id;
-        const state = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
 
         this.hydrateSceneState(state);
         this.lastBoardSignature = boardSignature;
         this.applyRankedTimer(snapshot);
+        this.syncRankedVisibleTurnState(snapshot);
         this.applyRankedFightStats(snapshot, state.units);
         if (selectedUnitId && !snapshot.fightStarted && !snapshot.fightFinished) {
             this.selectSceneUnitForPlacement(selectedUnitId);
@@ -673,8 +714,12 @@ export class RankedPlayScene extends Sandbox {
         this.rankedStatsStarted = false;
         this.rankedStatsLowerStartTotal = 0;
         this.rankedStatsUpperStartTotal = 0;
+        this.rankedStatsLowerStartHealthTotal = 0;
+        this.rankedStatsUpperStartHealthTotal = 0;
         this.rankedStatsLastLowerKilled = 0;
         this.rankedStatsLastUpperKilled = 0;
+        this.rankedStatsLastLowerDamage = 0;
+        this.rankedStatsLastUpperDamage = 0;
         this.rankedStatsSeries = [];
         this.rankedStatsLowerRoster.clear();
         this.rankedStatsUpperRoster.clear();
@@ -688,12 +733,29 @@ export class RankedPlayScene extends Sandbox {
         this.rankedStatsUpperRoster.clear();
         this.rankedStatsLowerStartTotal = 0;
         this.rankedStatsUpperStartTotal = 0;
+        this.rankedStatsLowerStartHealthTotal = 0;
+        this.rankedStatsUpperStartHealthTotal = 0;
         this.rankedStatsLastLowerKilled = 0;
         this.rankedStatsLastUpperKilled = 0;
-        this.rankedStatsSeries = [{ lap: 1, lowerKilled: 0, upperKilled: 0, lowerKilledPct: 0, upperKilledPct: 0 }];
+        this.rankedStatsLastLowerDamage = 0;
+        this.rankedStatsLastUpperDamage = 0;
+        this.rankedStatsSeries = [
+            {
+                lap: 1,
+                lowerKilled: 0,
+                upperKilled: 0,
+                lowerKilledPct: 0,
+                upperKilledPct: 0,
+                lowerDamage: 0,
+                upperDamage: 0,
+                lowerDamagePct: 0,
+                upperDamagePct: 0,
+            },
+        ];
 
         for (const unit of units) {
-            const start = this.unitStartAmount(unit);
+            const start = rankedUnitStartAmount(unit);
+            const startHealth = rankedUnitStartHealth(unit);
             if (start <= 0) {
                 continue;
             }
@@ -709,8 +771,10 @@ export class RankedPlayScene extends Sandbox {
             }
             if (unit.team === TeamVals.LOWER) {
                 this.rankedStatsLowerStartTotal += start;
+                this.rankedStatsLowerStartHealthTotal += startHealth;
             } else {
                 this.rankedStatsUpperStartTotal += start;
+                this.rankedStatsUpperStartHealthTotal += startHealth;
             }
 
             const current = roster.get(unit.properties.name);
@@ -739,18 +803,37 @@ export class RankedPlayScene extends Sandbox {
             0,
             this.rankedStatsUpperStartTotal - this.aliveTotal(units, TeamVals.UPPER as TeamType),
         );
-        if (lowerKilled === this.rankedStatsLastLowerKilled && upperKilled === this.rankedStatsLastUpperKilled) {
+        const lowerDamage = Math.max(
+            0,
+            this.rankedStatsLowerStartHealthTotal - this.aliveHealthTotal(units, TeamVals.LOWER as TeamType),
+        );
+        const upperDamage = Math.max(
+            0,
+            this.rankedStatsUpperStartHealthTotal - this.aliveHealthTotal(units, TeamVals.UPPER as TeamType),
+        );
+        if (
+            lowerKilled === this.rankedStatsLastLowerKilled &&
+            upperKilled === this.rankedStatsLastUpperKilled &&
+            lowerDamage === this.rankedStatsLastLowerDamage &&
+            upperDamage === this.rankedStatsLastUpperDamage
+        ) {
             return false;
         }
 
         this.rankedStatsLastLowerKilled = lowerKilled;
         this.rankedStatsLastUpperKilled = upperKilled;
+        this.rankedStatsLastLowerDamage = lowerDamage;
+        this.rankedStatsLastUpperDamage = upperDamage;
         this.rankedStatsSeries.push({
             lap,
             lowerKilled,
             upperKilled,
             lowerKilledPct: this.percent(lowerKilled, this.rankedStatsLowerStartTotal),
             upperKilledPct: this.percent(upperKilled, this.rankedStatsUpperStartTotal),
+            lowerDamage,
+            upperDamage,
+            lowerDamagePct: this.percent(lowerDamage, this.rankedStatsLowerStartHealthTotal),
+            upperDamagePct: this.percent(upperDamage, this.rankedStatsUpperStartHealthTotal),
         });
         return true;
     }
@@ -772,6 +855,10 @@ export class RankedPlayScene extends Sandbox {
             upperStartTotal: this.rankedStatsUpperStartTotal,
             lowerKilledTotal: this.rankedStatsLastLowerKilled,
             upperKilledTotal: this.rankedStatsLastUpperKilled,
+            lowerHealthTotal: this.rankedStatsLowerStartHealthTotal,
+            upperHealthTotal: this.rankedStatsUpperStartHealthTotal,
+            lowerDamageTotal: this.rankedStatsLastLowerDamage,
+            upperDamageTotal: this.rankedStatsLastUpperDamage,
             totalLaps: lap,
         };
     }
@@ -804,11 +891,8 @@ export class RankedPlayScene extends Sandbox {
             .filter((unit) => unit.team === team)
             .reduce((sum, unit) => sum + Math.max(0, Math.floor(unit.properties.amount_alive)), 0);
     }
-    private unitStartAmount(unit: SandboxSceneUnitState): number {
-        return (
-            Math.max(0, Math.floor(unit.properties.amount_alive)) +
-            Math.max(0, Math.floor(unit.properties.amount_died))
-        );
+    private aliveHealthTotal(units: SandboxSceneUnitState[], team: TeamType): number {
+        return units.filter((unit) => unit.team === team).reduce((sum, unit) => sum + rankedUnitAliveHealth(unit), 0);
     }
     private percent(value: number, total: number): number {
         if (total <= 0) {

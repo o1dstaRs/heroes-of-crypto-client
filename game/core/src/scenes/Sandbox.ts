@@ -6386,6 +6386,22 @@ export class Sandbox extends PixiScene {
     protected getUpNextUnitIds(): string[] | undefined {
         return undefined;
     }
+    protected syncAuthoritativeActiveUnit(currentUnitId: string | undefined, lapNumber?: number): void {
+        if (!currentUnitId) {
+            return;
+        }
+
+        const activeUnit = this.unitsHolder.getAllUnits().get(currentUnitId) as RenderableUnit | undefined;
+        if (!activeUnit || activeUnit.isDead()) {
+            return;
+        }
+
+        this.handleNextUnitActivation(activeUnit);
+        if (this.sc_visibleState && lapNumber !== undefined) {
+            this.sc_visibleState.lapNumber = Math.max(lapNumber || 0, 0);
+            this.sc_visibleStateUpdateNeeded = true;
+        }
+    }
     private handleNextUnitActivation(nextUnit: RenderableUnit): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -6403,10 +6419,13 @@ export class Sandbox extends PixiScene {
         nextUnit.syncVisual(worldRoot, gs);
 
         const unitsNext: IVisibleUnit[] = [];
+        const seenUnitIds = new Set<string>([nextUnit.getId()]);
         const upNextOverride = this.getUpNextUnitIds();
         const upNextQueue =
             upNextOverride ?? FightStateManager.getInstance().getFightProperties().getUpNextQueueIterable();
         for (const unitIdNext of upNextQueue) {
+            if (seenUnitIds.has(unitIdNext)) continue;
+            seenUnitIds.add(unitIdNext);
             const unitNext = this.unitsHolder.getAllUnits().get(unitIdNext);
             if (!unitNext) continue;
             unitsNext.unshift({

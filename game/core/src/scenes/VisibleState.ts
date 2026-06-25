@@ -48,6 +48,11 @@ export interface IFightStatsSample {
     /** Percentage of that team's starting army killed so far (0..100). */
     lowerKilledPct: number;
     upperKilledPct: number;
+    /** Optional HP-based damage series for live ranked overlays. */
+    lowerDamage?: number;
+    upperDamage?: number;
+    lowerDamagePct?: number;
+    upperDamagePct?: number;
 }
 
 /** A single unit type's casualties for one team. */
@@ -69,6 +74,11 @@ export interface IFightStatsReport {
     upperStartTotal: number;
     lowerKilledTotal: number;
     upperKilledTotal: number;
+    /** Optional HP-based damage totals for live ranked overlays. */
+    lowerHealthTotal?: number;
+    upperHealthTotal?: number;
+    lowerDamageTotal?: number;
+    upperDamageTotal?: number;
     totalLaps: number;
 }
 
