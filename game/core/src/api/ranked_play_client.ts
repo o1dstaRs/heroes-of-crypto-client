@@ -16,8 +16,8 @@ import type { PlayAction, PlayActionResponse, PlayEvent, PlaySnapshot } from "./
 
 const STORAGE_KEY = "accessToken";
 
-const authHeaders = (): Record<string, string> => {
-    const token = localStorage.getItem(STORAGE_KEY);
+const authHeaders = (authorization?: string): Record<string, string> => {
+    const token = authorization ?? localStorage.getItem(STORAGE_KEY);
     return {
         "Content-Type": "application/octet-stream",
         "x-request-id": uuidv4(),
@@ -70,10 +70,14 @@ export const fetchRankedPlayReplay = async (gameId: string): Promise<RankedRepla
     return createRankedReplayFromPayload(response.data);
 };
 
-export const sendRankedPlayAction = async (gameId: string, payload: PlayAction): Promise<PlayActionResponse> => {
+export const sendRankedPlayAction = async (
+    gameId: string,
+    payload: PlayAction,
+    options?: { authorization?: string },
+): Promise<PlayActionResponse> => {
     const response = await axiosGameInstance.post(playActionUrl(gameId), encodePlayAction(payload), {
         responseType: "arraybuffer",
-        headers: authHeaders(),
+        headers: authHeaders(options?.authorization),
     });
     return decodePlayActionResponse(toBytes(response.data));
 };

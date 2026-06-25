@@ -20,6 +20,7 @@ import { UpNextOverlay } from "./UpNextOverlay";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
+import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
 import { buildApiUrl, endpoints, HOST_GAME_API } from "../api/axios";
 import { AuthProvider } from "./auth/context/auth_provider";
 import { useAuthContext } from "./auth/context/auth_context";
@@ -214,6 +215,7 @@ const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType; ga
                     {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
                 </CssVarsProvider>
                 <StainedGlassWindow userTeam={userTeam} />
+                <LocalModelDraftOpponent eventUrl={pickEventsUrl} />
                 <Popover />
             </div>
         </PickBanEventProvider>

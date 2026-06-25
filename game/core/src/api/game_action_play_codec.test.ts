@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { AttackVals, TeamVals, type GameAction } from "@heroesofcrypto/common";
 
-import { createPlayActionFromGameAction } from "./game_action_play_codec";
+import { createGameActionFromPlayAction, createPlayActionFromGameAction } from "./game_action_play_codec";
 import { PlayActionType } from "./play_protocol";
 
 const envelope = {
@@ -167,5 +167,75 @@ describe("createPlayActionFromGameAction", () => {
             type: PlayActionType.DELETE_UNIT,
             unitId: "u3",
         });
+    });
+});
+
+describe("createGameActionFromPlayAction", () => {
+    it("maps protocol movement and attack actions back to common actions", () => {
+        expect(
+            createGameActionFromPlayAction({
+                type: PlayActionType.MELEE_ATTACK,
+                unitId: "a1",
+                targetUnitId: "t1",
+                attackFrom: { x: 2, y: 3 },
+                path: [{ x: 2, y: 2 }],
+                hasWaterCell: true,
+            }),
+        ).toEqual({
+            type: "melee_attack",
+            attackerId: "a1",
+            targetId: "t1",
+            attackFrom: { x: 2, y: 3 },
+            path: [{ x: 2, y: 2 }],
+            hasLavaCell: undefined,
+            hasWaterCell: true,
+        });
+
+        expect(
+            createGameActionFromPlayAction({
+                type: PlayActionType.MOVE_UNIT,
+                unitId: "u1",
+                path: [{ x: 1, y: 1 }],
+                targetCells: [{ x: 1, y: 2 }],
+            }),
+        ).toEqual({
+            type: "move_unit",
+            unitId: "u1",
+            path: [{ x: 1, y: 1 }],
+            targetCells: [{ x: 1, y: 2 }],
+            hasLavaCell: undefined,
+            hasWaterCell: undefined,
+        });
+    });
+
+    it("maps protocol placement and turn actions back to common actions", () => {
+        expect(
+            createGameActionFromPlayAction({
+                type: PlayActionType.PLACE_UNIT,
+                unitId: "u1",
+                team: TeamVals.UPPER,
+                unitName: "Peasant",
+                cells: [{ x: 10, y: 11 }],
+            }),
+        ).toEqual({
+            type: "place_unit",
+            unitId: "u1",
+            team: TeamVals.UPPER,
+            unitName: "Peasant",
+            cells: [{ x: 10, y: 11 }],
+        });
+
+        expect(
+            createGameActionFromPlayAction({
+                type: PlayActionType.END_TURN,
+                unitId: "u2",
+                reason: "timeout",
+            }),
+        ).toEqual({ type: "end_turn", unitId: "u2", reason: "timeout" });
+    });
+
+    it("skips protocol entries that do not describe one concrete common action", () => {
+        expect(createGameActionFromPlayAction({ type: PlayActionType.PLACE_UNIT })).toBeUndefined();
+        expect(createGameActionFromPlayAction({ type: PlayActionType.PING })).toBeUndefined();
     });
 });

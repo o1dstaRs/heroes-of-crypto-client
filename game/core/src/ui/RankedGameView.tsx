@@ -20,7 +20,9 @@ import type { PlayAction, PlaySnapshot, PlayUnitState } from "../api/play_protoc
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { usePixiManager } from "../pixi/PixiGameManager";
 import type { SceneEntry } from "../pixi/PixiScene";
-import { RankedPlayScene } from "../scenes/RankedPlayScene";
+import { collectRankedReplaySnapshots, createSandboxReplayFromRankedReplay } from "../replay/ranked_replay";
+import { getLocalModelOpponentConfig } from "../scenes/LocalModelOpponent";
+import { authoritativeSnapshotToSandboxSceneState, RankedPlayScene } from "../scenes/RankedPlayScene";
 import type { IWindowSize } from "../scenes/VisibleState";
 import DraggableToolbar from "./DraggableToolbar";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
@@ -55,6 +57,40 @@ const teamLabel = (team: number): string => {
     return "Neutral";
 };
 
+const controlledUnitIdForAction = (action: GameAction): string | undefined => {
+    switch (action.type) {
+        case "select_attack_type":
+        case "move_unit":
+        case "wait_turn":
+        case "defend_turn":
+        case "end_turn":
+        case "delete_unit":
+            return action.unitId;
+        case "place_unit":
+            return action.unitId;
+        case "melee_attack":
+        case "range_attack":
+        case "obstacle_attack":
+        case "area_throw_attack":
+            return action.attackerId;
+        case "cast_spell":
+            return action.casterId;
+        default:
+            return undefined;
+    }
+};
+
+const teamForAction = (snapshot: PlaySnapshot | null, action: GameAction): TeamType | undefined => {
+    if (action.type === "place_unit") {
+        return action.team as TeamType;
+    }
+    const controlledUnitId = controlledUnitIdForAction(action);
+    if (!controlledUnitId) {
+        return undefined;
+    }
+    return snapshot?.units.find((unit) => unit.id === controlledUnitId)?.team as TeamType | undefined;
+};
+
 type Props = {
     gameId: string;
     userTeam: TeamType;
@@ -63,6 +99,7 @@ type Props = {
 
 export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }) => {
     const manager = usePixiManager();
+    const localModelConfig = useMemo(() => getLocalModelOpponentConfig(), []);
     const viewerTeam = userTeam === TeamVals.NO_TEAM ? undefined : userTeam;
     const [snapshot, setSnapshot] = useState<PlaySnapshot | null>(null);
     const [selectedUnitId, setSelectedUnitId] = useState("");
@@ -231,15 +268,19 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         (snapshot.fightStarted || snapshot.phase === PlayPhase.PLAY || snapshot.phase === PlayPhase.FINISHED);
 
     const sendPlayAction = useCallback(
-        async (payload: PlayAction): Promise<boolean> => {
-            if (isObserver) {
+        async (payload: PlayAction, options?: { authorization?: string }): Promise<boolean> => {
+            const isModelSubmission =
+                !!options?.authorization && localModelConfig.enabled && payload.team === localModelConfig.modelTeam;
+            if (isObserver && !isModelSubmission) {
                 setError("Observer mode is read-only");
                 return false;
             }
-            setBusy(true);
+            if (!isModelSubmission) {
+                setBusy(true);
+            }
             setError("");
             try {
-                const result = await sendRankedPlayAction(gameId, payload);
+                const result = await sendRankedPlayAction(gameId, payload, options);
                 latestSequenceRef.current = Math.max(latestSequenceRef.current, result.sequence);
                 if (result.event?.snapshot) {
                     applySnapshot(result.event.snapshot);
@@ -255,18 +296,21 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 setError((err as Error).message || "Unable to submit action");
                 return false;
             } finally {
-                setBusy(false);
+                if (!isModelSubmission) {
+                    setBusy(false);
+                }
             }
         },
-        [applySnapshot, gameId, isObserver, refreshSnapshot],
+        [applySnapshot, gameId, isObserver, localModelConfig.enabled, localModelConfig.modelTeam, refreshSnapshot],
     );
 
-    const buildActionEnvelope = useCallback(() => {
-        if (isObserver) {
+    const buildActionEnvelope = useCallback((team: TeamType = userTeam) => {
+        const isModelTeam = localModelConfig.enabled && team === localModelConfig.modelTeam;
+        if (isObserver && !isModelTeam) {
             return undefined;
         }
         const latestSnapshot = snapshotRef.current;
-        const currentPlayer = latestSnapshot?.players.find((player) => player.team === userTeam);
+        const currentPlayer = latestSnapshot?.players.find((player) => player.team === team);
         if (!latestSnapshot || !currentPlayer) {
             return undefined;
         }
@@ -275,9 +319,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             gameId,
             playerId: currentPlayer.playerId,
             expectedSequence: latestSequenceRef.current || latestSnapshot.latestSequence,
-            team: userTeam,
+            team,
         };
-    }, [gameId, isObserver, userTeam]);
+    }, [gameId, isObserver, localModelConfig.enabled, localModelConfig.modelTeam, userTeam]);
 
     const queueActionSubmission = useCallback((submit: () => Promise<void>): Promise<void> => {
         const nextSubmission = actionQueueRef.current.catch(() => undefined).then(submit);
@@ -285,17 +329,36 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         return nextSubmission;
     }, []);
 
-    const submitProtocolAction = useCallback(
-        async (action: Partial<PlayAction>) => {
+    const submitProtocolActionForTeam = useCallback(
+        async (action: Partial<PlayAction>, team: TeamType, authorization?: string) => {
             await queueActionSubmission(async () => {
-                const envelope = buildActionEnvelope();
+                const envelope = buildActionEnvelope(team);
                 if (!envelope) return;
 
                 await sendPlayAction({
                     ...envelope,
                     type: PlayActionType.UNKNOWN,
                     ...action,
-                });
+                }, authorization ? { authorization } : undefined);
+            });
+        },
+        [buildActionEnvelope, queueActionSubmission, sendPlayAction],
+    );
+
+    const submitProtocolAction = useCallback(
+        async (action: Partial<PlayAction>) => {
+            await submitProtocolActionForTeam(action, userTeam);
+        },
+        [submitProtocolActionForTeam, userTeam],
+    );
+
+    const submitGameActionForTeam = useCallback(
+        async (action: GameAction, team: TeamType, authorization?: string) => {
+            await queueActionSubmission(async () => {
+                const envelope = buildActionEnvelope(team);
+                if (!envelope) return;
+
+                await sendPlayAction(createPlayActionFromGameAction(action, envelope), authorization ? { authorization } : undefined);
             });
         },
         [buildActionEnvelope, queueActionSubmission, sendPlayAction],
@@ -303,25 +366,36 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
 
     const submitGameAction = useCallback(
         async (action: GameAction) => {
-            await queueActionSubmission(async () => {
-                const envelope = buildActionEnvelope();
-                if (!envelope) return;
-
-                await sendPlayAction(createPlayActionFromGameAction(action, envelope));
-            });
+            await submitGameActionForTeam(action, userTeam);
         },
-        [buildActionEnvelope, queueActionSubmission, sendPlayAction],
+        [submitGameActionForTeam, userTeam],
     );
 
     const transport = useCallback<SceneGameActionTransport>(
         (action) => {
+            const actionTeam = teamForAction(snapshotRef.current, action);
+            if (
+                localModelConfig.enabled &&
+                localModelConfig.authorization &&
+                actionTeam === localModelConfig.modelTeam
+            ) {
+                void submitGameActionForTeam(action, localModelConfig.modelTeam, localModelConfig.authorization);
+                return { handled: true, completed: true, message: "Submitted model action to ranked server" };
+            }
             if (isObserver) {
                 return { handled: true, completed: false, message: "Observer mode is read-only" };
             }
             void submitGameAction(action);
             return { handled: true, completed: true, message: "Submitted to ranked server" };
         },
-        [isObserver, submitGameAction],
+        [
+            isObserver,
+            localModelConfig.authorization,
+            localModelConfig.enabled,
+            localModelConfig.modelTeam,
+            submitGameAction,
+            submitGameActionForTeam,
+        ],
     );
 
     const replayRankedFight = useCallback(async () => {
@@ -332,41 +406,42 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
 
         try {
             const replay = await fetchRankedPlayReplay(gameId);
-            const bySequence = new Map<number, PlaySnapshot>();
-            if (replay.initialSnapshot) {
-                bySequence.set(replay.initialSnapshot.latestSequence, replay.initialSnapshot);
-            }
-            for (const event of replay.events) {
-                if (event.snapshot) {
-                    bySequence.set(event.snapshot.latestSequence, event.snapshot);
+            const sandboxReplay = createSandboxReplayFromRankedReplay(replay, {
+                snapshotToState: (playSnapshot) =>
+                    authoritativeSnapshotToSandboxSceneState(toAuthoritativeGameSnapshot(playSnapshot, viewerTeam)),
+            });
+
+            setStatus("Replaying");
+            if (sandboxReplay) {
+                const replayed = await manager.PlaySandboxReplay(sandboxReplay);
+                if (replayed) {
+                    setStatus("Connected");
+                    return;
                 }
             }
-            if (replay.currentSnapshot) {
-                bySequence.set(replay.currentSnapshot.latestSequence, replay.currentSnapshot);
-            }
 
-            const replaySnapshots = [...bySequence.values()].sort((a, b) => a.latestSequence - b.latestSequence);
+            const replaySnapshots = collectRankedReplaySnapshots(replay);
             if (!replaySnapshots.length) {
                 throw new Error("Replay has no snapshots to play");
             }
 
-            setStatus("Replaying");
             const stepDelayMs = 550;
-            replaySnapshots.forEach((replaySnapshot, index) => {
-                const playSnapshot = () => {
-                    manager.ApplyAuthoritativeReplaySnapshot(toAuthoritativeGameSnapshot(replaySnapshot, viewerTeam));
-                    if (index === replaySnapshots.length - 1) {
-                        setStatus("Connected");
-                    }
-                };
-
-                if (index === 0) {
-                    playSnapshot();
-                    return;
+            for (let index = 0; index < replaySnapshots.length; index += 1) {
+                if (index > 0) {
+                    await new Promise<void>((resolve) => {
+                        const timer = window.setTimeout(() => {
+                            replayTimersRef.current = replayTimersRef.current.filter((value) => value !== timer);
+                            resolve();
+                        }, stepDelayMs);
+                        replayTimersRef.current.push(timer);
+                    });
                 }
-
-                replayTimersRef.current.push(window.setTimeout(playSnapshot, index * stepDelayMs));
-            });
+                const replaySnapshot = replaySnapshots[index];
+                if (replaySnapshot) {
+                    manager.ApplyAuthoritativeReplaySnapshot(toAuthoritativeGameSnapshot(replaySnapshot, viewerTeam));
+                }
+            }
+            setStatus("Connected");
         } catch (err: unknown) {
             setStatus("Replay failed");
             setError((err as Error).message || "Unable to load replay");
@@ -379,6 +454,35 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         manager.SetGameActionTransport(transport);
         return () => manager.SetGameActionTransport(undefined);
     }, [manager, transport]);
+
+    const modelPlacementReadyKeyRef = useRef("");
+    useEffect(() => {
+        if (
+            !localModelConfig.enabled ||
+            !localModelConfig.authorization ||
+            !snapshot ||
+            snapshot.phase !== PlayPhase.PLACEMENT
+        ) {
+            return;
+        }
+        const modelPlayer = snapshot.players.find((player) => player.team === localModelConfig.modelTeam);
+        if (!modelPlayer || snapshot.readyPlayerIds.includes(modelPlayer.playerId)) {
+            return;
+        }
+
+        const readyKey = `${snapshot.gameId}:${snapshot.latestSequence}:${modelPlayer.playerId}`;
+        if (modelPlacementReadyKeyRef.current === readyKey) {
+            return;
+        }
+        modelPlacementReadyKeyRef.current = readyKey;
+        window.setTimeout(() => {
+            void submitProtocolActionForTeam(
+                { type: PlayActionType.READY_PLACEMENT },
+                localModelConfig.modelTeam,
+                localModelConfig.authorization,
+            );
+        }, 650);
+    }, [localModelConfig, snapshot, submitProtocolActionForTeam]);
 
     if (!snapshot) {
         return (

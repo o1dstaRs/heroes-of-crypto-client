@@ -68,6 +68,8 @@ export interface LocalModelOpponentConfig {
     modelTeam: TeamType;
     apiBase: string;
     modelName: string;
+    authorization?: string;
+    playerId?: string;
     style: "balanced" | "aggressive" | "defensive";
 }
 
@@ -80,8 +82,8 @@ const normalizeBoolean = (value: string | null | undefined): boolean =>
 
 const teamFromString = (value: string | null | undefined, fallback: TeamType): TeamType => {
     const normalized = value?.toUpperCase();
-    if (normalized === "LOWER" || normalized === "GREEN") return TeamVals.LOWER;
-    if (normalized === "UPPER" || normalized === "RED") return TeamVals.UPPER;
+    if (normalized === "LOWER" || normalized === "RED") return TeamVals.LOWER;
+    if (normalized === "UPPER" || normalized === "GREEN") return TeamVals.UPPER;
     return fallback;
 };
 
@@ -99,6 +101,12 @@ export const getLocalModelOpponentConfig = (): LocalModelOpponentConfig => {
         modelTeam: teamFromString(params.get("modelTeam") ?? env.VITE_HOC_MODEL_TEAM, TeamVals.UPPER),
         apiBase: (params.get("modelApiBase") ?? env.VITE_HOC_MODEL_API_BASE ?? "/hoc-local-model").replace(/\/+$/, ""),
         modelName: params.get("modelName") ?? env.VITE_HOC_MODEL_NAME ?? "auto",
+        authorization:
+            params.get("modelAuthorization") ??
+            params.get("modelAuth") ??
+            params.get("opponentAuthorization") ??
+            env.VITE_HOC_MODEL_AUTHORIZATION,
+        playerId: params.get("modelPlayerId") ?? params.get("opponentPlayerId") ?? env.VITE_HOC_MODEL_PLAYER_ID,
         style:
             (params.get("modelStyle") as LocalModelOpponentConfig["style"] | null) ??
             (env.VITE_HOC_AI_STYLE as LocalModelOpponentConfig["style"] | undefined) ??

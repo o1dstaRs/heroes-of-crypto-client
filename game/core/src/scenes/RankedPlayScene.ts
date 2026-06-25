@@ -22,6 +22,77 @@ import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
 import { Sandbox, type SandboxSceneState, type SandboxSceneUnitState, type SceneActionEngine } from "./Sandbox";
 import type { UnitsOverlay } from "./UnitsOverlay";
 
+export const authoritativeUnitToSandboxUnitState = (
+    unitState: AuthoritativeUnitState,
+): SandboxSceneUnitState | undefined => {
+    const properties = getUnitPropertiesFromAuthoritativeState(unitState);
+    if (!properties) {
+        return undefined;
+    }
+
+    return {
+        properties,
+        team: unitState.team as TeamType,
+        placed: unitState.placed,
+        dead: unitState.dead,
+        cells: unitState.cells,
+        baseCell: unitState.baseCell,
+        attackType: unitState.attackType as AttackType,
+    };
+};
+
+export const authoritativeSnapshotToSandboxSceneState = (
+    snapshot: AuthoritativeGameSnapshot,
+): SandboxSceneState => ({
+    gridType: snapshot.gridType as GridType,
+    currentLap: snapshot.currentLap,
+    fightStarted: snapshot.fightStarted,
+    fightFinished: snapshot.fightFinished,
+    currentUnitId: snapshot.currentUnitId || undefined,
+    units: snapshot.units.flatMap((unit) => {
+        const restored = authoritativeUnitToSandboxUnitState(unit);
+        return restored ? [restored] : [];
+    }),
+});
+
+const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitState): UnitProperties | undefined => {
+    const unitName = UNIT_ID_TO_NAME[unitState.creatureId] ?? unitState.name;
+    const team = unitState.team as TeamType;
+    const candidateFactions =
+        unitState.creatureId > 0 ? [getFactionOf(unitState.creatureId as CreatureId)] : allFactions;
+
+    for (const faction of candidateFactions) {
+        try {
+            const baseProperties = HoCConfig.getCreatureConfig(
+                team,
+                ToFactionName[faction],
+                unitName,
+                "",
+                Math.max(0, Math.floor(unitState.amountAlive)),
+            );
+            const hp = unitState.hp > 0 ? unitState.hp : unitState.dead ? 0 : baseProperties.hp;
+            return {
+                ...baseProperties,
+                id: unitState.id,
+                team,
+                hp,
+                max_hp: unitState.maxHp || baseProperties.max_hp,
+                amount_alive: Math.max(0, Math.floor(unitState.amountAlive)),
+                amount_died: Math.max(0, Math.floor(unitState.amountDied)),
+                attack_type_selected:
+                    unitState.attackType > 0
+                        ? (unitState.attackType as AttackType)
+                        : baseProperties.attack_type_selected,
+                stack_power: unitState.stackPower || baseProperties.stack_power,
+            } as UnitProperties;
+        } catch {
+            // Legacy snapshots may not carry a usable creature id, so fall through factions.
+        }
+    }
+
+    return undefined;
+};
+
 export class RankedPlayScene extends Sandbox {
     private lastAuthoritativeSequence = -1;
     private lastBoardSignature = "";
@@ -52,20 +123,10 @@ export class RankedPlayScene extends Sandbox {
         this.lastBoardSignature = boardSignature;
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
         const selectedUnitId = this.sc_selectedUnitProperties?.id;
-        const units = snapshot.units.flatMap((unit) => {
-            const restored = this.toSandboxUnitState(unit);
-            return restored ? [restored] : [];
-        });
+        const state = authoritativeSnapshotToSandboxSceneState(snapshot);
 
-        this.hydrateSceneState({
-            gridType: snapshot.gridType as GridType,
-            currentLap: snapshot.currentLap,
-            fightStarted: snapshot.fightStarted,
-            fightFinished: snapshot.fightFinished,
-            currentUnitId: snapshot.currentUnitId || undefined,
-            units,
-        } satisfies SandboxSceneState);
-        this.applyFinishedVisibleState(snapshot, units);
+        this.hydrateSceneState(state);
+        this.applyFinishedVisibleState(snapshot, state.units);
         if (selectedUnitId && !snapshot.fightStarted && !snapshot.fightFinished) {
             this.selectSceneUnitForPlacement(selectedUnitId);
         }
@@ -239,59 +300,5 @@ export class RankedPlayScene extends Sandbox {
                 stackPower: unit.stackPower,
             })),
         });
-    }
-    private toSandboxUnitState(unitState: AuthoritativeUnitState): SandboxSceneUnitState | undefined {
-        const properties = this.getUnitPropertiesFromAuthoritativeState(unitState);
-        if (!properties) {
-            return undefined;
-        }
-
-        return {
-            properties,
-            team: unitState.team as TeamType,
-            placed: unitState.placed,
-            dead: unitState.dead,
-            cells: unitState.cells,
-            baseCell: unitState.baseCell,
-            attackType: unitState.attackType as AttackType,
-        };
-    }
-    private getUnitPropertiesFromAuthoritativeState(unitState: AuthoritativeUnitState): UnitProperties | undefined {
-        const unitName = UNIT_ID_TO_NAME[unitState.creatureId] ?? unitState.name;
-        const team = unitState.team as TeamType;
-        const candidateFactions =
-            unitState.creatureId > 0 ? [getFactionOf(unitState.creatureId as CreatureId)] : allFactions;
-
-        for (const faction of candidateFactions) {
-            try {
-                const baseProperties = HoCConfig.getCreatureConfig(
-                    team,
-                    ToFactionName[faction],
-                    unitName,
-                    "",
-                    Math.max(0, Math.floor(unitState.amountAlive)),
-                );
-                const hp = unitState.hp > 0 ? unitState.hp : unitState.dead ? 0 : baseProperties.hp;
-                return {
-                    ...baseProperties,
-                    id: unitState.id,
-                    team,
-                    hp,
-                    max_hp: unitState.maxHp || baseProperties.max_hp,
-                    amount_alive: Math.max(0, Math.floor(unitState.amountAlive)),
-                    amount_died: Math.max(0, Math.floor(unitState.amountDied)),
-                    attack_type_selected:
-                        unitState.attackType > 0
-                            ? (unitState.attackType as AttackType)
-                            : baseProperties.attack_type_selected,
-                    stack_power: unitState.stackPower || baseProperties.stack_power,
-                } as UnitProperties;
-            } catch {
-                // Legacy snapshots may not carry a usable creature id, so fall through factions.
-            }
-        }
-
-        this.sc_sceneLog.updateLog(`Cannot restore ${unitName} from ranked snapshot`);
-        return undefined;
     }
 }

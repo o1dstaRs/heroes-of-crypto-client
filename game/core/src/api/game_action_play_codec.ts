@@ -1,6 +1,6 @@
 import type { GameAction, TeamType } from "@heroesofcrypto/common";
 
-import { PlayActionType, type PlayAction } from "./play_protocol";
+import { PlayActionType, type PlayAction, type PlayCell } from "./play_protocol";
 
 type PlayActionEnvelope = {
     actionId: string;
@@ -20,6 +20,11 @@ const withEnvelope = (envelope: PlayActionEnvelope, action: PlayActionBody): Pla
     team: envelope.team,
     ...action,
 });
+
+const cloneCells = (cells?: PlayCell[]): PlayCell[] => (cells ?? []).map((cell) => ({ x: cell.x, y: cell.y }));
+
+const maybeCell = (cell?: PlayCell): PlayCell | undefined =>
+    cell && Number.isFinite(cell.x) && Number.isFinite(cell.y) ? { x: cell.x, y: cell.y } : undefined;
 
 export const createPlayActionFromGameAction = (action: GameAction, envelope: PlayActionEnvelope): PlayAction => {
     switch (action.type) {
@@ -100,5 +105,103 @@ export const createPlayActionFromGameAction = (action: GameAction, envelope: Pla
             });
         case "delete_unit":
             return withEnvelope(envelope, { type: PlayActionType.DELETE_UNIT, unitId: action.unitId });
+    }
+};
+
+export const createGameActionFromPlayAction = (action: Partial<PlayAction>): GameAction | undefined => {
+    switch (action.type) {
+        case PlayActionType.PLACE_UNIT:
+            if (!action.unitId || typeof action.team !== "number" || !action.unitName) {
+                return undefined;
+            }
+            return {
+                type: "place_unit",
+                unitId: action.unitId,
+                team: action.team as TeamType,
+                unitName: action.unitName,
+                cells: cloneCells(action.cells),
+            };
+        case PlayActionType.START_FIGHT:
+            return { type: "start_fight" };
+        case PlayActionType.END_TURN:
+            if (!action.unitId) {
+                return undefined;
+            }
+            return {
+                type: "end_turn",
+                unitId: action.unitId,
+                reason: action.reason === "timeout" || action.reason === "effect" ? action.reason : "manual",
+            };
+        case PlayActionType.WAIT_TURN:
+            return action.unitId ? { type: "wait_turn", unitId: action.unitId } : undefined;
+        case PlayActionType.DEFEND_TURN:
+            return action.unitId ? { type: "defend_turn", unitId: action.unitId } : undefined;
+        case PlayActionType.SELECT_ATTACK_TYPE:
+            return action.unitId && typeof action.attackType === "number"
+                ? { type: "select_attack_type", unitId: action.unitId, attackType: action.attackType }
+                : undefined;
+        case PlayActionType.MOVE_UNIT:
+            return action.unitId
+                ? {
+                      type: "move_unit",
+                      unitId: action.unitId,
+                      path: cloneCells(action.path),
+                      targetCells: cloneCells(action.targetCells),
+                      hasLavaCell: action.hasLavaCell,
+                      hasWaterCell: action.hasWaterCell,
+                  }
+                : undefined;
+        case PlayActionType.MELEE_ATTACK: {
+            const attackFrom = maybeCell(action.attackFrom);
+            return action.unitId && action.targetUnitId && attackFrom
+                ? {
+                      type: "melee_attack",
+                      attackerId: action.unitId,
+                      targetId: action.targetUnitId,
+                      attackFrom,
+                      path: cloneCells(action.path),
+                      hasLavaCell: action.hasLavaCell,
+                      hasWaterCell: action.hasWaterCell,
+                  }
+                : undefined;
+        }
+        case PlayActionType.RANGE_ATTACK:
+            return action.unitId && action.targetUnitId
+                ? { type: "range_attack", attackerId: action.unitId, targetId: action.targetUnitId }
+                : undefined;
+        case PlayActionType.OBSTACLE_ATTACK: {
+            const targetPosition = maybeCell(action.targetCell);
+            return action.unitId && targetPosition
+                ? {
+                      type: "obstacle_attack",
+                      attackerId: action.unitId,
+                      targetPosition,
+                      attackFrom: maybeCell(action.attackFrom),
+                      path: cloneCells(action.path),
+                      hasLavaCell: action.hasLavaCell,
+                      hasWaterCell: action.hasWaterCell,
+                  }
+                : undefined;
+        }
+        case PlayActionType.AREA_THROW_ATTACK: {
+            const targetCell = maybeCell(action.targetCell);
+            return action.unitId && targetCell
+                ? { type: "area_throw_attack", attackerId: action.unitId, targetCell }
+                : undefined;
+        }
+        case PlayActionType.CAST_SPELL:
+            return action.unitId && action.spellName
+                ? {
+                      type: "cast_spell",
+                      casterId: action.unitId,
+                      spellName: action.spellName,
+                      targetId: action.targetUnitId || undefined,
+                      targetCell: maybeCell(action.targetCell),
+                  }
+                : undefined;
+        case PlayActionType.DELETE_UNIT:
+            return action.unitId ? { type: "delete_unit", unitId: action.unitId } : undefined;
+        default:
+            return undefined;
     }
 };
