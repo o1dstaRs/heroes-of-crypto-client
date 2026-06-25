@@ -188,8 +188,48 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
         }
     }, [visibleState.secondsRemaining]);
 
+    const hasTimer =
+        Number.isFinite(visibleState.secondsMax) &&
+        visibleState.secondsMax > 0 &&
+        visibleState.secondsRemaining >= 0;
+    const timerProgressValue = hasTimer
+        ? Math.max(0, Math.min(100, 100 - (visibleState.secondsRemaining / visibleState.secondsMax) * 100))
+        : 0;
+    const countdownOverlay =
+        countdown !== null ? (
+            <div
+                style={{
+                    position: "fixed",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: "100vh",
+                    height: "100%",
+                    backgroundColor: "rgba(255, 0, 0, 0.2)",
+                    color: "#fff",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    zIndex: 0,
+                    pointerEvents: "none",
+                }}
+            >
+                <Typography
+                    fontSize="43vw"
+                    style={{
+                        lineHeight: 1,
+                        margin: 0,
+                        color: "white",
+                        opacity: 0.55,
+                    }}
+                >
+                    {countdown}
+                </Typography>
+            </div>
+        ) : null;
+
     // --- CASE 1: Game NOT Started ---
-    if (!gameStarted) {
+    if (!gameStarted && !hasTimer) {
         return (
             <Box sx={{ width: "100%", display: "flex", justifyContent: "center", pb: 2 }}>
                 {visibleState.canBeStarted ? (
@@ -201,6 +241,39 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
         );
     }
 
+    if (!gameStarted) {
+        const remainingSeconds = Math.max(0, Math.ceil(visibleState.secondsRemaining));
+        return (
+            <>
+                {countdownOverlay}
+                <Card
+                    invertedColors
+                    variant="soft"
+                    color={countdown ? "danger" : timerProgressValue > 80 ? "warning" : "neutral"}
+                    size="sm"
+                    sx={{ boxShadow: "none" }}
+                >
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography level="title-sm">Placement</Typography>
+                        <TimelapseRoundedIcon />
+                    </Stack>
+                    <Typography level="body-xs">
+                        {remainingSeconds > 0 ? `${remainingSeconds}s until auto-start` : "Starting fight."}
+                    </Typography>
+                    <LinearProgress
+                        variant="outlined"
+                        determinate
+                        value={timerProgressValue}
+                        sx={{
+                            my: 1,
+                            overflow: "hidden",
+                        }}
+                    />
+                </Card>
+            </>
+        );
+    }
+
     // --- CASE 2: Game Started ---
     let messageBoxVariant: "plain" | "outlined" | "soft" | "solid" | undefined = "soft";
     let messageBoxColor: "primary" | "neutral" | "danger" | "success" | "warning" | undefined = "neutral";
@@ -209,9 +282,7 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     let messageBoxButtonText = "";
     let messageBoxProgressValue = 0;
 
-    if (visibleState.secondsMax) {
-        messageBoxProgressValue = 100 - (visibleState.secondsRemaining / visibleState.secondsMax) * 100;
-    }
+    messageBoxProgressValue = timerProgressValue;
 
     if (visibleState.hasFinished) {
         messageBoxColor = "neutral";
@@ -292,37 +363,7 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
 
     return (
         <>
-            {countdown !== null && (
-                <div
-                    style={{
-                        position: "fixed",
-                        top: "50%",
-                        left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        width: "100vh",
-                        height: "100%",
-                        backgroundColor: "rgba(255, 0, 0, 0.2)",
-                        color: "#fff",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        zIndex: 0,
-                        pointerEvents: "none",
-                    }}
-                >
-                    <Typography
-                        fontSize="43vw"
-                        style={{
-                            lineHeight: 1,
-                            margin: 0,
-                            color: "white",
-                            opacity: 0.55,
-                        }}
-                    >
-                        {countdown}
-                    </Typography>
-                </div>
-            )}
+            {countdownOverlay}
             <Card
                 invertedColors
                 variant={messageBoxVariant}

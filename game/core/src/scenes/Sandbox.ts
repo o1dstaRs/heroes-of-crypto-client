@@ -464,6 +464,7 @@ export class Sandbox extends PixiScene {
             setSelectedAttackType: (type) => {
                 this.sc_selectedAttackType = type;
             },
+            isAuthoritativeAction: (action) => this.shouldDeferActionToAuthoritativeReplay(action),
             applyGameAction: (action) => this.applyGameAction(action),
             executeAttackSequence: (attacker, target, attackFrom, replayAction) =>
                 this.executeAttackSequence(attacker, target, attackFrom, replayAction),
@@ -548,6 +549,12 @@ export class Sandbox extends PixiScene {
             y: centerY + (row - (rows - 1) / 2) * cell * 1.35,
         };
     }
+    protected shouldGhostUnplacedUnitBenchUnit(_unitState: SandboxSceneUnitState): boolean {
+        return false;
+    }
+    protected getCurrentActiveUnit(): RenderableUnit | undefined {
+        return this.currentActiveUnit;
+    }
     private clearPlacementBench(): void {
         this.placementBenchHitBoxes.clear();
         this.placementBenchGraphics?.clear();
@@ -583,7 +590,11 @@ export class Sandbox extends PixiScene {
                 .stroke({ color: 0xf6d87c, alpha: 0.28, width: Math.max(1, cell * 0.025) });
         }
     }
-    private renderUnplacedBenchUnit(unit: RenderableUnit, position: HoCMath.XY): void {
+    private renderUnplacedBenchUnit(
+        unit: RenderableUnit,
+        position: HoCMath.XY,
+        unitState: SandboxSceneUnitState,
+    ): void {
         const gs = this.sc_sceneSettings.getGridSettings();
         const worldRoot = this.drawer.getUnitsContainer();
         const cell = gs.getCellSize();
@@ -592,6 +603,7 @@ export class Sandbox extends PixiScene {
         unit.setPosition(position.x, position.y);
         unit.ensureVisual(worldRoot, gs);
         unit.syncVisual(worldRoot, gs);
+        unit.setVisualGhost(this.shouldGhostUnplacedUnitBenchUnit(unitState));
         this.placementBenchHitBoxes.set(unit.getId(), {
             center: { x: position.x, y: position.y },
             radius: cell * (isLarge ? 1.05 : 0.7),
@@ -656,12 +668,12 @@ export class Sandbox extends PixiScene {
         });
     }
     public override CameraChanged(): void {
-        this.attachToWorldRoot(this.placementGraphics, 6000);
+        this.attachToWorldRoot(this.placementGraphics, 90);
         this.attachToWorldRoot(this.gameplayGraphics, 55); // Ranges below units (Units > 100)
         this.dungeonVisuals.attachCenterTerrainSprite();
         this.hoverManager.onCameraChanged();
     }
-    private getPlacement(teamType: TeamType, placementIndex: number): IPlacement | undefined {
+    protected getPlacement(teamType: TeamType, placementIndex: number): IPlacement | undefined {
         return this.placementManager.getPlacement(teamType, placementIndex);
     }
     /** Get unit by world position using grid occupancy */
@@ -932,7 +944,7 @@ export class Sandbox extends PixiScene {
             if (!unitState.placed || !unitState.cells.length) {
                 const benchPosition = benchPositions.get(unitState.properties.id);
                 if (benchPosition) {
-                    this.renderUnplacedBenchUnit(unit, benchPosition);
+                    this.renderUnplacedBenchUnit(unit, benchPosition, unitState);
                 }
                 continue;
             }
@@ -1511,12 +1523,7 @@ export class Sandbox extends PixiScene {
             if (fallbackDamage.amount <= 0) {
                 return;
             }
-            this.combatVisuals.showFloatingDamage(
-                spawnPos,
-                fallbackDamage.amount,
-                direction,
-                fallbackDamage.unitsDied,
-            );
+            this.combatVisuals.showFloatingDamage(spawnPos, fallbackDamage.amount, direction, fallbackDamage.unitsDied);
             return;
         }
 
@@ -4528,10 +4535,21 @@ export class Sandbox extends PixiScene {
         this.sc_hoveredAuraRanges = undefined;
         this.sc_hoveredShotRange = undefined;
     }
+    protected override canShowHoverForActiveUnit(): boolean {
+        return true;
+    }
     protected override hover(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
 
         if (this.isBoardInputLockedByAI()) {
+            this.clearBoardHoverPreviews();
+            this.setHoveredSpell(undefined);
+            return;
+        }
+
+        // Ranked mode: suppress hover visuals when the active unit is on the enemy team.
+        // The viewer should only see their own unit's previews, not the opponent's.
+        if (!this.canShowHoverForActiveUnit()) {
             this.clearBoardHoverPreviews();
             this.setHoveredSpell(undefined);
             return;

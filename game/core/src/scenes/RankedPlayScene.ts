@@ -2,6 +2,7 @@ import {
     allFactions,
     AttackVals,
     getFactionOf,
+    GridMath,
     HoCConfig,
     TeamVals,
     ToFactionName,
@@ -161,6 +162,9 @@ export class RankedPlayScene extends Sandbox {
     private rankedStatsSeries: IFightStatsSample[] = [];
     private rankedSceneLogGameId = "";
     private rankedSceneLogSequence = -1;
+    private rankedPlacementDeadlineServerMs = 0;
+    private rankedPlacementEndLocalMs = 0;
+    private rankedPlacementSecondsMax = 0;
     private rankedTurnStartLocalMs = 0;
     private rankedTurnEndLocalMs = 0;
     public override getUnitsOverlay(): UnitsOverlay | undefined {
@@ -232,7 +236,7 @@ export class RankedPlayScene extends Sandbox {
         if (snapshot.latestSequence < this.lastAuthoritativeSequence) {
             return;
         }
-        this.applyRankedTurnTimer(snapshot);
+        this.applyRankedTimer(snapshot);
         this.applyAuthoritativeSceneLog(snapshot);
         this.lastAuthoritativeSequence = snapshot.latestSequence;
         if (boardSignature === this.lastBoardSignature) {
@@ -278,6 +282,7 @@ export class RankedPlayScene extends Sandbox {
 
         this.hydrateSceneState(state);
         this.lastBoardSignature = boardSignature;
+        this.applyRankedTimer(snapshot);
         this.applyRankedFightStats(snapshot, state.units);
         if (selectedUnitId && !snapshot.fightStarted && !snapshot.fightFinished) {
             this.selectSceneUnitForPlacement(selectedUnitId);
@@ -340,7 +345,7 @@ export class RankedPlayScene extends Sandbox {
         total: number,
         unitState?: SandboxSceneUnitState,
     ): HoCMath.XY | undefined {
-        if (!unitState || this.viewerTeam === undefined || unitState.team === this.viewerTeam) {
+        if (!unitState || this.viewerTeam === undefined) {
             return super.getUnplacedUnitBenchPosition(index, total, unitState);
         }
 
@@ -348,30 +353,106 @@ export class RankedPlayScene extends Sandbox {
             return undefined;
         }
 
+        return (
+            this.getRankedPlacementBenchPosition(index, total, unitState) ??
+            super.getUnplacedUnitBenchPosition(index, total, unitState)
+        );
+    }
+    protected override shouldGhostUnplacedUnitBenchUnit(unitState: SandboxSceneUnitState): boolean {
+        return this.viewerTeam !== undefined && unitState.team !== this.viewerTeam;
+    }
+    private getRankedPlacementBenchPosition(
+        index: number,
+        total: number,
+        unitState: SandboxSceneUnitState,
+    ): HoCMath.XY | undefined {
         const gs = this.sc_sceneSettings.getGridSettings();
         const cell = gs.getCellSize();
-        const columns = Math.min(6, total);
+        const isSmallUnit = unitState.properties.size !== 2;
+        const placementCells = [
+            this.getPlacement(unitState.team, 0),
+            this.getPlacement(unitState.team, 1),
+        ].flatMap((placement) => placement?.possibleCellPositions(isSmallUnit) ?? []);
+        const placementPositions = placementCells
+            .map((placementCell) =>
+                GridMath.getPositionForCell(placementCell, gs.getMinX(), gs.getStep(), gs.getHalfStep()),
+            )
+            .filter((position): position is HoCMath.XY => !!position);
+
+        if (!placementPositions.length) {
+            return undefined;
+        }
+
+        const minX = Math.min(...placementPositions.map((position) => position.x));
+        const maxX = Math.max(...placementPositions.map((position) => position.x));
+        const minY = Math.min(...placementPositions.map((position) => position.y));
+        const maxY = Math.max(...placementPositions.map((position) => position.y));
+        const widthCells = Math.max(1, Math.floor((maxX - minX) / (cell * 1.05)) + 1);
+        const columns = Math.max(1, Math.min(6, total, widthCells));
+        const rows = Math.ceil(total / columns);
         const column = index % columns;
         const row = Math.floor(index / columns);
-        const centerX = (gs.getMinX() + gs.getMaxX()) / 2;
-        const centerY = (gs.getMinY() + gs.getMaxY()) / 2;
-        const enemyIsUpper = unitState.team === TeamVals.UPPER;
-        const sideDirection = enemyIsUpper ? 1 : -1;
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
 
         return {
-            x: centerX + (column - (columns - 1) / 2) * cell * 1.28,
-            y: centerY + sideDirection * cell * (2.15 + row * 1.1),
+            x: centerX + (column - (columns - 1) / 2) * cell * 1.18,
+            y: centerY + (row - (rows - 1) / 2) * cell * 1.08,
         };
     }
     protected override canSelectUnitForPlacement(unit: Unit): boolean {
         return this.viewerTeam !== undefined && unit.getTeam() === this.viewerTeam;
     }
+    /**
+     * Suppress hover visuals (move silhouette, attack highlights, spell targeting) when the
+     * active unit belongs to the enemy team. The viewer should only see their own unit's
+     * hover previews — not the opponent's movement/attack range.
+     */
+    protected override canShowHoverForActiveUnit(): boolean {
+        const currentActiveUnit = this.getCurrentActiveUnit();
+        if (!currentActiveUnit || this.viewerTeam === undefined) return false;
+        return currentActiveUnit.getTeam() === this.viewerTeam;
+    }
     protected override updateVisibleTurnTimer(): void {
+        if (this.rankedPlacementEndLocalMs > Date.now()) {
+            this.syncRankedPlacementTimerToVisibleState();
+            return;
+        }
         if (this.rankedTurnEndLocalMs <= this.rankedTurnStartLocalMs) {
             super.updateVisibleTurnTimer();
             return;
         }
         this.syncRankedTurnTimerToVisibleState();
+    }
+    private applyRankedTimer(snapshot: AuthoritativeGameSnapshot): void {
+        this.applyRankedPlacementTimer(snapshot);
+        this.applyRankedTurnTimer(snapshot);
+    }
+    private applyRankedPlacementTimer(snapshot: AuthoritativeGameSnapshot): void {
+        if (
+            snapshot.fightStarted ||
+            snapshot.fightFinished ||
+            !snapshot.placementDeadlineMs ||
+            snapshot.placementDeadlineMs <= 0
+        ) {
+            this.rankedPlacementDeadlineServerMs = 0;
+            this.rankedPlacementEndLocalMs = 0;
+            this.rankedPlacementSecondsMax = 0;
+            return;
+        }
+
+        const localNowMs = Date.now();
+        const serverNowMs = snapshot.serverTimeMs || localNowMs;
+        const localOffsetMs = localNowMs - serverNowMs;
+        this.rankedPlacementEndLocalMs = snapshot.placementDeadlineMs + localOffsetMs;
+        const remaining = Math.max(0, (this.rankedPlacementEndLocalMs - localNowMs) / 1000);
+        if (snapshot.placementDeadlineMs !== this.rankedPlacementDeadlineServerMs) {
+            this.rankedPlacementDeadlineServerMs = snapshot.placementDeadlineMs;
+            this.rankedPlacementSecondsMax = Math.max(0.001, Math.ceil(remaining));
+        } else {
+            this.rankedPlacementSecondsMax = Math.max(this.rankedPlacementSecondsMax, remaining);
+        }
+        this.syncRankedPlacementTimerToVisibleState();
     }
     private applyRankedTurnTimer(snapshot: AuthoritativeGameSnapshot): void {
         if (
@@ -392,6 +473,19 @@ export class RankedPlayScene extends Sandbox {
         this.rankedTurnStartLocalMs = snapshot.currentTurnStartMs + localOffsetMs;
         this.rankedTurnEndLocalMs = snapshot.currentTurnEndMs + localOffsetMs;
         this.syncRankedTurnTimerToVisibleState();
+    }
+    private syncRankedPlacementTimerToVisibleState(): void {
+        if (!this.sc_visibleState || this.rankedPlacementEndLocalMs <= 0) {
+            return;
+        }
+
+        this.sc_visibleState.secondsMax = Math.max(0.001, this.rankedPlacementSecondsMax);
+        const remaining = (this.rankedPlacementEndLocalMs - Date.now()) / 1000;
+        this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
+        this.sc_visibleState.teamTypeTurn = undefined;
+        this.sc_visibleState.lapNumber = 0;
+        this.sc_visibleState.canRequestAdditionalTime = false;
+        this.sc_visibleStateUpdateNeeded = true;
     }
     private syncRankedTurnTimerToVisibleState(): void {
         if (!this.sc_visibleState || this.rankedTurnEndLocalMs <= this.rankedTurnStartLocalMs) {

@@ -49,6 +49,7 @@ export interface AuthoritativeGameSnapshot {
     currentTurnTeam: TeamType | number;
     latestSequence: number;
     serverTimeMs?: number;
+    placementDeadlineMs?: number;
     currentTurnStartMs?: number;
     currentTurnEndMs?: number;
     narrowingLayers: number;

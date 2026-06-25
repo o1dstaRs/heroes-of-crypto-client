@@ -172,6 +172,7 @@ export const toAuthoritativeGameSnapshot = (
     currentTurnTeam: snapshot.currentTurnTeam,
     latestSequence: snapshot.latestSequence,
     serverTimeMs: snapshot.serverTimeMs,
+    placementDeadlineMs: snapshot.placementDeadlineMs,
     currentTurnStartMs: snapshot.currentTurnStartMs,
     currentTurnEndMs: snapshot.currentTurnEndMs,
     narrowingLayers: snapshot.narrowingLayers,

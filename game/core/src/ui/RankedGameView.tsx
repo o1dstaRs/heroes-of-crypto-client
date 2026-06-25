@@ -276,10 +276,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     }, []);
 
     const rememberAuthoritativeRecord = useCallback(
-        (
-            entry: PlaySnapshot["journalTail"][number] | undefined,
-            options: { snapshotSequence?: number } = {},
-        ) => {
+        (entry: PlaySnapshot["journalTail"][number] | undefined, options: { snapshotSequence?: number } = {}) => {
             if (!entry || playedAuthoritativeSequencesRef.current.has(entry.sequence)) {
                 return;
             }
@@ -327,9 +324,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     await manager.PlayAuthoritativeActionRecord(
                         record.action,
                         record.events,
-                        stateAfterSnapshot
-                            ? toAuthoritativeGameSnapshot(stateAfterSnapshot, viewerTeam)
-                            : undefined,
+                        stateAfterSnapshot ? toAuthoritativeGameSnapshot(stateAfterSnapshot, viewerTeam) : undefined,
                     );
                 });
             await authoritativePlaybackQueueRef.current;
@@ -408,8 +403,16 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 }
             });
 
+        // Periodic snapshot refresh as a fallback — keeps the board in sync even if SSE
+        // drops or lags. Polls every 4 seconds; the snapshot endpoint is cheap.
+        const pollInterval = window.setInterval(() => {
+            if (cancelled) return;
+            refreshSnapshot().catch(() => undefined);
+        }, 4000);
+
         return () => {
             cancelled = true;
+            window.clearInterval(pollInterval);
         };
     }, [refreshSnapshot]);
 
@@ -627,26 +630,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 const envelope = buildActionEnvelope(team);
                 if (!envelope) return;
 
-                const accepted = await sendPlayAction(
-                    createPlayActionFromGameAction(action, envelope),
-                    authorization ? { authorization } : undefined,
-                );
-                if (!accepted || action.type !== "move_unit") {
-                    return;
-                }
-
-                const endTurnEnvelope = buildActionEnvelope(team);
-                if (!endTurnEnvelope) {
-                    pendingTurnResolutionRef.current = false;
-                    return;
-                }
-                pendingTurnResolutionRef.current = true;
                 await sendPlayAction(
-                    {
-                        ...endTurnEnvelope,
-                        type: PlayActionType.END_TURN,
-                        unitId: action.unitId,
-                    },
+                    createPlayActionFromGameAction(action, envelope),
                     authorization ? { authorization } : undefined,
                 );
             });

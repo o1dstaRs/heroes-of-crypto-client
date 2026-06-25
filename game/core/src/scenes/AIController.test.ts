@@ -102,6 +102,64 @@ describe("AIController", () => {
         expect(buttonManager.sc_isAIActive).toBe(false);
     });
 
+    it("unlocks without a fallback end turn when an authoritative move is submitted", () => {
+        const unit = createUnit();
+        const appliedActions: GameAction[] = [];
+        const buttonManager = {
+            refreshButtons: mock(() => undefined),
+            sc_isAIActive: true,
+        };
+        const sceneSettings = new SceneSettings(new GridSettings(4, 400, 0, 400, 0, 0, 0), true);
+        const executeMoveSequence = mock(() => true);
+
+        const context = {
+            applyGameAction: (action: GameAction) => {
+                appliedActions.push(action);
+                return true;
+            },
+            executeAttackSequence: mock(async () => true),
+            executeMoveSequence,
+            getButtonManager: () => buttonManager,
+            getCurrentActiveUnit: () => unit,
+            getGrid: () => ({}),
+            getGridMatrix: () => [],
+            getHoverManager: () => ({
+                showSilhouetteForUnit: mock(() => undefined),
+            }),
+            getPathHelper: () => ({}),
+            getSceneLog: () => ({
+                updateLog: mock(() => undefined),
+            }),
+            getSceneSettings: () => sceneSettings,
+            getUnitsHolder: () => ({}),
+            isAuthoritativeAction: (action: GameAction) => action.type === "move_unit",
+            refreshUnits: mock(() => undefined),
+            setCurrentActiveKnownPaths: mock(() => undefined),
+            setSelectedAttackType: mock(() => undefined),
+        } as unknown as IAIContext;
+
+        const controller = new AIController(context);
+        controller.isAIActive = true;
+        controller.performingAction = true;
+
+        const handled = (
+            controller as unknown as {
+                handleMoveOnly(
+                    unit: RenderableUnit,
+                    action: ReturnType<typeof createMoveAction>,
+                    wasAIActive: boolean,
+                ): boolean;
+            }
+        ).handleMoveOnly(unit, createMoveAction({ x: 2, y: 2 }), false);
+
+        expect(handled).toBe(true);
+        expect(executeMoveSequence).toHaveBeenCalledTimes(1);
+        expect(appliedActions).toEqual([]);
+        expect(controller.performingAction).toBe(false);
+        expect(controller.isAIActive).toBe(false);
+        expect(buttonManager.sc_isAIActive).toBe(false);
+    });
+
     it("ends and unlocks an AI turn when a post-move melee attack is rejected", async () => {
         const unit = createUnit();
         const target = {

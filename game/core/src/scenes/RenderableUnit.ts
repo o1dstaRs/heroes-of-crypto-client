@@ -107,7 +107,7 @@ export class RenderableUnit extends Unit {
     private sprite?: Sprite;
     private shadow?: Sprite;
     private badgeContainer?: Container;
-    private badgeCircle?: Graphics;
+    private badgeFlag?: Graphics;
     private badgeText?: Text;
     private stackPowerContainer?: Container;
     private stackPowerPips: Graphics[] = [];
@@ -722,7 +722,7 @@ export class RenderableUnit extends Unit {
         if (this.badgeContainer) {
             this.badgeContainer.destroy({ children: true });
             this.badgeContainer = undefined;
-            this.badgeCircle = undefined;
+            this.badgeFlag = undefined;
             this.badgeText = undefined;
         }
         if (this.stackPowerContainer) {
@@ -744,18 +744,19 @@ export class RenderableUnit extends Unit {
     private ensureBadge(worldRoot: Container, gs: GridSettings, props: UnitProperties, pos: HoCMath.XY): void {
         if (!this.badgeContainer) {
             this.badgeContainer = new Container();
-            this.badgeCircle = new Graphics();
+            this.badgeFlag = new Graphics();
             this.badgeText = new Text({
                 text: "0",
                 style: new TextStyle({
-                    fill: 0x000000,
+                    fill: 0xffffff,
                     fontSize: 14,
                     fontWeight: "700",
+                    stroke: { color: 0x000000, width: 3, join: "round" },
                 }),
             });
             this.badgeText.anchor.set(0.5);
             this.badgeText.scale.y = -1;
-            this.badgeContainer.addChild(this.badgeCircle, this.badgeText);
+            this.badgeContainer.addChild(this.badgeFlag, this.badgeText);
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
             this.badgeContainer.zIndex = 4000 - pos.y + 1; // Initial Set
             worldRoot.addChild(this.badgeContainer);
@@ -765,39 +766,63 @@ export class RenderableUnit extends Unit {
         }
         const iconSide = gs.getCellSize();
         const amount = this.getAmountAlive();
-        const circle = this.badgeCircle!;
+        const flag = this.badgeFlag!;
         const text = this.badgeText!;
         const container = this.badgeContainer!;
-        // circle
-        const br = Math.max(10, Math.floor(iconSide * 0.18));
-        const badgeColor = 0xffffff; // White in all cases; the active turn is signalled by the aura.
-        circle.clear().circle(0, 0, br).fill({ color: badgeColor, alpha: 1 });
-        // text
-        const fs = Math.max(12, Math.floor(iconSide * 0.22));
+        const label = String(amount);
+        const fs = Math.max(10, Math.floor(iconSide * 0.18));
+        const flagHeight = Math.max(14, Math.floor(iconSide * 0.24));
+        const flagWidth = Math.max(26, Math.floor(iconSide * 0.44), Math.ceil(label.length * fs * 0.62 + fs * 0.9));
+        const notchDepth = Math.max(4, Math.floor(flagWidth * 0.15));
+        const bannerLeft = -flagWidth * 0.82;
+        const bannerRight = flagWidth * 0.18;
+        const bannerTop = -flagHeight * 0.5;
+        const bannerBottom = flagHeight * 0.5;
+        const teamColor =
+            props.team === TeamVals.LOWER ? 0x00ff00 : props.team === TeamVals.UPPER ? 0xff0000 : 0x8b94a6;
+        const borderWidth = this.isActiveTurn ? 1.75 : 1.25;
+        const borderColor = this.isActiveTurn ? 0xffffff : 0x000000;
+        const borderAlpha = this.isActiveTurn ? 1 : 0.58;
+
+        flag.clear();
+        flag.moveTo(bannerLeft, bannerTop)
+            .lineTo(bannerRight, bannerTop)
+            .lineTo(bannerRight - notchDepth, 0)
+            .lineTo(bannerRight, bannerBottom)
+            .lineTo(bannerLeft, bannerBottom)
+            .closePath()
+            .fill({ color: teamColor, alpha: 0.96 });
+        flag.moveTo(bannerLeft, bannerTop)
+            .lineTo(bannerRight, bannerTop)
+            .lineTo(bannerRight - notchDepth, 0)
+            .lineTo(bannerRight, bannerBottom)
+            .lineTo(bannerLeft, bannerBottom)
+            .closePath()
+            .stroke({ width: borderWidth, color: borderColor, alpha: borderAlpha, join: "round" });
+        flag.moveTo(bannerLeft, bannerTop - 2)
+            .lineTo(bannerLeft, bannerBottom + 3)
+            .stroke({ width: Math.max(1.5, iconSide * 0.024), color: 0x1b140f, alpha: 0.88, cap: "round" });
+        flag.moveTo(bannerLeft + 2, bannerTop + 2)
+            .lineTo(bannerRight - 2, bannerTop + 2)
+            .stroke({ width: 1, color: 0xffffff, alpha: 0.32, cap: "round" });
+
         text.style = new TextStyle({
-            fill: 0x000000,
+            fill: 0xffffff,
             fontSize: fs,
             fontWeight: "700",
+            stroke: { color: 0x000000, width: 2, join: "round" },
         });
-        text.text = String(amount);
+        text.text = label;
+        text.position.set(bannerLeft + (flagWidth - notchDepth) * 0.5, 0);
         // position top-right of stack (1×1 or 2×2)
         const w = iconSide * (props.size === 2 ? 2 : 1);
         const h = iconSide * (props.size === 2 ? 2 : 1);
-        const margin = Math.max(4, Math.floor(iconSide * 0.12));
+        const margin = Math.max(2, Math.floor(iconSide * 0.045));
         const offsetX = w * 0.5 - margin;
         const offsetY = h * 0.5 - margin;
         container.x = pos.x + offsetX;
         container.y = pos.y + offsetY;
         container.visible = amount > 0;
-
-        // Active Turn Highlight — a crisp white ring (the golden aura around the unit carries the
-        // "active" signal, so the badge ring stays white, just thicker than the idle black border).
-        if (this.isActiveTurn) {
-            circle.stroke({ width: 2, color: 0xffffff, alpha: 1 });
-        } else {
-            // Default Black Border
-            circle.stroke({ width: 1.5, color: 0x000000, alpha: 0.5 });
-        }
     }
     private ensureHourglassIndicator(
         worldRoot: Container,

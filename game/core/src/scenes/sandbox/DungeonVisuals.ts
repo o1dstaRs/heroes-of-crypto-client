@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, BlurFilter, Texture } from "pixi.js";
+import { Container, Graphics, Sprite, Texture } from "pixi.js";
 import { GridSettings, GridVals, FightStateManager, HoCConstants } from "@heroesofcrypto/common";
 
 export interface IDungeonVisualsContext {
@@ -85,12 +85,6 @@ export class DungeonVisuals {
 
         // B. Perimeter Lights
         const radius = size * 0.25;
-        const blur = new BlurFilter({ strength: 40, quality: 4 });
-        // Generous padding so the blur isn't clipped to its bounding box (the clip shows up as
-        // hard rectangular "lines" — esp. horizontal bands along the top/bottom perimeter rows —
-        // when the blurred glow spills past the filter region). Keep this comfortably larger than
-        // the blur strength and the largest light radius.
-        blur.padding = Math.ceil(size * 0.35);
         this.atmosphereLights = [];
 
         const margin = size * 0.18;
@@ -125,14 +119,15 @@ export class DungeonVisuals {
             // Per-light variation so the perimeter reads as separate braziers, not a uniform band.
             const r = radius * (0.55 + Math.random() * 0.85); // 0.55 .. 1.4 of base
             const intensity = 0.7 + Math.random() * 0.5;
-            // Smooth radial falloff via many fine concentric layers (so there are no visible rings),
-            // warm deep-ember edge fading to a hot near-white core.
-            const layers = 10;
+            // Smooth radial falloff via fine concentric layers. Avoid a per-light BlurFilter here:
+            // large blurred Graphics clipped near the viewport edge produce hard horizontal bands.
+            const layers = 22;
             for (let L = layers; L >= 1; L--) {
                 const lr = (r * L) / layers;
                 const tcore = 1 - (L - 1) / (layers - 1); // 0 (edge) -> 1 (core)
                 const color = tcore > 0.66 ? 0xffe9b0 : tcore > 0.33 ? 0xffa83c : 0xc23e06;
-                const a = (0.04 + 0.34 * tcore * tcore) * intensity;
+                const edgeFade = 1 - L / layers;
+                const a = (0.015 * edgeFade + 0.2 * tcore * tcore) * intensity;
                 light.circle(0, 0, lr).fill({ color, alpha: a });
             }
 
@@ -144,7 +139,6 @@ export class DungeonVisuals {
 
             light.position.set(pos.x, pos.y);
             light.alpha = fLight._baseAlpha;
-            light.filters = [blur];
             overlayContainer.addChild(light);
             this.atmosphereLights.push(light);
         });

@@ -327,6 +327,9 @@ export abstract class PixiScene {
         // e.g. const hit = this.pixiSceneManager.hitTest(_p.x, _p.y);
         // if (hit) this.setSelectedUnitProperties(hit.GetUserData?.() as UnitProperties);
     }
+    protected canShowHoverForActiveUnit(): boolean {
+        return true;
+    }
     protected hover(): void {}
     /** Optional hook for scenes to react to background asset loading progress (Tier 2) */
     public onBackgroundAssetLoad?(progress: number): void;

@@ -222,7 +222,7 @@ export default function RightSideBar({
                     }}
                 >
                     {rankedPanel && <Box sx={{ mb: 1 }}>{rankedPanel}</Box>}
-                    {!gameStarted && <FightControlToggler />}
+                    {!gameStarted && !rankedPanel && <FightControlToggler />}
                     {gameStarted && unitStats.length > 0 && (
                         <DamageStatsToggler unitStatsElements={unitStatsElements} />
                     )}

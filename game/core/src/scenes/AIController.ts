@@ -57,6 +57,7 @@ export interface IAIContext {
     setSelectedAttackType(type: number): void;
 
     // Actions
+    isAuthoritativeAction?(action: GameAction): boolean;
     applyGameAction(action: GameAction): boolean;
     executeAttackSequence(
         attacker: RenderableUnit,
@@ -91,7 +92,9 @@ export class AIController {
         if (this.localModelOpponent.enabled) {
             this.context
                 .getSceneLog()
-                .updateLog(`Local model opponent enabled for ${getLocalModelTeamName(this.localModelOpponent.modelTeam)}`);
+                .updateLog(
+                    `Local model opponent enabled for ${getLocalModelTeamName(this.localModelOpponent.modelTeam)}`,
+                );
         }
     }
     /**
@@ -266,7 +269,13 @@ export class AIController {
         if (!choice.action) {
             const reason = choice.error ?? choice.rawContent?.slice(0, 80) ?? "invalid model action";
             this.context.getSceneLog().updateLog(`Local model returned no legal action (${reason})`);
-            this.recordLocalModelResult(currentUnit, undefined, choice.decisionId, false, `fallback_builtin_ai:${reason}`);
+            this.recordLocalModelResult(
+                currentUnit,
+                undefined,
+                choice.decisionId,
+                false,
+                `fallback_builtin_ai:${reason}`,
+            );
             return false;
         }
 
@@ -317,20 +326,38 @@ export class AIController {
                 this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "missing_path");
                 return false;
             }
-            const watchdog = this.scheduleMoveWatchdog(currentUnit, wasAIActive, () => {
-                this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "move_timeout");
-            });
-            const started = this.context.executeMoveSequence(currentUnit, action.path, action.targetCells, () => {
-                clearTimeout(watchdog);
-                this.endTurnIfStillActive(currentUnit);
-                this.recordLocalModelResult(currentUnit, legalAction, decisionId, true);
-                this.finishAIAction(wasAIActive);
-            }, this.modelAction(currentUnit, action));
+            const replayAction = this.modelAction(currentUnit, action);
+            const isAuthoritative = this.context.isAuthoritativeAction?.(replayAction) ?? false;
+            const watchdog = isAuthoritative
+                ? undefined
+                : this.scheduleMoveWatchdog(currentUnit, wasAIActive, () => {
+                      this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "move_timeout");
+                  });
+            const started = this.context.executeMoveSequence(
+                currentUnit,
+                action.path,
+                action.targetCells,
+                () => {
+                    if (!watchdog) {
+                        return;
+                    }
+                    clearTimeout(watchdog);
+                    this.endTurnIfStillActive(currentUnit);
+                    this.recordLocalModelResult(currentUnit, legalAction, decisionId, true);
+                    this.finishAIAction(wasAIActive);
+                },
+                replayAction,
+            );
             if (!started) {
-                clearTimeout(watchdog);
+                if (watchdog) {
+                    clearTimeout(watchdog);
+                }
                 this.endTurnIfStillActive(currentUnit);
                 this.finishAIAction(wasAIActive);
                 this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "move_not_started");
+            } else if (isAuthoritative) {
+                this.recordLocalModelResult(currentUnit, legalAction, decisionId, true);
+                this.finishAIAction(wasAIActive);
             }
             return true;
         }
@@ -343,51 +370,91 @@ export class AIController {
                 return false;
             }
 
+            const replayAction = this.modelAction(currentUnit, action);
+            if (this.context.isAuthoritativeAction?.(replayAction)) {
+                const completed = await this.context.executeAttackSequence(
+                    currentUnit,
+                    target,
+                    attackFrom,
+                    replayAction,
+                );
+                if (!completed) {
+                    this.endTurnIfStillActive(currentUnit);
+                }
+                this.finishAIAction(wasAIActive);
+                this.recordLocalModelResult(
+                    currentUnit,
+                    legalAction,
+                    decisionId,
+                    completed,
+                    completed ? undefined : "melee_failed",
+                );
+                return true;
+            }
+
             if (action.path?.length) {
                 const watchdog = this.scheduleMoveWatchdog(currentUnit, wasAIActive, () => {
-                    this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "move_before_melee_timeout");
+                    this.recordLocalModelResult(
+                        currentUnit,
+                        legalAction,
+                        decisionId,
+                        false,
+                        "move_before_melee_timeout",
+                    );
                 });
-                const started = this.context.executeMoveSequence(currentUnit, action.path, undefined, async () => {
-                    clearTimeout(watchdog);
-                    try {
-                        const completed = await this.context.executeAttackSequence(
-                            currentUnit,
-                            target,
-                            attackFrom,
-                            this.modelAction(currentUnit, action),
-                        );
-                        if (!completed) {
+                const started = this.context.executeMoveSequence(
+                    currentUnit,
+                    action.path,
+                    undefined,
+                    async () => {
+                        clearTimeout(watchdog);
+                        try {
+                            const completed = await this.context.executeAttackSequence(
+                                currentUnit,
+                                target,
+                                attackFrom,
+                                this.modelAction(currentUnit, action),
+                            );
+                            if (!completed) {
+                                this.endTurnIfStillActive(currentUnit);
+                            }
+                            this.recordLocalModelResult(
+                                currentUnit,
+                                legalAction,
+                                decisionId,
+                                completed,
+                                completed ? undefined : "melee_after_move_failed",
+                            );
+                        } catch (err) {
                             this.endTurnIfStillActive(currentUnit);
+                            this.recordLocalModelResult(
+                                currentUnit,
+                                legalAction,
+                                decisionId,
+                                false,
+                                `melee_after_move_error:${(err as Error).message}`,
+                            );
+                        } finally {
+                            this.finishAIAction(wasAIActive);
                         }
-                        this.recordLocalModelResult(
-                            currentUnit,
-                            legalAction,
-                            decisionId,
-                            completed,
-                            completed ? undefined : "melee_after_move_failed",
-                        );
-                    } catch (err) {
-                        this.endTurnIfStillActive(currentUnit);
-                        this.recordLocalModelResult(
-                            currentUnit,
-                            legalAction,
-                            decisionId,
-                            false,
-                            `melee_after_move_error:${(err as Error).message}`,
-                        );
-                    } finally {
-                        this.finishAIAction(wasAIActive);
-                    }
-                }, this.modelAction(currentUnit, {
-                    type: "move_unit",
-                    unitId: currentUnit.getId(),
-                    path: action.path,
-                }));
+                    },
+                    this.modelAction(currentUnit, {
+                        type: "move_unit",
+                        unitId: currentUnit.getId(),
+                        path: action.path,
+                    }),
+                );
                 if (!started) {
                     clearTimeout(watchdog);
                     this.endTurnIfStillActive(currentUnit);
                     this.finishAIAction(wasAIActive);
-                    this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "move_before_melee_not_started");
+                    this.recordLocalModelResult(
+                        currentUnit,
+                        legalAction,
+                        decisionId,
+                        false,
+                        "move_before_melee_not_started",
+                    );
                 }
                 return true;
             }
@@ -402,7 +469,13 @@ export class AIController {
                 this.endTurnIfStillActive(currentUnit);
             }
             this.finishAIAction(wasAIActive);
-            this.recordLocalModelResult(currentUnit, legalAction, decisionId, completed, completed ? undefined : "melee_failed");
+            this.recordLocalModelResult(
+                currentUnit,
+                legalAction,
+                decisionId,
+                completed,
+                completed ? undefined : "melee_failed",
+            );
             return true;
         }
 
@@ -424,7 +497,13 @@ export class AIController {
                 this.endTurnIfStillActive(currentUnit);
             }
             this.finishAIAction(wasAIActive);
-            this.recordLocalModelResult(currentUnit, legalAction, decisionId, completed, completed ? undefined : "range_failed");
+            this.recordLocalModelResult(
+                currentUnit,
+                legalAction,
+                decisionId,
+                completed,
+                completed ? undefined : "range_failed",
+            );
             return true;
         }
 
@@ -469,6 +548,26 @@ export class AIController {
         const knownPaths = action.currentActiveKnownPaths();
         const movePaths = knownPaths?.get((attackFromCell.x << 4) | attackFromCell.y);
         const route = movePaths && Array.isArray(movePaths) && movePaths.length > 0 ? movePaths[0].route : undefined;
+        const authoritativeAction = this.modelAction(currentUnit, {
+            type: "melee_attack",
+            attackerId: currentUnit.getId(),
+            targetId: unitToAttack.getId(),
+            attackFrom: attackFromCell,
+            path: route,
+        });
+        if (this.context.isAuthoritativeAction?.(authoritativeAction)) {
+            const attackCompleted = await this.context.executeAttackSequence(
+                currentUnit,
+                unitToAttack,
+                attackFromCell,
+                authoritativeAction,
+            );
+            if (!attackCompleted) {
+                this.endTurnIfStillActive(currentUnit);
+            }
+            this.finishAIAction(wasAIActive);
+            return true;
+        }
 
         // Show silhouette
         const gs = this.context.getSceneSettings().getGridSettings();
@@ -506,13 +605,7 @@ export class AIController {
                             currentUnit,
                             target,
                             attackCell,
-                            this.modelAction(currentUnit, {
-                                type: "melee_attack",
-                                attackerId: currentUnit.getId(),
-                                targetId: target.getId(),
-                                attackFrom: attackCell,
-                                path: route,
-                            }),
+                            authoritativeAction,
                         );
                         if (!attackCompleted) {
                             this.endTurnIfStillActive(currentUnit);
@@ -661,26 +754,35 @@ export class AIController {
         }
 
         // Execute move with cleanup callback
-        const watchdog = this.scheduleMoveWatchdog(currentUnit, wasAIActive);
+        const moveAction = this.modelAction(currentUnit, {
+            type: "move_unit",
+            unitId: currentUnit.getId(),
+            path: route,
+            targetCells: moveFootprint,
+        });
+        const isAuthoritative = this.context.isAuthoritativeAction?.(moveAction) ?? false;
+        const watchdog = isAuthoritative ? undefined : this.scheduleMoveWatchdog(currentUnit, wasAIActive);
         const moveStarted = this.context.executeMoveSequence(
             currentUnit,
             route,
             moveFootprint,
             () => {
+                if (!watchdog) {
+                    return;
+                }
                 clearTimeout(watchdog);
                 this.endTurnIfStillActive(currentUnit);
                 this.finishAIAction(wasAIActive);
             },
-            this.modelAction(currentUnit, {
-                type: "move_unit",
-                unitId: currentUnit.getId(),
-                path: route,
-                targetCells: moveFootprint,
-            }),
+            moveAction,
         );
         if (!moveStarted) {
-            clearTimeout(watchdog);
+            if (watchdog) {
+                clearTimeout(watchdog);
+            }
             this.endTurnIfStillActive(currentUnit);
+            this.finishAIAction(wasAIActive);
+        } else if (isAuthoritative) {
             this.finishAIAction(wasAIActive);
         }
 
