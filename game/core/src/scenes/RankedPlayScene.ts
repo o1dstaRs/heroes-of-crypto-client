@@ -256,7 +256,7 @@ export class RankedPlayScene extends Sandbox {
     }
     private applyRankedSnapshotMetadata(snapshot: AuthoritativeGameSnapshot): void {
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
-        this.upNextUnitIds = snapshot.upNext.slice();
+        this.upNextUnitIds = [...(snapshot.upNext ?? [])];
     }
     private syncRankedVisibleTurnState(snapshot: AuthoritativeGameSnapshot): void {
         if (!snapshot.fightStarted || snapshot.fightFinished) {
@@ -1000,7 +1000,7 @@ export class RankedPlayScene extends Sandbox {
             centerDried: snapshot.centerDried,
             viewerTeam: snapshot.viewerTeam,
             winnerTeam: snapshot.winnerTeam,
-            upNext: snapshot.upNext,
+            upNext: snapshot.upNext ?? [],
             units: snapshot.units.map((unit) => ({
                 id: unit.id,
                 team: unit.team,
