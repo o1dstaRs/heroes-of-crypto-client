@@ -704,7 +704,6 @@ export class RenderableUnit extends Unit {
         }
     }
     public destroyVisuals(): void {
-        console.log(`RenderableUnit: destroyVisuals id=${this.getId()} sprite=${!!this.sprite}`);
         this.isDestroyed = true;
 
         if (this.sprite) {

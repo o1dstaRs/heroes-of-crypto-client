@@ -419,6 +419,9 @@ export class Sandbox extends PixiScene {
                 setAIActive: (active) => {
                     this.sc_isAIActive = active;
                     this.aiController.isAIActive = active; // Sync AIController state
+                    if (active) {
+                        this.clearBoardHoverPreviews();
+                    }
                 },
                 setSpellBookOverlay: (active) => {
                     this.sc_renderSpellBookOverlay = active;
@@ -930,6 +933,10 @@ export class Sandbox extends PixiScene {
     }
     private async playSandboxReplayRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
         const action = cloneReplayData(record.action);
+        const replayActorId = this.getReplayTurnActorId(action);
+        if (replayActorId && !this.ensureReplayActiveUnit(replayActorId)) {
+            return false;
+        }
         switch (action.type) {
             case "start_fight": {
                 const started = this.startScene();
@@ -957,6 +964,46 @@ export class Sandbox extends PixiScene {
             default:
                 return false;
         }
+    }
+    private getReplayTurnActorId(action: GameAction): string | undefined {
+        switch (action.type) {
+            case "end_turn":
+            case "wait_turn":
+            case "defend_turn":
+            case "select_attack_type":
+            case "move_unit":
+                return action.unitId;
+            case "melee_attack":
+            case "range_attack":
+            case "obstacle_attack":
+            case "area_throw_attack":
+                return action.attackerId;
+            case "cast_spell":
+                return action.casterId;
+            case "start_fight":
+            case "place_unit":
+            case "delete_unit":
+                return undefined;
+            default:
+                return undefined;
+        }
+    }
+    private ensureReplayActiveUnit(unitId: string): boolean {
+        const unit = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
+        if (!unit || unit.isDead()) {
+            return false;
+        }
+
+        if (this.currentActiveUnit?.getId() === unitId) {
+            return true;
+        }
+
+        if (this.currentActiveUnit) {
+            this.currentActiveUnit.setActiveTurn(false);
+            this.currentActiveUnit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
+        }
+        this.handleNextUnitActivation(unit);
+        return true;
     }
     private playReplayMoveAction(action: Extract<GameAction, { type: "move_unit" }>): Promise<boolean> {
         const unit = this.unitsHolder.getAllUnits().get(action.unitId) as RenderableUnit | undefined;
@@ -1974,8 +2021,9 @@ export class Sandbox extends PixiScene {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         // 1. FIGHT STARTED INTERACTION
         if (fightProps.hasFightStarted()) {
-            // [AI Driven Check] If the current unit is controlled by AI (e.g. Berserker), block user input.
-            if (this.currentActiveUnit?.hasAbilityActive("AI Driven")) {
+            // If AI owns the current turn, board input should not preview or execute player actions.
+            if (this.isBoardInputLockedByAI()) {
+                this.clearBoardHoverPreviews();
                 return;
             }
 
@@ -3841,8 +3889,34 @@ export class Sandbox extends PixiScene {
             this.handleNextUnitActivation(result.nextUnit as RenderableUnit);
         }
     }
+    private isBoardInputLockedByAI(): boolean {
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        return (
+            fightProps.hasFightStarted() &&
+            !fightProps.hasFightFinished() &&
+            (this.sc_isAIActive || !!this.currentActiveUnit?.hasAbilityActive("AI Driven"))
+        );
+    }
+    private clearBoardHoverPreviews(): void {
+        this.hoverManager.clearAttackVisuals();
+        this.hoverManager.clearHoverSilhouette();
+        this.hoverManager.clearAuraVisuals();
+        this.hoverManager.clearAOEArea();
+        this.hoverManager.clearSpellPreview();
+        this.hoverManager.hoverAttackFromCell = undefined;
+        this.hoverManager.hoveredUnitHighlight = undefined;
+        this.hoverRangeAttackObstacle = undefined;
+        this.sc_hoveredAuraRanges = undefined;
+        this.sc_hoveredShotRange = undefined;
+    }
     protected override hover(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
+
+        if (this.isBoardInputLockedByAI()) {
+            this.clearBoardHoverPreviews();
+            this.setHoveredSpell(undefined);
+            return;
+        }
 
         // 0. Spellbook Interaction
         if (this.sc_renderSpellBookOverlay && this.currentActiveUnit && this.sc_mouseWorld) {

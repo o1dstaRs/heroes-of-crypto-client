@@ -99,17 +99,35 @@ export const UpNext: React.FC = () => {
         };
     }, [manager]);
 
-    const visibleUnits: IVisibleUnit[] = visibleState.upNext ?? [];
+    const visibleUnits = visibleState.upNext;
+    const visibleUnitsSignature = useMemo(
+        () =>
+            (visibleUnits ?? [])
+                .map((unit) =>
+                    [
+                        unit.id,
+                        unit.amount,
+                        unit.teamType,
+                        unit.stackPower,
+                        unit.isStackPowered ? 1 : 0,
+                        unit.isSkipping ? 1 : 0,
+                        unit.isOnHourglass ? 1 : 0,
+                    ].join(":"),
+                )
+                .join("|"),
+        [visibleUnits],
+    );
     useEffect(() => {
-        if (visibleUnits.length > 0) {
-            setStableVisibleUnits(visibleUnits);
+        const nextVisibleUnits = visibleState.upNext ?? [];
+        if (nextVisibleUnits.length > 0) {
+            setStableVisibleUnits(nextVisibleUnits);
             return;
         }
 
         if (visibleState.hasFinished || !visibleState.lapNumber) {
             setStableVisibleUnits([]);
         }
-    }, [visibleState.hasFinished, visibleState.lapNumber, visibleUnits]);
+    }, [visibleState.hasFinished, visibleState.lapNumber, visibleUnitsSignature]);
 
     const displayedUnits = useMemo(() => [...stableVisibleUnits].reverse(), [stableVisibleUnits]);
 

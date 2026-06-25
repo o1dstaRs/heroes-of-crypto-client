@@ -18,6 +18,7 @@ import type { UnitsOverlay } from "./UnitsOverlay";
 
 export class RankedPlayScene extends Sandbox {
     private lastAuthoritativeSequence = -1;
+    private lastBoardSignature = "";
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return undefined;
     }
@@ -25,10 +26,15 @@ export class RankedPlayScene extends Sandbox {
         this.selectSceneUnitForPlacement(unitId);
     }
     public override applyAuthoritativeSnapshot(snapshot: AuthoritativeGameSnapshot): void {
-        if (snapshot.latestSequence <= this.lastAuthoritativeSequence) {
+        const boardSignature = this.createBoardSignature(snapshot);
+        if (snapshot.latestSequence < this.lastAuthoritativeSequence) {
             return;
         }
         this.lastAuthoritativeSequence = snapshot.latestSequence;
+        if (boardSignature === this.lastBoardSignature) {
+            return;
+        }
+        this.lastBoardSignature = boardSignature;
 
         this.hydrateSceneState({
             gridType: snapshot.gridType as GridType,
@@ -44,6 +50,7 @@ export class RankedPlayScene extends Sandbox {
     }
     public override applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
         this.lastAuthoritativeSequence = snapshot.latestSequence - 1;
+        this.lastBoardSignature = "";
         this.applyAuthoritativeSnapshot(snapshot);
     }
     public override startScene(): boolean {
@@ -78,6 +85,32 @@ export class RankedPlayScene extends Sandbox {
                 };
             },
         };
+    }
+    private createBoardSignature(snapshot: AuthoritativeGameSnapshot): string {
+        return JSON.stringify({
+            phase: snapshot.phase,
+            gridType: snapshot.gridType,
+            currentLap: snapshot.currentLap,
+            fightStarted: snapshot.fightStarted,
+            fightFinished: snapshot.fightFinished,
+            currentUnitId: snapshot.currentUnitId,
+            currentTurnTeam: snapshot.currentTurnTeam,
+            units: snapshot.units.map((unit) => ({
+                id: unit.id,
+                team: unit.team,
+                creatureId: unit.creatureId,
+                amountAlive: unit.amountAlive,
+                amountDied: unit.amountDied,
+                hp: unit.hp,
+                maxHp: unit.maxHp,
+                attackType: unit.attackType,
+                baseCell: unit.baseCell,
+                cells: unit.cells,
+                dead: unit.dead,
+                placed: unit.placed,
+                stackPower: unit.stackPower,
+            })),
+        });
     }
     private toSandboxUnitState(unitState: AuthoritativeUnitState): SandboxSceneUnitState | undefined {
         const properties = this.getUnitPropertiesFromAuthoritativeState(unitState);
