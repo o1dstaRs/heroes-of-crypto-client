@@ -50,6 +50,10 @@ const fallbackUrl = gameClientUrls[0];
         const token = localStorage.getItem("accessToken");
         const target = new URL(url, window.location.href);
 
+        for (const [key, value] of new URLSearchParams(window.location.search)) {
+            target.searchParams.set(key, value);
+        }
+
         if (token) {
             const hashParams = new URLSearchParams(target.hash.startsWith("#") ? target.hash.slice(1) : target.hash);
             hashParams.set("access_token", token);

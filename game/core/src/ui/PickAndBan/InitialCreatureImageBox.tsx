@@ -51,10 +51,10 @@ export const InitialCreatureImageBox = ({
                     !transformY &&
                     initialCreaturesPairs.length &&
                     initialCreaturesPairs[0].indexOf(creatureId) % 2 < CreatureByLevel[3].length / 2
-                        ? "translateY(-15%) rotateX(180deg)"
+                        ? "translateY(-15%)"
                         : !transformY
-                          ? "translateY(25%) rotateX(180deg)"
-                          : "rotateX(180deg)",
+                          ? "translateY(25%)"
+                          : "none",
                 transition: "all 0.3s ease",
                 filter:
                     selectedCreature === creatureId || hoveredCreature === creatureId
@@ -107,7 +107,7 @@ export const InitialCreatureImageBox = ({
                             sx={{
                                 position: "absolute",
                                 zIndex: 104,
-                                transform: "rotateX(180deg)",
+                                transform: "none",
                                 bottom: "50%",
                                 cursor: "pointer",
                                 "& .MuiBadge-badge": {
@@ -135,8 +135,8 @@ export const InitialCreatureImageBox = ({
                             objectFit: "contain",
                             transform:
                                 selectedCreature === creatureId || hoveredCreature === creatureId
-                                    ? "scale(1.2) translateY(25%) rotateY(180deg)"
-                                    : "scale(1) rotateY(180deg)",
+                                    ? "scale(1.2) translateY(25%)"
+                                    : "scale(1)",
                             transition: "transform 0.2s ease-out",
                         }}
                     />
@@ -156,7 +156,7 @@ export const InitialCreatureImageBox = ({
                     color: pickBanContext.banned.includes(creatureId) ? "white" : "black",
                     fontWeight: "bold",
                     fontSize: "0.9rem",
-                    transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
+                    transform: "translate(-50%, 50%)",
                     whiteSpace: "nowrap",
                     pointerEvents: "none",
                     zIndex: 73,

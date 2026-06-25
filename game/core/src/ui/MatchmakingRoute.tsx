@@ -26,6 +26,7 @@ export const MatchmakingRoute: React.FC = () => {
     const { startGameSearch, stopGameSearch, confirmGame, getCurrentGame } = useAuthContext();
 
     const streamRef = useRef<CustomEventSource<MatchmakingEvent> | null>(null);
+    const acceptedGameIdRef = useRef("");
     const [state, setState] = useState<MatchmakingState>("idle");
     const [pendingGameId, setPendingGameId] = useState("");
     const [queueSize, setQueueSize] = useState<number | null>(null);
@@ -49,7 +50,7 @@ export const MatchmakingRoute: React.FC = () => {
             reconnectDelay: 1000,
         });
 
-        source.onmessage = (event) => {
+        source.onmessage = (event: MatchmakingEvent) => {
             setError("");
             setQueueSize(typeof event.po === "number" ? event.po : null);
             setSecondsRemaining(typeof event.r === "number" ? event.r : null);
@@ -62,6 +63,7 @@ export const MatchmakingRoute: React.FC = () => {
             setPendingGameId(event.ps);
 
             if (event.r !== undefined && event.r < 0) {
+                acceptedGameIdRef.current = "";
                 setState("idle");
                 setPendingGameId("");
                 setSecondsRemaining(null);
@@ -75,10 +77,10 @@ export const MatchmakingRoute: React.FC = () => {
                 return;
             }
 
-            setState("confirming");
+            setState(acceptedGameIdRef.current === event.ps ? "accepted" : "confirming");
         };
 
-        source.onerror = (err) => {
+        source.onerror = (err: Error) => {
             setError(err.message);
             setState((current) => (current === "accepted" ? current : "error"));
         };
@@ -125,7 +127,9 @@ export const MatchmakingRoute: React.FC = () => {
                 : "Match found.";
         }
         if (state === "accepted") {
-            return "Opening pick phase";
+            return secondsRemaining && secondsRemaining > 0
+                ? `Accepted. Waiting for opponent: ${secondsRemaining}s left.`
+                : "Accepted. Waiting for opponent.";
         }
         if (state === "error") {
             return "Connection error";
@@ -135,6 +139,7 @@ export const MatchmakingRoute: React.FC = () => {
 
     const handleStart = async () => {
         setError("");
+        acceptedGameIdRef.current = "";
         setState("searching");
         closeStream();
         openStream();
@@ -154,6 +159,7 @@ export const MatchmakingRoute: React.FC = () => {
         } catch (err) {
             setError((err as Error)?.message ?? "Unable to leave matchmaking");
         } finally {
+            acceptedGameIdRef.current = "";
             closeStream();
             setState("idle");
             setPendingGameId("");
@@ -168,15 +174,12 @@ export const MatchmakingRoute: React.FC = () => {
         }
 
         setError("");
+        acceptedGameIdRef.current = pendingGameId;
         setState("accepted");
         try {
             await confirmGame(pendingGameId);
-            const currentGame = await getCurrentGame().catch(() => null);
-            if (currentGame?.id === pendingGameId && currentGame.confirmed) {
-                closeStream();
-                navigate(`/game/${pendingGameId}`);
-            }
         } catch (err) {
+            acceptedGameIdRef.current = "";
             setState("confirming");
             setError((err as Error)?.message ?? "Unable to accept match");
         }
@@ -220,7 +223,7 @@ export const MatchmakingRoute: React.FC = () => {
                         <Stack direction="row" spacing={1.5} alignItems="center">
                             <CircularProgress size="sm" />
                             <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                                {state === "accepted" ? "Waiting for server confirmation" : "Queue stream connected"}
+                                {state === "accepted" ? "Waiting for the other player" : "Queue stream connected"}
                             </Typography>
                         </Stack>
                     )}

@@ -237,6 +237,15 @@ class ProtoReader {
     public varintNumber(): number {
         return Number(this.varintBigInt());
     }
+    public float32(): number {
+        const end = this.offset + 4;
+        if (end > this.bytes.length) {
+            throw new Error("Unexpected end of protobuf float");
+        }
+        const value = new DataView(this.bytes.buffer, this.bytes.byteOffset + this.offset, 4).getFloat32(0, true);
+        this.offset = end;
+        return value;
+    }
     public bool(): boolean {
         return this.varintNumber() !== 0;
     }
@@ -554,7 +563,7 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
         } else if (field === 12) {
             unit.cells.push(decodeCell(reader.bytesValue()));
         } else if (field === 13) {
-            unit.speed = reader.varintNumber();
+            unit.speed = wireType === 5 ? reader.float32() : reader.varintNumber();
         } else if (field === 14) {
             unit.morale = reader.varintNumber();
         } else if (field === 15) {

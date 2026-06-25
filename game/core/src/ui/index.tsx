@@ -243,7 +243,7 @@ const MatchLoadingOverlay: React.FC = () => (
             `}
         </style>
         <div style={{ width: "min(440px, 100%)" }}>
-            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Waiting for opponent</div>
+            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Opening match</div>
             <div style={{ color: "#aeb7c5", fontSize: 14, lineHeight: 1.4, marginBottom: 18 }}>
                 Syncing your seat and loading the latest match state.
             </div>

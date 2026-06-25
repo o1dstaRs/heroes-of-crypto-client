@@ -65,10 +65,10 @@ export const RevealCreatureImageBox = ({
                     !transformY &&
                     initialCreaturesPairs.length &&
                     initialCreaturesPairs[0].indexOf(creatureId) % 2 < CreatureByLevel[3].length / 2
-                        ? "translateY(-15%) rotateX(180deg)"
+                        ? "translateY(-15%)"
                         : !transformY
-                          ? "translateY(25%) rotateX(180deg)"
-                          : "rotateX(180deg)",
+                          ? "translateY(25%)"
+                          : "none",
                 transition: "all 0.3s ease",
                 filter:
                     selectedCreature === creatureId || hoveredCreature === creatureId
@@ -126,8 +126,8 @@ export const RevealCreatureImageBox = ({
                             objectFit: "contain",
                             transform:
                                 selectedCreature === creatureId || hoveredCreature === creatureId
-                                    ? "scale(1.2) translateY(25%) rotateY(180deg)"
-                                    : "scale(1) rotateY(180deg)",
+                                    ? "scale(1.2) translateY(25%)"
+                                    : "scale(1)",
                             transition: "transform 0.2s ease-out",
                         }}
                     />
@@ -169,14 +169,14 @@ export const RevealCreatureImageBox = ({
                                         position: "absolute",
                                         left: "114%",
                                         top: "130%",
-                                        transform: "translate(-50%, -50%) scale(0.48) rotateX(180deg)",
+                                        transform: "translate(-50%, -50%) scale(0.48)",
                                         width: "60%",
                                         height: "60%",
                                     },
                                 },
                             }}
                         >
-                            <span style={{ color: "white", transform: "rotateX(180deg)" }}>Reveal</span>
+                            <span style={{ color: "white", transform: "none" }}>Reveal</span>
                         </IconButton>
                     </Box>
                 )}
@@ -193,7 +193,7 @@ export const RevealCreatureImageBox = ({
                     color: "white",
                     fontWeight: "bold",
                     fontSize: "0.9rem",
-                    transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
+                    transform: "translate(-50%, 50%)",
                     whiteSpace: "nowrap",
                     pointerEvents: "none",
                     zIndex: 73,

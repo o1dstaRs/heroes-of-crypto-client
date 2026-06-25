@@ -40,6 +40,8 @@ import RevealIcon from "./RevealIcon";
 import { RevealCreatureImageBox } from "./RevealCreatureImageBox";
 import { BASE_UNIT_STACK_TO_SPAWN_EXP } from "../../statics";
 
+const CREATURES_BY_DISPLAY_LEVEL = [1, 2, 3, 4].map((level) => CreatureByLevel[level] ?? []);
+
 interface StainedGlassProps {
     userTeam: TeamType;
     width?: string | number;
@@ -592,11 +594,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                             left: "0%",
                                             width: "100%",
                                             height: "80%",
-                                            transform: "rotate(180deg) scaleX(-1)",
                                             overflow: "visible",
                                         }}
                                     >
-                                        {CreatureByLevel[3].map((creatureId: number, index: number) => (
+                                        {CREATURES_BY_DISPLAY_LEVEL[3].map((creatureId: number, index: number) => (
                                             <Box
                                                 key={creatureId}
                                                 className="creature-image"
@@ -613,7 +614,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                             ? 92
                                                             : 72,
                                                     transform:
-                                                        index % 2 < CreatureByLevel[3].length / 2
+                                                        index % 2 < CREATURES_BY_DISPLAY_LEVEL[3].length / 2
                                                             ? "translateY(-15%)"
                                                             : "translateY(25%)",
                                                     transition: "all 0.3s ease",
@@ -627,7 +628,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                     left:
                                                         index === 0
                                                             ? "7%"
-                                                            : index === CreatureByLevel[3].length - 1
+                                                            : index === CREATURES_BY_DISPLAY_LEVEL[3].length - 1
                                                               ? "-7%"
                                                               : index === 1
                                                                 ? "5.4%"
@@ -635,11 +636,13 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                   ? "3.6%"
                                                                   : index === 3
                                                                     ? "1.1%"
-                                                                    : index === CreatureByLevel[3].length - 4
+                                                                    : index === CREATURES_BY_DISPLAY_LEVEL[3].length - 4
                                                                       ? "-1.1%"
-                                                                      : index === CreatureByLevel[3].length - 3
+                                                                      : index ===
+                                                                          CREATURES_BY_DISPLAY_LEVEL[3].length - 3
                                                                         ? "-2.6%"
-                                                                        : index === CreatureByLevel[3].length - 2
+                                                                        : index ===
+                                                                            CREATURES_BY_DISPLAY_LEVEL[3].length - 2
                                                                           ? "-4.8%"
                                                                           : 0,
                                                     borderRadius:
@@ -751,7 +754,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     sx={{
                                                                         position: "absolute",
                                                                         zIndex: 104,
-                                                                        transform: "rotateX(180deg)",
+                                                                        transform: "none",
                                                                         bottom: "55%",
                                                                         cursor: "pointer",
                                                                         "& .MuiBadge-badge": {
@@ -799,8 +802,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                 transform:
                                                                     selectedCreature === creatureId ||
                                                                     hoveredCreature === creatureId
-                                                                        ? "scale(1.2) translateY(25%) rotateY(180deg)"
-                                                                        : "scale(1) rotateY(180deg)",
+                                                                        ? "scale(1.2) translateY(25%)"
+                                                                        : "scale(1)",
                                                                 transition: "transform 0.2s ease-out",
                                                                 animation:
                                                                     pickBanContext.isYourTurn &&
@@ -832,8 +835,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                 transform:
                                                                     selectedCreature === creatureId ||
                                                                     hoveredCreature === creatureId
-                                                                        ? "scale(1.2) translateY(55%) rotateX(180deg)"
-                                                                        : "scale(1) rotateX(180deg)",
+                                                                        ? "scale(1.2) translateY(55%)"
+                                                                        : "scale(1)",
                                                                 transition: "transform 0.2s ease-out",
                                                             }}
                                                         />
@@ -882,14 +885,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     {isBan ? (
                                                                         <BlockIcon
                                                                             sx={{
-                                                                                transform: "rotateX(180deg)",
+                                                                                transform: "none",
                                                                                 marginRight: "5px",
                                                                             }}
                                                                         />
                                                                     ) : (
                                                                         <CheckIcon
                                                                             sx={{
-                                                                                transform: "rotateX(180deg)",
+                                                                                transform: "none",
                                                                                 marginRight: "5px",
                                                                             }}
                                                                         />
@@ -897,7 +900,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     <span
                                                                         style={{
                                                                             color: "white",
-                                                                            transform: "rotateX(180deg)",
+                                                                            transform: "none",
                                                                         }}
                                                                     >
                                                                         {isBan ? "Ban" : "Pick"}
@@ -925,7 +928,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     : "black",
                                                             fontWeight: "bold",
                                                             fontSize: "0.9rem",
-                                                            transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
+                                                            transform: "translate(-50%, 50%)",
                                                             whiteSpace: "nowrap",
                                                             pointerEvents: "none",
                                                             zIndex: 73,
@@ -1011,11 +1014,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                             left: "0%",
                                             width: "100%",
                                             height: "80%",
-                                            transform: "rotate(180deg) scaleX(-1)",
                                             overflow: "visible",
                                         }}
                                     >
-                                        {CreatureByLevel[2].map((creatureId: number, index: number) => (
+                                        {CREATURES_BY_DISPLAY_LEVEL[2].map((creatureId: number, index: number) => (
                                             <Box
                                                 key={creatureId}
                                                 className="creature-image"
@@ -1042,7 +1044,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                     left:
                                                         index === 0
                                                             ? "1%"
-                                                            : index === CreatureByLevel[2].length - 1
+                                                            : index === CREATURES_BY_DISPLAY_LEVEL[2].length - 1
                                                               ? "-1%"
                                                               : index === 1
                                                                 ? "0.9%"
@@ -1159,7 +1161,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     sx={{
                                                                         position: "absolute",
                                                                         zIndex: 104,
-                                                                        transform: "rotateX(180deg)",
+                                                                        transform: "none",
                                                                         bottom: "53%",
                                                                         cursor: "pointer",
                                                                         "& .MuiBadge-badge": {
@@ -1207,8 +1209,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                 transform:
                                                                     selectedCreature === creatureId ||
                                                                     hoveredCreature === creatureId
-                                                                        ? "scale(1.2) translateY(25%) rotateY(180deg)"
-                                                                        : "scale(1) rotateY(180deg)",
+                                                                        ? "scale(1.2) translateY(25%)"
+                                                                        : "scale(1)",
                                                                 transition: "transform 0.2s ease-out",
                                                                 animation:
                                                                     pickBanContext.isYourTurn &&
@@ -1240,8 +1242,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                 transform:
                                                                     selectedCreature === creatureId ||
                                                                     hoveredCreature === creatureId
-                                                                        ? "scale(1.2) translateY(55%) rotateX(180deg)"
-                                                                        : "scale(1) rotateX(180deg)",
+                                                                        ? "scale(1.2) translateY(55%)"
+                                                                        : "scale(1)",
                                                                 transition: "transform 0.2s ease-out",
                                                             }}
                                                         />
@@ -1292,14 +1294,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     {isBan ? (
                                                                         <BlockIcon
                                                                             sx={{
-                                                                                transform: "rotateX(180deg)",
+                                                                                transform: "none",
                                                                                 marginRight: "5px",
                                                                             }}
                                                                         />
                                                                     ) : (
                                                                         <CheckIcon
                                                                             sx={{
-                                                                                transform: "rotateX(180deg)",
+                                                                                transform: "none",
                                                                                 marginRight: "5px",
                                                                             }}
                                                                         />
@@ -1307,7 +1309,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     <span
                                                                         style={{
                                                                             color: "white",
-                                                                            transform: "rotateX(180deg)",
+                                                                            transform: "none",
                                                                         }}
                                                                     >
                                                                         {isBan ? "Ban" : "Pick"}
@@ -1335,7 +1337,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     : "black",
                                                             fontWeight: "bold",
                                                             fontSize: "0.9rem",
-                                                            transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
+                                                            transform: "translate(-50%, 50%)",
                                                             whiteSpace: "nowrap",
                                                             pointerEvents: "none",
                                                             zIndex: 93,
@@ -1417,11 +1419,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                             left: "0%",
                                             width: "100%",
                                             height: "70%",
-                                            transform: "rotate(180deg) scaleX(-1)",
                                             overflow: "visible",
                                         }}
                                     >
-                                        {CreatureByLevel[1].map((creatureId: number) => (
+                                        {CREATURES_BY_DISPLAY_LEVEL[1].map((creatureId: number) => (
                                             <Box
                                                 key={creatureId}
                                                 className="creature-image"
@@ -1548,7 +1549,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     sx={{
                                                                         position: "absolute",
                                                                         zIndex: 104,
-                                                                        transform: "rotateX(180deg)",
+                                                                        transform: "none",
                                                                         bottom: "56%",
                                                                         cursor: "pointer",
                                                                         "& .MuiBadge-badge": {
@@ -1596,8 +1597,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                 transform:
                                                                     selectedCreature === creatureId ||
                                                                     hoveredCreature === creatureId
-                                                                        ? "scale(1.2) translateY(25%) rotateY(180deg)"
-                                                                        : "scale(1) rotateY(180deg)",
+                                                                        ? "scale(1.2) translateY(25%)"
+                                                                        : "scale(1)",
                                                                 transition: "transform 0.2s ease-out",
                                                                 animation:
                                                                     pickBanContext.isYourTurn &&
@@ -1629,8 +1630,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                 transform:
                                                                     selectedCreature === creatureId ||
                                                                     hoveredCreature === creatureId
-                                                                        ? "scale(1.2) translateY(55%) rotateX(180deg)"
-                                                                        : "scale(1) rotateX(180deg)",
+                                                                        ? "scale(1.2) translateY(55%)"
+                                                                        : "scale(1)",
                                                                 transition: "transform 0.2s ease-out",
                                                             }}
                                                         />
@@ -1681,14 +1682,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     {isBan ? (
                                                                         <BlockIcon
                                                                             sx={{
-                                                                                transform: "rotateX(180deg)",
+                                                                                transform: "none",
                                                                                 marginRight: "5px",
                                                                             }}
                                                                         />
                                                                     ) : (
                                                                         <CheckIcon
                                                                             sx={{
-                                                                                transform: "rotateX(180deg)",
+                                                                                transform: "none",
                                                                                 marginRight: "5px",
                                                                             }}
                                                                         />
@@ -1696,7 +1697,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     <span
                                                                         style={{
                                                                             color: "white",
-                                                                            transform: "rotateX(180deg)",
+                                                                            transform: "none",
                                                                         }}
                                                                     >
                                                                         {isBan ? "Ban" : "Pick"}
@@ -1724,7 +1725,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     : "black",
                                                             fontWeight: "bold",
                                                             fontSize: "0.9rem",
-                                                            transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
+                                                            transform: "translate(-50%, 50%)",
                                                             whiteSpace: "nowrap",
                                                             pointerEvents: "none",
                                                             zIndex: 92,
@@ -1806,11 +1807,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                             left: "0%",
                                             width: "100%",
                                             height: "80%",
-                                            transform: "rotate(180deg) scaleX(-1)",
                                             overflow: "visible",
                                         }}
                                     >
-                                        {CreatureByLevel[0].map((creatureId: number, index: number) => (
+                                        {CREATURES_BY_DISPLAY_LEVEL[0].map((creatureId: number, index: number) => (
                                             <Box
                                                 key={creatureId}
                                                 className="creature-image"
@@ -1944,7 +1944,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     sx={{
                                                                         position: "absolute",
                                                                         zIndex: 104,
-                                                                        transform: "rotateX(180deg)",
+                                                                        transform: "none",
                                                                         bottom: "53%",
                                                                         cursor: "pointer",
                                                                         "& .MuiBadge-badge": {
@@ -1992,8 +1992,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                 transform:
                                                                     selectedCreature === creatureId ||
                                                                     hoveredCreature === creatureId
-                                                                        ? "scale(1.2) translateY(25%) rotateY(180deg)"
-                                                                        : "scale(1) rotateY(180deg)",
+                                                                        ? "scale(1.2) translateY(25%)"
+                                                                        : "scale(1)",
                                                                 transition: "transform 0.2s ease-out",
                                                                 pointerEvents: "none",
                                                                 animation:
@@ -2026,8 +2026,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                 transform:
                                                                     selectedCreature === creatureId ||
                                                                     hoveredCreature === creatureId
-                                                                        ? "scale(1.2) translateY(55%) rotateX(180deg)"
-                                                                        : "scale(1) rotateX(180deg)",
+                                                                        ? "scale(1.2) translateY(55%)"
+                                                                        : "scale(1)",
                                                                 transition: "transform 0.2s ease-out",
                                                             }}
                                                         />
@@ -2078,14 +2078,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     {isBan ? (
                                                                         <BlockIcon
                                                                             sx={{
-                                                                                transform: "rotateX(180deg)",
+                                                                                transform: "none",
                                                                                 marginRight: "5px",
                                                                             }}
                                                                         />
                                                                     ) : (
                                                                         <CheckIcon
                                                                             sx={{
-                                                                                transform: "rotateX(180deg)",
+                                                                                transform: "none",
                                                                                 marginRight: "5px",
                                                                             }}
                                                                         />
@@ -2093,7 +2093,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     <span
                                                                         style={{
                                                                             color: "white",
-                                                                            transform: "rotateX(180deg)",
+                                                                            transform: "none",
                                                                         }}
                                                                     >
                                                                         {isBan ? "Ban" : "Pick"}
@@ -2121,7 +2121,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, height = wi
                                                                     : "black",
                                                             fontWeight: "bold",
                                                             fontSize: "0.9rem",
-                                                            transform: "translate(-50%, 50%) rotate(180deg) scaleX(-1)",
+                                                            transform: "translate(-50%, 50%)",
                                                             whiteSpace: "nowrap",
                                                             pointerEvents: "none",
                                                             zIndex: 91,

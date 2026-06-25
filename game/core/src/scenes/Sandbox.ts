@@ -901,16 +901,32 @@ export class Sandbox extends PixiScene {
         this.pendingReplayRecords = [];
         try {
             this.hydrateSceneState(cloneReplayData(replay.initialState));
+            this.sc_sceneLog.clear();
             if (sequence <= 0) {
                 return true;
             }
 
-            for (const record of replay.actions.slice(0, sequence)) {
+            const records = replay.actions.slice(0, sequence);
+            const startFightIndex = records.findIndex((record) => record.action.type === "start_fight");
+
+            for (let index = 0; index < records.length; index += 1) {
+                const record = records[index];
+                const previousState = index > 0 ? records[index - 1]?.stateAfter : replay.initialState;
+
+                if (this.shouldApplyReplayRecordAsCheckpoint(record, index, startFightIndex)) {
+                    this.hydrateSceneState(cloneReplayData(record.stateAfter));
+                    continue;
+                }
+
+                if (previousState) {
+                    this.hydrateSceneState(cloneReplayData(previousState));
+                }
+
                 const played = await this.playSandboxReplayRecord(record);
                 if (!played) {
-                    this.sc_sceneLog.updateLog(`Replay skipped ${record.action.type}`);
+                    console.warn("Replay could not animate action", record.action.type, record.action);
                 }
-                this.advanceAfterNoActiveUnitIfNeeded();
+                this.hydrateSceneState(cloneReplayData(record.stateAfter));
                 await this.delayReplay(180);
             }
 
@@ -931,6 +947,20 @@ export class Sandbox extends PixiScene {
             globalThis.setTimeout(resolve, ms);
         });
     }
+    private shouldApplyReplayRecordAsCheckpoint(
+        record: SandboxReplay["actions"][number],
+        index: number,
+        startFightIndex: number,
+    ): boolean {
+        if (startFightIndex >= 0 && index <= startFightIndex) {
+            return true;
+        }
+        return (
+            record.action.type === "start_fight" ||
+            record.action.type === "place_unit" ||
+            record.action.type === "delete_unit"
+        );
+    }
     private async playSandboxReplayRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
         const action = cloneReplayData(record.action);
         const replayActorId = this.getReplayTurnActorId(action);
@@ -944,10 +974,10 @@ export class Sandbox extends PixiScene {
                 return started;
             }
             case "move_unit":
-                return this.playReplayMoveAction(action);
+                return this.playReplayMoveRecord(record);
             case "melee_attack":
             case "range_attack":
-                return this.playReplayAttackAction(action);
+                return this.playReplayAttackRecord(record);
             case "obstacle_attack":
                 return this.playReplayObstacleAttackAction(action);
             case "area_throw_attack":
@@ -958,6 +988,7 @@ export class Sandbox extends PixiScene {
             case "wait_turn":
             case "defend_turn":
             case "select_attack_type":
+                return this.playReplayControlRecord(record);
             case "place_unit":
             case "delete_unit":
                 return this.applyGameAction(action);
@@ -1005,39 +1036,321 @@ export class Sandbox extends PixiScene {
         this.handleNextUnitActivation(unit);
         return true;
     }
-    private playReplayMoveAction(action: Extract<GameAction, { type: "move_unit" }>): Promise<boolean> {
-        const unit = this.unitsHolder.getAllUnits().get(action.unitId) as RenderableUnit | undefined;
-        if (!unit) {
+    private async playReplayControlRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
+        const action = record.action;
+        const actorId = this.getReplayTurnActorId(action);
+        const actor = actorId ? (this.unitsHolder.getAllUnits().get(actorId) as RenderableUnit | undefined) : undefined;
+
+        switch (action.type) {
+            case "end_turn":
+                if (actor) {
+                    this.sc_sceneLog.updateLog(`${actor.getName()} ends turn`);
+                }
+                break;
+            case "wait_turn":
+                if (actor) {
+                    this.sc_sceneLog.updateLog(`${actor.getName()} waits (hourglass)`);
+                }
+                break;
+            case "defend_turn":
+                if (actor) {
+                    this.sc_sceneLog.updateLog(`${actor.getName()} uses Luck Shield`);
+                }
+                break;
+            case "select_attack_type":
+                break;
+            default:
+                return false;
+        }
+
+        this.applyReplayEvents(record.events);
+        await this.delayReplay(220);
+        return true;
+    }
+    private playReplayMoveRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
+        const action = cloneReplayData(record.action);
+        if (action.type !== "move_unit") {
             return Promise.resolve(false);
         }
 
+        const unit = this.unitsHolder.getAllUnits().get(action.unitId) as RenderableUnit | undefined;
+        const moveEvent = record.events.find(
+            (event): event is Extract<GameEvent, { type: "unit_moved" }> =>
+                event.type === "unit_moved" && event.unitId === action.unitId,
+        );
+        if (!unit || !moveEvent) {
+            return Promise.resolve(false);
+        }
+
+        this.currentActiveUnit = unit;
+        unit.setActiveTurn(true);
+        unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
+        return this.playRecordedMoveAnimation(unit, moveEvent);
+    }
+    private playRecordedMoveAnimation(
+        unit: RenderableUnit,
+        moveEvent: Extract<GameEvent, { type: "unit_moved" }>,
+    ): Promise<boolean> {
+        const worldPath = this.createRecordedMoveWorldPath(unit, moveEvent);
+        if (worldPath.length < 2) {
+            unit.setPosition(moveEvent.to.x, moveEvent.to.y);
+            unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
+            return Promise.resolve(true);
+        }
+
         return new Promise((resolve) => {
-            const started = this.executeMoveSequence(
+            const gs = this.sc_sceneSettings.getGridSettings();
+            const speed = gs.getCellSize() * 16;
+            this.moveAnimManager.startMoveAnimation(
                 unit,
-                action.path,
-                action.targetCells,
+                worldPath,
+                speed,
+                this.getRecordedMoveDestCell(moveEvent),
+                this.shouldUseRecordedMoveTrack(unit, moveEvent) ? moveEvent.path : undefined,
                 () => resolve(true),
-                action,
             );
-            if (!started) {
-                resolve(false);
+            this.isActiveUnitMoving = true;
+            if (this.sc_visibleState) {
+                this.sc_visibleStateUpdateNeeded = true;
             }
+
+            this.hoverManager.setSilhouetteLocked(true);
+            this.currentActivePath = undefined;
+            this.currentActiveKnownPaths = undefined;
+            this.currentActivePathHashes = undefined;
+            this.hoverManager.clearHoverSilhouette();
+            this.hoverManager.hoveredUnitHighlight = undefined;
+            this.sc_moveBlocked = true;
         });
     }
-    private async playReplayAttackAction(
-        action: Extract<GameAction, { type: "melee_attack" }> | Extract<GameAction, { type: "range_attack" }>,
-    ): Promise<boolean> {
+    private createRecordedMoveWorldPath(
+        unit: RenderableUnit,
+        moveEvent: Extract<GameEvent, { type: "unit_moved" }>,
+    ): HoCMath.XY[] {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const worldPath: HoCMath.XY[] = [{ x: moveEvent.from.x, y: moveEvent.from.y }];
+        unit.setPosition(moveEvent.from.x, moveEvent.from.y);
+
+        if (!moveEvent.path.length || this.isRecordedMoveFootprintOnly(unit, moveEvent)) {
+            this.pushReplayWorldPathPoint(worldPath, moveEvent.to);
+            return worldPath;
+        }
+
+        let offsetX = 0;
+        let offsetY = 0;
+        if (!unit.isSmallSize()) {
+            const lastPathCell = moveEvent.path[moveEvent.path.length - 1];
+            const lastCellPos = GridMath.getPositionForCell(lastPathCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+            if (lastCellPos) {
+                offsetX = moveEvent.to.x - lastCellPos.x;
+                offsetY = moveEvent.to.y - lastCellPos.y;
+            }
+        }
+
+        for (const cell of moveEvent.path) {
+            const pos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+            if (pos) {
+                this.pushReplayWorldPathPoint(worldPath, { x: pos.x + offsetX, y: pos.y + offsetY });
+            }
+        }
+        this.pushReplayWorldPathPoint(worldPath, moveEvent.to);
+        return worldPath;
+    }
+    private pushReplayWorldPathPoint(path: HoCMath.XY[], point: HoCMath.XY): void {
+        const last = path[path.length - 1];
+        if (!last || Math.abs(last.x - point.x) > 0.01 || Math.abs(last.y - point.y) > 0.01) {
+            path.push({ x: point.x, y: point.y });
+        }
+    }
+    private isRecordedMoveFootprintOnly(
+        unit: RenderableUnit,
+        moveEvent: Extract<GameEvent, { type: "unit_moved" }>,
+    ): boolean {
+        return (
+            !unit.isSmallSize() &&
+            moveEvent.targetCells.length === moveEvent.path.length &&
+            moveEvent.path.length > 0 &&
+            moveEvent.path.every((cell) =>
+                moveEvent.targetCells.some((targetCell) => targetCell.x === cell.x && targetCell.y === cell.y),
+            )
+        );
+    }
+    private shouldUseRecordedMoveTrack(
+        unit: RenderableUnit,
+        moveEvent: Extract<GameEvent, { type: "unit_moved" }>,
+    ): boolean {
+        return moveEvent.path.length > 0 && !this.isRecordedMoveFootprintOnly(unit, moveEvent);
+    }
+    private getRecordedMoveDestCell(moveEvent: Extract<GameEvent, { type: "unit_moved" }>): HoCMath.XY {
+        if (moveEvent.targetCells.length) {
+            return moveEvent.targetCells[0];
+        }
+        if (moveEvent.path.length) {
+            return moveEvent.path[moveEvent.path.length - 1];
+        }
+        return (
+            GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), moveEvent.to) ?? {
+                x: Math.round(moveEvent.to.x),
+                y: Math.round(moveEvent.to.y),
+            }
+        );
+    }
+    private async playReplayAttackRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
+        const action = cloneReplayData(record.action);
+        if (action.type !== "melee_attack" && action.type !== "range_attack") {
+            return false;
+        }
+
         const attacker = this.unitsHolder.getAllUnits().get(action.attackerId) as RenderableUnit | undefined;
-        const target = this.unitsHolder.getAllUnits().get(action.targetId);
-        if (!attacker || !target) {
+        const target = this.unitsHolder.getAllUnits().get(action.targetId) as RenderableUnit | undefined;
+        const attackEvent = record.events.find(
+            (event): event is Extract<GameEvent, { type: "unit_attacked" }> =>
+                event.type === "unit_attacked" && event.attackerId === action.attackerId,
+        );
+        if (!attacker || !target || !attackEvent) {
             return false;
         }
 
         this.currentActiveUnit = attacker;
         attacker.setActiveTurn(true);
         attacker.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
-        const attackFrom = action.type === "melee_attack" ? action.attackFrom : attacker.getPosition();
-        return this.executeAttackSequence(attacker, target, attackFrom, action);
+        this.sc_moveBlocked = true;
+
+        if (attackEvent.attackType === "range") {
+            await this.playReplayProjectile(attacker, target);
+            if (attacker.getAbility("Double Shot") && attackEvent.damage.hits && attackEvent.damage.hits.length > 1) {
+                void this.playReplayProjectile(attacker, target);
+            }
+        } else {
+            await this.playReplayOneShot(attacker, "attack", 360);
+        }
+
+        this.sc_sceneLog.updateLog(`${attacker.getName()} attk ${target.getName()} (${attackEvent.damage.amount})`);
+        this.showReplayAttackDamage(attacker, target, attackEvent, record);
+        this.applyReplayAttackRecoil(attacker, attackEvent);
+        await this.delayReplay(this.getReplayAttackDamageHoldMs(attackEvent));
+        this.applyReplayEvents(record.events);
+        this.sc_moveBlocked = false;
+        await this.delayReplay(420);
+        return true;
+    }
+    private async playReplayProjectile(attacker: RenderableUnit, target: RenderableUnit): Promise<void> {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const muzzle = attacker.getVisualCenter(gs);
+        const targetPosition = target.getVisualCenter(gs);
+        const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
+        await this.rangedProjectiles.fire({ from: muzzle, to: targetPosition, big: bigProjectile });
+    }
+    private playReplayOneShot(unit: RenderableUnit, stateName: string, timeoutMs: number): Promise<void> {
+        return new Promise((resolve) => {
+            let done = false;
+            const finish = (): void => {
+                if (done) {
+                    return;
+                }
+                done = true;
+                clearTimeout(timeout);
+                resolve();
+            };
+            const timeout = setTimeout(finish, timeoutMs);
+            unit.playOneShotAnimation(stateName, finish);
+        });
+    }
+    private showReplayAttackDamage(
+        attacker: RenderableUnit,
+        target: RenderableUnit,
+        attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
+        record: SandboxReplay["actions"][number],
+    ): void {
+        const damage = attackEvent.damage;
+        if (!damage.render || (damage.amount <= 0 && !damage.hits?.length)) {
+            return;
+        }
+
+        const damageUnitId = damage.unitId ?? attackEvent.targetId;
+        const victim = (this.unitsHolder.getAllUnits().get(damageUnitId) as RenderableUnit | undefined) ?? target;
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const attackerCenter = attacker.getVisualCenter(gs);
+        const victimCenter = victim.getVisualCenter(gs);
+        const direction = { x: victimCenter.x - attackerCenter.x, y: victimCenter.y - attackerCenter.y };
+        const spawnPos = this.offsetReplayDamagePosition(damage.unitPosition ?? victimCenter, victim, direction);
+        const hits = damage.hits ?? [];
+
+        if (hits.length) {
+            hits.forEach((hit, index) => {
+                if (hit.amount <= 0) {
+                    return;
+                }
+                const pos = { ...spawnPos };
+                setTimeout(() => {
+                    this.combatVisuals.showFloatingDamage(pos, hit.amount, direction, hit.unitsDied);
+                }, index * 240);
+            });
+            return;
+        }
+
+        this.combatVisuals.showFloatingDamage(
+            spawnPos,
+            damage.amount,
+            direction,
+            this.getReplayUnitLoss(record, damageUnitId),
+        );
+    }
+    private offsetReplayDamagePosition(position: HoCMath.XY, unit: RenderableUnit, direction: HoCMath.XY): HoCMath.XY {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+        const spawnPos = { x: position.x, y: position.y };
+        if (len <= 0.001) {
+            spawnPos.y += gs.getCellSize();
+            return spawnPos;
+        }
+
+        const radius = unit.isSmallSize() ? gs.getCellSize() * 0.5 : gs.getCellSize();
+        const margin = gs.getCellSize() * 0.5;
+        spawnPos.x += (direction.x / len) * (radius + margin);
+        spawnPos.y += (direction.y / len) * (radius + margin);
+        return spawnPos;
+    }
+    private getReplayUnitLoss(record: SandboxReplay["actions"][number], unitId: string): number {
+        const before = this.unitsHolder.getAllUnits().get(unitId)?.getAmountAlive() ?? 0;
+        const after = record.stateAfter.units.find((unitState) => unitState.properties.id === unitId);
+        return Math.max(0, before - (after?.properties.amount_alive ?? 0));
+    }
+    private applyReplayAttackRecoil(
+        attacker: RenderableUnit,
+        attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
+    ): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const attackerCenter = attacker.getVisualCenter(gs);
+        for (const animation of attackEvent.animations) {
+            const unitId = animation.affectedUnitId ?? animation.bodyUnitId;
+            const unit = unitId
+                ? (this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined)
+                : undefined;
+            if (!unit) {
+                continue;
+            }
+            const from = animation.fromPosition ?? attackerCenter;
+            const to = animation.toPosition;
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len > 0.001) {
+                const magnitude = gs.getCellSize() * 0.28;
+                unit.applyRecoil((dx / len) * magnitude, (dy / len) * magnitude);
+            }
+        }
+    }
+    private getReplayAttackDamageHoldMs(attackEvent: Extract<GameEvent, { type: "unit_attacked" }>): number {
+        const hitCount = attackEvent.damage.hits?.length ?? 0;
+        return Math.max(520, (Math.max(1, hitCount) - 1) * 240 + 520);
+    }
+    private applyReplayEvents(events: GameEvent[]): void {
+        const visibleEvents = events.filter((event) => event.type !== "fight_finished");
+        if (!visibleEvents.length) {
+            return;
+        }
+        this.applyTurnEngineEvents(visibleEvents, this.snapshotRenderableUnits());
     }
     private async playReplayObstacleAttackAction(
         action: Extract<GameAction, { type: "obstacle_attack" }>,
