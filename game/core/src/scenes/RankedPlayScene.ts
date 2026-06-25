@@ -101,11 +101,7 @@ export class RankedPlayScene extends Sandbox {
         this.sc_visibleState.lapNumber = fightStats.totalLaps;
         this.sc_visibleStateUpdateNeeded = true;
     }
-    private buildFinishedFightStats(
-        winner: TeamType,
-        units: SandboxSceneUnitState[],
-        lap: number,
-    ): IFightStatsReport {
+    private buildFinishedFightStats(winner: TeamType, units: SandboxSceneUnitState[], lap: number): IFightStatsReport {
         const lowerDeaths = this.buildDeathEntries(units, TeamVals.LOWER as TeamType);
         const upperDeaths = this.buildDeathEntries(units, TeamVals.UPPER as TeamType);
         const lowerStartTotal = this.startTotal(units, TeamVals.LOWER as TeamType);
