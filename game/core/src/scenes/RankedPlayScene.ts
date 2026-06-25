@@ -9,6 +9,7 @@ import {
     type GameAction,
     type GridType,
     type TeamType,
+    type Unit,
     type UnitProperties,
 } from "@heroesofcrypto/common";
 
@@ -49,6 +50,8 @@ export const authoritativeSnapshotToSandboxSceneState = (
     fightStarted: snapshot.fightStarted,
     fightFinished: snapshot.fightFinished,
     currentUnitId: snapshot.currentUnitId || undefined,
+    narrowingLayers: snapshot.narrowingLayers,
+    centerDried: snapshot.centerDried,
     units: snapshot.units.flatMap((unit) => {
         const restored = authoritativeUnitToSandboxUnitState(unit);
         return restored ? [restored] : [];
@@ -148,6 +151,9 @@ export class RankedPlayScene extends Sandbox {
     }
     protected override shouldRenderUnplacedUnitBench(unitState: SandboxSceneUnitState): boolean {
         return this.viewerTeam === undefined || unitState.team === this.viewerTeam;
+    }
+    protected override canSelectUnitForPlacement(unit: Unit): boolean {
+        return this.viewerTeam !== undefined && unit.getTeam() === this.viewerTeam;
     }
     private applyFinishedVisibleState(snapshot: AuthoritativeGameSnapshot, units: SandboxSceneUnitState[]): void {
         const winner = snapshot.winnerTeam as TeamType | undefined;
@@ -282,6 +288,8 @@ export class RankedPlayScene extends Sandbox {
             fightFinished: snapshot.fightFinished,
             currentUnitId: snapshot.currentUnitId,
             currentTurnTeam: snapshot.currentTurnTeam,
+            narrowingLayers: snapshot.narrowingLayers,
+            centerDried: snapshot.centerDried,
             viewerTeam: snapshot.viewerTeam,
             winnerTeam: snapshot.winnerTeam,
             units: snapshot.units.map((unit) => ({

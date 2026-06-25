@@ -19,6 +19,8 @@ import {
     SynergyWithLevel,
     AbilityHelper,
     GridSettings,
+    type GameAction,
+    type GameEvent,
 } from "@heroesofcrypto/common";
 import type {
     AuthoritativeGameSnapshot,
@@ -179,6 +181,9 @@ export abstract class PixiScene {
     public applyAuthoritativeSnapshot(_snapshot: AuthoritativeGameSnapshot): void {}
     public applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
         this.applyAuthoritativeSnapshot(snapshot);
+    }
+    public playAuthoritativeActionRecord(_action: GameAction, _events: GameEvent[]): Promise<boolean> {
+        return Promise.resolve(false);
     }
     public selectAuthoritativeUnit(_unitId: string): void {}
     protected dispatchExternalGameAction(

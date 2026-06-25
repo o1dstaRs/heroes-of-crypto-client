@@ -20,8 +20,13 @@ import type { PlayAction, PlaySnapshot, PlayUnitState } from "../api/play_protoc
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { usePixiManager } from "../pixi/PixiGameManager";
 import type { SceneEntry } from "../pixi/PixiScene";
-import { collectRankedReplaySnapshots, createSandboxReplayFromRankedReplay } from "../replay/ranked_replay";
-import { getLocalModelOpponentConfig } from "../scenes/LocalModelOpponent";
+import {
+    collectRankedReplaySnapshots,
+    createSandboxReplayFromRankedReplay,
+    parseRankedReplayAction,
+    type RankedReplayActionRecord,
+} from "../replay/ranked_replay";
+import { getLocalModelOpponentConfig, isLocalModelAction } from "../scenes/LocalModelOpponent";
 import { authoritativeSnapshotToSandboxSceneState, RankedPlayScene } from "../scenes/RankedPlayScene";
 import type { IWindowSize } from "../scenes/VisibleState";
 import DraggableToolbar from "./DraggableToolbar";
@@ -52,8 +57,8 @@ const phaseLabel = (phase: number): string => {
 };
 
 const teamLabel = (team: number): string => {
-    if (team === TeamVals.LOWER) return "Red";
-    if (team === TeamVals.UPPER) return "Green";
+    if (team === TeamVals.LOWER) return "Green";
+    if (team === TeamVals.UPPER) return "Red";
     return "Neutral";
 };
 
@@ -91,6 +96,22 @@ const teamForAction = (snapshot: PlaySnapshot | null, action: GameAction): TeamT
     return snapshot?.units.find((unit) => unit.id === controlledUnitId)?.team as TeamType | undefined;
 };
 
+const isTurnResolvingAction = (action: GameAction): boolean => {
+    switch (action.type) {
+        case "end_turn":
+        case "wait_turn":
+        case "defend_turn":
+        case "melee_attack":
+        case "range_attack":
+        case "obstacle_attack":
+        case "area_throw_attack":
+        case "cast_spell":
+            return true;
+        default:
+            return false;
+    }
+};
+
 type Props = {
     gameId: string;
     userTeam: TeamType;
@@ -112,11 +133,27 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const snapshotRef = useRef<PlaySnapshot | null>(null);
     const actionQueueRef = useRef<Promise<void>>(Promise.resolve());
     const replayTimersRef = useRef<number[]>([]);
+    const pendingTurnResolutionRef = useRef(false);
+    const pendingAuthoritativeRecordsRef = useRef(new Map<number, RankedReplayActionRecord>());
+    const playedAuthoritativeSequencesRef = useRef(new Set<number>());
+    const authoritativePlaybackQueueRef = useRef<Promise<void>>(Promise.resolve());
 
     const applySnapshot = useCallback((nextSnapshot: PlaySnapshot) => {
+        pendingTurnResolutionRef.current = false;
         latestSequenceRef.current = Math.max(latestSequenceRef.current, nextSnapshot.latestSequence);
         snapshotRef.current = nextSnapshot;
         setSnapshot(nextSnapshot);
+    }, []);
+
+    const rememberAuthoritativeRecord = useCallback((entry: PlaySnapshot["journalTail"][number] | undefined) => {
+        if (!entry || playedAuthoritativeSequencesRef.current.has(entry.sequence)) {
+            return;
+        }
+        const record = parseRankedReplayAction(entry);
+        if (!record || !record.events.length) {
+            return;
+        }
+        pendingAuthoritativeRecordsRef.current.set(record.sequence, record);
     }, []);
 
     const refreshSnapshot = useCallback(async () => {
@@ -161,6 +198,21 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         manager.ApplyAuthoritativeSnapshot(toAuthoritativeGameSnapshot(snapshot, viewerTeam));
         if (selectedUnitId && snapshot.units.some((unit) => unit.id === selectedUnitId && !unit.dead)) {
             manager.SelectAuthoritativeUnit(selectedUnitId);
+        }
+        const records = [...pendingAuthoritativeRecordsRef.current.entries()]
+            .filter(([sequence]) => sequence <= snapshot.latestSequence)
+            .sort(([a], [b]) => a - b);
+        for (const [sequence, record] of records) {
+            pendingAuthoritativeRecordsRef.current.delete(sequence);
+            if (playedAuthoritativeSequencesRef.current.has(sequence)) {
+                continue;
+            }
+            playedAuthoritativeSequencesRef.current.add(sequence);
+            authoritativePlaybackQueueRef.current = authoritativePlaybackQueueRef.current
+                .catch(() => undefined)
+                .then(async () => {
+                    await manager.PlayAuthoritativeActionRecord(record.action, record.events);
+                });
         }
     }, [manager, pixiReady, selectedUnitId, snapshot, viewerTeam]);
 
@@ -226,6 +278,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                         if (!event) continue;
 
                         latestSequenceRef.current = Math.max(latestSequenceRef.current, event.sequence);
+                        rememberAuthoritativeRecord(event.journalEntry);
                         if (event.snapshot) {
                             applySnapshot(event.snapshot);
                         }
@@ -252,7 +305,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             }
             abortRef.current?.abort();
         };
-    }, [applySnapshot, gameId]);
+    }, [applySnapshot, gameId, rememberAuthoritativeRecord]);
 
     const myPlayer = useMemo(() => snapshot?.players.find((player) => player.team === userTeam), [snapshot, userTeam]);
     const isObserver = userTeam === TeamVals.NO_TEAM || !myPlayer;
@@ -282,17 +335,23 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             try {
                 const result = await sendRankedPlayAction(gameId, payload, options);
                 latestSequenceRef.current = Math.max(latestSequenceRef.current, result.sequence);
+                if (payload.type === PlayActionType.PING && result.accepted) {
+                    return true;
+                }
+                rememberAuthoritativeRecord(result.event?.journalEntry);
                 if (result.event?.snapshot) {
                     applySnapshot(result.event.snapshot);
                 } else {
                     await refreshSnapshot();
                 }
                 if (!result.accepted) {
+                    pendingTurnResolutionRef.current = false;
                     setError(result.rejectionReason || result.message || "Action rejected");
                     return false;
                 }
                 return true;
             } catch (err: unknown) {
+                pendingTurnResolutionRef.current = false;
                 setError((err as Error).message || "Unable to submit action");
                 return false;
             } finally {
@@ -301,7 +360,15 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 }
             }
         },
-        [applySnapshot, gameId, isObserver, localModelConfig.enabled, localModelConfig.modelTeam, refreshSnapshot],
+        [
+            applySnapshot,
+            gameId,
+            isObserver,
+            localModelConfig.enabled,
+            localModelConfig.modelTeam,
+            refreshSnapshot,
+            rememberAuthoritativeRecord,
+        ],
     );
 
     const buildActionEnvelope = useCallback((team: TeamType = userTeam) => {
@@ -371,19 +438,68 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         [submitGameActionForTeam, userTeam],
     );
 
+    useEffect(() => {
+        if (!localModelConfig.enabled || !localModelConfig.authorization) {
+            return undefined;
+        }
+
+        const pingModelPlayer = () => {
+            void submitProtocolActionForTeam(
+                { type: PlayActionType.PING },
+                localModelConfig.modelTeam,
+                localModelConfig.authorization,
+            );
+        };
+        const timer = window.setInterval(pingModelPlayer, 8_000);
+        pingModelPlayer();
+        return () => window.clearInterval(timer);
+    }, [
+        localModelConfig.authorization,
+        localModelConfig.enabled,
+        localModelConfig.modelTeam,
+        submitProtocolActionForTeam,
+    ]);
+
     const transport = useCallback<SceneGameActionTransport>(
         (action) => {
+            if (pendingTurnResolutionRef.current) {
+                return {
+                    handled: true,
+                    completed: false,
+                    message: "Waiting for server turn update",
+                };
+            }
+
             const actionTeam = teamForAction(snapshotRef.current, action);
-            if (
+            const isModelSubmission =
                 localModelConfig.enabled &&
                 localModelConfig.authorization &&
-                actionTeam === localModelConfig.modelTeam
-            ) {
+                actionTeam === localModelConfig.modelTeam &&
+                isLocalModelAction(action);
+
+            if (actionTeam !== undefined && actionTeam !== userTeam && !isModelSubmission) {
+                return {
+                    handled: true,
+                    completed: false,
+                    message:
+                        action.type === "place_unit" || action.type === "delete_unit"
+                            ? "Opponent placement is controlled by the opponent"
+                            : "Opponent turn is controlled by the opponent",
+                };
+            }
+
+            if (isModelSubmission) {
+                if (isTurnResolvingAction(action)) {
+                    pendingTurnResolutionRef.current = true;
+                }
                 void submitGameActionForTeam(action, localModelConfig.modelTeam, localModelConfig.authorization);
                 return { handled: true, completed: true, message: "Submitted model action to ranked server" };
             }
             if (isObserver) {
                 return { handled: true, completed: false, message: "Observer mode is read-only" };
+            }
+            if (isTurnResolvingAction(action)) {
+                pendingTurnResolutionRef.current = true;
             }
             void submitGameAction(action);
             return { handled: true, completed: true, message: "Submitted to ranked server" };
@@ -395,6 +511,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             localModelConfig.modelTeam,
             submitGameAction,
             submitGameActionForTeam,
+            userTeam,
         ],
     );
 

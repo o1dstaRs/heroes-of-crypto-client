@@ -103,6 +103,12 @@ export const createPlayActionFromGameAction = (action: GameAction, envelope: Pla
                 team: action.team,
                 cells: action.cells,
             });
+        case "split_unit":
+            return withEnvelope(envelope, {
+                type: PlayActionType.SPLIT_UNIT,
+                unitId: action.unitId,
+                amount: action.amount,
+            });
         case "delete_unit":
             return withEnvelope(envelope, { type: PlayActionType.DELETE_UNIT, unitId: action.unitId });
     }
@@ -201,6 +207,10 @@ export const createGameActionFromPlayAction = (action: Partial<PlayAction>): Gam
                 : undefined;
         case PlayActionType.DELETE_UNIT:
             return action.unitId ? { type: "delete_unit", unitId: action.unitId } : undefined;
+        case PlayActionType.SPLIT_UNIT:
+            return action.unitId && typeof action.amount === "number"
+                ? { type: "split_unit", unitId: action.unitId, amount: action.amount }
+                : undefined;
         default:
             return undefined;
     }

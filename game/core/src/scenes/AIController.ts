@@ -19,6 +19,7 @@ import {
     chooseLocalModelAction,
     createLocalModelActions,
     getLocalModelOpponentConfig,
+    markLocalModelAction,
     type LocalModelLegalAction,
     type LocalModelOpponentConfig,
 } from "./LocalModelOpponent";
@@ -53,12 +54,18 @@ export interface IAIContext {
 
     // Actions
     applyGameAction(action: GameAction): boolean;
-    executeAttackSequence(attacker: RenderableUnit, target: Unit, attackFrom: HoCMath.XY): Promise<boolean>;
+    executeAttackSequence(
+        attacker: RenderableUnit,
+        target: Unit,
+        attackFrom: HoCMath.XY,
+        replayAction?: Extract<GameAction, { type: "melee_attack" }> | Extract<GameAction, { type: "range_attack" }>,
+    ): Promise<boolean>;
     executeMoveSequence(
         unit: RenderableUnit,
         path: HoCMath.XY[],
         overrideFootprint?: HoCMath.XY[],
         onComplete?: () => void,
+        replayAction?: Extract<GameAction, { type: "move_unit" }>,
     ): boolean;
     refreshUnits(): void;
 }
@@ -101,7 +108,7 @@ export class AIController {
     private endTurnIfStillActive(unit: RenderableUnit): void {
         const currentUnit = this.context.getCurrentActiveUnit();
         if (currentUnit?.getId() === unit.getId()) {
-            this.context.applyGameAction({ type: "end_turn", unitId: unit.getId() });
+            this.context.applyGameAction(this.modelAction(unit, { type: "end_turn", unitId: unit.getId() }));
         }
     }
     private scheduleMoveWatchdog(unit: RenderableUnit, priorAIActive: boolean): ReturnType<typeof setTimeout> {
@@ -127,9 +134,10 @@ export class AIController {
     public shouldTriggerAI(): boolean {
         const currentUnit = this.context.getCurrentActiveUnit();
         if (!currentUnit) return false;
+        const playerAIEnabled = this.localModelOpponent.enabled ? false : this.isAIActive;
 
         return (
-            (this.shouldControlUnit(currentUnit) || this.isAIActive || currentUnit.hasAbilityActive("AI Driven")) &&
+            (this.shouldControlUnit(currentUnit) || playerAIEnabled || currentUnit.hasAbilityActive("AI Driven")) &&
             !this.performingAction
         );
     }
@@ -139,6 +147,9 @@ export class AIController {
     }
     private shouldControlUnit(unit: Unit): boolean {
         return this.localModelOpponent.enabled && unit.getTeam() === this.localModelOpponent.modelTeam;
+    }
+    private modelAction<T extends GameAction>(unit: Unit, action: T): T {
+        return this.shouldControlUnit(unit) ? markLocalModelAction(action) : action;
     }
     /**
      * Trigger AI action with proper delay.
@@ -263,7 +274,7 @@ export class AIController {
                 clearTimeout(watchdog);
                 this.endTurnIfStillActive(currentUnit);
                 this.finishAIAction(wasAIActive);
-            });
+            }, this.modelAction(currentUnit, action));
             if (!started) {
                 clearTimeout(watchdog);
                 this.endTurnIfStillActive(currentUnit);
@@ -284,14 +295,23 @@ export class AIController {
                 const started = this.context.executeMoveSequence(currentUnit, action.path, undefined, async () => {
                     clearTimeout(watchdog);
                     try {
-                        const completed = await this.context.executeAttackSequence(currentUnit, target, attackFrom);
+                        const completed = await this.context.executeAttackSequence(
+                            currentUnit,
+                            target,
+                            attackFrom,
+                            this.modelAction(currentUnit, action),
+                        );
                         if (!completed) {
                             this.endTurnIfStillActive(currentUnit);
                         }
                     } finally {
                         this.finishAIAction(wasAIActive);
                     }
-                });
+                }, this.modelAction(currentUnit, {
+                    type: "move_unit",
+                    unitId: currentUnit.getId(),
+                    path: action.path,
+                }));
                 if (!started) {
                     clearTimeout(watchdog);
                     this.endTurnIfStillActive(currentUnit);
@@ -300,7 +320,12 @@ export class AIController {
                 return true;
             }
 
-            const completed = await this.context.executeAttackSequence(currentUnit, target, attackFrom);
+            const completed = await this.context.executeAttackSequence(
+                currentUnit,
+                target,
+                attackFrom,
+                this.modelAction(currentUnit, action),
+            );
             if (!completed) {
                 this.endTurnIfStillActive(currentUnit);
             }
@@ -315,7 +340,12 @@ export class AIController {
             if (!target || !attackFrom) {
                 return false;
             }
-            const completed = await this.context.executeAttackSequence(currentUnit, target, attackFrom);
+            const completed = await this.context.executeAttackSequence(
+                currentUnit,
+                target,
+                attackFrom,
+                this.modelAction(currentUnit, action),
+            );
             if (!completed) {
                 this.endTurnIfStillActive(currentUnit);
             }
@@ -323,7 +353,7 @@ export class AIController {
             return true;
         }
 
-        if (this.context.applyGameAction(action)) {
+        if (this.context.applyGameAction(this.modelAction(currentUnit, action))) {
             this.finishAIAction(wasAIActive);
             return true;
         }
@@ -388,20 +418,42 @@ export class AIController {
             const aiActive = wasAIActive;
             const watchdog = this.scheduleMoveWatchdog(currentUnit, aiActive);
 
-            const moveStarted = this.context.executeMoveSequence(currentUnit, route, moveFootprint, async () => {
-                clearTimeout(watchdog);
-                try {
-                    const attackCompleted = await this.context.executeAttackSequence(currentUnit, target, attackCell);
-                    if (!attackCompleted) {
+            const moveStarted = this.context.executeMoveSequence(
+                currentUnit,
+                route,
+                moveFootprint,
+                async () => {
+                    clearTimeout(watchdog);
+                    try {
+                        const attackCompleted = await this.context.executeAttackSequence(
+                            currentUnit,
+                            target,
+                            attackCell,
+                            this.modelAction(currentUnit, {
+                                type: "melee_attack",
+                                attackerId: currentUnit.getId(),
+                                targetId: target.getId(),
+                                attackFrom: attackCell,
+                                path: route,
+                            }),
+                        );
+                        if (!attackCompleted) {
+                            this.endTurnIfStillActive(currentUnit);
+                        }
+                    } catch (err) {
+                        console.error("AI move-and-attack failed", err);
                         this.endTurnIfStillActive(currentUnit);
+                    } finally {
+                        this.finishAIAction(aiActive);
                     }
-                } catch (err) {
-                    console.error("AI move-and-attack failed", err);
-                    this.endTurnIfStillActive(currentUnit);
-                } finally {
-                    this.finishAIAction(aiActive);
-                }
-            });
+                },
+                this.modelAction(currentUnit, {
+                    type: "move_unit",
+                    unitId: currentUnit.getId(),
+                    path: route,
+                    targetCells: moveFootprint,
+                }),
+            );
             if (!moveStarted) {
                 clearTimeout(watchdog);
                 this.endTurnIfStillActive(currentUnit);
@@ -410,7 +462,17 @@ export class AIController {
             return true; // Callback handles cleanup
         } else {
             // No route - attack directly
-            const attackCompleted = await this.context.executeAttackSequence(currentUnit, unitToAttack, attackFromCell);
+            const attackCompleted = await this.context.executeAttackSequence(
+                currentUnit,
+                unitToAttack,
+                attackFromCell,
+                this.modelAction(currentUnit, {
+                    type: "melee_attack",
+                    attackerId: currentUnit.getId(),
+                    targetId: unitToAttack.getId(),
+                    attackFrom: attackFromCell,
+                }),
+            );
             if (!attackCompleted) {
                 this.endTurnIfStillActive(currentUnit);
             }
@@ -441,7 +503,17 @@ export class AIController {
         const targetUnit = this.context.getUnitsHolder().getAllUnits().get(targetUnitId);
         if (!targetUnit) return false;
 
-        return this.context.executeAttackSequence(currentUnit, targetUnit, attackFromCell);
+        return this.context.executeAttackSequence(
+            currentUnit,
+            targetUnit,
+            attackFromCell,
+            this.modelAction(currentUnit, {
+                type: "melee_attack",
+                attackerId: currentUnit.getId(),
+                targetId: targetUnit.getId(),
+                attackFrom: attackFromCell,
+            }),
+        );
     }
     /**
      * Handle RANGE_ATTACK action type.
@@ -466,7 +538,16 @@ export class AIController {
         const targetUnit = this.context.getUnitsHolder().getAllUnits().get(targetUnitId);
         if (!targetUnit) return false;
 
-        return this.context.executeAttackSequence(currentUnit, targetUnit, attackFromCell);
+        return this.context.executeAttackSequence(
+            currentUnit,
+            targetUnit,
+            attackFromCell,
+            this.modelAction(currentUnit, {
+                type: "range_attack",
+                attackerId: currentUnit.getId(),
+                targetId: targetUnit.getId(),
+            }),
+        );
     }
     /**
      * Handle move-only action.
@@ -504,11 +585,22 @@ export class AIController {
 
         // Execute move with cleanup callback
         const watchdog = this.scheduleMoveWatchdog(currentUnit, wasAIActive);
-        const moveStarted = this.context.executeMoveSequence(currentUnit, route, moveFootprint, () => {
-            clearTimeout(watchdog);
-            this.endTurnIfStillActive(currentUnit);
-            this.finishAIAction(wasAIActive);
-        });
+        const moveStarted = this.context.executeMoveSequence(
+            currentUnit,
+            route,
+            moveFootprint,
+            () => {
+                clearTimeout(watchdog);
+                this.endTurnIfStillActive(currentUnit);
+                this.finishAIAction(wasAIActive);
+            },
+            this.modelAction(currentUnit, {
+                type: "move_unit",
+                unitId: currentUnit.getId(),
+                path: route,
+                targetCells: moveFootprint,
+            }),
+        );
         if (!moveStarted) {
             clearTimeout(watchdog);
             this.endTurnIfStillActive(currentUnit);
@@ -521,10 +613,12 @@ export class AIController {
         if (unit.getAttackTypeSelection() === attackType) {
             return false;
         }
-        return this.context.applyGameAction({
-            type: "select_attack_type",
-            unitId: unit.getId(),
-            attackType,
-        });
+        return this.context.applyGameAction(
+            this.modelAction(unit, {
+                type: "select_attack_type",
+                unitId: unit.getId(),
+                attackType,
+            }),
+        );
     }
 }

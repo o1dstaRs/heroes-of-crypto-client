@@ -37,6 +37,9 @@ export class DungeonVisuals {
     public getHoleContainer(): Container {
         return this.holeContainer;
     }
+    public clearHoleLayers(): void {
+        this.holeContainer.removeChildren();
+    }
     public updateDungeonAtmosphere(started: boolean, alpha: number): void {
         const stage = this.context.getStage();
 

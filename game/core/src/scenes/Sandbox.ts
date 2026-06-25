@@ -110,6 +110,8 @@ export interface SandboxSceneState {
     fightStarted: boolean;
     fightFinished: boolean;
     currentUnitId?: string;
+    narrowingLayers?: number;
+    centerDried?: boolean;
     units: SandboxSceneUnitState[];
 }
 
@@ -471,10 +473,10 @@ export class Sandbox extends PixiScene {
                 this.sc_selectedAttackType = type;
             },
             applyGameAction: (action) => this.applyGameAction(action),
-            executeAttackSequence: (attacker, target, attackFrom) =>
-                this.executeAttackSequence(attacker, target, attackFrom),
-            executeMoveSequence: (unit, path, overrideFootprint, onComplete) =>
-                this.executeMoveSequence(unit, path, overrideFootprint, onComplete),
+            executeAttackSequence: (attacker, target, attackFrom, replayAction) =>
+                this.executeAttackSequence(attacker, target, attackFrom, replayAction),
+            executeMoveSequence: (unit, path, overrideFootprint, onComplete, replayAction) =>
+                this.executeMoveSequence(unit, path, overrideFootprint, onComplete, replayAction),
             refreshUnits: () => this.refreshUnits(),
         });
 
@@ -666,6 +668,9 @@ export class Sandbox extends PixiScene {
         }
         return undefined;
     }
+    protected canSelectUnitForPlacement(_unit: Unit): boolean {
+        return true;
+    }
     protected ensureCenterTerrainSprite(): void {
         this.dungeonVisuals.ensureCenterTerrainSprite();
     }
@@ -829,6 +834,11 @@ export class Sandbox extends PixiScene {
         this.sc_moveBlocked = false;
         this.sc_isAnimating = false;
         this.drawnNarrowingLaps.clear();
+        this.dungeonVisuals.clearHoleLayers();
+        this.dungeonVisuals.setCenterDried(!!snapshot.centerDried);
+        if (snapshot.centerDried) {
+            this.grid.cleanupCenterObstacle();
+        }
         this.hoverManager.clear();
         this.combatVisuals.clear();
         this.rangedProjectiles.clear();
@@ -909,6 +919,11 @@ export class Sandbox extends PixiScene {
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         this.unitsHolder.refreshStackPowerForAllUnits();
+        if (snapshot.narrowingLayers) {
+            this.renderNarrowingLayers(snapshot.narrowingLayers);
+            this.gridMatrix = this.grid.getMatrix();
+            this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+        }
         if (!snapshot.fightStarted) {
             this.refreshSynergyNumbers(TeamVals.LOWER);
             this.refreshSynergyNumbers(TeamVals.UPPER);
@@ -981,6 +996,10 @@ export class Sandbox extends PixiScene {
             fightStarted: fightProps.hasFightStarted(),
             fightFinished: fightProps.hasFightFinished(),
             currentUnitId: this.currentActiveUnit?.getId(),
+            narrowingLayers: fightProps.hasFightStarted()
+                ? Math.min(Math.max(0, fightProps.getLapsNarrowed()), HoCConstants.MAX_HOLE_LAYERS)
+                : 0,
+            centerDried: this.dungeonVisuals.isCenterDried(),
             units,
         };
     }
@@ -1052,6 +1071,31 @@ export class Sandbox extends PixiScene {
         } finally {
             this.replayRecordingSuspended = false;
             this.replayPlaybackActive = false;
+        }
+    }
+    public override async playAuthoritativeActionRecord(action: GameAction, events: GameEvent[]): Promise<boolean> {
+        if (!events.length) {
+            return false;
+        }
+
+        const record: SandboxReplay["actions"][number] = {
+            sequence: 0,
+            clientTimeMs: Date.now(),
+            action: cloneReplayData(action),
+            events: cloneReplayData(events),
+            stateAfter: this.captureSceneState(),
+        };
+
+        const priorPlaybackActive = this.replayPlaybackActive;
+        this.replayPlaybackActive = true;
+        try {
+            const played = await this.playSandboxReplayRecord(record);
+            if (!played) {
+                this.applyReplayEvents(record.events);
+            }
+            return true;
+        } finally {
+            this.replayPlaybackActive = priorPlaybackActive;
         }
     }
     private delayReplay(ms: number): Promise<void> {
@@ -2398,6 +2442,12 @@ export class Sandbox extends PixiScene {
 
         const unit = this.getUnitAtPosition(p);
         if (unit && unit instanceof RenderableUnit) {
+            if (
+                !FightStateManager.getInstance().getFightProperties().hasFightStarted() &&
+                !this.canSelectUnitForPlacement(unit)
+            ) {
+                return;
+            }
             // Set shifted unit (Toggle if same)
             if (this.currentShiftedUnit && this.currentShiftedUnit.getId() === unit.getId()) {
                 this.currentShiftedUnit = undefined;
@@ -2659,6 +2709,11 @@ export class Sandbox extends PixiScene {
         }
         // 2. PRE-FIGHT PLACEMENT INTERACTION
         const unitUnderMouse = this.getUnitAtPosition(p);
+        if (unitUnderMouse && !this.canSelectUnitForPlacement(unitUnderMouse)) {
+            this.clearBoardSelection();
+            this.Deselect(false, true);
+            return;
+        }
         const isSameBenchSelection =
             unitUnderMouse &&
             this.draggingUnitId === unitUnderMouse.getId() &&
@@ -5616,7 +5671,11 @@ export class Sandbox extends PixiScene {
             this.hoverManager.setLastPlacement(undefined);
 
             // --- A. TURN TIMER LOGIC ---
-            if (!this.replayPlaybackActive && HoCLib.getTimeMillis() >= fightProps.getCurrentTurnEnd()) {
+            if (
+                !this.sc_gameActionTransport &&
+                !this.replayPlaybackActive &&
+                HoCLib.getTimeMillis() >= fightProps.getCurrentTurnEnd()
+            ) {
                 this.finishTurn(false, "timeout");
             }
 
@@ -6031,8 +6090,26 @@ export class Sandbox extends PixiScene {
                 continue;
             }
             this.dungeonVisuals.spawnHoleLayer(layer);
+            this.occupyNarrowingLayer(layer);
             this.drawnNarrowingLaps.add(layer);
             this.moveFiresInward(layer);
+        }
+    }
+    private occupyNarrowingLayer(layer: number): void {
+        const gs = this.grid.getSettings();
+        const minCellX = gs.getMinX() / gs.getCellSize();
+        const maxCellX = gs.getMaxX() / gs.getCellSize();
+        const minCellY = gs.getMinY() / gs.getCellSize();
+        const maxCellY = gs.getMaxY() / gs.getCellSize();
+        const offset = layer - 1;
+
+        for (let i = minCellX + offset; i < maxCellX - offset; i++) {
+            this.grid.occupyByHole({ x: i + maxCellX, y: offset });
+            this.grid.occupyByHole({ x: i + maxCellX, y: maxCellY - layer });
+        }
+        for (let i = minCellY + offset; i < maxCellY - offset; i++) {
+            this.grid.occupyByHole({ x: offset, y: i });
+            this.grid.occupyByHole({ x: (maxCellX << 1) - layer, y: i });
         }
     }
     private syncSystemMovedUnit(

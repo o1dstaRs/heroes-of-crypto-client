@@ -12,6 +12,8 @@ import {
     FactionType,
     GridType,
     FightStateManager,
+    type GameAction,
+    type GameEvent,
 } from "@heroesofcrypto/common";
 import { createContext, useContext } from "react";
 import { Signal } from "typed-signals";
@@ -398,6 +400,9 @@ export class PixiGameManager {
         this.onHasStarted.emit(this.started);
         this.fitViewToWindow();
         this.UpdateHoverInfo();
+    }
+    public PlayAuthoritativeActionRecord(action: GameAction, events: GameEvent[]): Promise<boolean> {
+        return this.m_scene?.playAuthoritativeActionRecord(action, events) ?? Promise.resolve(false);
     }
     public SelectAuthoritativeUnit(unitId: string): void {
         this.m_scene?.selectAuthoritativeUnit(unitId);

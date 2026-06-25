@@ -168,6 +168,8 @@ export const toAuthoritativeGameSnapshot = (
     currentUnitId: snapshot.currentUnitId,
     currentTurnTeam: snapshot.currentTurnTeam,
     latestSequence: snapshot.latestSequence,
+    narrowingLayers: snapshot.narrowingLayers,
+    centerDried: snapshot.centerDried,
     units: snapshot.units,
 });
 

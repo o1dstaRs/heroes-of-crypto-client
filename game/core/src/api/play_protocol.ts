@@ -25,6 +25,7 @@ export const PlayActionType = {
     DELETE_UNIT: 13,
     READY_PLACEMENT: 14,
     PING: 15,
+    SPLIT_UNIT: 16,
 } as const;
 
 export type PlayActionTypeValue = (typeof PlayActionType)[keyof typeof PlayActionType];
@@ -104,6 +105,10 @@ export interface PlaySnapshot {
     players: PlayPlayerState[];
     readyPlayerIds: string[];
     journalTail: PlayJournalEntry[];
+    maxLowerUnits: number;
+    maxUpperUnits: number;
+    narrowingLayers: number;
+    centerDried: boolean;
 }
 
 export interface PlayAction {
@@ -126,6 +131,7 @@ export interface PlayAction {
     hasLavaCell?: boolean;
     hasWaterCell?: boolean;
     reason?: string;
+    amount?: number;
 }
 
 export interface PlayEvent {
@@ -370,6 +376,7 @@ export const encodePlayAction = (action: PlayAction): Uint8Array => {
     writer.bool(17, action.hasLavaCell);
     writer.bool(18, action.hasWaterCell);
     writer.string(19, action.reason);
+    writer.int32(20, action.amount);
     return writer.finish();
 };
 
@@ -475,6 +482,10 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         players: [],
         readyPlayerIds: [],
         journalTail: [],
+        maxLowerUnits: 0,
+        maxUpperUnits: 0,
+        narrowingLayers: 0,
+        centerDried: false,
     };
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
@@ -508,6 +519,14 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             snapshot.readyPlayerIds.push(reader.string());
         } else if (field === 15) {
             snapshot.journalTail.push(decodeJournalEntry(reader.bytesValue()));
+        } else if (field === 16) {
+            snapshot.maxLowerUnits = reader.varintNumber();
+        } else if (field === 17) {
+            snapshot.maxUpperUnits = reader.varintNumber();
+        } else if (field === 18) {
+            snapshot.narrowingLayers = reader.varintNumber();
+        } else if (field === 19) {
+            snapshot.centerDried = reader.bool();
         } else {
             reader.skip(wireType);
         }

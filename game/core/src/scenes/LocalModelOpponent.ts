@@ -82,10 +82,22 @@ const normalizeBoolean = (value: string | null | undefined): boolean =>
 
 const teamFromString = (value: string | null | undefined, fallback: TeamType): TeamType => {
     const normalized = value?.toUpperCase();
-    if (normalized === "LOWER" || normalized === "RED") return TeamVals.LOWER;
-    if (normalized === "UPPER" || normalized === "GREEN") return TeamVals.UPPER;
+    if (normalized === "LOWER" || normalized === "GREEN") return TeamVals.LOWER;
+    if (normalized === "UPPER" || normalized === "RED") return TeamVals.UPPER;
     return fallback;
 };
+
+const LOCAL_MODEL_ACTION_FLAG = "__hocLocalModelAction";
+
+type LocalModelMarkedAction = GameAction & {
+    [LOCAL_MODEL_ACTION_FLAG]?: true;
+};
+
+export const markLocalModelAction = <T extends GameAction>(action: T): T =>
+    ({ ...action, [LOCAL_MODEL_ACTION_FLAG]: true }) as T;
+
+export const isLocalModelAction = (action: GameAction): boolean =>
+    (action as LocalModelMarkedAction)[LOCAL_MODEL_ACTION_FLAG] === true;
 
 export const getLocalModelOpponentConfig = (): LocalModelOpponentConfig => {
     const params =

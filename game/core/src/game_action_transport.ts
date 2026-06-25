@@ -37,6 +37,8 @@ export interface AuthoritativeGameSnapshot {
     currentUnitId: string;
     currentTurnTeam: TeamType | number;
     latestSequence: number;
+    narrowingLayers: number;
+    centerDried: boolean;
     units: AuthoritativeUnitState[];
 }
 
