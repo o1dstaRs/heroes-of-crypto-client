@@ -77,4 +77,34 @@ describe("ranked placement scene state", () => {
             cells: [],
         });
     });
+
+    test("keeps real opponent placement once fight starts", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            {
+                ...placementSnapshot([
+                    unitState({
+                        id: "known-op",
+                        team: TeamVals.UPPER,
+                        name: "Orc",
+                        creatureId: CreatureVals.ORC,
+                        placed: true,
+                        cells: [{ x: 9, y: 13 }],
+                        baseCell: { x: 9, y: 13 },
+                    }),
+                ]),
+                phase: 2,
+                fightStarted: true,
+                currentLap: 1,
+            },
+            { hideOpponentPlacements: true },
+        );
+
+        expect(state.units).toHaveLength(1);
+        expect(state.units[0]).toMatchObject({
+            team: TeamVals.UPPER,
+            placed: true,
+            cells: [{ x: 9, y: 13 }],
+            baseCell: { x: 9, y: 13 },
+        });
+    });
 });

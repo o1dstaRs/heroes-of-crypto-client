@@ -238,7 +238,6 @@ export class RankedPlayScene extends Sandbox {
         if (boardSignature === this.lastBoardSignature) {
             return;
         }
-        this.lastBoardSignature = boardSignature;
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
         this.upNextUnitIds = snapshot.upNext;
 
@@ -251,6 +250,7 @@ export class RankedPlayScene extends Sandbox {
         const skipBoardRebuild =
             !!options?.skipBoardRebuild && snapshot.fightStarted && !snapshot.fightFinished;
         if (skipBoardRebuild) {
+            this.lastBoardSignature = boardSignature;
             if (this.sc_visibleState) {
                 this.sc_visibleState.lapNumber = Math.max(snapshot.currentLap || 0, 0);
                 this.sc_visibleStateUpdateNeeded = true;
@@ -277,6 +277,7 @@ export class RankedPlayScene extends Sandbox {
         const state = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
 
         this.hydrateSceneState(state);
+        this.lastBoardSignature = boardSignature;
         this.applyRankedFightStats(snapshot, state.units);
         if (selectedUnitId && !snapshot.fightStarted && !snapshot.fightFinished) {
             this.selectSceneUnitForPlacement(selectedUnitId);

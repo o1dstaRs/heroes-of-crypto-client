@@ -263,10 +263,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const pendingAuthoritativeRecordsRef = useRef(new Map<number, RankedReplayActionRecord>());
     const playedAuthoritativeSequencesRef = useRef(new Set<number>());
     const authoritativePlaybackQueueRef = useRef<Promise<void>>(Promise.resolve());
+    // True when the current snapshot's board changes were already animated by playing the
+    // matching authoritative action record — tells the scene to skip the full rebuild.
+    const skipBoardRebuildRef = useRef(false);
 
-    const applySnapshot = useCallback((nextSnapshot: PlaySnapshot) => {
+    const applySnapshot = useCallback((nextSnapshot: PlaySnapshot, options?: { skipBoardRebuild?: boolean }) => {
         pendingTurnResolutionRef.current = false;
         latestSequenceRef.current = Math.max(latestSequenceRef.current, nextSnapshot.latestSequence);
+        skipBoardRebuildRef.current = !!options?.skipBoardRebuild;
         snapshotRef.current = nextSnapshot;
         setSnapshot(nextSnapshot);
     }, []);
@@ -373,7 +377,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         if (!snapshot || !pixiReady) {
             return;
         }
-        manager.ApplyAuthoritativeSnapshot(toAuthoritativeGameSnapshot(snapshot, viewerTeam));
+        manager.ApplyAuthoritativeSnapshot(toAuthoritativeGameSnapshot(snapshot, viewerTeam), {
+            skipBoardRebuild: skipBoardRebuildRef.current,
+        });
         if (selectedUnitId && snapshot.units.some((unit) => unit.id === selectedUnitId && !unit.dead)) {
             manager.SelectAuthoritativeUnit(selectedUnitId);
         }
@@ -455,7 +461,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                         }
                         if (event.snapshot) {
                             await waitForAuthoritativePlayback();
-                            applySnapshot(event.snapshot);
+                            applySnapshot(event.snapshot, { skipBoardRebuild: played });
                         }
                         if (event.rejectionReason || event.message) {
                             setError(event.rejectionReason || event.message);
@@ -527,7 +533,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     shouldApplyActionResponseSnapshotToViewer(responseSnapshot, { isModelSubmission })
                 ) {
                     await waitForAuthoritativePlayback();
-                    applySnapshot(responseSnapshot);
+                    applySnapshot(responseSnapshot, { skipBoardRebuild: played });
                 } else {
                     await waitForAuthoritativePlayback();
                     await refreshSnapshot();
