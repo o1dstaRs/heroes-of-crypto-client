@@ -48,6 +48,13 @@ jobs:
             - name: Install dependencies
               run: bun install
 
+            - name: Build common types
+              working-directory: game/heroes-of-crypto-common
+              run: bunx tsc --project tsconfig.build.json
+
+            - name: Generate core asset stubs
+              run: bun run --cwd game/core scripts/generate_ci_stubs.js
+
             - name: Typecheck core
               run: bunx tsc --noEmit -p game/core/tsconfig.json
 
