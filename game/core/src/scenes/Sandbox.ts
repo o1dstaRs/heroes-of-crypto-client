@@ -631,8 +631,8 @@ export class Sandbox extends PixiScene {
             return 0;
         }
         const cell = this.sc_sceneSettings.getGridSettings().getCellSize();
-        const width = Math.max(1, bounds.maxX - bounds.minX);
-        return -(width + this.placementBenchButtonSize(cell) * 1.35);
+        const gridMinX = this.sc_sceneSettings.getGridSettings().getMinX();
+        return gridMinX - bounds.maxX - this.placementBenchButtonSize(cell);
     }
     private stopPlacementBenchSlideAnimation(): void {
         this.placementBenchSlideCancel?.();
@@ -714,12 +714,15 @@ export class Sandbox extends PixiScene {
         const cell = gs.getCellSize();
         const radius = Math.max(6, cell * 0.18);
         const allPositions = groups.flat();
-        const bounds = {
+        const rawBounds = {
             minX: Math.min(...allPositions.map((position) => position.x)) - cell * 0.95,
             maxX: Math.max(...allPositions.map((position) => position.x)) + cell * 0.95,
             minY: Math.min(...allPositions.map((position) => position.y)) - cell * 0.9,
             maxY: Math.max(...allPositions.map((position) => position.y)) + cell * 0.9,
         };
+        const bounds = this.shouldShowPlacementBenchToggle()
+            ? this.expandPlacementBenchPanelBounds(rawBounds, cell)
+            : rawBounds;
         this.placementBenchBounds = bounds;
         if (!this.placementBenchSlideCancel) {
             this.placementBenchSlideOffsetX = this.placementBenchCollapsed
@@ -727,19 +730,44 @@ export class Sandbox extends PixiScene {
                 : 0;
         }
 
-        for (const positions of groups) {
-            const minX = Math.min(...positions.map((position) => position.x)) - cell * 0.95;
-            const maxX = Math.max(...positions.map((position) => position.x)) + cell * 0.95;
-            const minY = Math.min(...positions.map((position) => position.y)) - cell * 0.9;
-            const maxY = Math.max(...positions.map((position) => position.y)) + cell * 0.9;
-
+        if (this.shouldShowPlacementBenchToggle()) {
             graphics
-                .roundRect(minX, minY, maxX - minX, maxY - minY, radius)
+                .roundRect(bounds.minX, bounds.minY, bounds.maxX - bounds.minX, bounds.maxY - bounds.minY, radius)
                 .fill({ color: 0x05070c, alpha: 0.56 })
                 .stroke({ color: 0xf6d87c, alpha: 0.28, width: Math.max(1, cell * 0.025) });
+        } else {
+            for (const positions of groups) {
+                const minX = Math.min(...positions.map((position) => position.x)) - cell * 0.95;
+                const maxX = Math.max(...positions.map((position) => position.x)) + cell * 0.95;
+                const minY = Math.min(...positions.map((position) => position.y)) - cell * 0.9;
+                const maxY = Math.max(...positions.map((position) => position.y)) + cell * 0.9;
+
+                graphics
+                    .roundRect(minX, minY, maxX - minX, maxY - minY, radius)
+                    .fill({ color: 0x05070c, alpha: 0.56 })
+                    .stroke({ color: 0xf6d87c, alpha: 0.28, width: Math.max(1, cell * 0.025) });
+            }
         }
         this.drawPlacementBenchToggle(graphics, bounds, cell);
         this.applyPlacementBenchSlideOffset(this.placementBenchSlideOffsetX);
+    }
+    private expandPlacementBenchPanelBounds(
+        bounds: { minX: number; maxX: number; minY: number; maxY: number },
+        cell: number,
+    ): { minX: number; maxX: number; minY: number; maxY: number } {
+        const minWidth = cell * 6.5;
+        const minHeight = cell * 3.2;
+        const centerX = (bounds.minX + bounds.maxX) * 0.5;
+        const centerY = (bounds.minY + bounds.maxY) * 0.5;
+        const halfWidth = Math.max((bounds.maxX - bounds.minX) * 0.5, minWidth * 0.5);
+        const halfHeight = Math.max((bounds.maxY - bounds.minY) * 0.5, minHeight * 0.5);
+
+        return {
+            minX: centerX - halfWidth,
+            maxX: centerX + halfWidth,
+            minY: centerY - halfHeight,
+            maxY: centerY + halfHeight,
+        };
     }
     private drawPlacementBenchToggle(
         graphics: Graphics,
@@ -756,8 +784,8 @@ export class Sandbox extends PixiScene {
 
         const size = this.placementBenchButtonSize(cell);
         const center = {
-            x: bounds.minX - size * 0.64,
-            y: (bounds.minY + bounds.maxY) * 0.5,
+            x: bounds.minX + size * 0.5,
+            y: bounds.maxY + size * 0.6,
         };
         const radius = size * 0.5;
         const tex = this.texAny(this.placementBenchToggleHovered ? "arrow_button_active" : "arrow_button_inactive");
@@ -1737,7 +1765,12 @@ export class Sandbox extends PixiScene {
 
         if (attackEvent.attackType === "range") {
             await this.playReplayProjectile(attacker, target);
-            if (attacker.getAbility("Double Shot") && attackEvent.damage.hits && attackEvent.damage.hits.length > 1) {
+            if (
+                this.shouldPlayReplayDoubleShotProjectile() &&
+                attacker.getAbility("Double Shot") &&
+                attackEvent.damage.hits &&
+                attackEvent.damage.hits.length > 1
+            ) {
                 void this.playReplayProjectile(attacker, target);
             }
         } else {
@@ -1759,6 +1792,9 @@ export class Sandbox extends PixiScene {
         const targetPosition = target.getVisualCenter(gs);
         const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
         await this.rangedProjectiles.fire({ from: muzzle, to: targetPosition, big: bigProjectile });
+    }
+    protected shouldPlayReplayDoubleShotProjectile(): boolean {
+        return true;
     }
     private playReplayOneShot(unit: RenderableUnit, stateName: string, timeoutMs: number): Promise<void> {
         return new Promise((resolve) => {

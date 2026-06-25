@@ -28,10 +28,7 @@ const ownRangedCount = (request: Pick<AIDraftRequest, "state" | "team">): number
 const actionRangedCount = (action: DraftAction): number =>
     action.evaluation.rangedCount ?? (action.tacticalTags.includes("ranged") ? 1 : 0);
 
-const draftRangedBalanceScore = (
-    action: DraftAction,
-    request?: Pick<AIDraftRequest, "state" | "team">,
-): number => {
+const draftRangedBalanceScore = (action: DraftAction, request?: Pick<AIDraftRequest, "state" | "team">): number => {
     if (!request || !isDraftPickAction(action)) {
         return 0;
     }
@@ -55,8 +52,7 @@ const draftRangedBalanceScore = (
 const capAwareDraftActions = (request: AIDraftRequest): DraftAction[] => {
     const viableActions = request.legalActions.filter(
         (action) =>
-            !isDraftPickAction(action) ||
-            ownRangedCount(request) + actionRangedCount(action) <= MAX_DRAFT_RANGED_UNITS,
+            !isDraftPickAction(action) || ownRangedCount(request) + actionRangedCount(action) <= MAX_DRAFT_RANGED_UNITS,
     );
     return viableActions.length ? viableActions : request.legalActions;
 };

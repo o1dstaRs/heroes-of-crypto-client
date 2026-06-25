@@ -240,6 +240,11 @@ type Props = {
     windowSize: IWindowSize;
 };
 
+type PendingAuthoritativePlayback = {
+    record: RankedReplayActionRecord;
+    stateAfterSnapshot?: PlaySnapshot;
+};
+
 export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }) => {
     const manager = usePixiManager();
     const localModelConfig = useMemo(() => getLocalModelOpponentConfig(), []);
@@ -260,7 +265,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const actionQueueRef = useRef<Promise<void>>(Promise.resolve());
     const replayTimersRef = useRef<number[]>([]);
     const pendingTurnResolutionRef = useRef(false);
-    const pendingAuthoritativeRecordsRef = useRef(new Map<number, RankedReplayActionRecord>());
+    const pendingAuthoritativeRecordsRef = useRef(new Map<number, PendingAuthoritativePlayback>());
     const playedAuthoritativeSequencesRef = useRef(new Set<number>());
     const authoritativePlaybackQueueRef = useRef<Promise<void>>(Promise.resolve());
     // True when the current snapshot's board changes were already animated by playing the
@@ -285,21 +290,27 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     );
 
     const rememberAuthoritativeRecord = useCallback(
-        (entry: PlaySnapshot["journalTail"][number] | undefined, options: { snapshotSequence?: number } = {}) => {
+        (
+            entry: PlaySnapshot["journalTail"][number] | undefined,
+            options: { stateAfterSnapshot?: PlaySnapshot } = {},
+        ) => {
             if (!entry || playedAuthoritativeSequencesRef.current.has(entry.sequence)) {
-                return;
-            }
-            if (options.snapshotSequence !== undefined && options.snapshotSequence >= entry.sequence) {
                 return;
             }
             const record = parseRankedReplayAction(entry);
             if (!record || !record.events.length) {
                 return;
             }
-            if (!canPlayAuthoritativeRecord(record.action, snapshotRef.current)) {
+            if (
+                !canPlayAuthoritativeRecord(record.action, snapshotRef.current) &&
+                !canPlayAuthoritativeRecord(record.action, options.stateAfterSnapshot ?? null)
+            ) {
                 return;
             }
-            pendingAuthoritativeRecordsRef.current.set(record.sequence, record);
+            pendingAuthoritativeRecordsRef.current.set(record.sequence, {
+                record,
+                stateAfterSnapshot: options.stateAfterSnapshot,
+            });
         },
         [],
     );
@@ -312,34 +323,77 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         }
     }, []);
 
-    const playAuthoritativeRecord = useCallback(
-        async (
-            entry: PlaySnapshot["journalTail"][number] | undefined,
-            stateAfterSnapshot?: PlaySnapshot,
-        ): Promise<boolean> => {
-            if (!entry || !pixiReady || playedAuthoritativeSequencesRef.current.has(entry.sequence)) {
+    const playAuthoritativeRecordData = useCallback(
+        async (record: RankedReplayActionRecord, stateAfterSnapshot?: PlaySnapshot): Promise<boolean> => {
+            if (!pixiReady || playedAuthoritativeSequencesRef.current.has(record.sequence)) {
                 return false;
             }
-            const record = parseRankedReplayAction(entry);
-            if (!record || !record.events.length || !canPlayAuthoritativeRecord(record.action, snapshotRef.current)) {
+            if (
+                !record.events.length ||
+                (!canPlayAuthoritativeRecord(record.action, snapshotRef.current) &&
+                    !canPlayAuthoritativeRecord(record.action, stateAfterSnapshot ?? null))
+            ) {
                 return false;
             }
 
             playedAuthoritativeSequencesRef.current.add(record.sequence);
             pendingAuthoritativeRecordsRef.current.delete(record.sequence);
+            let didPlay = false;
             authoritativePlaybackQueueRef.current = authoritativePlaybackQueueRef.current
                 .catch(() => undefined)
                 .then(async () => {
-                    await manager.PlayAuthoritativeActionRecord(
+                    didPlay = await manager.PlayAuthoritativeActionRecord(
                         record.action,
                         record.events,
                         stateAfterSnapshot ? toSceneSnapshot(stateAfterSnapshot) : undefined,
                     );
                 });
-            await authoritativePlaybackQueueRef.current;
-            return true;
+            try {
+                await authoritativePlaybackQueueRef.current;
+            } catch {
+                playedAuthoritativeSequencesRef.current.delete(record.sequence);
+                return false;
+            }
+            if (!didPlay) {
+                playedAuthoritativeSequencesRef.current.delete(record.sequence);
+            }
+            return didPlay;
         },
         [manager, pixiReady, toSceneSnapshot],
+    );
+    const playAuthoritativeRecord = useCallback(
+        async (
+            entry: PlaySnapshot["journalTail"][number] | undefined,
+            stateAfterSnapshot?: PlaySnapshot,
+        ): Promise<boolean> => {
+            if (!entry) {
+                return false;
+            }
+            const record = parseRankedReplayAction(entry);
+            if (!record) {
+                return false;
+            }
+            return playAuthoritativeRecordData(record, stateAfterSnapshot);
+        },
+        [playAuthoritativeRecordData],
+    );
+    const drainPendingAuthoritativeRecords = useCallback(
+        async (stateAfterSnapshot: PlaySnapshot): Promise<boolean> => {
+            const pending = [...pendingAuthoritativeRecordsRef.current.entries()]
+                .filter(([sequence]) => sequence <= stateAfterSnapshot.latestSequence)
+                .sort(([a], [b]) => a - b);
+            let playedAny = false;
+            for (const [sequence, pendingRecord] of pending) {
+                const played = await playAuthoritativeRecordData(
+                    pendingRecord.record,
+                    pendingRecord.stateAfterSnapshot ?? stateAfterSnapshot,
+                );
+                pendingAuthoritativeRecordsRef.current.delete(sequence);
+                playedAny ||= played;
+            }
+            return playedAny;
+        },
+        [playAuthoritativeRecordData],
     );
 
     const refreshSnapshot = useCallback(async () => {
@@ -381,19 +435,23 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         if (!snapshot || !pixiReady) {
             return;
         }
-        manager.ApplyAuthoritativeSnapshot(toSceneSnapshot(snapshot), {
-            skipBoardRebuild: skipBoardRebuildRef.current,
-        });
-        if (selectedUnitId && snapshot.units.some((unit) => unit.id === selectedUnitId && !unit.dead)) {
-            manager.SelectAuthoritativeUnit(selectedUnitId);
-        }
-        const records = [...pendingAuthoritativeRecordsRef.current.entries()]
-            .filter(([sequence]) => sequence <= snapshot.latestSequence)
-            .sort(([a], [b]) => a - b);
-        for (const [sequence] of records) {
-            pendingAuthoritativeRecordsRef.current.delete(sequence);
-        }
-    }, [manager, pixiReady, selectedUnitId, snapshot, toSceneSnapshot]);
+        let cancelled = false;
+        void (async () => {
+            const playedPendingRecords = await drainPendingAuthoritativeRecords(snapshot);
+            if (cancelled) {
+                return;
+            }
+            manager.ApplyAuthoritativeSnapshot(toSceneSnapshot(snapshot), {
+                skipBoardRebuild: skipBoardRebuildRef.current || playedPendingRecords,
+            });
+            if (selectedUnitId && snapshot.units.some((unit) => unit.id === selectedUnitId && !unit.dead)) {
+                manager.SelectAuthoritativeUnit(selectedUnitId);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [drainPendingAuthoritativeRecords, manager, pixiReady, selectedUnitId, snapshot, toSceneSnapshot]);
 
     useEffect(() => {
         let cancelled = false;
@@ -468,7 +526,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                         const played = await playAuthoritativeRecord(event.journalEntry, event.snapshot);
                         if (!played) {
                             rememberAuthoritativeRecord(event.journalEntry, {
-                                snapshotSequence: event.snapshot?.latestSequence,
+                                stateAfterSnapshot: event.snapshot,
                             });
                         }
                         if (event.snapshot) {
@@ -543,7 +601,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 const played = await playAuthoritativeRecord(result.event?.journalEntry, responseSnapshot);
                 if (!played) {
                     rememberAuthoritativeRecord(result.event?.journalEntry, {
-                        snapshotSequence: responseSnapshot?.latestSequence,
+                        stateAfterSnapshot: responseSnapshot,
                     });
                 }
                 if (
@@ -897,7 +955,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             busy={busy}
             canSubmit={canSubmit}
             currentUnit={currentUnit}
-            embedded={gameStarted}
+            embedded
             error={error}
             gameStarted={gameStarted}
             ready={ready}
@@ -926,10 +984,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             >
                 <CssVarsProvider>
                     <CssBaseline />
-                    {gameStarted && <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />}
-                    {gameStarted && (
-                        <RightSideBar gameStarted={gameStarted} windowSize={windowSize} rankedPanel={rankedPanel} />
-                    )}
+                    <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />
+                    <RightSideBar gameStarted={gameStarted} windowSize={windowSize} rankedPanel={rankedPanel} />
                     {gameStarted && <UpNextOverlay />}
                     {gameStarted && (
                         <FightFinishedOverlay
@@ -942,7 +998,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 </CssVarsProvider>
                 <Main entry={RANKED_SCENE_ENTRY} />
                 <Popover />
-                {!gameStarted && rankedPanel}
             </div>
         </ButtonProvider>
     );

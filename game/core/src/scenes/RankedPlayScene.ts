@@ -2,7 +2,6 @@ import {
     allFactions,
     AttackVals,
     getFactionOf,
-    GridMath,
     HoCConfig,
     TeamVals,
     ToFactionName,
@@ -357,16 +356,16 @@ export class RankedPlayScene extends Sandbox {
     public override canPlayCurrentSandboxReplay(): boolean {
         return false;
     }
+    protected override shouldPlayReplayDoubleShotProjectile(): boolean {
+        return false;
+    }
     public override playAuthoritativeActionRecord(
         action: GameAction,
         events: GameEvent[],
         stateAfter?: unknown,
     ): Promise<boolean> {
         const authoritativeSequence = this.isAuthoritativeSnapshot(stateAfter) ? stateAfter.latestSequence : undefined;
-        if (
-            authoritativeSequence !== undefined &&
-            this.playedAuthoritativeActionSequences.has(authoritativeSequence)
-        ) {
+        if (authoritativeSequence !== undefined && this.playedAuthoritativeActionSequences.has(authoritativeSequence)) {
             return Promise.resolve(true);
         }
         if (authoritativeSequence !== undefined) {
@@ -376,47 +375,10 @@ export class RankedPlayScene extends Sandbox {
         const replayStateAfter = this.isAuthoritativeSnapshot(stateAfter)
             ? authoritativeSnapshotToSandboxSceneState(stateAfter, { hideOpponentPlacements: true })
             : undefined;
-        if (action.type === "cast_spell" || action.type === "obstacle_attack" || action.type === "area_throw_attack") {
-            if (events.length) {
-                this.applyReplayEvents(events);
-            }
-            return Promise.resolve(events.length > 0);
-        }
         return super.playAuthoritativeActionRecord(action, events, replayStateAfter);
     }
     protected override shouldRenderUnplacedUnitBench(unitState: SandboxSceneUnitState): boolean {
-        return (
-            this.viewerTeam !== undefined &&
-            (unitState.team === this.viewerTeam || unitState.properties.name !== "Unknown")
-        );
-    }
-    protected override getUnplacedUnitBenchGroupKey(unitState: SandboxSceneUnitState): string {
-        if (this.viewerTeam !== undefined && unitState.team !== this.viewerTeam) {
-            return `opponent:${unitState.team}`;
-        }
-        return `viewer:${unitState.team}`;
-    }
-    protected override getUnplacedUnitBenchPosition(
-        index: number,
-        total: number,
-        unitState?: SandboxSceneUnitState,
-    ): HoCMath.XY | undefined {
-        if (!unitState || this.viewerTeam === undefined) {
-            return super.getUnplacedUnitBenchPosition(index, total, unitState);
-        }
-
-        if (total <= 0) {
-            return undefined;
-        }
-
-        if (unitState.team === this.viewerTeam) {
-            return super.getUnplacedUnitBenchPosition(index, total, unitState);
-        }
-
-        return (
-            this.getRankedPlacementBenchPosition(index, total, unitState) ??
-            super.getUnplacedUnitBenchPosition(index, total, unitState)
-        );
+        return this.viewerTeam !== undefined && unitState.team === this.viewerTeam;
     }
     protected override shouldGhostUnplacedUnitBenchUnit(unitState: SandboxSceneUnitState): boolean {
         return this.viewerTeam !== undefined && unitState.team !== this.viewerTeam;
@@ -426,44 +388,6 @@ export class RankedPlayScene extends Sandbox {
     }
     protected override shouldGhostCurrentPlacementBenchUnit(unit: Unit): boolean {
         return this.viewerTeam !== undefined && unit.getTeam() !== this.viewerTeam;
-    }
-    private getRankedPlacementBenchPosition(
-        index: number,
-        total: number,
-        unitState: SandboxSceneUnitState,
-    ): HoCMath.XY | undefined {
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const cell = gs.getCellSize();
-        const isSmallUnit = unitState.properties.size !== 2;
-        const placementCells = [this.getPlacement(unitState.team, 0), this.getPlacement(unitState.team, 1)].flatMap(
-            (placement) => placement?.possibleCellPositions(isSmallUnit) ?? [],
-        );
-        const placementPositions = placementCells
-            .map((placementCell) =>
-                GridMath.getPositionForCell(placementCell, gs.getMinX(), gs.getStep(), gs.getHalfStep()),
-            )
-            .filter((position): position is HoCMath.XY => !!position);
-
-        if (!placementPositions.length) {
-            return undefined;
-        }
-
-        const minX = Math.min(...placementPositions.map((position) => position.x));
-        const maxX = Math.max(...placementPositions.map((position) => position.x));
-        const minY = Math.min(...placementPositions.map((position) => position.y));
-        const maxY = Math.max(...placementPositions.map((position) => position.y));
-        const widthCells = Math.max(1, Math.floor((maxX - minX) / (cell * 1.05)) + 1);
-        const columns = Math.max(1, Math.min(6, total, widthCells));
-        const rows = Math.ceil(total / columns);
-        const column = index % columns;
-        const row = Math.floor(index / columns);
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
-
-        return {
-            x: centerX + (column - (columns - 1) / 2) * cell * 1.18,
-            y: centerY + (row - (rows - 1) / 2) * cell * 1.08,
-        };
     }
     protected override canSelectUnitForPlacement(unit: Unit): boolean {
         return this.viewerTeam !== undefined && unit.getTeam() === this.viewerTeam;
@@ -940,6 +864,8 @@ export class RankedPlayScene extends Sandbox {
             case "melee_attack":
             case "range_attack":
             case "cast_spell":
+            case "obstacle_attack":
+            case "area_throw_attack":
                 return true;
             default:
                 return false;

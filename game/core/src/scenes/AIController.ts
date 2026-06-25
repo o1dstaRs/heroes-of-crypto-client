@@ -166,7 +166,9 @@ export class AIController {
         this.localModelTeamOverrideSet = true;
     }
     private shouldControlUnit(unit: Unit): boolean {
-        const modelTeam = this.localModelTeamOverrideSet ? this.localModelTeamOverride : this.localModelOpponent.modelTeam;
+        const modelTeam = this.localModelTeamOverrideSet
+            ? this.localModelTeamOverride
+            : this.localModelOpponent.modelTeam;
         return this.localModelOpponent.enabled && unit.getTeam() === modelTeam;
     }
     private modelAction<T extends GameAction>(unit: Unit, action: T): T {
