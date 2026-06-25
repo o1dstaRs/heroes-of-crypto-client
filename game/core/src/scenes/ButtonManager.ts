@@ -37,6 +37,7 @@ export interface ISandboxButtonContext {
     setVisibleButtons(buttons: IVisibleButton[], updated: boolean): void;
     setAIActive(active: boolean): void;
     setSpellBookOverlay(active: boolean): void;
+    isInputLockedByAI(): boolean;
 
     getVisibleState(): IVisibleState | undefined;
 }
@@ -174,6 +175,7 @@ export class ButtonManager {
         }
 
         const currentActiveUnit = this.context.getCurrentActiveUnit();
+        const inputLockedByAI = this.context.isInputLockedByAI();
         const hasActiveUnit = !!currentActiveUnit;
 
         // 3. AI Button specific check
@@ -189,7 +191,7 @@ export class ButtonManager {
         let attackTypeButton = { ...baseAttackType };
         let spellBookButton = { ...baseSpellBook };
 
-        if (this.sc_isAIActive) {
+        if (this.sc_isAIActive || inputLockedByAI) {
             hourglassButton.isDisabled = true;
             shieldButton.isDisabled = true;
             nextButton.isDisabled = true;
@@ -287,6 +289,9 @@ export class ButtonManager {
     }
     public propagateButtonClicked(name: string, _state: VisibleButtonState): void {
         const currentActiveUnit = this.context.getCurrentActiveUnit();
+        if (this.context.isInputLockedByAI()) {
+            return;
+        }
         // An AI-Driven unit is AI-controlled for its whole turn — the player can't interact with any
         // button, including the AI toggle (it's restored to their prior choice when the turn ends).
         if (currentActiveUnit?.hasAbilityActive("AI Driven")) {

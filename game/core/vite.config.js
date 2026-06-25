@@ -70,6 +70,13 @@ export default defineConfig(({ mode }) => {
             open: true,
             host: true,
             headers: { "Cache-Control": "no-store" }, // dev: force no caching
+            proxy: {
+                "/hoc-local-model": {
+                    target: env.VITE_HOC_MODEL_PROXY_TARGET || "http://127.0.0.1:9091",
+                    changeOrigin: true,
+                    rewrite: (requestPath) => requestPath.replace(/^\/hoc-local-model/, "/v1"),
+                },
+            },
             watch: {
                 usePolling: true,
                 ignored: ["**/node_modules/**", "**/.parcel-cache/**"],

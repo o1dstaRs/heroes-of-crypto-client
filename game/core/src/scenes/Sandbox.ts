@@ -419,6 +419,7 @@ export class Sandbox extends PixiScene {
                 },
                 getCurrentActiveSpell: () => this.currentActiveSpell,
                 getVisibleState: () => this.sc_visibleState,
+                isInputLockedByAI: () => this.isBoardInputLockedByAI(),
                 setVisibleButtons: (buttons, updated) => {
                     this.sc_visibleButtonGroup = buttons;
                     this.sc_buttonGroupUpdated = updated;
@@ -457,6 +458,7 @@ export class Sandbox extends PixiScene {
             getGrid: () => this.grid,
             getGridMatrix: () => this.gridMatrix,
             getUnitsHolder: () => this.unitsHolder,
+            getAttackHandler: () => this.attackHandler,
             getPathHelper: () => this.pathHelper,
             getHoverManager: () => this.hoverManager,
             getButtonManager: () => this.buttonManager,
@@ -4324,7 +4326,9 @@ export class Sandbox extends PixiScene {
         return (
             fightProps.hasFightStarted() &&
             !fightProps.hasFightFinished() &&
-            (this.sc_isAIActive || !!this.currentActiveUnit?.hasAbilityActive("AI Driven"))
+            (this.sc_isAIActive ||
+                !!this.currentActiveUnit?.hasAbilityActive("AI Driven") ||
+                this.aiController?.shouldControlCurrentUnit())
         );
     }
     private clearBoardHoverPreviews(): void {

@@ -8,12 +8,20 @@ import {
     PathHelper,
     Unit,
     UnitsHolder,
+    FightStateManager,
 } from "@heroesofcrypto/common";
-import type { AttackType, GameAction } from "@heroesofcrypto/common";
+import type { AttackHandler, AttackType, GameAction } from "@heroesofcrypto/common";
 import { RenderableUnit } from "./RenderableUnit";
 import { HoverManager } from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
 import { SceneSettings } from "./SceneSettings";
+import {
+    chooseLocalModelAction,
+    createLocalModelActions,
+    getLocalModelOpponentConfig,
+    type LocalModelLegalAction,
+    type LocalModelOpponentConfig,
+} from "./LocalModelOpponent";
 
 /**
  * Simple log interface for scene logging.
@@ -32,6 +40,7 @@ export interface IAIContext {
     getGrid(): Grid;
     getGridMatrix(): number[][];
     getUnitsHolder(): UnitsHolder;
+    getAttackHandler(): AttackHandler;
     getPathHelper(): PathHelper;
     getHoverManager(): HoverManager;
     getButtonManager(): ButtonManager;
@@ -61,11 +70,18 @@ export interface IAIContext {
 export class AIController {
     private static readonly MOVE_ACTION_TIMEOUT_MS = 6000;
     private context: IAIContext;
+    private readonly localModelOpponent: LocalModelOpponentConfig;
     // AI State
     public isAIActive = false;
     public performingAction = false;
     public constructor(context: IAIContext) {
         this.context = context;
+        this.localModelOpponent = getLocalModelOpponentConfig();
+        if (this.localModelOpponent.enabled) {
+            this.context
+                .getSceneLog()
+                .updateLog(`Local model opponent enabled for ${this.localModelOpponent.modelTeam === 1 ? "UPPER" : "LOWER"}`);
+        }
     }
     /**
      * Restore the AI toggle to the player's pre-auto-turn choice. AI-Driven units force AI on for
@@ -112,7 +128,17 @@ export class AIController {
         const currentUnit = this.context.getCurrentActiveUnit();
         if (!currentUnit) return false;
 
-        return (this.isAIActive || currentUnit.hasAbilityActive("AI Driven")) && !this.performingAction;
+        return (
+            (this.shouldControlUnit(currentUnit) || this.isAIActive || currentUnit.hasAbilityActive("AI Driven")) &&
+            !this.performingAction
+        );
+    }
+    public shouldControlCurrentUnit(): boolean {
+        const currentUnit = this.context.getCurrentActiveUnit();
+        return !!currentUnit && this.shouldControlUnit(currentUnit);
+    }
+    private shouldControlUnit(unit: Unit): boolean {
+        return this.localModelOpponent.enabled && unit.getTeam() === this.localModelOpponent.modelTeam;
     }
     /**
      * Trigger AI action with proper delay.
@@ -160,6 +186,14 @@ export class AIController {
 
         let actionPerformed = false;
 
+        if (this.shouldControlUnit(currentUnit)) {
+            actionPerformed = await this.performLocalModelAction(currentUnit, wasAIActive);
+            if (actionPerformed) {
+                return;
+            }
+            this.context.getSceneLog().updateLog(`${currentUnit.getName()} uses fallback AI`);
+        }
+
         const action = AI.findTarget(
             currentUnit,
             this.context.getGrid(),
@@ -186,6 +220,115 @@ export class AIController {
         }
 
         this.finishAIAction(wasAIActive);
+    }
+    private async performLocalModelAction(currentUnit: RenderableUnit, wasAIActive: boolean): Promise<boolean> {
+        const legalActions = createLocalModelActions({
+            matchId: "ui-local-model",
+            stateVersion: FightStateManager.getInstance().getFightProperties().getCurrentLap(),
+            activeUnit: currentUnit,
+            grid: this.context.getGrid(),
+            unitsHolder: this.context.getUnitsHolder(),
+            attackHandler: this.context.getAttackHandler(),
+            fightProperties: FightStateManager.getInstance().getFightProperties(),
+            pathHelper: this.context.getPathHelper(),
+        });
+
+        const choice = await chooseLocalModelAction({
+            config: this.localModelOpponent,
+            activeUnit: currentUnit,
+            unitsHolder: this.context.getUnitsHolder(),
+            actions: legalActions,
+        });
+        if (!choice.action) {
+            const reason = choice.error ?? choice.rawContent?.slice(0, 80) ?? "invalid model action";
+            this.context.getSceneLog().updateLog(`Local model returned no legal action (${reason})`);
+            return false;
+        }
+
+        this.context.getSceneLog().updateLog(`Local model: ${choice.action.summary}`);
+        return this.executeLocalModelAction(currentUnit, choice.action, wasAIActive);
+    }
+    private async executeLocalModelAction(
+        currentUnit: RenderableUnit,
+        legalAction: LocalModelLegalAction,
+        wasAIActive: boolean,
+    ): Promise<boolean> {
+        const action = legalAction.action;
+        if (action.type === "move_unit") {
+            if (!action.path?.length) {
+                return false;
+            }
+            const watchdog = this.scheduleMoveWatchdog(currentUnit, wasAIActive);
+            const started = this.context.executeMoveSequence(currentUnit, action.path, action.targetCells, () => {
+                clearTimeout(watchdog);
+                this.endTurnIfStillActive(currentUnit);
+                this.finishAIAction(wasAIActive);
+            });
+            if (!started) {
+                clearTimeout(watchdog);
+                this.endTurnIfStillActive(currentUnit);
+                this.finishAIAction(wasAIActive);
+            }
+            return true;
+        }
+
+        if (action.type === "melee_attack") {
+            const target = this.context.getUnitsHolder().getAllUnits().get(action.targetId);
+            const attackFrom = action.attackFrom ?? currentUnit.getBaseCell();
+            if (!target || !attackFrom) {
+                return false;
+            }
+
+            if (action.path?.length) {
+                const watchdog = this.scheduleMoveWatchdog(currentUnit, wasAIActive);
+                const started = this.context.executeMoveSequence(currentUnit, action.path, undefined, async () => {
+                    clearTimeout(watchdog);
+                    try {
+                        const completed = await this.context.executeAttackSequence(currentUnit, target, attackFrom);
+                        if (!completed) {
+                            this.endTurnIfStillActive(currentUnit);
+                        }
+                    } finally {
+                        this.finishAIAction(wasAIActive);
+                    }
+                });
+                if (!started) {
+                    clearTimeout(watchdog);
+                    this.endTurnIfStillActive(currentUnit);
+                    this.finishAIAction(wasAIActive);
+                }
+                return true;
+            }
+
+            const completed = await this.context.executeAttackSequence(currentUnit, target, attackFrom);
+            if (!completed) {
+                this.endTurnIfStillActive(currentUnit);
+            }
+            this.finishAIAction(wasAIActive);
+            return true;
+        }
+
+        if (action.type === "range_attack") {
+            const target = this.context.getUnitsHolder().getAllUnits().get(action.targetId);
+            const gs = this.context.getSceneSettings().getGridSettings();
+            const attackFrom = GridMath.getCellForPosition(gs, currentUnit.getPosition());
+            if (!target || !attackFrom) {
+                return false;
+            }
+            const completed = await this.context.executeAttackSequence(currentUnit, target, attackFrom);
+            if (!completed) {
+                this.endTurnIfStillActive(currentUnit);
+            }
+            this.finishAIAction(wasAIActive);
+            return true;
+        }
+
+        if (this.context.applyGameAction(action)) {
+            this.finishAIAction(wasAIActive);
+            return true;
+        }
+
+        return false;
     }
     /**
      * Handle MOVE_AND_MELEE_ATTACK action type.
