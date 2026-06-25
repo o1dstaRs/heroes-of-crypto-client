@@ -2451,6 +2451,15 @@ export class Sandbox extends PixiScene {
     public getNumberOfUnitsAvailableForPlacement(teamType: TeamType): number {
         return FightStateManager.getInstance().getFightProperties().getNumberOfUnitsAvailableForPlacement(teamType);
     }
+    public getNumberOfPlacedUnits(teamType: TeamType): number {
+        let count = 0;
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            if (unit.getTeam() === teamType) {
+                count++;
+            }
+        }
+        return count;
+    }
     public override propagateButtonClicked(name: string, state: VisibleButtonState): void {
         this.buttonManager.propagateButtonClicked(name, state);
     }
@@ -3866,6 +3875,43 @@ export class Sandbox extends PixiScene {
         };
     }
     /**
+     * Melee mountain arrow target: point only at the edge of the mountain cell actually being
+     * struck (the border cell nearest the attacker), instead of the cursor-hovered edge. For large
+     * mountains the hovered edge can sit on the far side of the attack-from cell, which made the
+     * arrow span across the whole obstacle. We aim at the near edge/corner of the struck cell so the
+     * arrow lands on the side we are hitting.
+     */
+    private getMeleeMountainArrowTarget(
+        attackFromPos: HoCMath.XY,
+        centerCells: HoCMath.XY[],
+    ): HoCMath.XY | undefined {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const halfStep = gs.getHalfStep();
+        let targetCenter: HoCMath.XY | undefined;
+        let bestDistance = Number.MAX_SAFE_INTEGER;
+        for (const cell of centerCells) {
+            const center = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), halfStep);
+            const distance = HoCMath.getDistance(attackFromPos, center);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                targetCenter = center;
+            }
+        }
+        if (!targetCenter) {
+            return undefined;
+        }
+        // Land the arrow tip on the struck cell's boundary in the direction of the attacker:
+        // edge midpoint when orthogonally adjacent, toward the corner when diagonal.
+        const dx = attackFromPos.x - targetCenter.x;
+        const dy = attackFromPos.y - targetCenter.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist <= 0) {
+            return { ...targetCenter };
+        }
+        const k = halfStep / dist;
+        return { x: targetCenter.x + dx * k, y: targetCenter.y + dy * k };
+    }
+    /**
      * When the active unit hovers the destructible center obstacle, preview the attack:
      * a ranged unit shows it can shoot in place; a melee unit projects to the reachable cell
      * closest to the cursor (move silhouette). Only shows when the unit can actually attack the
@@ -3936,7 +3982,9 @@ export class Sandbox extends PixiScene {
         const attackFromPos = this.getObstacleAttackFromPosition(unit, attackFromCell);
         if (attackFromPos) {
             this.hoverManager.updateHoverSilhouette(attackFromPos);
-            this.hoverManager.drawAttackArrow(attackFromPos, mountainTarget.visualPosition);
+            const arrowTarget =
+                this.getMeleeMountainArrowTarget(attackFromPos, centerCells) ?? mountainTarget.visualPosition;
+            this.hoverManager.drawAttackArrow(attackFromPos, arrowTarget);
         }
         showHit();
         return true;

@@ -55,15 +55,14 @@ export class DungeonVisuals {
         // 2. Create Container if missing
         if (!this.dungeonOverlay) {
             this.dungeonOverlay = new Container();
-            // We want it above background (0)?
-            // Sandbox said: stage.addChildAt(this.dungeonOverlay, 1);
-            // We need to be careful with indices if other things are added.
-            // Safer to addAt(1) or just verify.
-            try {
-                stage.addChildAt(this.dungeonOverlay, 1);
-            } catch {
-                stage.addChild(this.dungeonOverlay);
-            }
+            // This floor-lighting overlay's shader is darkest at the board centre, so it MUST render
+            // below the world/units (the camera) — otherwise it dims the units placed in the middle
+            // of the board. The stage sorts by zIndex (sortableChildren), so pin it under the camera
+            // (default zIndex 0) with a negative zIndex rather than a fragile addChildAt index that
+            // depends on whether the background/camera were attached first.
+            stage.sortableChildren = true;
+            this.dungeonOverlay.zIndex = -10;
+            stage.addChild(this.dungeonOverlay);
         }
 
         const overlayContainer = this.dungeonOverlay;
@@ -268,7 +267,11 @@ export class DungeonVisuals {
 
         const bg = new Sprite(tex);
         bg.anchor.set(0.5);
-        this.context.getStage().addChildAt(bg, 0);
+        // Behind the dungeon floor-lighting overlay (-10); both stay below the world/units (camera @0).
+        const stage = this.context.getStage();
+        stage.sortableChildren = true;
+        bg.zIndex = -20;
+        stage.addChild(bg);
         this.bgSprite = bg;
         // We can call layout here if we want/can
     }

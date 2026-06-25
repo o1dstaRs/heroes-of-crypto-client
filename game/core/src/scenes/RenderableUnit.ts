@@ -567,7 +567,8 @@ export class RenderableUnit extends Unit {
             endScaleX,
             endScaleY,
             elapsed: 0,
-            duration: 0.25,
+            // Drop/settle time when a unit lands on the board (seconds) — kept snappy.
+            duration: 0.2,
         };
     }
     /**

@@ -683,7 +683,13 @@ export class PixiGameManager {
         }
     }
     public Clone(): void {
-        if (this.m_scene?.sc_selectedUnitProperties && !this.started) this.m_scene.cloneObject();
+        if (this.m_scene?.sc_selectedUnitProperties && !this.started) {
+            this.m_scene.cloneObject();
+            // Cloning adds a unit stack but leaves the selection unchanged, so flag a refresh —
+            // otherwise onSelectionCombined won't fire and the placement-slots UI would go stale.
+            this.m_scene.sc_unitPropertiesUpdateNeeded = true;
+            this.UpdateHoverInfo();
+        }
     }
     public Delete(): void {
         if (this.m_scene?.sc_selectedUnitProperties && !this.started) this.m_scene.deleteObject();
@@ -722,6 +728,12 @@ export class PixiGameManager {
     }
     public GetNumberOfUnitsAvailableForPlacement(teamType: TeamType): number {
         return this.m_scene?.getNumberOfUnitsAvailableForPlacement(teamType) ?? HoCConstants.MAX_UNITS_PER_TEAM;
+    }
+    public GetNumberOfPlacedUnits(teamType: TeamType): number {
+        return this.m_scene?.getNumberOfPlacedUnits(teamType) ?? 0;
+    }
+    public IsStarted(): boolean {
+        return this.started;
     }
     public SetGridType(gridType: GridType): void {
         this.m_scene?.setGridType(gridType);
