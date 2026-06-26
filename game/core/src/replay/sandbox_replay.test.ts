@@ -61,6 +61,54 @@ describe("SandboxReplayRecorder", () => {
         expect(listSandboxReplays(storage)).toHaveLength(1);
     });
 
+    it("debounces persistence: a recorded action updates memory but is not written to storage synchronously", () => {
+        // Regression guard for the move-landing hitch: saveSandboxReplay serializes the whole (growing)
+        // replay, so doing it on every recordAction was O(n^2) over a match. recordAction must only touch
+        // the in-memory replay; the expensive localStorage write is deferred behind a debounce.
+        const storage = new MemoryStorage();
+        const recorder = new SandboxReplayRecorder(createInitialState, storage);
+
+        recorder.beginAction(100);
+        recorder.recordAction({ type: "start_fight" }, completedResult, 120);
+
+        expect(recorder.getCurrentReplay()?.actions).toHaveLength(1); // in-memory: immediate
+        expect(listSandboxReplays(storage)).toHaveLength(0); // storage: deferred
+
+        recorder.flush(); // cancels the pending debounce timer and persists now
+        expect(listSandboxReplays(storage)).toHaveLength(1);
+    });
+
+    it("coalesces multiple recorded actions into a single debounced write", () => {
+        const storage = new MemoryStorage();
+        const recorder = new SandboxReplayRecorder(createInitialState, storage);
+
+        recorder.beginAction(100);
+        for (let i = 0; i < 5; i += 1) {
+            recorder.recordAction({ type: "start_fight" }, completedResult, 120 + i);
+        }
+
+        expect(listSandboxReplays(storage)).toHaveLength(0); // no per-action writes
+        expect(recorder.getCurrentReplay()?.actions).toHaveLength(5);
+
+        recorder.flush();
+        const saved = listSandboxReplays(storage);
+        expect(saved).toHaveLength(1);
+        expect(saved[0].actions).toHaveLength(5); // one write, all actions present
+    });
+
+    it("flushes the pending replay on reset so a finished match is not lost", () => {
+        const storage = new MemoryStorage();
+        const recorder = new SandboxReplayRecorder(createInitialState, storage);
+
+        recorder.beginAction(100);
+        recorder.recordAction({ type: "start_fight" }, completedResult, 120);
+        expect(listSandboxReplays(storage)).toHaveLength(0); // still debounced
+
+        recorder.reset();
+        expect(listSandboxReplays(storage)).toHaveLength(1); // persisted before discarding
+        expect(recorder.getCurrentReplay()).toBeUndefined(); // and cleared
+    });
+
     it("does not persist rejected actions", () => {
         const storage = new MemoryStorage();
         const recorder = new SandboxReplayRecorder(createInitialState, storage);

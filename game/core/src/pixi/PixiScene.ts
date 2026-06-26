@@ -384,13 +384,7 @@ export abstract class PixiScene {
         // FPS is set once per rendered frame by the loop driver; this may run multiple times per
         // frame (fixed-timestep accumulator), so only advance the sim here.
         this.sc_statisticLines.length = 0;
-        // [PERF-PROBE] frame watchdog — flags any sim frame that blocks longer than ~1 frame.
-        const _t0 = performance.now();
         this.Step(timeStep);
-        const _dt = performance.now() - _t0;
-        if (_dt > 16) {
-            console.warn(`[perf] LONG FRAME: Step took ${_dt.toFixed(1)}ms`);
-        }
     }
     public addDebug(label: string, value: string | number | boolean): void {
         this.sc_debugLines.push([label, `${value}`]);
