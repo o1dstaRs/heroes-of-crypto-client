@@ -4176,12 +4176,6 @@ export class Sandbox extends PixiScene {
     ): Promise<boolean> {
         this.sc_moveBlocked = true;
 
-        // [PERF-PROBE] temporary instrumentation to localize the move+attack landing hitch
-        // (the synchronous engine work that runs the frame the move animation completes).
-        const _p = (label: string, t0: number): void =>
-            console.warn(`[perf] attack:${label}: ${(performance.now() - t0).toFixed(1)}ms`);
-        const _tAttackAll = performance.now();
-
         // Create a local damage object for animation
         const damageForAnimation: IVisibleDamage = {
             render: false,
@@ -4208,7 +4202,6 @@ export class Sandbox extends PixiScene {
         // SNAPSHOT for AOE / Secondary Damage
         // We capture state of ALL units to detect side-effects/AOE
         const unitSnapshots = new Map<string, { amount: number; hp: number; maxHp: number; pos: HoCMath.XY }>();
-        const _tSnapshots = performance.now();
         for (const u of this.unitsHolder.getAllUnits().values()) {
             unitSnapshots.set(u.getId(), {
                 amount: u.getAmountAlive(),
@@ -4217,7 +4210,6 @@ export class Sandbox extends PixiScene {
                 pos: { ...u.getPosition() }, // Clone position
             });
         }
-        _p("unitSnapshots", _tSnapshots);
 
         // Capture the scene-log position so we can read the engine's *isolated* Fire Shield amounts
         // ("X received (N) from Fire Shield") afterwards. The HP-snapshot deltas below lump the burn
@@ -4359,13 +4351,9 @@ export class Sandbox extends PixiScene {
             if (this.shouldDeferActionToAuthoritativeReplay(action)) {
                 return this.submitActionForAuthoritativeReplay(action);
             }
-            const _tMeleeApply = performance.now();
-            const _meleeApplyResult = this.createActionEngine().apply(action);
-            _p("engine.apply(melee_attack)", _tMeleeApply);
-            if (!applyAttackActionResult(_meleeApplyResult)) {
+            if (!applyAttackActionResult(this.createActionEngine().apply(action))) {
                 return false;
             }
-            _p("melee synchronous TOTAL", _tAttackAll);
 
             // Melee landed: lunge the attacker a touch toward the target along the attack trajectory,
             // then spring back (applyRecoil's out-and-back envelope) so the strike reads as committed
