@@ -5136,29 +5136,34 @@ export class Sandbox extends PixiScene {
             return;
         }
 
-        // [PERF-PROBE] turn-handoff breakdown (end-of-turn lag).
-        const _p = (label: string, t0: number): void =>
-            console.warn(`[perf] advance:${label}: ${(performance.now() - t0).toFixed(1)}ms`);
+        // [PERF-PROBE] turn-handoff breakdown. Accumulate into ONE gated console.warn: under React
+        // DevTools every console.warn captures a full stack trace (~1-2ms each), so the previous
+        // ~5 unconditional warns here dwarfed the actual work and inflated the parent handoff timer.
+        const _parts: string[] = [];
+        const _p = (label: string, t0: number): void => {
+            _parts.push(`${label}=${(performance.now() - t0).toFixed(1)}`);
+        };
         const _tAdvAll = performance.now();
         let _t = performance.now();
         const unitSnapshot = this.snapshotRenderableUnits();
-        _p("snapshotRenderableUnits", _t);
+        _p("snapshot", _t);
         _t = performance.now();
         const result = this.createTurnEngine().advanceAfterNoActiveUnit({
             centerAlreadyDried: this.dungeonVisuals.isCenterDried(),
             damageDealtThisLap: this.attackHandler?.getDamageStatisticHolder().has(fightProps.getCurrentLap()) ?? false,
         });
-        _p("turnEngine.advanceAfterNoActiveUnit", _t);
+        _p("turnEngine.advance", _t);
         _t = performance.now();
         this.applyTurnEngineEvents(result.events, unitSnapshot);
-        _p("applyTurnEngineEvents", _t);
+        _p("applyEvents", _t);
 
         if (result.nextUnit) {
             _t = performance.now();
             this.handleNextUnitActivation(result.nextUnit as RenderableUnit);
-            _p("handleNextUnitActivation", _t);
+            _p("activation", _t);
         }
-        _p("advanceAfterNoActiveUnitIfNeeded TOTAL", _tAdvAll);
+        const _advTotal = performance.now() - _tAdvAll;
+        if (_advTotal > 4) console.warn(`[perf] advance total=${_advTotal.toFixed(1)}ms  ${_parts.join("  ")}`);
     }
     private isBoardInputLockedByAI(): boolean {
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -7215,9 +7220,13 @@ export class Sandbox extends PixiScene {
             return;
         }
 
-        // [PERF-PROBE] next-unit activation breakdown (end-of-turn lag).
-        const _p = (label: string, t0: number): void =>
-            console.warn(`[perf]   activate:${label}: ${(performance.now() - t0).toFixed(1)}ms`);
+        // [PERF-PROBE] next-unit activation breakdown. Accumulate into ONE gated console.warn so the
+        // DevTools per-warn stack-capture cost doesn't dominate (see advanceAfterNoActiveUnitIfNeeded).
+        const _aParts: string[] = [];
+        const _p = (label: string, t0: number): void => {
+            _aParts.push(`${label}=${(performance.now() - t0).toFixed(1)}`);
+        };
+        const _aTotal0 = performance.now();
         let _t = performance.now();
 
         this.sc_moveBlocked = false;
@@ -7270,6 +7279,8 @@ export class Sandbox extends PixiScene {
         _t = performance.now();
         this.buttonManager.refreshButtons(true);
         _p("refreshButtons", _t);
+        const _aTotal = performance.now() - _aTotal0;
+        if (_aTotal > 4) console.warn(`[perf] activation total=${_aTotal.toFixed(1)}ms  ${_aParts.join("  ")}`);
     }
     /**
      * Start a screen shake (decaying random offset of the world root). Re-triggering while a

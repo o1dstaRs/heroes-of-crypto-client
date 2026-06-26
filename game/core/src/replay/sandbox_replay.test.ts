@@ -5,6 +5,7 @@ import { GridVals, type GameAction, type IGameActionResult } from "@heroesofcryp
 import {
     MAX_SAVED_SANDBOX_REPLAYS,
     SandboxReplayRecorder,
+    cloneReplayData,
     listSandboxReplays,
     saveSandboxReplay,
     type ReplayStorage,
@@ -42,7 +43,9 @@ describe("SandboxReplayRecorder", () => {
     it("captures the initial state before recording the completed action", () => {
         const storage = new MemoryStorage();
         const initialState = createInitialState();
-        const recorder = new SandboxReplayRecorder(() => initialState, storage);
+        // The real captureSceneState() returns a fresh detached snapshot each call; mirror that here
+        // (a shared reference would be mutated by the line below before the snapshot is taken).
+        const recorder = new SandboxReplayRecorder(() => cloneReplayData(initialState), storage);
         const action: GameAction = { type: "start_fight" };
 
         recorder.beginAction(100);
@@ -54,6 +57,7 @@ describe("SandboxReplayRecorder", () => {
         expect(replay?.actions).toHaveLength(1);
         expect(replay?.actions[0]).toMatchObject({ sequence: 1, action });
         expect(replay?.actions[0].stateAfter.fightStarted).toBe(true);
+        recorder.flush(); // persistence is now debounced; force the write before asserting storage
         expect(listSandboxReplays(storage)).toHaveLength(1);
     });
 

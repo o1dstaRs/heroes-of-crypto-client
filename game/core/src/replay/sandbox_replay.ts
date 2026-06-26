@@ -98,9 +98,10 @@ export const saveSandboxReplay = (replay: SandboxReplay, storage = getBrowserSto
         return;
     }
 
-    const nextReplay = cloneReplayData(replay);
-    const replays = listSandboxReplays(storage).filter((existing) => existing.id !== nextReplay.id);
-    replays.unshift(nextReplay);
+    // No defensive clone: the replay is JSON.stringify'd synchronously below, so the stored snapshot
+    // is detached regardless. Cloning the whole (growing) replay here was pure per-save overhead.
+    const replays = listSandboxReplays(storage).filter((existing) => existing.id !== replay.id);
+    replays.unshift(replay);
     storage.setItem(
         SANDBOX_REPLAY_STORAGE_KEY,
         JSON.stringify(replays.sort((a, b) => b.updatedAtMs - a.updatedAtMs).slice(0, MAX_SAVED_SANDBOX_REPLAYS)),
@@ -122,6 +123,11 @@ export const clearSandboxReplays = (storage = getBrowserStorage()): void => {
 
 export class SandboxReplayRecorder {
     private replay?: SandboxReplay;
+    // Persisting the whole (growing) replay to localStorage on every action made the move/attack
+    // landing-frame hitch worse as a match went on. The in-memory replay stays current synchronously;
+    // the expensive serialize + write is coalesced behind a short debounce and flushed on reset.
+    private persistHandle?: ReturnType<typeof setTimeout>;
+    private static readonly PERSIST_DEBOUNCE_MS = 750;
     public constructor(
         private readonly captureSceneState: () => SandboxSceneState,
         private readonly storage = getBrowserStorage(),
@@ -140,16 +146,45 @@ export class SandboxReplayRecorder {
             clientTimeMs: now,
             action: cloneReplayData(action),
             events: cloneReplayData(result.events),
-            stateAfter: cloneReplayData(this.captureSceneState()),
+            // captureSceneState() already returns a detached deep copy (getAllProperties()
+            // structuredClone's each unit), so an outer clone here just deep-cloned the board twice.
+            stateAfter: this.captureSceneState(),
         });
         replay.updatedAtMs = now;
-        saveSandboxReplay(replay, this.storage);
+        this.schedulePersist();
     }
     public getCurrentReplay(): SandboxReplay | undefined {
         return this.replay ? cloneReplayData(this.replay) : undefined;
     }
     public reset(): void {
+        // Persist any debounced write before discarding the finished replay.
+        this.flush();
         this.replay = undefined;
+    }
+    /** Persist the current replay to storage now, cancelling any pending debounced write. */
+    public flush(): void {
+        if (this.persistHandle !== undefined) {
+            clearTimeout(this.persistHandle);
+            this.persistHandle = undefined;
+        }
+        if (this.replay) {
+            saveSandboxReplay(this.replay, this.storage);
+        }
+    }
+    private schedulePersist(): void {
+        if (this.persistHandle !== undefined) {
+            return; // a trailing flush is already queued; it will pick up the latest state
+        }
+        if (typeof setTimeout !== "function") {
+            this.flush();
+            return;
+        }
+        this.persistHandle = setTimeout(() => {
+            this.persistHandle = undefined;
+            if (this.replay) {
+                saveSandboxReplay(this.replay, this.storage);
+            }
+        }, SandboxReplayRecorder.PERSIST_DEBOUNCE_MS);
     }
     private ensureReplay(now: number): SandboxReplay {
         if (!this.replay) {
@@ -159,7 +194,8 @@ export class SandboxReplayRecorder {
                 id: createSandboxReplayId(),
                 createdAtMs: now,
                 updatedAtMs: now,
-                initialState: cloneReplayData(this.captureSceneState()),
+                // captureSceneState() is already a detached snapshot — see recordAction.
+                initialState: this.captureSceneState(),
                 actions: [],
             };
         }
