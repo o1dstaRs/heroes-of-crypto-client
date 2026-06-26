@@ -1,4 +1,4 @@
-import { Container, Sprite, Text as PixiText, TextStyle, Texture, Rectangle } from "pixi.js";
+import { Container, Sprite, Text as PixiText, TextStyle, Texture, Rectangle, Graphics } from "pixi.js";
 import { GridSettings, HoCMath, GridMath, UnitProperties, UnitsHolder } from "@heroesofcrypto/common";
 import { RenderableUnit } from "../RenderableUnit";
 import { images } from "../../generated/image_imports";
@@ -39,6 +39,39 @@ interface IShatterGroup {
     shards: IShard[];
 }
 
+interface IFireParticle {
+    sprite: Sprite;
+    age: number; // seconds; negative means still delayed — the breath wave hasn't reached it yet
+    life: number;
+    x: number;
+    y: number;
+    riseY: number; // world px the ember floats up over its life
+    driftX: number; // slight sideways waver
+    baseScale: number;
+    rot: number;
+    spin: number;
+}
+
+interface IFireSweep {
+    container: Container;
+    particles: IFireParticle[];
+}
+
+interface IChainBolt {
+    gfx: Graphics;
+    from: HoCMath.XY;
+    to: HoCMath.XY;
+    cellSize: number;
+    age: number; // seconds; negative means the chain hasn't reached this jump yet
+    life: number;
+    flicker: number; // accumulates dt; re-jags the bolt on CHAIN_FLICKER_S so it crackles
+}
+
+interface IChainLightning {
+    container: Container;
+    bolts: IChainBolt[];
+}
+
 // Tuning for the floating damage numbers.
 const FT_LIFE = 0.8; // seconds on screen
 const FT_RISE = 72; // world px the number floats up
@@ -49,6 +82,29 @@ const FT_FADE_IN = 0.1; // seconds to fade in
 const FT_FADE_OUT_FROM = 0.62; // fraction of life after which it fades out
 const FT_STACK_DIST = 64; // px: numbers closer than this are stacked, not overlapped
 const FT_STACK_STEP = 46; // px: vertical gap per stacked number
+
+// Tuning for the Black Dragon's Fire Breath sweep — a line of embers that rushes from the attacker
+// through every unit the breath burns. Timed to land with the strike: a tiny lead so the fire erupts
+// right as the lunge connects (not before), then a FAST sweep so it reaches the target as the damage
+// number pops — rather than trailing the attack by a beat.
+const FIRE_LEAD_MS = 70; // delay before the wave starts ≈ when the attacker's lunge connects
+const FIRE_SWEEP_MS = 120; // time for the wave to rush the WHOLE line (fast, so it tracks the strike)
+const FIRE_PARTICLE_LIFE = 0.55; // seconds each ember lives
+const FIRE_RISE = 30; // world px an ember floats up over its life
+const FIRE_Z = 1900; // above units (~1000), below the damage numbers (2000) / death shatter (4500)
+const FIRE_TINTS = [0xff3a0a, 0xff6a14, 0xff9a2e, 0xffc861]; // ember red → flame orange → spark gold
+
+// Tuning for Thunderbird's Chain Lightning — a purple bolt that jumps from the attacker through the
+// target and on to each chained enemy. Like the fire sweep, it's timed to the strike (small lead so
+// it cracks as the lunge connects) and each jump fires a beat after the previous.
+const CHAIN_LEAD_MS = 60; // delay before the first bolt ≈ when the lunge connects
+const CHAIN_JUMP_MS = 85; // gap between successive jumps (target → next → next …)
+const CHAIN_BOLT_LIFE = 0.26; // seconds each bolt crackles before fading
+const CHAIN_FLICKER_S = 0.04; // re-jag the bolt this often so it crackles like live lightning
+const CHAIN_Z = 1950; // above the fire sweep (1900), below the damage numbers (2000)
+const CHAIN_GLOW = 0x7a2dff; // outer purple glow
+const CHAIN_MID = 0xb36bff; // mid violet
+const CHAIN_CORE = 0xedd6ff; // hot near-white core
 
 const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
 const easeOutBack = (t: number): number => {
@@ -61,6 +117,10 @@ export class CombatVisuals {
     private context: ICombatVisualsContext;
     private floatingTexts: IFloatingText[] = [];
     private shatterGroups: IShatterGroup[] = [];
+    private fireSweeps: IFireSweep[] = [];
+    private chainLightnings: IChainLightning[] = [];
+    // Soft radial ember texture, built once and reused for every Fire Breath sweep.
+    private fireTexture?: Texture;
     // Damage/count text styles are reused across strikes — building a fresh TextStyle per hit is
     // wasteful, and (more importantly) the FIRST PixiText render of a style rasterizes the font and
     // compiles PIXI's text shader, a ~30-40ms one-time stall. prewarm() pays that off-screen at load.
@@ -144,6 +204,14 @@ export class CombatVisuals {
             group.container.destroy({ children: true });
         }
         this.shatterGroups.length = 0;
+        for (const sweep of this.fireSweeps) {
+            sweep.container.destroy({ children: true });
+        }
+        this.fireSweeps.length = 0;
+        for (const chain of this.chainLightnings) {
+            chain.container.destroy({ children: true });
+        }
+        this.chainLightnings.length = 0;
     }
     public update(dt: number) {
         for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
@@ -179,6 +247,8 @@ export class CombatVisuals {
         }
 
         this.stepShatters(dt);
+        this.stepFireSweeps(dt);
+        this.stepChainLightnings(dt);
     }
     /**
      * "Broken mirror" death effect: slice the unit's current texture into a grid of shards that
@@ -273,6 +343,215 @@ export class CombatVisuals {
             if (group.shards.length === 0) {
                 group.container.destroy();
                 this.shatterGroups.splice(gi, 1);
+            }
+        }
+    }
+    /** Soft white→amber→transparent radial ember, drawn once and tinted per particle. */
+    private getFireTexture(): Texture {
+        if (this.fireTexture) {
+            return this.fireTexture;
+        }
+        const size = 64;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            return Texture.WHITE;
+        }
+        const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+        grad.addColorStop(0.0, "rgba(255,255,255,1)");
+        grad.addColorStop(0.3, "rgba(255,238,170,0.9)");
+        grad.addColorStop(0.65, "rgba(255,135,40,0.45)");
+        grad.addColorStop(1.0, "rgba(255,70,0,0)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+        this.fireTexture = Texture.from(canvas);
+        return this.fireTexture;
+    }
+    /**
+     * Fire Breath sweep: a wave of additive embers emitted in order along the line from `from` to `to`
+     * (world coords), so the fire reads as rushing through every unit the Black Dragon's breath burns.
+     * Each cluster's emission is delayed by its distance along the line (the "wave head" travels in
+     * FIRE_SWEEP_MS), and each ember pops, floats up, wavers, and burns out.
+     */
+    public spawnFireSweep(from: HoCMath.XY, to: HoCMath.XY, cellSize: number): void {
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const len = Math.hypot(dx, dy);
+        if (len < 1) {
+            return;
+        }
+        const container = new Container();
+        this.context.attachToWorldRoot(container, FIRE_Z);
+        const tex = this.getFireTexture();
+        const texW = tex.width || 64;
+
+        // A cluster roughly every half cell keeps the trail continuous for any line length.
+        const clusters = Math.max(2, Math.round(len / Math.max(1, cellSize * 0.45)));
+        const particles: IFireParticle[] = [];
+        for (let ci = 0; ci <= clusters; ci++) {
+            const along = ci / clusters; // 0 at the attacker, 1 at the far end of the breath
+            const cx = from.x + dx * along;
+            const cy = from.y + dy * along;
+            const delaySec = (FIRE_LEAD_MS + along * FIRE_SWEEP_MS) / 1000;
+            for (let k = 0; k < 3; k++) {
+                const rand = Math.random();
+                const jitter = cellSize * 0.28;
+                const sprite = new Sprite(tex);
+                sprite.anchor.set(0.5);
+                sprite.blendMode = "add";
+                sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
+                sprite.scale.set(0.001);
+                sprite.alpha = 0;
+                sprite.visible = false;
+                container.addChild(sprite);
+                particles.push({
+                    sprite,
+                    age: -delaySec - Math.random() * 0.02,
+                    life: FIRE_PARTICLE_LIFE * (0.8 + 0.4 * rand),
+                    x: cx + (Math.random() - 0.5) * jitter,
+                    y: cy + (Math.random() - 0.5) * jitter,
+                    riseY: FIRE_RISE * (0.6 + 0.8 * rand),
+                    driftX: (Math.random() - 0.5) * cellSize * 0.18,
+                    baseScale: (cellSize * (0.5 + 0.45 * rand)) / texW,
+                    rot: Math.random() * Math.PI * 2,
+                    spin: (Math.random() - 0.5) * 5,
+                });
+            }
+        }
+        this.fireSweeps.push({ container, particles });
+    }
+    private stepFireSweeps(dt: number): void {
+        for (let i = this.fireSweeps.length - 1; i >= 0; i--) {
+            const sweep = this.fireSweeps[i];
+            let anyPending = false;
+            for (const p of sweep.particles) {
+                p.age += dt;
+                if (p.age < 0) {
+                    anyPending = true; // wave hasn't reached this point yet
+                    continue;
+                }
+                if (p.age >= p.life) {
+                    if (p.sprite.visible) {
+                        p.sprite.visible = false;
+                    }
+                    continue;
+                }
+                anyPending = true;
+                const t = p.age / p.life;
+                const e = easeOutCubic(t);
+                p.sprite.visible = true;
+                p.sprite.position.set(p.x + p.driftX * e, p.y + p.riseY * e);
+                // Snap in over the first 10% of life (so it ignites instantly with the strike), then
+                // shrink as it burns out.
+                const scale =
+                    t < 0.1 ? p.baseScale * (0.45 + 0.55 * (t / 0.1)) : p.baseScale * (1 - 0.55 * ((t - 0.1) / 0.9));
+                p.sprite.scale.set(scale, scale);
+                p.rot += p.spin * dt;
+                p.sprite.rotation = p.rot;
+                // Near-instant flare in, smooth fade out.
+                const alpha = t < 0.07 ? t / 0.07 : 1 - (t - 0.07) / 0.93;
+                p.sprite.alpha = Math.max(0, Math.min(1, alpha));
+            }
+            if (!anyPending) {
+                sweep.container.destroy({ children: true });
+                this.fireSweeps.splice(i, 1);
+            }
+        }
+    }
+    /**
+     * Chain Lightning arc: a purple bolt jumps from the attacker to the target and then on through
+     * each chained enemy, one jump after another (CHAIN_JUMP_MS apart), so it reads as electricity
+     * arcing through the units the chain hits. `points` is the ordered path of world centers
+     * [attacker, target, chained…]; each consecutive pair gets a crackling bolt.
+     */
+    public spawnChainLightning(points: HoCMath.XY[], cellSize: number): void {
+        if (points.length < 2) {
+            return;
+        }
+        const container = new Container();
+        this.context.attachToWorldRoot(container, CHAIN_Z);
+        const bolts: IChainBolt[] = [];
+        for (let i = 0; i < points.length - 1; i++) {
+            const gfx = new Graphics();
+            gfx.blendMode = "add";
+            gfx.visible = false;
+            container.addChild(gfx);
+            bolts.push({
+                gfx,
+                from: points[i],
+                to: points[i + 1],
+                cellSize,
+                age: -(CHAIN_LEAD_MS + i * CHAIN_JUMP_MS) / 1000,
+                life: CHAIN_BOLT_LIFE,
+                flicker: CHAIN_FLICKER_S, // force a draw on the first visible tick
+            });
+        }
+        this.chainLightnings.push({ container, bolts });
+    }
+    /** Redraw a jagged purple bolt between two points (stacked strokes: glow + mid + hot core). */
+    private drawChainBolt(gfx: Graphics, from: HoCMath.XY, to: HoCMath.XY, cellSize: number): void {
+        gfx.clear();
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const nx = -dy / len; // unit perpendicular to the bolt
+        const ny = dx / len;
+        const segments = Math.max(4, Math.round(len / (cellSize * 0.5)));
+        const amp = Math.min(cellSize * 0.4, len * 0.2);
+        const pts: HoCMath.XY[] = [];
+        for (let i = 0; i <= segments; i++) {
+            const t = i / segments;
+            const taper = Math.sin(Math.PI * t); // 0 at both ends so the bolt connects cleanly
+            const off = (Math.random() - 0.5) * 2 * amp * taper;
+            pts.push({ x: from.x + dx * t + nx * off, y: from.y + dy * t + ny * off });
+        }
+        const trace = () => {
+            gfx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) {
+                gfx.lineTo(pts[i].x, pts[i].y);
+            }
+        };
+        trace();
+        gfx.stroke({ width: cellSize * 0.17, color: CHAIN_GLOW, alpha: 0.3, cap: "round", join: "round" });
+        trace();
+        gfx.stroke({ width: cellSize * 0.08, color: CHAIN_MID, alpha: 0.7, cap: "round", join: "round" });
+        trace();
+        gfx.stroke({ width: cellSize * 0.03, color: CHAIN_CORE, alpha: 1, cap: "round", join: "round" });
+    }
+    private stepChainLightnings(dt: number): void {
+        for (let i = this.chainLightnings.length - 1; i >= 0; i--) {
+            const chain = this.chainLightnings[i];
+            let anyPending = false;
+            for (const bolt of chain.bolts) {
+                bolt.age += dt;
+                if (bolt.age < 0) {
+                    anyPending = true; // the chain hasn't reached this jump yet
+                    continue;
+                }
+                if (bolt.age >= bolt.life) {
+                    if (bolt.gfx.visible) {
+                        bolt.gfx.visible = false;
+                    }
+                    continue;
+                }
+                anyPending = true;
+                bolt.gfx.visible = true;
+                // Re-jag periodically so the bolt crackles instead of sitting as a static zig-zag.
+                bolt.flicker += dt;
+                if (bolt.flicker >= CHAIN_FLICKER_S) {
+                    bolt.flicker = 0;
+                    this.drawChainBolt(bolt.gfx, bolt.from, bolt.to, bolt.cellSize);
+                }
+                // Bright flash, then fade out, with a little random crackle in the brightness.
+                const t = bolt.age / bolt.life;
+                const envelope = t < 0.18 ? 1 : 1 - (t - 0.18) / 0.82;
+                bolt.gfx.alpha = Math.max(0, envelope) * (0.7 + Math.random() * 0.3);
+            }
+            if (!anyPending) {
+                chain.container.destroy({ children: true });
+                this.chainLightnings.splice(i, 1);
             }
         }
     }

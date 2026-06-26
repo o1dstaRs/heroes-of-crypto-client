@@ -3687,7 +3687,24 @@ export class Sandbox extends PixiScene {
             }
         } else {
             const big = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
-            void this.rangedProjectiles.fire({ from: muzzle, to: worldPos, big });
+            // Fire one projectile per mountain hit the engine actually applied. Double Shot lands a
+            // second hit on the obstacle (when it still has hits left and the shot can land), so two
+            // arrows must show — previously only ever one fired.
+            const obstacleEvent = result.events.find((event) => event.type === "obstacle_attacked");
+            const projectileCount =
+                obstacleEvent?.type === "obstacle_attacked"
+                    ? Math.max(1, obstacleEvent.hitsBefore - obstacleEvent.hitsAfter)
+                    : 1;
+            for (let shotIndex = 0; shotIndex < projectileCount; shotIndex += 1) {
+                if (shotIndex === 0) {
+                    void this.rangedProjectiles.fire({ from: muzzle, to: worldPos, big });
+                } else {
+                    // Stagger extra shots so they read as distinct (matches the multi-hit cadence).
+                    setTimeout(() => {
+                        void this.rangedProjectiles.fire({ from: muzzle, to: worldPos, big });
+                    }, shotIndex * 240);
+                }
+            }
         }
 
         this.unitsHolder.refreshStackPowerForAllUnits();
@@ -4443,6 +4460,48 @@ export class Sandbox extends PixiScene {
                         setTimeout(() => attacker.applyRecoil(lungeX, lungeY), i * 240);
                     }
                 }
+
+                // Black Dragon's Fire Breath burns through everything in a line behind the target.
+                // Sweep a fiery wave from the attacker through the target and ~2 cells past it so the
+                // line/breath reads visually. Gated on the ability + the strike landing.
+                if (attacker.hasAbilityActive("Fire Breath") && damageForAnimation.amount > 0) {
+                    const ndx = primaryAttackDir.x / lungeLen;
+                    const ndy = primaryAttackDir.y / lungeLen;
+                    const fireFrom = attacker.getVisualCenter(gs);
+                    const rTarget = target as RenderableUnit;
+                    const tCenter =
+                        typeof rTarget.getVisualCenter === "function"
+                            ? rTarget.getVisualCenter(gs)
+                            : target.getPosition();
+                    const overshoot = gs.getCellSize() * 2; // breath continues past the target
+                    this.combatVisuals.spawnFireSweep(
+                        fireFrom,
+                        { x: tCenter.x + ndx * overshoot, y: tCenter.y + ndy * overshoot },
+                        gs.getCellSize(),
+                    );
+                }
+            }
+
+            // Thunderbird's Chain Lightning arcs from the attacker through the target and on to each
+            // chained enemy. Recompute the same ordered chain the engine used, then send a purple bolt
+            // jumping along that path (attacker → target → chained…). Gated on the ability + landing.
+            if (attacker.hasAbilityActive("Chain Lightning") && damageForAnimation.amount > 0) {
+                const chain = AllAbilities.getChainLightningTargets(target, this.grid, this.unitsHolder);
+                const tRender = target as RenderableUnit;
+                const points: HoCMath.XY[] = [
+                    attacker.getVisualCenter(gs),
+                    typeof tRender.getVisualCenter === "function" ? tRender.getVisualCenter(gs) : target.getPosition(),
+                ];
+                const seen = new Set<string>([target.getId()]);
+                for (const u of chain) {
+                    if (seen.has(u.getId())) {
+                        continue;
+                    }
+                    seen.add(u.getId());
+                    const ru = u as RenderableUnit;
+                    points.push(typeof ru.getVisualCenter === "function" ? ru.getVisualCenter(gs) : u.getPosition());
+                }
+                this.combatVisuals.spawnChainLightning(points, gs.getCellSize());
             }
         }
 
@@ -4528,10 +4587,22 @@ export class Sandbox extends PixiScene {
         // kill count shown is the gaze-only count, not the target's total deaths.
         const fireShieldByName = new Map<string, number>();
         const petrifyKillsByName = new Map<string, number>();
+        // Chain Lightning is applied as its own magic hit (not folded into the attack's damage), so
+        // isolate its per-unit amount from the log and draw it as a separate purple number instead of
+        // a red one summed into the standard damage.
+        const chainLightningByName = new Map<string, number>();
         for (const entry of this.sc_sceneLog.getEntriesSince(logSizeBeforeAttack)) {
             const fsMatch = entry.match(/^(.+?) received \((\d+)\) from Fire Shield/);
             if (fsMatch) {
                 fireShieldByName.set(fsMatch[1], (fireShieldByName.get(fsMatch[1]) ?? 0) + parseInt(fsMatch[2], 10));
+                continue;
+            }
+            const clMatch = entry.match(/^(.+?) got hit (\d+) by Chain Lightning$/);
+            if (clMatch) {
+                chainLightningByName.set(
+                    clMatch[1],
+                    (chainLightningByName.get(clMatch[1]) ?? 0) + parseInt(clMatch[2], 10),
+                );
                 continue;
             }
             const pgMatch = entry.match(/^(\d+) (.+?) killed by Petrifying Gaze$/);
@@ -4703,8 +4774,24 @@ export class Sandbox extends PixiScene {
                 const extraDiedCount = isPetrified ? (petrifyKillsByName.get(uName!) ?? 0) : diedCount;
                 const uFireShield = uName ? (fireShieldByName.get(uName) ?? 0) : 0;
                 const isFsBurn = uFireShield > 0 && Math.abs(unaccountedDiff - uFireShield) <= 2;
-                const fsFill = isPetrified ? "#d8d8d8" : isFsBurn ? "#ffb13c" : "#ff3333";
-                const fsStroke = isPetrified ? "#5a5a5a" : isFsBurn ? "#7a3800" : "#4a0000";
+                const uChainLightning = uName ? (chainLightningByName.get(uName) ?? 0) : 0;
+                const isChainLightning = uChainLightning > 0 && Math.abs(unaccountedDiff - uChainLightning) <= 2;
+                // Source styling priority: Petrifying Gaze grey, Chain Lightning purple, Fire Shield
+                // amber, otherwise plain red.
+                const fsFill = isPetrified
+                    ? "#d8d8d8"
+                    : isChainLightning
+                      ? "#b86bff"
+                      : isFsBurn
+                        ? "#ffb13c"
+                        : "#ff3333";
+                const fsStroke = isPetrified
+                    ? "#5a5a5a"
+                    : isChainLightning
+                      ? "#3b0a5c"
+                      : isFsBurn
+                        ? "#7a3800"
+                        : "#4a0000";
 
                 if (isPetrified && u instanceof RenderableUnit && primaryAttackDir) {
                     // "Yank" the target away from the attacker (recoil), then it springs back.
