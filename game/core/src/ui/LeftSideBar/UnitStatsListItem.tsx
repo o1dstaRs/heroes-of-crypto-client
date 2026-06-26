@@ -360,86 +360,119 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     );
 };
 
+const AbilityCell: React.FC<{
+    ability: IVisibleImpact;
+    teamType: TeamType;
+    isWidescreen: boolean;
+    hasBreakApplied: boolean;
+}> = ({ ability, teamType, isWidescreen, hasBreakApplied }) => {
+    const theme = useTheme();
+    const isDarkMode = theme.palette.mode === "dark";
+    const auraColor = isDarkMode ? "rgba(255, 255, 255, 0.75)" : "rgba(0, 0, 0, 0.75)";
+
+    // The stack-power pips and break overlay are pure CSS, so they'd otherwise pop in before the
+    // ability image finishes loading (the pips visibly racing ahead). Gate them — and fade the image
+    // in — on the image's load so everything appears together.
+    const [loaded, setLoaded] = React.useState(false);
+    const setImgRef = React.useCallback((node: HTMLImageElement | null) => {
+        // A cached image can already be complete before onLoad attaches — reconcile on mount.
+        if (node?.complete && node.naturalWidth > 0) {
+            setLoaded(true);
+        }
+    }, []);
+
+    return (
+        <Tooltip
+            title={
+                <>
+                    {hasBreakApplied && "BREAK APPLIED!\n"}
+                    {ability.name}:&nbsp;
+                    {ability.description.split("\n").map((line, idx) => (
+                        <React.Fragment key={idx}>
+                            {line}
+                            <br />
+                        </React.Fragment>
+                    ))}
+                </>
+            }
+            sx={commonTooltipSx}
+        >
+            <Box
+                sx={{
+                    position: "relative",
+                    width: isWidescreen ? "22%" : `calc((100% - ${theme.spacing(3)}) / 3)`,
+                    paddingBottom: isWidescreen ? "22%" : `calc((100% - ${theme.spacing(3)}) / 3)`,
+                    overflow: "visible",
+                    borderRadius: ability.isAura ? "50%" : "15%",
+                    "&::before": {
+                        content: '""',
+                        position: "absolute",
+                        top: "50%",
+                        left: "50%",
+                        width: "100%",
+                        height: "100%",
+                        transform: "translate(-50%, -50%)",
+                        borderRadius: ability.isAura ? "50%" : "20%",
+                        boxShadow: ability.isAura ? `-20px 0 -20px 60px ${auraColor}` : "none",
+                        zIndex: 0,
+                    },
+                }}
+            >
+                <Box
+                    component="img"
+                    ref={setImgRef}
+                    // @ts-ignore: images index signature
+                    src={images[ability.smallTextureName]}
+                    onLoad={() => setLoaded(true)}
+                    onError={() => setLoaded(true)}
+                    sx={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        zIndex: 1,
+                        // ✅ CLIP IMAGE ONLY
+                        borderRadius: ability.isAura ? "50%" : "15%",
+                        imageRendering: "auto",
+                        transform: "translateZ(0)",
+                        opacity: loaded ? 1 : 0,
+                        transition: "opacity 160ms ease-out, transform 160ms ease-out",
+                        willChange: "opacity, transform",
+                    }}
+                />
+                {loaded && hasBreakApplied && <BreakOverlay isAura={ability.isAura} />}
+                {loaded && (
+                    <StackPowerOverlay
+                        stackPower={ability.isStackPowered ? ability.stackPower : 0}
+                        teamType={teamType}
+                        isAura={ability.isAura}
+                    />
+                )}
+            </Box>
+        </Tooltip>
+    );
+};
+
 const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean; hasBreakApplied: boolean }> = ({
     abilities,
     teamType,
     isWidescreen,
     hasBreakApplied,
 }) => {
-    const theme = useTheme();
-    const isDarkMode = theme.palette.mode === "dark";
-    const auraColor = isDarkMode ? "rgba(255, 255, 255, 0.75)" : "rgba(0, 0, 0, 0.75)";
-
     const filtered = abilities.filter((ability) => ability.laps > 0);
 
     return (
         <Stack direction="row" flexWrap="wrap" gap={isWidescreen ? 2 : 1.5} sx={{ width: "100%", marginTop: 1 }}>
             {filtered.map((ability, index) => (
-                <Tooltip
-                    title={
-                        <>
-                            {hasBreakApplied && "BREAK APPLIED!\n"}
-                            {ability.name}:&nbsp;
-                            {ability.description.split("\n").map((line, idx) => (
-                                <React.Fragment key={idx}>
-                                    {line}
-                                    <br />
-                                </React.Fragment>
-                            ))}
-                        </>
-                    }
+                <AbilityCell
                     key={`${ability.name}-${ability.smallTextureName}-${index}`}
-                    sx={commonTooltipSx}
-                >
-                    <Box
-                        sx={{
-                            position: "relative",
-                            width: isWidescreen ? "22%" : `calc((100% - ${theme.spacing(3)}) / 3)`,
-                            paddingBottom: isWidescreen ? "22%" : `calc((100% - ${theme.spacing(3)}) / 3)`,
-                            overflow: "visible",
-                            borderRadius: ability.isAura ? "50%" : "15%",
-                            "&::before": {
-                                content: '""',
-                                position: "absolute",
-                                top: "50%",
-                                left: "50%",
-                                width: "100%",
-                                height: "100%",
-                                transform: "translate(-50%, -50%)",
-                                borderRadius: ability.isAura ? "50%" : "20%",
-                                boxShadow: ability.isAura ? `-20px 0 -20px 60px ${auraColor}` : "none",
-                                zIndex: 0,
-                            },
-                        }}
-                    >
-                        <Box
-                            component="img"
-                            // @ts-ignore: images index signature
-                            src={images[ability.smallTextureName]}
-                            sx={{
-                                position: "absolute",
-                                top: 0,
-                                left: 0,
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                                zIndex: 1,
-                                // ✅ CLIP IMAGE ONLY
-                                borderRadius: ability.isAura ? "50%" : "15%",
-                                imageRendering: "auto",
-                                transform: "translateZ(0)",
-                                transition: "opacity 160ms ease-out, transform 160ms ease-out",
-                                willChange: "opacity, transform",
-                            }}
-                        />
-                        {hasBreakApplied && <BreakOverlay isAura={ability.isAura} />}
-                        <StackPowerOverlay
-                            stackPower={ability.isStackPowered ? ability.stackPower : 0}
-                            teamType={teamType}
-                            isAura={ability.isAura}
-                        />
-                    </Box>
-                </Tooltip>
+                    ability={ability}
+                    teamType={teamType}
+                    isWidescreen={isWidescreen}
+                    hasBreakApplied={hasBreakApplied}
+                />
             ))}
         </Stack>
     );

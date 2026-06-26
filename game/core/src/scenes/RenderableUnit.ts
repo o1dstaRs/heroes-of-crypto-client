@@ -114,6 +114,12 @@ export class RenderableUnit extends Unit {
     private stackPowerPips: Graphics[] = [];
     private hourglassContainer?: Container;
     private hourglassSprite?: Sprite;
+    /** Stun/skip indicator (shown when the unit is skipping its turn) — shares the hourglass corner. */
+    private stunContainer?: Container;
+    private stunSprite?: Sprite;
+    /** Retaliation tag (shown once the unit has used its response attack this round). */
+    private respondContainer?: Container;
+    private respondSprite?: Sprite;
     private spawnAnim?: SpawnAnimState;
     private boardSelected = false;
     private selectionAnimFrames?: Texture[];
@@ -336,6 +342,38 @@ export class RenderableUnit extends Unit {
         this.ensureStackPowerIndicator(worldRoot, gs, props, pos);
         // --- turn status indicator ---
         this.ensureHourglassIndicator(worldRoot, gs, props, pos);
+        // --- stun/skip indicator: top-left corner (same slot as the hourglass, mutually exclusive) ---
+        {
+            const r = this.buildCornerIcon(
+                worldRoot,
+                this.stunContainer,
+                this.stunSprite,
+                "stun_256",
+                pos,
+                props,
+                -1,
+                1,
+                this.isSkippingThisTurn(),
+            );
+            this.stunContainer = r.container;
+            this.stunSprite = r.sprite;
+        }
+        // --- retaliation tag: right-center edge (clear of flag/stack/hourglass) ---
+        {
+            const r = this.buildCornerIcon(
+                worldRoot,
+                this.respondContainer,
+                this.respondSprite,
+                "tag",
+                pos,
+                props,
+                1,
+                0,
+                this.shouldShowRespondTag(),
+            );
+            this.respondContainer = r.container;
+            this.respondSprite = r.sprite;
+        }
         return scale;
     }
     public setSpriteRotation(rotation: number) {
@@ -354,6 +392,12 @@ export class RenderableUnit extends Unit {
         if (this.stackPowerContainer) this.stackPowerContainer.visible = visible;
         if (this.hourglassContainer) {
             this.hourglassContainer.visible = visible && this.shouldShowHourglassIndicator();
+        }
+        if (this.stunContainer) {
+            this.stunContainer.visible = visible && this.isSkippingThisTurn();
+        }
+        if (this.respondContainer) {
+            this.respondContainer.visible = visible && this.shouldShowRespondTag();
         }
     }
     public setVisualGhost(active: boolean): void {
@@ -374,6 +418,12 @@ export class RenderableUnit extends Unit {
         if (this.stackPowerContainer) this.stackPowerContainer.visible = !active && visible;
         if (this.hourglassContainer) {
             this.hourglassContainer.visible = !active && visible && this.shouldShowHourglassIndicator();
+        }
+        if (this.stunContainer) {
+            this.stunContainer.visible = !active && visible && this.isSkippingThisTurn();
+        }
+        if (this.respondContainer) {
+            this.respondContainer.visible = !active && visible && this.shouldShowRespondTag();
         }
     }
     public applyMoveEffect(spawnPulsePhase: number): void {
@@ -404,6 +454,8 @@ export class RenderableUnit extends Unit {
             if (this.badgeContainer) this.badgeContainer.visible = false;
             if (this.stackPowerContainer) this.stackPowerContainer.visible = false;
             if (this.hourglassContainer) this.hourglassContainer.visible = false;
+            if (this.stunContainer) this.stunContainer.visible = false;
+            if (this.respondContainer) this.respondContainer.visible = false;
             return;
         }
         this.ensureVisual(worldRoot, gs);
@@ -416,6 +468,8 @@ export class RenderableUnit extends Unit {
             if (this.badgeContainer) this.badgeContainer.zIndex = baseZ + 1;
             if (this.stackPowerContainer) this.stackPowerContainer.zIndex = baseZ + 1;
             if (this.hourglassContainer) this.hourglassContainer.zIndex = baseZ + 2;
+            if (this.stunContainer) this.stunContainer.zIndex = baseZ + 2;
+            if (this.respondContainer) this.respondContainer.zIndex = baseZ + 2;
         }
 
         // Active-turn "light waves" aura: animated glow + radiating rings under the unit.
@@ -685,6 +739,16 @@ export class RenderableUnit extends Unit {
             this.hourglassContainer = undefined;
             this.hourglassSprite = undefined;
         }
+        if (this.stunContainer) {
+            this.stunContainer.destroy({ children: true });
+            this.stunContainer = undefined;
+            this.stunSprite = undefined;
+        }
+        if (this.respondContainer) {
+            this.respondContainer.destroy({ children: true });
+            this.respondContainer = undefined;
+            this.respondSprite = undefined;
+        }
         if (this.badgeContainer) {
             this.badgeContainer.destroy({ children: true });
             this.badgeContainer = undefined;
@@ -846,8 +910,68 @@ export class RenderableUnit extends Unit {
         }
     }
     private shouldShowHourglassIndicator(): boolean {
+        // A stunned/skipping unit shows the stun icon in this same corner instead, so suppress the
+        // hourglass when skipping (mirrors legacy, where stop and hourglass were mutually exclusive).
+        if (this.isSkippingThisTurn()) return false;
         const fightProps = FightStateManager.getInstance().getFightProperties();
         return this.isOnHourglass() || fightProps.hourglassIncludes(this.getId());
+    }
+    /**
+     * Whether to show the retaliation tag. The legacy `responded` flag isn't propagated in the new
+     * engine — the authoritative "already retaliated this round" state lives on FightProperties
+     * (set via addRepliedAttack, cleared each lap), so read it from there.
+     */
+    private shouldShowRespondTag(): boolean {
+        return FightStateManager.getInstance().getFightProperties().hasAlreadyRepliedAttack(this.getId());
+    }
+    /**
+     * Create/refresh a small corner icon on the unit (stun, retaliation tag, …). Anchored by
+     * (ax, ay) where -1/0/+1 select left/center/right and bottom/center/top. Returns the persisted
+     * container+sprite so the caller can store them. Modeled on ensureHourglassIndicator so all the
+     * unit overlays size and depth-sort identically.
+     */
+    private buildCornerIcon(
+        worldRoot: Container,
+        container: Container | undefined,
+        sprite: Sprite | undefined,
+        texKey: string,
+        pos: HoCMath.XY,
+        props: UnitProperties,
+        ax: number,
+        ay: number,
+        shouldShow: boolean,
+    ): { container: Container; sprite: Sprite } {
+        const tex = this.texResolver(texKey);
+        if (!container) {
+            container = new Container();
+            sprite = new Sprite(tex ?? Texture.EMPTY);
+            sprite.anchor.set(0.5);
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            container.addChild(sprite);
+            worldRoot.addChild(container);
+        } else if (container.parent !== worldRoot) {
+            worldRoot.addChild(container);
+        }
+        const icon = sprite!;
+        icon.texture = tex ?? Texture.EMPTY;
+
+        const visualSide = props.size === 2 ? 256 : 128;
+        const iconSide = Math.round((visualSide * 20) / 72);
+        const reach = visualSide / 2 - iconSide / 2;
+
+        icon.width = iconSide;
+        icon.height = iconSide;
+        icon.scale.y = -Math.abs(icon.scale.y);
+
+        container.zIndex = 4000 - pos.y + 2;
+        container.x = pos.x + ax * reach;
+        container.y = pos.y + ay * reach;
+        container.visible =
+            (this.visualMode ?? "normal") === "normal" && this.getAmountAlive() > 0 && !!tex && shouldShow;
+        for (const child of container.children) {
+            if (child instanceof Sprite) child.scale.y = -Math.abs(child.scale.y);
+        }
+        return { container, sprite: icon };
     }
     public setActiveTurn(active: boolean): void {
         if (this.isActiveTurn === active) return;

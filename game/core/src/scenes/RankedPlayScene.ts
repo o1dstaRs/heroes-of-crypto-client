@@ -129,6 +129,12 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                         ? (unitState.attackType as AttackType)
                         : baseProperties.attack_type_selected,
                 stack_power: unitState.stackPower || baseProperties.stack_power,
+                // The server (running the common engine) computes morale and speed authoritatively and
+                // ships them in the snapshot; carry them through instead of falling back to the base
+                // creature config. These survive the client's adjustBaseStats recompute because it
+                // preserves initialUnitProperties.morale/speed (synergy bonus is re-derived on top).
+                morale: unitState.morale,
+                speed: unitState.speed || baseProperties.speed,
             } as UnitProperties;
         } catch {
             // Legacy snapshots may not carry a usable creature id, so fall through factions.

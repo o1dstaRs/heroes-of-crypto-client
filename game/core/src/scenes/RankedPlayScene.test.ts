@@ -49,6 +49,17 @@ const placementSnapshot = (units: AuthoritativeUnitState[]): AuthoritativeGameSn
 });
 
 describe("ranked placement scene state", () => {
+    test("carries server-computed morale and speed onto reconstructed units", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([unitState({ id: "own", team: TeamVals.LOWER, morale: 9, speed: 7 })]),
+        );
+        const own = state.units.find((unit) => unit.properties.id === "own");
+        // The server (common engine) computes these and ships them in the snapshot; the client must
+        // not reset them to base creature config.
+        expect(own?.properties.morale).toBe(9);
+        expect(own?.properties.speed).toBe(7);
+    });
+
     test("keeps revealed opponent units visible while hiding unknown opponent placeholders", () => {
         const state = authoritativeSnapshotToSandboxSceneState(
             placementSnapshot([

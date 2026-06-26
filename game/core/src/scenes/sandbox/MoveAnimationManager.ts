@@ -329,28 +329,18 @@ export class MoveAnimationManager {
         dirY = 0,
     ): void {
         const cellSize = gs.getCellSize();
-        const halfSize = cellSize * 0.5;
-        const adjustedPos = { x: worldPos.x - halfSize, y: worldPos.y - halfSize };
-
-        const anchorCell = GridMath.getCellForPosition(gs, adjustedPos);
-        if (!anchorCell) return;
-
-        const footprintCells: HoCMath.XY[] = [
-            { x: anchorCell.x, y: anchorCell.y },
-            { x: anchorCell.x + 1, y: anchorCell.y },
-            { x: anchorCell.x, y: anchorCell.y + 1 },
-            { x: anchorCell.x + 1, y: anchorCell.y + 1 },
-        ];
-
-        // One large puff centered on the whole 2x2 footprint (radius spans both cells) instead of
-        // four separate small puffs.
-        const center = GridMath.getPositionForCells(gs, footprintCells);
-        if (!center) return;
+        // `worldPos` is already the large unit's visual (footprint) center, so drop one cohesive
+        // puff right there — no grid round-trip, which only snapped the puff onto cell corners.
+        //
+        // The wind trail's twin contrails are drawn ±radius to each side of travel (see WindLayer).
+        // A small unit uses ~0.42*cell, so its contrails sit tight off the wingtips and read as one
+        // body. Scaling that proportionally to the 2x2 unit (~2x) keeps the same look; the previous
+        // 1.05*cell pushed the contrails out to the footprint edges, so they appeared to stream from
+        // each corner of the unit.
         this.lingeringTracks.push({
-            x: center.x,
-            y: center.y,
-            // Bigger than a single cell so the 2x2 unit's cloud overlaps into one body, not specks.
-            radius: cellSize * 1.05,
+            x: worldPos.x,
+            y: worldPos.y,
+            radius: cellSize * 0.84,
             life: 0.25,
             maxLife: 0.25,
             phase: Math.random() * Math.PI * 2,

@@ -61,8 +61,78 @@ export class CombatVisuals {
     private context: ICombatVisualsContext;
     private floatingTexts: IFloatingText[] = [];
     private shatterGroups: IShatterGroup[] = [];
+    // Damage/count text styles are reused across strikes — building a fresh TextStyle per hit is
+    // wasteful, and (more importantly) the FIRST PixiText render of a style rasterizes the font and
+    // compiles PIXI's text shader, a ~30-40ms one-time stall. prewarm() pays that off-screen at load.
+    private damageStyleCache = new Map<string, TextStyle>();
+    private countStyle?: TextStyle;
+    private prewarmed = false;
     public constructor(context: ICombatVisualsContext) {
         this.context = context;
+    }
+    private getDamageStyle(fill: string, stroke: string): TextStyle {
+        const key = `${fill}|${stroke}`;
+        let style = this.damageStyleCache.get(key);
+        if (!style) {
+            style = new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 60,
+                fontWeight: "900",
+                fill,
+                stroke: { color: stroke, width: 5 },
+                dropShadow: {
+                    color: "#000000",
+                    blur: 4,
+                    angle: Math.PI / 6,
+                    distance: 2,
+                },
+            });
+            this.damageStyleCache.set(key, style);
+        }
+        return style;
+    }
+    private getCountStyle(): TextStyle {
+        if (!this.countStyle) {
+            this.countStyle = new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 40,
+                fontWeight: "bold",
+                fill: "#ffffff",
+                stroke: { color: "#000000", width: 4 },
+            });
+        }
+        return this.countStyle;
+    }
+    /**
+     * Render the damage/count text once, off-screen, so the one-time font rasterization + text-shader
+     * compilation happen during scene load instead of stalling the first move+attack landing frame.
+     */
+    public prewarm(): void {
+        if (this.prewarmed) {
+            return;
+        }
+        this.prewarmed = true;
+        const container = new Container();
+        const dmg = new PixiText({ text: "-0", style: this.getDamageStyle("#ff3333", "#4a0000") });
+        dmg.anchor.set(0.5);
+        const count = new PixiText({ text: "0", style: this.getCountStyle() });
+        count.anchor.set(0.5);
+        count.position.set(0, 55);
+        container.addChild(dmg, count);
+        // Far off-screen + barely visible: renders once (compiling the shader / uploading glyphs)
+        // without any visible flash, then update() destroys it on the next tick.
+        container.position.set(-100000, -100000);
+        container.alpha = 0.01;
+        this.context.attachToWorldRoot(container, 2000);
+        this.floatingTexts.push({
+            container,
+            age: 0,
+            life: 0.0001,
+            startX: -100000,
+            startY: -100000,
+            riseY: 0,
+            driftX: 0,
+        });
     }
     /** Destroy all floating numbers immediately (e.g. on fight end / restart). */
     public clear(): void {
@@ -216,20 +286,8 @@ export class CombatVisuals {
     ): void {
         const container = new Container();
 
-        // 1. Damage Text
-        const textStyle = new TextStyle({
-            fontFamily: "Arial",
-            fontSize: 60,
-            fontWeight: "900",
-            fill,
-            stroke: { color: stroke, width: 5 },
-            dropShadow: {
-                color: "#000000",
-                blur: 4,
-                angle: Math.PI / 6,
-                distance: 2,
-            },
-        });
+        // 1. Damage Text (style is cached + prewarmed; see getDamageStyle/prewarm)
+        const textStyle = this.getDamageStyle(fill, stroke);
 
         const damageText = new PixiText({ text: `-${amount}`, style: textStyle });
         damageText.anchor.set(0.5);
@@ -243,13 +301,7 @@ export class CombatVisuals {
             skullSprite.width = 40;
             skullSprite.height = 40;
 
-            const countStyle = new TextStyle({
-                fontFamily: "Arial",
-                fontSize: 40,
-                fontWeight: "bold",
-                fill: "#ffffff",
-                stroke: { color: "#000000", width: 4 },
-            });
+            const countStyle = this.getCountStyle();
             const countText = new PixiText({ text: `${unitsDied}`, style: countStyle });
             countText.anchor.set(0.5);
 

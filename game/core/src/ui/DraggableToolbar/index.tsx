@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Sheet, Box, Divider, Tooltip } from "@mui/joy";
 import { useTheme } from "@mui/joy/styles";
 import { styled } from "@mui/system";
@@ -48,15 +48,26 @@ const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
     [luckShieldIconImage]: false,
 };
 
-const StyledSheet = styled(Sheet)(({ theme }) => ({
+const StyledSheet = styled(Sheet, {
+    shouldForwardProp: (prop) => prop !== "isDragging",
+})<{ isDragging?: boolean }>(({ theme, isDragging }) => ({
     backgroundImage: `url(${theme.palette.mode === "dark" ? blackImage : lightImage})`,
     backgroundSize: "cover",
-    border: "1px solid",
-    borderColor: theme.palette.mode === "dark" ? "black" : "black",
-    borderRadius: `${7 * SCREEN_RATIO}px`,
+    // Bronze/gold dungeon trim to match the tooltips + fire-lit board.
+    border: `${Math.max(1, Math.round(2 * SCREEN_RATIO))}px solid`,
+    borderColor: "#caa24f",
+    borderRadius: `${10 * SCREEN_RATIO}px`,
     padding: `${0.7 * SCREEN_RATIO}rem`,
-    boxShadow: `0 0 ${7 * SCREEN_RATIO}px rgba(0,0,0,0.5)`,
-    transition: "left 0.5s ease, top 0.5s ease, flex-direction 0.5s ease",
+    // Depth shadow + a faint warm glow so it reads as a lit dungeon panel, plus an inner darkening
+    // so the trim frames a recessed stone face.
+    boxShadow: `0 ${3 * SCREEN_RATIO}px ${10 * SCREEN_RATIO}px rgba(0,0,0,0.6), 0 0 ${
+        12 * SCREEN_RATIO
+    }px rgba(220,177,88,0.18), inset 0 0 ${10 * SCREEN_RATIO}px rgba(0,0,0,0.45)`,
+    // No position easing while dragging — the old left/top transition made the bar float behind the
+    // cursor. Re-enabled on release so the snap-to-edge glides into place.
+    transition: isDragging
+        ? "none"
+        : "left 0.4s cubic-bezier(0.22, 1, 0.36, 1), top 0.4s cubic-bezier(0.22, 1, 0.36, 1)",
 }));
 
 const StyledIconButton = styled("button", {
@@ -263,12 +274,22 @@ const DraggableToolbar: React.FC = () => {
     });
 
     const [isDragging, setIsDragging] = useState<boolean>(false);
-    const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
     const [isVertical, setIsVertical] = useState<boolean>(() => getDefaultSettings().isVertical);
     const theme = useTheme();
 
     const { buttons: buttonGroup, propagateClick } = useButtonContext();
     const toolbarRef = React.useRef<HTMLDivElement>(null);
+    // Live drag state kept in refs so dragging doesn't re-render the bar on every mousemove.
+    const positionRef = useRef(position);
+    const draggingRef = useRef(false);
+    const movedRef = useRef(false);
+    const dragStartRef = useRef({ x: 0, y: 0 });
+    const dragOffsetRef = useRef({ x: 0, y: 0 });
+    const pendingRef = useRef<{ x: number; y: number } | null>(null);
+    const rafRef = useRef<number | null>(null);
+    useEffect(() => {
+        positionRef.current = position;
+    }, [position]);
 
     const resetToDefaultPosition = useCallback(() => {
         const ds = getDefaultSettings();
@@ -325,49 +346,87 @@ const DraggableToolbar: React.FC = () => {
         };
     }, [updateScreenRatios, buttonGroup.length, isVertical, resetToDefaultPosition, getDefaultSettings]);
 
-    const handleMouseDown = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-        setIsDragging(true);
-        setDragOffset({
-            x: e.clientX - position.x,
-            y: e.clientY - position.y,
-        });
-    };
+    // Distinguish a real drag from a plain click so clicking a button doesn't fling the bar to an edge.
+    const DRAG_THRESHOLD = 4;
 
-    const handleMouseMove = useCallback(
-        (e: MouseEvent) => {
-            if (isDragging && toolbarRef.current) {
-                const rect = toolbarRef.current.getBoundingClientRect();
-                const width = rect.width;
-                const height = rect.height;
+    // On release, dock to whichever screen edge is closest (with a small margin).
+    const snapToNearestEdge = useCallback((x: number, y: number): { x: number; y: number } => {
+        const el = toolbarRef.current;
+        const w = el?.offsetWidth ?? 0;
+        const h = el?.offsetHeight ?? 0;
+        const margin = Math.round(8 * SCREEN_RATIO);
+        const winW = window.innerWidth;
+        const winH = window.innerHeight;
+        const distLeft = x;
+        const distRight = winW - (x + w);
+        const distTop = y;
+        const distBottom = winH - (y + h);
+        const nearest = Math.min(distLeft, distRight, distTop, distBottom);
+        let nx = x;
+        let ny = y;
+        if (nearest === distLeft) nx = margin;
+        else if (nearest === distRight) nx = winW - w - margin;
+        else if (nearest === distTop) ny = margin;
+        else ny = winH - h - margin;
+        nx = Math.max(margin, Math.min(nx, winW - w - margin));
+        ny = Math.max(margin, Math.min(ny, winH - h - margin));
+        return { x: nx, y: ny };
+    }, []);
 
-                let newX = e.clientX - dragOffset.x;
-                let newY = e.clientY - dragOffset.y;
-
-                // Clamp to window boundaries
-                newX = Math.max(0, Math.min(newX, window.innerWidth - width));
-                newY = Math.max(0, Math.min(newY, window.innerHeight - height));
-
-                setPosition({
-                    x: newX,
-                    y: newY,
-                });
-            }
-        },
-        [isDragging, dragOffset, toolbarRef],
-    );
-
-    const handleMouseUp = useCallback(() => {
-        setIsDragging(false);
+    const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+        if (e.button !== 0) return;
+        draggingRef.current = true;
+        movedRef.current = false;
+        dragStartRef.current = { x: e.clientX, y: e.clientY };
+        dragOffsetRef.current = { x: e.clientX - positionRef.current.x, y: e.clientY - positionRef.current.y };
     }, []);
 
     useEffect(() => {
-        document.addEventListener("mousemove", handleMouseMove);
-        document.addEventListener("mouseup", handleMouseUp);
-        return () => {
-            document.removeEventListener("mousemove", handleMouseMove);
-            document.removeEventListener("mouseup", handleMouseUp);
+        const handleMove = (e: MouseEvent) => {
+            if (!draggingRef.current || !toolbarRef.current) return;
+            if (!movedRef.current) {
+                const dx = e.clientX - dragStartRef.current.x;
+                const dy = e.clientY - dragStartRef.current.y;
+                if (dx * dx + dy * dy < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
+                movedRef.current = true;
+                setIsDragging(true); // kills the position transition so the bar tracks the cursor 1:1
+            }
+            const w = toolbarRef.current.offsetWidth;
+            const h = toolbarRef.current.offsetHeight;
+            let newX = e.clientX - dragOffsetRef.current.x;
+            let newY = e.clientY - dragOffsetRef.current.y;
+            newX = Math.max(0, Math.min(newX, window.innerWidth - w));
+            newY = Math.max(0, Math.min(newY, window.innerHeight - h));
+            pendingRef.current = { x: newX, y: newY };
+            positionRef.current = { x: newX, y: newY };
+            // Coalesce bursts of mousemove into a single state write per frame.
+            if (rafRef.current == null) {
+                rafRef.current = window.requestAnimationFrame(() => {
+                    rafRef.current = null;
+                    if (pendingRef.current) setPosition(pendingRef.current);
+                });
+            }
         };
-    }, [handleMouseMove, handleMouseUp]);
+        const handleUp = () => {
+            if (!draggingRef.current) return;
+            draggingRef.current = false;
+            if (rafRef.current != null) {
+                window.cancelAnimationFrame(rafRef.current);
+                rafRef.current = null;
+            }
+            if (!movedRef.current) return; // was a click, not a drag — leave the bar where it is
+            setIsDragging(false); // re-enables the transition so the snap glides
+            const snapped = snapToNearestEdge(positionRef.current.x, positionRef.current.y);
+            positionRef.current = snapped;
+            setPosition(snapped);
+        };
+        document.addEventListener("mousemove", handleMove);
+        document.addEventListener("mouseup", handleUp);
+        return () => {
+            document.removeEventListener("mousemove", handleMove);
+            document.removeEventListener("mouseup", handleUp);
+        };
+    }, [snapToNearestEdge]);
 
     const handleRotate = () => {
         setIsVertical(!isVertical);
@@ -383,9 +442,41 @@ const DraggableToolbar: React.FC = () => {
         return BUTTON_NAME_TO_ICON_IMAGE[`${button.name}${button.state}`];
     };
 
+    // Memoized so the per-frame position updates during a drag don't re-render every button.
+    const buttonsContent = useMemo(
+        () => (
+            <Box
+                sx={{
+                    display: "flex",
+                    flexDirection: isVertical ? "column" : "row",
+                    gap: 1.5,
+                }}
+            >
+                {buttonGroup.map((button) => (
+                    <ButtonComponent
+                        key={button.name}
+                        iconImage={getButtonIcon(button)}
+                        text={button.name}
+                        isVisible={button.isVisible}
+                        isDisabled={button.isDisabled}
+                        isDark={isDark}
+                        onClick={() => propagateClick(button.name, button.state)}
+                        isHourglass={button.name === "Hourglass"}
+                        customSpriteName={button.customSpriteName}
+                        numberOfOptions={button.numberOfOptions}
+                        selectedOption={button.selectedOption}
+                    />
+                ))}
+            </Box>
+        ),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [buttonGroup, isVertical, isDark, propagateClick],
+    );
+
     return buttonGroup.length > 0 ? (
         <StyledSheet
             ref={toolbarRef}
+            isDragging={isDragging}
             sx={{
                 position: "absolute",
                 left: `${position.x}px`,
@@ -419,29 +510,7 @@ const DraggableToolbar: React.FC = () => {
 
             <Divider orientation={isVertical ? "horizontal" : "vertical"} />
 
-            <Box
-                sx={{
-                    display: "flex",
-                    flexDirection: isVertical ? "column" : "row",
-                    gap: 1.5,
-                }}
-            >
-                {buttonGroup.map((button) => (
-                    <ButtonComponent
-                        key={button.name}
-                        iconImage={getButtonIcon(button)}
-                        text={button.name}
-                        isVisible={button.isVisible}
-                        isDisabled={button.isDisabled}
-                        isDark={isDark}
-                        onClick={() => propagateClick(button.name, button.state)}
-                        isHourglass={button.name === "Hourglass"}
-                        customSpriteName={button.customSpriteName}
-                        numberOfOptions={button.numberOfOptions}
-                        selectedOption={button.selectedOption}
-                    />
-                ))}
-            </Box>
+            {buttonsContent}
 
             <Divider orientation={isVertical ? "horizontal" : "vertical"} />
 

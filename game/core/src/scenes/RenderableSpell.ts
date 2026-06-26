@@ -5,7 +5,7 @@
  */
 
 import { Container, Graphics, Sprite as PixiSprite, Text, TextStyle, Texture } from "pixi.js";
-import { HoCConstants, HoCMath, ISpellParams, Spell } from "@heroesofcrypto/common";
+import { HoCConstants, HoCMath, ISpellParams, Spell, SpellMultiplierType } from "@heroesofcrypto/common";
 
 export enum BookPosition {
     ONE = 1,
@@ -152,7 +152,7 @@ export class PixiRenderableSpell extends Spell {
     public canUse(ownerStackPower: number): boolean {
         return this.amountRemaining > 0 && ownerStackPower >= this.getMinimalCasterStackPower();
     }
-    public getHoverInfo(ownerStackPower: number): string[] {
+    public getHoverInfo(ownerStackPower: number, casterAmountAlive: number, casterCumulativeMaxHp: number): string[] {
         const lines = [this.getName(), `Scrolls: ${this.amountRemaining}`];
         if (this.amountRemaining <= 0) {
             lines.push("No scrolls left");
@@ -161,7 +161,18 @@ export class PixiRenderableSpell extends Spell {
         if (ownerStackPower < minimalStackPower) {
             lines.push(`Requires stack power ${minimalStackPower}`);
         }
-        return [...lines, ...this.getDesc()];
+        // Fill the description's "{}" placeholder with the caster-scaled value (the actual hp healed,
+        // wolves summoned, etc.), matching how the legacy spell book rendered it.
+        let replaceBy = "";
+        if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT) {
+            replaceBy = casterAmountAlive.toString();
+        } else if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT_POWER) {
+            replaceBy = Math.ceil(casterAmountAlive * this.getPower()).toString();
+        } else if (this.getMultiplierType() === SpellMultiplierType.UNIT_CUMULATIVE_MAX_HP) {
+            replaceBy = casterCumulativeMaxHp.toString();
+        }
+        const desc = this.getDesc().map((descStr) => descStr.replace(/\{\}/g, replaceBy));
+        return [...lines, ...desc];
     }
     public isHover(globalMouse: HoCMath.XY, ownerStackPower: number, includeUnavailable = false): boolean {
         if (!this.iconSprite.visible) {

@@ -319,6 +319,9 @@ export class Sandbox extends PixiScene {
                 this.sc_unitPropertiesUpdateNeeded = b;
             },
         });
+        // Pay the floating-damage text's one-time font/shader cost now (at load), not on the first
+        // move+attack landing frame — that one-time render was the ~34ms of the 39.8ms hitch.
+        this.combatVisuals.prewarm();
 
         this.rangedProjectiles = new RangedProjectiles({
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
@@ -2990,6 +2993,18 @@ export class Sandbox extends PixiScene {
             if (this.hoverRangeAttackObstacle && this.attemptObstacleAttack(this.hoverRangeAttackObstacle.position)) {
                 return;
             }
+            // [RANGE-PROBE] localize Gargantuan "can't land targeted shot" — what did the click see?
+            if (this.currentActiveUnit?.hasAbilityActive("Area Throw")) {
+                const dbgCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), p);
+                const dbgOcc = dbgCell ? this.grid.getOccupantUnitId(dbgCell) : undefined;
+                console.warn(
+                    `[rangeDbg] click attacker=${this.currentActiveUnit.getName()} ` +
+                        `areaThrowWouldHandle=${!!this.getAreaThrowCells(p)} occupant=${dbgOcc ?? "none"} ` +
+                        `hoverAttackFromCell=${JSON.stringify(this.hoverManager.hoverAttackFromCell)} ` +
+                        `canRangeTargets=${this.canAttackByRangeTargets?.size ?? "undef"}`,
+                );
+            }
+
             // --- AREA THROW: Gargantuan-style AOE fired at a cell (incl. empty/terrain). ---
             if (this.attemptAreaThrowAttack(p)) {
                 return;
@@ -3264,7 +3279,10 @@ export class Sandbox extends PixiScene {
         this.setSpellHoverInfo(spell, caster);
     }
     private setSpellHoverInfo(spell: PixiRenderableSpell | undefined, caster?: RenderableUnit): void {
-        const lines = spell && caster ? spell.getHoverInfo(caster.getStackPower()) : [];
+        const lines =
+            spell && caster
+                ? spell.getHoverInfo(caster.getStackPower(), caster.getAmountAlive(), caster.getCumulativeMaxHp())
+                : [];
         const key = lines.join("\n");
         if (this.spellHoverInfoKey === key) return;
 
@@ -4128,6 +4146,11 @@ export class Sandbox extends PixiScene {
         const muzzle = unit.getVisualCenter(this.sc_sceneSettings.getGridSettings());
         const bigProjectile = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
         await this.rangedProjectiles.fire({ from: muzzle, to: cellPosition, big: bigProjectile });
+        // Double Shot (e.g. Gargantuan): the engine applies a second area shot, so throw a second
+        // projectile too — otherwise the doubled damage lands with only one animation.
+        if (unit.hasAbilityActive("Double Shot")) {
+            await this.rangedProjectiles.fire({ from: muzzle, to: cellPosition, big: bigProjectile });
+        }
 
         const unitSnapshot = this.snapshotRenderableUnits();
         const result = this.createActionEngine().apply(action);
@@ -4281,6 +4304,15 @@ export class Sandbox extends PixiScene {
                         attackFrom.x === attacker.getPosition().x &&
                         attackFrom.y === attacker.getPosition().y)));
 
+        // [RANGE-PROBE] localize the Tsar Cannon "can't land range / through shot misses 2nd unit" bug.
+        console.warn(
+            `[rangeDbg] attacker=${attacker.getName()} target=${target.getName()} isRange=${isRange} ` +
+                `canRangeTarget=${!!this.canAttackByRangeTargets?.has(target.getId())} ` +
+                `attackSel=${attacker.getAttackTypeSelection()} rangeShots=${attacker.getRangeShots()} ` +
+                `throughShot=${attacker.hasAbilityActive("Through Shot")} dist=${dist.toFixed(0)} ` +
+                `small=${attacker.isSmallSize()}`,
+        );
+
         if (isRange) {
             const action: GameAction =
                 replayAction?.type === "range_attack"
@@ -4341,10 +4373,20 @@ export class Sandbox extends PixiScene {
             const lungeLen = Math.hypot(primaryAttackDir.x, primaryAttackDir.y);
             if (lungeLen > 0.001) {
                 const lungeMag = gs.getCellSize() * 0.22;
-                attacker.applyRecoil(
-                    (primaryAttackDir.x / lungeLen) * lungeMag,
-                    (primaryAttackDir.y / lungeLen) * lungeMag,
-                );
+                const lungeX = (primaryAttackDir.x / lungeLen) * lungeMag;
+                const lungeY = (primaryAttackDir.y / lungeLen) * lungeMag;
+                // One lunge per landed hit — e.g. Double Punch strikes twice — staggered to line up
+                // with the staggered damage numbers (index * 240ms) so each punch reads as its own
+                // committed strike instead of a single nudge for the whole combo. The recoil envelope
+                // is ~220ms, so it springs back before the next punch fires.
+                const hitCount = Math.max(1, damageForAnimation.hits?.length ?? 1);
+                for (let i = 0; i < hitCount; i++) {
+                    if (i === 0) {
+                        attacker.applyRecoil(lungeX, lungeY);
+                    } else {
+                        setTimeout(() => attacker.applyRecoil(lungeX, lungeY), i * 240);
+                    }
+                }
             }
         }
 
@@ -4912,6 +4954,14 @@ export class Sandbox extends PixiScene {
     }
     private advanceAfterNoActiveUnitIfNeeded(): void {
         if (this.currentActiveUnit) {
+            return;
+        }
+
+        // Ranked is server-authoritative: the next unit / lap flip / morale / narrowing all come from
+        // the server snapshot (syncAuthoritativeActiveUnit). Running the local turn engine here would
+        // roll turn-order RNG and apply lap mechanics that cannot match the server, diverging from it.
+        // Sandbox (no transport) keeps driving the local turn loop.
+        if (this.sc_gameActionTransport) {
             return;
         }
 
@@ -5572,20 +5622,35 @@ export class Sandbox extends PixiScene {
 
                         // --- [PORTED] Advanced Damage Logic from test_heroes.ts ---
 
-                        // 1. Ability Multipliers (Large Caliber, Area Throw)
-                        const largeCaliberAbility = this.currentActiveUnit.getAbility("Large Caliber");
-                        if (largeCaliberAbility) {
-                            multiplier *= this.currentActiveUnit.calculateAbilityMultiplier(
-                                largeCaliberAbility,
-                                abilityPower,
-                            );
-                        }
-                        const areaThrowAbility = this.currentActiveUnit.getAbility("Area Throw");
-                        if (areaThrowAbility) {
-                            multiplier *= this.currentActiveUnit.calculateAbilityMultiplier(
-                                areaThrowAbility,
-                                abilityPower,
-                            );
+                        // 1. Ability Multipliers (Through Shot, Large Caliber, Area Throw) — these are
+                        // RANGED-shot abilities, so only apply them to a range attack. A ranged unit
+                        // forced to melee (e.g. Cyclops with an adjacent enemy) deals a plain melee hit;
+                        // applying the splash multiplier there made the melee damage read like an AOE shot.
+                        if (isRangeAttackContext) {
+                            // Through Shot scales each pierced hit — the engine applies this same
+                            // multiplier in processThroughShotAbility, so the hover must match (it was
+                            // dropped in the port, making Tsar Cannon under-report its damage).
+                            const throughShotAbility = this.currentActiveUnit.getAbility("Through Shot");
+                            if (throughShotAbility) {
+                                multiplier *= this.currentActiveUnit.calculateAbilityMultiplier(
+                                    throughShotAbility,
+                                    abilityPower,
+                                );
+                            }
+                            const largeCaliberAbility = this.currentActiveUnit.getAbility("Large Caliber");
+                            if (largeCaliberAbility) {
+                                multiplier *= this.currentActiveUnit.calculateAbilityMultiplier(
+                                    largeCaliberAbility,
+                                    abilityPower,
+                                );
+                            }
+                            const areaThrowAbility = this.currentActiveUnit.getAbility("Area Throw");
+                            if (areaThrowAbility) {
+                                multiplier *= this.currentActiveUnit.calculateAbilityMultiplier(
+                                    areaThrowAbility,
+                                    abilityPower,
+                                );
+                            }
                         }
 
                         // 2. Rapid Charge
