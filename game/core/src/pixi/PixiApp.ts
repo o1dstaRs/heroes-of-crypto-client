@@ -1,4 +1,7 @@
 // game/core/src/pixi/PixiApp.ts
+// Side-effect import: patches PIXI's renderer to use eval-free polyfills for shader/UBO
+// codegen, so it works under a CSP without 'unsafe-eval'. MUST run before Application.init().
+import "pixi.js/unsafe-eval";
 import { Application, Container, Ticker } from "pixi.js";
 
 export class PixiApp {
