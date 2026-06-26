@@ -97,10 +97,10 @@ const FIRE_TINTS = [0xff3a0a, 0xff6a14, 0xff9a2e, 0xffc861]; // ember red → fl
 // Tuning for Thunderbird's Chain Lightning — a purple bolt that jumps from the attacker through the
 // target and on to each chained enemy. Like the fire sweep, it's timed to the strike (small lead so
 // it cracks as the lunge connects) and each jump fires a beat after the previous.
-const CHAIN_LEAD_MS = 60; // delay before the first bolt ≈ when the lunge connects
-const CHAIN_JUMP_MS = 85; // gap between successive jumps (target → next → next …)
-const CHAIN_BOLT_LIFE = 0.26; // seconds each bolt crackles before fading
-const CHAIN_FLICKER_S = 0.04; // re-jag the bolt this often so it crackles like live lightning
+const CHAIN_LEAD_MS = 45; // delay before the first bolt ≈ when the lunge connects
+const CHAIN_JUMP_MS = 64; // gap between successive jumps (target → next → next …)
+const CHAIN_BOLT_LIFE = 0.195; // seconds each bolt crackles before fading
+const CHAIN_FLICKER_S = 0.03; // re-jag the bolt this often so it crackles like live lightning
 const CHAIN_Z = 1950; // above the fire sweep (1900), below the damage numbers (2000)
 const CHAIN_GLOW = 0x7a2dff; // outer purple glow
 const CHAIN_MID = 0xb36bff; // mid violet

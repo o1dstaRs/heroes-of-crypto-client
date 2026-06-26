@@ -155,9 +155,14 @@ export class PixiApp {
         };
     }
     public getCameraZoom(): number {
-        return this.camera.scale.x || 1;
+        // Camera may be absent before init completes or after teardown (e.g. a stale mouse-move
+        // listener firing across an HMR reload); the sibling camera methods guard the same way.
+        return this.camera?.scale.x || 1;
     }
     public screenToWorld(sx: number, sy: number) {
+        if (!this.camera) {
+            return { x: sx, y: sy };
+        }
         const z = this.getCameraZoom();
         return {
             x: (sx - this.camera.position.x) / z,
@@ -165,6 +170,9 @@ export class PixiApp {
         };
     }
     public worldToScreen(wx: number, wy: number) {
+        if (!this.camera) {
+            return { x: wx, y: wy };
+        }
         const z = this.getCameraZoom();
         return {
             x: this.camera.position.x + wx * z,

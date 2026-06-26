@@ -177,6 +177,12 @@ export class Sandbox extends PixiScene {
     private replayPlaybackActive = false;
     /** Re-entrancy guard so the eager turn-handoff in applyTurnEngineEvents can't recurse. */
     private isAdvancingTurnEvents = false;
+    /**
+     * checkStartCondition() runs every pre-fight frame; without this guard the sc_onHasStarted
+     * listener was re-connected on every frame, accumulating an unbounded number of duplicate
+     * handlers (and leaking their closures). Connect exactly once.
+     */
+    private startListenerConnected = false;
     private pendingReplayRecords: { action: GameAction; result: IGameActionResult }[] = [];
     /** Active-board-selection state (move existing unit) */
     private draggingUnitId?: string;
@@ -3667,8 +3673,17 @@ export class Sandbox extends PixiScene {
                   hasLavaCell: routeMetadata?.hasLavaCell,
                   hasWaterCell: routeMetadata?.hasWaterCell,
               };
+        // [PERF-PROBE] obstacle-attack handoff breakdown — localizes the mountain move+attack hitch.
+        const _op = (label: string, t0: number): void => {
+            const _d = performance.now() - t0;
+            if (_d > 1.5) console.warn(`[perf] obstacle:${label}: ${_d.toFixed(1)}ms`);
+        };
+        let _ot = performance.now();
         const unitSnapshot = this.snapshotRenderableUnits();
+        _op("snapshotRenderableUnits", _ot);
+        _ot = performance.now();
         const result = this.createActionEngine().apply(action);
+        _op("createActionEngine().apply", _ot);
         if (!result.completed) {
             return false;
         }
@@ -3686,6 +3701,7 @@ export class Sandbox extends PixiScene {
                 unit.applyRecoil((animDir.x / animLen) * mag, (animDir.y / animLen) * mag);
             }
         } else {
+            _ot = performance.now();
             const big = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
             // Fire one projectile per mountain hit the engine actually applied. Double Shot lands a
             // second hit on the obstacle (when it still has hits left and the shot can land), so two
@@ -3705,16 +3721,23 @@ export class Sandbox extends PixiScene {
                     }, shotIndex * 240);
                 }
             }
+            _op("rangedProjectiles.fire (first shot)", _ot);
         }
 
+        _ot = performance.now();
         this.unitsHolder.refreshStackPowerForAllUnits();
+        _op("refreshStackPowerForAllUnits", _ot);
         this.hoverManager.clearHoverSilhouette();
         this.hoverManager.clearAttackVisuals();
         this.hoverManager.hoverAttackFromCell = undefined;
         this.sc_moveBlocked = false;
         this.sc_visibleStateUpdateNeeded = true;
+        _ot = performance.now();
         this.refreshUnits();
+        _op("refreshUnits", _ot);
+        _ot = performance.now();
         this.applyTurnEngineEvents(result.events, unitSnapshot);
+        _op("applyTurnEngineEvents", _ot);
         return true;
     }
     /** Find a reachable cell adjacent to the center obstacle for a melee strike, if any. */
@@ -5071,16 +5094,29 @@ export class Sandbox extends PixiScene {
             unitId: unit.getId(),
             reason: "manual",
         };
+        // [PERF-PROBE] Split the move-completion handoff so the long landing-frame is attributable.
+        // This whole method runs synchronously inside moveAnimManager.update() on the frame the move
+        // lands, and the existing advance:/activate: probes only cover advanceAfterNoActiveUnitIfNeeded.
+        const _ph = (label: string, t0: number): void => {
+            const _d = performance.now() - t0;
+            if (_d > 4) console.warn(`[perf] handoff:${label}: ${_d.toFixed(1)}ms`);
+        };
+        let _th = performance.now();
         const unitSnapshot = this.snapshotRenderableUnits();
         const result = this.createActionEngine().apply(action);
+        _ph("actionEngine.apply(end_turn)", _th);
         if (!result.completed) {
             this.sc_sceneLog.updateLog(
                 result.message ?? `Cannot finish move turn: ${result.rejectionReason ?? "unknown"}`,
             );
             return;
         }
+        _th = performance.now();
         this.applyTurnEngineEvents(result.events, unitSnapshot);
+        _ph("applyTurnEngineEvents", _th);
+        _th = performance.now();
         this.advanceAfterNoActiveUnitIfNeeded();
+        _ph("advanceAfterNoActiveUnitIfNeeded", _th);
     }
     private advanceAfterNoActiveUnitIfNeeded(): void {
         if (this.currentActiveUnit) {
@@ -6480,8 +6516,16 @@ export class Sandbox extends PixiScene {
             // Always step: this advances the travel animation while a unit is moving, and keeps
             // fading the lingering ground tracks afterwards. Gating it on isMoving() froze the
             // tracks on screen forever once the move finished.
+            // [PERF-PROBE] long-frame localization for these in-Step phases.
+            const _pf = (label: string, t0: number): void => {
+                const _d = performance.now() - t0;
+                if (_d > 4) console.warn(`[perf] step:${label}: ${_d.toFixed(1)}ms`);
+            };
+            let _ts = performance.now();
             this.stepMoveAnimation(timeStep);
+            _pf("stepMoveAnimation(+handoff)", _ts);
             const lingeringTracks = this.moveAnimManager.getLingeringTracks();
+            _ts = performance.now();
             // Ground units kick up dust; flying units displace air into wind.
             this.smokeLayer?.update(
                 timeStep,
@@ -6492,6 +6536,7 @@ export class Sandbox extends PixiScene {
                 lingeringTracks.filter((t) => t.flying),
             );
             this.lightingLayer?.update(timeStep);
+            _pf("smoke/wind/lighting", _ts);
 
             // --- C. AI LOGIC - delegate to AIController ---
             if (
@@ -6519,9 +6564,16 @@ export class Sandbox extends PixiScene {
         // RENDERING SYNCHRONIZATION
         // ==========================================================================================
         // this.updateLingeringTracks(timeStep); // Handled by moveAnimManager.update
+        // [PERF-PROBE] render-phase timers (only log when slow) to localize the long-frame remainder.
+        const _pr = (label: string, t0: number): void => {
+            const _d = performance.now() - t0;
+            if (_d > 4) console.warn(`[perf] render:${label}: ${_d.toFixed(1)}ms`);
+        };
+        let _tr = performance.now();
         if (this.gameplayGraphics) {
             this.drawGameplayVisuals(this.gameplayGraphics);
         }
+        _pr("drawGameplayVisuals", _tr);
 
         // Suppress the active-unit aura while the active unit is mid-move or mid-attack so the
         // action reads clearly; the aura returns as soon as it's idle again.
@@ -6529,6 +6581,7 @@ export class Sandbox extends PixiScene {
             this.currentActiveUnit.setSuppressActiveAura(this.isActiveUnitMoving || this.sc_isAnimating);
         }
 
+        _tr = performance.now();
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             const rUnit = unit as RenderableUnit;
             // Use PixiDrawer's unit container (Z=1000), not worldRoot directly.
@@ -6540,6 +6593,7 @@ export class Sandbox extends PixiScene {
                 rUnit.stepSpawnAnimation(timeStep);
             }
         }
+        _pr("unit syncVisual loop", _tr);
 
         // Update SpellBook
         if (this.spellBookContainer) {
@@ -6811,7 +6865,13 @@ export class Sandbox extends PixiScene {
         let sawTurnCompleted = false;
         const activeUnitIdAtStart = this.currentActiveUnit?.getId();
 
+        // [PERF-PROBE] Per-event-type timing: the move-landing spike localized to this event loop,
+        // so attribute it to the exact handler (and show the event mix) when the loop is slow.
+        const _evMs = new Map<string, number>();
+        const _evCnt = new Map<string, number>();
+        const _loopT0 = performance.now();
         for (const event of events) {
+            const _evT0 = performance.now();
             switch (event.type) {
                 case "fight_started":
                     shouldRefreshVisibleState = true;
@@ -6903,15 +6963,37 @@ export class Sandbox extends PixiScene {
                     shouldRefreshVisibleState = true;
                     break;
             }
+            const _evD = performance.now() - _evT0;
+            _evMs.set(event.type, (_evMs.get(event.type) ?? 0) + _evD);
+            _evCnt.set(event.type, (_evCnt.get(event.type) ?? 0) + 1);
+        }
+        const _loopMs = performance.now() - _loopT0;
+        if (_loopMs > 4) {
+            const breakdown = [..._evMs.entries()]
+                .sort((a, b) => b[1] - a[1])
+                .map(([type, ms]) => `${type}×${_evCnt.get(type)}=${ms.toFixed(1)}ms`)
+                .join("  ");
+            console.warn(
+                `[perf] applyEvents:loop total=${_loopMs.toFixed(1)}ms over ${events.length} events  ${breakdown}`,
+            );
         }
 
+        // [PERF-PROBE] These run on the move-landing frame too; localize the buildReport/deep-clone cost.
+        const _pe = (label: string, t0: number): void => {
+            const _d = performance.now() - t0;
+            if (_d > 4) console.warn(`[perf] applyEvents:${label}: ${_d.toFixed(1)}ms`);
+        };
         if (shouldRefreshVisibleState) {
+            const _te = performance.now();
             this.refreshVisibleStateIfNeeded(true);
             if (!sawFightFinished) {
                 this.updateLiveFightStats();
             }
+            _pe("refreshVisibleState+liveStats", _te);
         }
+        const _tf = performance.now();
         this.flushPendingReplayRecords();
+        _pe("flushPendingReplayRecords", _tf);
 
         // Hand off to the next unit in the same tick a turn completes, instead of waiting for the
         // next Step() frame to pick it up. The deferral was a small but noticeable lag between a
@@ -7266,8 +7348,13 @@ export class Sandbox extends PixiScene {
                 }
             }
         }
+        // Connect exactly once: checkStartCondition runs every pre-fight frame, and Signal.connect
+        // appends a handler with no dedup, so re-connecting here leaked a handler per frame.
+        if (this.startListenerConnected) {
+            return;
+        }
+        this.startListenerConnected = true;
         this.sc_onHasStarted.connect((started) => {
-            // Trigger Dungeon Atmosphere
             // Trigger Dungeon Atmosphere
             this.updateDungeonAtmosphere(started, this.atmosphereAlpha);
 
