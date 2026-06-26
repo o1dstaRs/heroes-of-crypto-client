@@ -4185,6 +4185,7 @@ export class Sandbox extends PixiScene {
         // SNAPSHOT for AOE / Secondary Damage
         // We capture state of ALL units to detect side-effects/AOE
         const unitSnapshots = new Map<string, { amount: number; hp: number; maxHp: number; pos: HoCMath.XY }>();
+        const _tSnapshots = performance.now();
         for (const u of this.unitsHolder.getAllUnits().values()) {
             unitSnapshots.set(u.getId(), {
                 amount: u.getAmountAlive(),
@@ -4193,6 +4194,7 @@ export class Sandbox extends PixiScene {
                 pos: { ...u.getPosition() }, // Clone position
             });
         }
+        _p("unitSnapshots", _tSnapshots);
 
         // Capture the scene-log position so we can read the engine's *isolated* Fire Shield amounts
         // ("X received (N) from Fire Shield") afterwards. The HP-snapshot deltas below lump the burn
@@ -4325,9 +4327,13 @@ export class Sandbox extends PixiScene {
             if (this.shouldDeferActionToAuthoritativeReplay(action)) {
                 return this.submitActionForAuthoritativeReplay(action);
             }
-            if (!applyAttackActionResult(this.createActionEngine().apply(action))) {
+            const _tMeleeApply = performance.now();
+            const _meleeApplyResult = this.createActionEngine().apply(action);
+            _p("engine.apply(melee_attack)", _tMeleeApply);
+            if (!applyAttackActionResult(_meleeApplyResult)) {
                 return false;
             }
+            _p("melee synchronous TOTAL", _tAttackAll);
 
             // Melee landed: lunge the attacker a touch toward the target along the attack trajectory,
             // then spring back (applyRecoil's out-and-back envelope) so the strike reads as committed
