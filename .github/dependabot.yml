@@ -1,0 +1,19 @@
+version: 2
+updates:
+    # JS/TS dependencies. This repo is a bun workspace (see "workspaces" in the root package.json),
+    # so a single entry at the root traverses every member — common (game/heroes-of-crypto-common),
+    # client (game/core), game/mcp and site — using the shared root bun.lock. The nested packages
+    # have no lockfile of their own, so they must be covered from here, not via per-package entries.
+    - package-ecosystem: npm
+      directory: /
+      schedule:
+          interval: weekly
+      open-pull-requests-limit: 10
+      commit-message:
+          prefix: chore(deps)
+    - package-ecosystem: github-actions
+      directory: /
+      schedule:
+          interval: weekly
+      commit-message:
+          prefix: ci(deps)

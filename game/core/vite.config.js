@@ -70,6 +70,11 @@ export default defineConfig(({ mode }) => {
             open: true,
             host: true,
             headers: { "Cache-Control": "no-store" }, // dev: force no caching
+            // HMR is OFF by default: file edits no longer auto-refresh the page (a full reload on
+            // non-hot-updatable modules like the Pixi scene was wiping game state mid-iteration).
+            // Reload manually (Cmd/Ctrl+R) to pick up changes — the server always serves fresh code
+            // from disk. Run with VITE_HMR=1 to turn live hot-reload back on.
+            hmr: env.VITE_HMR === "1" || env.VITE_HMR === "true" ? undefined : false,
             proxy: {
                 "/hoc-local-model": {
                     target: env.VITE_HOC_MODEL_PROXY_TARGET || "http://127.0.0.1:9091",

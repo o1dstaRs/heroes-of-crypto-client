@@ -3580,14 +3580,18 @@ export class Sandbox extends PixiScene {
         }
 
         const centerCells = this.grid.getCenterCells();
-        const mountainTarget = this.getMountainEdgeTarget(worldPos, centerCells);
-        if (!mountainTarget) {
-            return false;
-        }
-
         const canLandRangeHit =
             unit.getAttackTypeSelection() === AttackVals.RANGE &&
             this.attackHandler.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId()));
+        // A ranged strike may only land on the mountain edges visible to the attacker (near side).
+        const mountainTarget = this.getMountainEdgeTarget(
+            worldPos,
+            centerCells,
+            canLandRangeHit ? unit.getVisualCenter(this.sc_sceneSettings.getGridSettings()) : undefined,
+        );
+        if (!mountainTarget) {
+            return false;
+        }
 
         // Melee attackers need a cell adjacent to the obstacle to strike from; ranged units auto-land.
         let attackFromCell = canLandRangeHit ? undefined : this.hoverManager.hoverAttackFromCell;
@@ -3667,6 +3671,23 @@ export class Sandbox extends PixiScene {
         const result = this.createActionEngine().apply(action);
         if (!result.completed) {
             return false;
+        }
+
+        // Attack animation against the mountain (was missing entirely): a melee strike (attackFromCell
+        // set) lunges into the struck edge along the attack trajectory; a ranged strike lobs a
+        // projectile at it. Mirrors the unit-vs-unit melee lunge / range projectile.
+        const gsAnim = this.sc_sceneSettings.getGridSettings();
+        const muzzle = unit.getVisualCenter(gsAnim);
+        const animDir = { x: worldPos.x - muzzle.x, y: worldPos.y - muzzle.y };
+        const animLen = Math.hypot(animDir.x, animDir.y);
+        if (attackFromCell) {
+            if (animLen > 0.001) {
+                const mag = gsAnim.getCellSize() * 0.22;
+                unit.applyRecoil((animDir.x / animLen) * mag, (animDir.y / animLen) * mag);
+            }
+        } else {
+            const big = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
+            void this.rangedProjectiles.fire({ from: muzzle, to: worldPos, big });
         }
 
         this.unitsHolder.refreshStackPowerForAllUnits();
@@ -3814,7 +3835,11 @@ export class Sandbox extends PixiScene {
             y: position.y - gs.getHalfStep(),
         });
     }
-    private getMountainEdgeTarget(worldPos: HoCMath.XY, centerCells: HoCMath.XY[]): MountainEdgeTarget | undefined {
+    private getMountainEdgeTarget(
+        worldPos: HoCMath.XY,
+        centerCells: HoCMath.XY[],
+        attackerPos?: HoCMath.XY,
+    ): MountainEdgeTarget | undefined {
         const gs = this.sc_sceneSettings.getGridSettings();
         const hoveredCell = GridMath.getCellForPosition(gs, worldPos);
         if (!hoveredCell || !centerCells.some((c) => c.x === hoveredCell.x && c.y === hoveredCell.y)) {
@@ -3873,10 +3898,47 @@ export class Sandbox extends PixiScene {
             );
         }
 
-        const hoveredSideCandidates = candidates.filter(
+        // Ranged strikes can only hit the mountain edge cells the attacker can actually SEE — the
+        // ones with clear line-of-sight from the unit's centre. An edge whose ray from the attacker
+        // passes through another mountain cell first is occluded behind the rock (a projectile would
+        // fly through it), so drop it. Legacy did this with a raycast from the unit position; the
+        // unit centre differs for small (1x1) vs large (2x2) units, so getVisualCenter is the anchor.
+        let pool = candidates;
+        if (attackerPos) {
+            const cellSize = gs.getCellSize();
+            const centerKeys = new Set(centerCells.map((c) => (c.x << 4) | c.y));
+            const hasLineOfSight = (target: MountainEdgeTarget): boolean => {
+                const dest = GridMath.getPositionForCell(target.cell, gs.getMinX(), gs.getStep(), halfStep);
+                const dist = HoCMath.getDistance(attackerPos, dest);
+                const steps = Math.max(2, Math.ceil(dist / (cellSize * 0.4)));
+                for (let i = 1; i < steps; i++) {
+                    const t = i / steps;
+                    const sample = {
+                        x: attackerPos.x + (dest.x - attackerPos.x) * t,
+                        y: attackerPos.y + (dest.y - attackerPos.y) * t,
+                    };
+                    const cell = GridMath.getCellForPosition(gs, sample);
+                    if (!cell) continue;
+                    // A mountain cell on the way that ISN'T the target edge cell occludes it.
+                    if (
+                        centerKeys.has((cell.x << 4) | cell.y) &&
+                        !(cell.x === target.cell.x && cell.y === target.cell.y)
+                    ) {
+                        return false;
+                    }
+                }
+                return true;
+            };
+            const visible = candidates.filter(hasLineOfSight);
+            if (visible.length) {
+                pool = visible;
+            }
+        }
+
+        const hoveredSideCandidates = pool.filter(
             (candidate) => candidate.cell.x === hoveredCell.x && candidate.cell.y === hoveredCell.y,
         );
-        const eligibleCandidates = hoveredSideCandidates.length ? hoveredSideCandidates : candidates;
+        const eligibleCandidates = hoveredSideCandidates.length ? hoveredSideCandidates : pool;
         let closest = eligibleCandidates[0];
         let closestDistance = Number.MAX_SAFE_INTEGER;
         for (const candidate of eligibleCandidates) {
@@ -3962,16 +4024,22 @@ export class Sandbox extends PixiScene {
         }
         const gs = this.sc_sceneSettings.getGridSettings();
         const centerCells = this.grid.getCenterCells();
-        const mountainTarget = this.getMountainEdgeTarget(this.sc_mouseWorld, centerCells);
-        if (!mountainTarget) {
-            return notHovering();
-        }
-        this.hoverManager.clearAttackVisuals();
 
         const canRangeObstacle = this.attackHandler.canLandRangeAttack(
             unit,
             this.grid.getEnemyAggrMatrixByUnitId(unit.getId()),
         );
+        const isRangeObstacleAttack = unit.getAttackTypeSelection() === AttackVals.RANGE && canRangeObstacle;
+        // Mirror the click path: a ranged strike only targets the mountain edges facing the attacker.
+        const mountainTarget = this.getMountainEdgeTarget(
+            this.sc_mouseWorld,
+            centerCells,
+            isRangeObstacleAttack ? unit.getVisualCenter(gs) : undefined,
+        );
+        if (!mountainTarget) {
+            return notHovering();
+        }
+        this.hoverManager.clearAttackVisuals();
 
         // Ranged attackers can shoot the mountain in place (unless pinned into melee). Show
         // "Hit the mountain" plus a trajectory arrow from the unit to the selected visible edge. Uses
@@ -4911,34 +4979,21 @@ export class Sandbox extends PixiScene {
         return true;
     }
     private finishMovedUnitTurn(unit: RenderableUnit): void {
-        // [PERF-PROBE] temporary instrumentation to localize the end-of-move turn-handoff lag.
-        const _p = (label: string, t0: number): void =>
-            console.warn(`[perf] ${label}: ${(performance.now() - t0).toFixed(1)}ms`);
-        const _tAll = performance.now();
         const action: GameAction = {
             type: "end_turn",
             unitId: unit.getId(),
             reason: "manual",
         };
-        let _t = performance.now();
         const unitSnapshot = this.snapshotRenderableUnits();
-        _p("snapshotRenderableUnits", _t);
-        _t = performance.now();
         const result = this.createActionEngine().apply(action);
-        _p("actionEngine.apply(end_turn)", _t);
         if (!result.completed) {
             this.sc_sceneLog.updateLog(
                 result.message ?? `Cannot finish move turn: ${result.rejectionReason ?? "unknown"}`,
             );
             return;
         }
-        _t = performance.now();
         this.applyTurnEngineEvents(result.events, unitSnapshot);
-        _p("applyTurnEngineEvents", _t);
-        _t = performance.now();
         this.advanceAfterNoActiveUnitIfNeeded();
-        _p("advanceAfterNoActiveUnitIfNeeded", _t);
-        _p("finishMovedUnitTurn TOTAL", _tAll);
     }
     private advanceAfterNoActiveUnitIfNeeded(): void {
         if (this.currentActiveUnit) {
@@ -4958,16 +5013,29 @@ export class Sandbox extends PixiScene {
             return;
         }
 
+        // [PERF-PROBE] turn-handoff breakdown (end-of-turn lag).
+        const _p = (label: string, t0: number): void =>
+            console.warn(`[perf] advance:${label}: ${(performance.now() - t0).toFixed(1)}ms`);
+        const _tAdvAll = performance.now();
+        let _t = performance.now();
         const unitSnapshot = this.snapshotRenderableUnits();
+        _p("snapshotRenderableUnits", _t);
+        _t = performance.now();
         const result = this.createTurnEngine().advanceAfterNoActiveUnit({
             centerAlreadyDried: this.dungeonVisuals.isCenterDried(),
             damageDealtThisLap: this.attackHandler?.getDamageStatisticHolder().has(fightProps.getCurrentLap()) ?? false,
         });
+        _p("turnEngine.advanceAfterNoActiveUnit", _t);
+        _t = performance.now();
         this.applyTurnEngineEvents(result.events, unitSnapshot);
+        _p("applyTurnEngineEvents", _t);
 
         if (result.nextUnit) {
+            _t = performance.now();
             this.handleNextUnitActivation(result.nextUnit as RenderableUnit);
+            _p("handleNextUnitActivation", _t);
         }
+        _p("advanceAfterNoActiveUnitIfNeeded TOTAL", _tAdvAll);
     }
     private isBoardInputLockedByAI(): boolean {
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -6978,13 +7046,12 @@ export class Sandbox extends PixiScene {
             return;
         }
 
-        // [PERF-PROBE] temporary instrumentation for the end-of-move turn-handoff lag.
+        // [PERF-PROBE] next-unit activation breakdown (end-of-turn lag).
         const _p = (label: string, t0: number): void =>
-            console.warn(`[perf]   ${label}: ${(performance.now() - t0).toFixed(1)}ms`);
-        const _tAct = performance.now();
+            console.warn(`[perf]   activate:${label}: ${(performance.now() - t0).toFixed(1)}ms`);
+        let _t = performance.now();
 
         this.sc_moveBlocked = false;
-        let _t = performance.now();
         this.refreshUnits();
         _p("refreshUnits", _t);
         _t = performance.now();
@@ -7034,7 +7101,6 @@ export class Sandbox extends PixiScene {
         _t = performance.now();
         this.buttonManager.refreshButtons(true);
         _p("refreshButtons", _t);
-        _p("handleNextUnitActivation TOTAL", _tAct);
     }
     /**
      * Start a screen shake (decaying random offset of the world root). Re-triggering while a
