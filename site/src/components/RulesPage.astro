@@ -191,7 +191,7 @@ const copy = isRu
               },
               {
                   title: "Luck Shield / пропуск",
-                  text: "Luck Shield сбрасывает случайный сдвиг удачи текущего хода и завершает ход. Пропуск тоже заканчивает ход, но снижает мораль.",
+                  text: "Luck Shield (защита) убирает случайный сдвиг удачи этого хода и завершает ход за небольшую цену в мораль. Принудительный пропуск тоже завершает ход и стоит морали; обычное завершение хода после действия не стоит ничего.",
               },
           ],
           combatTitle: "Как считается бой без формул",
@@ -202,9 +202,9 @@ const copy = isRu
           ],
           moraleTitle: "Мораль, удача и сила стека",
           moraleItems: [
-              "Мораль ограничена диапазоном от -20 до +20. Положительная мораль может поднять юнита в очереди, отрицательная - задержать.",
-              "Убийство дает сильный моральный толчок атакующему, а похожие стеки на стороне погибшего могут просесть по морали.",
-              "Удача влияет на шанс и силу многих способностей. Каждый ход может добавить случайный сдвиг, а Luck Shield позволяет очистить этот момент.",
+              "Мораль - от -20 до +20. Каждый круг юнит с шансом примерно в свою мораль в процентах ходит лишний раз (при плюсовой морали) или пропускает ход (при минусовой). Высокая мораль также немного увеличивает дальность хода и усиливает атаку, когда срабатывает; низкая - наоборот.",
+              "Чтобы поднять мораль, двигайтесь к вражеской армии (+3 за ход) и убивайте вражеские стеки (большой толчок атакующему). Отход снижает мораль (-3), а когда гибнет ваш стек, остальные ваши стеки того же юнита тоже теряют мораль.",
+              "Удача - от -10 до +10 и в основном защитная: удачливый стек получает меньше урона, неудачливый - больше (примерно 1% за единицу). Ваша удача также усиливает ваши способности и повышает шанс их срабатывания. Каждый круг удача получает небольшой случайный сдвиг; Luck Shield (защита) убирает этот сдвиг за небольшую цену в мораль.",
               "Сила стека пересчитывается от ценности стека на доске: опыт юнита умножается на количество живых существ и сравнивается с крупнейшим стеком. Диапазон - от 1 до 5.",
           ],
           mapTitle: "Карта не ждет вечно",
@@ -377,7 +377,7 @@ const copy = isRu
               },
               {
                   title: "Luck Shield / Skip",
-                  text: "Luck Shield clears the turn's randomized luck and ends the turn. Skip also ends the turn, with a morale cost.",
+                  text: "Luck Shield (defend) clears this turn's random luck swing and ends the turn, for a small morale cost. A forced skip also ends the turn and costs morale; ending your turn normally after acting costs nothing.",
               },
           ],
           combatTitle: "Combat, without the formula sheet",
@@ -388,9 +388,9 @@ const copy = isRu
           ],
           moraleTitle: "Morale, luck, and stack power",
           moraleItems: [
-              "Morale is capped from -20 to +20. Positive morale can pull a unit forward in the queue; negative morale can delay it.",
-              "A kill gives the attacker a large morale push, while matching stacks on the dead unit's team can lose morale.",
-              "Luck changes the chance and strength of many abilities. Each turn can add a random luck swing, and Luck Shield lets you clean that swing off.",
+              "Morale runs from -20 to +20. Each lap a unit rolls about its morale value in percent to act an extra time (positive morale) or be skipped (negative morale). High morale also nudges movement range and, when it procs, boosts attack; low morale does the opposite.",
+              "To build morale, advance toward the enemy army (+3 per move) and kill enemy stacks (a big push for the attacker). Retreating costs morale (-3), and when one of your stacks dies, your other stacks of that same unit lose morale too.",
+              "Luck runs from -10 to +10 and is mostly defensive: a lucky stack takes less damage, an unlucky one takes more (about 1% per point). Your own luck also makes your abilities stronger and more likely to fire. Luck gets a small random swing each lap; Luck Shield (defend) clears that swing for a small morale cost.",
               "Stack power is recalculated from a stack's board value: unit experience times living amount, compared with the largest stack present. It ranges from 1 to 5.",
           ],
           mapTitle: "The map does not wait forever",

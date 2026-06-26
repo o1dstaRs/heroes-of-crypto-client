@@ -110,6 +110,12 @@ Turn priorities:
 - Avoid attacks with bad retaliation unless the trade kills a valuable target or prevents worse damage.
 - Wait only when delaying lets an ally act first or creates a better same-lap attack. Defend only when no useful pressure exists.
 
+Morale and luck:
+- Morale (-20..+20) gives each unit roughly its morale-in-percent chance per lap to take an extra turn (positive morale) or be skipped (negative morale); high morale also slightly raises movement range and boosts attack when it procs, low morale does the opposite.
+- Build morale by advancing toward the enemy army (each move that closes on the enemy's center is +3) and by killing enemy stacks (a large boost for the attacker). Retreating is -3, and when one of your stacks dies your other stacks of that same unit lose morale. When material is roughly even, prefer an advancing or killing move that also banks morale over an equal-value lateral or retreating one.
+- Wait (Hourglass), Defend, and forced skips each cost morale; ending a turn after acting costs nothing. Do not Wait or Defend reflexively.
+- Luck (-10..+10) is mostly defensive: a lucky stack takes less damage and an unlucky one takes more (about 1% per point), and your own luck makes your abilities stronger and more likely to fire. Luck takes a small random swing each lap; Defend (Luck Shield) clears that swing for a small morale cost — worth it mainly when this turn rolled bad luck and you have no strong attack or position available.
+
 Spell priorities:
 - Cast mass buffs/debuffs when they affect multiple relevant stacks and the fight is not already decided by a lethal hit.
 - Heal or resurrect when it restores a high-value stack or denies enemy tempo.
