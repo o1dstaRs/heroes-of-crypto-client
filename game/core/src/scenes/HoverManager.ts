@@ -258,17 +258,15 @@ export class HoverManager {
     public drawHoverPlacementCell(gfx: Graphics): void {
         const cells = this.hoverSelectedCells;
         if (!cells || cells.length === 0) return;
+        // The placement silhouette already previews a valid drop, so we only draw a square to flag an
+        // INVALID position (red). No white square for valid cells — it's redundant clutter.
+        if (!this.hoverSelectedCellsSwitchToRed) return;
         const gs = this.context.sceneSettings.getGridSettings();
         const size = gs.getCellSize();
         const half = size / 2;
-        let strokeColor = 0xffffff;
-        let fillColor = 0xffffff;
-        let fillAlpha = 0.18;
-        if (this.hoverSelectedCellsSwitchToRed) {
-            strokeColor = 0xff5555;
-            fillColor = 0xff3333;
-            fillAlpha = 0.25;
-        }
+        const strokeColor = 0xff5555;
+        const fillColor = 0xff3333;
+        const fillAlpha = 0.25;
         let minX = Number.POSITIVE_INFINITY;
         let maxX = Number.NEGATIVE_INFINITY;
         let minY = Number.POSITIVE_INFINITY;
@@ -1169,6 +1167,24 @@ export class HoverManager {
         const draggingUnitTeam = this.context.getDraggingUnitTeam();
         const draggingUnitId = this.context.getDraggingUnitId();
         const effectiveTeam = teamFromPlacement ?? draggingUnitTeam ?? selected.team ?? TeamVals.LOWER;
+
+        // Placing a NEW unit (not repositioning a board unit) while the cursor sits on another unit:
+        // a click here SELECTS that unit, it isn't a placement. So don't show any placement square
+        // (red read as "can't place" was misleading) — show the unit's selection highlight instead.
+        if (!draggingUnitId) {
+            const cursorOccupantId = this.context.grid.getOccupantUnitId(cell);
+            if (cursorOccupantId) {
+                const occupantUnit = this.context.unitsHolder.getAllUnits().get(cursorOccupantId);
+                if (occupantUnit) {
+                    this.clearAuraVisuals();
+                    this.clearHoverSilhouette();
+                    // (placement square vars were already reset at the top of this method)
+                    this.hoveredUnitHighlight = this.getHighlightRectForUnit(occupantUnit);
+                    this.hoveredUnitId = occupantUnit.getId();
+                    return;
+                }
+            }
+        }
 
         // --- 1. Calculate Candidate Cells (Early) ---
         // We need these for both Visualization (Mock Unit) and Validation

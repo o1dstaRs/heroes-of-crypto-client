@@ -321,7 +321,7 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     if (stackPower <= 0) return null;
     const isLower = teamType === TeamVals.LOWER;
     const activeColor = isLower
-        ? "rgba(0, 255, 0, 1)"
+        ? "rgba(0, 210, 0, 1)"
         : teamType === TeamVals.UPPER
           ? "rgba(255, 0, 0, 1)"
           : "rgba(255, 255, 255, 0.85)";
@@ -962,7 +962,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                                 imageRendering: "auto",
                                 transform: "translateZ(0)",
                                 transition: "opacity 180ms ease-out",
-                                mb: 1.25,
+                                mb: 3,
                             }}
                         />
                         {factionSynergyGroups.length > 0 && (

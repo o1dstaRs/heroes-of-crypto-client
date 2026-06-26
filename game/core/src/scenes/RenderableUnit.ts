@@ -745,7 +745,7 @@ export class RenderableUnit extends Unit {
         const bannerTop = -flagHeight * 0.5;
         const bannerBottom = flagHeight * 0.5;
         const teamColor =
-            props.team === TeamVals.LOWER ? 0x00ff00 : props.team === TeamVals.UPPER ? 0xff0000 : 0x8b94a6;
+            props.team === TeamVals.LOWER ? 0x00d200 : props.team === TeamVals.UPPER ? 0xff0000 : 0x8b94a6;
         const borderWidth = this.isActiveTurn ? 1.75 : 1.25;
         const borderColor = this.isActiveTurn ? 0xffffff : 0x000000;
         const borderAlpha = this.isActiveTurn ? 1 : 0.58;
@@ -937,7 +937,7 @@ export class RenderableUnit extends Unit {
         const cornerRadius = 3;
 
         // Colors
-        const teamColor = props.team === TeamVals.LOWER ? 0x00ff00 : 0xff0000;
+        const teamColor = props.team === TeamVals.LOWER ? 0x00d200 : 0xff0000;
         const emptyColor = 0x222222; // Dark grey for empty slots
         const borderColor = 0x000000;
 

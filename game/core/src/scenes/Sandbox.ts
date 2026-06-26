@@ -301,11 +301,11 @@ export class Sandbox extends PixiScene {
         }
 
         // Warm torch lighting (additive pools) over the darkened dungeon floor.
-        // zIndex sits BELOW the units (they use ~3200-4800 via `4000 - pos.y`) so the darkening
-        // overlay falls only on the floor/terrain/placement decals — units keep their full brightness
-        // ("shine") instead of being dimmed by the dungeon dark. Stays above the bench UI (≤2501).
+        // zIndex must sit below PixiDrawer's unitsContainer (1000), otherwise the darkening overlay
+        // shades every placed unit regardless of each sprite's internal depth-sort value. Keep it
+        // above terrain/placement graphics so the floor still gets the dungeon lighting pass.
         this.lightingLayer = new LightingLayer(this.sc_sceneSettings.getGridSettings());
-        this.attachToWorldRoot(this.lightingLayer.getContainer(), 3100);
+        this.attachToWorldRoot(this.lightingLayer.getContainer(), 950);
 
         this.combatVisuals = new CombatVisuals({
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
@@ -3881,10 +3881,7 @@ export class Sandbox extends PixiScene {
      * arrow span across the whole obstacle. We aim at the near edge/corner of the struck cell so the
      * arrow lands on the side we are hitting.
      */
-    private getMeleeMountainArrowTarget(
-        attackFromPos: HoCMath.XY,
-        centerCells: HoCMath.XY[],
-    ): HoCMath.XY | undefined {
+    private getMeleeMountainArrowTarget(attackFromPos: HoCMath.XY, centerCells: HoCMath.XY[]): HoCMath.XY | undefined {
         const gs = this.sc_sceneSettings.getGridSettings();
         const halfStep = gs.getHalfStep();
         let targetCenter: HoCMath.XY | undefined;
@@ -4156,6 +4153,12 @@ export class Sandbox extends PixiScene {
     ): Promise<boolean> {
         this.sc_moveBlocked = true;
 
+        // [PERF-PROBE] temporary instrumentation to localize the move+attack landing hitch
+        // (the synchronous engine work that runs the frame the move animation completes).
+        const _p = (label: string, t0: number): void =>
+            console.warn(`[perf] attack:${label}: ${(performance.now() - t0).toFixed(1)}ms`);
+        const _tAttackAll = performance.now();
+
         // Create a local damage object for animation
         const damageForAnimation: IVisibleDamage = {
             render: false,
@@ -4324,6 +4327,18 @@ export class Sandbox extends PixiScene {
             }
             if (!applyAttackActionResult(this.createActionEngine().apply(action))) {
                 return false;
+            }
+
+            // Melee landed: lunge the attacker a touch toward the target along the attack trajectory,
+            // then spring back (applyRecoil's out-and-back envelope) so the strike reads as committed
+            // rather than a static stand-and-deal. Range attacks throw a projectile, so no lunge there.
+            const lungeLen = Math.hypot(primaryAttackDir.x, primaryAttackDir.y);
+            if (lungeLen > 0.001) {
+                const lungeMag = gs.getCellSize() * 0.22;
+                attacker.applyRecoil(
+                    (primaryAttackDir.x / lungeLen) * lungeMag,
+                    (primaryAttackDir.y / lungeLen) * lungeMag,
+                );
             }
         }
 

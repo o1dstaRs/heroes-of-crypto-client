@@ -26,6 +26,8 @@ const BOOK_POSITION_RIGHT_X = 96; // centre +206
 const BOOK_POSITION_TOP_Y = -375; // top row so the 3-row stack is vertically centred on the page
 const BOOK_POSITION_ROW_STEP = 230;
 const BOOK_CELL_SIZE = 220;
+const BOOK_CELL_OFFSET_X = 8; // nudge the scroll-like spell cell (drawn under each spell) right...
+const BOOK_CELL_OFFSET_Y = -9; // ...and up a little
 const BOOK_SPELL_SIZE = 140;
 const BOOK_ICON_OFFSET_X = 40;
 const BOOK_ICON_OFFSET_Y = 28;
@@ -195,11 +197,11 @@ export class PixiRenderableSpell extends Spell {
         const iconX = cellX + BOOK_ICON_OFFSET_X;
         const iconY = cellY + BOOK_ICON_OFFSET_Y;
 
-        // Background cell
+        // Background cell — the scroll-like plate that sits under each spell.
         this.bgSprite.width = BOOK_CELL_SIZE;
         this.bgSprite.height = BOOK_CELL_SIZE;
-        this.bgSprite.x = cellX;
-        this.bgSprite.y = cellY;
+        this.bgSprite.x = cellX + BOOK_CELL_OFFSET_X;
+        this.bgSprite.y = cellY + BOOK_CELL_OFFSET_Y;
 
         // Icon (main sprite)
         this.iconSprite.width = BOOK_SPELL_SIZE;

@@ -10,12 +10,12 @@ type TeamAmountFlagProps = {
 };
 
 const getTeamFlagColor = (teamType: TeamType): string => {
-    if (teamType === TeamVals.LOWER) return "rgba(0, 255, 0, 1)";
+    if (teamType === TeamVals.LOWER) return "rgba(0, 210, 0, 1)";
     if (teamType === TeamVals.UPPER) return "rgba(255, 0, 0, 1)";
     return "rgba(139, 148, 166, 1)";
 };
 
-export const TeamAmountFlag = ({ amount, teamType, top = "-2px", right = "-5px" }: TeamAmountFlagProps) => {
+export const TeamAmountFlag = ({ amount, teamType, top = "0px", right = "-5px" }: TeamAmountFlagProps) => {
     const label = String(amount);
     const width = Math.max(26, label.length * 8 + 16);
     const height = 18;

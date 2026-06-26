@@ -15,6 +15,7 @@ import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IVisibleState } from "../../scenes/VisibleState";
 import { images } from "../../generated/image_imports";
 import { meteorIconDataUrl } from "../meteorIcon";
+import { TurnTimerBar } from "./TurnTimerBar";
 
 // --- Configuration for the Start Button Atlas ---
 const START_BUTTON_META = {
@@ -300,27 +301,16 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                 messageBoxButtonText = "Use additional time";
             }
         }
-        messageBoxTitle = `Lap ${visibleState.lapNumber}`;
+        // The lap now lives in the timer medallion, so the heading carries whose turn it is.
         if (!visibleState.teamTypeTurn) {
-            messageBoxText = "Calculating next turn.";
+            messageBoxTitle = "Calculating next turn";
         } else if (visibleState.teamTypeTurn === TeamVals.LOWER) {
-            messageBoxText = "Green team is making a turn";
+            messageBoxTitle = "Green team's turn";
         } else {
-            messageBoxText = "Red team is making a turn";
+            messageBoxTitle = "Red team's turn";
         }
+        messageBoxText = "";
     }
-
-    const progress = (
-        <LinearProgress
-            variant="outlined"
-            determinate={true}
-            value={messageBoxProgressValue}
-            sx={{
-                my: 1,
-                overflow: "hidden",
-            }}
-        />
-    );
 
     // --- ICON LOGIC ---
     let defaultIcon: React.ReactNode = <TimelapseRoundedIcon />;
@@ -373,8 +363,14 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                     <Typography level="title-sm">{messageBoxTitle}</Typography>
                     {visibleState.hasFinished ? <RefreshRoundedIcon /> : defaultIcon}
                 </Stack>
-                <Typography level="body-xs">{messageBoxText}</Typography>
-                {!visibleState.hasFinished && progress}
+                {messageBoxText && <Typography level="body-xs">{messageBoxText}</Typography>}
+                {!visibleState.hasFinished && (
+                    <TurnTimerBar
+                        lapNumber={visibleState.lapNumber}
+                        secondsRemaining={visibleState.secondsRemaining}
+                        secondsMax={visibleState.secondsMax}
+                    />
+                )}
 
                 {messageBoxButtonText ? (
                     <Button

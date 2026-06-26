@@ -23,6 +23,12 @@ export class DungeonVisuals {
     /** Sconce inset (board-square uv units) so the light tracks the board as holes eat the edges. */
     private lightInward = 0;
     private lightTimeSec = 0;
+    // The corner-brazier LightingLayer (world-space) now owns the dungeon firelight in BOTH placement
+    // and fight. This separate wall-sconce shader overlay used to fade in at fight start and clashed
+    // with the braziers (two different light patterns over the floor), which read as "ugly" the instant
+    // the fight began. Disabled so lighting stays consistent across phases; flip to true to bring back
+    // a second, floor-only lighting pass.
+    private wallSconceOverlayEnabled: boolean = false;
     private dungeonOverlay?: Container;
     private holeContainer: Container;
     private bgSprite?: Sprite;
@@ -44,8 +50,8 @@ export class DungeonVisuals {
     public updateDungeonAtmosphere(started: boolean, alpha: number): void {
         const stage = this.context.getStage();
 
-        // 1. Hide if not started
-        if (!started) {
+        // 1. Hide while disabled (see wallSconceOverlayEnabled) or before the fight starts.
+        if (!this.wallSconceOverlayEnabled || !started) {
             if (this.dungeonOverlay) {
                 this.dungeonOverlay.visible = false;
             }
