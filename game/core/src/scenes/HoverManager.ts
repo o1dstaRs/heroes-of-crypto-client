@@ -62,6 +62,11 @@ export class HoverManager {
     private hoverSilhouette?: Sprite;
     private hoverSilhouetteOutline?: Sprite;
     private hoverSilhouetteKey?: string;
+    // Dedicated sprites for the opponent's relayed move aim. Kept separate from the local
+    // hover silhouette so the two never clobber each other's visibility/position.
+    private opponentIntentSilhouette?: Sprite;
+    private opponentIntentOutline?: Sprite;
+    private opponentIntentKey?: string;
     private hoverTargetSilhouette?: Sprite; // For enemy unit red highlight
     public hoveredUnitHighlight?: { x: number; y: number; w: number; h: number };
     public hoveredUnitId?: string;
@@ -995,6 +1000,63 @@ export class HoverManager {
      */
     public showSilhouetteForUnit(unitProps: UnitProperties, position: HoCMath.XY): void {
         this.ensureHoverSilhouetteParams(unitProps, position, false);
+    }
+    /**
+     * Render a ghost of the opponent's active unit at the cell they are currently aiming
+     * at during their turn in ranked play. Uses its own sprites (and a slightly more
+     * transparent look) so it reads as a live "intent" preview without disturbing the
+     * local player's own hover silhouette.
+     */
+    public showOpponentIntentSilhouette(props: UnitProperties, position: HoCMath.XY): void {
+        const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
+        const tex = this.context.texAny(texName);
+        if (!tex) {
+            this.clearOpponentIntentSilhouette();
+            return;
+        }
+        if (!this.opponentIntentSilhouette) {
+            this.opponentIntentSilhouette = new Sprite(tex);
+            this.opponentIntentSilhouette.anchor.set(0.5);
+            this.context.attachToWorldRoot(this.opponentIntentSilhouette, 110);
+            this.opponentIntentSilhouette.scale.y = -1;
+        } else if (this.opponentIntentKey !== texName) {
+            this.opponentIntentSilhouette.texture = tex;
+        }
+        if (!this.opponentIntentOutline) {
+            this.opponentIntentOutline = new Sprite(tex);
+            this.opponentIntentOutline.anchor.set(0.5);
+            this.context.attachToWorldRoot(this.opponentIntentOutline, 109);
+            this.opponentIntentOutline.scale.y = -1;
+        } else if (this.opponentIntentKey !== texName) {
+            this.opponentIntentOutline.texture = tex;
+        }
+        this.opponentIntentKey = texName;
+        const sprite = this.opponentIntentSilhouette;
+        const outline = this.opponentIntentOutline;
+        const targetSize = props.size === 2 ? 256 : 128;
+        const baseWidth = tex.width || 1;
+        const scale = targetSize / baseWidth;
+        const outlineScale = scale * 1.06;
+        sprite.scale.set(scale, -scale);
+        outline.scale.set(outlineScale, -outlineScale);
+        sprite.x = position.x;
+        sprite.y = position.y;
+        outline.x = position.x;
+        outline.y = position.y;
+        outline.visible = true;
+        outline.alpha = 0.7;
+        outline.tint = 0xffffff;
+        sprite.visible = true;
+        sprite.alpha = 0.55;
+        sprite.tint = 0x000000;
+    }
+    public clearOpponentIntentSilhouette(): void {
+        if (this.opponentIntentSilhouette) {
+            this.opponentIntentSilhouette.visible = false;
+        }
+        if (this.opponentIntentOutline) {
+            this.opponentIntentOutline.visible = false;
+        }
     }
     public updateBoardHoverSilhouette(props: UnitProperties, center: HoCMath.XY): void {
         const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);

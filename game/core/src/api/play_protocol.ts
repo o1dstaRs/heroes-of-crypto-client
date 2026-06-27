@@ -26,6 +26,7 @@ export const PlayActionType = {
     READY_PLACEMENT: 14,
     PING: 15,
     SPLIT_UNIT: 16,
+    MOVE_INTENT: 17,
 } as const;
 
 export type PlayActionTypeValue = (typeof PlayActionType)[keyof typeof PlayActionType];
@@ -41,6 +42,7 @@ export const PlayEventKind = {
     PLACEMENT_TIMER_STARTED: 7,
     FIGHT_STARTED: 8,
     HEARTBEAT: 9,
+    MOVE_INTENT: 10,
 } as const;
 
 export type PlayEventKindValue = (typeof PlayEventKind)[keyof typeof PlayEventKind];
@@ -145,6 +147,12 @@ export interface PlayAction {
     amount?: number;
 }
 
+export interface PlayIntent {
+    unitId: string;
+    targetCell?: PlayCell;
+    active: boolean;
+}
+
 export interface PlayEvent {
     sequence: number;
     kind: PlayEventKindValue;
@@ -155,6 +163,7 @@ export interface PlayEvent {
     rejectionReason: string;
     message: string;
     serverTimeMs: number;
+    intent?: PlayIntent;
 }
 
 export interface PlayActionResponse {
@@ -470,11 +479,31 @@ export const decodePlayEvent = (bytes: Uint8Array): PlayEvent => {
             event.message = reader.string();
         } else if (field === 9) {
             event.serverTimeMs = reader.varintNumber();
+        } else if (field === 10) {
+            event.intent = decodePlayIntent(reader.bytesValue());
         } else {
             reader.skip(wireType);
         }
     }
     return event;
+};
+
+const decodePlayIntent = (bytes: Uint8Array): PlayIntent => {
+    const reader = new ProtoReader(bytes);
+    const intent: PlayIntent = { unitId: "", active: false };
+    while (!reader.done()) {
+        const { field, wireType } = reader.tag();
+        if (field === 1) {
+            intent.unitId = reader.string();
+        } else if (field === 2) {
+            intent.targetCell = decodeCell(reader.bytesValue());
+        } else if (field === 3) {
+            intent.active = reader.bool();
+        } else {
+            reader.skip(wireType);
+        }
+    }
+    return intent;
 };
 
 export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {

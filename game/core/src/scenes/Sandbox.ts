@@ -209,6 +209,12 @@ export class Sandbox extends PixiScene {
     private atmosphereAlpha = 0; // [NEW] Transition alpha for night/lights
     // --- Scene Setup ---
     private currentActiveUnit?: RenderableUnit;
+    // Ranked move-intent relay. `moveIntentSink` (set by the ranked view) ships the local
+    // player's live move aim to the opponent; `opponentMoveIntent` holds the opponent's
+    // relayed aim so we can preview their unit's silhouette each frame.
+    private moveIntentSink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void;
+    private lastEmittedMoveIntentKey?: string;
+    private opponentMoveIntent?: { unitId: string; cell: HoCMath.XY };
     private currentShiftedUnit?: RenderableUnit;
     private currentActivePathHashes?: Set<number>;
     private currentActivePath?: HoCMath.XY[];
@@ -643,6 +649,63 @@ export class Sandbox extends PixiScene {
     }
     protected getCurrentActiveUnit(): RenderableUnit | undefined {
         return this.currentActiveUnit;
+    }
+    /** Ranked: install the sink that relays this player's live move aim to the opponent. */
+    public setMoveIntentSink(sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {
+        this.moveIntentSink = sink;
+        if (!sink) {
+            this.lastEmittedMoveIntentKey = undefined;
+        }
+    }
+    /** Ranked: receive the opponent's relayed move aim (undefined clears it). */
+    public setOpponentMoveIntent(intent?: { unitId: string; cell: HoCMath.XY }): void {
+        this.opponentMoveIntent = intent;
+        if (!intent) {
+            this.hoverManager.clearOpponentIntentSilhouette();
+        }
+    }
+    /**
+     * Emit the local player's current move aim, de-duplicated so a relay only goes out when
+     * the targeted cell (or active unit) actually changes. Only fires when a sink is wired,
+     * i.e. ranked play; hover() already gates this to the viewer's own turn.
+     */
+    private emitLocalMoveIntent(cell: HoCMath.XY | undefined): void {
+        if (!this.moveIntentSink) {
+            return;
+        }
+        const unitId = this.currentActiveUnit?.getId();
+        const key = cell && unitId ? `${unitId}:${cell.x},${cell.y}` : "none";
+        if (key === this.lastEmittedMoveIntentKey) {
+            return;
+        }
+        this.lastEmittedMoveIntentKey = key;
+        this.moveIntentSink(unitId, cell && unitId ? cell : undefined);
+    }
+    /** Ranked: draw the opponent's relayed move silhouette. Driven every frame from Step(). */
+    private renderOpponentMoveIntent(): void {
+        const intent = this.opponentMoveIntent;
+        if (!intent) {
+            return;
+        }
+        const unit = this.unitsHolder.getAllUnits().get(intent.unitId) as RenderableUnit | undefined;
+        if (!unit) {
+            this.hoverManager.clearOpponentIntentSilhouette();
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const props = unit.getUnitProperties();
+        let center: HoCMath.XY | undefined;
+        if (props.size === 2) {
+            const candidate = this.hoverManager.findLargeUnitMoveCandidate(intent.cell);
+            center = candidate ? GridMath.getPositionForCells(gs, candidate) : undefined;
+        } else {
+            center = GridMath.getPositionForCell(intent.cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        }
+        if (!center) {
+            this.hoverManager.clearOpponentIntentSilhouette();
+            return;
+        }
+        this.hoverManager.showOpponentIntentSilhouette(props, center);
     }
     private clearPlacementBench(): void {
         this.stopPlacementBenchSlideAnimation();
@@ -4322,7 +4385,10 @@ export class Sandbox extends PixiScene {
         if (occupantId && occupantId !== "L" && occupantId !== "W") {
             return undefined; // aiming at an enemy unit → single-target preview handles it
         }
-        return [...GridMath.getCellsAroundCell(gs, mouseCell), mouseCell];
+        // A unit standing on the trajectory intercepts the throw, so center the splash on it
+        // (matches the engine's projection) instead of the empty cell behind it.
+        const targetCell = this.attackHandler.projectAreaThrowTargetCell(this.unitsHolder.getAllUnits(), unit, mouseCell);
+        return [...GridMath.getCellsAroundCell(gs, targetCell), targetCell];
     }
     /** Execute an Area Throw at the clicked cell. Returns true if it handled the click. */
     private attemptAreaThrowAttack(worldPos: HoCMath.XY): boolean {
@@ -4360,13 +4426,24 @@ export class Sandbox extends PixiScene {
             targetCell: mouseCell,
         };
 
-        const muzzle = unit.getVisualCenter(this.sc_sceneSettings.getGridSettings());
+        // The engine projects the throw onto the first enemy on the trajectory, so the projectile
+        // and damage numbers must land on that intercepted cell too (not the empty cell behind it).
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const effectiveCell = this.attackHandler.projectAreaThrowTargetCell(
+            this.unitsHolder.getAllUnits(),
+            unit,
+            mouseCell,
+        );
+        const effectivePosition =
+            GridMath.getPositionForCell(effectiveCell, gs.getMinX(), gs.getStep(), gs.getHalfStep()) ?? cellPosition;
+
+        const muzzle = unit.getVisualCenter(gs);
         const bigProjectile = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
-        await this.rangedProjectiles.fire({ from: muzzle, to: cellPosition, big: bigProjectile });
+        await this.rangedProjectiles.fire({ from: muzzle, to: effectivePosition, big: bigProjectile });
         // Double Shot (e.g. Gargantuan): the engine applies a second area shot, so throw a second
         // projectile too — otherwise the doubled damage lands with only one animation.
         if (unit.hasAbilityActive("Double Shot")) {
-            await this.rangedProjectiles.fire({ from: muzzle, to: cellPosition, big: bigProjectile });
+            await this.rangedProjectiles.fire({ from: muzzle, to: effectivePosition, big: bigProjectile });
         }
 
         const unitSnapshot = this.snapshotRenderableUnits();
@@ -4375,7 +4452,7 @@ export class Sandbox extends PixiScene {
             return;
         }
 
-        this.combatVisuals.showDamageVisualsFromDiff(preState, mouseCell);
+        this.combatVisuals.showDamageVisualsFromDiff(preState, effectiveCell);
         this.sc_damageStatsUpdateNeeded = true;
         this.unitsHolder.refreshStackPowerForAllUnits();
         this.hoverManager.clearAOEArea();

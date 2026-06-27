@@ -10,9 +10,10 @@ import {
     decodePlaySnapshot,
     decodeSsePlayEvent,
     encodePlayAction,
+    PlayActionType,
     PlayPhase,
 } from "./play_protocol";
-import type { PlayAction, PlayActionResponse, PlayEvent, PlaySnapshot } from "./play_protocol";
+import type { PlayAction, PlayActionResponse, PlayCell, PlayEvent, PlaySnapshot } from "./play_protocol";
 
 const STORAGE_KEY = "accessToken";
 
@@ -83,6 +84,34 @@ export const sendRankedPlayAction = async (
         headers: authHeaders(options?.authorization),
     });
     return decodePlayActionResponse(toBytes(response.data));
+};
+
+/**
+ * Broadcast the local player's in-progress move aim so the opponent can preview a
+ * silhouette of the active unit. Fire-and-forget: intents are ephemeral hints, so we
+ * never advance the sequence or surface transport errors to the player. Omit
+ * `targetCell` to clear a previously-sent aim.
+ */
+export const sendRankedPlayMoveIntent = (
+    gameId: string,
+    args: { playerId: string; team: TeamType; unitId: string; targetCell?: PlayCell },
+): void => {
+    const payload: PlayAction = {
+        actionId: uuidv4(),
+        gameId,
+        playerId: args.playerId,
+        expectedSequence: 0,
+        type: PlayActionType.MOVE_INTENT,
+        unitId: args.unitId,
+        team: args.team,
+        targetCell: args.targetCell,
+    };
+    void axiosGameInstance
+        .post(playActionUrl(gameId), encodePlayAction(payload), {
+            responseType: "arraybuffer",
+            headers: authHeaders(),
+        })
+        .catch(() => undefined);
 };
 
 export const parseRankedPlaySseFrame = (frame: string): PlayEvent | null => {
