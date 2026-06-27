@@ -165,6 +165,8 @@ export class Sandbox extends PixiScene {
     private placementBenchLastGroups: HoCMath.XY[][] = [];
     private readonly placementBenchBaseHitBoxes = new Map<string, PlacementBenchHitBox>();
     private readonly placementBenchHitBoxes = new Map<string, PlacementBenchHitBox>();
+    /** Ids of revealed opponent units shown in the opponent placement area; excluded from start checks. */
+    private readonly revealedOpponentUnitIds = new Set<string>();
     private selectedBoardUnit?: RenderableUnit;
     private isActiveUnitMoving = false;
     private gridMatrix: number[][];
@@ -589,6 +591,15 @@ export class Sandbox extends PixiScene {
     protected getUnplacedUnitBenchGroupKey(_unitState: SandboxSceneUnitState): string {
         return "default";
     }
+    /**
+     * Uniform scale for units shown on the unplaced placement bench (the cluster centered on the
+     * board during placement). 1 = one board cell. Scenes can render the bench bigger so the
+     * waiting units read at "full size"; the layout spacing, hitboxes and backdrop padding all
+     * scale with this value.
+     */
+    protected getUnplacedBenchUnitScale(): number {
+        return 1;
+    }
     protected getUnplacedUnitBenchPosition(
         index: number,
         total: number,
@@ -600,6 +611,7 @@ export class Sandbox extends PixiScene {
 
         const gs = this.sc_sceneSettings.getGridSettings();
         const cell = gs.getCellSize();
+        const scale = this.getUnplacedBenchUnitScale();
         const columns = Math.min(4, total);
         const rows = Math.ceil(total / columns);
         const column = index % columns;
@@ -608,12 +620,20 @@ export class Sandbox extends PixiScene {
         const centerY = (gs.getMinY() + gs.getMaxY()) / 2;
 
         return {
-            x: centerX + (column - (columns - 1) / 2) * cell * 1.45,
-            y: centerY + (row - (rows - 1) / 2) * cell * 1.35,
+            x: centerX + (column - (columns - 1) / 2) * cell * 1.45 * scale,
+            y: centerY + (row - (rows - 1) / 2) * cell * 1.35 * scale,
         };
     }
     protected shouldGhostUnplacedUnitBenchUnit(_unitState: SandboxSceneUnitState): boolean {
         return false;
+    }
+    /**
+     * Map of unitId -> world position for revealed opponent units that should be displayed (ghosted,
+     * spread out so they never stack) inside the opponent's placement area instead of their real,
+     * hidden positions. Base scenes have no such concept; ranked play overrides this.
+     */
+    protected getRevealedOpponentUnitPositions(_units: SandboxSceneUnitState[]): Map<string, HoCMath.XY> {
+        return new Map();
     }
     protected shouldShowPlacementBenchToggle(): boolean {
         return false;
@@ -753,13 +773,16 @@ export class Sandbox extends PixiScene {
         const graphics = this.ensurePlacementBenchGraphicsWorld().clear();
         const gs = this.sc_sceneSettings.getGridSettings();
         const cell = gs.getCellSize();
+        const scale = this.getUnplacedBenchUnitScale();
+        const padX = cell * 0.95 * scale;
+        const padY = cell * 0.9 * scale;
         const radius = Math.max(6, cell * 0.18);
         const allPositions = groups.flat();
         const rawBounds = {
-            minX: Math.min(...allPositions.map((position) => position.x)) - cell * 0.95,
-            maxX: Math.max(...allPositions.map((position) => position.x)) + cell * 0.95,
-            minY: Math.min(...allPositions.map((position) => position.y)) - cell * 0.9,
-            maxY: Math.max(...allPositions.map((position) => position.y)) + cell * 0.9,
+            minX: Math.min(...allPositions.map((position) => position.x)) - padX,
+            maxX: Math.max(...allPositions.map((position) => position.x)) + padX,
+            minY: Math.min(...allPositions.map((position) => position.y)) - padY,
+            maxY: Math.max(...allPositions.map((position) => position.y)) + padY,
         };
         const bounds = this.shouldShowPlacementBenchToggle()
             ? this.expandPlacementBenchPanelBounds(rawBounds, cell)
@@ -778,10 +801,10 @@ export class Sandbox extends PixiScene {
                 .stroke({ color: 0xf6d87c, alpha: 0.28, width: Math.max(1, cell * 0.025) });
         } else {
             for (const positions of groups) {
-                const minX = Math.min(...positions.map((position) => position.x)) - cell * 0.95;
-                const maxX = Math.max(...positions.map((position) => position.x)) + cell * 0.95;
-                const minY = Math.min(...positions.map((position) => position.y)) - cell * 0.9;
-                const maxY = Math.max(...positions.map((position) => position.y)) + cell * 0.9;
+                const minX = Math.min(...positions.map((position) => position.x)) - padX;
+                const maxX = Math.max(...positions.map((position) => position.x)) + padX;
+                const minY = Math.min(...positions.map((position) => position.y)) - padY;
+                const maxY = Math.max(...positions.map((position) => position.y)) + padY;
 
                 graphics
                     .roundRect(minX, minY, maxX - minX, maxY - minY, radius)
@@ -918,25 +941,40 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const worldRoot = this.drawer.getUnitsContainer();
         const cell = gs.getCellSize();
+        const scale = this.getUnplacedBenchUnitScale();
         const isLarge = unit.getUnitProperties().size === 2;
 
         const visualPosition = {
             x: position.x + this.placementBenchSlideOffsetX,
             y: position.y,
         };
+        unit.setVisualScaleMultiplier(scale);
         unit.setPosition(visualPosition.x, visualPosition.y);
         unit.ensureVisual(worldRoot, gs);
         unit.syncVisual(worldRoot, gs);
         unit.setVisualGhost(this.shouldGhostUnplacedUnitBenchUnit(unitState));
         const baseHitBox = {
             center: { x: position.x, y: position.y },
-            radius: cell * (isLarge ? 1.05 : 0.7),
+            radius: cell * (isLarge ? 1.05 : 0.7) * scale,
         };
         this.placementBenchBaseHitBoxes.set(unit.getId(), baseHitBox);
         this.placementBenchHitBoxes.set(unit.getId(), {
             center: visualPosition,
             radius: baseHitBox.radius,
         });
+    }
+    /**
+     * Render a revealed opponent unit as a ghost at a fixed spot in the opponent placement area.
+     * Unlike bench units these are non-interactive and never occupy grid cells — they only show
+     * the viewer *which* enemy units exist, never their real (hidden) positions.
+     */
+    private renderRevealedOpponentUnit(unit: RenderableUnit, position: HoCMath.XY): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const worldRoot = this.drawer.getUnitsContainer();
+        unit.setPosition(position.x, position.y);
+        unit.ensureVisual(worldRoot, gs);
+        unit.syncVisual(worldRoot, gs);
+        unit.setVisualGhost(true);
     }
     private getBenchUnitAtPosition(worldPos: HoCMath.XY): Unit | undefined {
         const hitEntries = Array.from(this.placementBenchHitBoxes.entries()).reverse();
@@ -1233,9 +1271,11 @@ export class Sandbox extends PixiScene {
             this.destroySpecificUnits(existingUnits, true, false);
         }
         this.clearPlacementBench();
+        this.revealedOpponentUnitIds.clear();
 
         const gs = this.sc_sceneSettings.getGridSettings();
         const unitsContainer = this.drawer.getUnitsContainer();
+        const revealedOpponentPositions = this.getRevealedOpponentUnitPositions(snapshot.units);
         const benchPositions = new Map<string, HoCMath.XY>();
         const benchPositionsByGroup = new Map<string, HoCMath.XY[]>();
         if (!snapshot.fightStarted) {
@@ -1276,6 +1316,12 @@ export class Sandbox extends PixiScene {
                 const benchPosition = benchPositions.get(unitState.properties.id);
                 if (benchPosition) {
                     this.renderUnplacedBenchUnit(unit, benchPosition, unitState);
+                } else {
+                    const revealedPosition = revealedOpponentPositions.get(unitState.properties.id);
+                    if (revealedPosition) {
+                        this.revealedOpponentUnitIds.add(unit.getId());
+                        this.renderRevealedOpponentUnit(unit, revealedPosition);
+                    }
                 }
                 continue;
             }
@@ -1810,7 +1856,16 @@ export class Sandbox extends PixiScene {
         this.sc_sceneLog.updateLog(`${attacker.getName()} attk ${target.getName()} (${attackEvent.damage.amount})`);
         this.showReplayAttackDamage(attacker, target, attackEvent, record);
         this.applyReplayAttackRecoil(attacker, attackEvent);
+        // Melee strikes don't emit a per-target recoil animation (only ranged hits do, via the
+        // animations array), so knock the defender back here to give the struck side a visible hit
+        // reaction regardless of attacker/target.
+        if (attackEvent.attackType !== "range") {
+            this.applyReplayHitKnockback(target, attacker);
+        }
         await this.delayReplay(this.getReplayAttackDamageHoldMs(attackEvent));
+        // Replay the defender's counterattack so both combatants animate during an exchange — not
+        // just the initiating attacker. Gives ranked (and sandbox) replays the full game experience.
+        await this.playReplayRetaliation(attacker, target, attackEvent, record);
         this.applyReplayEvents(record.events);
         this.sc_moveBlocked = false;
         await this.delayReplay(Sandbox.REPLAY_ATTACK_AFTER_APPLY_HOLD_MS);
@@ -1948,6 +2003,77 @@ export class Sandbox extends PixiScene {
                 unit.applyRecoil((dx / len) * magnitude, (dy / len) * magnitude);
             }
         }
+    }
+    /** Knock `unit` back along the vector pointing away from `source` — a brief defensive hit reaction. */
+    private applyReplayHitKnockback(unit: RenderableUnit, source: RenderableUnit): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const unitCenter = unit.getVisualCenter(gs);
+        const sourceCenter = source.getVisualCenter(gs);
+        const dx = unitCenter.x - sourceCenter.x;
+        const dy = unitCenter.y - sourceCenter.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len <= 0.001) {
+            return;
+        }
+        const magnitude = gs.getCellSize() * 0.28;
+        unit.applyRecoil((dx / len) * magnitude, (dy / len) * magnitude);
+    }
+    /** Lunge `unit` toward `target` — a brief forward strike (applyRecoil's out-and-back envelope). */
+    private applyReplayLunge(unit: RenderableUnit, target: RenderableUnit): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const unitCenter = unit.getVisualCenter(gs);
+        const targetCenter = target.getVisualCenter(gs);
+        const dx = targetCenter.x - unitCenter.x;
+        const dy = targetCenter.y - unitCenter.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len <= 0.001) {
+            return;
+        }
+        const magnitude = gs.getCellSize() * 0.22;
+        unit.applyRecoil((dx / len) * magnitude, (dy / len) * magnitude);
+    }
+    /**
+     * Replay the defender's counterattack so an exchange animates on both sides, not just the
+     * initiating attacker. The engine emits the attacker's strike but conveys the response only as
+     * damage/recoil, so here we play the return strike (ranged projectile or melee lunge), the
+     * attacker's hit reaction, and the response damage. Detection is purely data-driven: a positive
+     * HP loss on the attacker during its own action means it was struck back.
+     */
+    private async playReplayRetaliation(
+        attacker: RenderableUnit,
+        target: RenderableUnit,
+        attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
+        record: SandboxReplay["actions"][number],
+    ): Promise<void> {
+        if (attacker.isDead() || target.isDead()) {
+            return;
+        }
+        const responseDamage = this.getReplayUnitDamage(record, attacker.getId());
+        if (responseDamage.amount <= 0) {
+            return;
+        }
+
+        this.sc_sceneLog.updateLog(`${target.getName()} resp ${attacker.getName()} (${responseDamage.amount})`);
+
+        if (attackEvent.attackType === "range") {
+            // A ranged attack only ever provokes a ranged response, so fire the return shot back.
+            await this.playReplayProjectile(target, attacker);
+        } else {
+            this.applyReplayLunge(target, attacker);
+            await this.delayReplay(Sandbox.REPLAY_CONTROL_HOLD_MS);
+        }
+        // Recoil the attacker on impact. For ranged the animations-array recoil has already decayed
+        // by the time the return shot lands; melee responses emit no recoil entry at all.
+        this.applyReplayHitKnockback(attacker, target);
+
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const attackerCenter = attacker.getVisualCenter(gs);
+        const targetCenter = target.getVisualCenter(gs);
+        const direction = { x: attackerCenter.x - targetCenter.x, y: attackerCenter.y - targetCenter.y };
+        const spawnPos = this.offsetReplayDamagePosition(attackerCenter, attacker, direction);
+        this.combatVisuals.showFloatingDamage(spawnPos, responseDamage.amount, direction, responseDamage.unitsDied);
+
+        await this.delayReplay(Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS);
     }
     private getReplayAttackDamageHoldMs(attackEvent: Extract<GameEvent, { type: "unit_attacked" }>): number {
         const hitCount = attackEvent.damage.hits?.length ?? 0;
@@ -7207,13 +7333,26 @@ export class Sandbox extends PixiScene {
             placementManager: this.placementManager,
             hoverManager: this.hoverManager,
             placementGraphics: this.placementGraphics,
+            restrictToTeam: this.getPlacementDrawTeam(),
         });
+    }
+    /**
+     * Which team's placement zone should be drawn. Undefined draws both (sandbox). Ranked play
+     * restricts this to the viewer's team so the opponent's placement area is never shown.
+     */
+    protected getPlacementDrawTeam(): TeamType | undefined {
+        return undefined;
     }
     private checkStartCondition(): void {
         let lowerAllowed = false;
         let upperAllowed = false;
         if (!this.sc_renderSpellBookOverlay) {
             for (const u of this.unitsHolder.getAllUnitsIterator()) {
+                // Revealed opponent units sit in the enemy placement area for display only; they must
+                // not count toward the local "both teams are placed" start condition.
+                if (this.revealedOpponentUnitIds.has(u.getId())) {
+                    continue;
+                }
                 if (
                     !upperAllowed &&
                     ((this.placementManager.getPlacement(TeamVals.UPPER, 0)?.isAllowed(u.getPosition()) ?? false) ||

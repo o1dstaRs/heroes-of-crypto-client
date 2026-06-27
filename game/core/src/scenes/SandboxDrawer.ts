@@ -52,6 +52,11 @@ export interface IPlacementDrawContext {
     placementManager: PlacementManager;
     hoverManager: HoverManager;
     placementGraphics?: Graphics;
+    /**
+     * When set, only this team's placement zone is drawn. Ranked play uses it so the viewer
+     * never sees the opponent's placement area — revealed enemy units are shown there instead.
+     */
+    restrictToTeam?: TeamType;
 }
 
 export class SandboxDrawer {
@@ -183,13 +188,12 @@ export class SandboxDrawer {
         //    shader over its own dust layer — see scenes/sandbox/SmokeLayer.ts.
     }
     public static drawPlacements(ctx: IPlacementDrawContext): void {
-        const { fightProps, placementManager, hoverManager, placementGraphics } = ctx;
+        const { fightProps, placementManager, hoverManager, placementGraphics, restrictToTeam } = ctx;
         if (!placementGraphics) return;
         const g = placementGraphics;
         g.clear();
         if (!fightProps.hasFightStarted()) {
-            let team: TeamType | undefined = undefined;
-            placementManager.draw(g, team);
+            placementManager.draw(g, restrictToTeam);
             hoverManager.drawHoverPlacementCell(g);
             if (hoverManager.hoveredUnitHighlight) {
                 hoverManager.drawHoveredUnitHighlight(g);

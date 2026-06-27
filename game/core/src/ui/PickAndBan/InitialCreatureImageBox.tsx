@@ -64,6 +64,11 @@ export const InitialCreatureImageBox = ({
                         : "drop-shadow(0px 0px 0px rgba(0,0,0,0))",
                 borderRadius: selectedCreature === creatureId || hoveredCreature === creatureId ? "50%" : "none",
                 cursor: "pointer",
+                // The box is much taller (180%) than the visible circular image, and its
+                // transparent area overlaps neighbouring creatures, stealing their clicks.
+                // Disable pointer events on the box and re-enable them only on the centered
+                // square that wraps the image, so a click selects the creature you actually see.
+                pointerEvents: "none",
                 "& .unit-name": {
                     visibility:
                         selectedCreature === creatureId || hoveredCreature === creatureId ? "visible" : "hidden",
@@ -73,16 +78,26 @@ export const InitialCreatureImageBox = ({
                 },
                 marginLeft: "2%",
             }}
-            onMouseEnter={() => {
-                if (hoverTimeoutRef.current) {
-                    clearTimeout(hoverTimeoutRef.current);
-                }
-                handleMouseEnter(creatureId);
-            }}
-            onMouseLeave={handleMouseLeave}
-            onClick={() => handleCreatureClick(creatureId)}
         >
-            <div style={{ position: "relative", width: "100%", height: "100%" }}>
+            <div
+                onMouseEnter={() => {
+                    if (hoverTimeoutRef.current) {
+                        clearTimeout(hoverTimeoutRef.current);
+                    }
+                    handleMouseEnter(creatureId);
+                }}
+                onMouseLeave={handleMouseLeave}
+                onClick={() => handleCreatureClick(creatureId)}
+                style={{
+                    position: "relative",
+                    // Centered square that matches the visible (objectFit: contain) circular
+                    // image; flex-centered by the parent box. Only this area is clickable.
+                    width: "100%",
+                    aspectRatio: "1 / 1",
+                    pointerEvents: "auto",
+                    cursor: "pointer",
+                }}
+            >
                 <>
                     <img
                         src={UNIT_ID_TO_IMAGE[creatureId]}

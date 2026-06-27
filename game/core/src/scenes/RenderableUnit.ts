@@ -130,6 +130,10 @@ export class RenderableUnit extends Unit {
     private isActiveTurn = false;
     private isDestroyed = false;
     private visualMode: "normal" | "hidden" | "ghost" = "normal";
+    // Uniform multiplier applied to the rendered sprite, shadow, badge and corner indicators.
+    // 1 = normal one-cell board size. The placement bench renders unplaced units larger (>1) so
+    // they read at "full size" while waiting to be deployed; placed/board units keep the default 1.
+    private visualScaleMultiplier = 1;
     // Animated "light waves" aura shown under the unit whose turn it is.
     private activeAura?: Graphics;
     // While the active unit is mid-move or mid-attack, the aura is suppressed so it doesn't
@@ -299,7 +303,7 @@ export class RenderableUnit extends Unit {
                 worldRoot.addChild(this.sprite);
             }
         }
-        const targetSize = props.size === 2 ? 256 : 128;
+        const targetSize = (props.size === 2 ? 256 : 128) * this.visualScaleMultiplier;
         const currentTexture = this.sprite.texture;
         const currentWidth = currentTexture && currentTexture.width > 1 ? currentTexture.width : baseTex.width || 1;
         const scale = targetSize / currentWidth;
@@ -383,6 +387,14 @@ export class RenderableUnit extends Unit {
     }
     public getCurrentVisualScale(): number {
         return this.sprite ? Math.abs(this.sprite.scale.x) : 1;
+    }
+    /**
+     * Scale the whole unit visual (sprite + shadow + badge + indicators) uniformly around its
+     * position. Used by the placement bench to render unplaced units bigger than one board cell.
+     * Takes effect on the next ensureVisual/syncVisual pass.
+     */
+    public setVisualScaleMultiplier(multiplier: number): void {
+        this.visualScaleMultiplier = multiplier > 0 ? multiplier : 1;
     }
     public setVisualVisible(visible: boolean): void {
         this.visualMode = visible ? "normal" : "hidden";
@@ -794,7 +806,7 @@ export class RenderableUnit extends Unit {
             // Force re-parent if container changed (e.g. from worldRoot to unitsContainer)
             worldRoot.addChild(this.badgeContainer);
         }
-        const iconSide = gs.getCellSize();
+        const iconSide = gs.getCellSize() * this.visualScaleMultiplier;
         const amount = this.getAmountAlive();
         const flag = this.badgeFlag!;
         const text = this.badgeText!;
@@ -883,7 +895,7 @@ export class RenderableUnit extends Unit {
             this.hourglassContainer.zIndex = 4000 - pos.y + 2;
         }
 
-        const visualSide = props.size === 2 ? 256 : 128;
+        const visualSide = (props.size === 2 ? 256 : 128) * this.visualScaleMultiplier;
         const iconSide = Math.round((visualSide * 20) / 72);
         const unitHalfSize = visualSide / 2;
         const halfIcon = iconSide / 2;
@@ -955,7 +967,7 @@ export class RenderableUnit extends Unit {
         const icon = sprite!;
         icon.texture = tex ?? Texture.EMPTY;
 
-        const visualSide = props.size === 2 ? 256 : 128;
+        const visualSide = (props.size === 2 ? 256 : 128) * this.visualScaleMultiplier;
         const iconSide = Math.round((visualSide * 20) / 72);
         const reach = visualSide / 2 - iconSide / 2;
 
@@ -1048,7 +1060,7 @@ export class RenderableUnit extends Unit {
 
         // 2. Geometry & Style Configuration
         const unitSizeInCells = props.size === 2 ? 2 : 1;
-        const cellSize = gs.getCellSize();
+        const cellSize = gs.getCellSize() * this.visualScaleMultiplier;
 
         // Bar dimensions
         const totalBarWidth = cellSize * unitSizeInCells * 0.85; // 85% of total unit width

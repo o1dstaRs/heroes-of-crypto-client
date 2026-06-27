@@ -2,6 +2,7 @@ import {
     allFactions,
     AttackVals,
     getFactionOf,
+    GridMath,
     HoCConfig,
     TeamVals,
     ToFactionName,
@@ -384,8 +385,68 @@ export class RankedPlayScene extends Sandbox {
             : undefined;
         return super.playAuthoritativeActionRecord(action, events, replayStateAfter);
     }
+    protected override getPlacementDrawTeam(): TeamType | undefined {
+        return this.viewerTeam;
+    }
+    /**
+     * During placement the opponent's placement zone is never drawn (see getPlacementDrawTeam).
+     * Instead, lay out the units we have revealed (scouted) inside the opponent's placement area,
+     * each on its own cell so they never stack. These are synthetic display positions — the
+     * opponent's real placement cells stay hidden.
+     */
+    protected override getRevealedOpponentUnitPositions(units: SandboxSceneUnitState[]): Map<string, HoCMath.XY> {
+        const positions = new Map<string, HoCMath.XY>();
+        if (this.viewerTeam === undefined) {
+            return positions;
+        }
+
+        const opponentTeam = this.viewerTeam === TeamVals.LOWER ? TeamVals.UPPER : TeamVals.LOWER;
+        const revealedUnits = units
+            .filter((unit) => unit.team === opponentTeam && (!unit.placed || !unit.cells.length))
+            .sort((a, b) => a.properties.id.localeCompare(b.properties.id));
+        if (!revealedUnits.length) {
+            return positions;
+        }
+
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const slots: HoCMath.XY[] = [];
+        const seen = new Set<number>();
+        for (const placementIndex of [0, 1]) {
+            const placement = this.getPlacement(opponentTeam, placementIndex);
+            if (!placement) {
+                continue;
+            }
+            for (const cell of placement.possibleCellPositions(true)) {
+                if (!cell) {
+                    continue;
+                }
+                const hash = (cell.x << 4) | cell.y;
+                if (seen.has(hash)) {
+                    continue;
+                }
+                seen.add(hash);
+                slots.push(GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()));
+            }
+        }
+        if (!slots.length) {
+            return positions;
+        }
+        // Stable order so each revealed unit keeps the same cell across snapshots.
+        slots.sort((a, b) => a.y - b.y || a.x - b.x);
+
+        revealedUnits.forEach((unit, index) => {
+            // More revealed units than cells is not expected; modulo just keeps it bounded.
+            positions.set(unit.properties.id, slots[index % slots.length]);
+        });
+        return positions;
+    }
     protected override shouldRenderUnplacedUnitBench(unitState: SandboxSceneUnitState): boolean {
         return this.viewerTeam !== undefined && unitState.team === this.viewerTeam;
+    }
+    // Render the centered placement bench units at "full size" (larger than one board cell) so the
+    // roster waiting to be deployed reads clearly during the ranked placement phase.
+    protected override getUnplacedBenchUnitScale(): number {
+        return 1.5;
     }
     protected override shouldGhostUnplacedUnitBenchUnit(unitState: SandboxSceneUnitState): boolean {
         return this.viewerTeam !== undefined && unitState.team !== this.viewerTeam;
