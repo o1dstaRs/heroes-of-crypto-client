@@ -177,6 +177,12 @@ export class Sandbox extends PixiScene {
     private readonly replayRecorder = new SandboxReplayRecorder(() => this.captureSceneState());
     private replayRecordingSuspended = false;
     private replayPlaybackActive = false;
+    // Ranked: a deferred local action (submitActionForAuthoritativeReplay) applies the engine action
+    // immediately, mutating unit HP to its post-action value. The authoritative replay that follows
+    // derives the attacker's counter-attack damage from an HP diff (getReplayUnitDamage), which would
+    // then read 0 — silently dropping the retaliation projectile + damage for the attacking side. We
+    // snapshot each unit's pre-action HP here so the diff uses the true before-state.
+    private preDeferredActionUnitHp?: Map<string, { amount: number; cumulativeHp: number; maxHp: number }>;
     /** Re-entrancy guard so the eager turn-handoff in applyTurnEngineEvents can't recurse. */
     private isAdvancingTurnEvents = false;
     /**
@@ -1989,6 +1995,9 @@ export class Sandbox extends PixiScene {
         // just the initiating attacker. Gives ranked (and sandbox) replays the full game experience.
         await this.playReplayRetaliation(attacker, target, attackEvent, record);
         this.applyReplayEvents(record.events);
+        // The pre-action HP snapshot has now served this exchange; drop it so a later replay falls back
+        // to live HP (it only applies to the locally-applied action that captured it).
+        this.preDeferredActionUnitHp = undefined;
         this.sc_moveBlocked = false;
         await this.delayReplay(Sandbox.REPLAY_ATTACK_AFTER_APPLY_HOLD_MS);
         return true;
@@ -2086,14 +2095,18 @@ export class Sandbox extends PixiScene {
         unitId: string,
     ): { amount: number; unitsDied: number } {
         const before = this.unitsHolder.getAllUnits().get(unitId);
-        if (!before) {
+        // Prefer the pre-action HP snapshot captured at deferred-submit time: by the time this replays,
+        // the local apply has already mutated the live unit to its post-action HP, which would make the
+        // diff read 0 (dropping the attacker's counter-attack). Falls back to the live unit otherwise.
+        const captured = this.preDeferredActionUnitHp?.get(unitId);
+        if (!before && !captured) {
             return { amount: 0, unitsDied: 0 };
         }
         const after = record.stateAfter.units.find((unitState) => unitState.properties.id === unitId);
-        const beforeAmount = before.getAmountAlive();
-        const beforeTotalHp = before.getCumulativeHp();
+        const beforeAmount = captured?.amount ?? before?.getAmountAlive() ?? 0;
+        const beforeTotalHp = captured?.cumulativeHp ?? before?.getCumulativeHp() ?? 0;
         const afterAmount = Math.max(0, Math.floor(after?.properties.amount_alive ?? 0));
-        const maxHp = Math.max(1, after?.properties.max_hp ?? before.getMaxHp());
+        const maxHp = Math.max(1, after?.properties.max_hp ?? captured?.maxHp ?? before?.getMaxHp() ?? 1);
         const afterHp = afterAmount > 0 ? Math.max(0, after?.properties.hp ?? maxHp) : 0;
         const afterTotalHp = afterAmount > 0 ? (afterAmount - 1) * maxHp + afterHp : 0;
         return {
@@ -7009,12 +7022,30 @@ export class Sandbox extends PixiScene {
         return this.replayPlaybackActive;
     }
     private submitActionForAuthoritativeReplay(action: GameAction): boolean {
+        // For attacks only: snapshot every unit's HP BEFORE applying locally, so the authoritative
+        // replay can recover the attacker's true pre-action state and still show its counter-attack
+        // (the local apply below would otherwise leave it at post-action and zero out the replay's
+        // HP-diff). Non-attacks clear any prior snapshot so it can't leak into a later exchange.
+        const isAttackAction = action.type === "range_attack" || action.type === "melee_attack";
+        const preActionHp = isAttackAction
+            ? new Map<string, { amount: number; cumulativeHp: number; maxHp: number }>()
+            : undefined;
+        if (preActionHp) {
+            for (const u of this.unitsHolder.getAllUnits().values()) {
+                preActionHp.set(u.getId(), {
+                    amount: u.getAmountAlive(),
+                    cumulativeHp: u.getCumulativeHp(),
+                    maxHp: u.getMaxHp(),
+                });
+            }
+        }
         const result = this.createActionEngine().apply(action);
         if (!result.completed) {
             this.sc_moveBlocked = false;
             this.sc_sceneLog.updateLog(result.message ?? result.rejectionReason ?? "Action rejected");
             return false;
         }
+        this.preDeferredActionUnitHp = preActionHp;
         this.currentActivePath = undefined;
         this.currentActiveKnownPaths = undefined;
         this.currentActivePathHashes = undefined;

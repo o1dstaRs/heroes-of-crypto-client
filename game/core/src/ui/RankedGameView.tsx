@@ -1115,6 +1115,7 @@ interface RankedPlacementStackActionsProps {
     selectedUnit: PlayUnitState;
     snapshot: PlaySnapshot;
     submitGameAction: (action: GameAction) => Promise<void>;
+    submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
     userTeam: TeamType;
 }
 
@@ -1123,6 +1124,7 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
     selectedUnit,
     snapshot,
     submitGameAction,
+    submitProtocolAction,
     userTeam,
 }) => {
     const amountAlive = Math.max(0, Math.floor(selectedUnit.amountAlive));
@@ -1193,7 +1195,9 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
                 variant="soft"
                 color="danger"
                 disabled={!canSubmit}
-                onClick={() => void submitGameAction({ type: "delete_unit", unitId: selectedUnit.id })}
+                onClick={() =>
+                    void submitProtocolAction({ type: PlayActionType.UNPLACE_UNIT, unitId: selectedUnit.id })
+                }
             >
                 Remove Selected
             </Button>
@@ -1397,6 +1401,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             selectedUnit={selectedUnit}
                             snapshot={snapshot}
                             submitGameAction={submitGameAction}
+                            submitProtocolAction={submitProtocolAction}
                             userTeam={userTeam}
                         />
                     )}

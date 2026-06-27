@@ -27,6 +27,7 @@ export const PlayActionType = {
     PING: 15,
     SPLIT_UNIT: 16,
     MOVE_INTENT: 17,
+    UNPLACE_UNIT: 18,
 } as const;
 
 export type PlayActionTypeValue = (typeof PlayActionType)[keyof typeof PlayActionType];
