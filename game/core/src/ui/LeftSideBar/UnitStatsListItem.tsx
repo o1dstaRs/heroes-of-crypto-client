@@ -802,7 +802,7 @@ const UnitStatsLayout: React.FC<{
                 />
                 <StatItem
                     icon={<SpeedIcon />}
-                    value={unitProperties.speed}
+                    value={Number(unitProperties.speed.toFixed(2))}
                     tooltip="Units with higher speed turn first"
                     color={isDarkMode ? "#f5fefd" : "#000000"}
                 />

@@ -213,6 +213,17 @@ export function AuthProvider({ children }: Props) {
 
     const initialize = useCallback(async () => {
         try {
+            // Dev/e2e observer-play links (?e2ePlayerId=) identify the player via the URL, not a
+            // login. Clear any stale token from a previous e2eEmail login in this browser so it
+            // isn't sent as Authorization (which would hijack the dev game -> "Player is not in
+            // this game") and so the route enters clean observer mode and resolves the team.
+            if (isE2eLoginEnabled() && new URL(window.location.href).searchParams.has("e2ePlayerId")) {
+                setSession(null);
+                document.cookie = "accessToken=; Max-Age=0; path=/";
+                dispatch({ type: Types.INITIAL, payload: { user: null } });
+                return;
+            }
+
             const e2eLogin = readE2eLoginParams();
             if (e2eLogin) {
                 const user = await authenticateWithEmailPassword(e2eLogin.email, e2eLogin.password);

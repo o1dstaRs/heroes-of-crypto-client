@@ -12,6 +12,14 @@ interface SceneComponentProps {
     entry: SceneEntry;
 }
 
+// Suppress native text/element selection on the game surface so a left-drag on the board never
+// paints the browser's blue selection highlight over the render.
+const noSelectStyle: React.CSSProperties = {
+    userSelect: "none",
+    WebkitUserSelect: "none",
+    WebkitTouchCallout: "none",
+};
+
 const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass } }) => {
     const manager = usePixiManager();
     const initializedRef = useRef(false);
@@ -80,10 +88,18 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
 
     return (
         <>
-            <main ref={wrapperRef} style={{ position: "relative", width: "100%", height: "100%" }}>
+            {/*
+             * user-select / touch-callout are disabled on the canvases (and wrapper) so a left-drag
+             * on the board can't start a native text/element selection — that would paint a
+             * translucent blue selection highlight over the whole render ("whole render selected").
+             */}
+            <main ref={wrapperRef} style={{ position: "relative", width: "100%", height: "100%", ...noSelectStyle }}>
                 {/* Pixi renders to glCanvas; debugCanvas is for picking/overlay input */}
-                <canvas ref={glCanvasRef} style={{ position: "absolute", inset: 0 }} />
-                <canvas ref={debugCanvasRef} style={{ position: "absolute", inset: 0, pointerEvents: "auto" }} />
+                <canvas ref={glCanvasRef} style={{ position: "absolute", inset: 0, ...noSelectStyle }} />
+                <canvas
+                    ref={debugCanvasRef}
+                    style={{ position: "absolute", inset: 0, pointerEvents: "auto", ...noSelectStyle }}
+                />
             </main>
         </>
     );

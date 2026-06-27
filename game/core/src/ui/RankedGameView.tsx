@@ -13,9 +13,10 @@ import {
     playEventsUrl,
     rankedEventHeaders,
     sendRankedPlayAction,
+    sendRankedPlayMoveIntent,
     toAuthoritativeGameSnapshot,
 } from "../api/ranked_play_client";
-import { PlayActionType, PlayPhase } from "../api/play_protocol";
+import { PlayActionType, PlayEventKind, PlayPhase } from "../api/play_protocol";
 import type { PlayAction, PlaySnapshot, PlayUnitState } from "../api/play_protocol";
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { usePixiManager } from "../pixi/PixiGameManager";
@@ -38,6 +39,7 @@ import RightSideBar from "./RightSideBar";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { WalletLinker } from "./WalletLinker";
 import { ButtonProvider } from "./context/ButtonContext";
+import { ViewerTeamContext } from "./context/ViewerTeamContext";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import {
     resolveEffectiveLocalModelOpponentConfig,
@@ -522,6 +524,21 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                         const event = parseRankedPlaySseFrame(frame);
                         if (!event) continue;
 
+                        // Ephemeral opponent move-aim hint: forward the silhouette to the scene
+                        // and skip all authoritative processing (no snapshot/journal/sequence).
+                        if (event.kind === PlayEventKind.MOVE_INTENT) {
+                            const intent = event.intent;
+                            if (intent?.active && intent.targetCell && intent.unitId) {
+                                manager.SetOpponentMoveIntent({
+                                    unitId: intent.unitId,
+                                    cell: { x: intent.targetCell.x, y: intent.targetCell.y },
+                                });
+                            } else {
+                                manager.SetOpponentMoveIntent(undefined);
+                            }
+                            continue;
+                        }
+
                         latestSequenceRef.current = Math.max(latestSequenceRef.current, event.sequence);
                         const played = await playAuthoritativeRecord(event.journalEntry, event.snapshot);
                         if (!played) {
@@ -556,7 +573,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             }
             abortRef.current?.abort();
         };
-    }, [applySnapshot, gameId, playAuthoritativeRecord, rememberAuthoritativeRecord, waitForAuthoritativePlayback]);
+    }, [
+        applySnapshot,
+        gameId,
+        manager,
+        playAuthoritativeRecord,
+        rememberAuthoritativeRecord,
+        waitForAuthoritativePlayback,
+    ]);
 
     const myPlayer = useMemo(() => snapshot?.players.find((player) => player.team === userTeam), [snapshot, userTeam]);
     const isObserver = userTeam === TeamVals.NO_TEAM || !myPlayer;
@@ -876,6 +900,70 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         return () => manager.SetGameActionTransport(undefined);
     }, [manager, transport]);
 
+    // Relay our live move aim to the opponent, throttled so a fast-moving cursor produces a
+    // steady trickle of hints rather than a flood. Clears (no cell) are sent immediately.
+    useEffect(() => {
+        if (isObserver) {
+            manager.SetMoveIntentSink(undefined);
+            return undefined;
+        }
+        const MIN_INTERVAL_MS = 80;
+        let lastSentMs = 0;
+        let pendingTimer: number | undefined;
+        let pending: { unitId: string; cell?: { x: number; y: number } } | null = null;
+
+        const flush = () => {
+            pendingTimer = undefined;
+            if (!pending) {
+                return;
+            }
+            const aim = pending;
+            pending = null;
+            const snap = snapshotRef.current;
+            const me = snap?.players.find((player) => player.team === userTeam);
+            if (!snap || !me) {
+                return;
+            }
+            // Active aims are only meaningful on our own turn; clears always go through.
+            if (aim.cell && snap.currentTurnTeam !== userTeam) {
+                return;
+            }
+            lastSentMs = performance.now();
+            sendRankedPlayMoveIntent(gameId, {
+                playerId: me.playerId,
+                team: userTeam,
+                unitId: aim.unitId,
+                targetCell: aim.cell,
+            });
+        };
+
+        const sink = (unitId: string | undefined, cell: { x: number; y: number } | undefined) => {
+            pending = { unitId: unitId ?? "", cell: cell ? { x: cell.x, y: cell.y } : undefined };
+            if (!cell) {
+                if (pendingTimer !== undefined) {
+                    window.clearTimeout(pendingTimer);
+                }
+                flush();
+                return;
+            }
+            const now = performance.now();
+            const dueAt = lastSentMs + MIN_INTERVAL_MS;
+            if (now >= dueAt) {
+                flush();
+            } else if (pendingTimer === undefined) {
+                pendingTimer = window.setTimeout(flush, dueAt - now);
+            }
+        };
+
+        manager.SetMoveIntentSink(sink);
+        return () => {
+            if (pendingTimer !== undefined) {
+                window.clearTimeout(pendingTimer);
+            }
+            manager.SetMoveIntentSink(undefined);
+        };
+    }, [manager, gameId, isObserver, userTeam]);
+
     const modelPlacementRunKeyRef = useRef("");
     useEffect(() => {
         if (
@@ -984,7 +1072,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             >
                 <CssVarsProvider>
                     <CssBaseline />
-                    <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />
+                    <ViewerTeamContext.Provider value={viewerTeam}>
+                        <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />
+                    </ViewerTeamContext.Provider>
                     <RightSideBar gameStarted={gameStarted} windowSize={windowSize} rankedPanel={rankedPanel} />
                     {gameStarted && <UpNextOverlay />}
                     {gameStarted && (
@@ -1176,8 +1266,10 @@ const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam:
             <Box
                 sx={{
                     display: "flex",
+                    // Wrap onto multiple rows so every revealed unit stays visible when the right
+                    // sidebar is narrow — a single scrolling row would hide units off-screen.
+                    flexWrap: "wrap",
                     gap: 0.6,
-                    overflowX: "auto",
                     pb: 0.25,
                 }}
             >
@@ -1207,9 +1299,9 @@ const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam:
                                     width: 36,
                                     height: 36,
                                     objectFit: "contain",
-                                    filter: known
-                                        ? "brightness(0) saturate(0) opacity(0.72)"
-                                        : "grayscale(1) brightness(0.42) opacity(0.55)",
+                                    // Revealed (known) units show their real creature art in full color;
+                                    // still-hidden units stay a dark grayscale silhouette.
+                                    filter: known ? "none" : "grayscale(1) brightness(0.42) opacity(0.55)",
                                 }}
                             />
                         </Box>

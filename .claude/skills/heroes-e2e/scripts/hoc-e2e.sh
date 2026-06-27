@@ -69,6 +69,15 @@ cmd_match() {
     (cd "$SERVER_DIR" && bun simple_client/create_pick_match.ts)
 }
 
+cmd_placement() {
+    ensure_docker_db
+    ensure_server
+    ensure_client
+    echo "placement: creating dev play game (skips pick/ban) with randomized rosters ..."
+    # Run from the server dir so bun auto-loads its .env (HOC_ARANGODB_* creds).
+    (cd "$SERVER_DIR" && bun simple_client/create_play_match.ts)
+}
+
 cmd_status() {
     docker ps --format '{{.Names}}\t{{.Status}}' 2>/dev/null | grep -E 'hoc-(arangodb|redis)' || echo "db containers: none"
     port_busy "$SERVER_PORT" && echo "server: UP :$SERVER_PORT" || echo "server: DOWN :$SERVER_PORT"
@@ -82,8 +91,9 @@ cmd_cleanup() {
 }
 
 case "${1:-match}" in
-    all|match|up) cmd_match ;;
-    status)       cmd_status ;;
-    cleanup|down) cmd_cleanup ;;
-    *) echo "Usage: $(basename "$0") {match|status|cleanup}"; exit 1 ;;
+    all|match|up)      cmd_match ;;
+    placement|play)    cmd_placement ;;
+    status)            cmd_status ;;
+    cleanup|down)      cmd_cleanup ;;
+    *) echo "Usage: $(basename "$0") {match|placement|status|cleanup}"; exit 1 ;;
 esac

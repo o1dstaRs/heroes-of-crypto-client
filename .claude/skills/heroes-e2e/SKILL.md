@@ -43,10 +43,24 @@ and show an empty board during pick — don't use them for pick.)
 ## Usage
 
 ```bash
-.claude/skills/heroes-e2e/scripts/hoc-e2e.sh match     # bring up stack + create match, print links
-.claude/skills/heroes-e2e/scripts/hoc-e2e.sh status    # what's running
-.claude/skills/heroes-e2e/scripts/hoc-e2e.sh cleanup   # stop server + client (leaves DB containers)
+.claude/skills/heroes-e2e/scripts/hoc-e2e.sh match       # full pick/ban -> play match, print links
+.claude/skills/heroes-e2e/scripts/hoc-e2e.sh placement   # SKIP pick/ban: start in placement, randomized rosters
+.claude/skills/heroes-e2e/scripts/hoc-e2e.sh status      # what's running
+.claude/skills/heroes-e2e/scripts/hoc-e2e.sh cleanup     # stop server + client (leaves DB containers)
 ```
+
+### `placement` mode (fast iteration)
+
+Skips pick/ban via `POST /v1/game/play-dev-create` and drops both players straight
+into the **placement** phase. Each team gets a randomized roster of **2× L1, 2× L2,
+1× L3, 1× L4** creatures (the game's standard `CreaturePoolByLevel = [2,2,1,1]`), and a
+couple of each side's creatures are revealed to the opponent. Helper:
+`heroes-of-crypto-server/simple_client/create_play_match.ts`.
+
+These are **observer-style** links (`?e2ePlayerId=<uuid>`), which are fully playable in
+dev (play-action is public in non-prod). No player registration needed — faster than the
+pick flow. Env overrides: `HOC_UNIT_AMOUNT` (stack size, default 7),
+`HOC_PLACEMENT_SECONDS` (default 180).
 
 Present the output as two labelled links — GREEN in one browser, RED in the other.
 Each `match` run creates a fresh game + fresh players; re-run for a new match.

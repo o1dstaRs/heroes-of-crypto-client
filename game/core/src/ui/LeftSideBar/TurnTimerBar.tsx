@@ -14,19 +14,27 @@ interface TurnTimerBarProps {
     lapNumber: number;
     secondsRemaining: number;
     secondsMax: number;
+    // Ranked only: tint the fill red while the opponent is the one on the clock.
+    enemyTurn?: boolean;
 }
 
-export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({ lapNumber, secondsRemaining, secondsMax }) => {
+export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
+    lapNumber,
+    secondsRemaining,
+    secondsMax,
+    enemyTurn = false,
+}) => {
     const hasTimer = Number.isFinite(secondsMax) && secondsMax > 0 && secondsRemaining >= 0;
     const remainingPct = hasTimer ? Math.max(0, Math.min(100, (secondsRemaining / secondsMax) * 100)) : 0;
     const secondsLeft = Math.max(0, Math.ceil(secondsRemaining));
     const critical = hasTimer && secondsRemaining > 0 && secondsRemaining <= CRITICAL_SECONDS;
 
-    // Keep the remaining-time fill neutral so it does not read as green-team ownership.
-    const fillLight = "#f4f6f8";
-    const fillBase = "#d5dbe3";
-    const fillDark = "#a8b1bf";
-    const fillGlow = "rgba(226, 232, 240, 0.45)";
+    // On the opponent's turn the fill goes red; otherwise it stays neutral so it does not
+    // read as green-team ownership.
+    const fillLight = enemyTurn ? "#ff8a73" : "#f4f6f8";
+    const fillBase = enemyTurn ? "#f4593f" : "#d5dbe3";
+    const fillDark = enemyTurn ? "#c2351f" : "#a8b1bf";
+    const fillGlow = enemyTurn ? "rgba(255, 90, 63, 0.5)" : "rgba(226, 232, 240, 0.45)";
 
     return (
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%", my: 1 }}>

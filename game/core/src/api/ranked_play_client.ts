@@ -37,13 +37,32 @@ export const rankedEventHeaders = (): Record<string, string> => {
 const appendEncodedPath = (baseUrl: string, value: string): string =>
     `${baseUrl.replace(/\/+$/, "")}/${encodeURIComponent(value)}`;
 
-const playSnapshotUrl = (gameId: string): string => appendEncodedPath(endpoints.game.playSnapshot, gameId);
+// Dev/e2e observer-play links (?e2ePlayerId=) aren't authenticated, so the server can't
+// resolve the viewer from a token. Forward the id as ?playerId= on snapshot/events reads so
+// the player sees their OWN units (otherwise the snapshot is sanitized -> "Unknown" -> empty board).
+const readE2ePlayerId = (): string | null => {
+    if (typeof window === "undefined") {
+        return null;
+    }
+    return new URL(window.location.href).searchParams.get("e2ePlayerId");
+};
+
+const withViewerPlayerId = (url: string): string => {
+    const playerId = readE2ePlayerId();
+    if (!playerId) {
+        return url;
+    }
+    return `${url}${url.includes("?") ? "&" : "?"}playerId=${encodeURIComponent(playerId)}`;
+};
+
+const playSnapshotUrl = (gameId: string): string =>
+    withViewerPlayerId(appendEncodedPath(endpoints.game.playSnapshot, gameId));
 const playReplayUrl = (gameId: string): string => appendEncodedPath(endpoints.game.playReplay, gameId);
 const playActionUrl = (gameId: string): string => appendEncodedPath(endpoints.game.playAction, gameId);
 
 export const playEventsUrl = (gameId: string, afterSequence: number): string => {
     const base = appendEncodedPath(buildApiUrl(HOST_GAME_API, endpoints.game.playEvents), gameId);
-    return `${base}?after=${encodeURIComponent(String(afterSequence))}`;
+    return withViewerPlayerId(`${base}?after=${encodeURIComponent(String(afterSequence))}`);
 };
 
 export const toBytes = (data: unknown): Uint8Array => {

@@ -13,6 +13,8 @@ import React, { useEffect, useState, useRef } from "react";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IVisibleState } from "../../scenes/VisibleState";
+import { hocColors } from "../hocTheme";
+import { useViewerTeam } from "../context/ViewerTeamContext";
 import { images } from "../../generated/image_imports";
 import { meteorIconDataUrl } from "../meteorIcon";
 import { TurnTimerBar } from "./TurnTimerBar";
@@ -147,6 +149,8 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     const [countdown, setCountdown] = useState<number | null>(null);
     const countdownInterval = useRef<NodeJS.Timeout | null>(null);
     const manager = usePixiManager();
+    // Set only in ranked play (the viewer has a fixed side); undefined in sandbox/observer.
+    const viewerTeam = useViewerTeam();
 
     useEffect(() => {
         const connection = manager.onVisibleStateUpdated.connect(setVisibleState);
@@ -304,6 +308,9 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
         // The lap now lives in the timer medallion, so the heading carries whose turn it is.
         if (!visibleState.teamTypeTurn) {
             messageBoxTitle = "Calculating next turn";
+        } else if (viewerTeam !== undefined) {
+            // Ranked: frame the turn from the viewer's perspective instead of absolute colors.
+            messageBoxTitle = visibleState.teamTypeTurn === viewerTeam ? "Your turn" : "Enemy turn";
         } else if (visibleState.teamTypeTurn === TeamVals.LOWER) {
             messageBoxTitle = "Green team's turn";
         } else {
@@ -349,6 +356,12 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
         );
     }
 
+    // Ranked: it's the opponent's turn when the active team is set and isn't ours.
+    const isEnemyTurn =
+        viewerTeam !== undefined &&
+        visibleState.teamTypeTurn !== undefined &&
+        visibleState.teamTypeTurn !== viewerTeam;
+
     return (
         <>
             {countdownOverlay}
@@ -360,7 +373,9 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                 sx={{ boxShadow: "none" }}
             >
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography level="title-sm">{messageBoxTitle}</Typography>
+                    <Typography level="title-sm" sx={isEnemyTurn ? { color: hocColors.danger } : undefined}>
+                        {messageBoxTitle}
+                    </Typography>
                     {visibleState.hasFinished ? <RefreshRoundedIcon /> : defaultIcon}
                 </Stack>
                 {messageBoxText && <Typography level="body-xs">{messageBoxText}</Typography>}
@@ -369,6 +384,7 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                         lapNumber={visibleState.lapNumber}
                         secondsRemaining={visibleState.secondsRemaining}
                         secondsMax={visibleState.secondsMax}
+                        enemyTurn={isEnemyTurn}
                     />
                 )}
 

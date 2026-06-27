@@ -136,6 +136,9 @@ export class RenderableUnit extends Unit {
     private visualScaleMultiplier = 1;
     // Animated "light waves" aura shown under the unit whose turn it is.
     private activeAura?: Graphics;
+    // Color of the active-turn aura. White by default; the scene tints it (e.g. red) when the
+    // active unit is the viewer's enemy so it reads clearly that it is not the viewer's turn.
+    private activeAuraColor = 0xffffff;
     // While the active unit is mid-move or mid-attack, the aura is suppressed so it doesn't
     // distract from the action (set each frame by the scene).
     private suppressActiveAura = false;
@@ -170,6 +173,9 @@ export class RenderableUnit extends Unit {
         ru.recoilStartMs = 0;
         ru.recoilDx = 0;
         ru.recoilDy = 0;
+        // Without this, visualScaleMultiplier is `undefined` -> targetSize = 128 * undefined = NaN
+        // -> sprite.scale = NaN -> the unit collapses to an invisible point (renders as a bare dot).
+        ru.visualScaleMultiplier = 1;
         return ru;
     }
     public setSpellBookLayer(layer: Container, digitTextures: Map<number, Texture>): void {
@@ -519,7 +525,10 @@ export class RenderableUnit extends Unit {
 
         // 1. Soft pulsing inner glow that breathes with the waves.
         const pulse = 0.5 + 0.5 * Math.sin(t * 3.0);
-        g.circle(pos.x, pos.y, baseR * (1.05 + 0.1 * pulse)).fill({ color: 0xffffff, alpha: 0.1 + 0.1 * pulse });
+        g.circle(pos.x, pos.y, baseR * (1.05 + 0.1 * pulse)).fill({
+            color: this.activeAuraColor,
+            alpha: 0.1 + 0.1 * pulse,
+        });
 
         // 2. Expanding light rings radiating outward, staggered so a new wave emerges as the last fades.
         const ringCount = 3;
@@ -530,7 +539,7 @@ export class RenderableUnit extends Unit {
             const r = baseR + (maxR - baseR) * phase;
             const a = (1 - phase) * 0.55;
             const width = 2 + (1 - phase) * 2.5;
-            g.circle(pos.x, pos.y, r).stroke({ color: 0xffffff, alpha: a, width });
+            g.circle(pos.x, pos.y, r).stroke({ color: this.activeAuraColor, alpha: a, width });
         }
     }
     public setBoardSelected(selected: boolean): void {
@@ -988,6 +997,10 @@ export class RenderableUnit extends Unit {
     public setActiveTurn(active: boolean): void {
         if (this.isActiveTurn === active) return;
         this.isActiveTurn = active;
+    }
+    /** Tint the active-turn aura (e.g. red for the enemy's turn in ranked, white otherwise). */
+    public setActiveAuraColor(color: number): void {
+        this.activeAuraColor = color;
     }
     /** Temporarily hide the active-turn aura (e.g. while the unit is moving or attacking). */
     public setSuppressActiveAura(suppress: boolean): void {

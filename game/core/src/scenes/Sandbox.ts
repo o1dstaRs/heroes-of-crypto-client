@@ -1,6 +1,6 @@
 import { Sprite, Graphics, Container, Texture, BlurFilter } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
-import { SandboxDrawer } from "./SandboxDrawer";
+import { SandboxDrawer, ENEMY_TURN_HIGHLIGHT_COLOR } from "./SandboxDrawer";
 import {
     AttackHandler,
     Augment,
@@ -650,15 +650,31 @@ export class Sandbox extends PixiScene {
     protected getCurrentActiveUnit(): RenderableUnit | undefined {
         return this.currentActiveUnit;
     }
+    /**
+     * Whether a destination silhouette should be drawn while this unit's recorded move animates.
+     * Ranked play uses it for the opponent's units so the viewer sees the target cell during the
+     * move even when no live move-aim was relayed (e.g. a quick click). Base scenes don't.
+     */
+    protected shouldShowMoveDestinationSilhouette(_unit: RenderableUnit): boolean {
+        return false;
+    }
+    /**
+     * Whether the currently active unit belongs to the viewer's enemy (ranked play). Drives the red
+     * "enemy turn" cues — the active-unit aura, movement highlight, and board-edge glow. Always
+     * false in the base scene (single-player sandbox has no opposing viewer).
+     */
+    protected isEnemyActiveTurn(): boolean {
+        return false;
+    }
     /** Ranked: install the sink that relays this player's live move aim to the opponent. */
-    public setMoveIntentSink(sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {
+    public override setMoveIntentSink(sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {
         this.moveIntentSink = sink;
         if (!sink) {
             this.lastEmittedMoveIntentKey = undefined;
         }
     }
     /** Ranked: receive the opponent's relayed move aim (undefined clears it). */
-    public setOpponentMoveIntent(intent?: { unitId: string; cell: HoCMath.XY }): void {
+    public override setOpponentMoveIntent(intent?: { unitId: string; cell: HoCMath.XY }): void {
         this.opponentMoveIntent = intent;
         if (!intent) {
             this.hoverManager.clearOpponentIntentSilhouette();
@@ -685,6 +701,13 @@ export class Sandbox extends PixiScene {
     private renderOpponentMoveIntent(): void {
         const intent = this.opponentMoveIntent;
         if (!intent) {
+            return;
+        }
+        // Stop previewing once the aim's unit is no longer the one taking its turn (the
+        // turn passed back to us, or moved on) — the relay is only valid for the active unit.
+        if (this.currentActiveUnit?.getId() !== intent.unitId) {
+            this.opponentMoveIntent = undefined;
+            this.hoverManager.clearOpponentIntentSilhouette();
             return;
         }
         const unit = this.unitsHolder.getAllUnits().get(intent.unitId) as RenderableUnit | undefined;
@@ -910,8 +933,12 @@ export class Sandbox extends PixiScene {
         }
 
         const size = this.placementBenchButtonSize(cell);
+        // Anchor horizontally to a fixed inset from the board's left edge — the same offset the
+        // sandbox UnitsOverlay uses for its toggle (leftColW * 0.5 = 0.75 * cell). Anchoring to the
+        // full-width panel's left edge would push the arrow off the far left of the board.
+        const gridMinX = this.sc_sceneSettings.getGridSettings().getMinX();
         const center = {
-            x: bounds.minX + size * 0.5,
+            x: gridMinX + cell * 0.75,
             y: bounds.maxY + size * 0.6,
         };
         const radius = size * 0.5;
@@ -1113,7 +1140,14 @@ export class Sandbox extends PixiScene {
         if (cell) {
             const occupantId = this.grid.getOccupantUnitId(cell);
             if (occupantId) {
-                return this.unitsHolder.getAllUnits().get(occupantId);
+                const occupant = this.unitsHolder.getAllUnits().get(occupantId);
+                if (occupant) {
+                    return occupant;
+                }
+                // occupantId is a terrain obstacle (mountain "B"/"H", lava "L", water "W"),
+                // not a real unit. Don't short-circuit here, otherwise a floating bench/pick
+                // creature rendered over this cell becomes unselectable. Fall through to the
+                // bench hit-test below.
             }
         }
         if (!FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
@@ -1292,6 +1326,18 @@ export class Sandbox extends PixiScene {
         fightProps.setGridType(snapshot.gridType);
         this.grid.refreshWithNewType(snapshot.gridType);
         this.placementManager.rebuildFromFightProps();
+
+        // Restore the fight lifecycle so the client engine state matches the snapshot. Sandbox
+        // replays re-run `start_fight` through the engine, but the ranked/authoritative path never
+        // does — so without this the client's FightStateManager stays "not started" for the whole
+        // fight, which silently breaks everything gated on hasFightStarted() (e.g. the AttackType /
+        // Wait / Luck Shield buttons and the local select_attack_type apply).
+        if (snapshot.fightStarted) {
+            fightProps.startFight();
+        }
+        if (snapshot.fightFinished) {
+            fightProps.finishFight();
+        }
 
         this.currentActiveUnit?.setActiveTurn(false);
         this.currentActiveUnit = undefined;
@@ -1784,6 +1830,14 @@ export class Sandbox extends PixiScene {
             return Promise.resolve(true);
         }
 
+        // For an opponent's move, pin a destination silhouette at the target cell for the duration
+        // of the slide (reusing the relayed move-intent renderer), so the viewer can see where the
+        // unit is heading even when no live aim was relayed. Cleared when the animation finishes.
+        const destinationSilhouetteShown = this.shouldShowMoveDestinationSilhouette(unit);
+        if (destinationSilhouetteShown) {
+            this.setOpponentMoveIntent({ unitId: unit.getId(), cell: this.getRecordedMoveDestCell(moveEvent) });
+        }
+
         return new Promise((resolve) => {
             const gs = this.sc_sceneSettings.getGridSettings();
             const speed = gs.getCellSize() * Sandbox.MOVE_SPEED_FACTOR;
@@ -1793,7 +1847,12 @@ export class Sandbox extends PixiScene {
                 speed,
                 this.getRecordedMoveDestCell(moveEvent),
                 this.shouldUseRecordedMoveTrack(unit, moveEvent) ? moveEvent.path : undefined,
-                () => resolve(true),
+                () => {
+                    if (destinationSilhouetteShown) {
+                        this.setOpponentMoveIntent(undefined);
+                    }
+                    resolve(true);
+                },
             );
             this.isActiveUnitMoving = true;
             if (this.sc_visibleState) {
@@ -3052,6 +3111,16 @@ export class Sandbox extends PixiScene {
         const placeEvent = placementResult.events.find((event) => event.type === "unit_placed");
         const placedPosition = placeEvent?.type === "unit_placed" ? placeEvent.position : placePos;
         unit.setPosition(placedPosition.x, placedPosition.y);
+        // A unit dragged in from the placement bench keeps the enlarged bench scale on its instance;
+        // reset it to normal board size now that it lives on the grid (ranked skips the post-place
+        // re-hydrate, so nothing else would correct it).
+        unit.setVisualScaleMultiplier(1);
+        // It now lives on the board, so drop it from the placement-bench tracking. Otherwise the bench's
+        // slide/collapse iterates these maps and setPosition()s the unit back to its old (off-screen)
+        // bench slot — clearing already-placed units off the board and stacking them at the slide end.
+        // Ranked skips the post-place re-hydrate that would otherwise prune these maps.
+        this.placementBenchBaseHitBoxes.delete(unit.getId());
+        this.placementBenchHitBoxes.delete(unit.getId());
         this.layoutVersion++;
         this.refreshSynergyNumbers(unit.getTeam());
         this.refreshUnits();
@@ -4387,7 +4456,11 @@ export class Sandbox extends PixiScene {
         }
         // A unit standing on the trajectory intercepts the throw, so center the splash on it
         // (matches the engine's projection) instead of the empty cell behind it.
-        const targetCell = this.attackHandler.projectAreaThrowTargetCell(this.unitsHolder.getAllUnits(), unit, mouseCell);
+        const targetCell = this.attackHandler.projectAreaThrowTargetCell(
+            this.unitsHolder.getAllUnits(),
+            unit,
+            mouseCell,
+        );
         return [...GridMath.getCellsAroundCell(gs, targetCell), targetCell];
     }
     /** Execute an Area Throw at the clicked cell. Returns true if it handled the click. */
@@ -4414,17 +4487,30 @@ export class Sandbox extends PixiScene {
         mouseCell: HoCMath.XY,
         cellPosition: HoCMath.XY,
     ): Promise<void> {
-        // Snapshot health so the floating damage numbers can be derived from the diff.
-        const preState = new Map<string, { hp: number; amount: number }>();
-        for (const u of this.unitsHolder.getAllUnits().values()) {
-            preState.set(u.getId(), { hp: u.getCumulativeHp(), amount: u.getAmountAlive() });
-        }
-
         const action: GameAction = {
             type: "area_throw_attack",
             attackerId: unit.getId(),
             targetCell: mouseCell,
         };
+
+        // Ranked: defer to the authoritative replay so the throw — and Double Shot's second
+        // projectile — animates exactly once, when the server echoes the action. Without this the
+        // acting player animated it here AND again on the echo, doubling Gargantuan to four throws.
+        // shouldDeferActionToAuthoritativeReplay() returns false while replaying, so the echoed
+        // action still animates here as normal.
+        if (this.shouldDeferActionToAuthoritativeReplay(action)) {
+            this.hoverManager.clearAOEArea();
+            this.hoverManager.clearAttackVisuals();
+            this.hoverManager.clearHoverSilhouette();
+            this.submitActionForAuthoritativeReplay(action);
+            return;
+        }
+
+        // Snapshot health so the floating damage numbers can be derived from the diff.
+        const preState = new Map<string, { hp: number; amount: number }>();
+        for (const u of this.unitsHolder.getAllUnits().values()) {
+            preState.set(u.getId(), { hp: u.getCumulativeHp(), amount: u.getAmountAlive() });
+        }
 
         // The engine projects the throw onto the first enemy on the trajectory, so the projectile
         // and damage numbers must land on that intercepted cell too (not the empty cell behind it).
@@ -5347,20 +5433,34 @@ export class Sandbox extends PixiScene {
     protected override canShowHoverForActiveUnit(): boolean {
         return true;
     }
+    /**
+     * Ranked overrides this to true during the window between an authoritative action's animation
+     * finishing and the next snapshot reassigning the active unit, so the just-finished unit's pulse
+     * aura stays suppressed instead of flashing back on for a frame before the turn changes. Sandbox
+     * resolves turns synchronously, so there is no such gap.
+     */
+    protected isAwaitingAuthoritativeTurnHandoff(): boolean {
+        return false;
+    }
     protected override hover(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
 
         if (this.isBoardInputLockedByAI()) {
             this.clearBoardHoverPreviews();
             this.setHoveredSpell(undefined);
+            this.emitLocalMoveIntent(undefined);
             return;
         }
 
-        // Ranked mode: suppress hover visuals when the active unit is on the enemy team.
-        // The viewer should only see their own unit's previews, not the opponent's.
-        if (!this.canShowHoverForActiveUnit()) {
+        // Ranked mode: during the FIGHT, suppress hover visuals when the active unit is on the enemy
+        // team — the viewer should only see their own unit's previews, not the opponent's. This must
+        // NOT apply during placement: there is no active unit then, so canShowHoverForActiveUnit()
+        // returns false, and firing here would clear the placement silhouette on every mouse-move
+        // while the per-frame loop re-shows it — i.e. the dragged unit's silhouette flickers.
+        if (fightProps.hasFightStarted() && !this.canShowHoverForActiveUnit()) {
             this.clearBoardHoverPreviews();
             this.setHoveredSpell(undefined);
+            this.emitLocalMoveIntent(undefined);
             return;
         }
 
@@ -6252,9 +6352,13 @@ export class Sandbox extends PixiScene {
                 this.hoverManager.hoverAttackFromCell = undefined;
                 if (this.hoverManager.isCellReachableForActiveUnit(cell)) {
                     this.hoverManager.updateActiveMoveSilhouetteForCell(cell);
+                    this.emitLocalMoveIntent(cell);
                 } else {
                     this.hoverManager.clearHoverSilhouette();
+                    this.emitLocalMoveIntent(undefined);
                 }
+            } else {
+                this.emitLocalMoveIntent(undefined);
             }
 
             return;
@@ -6630,6 +6734,10 @@ export class Sandbox extends PixiScene {
         this.hoverGlowPhase += timeStep * ((Math.PI * 2) / 2.5);
         if (this.hoverGlowPhase > Math.PI * 2) this.hoverGlowPhase -= Math.PI * 2;
 
+        // Re-assert the opponent's relayed move silhouette every frame so it stays put and
+        // tracks the unit, independent of the viewer's own (mouse-driven) hover updates.
+        this.renderOpponentMoveIntent();
+
         // 3. Clear dynamic graphics every frame
         this.gameplayGraphics?.clear();
 
@@ -6722,9 +6830,13 @@ export class Sandbox extends PixiScene {
         }
 
         // Suppress the active-unit aura while the active unit is mid-move or mid-attack so the
-        // action reads clearly; the aura returns as soon as it's idle again.
+        // action reads clearly; the aura returns as soon as it's idle again. Ranked also suppresses it
+        // across the brief gap between an authoritative action's animation finishing and the snapshot
+        // that hands the turn over — otherwise the finished unit's pulse flashes back on for a frame.
         if (this.currentActiveUnit) {
-            this.currentActiveUnit.setSuppressActiveAura(this.isActiveUnitMoving || this.sc_isAnimating);
+            this.currentActiveUnit.setSuppressActiveAura(
+                this.isActiveUnitMoving || this.sc_isAnimating || this.isAwaitingAuthoritativeTurnHandoff(),
+            );
         }
 
         for (const unit of this.unitsHolder.getAllUnits().values()) {
@@ -6846,6 +6958,7 @@ export class Sandbox extends PixiScene {
             hoveredAuraRanges: this.sc_hoveredAuraRanges,
             lingeringTracks: this.moveAnimManager.getLingeringTracks(),
             hoveredMoveRange: this.sc_placementMoveRange,
+            enemyTurnView: this.isEnemyActiveTurn(),
         });
     }
     private snapshotRenderableUnits(): Map<string, RenderableUnit> {
@@ -7283,6 +7396,8 @@ export class Sandbox extends PixiScene {
         }
         this.currentActiveUnit = nextUnit;
         nextUnit.setActiveTurn(true);
+        // Red aura on the enemy's turn, white on yours, so the pulsing ring telegraphs whose turn it is.
+        nextUnit.setActiveAuraColor(this.isEnemyActiveTurn() ? ENEMY_TURN_HIGHLIGHT_COLOR : 0xffffff);
         nextUnit.syncVisual(worldRoot, gs);
 
         const unitsNext: IVisibleUnit[] = [];

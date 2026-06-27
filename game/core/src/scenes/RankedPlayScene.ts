@@ -12,6 +12,7 @@ import {
     type GameEvent,
     type GridType,
     type HoCMath,
+    type IVisibleDamage,
     type TeamType,
     type Unit,
     type UnitProperties,
@@ -183,6 +184,9 @@ export class RankedPlayScene extends Sandbox {
     private readonly rankedStatsUpperRoster = new Map<string, RankedFightRosterEntry>();
     private viewerTeam?: TeamType;
     private upNextUnitIds?: string[];
+    // True between an authoritative action's animation finishing and the next snapshot reassigning the
+    // active unit — keeps the just-finished unit's pulse aura suppressed across that gap (no flicker).
+    private awaitingTurnHandoff = false;
     private rankedStatsGameId = "";
     private rankedStatsStarted = false;
     private rankedStatsLowerStartTotal = 0;
@@ -218,6 +222,10 @@ export class RankedPlayScene extends Sandbox {
     public override applyAuthoritativeVfx(events: GameEvent[]): void {
         for (const event of events) {
             if (event.type === "unit_attacked") {
+                // AOE attacks (Cyclops' Large Caliber, etc.) carry a per-affected-unit breakdown so each
+                // splashed unit gets its own floating number AT ITS OWN POSITION — the single-target
+                // payload below only knows the primary target's spot.
+                if (this.applyAuthoritativeSplashVfx(event.attackerId, event.damage)) continue;
                 if (!event.damage?.render) continue;
                 const target = this.unitsHolder.getAllUnits().get(event.targetId) as RenderableUnit | undefined;
                 const pos = target?.getPosition() ?? event.damage?.unitPosition ?? { x: 0, y: 0 };
@@ -230,6 +238,7 @@ export class RankedPlayScene extends Sandbox {
                     this.combatVisuals?.showFloatingDamage(pos, event.damage.amount, dir);
                 }
             } else if (event.type === "area_attacked") {
+                if (this.applyAuthoritativeSplashVfx(event.attackerId, event.damage)) continue;
                 if (!event.damage?.render) continue;
                 const centerPos = event.damage?.unitPosition ?? event.targetPosition ?? { x: 0, y: 0 };
                 if (event.damage.hits?.length) {
@@ -260,6 +269,32 @@ export class RankedPlayScene extends Sandbox {
         const len = Math.hypot(dx, dy);
         return len < 0.001 ? undefined : { x: dx / len, y: dy / len };
     }
+    /**
+     * Draw an AOE attack's floating damage on EVERY affected unit at its own position. The engine
+     * fills `damage.splash` for Large Caliber / Area Throw; each entry already carries the impact-time
+     * position so units that died (and were removed) still show their number. Returns true when it
+     * handled the event, so the caller skips the single-target fallback. The damage direction points
+     * from the attacker to each splashed unit so the number flings outward correctly.
+     */
+    private applyAuthoritativeSplashVfx(attackerId: string, damage?: IVisibleDamage): boolean {
+        const splash = damage?.splash;
+        if (!splash?.length) return false;
+        const attacker = this.unitsHolder.getAllUnits().get(attackerId) as RenderableUnit | undefined;
+        const attackerPos = attacker?.getPosition();
+        for (const entry of splash) {
+            const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+            const pos = unit?.getPosition() ?? entry.position;
+            let dir: HoCMath.XY | undefined;
+            if (attackerPos) {
+                const dx = pos.x - attackerPos.x;
+                const dy = pos.y - attackerPos.y;
+                const len = Math.hypot(dx, dy);
+                if (len >= 0.001) dir = { x: dx / len, y: dy / len };
+            }
+            this.combatVisuals?.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied);
+        }
+        return true;
+    }
     protected override getUpNextUnitIds(): string[] | undefined {
         return this.upNextUnitIds;
     }
@@ -279,7 +314,14 @@ export class RankedPlayScene extends Sandbox {
             return;
         }
 
+        // The turn has now been authoritatively handed over (active unit synced below), so end the
+        // post-action aura suppression. This runs synchronously with the reassignment, so the aura
+        // switches straight from the old unit (off) to the new one with no flash in between.
+        this.awaitingTurnHandoff = false;
         this.syncAuthoritativeActiveUnit(snapshot.currentUnitId || undefined, snapshot.currentLap);
+    }
+    protected override isAwaitingAuthoritativeTurnHandoff(): boolean {
+        return this.awaitingTurnHandoff;
     }
     public override applyAuthoritativeSnapshot(
         snapshot: AuthoritativeGameSnapshot,
@@ -383,7 +425,13 @@ export class RankedPlayScene extends Sandbox {
         const replayStateAfter = this.isAuthoritativeSnapshot(stateAfter)
             ? authoritativeSnapshotToSandboxSceneState(stateAfter, { hideOpponentPlacements: true })
             : undefined;
-        return super.playAuthoritativeActionRecord(action, events, replayStateAfter);
+        return super.playAuthoritativeActionRecord(action, events, replayStateAfter).then((played) => {
+            // The animation has finished but the turn-handoff snapshot is applied right after (await in
+            // RankedGameView), with render frames in between. Suppress the finished unit's pulse aura
+            // until that snapshot syncs the new active unit, so it doesn't flash back on for a frame.
+            this.awaitingTurnHandoff = true;
+            return played;
+        });
     }
     protected override getPlacementDrawTeam(): TeamType | undefined {
         return this.viewerTeam;
@@ -443,10 +491,30 @@ export class RankedPlayScene extends Sandbox {
     protected override shouldRenderUnplacedUnitBench(unitState: SandboxSceneUnitState): boolean {
         return this.viewerTeam !== undefined && unitState.team === this.viewerTeam;
     }
-    // Render the centered placement bench units at "full size" (larger than one board cell) so the
-    // roster waiting to be deployed reads clearly during the ranked placement phase.
-    protected override getUnplacedBenchUnitScale(): number {
-        return 1.5;
+    /**
+     * Spread the placement roster evenly across the full board width (like the sandbox
+     * UnitsOverlay) instead of the base centered cluster, vertically centered on the board.
+     */
+    protected override getUnplacedUnitBenchPosition(
+        index: number,
+        total: number,
+        _unitState?: SandboxSceneUnitState,
+    ): HoCMath.XY | undefined {
+        if (total <= 0) {
+            return undefined;
+        }
+
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const minX = gs.getMinX();
+        const maxX = gs.getMaxX();
+        const centerY = (gs.getMinY() + gs.getMaxY()) / 2;
+        // (index + 0.5) / total centers each unit in its own equal-width slot, which also keeps a
+        // half-slot margin from both board edges so the end units don't overflow.
+        const fraction = (index + 0.5) / total;
+        return {
+            x: minX + (maxX - minX) * fraction,
+            y: centerY,
+        };
     }
     protected override shouldGhostUnplacedUnitBenchUnit(unitState: SandboxSceneUnitState): boolean {
         return this.viewerTeam !== undefined && unitState.team !== this.viewerTeam;
@@ -469,6 +537,22 @@ export class RankedPlayScene extends Sandbox {
         const currentActiveUnit = this.getCurrentActiveUnit();
         if (!currentActiveUnit || this.viewerTeam === undefined) return false;
         return currentActiveUnit.getTeam() === this.viewerTeam;
+    }
+    /**
+     * Show a destination silhouette while an opponent unit's move animates, so the viewer can see
+     * the target cell even when no live move-aim was relayed (e.g. the opponent clicked quickly).
+     */
+    protected override shouldShowMoveDestinationSilhouette(unit: RenderableUnit): boolean {
+        return this.viewerTeam !== undefined && unit.getTeam() !== this.viewerTeam;
+    }
+    /**
+     * It is the enemy's turn whenever the active unit is on the opposing team from the viewer.
+     * Drives the red active-unit aura, movement highlight, and board-edge glow.
+     */
+    protected override isEnemyActiveTurn(): boolean {
+        const currentActiveUnit = this.getCurrentActiveUnit();
+        if (!currentActiveUnit || this.viewerTeam === undefined) return false;
+        return currentActiveUnit.getTeam() !== this.viewerTeam;
     }
     protected override updateVisibleTurnTimer(): void {
         if (this.rankedPlacementEndLocalMs > Date.now()) {

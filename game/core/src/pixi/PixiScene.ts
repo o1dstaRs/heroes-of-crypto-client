@@ -45,6 +45,7 @@ import { PixiApp } from "./PixiApp";
 import { PixiDrawer } from "./PixiDrawer";
 import { SimplePhysicsManager } from "./SimplePhysicsManager";
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
+import { images as rawImageUrls } from "../generated/image_imports";
 import { UnitsOverlay } from "../scenes/UnitsOverlay";
 
 export interface AuthoritativeSnapshotOptions {
@@ -205,6 +206,11 @@ export abstract class PixiScene {
         return Promise.resolve(false);
     }
     public selectAuthoritativeUnit(_unitId: string): void {}
+    // Ranked move-intent relay (implemented by Sandbox); no-ops in the base scene.
+    public setMoveIntentSink(
+        _sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void,
+    ): void {}
+    public setOpponentMoveIntent(_intent?: { unitId: string; cell: HoCMath.XY }): void {}
     protected dispatchExternalGameAction(
         action: Parameters<SceneGameActionTransport>[0],
     ): SceneGameActionTransportResult {
@@ -269,7 +275,23 @@ export abstract class PixiScene {
         this.sc_currentActiveAuraRanges = [];
     }
     protected texAny = (key: string): Texture | undefined => {
-        return (this.textures as unknown as Record<string, Texture>)[key];
+        const preloaded = (this.textures as unknown as Record<string, Texture>)[key];
+        if (preloaded) {
+            return preloaded;
+        }
+        // Fallback: lazily build the texture straight from the raw image-URL map (the same path
+        // UnitChip/Up-Next use successfully). The bundle preload can drop a key when a concurrent
+        // WebP decode flakes out — notably unit `_128` board sprites in ranked, which then render
+        // as bare team-colour markers. Resolving from the URL recovers them.
+        const url = (rawImageUrls as unknown as Record<string, string>)[key];
+        if (!url) {
+            return undefined;
+        }
+        try {
+            return Texture.from(url);
+        } catch {
+            return undefined;
+        }
     };
     public getBaseHotkeys(): HotKey[] {
         return [];

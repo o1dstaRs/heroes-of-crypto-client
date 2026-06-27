@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { decodePlaySnapshot } from "./play_protocol";
+import { decodePlayEvent, decodePlaySnapshot, PlayEventKind } from "./play_protocol";
 
 const encodeVarint = (value: number | bigint): number[] => {
     const bytes: number[] = [];
@@ -60,5 +60,33 @@ describe("play protobuf decoder", () => {
         expect(decoded.damageStats).toEqual([{ unitName: "Arbalester", damage: 30, team: 2, lap: 1 }]);
         expect(decoded.currentTurnStartMs).toBe(1000);
         expect(decoded.currentTurnEndMs).toBe(46000);
+    });
+
+    test("decodes an opponent move-intent event", () => {
+        const targetCell = [...intField(1, 5), ...intField(2, 7)];
+        const intent = [...stringField(1, "unit-42"), ...messageField(2, targetCell), ...intField(3, 1)];
+        const event = new Uint8Array([
+            ...intField(1, 0), // sequence
+            ...intField(2, PlayEventKind.MOVE_INTENT), // kind
+            ...messageField(10, intent),
+        ]);
+
+        const decoded = decodePlayEvent(event);
+
+        expect(decoded.kind).toBe(PlayEventKind.MOVE_INTENT);
+        expect(decoded.intent).toEqual({ unitId: "unit-42", targetCell: { x: 5, y: 7 }, active: true });
+    });
+
+    test("decodes a cleared move-intent event (no target cell)", () => {
+        const intent = [...stringField(1, "unit-42")]; // active defaults to false, no target cell
+        const event = new Uint8Array([
+            ...intField(2, PlayEventKind.MOVE_INTENT),
+            ...messageField(10, intent),
+        ]);
+
+        const decoded = decodePlayEvent(event);
+
+        expect(decoded.intent).toEqual({ unitId: "unit-42", active: false });
+        expect(decoded.intent?.targetCell).toBeUndefined();
     });
 });

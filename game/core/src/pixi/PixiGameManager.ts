@@ -12,6 +12,7 @@ import {
     FactionType,
     GridType,
     FightStateManager,
+    HoCMath,
     type GameAction,
     type GameEvent,
 } from "@heroesofcrypto/common";
@@ -388,6 +389,12 @@ export class PixiGameManager {
     public SetGameActionTransport(transport?: SceneGameActionTransport): void {
         this.gameActionTransport = transport;
         this.m_scene?.setGameActionTransport(transport);
+    }
+    public SetMoveIntentSink(sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {
+        this.m_scene?.setMoveIntentSink(sink);
+    }
+    public SetOpponentMoveIntent(intent?: { unitId: string; cell: HoCMath.XY }): void {
+        this.m_scene?.setOpponentMoveIntent(intent);
     }
     public ApplyAuthoritativeSnapshot(
         snapshot: AuthoritativeGameSnapshot,
