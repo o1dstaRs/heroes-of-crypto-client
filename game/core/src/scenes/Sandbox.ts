@@ -2294,6 +2294,25 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const attackerCenter = attacker.getVisualCenter(gs);
 
+        // Secondary damage from abilities that trigger DURING the exchange — Fire Shield reflect,
+        // Chain Lightning bounces, Petrifying Gaze kills, Magic Mirror — each gets its own floating
+        // number on the affected unit (impact-time position fallback so dead units still show).
+        // Staggered so they don't stack on the primary hit. Additive: shown alongside the
+        // splash/primary numbers below, not instead of them.
+        (damage.secondary ?? []).forEach((entry, index) => {
+            if (entry.amount <= 0 && entry.unitsDied <= 0) return;
+            const sUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+            const sCenter = sUnit ? sUnit.getVisualCenter(gs) : entry.position;
+            const sDir = { x: sCenter.x - attackerCenter.x, y: sCenter.y - attackerCenter.y };
+            const sPos = sUnit ? this.offsetReplayDamagePosition(sCenter, sUnit, sDir) : entry.position;
+            setTimeout(
+                () => {
+                    this.combatVisuals.showFloatingDamage(sPos, entry.amount, sDir, entry.unitsDied);
+                },
+                220 + index * 180,
+            );
+        });
+
         // AOE attacks (Cyclops' Large Caliber, Gargantuan's Area Throw) carry a per-affected-unit
         // breakdown. Draw a floating number on EVERY splashed unit at its own position — including
         // our own units caught in the blast — rather than a single number on the primary target.
@@ -8148,11 +8167,19 @@ export class Sandbox extends PixiScene {
         if (this.sc_visibleState) {
             this.sc_visibleState.hasFinished = true;
             this.sc_visibleState.teamWin = teamWin;
-            this.sc_visibleState.fightStats = this.fightStatsTracker.buildReport(
+            const report = this.fightStatsTracker.buildReport(
                 teamWin,
                 this.unitsHolder.getAllUnits().values(),
                 fightProps.getCurrentLap(),
             );
+            // Only adopt the local tracker's report when it carries real roster data. Ranked never
+            // starts the sandbox tracker (it tracks stats from authoritative snapshots instead), so
+            // here the report has 0 start totals — and the results overlay hides itself on a 0 start
+            // total. Don't overwrite an already-populated report (e.g. the ranked one) with an empty
+            // one; the ranked path fills it in via applyRankedFightStats.
+            if (report.lowerStartTotal > 0 && report.upperStartTotal > 0) {
+                this.sc_visibleState.fightStats = report;
+            }
             this.sc_visibleStateUpdateNeeded = true;
         }
         this.buttonManager.refreshButtons(true);

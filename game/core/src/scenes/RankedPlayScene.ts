@@ -250,6 +250,7 @@ export class RankedPlayScene extends Sandbox {
                 // AOE attacks (Cyclops' Large Caliber, etc.) carry a per-affected-unit breakdown so each
                 // splashed unit gets its own floating number AT ITS OWN POSITION — the single-target
                 // payload below only knows the primary target's spot.
+                this.applyAuthoritativeSecondaryVfx(event.attackerId, event.damage);
                 if (this.applyAuthoritativeSplashVfx(event.attackerId, event.damage)) continue;
                 if (!event.damage?.render) continue;
                 const target = this.unitsHolder.getAllUnits().get(event.targetId) as RenderableUnit | undefined;
@@ -263,6 +264,7 @@ export class RankedPlayScene extends Sandbox {
                     this.combatVisuals?.showFloatingDamage(pos, event.damage.amount, dir);
                 }
             } else if (event.type === "area_attacked") {
+                this.applyAuthoritativeSecondaryVfx(event.attackerId, event.damage);
                 if (this.applyAuthoritativeSplashVfx(event.attackerId, event.damage)) continue;
                 if (!event.damage?.render) continue;
                 const centerPos = event.damage?.unitPosition ?? event.targetPosition ?? { x: 0, y: 0 };
@@ -319,6 +321,32 @@ export class RankedPlayScene extends Sandbox {
             this.combatVisuals?.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied);
         }
         return true;
+    }
+    /**
+     * Draw floating numbers for secondary damage that triggers during an attack — Fire Shield
+     * reflect, Chain Lightning bounces, Petrifying Gaze kills, Magic Mirror — each on the affected
+     * unit (impact-time position fallback for units that died). Additive: called alongside the
+     * splash/primary rendering, never instead of it.
+     */
+    private applyAuthoritativeSecondaryVfx(attackerId: string, damage?: IVisibleDamage): void {
+        const secondary = damage?.secondary;
+        if (!secondary?.length) return;
+        const attackerPos = (
+            this.unitsHolder.getAllUnits().get(attackerId) as RenderableUnit | undefined
+        )?.getPosition();
+        for (const entry of secondary) {
+            if (entry.amount <= 0 && entry.unitsDied <= 0) continue;
+            const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+            const pos = unit?.getPosition() ?? entry.position;
+            let dir: HoCMath.XY | undefined;
+            if (attackerPos) {
+                const dx = pos.x - attackerPos.x;
+                const dy = pos.y - attackerPos.y;
+                const len = Math.hypot(dx, dy);
+                if (len >= 0.001) dir = { x: dx / len, y: dy / len };
+            }
+            this.combatVisuals?.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied);
+        }
     }
     protected override getUpNextUnitIds(): string[] | undefined {
         return this.upNextUnitIds;
@@ -443,6 +471,14 @@ export class RankedPlayScene extends Sandbox {
         // Map narrowing is authoritative snapshot state. Reconcile it on every snapshot (idempotent)
         // so the holes render even when the board rebuild that would normally draw them is skipped.
         this.applyAuthoritativeNarrowing(snapshot.narrowingLayers);
+        // Death "broken mirror" shatter for any unit that died since the last applied snapshot. Ranked
+        // removes dead units via the snapshot rebuild (hydrateSceneState destroys with isDead=false →
+        // no shatter) or applyRankedUnitStats (which skips dead units), so only deaths that rode a played
+        // action replay shattered on their own — which is why a struck defender shattered but an attacker
+        // felled by the counter (reconciled here, after the turn handed off) did not. Runs before the
+        // board is rebuilt; getShatterInfo() is null once visuals are torn down, so units the replay
+        // already shattered are skipped (no double shatter).
+        this.shatterNewlyDeadUnits(snapshot);
         const state = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
         // Self-heal an active-unit desync: the server says a unit is active but on our board that unit
         // is missing or dead (e.g. its death was applied locally but the server kept/resurrected it, or
@@ -851,7 +887,60 @@ export class RankedPlayScene extends Sandbox {
                     const flag = actorId ? this.logTeamFlag(actorId) : "";
                     lines.push(flag ? `${flag} ${line}` : line);
                 }
+                // Secondary-damage abilities (Fire Shield / Chain Lightning / Petrifying Gaze / Magic
+                // Mirror) ride on the attack's damage payload — each gets its own follow-up log line.
+                for (const secondaryLine of this.secondaryLogLines(event, unitNames)) {
+                    lines.push(secondaryLine);
+                }
             }
+        }
+        return lines;
+    }
+    /** Log lines for secondary-damage abilities carried on an attack's damage payload. */
+    private secondaryLogLines(event: GameEvent, unitNames: ReadonlyMap<string, string>): string[] {
+        const damage = event.type === "unit_attacked" || event.type === "area_attacked" ? event.damage : undefined;
+        const secondary = damage?.secondary;
+        if (!secondary?.length) {
+            return [];
+        }
+        const lines: string[] = [];
+        for (const entry of secondary) {
+            if (entry.amount <= 0 && entry.unitsDied <= 0) {
+                continue;
+            }
+            const name = unitNames.get(entry.unitId) ?? "Unit";
+            const kills = entry.unitsDied > 0 ? ` 💀 ${entry.unitsDied}` : "";
+            let text: string;
+            switch (entry.source) {
+                case "fire_shield":
+                    text = `${name} received (${entry.amount}) from Fire Shield${kills}`;
+                    break;
+                case "chain_lightning":
+                    text = `${name} hit ${entry.amount} by Chain Lightning${kills}`;
+                    break;
+                case "magic_mirror":
+                    text = `${name} hit ${entry.amount} by Magic Mirror${kills}`;
+                    break;
+                case "fire_breath":
+                    text = `${name} hit ${entry.amount} by Fire Breath${kills}`;
+                    break;
+                case "lightning_spin":
+                    text = `${name} hit ${entry.amount} by Lightning Spin${kills}`;
+                    break;
+                case "skewer_strike":
+                    text = `${name} hit ${entry.amount} by Skewer Strike${kills}`;
+                    break;
+                case "petrifying_gaze":
+                    text =
+                        entry.unitsDied > 0
+                            ? `${entry.unitsDied} ${name} killed by Petrifying Gaze`
+                            : `${name} hit (${entry.amount}) by Petrifying Gaze`;
+                    break;
+                default:
+                    continue;
+            }
+            const flag = this.logTeamFlag(entry.unitId);
+            lines.push(flag ? `${flag} ${text}` : text);
         }
         return lines;
     }
@@ -1031,6 +1120,40 @@ export class RankedPlayScene extends Sandbox {
         return "new";
     }
     /**
+     * Spawn the "broken mirror" death shatter for any unit that just died, then tear its sprite down.
+     * Detect alive→dead transitions by comparing the local board (units with live sprites) against the
+     * authoritative snapshot: a unit we are still rendering that the snapshot reports dead/absent has just
+     * died. getShatterInfo() returns null once visuals are gone, so a unit the action replay already
+     * shattered + destroyed is skipped here — no double shatter. Only runs once the fight is underway.
+     */
+    private shatterNewlyDeadUnits(snapshot: AuthoritativeGameSnapshot): void {
+        if (!snapshot.fightStarted) {
+            return;
+        }
+        const aliveById = new Map<string, number>();
+        for (const u of snapshot.units) {
+            aliveById.set(u.id, u.dead ? 0 : Math.max(0, Math.floor(u.amountAlive)));
+        }
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            const renderable = unit as RenderableUnit;
+            const newAlive = aliveById.get(renderable.getId());
+            // Still alive server-side → not a death.
+            if (newAlive !== undefined && newAlive > 0) {
+                continue;
+            }
+            // No live sprite (never shown, or the replay already shattered + tore it down) → nothing to do.
+            const shatterInfo = renderable.getShatterInfo();
+            if (!shatterInfo) {
+                continue;
+            }
+            console.warn(`[shatterFix] reconcile-shatter ${renderable.getName()} team=${renderable.getTeam()}`);
+            this.combatVisuals?.spawnShatter(shatterInfo);
+            // Drop the dead unit's visuals now so the imminent rebuild/skip doesn't leave it on the board,
+            // and so a repeated snapshot can't shatter it twice (getShatterInfo is null after this).
+            renderable.destroyVisuals();
+        }
+    }
+    /**
      * Reconcile each living unit's remaining stack stats (alive count, top-unit hp, dead count) to the
      * authoritative snapshot WITHOUT a destructive board rebuild. Replayed action events animate a hit
      * but never mutate the stack, and the skip-rebuild snapshot path would otherwise leave the count
@@ -1044,7 +1167,7 @@ export class RankedPlayScene extends Sandbox {
             if (alive <= 0) {
                 continue;
             }
-            const unit = this.unitsHolder.getAllUnits().get(u.properties.id);
+            const unit = this.unitsHolder.getAllUnits().get(u.properties.id) as RenderableUnit | undefined;
             if (!unit || unit.isDead()) {
                 continue;
             }
@@ -1079,12 +1202,16 @@ export class RankedPlayScene extends Sandbox {
 
         const winner = this.inferRankedWinner(snapshot, units);
         const fightStats = this.buildRankedFightStats(winner, units, lap);
-        if (fightStats.lowerStartTotal <= 0 || fightStats.upperStartTotal <= 0) {
+        const fightOver = winner !== TeamVals.NO_TEAM;
+        // Mid-fight (no winner yet) we wait until the roster is captured before publishing stats. But
+        // once the fight is OVER we must always publish the finished state — gating it on the start
+        // totals could silently swallow the fight-results overlay if the roster snapshot was imperfect.
+        if (!fightOver && (fightStats.lowerStartTotal <= 0 || fightStats.upperStartTotal <= 0)) {
             return;
         }
 
-        this.sc_visibleState.hasFinished = winner !== TeamVals.NO_TEAM;
-        this.sc_visibleState.teamWin = winner !== TeamVals.NO_TEAM ? winner : undefined;
+        this.sc_visibleState.hasFinished = fightOver;
+        this.sc_visibleState.teamWin = fightOver ? winner : undefined;
         this.sc_visibleState.fightStats = fightStats;
         this.sc_visibleState.lapNumber = fightStats.totalLaps;
         this.sc_visibleStateUpdateNeeded = true;
