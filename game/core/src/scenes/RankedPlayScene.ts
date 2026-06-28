@@ -306,11 +306,14 @@ export class RankedPlayScene extends Sandbox {
     private applyAuthoritativeSplashVfx(attackerId: string, damage?: IVisibleDamage): boolean {
         const splash = damage?.splash;
         if (!splash?.length) return false;
+        const gs = this.sc_sceneSettings.getGridSettings();
         const attacker = this.unitsHolder.getAllUnits().get(attackerId) as RenderableUnit | undefined;
-        const attackerPos = attacker?.getPosition();
+        // Use the attacker's VISUAL center (not its base cell) so the damage radiates correctly from
+        // the middle of a large attacker (e.g. Hydra/Cyclops 2x2) toward each affected unit.
+        const attackerPos = attacker?.getVisualCenter(gs);
         for (const entry of splash) {
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-            const pos = unit?.getPosition() ?? entry.position;
+            const pos = unit?.getVisualCenter(gs) ?? entry.position;
             let dir: HoCMath.XY | undefined;
             if (attackerPos) {
                 const dx = pos.x - attackerPos.x;
@@ -331,13 +334,16 @@ export class RankedPlayScene extends Sandbox {
     private applyAuthoritativeSecondaryVfx(attackerId: string, damage?: IVisibleDamage): void {
         const secondary = damage?.secondary;
         if (!secondary?.length) return;
+        const gs = this.sc_sceneSettings.getGridSettings();
+        // Radiate from the attacker's VISUAL center so a large unit's AOE (e.g. Hydra Skewer Strike)
+        // throws each affected unit's number outward at the correct angle from its middle.
         const attackerPos = (
             this.unitsHolder.getAllUnits().get(attackerId) as RenderableUnit | undefined
-        )?.getPosition();
+        )?.getVisualCenter(gs);
         for (const entry of secondary) {
             if (entry.amount <= 0 && entry.unitsDied <= 0) continue;
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-            const pos = unit?.getPosition() ?? entry.position;
+            const pos = unit?.getVisualCenter(gs) ?? entry.position;
             let dir: HoCMath.XY | undefined;
             if (attackerPos) {
                 const dx = pos.x - attackerPos.x;
@@ -1438,6 +1444,16 @@ export class RankedPlayScene extends Sandbox {
     protected override createActionEngine(): SceneActionEngine {
         return {
             apply: (action: GameAction) => {
+                // While replaying an authoritative record, engine-based replays (cast_spell,
+                // area_throw, obstacle_attack, start_fight) call createActionEngine().apply to re-run
+                // the action. That must apply LOCALLY — never dispatch to the transport. Re-sending an
+                // already-authoritative action double-submits it (the server rejects it as the caster's
+                // turn has passed) and, worse, the submit awaits the same authoritative-playback queue
+                // we're currently inside, self-deadlocking the replay and freezing the board. Apply via
+                // the local engine; the next snapshot reconciles any RNG drift in amounts.
+                if (this.isPlayingAuthoritativeReplay()) {
+                    return super.createActionEngine().apply(action);
+                }
                 const result = this.dispatchExternalGameAction(action);
                 if (!result.handled) {
                     return {
