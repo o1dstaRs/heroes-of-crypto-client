@@ -51,11 +51,7 @@ export const fetchLobby = async (lobbyId: string): Promise<LobbyObject> => {
     return decodeLobby(response.data);
 };
 
-export const createLobby = async (params: {
-    name: string;
-    isPrivate: boolean;
-    pin: string;
-}): Promise<LobbyObject> => {
+export const createLobby = async (params: { name: string; isPrivate: boolean; pin: string }): Promise<LobbyObject> => {
     const body = CreateLobbyRequest.fromObject({
         name: params.name,
         is_private: params.isPrivate,

@@ -93,16 +93,70 @@ export const fetchRankedPlayReplay = async (gameId: string): Promise<RankedRepla
     return createRankedReplayFromPayload(response.data);
 };
 
+// One clean, copy-pasteable client-side action log. Every action the client sends (this is the
+// single POST choke point used by both the scene transport and the UI) is recorded with its
+// sequence and the server's verdict (accepted/rejected + reason), so it can be diffed directly
+// against the server's [play-action] traces. Printed to console + kept in window.__hocActionLog
+// (dump with: copy(window.__hocActionLog.join('\n')) in devtools).
+const xy = (cell?: PlayCell | null): string => (cell ? `(${cell.x},${cell.y})` : "-");
+
+const PLAY_ACTION_TYPE_NAME: Record<number, string> = Object.fromEntries(
+    Object.entries(PlayActionType).map(([name, value]) => [value, name]),
+);
+
+const summarizeAction = (payload: PlayAction): string => {
+    const type = PLAY_ACTION_TYPE_NAME[payload.type] ?? `#${payload.type}`;
+    const parts = [`unit=${(payload.unitId || "-").slice(0, 8)}`];
+    if (payload.targetUnitId) parts.push(`target=${payload.targetUnitId.slice(0, 8)}`);
+    if (payload.attackFrom) parts.push(`attackFrom=${xy(payload.attackFrom)}`);
+    if (payload.path?.length) parts.push(`path=${payload.path.length}:${payload.path.map(xy).join("")}`);
+    if (payload.targetCells?.length) parts.push(`targetCells=${payload.targetCells.map(xy).join("")}`);
+    if (payload.attackType) parts.push(`atkType=${payload.attackType}`);
+    return `${type} ${parts.join(" ")}`;
+};
+
+const recordActionLog = (line: string): void => {
+    const stamped = `${new Date().toISOString().slice(11, 23)} ${line}`;
+
+    console.log(`[CLIENT-ACTION] ${stamped}`);
+    const w = window as unknown as { __hocActionLog?: string[] };
+    (w.__hocActionLog ??= []).push(stamped);
+};
+
 export const sendRankedPlayAction = async (
     gameId: string,
     payload: PlayAction,
     options?: { authorization?: string },
 ): Promise<PlayActionResponse> => {
-    const response = await axiosGameInstance.post(playActionUrl(gameId), encodePlayAction(payload), {
-        responseType: "arraybuffer",
-        headers: authHeaders(options?.authorization),
-    });
-    return decodePlayActionResponse(toBytes(response.data));
+    const actionSummary = summarizeAction(payload);
+    const seqTag = `#${payload.expectedSequence}`;
+    if (payload.type !== PlayActionType.PING) {
+        recordActionLog(`${seqTag} SEND  ${actionSummary} id=${payload.actionId.slice(0, 8)}`);
+    }
+    try {
+        const response = await axiosGameInstance.post(playActionUrl(gameId), encodePlayAction(payload), {
+            responseType: "arraybuffer",
+            headers: authHeaders(options?.authorization),
+        });
+        const decoded = decodePlayActionResponse(toBytes(response.data));
+        if (payload.type !== PlayActionType.PING) {
+            if (decoded.accepted) {
+                recordActionLog(`${seqTag} ✅ ACCEPTED seq->${decoded.sequence} (${actionSummary})`);
+            } else {
+                recordActionLog(
+                    `${seqTag} ❌ REJECTED ${decoded.rejectionReason || "?"} "${decoded.message || ""}" (${actionSummary})`,
+                );
+            }
+        }
+        return decoded;
+    } catch (err: unknown) {
+        if (payload.type !== PlayActionType.PING) {
+            recordActionLog(
+                `${seqTag} ⚠️ ERROR ${err instanceof Error ? err.message : String(err)} (${actionSummary})`,
+            );
+        }
+        throw err;
+    }
 };
 
 /**

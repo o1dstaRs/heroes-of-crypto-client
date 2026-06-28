@@ -56,6 +56,13 @@ export interface AuthoritativeSnapshotOptions {
      * and only reconcile lightweight state (turn queue, visible state).
      */
     skipBoardRebuild?: boolean;
+    /**
+     * Force a full destructive board rebuild from this snapshot even if the board signature is
+     * unchanged or an action animation is mid-flight. Used to self-heal a client/server desync after
+     * an action is rejected (e.g. unit_not_found from targeting a unit the server already removed):
+     * the client view disagrees with the server, so trust the server snapshot unconditionally.
+     */
+    forceBoardRebuild?: boolean;
 }
 
 const STEPS_BETWEEN_MOUSE_ACTIONS_MIN = 2;
@@ -207,9 +214,7 @@ export abstract class PixiScene {
     }
     public selectAuthoritativeUnit(_unitId: string): void {}
     // Ranked move-intent relay (implemented by Sandbox); no-ops in the base scene.
-    public setMoveIntentSink(
-        _sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void,
-    ): void {}
+    public setMoveIntentSink(_sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {}
     public setOpponentMoveIntent(_intent?: { unitId: string; cell: HoCMath.XY }): void {}
     protected dispatchExternalGameAction(
         action: Parameters<SceneGameActionTransport>[0],

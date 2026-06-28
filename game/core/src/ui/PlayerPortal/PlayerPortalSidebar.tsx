@@ -70,18 +70,11 @@ export const PlayerPortalSidebar: React.FC = () => {
 
                 {!loading && !error && data && (
                     <>
-                        <Sheet
-                            variant="soft"
-                            sx={{ bgcolor: "rgba(0,0,0,0.3)", borderRadius: "md", p: 1.25 }}
-                        >
+                        <Sheet variant="soft" sx={{ bgcolor: "rgba(0,0,0,0.3)", borderRadius: "md", p: 1.25 }}>
                             <Stack direction="row" divider={<Divider orientation="vertical" />}>
                                 <StatBlock label="Wins" value={data.wins ?? 0} color="#46d160" />
                                 <StatBlock label="Losses" value={data.losses ?? 0} color="#ff5a5a" />
-                                <StatBlock
-                                    label="Win rate"
-                                    value={`${overallPct}%`}
-                                    color={winRateColor(overallPct)}
-                                />
+                                <StatBlock label="Win rate" value={`${overallPct}%`} color={winRateColor(overallPct)} />
                             </Stack>
                         </Sheet>
 
@@ -125,7 +118,11 @@ export const PlayerPortalSidebar: React.FC = () => {
                                         </Typography>
                                         <Stack direction="row" spacing={0.25}>
                                             {(match.creature_ids ?? []).slice(0, 6).map((id, i) => (
-                                                <CreatureIcon key={`${match.game_id}_${id}_${i}`} creatureId={id} size={18} />
+                                                <CreatureIcon
+                                                    key={`${match.game_id}_${id}_${i}`}
+                                                    creatureId={id}
+                                                    size={18}
+                                                />
                                             ))}
                                         </Stack>
                                     </Box>

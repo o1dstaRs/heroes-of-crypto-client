@@ -79,10 +79,7 @@ describe("play protobuf decoder", () => {
 
     test("decodes a cleared move-intent event (no target cell)", () => {
         const intent = [...stringField(1, "unit-42")]; // active defaults to false, no target cell
-        const event = new Uint8Array([
-            ...intField(2, PlayEventKind.MOVE_INTENT),
-            ...messageField(10, intent),
-        ]);
+        const event = new Uint8Array([...intField(2, PlayEventKind.MOVE_INTENT), ...messageField(10, intent)]);
 
         const decoded = decodePlayEvent(event);
 

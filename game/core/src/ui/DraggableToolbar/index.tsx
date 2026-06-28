@@ -469,7 +469,7 @@ const DraggableToolbar: React.FC = () => {
                 ))}
             </Box>
         ),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+
         [buttonGroup, isVertical, isDark, propagateClick],
     );
 

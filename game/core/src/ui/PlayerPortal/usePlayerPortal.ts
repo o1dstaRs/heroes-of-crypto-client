@@ -2,6 +2,7 @@ import { type ResponsePlayerPortalObject } from "@heroesofcrypto/common";
 import { useCallback, useEffect, useState } from "react";
 
 import { fetchPlayerPortal } from "../../api/player_portal_client";
+import { buildMockPortal, isMockPortalEnabled } from "./mockPortal";
 
 export interface PlayerPortalState {
     data: ResponsePlayerPortalObject | null;
@@ -23,6 +24,14 @@ export const usePlayerPortal = (): PlayerPortalState => {
         let cancelled = false;
         setLoading(true);
         setError("");
+        // Dev preview: short-circuit with fake data so the dashboard can be viewed without real matches.
+        if (isMockPortalEnabled()) {
+            setData(buildMockPortal());
+            setLoading(false);
+            return () => {
+                cancelled = true;
+            };
+        }
         fetchPlayerPortal()
             .then((payload) => {
                 if (!cancelled) {

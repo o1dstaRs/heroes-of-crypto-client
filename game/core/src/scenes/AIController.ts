@@ -163,8 +163,7 @@ export class AIController {
      * toggled AI off during the trigger delay).
      */
     private shouldAutoPlay(unit: Unit): boolean {
-        const playerAIEnabled =
-            !this.localModelOpponent.enabled && this.isAIActive && this.toggleAiControlsUnit(unit);
+        const playerAIEnabled = !this.localModelOpponent.enabled && this.isAIActive && this.toggleAiControlsUnit(unit);
         return this.shouldControlUnit(unit) || playerAIEnabled || unit.hasAbilityActive("AI Driven");
     }
     /**

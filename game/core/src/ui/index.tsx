@@ -24,11 +24,14 @@ import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
 import { buildApiUrl, endpoints, HOST_GAME_API } from "../api/axios";
 import { AuthProvider } from "./auth/context/auth_provider";
 import { useAuthContext } from "./auth/context/auth_context";
+import { LobbiesBrowse } from "./LobbiesBrowse";
+import { LobbyView } from "./LobbyView";
 import { LoginScreen } from "./LoginScreen/LoginScreen";
 import { MatchmakingRoute } from "./MatchmakingRoute";
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
+import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { RankedGameView } from "./RankedGameView";
 
 const isEditableTarget = (target: EventTarget | null): boolean => {
@@ -435,10 +438,20 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
             {/* Online routes require authentication */}
             <Route
                 path="/play"
-                element={<WalletProvider>{authenticated ? <MatchmakingRoute /> : <LoginScreen />}</WalletProvider>}
+                element={
+                    <WalletProvider>
+                        {authenticated || isMockPortalEnabled() ? <MatchmakingRoute /> : <LoginScreen />}
+                    </WalletProvider>
+                }
             />
+            {/* Custom-game lobbies: browse/create and the lobby room (ready-up + start). */}
+            <Route path="/lobbies" element={authenticated ? <LobbiesBrowse /> : <LoginScreen />} />
+            <Route path="/lobby/:lobbyId" element={authenticated ? <LobbyView /> : <LoginScreen />} />
             {/* Player portal: full-profile dashboard (stats, matches, combos, strategies) */}
-            <Route path="/portal" element={authenticated ? <PlayerPortalPage /> : <LoginScreen />} />
+            <Route
+                path="/portal"
+                element={authenticated || isMockPortalEnabled() ? <PlayerPortalPage /> : <LoginScreen />}
+            />
             <Route
                 path="/game/:gameId"
                 element={

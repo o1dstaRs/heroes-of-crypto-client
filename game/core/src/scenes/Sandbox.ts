@@ -525,6 +525,19 @@ export class Sandbox extends PixiScene {
             context.pixiApp.getApplication().screen.height,
         );
         // --- Init Sub-Managers Moved UP ---
+
+        // Dev/e2e hook: drive the on-canvas "AI toggle" (autobattle) from automated tests without
+        // having to click the Pixi button. window.__hocSetAI(true) makes the local team auto-play.
+        if (import.meta.env.DEV && typeof window !== "undefined") {
+            (window as unknown as { __hocSetAI?: (active: boolean) => void }).__hocSetAI = (active: boolean) => {
+                this.sc_isAIActive = active;
+                this.aiController.isAIActive = active;
+                this.buttonManager.sc_isAIActive = active;
+                if (active) {
+                    this.clearBoardHoverPreviews();
+                }
+            };
+        }
     }
     protected updateVisibleTurnTimer(): void {
         if (!this.sc_visibleState) return;
@@ -1872,7 +1885,13 @@ export class Sandbox extends PixiScene {
         this.currentActiveUnit = unit;
         unit.setActiveTurn(true);
         unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
-        return this.playRecordedMoveAnimation(unit, moveEvent);
+        return this.playRecordedMoveAnimation(unit, moveEvent).then((played) => {
+            // The move animation only plays unit_moved. Apply the rest of the record's events the
+            // same way the attack/control replays do, so map narrowing, the dried/cleared center,
+            // Armageddon, and system pushes/deaths that ride on a lap-ending move actually render.
+            this.applyReplayEvents(record.events);
+            return played;
+        });
     }
     private playRecordedMoveAnimation(
         unit: RenderableUnit,
@@ -2056,6 +2075,13 @@ export class Sandbox extends PixiScene {
                 void this.playReplayProjectile(attacker, target);
             }
         } else {
+            // Move + melee: the authoritative engine folds the approach into the attack (one
+            // unit_attacked event, no separate unit_moved), so replay the walk to the attack-from
+            // cell here before the strike — otherwise the unit hits from its old cell and the next
+            // snapshot snaps it to where it actually moved.
+            if (action.type === "melee_attack" && action.attackFrom) {
+                await this.replayMeleeApproach(attacker, action.attackFrom, action.path);
+            }
             await this.playReplayOneShot(attacker, "attack", 360);
         }
 
@@ -2086,6 +2112,53 @@ export class Sandbox extends PixiScene {
         const targetPosition = target.getVisualCenter(gs);
         const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
         await this.rangedProjectiles.fire({ from: muzzle, to: targetPosition, big: bigProjectile });
+    }
+    /**
+     * Walk the attacker to its attack-from cell before a melee strike. The authoritative engine
+     * applies the move as part of the melee action (no separate unit_moved event), so we synthesize
+     * one from the action's attackFrom + path and reuse the recorded-move animation (which also syncs
+     * grid occupancy). No-op when the attacker is already standing on the attack-from cell.
+     */
+    private async replayMeleeApproach(
+        attacker: RenderableUnit,
+        attackFrom: HoCMath.XY,
+        path?: HoCMath.XY[],
+    ): Promise<void> {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const anchorPos = GridMath.getPositionForCell(attackFrom, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        // A large 2x2 unit's anchor cell is NOT its visual center — the center is the shared corner of
+        // its four footprint cells, half a step down-left of the anchor cell's center. Using the
+        // single-cell center (getPositionForCell) left large attackers standing "in between cells"
+        // after a move+melee. Derive the real footprint (matching the server's aiFootprintForCell) and
+        // move to its center, passing those cells as targetCells so grid occupancy lands on them too.
+        let toPos = anchorPos;
+        let targetCells: HoCMath.XY[] = [];
+        if (anchorPos && !attacker.isSmallSize()) {
+            const footprint = GridMath.getCellsAroundPosition(gs, {
+                x: anchorPos.x - gs.getHalfStep(),
+                y: anchorPos.y - gs.getHalfStep(),
+            });
+            const footprintCenter = GridMath.getPositionForCells(gs, footprint);
+            if (footprintCenter) {
+                toPos = footprintCenter;
+                targetCells = footprint;
+            }
+        }
+        const fromPos = attacker.getPosition();
+        if (Math.abs(fromPos.x - toPos.x) < 0.1 && Math.abs(fromPos.y - toPos.y) < 0.1) {
+            return; // Already at the attack-from cell — stationary melee, nothing to walk.
+        }
+        const meleeMove: Extract<GameEvent, { type: "unit_moved" }> = {
+            type: "unit_moved",
+            unitId: attacker.getId(),
+            from: { x: fromPos.x, y: fromPos.y },
+            to: toPos,
+            // Small units: empty targetCells lets occupancy come from the unit's single dest cell.
+            // Large units: the explicit 2x2 footprint above keeps occupancy aligned to the real cells.
+            path: path ?? [],
+            targetCells,
+        };
+        await this.playRecordedMoveAnimation(attacker, meleeMove);
     }
     protected shouldPlayReplayDoubleShotProjectile(): boolean {
         return true;
@@ -3433,19 +3506,23 @@ export class Sandbox extends PixiScene {
                 }
             }
 
-            // [clickDbg] diagnostic mirrored to the server log (post-fix state).
+            // [meleeDbg] diagnostic — mirror the click-time melee decision state to the server log.
             try {
                 const dCell = GridMath.getCellForPosition(gs, p);
                 const dOcc = dCell ? this.grid.getOccupantUnitId(dCell) : undefined;
                 const dTgt = dOcc ? this.unitsHolder.getAllUnits().get(dOcc) : undefined;
+                const aff = this.hoverManager.hoverAttackFromCell;
+                const kp = this.currentActiveKnownPaths;
+                const affKey = aff ? (aff.x << 4) | aff.y : undefined;
                 const msg =
-                    `[clickDbg] active=${this.currentActiveUnit?.getName()}:${this.currentActiveUnit?.getTeam()} ` +
+                    `[meleeDbg] active=${this.currentActiveUnit?.getName()}:${this.currentActiveUnit?.getTeam()} ` +
                     `atkType=${this.currentActiveUnit?.getAttackTypeSelection()} ` +
-                    `cell=${JSON.stringify(dCell)} occ=${dOcc ?? "none"} tgtTeam=${dTgt?.getTeam() ?? "-"} ` +
-                    `tgtSmall=${dTgt?.isSmallSize?.()} ` +
-                    `hoverAttackFromCell=${JSON.stringify(this.hoverManager.hoverAttackFromCell)} ` +
+                    `clickCell=${JSON.stringify(dCell)} occ=${(dOcc ?? "none").toString().slice(0, 8)} ` +
+                    `tgt=${dTgt?.getName() ?? "-"}:${dTgt?.getTeam() ?? "-"} ` +
                     `meleeTargets=${this.canAttackByMeleeTargets?.attackCells?.length ?? "undef"} ` +
-                    `isAnimating=${this.sc_isAnimating} mouseSet=${!!this.sc_mouseWorld}`;
+                    `attackCells=${JSON.stringify(this.canAttackByMeleeTargets?.attackCells?.slice(0, 6) ?? [])} ` +
+                    `hoverAttackFrom=${JSON.stringify(aff)} ` +
+                    `knownPathsSize=${kp?.size ?? "undef"} affInKnownPaths=${affKey !== undefined ? !!kp?.get(affKey) : "n/a"}`;
                 void fetch(`${import.meta.env.VITE_HOST_GAME_API ?? "http://127.0.0.1:3001"}/v1/game/dev-log`, {
                     method: "POST",
                     headers: { "Content-Type": "text/plain", "x-request-id": crypto.randomUUID() },
@@ -3491,8 +3568,20 @@ export class Sandbox extends PixiScene {
                                 }
                             }
 
-                            if (isAtTarget) {
-                                // No movement needed (already at attack spot)
+                            // In authoritative-replay (ranked) mode a melee_attack action already
+                            // carries the move `path`, so the server moves-and-attacks in a single
+                            // action. Splitting into a standalone move_unit + a later attack made the
+                            // server treat the move as the unit's whole turn and skip the strike
+                            // ("moved to (x,y)" then "skips turn"). Submit the combined action here.
+                            const deferMoveAttackToServer = this.shouldDeferActionToAuthoritativeReplay({
+                                type: "melee_attack",
+                                attackerId: this.currentActiveUnit.getId(),
+                                targetId: targetUnit.getId(),
+                                attackFrom,
+                            });
+                            if (isAtTarget || deferMoveAttackToServer) {
+                                // No movement needed (already at attack spot), or the server will
+                                // perform the move as part of the combined melee_attack action.
                                 this.executeAttackSequence(
                                     this.currentActiveUnit,
                                     targetUnit as RenderableUnit,
@@ -7461,6 +7550,19 @@ export class Sandbox extends PixiScene {
             this.occupyNarrowingLayer(layer);
             this.drawnNarrowingLaps.add(layer);
             this.moveFiresInward(layer);
+        }
+    }
+    /**
+     * Reconcile the rendered map narrowing to an authoritative snapshot value. Idempotent
+     * (renderNarrowingLayers skips already-drawn layers), so ranked can call this on every
+     * snapshot to catch up regardless of which action triggered the narrowing — and even when
+     * the destructive board rebuild that normally renders it was skipped.
+     */
+    protected applyAuthoritativeNarrowing(narrowingLayers: number): void {
+        if (narrowingLayers > 0 && !this.drawnNarrowingLaps.has(narrowingLayers)) {
+            this.renderNarrowingLayers(narrowingLayers);
+            this.gridMatrix = this.grid.getMatrix();
+            this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         }
     }
     private occupyNarrowingLayer(layer: number): void {

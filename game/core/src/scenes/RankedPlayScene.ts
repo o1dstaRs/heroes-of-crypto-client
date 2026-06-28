@@ -51,6 +51,17 @@ export const authoritativeUnitToSandboxUnitState = (
     };
 };
 
+// Fight actions that consume the unit's turn (the engine runs completeTurn for each). A bare
+// move_unit is intentionally absent: it leaves the unit active so it can still attack afterwards.
+const TURN_ENDING_ACTION_TYPES: ReadonlySet<GameAction["type"]> = new Set<GameAction["type"]>([
+    "melee_attack",
+    "range_attack",
+    "obstacle_attack",
+    "area_throw_attack",
+    "cast_spell",
+    "end_turn",
+]);
+
 const isKnownPlacementOpponentUnit = (unitState: AuthoritativeUnitState): boolean =>
     unitState.creatureId > 0 && unitState.name !== "Unknown";
 
@@ -192,6 +203,11 @@ export class RankedPlayScene extends Sandbox {
     // True between an authoritative action's animation finishing and the next snapshot reassigning the
     // active unit — keeps the just-finished unit's pulse aura suppressed across that gap (no flicker).
     private awaitingTurnHandoff = false;
+    // True once the VIEWER's own active unit has submitted a turn-ending action (any attack/spell — a
+    // bare move keeps the unit active so it can still strike). Mirrors the enemy-side handoff guard:
+    // the server may keep reporting the same own unit as "active" for a beat before the turn changes
+    // hands, and its pulse must stay suppressed through that beat instead of flashing back on.
+    private ownTurnEnded = false;
     private rankedStatsGameId = "";
     private rankedStatsStarted = false;
     private rankedStatsLowerStartTotal = 0;
@@ -370,16 +386,17 @@ export class RankedPlayScene extends Sandbox {
 
         const newActiveId = snapshot.currentUnitId || undefined;
         // Right after an action the server may reassert the SAME unit as still-active (e.g. it moved
-        // and could still attack) before the turn actually changes hands. For the opponent's unit,
-        // re-running activation here would flash its pulse + selection back on for the frames before a
-        // different unit takes over. Keep the handoff suppression on and skip reactivation until a
-        // different unit becomes active. Own units fall through so the viewer can still see/continue
-        // their unit between its own actions.
+        // and could still attack) before the turn actually changes hands. Re-running activation here
+        // would flash that unit's pulse + selection back on for the frames before a different unit
+        // takes over. Keep the handoff suppression on and skip reactivation until a different unit
+        // becomes active — for the opponent's unit always, and for the viewer's OWN unit once it has
+        // submitted a turn-ending action (ownTurnEnded). A bare own move leaves ownTurnEnded false so
+        // the unit still reactivates and the viewer can continue it (move-then-attack).
         if (
             this.awaitingTurnHandoff &&
             newActiveId !== undefined &&
             newActiveId === this.getCurrentActiveUnit()?.getId() &&
-            this.isEnemyActiveTurn()
+            (this.isEnemyActiveTurn() || this.ownTurnEnded)
         ) {
             return;
         }
@@ -388,6 +405,7 @@ export class RankedPlayScene extends Sandbox {
         // post-action aura suppression. This runs synchronously with the reassignment, so the aura
         // switches straight from the old unit (off) to the new one with no flash in between.
         this.awaitingTurnHandoff = false;
+        this.ownTurnEnded = false;
         this.syncAuthoritativeActiveUnit(newActiveId, snapshot.currentLap);
     }
     protected override isAwaitingAuthoritativeTurnHandoff(): boolean {
@@ -402,7 +420,7 @@ export class RankedPlayScene extends Sandbox {
         // unit at its final cell and snap the in-progress slide. Ignore such full rebuilds while
         // animating (we don't advance sequence/signature here, so the next snapshot re-syncs once idle).
         // skipBoardRebuild snapshots are safe — they never hydrate — so they still pass through.
-        if (!options?.skipBoardRebuild && this.isPlayingActionAnimation()) {
+        if (!options?.skipBoardRebuild && !options?.forceBoardRebuild && this.isPlayingActionAnimation()) {
             return;
         }
         const boardSignature = this.createBoardSignature(snapshot);
@@ -416,8 +434,15 @@ export class RankedPlayScene extends Sandbox {
         // Pop an icon + name over any unit that just gained a debuff. Runs before the early-return
         // board-sync paths so it fires whether or not the board itself is rebuilt this snapshot.
         this.processDebuffPops(snapshot);
+        // Map narrowing is authoritative snapshot state. Reconcile it on every snapshot (idempotent)
+        // so the holes render even when the board rebuild that would normally draw them is skipped.
+        this.applyAuthoritativeNarrowing(snapshot.narrowingLayers);
         const state = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
-        if (boardSignature === this.lastBoardSignature) {
+        // forceBoardRebuild self-heals a desync: the client just had an action rejected because its
+        // view disagrees with the server (e.g. a stale ghost unit), so the signature short-circuit
+        // (which assumes "same server board => client already in sync") must NOT fire — fall through
+        // to the full hydrate below to rebuild from authoritative truth.
+        if (boardSignature === this.lastBoardSignature && !options?.forceBoardRebuild) {
             this.syncRankedVisibleTurnState(snapshot);
             this.applyRankedFightStats(snapshot, state.units);
             return;
@@ -429,7 +454,11 @@ export class RankedPlayScene extends Sandbox {
         // animations — the "re-animates / starts over" glitch. Records already moved units and
         // applied mechanics, so the snapshot's board is redundant here; we only refresh the
         // turn queue / visible state.
-        const skipBoardRebuild = !!options?.skipBoardRebuild && snapshot.fightStarted && !snapshot.fightFinished;
+        const skipBoardRebuild =
+            !options?.forceBoardRebuild &&
+            !!options?.skipBoardRebuild &&
+            snapshot.fightStarted &&
+            !snapshot.fightFinished;
         if (skipBoardRebuild) {
             this.lastBoardSignature = boardSignature;
             this.syncRankedVisibleTurnState(snapshot);
@@ -915,11 +944,11 @@ export class RankedPlayScene extends Sandbox {
             case "unit_summoned":
                 return `${nameOf(event.casterId)} summoned ${event.amount} x ${event.unitName}`;
             case "unit_attacked":
-                return `${nameOf(event.attackerId)} attk ${nameOf(event.targetId)} (${event.damage.amount})`;
+                return `${nameOf(event.attackerId)} ${this.attackIcon(event.attackType, event.damage)} ${nameOf(event.targetId)} (${event.damage.amount})${this.killSuffix(event.damage)}`;
             case "obstacle_attacked":
                 return `${nameOf(event.attackerId)} attacked obstacle (${event.hitsAfter})`;
             case "area_attacked":
-                return `${nameOf(event.attackerId)} area attk (${event.damage.amount})`;
+                return `${nameOf(event.attackerId)} ${this.attackIcon(event.attackType, event.damage)} (${event.damage.amount})${this.killSuffix(event.damage)}`;
             case "spell_cast":
                 return `${nameOf(event.casterId)} cast ${event.spellName}`;
             case "fight_finished":
@@ -932,6 +961,29 @@ export class RankedPlayScene extends Sandbox {
             default:
                 return undefined;
         }
+    }
+    /**
+     * Kill-count suffix (e.g. " 💀 3") for an attack's scene-log line. The ranked log is rebuilt from
+     * events, so reconstruct the creatures killed from the damage breakdown: hits[] for
+     * single/double-shot, splash[] for AOE (Cyclops' Large Caliber / Gargantuan's Area Throw).
+     */
+    private killSuffix(damage: IVisibleDamage): string {
+        const killed =
+            (damage.hits?.reduce((sum, hit) => sum + hit.unitsDied, 0) ?? 0) +
+            (damage.splash?.reduce((sum, entry) => sum + entry.unitsDied, 0) ?? 0);
+        return killed > 0 ? ` 💀 ${killed}` : "";
+    }
+    /**
+     * Icon for an attack's scene-log line so the kind of strike reads at a glance: ⚔️ melee, 🏹
+     * range, 💥 splash/AOE (Cyclops' Large Caliber range splash, Gargantuan's Area Throw). AOE is
+     * detected via the per-unit splash breakdown so a splashing range shot reads as splash, not a
+     * plain arrow.
+     */
+    private attackIcon(attackType: "melee" | "range" | "area_throw", damage: IVisibleDamage): string {
+        if (damage.splash?.length || attackType === "area_throw") {
+            return "💥";
+        }
+        return attackType === "range" ? "🏹" : "⚔️";
     }
     private attackTypeLabel(attackType: AttackType): string {
         if (attackType === AttackVals.RANGE) {
@@ -1207,8 +1259,23 @@ export class RankedPlayScene extends Sandbox {
                         rejectionReason: "unsupported_action",
                     };
                 }
-                if (result.message) {
-                    this.sc_sceneLog.updateLog(result.message);
+                // Transport messages here are transient control-flow notices (e.g. "Opponent turn is
+                // controlled by the opponent", observer/waiting states), not game events. The ranked
+                // scene log is rebuilt from the authoritative journal, so pushing these would spam it
+                // (and the local driver retries opponent turns, duplicating each line). Surface the
+                // message through the return value for the UI instead of the fight log.
+                // A successful turn-ending own action (attack/spell — never a bare move, which keeps the
+                // unit active to still strike) opens the handoff window immediately: suppress the
+                // finished unit's pulse from the moment of submission until a DIFFERENT unit is
+                // authoritatively activated, so it never flashes back on at the old position or during
+                // the brief same-unit reassertion the server emits right before the turn changes hands.
+                if (result.completed) {
+                    if (TURN_ENDING_ACTION_TYPES.has(action.type)) {
+                        this.awaitingTurnHandoff = true;
+                        this.ownTurnEnded = true;
+                    } else if (action.type === "move_unit") {
+                        this.ownTurnEnded = false;
+                    }
                 }
                 let events: GameEvent[] = [];
                 if (result.completed && (action.type === "place_unit" || action.type === "select_attack_type")) {

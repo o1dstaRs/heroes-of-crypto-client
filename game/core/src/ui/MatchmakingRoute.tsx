@@ -188,89 +188,89 @@ export const MatchmakingRoute: React.FC = () => {
 
     return (
         <>
-        <Box
-            sx={{
-                position: "fixed",
-                inset: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                bgcolor: hocColors.black,
-                px: 2,
-            }}
-        >
-            <Sheet
-                variant="outlined"
+            <Box
                 sx={{
-                    width: 420,
-                    maxWidth: "100%",
-                    p: 3,
-                    borderRadius: "md",
-                    ...hocPanelSx,
+                    position: "fixed",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    bgcolor: hocColors.black,
+                    px: 2,
                 }}
             >
-                <Stack spacing={2.25}>
-                    <Box>
-                        <Typography level="h3" textColor={hocColors.parchment}>
-                            Ranked Match
-                        </Typography>
-                        <Typography level="body-sm" textColor={hocColors.muted}>
-                            {statusText}
-                        </Typography>
-                    </Box>
-
-                    <WalletLinker />
-
-                    {(state === "searching" || state === "accepted") && (
-                        <Stack direction="row" spacing={1.5} alignItems="center">
-                            <CircularProgress size="sm" />
-                            <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                                {state === "accepted" ? "Waiting for the other player" : "Queue stream connected"}
+                <Sheet
+                    variant="outlined"
+                    sx={{
+                        width: 420,
+                        maxWidth: "100%",
+                        p: 3,
+                        borderRadius: "md",
+                        ...hocPanelSx,
+                    }}
+                >
+                    <Stack spacing={2.25}>
+                        <Box>
+                            <Typography level="h3" textColor={hocColors.parchment}>
+                                Ranked Match
                             </Typography>
+                            <Typography level="body-sm" textColor={hocColors.muted}>
+                                {statusText}
+                            </Typography>
+                        </Box>
+
+                        <WalletLinker />
+
+                        {(state === "searching" || state === "accepted") && (
+                            <Stack direction="row" spacing={1.5} alignItems="center">
+                                <CircularProgress size="sm" />
+                                <Typography level="body-sm" textColor={hocColors.mutedStrong}>
+                                    {state === "accepted" ? "Waiting for the other player" : "Queue stream connected"}
+                                </Typography>
+                            </Stack>
+                        )}
+
+                        {pendingGameId && (
+                            <Typography level="body-xs" textColor="rgba(239, 228, 204, 0.46)">
+                                Game {pendingGameId}
+                            </Typography>
+                        )}
+
+                        <Stack direction="row" spacing={1}>
+                            {state === "idle" || state === "error" ? (
+                                <Button fullWidth variant="solid" onClick={handleStart} sx={hocPrimaryButtonSx}>
+                                    Find Opponent
+                                </Button>
+                            ) : null}
+
+                            {state === "searching" ? (
+                                <Button fullWidth variant="soft" onClick={handleCancel} sx={hocSoftButtonSx}>
+                                    Leave Queue
+                                </Button>
+                            ) : null}
+
+                            {state === "confirming" || (state === "accepted" && pendingGameId) ? (
+                                <Button
+                                    fullWidth
+                                    variant="solid"
+                                    disabled={state === "accepted"}
+                                    onClick={handleAccept}
+                                    sx={hocPrimaryButtonSx}
+                                >
+                                    Accept Match
+                                </Button>
+                            ) : null}
                         </Stack>
-                    )}
 
-                    {pendingGameId && (
-                        <Typography level="body-xs" textColor="rgba(239, 228, 204, 0.46)">
-                            Game {pendingGameId}
-                        </Typography>
-                    )}
-
-                    <Stack direction="row" spacing={1}>
-                        {state === "idle" || state === "error" ? (
-                            <Button fullWidth variant="solid" onClick={handleStart} sx={hocPrimaryButtonSx}>
-                                Find Opponent
-                            </Button>
-                        ) : null}
-
-                        {state === "searching" ? (
-                            <Button fullWidth variant="soft" onClick={handleCancel} sx={hocSoftButtonSx}>
-                                Leave Queue
-                            </Button>
-                        ) : null}
-
-                        {state === "confirming" || (state === "accepted" && pendingGameId) ? (
-                            <Button
-                                fullWidth
-                                variant="solid"
-                                disabled={state === "accepted"}
-                                onClick={handleAccept}
-                                sx={hocPrimaryButtonSx}
-                            >
-                                Accept Match
-                            </Button>
-                        ) : null}
+                        {error && (
+                            <Alert variant="soft" color="danger">
+                                {error}
+                            </Alert>
+                        )}
                     </Stack>
-
-                    {error && (
-                        <Alert variant="soft" color="danger">
-                            {error}
-                        </Alert>
-                    )}
-                </Stack>
-            </Sheet>
-        </Box>
-        <PlayerPortalSidebar />
+                </Sheet>
+            </Box>
+            <PlayerPortalSidebar />
         </>
     );
 };

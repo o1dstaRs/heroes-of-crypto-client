@@ -273,14 +273,21 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     // True when the current snapshot's board changes were already animated by playing the
     // matching authoritative action record — tells the scene to skip the full rebuild.
     const skipBoardRebuildRef = useRef(false);
+    const forceBoardRebuildRef = useRef(false);
 
-    const applySnapshot = useCallback((nextSnapshot: PlaySnapshot, options?: { skipBoardRebuild?: boolean }) => {
-        pendingTurnResolutionRef.current = false;
-        latestSequenceRef.current = Math.max(latestSequenceRef.current, nextSnapshot.latestSequence);
-        skipBoardRebuildRef.current = !!options?.skipBoardRebuild;
-        snapshotRef.current = nextSnapshot;
-        setSnapshot(nextSnapshot);
-    }, []);
+    const applySnapshot = useCallback(
+        (nextSnapshot: PlaySnapshot, options?: { skipBoardRebuild?: boolean; forceBoardRebuild?: boolean }) => {
+            pendingTurnResolutionRef.current = false;
+            latestSequenceRef.current = Math.max(latestSequenceRef.current, nextSnapshot.latestSequence);
+            skipBoardRebuildRef.current = !!options?.skipBoardRebuild;
+            // Sticky until consumed by the snapshot effect — a forced resync must rebuild the board
+            // even if an identical snapshot object reference would otherwise no-op the effect.
+            forceBoardRebuildRef.current = forceBoardRebuildRef.current || !!options?.forceBoardRebuild;
+            snapshotRef.current = nextSnapshot;
+            setSnapshot(nextSnapshot);
+        },
+        [],
+    );
     const toSceneSnapshot = useCallback(
         (playSnapshot: PlaySnapshot) =>
             toAuthoritativeGameSnapshot(
@@ -443,8 +450,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             if (cancelled) {
                 return;
             }
+            const forceBoardRebuild = forceBoardRebuildRef.current;
+            forceBoardRebuildRef.current = false;
             manager.ApplyAuthoritativeSnapshot(toSceneSnapshot(snapshot), {
-                skipBoardRebuild: skipBoardRebuildRef.current || playedPendingRecords,
+                // A forced resync (post-rejection desync heal) must win over skipBoardRebuild.
+                skipBoardRebuild: !forceBoardRebuild && (skipBoardRebuildRef.current || playedPendingRecords),
+                forceBoardRebuild,
             });
             if (selectedUnitId && snapshot.units.some((unit) => unit.id === selectedUnitId && !unit.dead)) {
                 manager.SelectAuthoritativeUnit(selectedUnitId);
@@ -622,6 +633,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     return true;
                 }
                 const responseSnapshot = result.event?.snapshot;
+                // A rejection means the client's view disagrees with the server (e.g. it targeted a
+                // unit the server already removed -> unit_not_found). Force a full board rebuild from
+                // authoritative truth so the stale/ghost state is dropped instead of the snapshot
+                // short-circuiting on an unchanged signature — which otherwise leaves the client (and
+                // an autobattle AI) resubmitting the same illegal action forever.
+                const rejected = !result.accepted;
                 const played = await playAuthoritativeRecord(result.event?.journalEntry, responseSnapshot);
                 if (!played) {
                     rememberAuthoritativeRecord(result.event?.journalEntry, {
@@ -633,12 +650,13 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     shouldApplyActionResponseSnapshotToViewer(responseSnapshot, { isModelSubmission })
                 ) {
                     await waitForAuthoritativePlayback();
-                    applySnapshot(responseSnapshot, { skipBoardRebuild: played });
+                    applySnapshot(responseSnapshot, { skipBoardRebuild: played, forceBoardRebuild: rejected });
                 } else {
                     await waitForAuthoritativePlayback();
-                    await refreshSnapshot();
+                    const fresh = await fetchRankedPlaySnapshot(gameId);
+                    applySnapshot(fresh, { forceBoardRebuild: rejected });
                 }
-                if (!result.accepted) {
+                if (rejected) {
                     pendingTurnResolutionRef.current = false;
                     setError(result.rejectionReason || result.message || "Action rejected");
                     return false;

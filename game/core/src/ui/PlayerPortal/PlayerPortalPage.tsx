@@ -93,7 +93,16 @@ export const PlayerPortalPage: React.FC = () => {
     const overallPct = data ? winRatePct(data.wins ?? 0, data.total_games_played ?? 0) : 0;
 
     return (
-        <Box sx={{ position: "fixed", inset: 0, bgcolor: hocColors.black, overflowY: "auto", px: { xs: 1.5, md: 4 }, py: 3 }}>
+        <Box
+            sx={{
+                position: "fixed",
+                inset: 0,
+                bgcolor: hocColors.black,
+                overflowY: "auto",
+                px: { xs: 1.5, md: 4 },
+                py: 3,
+            }}
+        >
             <Box sx={{ maxWidth: 1200, mx: "auto" }}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
                     <Box>
@@ -233,10 +242,7 @@ export const PlayerPortalPage: React.FC = () => {
                                         </Typography>
                                     )}
                                     {factionStats.map((stat) => (
-                                        <Box
-                                            key={stat.faction}
-                                            sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                                        >
+                                        <Box key={stat.faction} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                                             <Typography
                                                 level="body-sm"
                                                 textColor={hocColors.mutedStrong}
@@ -303,7 +309,11 @@ export const PlayerPortalPage: React.FC = () => {
                                         </Typography>
                                         <Stack direction="row" spacing={0.5} sx={{ flex: 1, flexWrap: "wrap" }}>
                                             {(match.creature_ids ?? []).map((id, i) => (
-                                                <CreatureIcon key={`me_${match.game_id}_${id}_${i}`} creatureId={id} size={24} />
+                                                <CreatureIcon
+                                                    key={`me_${match.game_id}_${id}_${i}`}
+                                                    creatureId={id}
+                                                    size={24}
+                                                />
                                             ))}
                                             {(match.opponent_creature_ids ?? []).length > 0 && (
                                                 <>

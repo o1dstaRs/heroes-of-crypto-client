@@ -358,9 +358,7 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
 
     // Ranked: it's the opponent's turn when the active team is set and isn't ours.
     const isEnemyTurn =
-        viewerTeam !== undefined &&
-        visibleState.teamTypeTurn !== undefined &&
-        visibleState.teamTypeTurn !== viewerTeam;
+        viewerTeam !== undefined && visibleState.teamTypeTurn !== undefined && visibleState.teamTypeTurn !== viewerTeam;
 
     return (
         <>
