@@ -1,0 +1,112 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const lang = "en";
+const isProd =
+    import.meta.env.PROD ||
+    import.meta.env.VITE_IS_PROD === "true" ||
+    import.meta.env.VITE_IS_PROD === true;
+// Strip any trailing "/play" or slash so we have the game client's root and can append the lobby path.
+const clientRoot = (url: string) => String(url).replace(/\/+$/, "").replace(/\/play$/, "");
+const configuredGameClientUrls = [
+    import.meta.env.VITE_GAME_CLIENT_RANKED,
+    import.meta.env.VITE_GAME_CLIENT,
+    import.meta.env.VITE_HOST_GAME_CLIENT,
+]
+    .filter(Boolean)
+    .map((url) => clientRoot(String(url)));
+const fallbackGameClientUrls = isProd
+    ? ["https://game.heroesofcrypto.io"]
+    : [
+          "http://127.0.0.1:5175",
+          "http://localhost:5175",
+          "http://127.0.0.1:5174",
+          "http://localhost:5174",
+          "http://127.0.0.1:5173",
+          "http://localhost:5173",
+      ];
+const gameClientRoots = [...new Set([...configuredGameClientUrls, ...fallbackGameClientUrls])];
+const fallbackUrl = `${gameClientRoots[0]}/lobbies`;
+---
+
+<BaseLayout lang={lang} title="Play with friends" description="Open Heroes of Crypto custom-game lobbies.">
+    <section class="redirect-page">
+        <h1>Opening lobbies</h1>
+        <p>Redirecting to Heroes of Crypto lobbies.</p>
+        <p><a href={fallbackUrl}>Open lobbies</a></p>
+    </section>
+</BaseLayout>
+
+<script define:vars={{ gameClientRoots }}>
+    const localHosts = new Set(["127.0.0.1", "localhost", "::1"]);
+
+    // A specific lobby (?lobby=<id>) deep-links into that lobby room; otherwise open the browse list.
+    const params = new URLSearchParams(window.location.search);
+    const lobbyId = params.get("lobby");
+    const subPath = lobbyId ? `/lobby/${encodeURIComponent(lobbyId)}` : "/lobbies";
+
+    function targetWithToken(root) {
+        const token = localStorage.getItem("accessToken");
+        const target = new URL(`${root}${subPath}`, window.location.href);
+
+        for (const [key, value] of params) {
+            if (key === "lobby") continue;
+            target.searchParams.set(key, value);
+        }
+
+        if (token) {
+            const hashParams = new URLSearchParams(target.hash.startsWith("#") ? target.hash.slice(1) : target.hash);
+            hashParams.set("access_token", token);
+            target.hash = hashParams.toString();
+        }
+
+        return target;
+    }
+
+    async function canReach(url) {
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 700);
+        try {
+            await fetch(url, { cache: "no-store", mode: "no-cors", signal: controller.signal });
+            return true;
+        } catch {
+            return false;
+        } finally {
+            window.clearTimeout(timeout);
+        }
+    }
+
+    async function resolveTarget() {
+        for (const root of gameClientRoots) {
+            const candidate = targetWithToken(root);
+            if (candidate.href === window.location.href) continue;
+            if (!localHosts.has(candidate.hostname)) return candidate;
+            if (!localHosts.has(window.location.hostname) || (await canReach(candidate.href))) return candidate;
+        }
+        return targetWithToken(gameClientRoots[0]);
+    }
+
+    resolveTarget().then((target) => window.location.replace(target.toString()));
+</script>
+
+<style>
+    .redirect-page {
+        min-height: 52vh;
+        display: grid;
+        align-content: center;
+        gap: 12px;
+        width: min(720px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: 64px 0;
+    }
+
+    .redirect-page h1 {
+        margin: 0;
+        font-size: clamp(2rem, 5vw, 4rem);
+    }
+
+    .redirect-page p {
+        margin: 0;
+        color: var(--muted);
+    }
+</style>

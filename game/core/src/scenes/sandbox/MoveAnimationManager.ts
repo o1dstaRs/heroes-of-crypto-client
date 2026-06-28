@@ -72,6 +72,28 @@ export class MoveAnimationManager {
     public isMoving(): boolean {
         return !!this.moveAnimation || !!this.swapAnimation;
     }
+    /**
+     * Force any in-flight move/swap animation to its end state immediately, firing its onComplete so
+     * an awaiting caller (e.g. a replay) can't hang if the per-frame update somehow stops driving it.
+     * A safety valve against a stuck animation freezing the whole scene (no AI re-trigger, snapshots
+     * ignored). No-op when nothing is animating.
+     */
+    public forceFinish(): void {
+        if (this.moveAnimation) {
+            this.finishMoveAnimation();
+        }
+        if (this.swapAnimation) {
+            const s = this.swapAnimation;
+            s.a.unit.setPosition(s.a.to.x, s.a.to.y);
+            s.b.unit.setPosition(s.b.to.x, s.b.to.y);
+            const onComplete = s.onComplete;
+            this.swapAnimation = undefined;
+            this.isActiveUnitMoving = false;
+            this.context.setMoveBlocked(false);
+            this.context.requestVisibleStateUpdate();
+            if (onComplete) onComplete();
+        }
+    }
     public getMovingUnit(): RenderableUnit | undefined {
         return this.moveAnimation?.unit;
     }

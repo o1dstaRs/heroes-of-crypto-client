@@ -22,6 +22,7 @@ export const links = {
     play: "/play",
     rankedApp: "/play/ranked",
     sandboxApp: "/sandbox",
+    lobbiesApp: "/play/lobbies",
     proposal: "https://heroes-of-crypto.gitbook.io/heroes-of-crypto-ai/",
     pool: "https://dexscreener.com/base/0x84b33ed897690bfb627f6cb966ce6a945cf6c6df",
     swap: "https://app.uniswap.org/swap?chain=base&exactField=input&inputCurrency=ETH&outputCurrency=0x48bb4b12098Fc65b261Dfb3584AE95FDCd847343",
@@ -95,8 +96,12 @@ export const content = {
             sandboxLabel: "Sandbox beta",
             rankedBadge: "Ranked",
             sandboxBadge: "Beta",
+            lobbiesBadge: "Lobby",
             rankedHint: "Matchmaking with real opponents",
             sandboxHint: "Practice builds, spells, and board states before ranked.",
+            lobbiesCta: "Play with friends",
+            lobbiesHint: "Create a lobby or join one by link — public or private.",
+            lobbiesSectionTitle: "Open lobbies",
             startLabel: "Start game",
             modeTitle: "Choose how to play",
             modeBody:
@@ -188,12 +193,12 @@ export const content = {
             "terms-of-service": {
                 title: "Terms of Service",
                 eyebrow: "Legal",
-                description: "Terms for accessing Heroes of Crypto AI services.",
+                description: "The terms for playing Heroes of Crypto — a free, browser-based strategy game.",
             },
             "privacy-policy": {
                 title: "Privacy Policy",
                 eyebrow: "Legal",
-                description: "How Heroes of Crypto AI handles information connected to its services.",
+                description: "What data Heroes of Crypto collects and how your account and gameplay information is handled.",
             },
         },
         hero: {
@@ -202,7 +207,7 @@ export const content = {
             tagline: "Click play. Build an army. Win the board.",
             body: "A tactical battle game where positioning, faction synergies, and 75+ spells and abilities decide every fight. No download, no wallet gate - click play and choose ranked or the sandbox beta.",
             primaryCta: "Play",
-            secondaryCta: "Browse units",
+            secondaryCta: "Read rules",
             availability: "Ranked and sandbox beta",
             highlights: ["No download", "No wallet gate", "Ranked or sandbox beta"],
             stats: [
@@ -367,148 +372,183 @@ export const content = {
         patches: patchNotes.en,
         legal: {
             terms: {
-                updated: "14/11/2024",
-                intro: "Welcome to Heroes of Crypto AI, an open-source, blockchain-based game developed by Old Stars Gaming (OSG). By registering, accessing, or using our game, associated services, websites, or applications, you agree to these Terms of Service.",
+                updated: "27/06/2026",
+                intro: "Heroes of Crypto is a free, browser-based turn-based strategy game made by Old Stars Gaming ('OSG', 'we', 'us'). These Terms of Service ('Terms') govern your access to and use of the game, our websites, and related services (together, the 'Services'). By creating an account or otherwise using the Services, you agree to these Terms. If you do not agree, please do not use the Services.",
                 sections: [
                     {
-                        title: "1. Eligibility",
+                        title: "1. Who can play",
                         body: [
-                            "You must be at least 18 years old or have reached the age of majority in your jurisdiction to use the Services.",
-                            "You agree to comply with all applicable local, state, and national laws and regulations.",
+                            "You must be at least 18 years old, or the age of majority where you live, to use the Services.",
+                            "You are responsible for following any laws that apply to you when you play.",
                         ],
                     },
                     {
-                        title: "2. Account Registration and Security",
+                        title: "2. Your account",
                         body: [
-                            "You must provide accurate and up-to-date account information when using Services that require registration.",
-                            "You are responsible for maintaining the security of your account credentials and for activities conducted through your account.",
-                            "OSG may suspend or terminate accounts suspected of unauthorized use, fraudulent behavior, or other breaches of these Terms.",
+                            "You can try sandbox mode without an account. Ranked play and some other features need a free account created with a username, an email address, and a password.",
+                            "Keep your login details private and accurate. You are responsible for everything that happens through your account, so do not share it or use anyone else's.",
+                            "Email support@heroesofcrypto.io if you think your account has been accessed without your permission.",
                         ],
                     },
                     {
-                        title: "3. User Conduct",
+                        title: "3. Your licence to play",
                         body: [
-                            "You agree not to use the Services for unlawful purposes or to interfere with the Services, other users, or our systems.",
-                            "Prohibited behavior includes exploiting bugs, using unauthorized software, fraudulent transactions, or abusive conduct.",
+                            "We grant you a personal, limited, non-exclusive, non-transferable, revocable licence to access and play the game for your own non-commercial entertainment.",
+                            "You may not sell, rent, or commercialise access to the Services, or use them to build a competing product, except as expressly allowed by the open-source licences referenced below.",
                         ],
                     },
                     {
-                        title: "4. Intellectual Property Rights",
+                        title: "4. The game is free to play",
                         body: [
-                            "Game mechanics, characters, art, and other assets are protected by intellectual property laws and may not be copied or modified without permission.",
-                            "Community contributions may be subject to licensing terms on our GitHub repositories. By contributing, you grant OSG a non-exclusive, worldwide license to use, modify, and distribute those contributions as part of the game.",
+                            "The Services are free. You do not need to download software or connect a crypto wallet to play, and we do not sell gameplay advantages.",
+                            "Any in-game items, ranks, ratings, or currencies exist only inside the game, have no real-world or monetary value, and are not your property.",
                         ],
                     },
                     {
-                        title: "5. Purchases, Tokens, and Digital Assets",
+                        title: "5. Beta and changes to the game",
                         body: [
-                            "Transactions involving $HOCAI tokens, NFTs, and other digital assets are final and non-refundable unless required by applicable law.",
-                            "By purchasing or using tokens, you acknowledge the risks associated with cryptocurrencies, including price volatility and regulatory changes.",
-                            "OSG does not guarantee any monetary value for $HOCAI tokens or other digital assets.",
+                            "Heroes of Crypto is under active development and is provided on an 'as is' and 'as available' basis. Features, unit rosters, balance, maps, ratings, ladders, and other content can change, be reset, or be removed at any time, with or without notice.",
+                            "We do not promise uninterrupted availability or that your progress, ratings, or statistics will be preserved.",
                         ],
                     },
                     {
-                        title: "6. Community Engagement and Governance",
+                        title: "6. Fair play and conduct",
                         body: [
-                            "Heroes of Crypto AI is community-driven. By participating, you agree to contribute in good faith and respect other users.",
-                            "OSG may collect feedback or hold community votes, while retaining final decision authority for the Services.",
+                            "So that matches stay fair, you agree not to use cheats, bots, scripts, or other automation; exploit bugs or unintended mechanics; tamper with the game client or its network traffic; or manipulate matchmaking, ratings, or results (including collusion, account sharing, smurfing, or intentionally losing).",
+                            "You also agree not to harass, threaten, impersonate, or abuse other players or staff, and not to choose a username or submit text that is offensive, infringing, or misleading.",
+                            "We may remove content, reset ratings, and suspend or permanently ban accounts that break these rules.",
                         ],
                     },
                     {
-                        title: "7. Privacy Policy",
+                        title: "7. Intellectual property and open source",
                         body: [
-                            "Please read our Privacy Policy to understand how we collect, use, and share information.",
+                            "The game's name, logos, art, characters, audio, and other assets are owned by OSG or its licensors and are protected by intellectual-property laws. You may not copy, modify, or redistribute them without permission.",
+                            "Parts of the project are open source and published under the licences stated in our public repositories; your use of that code is governed by those licences. If you contribute code or content, you grant OSG a non-exclusive, worldwide, royalty-free licence to use, modify, and distribute your contribution as part of the Services.",
                         ],
                     },
                     {
-                        title: "8. Liability and Warranty Disclaimer",
+                        title: "8. Tokens and digital assets",
                         body: [
-                            "The Services are provided AS IS and AS AVAILABLE without warranties of any kind.",
-                            "OSG will not be liable for indirect, incidental, special, consequential, or punitive damages arising from use of the Services.",
-                            "You agree to indemnify and hold OSG harmless from claims connected with your breach of these Terms.",
+                            "Playing Heroes of Crypto never requires buying, holding, or using any cryptocurrency. If the project separately offers the $HOCAI token or other digital assets, that is optional and independent of gameplay.",
+                            "Digital assets carry risks, including price volatility, loss of access, and changing regulation. Transactions may be irreversible, OSG does not guarantee any value, and nothing here is financial advice. Only take part if it is lawful where you live and you understand the risks.",
                         ],
                     },
                     {
-                        title: "9. Termination",
+                        title: "9. Disclaimers",
                         body: [
-                            "OSG may suspend or terminate access at any time, with or without notice, if you breach these Terms or engage in harmful conduct.",
+                            "The Services are provided 'as is' and 'as available' without warranties of any kind, whether express or implied, including merchantability, fitness for a particular purpose, or that the Services will be uninterrupted, secure, or error-free.",
                         ],
                     },
                     {
-                        title: "10. Changes to the Terms",
+                        title: "10. Limitation of liability and indemnity",
                         body: [
-                            "OSG may update these Terms from time to time. Continued use after changes take effect constitutes acceptance of the revised Terms.",
+                            "To the fullest extent permitted by law, OSG will not be liable for any indirect, incidental, special, consequential, or punitive damages, or for any loss of data, ratings, or progress, arising from your use of the Services.",
+                            "You agree to indemnify and hold OSG harmless from claims arising out of your misuse of the Services or your breach of these Terms.",
                         ],
                     },
                     {
-                        title: "11. Governing Law",
+                        title: "11. Suspension and termination",
                         body: [
-                            "These Terms are governed by the laws of the State of Washington, United States. Disputes shall be resolved through arbitration in Seattle, Washington, unless otherwise required by law.",
+                            "You can stop using the Services and close your account at any time. We may suspend or end your access at any time, with or without notice, if you breach these Terms or act in a way that harms the Services or other players.",
                         ],
                     },
                     {
-                        title: "12. Contact Us",
-                        body: ["For questions about these Terms, contact support@heroesofcrypto.io."],
+                        title: "12. Changes to these Terms",
+                        body: [
+                            "We may update these Terms from time to time. We will change the 'Last Updated' date, and significant changes may be announced in-game or on our channels. If you keep using the Services after an update takes effect, you accept the revised Terms.",
+                        ],
+                    },
+                    {
+                        title: "13. Governing law",
+                        body: [
+                            "These Terms are governed by the laws of the State of Washington, United States, without regard to its conflict-of-law rules. Disputes will be resolved through arbitration in Seattle, Washington, unless applicable law requires otherwise.",
+                        ],
+                    },
+                    {
+                        title: "14. Contact",
+                        body: ["Questions about these Terms? Email support@heroesofcrypto.io."],
                     },
                 ],
             },
             privacy: {
-                updated: "14/11/2024",
-                intro: "Old Stars Gaming (OSG, we, us, or our) is committed to protecting your privacy. This Privacy Policy describes how we collect, use, disclose, and safeguard information when you use Heroes of Crypto AI and associated services.",
+                updated: "27/06/2026",
+                intro: "Old Stars Gaming ('OSG', 'we', 'us') respects your privacy. This Privacy Policy explains what information we collect when you use Heroes of Crypto and how we use, share, and protect it. You can play sandbox mode without an account; ranked play and some features need a free account.",
                 sections: [
                     {
-                        title: "1. Information We Collect",
+                        title: "1. Information we collect",
                         body: [
-                            "We may collect personal information such as username, email address, wallet address, and account details.",
-                            "We may collect usage data, device information, blockchain data, and communications you provide through support or community interactions.",
+                            "Account information: when you register we collect a username, an email address, and a password, which we store only in hashed form.",
+                            "Gameplay data: the matches you play, in-game actions, results, ratings, and related statistics needed to run the game and matchmaking.",
+                            "Technical data: basic device and browser details, an approximate location derived from your IP address, and server logs, used for security, anti-cheat, and troubleshooting.",
+                            "Communications: messages you send us for support or feedback.",
+                            "Optional wallet data: only if you choose to connect a crypto wallet for token features do we process your public wallet address. This is never required to play.",
                         ],
                     },
                     {
-                        title: "2. How We Use Information",
+                        title: "2. How we use information",
                         body: [
-                            "We use information to provide, maintain, and improve the Services, communicate with you, personalize your experience, and comply with legal obligations.",
+                            "We use your information to run, secure, and improve the game; match you with opponents and maintain ratings and ladders; prevent cheating, fraud, and abuse; provide support; and comply with our legal obligations.",
                         ],
                     },
                     {
-                        title: "3. Sharing Information",
+                        title: "3. Legal bases",
                         body: [
-                            "We may share information with service providers, legal or regulatory authorities, open-source community channels, or a successor entity in a business transfer.",
+                            "Where data-protection laws such as the GDPR apply, we process your information to perform our contract with you (running the game and your account), for our legitimate interests (security, anti-cheat, and improving the Services), to comply with the law, and, where required, with your consent.",
                         ],
                     },
                     {
-                        title: "4. Security",
+                        title: "4. Cookies and local storage",
                         body: [
-                            "We take reasonable measures to protect information, but no internet or blockchain transmission is entirely secure. By using the Services, you acknowledge these risks.",
+                            "We store a sign-in/session token and basic preferences in your browser's local storage so you can stay logged in and keep your settings. We do not use these for cross-site advertising and we do not sell them.",
                         ],
                     },
                     {
-                        title: "5. Your Rights and Choices",
+                        title: "5. How we share information",
                         body: [
-                            "Subject to applicable law, you may access or update account information, request deletion by contacting support@heroesofcrypto.io, or opt out of promotional communications.",
-                            "Some blockchain data is public and immutable and cannot be altered or deleted.",
+                            "We do not sell your personal information. We may share it with service providers that host and operate the game for us, with authorities when the law requires it, and with a successor if the project is transferred.",
+                            "Public profile details such as your username and ratings may be visible to other players.",
                         ],
                     },
                     {
-                        title: "6. Children",
+                        title: "6. Data retention",
                         body: [
-                            "The Services are not intended for individuals under 18. We do not knowingly collect personal information from children.",
+                            "We keep account and gameplay data while your account is active or as needed to operate the Services, then delete or anonymise it unless we are required to keep it for legal reasons.",
                         ],
                     },
                     {
-                        title: "7. Third-Party Links",
+                        title: "7. International transfers",
                         body: [
-                            "The Services may link to third-party websites or applications. We are not responsible for their privacy practices.",
+                            "We may process and store information on servers located in other countries. Where required, we take steps to ensure your information receives an appropriate level of protection.",
                         ],
                     },
                     {
-                        title: "8. Changes",
+                        title: "8. Your rights and choices",
                         body: [
-                            "We may update this Privacy Policy from time to time by updating the Last Updated date and, where necessary, providing additional notice.",
+                            "Subject to applicable law, you can access or update your account information, request a copy or deletion of your data, object to or restrict certain processing, and opt out of non-essential emails. To make a request, email support@heroesofcrypto.io.",
+                            "Note that any data recorded on a public blockchain (if you used token features) is public and may not be deletable.",
                         ],
                     },
                     {
-                        title: "9. Contact Us",
-                        body: ["For privacy questions, contact support@heroesofcrypto.io."],
+                        title: "9. Children",
+                        body: [
+                            "The Services are intended for people aged 18 and over. We do not knowingly collect personal information from children; if you believe a child has provided us data, contact us and we will delete it.",
+                        ],
+                    },
+                    {
+                        title: "10. Third-party links",
+                        body: [
+                            "Our sites may link to third-party services such as community channels or blockchain explorers. We are not responsible for their content or privacy practices.",
+                        ],
+                    },
+                    {
+                        title: "11. Changes to this Policy",
+                        body: [
+                            "We may update this Policy from time to time. We will revise the 'Last Updated' date, and significant changes may be announced in-game or on our channels.",
+                        ],
+                    },
+                    {
+                        title: "12. Contact",
+                        body: ["Privacy questions or requests? Email support@heroesofcrypto.io."],
                     },
                 ],
             },
@@ -549,8 +589,12 @@ export const content = {
             sandboxLabel: "Песочница",
             rankedBadge: "Рейтинг",
             sandboxBadge: "Бета",
+            lobbiesBadge: "Лобби",
             rankedHint: "Матчмейкинг против реальных соперников",
             sandboxHint: "Практика армий, заклинаний и состояний поля перед рейтинговыми матчами.",
+            lobbiesCta: "Игра с друзьями",
+            lobbiesHint: "Создайте лобби или зайдите по ссылке — открытое или приватное.",
+            lobbiesSectionTitle: "Открытые лобби",
             startLabel: "Запуск игры",
             modeTitle: "Выберите режим",
             modeBody:
@@ -642,12 +686,12 @@ export const content = {
             "terms-of-service": {
                 title: "Условия использования",
                 eyebrow: "Правовая информация",
-                description: "Условия доступа к сервисам Heroes of Crypto AI.",
+                description: "Условия игры в Heroes of Crypto — бесплатную браузерную стратегию.",
             },
             "privacy-policy": {
                 title: "Политика конфиденциальности",
                 eyebrow: "Правовая информация",
-                description: "Как Heroes of Crypto AI обрабатывает информацию, связанную с сервисами.",
+                description: "Какие данные собирает Heroes of Crypto и как обрабатываются данные аккаунта и игры.",
             },
         },
         hero: {
@@ -656,7 +700,7 @@ export const content = {
             tagline: "Нажмите «Играть». Соберите отряд. Заберите поле.",
             body: "Тактические бои, где позиционирование, фракционные синергии и 75+ заклинаний и способностей решают исход каждой схватки. Без скачивания и без привязки кошелька: нажмите «Играть» и выберите рейтинг или песочницу.",
             primaryCta: "Играть",
-            secondaryCta: "Открыть юнитов",
+            secondaryCta: "Читать правила",
             availability: "Рейтинг и песочница",
             highlights: ["Без скачивания", "Без привязки кошелька", "Рейтинг или песочница"],
             stats: [
@@ -820,148 +864,183 @@ export const content = {
         patches: patchNotes.ru,
         legal: {
             terms: {
-                updated: "14.11.2024",
-                intro: "Добро пожаловать в Heroes of Crypto AI, блокчейн-игру с открытым исходным кодом, разработанную Old Stars Gaming (OSG). Регистрируясь, получая доступ или используя игру, связанные сервисы, сайты или приложения, вы соглашаетесь с этими Условиями использования.",
+                updated: "27.06.2026",
+                intro: "Heroes of Crypto — это бесплатная браузерная пошаговая стратегия от Old Stars Gaming («OSG», «мы», «нас»). Настоящие Условия использования («Условия») регулируют ваш доступ к игре, нашим сайтам и связанным сервисам (вместе — «Сервисы») и их использование. Создавая аккаунт или иным образом используя Сервисы, вы соглашаетесь с этими Условиями. Если вы не согласны, не используйте Сервисы.",
                 sections: [
                     {
-                        title: "1. Право на использование",
+                        title: "1. Кто может играть",
                         body: [
-                            "Для использования Сервисов вам должно быть не менее 18 лет или вы должны достичь возраста совершеннолетия в вашей юрисдикции.",
-                            "Вы соглашаетесь соблюдать все применимые местные, региональные и национальные законы и правила.",
+                            "Вам должно быть не менее 18 лет или вы должны достичь возраста совершеннолетия в вашей юрисдикции, чтобы использовать Сервисы.",
+                            "Вы сами отвечаете за соблюдение применимых к вам законов во время игры.",
                         ],
                     },
                     {
-                        title: "2. Аккаунт и безопасность",
+                        title: "2. Ваш аккаунт",
                         body: [
-                            "Если Сервисы требуют регистрации, вы обязуетесь предоставлять точную и актуальную информацию.",
-                            "Вы отвечаете за безопасность учетных данных и действия, совершенные через ваш аккаунт.",
-                            "OSG может приостановить или прекратить доступ аккаунтов при подозрении на несанкционированное использование, мошенничество или нарушение этих Условий.",
+                            "Песочницу можно попробовать без аккаунта. Для рейтинговой игры и некоторых других функций нужен бесплатный аккаунт с именем пользователя, email и паролем.",
+                            "Храните данные для входа в секрете и указывайте достоверную информацию. Вы отвечаете за все действия, совершённые через ваш аккаунт, поэтому не передавайте его и не используйте чужой.",
+                            "Напишите на support@heroesofcrypto.io, если считаете, что к вашему аккаунту получили доступ без вашего разрешения.",
                         ],
                     },
                     {
-                        title: "3. Поведение пользователя",
+                        title: "3. Лицензия на игру",
                         body: [
-                            "Вы соглашаетесь не использовать Сервисы в незаконных целях и не мешать работе Сервисов, других пользователей или наших систем.",
-                            "Запрещенное поведение включает эксплуатацию ошибок, использование неразрешенного ПО, мошеннические операции и оскорбительное поведение.",
+                            "Мы предоставляем вам персональную, ограниченную, неисключительную, непередаваемую и отзывную лицензию на доступ к игре и игру в неё в личных некоммерческих целях.",
+                            "Вы не вправе продавать, сдавать в аренду или коммерциализировать доступ к Сервисам, а также использовать их для создания конкурирующего продукта, кроме случаев, прямо разрешённых лицензиями открытого исходного кода, упомянутыми ниже.",
                         ],
                     },
                     {
-                        title: "4. Интеллектуальная собственность",
+                        title: "4. Игра бесплатна",
                         body: [
-                            "Игровые механики, персонажи, арт и другие ассеты защищены законами об интеллектуальной собственности и не могут копироваться или изменяться без разрешения.",
-                            "Вклады сообщества могут регулироваться лицензиями в наших GitHub-репозиториях. Передавая вклад, вы предоставляете OSG неисключительную всемирную лицензию на использование, изменение и распространение такого вклада как части игры.",
+                            "Сервисы бесплатны. Чтобы играть, не нужно ничего скачивать или подключать криптокошелёк, и мы не продаём игровые преимущества.",
+                            "Любые внутриигровые предметы, ранги, рейтинги или валюты существуют только внутри игры, не имеют реальной или денежной стоимости и не являются вашей собственностью.",
                         ],
                     },
                     {
-                        title: "5. Покупки, токены и цифровые активы",
+                        title: "5. Бета и изменения игры",
                         body: [
-                            "Операции с $HOCAI, NFT и другими цифровыми активами являются окончательными и не подлежат возврату, если иное не требуется законом.",
-                            "Покупая или используя токены, вы признаете риски криптовалют, включая волатильность цены и регуляторные изменения.",
-                            "OSG не гарантирует денежную стоимость $HOCAI или других цифровых активов.",
+                            "Heroes of Crypto активно разрабатывается и предоставляется «как есть» и «по доступности». Функции, ростер юнитов, баланс, карты, рейтинги, таблицы лидеров и другой контент могут меняться, сбрасываться или удаляться в любое время, с уведомлением или без него.",
+                            "Мы не гарантируем бесперебойную доступность и сохранность вашего прогресса, рейтингов или статистики.",
                         ],
                     },
                     {
-                        title: "6. Сообщество и управление",
+                        title: "6. Честная игра и поведение",
                         body: [
-                            "Heroes of Crypto AI развивается вместе с сообществом. Участвуя, вы соглашаетесь действовать добросовестно и уважать других пользователей.",
-                            "OSG может собирать обратную связь или проводить голосования, сохраняя за собой финальное право принятия решений по Сервисам.",
+                            "Чтобы матчи оставались честными, вы соглашаетесь не использовать читы, ботов, скрипты и иную автоматизацию; не эксплуатировать ошибки и непредусмотренные механики; не вмешиваться в игровой клиент или его сетевой трафик; и не манипулировать подбором соперников, рейтингами или результатами (включая сговор, передачу аккаунта, смурфинг или намеренные поражения).",
+                            "Вы также соглашаетесь не оскорблять, не угрожать, не выдавать себя за других и не злоупотреблять в адрес игроков или команды, а также не выбирать имя пользователя и не отправлять текст, которые оскорбительны, нарушают права или вводят в заблуждение.",
+                            "Мы можем удалять контент, сбрасывать рейтинги, а также временно или навсегда блокировать аккаунты, нарушающие эти правила.",
                         ],
                     },
                     {
-                        title: "7. Политика конфиденциальности",
+                        title: "7. Интеллектуальная собственность и открытый код",
                         body: [
-                            "Ознакомьтесь с Политикой конфиденциальности, чтобы понять, как мы собираем, используем и передаем информацию.",
+                            "Название игры, логотипы, арт, персонажи, аудио и другие ассеты принадлежат OSG или её лицензиарам и защищены законами об интеллектуальной собственности. Их нельзя копировать, изменять или распространять без разрешения.",
+                            "Часть проекта имеет открытый исходный код и публикуется под лицензиями, указанными в наших публичных репозиториях; использование такого кода регулируется этими лицензиями. Передавая код или контент, вы предоставляете OSG неисключительную всемирную безвозмездную лицензию на использование, изменение и распространение вашего вклада в составе Сервисов.",
                         ],
                     },
                     {
-                        title: "8. Ограничение ответственности",
+                        title: "8. Токены и цифровые активы",
                         body: [
-                            "Сервисы предоставляются «как есть» и «по доступности» без каких-либо гарантий.",
-                            "OSG не несет ответственности за косвенные, случайные, специальные, последующие или штрафные убытки, возникшие из использования Сервисов.",
-                            "Вы соглашаетесь защищать OSG от претензий, связанных с вашим нарушением этих Условий.",
+                            "Игра в Heroes of Crypto никогда не требует покупки, хранения или использования какой-либо криптовалюты. Если проект отдельно предлагает токен $HOCAI или другие цифровые активы, это необязательно и не связано с игровым процессом.",
+                            "Цифровые активы несут риски, включая волатильность цены, потерю доступа и изменение регулирования. Операции могут быть необратимыми, OSG не гарантирует никакой стоимости, и ничто здесь не является финансовым советом. Участвуйте, только если это законно там, где вы живёте, и вы понимаете риски.",
                         ],
                     },
                     {
-                        title: "9. Прекращение доступа",
+                        title: "9. Отказ от гарантий",
                         body: [
-                            "OSG может приостановить или прекратить доступ в любое время, с уведомлением или без него, если вы нарушаете эти Условия или совершаете вредоносные действия.",
+                            "Сервисы предоставляются «как есть» и «по доступности» без каких-либо гарантий, явных или подразумеваемых, включая товарную пригодность, пригодность для конкретной цели или бесперебойную, безопасную и безошибочную работу.",
                         ],
                     },
                     {
-                        title: "10. Изменения Условий",
+                        title: "10. Ограничение ответственности и возмещение",
                         body: [
-                            "OSG может периодически обновлять эти Условия. Продолжение использования после вступления изменений в силу означает принятие обновленных Условий.",
+                            "В максимально допустимой законом степени OSG не несёт ответственности за любые косвенные, случайные, специальные, последующие или штрафные убытки, а также за потерю данных, рейтингов или прогресса, возникшие из использования Сервисов.",
+                            "Вы соглашаетесь возмещать OSG ущерб и ограждать её от претензий, связанных с вашим неправомерным использованием Сервисов или нарушением этих Условий.",
                         ],
                     },
                     {
-                        title: "11. Применимое право",
+                        title: "11. Приостановка и прекращение доступа",
                         body: [
-                            "Эти Условия регулируются законами штата Вашингтон, США. Споры разрешаются арбитражем в Сиэтле, штат Вашингтон, если иное не требуется законом.",
+                            "Вы можете в любое время прекратить использование Сервисов и закрыть аккаунт. Мы можем приостановить или прекратить ваш доступ в любое время, с уведомлением или без него, если вы нарушаете эти Условия или действуете во вред Сервисам или другим игрокам.",
                         ],
                     },
                     {
-                        title: "12. Контакты",
-                        body: ["По вопросам этих Условий пишите на support@heroesofcrypto.io."],
+                        title: "12. Изменения Условий",
+                        body: [
+                            "Мы можем периодически обновлять эти Условия. Мы изменим дату «Последнее обновление», а о существенных изменениях можем сообщить в игре или на наших каналах. Продолжая пользоваться Сервисами после вступления изменений в силу, вы принимаете обновлённые Условия.",
+                        ],
+                    },
+                    {
+                        title: "13. Применимое право",
+                        body: [
+                            "Эти Условия регулируются законами штата Вашингтон, США, без учёта коллизионных норм. Споры разрешаются арбитражем в Сиэтле, штат Вашингтон, если иное не требуется применимым законом.",
+                        ],
+                    },
+                    {
+                        title: "14. Контакты",
+                        body: ["Вопросы по этим Условиям? Пишите на support@heroesofcrypto.io."],
                     },
                 ],
             },
             privacy: {
-                updated: "14.11.2024",
-                intro: "Old Stars Gaming (OSG, мы, нас или наш) стремится защищать вашу приватность. Эта Политика описывает, как мы собираем, используем, раскрываем и защищаем информацию при использовании Heroes of Crypto AI и связанных сервисов.",
+                updated: "27.06.2026",
+                intro: "Old Stars Gaming («OSG», «мы», «нас») уважает вашу приватность. Эта Политика конфиденциальности объясняет, какую информацию мы собираем при использовании Heroes of Crypto и как мы её используем, передаём и защищаем. Песочницу можно использовать без аккаунта; для рейтинговой игры и некоторых функций нужен бесплатный аккаунт.",
                 sections: [
                     {
                         title: "1. Какую информацию мы собираем",
                         body: [
-                            "Мы можем собирать персональную информацию, такую как имя пользователя, email, адрес кошелька и данные аккаунта.",
-                            "Мы можем собирать данные об использовании, информацию об устройстве, данные блокчейна и сообщения, которые вы отправляете через поддержку или каналы сообщества.",
+                            "Данные аккаунта: при регистрации мы собираем имя пользователя, email и пароль, который храним только в виде хэша.",
+                            "Игровые данные: сыгранные матчи, внутриигровые действия, результаты, рейтинги и связанная статистика, необходимые для работы игры и подбора соперников.",
+                            "Технические данные: базовые сведения об устройстве и браузере, примерное местоположение по IP-адресу и серверные логи — для безопасности, защиты от читов и диагностики.",
+                            "Обращения: сообщения, которые вы отправляете нам в поддержку или как обратную связь.",
+                            "Необязательные данные кошелька: только если вы решите подключить криптокошелёк для функций токена, мы обрабатываем ваш публичный адрес кошелька. Это никогда не требуется для игры.",
                         ],
                     },
                     {
                         title: "2. Как мы используем информацию",
                         body: [
-                            "Мы используем информацию для предоставления, поддержки и улучшения Сервисов, связи с вами, персонализации опыта и соблюдения юридических обязательств.",
+                            "Мы используем вашу информацию, чтобы запускать, защищать и улучшать игру; подбирать соперников и вести рейтинги и таблицы лидеров; предотвращать читы, мошенничество и злоупотребления; оказывать поддержку; и выполнять наши юридические обязанности.",
                         ],
                     },
                     {
-                        title: "3. Передача информации",
+                        title: "3. Правовые основания",
                         body: [
-                            "Мы можем передавать информацию поставщикам услуг, юридическим или регуляторным органам, каналам сообщества с открытым исходным кодом или правопреемнику при передаче бизнеса.",
+                            "Там, где применяются законы о защите данных, такие как GDPR, мы обрабатываем вашу информацию для исполнения договора с вами (работа игры и вашего аккаунта), в наших законных интересах (безопасность, защита от читов и улучшение Сервисов), для соблюдения закона и, где требуется, с вашего согласия.",
                         ],
                     },
                     {
-                        title: "4. Безопасность",
+                        title: "4. Файлы cookie и локальное хранилище",
                         body: [
-                            "Мы принимаем разумные меры защиты, но ни передача данных через интернет, ни блокчейн-транзакции не являются полностью безопасными. Используя Сервисы, вы признаете эти риски.",
+                            "Мы храним токен входа/сессии и базовые настройки в локальном хранилище вашего браузера, чтобы вы оставались в системе и сохраняли настройки. Мы не используем их для межсайтовой рекламы и не продаём их.",
                         ],
                     },
                     {
-                        title: "5. Ваши права и выбор",
+                        title: "5. Как мы передаём информацию",
                         body: [
-                            "В рамках применимого закона вы можете получать доступ к аккаунту, обновлять данные, запросить удаление через support@heroesofcrypto.io или отказаться от промо-коммуникаций.",
-                            "Некоторые данные блокчейна являются публичными и неизменяемыми, поэтому их нельзя изменить или удалить.",
+                            "Мы не продаём вашу персональную информацию. Мы можем передавать её поставщикам услуг, которые размещают и обслуживают игру для нас, органам власти, когда этого требует закон, и правопреемнику при передаче проекта.",
+                            "Публичные данные профиля, такие как имя пользователя и рейтинги, могут быть видны другим игрокам.",
                         ],
                     },
                     {
-                        title: "6. Дети",
+                        title: "6. Хранение данных",
                         body: [
-                            "Сервисы не предназначены для лиц младше 18 лет. Мы сознательно не собираем персональную информацию детей.",
+                            "Мы храним данные аккаунта и игровые данные, пока ваш аккаунт активен или пока это нужно для работы Сервисов, затем удаляем или обезличиваем их, если только мы не обязаны хранить их по закону.",
                         ],
                     },
                     {
-                        title: "7. Сторонние ссылки",
+                        title: "7. Международная передача",
                         body: [
-                            "Сервисы могут содержать ссылки на сторонние сайты или приложения. Мы не отвечаем за их практики конфиденциальности.",
+                            "Мы можем обрабатывать и хранить информацию на серверах в других странах. Где требуется, мы принимаем меры, чтобы вашей информации обеспечивался надлежащий уровень защиты.",
                         ],
                     },
                     {
-                        title: "8. Изменения",
+                        title: "8. Ваши права и выбор",
                         body: [
-                            "Мы можем периодически обновлять эту Политику, меняя дату последнего обновления и, при необходимости, предоставляя дополнительное уведомление.",
+                            "В рамках применимого закона вы можете получать доступ к данным аккаунта и обновлять их, запрашивать копию или удаление ваших данных, возражать против отдельной обработки или ограничивать её, а также отказываться от необязательных писем. Чтобы отправить запрос, пишите на support@heroesofcrypto.io.",
+                            "Учтите, что данные, записанные в публичный блокчейн (если вы использовали функции токена), являются публичными и могут не подлежать удалению.",
                         ],
                     },
                     {
-                        title: "9. Контакты",
-                        body: ["По вопросам приватности пишите на support@heroesofcrypto.io."],
+                        title: "9. Дети",
+                        body: [
+                            "Сервисы предназначены для лиц от 18 лет. Мы сознательно не собираем персональную информацию детей; если вы считаете, что ребёнок предоставил нам данные, свяжитесь с нами, и мы их удалим.",
+                        ],
+                    },
+                    {
+                        title: "10. Сторонние ссылки",
+                        body: [
+                            "Наши сайты могут ссылаться на сторонние сервисы, например каналы сообщества или блокчейн-обозреватели. Мы не отвечаем за их содержимое и практики конфиденциальности.",
+                        ],
+                    },
+                    {
+                        title: "11. Изменения Политики",
+                        body: [
+                            "Мы можем периодически обновлять эту Политику. Мы изменим дату «Последнее обновление», а о существенных изменениях можем сообщить в игре или на наших каналах.",
+                        ],
+                    },
+                    {
+                        title: "12. Контакты",
+                        body: ["Вопросы или запросы по приватности? Пишите на support@heroesofcrypto.io."],
                     },
                 ],
             },

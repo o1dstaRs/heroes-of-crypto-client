@@ -45,10 +45,77 @@ const copy = content[lang];
                     <strong>{copy.play.sandboxCta}</strong>
                     <span>{copy.play.sandboxHint}</span>
                 </a>
+                <a class="mode-card mode-card-lobbies" href={links.lobbiesApp}>
+                    <span class="mode-card-top">
+                        <span class="mode-card-icon">
+                            <img src="/assets/icons/navbar/joystick.svg" alt="" width="28" height="28" />
+                        </span>
+                        <em>{copy.play.lobbiesBadge}</em>
+                    </span>
+                    <strong>{copy.play.lobbiesCta}</strong>
+                    <span>{copy.play.lobbiesHint}</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="page-shell lobbies-section">
+            <h2 class="lobbies-section-title">{copy.play.lobbiesSectionTitle}</h2>
+            <div id="open-lobbies" class="open-lobbies" data-lobbies-app={links.lobbiesApp}>
+                <p class="open-lobbies-empty">Loading lobbies…</p>
             </div>
         </div>
     </section>
 </BaseLayout>
+
+<script>
+    import { LobbyList } from "@heroesofcrypto/common/src/generated/protobuf/v1/messages_reexports";
+
+    const isProd =
+        import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true" || import.meta.env.VITE_IS_PROD === true;
+    // In dev the matchmaking API runs on :3001 (a separate origin from the Astro site on :4321), so
+    // never fall back to the site's own origin — that has no /v1 API and 404s the lobby list.
+    const mmBaseUrl =
+        import.meta.env.VITE_HOST_MATCHMAKING_API ||
+        import.meta.env.VITE_MATCHMAKING_API ||
+        (isProd ? "https://mm.heroesofcrypto.io" : "http://localhost:3001");
+    const lobbiesEndpoint = `${mmBaseUrl.replace(/\/+$/, "")}${isProd ? "/v1/lobbies" : "/v1/mm/lobbies"}`;
+
+    const escapeHtml = (value: string): string =>
+        value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+    const container = document.getElementById("open-lobbies");
+    const lobbiesApp = container?.dataset.lobbiesApp ?? "/play/lobbies";
+
+    async function refreshLobbies(): Promise<void> {
+        if (!container) return;
+        try {
+            const res = await fetch(lobbiesEndpoint, { headers: { Accept: "application/octet-stream" } });
+            if (!res.ok) throw new Error(String(res.status));
+            const bytes = new Uint8Array(await res.arrayBuffer());
+            const lobbies = LobbyList.deserializeBinary(bytes).toObject().lobbies ?? [];
+            if (lobbies.length === 0) {
+                container.innerHTML = '<p class="open-lobbies-empty">No open lobbies right now.</p>';
+                return;
+            }
+            container.innerHTML = lobbies
+                .map((lobby: any) => {
+                    const host = lobby.host ?? {};
+                    const name = escapeHtml(lobby.name || `${host.username ?? "Player"}'s lobby`);
+                    const meta = escapeHtml(
+                        `${host.username ?? "Player"} · ${host.league ?? "Unranked"} · ${host.rating ?? 0}`,
+                    );
+                    const href = `${lobbiesApp}?lobby=${encodeURIComponent(lobby.id)}`;
+                    return `<a class="open-lobby" href="${href}"><span class="open-lobby-name">${name}</span><span class="open-lobby-meta">${meta}</span></a>`;
+                })
+                .join("");
+        } catch {
+            container.innerHTML = '<p class="open-lobbies-empty">Could not load lobbies.</p>';
+        }
+    }
+
+    void refreshLobbies();
+    window.setInterval(() => void refreshLobbies(), 4000);
+</script>
 
 <style>
     .mode-select-page {
@@ -167,6 +234,59 @@ const copy = content[lang];
 
     .mode-card-sandbox {
         border-color: rgba(242, 199, 93, 0.28);
+    }
+
+    .mode-card-lobbies {
+        border-color: rgba(103, 174, 246, 0.4);
+    }
+
+    .lobbies-section {
+        position: relative;
+        z-index: 1;
+        padding: 0 0 64px;
+    }
+
+    .lobbies-section-title {
+        margin: 0 0 16px;
+        color: #fff;
+        font-size: 1.4rem;
+    }
+
+    .open-lobbies {
+        display: grid;
+        gap: 10px;
+    }
+
+    .open-lobby {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 14px 18px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.035));
+        transition:
+            transform 0.16s ease,
+            border-color 0.18s ease;
+    }
+
+    .open-lobby:hover {
+        transform: translateY(-2px);
+        border-color: rgba(103, 174, 246, 0.56);
+    }
+
+    .open-lobby-name {
+        color: #fff;
+        font-weight: 700;
+    }
+
+    .open-lobby-meta {
+        color: rgba(251, 244, 232, 0.66);
+        font-size: 0.9rem;
+    }
+
+    .open-lobbies-empty {
+        color: rgba(251, 244, 232, 0.6);
     }
 
     @media (max-width: 900px) {

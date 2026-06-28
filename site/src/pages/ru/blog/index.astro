@@ -62,6 +62,10 @@ const posts = [...ruBlogPosts].sort((a, b) => new Date(b.date).valueOf() - new D
         max-width: 760px;
         margin-bottom: 44px;
     }
+    .blog-head h1 {
+        font-size: clamp(1.9rem, 2.6vw + 1rem, 2.85rem);
+        line-height: 1.12;
+    }
     .blog-lead {
         max-width: 720px;
         font-size: 1.12rem;

@@ -267,6 +267,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const actionQueueRef = useRef<Promise<void>>(Promise.resolve());
     const replayTimersRef = useRef<number[]>([]);
     const pendingTurnResolutionRef = useRef(false);
+    // Tracks consecutive server rejections at the same turn (expectedSequence). If the same turn keeps
+    // getting rejected (e.g. an autobattle AI proposing an illegal move/attack the server refuses, or
+    // a residual desync), we force a server-authoritative END_TURN to skip the stuck unit so the game
+    // can never deadlock on a repeatedly-rejected action.
+    const rejectionStreakRef = useRef<{ seq: number; count: number }>({ seq: -1, count: 0 });
     const pendingAuthoritativeRecordsRef = useRef(new Map<number, PendingAuthoritativePlayback>());
     const playedAuthoritativeSequencesRef = useRef(new Set<number>());
     const authoritativePlaybackQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -659,8 +664,46 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 if (rejected) {
                     pendingTurnResolutionRef.current = false;
                     setError(result.rejectionReason || result.message || "Action rejected");
+
+                    // Escape hatch: if the SAME turn keeps getting rejected, the submitter (usually the
+                    // autobattle AI) is stuck re-proposing an action the server won't accept. Force a
+                    // server-authoritative END_TURN to skip the active unit so the fight can't deadlock.
+                    const streak = rejectionStreakRef.current;
+                    if (streak.seq === payload.expectedSequence) {
+                        streak.count += 1;
+                    } else {
+                        rejectionStreakRef.current = { seq: payload.expectedSequence, count: 1 };
+                    }
+                    const activeUnitId = snapshotRef.current?.currentUnitId;
+                    if (
+                        rejectionStreakRef.current.count >= 3 &&
+                        payload.type !== PlayActionType.END_TURN &&
+                        activeUnitId
+                    ) {
+                        rejectionStreakRef.current = { seq: -1, count: 0 };
+                        const escape = await sendRankedPlayAction(
+                            gameId,
+                            {
+                                ...payload,
+                                actionId: uuidv4(),
+                                type: PlayActionType.END_TURN,
+                                unitId: activeUnitId,
+                                targetUnitId: "",
+                                attackFrom: undefined,
+                                path: [],
+                                targetCells: [],
+                                expectedSequence: latestSequenceRef.current,
+                            },
+                            options,
+                        ).catch(() => undefined);
+                        if (escape?.event?.snapshot) {
+                            await waitForAuthoritativePlayback();
+                            applySnapshot(escape.event.snapshot, { forceBoardRebuild: true });
+                        }
+                    }
                     return false;
                 }
+                rejectionStreakRef.current = { seq: -1, count: 0 };
                 return true;
             } catch (err: unknown) {
                 pendingTurnResolutionRef.current = false;

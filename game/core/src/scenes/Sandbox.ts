@@ -133,6 +133,9 @@ export class Sandbox extends PixiScene {
     private static readonly REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS = 300;
     private static readonly REPLAY_ATTACK_AFTER_APPLY_HOLD_MS = 160;
     private static readonly REPLAY_SPELL_HOLD_MS = 150;
+    // Far longer than any real single replay animation (moves ~1-2s, attacks ~1s), so this only ever
+    // fires on a genuine hang — never cutting a legitimately-running animation short.
+    private static readonly REPLAY_HANG_WATCHDOG_MS = 8000;
     private readonly grid: Grid;
     private readonly pathHelper: PathHelper;
     private canAttackByMeleeTargets?: IAttackTargets;
@@ -1719,6 +1722,17 @@ export class Sandbox extends PixiScene {
 
         const priorPlaybackActive = this.replayPlaybackActive;
         this.replayPlaybackActive = true;
+        // Safety valve: if a replay animation hangs (e.g. a move whose per-frame update stops driving
+        // its completion callback), the await below would never resolve — replayPlaybackActive and
+        // isPlayingActionAnimation stay true forever, the AI never re-triggers and snapshots get
+        // ignored: a silent scene freeze. Periodically force any stuck animation to finalize so the
+        // awaiting chain always resolves and the scene self-heals.
+        const hangWatchdog = setInterval(() => {
+            if (this.moveAnimManager.isMoving()) {
+                this.moveAnimManager.forceFinish();
+            }
+            this.sc_isAnimating = false;
+        }, Sandbox.REPLAY_HANG_WATCHDOG_MS);
         try {
             const played = await this.playSandboxReplayRecord(record);
             if (!played) {
@@ -1726,6 +1740,7 @@ export class Sandbox extends PixiScene {
             }
             return played;
         } finally {
+            clearInterval(hangWatchdog);
             this.replayPlaybackActive = priorPlaybackActive;
         }
     }
@@ -3504,32 +3519,6 @@ export class Sandbox extends PixiScene {
                         this.hoverManager.hoverAttackFromCell = attackFrom;
                     }
                 }
-            }
-
-            // [meleeDbg] diagnostic — mirror the click-time melee decision state to the server log.
-            try {
-                const dCell = GridMath.getCellForPosition(gs, p);
-                const dOcc = dCell ? this.grid.getOccupantUnitId(dCell) : undefined;
-                const dTgt = dOcc ? this.unitsHolder.getAllUnits().get(dOcc) : undefined;
-                const aff = this.hoverManager.hoverAttackFromCell;
-                const kp = this.currentActiveKnownPaths;
-                const affKey = aff ? (aff.x << 4) | aff.y : undefined;
-                const msg =
-                    `[meleeDbg] active=${this.currentActiveUnit?.getName()}:${this.currentActiveUnit?.getTeam()} ` +
-                    `atkType=${this.currentActiveUnit?.getAttackTypeSelection()} ` +
-                    `clickCell=${JSON.stringify(dCell)} occ=${(dOcc ?? "none").toString().slice(0, 8)} ` +
-                    `tgt=${dTgt?.getName() ?? "-"}:${dTgt?.getTeam() ?? "-"} ` +
-                    `meleeTargets=${this.canAttackByMeleeTargets?.attackCells?.length ?? "undef"} ` +
-                    `attackCells=${JSON.stringify(this.canAttackByMeleeTargets?.attackCells?.slice(0, 6) ?? [])} ` +
-                    `hoverAttackFrom=${JSON.stringify(aff)} ` +
-                    `knownPathsSize=${kp?.size ?? "undef"} affInKnownPaths=${affKey !== undefined ? !!kp?.get(affKey) : "n/a"}`;
-                void fetch(`${import.meta.env.VITE_HOST_GAME_API ?? "http://127.0.0.1:3001"}/v1/game/dev-log`, {
-                    method: "POST",
-                    headers: { "Content-Type": "text/plain", "x-request-id": crypto.randomUUID() },
-                    body: msg,
-                });
-            } catch {
-                /* diagnostic only */
             }
 
             // Melee Attack Interaction

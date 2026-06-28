@@ -79,6 +79,7 @@ const featureCards = copy.features.items.map((item, index) => ({
     visual: featureVisuals[index] ?? featureVisuals[0],
 }));
 const unitsHref = localPath(lang, "units");
+const rulesHref = localPath(lang, "rules");
 const playHref = lang === "ru" ? "/ru/play/" : links.play;
 const factionUnitsHref = (faction: string) => `${unitsHref}?faction=${encodeURIComponent(faction.toLowerCase())}`;
 const factionLabel = (faction: string) => localizedFactionName(lang, faction);
@@ -105,12 +106,9 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
                     <img src="/assets/icons/navbar/joystick.svg" alt="" width="22" height="22" />
                     {copy.hero.primaryCta}
                 </a>
-                <a class="button secondary" href={unitsHref}>
+                <a class="button secondary" href={rulesHref}>
                     {copy.hero.secondaryCta}
                 </a>
-            </div>
-            <div class="hero-highlights" aria-label={copy.hero.availability}>
-                {copy.hero.highlights.map((item) => <span>{item}</span>)}
             </div>
         </div>
 
@@ -350,7 +348,7 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
                 <img src="/assets/icons/navbar/joystick.svg" alt="" width="22" height="22" />
                 {copy.hero.primaryCta}
             </a>
-            <a class="button secondary" href={unitsHref}>
+            <a class="button secondary" href={rulesHref}>
                 {copy.hero.secondaryCta}
             </a>
         </div>

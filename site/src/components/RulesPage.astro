@@ -52,19 +52,92 @@ const levelRows = [1, 2, 3, 4].map((level) => ({
 }));
 
 // Quick-reference numbers, all taken from the shared engine constants (constants.ts / grid).
+// Each carries a short "what it means / how it affects the fight" tip shown on hover/focus.
 const quickFacts = [
-    { value: "16 × 16", label: isRu ? "клеток на поле" : "battlefield cells" },
-    { value: "8", label: isRu ? "макс. стеков в армии" : "max stacks per army" },
-    { value: "2 / 2 / 1 / 1", label: isRu ? "драфт по уровням 1–4" : "draft by level 1–4" },
-    { value: "7", label: isRu ? "очков апгрейдов" : "augment points" },
-    { value: "−20 … +20", label: isRu ? "диапазон морали" : "morale range" },
-    { value: "−10 … +10", label: isRu ? "диапазон удачи" : "luck range" },
-    { value: "1 – 5", label: isRu ? "сила стека" : "stack power" },
-    { value: isRu ? "кажд. 3–4 круга" : "every 3–4 laps", label: isRu ? "сужение карты" : "map narrowing" },
-    { value: isRu ? "круг 12 · 4" : "lap 12 · 4", label: isRu ? "Армагеддон, волн" : "Armageddon, waves" },
-    { value: isRu ? "12–60 сек" : "12–60 s", label: isRu ? "время на ход" : "per-turn timer" },
-    { value: "×8", label: isRu ? "макс. штраф дальности" : "max range divisor" },
-    { value: "×0.5", label: isRu ? "стрелок в упор" : "ranged-in-melee" },
+    {
+        value: "16 × 16",
+        label: isRu ? "клеток на поле" : "battlefield cells",
+        tip: isRu
+            ? "Поле боя — сетка 16×16. В этих клетках измеряются ходы, дальность атак и радиусы аур."
+            : "The battlefield is a 16×16 grid. Every move, attack range and aura radius is measured in these cells.",
+    },
+    {
+        value: "8",
+        label: isRu ? "макс. стеков в армии" : "max stacks per army",
+        tip: isRu
+            ? "На поле помещается максимум 8 стеков (отрядов). Больше стеков — больше действий за круг и контроль доски."
+            : "You can field at most 8 stacks (unit groups). More stacks means more actions per lap and board control.",
+    },
+    {
+        value: "2 / 2 / 1 / 1",
+        label: isRu ? "драфт по уровням 1–4" : "draft by level 1–4",
+        tip: isRu
+            ? "За матч вы берёте 2 юнита 1 уровня, 2 — 2-го, 1 — 3-го и 1 — 4-го. Старшие уровни сильнее, но их всего по одному."
+            : "Each match you draft two level-1 units, two level-2, one level-3 and one level-4. Higher levels are stronger, but you get only one each.",
+    },
+    {
+        value: "7",
+        label: isRu ? "очков апгрейдов" : "augment points",
+        tip: isRu
+            ? "До боя вы тратите 7 очков на командные апгрейды (броня, ближний бой, стрельба, движение, зона расстановки) — реальные компромиссы."
+            : "Before the fight you spend 7 points on team augments (armor, melee, ranged, movement, deployment) — real trade-offs, not cosmetics.",
+    },
+    {
+        value: "−20 … +20",
+        label: isRu ? "диапазон морали" : "morale range",
+        tip: isRu
+            ? "Мораль задаёт темп: при высокой юнит может сходить лишний раз (и чуть сильнее), при низкой — пропустить ход. Растёт от наступления и убийств, падает от отхода и потерь."
+            : "Morale drives tempo: high morale can grant an extra turn (and a small boost); low morale can make a unit skip. Built by advancing and killing, lost by retreating and losing stacks.",
+    },
+    {
+        value: "−10 … +10",
+        label: isRu ? "диапазон удачи" : "luck range",
+        tip: isRu
+            ? "Удача — в основном защита: удачливый стек получает меньше урона (~1% за очко), неудачливый — больше. Ещё усиливает способности. Каждый круг сдвигается на ±3."
+            : "Luck is mostly defensive: a lucky stack takes less damage (~1% per point), an unlucky one takes more. It also powers your abilities, and drifts by up to ±3 each lap.",
+    },
+    {
+        value: "1 – 5",
+        label: isRu ? "сила стека" : "stack power",
+        tip: isRu
+            ? "Оценка 1–5 ценности стека на доске (ценность юнита × число живых, относительно крупнейшего стека). Чем выше, тем сильнее его способности."
+            : "A 1–5 rating of how valuable a stack is (unit value × living count vs the biggest stack). Higher stack power scales its abilities.",
+    },
+    {
+        value: isRu ? "кажд. 3–4 круга" : "every 3–4 laps",
+        label: isRu ? "сужение карты" : "map narrowing",
+        tip: isRu
+            ? "Карта сужается каждые 3 круга (4 на картах с заблокированным центром): крайние клетки становятся провалами. Юнитов толкает внутрь, а без места — убивает."
+            : "The map shrinks every 3 laps (4 on block-center maps): outer cells turn into holes. Units are pushed inward — or die if there's no room. Don't get caught on the edge.",
+    },
+    {
+        value: isRu ? "круг 12 · 4" : "lap 12 · 4",
+        label: isRu ? "Армагеддон, волн" : "Armageddon, waves",
+        tip: isRu
+            ? "Если бой тянется до 12-го круга, начинается Армагеддон: 4 нарастающие волны урона по всем, пока кто-то не победит. Затягивать бесконечно нельзя."
+            : "If the fight drags to lap 12, Armageddon begins: 4 escalating damage waves hit everything until someone wins. Fights can't stall forever.",
+    },
+    {
+        value: isRu ? "12–60 сек" : "12–60 s",
+        label: isRu ? "время на ход" : "per-turn timer",
+        tip: isRu
+            ? "На ход даётся 12–60 секунд (в рамках общего бюджета ~4 минуты). Не успели — ход пропускается, и юнит теряет мораль."
+            : "Each turn gives 12–60 seconds to act (within a ~4-minute total budget). Run out and the turn is skipped — and the unit loses morale.",
+    },
+    {
+        value: "×8",
+        label: isRu ? "макс. штраф дальности" : "max range divisor",
+        tip: isRu
+            ? "Стрельба дальше дистанции выстрела делит урон — вплоть до ×8 на больших расстояниях. Держите стрелков в радиусе или берите апгрейд Стрельба, чтобы снять штраф."
+            : "Shooting past a unit's range distance divides its damage — up to ×8 at long range. Keep shooters in range, or take the Sniper augment to ignore it.",
+    },
+    {
+        value: "×0.5",
+        label: isRu ? "стрелок в упор" : "ranged-in-melee",
+        tip: isRu
+            ? "Стрелок, вынужденный бить в ближнем бою, наносит половину урона (если нет способности на ближний бой). Не подпускайте врага вплотную к стрелкам."
+            : "A ranged unit forced to fight in melee deals half damage (unless an ability covers melee). Keep shooters out of melee contact.",
+    },
 ];
 
 // Augment tiers, verified from augments/augment_properties.ts.
@@ -96,8 +169,8 @@ const augmentTable = [
     {
         icon: "/assets/images/units/abilities/board_augment_256.webp",
         name: isRu ? "Расстановка" : "Placement",
-        tiers: ["3×3", "5×5", isRu ? "до 8" : "up to 8"],
-        note: isRu ? "зона / стеки" : "zone / stacks",
+        tiers: isRu ? ["3 ряда", "4 ряда", "5 рядов"] : ["3 rows", "4 rows", "5 rows"],
+        note: isRu ? "зона расстановки, шире" : "deployment zone, wider",
     },
 ];
 
@@ -148,6 +221,7 @@ const copy = isRu
           ],
           draftTitle: "Драфт: выбирайте план, а не красивые портреты",
           draftParagraphs: [
+              "По задумке каждый юнит вносит в армию примерно одинаковый вес: более слабое существо просто приходит большим стеком, поэтому «плохих» юнитов нет. Побеждают не голые характеристики и громкие способности, а ваш план и то, как юниты работают в связке.",
               "Уровень юнита важен, но это не единственный критерий. В Heroes of Crypto слабый на вид юнит может включить нужную синергию, закрыть ауру, дать контроль или принести книгу заклинаний в отряд.",
               "Публичный список сейчас сфокусирован на четырех игровых фракциях: Хаос, Жизнь, Сила и Природа. Внутри них есть ближние бойцы, стрелки, маги, летающие юниты, крупные 2x2 существа и утилити-юниты с аурами.",
           ],
@@ -334,6 +408,7 @@ const copy = isRu
           ],
           draftTitle: "Draft: pick a plan, not just portraits",
           draftParagraphs: [
+              "Conceptually every unit pulls roughly the same weight in your army: a weaker creature simply arrives as a bigger stack, so no single unit is just 'better' than another. Fights are won by your plan and how your units synergize — not by raw stats or flashy abilities.",
               "Unit level matters, but it is not the whole game. A low-level unit can unlock the right synergy, carry an aura, bring control, or give your army a spellbook.",
               "The public roster is currently focused on four playable factions: Chaos, Life, Might, and Nature. Across them you get melee fighters, ranged units, spellcasters, flyers, large 2x2 creatures, and utility pieces with auras.",
           ],
@@ -573,9 +648,12 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         <div class="rules-facts" aria-label={isRu ? "Ключевые числа" : "Key numbers"}>
             {
                 quickFacts.map((fact) => (
-                    <div class="rules-fact">
+                    <div class="rules-fact" tabindex="0">
                         <strong>{fact.value}</strong>
                         <span>{fact.label}</span>
+                        <span class="rules-fact-tip" role="tooltip">
+                            {fact.tip}
+                        </span>
                     </div>
                 ))
             }
@@ -1537,21 +1615,31 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         padding-block: clamp(40px, 4.6vw, 68px);
     }
 
-    /* Verified quick-reference numbers. */
+    /* Verified quick-reference numbers — hover/focus a card for what it means in a fight. */
     .rules-facts {
         display: grid;
         grid-template-columns: repeat(6, minmax(0, 1fr));
-        gap: 1px;
+        gap: 8px;
         margin-top: 30px;
-        overflow: hidden;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        background: var(--line);
     }
 
     .rules-fact {
+        position: relative;
         padding: 14px 15px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025));
+        cursor: help;
+        transition:
+            border-color 0.15s ease,
+            background 0.15s ease;
+    }
+
+    .rules-fact:hover,
+    .rules-fact:focus-visible {
+        border-color: rgba(242, 199, 93, 0.5);
+        background: linear-gradient(180deg, rgba(242, 199, 93, 0.1), rgba(255, 255, 255, 0.03));
+        outline: none;
     }
 
     .rules-fact strong {
@@ -1563,13 +1651,60 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         letter-spacing: -0.01em;
     }
 
-    .rules-fact span {
+    .rules-fact > span:not(.rules-fact-tip) {
         display: block;
         margin-top: 5px;
         color: rgba(251, 244, 232, 0.7);
         font-size: 0.77rem;
         font-weight: 700;
         line-height: 1.2;
+    }
+
+    /* The explanation bubble. Hidden until the card is hovered or focused (keyboard/tap). */
+    .rules-fact-tip {
+        position: absolute;
+        bottom: calc(100% + 9px);
+        left: 50%;
+        z-index: 6;
+        width: max-content;
+        max-width: 230px;
+        padding: 10px 12px;
+        border: 1px solid var(--line-strong);
+        border-radius: 9px;
+        background: #131a20;
+        color: var(--ink);
+        font-size: 0.78rem;
+        font-weight: 600;
+        line-height: 1.4;
+        letter-spacing: 0;
+        text-align: left;
+        text-transform: none;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+        opacity: 0;
+        visibility: hidden;
+        transform: translate(-50%, 4px);
+        transition:
+            opacity 0.16s ease,
+            transform 0.16s ease;
+        pointer-events: none;
+    }
+
+    .rules-fact-tip::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -6px;
+        border: 6px solid transparent;
+        border-top-color: var(--line-strong);
+    }
+
+    .rules-fact:hover .rules-fact-tip,
+    .rules-fact:focus-visible .rules-fact-tip,
+    .rules-fact:focus-within .rules-fact-tip {
+        opacity: 1;
+        visibility: visible;
+        transform: translate(-50%, 0);
     }
 
     /* Real roster pool by level. */
