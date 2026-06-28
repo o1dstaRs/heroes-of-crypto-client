@@ -41,6 +41,66 @@ const roleCounts = allUnits.reduce<Record<string, number>>((counts, unit) => {
     return counts;
 }, {});
 
+const levelCounts = allUnits.reduce<Record<number, number>>((counts, unit) => {
+    counts[unit.level] = (counts[unit.level] ?? 0) + 1;
+    return counts;
+}, {});
+const levelRows = [1, 2, 3, 4].map((level) => ({
+    level,
+    draft: [2, 2, 1, 1][level - 1],
+    available: levelCounts[level] ?? 0,
+}));
+
+// Quick-reference numbers, all taken from the shared engine constants (constants.ts / grid).
+const quickFacts = [
+    { value: "16 × 16", label: isRu ? "клеток на поле" : "battlefield cells" },
+    { value: "8", label: isRu ? "макс. стеков в армии" : "max stacks per army" },
+    { value: "2 / 2 / 1 / 1", label: isRu ? "драфт по уровням 1–4" : "draft by level 1–4" },
+    { value: "7", label: isRu ? "очков апгрейдов" : "augment points" },
+    { value: "−20 … +20", label: isRu ? "диапазон морали" : "morale range" },
+    { value: "−10 … +10", label: isRu ? "диапазон удачи" : "luck range" },
+    { value: "1 – 5", label: isRu ? "сила стека" : "stack power" },
+    { value: isRu ? "кажд. 3–4 круга" : "every 3–4 laps", label: isRu ? "сужение карты" : "map narrowing" },
+    { value: isRu ? "круг 12 · 4" : "lap 12 · 4", label: isRu ? "Армагеддон, волн" : "Armageddon, waves" },
+    { value: isRu ? "12–60 сек" : "12–60 s", label: isRu ? "время на ход" : "per-turn timer" },
+    { value: "×8", label: isRu ? "макс. штраф дальности" : "max range divisor" },
+    { value: "×0.5", label: isRu ? "стрелок в упор" : "ranged-in-melee" },
+];
+
+// Augment tiers, verified from augments/augment_properties.ts.
+const augmentTable = [
+    {
+        icon: "/assets/images/units/abilities/armor_augment_256.webp",
+        name: isRu ? "Броня" : "Armor",
+        tiers: ["+6%", "+13%", "+21%"],
+        note: isRu ? "броня команды" : "team armor",
+    },
+    {
+        icon: "/assets/images/units/abilities/might_augment_256.webp",
+        name: isRu ? "Сила" : "Might",
+        tiers: ["+8%", "+17%", "+27%"],
+        note: isRu ? "ближняя атака" : "melee attack",
+    },
+    {
+        icon: "/assets/images/units/abilities/sniper_augment_256.webp",
+        name: isRu ? "Стрельба" : "Sniper",
+        tiers: ["+7%", "+15%", "+24%"],
+        note: isRu ? "атака + дистанция, без штрафа" : "attack + range, ignores divisor",
+    },
+    {
+        icon: "/assets/images/units/abilities/movement_augment_256.webp",
+        name: isRu ? "Движение" : "Movement",
+        tiers: ["+1", "+2", "—"],
+        note: isRu ? "шага к ходу" : "steps to move",
+    },
+    {
+        icon: "/assets/images/units/abilities/board_augment_256.webp",
+        name: isRu ? "Расстановка" : "Placement",
+        tiers: ["3×3", "5×5", isRu ? "до 8" : "up to 8"],
+        note: isRu ? "зона / стеки" : "zone / stacks",
+    },
+];
+
 const copy = isRu
     ? {
           eyebrow: "Правила игры",
@@ -509,6 +569,17 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         <div class="rules-phase-grid">
             {copy.phases.map((phase) => <article class="rules-card"><h3>{phase.title}</h3><p>{phase.text}</p></article>)}
         </div>
+
+        <div class="rules-facts" aria-label={isRu ? "Ключевые числа" : "Key numbers"}>
+            {
+                quickFacts.map((fact) => (
+                    <div class="rules-fact">
+                        <strong>{fact.value}</strong>
+                        <span>{fact.label}</span>
+                    </div>
+                ))
+            }
+        </div>
     </div>
 </section>
 
@@ -534,6 +605,22 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
             <ul class="rules-clean-list">
                 {copy.draftNotes.map((note) => <li>{note}</li>)}
             </ul>
+            <div class="rules-level-table" aria-label={isRu ? "Драфт по уровням" : "Draft by level"}>
+                <div class="rules-level-row rules-level-head">
+                    <span>{isRu ? "Уровень" : "Level"}</span>
+                    <span>{isRu ? "Берёте" : "You draft"}</span>
+                    <span>{isRu ? "В пуле" : "In pool"}</span>
+                </div>
+                {
+                    levelRows.map((row) => (
+                        <div class="rules-level-row">
+                            <span>{isRu ? "Ур." : "Lv"} {row.level}</span>
+                            <span>×{row.draft}</span>
+                            <span>{row.available}</span>
+                        </div>
+                    ))
+                }
+            </div>
         </div>
         <div class="rules-faction-grid">
             {
@@ -599,14 +686,25 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
             <h2>{copy.upgradesTitle}</h2>
             <p>{copy.upgradesIntro}</p>
         </div>
-        <div class="rules-upgrade-grid">
+        <div class="rules-aug-table" aria-label={isRu ? "Уровни апгрейдов" : "Augment tiers"}>
+            <div class="rules-aug-row rules-aug-head">
+                <span>{isRu ? "Апгрейд" : "Augment"}</span>
+                <span>{isRu ? "Ур. 1" : "Tier 1"}</span>
+                <span>{isRu ? "Ур. 2" : "Tier 2"}</span>
+                <span>{isRu ? "Ур. 3" : "Tier 3"}</span>
+            </div>
             {
-                copy.upgrades.map((upgrade) => (
-                    <article class="rules-upgrade">
-                        <img src={upgrade.icon} alt="" width="256" height="256" loading="lazy" />
-                        <h3>{upgrade.title}</h3>
-                        <p>{upgrade.text}</p>
-                    </article>
+                augmentTable.map((aug) => (
+                    <div class="rules-aug-row">
+                        <span class="rules-aug-name">
+                            <img src={aug.icon} alt="" width="256" height="256" loading="lazy" />
+                            <span>
+                                <strong>{aug.name}</strong>
+                                <em>{aug.note}</em>
+                            </span>
+                        </span>
+                        {aug.tiers.map((tier) => <span class="rules-aug-tier">{tier}</span>)}
+                    </div>
                 ))
             }
         </div>
@@ -662,66 +760,82 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     </div>
 </section>
 
-<section class="section rules-band">
+<section class="section rules-band rules-deep">
     <div class="page-shell">
         <div class="section-heading">
-            <p class="eyebrow">{isRu ? "Ход" : "Turn"}</p>
-            <h2>{copy.turnsTitle}</h2>
+            <p class="eyebrow">{isRu ? "Глубже" : "Deep dive"}</p>
+            <h2>{isRu ? "Механики в деталях" : "The mechanics in detail"}</h2>
+            <p>{isRu ? "Откройте нужный раздел — без бесконечной прокрутки." : "Open just the part you need — no endless scrolling."}</p>
         </div>
-        <div class="rules-action-grid">
-            {copy.turnActions.map((action) => <article class="rules-card compact"><h3>{action.title}</h3><p>{action.text}</p></article>)}
-        </div>
-    </div>
-</section>
+        <div class="rules-accordion">
+            <details class="rules-acc" open>
+                <summary>
+                    <span class="rules-acc-title">{copy.turnsTitle}</span>
+                    <span class="rules-acc-tag">{isRu ? "Ход" : "Turn"}</span>
+                </summary>
+                <div class="rules-acc-body">
+                    <div class="rules-action-grid">
+                        {
+                            copy.turnActions.map((action) => (
+                                <article class="rules-card compact">
+                                    <h3>{action.title}</h3>
+                                    <p>{action.text}</p>
+                                </article>
+                            ))
+                        }
+                    </div>
+                </div>
+            </details>
 
-<section class="section rules-section">
-    <div class="page-shell rules-two-col">
-        <div class="rules-copy-block">
-            <p class="eyebrow">{isRu ? "Бой" : "Combat"}</p>
-            <h2>{copy.combatTitle}</h2>
-            {copy.combatParagraphs.map((paragraph) => <p>{paragraph}</p>)}
-        </div>
-        <div class="rules-ability-wall">
-            {
-                [
-                    "/assets/images/units/abilities/lucky_strike_256.webp",
-                    "/assets/images/units/abilities/stun_256.webp",
-                    "/assets/images/units/abilities/petrifying_gaze_256.webp",
-                    "/assets/images/units/abilities/fire_shield_256.webp",
-                    "/assets/images/units/abilities/range_null_field_aura_256.webp",
-                    "/assets/images/units/abilities/chain_lightning_256.webp",
-                    "/assets/images/units/abilities/resurrection_256.webp",
-                    "/assets/images/units/abilities/break_256.webp",
-                ].map((icon) => <img src={icon} alt="" width="256" height="256" loading="lazy" />)
-            }
-        </div>
-    </div>
-</section>
+            <details class="rules-acc">
+                <summary>
+                    <span class="rules-acc-title">{copy.combatTitle}</span>
+                    <span class="rules-acc-tag">{isRu ? "Бой" : "Combat"}</span>
+                </summary>
+                <div class="rules-acc-body rules-two-col">
+                    <div class="rules-copy-block">{copy.combatParagraphs.map((paragraph) => <p>{paragraph}</p>)}</div>
+                    <div class="rules-ability-wall">
+                        {
+                            [
+                                "/assets/images/units/abilities/lucky_strike_256.webp",
+                                "/assets/images/units/abilities/stun_256.webp",
+                                "/assets/images/units/abilities/petrifying_gaze_256.webp",
+                                "/assets/images/units/abilities/fire_shield_256.webp",
+                                "/assets/images/units/abilities/range_null_field_aura_256.webp",
+                                "/assets/images/units/abilities/chain_lightning_256.webp",
+                                "/assets/images/units/abilities/resurrection_256.webp",
+                                "/assets/images/units/abilities/break_256.webp",
+                            ].map((icon) => <img src={icon} alt="" width="256" height="256" loading="lazy" />)
+                        }
+                    </div>
+                </div>
+            </details>
 
-<section class="section rules-band">
-    <div class="page-shell rules-two-col">
-        <div class="rules-copy-block">
-            <p class="eyebrow">{isRu ? "Темп" : "Tempo"}</p>
-            <h2>{copy.moraleTitle}</h2>
-        </div>
-        <div class="rules-note-list large">
-            {copy.moraleItems.map((item) => <p>{item}</p>)}
-        </div>
-    </div>
-</section>
+            <details class="rules-acc">
+                <summary>
+                    <span class="rules-acc-title">{copy.moraleTitle}</span>
+                    <span class="rules-acc-tag">{isRu ? "Темп" : "Tempo"}</span>
+                </summary>
+                <div class="rules-acc-body">
+                    <div class="rules-note-list large">{copy.moraleItems.map((item) => <p>{item}</p>)}</div>
+                </div>
+            </details>
 
-<section class="section rules-section map-pressure">
-    <div class="page-shell rules-two-col">
-        <div class="rules-copy-block">
-            <p class="eyebrow">{isRu ? "Карта" : "Map pressure"}</p>
-            <h2>{copy.mapTitle}</h2>
-            {copy.mapParagraphs.map((paragraph) => <p>{paragraph}</p>)}
-        </div>
-        <div class="rules-map-visual" aria-hidden="true">
-            <img src="/assets/images/preview_game.webp" alt="" width="1200" height="630" loading="lazy" />
-            <span class="map-ring one"></span>
-            <span class="map-ring two"></span>
-            <span class="map-ring three"></span>
+            <details class="rules-acc">
+                <summary>
+                    <span class="rules-acc-title">{copy.mapTitle}</span>
+                    <span class="rules-acc-tag">{isRu ? "Карта" : "Map"}</span>
+                </summary>
+                <div class="rules-acc-body rules-two-col">
+                    <div class="rules-copy-block">{copy.mapParagraphs.map((paragraph) => <p>{paragraph}</p>)}</div>
+                    <div class="rules-map-visual" aria-hidden="true">
+                        <img src="/assets/images/preview_game.webp" alt="" width="1200" height="630" loading="lazy" />
+                        <span class="map-ring one"></span>
+                        <span class="map-ring two"></span>
+                        <span class="map-ring three"></span>
+                    </div>
+                </div>
+            </details>
         </div>
     </div>
 </section>
@@ -1417,6 +1531,245 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         font-size: 1.35rem;
     }
 
+    /* Denser vertical rhythm so a data-heavy page does not scroll forever. */
+    .rules-section,
+    .rules-band {
+        padding-block: clamp(40px, 4.6vw, 68px);
+    }
+
+    /* Verified quick-reference numbers. */
+    .rules-facts {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 1px;
+        margin-top: 30px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--line);
+    }
+
+    .rules-fact {
+        padding: 14px 15px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025));
+    }
+
+    .rules-fact strong {
+        display: block;
+        color: var(--gold);
+        font-size: 1.14rem;
+        font-weight: 860;
+        line-height: 1.05;
+        letter-spacing: -0.01em;
+    }
+
+    .rules-fact span {
+        display: block;
+        margin-top: 5px;
+        color: rgba(251, 244, 232, 0.7);
+        font-size: 0.77rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    /* Real roster pool by level. */
+    .rules-level-table {
+        margin-top: 22px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+    }
+
+    .rules-level-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+        padding: 9px 15px;
+        background: rgba(255, 255, 255, 0.035);
+    }
+
+    .rules-level-row + .rules-level-row {
+        border-top: 1px solid var(--line);
+    }
+
+    .rules-level-row span {
+        color: var(--ink);
+        font-weight: 780;
+    }
+
+    .rules-level-row span:not(:first-child) {
+        text-align: right;
+        color: var(--gold);
+    }
+
+    .rules-level-head {
+        background: rgba(242, 199, 93, 0.08);
+    }
+
+    .rules-level-head span,
+    .rules-level-head span:not(:first-child) {
+        color: var(--muted-2);
+        font-size: 0.78rem;
+        font-weight: 820;
+        text-transform: uppercase;
+    }
+
+    /* Augment tiers as a compact table. */
+    .rules-aug-table {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+    }
+
+    .rules-aug-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1.7fr) repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        align-items: center;
+        padding: 12px 16px;
+        background: rgba(255, 255, 255, 0.035);
+    }
+
+    .rules-aug-row + .rules-aug-row {
+        border-top: 1px solid var(--line);
+    }
+
+    .rules-aug-head {
+        background: rgba(242, 199, 93, 0.08);
+        color: var(--muted-2);
+        font-size: 0.78rem;
+        font-weight: 820;
+        text-transform: uppercase;
+    }
+
+    .rules-aug-head span:not(:first-child),
+    .rules-aug-tier {
+        text-align: center;
+    }
+
+    .rules-aug-name {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .rules-aug-name img {
+        width: 38px;
+        height: 38px;
+        flex: 0 0 auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #090b0d;
+    }
+
+    .rules-aug-name > span {
+        display: grid;
+        min-width: 0;
+    }
+
+    .rules-aug-name strong {
+        color: var(--ink);
+        font-weight: 840;
+    }
+
+    .rules-aug-name em {
+        overflow: hidden;
+        color: var(--muted);
+        font-size: 0.8rem;
+        font-style: normal;
+        font-weight: 680;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .rules-aug-tier {
+        color: var(--gold);
+        font-weight: 840;
+    }
+
+    /* Deep-dive accordion — collapses the long-form sections. */
+    .rules-accordion {
+        display: grid;
+        gap: 12px;
+    }
+
+    .rules-acc {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025));
+    }
+
+    .rules-acc > summary {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 20px;
+        list-style: none;
+        color: var(--ink-strong);
+        font-size: 1.1rem;
+        font-weight: 820;
+        cursor: pointer;
+    }
+
+    .rules-acc > summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .rules-acc-title {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .rules-acc-tag {
+        flex: 0 0 auto;
+        padding: 5px 9px;
+        border: 1px solid rgba(242, 199, 93, 0.28);
+        border-radius: 999px;
+        background: rgba(242, 199, 93, 0.1);
+        color: var(--gold);
+        font-size: 0.7rem;
+        font-weight: 820;
+        text-transform: uppercase;
+    }
+
+    .rules-acc > summary::after {
+        content: "";
+        flex: 0 0 auto;
+        width: 11px;
+        height: 11px;
+        border-right: 2px solid var(--muted);
+        border-bottom: 2px solid var(--muted);
+        transform: rotate(45deg);
+        transition: transform 0.2s ease;
+    }
+
+    .rules-acc[open] > summary::after {
+        transform: rotate(-135deg);
+    }
+
+    .rules-acc > summary:hover {
+        background: rgba(242, 199, 93, 0.06);
+    }
+
+    .rules-acc-body {
+        padding: 2px 20px 22px;
+    }
+
+    .rules-acc-body.rules-two-col {
+        align-items: start;
+        gap: 28px;
+    }
+
+    .rules-acc-body .rules-action-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .rules-acc-body .rules-card.compact {
+        min-height: 0;
+    }
+
     @media (max-width: 1080px) {
         .rules-hero-shell,
         .rules-two-col,
@@ -1434,8 +1787,13 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
-        .rules-action-grid {
+        .rules-action-grid,
+        .rules-acc-body .rules-action-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .rules-facts {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
         }
     }
 
@@ -1453,12 +1811,41 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         .rules-stats,
         .rules-phase-grid,
         .rules-action-grid,
+        .rules-acc-body .rules-action-grid,
         .rules-upgrade-grid,
         .rules-synergy-grid,
         .rules-faction-grid,
         .rules-example-units,
         .rules-stat-reader {
             grid-template-columns: 1fr;
+        }
+
+        .rules-facts {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .rules-aug-row {
+            gap: 7px;
+            padding: 11px 12px;
+            font-size: 0.9rem;
+        }
+
+        .rules-aug-name {
+            gap: 9px;
+        }
+
+        .rules-aug-name img {
+            width: 32px;
+            height: 32px;
+        }
+
+        .rules-acc > summary {
+            padding: 14px 16px;
+            font-size: 1.02rem;
+        }
+
+        .rules-acc-body {
+            padding: 2px 16px 18px;
         }
 
         .rules-stats div {

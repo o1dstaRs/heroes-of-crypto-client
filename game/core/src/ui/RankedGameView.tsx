@@ -1256,13 +1256,30 @@ const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam:
     }
 
     const knownCount = opponentUnits.filter((unit) => unit.creatureId > 0 && unit.name !== "Unknown").length;
+    // The opponent's readiness rides along in the broadcast snapshot's readyPlayerIds, so show it
+    // here — when they click "Ready Placement" we reflect it (and they see ours the same way).
+    const opponentPlayer = snapshot.players.find((player) => player.team !== userTeam);
+    const opponentReady = !!opponentPlayer && snapshot.readyPlayerIds.includes(opponentPlayer.playerId);
 
     return (
         <Stack spacing={0.5}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography level="body-sm" textColor={hocColors.parchment}>
-                    Opponent army
-                </Typography>
+                <Stack direction="row" spacing={0.75} alignItems="center">
+                    <Typography level="body-sm" textColor={hocColors.parchment}>
+                        Opponent army
+                    </Typography>
+                    <Chip
+                        size="sm"
+                        variant="soft"
+                        sx={{
+                            bgcolor: opponentReady ? "rgba(34,197,94,0.18)" : "rgba(148,163,184,0.12)",
+                            color: opponentReady ? "#4ade80" : hocColors.muted,
+                            border: `1px solid ${opponentReady ? "rgba(34,197,94,0.5)" : "rgba(148,163,184,0.25)"}`,
+                        }}
+                    >
+                        {opponentReady ? "Ready" : "Placing…"}
+                    </Chip>
+                </Stack>
                 <Typography level="body-xs" textColor={hocColors.muted}>
                     {knownCount}/{opponentUnits.length} known
                 </Typography>

@@ -195,6 +195,14 @@ export const endpoints = {
     mm: {
         queue: IS_PROD ? "/v1/queue" : "/v1/mm/queue",
         events: IS_PROD ? "/v1/events" : "/v1/mm/events",
+        lobbies: IS_PROD ? "/v1/lobbies" : "/v1/mm/lobbies",
+        lobby: IS_PROD ? "/v1/lobby" : "/v1/mm/lobby",
+        lobbyEvents: IS_PROD ? "/v1/lobby-events" : "/v1/mm/lobby-events",
+        lobbyCreate: IS_PROD ? "/v1/lobby-create" : "/v1/mm/lobby-create",
+        lobbyJoin: IS_PROD ? "/v1/lobby-join" : "/v1/mm/lobby-join",
+        lobbyReady: IS_PROD ? "/v1/lobby-ready" : "/v1/mm/lobby-ready",
+        lobbyStart: IS_PROD ? "/v1/lobby-start" : "/v1/mm/lobby-start",
+        lobbyLeave: IS_PROD ? "/v1/lobby-leave" : "/v1/mm/lobby-leave",
     },
     game: {
         confirm: IS_PROD ? "/v1/confirm" : "/v1/game/confirm",
