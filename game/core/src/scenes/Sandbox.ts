@@ -1,4 +1,4 @@
-import { Sprite, Graphics, Container, Texture, BlurFilter } from "pixi.js";
+import { Sprite, Graphics, Container, Texture, BlurFilter, RenderTexture } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
 import { SandboxDrawer, ENEMY_TURN_HIGHLIGHT_COLOR } from "./SandboxDrawer";
 import {
@@ -2952,11 +2952,12 @@ export class Sandbox extends PixiScene {
         if (!renderer) {
             return;
         }
-        // Pixi's GL/GPU texture system exposes initSource(source), which performs the actual GPU upload
-        // (texImage2D) for a texture source — the exact work that otherwise happens lazily on a unit's
-        // first render at turn handoff. Force it now for every distinct atlas source.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const texSystem = (renderer as any).texture;
+        // The actual GPU pixel upload (texImage2D) only happens when a texture is drawn for real — calling
+        // the texture system's initSource alone does NOT force it. So render one visible sprite per atlas
+        // into a tiny OFFSCREEN RenderTexture: that executes a real draw call, binding+uploading each atlas
+        // source now (during load/placement) instead of lazily on the unit's first activation at handoff.
+        // Sprites MUST be visible (alpha > 0) — Pixi culls fully-transparent objects, so they'd never draw.
+        const container = new Container();
         const seenSources = new Set<unknown>();
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             const frame = (unit as RenderableUnit).prewarmDefaultAtlasFrame?.();
@@ -2968,16 +2969,19 @@ export class Sandbox extends PixiScene {
                 continue;
             }
             seenSources.add(source);
+            container.addChild(new Sprite(frame));
+        }
+        if (container.children.length) {
+            const rt = RenderTexture.create({ width: 8, height: 8 });
             try {
-                if (typeof texSystem?.initSource === "function") {
-                    texSystem.initSource(frame.source);
-                } else if (typeof texSystem?.bindSource === "function") {
-                    texSystem.bindSource(frame.source, 0);
-                }
+                renderer.render({ container, target: rt });
             } catch {
-                // ignore upload failures
+                // Prewarm is best-effort; on failure the atlas just uploads lazily as before.
+            } finally {
+                rt.destroy(true);
             }
         }
+        container.destroy({ children: true });
     }
     protected destroySpecificUnits(unitsToDestroy: RenderableUnit[], force = false, isDead = false): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
