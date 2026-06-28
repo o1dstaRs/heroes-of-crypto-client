@@ -7759,9 +7759,6 @@ export class Sandbox extends PixiScene {
         return result.completed;
     }
     private applyTurnEngineEvents(events: GameEvent[], unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
-        this.applyTurnEngineEventsImpl(events, unitSnapshot);
-    }
-    private applyTurnEngineEventsImpl(events: GameEvent[], unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
         const armageddonWaves = new Set<number>();
         let shouldRefreshVisibleState = false;
         let sawFightFinished = false;
@@ -8042,9 +8039,6 @@ export class Sandbox extends PixiScene {
         }
     }
     private handleNextUnitActivation(nextUnit: RenderableUnit): void {
-        this.handleNextUnitActivationImpl(nextUnit);
-    }
-    private handleNextUnitActivationImpl(nextUnit: RenderableUnit): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const gs = this.sc_sceneSettings.getGridSettings();
         const worldRoot = this.drawer.getUnitsContainer();
@@ -8457,9 +8451,6 @@ export class Sandbox extends PixiScene {
     }
     protected verifyButtonsTrigger(): void {}
     protected updateCurrentMovePath(currentCell: HoCMath.XY): void {
-        this.updateCurrentMovePathImpl(currentCell);
-    }
-    private updateCurrentMovePathImpl(currentCell: HoCMath.XY): void {
         if (!this.currentActiveUnit || this.moveAnimManager.isMoving()) {
             return;
         }

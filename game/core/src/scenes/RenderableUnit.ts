@@ -60,9 +60,6 @@ function getDefaultAnimationConfig(
 // Cache textures per atlas to avoid rebuilding frames
 const atlasFramesCache = new Map<string, Texture[]>();
 function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, size: number): Texture[] {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const __w = typeof window !== "undefined" ? (window as any) : undefined;
-    if (__w) (__w.__atlasBuilds ??= []).push({ src: imageSrc.split("/").pop(), t: performance.now() });
     const parentTexture = Texture.from(imageSrc);
     const source = parentTexture.source; // v8-friendly
     // quarter-sized frames (same trick you used for chips)
