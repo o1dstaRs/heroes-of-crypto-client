@@ -471,6 +471,7 @@ export class Sandbox extends PixiScene {
                 getCurrentActiveSpell: () => this.currentActiveSpell,
                 getVisibleState: () => this.sc_visibleState,
                 isInputLockedByAI: () => this.isBoardInputLockedByAI(),
+                canControlCurrentActiveUnit: () => this.canControlCurrentActiveUnit(),
                 setVisibleButtons: (buttons, updated) => {
                     this.sc_visibleButtonGroup = buttons;
                     this.sc_buttonGroupUpdated = updated;
@@ -772,8 +773,12 @@ export class Sandbox extends PixiScene {
         const props = unit.getUnitProperties();
         let center: HoCMath.XY | undefined;
         if (props.size === 2) {
-            const candidate = this.hoverManager.findLargeUnitMoveCandidate(intent.cell);
-            center = candidate ? GridMath.getPositionForCells(gs, candidate) : undefined;
+            // findLargeUnitMoveCandidate needs the active unit's reachable-path hashes, which the viewer
+            // never has for the OPPONENT's unit — so it always returned null and large opponents got no
+            // move silhouette (small ones worked, since they skip that path). Pick a valid 2x2 footprint
+            // around the relayed cell from board geometry + occupancy instead.
+            const footprint = this.findOpponentLargeUnitFootprint(intent.cell, unit.getId());
+            center = footprint ? GridMath.getPositionForCells(gs, footprint) : undefined;
         } else {
             center = GridMath.getPositionForCell(intent.cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
         }
@@ -782,6 +787,52 @@ export class Sandbox extends PixiScene {
             return;
         }
         this.hoverManager.showOpponentIntentSilhouette(props, center);
+    }
+    /**
+     * Pick a 2x2 footprint around `cell` for a relayed opponent large-unit move silhouette, without the
+     * active unit's reachable-path data (we don't have it for the opponent). Mirrors the local candidate
+     * finder's anchor order and accepts the first footprint that's in-bounds and free of OTHER units
+     * (the moving unit itself still sits on its old cells). Falls back to the first in-bounds footprint
+     * so a hint always renders.
+     */
+    private findOpponentLargeUnitFootprint(cell: HoCMath.XY, movingUnitId: string): HoCMath.XY[] | undefined {
+        const size = GridConstants.GRID_SIZE;
+        const inBounds = (c: HoCMath.XY): boolean => c.x >= 0 && c.y >= 0 && c.x < size && c.y < size;
+        const footprints: HoCMath.XY[][] = [
+            [
+                { x: cell.x, y: cell.y },
+                { x: cell.x + 1, y: cell.y },
+                { x: cell.x, y: cell.y + 1 },
+                { x: cell.x + 1, y: cell.y + 1 },
+            ],
+            [
+                { x: cell.x - 1, y: cell.y },
+                { x: cell.x, y: cell.y },
+                { x: cell.x - 1, y: cell.y + 1 },
+                { x: cell.x, y: cell.y + 1 },
+            ],
+            [
+                { x: cell.x, y: cell.y - 1 },
+                { x: cell.x + 1, y: cell.y - 1 },
+                { x: cell.x, y: cell.y },
+                { x: cell.x + 1, y: cell.y },
+            ],
+            [
+                { x: cell.x - 1, y: cell.y - 1 },
+                { x: cell.x, y: cell.y - 1 },
+                { x: cell.x - 1, y: cell.y },
+                { x: cell.x, y: cell.y },
+            ],
+        ];
+        const unoccupied = footprints.find(
+            (fp) =>
+                fp.every(inBounds) &&
+                fp.every((c) => {
+                    const occ = this.grid.getOccupantUnitId(c);
+                    return !occ || occ === movingUnitId;
+                }),
+        );
+        return unoccupied ?? footprints.find((fp) => fp.every(inBounds));
     }
     private clearPlacementBench(): void {
         this.stopPlacementBenchSlideAnimation();
@@ -5731,6 +5782,14 @@ export class Sandbox extends PixiScene {
         return true;
     }
     /**
+     * Whether the local player may act on the current active unit (drives toolbar action buttons:
+     * wait/end-turn/attack-type/spellbook). Sandbox controls both teams, so this is always true.
+     * Ranked overrides it to gate the opponent's turn.
+     */
+    protected canControlCurrentActiveUnit(): boolean {
+        return true;
+    }
+    /**
      * Ranked overrides this to true during the window between an authoritative action's animation
      * finishing and the next snapshot reassigning the active unit, so the just-finished unit's pulse
      * aura stays suppressed instead of flashing back on for a frame before the turn changes. Sandbox
@@ -6247,23 +6306,29 @@ export class Sandbox extends PixiScene {
                             this.currentActiveUnit.hasAbilityActive("Through Shot"),
                         );
 
-                        // Fallback
+                        // Fallback when getClosestSideCenter can't pick a side (e.g. the attacker is
+                        // aligned with the target and the near cell reads blocked). Legacy drew no line
+                        // here; snapping to the target CENTER made the trajectory read center-to-center.
+                        // Aim at the target's NEAR EDGE along the attacker -> target line instead, so it
+                        // stays "center -> the edge we pointed at".
                         if (!arrowEndPos) {
-                            // Ensure arrowEndPos is assigned a concrete value here
-                            let rawPos: HoCMath.XY;
-                            if (targetUnit instanceof RenderableUnit) {
-                                rawPos = targetUnit.getVisualCenter(gs);
-                            } else {
-                                rawPos = targetUnit.getPosition();
-                            }
-                            // Clone to avoid mutation if getPosition returns a reference
-                            const fallbackPos = { ...rawPos };
-
+                            const rawPos =
+                                targetUnit instanceof RenderableUnit
+                                    ? targetUnit.getVisualCenter(gs)
+                                    : targetUnit.getPosition();
+                            const targetCenter = { ...rawPos };
                             if (!(targetUnit instanceof RenderableUnit)) {
-                                fallbackPos.x += gs.getHalfStep();
-                                fallbackPos.y += gs.getHalfStep();
+                                targetCenter.x += gs.getHalfStep();
+                                targetCenter.y += gs.getHalfStep();
                             }
-                            arrowEndPos = fallbackPos;
+                            const dx = arrowStartPos.x - targetCenter.x;
+                            const dy = arrowStartPos.y - targetCenter.y;
+                            const len = Math.hypot(dx, dy) || 1;
+                            const reach = gs.getHalfStep() * (targetUnit.isSmallSize() ? 1 : 2);
+                            arrowEndPos = {
+                                x: targetCenter.x + (dx / len) * reach,
+                                y: targetCenter.y + (dy / len) * reach,
+                            };
                         }
                         let finalArrowEndPos = arrowEndPos!;
                         // Through Shot keeps flying past the aimed target to the field edge, so the

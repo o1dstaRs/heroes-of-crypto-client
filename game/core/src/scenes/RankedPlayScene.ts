@@ -464,6 +464,7 @@ export class RankedPlayScene extends Sandbox {
         // to the full hydrate below to rebuild from authoritative truth.
         if (boardSignature === this.lastBoardSignature && !forceRebuild) {
             this.syncRankedVisibleTurnState(snapshot);
+            this.applyRankedUnitStats(state.units);
             this.applyRankedFightStats(snapshot, state.units);
             return;
         }
@@ -483,6 +484,10 @@ export class RankedPlayScene extends Sandbox {
                 this.sc_visibleState.lapNumber = Math.max(snapshot.currentLap || 0, 0);
                 this.sc_visibleStateUpdateNeeded = true;
             }
+            // A replayed action animates the hit but its EVENTS don't mutate the stack counts — apply
+            // the authoritative remaining amounts/hp here so attack and retaliation damage actually
+            // updates each unit's stack on the board (otherwise it stays frozen at the pre-hit count).
+            this.applyRankedUnitStats(state.units);
             this.applyRankedFightStats(snapshot, state.units);
             return;
         }
@@ -660,6 +665,17 @@ export class RankedPlayScene extends Sandbox {
     protected override canShowHoverForActiveUnit(): boolean {
         const currentActiveUnit = this.getCurrentActiveUnit();
         if (!currentActiveUnit || this.viewerTeam === undefined) return false;
+        return currentActiveUnit.getTeam() === this.viewerTeam;
+    }
+    /**
+     * The local player may only act on the active unit when it is on their own team. On the opponent's
+     * turn this disables every toolbar action button — including the spellbook, which is otherwise a
+     * purely-local overlay the server never sees, so it would open over the opponent's turn (bug fix).
+     * With no active unit (e.g. placement) there is nothing to gate, so the toolbar stays usable.
+     */
+    protected override canControlCurrentActiveUnit(): boolean {
+        const currentActiveUnit = this.getCurrentActiveUnit();
+        if (!currentActiveUnit || this.viewerTeam === undefined) return true;
         return currentActiveUnit.getTeam() === this.viewerTeam;
     }
     /**
@@ -1013,6 +1029,35 @@ export class RankedPlayScene extends Sandbox {
             return "melee";
         }
         return "new";
+    }
+    /**
+     * Reconcile each living unit's remaining stack stats (alive count, top-unit hp, dead count) to the
+     * authoritative snapshot WITHOUT a destructive board rebuild. Replayed action events animate a hit
+     * but never mutate the stack, and the skip-rebuild snapshot path would otherwise leave the count
+     * frozen — so attack/retaliation damage must be applied here. Units that dropped to 0 are left to
+     * the unit_destroyed/hydrate paths to remove.
+     */
+    private applyRankedUnitStats(units: SandboxSceneUnitState[]): void {
+        let changed = false;
+        for (const u of units) {
+            const alive = Math.max(0, Math.floor(u.properties.amount_alive));
+            if (alive <= 0) {
+                continue;
+            }
+            const unit = this.unitsHolder.getAllUnits().get(u.properties.id);
+            if (!unit || unit.isDead()) {
+                continue;
+            }
+            const hp = Math.max(0, Math.floor(u.properties.hp));
+            if (unit.getAmountAlive() !== alive || unit.getHp() !== hp) {
+                unit.setRemainingStats(alive, hp, u.properties.amount_died);
+                changed = true;
+            }
+        }
+        if (changed) {
+            this.refreshUnits();
+            this.sc_visibleStateUpdateNeeded = true;
+        }
     }
     private applyRankedFightStats(snapshot: AuthoritativeGameSnapshot, units: SandboxSceneUnitState[]): void {
         if (this.rankedStatsGameId && this.rankedStatsGameId !== snapshot.gameId) {

@@ -38,6 +38,12 @@ export interface ISandboxButtonContext {
     setAIActive(active: boolean): void;
     setSpellBookOverlay(active: boolean): void;
     isInputLockedByAI(): boolean;
+    /**
+     * Whether the local player may act on the current active unit. Sandbox controls both teams, so
+     * this is always true there. Ranked overrides it: on the opponent's turn the active unit is theirs,
+     * so all action buttons (incl. the purely-local spellbook overlay) must be disabled.
+     */
+    canControlCurrentActiveUnit(): boolean;
 
     getVisibleState(): IVisibleState | undefined;
 }
@@ -191,7 +197,18 @@ export class ButtonManager {
         let attackTypeButton = { ...baseAttackType };
         let spellBookButton = { ...baseSpellBook };
 
-        if (this.sc_isAIActive || inputLockedByAI) {
+        // Ranked: on the opponent's turn the active unit is theirs — the local player must not be able
+        // to wait/end-turn/switch attack type or (the reported bug) open their spellbook. Sandbox always
+        // returns true here, so its behavior is unchanged.
+        const canControlActive = this.context.canControlCurrentActiveUnit();
+        if (!canControlActive && this.sc_renderSpellBookOverlay) {
+            // Control was lost while the book was open (e.g. the turn timer handed off mid-overlay) —
+            // close it so it doesn't linger over the opponent's turn.
+            this.sc_renderSpellBookOverlay = false;
+            this.context.setSpellBookOverlay(false);
+        }
+
+        if (this.sc_isAIActive || inputLockedByAI || !canControlActive) {
             hourglassButton.isDisabled = true;
             shieldButton.isDisabled = true;
             nextButton.isDisabled = true;
@@ -299,6 +316,12 @@ export class ButtonManager {
         }
         if (!currentActiveUnit && name !== "AI") {
             // No active unit: only the AI toggle is meaningful.
+            return;
+        }
+        // Ranked: it's not the local player's turn (active unit is the opponent's). Block every
+        // unit-action button — including the spellbook, which is otherwise a purely-local overlay
+        // toggle the server never gets a chance to reject. The AI toggle stays available.
+        if (name !== "AI" && !this.context.canControlCurrentActiveUnit()) {
             return;
         }
 
