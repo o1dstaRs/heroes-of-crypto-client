@@ -72,13 +72,11 @@ export class UnitsOverlay {
         this.getTex = getTexture;
         this.onUnitSelected = onUnitSelected;
 
-        this.levelBuckets = CommonLevelBuckets.map(
-            (b: LevelBucket): LevelBucket => ({
-                label: b.label,
-                count: b.count,
-                unitSize: b.unitSize,
-            }),
-        );
+        this.levelBuckets = CommonLevelBuckets.map((b: LevelBucket): LevelBucket => ({
+            label: b.label,
+            count: b.count,
+            unitSize: b.unitSize,
+        }));
 
         this.app.stage.sortableChildren = true;
         this.container.zIndex = 100;

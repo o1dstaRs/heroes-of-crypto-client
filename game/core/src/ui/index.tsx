@@ -444,13 +444,44 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                     </WalletProvider>
                 }
             />
-            {/* Custom-game lobbies: browse/create and the lobby room (ready-up + start). */}
-            <Route path="/lobbies" element={authenticated ? <LobbiesBrowse /> : <LoginScreen />} />
-            <Route path="/lobby/:lobbyId" element={authenticated ? <LobbyView /> : <LoginScreen />} />
+            {/* Custom-game lobbies: browse/create and the lobby room (ready-up + start).
+                LoginScreen uses wagmi hooks, so the unauthenticated fallback must sit inside WalletProvider. */}
+            <Route
+                path="/lobbies"
+                element={
+                    authenticated ? (
+                        <LobbiesBrowse />
+                    ) : (
+                        <WalletProvider>
+                            <LoginScreen />
+                        </WalletProvider>
+                    )
+                }
+            />
+            <Route
+                path="/lobby/:lobbyId"
+                element={
+                    authenticated ? (
+                        <LobbyView />
+                    ) : (
+                        <WalletProvider>
+                            <LoginScreen />
+                        </WalletProvider>
+                    )
+                }
+            />
             {/* Player portal: full-profile dashboard (stats, matches, combos, strategies) */}
             <Route
                 path="/portal"
-                element={authenticated || isMockPortalEnabled() ? <PlayerPortalPage /> : <LoginScreen />}
+                element={
+                    authenticated || isMockPortalEnabled() ? (
+                        <PlayerPortalPage />
+                    ) : (
+                        <WalletProvider>
+                            <LoginScreen />
+                        </WalletProvider>
+                    )
+                }
             />
             <Route
                 path="/game/:gameId"

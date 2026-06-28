@@ -2,12 +2,7 @@ import type { GameAction, GameActionRejectionReason, GameEvent } from "@heroesof
 
 export type TeamName = "LOWER" | "UPPER";
 export type AIReason =
-    | "sandbox_toggle"
-    | "pc_opponent"
-    | "opponent_timeout"
-    | "opponent_disconnected"
-    | "server_bot"
-    | "benchmark";
+    "sandbox_toggle" | "pc_opponent" | "opponent_timeout" | "opponent_disconnected" | "server_bot" | "benchmark";
 export type AIStyle = "balanced" | "aggressive" | "defensive";
 
 export type DraftPhaseName = "initial_pick" | "extended_pick" | "extended_ban" | "pick" | "ban" | "complete";

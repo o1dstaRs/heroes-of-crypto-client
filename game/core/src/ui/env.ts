@@ -8,8 +8,7 @@ interface ImportMetaEnvLike {
 
 function viteEnv(): ImportMetaEnvLike | undefined {
     const m = (typeof import.meta !== "undefined" ? (import.meta as unknown) : undefined) as
-        | { env?: ImportMetaEnvLike }
-        | undefined;
+        { env?: ImportMetaEnvLike } | undefined;
     return m?.env;
 }
 

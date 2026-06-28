@@ -284,14 +284,12 @@ export const toAuthoritativeGameSnapshot = (
     units: snapshot.units,
     upNext: snapshot.upNext,
     journalTail: snapshot.journalTail,
-    damageStats: snapshot.damageStats.map(
-        (stat): IDamageStatistic => ({
-            unitName: stat.unitName,
-            damage: stat.damage,
-            team: stat.team as TeamType,
-            lap: stat.lap,
-        }),
-    ),
+    damageStats: snapshot.damageStats.map((stat): IDamageStatistic => ({
+        unitName: stat.unitName,
+        damage: stat.damage,
+        team: stat.team as TeamType,
+        lap: stat.lap,
+    })),
 });
 
 interface RankedGameActionTransportOptions {

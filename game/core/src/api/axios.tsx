@@ -13,8 +13,7 @@ interface ImportMetaEnvLike {
 function getViteEnv(): ImportMetaEnvLike | undefined {
     // Use unknown cast + structural narrowing (no `any`)
     const meta = (typeof import.meta !== "undefined" ? (import.meta as unknown) : undefined) as
-        | { env?: ImportMetaEnvLike }
-        | undefined;
+        { env?: ImportMetaEnvLike } | undefined;
     return meta?.env;
 }
 
