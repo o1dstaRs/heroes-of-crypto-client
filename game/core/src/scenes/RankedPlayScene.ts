@@ -411,6 +411,12 @@ export class RankedPlayScene extends Sandbox {
     protected override isAwaitingAuthoritativeTurnHandoff(): boolean {
         return this.awaitingTurnHandoff;
     }
+    protected override onReplayHangRecovery(): void {
+        // The hung replay may have left the board half-applied. Clear the cached signature so the next
+        // authoritative snapshot does a full hydrate instead of short-circuiting on an unchanged
+        // signature, reconciling the scene to server truth.
+        this.lastBoardSignature = "";
+    }
     public override applyAuthoritativeSnapshot(
         snapshot: AuthoritativeGameSnapshot,
         options?: AuthoritativeSnapshotOptions,
@@ -438,11 +444,25 @@ export class RankedPlayScene extends Sandbox {
         // so the holes render even when the board rebuild that would normally draw them is skipped.
         this.applyAuthoritativeNarrowing(snapshot.narrowingLayers);
         const state = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
+        // Self-heal an active-unit desync: the server says a unit is active but on our board that unit
+        // is missing or dead (e.g. its death was applied locally but the server kept/resurrected it, or
+        // a force-recovered replay left the board half-applied). syncAuthoritativeActiveUnit would bail
+        // and leave the board with NO active unit — a silent freeze (AI never triggers). Treat it like
+        // forceBoardRebuild so the full hydrate below rebuilds from truth and re-activates the unit.
+        const activeUnitDesynced =
+            snapshot.fightStarted &&
+            !snapshot.fightFinished &&
+            !!snapshot.currentUnitId &&
+            (() => {
+                const u = this.unitsHolder.getAllUnits().get(snapshot.currentUnitId);
+                return !u || u.isDead();
+            })();
+        const forceRebuild = !!options?.forceBoardRebuild || activeUnitDesynced;
         // forceBoardRebuild self-heals a desync: the client just had an action rejected because its
         // view disagrees with the server (e.g. a stale ghost unit), so the signature short-circuit
         // (which assumes "same server board => client already in sync") must NOT fire — fall through
         // to the full hydrate below to rebuild from authoritative truth.
-        if (boardSignature === this.lastBoardSignature && !options?.forceBoardRebuild) {
+        if (boardSignature === this.lastBoardSignature && !forceRebuild) {
             this.syncRankedVisibleTurnState(snapshot);
             this.applyRankedFightStats(snapshot, state.units);
             return;
@@ -455,10 +475,7 @@ export class RankedPlayScene extends Sandbox {
         // applied mechanics, so the snapshot's board is redundant here; we only refresh the
         // turn queue / visible state.
         const skipBoardRebuild =
-            !options?.forceBoardRebuild &&
-            !!options?.skipBoardRebuild &&
-            snapshot.fightStarted &&
-            !snapshot.fightFinished;
+            !forceRebuild && !!options?.skipBoardRebuild && snapshot.fightStarted && !snapshot.fightFinished;
         if (skipBoardRebuild) {
             this.lastBoardSignature = boardSignature;
             this.syncRankedVisibleTurnState(snapshot);

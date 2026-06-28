@@ -272,6 +272,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     // a residual desync), we force a server-authoritative END_TURN to skip the stuck unit so the game
     // can never deadlock on a repeatedly-rejected action.
     const rejectionStreakRef = useRef<{ seq: number; count: number }>({ seq: -1, count: 0 });
+    // Timestamp (ms) when pendingTurnResolutionRef was last raised — used to auto-expire a stuck gate.
+    const pendingTurnResolutionSinceRef = useRef(0);
     const pendingAuthoritativeRecordsRef = useRef(new Map<number, PendingAuthoritativePlayback>());
     const playedAuthoritativeSequencesRef = useRef(new Set<number>());
     const authoritativePlaybackQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -847,6 +849,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
 
     const transport = useCallback<SceneGameActionTransport>(
         (action) => {
+            // Auto-expire the turn-resolution gate: if it has been pending too long, the submit/playback
+            // chain that should have cleared it is stuck. Don't block submissions forever (which would
+            // silently freeze an autobattle AI) — treat a long-pending gate as stale and proceed.
+            if (pendingTurnResolutionRef.current && Date.now() - pendingTurnResolutionSinceRef.current > 6000) {
+                pendingTurnResolutionRef.current = false;
+            }
             if (pendingTurnResolutionRef.current) {
                 return {
                     handled: true,
@@ -876,6 +884,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             if (isModelSubmission) {
                 if (isTurnResolvingAction(action)) {
                     pendingTurnResolutionRef.current = true;
+                    pendingTurnResolutionSinceRef.current = Date.now();
                 }
                 void submitGameActionForTeam(
                     action,
@@ -889,6 +898,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             }
             if (isTurnResolvingAction(action)) {
                 pendingTurnResolutionRef.current = true;
+                pendingTurnResolutionSinceRef.current = Date.now();
             }
             void submitGameAction(action);
             return { handled: true, completed: true };

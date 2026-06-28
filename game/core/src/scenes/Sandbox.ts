@@ -133,9 +133,10 @@ export class Sandbox extends PixiScene {
     private static readonly REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS = 300;
     private static readonly REPLAY_ATTACK_AFTER_APPLY_HOLD_MS = 160;
     private static readonly REPLAY_SPELL_HOLD_MS = 150;
-    // Far longer than any real single replay animation (moves ~1-2s, attacks ~1s), so this only ever
-    // fires on a genuine hang — never cutting a legitimately-running animation short.
-    private static readonly REPLAY_HANG_WATCHDOG_MS = 8000;
+    // Longer than any real single replay animation chain (move ~1-2s + attack/retaliation ~2-3s), so
+    // it only fires on a genuine hang. On a rare overrun it just snaps the animation to its end and
+    // reconciles via the next authoritative snapshot — never a correctness issue, only a visual one.
+    private static readonly REPLAY_HANG_WATCHDOG_MS = 5000;
     private readonly grid: Grid;
     private readonly pathHelper: PathHelper;
     private canAttackByMeleeTargets?: IAttackTargets;
@@ -532,13 +533,34 @@ export class Sandbox extends PixiScene {
         // Dev/e2e hook: drive the on-canvas "AI toggle" (autobattle) from automated tests without
         // having to click the Pixi button. window.__hocSetAI(true) makes the local team auto-play.
         if (import.meta.env.DEV && typeof window !== "undefined") {
-            (window as unknown as { __hocSetAI?: (active: boolean) => void }).__hocSetAI = (active: boolean) => {
+            const w = window as unknown as {
+                __hocSetAI?: (active: boolean) => void;
+                __hocAiState?: () => Record<string, unknown>;
+            };
+            w.__hocSetAI = (active: boolean) => {
                 this.sc_isAIActive = active;
                 this.aiController.isAIActive = active;
                 this.buttonManager.sc_isAIActive = active;
                 if (active) {
                     this.clearBoardHoverPreviews();
                 }
+            };
+            // Diagnostic snapshot of the AI-gating state — lets a headless runner explain WHY the
+            // autobattle isn't acting during a silent stall (which gate is stuck).
+            w.__hocAiState = () => {
+                const u = this.currentActiveUnit;
+                return {
+                    fightStarted: FightStateManager.getInstance().getFightProperties().hasFightStarted(),
+                    activeUnit: u ? `${u.getName()}:${u.getTeam()}` : null,
+                    controlledTeam: this.getToggleAiControlledTeam() ?? null,
+                    isAIActive: this.aiController.isAIActive,
+                    performingAction: this.aiController.performingAction,
+                    replayPlaybackActive: this.replayPlaybackActive,
+                    isPlayingActionAnimation: this.isPlayingActionAnimation(),
+                    isActiveUnitMoving: this.isActiveUnitMoving,
+                    moveBlocked: this.sc_moveBlocked,
+                    boardInputLockedByAI: this.isBoardInputLockedByAI(),
+                };
             };
         }
     }
@@ -1722,27 +1744,45 @@ export class Sandbox extends PixiScene {
 
         const priorPlaybackActive = this.replayPlaybackActive;
         this.replayPlaybackActive = true;
-        // Safety valve: if a replay animation hangs (e.g. a move whose per-frame update stops driving
-        // its completion callback), the await below would never resolve — replayPlaybackActive and
-        // isPlayingActionAnimation stay true forever, the AI never re-triggers and snapshots get
-        // ignored: a silent scene freeze. Periodically force any stuck animation to finalize so the
-        // awaiting chain always resolves and the scene self-heals.
-        const hangWatchdog = setInterval(() => {
-            if (this.moveAnimManager.isMoving()) {
+        // Safety valve against a hung replay. If any await inside the replay never resolves (a move
+        // whose completion callback never fires, a projectile/animation that stalls, etc.),
+        // replayPlaybackActive + isPlayingActionAnimation stay true forever — the AI never re-triggers
+        // and snapshots get ignored: a silent scene freeze (observed as long stalls). Race the replay
+        // against a hard timeout that force-finalizes animations, restores playback state, and asks the
+        // scene to fully rebuild from the next authoritative snapshot (so any partial replay is
+        // reconciled to server truth — we deliberately do NOT re-apply events here to avoid double
+        // application; ranked is snapshot-authoritative).
+        let timedOut = false;
+        let hangTimer: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<boolean>((resolve) => {
+            hangTimer = setTimeout(() => {
+                timedOut = true;
                 this.moveAnimManager.forceFinish();
-            }
-            this.sc_isAnimating = false;
-        }, Sandbox.REPLAY_HANG_WATCHDOG_MS);
+                this.sc_isAnimating = false;
+                this.onReplayHangRecovery();
+                console.warn("[replay-watchdog] forced recovery of a hung authoritative replay");
+                resolve(false);
+            }, Sandbox.REPLAY_HANG_WATCHDOG_MS);
+        });
         try {
-            const played = await this.playSandboxReplayRecord(record);
-            if (!played) {
+            const played = await Promise.race([this.playSandboxReplayRecord(record), timeout]);
+            if (!timedOut && !played) {
                 this.applyReplayEvents(record.events);
             }
             return played;
         } finally {
-            clearInterval(hangWatchdog);
+            if (hangTimer !== undefined) {
+                clearTimeout(hangTimer);
+            }
             this.replayPlaybackActive = priorPlaybackActive;
         }
+    }
+    /**
+     * Hook fired when the replay-hang watchdog force-recovers a stuck authoritative replay. Base scenes
+     * have nothing to reconcile; ranked overrides this to force the next snapshot into a full rebuild.
+     */
+    protected onReplayHangRecovery(): void {
+        // no-op in the base sandbox
     }
     private delayReplay(ms: number): Promise<void> {
         return new Promise((resolve) => {

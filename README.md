@@ -7,9 +7,6 @@
   <a href="https://github.com/o1dstaRs/heroes-of-crypto-common/actions/workflows/ci.yml">
     <img src="https://github.com/o1dstaRs/heroes-of-crypto-common/actions/workflows/ci.yml/badge.svg" alt="Common CI">
   </a>
-  <a href="https://github.com/o1dstaRs/heroes-of-crypto-server/actions/workflows/ci.yml">
-    <img src="https://github.com/o1dstaRs/heroes-of-crypto-server/actions/workflows/ci.yml/badge.svg" alt="Server CI">
-  </a>
   <a href="https://bun.sh/">
     <img src="https://img.shields.io/badge/Bun-1.3-fa9b3b.svg?logo=bun&logoColor=white" alt="Bun">
   </a>
