@@ -1887,7 +1887,7 @@ export class Sandbox extends PixiScene {
             case "area_throw_attack":
                 return this.playReplayAreaThrowAction(action);
             case "cast_spell":
-                return this.playReplayCastSpellAction(action);
+                return this.playReplayCastSpellAction(record);
             case "end_turn":
             case "wait_turn":
             case "defend_turn":
@@ -2172,11 +2172,21 @@ export class Sandbox extends PixiScene {
 
         if (attackEvent.attackType === "range") {
             await this.playReplayProjectile(attacker, target);
+            // Double Shot fires a second projectile at the same target. Plain double-shotters expose the
+            // second shot as a second damage hit (hits.length > 1), but an AOE double-shotter (Gargantuan
+            // = Area Throw) routes its first shot through the AOE path: damage is conveyed via `splash` and
+            // `hits` is never populated — so the hits check alone misses Gargantuan's single-target shot.
+            // The authoritative animations are reliable for both: the engine records one shot-animation at
+            // the target per landed shot (a missed second shot records none), so two target-directed shot
+            // animations means the second shot landed.
+            const targetShotAnimations = (attackEvent.animations ?? []).filter(
+                (animation) => animation.affectedUnitId === target.getId(),
+            ).length;
+            const hitsCount = attackEvent.damage.hits?.length ?? 0;
             if (
                 this.shouldPlayReplayDoubleShotProjectile() &&
                 attacker.getAbility("Double Shot") &&
-                attackEvent.damage.hits &&
-                attackEvent.damage.hits.length > 1
+                (hitsCount > 1 || targetShotAnimations > 1)
             ) {
                 void this.playReplayProjectile(attacker, target);
             }
@@ -2193,6 +2203,7 @@ export class Sandbox extends PixiScene {
 
         this.sc_sceneLog.updateLog(`${attacker.getName()} attk ${target.getName()} (${attackEvent.damage.amount})`);
         this.showReplayAttackDamage(attacker, target, attackEvent, record);
+        this.playReplayAbilityVfx(attacker, target, attackEvent);
         this.applyReplayAttackRecoil(attacker, attackEvent);
         // Melee strikes don't emit a per-target recoil animation (only ranged hits do, via the
         // animations array), so knock the defender back here to give the struck side a visible hit
@@ -2211,6 +2222,58 @@ export class Sandbox extends PixiScene {
         this.sc_moveBlocked = false;
         await this.delayReplay(Sandbox.REPLAY_ATTACK_AFTER_APPLY_HOLD_MS);
         return true;
+    }
+    /**
+     * Ranked replay parity: spawn the same melee-ability VFX the local sandbox path shows when a
+     * strike lands — Black Dragon's Fire Breath line-sweep and Thunderbird's Chain Lightning arc.
+     * The authoritative events carry the damage (primary + per-unit secondary), but not these purely
+     * visual sweeps, so we recompute them client-side exactly like executeAttackSequence does.
+     */
+    private playReplayAbilityVfx(
+        attacker: RenderableUnit,
+        target: RenderableUnit,
+        attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
+    ): void {
+        // Both are melee line/chain abilities that only fire when the strike actually lands.
+        if (attackEvent.attackType !== "melee" || attackEvent.damage.amount <= 0) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const attackerCenter = attacker.getVisualCenter(gs);
+        const targetCenter = target.getVisualCenter(gs);
+
+        if (attacker.hasAbilityActive("Fire Breath")) {
+            const dx = targetCenter.x - attackerCenter.x;
+            const dy = targetCenter.y - attackerCenter.y;
+            const len = Math.hypot(dx, dy);
+            if (len > 0.001) {
+                const overshoot = gs.getCellSize() * 2; // breath continues ~2 cells past the target
+                this.combatVisuals.spawnFireSweep(
+                    attackerCenter,
+                    { x: targetCenter.x + (dx / len) * overshoot, y: targetCenter.y + (dy / len) * overshoot },
+                    gs.getCellSize(),
+                );
+            }
+        }
+
+        if (attacker.hasAbilityActive("Chain Lightning")) {
+            try {
+                const chain = AllAbilities.getChainLightningTargets(target, this.grid, this.unitsHolder);
+                const points: HoCMath.XY[] = [attackerCenter, targetCenter];
+                const seen = new Set<string>([target.getId()]);
+                for (const u of chain) {
+                    if (seen.has(u.getId())) {
+                        continue;
+                    }
+                    seen.add(u.getId());
+                    const ru = u as RenderableUnit;
+                    points.push(typeof ru.getVisualCenter === "function" ? ru.getVisualCenter(gs) : u.getPosition());
+                }
+                this.combatVisuals.spawnChainLightning(points, gs.getCellSize());
+            } catch (err) {
+                console.error("Failed to replay Chain Lightning VFX", err);
+            }
+        }
     }
     private async playReplayProjectile(attacker: RenderableUnit, target: RenderableUnit): Promise<void> {
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -2584,20 +2647,100 @@ export class Sandbox extends PixiScene {
         await this.performAreaThrow(unit, action.targetCell, cellPosition);
         return true;
     }
-    private async playReplayCastSpellAction(action: Extract<GameAction, { type: "cast_spell" }>): Promise<boolean> {
+    private async playReplayCastSpellAction(record: SandboxReplay["actions"][number]): Promise<boolean> {
+        const action = record.action;
+        if (action.type !== "cast_spell") {
+            return false;
+        }
         const caster = this.unitsHolder.getAllUnits().get(action.casterId) as RenderableUnit | undefined;
         if (!caster) {
             return false;
         }
-
         this.currentActiveUnit = caster;
+        const gs = this.sc_sceneSettings.getGridSettings();
         const unitSnapshot = this.snapshotRenderableUnits();
-        const result = this.createActionEngine().apply(action);
-        if (!result.completed) {
-            return false;
+
+        // Castling (POSITION_CHANGE) swaps the caster with a target. Re-running the engine during
+        // replay is unreliable here (validateTurnAction can reject — the turn has handed over), so apply
+        // the swap from authoritative truth: take both units' post-cast cells from the record's
+        // stateAfter, animate them arcing to each other's old cell, then commit positions + grid
+        // occupancy. Non-swap spells fall through to the engine (best-effort), with the next snapshot
+        // reconciling amounts.
+        const target = action.targetId
+            ? (this.unitsHolder.getAllUnits().get(action.targetId) as RenderableUnit | undefined)
+            : undefined;
+        const afterById = new Map(record.stateAfter.units.map((u) => [u.properties.id, u]));
+        const casterAfter = afterById.get(caster.getId());
+        const targetAfter = target ? afterById.get(target.getId()) : undefined;
+        const cellToPos = (cell: HoCMath.XY): HoCMath.XY | undefined =>
+            GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        const newCasterPos = casterAfter?.baseCell ? cellToPos(casterAfter.baseCell) : undefined;
+        const newTargetPos = targetAfter?.baseCell ? cellToPos(targetAfter.baseCell) : undefined;
+        const oldCasterPos = { ...caster.getPosition() };
+        const isSwap =
+            !!target &&
+            !!newCasterPos &&
+            !!newTargetPos &&
+            (Math.abs(oldCasterPos.x - newCasterPos.x) > 0.1 || Math.abs(oldCasterPos.y - newCasterPos.y) > 0.1);
+
+        if (isSwap && target && newCasterPos && newTargetPos && casterAfter && targetAfter) {
+            const oldTargetPos = { ...target.getPosition() };
+            this.sc_moveBlocked = true;
+            const worldRoot = this.drawer.getUnitsContainer();
+            await new Promise<void>((resolve) => {
+                this.moveAnimManager.startSwapAnimation(
+                    caster,
+                    oldCasterPos,
+                    newCasterPos,
+                    target,
+                    oldTargetPos,
+                    newTargetPos,
+                    () => {
+                        caster.setPosition(newCasterPos.x, newCasterPos.y);
+                        target.setPosition(newTargetPos.x, newTargetPos.y);
+                        // Re-point grid occupancy at the swapped cells (clean both first so neither
+                        // cleanup wipes the other's freshly-occupied cells).
+                        this.grid.cleanupAll(caster.getId(), caster.getAttackRange(), caster.isSmallSize());
+                        this.grid.cleanupAll(target.getId(), target.getAttackRange(), target.isSmallSize());
+                        this.grid.occupyCells(
+                            casterAfter.cells,
+                            caster.getId(),
+                            caster.getTeam(),
+                            caster.getAttackRange(),
+                            caster.hasAbilityActive("Made of Fire"),
+                            caster.hasAbilityActive("Made of Water"),
+                        );
+                        this.grid.occupyCells(
+                            targetAfter.cells,
+                            target.getId(),
+                            target.getTeam(),
+                            target.getAttackRange(),
+                            target.hasAbilityActive("Made of Fire"),
+                            target.hasAbilityActive("Made of Water"),
+                        );
+                        this.gridMatrix = this.grid.getMatrix();
+                        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+                        caster.syncVisual(worldRoot, gs);
+                        target.syncVisual(worldRoot, gs);
+                        this.sc_moveBlocked = false;
+                        this.applyReplayEvents(record.events);
+                        resolve();
+                    },
+                );
+            });
+            await this.delayReplay(Sandbox.REPLAY_SPELL_HOLD_MS);
+            return true;
         }
 
-        this.cleanupAfterSpell(result.events, unitSnapshot);
+        const result = this.createActionEngine().apply(action);
+        if (result.completed) {
+            this.cleanupAfterSpell(result.events, unitSnapshot);
+        } else {
+            // Engine re-apply rejected during replay (e.g. turn already handed over) — apply the
+            // authoritative events directly so deaths/turn advance still happen; amounts reconcile from
+            // the next snapshot.
+            this.applyReplayEvents(record.events);
+        }
         await this.delayReplay(Sandbox.REPLAY_SPELL_HOLD_MS);
         return true;
     }
@@ -2784,6 +2927,7 @@ export class Sandbox extends PixiScene {
         this.hoverManager.onCameraChanged();
     }
     public refreshUnits(): void {
+        const __t0 = performance.now();
         // those need to be applied first
         this.unitsHolder.applyAugments();
         // now we can refresh unit properties
@@ -2792,6 +2936,8 @@ export class Sandbox extends PixiScene {
         // need to call it twice to make sure aura effects are applied
         this.unitsHolder.refreshAuraEffectsForAllUnits();
         this.unitsHolder.refreshStackPowerForAllUnits();
+        const __dt = performance.now() - __t0;
+        if (__dt > 3) console.warn(`[perfDbg] refreshUnits ${__dt.toFixed(1)}ms`);
     }
     protected destroySpecificUnits(unitsToDestroy: RenderableUnit[], force = false, isDead = false): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -5081,6 +5227,25 @@ export class Sandbox extends PixiScene {
             if (attacker.getAbility("Double Shot") && damageForAnimation.hits && damageForAnimation.hits.length > 1) {
                 this.rangedProjectiles.fire({ from: muzzle, to: tVis, big: bigProjectile });
             }
+
+            // Ranged counter: when the defender shoots back, the engine records a response shot as an
+            // animation targeting the attacker (only the ranged-response branch emits one for a
+            // range_attack). Live play otherwise just floats the counter's damage number (section 2
+            // below) — fire the return projectile so the exchange reads the same as ranked's replay
+            // path (playReplayRetaliation), which uses this exact signal.
+            const liveAttackEvent = attackActionEvents?.find(
+                (event): event is Extract<GameEvent, { type: "unit_attacked" }> => event.type === "unit_attacked",
+            );
+            if (
+                liveAttackEvent &&
+                target instanceof RenderableUnit &&
+                liveAttackEvent.animations.some((animation) => animation.affectedUnitId === attacker.getId())
+            ) {
+                const responseMuzzle = target.getVisualCenter(gs);
+                const attackerCenter = attacker.getVisualCenter(gs);
+                const bigResponse = BIG_PROJECTILE_UNITS.has(target.getName().toLowerCase());
+                void this.rangedProjectiles.fire({ from: responseMuzzle, to: attackerCenter, big: bigResponse });
+            }
         } else {
             const routeMetadata = this.currentActiveKnownPaths?.get((attackFrom.x << 4) | attackFrom.y)?.[0];
             const action: GameAction =
@@ -6244,26 +6409,17 @@ export class Sandbox extends PixiScene {
                             attackFromCell = attackFrom;
                             this.hoverManager.hoverAttackFromCell = attackFrom;
 
-                            // Refined Logic (Melee / Move-to-Shoot): Use footprint map for large units
+                            // Refined Logic (Melee / Move-to-Shoot): Use footprint map for large units.
+                            // The silhouette center must be the geometric center of the unit's 2x2
+                            // footprint — the exact value replayMeleeApproach uses for the real landing
+                            // (getPositionForCells). The previous min-cell-minus-halfStep math placed the
+                            // preview a full cell down-left of the footprint (attackFrom is the footprint's
+                            // top-right cell), so the silhouette sat offset from where the unit lands.
                             if (!this.currentActiveUnit.isSmallSize() && this.canAttackByMeleeTargets) {
                                 const hash = (attackFrom.x << 4) | attackFrom.y;
                                 const footprint = this.canAttackByMeleeTargets.attackCellHashesToLargeCells.get(hash);
                                 if (footprint && footprint.length > 0) {
-                                    let minX = Number.MAX_SAFE_INTEGER;
-                                    let minY = Number.MAX_SAFE_INTEGER;
-                                    for (const c of footprint) {
-                                        if (c.x < minX) minX = c.x;
-                                        if (c.y < minY) minY = c.y;
-                                    }
-                                    attackFromPos = GridMath.getPositionForCell(
-                                        { x: minX, y: minY },
-                                        gs.getMinX(),
-                                        gs.getStep(),
-                                        gs.getHalfStep(),
-                                    );
-
-                                    attackFromPos.x -= gs.getHalfStep();
-                                    attackFromPos.y -= gs.getHalfStep();
+                                    attackFromPos = GridMath.getPositionForCells(gs, footprint);
                                 }
                             }
 
@@ -7523,6 +7679,16 @@ export class Sandbox extends PixiScene {
         return result.completed;
     }
     private applyTurnEngineEvents(events: GameEvent[], unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
+        const __t0 = performance.now();
+        try {
+            this.applyTurnEngineEventsImpl(events, unitSnapshot);
+        } finally {
+            const __dt = performance.now() - __t0;
+            if (__dt > 3)
+                console.warn(`[perfDbg] applyTurnEngineEvents ${__dt.toFixed(1)}ms (${events.length} events)`);
+        }
+    }
+    private applyTurnEngineEventsImpl(events: GameEvent[], unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
         const armageddonWaves = new Set<number>();
         let shouldRefreshVisibleState = false;
         let sawFightFinished = false;
@@ -7803,6 +7969,15 @@ export class Sandbox extends PixiScene {
         }
     }
     private handleNextUnitActivation(nextUnit: RenderableUnit): void {
+        const __t0 = performance.now();
+        try {
+            this.handleNextUnitActivationImpl(nextUnit);
+        } finally {
+            const __dt = performance.now() - __t0;
+            if (__dt > 3) console.warn(`[perfDbg] handleNextUnitActivation ${__dt.toFixed(1)}ms`);
+        }
+    }
+    private handleNextUnitActivationImpl(nextUnit: RenderableUnit): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const gs = this.sc_sceneSettings.getGridSettings();
         const worldRoot = this.drawer.getUnitsContainer();
@@ -8215,6 +8390,15 @@ export class Sandbox extends PixiScene {
     }
     protected verifyButtonsTrigger(): void {}
     protected updateCurrentMovePath(currentCell: HoCMath.XY): void {
+        const __t0 = performance.now();
+        try {
+            this.updateCurrentMovePathImpl(currentCell);
+        } finally {
+            const __dt = performance.now() - __t0;
+            if (__dt > 3) console.warn(`[perfDbg] updateCurrentMovePath ${__dt.toFixed(1)}ms`);
+        }
+    }
+    private updateCurrentMovePathImpl(currentCell: HoCMath.XY): void {
         if (!this.currentActiveUnit || this.moveAnimManager.isMoving()) {
             return;
         }
