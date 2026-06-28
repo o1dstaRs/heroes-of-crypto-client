@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# Auto-fix staged files before commit so CI's check-only lint never sees dirty code.
+# (The game/heroes-of-crypto-common submodule has its own hook.)
+bunx lint-staged

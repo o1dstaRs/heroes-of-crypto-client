@@ -42,8 +42,25 @@
         "lint:style": "bun run lint:style:base -- --check",
         "lint:style:base": "bunx prettier \"game/**/src/**/*.{ts,tsx,js,json,scss}\" \"game/*/*.{ts,tsx,js,json,scss}\"",
         "lint:style:fix": "bun run lint:style:base -- --write",
+        "prepare": "git config core.hooksPath .githooks || true",
         "start": "bun --cwd game/core start",
         "start:site": "bun --cwd site dev"
+    },
+    "lint-staged": {
+        "game/**/src/**/*.{ts,tsx}": [
+            "bunx eslint --fix --ignore-pattern .prettierignore",
+            "bunx prettier --write"
+        ],
+        "game/**/src/**/*.scss": [
+            "bunx stylelint --fix --ignore-path .prettierignore",
+            "bunx prettier --write"
+        ],
+        "game/**/src/**/*.{js,json}": [
+            "bunx prettier --write"
+        ],
+        "{package.json,game/*/package.json,site/package.json}": [
+            "bunx sort-package-json"
+        ]
     },
     "resolutions": {
         "@typescript-eslint/eslint-plugin": "^8.61.1",
@@ -67,6 +84,7 @@
         "eslint-plugin-react-hooks": "^5.2.0",
         "events": "^3.3.0",
         "globals": "^15.15.0",
+        "lint-staged": "^17.0.8",
         "postcss": "^8.5.15",
         "postcss-scss": "^4.0.9",
         "prettier": "^3.8.4",
