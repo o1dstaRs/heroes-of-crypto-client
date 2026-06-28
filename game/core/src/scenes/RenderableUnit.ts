@@ -1006,6 +1006,23 @@ export class RenderableUnit extends Unit {
         if (this.isActiveTurn === active) return;
         this.isActiveTurn = active;
     }
+    /**
+     * Reconcile this unit's remaining stack stats (alive count, top-unit hp, dead count) to an
+     * authoritative snapshot. Snapshot-driven clients (ranked) need this because a replayed action
+     * animates the hit but its EVENTS don't mutate the stack — so attack/retaliation damage would
+     * otherwise leave the on-board count frozen. Pure display reconciliation, hence a client concern.
+     */
+    public setRemainingStats(amountAlive: number, hp: number, amountDied: number): void {
+        const alive = Math.max(0, Math.floor(amountAlive));
+        this.unitProperties.amount_alive = alive;
+        this.initialUnitProperties.amount_alive = alive;
+        const clampedHp = Math.max(0, Math.min(Math.floor(hp), this.unitProperties.max_hp));
+        this.unitProperties.hp = clampedHp;
+        this.initialUnitProperties.hp = clampedHp;
+        const died = Math.max(0, Math.floor(amountDied));
+        this.unitProperties.amount_died = died;
+        this.initialUnitProperties.amount_died = died;
+    }
     /** Tint the active-turn aura (e.g. red for the enemy's turn in ranked, white otherwise). */
     public setActiveAuraColor(color: number): void {
         this.activeAuraColor = color;
