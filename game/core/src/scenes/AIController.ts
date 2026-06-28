@@ -6,11 +6,14 @@ import {
     HoCMath,
     IWeightedRoute,
     PathHelper,
+    SpellHelper,
+    SpellPowerType,
+    SpellTargetType,
     Unit,
     UnitsHolder,
     FightStateManager,
 } from "@heroesofcrypto/common";
-import type { AttackHandler, AttackType, GameAction, TeamType } from "@heroesofcrypto/common";
+import type { AttackHandler, AttackType, GameAction, Spell, TeamType } from "@heroesofcrypto/common";
 import { RenderableUnit } from "./RenderableUnit";
 import { HoverManager } from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
@@ -95,6 +98,9 @@ export class AIController {
     private localModelTeamOverrideSet = false;
     private lastLocalModelUnitId: string | undefined;
     private attackTypeSetupUnitId: string | undefined;
+    // Unit we last tried to cast a spell for. If it's STILL the active unit on the next decision, the
+    // cast didn't advance the turn (rejected) — so we attack instead of re-casting, breaking any loop.
+    private spellCastAttemptUnitId: string | undefined;
     // AI State
     public isAIActive = false;
     public performingAction = false;
@@ -252,6 +258,13 @@ export class AIController {
             }
         }
 
+        // Spell casting: the built-in AI.findTarget only does move/attack, so evaluate the active
+        // unit's spells (heal/buff allies, debuff/Castling enemies, summon) here. Cast only when it
+        // beats just attacking, so the unit still progresses the fight to a finish.
+        if (this.tryCastSpell(currentUnit, wasAIActive)) {
+            return;
+        }
+
         const action = AI.findTarget(
             currentUnit,
             this.context.getGrid(),
@@ -278,6 +291,234 @@ export class AIController {
         }
 
         this.finishAIAction(wasAIActive);
+    }
+    /** Estimated value of the active unit simply attacking this turn (max damage it can deal). */
+    private estimateAttackValue(caster: Unit): number {
+        return Math.max(0, caster.getAttackDamageMax()) * Math.max(0, caster.getAmountAlive());
+    }
+    /**
+     * Pick the best spell the caster should cast this turn, or undefined to fall through to move/attack.
+     * Covers ally heals/buffs, enemy debuffs, Castling (swap with a small enemy in move range) and
+     * summons. Each candidate is scored on a shared scale and only cast when it beats attacking, and
+     * already-applied buffs/debuffs and full-HP heal targets are skipped so the AI can't loop forever.
+     */
+    private chooseBestSpell(
+        caster: Unit,
+    ): { spellName: string; targetUnitId?: string; targetCell?: HoCMath.XY } | undefined {
+        const spells = caster.getSpells();
+        if (!spells.length || caster.getStackPower() < 1) {
+            return undefined;
+        }
+        const team = caster.getTeam();
+        const holder = this.context.getUnitsHolder();
+        const allies = holder.getAllAllies(team).filter((u) => !u.isDead());
+        const enemies = holder.getAllEnemyUnits(team).filter((u) => !u.isDead() && !u.hasBuffActive("Hidden"));
+        if (!allies.length) {
+            return undefined;
+        }
+        const gs = this.context.getSceneSettings().getGridSettings();
+        const gridMatrix = this.context.getGridMatrix();
+        const MASS_VALUE = 12;
+        const attackValue = this.estimateAttackValue(caster);
+        const threat = (u: Unit): number => Math.max(1, u.getAttackDamageMax()) * Math.max(1, u.getAmountAlive());
+        // Small enemy cells the caster could reach — the "within movement range" set Castling needs.
+        const castlingSteps = Math.max(1, Math.ceil(caster.getSteps())) + 1;
+        const enemiesInRange = enemies
+            .filter(
+                (e) => e.isSmallSize() && HoCMath.getDistance(caster.getBaseCell(), e.getBaseCell()) <= castlingSteps,
+            )
+            .map((e) => e.getBaseCell());
+        // Authoritative castability gate (same as the engine's handleMagicAttack) so we never pick a
+        // single-target cast the server would reject as spell_not_available.
+        const canCast = (spell: Spell, target?: Unit): boolean =>
+            !!SpellHelper.canCastSpell(
+                false,
+                gs,
+                gridMatrix,
+                caster,
+                target,
+                spell,
+                target?.getBaseCell(),
+                target?.getMagicResist(),
+                target?.hasMindAttackResistance(),
+                target?.canBeHealed(),
+                enemiesInRange,
+            );
+
+        let best: { spellName: string; targetUnitId?: string; targetCell?: HoCMath.XY } | undefined;
+        let bestValue = 0;
+        const consider = (
+            value: number,
+            choice: { spellName: string; targetUnitId?: string; targetCell?: HoCMath.XY },
+        ): void => {
+            if (value > bestValue) {
+                bestValue = value;
+                best = choice;
+            }
+        };
+
+        for (const spell of spells) {
+            if (spell.getLapsTotal() <= 0 || !spell.isRemaining()) {
+                continue;
+            }
+            if (spell.getMinimalCasterStackPower() > caster.getStackPower()) {
+                continue;
+            }
+            const tt = spell.getSpellTargetType();
+            const pt = spell.getPowerType();
+            const name = spell.getName();
+            const isHeal = pt === SpellPowerType.HEAL;
+            const allyCandidates = spell.isSelfCastAllowed()
+                ? allies
+                : allies.filter((a) => a.getId() !== caster.getId());
+
+            // Summon (e.g. RANDOM_CLOSE_TO_CASTER): spawn allies near the caster.
+            if (spell.isSummon() && tt === SpellTargetType.RANDOM_CLOSE_TO_CASTER) {
+                const amount = Math.floor(caster.getAmountAlive() * spell.getPower());
+                const cell = GridMath.getRandomGridCellAroundPosition(gs, gridMatrix, team, caster.getPosition());
+                if (amount > 0 && cell && SpellHelper.canCastSummon(spell, gridMatrix, cell)) {
+                    consider(amount * 8, { spellName: name, targetCell: cell });
+                }
+                continue;
+            }
+
+            // Beneficial: heal the most-hurt ally / buff allies not already carrying this buff.
+            if (spell.isBuff() || isHeal) {
+                if (tt === SpellTargetType.ALL_ALLIES || tt === SpellTargetType.ALL_FLYING) {
+                    const benef = (
+                        tt === SpellTargetType.ALL_FLYING ? allyCandidates.filter((a) => a.canFly()) : allyCandidates
+                    ).filter((a) => (isHeal ? a.getHp() < a.getMaxHp() : !a.hasBuffActive(name)));
+                    if (benef.length) {
+                        consider(benef.length * MASS_VALUE, { spellName: name });
+                    }
+                } else if (tt === SpellTargetType.ANY_ALLY) {
+                    let target: Unit | undefined;
+                    let value = 0;
+                    if (isHeal) {
+                        for (const a of allyCandidates) {
+                            const missing = a.getMaxHp() - a.getHp();
+                            if (missing > value) {
+                                value = missing;
+                                target = a;
+                            }
+                        }
+                    } else {
+                        for (const a of allyCandidates) {
+                            if (a.hasBuffActive(name)) {
+                                continue;
+                            }
+                            const v = threat(a);
+                            if (v > value) {
+                                value = v;
+                                target = a;
+                            }
+                        }
+                    }
+                    if (target && canCast(spell, target)) {
+                        consider(value, { spellName: name, targetUnitId: target.getId() });
+                    }
+                }
+                continue;
+            }
+
+            // Castling (POSITION_CHANGE): swap with a strong small enemy within the caster's reach.
+            if (pt === SpellPowerType.POSITION_CHANGE && tt === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE) {
+                const steps = Math.max(1, Math.ceil(caster.getSteps())) + 1;
+                let target: Unit | undefined;
+                let value = 0;
+                for (const e of enemies) {
+                    if (!e.isSmallSize()) {
+                        continue;
+                    }
+                    const d = HoCMath.getDistance(caster.getBaseCell(), e.getBaseCell());
+                    if (d > steps) {
+                        continue;
+                    }
+                    const v = threat(e);
+                    if (v > value) {
+                        value = v;
+                        target = e;
+                    }
+                }
+                if (target && canCast(spell, target)) {
+                    consider(value, {
+                        spellName: name,
+                        targetUnitId: target.getId(),
+                        targetCell: target.getBaseCell(),
+                    });
+                }
+                continue;
+            }
+
+            // Debuff enemies (ANY_ENEMY / ALL_ENEMIES) not already carrying this debuff.
+            if (!enemies.length) {
+                continue;
+            }
+            if (tt === SpellTargetType.ALL_ENEMIES) {
+                const benef = enemies.filter((e) => !e.hasDebuffActive(name));
+                if (benef.length) {
+                    consider(benef.length * MASS_VALUE, { spellName: name });
+                }
+            } else if (tt === SpellTargetType.ANY_ENEMY) {
+                let target: Unit | undefined;
+                let value = 0;
+                for (const e of enemies) {
+                    if (e.hasDebuffActive(name)) {
+                        continue;
+                    }
+                    const v = threat(e);
+                    if (v > value) {
+                        value = v;
+                        target = e;
+                    }
+                }
+                if (target && canCast(spell, target)) {
+                    consider(value, {
+                        spellName: name,
+                        targetUnitId: target.getId(),
+                        targetCell: target.getBaseCell(),
+                    });
+                }
+            }
+        }
+
+        if (!best || bestValue <= attackValue) {
+            return undefined;
+        }
+        return best;
+    }
+    /** Cast the chosen spell (if any) as an authoritative action and end the AI's turn. */
+    private tryCastSpell(caster: RenderableUnit, wasAIActive: boolean): boolean {
+        // Loop guard: in ranked the cast is submitted optimistically, so if the server rejects it the
+        // same unit stays active. If we already tried a cast for this exact active unit, don't try
+        // again — attack instead — so a rejected/odd cast can't wedge the unit on its turn. The guard
+        // clears as soon as a DIFFERENT unit is active (the turn advanced), so it re-arms each turn.
+        if (this.spellCastAttemptUnitId && this.spellCastAttemptUnitId !== caster.getId()) {
+            this.spellCastAttemptUnitId = undefined;
+        }
+        if (this.spellCastAttemptUnitId === caster.getId()) {
+            return false;
+        }
+        const choice = this.chooseBestSpell(caster);
+        if (!choice) {
+            return false;
+        }
+        this.spellCastAttemptUnitId = caster.getId();
+        const action = this.modelAction(caster, {
+            type: "cast_spell",
+            casterId: caster.getId(),
+            spellName: choice.spellName,
+            targetId: choice.targetUnitId,
+            targetCell: choice.targetCell,
+        });
+        const completed = this.context.applyGameAction(action);
+        if (!completed) {
+            // Engine/transport rejected — fall back to a normal move/attack this turn.
+            return false;
+        }
+        this.endTurnIfStillActive(caster);
+        this.finishAIAction(wasAIActive);
+        return true;
     }
     private async performLocalModelAction(currentUnit: RenderableUnit, wasAIActive: boolean): Promise<boolean> {
         if (this.lastLocalModelUnitId !== currentUnit.getId()) {

@@ -70,6 +70,11 @@ export const createPlayActionFromGameAction = (action: GameAction, envelope: Pla
                 type: PlayActionType.RANGE_ATTACK,
                 unitId: action.attackerId,
                 targetUnitId: action.targetId,
+                // Aim intent only: which target cell + which of its sides. The server validates and
+                // reconstructs the trajectory; no raw position is ever sent. Side is 1-based so LEFT
+                // (0) survives the varint zero-skip.
+                targetCell: maybeCell(action.aimCell),
+                targetSide: action.aimSide !== undefined ? action.aimSide + 1 : undefined,
             });
         case "obstacle_attack":
             return withEnvelope(envelope, {
@@ -171,10 +176,20 @@ export const createGameActionFromPlayAction = (action: Partial<PlayAction>): Gam
                   }
                 : undefined;
         }
-        case PlayActionType.RANGE_ATTACK:
-            return action.unitId && action.targetUnitId
-                ? { type: "range_attack", attackerId: action.unitId, targetId: action.targetUnitId }
-                : undefined;
+        case PlayActionType.RANGE_ATTACK: {
+            if (!action.unitId || !action.targetUnitId) {
+                return undefined;
+            }
+            const aimCell = maybeCell(action.targetCell);
+            return {
+                type: "range_attack",
+                attackerId: action.unitId,
+                targetId: action.targetUnitId,
+                aimCell,
+                // Decode the 1-based wire side back to RangeAttackCellSide; only meaningful with a cell.
+                aimSide: aimCell && action.targetSide ? action.targetSide - 1 : undefined,
+            };
+        }
         case PlayActionType.OBSTACLE_ATTACK: {
             const targetPosition = maybeCell(action.targetCell);
             return action.unitId && targetPosition

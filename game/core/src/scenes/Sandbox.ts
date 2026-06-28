@@ -233,6 +233,8 @@ export class Sandbox extends PixiScene {
     // AIController manages AI decision-making (created in constructor after super())
     private aiController!: AIController;
     private hasInitializedLap = false;
+    /** Guards the one-time prewarm of unit animation atlases once the fight has started. */
+    private atlasesPrewarmed = false;
     private gameplayGraphics?: Graphics;
     private currentActiveSpell?: PixiRenderableSpell;
     private hoveredSpell?: PixiRenderableSpell;
@@ -2927,7 +2929,6 @@ export class Sandbox extends PixiScene {
         this.hoverManager.onCameraChanged();
     }
     public refreshUnits(): void {
-        const __t0 = performance.now();
         // those need to be applied first
         this.unitsHolder.applyAugments();
         // now we can refresh unit properties
@@ -2936,8 +2937,47 @@ export class Sandbox extends PixiScene {
         // need to call it twice to make sure aura effects are applied
         this.unitsHolder.refreshAuraEffectsForAllUnits();
         this.unitsHolder.refreshStackPowerForAllUnits();
-        const __dt = performance.now() - __t0;
-        if (__dt > 3) console.warn(`[perfDbg] refreshUnits ${__dt.toFixed(1)}ms`);
+    }
+    /**
+     * Decode + GPU-upload every on-board unit's "default" (active/selection) animation atlas up front.
+     * That atlas is otherwise built and uploaded lazily the first time each unit becomes active, which
+     * lands a ~100ms decode/upload hitch on the turn-handoff frame (the "lag right before the turn
+     * passes"). Doing it once here — during the load/placement phase — moves the cost off the gameplay
+     * critical path. Renders to a tiny offscreen RenderTexture so nothing flickers on screen; the temp
+     * sprites are destroyed but the shared atlas textures stay cached (atlasFramesCache).
+     */
+    private prewarmUnitAtlases(): void {
+        const app = this.pixiApp.getApplication();
+        const renderer = app?.renderer;
+        if (!renderer) {
+            return;
+        }
+        // Pixi's GL/GPU texture system exposes initSource(source), which performs the actual GPU upload
+        // (texImage2D) for a texture source — the exact work that otherwise happens lazily on a unit's
+        // first render at turn handoff. Force it now for every distinct atlas source.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const texSystem = (renderer as any).texture;
+        const seenSources = new Set<unknown>();
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            const frame = (unit as RenderableUnit).prewarmDefaultAtlasFrame?.();
+            if (!frame) {
+                continue;
+            }
+            const source = frame.source as unknown;
+            if (seenSources.has(source)) {
+                continue;
+            }
+            seenSources.add(source);
+            try {
+                if (typeof texSystem?.initSource === "function") {
+                    texSystem.initSource(frame.source);
+                } else if (typeof texSystem?.bindSource === "function") {
+                    texSystem.bindSource(frame.source, 0);
+                }
+            } catch {
+                // ignore upload failures
+            }
+        }
     }
     protected destroySpecificUnits(unitsToDestroy: RenderableUnit[], force = false, isDead = false): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -5061,6 +5101,28 @@ export class Sandbox extends PixiScene {
         this.refreshUnits();
         this.applyTurnEngineEvents(result.events, unitSnapshot);
     }
+    /**
+     * Pick the visible edge of `target` a ranged shot is aimed at, from the current cursor position.
+     * Returns bounded intent — the target cell and its side (RangeAttackCellSide) — for the engine to
+     * validate and reconstruct; the raw position is intentionally NOT sent. Uses the same inputs as
+     * the hover arrow so the committed shot matches what the player saw. Returns undefined when no
+     * side is observable (the target is fully hidden), letting the engine fall back to its default.
+     */
+    private resolveRangeAimForTarget(attacker: RenderableUnit, target: Unit): GridMath.IClosestSideCenter | undefined {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const arrowStartPos = !attacker.isSmallSize() ? attacker.getVisualCenter(gs) : attacker.getCenter();
+        return GridMath.getClosestSideCenterDetailed(
+            this.grid.getMatrix(),
+            gs,
+            this.sc_mouseWorld,
+            arrowStartPos,
+            target.getPosition(),
+            attacker.isSmallSize(),
+            target.isSmallSize(),
+            attacker.getTeam(),
+            attacker.hasAbilityActive("Through Shot"),
+        );
+    }
     private async executeAttackSequence(
         attacker: RenderableUnit,
         target: Unit,
@@ -5199,6 +5261,11 @@ export class Sandbox extends PixiScene {
         );
 
         if (isRange) {
+            // Resolve which VISIBLE EDGE of the target the shot is aimed at, from the cursor — the
+            // shot flies attacker-center -> that edge center, never to the target center. Only the
+            // bounded intent (cell + side) goes to the engine/server, which validates and rebuilds
+            // the exact trajectory. Matches the on-screen hover arrow (same getClosestSideCenter math).
+            const aim = this.resolveRangeAimForTarget(attacker, target);
             const action: GameAction =
                 replayAction?.type === "range_attack"
                     ? cloneReplayData(replayAction)
@@ -5206,6 +5273,8 @@ export class Sandbox extends PixiScene {
                           type: "range_attack",
                           attackerId: attacker.getId(),
                           targetId: target.getId(),
+                          aimCell: aim?.cell,
+                          aimSide: aim?.side,
                       };
             if (this.shouldDeferActionToAuthoritativeReplay(action)) {
                 return this.submitActionForAuthoritativeReplay(action);
@@ -7235,6 +7304,13 @@ export class Sandbox extends PixiScene {
             return;
         }
 
+        // Once the fight is underway and every unit exists, prewarm each unit's active-animation atlas
+        // so its first activation doesn't decode/upload on a turn-handoff frame (the recognizable lag).
+        if (!this.atlasesPrewarmed && fightStarted && this.hasAnySceneUnits()) {
+            this.atlasesPrewarmed = true;
+            this.prewarmUnitAtlases();
+        }
+
         // AI section - delegate to AIController
         if (
             fightStarted &&
@@ -7679,14 +7755,7 @@ export class Sandbox extends PixiScene {
         return result.completed;
     }
     private applyTurnEngineEvents(events: GameEvent[], unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
-        const __t0 = performance.now();
-        try {
-            this.applyTurnEngineEventsImpl(events, unitSnapshot);
-        } finally {
-            const __dt = performance.now() - __t0;
-            if (__dt > 3)
-                console.warn(`[perfDbg] applyTurnEngineEvents ${__dt.toFixed(1)}ms (${events.length} events)`);
-        }
+        this.applyTurnEngineEventsImpl(events, unitSnapshot);
     }
     private applyTurnEngineEventsImpl(events: GameEvent[], unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
         const armageddonWaves = new Set<number>();
@@ -7969,13 +8038,7 @@ export class Sandbox extends PixiScene {
         }
     }
     private handleNextUnitActivation(nextUnit: RenderableUnit): void {
-        const __t0 = performance.now();
-        try {
-            this.handleNextUnitActivationImpl(nextUnit);
-        } finally {
-            const __dt = performance.now() - __t0;
-            if (__dt > 3) console.warn(`[perfDbg] handleNextUnitActivation ${__dt.toFixed(1)}ms`);
-        }
+        this.handleNextUnitActivationImpl(nextUnit);
     }
     private handleNextUnitActivationImpl(nextUnit: RenderableUnit): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -8390,13 +8453,7 @@ export class Sandbox extends PixiScene {
     }
     protected verifyButtonsTrigger(): void {}
     protected updateCurrentMovePath(currentCell: HoCMath.XY): void {
-        const __t0 = performance.now();
-        try {
-            this.updateCurrentMovePathImpl(currentCell);
-        } finally {
-            const __dt = performance.now() - __t0;
-            if (__dt > 3) console.warn(`[perfDbg] updateCurrentMovePath ${__dt.toFixed(1)}ms`);
-        }
+        this.updateCurrentMovePathImpl(currentCell);
     }
     private updateCurrentMovePathImpl(currentCell: HoCMath.XY): void {
         if (!this.currentActiveUnit || this.moveAnimManager.isMoving()) {

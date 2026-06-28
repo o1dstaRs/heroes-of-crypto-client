@@ -203,11 +203,6 @@ export class RankedPlayScene extends Sandbox {
     // True between an authoritative action's animation finishing and the next snapshot reassigning the
     // active unit — keeps the just-finished unit's pulse aura suppressed across that gap (no flicker).
     private awaitingTurnHandoff = false;
-    // True once the VIEWER's own active unit has submitted a turn-ending action (any attack/spell — a
-    // bare move keeps the unit active so it can still strike). Mirrors the enemy-side handoff guard:
-    // the server may keep reporting the same own unit as "active" for a beat before the turn changes
-    // hands, and its pulse must stay suppressed through that beat instead of flashing back on.
-    private ownTurnEnded = false;
     private rankedStatsGameId = "";
     private rankedStatsStarted = false;
     private rankedStatsLowerStartTotal = 0;
@@ -419,18 +414,22 @@ export class RankedPlayScene extends Sandbox {
         }
 
         const newActiveId = snapshot.currentUnitId || undefined;
-        // Right after an action the server may reassert the SAME unit as still-active (e.g. it moved
-        // and could still attack) before the turn actually changes hands. Re-running activation here
-        // would flash that unit's pulse + selection back on for the frames before a different unit
-        // takes over. Keep the handoff suppression on and skip reactivation until a different unit
-        // becomes active — for the opponent's unit always, and for the viewer's OWN unit once it has
-        // submitted a turn-ending action (ownTurnEnded). A bare own move leaves ownTurnEnded false so
-        // the unit still reactivates and the viewer can continue it (move-then-attack).
+        // Right after an OPPONENT action the server may reassert the same enemy unit as still-active
+        // (e.g. a multi-action unit between its shots) before the turn changes hands. Re-running
+        // activation would flash that finished unit's pulse back on for the frames before a different
+        // unit takes over, so keep the handoff suppression on and skip reactivation until a different
+        // unit becomes active.
+        //
+        // The viewer's OWN unit is deliberately NOT guarded here: when the server reasserts our own
+        // unit as still-active, it genuinely still has an action to take (a bare move that can still
+        // attack, OR a multi-shot unit like an Arbalester with Double Shot mid-volley). Skipping
+        // reactivation in that case would leave awaitingTurnHandoff stuck true and suppress the active
+        // unit's pulse for the entire time the viewer aims the next shot — so always reactivate.
         if (
             this.awaitingTurnHandoff &&
             newActiveId !== undefined &&
             newActiveId === this.getCurrentActiveUnit()?.getId() &&
-            (this.isEnemyActiveTurn() || this.ownTurnEnded)
+            this.isEnemyActiveTurn()
         ) {
             return;
         }
@@ -439,7 +438,6 @@ export class RankedPlayScene extends Sandbox {
         // post-action aura suppression. This runs synchronously with the reassignment, so the aura
         // switches straight from the old unit (off) to the new one with no flash in between.
         this.awaitingTurnHandoff = false;
-        this.ownTurnEnded = false;
         this.syncAuthoritativeActiveUnit(newActiveId, snapshot.currentLap);
     }
     protected override isAwaitingAuthoritativeTurnHandoff(): boolean {
@@ -1469,17 +1467,13 @@ export class RankedPlayScene extends Sandbox {
                 // (and the local driver retries opponent turns, duplicating each line). Surface the
                 // message through the return value for the UI instead of the fight log.
                 // A successful turn-ending own action (attack/spell — never a bare move, which keeps the
-                // unit active to still strike) opens the handoff window immediately: suppress the
-                // finished unit's pulse from the moment of submission until a DIFFERENT unit is
-                // authoritatively activated, so it never flashes back on at the old position or during
-                // the brief same-unit reassertion the server emits right before the turn changes hands.
-                if (result.completed) {
-                    if (TURN_ENDING_ACTION_TYPES.has(action.type)) {
-                        this.awaitingTurnHandoff = true;
-                        this.ownTurnEnded = true;
-                    } else if (action.type === "move_unit") {
-                        this.ownTurnEnded = false;
-                    }
+                // unit active to still strike) opens the handoff window: suppress the finished unit's
+                // pulse from the moment of submission until the next authoritative snapshot syncs the
+                // active unit, so it never flashes back on at the old position. The snapshot clears the
+                // flag — and for a multi-action own unit (e.g. Double Shot mid-volley) it reactivates
+                // the same unit, restoring its pulse for the viewer to aim the next shot.
+                if (result.completed && TURN_ENDING_ACTION_TYPES.has(action.type)) {
+                    this.awaitingTurnHandoff = true;
                 }
                 let events: GameEvent[] = [];
                 if (result.completed && (action.type === "place_unit" || action.type === "select_attack_type")) {

@@ -60,6 +60,9 @@ function getDefaultAnimationConfig(
 // Cache textures per atlas to avoid rebuilding frames
 const atlasFramesCache = new Map<string, Texture[]>();
 function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, size: number): Texture[] {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const __w = typeof window !== "undefined" ? (window as any) : undefined;
+    if (__w) (__w.__atlasBuilds ??= []).push({ src: imageSrc.split("/").pop(), t: performance.now() });
     const parentTexture = Texture.from(imageSrc);
     const source = parentTexture.source; // v8-friendly
     // quarter-sized frames (same trick you used for chips)
@@ -1051,6 +1054,26 @@ export class RenderableUnit extends Unit {
         // Out-and-back envelope (0 → peak at t=0.5 → 0).
         const env = Math.sin(Math.PI * t);
         return { x: this.recoilDx * env, y: this.recoilDy * env };
+    }
+    /**
+     * Build (and cache) this unit's "default" (active/selection) animation atlas frames so the WebP is
+     * decoded up front, and return the first frame whose GPU upload the scene can prewarm. The default
+     * atlas is distinct from the idle board sprite and is otherwise built + uploaded lazily the first
+     * time the unit becomes active — a ~100ms decode/upload hitch on the turn-handoff frame. Prewarming
+     * it during the load/placement phase moves that cost off the gameplay critical path.
+     */
+    public prewarmDefaultAtlasFrame(): Texture | undefined {
+        const props = this.getUnitProperties();
+        const config = getDefaultAnimationConfig(props.name, props.size);
+        if (!config) {
+            return undefined;
+        }
+        let frames = atlasFramesCache.get(config.cacheKey);
+        if (!frames) {
+            frames = buildAtlasFrames(config.meta, config.imageSrc, props.size);
+            atlasFramesCache.set(config.cacheKey, frames);
+        }
+        return frames[0];
     }
     /**
      * Capture what's needed to spawn a "broken mirror" death shatter: the current sprite texture,

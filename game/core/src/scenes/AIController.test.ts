@@ -149,8 +149,11 @@ describe("AIController", () => {
         expect(executeMoveSequence).toHaveBeenCalledTimes(1);
         expect(appliedActions).toEqual([{ type: "end_turn", unitId: "ai-unit-1" }]);
         expect(controller.performingAction).toBe(false);
-        expect(controller.isAIActive).toBe(false);
-        expect(buttonManager.sc_isAIActive).toBe(false);
+        // isAIActive is the player's toggle and is no longer reset by an AI turn (so a manual
+        // toggle-off mid-turn sticks); the button visual just re-syncs to the live toggle, which is
+        // still on here — both stay true.
+        expect(controller.isAIActive).toBe(true);
+        expect(buttonManager.sc_isAIActive).toBe(true);
     });
 
     it("unlocks without a fallback end turn when an authoritative move is submitted", () => {
@@ -207,8 +210,11 @@ describe("AIController", () => {
         expect(executeMoveSequence).toHaveBeenCalledTimes(1);
         expect(appliedActions).toEqual([]);
         expect(controller.performingAction).toBe(false);
-        expect(controller.isAIActive).toBe(false);
-        expect(buttonManager.sc_isAIActive).toBe(false);
+        // isAIActive is the player's toggle and is no longer reset by an AI turn (so a manual
+        // toggle-off mid-turn sticks); the button visual just re-syncs to the live toggle, which is
+        // still on here — both stay true.
+        expect(controller.isAIActive).toBe(true);
+        expect(buttonManager.sc_isAIActive).toBe(true);
     });
 
     it("ends and unlocks an AI turn when a post-move melee attack is rejected", async () => {
@@ -275,7 +281,10 @@ describe("AIController", () => {
         expect(handled).toBe(true);
         expect(appliedActions).toContainEqual({ type: "end_turn", unitId: "ai-unit-1" });
         expect(controller.performingAction).toBe(false);
-        expect(controller.isAIActive).toBe(false);
-        expect(buttonManager.sc_isAIActive).toBe(false);
+        // isAIActive is the player's toggle and is no longer reset by an AI turn (so a manual
+        // toggle-off mid-turn sticks); the button visual just re-syncs to the live toggle, which is
+        // still on here — both stay true.
+        expect(controller.isAIActive).toBe(true);
+        expect(buttonManager.sc_isAIActive).toBe(true);
     });
 });

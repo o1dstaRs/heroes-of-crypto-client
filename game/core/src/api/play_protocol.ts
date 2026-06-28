@@ -142,6 +142,9 @@ export interface PlayAction {
     targetCells?: PlayCell[];
     attackFrom?: PlayCell;
     targetCell?: PlayCell;
+    // Ranged aim: 1-based cell side the shot is aimed at (1=LEFT,2=RIGHT,3=DOWN,4=UP; 0/undefined =
+    // none). 1-based so side LEFT (0) survives the varint zero-skip. Paired with targetCell (aimCell).
+    targetSide?: number;
     attackType?: number;
     spellName?: string;
     hasLavaCell?: boolean;
@@ -402,6 +405,7 @@ export const encodePlayAction = (action: PlayAction): Uint8Array => {
     writer.bool(18, action.hasWaterCell);
     writer.string(19, action.reason);
     writer.int32(20, action.amount);
+    writer.int32(21, action.targetSide);
     return writer.finish();
 };
 

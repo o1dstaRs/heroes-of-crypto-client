@@ -859,7 +859,8 @@ export class PixiGameManager {
         // Visible state
         if (this.m_scene?.sc_visibleStateUpdateNeeded) {
             if (this.m_scene.sc_visibleState) {
-                this.onVisibleStateUpdated.emit(structuredClone(this.m_scene.sc_visibleState as IVisibleState));
+                const cloned = structuredClone(this.m_scene.sc_visibleState as IVisibleState);
+                this.onVisibleStateUpdated.emit(cloned);
             } else {
                 this.onVisibleStateUpdated.emit({} as IVisibleState);
             }

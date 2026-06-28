@@ -90,6 +90,41 @@ describe("createPlayActionFromGameAction", () => {
         });
     });
 
+    it("round-trips the ranged aim (cell + side) so the engine can rebuild the trajectory", () => {
+        // Side 0 (LEFT) must survive: it is sent 1-based on the wire so the varint zero-skip can't drop it.
+        const action: GameAction = {
+            type: "range_attack",
+            attackerId: "a3",
+            targetId: "t3",
+            aimCell: { x: 7, y: 3 },
+            aimSide: 0,
+        };
+        const wire = createPlayActionFromGameAction(action, envelope);
+        expect(wire).toMatchObject({
+            type: PlayActionType.RANGE_ATTACK,
+            unitId: "a3",
+            targetUnitId: "t3",
+            targetCell: { x: 7, y: 3 },
+            targetSide: 1,
+        });
+        expect(createGameActionFromPlayAction(wire)).toEqual(action);
+
+        // No aim (e.g. AI path): no cell/side leaks onto the wire, and decode yields undefined aim.
+        const noAim = createPlayActionFromGameAction(
+            { type: "range_attack", attackerId: "a4", targetId: "t4" },
+            envelope,
+        );
+        expect(noAim.targetCell).toBeUndefined();
+        expect(noAim.targetSide).toBeUndefined();
+        expect(createGameActionFromPlayAction(noAim)).toMatchObject({
+            type: "range_attack",
+            attackerId: "a4",
+            targetId: "t4",
+            aimCell: undefined,
+            aimSide: undefined,
+        });
+    });
+
     it("maps spell, obstacle, and area actions", () => {
         expect(
             createPlayActionFromGameAction(
