@@ -1146,7 +1146,6 @@ export class RankedPlayScene extends Sandbox {
             if (!shatterInfo) {
                 continue;
             }
-            console.warn(`[shatterFix] reconcile-shatter ${renderable.getName()} team=${renderable.getTeam()}`);
             this.combatVisuals?.spawnShatter(shatterInfo);
             // Drop the dead unit's visuals now so the imminent rebuild/skip doesn't leave it on the board,
             // and so a repeated snapshot can't shatter it twice (getShatterInfo is null after this).
