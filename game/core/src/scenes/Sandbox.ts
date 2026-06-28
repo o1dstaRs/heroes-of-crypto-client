@@ -510,7 +510,7 @@ export class Sandbox extends PixiScene {
                 this.sc_selectedAttackType = type;
             },
             isAuthoritativeAction: (action) => this.shouldDeferActionToAuthoritativeReplay(action),
-            isToggleDrivenAiAllowed: () => this.sc_gameActionTransport === undefined,
+            getToggleAiControlledTeam: () => this.getToggleAiControlledTeam(),
             applyGameAction: (action) => this.applyGameAction(action),
             executeAttackSequence: (attacker, target, attackFrom, replayAction) =>
                 this.executeAttackSequence(attacker, target, attackFrom, replayAction),
@@ -671,6 +671,15 @@ export class Sandbox extends PixiScene {
      */
     protected isEnemyActiveTurn(): boolean {
         return false;
+    }
+    /**
+     * The team the generic "AI toggle" (autobattle) may auto-play, or undefined for no restriction.
+     * The base sandbox returns undefined so single-player autobattle can drive whichever unit is
+     * active (both sides). Ranked restricts it to the local player's team so the toggle only
+     * auto-plays the player's own units, never the opponent's.
+     */
+    protected getToggleAiControlledTeam(): TeamType | undefined {
+        return undefined;
     }
     /** Ranked: install the sink that relays this player's live move aim to the opponent. */
     public override setMoveIntentSink(sink?: (unitId: string | undefined, cell: HoCMath.XY | undefined) => void): void {
@@ -1079,6 +1088,46 @@ export class Sandbox extends PixiScene {
             const dy = worldPos.y - hitBox.center.y;
             if (dx * dx + dy * dy <= hitBox.radius * hitBox.radius) {
                 return this.unitsHolder.getAllUnits().get(unitId);
+            }
+        }
+        return undefined;
+    }
+    /**
+     * Find a unit to inspect (read-only) under the cursor, including units that don't occupy grid
+     * cells: the ranked placement bench and revealed opponent silhouettes. Used by shift-click so the
+     * sidebar can show stats for any visible unit, not just on-board ones.
+     */
+    private getInspectableUnitAtPosition(worldPos: HoCMath.XY): Unit | undefined {
+        const onGrid = this.getUnitAtPosition(worldPos);
+        if (onGrid) {
+            return onGrid;
+        }
+        const onBench = this.getBenchUnitAtPosition(worldPos);
+        if (onBench) {
+            return onBench;
+        }
+        // Revealed opponent silhouettes are positioned visually but never occupy grid cells; hit-test
+        // them by proximity to their drawn center.
+        if (this.revealedOpponentUnitIds.size) {
+            const cell = this.sc_sceneSettings.getGridSettings().getCellSize();
+            let best: Unit | undefined;
+            let bestDistSq = cell * cell;
+            for (const unitId of this.revealedOpponentUnitIds) {
+                const ghost = this.unitsHolder.getAllUnits().get(unitId);
+                if (!ghost) {
+                    continue;
+                }
+                const center = ghost.getPosition();
+                const dx = worldPos.x - center.x;
+                const dy = worldPos.y - center.y;
+                const distSq = dx * dx + dy * dy;
+                if (distSq <= bestDistSq) {
+                    bestDistSq = distSq;
+                    best = ghost;
+                }
+            }
+            if (best) {
+                return best;
             }
         }
         return undefined;
@@ -1833,6 +1882,7 @@ export class Sandbox extends PixiScene {
         if (worldPath.length < 2) {
             unit.setPosition(moveEvent.to.x, moveEvent.to.y);
             unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
+            this.syncMovedUnitGridOccupancy(unit, moveEvent);
             return Promise.resolve(true);
         }
 
@@ -1857,6 +1907,7 @@ export class Sandbox extends PixiScene {
                     if (destinationSilhouetteShown) {
                         this.setOpponentMoveIntent(undefined);
                     }
+                    this.syncMovedUnitGridOccupancy(unit, moveEvent);
                     resolve(true);
                 },
             );
@@ -1873,6 +1924,33 @@ export class Sandbox extends PixiScene {
             this.hoverManager.hoveredUnitHighlight = undefined;
             this.sc_moveBlocked = true;
         });
+    }
+    /**
+     * Recorded moves (ranked opponent replays, sandbox replays) only animate the sprite — the grid
+     * occupancy matrix is otherwise left pointing at the unit's old cells, because the follow-up
+     * authoritative snapshot is skipped (skipBoardRebuild). Re-point occupancy at the destination so
+     * grid-based hit-testing (hover/attack targeting) finds the unit where it actually is, not where
+     * it came from.
+     */
+    private syncMovedUnitGridOccupancy(
+        unit: RenderableUnit,
+        moveEvent: Extract<GameEvent, { type: "unit_moved" }>,
+    ): void {
+        const destCells = moveEvent.targetCells.length ? moveEvent.targetCells : unit.getCells();
+        if (!destCells.length) {
+            return;
+        }
+        this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
+        this.grid.occupyCells(
+            destCells,
+            unit.getId(),
+            unit.getTeam(),
+            unit.getAttackRange(),
+            unit.hasAbilityActive("Made of Fire"),
+            unit.hasAbilityActive("Made of Water"),
+        );
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
     }
     private createRecordedMoveWorldPath(
         unit: RenderableUnit,
@@ -2034,10 +2112,27 @@ export class Sandbox extends PixiScene {
         record: SandboxReplay["actions"][number],
     ): void {
         const damage = attackEvent.damage;
-        const damageUnitId = damage.unitId ?? attackEvent.targetId;
-        const victim = (this.unitsHolder.getAllUnits().get(damageUnitId) as RenderableUnit | undefined) ?? target;
         const gs = this.sc_sceneSettings.getGridSettings();
         const attackerCenter = attacker.getVisualCenter(gs);
+
+        // AOE attacks (Cyclops' Large Caliber, Gargantuan's Area Throw) carry a per-affected-unit
+        // breakdown. Draw a floating number on EVERY splashed unit at its own position — including
+        // our own units caught in the blast — rather than a single number on the primary target.
+        // Each entry keeps the impact-time position so units that died (and were removed) still show.
+        if (damage.splash?.length) {
+            for (const entry of damage.splash) {
+                if (entry.amount <= 0) continue;
+                const splashUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+                const center = splashUnit ? splashUnit.getVisualCenter(gs) : entry.position;
+                const dir = { x: center.x - attackerCenter.x, y: center.y - attackerCenter.y };
+                const pos = splashUnit ? this.offsetReplayDamagePosition(center, splashUnit, dir) : center;
+                this.combatVisuals.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied);
+            }
+            return;
+        }
+
+        const damageUnitId = damage.unitId ?? attackEvent.targetId;
+        const victim = (this.unitsHolder.getAllUnits().get(damageUnitId) as RenderableUnit | undefined) ?? target;
         const victimCenter = victim.getVisualCenter(gs);
         const direction = { x: victimCenter.x - attackerCenter.x, y: victimCenter.y - attackerCenter.y };
         const spawnPos = this.offsetReplayDamagePosition(damage.unitPosition ?? victimCenter, victim, direction);
@@ -2181,6 +2276,19 @@ export class Sandbox extends PixiScene {
         record: SandboxReplay["actions"][number],
     ): Promise<void> {
         if (attacker.isDead() || target.isDead()) {
+            return;
+        }
+        // For ranged attacks, only animate a counter the engine actually emitted. A real response
+        // pushes an animation targeting the attacker (the rangeResponseUnit); its absence means no
+        // response happened. Relying on the attacker's HP loss alone misreads any HP drop (Fire Shield,
+        // auras, or a transient client state mismatch) as a counter — including the impossible "melee
+        // unit responds to a ranged attack" the e2e log showed — and desyncs between clients because
+        // each derives the diff against a different local HP state. (Melee can't use this gate: its
+        // attacker move-into-position animation also targets the attacker, so it keeps the HP-diff path.)
+        if (
+            attackEvent.attackType === "range" &&
+            !attackEvent.animations.some((animation) => animation.affectedUnitId === attacker.getId())
+        ) {
             return;
         }
         const responseDamage = this.getReplayUnitDamage(record, attacker.getId());
@@ -3179,14 +3287,12 @@ export class Sandbox extends PixiScene {
         this.sc_mouseWorld = p;
         if (this.sc_isAnimating) return;
 
-        const unit = this.getUnitAtPosition(p);
+        // Shift-click is read-only inspection (stats on the sidebar), so it is NOT gated by team or
+        // placement eligibility — any visible unit can be inspected, matching the sandbox. Also look
+        // beyond grid-occupying units so off-grid units (the ranked placement bench, and revealed
+        // opponent silhouettes) are inspectable too.
+        const unit = this.getInspectableUnitAtPosition(p);
         if (unit && unit instanceof RenderableUnit) {
-            if (
-                !FightStateManager.getInstance().getFightProperties().hasFightStarted() &&
-                !this.canSelectUnitForPlacement(unit)
-            ) {
-                return;
-            }
             // Set shifted unit (Toggle if same)
             if (this.currentShiftedUnit && this.currentShiftedUnit.getId() === unit.getId()) {
                 this.currentShiftedUnit = undefined;
@@ -3288,6 +3394,66 @@ export class Sandbox extends PixiScene {
             }
 
             const gs = this.sc_sceneSettings.getGridSettings();
+
+            // The melee click below relies on hover() having precomputed hoverAttackFromCell on a
+            // prior frame. But MouseDown updates the cursor position synchronously, so a quick
+            // move-then-click on an enemy (or the first click right after a turn becomes active)
+            // fires before the next hover tick — leaving hoverAttackFromCell undefined and making
+            // the unit just MOVE and skip its turn instead of attacking. Recompute the melee
+            // attack-from cell here for the click position so the first click still attacks.
+            if (
+                !this.hoverManager.hoverAttackFromCell &&
+                this.currentActiveUnit &&
+                this.currentActiveUnit.getAttackTypeSelection() !== AttackVals.RANGE &&
+                this.canAttackByMeleeTargets &&
+                this.canAttackByMeleeTargets.attackCells.length > 0
+            ) {
+                const clickedCell = GridMath.getCellForPosition(gs, p);
+                const occupantId = clickedCell ? this.grid.getOccupantUnitId(clickedCell) : undefined;
+                const targetUnit = occupantId ? this.unitsHolder.getAllUnits().get(occupantId) : undefined;
+                if (
+                    targetUnit &&
+                    targetUnit.getTeam() !== this.currentActiveUnit.getTeam() &&
+                    !targetUnit.hasBuffActive("Hidden")
+                ) {
+                    const attackFrom = this.pathHelper.calculateClosestAttackFrom(
+                        p,
+                        this.canAttackByMeleeTargets.attackCells,
+                        this.currentActiveUnit.getCells(),
+                        targetUnit.isSmallSize() ? [targetUnit.getBaseCell()] : targetUnit.getCells(),
+                        this.currentActiveUnit.isSmallSize(),
+                        this.currentActiveUnit.getAttackRange(),
+                        targetUnit.isSmallSize(),
+                        TeamVals.NO_TEAM,
+                        this.canAttackByMeleeTargets.attackCellHashesToLargeCells,
+                    );
+                    if (attackFrom) {
+                        this.hoverManager.hoverAttackFromCell = attackFrom;
+                    }
+                }
+            }
+
+            // [clickDbg] diagnostic mirrored to the server log (post-fix state).
+            try {
+                const dCell = GridMath.getCellForPosition(gs, p);
+                const dOcc = dCell ? this.grid.getOccupantUnitId(dCell) : undefined;
+                const dTgt = dOcc ? this.unitsHolder.getAllUnits().get(dOcc) : undefined;
+                const msg =
+                    `[clickDbg] active=${this.currentActiveUnit?.getName()}:${this.currentActiveUnit?.getTeam()} ` +
+                    `atkType=${this.currentActiveUnit?.getAttackTypeSelection()} ` +
+                    `cell=${JSON.stringify(dCell)} occ=${dOcc ?? "none"} tgtTeam=${dTgt?.getTeam() ?? "-"} ` +
+                    `tgtSmall=${dTgt?.isSmallSize?.()} ` +
+                    `hoverAttackFromCell=${JSON.stringify(this.hoverManager.hoverAttackFromCell)} ` +
+                    `meleeTargets=${this.canAttackByMeleeTargets?.attackCells?.length ?? "undef"} ` +
+                    `isAnimating=${this.sc_isAnimating} mouseSet=${!!this.sc_mouseWorld}`;
+                void fetch(`${import.meta.env.VITE_HOST_GAME_API ?? "http://127.0.0.1:3001"}/v1/game/dev-log`, {
+                    method: "POST",
+                    headers: { "Content-Type": "text/plain", "x-request-id": crypto.randomUUID() },
+                    body: msg,
+                });
+            } catch {
+                /* diagnostic only */
+            }
 
             // Melee Attack Interaction
             if (this.hoverManager.hoverAttackFromCell && this.currentActiveUnit) {
@@ -5455,6 +5621,14 @@ export class Sandbox extends PixiScene {
     protected isAwaitingAuthoritativeTurnHandoff(): boolean {
         return false;
     }
+    /**
+     * True while a unit's move/attack animation is in flight. Used to avoid a destructive board
+     * rebuild (which recreates units at their final cells and snaps the animation) landing mid-action
+     * — e.g. a fallback snapshot poll arriving while a recorded move is still sliding.
+     */
+    protected isPlayingActionAnimation(): boolean {
+        return this.isActiveUnitMoving || this.sc_isAnimating || this.moveAnimManager.isMoving();
+    }
     protected override hover(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
 
@@ -7418,8 +7592,18 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const worldRoot = this.drawer.getUnitsContainer();
 
-        // Clear Shifted Unit override so UI reverts to Active Unit
-        this.currentShiftedUnit = undefined;
+        // Re-activating the unit that's already active (ranked replays this on every snapshot
+        // echo, even mid-turn) must not wipe a manual attack-type switch — see the
+        // refreshPossibleAttackTypes() call below.
+        const reactivatingSameUnit = this.currentActiveUnit === nextUnit;
+
+        // Clear any shift-selected unit on a genuine turn change so the sidebar reverts to the active
+        // unit. On a re-activation of the already-active unit (ranked replays this on every snapshot
+        // echo mid-turn) we must NOT clear it — otherwise a shift-select opened to inspect another
+        // unit's stats is wiped on the next snapshot and the sidebar snaps back to the active unit.
+        if (!reactivatingSameUnit) {
+            this.currentShiftedUnit = undefined;
+        }
 
         if (this.currentActiveUnit) {
             this.currentActiveUnit.setActiveTurn(false);
@@ -7486,15 +7670,28 @@ export class Sandbox extends PixiScene {
         this.currentActiveUnit = nextUnit;
         this.buttonManager.setButtonsRefreshLocked(false);
 
-        const props = nextUnit.getUnitProperties();
-        this.sc_selectedUnitProperties = props;
-        this.setSelectedUnitProperties(props);
-        this.sc_unitPropertiesUpdateNeeded = true;
+        // Show the active unit's stats in the sidebar — but never override a shift-select the player
+        // opened to inspect another unit (preserved across same-unit re-activations above), or the
+        // ranked snapshot echo would snap the sidebar straight back to the active unit.
+        if (!reactivatingSameUnit || !this.currentShiftedUnit) {
+            const props = nextUnit.getUnitProperties();
+            this.sc_selectedUnitProperties = props;
+            this.setSelectedUnitProperties(props);
+            this.sc_unitPropertiesUpdateNeeded = true;
+        }
 
         const canLandRange =
             this.attackHandler?.canLandRangeAttack(nextUnit, this.grid.getEnemyAggrMatrixByUnitId(nextUnit.getId())) ??
             false;
+        // refreshPossibleAttackTypes() resets the selection to possibleAttackTypes[0] (the
+        // default, e.g. RANGE for a thrower like Gargantuan). When this is just a re-activation
+        // of the already-active unit, restore the player's current pick so a manual attack-type
+        // switch survives the next authoritative snapshot instead of silently reverting.
+        const priorAttackTypeSelection = nextUnit.getAttackTypeSelection();
         nextUnit.refreshPossibleAttackTypes(canLandRange);
+        if (reactivatingSameUnit && nextUnit.getPossibleAttackTypes().includes(priorAttackTypeSelection)) {
+            nextUnit.selectAttackType(priorAttackTypeSelection);
+        }
 
         const currentCell = GridMath.getCellForPosition(
             this.sc_sceneSettings.getGridSettings(),

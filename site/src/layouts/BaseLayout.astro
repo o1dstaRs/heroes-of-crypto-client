@@ -1,7 +1,7 @@
 ---
 import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
-import { content, type Language } from "../lib/site-data";
+import { content, languageSwitchPath, type Language } from "../lib/site-data";
 import "../styles/global.css";
 
 interface Props {
@@ -21,6 +21,12 @@ const resolvedDescription = description ?? copy.meta.description;
 const siteOrigin = Astro.site ?? new URL("https://heroesofcrypto.io");
 const canonicalURL = new URL(Astro.url.pathname, siteOrigin);
 const ogImage = new URL("/assets/images/preview_game.webp", siteOrigin);
+// hreflang alternates: every page mirrors EN <-> RU, so map this URL to both and let search
+// engines serve the right language (x-default falls back to English).
+const enAlternateURL = new URL(languageSwitchPath(Astro.url.pathname, "en"), siteOrigin);
+const ruAlternateURL = new URL(languageSwitchPath(Astro.url.pathname, "ru"), siteOrigin);
+const ogLocale = lang === "ru" ? "ru_RU" : "en_US";
+const ogLocaleAlternate = lang === "ru" ? "en_US" : "ru_RU";
 const schemaCopy =
     lang === "ru"
         ? {
@@ -81,9 +87,16 @@ const jsonLd = {
         <meta name="description" content={resolvedDescription} />
         <link rel="canonical" href={canonicalURL} />
 
+        <!-- Language alternates for EN/RU SEO -->
+        <link rel="alternate" hreflang="en" href={enAlternateURL} />
+        <link rel="alternate" hreflang="ru" href={ruAlternateURL} />
+        <link rel="alternate" hreflang="x-default" href={enAlternateURL} />
+
         <!-- Open Graph -->
         <meta property="og:type" content={ogType} />
         <meta property="og:site_name" content="Heroes of Crypto" />
+        <meta property="og:locale" content={ogLocale} />
+        <meta property="og:locale:alternate" content={ogLocaleAlternate} />
         <meta property="og:title" content={resolvedTitle} />
         <meta property="og:description" content={resolvedDescription} />
         <meta property="og:url" content={canonicalURL} />
@@ -124,5 +137,37 @@ const jsonLd = {
             <slot />
         </main>
         <SiteFooter lang={lang} />
+
+        <!-- Progressive scroll-reveal: only hides content once JS confirms support + motion is allowed. -->
+        <script is:inline>
+            (() => {
+                const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                if (reduce || !("IntersectionObserver" in window)) {
+                    return;
+                }
+                const items = document.querySelectorAll(
+                    ".section, .proof-strip, .faction-rail-section, .subhero, .final-cta",
+                );
+                if (!items.length) {
+                    return;
+                }
+                document.documentElement.classList.add("reveal-on");
+                const io = new IntersectionObserver(
+                    (entries) => {
+                        for (const entry of entries) {
+                            if (entry.isIntersecting) {
+                                entry.target.classList.add("is-revealed");
+                                io.unobserve(entry.target);
+                            }
+                        }
+                    },
+                    { rootMargin: "0px 0px -8% 0px", threshold: 0.08 },
+                );
+                for (const item of items) {
+                    item.classList.add("reveal-item");
+                    io.observe(item);
+                }
+            })();
+        </script>
     </body>
 </html>

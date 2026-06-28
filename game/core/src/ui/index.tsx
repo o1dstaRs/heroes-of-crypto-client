@@ -28,6 +28,7 @@ import { LoginScreen } from "./LoginScreen/LoginScreen";
 import { MatchmakingRoute } from "./MatchmakingRoute";
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
+import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
 import { RankedGameView } from "./RankedGameView";
 
 const isEditableTarget = (target: EventTarget | null): boolean => {
@@ -436,6 +437,8 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                 path="/play"
                 element={<WalletProvider>{authenticated ? <MatchmakingRoute /> : <LoginScreen />}</WalletProvider>}
             />
+            {/* Player portal: full-profile dashboard (stats, matches, combos, strategies) */}
+            <Route path="/portal" element={authenticated ? <PlayerPortalPage /> : <LoginScreen />} />
             <Route
                 path="/game/:gameId"
                 element={

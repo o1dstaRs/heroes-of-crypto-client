@@ -5,13 +5,23 @@ import { ruBlogPosts, type RuBlogPost } from "../../../lib/blog-ru";
 const lang = "ru";
 
 export function getStaticPaths() {
-    return ruBlogPosts.map((post) => ({
+    // Newest first, matching the blog index ordering.
+    const posts = [...ruBlogPosts].sort((a, b) => new Date(b.date).valueOf() - new Date(a.date).valueOf());
+    return posts.map((post, index) => ({
         params: { slug: post.id },
-        props: { post },
+        props: {
+            post,
+            newer: index > 0 ? posts[index - 1] : null,
+            older: index < posts.length - 1 ? posts[index + 1] : null,
+        },
     }));
 }
 
-const { post } = Astro.props as { post: RuBlogPost };
+const { post, newer, older } = Astro.props as {
+    post: RuBlogPost;
+    newer: RuBlogPost | null;
+    older: RuBlogPost | null;
+};
 const siteOrigin = Astro.site ?? new URL("https://heroesofcrypto.io");
 const canonicalURL = new URL(Astro.url.pathname, siteOrigin);
 const previewImage = new URL("/assets/images/preview_game.webp", siteOrigin);
@@ -97,6 +107,29 @@ const blogPostStructuredData = {
                     })
                 }
             </div>
+
+            {
+                (older || newer) && (
+                    <nav class="post-nav" aria-label="Другие статьи">
+                        {older ? (
+                            <a href={`/ru/blog/${older.id}/`} class="post-nav-link prev">
+                                <span class="post-nav-dir">← Предыдущая</span>
+                                <span class="post-nav-title">{older.title}</span>
+                            </a>
+                        ) : (
+                            <span class="post-nav-spacer" />
+                        )}
+                        {newer ? (
+                            <a href={`/ru/blog/${newer.id}/`} class="post-nav-link next">
+                                <span class="post-nav-dir">Следующая →</span>
+                                <span class="post-nav-title">{newer.title}</span>
+                            </a>
+                        ) : (
+                            <span class="post-nav-spacer" />
+                        )}
+                    </nav>
+                )
+            }
 
             <footer class="post-footer">
                 <a href="/ru/blog/" class="back-link">← Вернуться в блог</a>
@@ -196,6 +229,64 @@ const blogPostStructuredData = {
     .prose tr:last-child td {
         border-bottom: 0;
     }
+    /* Навигация по статьям (предыдущая / следующая). */
+    .post-nav {
+        margin-top: 48px;
+        padding-top: 24px;
+        border-top: 1px solid var(--line);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+    .post-nav-link {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 16px 18px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface);
+        transition:
+            border-color 0.15s ease,
+            background 0.15s ease,
+            transform 0.15s ease;
+    }
+    .post-nav-link:hover {
+        border-color: rgba(215, 170, 75, 0.5);
+        background: var(--surface-2);
+        transform: translateY(-2px);
+    }
+    .post-nav-link.next {
+        text-align: right;
+    }
+    .post-nav-dir {
+        color: var(--gold);
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+    .post-nav-title {
+        color: var(--ink);
+        font-size: 1rem;
+        font-weight: 600;
+        line-height: 1.35;
+    }
+    .post-nav-link:hover .post-nav-title {
+        color: var(--gold-soft);
+    }
+    .post-nav-spacer {
+        display: block;
+    }
+    @media (max-width: 560px) {
+        .post-nav {
+            grid-template-columns: 1fr;
+        }
+        .post-nav-link.next {
+            text-align: left;
+        }
+    }
+
     .post-footer {
         margin-top: 48px;
         padding-top: 24px;

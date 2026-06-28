@@ -6,6 +6,7 @@ import { useNavigate } from "react-router";
 import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
 import { useAuthContext } from "./auth/context/auth_context";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
+import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
 import { WalletLinker } from "./WalletLinker";
 
 type MatchmakingEvent = {
@@ -186,6 +187,7 @@ export const MatchmakingRoute: React.FC = () => {
     };
 
     return (
+        <>
         <Box
             sx={{
                 position: "fixed",
@@ -268,5 +270,7 @@ export const MatchmakingRoute: React.FC = () => {
                 </Stack>
             </Sheet>
         </Box>
+        <PlayerPortalSidebar />
+        </>
     );
 };

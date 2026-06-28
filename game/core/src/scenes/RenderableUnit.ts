@@ -788,6 +788,14 @@ export class RenderableUnit extends Unit {
         }
         this.spawnAnim = undefined;
         this.oneShotAnim = undefined;
+        // Spellbook sprites live in a scene-shared container, not under this unit's own display
+        // objects, so destroying the unit's sprite/containers above does not free them. Leaving them
+        // behind orphans them in that shared container — and because ranked snapshots constantly
+        // rebuild units, those orphans accumulate and bleed one unit's spells into another unit's
+        // spellbook overlay (e.g. a melee unit showing a destroyed healer's spells). Destroy them
+        // here, mirroring parseSpells' own cleanup.
+        this.pixiSpells.forEach((s) => s.destroy());
+        this.pixiSpells = [];
         // ⬇️ NEW
         this.boardSelected = false;
         this.selectionAnimFrames = undefined;

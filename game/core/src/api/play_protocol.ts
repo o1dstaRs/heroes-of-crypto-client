@@ -79,6 +79,8 @@ export interface PlayUnitState {
     dead: boolean;
     placed: boolean;
     stackPower: number;
+    /** Names of debuffs currently active on the unit; used to animate newly-applied ones. */
+    debuffs?: string[];
 }
 
 export interface PlayJournalEntry {

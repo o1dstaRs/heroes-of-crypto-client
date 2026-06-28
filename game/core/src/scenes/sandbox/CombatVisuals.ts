@@ -72,6 +72,15 @@ interface IChainLightning {
     bolts: IChainBolt[];
 }
 
+interface IDebuffPop {
+    container: Container;
+    age: number;
+    life: number;
+    startX: number;
+    startY: number;
+    riseY: number;
+}
+
 // Tuning for the floating damage numbers.
 const FT_LIFE = 0.8; // seconds on screen
 const FT_RISE = 72; // world px the number floats up
@@ -82,6 +91,17 @@ const FT_FADE_IN = 0.1; // seconds to fade in
 const FT_FADE_OUT_FROM = 0.62; // fraction of life after which it fades out
 const FT_STACK_DIST = 64; // px: numbers closer than this are stacked, not overlapped
 const FT_STACK_STEP = 46; // px: vertical gap per stacked number
+
+// Tuning for the applied-debuff pop — a spell icon + name that pops over a unit when a debuff lands
+// (e.g. Beholder's Spit Ball applying Sadness / Quagmire / Weakness). Lives a touch longer than a
+// damage number so the icon + name are readable, then drifts up and fades.
+const DP_LIFE = 1.25; // seconds on screen
+const DP_RISE = 64; // world px the pop floats up over its life
+const DP_POP_DUR = 0.2; // seconds of the spawn "pop" (icon scales in with overshoot)
+const DP_START_SCALE = 0.25; // scale the pop springs in from
+const DP_FADE_IN = 0.1; // seconds to fade in
+const DP_FADE_OUT_FROM = 0.62; // fraction of life after which it fades out
+const DP_Z = 2100; // above the damage numbers (2000) so the debuff reads on top
 
 // Tuning for the Black Dragon's Fire Breath sweep — a line of embers that rushes from the attacker
 // through every unit the breath burns. Timed to land with the strike: a tiny lead so the fire erupts
@@ -119,6 +139,8 @@ export class CombatVisuals {
     private shatterGroups: IShatterGroup[] = [];
     private fireSweeps: IFireSweep[] = [];
     private chainLightnings: IChainLightning[] = [];
+    private debuffPops: IDebuffPop[] = [];
+    private debuffStyle?: TextStyle;
     // Soft radial ember texture, built once and reused for every Fire Breath sweep.
     private fireTexture?: Texture;
     // Damage/count text styles are reused across strikes — building a fresh TextStyle per hit is
@@ -162,6 +184,57 @@ export class CombatVisuals {
             });
         }
         return this.countStyle;
+    }
+    private getDebuffStyle(): TextStyle {
+        if (!this.debuffStyle) {
+            this.debuffStyle = new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 34,
+                fontWeight: "900",
+                fill: "#c77dff", // violet reads clearly as a debuff
+                stroke: { color: "#2a0a3a", width: 5 },
+                dropShadow: {
+                    color: "#000000",
+                    blur: 4,
+                    angle: Math.PI / 6,
+                    distance: 2,
+                },
+            });
+        }
+        return this.debuffStyle;
+    }
+    /**
+     * Pop a debuff's spell icon + name over a unit when it's freshly applied (e.g. Beholder's Spit
+     * Ball landing Sadness / Quagmire / Weakness). The icon springs in with a slight overshoot, the
+     * icon + name drift up together and fade out. `stackIndex` lifts each extra debuff from the same
+     * shot so multiple applications don't overlap.
+     */
+    public spawnDebuffPop(pos: HoCMath.XY, iconTexture: Texture, name: string, stackIndex = 0): void {
+        const cell = this.context.getGridSettings().getCellSize();
+        const container = new Container();
+
+        const iconSize = cell * 0.72;
+        const icon = new Sprite(iconTexture);
+        icon.anchor.set(0.5);
+        icon.width = iconSize;
+        icon.height = iconSize;
+
+        const label = new PixiText({ text: name, style: this.getDebuffStyle() });
+        label.anchor.set(0.5);
+        // Sits just under the icon. The container is Y-flipped (see scale below), matching the
+        // floating-damage convention where a positive child-y renders below its anchor.
+        label.position.set(0, iconSize * 0.62);
+
+        container.addChild(icon, label);
+
+        const startX = pos.x;
+        const startY = pos.y + cell * 0.55 + stackIndex * cell * 0.5;
+        container.position.set(startX, startY);
+        // Counter the world root's Y-up flip so the icon + text render upright (same as floating text).
+        container.scale.set(DP_START_SCALE, -DP_START_SCALE);
+        this.context.attachToWorldRoot(container, DP_Z);
+
+        this.debuffPops.push({ container, age: 0, life: DP_LIFE, startX, startY, riseY: DP_RISE });
     }
     /**
      * Render the damage/count text once, off-screen, so the one-time font rasterization + text-shader
@@ -212,6 +285,10 @@ export class CombatVisuals {
             chain.container.destroy({ children: true });
         }
         this.chainLightnings.length = 0;
+        for (const dp of this.debuffPops) {
+            dp.container.destroy();
+        }
+        this.debuffPops.length = 0;
     }
     public update(dt: number) {
         for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
@@ -244,6 +321,33 @@ export class CombatVisuals {
                 alpha = 1 - (t - FT_FADE_OUT_FROM) / (1 - FT_FADE_OUT_FROM);
             }
             ft.container.alpha = Math.max(0, Math.min(1, alpha));
+        }
+
+        for (let i = this.debuffPops.length - 1; i >= 0; i--) {
+            const dp = this.debuffPops[i];
+            dp.age += dt;
+            const t = dp.age / dp.life;
+            if (t >= 1) {
+                dp.container.destroy();
+                this.debuffPops.splice(i, 1);
+                continue;
+            }
+            const e = easeOutCubic(t);
+            dp.container.y = dp.startY + dp.riseY * e;
+
+            let scale = 1;
+            if (dp.age < DP_POP_DUR) {
+                scale = DP_START_SCALE + (1 - DP_START_SCALE) * easeOutBack(dp.age / DP_POP_DUR);
+            }
+            dp.container.scale.set(scale, -scale);
+
+            let alpha = 1;
+            if (dp.age < DP_FADE_IN) {
+                alpha = dp.age / DP_FADE_IN;
+            } else if (t > DP_FADE_OUT_FROM) {
+                alpha = 1 - (t - DP_FADE_OUT_FROM) / (1 - DP_FADE_OUT_FROM);
+            }
+            dp.container.alpha = Math.max(0, Math.min(1, alpha));
         }
 
         this.stepShatters(dt);

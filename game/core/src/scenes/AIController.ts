@@ -59,12 +59,13 @@ export interface IAIContext {
     // Actions
     isAuthoritativeAction?(action: GameAction): boolean;
     /**
-     * Whether the generic "AI toggle" (isAIActive) may auto-play the active unit.
-     * Sandbox (no external transport) allows it for single-player AI. Ranked must
-     * disallow it — otherwise the heuristic AI would drive BOTH teams' units,
-     * since the toggle isn't team-gated. The local-model team path is separate.
+     * The team the generic "AI toggle" (isAIActive) may auto-play, or undefined for no restriction.
+     * Sandbox returns undefined so single-player autobattle drives whichever unit is active (both
+     * teams). Ranked returns the local player's team so the toggle only auto-plays the player's own
+     * units — never the opponent's (which the toggle isn't otherwise team-gated against). The
+     * separate local-model team path is unaffected.
      */
-    isToggleDrivenAiAllowed?(): boolean;
+    getToggleAiControlledTeam?(): TeamType | undefined;
     applyGameAction(action: GameAction): boolean;
     executeAttackSequence(
         attacker: RenderableUnit,
@@ -106,10 +107,13 @@ export class AIController {
      * their turn (and the toggle is disabled); afterwards we put it back where it was — keep it on
      * only if the player had enabled AI for the whole fight, otherwise turn it back off.
      */
-    private restoreAIState(priorAIActive: boolean): void {
-        this.isAIActive = priorAIActive;
+    private restoreAIState(_priorAIActive: boolean): void {
+        // isAIActive is the player's toggle, set only via the AI button — AI turns no longer mutate
+        // it, so a manual toggle-off during an in-flight AI action sticks instead of being reverted
+        // to this stale captured value (the bug where you couldn't switch the toggle back off). Just
+        // re-sync the button visual to the live toggle.
         const buttonManager = this.context.getButtonManager();
-        buttonManager.sc_isAIActive = priorAIActive;
+        buttonManager.sc_isAIActive = this.isAIActive;
         buttonManager.refreshButtons(true);
     }
     private finishAIAction(priorAIActive: boolean): void {
@@ -149,13 +153,27 @@ export class AIController {
     public shouldTriggerAI(): boolean {
         const currentUnit = this.context.getCurrentActiveUnit();
         if (!currentUnit) return false;
-        const toggleAllowed = this.context.isToggleDrivenAiAllowed?.() ?? true;
-        const playerAIEnabled = this.localModelOpponent.enabled ? false : toggleAllowed && this.isAIActive;
-
-        return (
-            (this.shouldControlUnit(currentUnit) || playerAIEnabled || currentUnit.hasAbilityActive("AI Driven")) &&
-            !this.performingAction
-        );
+        return this.shouldAutoPlay(currentUnit) && !this.performingAction;
+    }
+    /**
+     * Whether the AI should auto-play this unit, ignoring whether an action is already in flight.
+     * The player's AI toggle only applies to the toggle's controlled team (the local player's units
+     * in ranked); AI-Driven units and the local-model team always auto-play. Used both to decide a
+     * fresh trigger and to re-validate a queued action right before it runs (the player may have
+     * toggled AI off during the trigger delay).
+     */
+    private shouldAutoPlay(unit: Unit): boolean {
+        const playerAIEnabled =
+            !this.localModelOpponent.enabled && this.isAIActive && this.toggleAiControlsUnit(unit);
+        return this.shouldControlUnit(unit) || playerAIEnabled || unit.hasAbilityActive("AI Driven");
+    }
+    /**
+     * Whether the AI toggle is allowed to auto-play this unit. Restricted to the toggle's controlled
+     * team (the local player's team in ranked); unrestricted when no team is configured (sandbox).
+     */
+    private toggleAiControlsUnit(unit: Unit): boolean {
+        const controlledTeam = this.context.getToggleAiControlledTeam?.();
+        return controlledTeam === undefined || unit.getTeam() === controlledTeam;
     }
     public shouldControlCurrentUnit(): boolean {
         const currentUnit = this.context.getCurrentActiveUnit();
@@ -187,13 +205,19 @@ export class AIController {
 
         setTimeout(async () => {
             const currentUnit = this.context.getCurrentActiveUnit();
-            if (!currentUnit) {
+            // Re-validate before acting: during the trigger delay the player may have toggled AI off
+            // (or the active unit may have changed). Without this, a queued action would run — and
+            // previously also force the toggle back on — making it impossible to switch AI off.
+            if (!currentUnit || !this.shouldAutoPlay(currentUnit)) {
                 this.performingAction = false;
+                this.restoreAIState(wasAIActive);
                 onComplete?.();
                 return;
             }
 
-            this.isAIActive = true;
+            // Reflect the in-progress AI turn on the button (cosmetic) — including AI-Driven turns
+            // that run while the player's toggle is off. The logical toggle (isAIActive) is left
+            // untouched so the player's choice remains the single source of truth.
             if (!this.shouldControlUnit(currentUnit)) {
                 this.context.getButtonManager().sc_isAIActive = true;
             }

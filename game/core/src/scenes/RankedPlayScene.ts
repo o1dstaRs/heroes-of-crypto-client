@@ -4,6 +4,7 @@ import {
     getFactionOf,
     GridMath,
     HoCConfig,
+    SpellHelper,
     TeamVals,
     ToFactionName,
     type AttackType,
@@ -184,6 +185,10 @@ export class RankedPlayScene extends Sandbox {
     private readonly rankedStatsUpperRoster = new Map<string, RankedFightRosterEntry>();
     private viewerTeam?: TeamType;
     private upNextUnitIds?: string[];
+    // Per-unit set of currently-active debuff names, tracked across snapshots so we can pop a "nice"
+    // icon + name animation the moment a new debuff lands (e.g. Beholder's Spit Ball). Keyed by unit
+    // id (survives unit rebuilds); seeded silently on first sight so reconnects don't burst.
+    private readonly unitDebuffs = new Map<string, Set<string>>();
     // True between an authoritative action's animation finishing and the next snapshot reassigning the
     // active unit — keeps the just-finished unit's pulse aura suppressed across that gap (no flicker).
     private awaitingTurnHandoff = false;
@@ -200,6 +205,10 @@ export class RankedPlayScene extends Sandbox {
     private rankedStatsSeries: IFightStatsSample[] = [];
     private rankedSceneLogGameId = "";
     private rankedSceneLogSequence = -1;
+    // Remembers every unit's name (and team) as it appears in snapshots, so log lines for units
+    // that have since died — and dropped out of the live snapshot — still resolve a real name.
+    private readonly rankedUnitNamesById = new Map<string, string>();
+    private readonly rankedUnitTeamsById = new Map<string, number>();
     private rankedPlacementDeadlineServerMs = 0;
     private rankedPlacementEndLocalMs = 0;
     private rankedPlacementSecondsMax = 0;
@@ -298,6 +307,50 @@ export class RankedPlayScene extends Sandbox {
     protected override getUpNextUnitIds(): string[] | undefined {
         return this.upNextUnitIds;
     }
+    /**
+     * Diff each unit's active debuffs against the previously-seen set and pop a nice icon + name
+     * over any unit that just gained one (e.g. Beholder's Spit Ball landing Sadness / Quagmire /
+     * Weakness). A unit's debuffs are seeded silently the first time we see it — and only during the
+     * fight — so joining/reconnecting mid-game doesn't burst every existing debuff at once.
+     */
+    private processDebuffPops(snapshot: AuthoritativeGameSnapshot): void {
+        if (!snapshot.fightStarted || snapshot.fightFinished) {
+            return;
+        }
+        const seen = new Set<string>();
+        for (const unitState of snapshot.units) {
+            seen.add(unitState.id);
+            const current = new Set((unitState.debuffs ?? []).filter(Boolean));
+            const previous = this.unitDebuffs.get(unitState.id);
+            this.unitDebuffs.set(unitState.id, current);
+            if (!previous) {
+                continue; // First time we've seen this unit — seed without animating.
+            }
+            const unit = this.unitsHolder.getAllUnits().get(unitState.id) as RenderableUnit | undefined;
+            if (!unit || unit.isDead()) {
+                continue;
+            }
+            let stackIndex = 0;
+            for (const debuffName of current) {
+                if (!previous.has(debuffName)) {
+                    this.spawnDebuffPop(unit, debuffName, stackIndex++);
+                }
+            }
+        }
+        for (const id of [...this.unitDebuffs.keys()]) {
+            if (!seen.has(id)) {
+                this.unitDebuffs.delete(id);
+            }
+        }
+    }
+    private spawnDebuffPop(unit: RenderableUnit, debuffName: string, stackIndex: number): void {
+        const [iconTextureName] = SpellHelper.spellToTextureNames(debuffName);
+        const iconTexture = this.texAny(iconTextureName);
+        if (!iconTexture) {
+            return;
+        }
+        this.combatVisuals?.spawnDebuffPop(unit.getPosition(), iconTexture, debuffName, stackIndex);
+    }
     private applyRankedSnapshotMetadata(snapshot: AuthoritativeGameSnapshot): void {
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
         this.setLocalModelTeamOverride(
@@ -306,6 +359,7 @@ export class RankedPlayScene extends Sandbox {
         if (snapshot.gameId !== this.authoritativePlaybackGameId) {
             this.authoritativePlaybackGameId = snapshot.gameId;
             this.playedAuthoritativeActionSequences.clear();
+            this.unitDebuffs.clear();
         }
         this.upNextUnitIds = [...(snapshot.upNext ?? [])];
     }
@@ -314,11 +368,27 @@ export class RankedPlayScene extends Sandbox {
             return;
         }
 
+        const newActiveId = snapshot.currentUnitId || undefined;
+        // Right after an action the server may reassert the SAME unit as still-active (e.g. it moved
+        // and could still attack) before the turn actually changes hands. For the opponent's unit,
+        // re-running activation here would flash its pulse + selection back on for the frames before a
+        // different unit takes over. Keep the handoff suppression on and skip reactivation until a
+        // different unit becomes active. Own units fall through so the viewer can still see/continue
+        // their unit between its own actions.
+        if (
+            this.awaitingTurnHandoff &&
+            newActiveId !== undefined &&
+            newActiveId === this.getCurrentActiveUnit()?.getId() &&
+            this.isEnemyActiveTurn()
+        ) {
+            return;
+        }
+
         // The turn has now been authoritatively handed over (active unit synced below), so end the
         // post-action aura suppression. This runs synchronously with the reassignment, so the aura
         // switches straight from the old unit (off) to the new one with no flash in between.
         this.awaitingTurnHandoff = false;
-        this.syncAuthoritativeActiveUnit(snapshot.currentUnitId || undefined, snapshot.currentLap);
+        this.syncAuthoritativeActiveUnit(newActiveId, snapshot.currentLap);
     }
     protected override isAwaitingAuthoritativeTurnHandoff(): boolean {
         return this.awaitingTurnHandoff;
@@ -327,6 +397,14 @@ export class RankedPlayScene extends Sandbox {
         snapshot: AuthoritativeGameSnapshot,
         options?: AuthoritativeSnapshotOptions,
     ): void {
+        // The 4s fallback poll can fetch the post-move state and apply it (without skipBoardRebuild)
+        // while a move/attack animation is still in flight. hydrateSceneState would then recreate every
+        // unit at its final cell and snap the in-progress slide. Ignore such full rebuilds while
+        // animating (we don't advance sequence/signature here, so the next snapshot re-syncs once idle).
+        // skipBoardRebuild snapshots are safe — they never hydrate — so they still pass through.
+        if (!options?.skipBoardRebuild && this.isPlayingActionAnimation()) {
+            return;
+        }
         const boardSignature = this.createBoardSignature(snapshot);
         if (snapshot.latestSequence < this.lastAuthoritativeSequence) {
             return;
@@ -335,6 +413,9 @@ export class RankedPlayScene extends Sandbox {
         this.applyAuthoritativeSceneLog(snapshot);
         this.lastAuthoritativeSequence = snapshot.latestSequence;
         this.applyRankedSnapshotMetadata(snapshot);
+        // Pop an icon + name over any unit that just gained a debuff. Runs before the early-return
+        // board-sync paths so it fires whether or not the board itself is rebuilt this snapshot.
+        this.processDebuffPops(snapshot);
         const state = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
         if (boardSignature === this.lastBoardSignature) {
             this.syncRankedVisibleTurnState(snapshot);
@@ -404,9 +485,6 @@ export class RankedPlayScene extends Sandbox {
         return false;
     }
     public override canPlayCurrentSandboxReplay(): boolean {
-        return false;
-    }
-    protected override shouldPlayReplayDoubleShotProjectile(): boolean {
         return false;
     }
     public override playAuthoritativeActionRecord(
@@ -554,6 +632,14 @@ export class RankedPlayScene extends Sandbox {
         if (!currentActiveUnit || this.viewerTeam === undefined) return false;
         return currentActiveUnit.getTeam() !== this.viewerTeam;
     }
+    /**
+     * The AI toggle (autobattle) may only auto-play the local player's own units in ranked — never
+     * the opponent's. Returning the viewer's team team-gates the toggle-driven AI so enabling it
+     * autobattles the player's turns while the opponent stays under the server's control.
+     */
+    protected override getToggleAiControlledTeam(): TeamType | undefined {
+        return this.viewerTeam;
+    }
     protected override updateVisibleTurnTimer(): void {
         if (this.rankedPlacementEndLocalMs > Date.now()) {
             this.syncRankedPlacementTimerToVisibleState();
@@ -649,14 +735,25 @@ export class RankedPlayScene extends Sandbox {
 
         const maxSequence = journalTail.reduce((max, entry) => Math.max(max, entry.sequence), 0);
         const gameChanged = this.rankedSceneLogGameId !== snapshot.gameId;
+        if (gameChanged) {
+            this.rankedUnitNamesById.clear();
+            this.rankedUnitTeamsById.clear();
+        }
+        // Accumulate names/teams from every snapshot (even when the log itself doesn't need a
+        // rebuild) so a unit that dies and leaves the live snapshot keeps a resolvable name.
+        for (const unit of snapshot.units) {
+            if (unit.name) {
+                this.rankedUnitNamesById.set(unit.id, unit.name);
+                this.rankedUnitTeamsById.set(unit.id, unit.team);
+            }
+        }
         if (!gameChanged && maxSequence <= this.rankedSceneLogSequence) {
             return;
         }
 
         this.rankedSceneLogGameId = snapshot.gameId;
         this.rankedSceneLogSequence = maxSequence;
-        const unitNames = new Map(snapshot.units.map((unit) => [unit.id, unit.name]));
-        const lines = this.buildAuthoritativeSceneLogLines(journalTail, unitNames);
+        const lines = this.buildAuthoritativeSceneLogLines(journalTail, this.rankedUnitNamesById);
 
         this.sc_sceneLog.clear();
         for (const line of lines) {
@@ -671,14 +768,87 @@ export class RankedPlayScene extends Sandbox {
         const sortedEntries = [...journalTail].sort((a, b) => a.sequence - b.sequence);
         for (const entry of sortedEntries) {
             const events = this.parseJournalEvents(entry);
+            // A unit that moved/attacked/cast this entry also emits a trailing "manual" unit_skipped
+            // as its turn auto-completes — that isn't a real skip, so don't log "skips turn" for it.
+            // Only an explicit end-turn ("Next", which carries no action) or a timeout/effect skip
+            // should read as a skip.
+            const actedUnitIds = new Set<string>();
             for (const event of events) {
+                const actedId = this.actedUnitId(event);
+                if (actedId) {
+                    actedUnitIds.add(actedId);
+                }
+            }
+            for (const event of events) {
+                if (event.type === "unit_skipped" && event.reason === "manual" && actedUnitIds.has(event.unitId)) {
+                    continue;
+                }
                 const line = this.eventToSceneLogLine(event, unitNames);
                 if (line) {
-                    lines.push(line);
+                    const actorId = this.logActorUnitId(event);
+                    const flag = actorId ? this.logTeamFlag(actorId) : "";
+                    lines.push(flag ? `${flag} ${line}` : line);
                 }
             }
         }
         return lines;
+    }
+    /** Unit id for an event where the unit actively took its turn (so a trailing manual skip is noise). */
+    private actedUnitId(event: GameEvent): string | undefined {
+        switch (event.type) {
+            case "unit_moved":
+                return event.unitId;
+            case "unit_attacked":
+            case "obstacle_attacked":
+            case "area_attacked":
+                return event.attackerId;
+            case "spell_cast":
+            case "unit_summoned":
+                return event.casterId;
+            case "unit_split":
+                return event.sourceUnitId;
+            default:
+                return undefined;
+        }
+    }
+    /** The unit a log line is "about", used to tag the line with its team flag. */
+    private logActorUnitId(event: GameEvent): string | undefined {
+        switch (event.type) {
+            case "unit_moved":
+            case "unit_moved_by_system":
+            case "unit_skipped":
+            case "unit_waited":
+            case "unit_defended":
+            case "unit_destroyed":
+            case "unit_resurrected":
+            case "armageddon_applied":
+            case "morale_applied":
+            case "attack_type_selected":
+            case "unit_deleted":
+                return event.unitId;
+            case "unit_attacked":
+            case "obstacle_attacked":
+            case "area_attacked":
+                return event.attackerId;
+            case "spell_cast":
+            case "unit_summoned":
+                return event.casterId;
+            case "unit_split":
+                return event.sourceUnitId;
+            default:
+                return undefined;
+        }
+    }
+    /** Green/red marker for the acting unit's team (LOWER = green, UPPER = red). */
+    private logTeamFlag(unitId: string): string {
+        const team = this.rankedUnitTeamsById.get(unitId);
+        if (team === TeamVals.LOWER) {
+            return "🟢";
+        }
+        if (team === TeamVals.UPPER) {
+            return "🔴";
+        }
+        return "";
     }
     private parseJournalEvents(entry: AuthoritativeJournalEntry): GameEvent[] {
         if (!entry.eventsJson.trim()) {
@@ -1057,8 +1227,14 @@ export class RankedPlayScene extends Sandbox {
         };
     }
     private createPlacementUnitIdsKey(snapshot: AuthoritativeGameSnapshot): string {
+        // Must include each unit's placement state — not just its id — otherwise unplacing a unit
+        // (placed: true -> false) leaves the key unchanged, canSkipPreFightHydrate short-circuits,
+        // and the unit never returns to the bench overlay (UNPLACE_UNIT looks like it "does nothing").
         return snapshot.units
-            .map((unit) => unit.id)
+            .map(
+                (unit) =>
+                    `${unit.id}:${unit.placed ? 1 : 0}:${unit.cells.map((cell) => `${cell.x},${cell.y}`).join("-")}`,
+            )
             .sort()
             .join("|");
     }

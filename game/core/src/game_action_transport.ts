@@ -23,6 +23,7 @@ export interface AuthoritativeUnitState {
     dead: boolean;
     placed: boolean;
     stackPower: number;
+    debuffs?: string[];
 }
 
 export interface AuthoritativeJournalEntry {
