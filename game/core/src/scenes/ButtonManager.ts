@@ -306,7 +306,11 @@ export class ButtonManager {
     }
     public propagateButtonClicked(name: string, _state: VisibleButtonState): void {
         const currentActiveUnit = this.context.getCurrentActiveUnit();
-        if (this.context.isInputLockedByAI()) {
+        // The AI toggle itself must stay clickable while AI-driven input locks the board — otherwise
+        // enabling AI locks the player out of ever turning it back off (the lock is true *because*
+        // the toggle is on). Every other button stays blocked. Switching mid-turn for an "AI Driven"
+        // ability unit is still blocked by the guard below.
+        if (name !== "AI" && this.context.isInputLockedByAI()) {
             return;
         }
         // An AI-Driven unit is AI-controlled for its whole turn — the player can't interact with any
