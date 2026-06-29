@@ -7314,10 +7314,14 @@ export class Sandbox extends PixiScene {
                             iconPath = images.skull_white;
                         }
 
-                        // Ranged shot whose line of sight crosses the central mountain is blocked:
-                        // aim at the mountain (parity with legacy), not the enemy behind it.
+                        // Ranged shot whose line of sight crosses the central mountain is blocked: aim at
+                        // the mountain, not the enemy behind it. This applies to Through Shot too — the
+                        // pierce travels THROUGH lined-up units, but a solid mountain on the trajectory
+                        // before the target still stops it (the obstacle check below uses the
+                        // attacker→target segment, isThroughShot=false, so a mountain BEHIND a reachable
+                        // target doesn't trigger it).
                         let blockedByObstacle: IAttackObstacle | undefined;
-                        if (isRangeAttackContext && !this.currentActiveUnit.hasAbilityActive("Through Shot")) {
+                        if (isRangeAttackContext) {
                             const fp = FightStateManager.getInstance().getFightProperties();
                             if (fp.getGridType() === GridVals.BLOCK_CENTER && fp.getObstacleHitsLeft() > 0) {
                                 blockedByObstacle = this.attackHandler.evaluateRangeAttack(
