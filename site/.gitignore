@@ -11,6 +11,10 @@ dist/
 .env
 .env.*
 !.env.example
+# Non-secret build flag: forces the prod game-client URLs (game/beta.heroesofcrypto.io) instead of
+# the localhost dev fallbacks in the play/sandbox launcher pages. Committed so `bun run build`
+# (CI + manual deploys) always produces a production-correct static site.
+!.env.production
 
 # OS / editor
 .DS_Store
