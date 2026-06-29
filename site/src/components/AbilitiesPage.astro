@@ -248,6 +248,15 @@ const searchText = (ability: (typeof abilities)[number]) =>
             #0b0f12;
     }
 
+    /* The global scroll-reveal (BaseLayout) hides every `.section` at opacity:0 until an
+       IntersectionObserver with threshold 0.08 reveals it. The abilities grid is far taller than the
+       viewport, so that ratio is never reached and the whole catalogue would stay invisible
+       ("abilities not loading"). Force this section visible regardless of the reveal gate. */
+    :global(html.reveal-on) .abilities-section {
+        opacity: 1 !important;
+        transform: none !important;
+    }
+
     .abilities-summary {
         display: flex;
         align-items: center;
