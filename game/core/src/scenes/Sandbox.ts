@@ -182,6 +182,11 @@ export class Sandbox extends PixiScene {
     // from the board. A creature type fielded by BOTH teams is "ambiguous" → no flag (the line's name
     // alone can't say which side it's about).
     private readonly sceneLogTeamByName = new Map<string, number | "ambiguous">();
+    // Last-shown active debuff / buff names per unit id, for the sandbox-local effect pop + colour wash
+    // (ranked drives the same visuals from authoritative snapshots instead). Seeded silently on first
+    // sight so fight start doesn't burst every existing effect.
+    private readonly shownDebuffsByUnit = new Map<string, Set<string>>();
+    private readonly shownBuffsByUnit = new Map<string, Set<string>>();
     private readonly abilityFactory: AbilityFactory;
     private readonly replayRecorder = new SandboxReplayRecorder(() => this.captureSceneState());
     private replayRecordingSuspended = false;
@@ -2167,6 +2172,69 @@ export class Sandbox extends PixiScene {
             }
         );
     }
+    /**
+     * Pikeman's Skewer Strike pierces the primary target AND the unit(s) standing behind it along the
+     * attack line. Draw a wind "spear" through attacker → target → those units so the two-unit (or more)
+     * pierce reads at a glance. Driven off the authoritative `damage.secondary` (source "skewer_strike"),
+     * so it fires identically in sandbox (live engine events) and ranked (replayed events).
+     */
+    protected spawnSkewerWindSpearVfx(attacker: RenderableUnit, target: Unit, damage?: IVisibleDamage): void {
+        const skewerHits = (damage?.secondary ?? []).filter((s) => s.source === "skewer_strike");
+        if (!skewerHits.length) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const centerOf = (unitId: string, fallback: HoCMath.XY): HoCMath.XY => {
+            const u = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
+            return u && typeof u.getVisualCenter === "function" ? u.getVisualCenter(gs) : fallback;
+        };
+        const attackerCenter = attacker.getVisualCenter(gs);
+        const targetCenter = target instanceof RenderableUnit ? target.getVisualCenter(gs) : target.getPosition();
+        const points: HoCMath.XY[] = [attackerCenter, targetCenter];
+        const skewerUnits: (RenderableUnit | undefined)[] = [];
+        for (const hit of skewerHits) {
+            points.push(centerOf(hit.unitId, hit.position));
+            skewerUnits.push(this.unitsHolder.getAllUnits().get(hit.unitId) as RenderableUnit | undefined);
+        }
+        this.combatVisuals?.spawnWindSpear(points, gs.getCellSize());
+
+        // Jolt each pierced "behind" unit a little as the light reaches it — a small push in the pierce
+        // direction, timed to when the light orb passes (the target itself already gets the normal hit
+        // knockback). Travel window matches the VFX so the shake lands as the light arrives.
+        const cs = gs.getCellSize();
+        let total = 0;
+        for (let i = 1; i < points.length; i++) {
+            total += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+        }
+        const travelMs = 190; // keep in sync with WINDSPEAR_TRAVEL_MS
+        let acc = Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y); // up to the target
+        for (let k = 0; k < skewerUnits.length; k++) {
+            const idx = k + 2; // points[2..] are the behind units
+            const segdx = points[idx].x - points[idx - 1].x;
+            const segdy = points[idx].y - points[idx - 1].y;
+            const slen = Math.hypot(segdx, segdy) || 1;
+            acc += slen;
+            const unit = skewerUnits[k];
+            if (!unit || typeof unit.applyRecoil !== "function") {
+                continue;
+            }
+            const jmag = cs * 0.14;
+            const jx = (segdx / slen) * jmag;
+            const jy = (segdy / slen) * jmag;
+            const arrivalMs = total > 0 ? (acc / total) * travelMs : 0;
+            setTimeout(() => unit.applyRecoil(jx, jy), Math.max(0, arrivalMs));
+        }
+
+        // Wind-up spear thrust on the attacker: pull back from the target, then lunge into it. Applied
+        // last so it overrides the plain forward recoil for a skewer ("замахивается копьём").
+        const dirX = targetCenter.x - attackerCenter.x;
+        const dirY = targetCenter.y - attackerCenter.y;
+        const dlen = Math.hypot(dirX, dirY);
+        if (dlen > 0.001) {
+            const mag = gs.getCellSize() * 0.32;
+            attacker.applyWindupRecoil((dirX / dlen) * mag, (dirY / dlen) * mag);
+        }
+    }
     private async playReplayAttackRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
         const action = cloneReplayData(record.action);
         if (action.type !== "melee_attack" && action.type !== "range_attack") {
@@ -2237,6 +2305,9 @@ export class Sandbox extends PixiScene {
         if (attackEvent.attackType !== "range") {
             this.applyReplayHitKnockback(target, attacker);
         }
+        // Pikeman Skewer Strike: light streak through the pierced units + a wind-up thrust on the
+        // attacker. Applied AFTER applyReplayAttackRecoil so the wind-up lunge overrides the plain recoil.
+        this.spawnSkewerWindSpearVfx(attacker, target, attackEvent.damage);
         await this.delayReplay(this.getReplayAttackDamageHoldMs(attackEvent));
         // Replay the defender's counterattack so both combatants animate during an exchange — not
         // just the initiating attacker. Gives ranked (and sandbox) replays the full game experience.
@@ -4546,6 +4617,81 @@ export class Sandbox extends PixiScene {
         }
         return "";
     }
+    /**
+     * Sandbox-local effect visuals: diff every unit's active debuffs AND buffs against what we last
+     * showed and, for each freshly-applied one (e.g. Beholder's Spit Ball landing Sadness / Quagmire /
+     * Weakness, or a buff being cast), pop its spell icon + name over the unit and briefly wash the unit
+     * with the effect's colour (violet for a debuff, green for a buff). Effects from one shot stack
+     * upward so they don't overlap; the target washes once per batch. A unit's effects are seeded
+     * silently the first time it's seen so fight start (or a reconnect) doesn't burst every existing one.
+     * Ranked drives the same pops from authoritative snapshots (processDebuffPops), so the caller runs
+     * this for local sandbox only.
+     */
+    protected reconcileEffectVisuals(): void {
+        const seen = new Set<string>();
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            const id = unit.getId();
+            seen.add(id);
+            const currentDebuffs = new Set(
+                unit
+                    .getDebuffs()
+                    .map((d) => d.getName())
+                    .filter(Boolean),
+            );
+            const currentBuffs = new Set(
+                unit
+                    .getBuffs()
+                    .map((b) => b.getName())
+                    .filter(Boolean),
+            );
+            const prevDebuffs = this.shownDebuffsByUnit.get(id);
+            const prevBuffs = this.shownBuffsByUnit.get(id);
+            this.shownDebuffsByUnit.set(id, currentDebuffs);
+            this.shownBuffsByUnit.set(id, currentBuffs);
+            if (!prevDebuffs || !prevBuffs) {
+                continue; // First time we've seen this unit — seed without animating.
+            }
+            const renderable = unit as RenderableUnit;
+            if (renderable.isDead()) {
+                continue;
+            }
+            const newDebuffs = [...currentDebuffs].filter((name) => !prevDebuffs.has(name));
+            const newBuffs = [...currentBuffs].filter((name) => !prevBuffs.has(name));
+            // Wash the unit once per batch — a debuff "hit" takes priority over a buff if both landed.
+            if (newDebuffs.length) {
+                renderable.flashDebuffDarken();
+            } else if (newBuffs.length) {
+                renderable.flashBuffApplied();
+            }
+            let stackIndex = 0;
+            for (const name of newDebuffs) {
+                this.popEffectOnUnit(renderable, name, stackIndex++, "debuff");
+            }
+            for (const name of newBuffs) {
+                this.popEffectOnUnit(renderable, name, stackIndex++, "buff");
+            }
+        }
+        for (const id of [...this.shownDebuffsByUnit.keys()]) {
+            if (!seen.has(id)) {
+                this.shownDebuffsByUnit.delete(id);
+                this.shownBuffsByUnit.delete(id);
+            }
+        }
+    }
+    /** Pop a freshly-applied effect's spell icon + name over a unit (shared by sandbox + ranked). */
+    protected popEffectOnUnit(
+        unit: RenderableUnit,
+        effectName: string,
+        stackIndex: number,
+        kind: "debuff" | "buff",
+    ): void {
+        const [iconTextureName] = SpellHelper.spellToTextureNames(effectName);
+        const iconTexture = this.texAny(iconTextureName);
+        if (!iconTexture) {
+            return;
+        }
+        this.combatVisuals?.spawnDebuffPop(unit.getPosition(), iconTexture, effectName, stackIndex, kind);
+    }
     private executeObstacleAttackSequence(
         unit: RenderableUnit,
         targetPosition: HoCMath.XY,
@@ -5260,13 +5406,20 @@ export class Sandbox extends PixiScene {
      * the hover arrow so the committed shot matches what the player saw. Returns undefined when no
      * side is observable (the target is fully hidden), letting the engine fall back to its default.
      */
-    private resolveRangeAimForTarget(attacker: RenderableUnit, target: Unit): GridMath.IClosestSideCenter | undefined {
+    private resolveRangeAimForTarget(
+        attacker: RenderableUnit,
+        target: Unit,
+        aimAt: HoCMath.XY = this.sc_mouseWorld,
+    ): GridMath.IClosestSideCenter | undefined {
         const gs = this.sc_sceneSettings.getGridSettings();
         const arrowStartPos = !attacker.isSmallSize() ? attacker.getVisualCenter(gs) : attacker.getCenter();
         return GridMath.getClosestSideCenterDetailed(
             this.grid.getMatrix(),
             gs,
-            this.sc_mouseWorld,
+            // The "mouse" position selects the aimed cell/side. For a human shot this is the live
+            // cursor; AI/replay shots pass the target itself so the edge is resolved from the shot's
+            // own geometry, not from wherever the human cursor happens to sit.
+            aimAt,
             arrowStartPos,
             target.getPosition(),
             attacker.isSmallSize(),
@@ -5274,6 +5427,35 @@ export class Sandbox extends PixiScene {
             attacker.getTeam(),
             attacker.hasAbilityActive("Through Shot"),
         );
+    }
+    /**
+     * Resolve the visible-edge center a ranged projectile should fly to. For a human shot this is the
+     * cursor-aimed edge; for an AI/replay action (no live cursor on the target) it honors the action's
+     * explicit aim (aimCell/aimSide) when present, otherwise the edge facing the attacker — matching
+     * what the engine resolves, so the projectile lands on the unit it actually hit rather than wherever
+     * the human cursor sits.
+     */
+    private resolveRangeShotAim(
+        attacker: RenderableUnit,
+        target: Unit,
+        replayAction?: Extract<GameAction, { type: "range_attack" }>,
+    ): GridMath.IClosestSideCenter | undefined {
+        if (!replayAction) {
+            return this.resolveRangeAimForTarget(attacker, target);
+        }
+        if (replayAction.aimCell && replayAction.aimSide !== undefined) {
+            return {
+                cell: replayAction.aimCell,
+                side: replayAction.aimSide,
+                position: GridMath.getRangeAttackSideCenter(
+                    this.sc_sceneSettings.getGridSettings(),
+                    replayAction.aimCell,
+                    replayAction.aimSide,
+                    attacker.getPosition(),
+                ),
+            };
+        }
+        return this.resolveRangeAimForTarget(attacker, target, target.getPosition());
     }
     private async executeAttackSequence(
         attacker: RenderableUnit,
@@ -5404,14 +5586,26 @@ export class Sandbox extends PixiScene {
                         attackFrom.y === attacker.getPosition().y)));
 
         if (isRange) {
-            // Resolve which VISIBLE EDGE of the target the shot is aimed at, from the cursor — the
-            // shot flies attacker-center -> that edge center, never to the target center. Only the
-            // bounded intent (cell + side) goes to the engine/server, which validates and rebuilds
-            // the exact trajectory. Matches the on-screen hover arrow (same getClosestSideCenter math).
-            const aim = this.resolveRangeAimForTarget(attacker, target);
+            // Resolve which VISIBLE EDGE of the target the shot is aimed at — the shot flies
+            // attacker-center -> that edge center, never to the target center. Only the bounded intent
+            // (cell + side) goes to the engine/server, which validates and rebuilds the exact
+            // trajectory. For a human shot this is the cursor-aimed edge (matches the hover arrow); for
+            // an AI/replay action it's the action's own edge, NOT the live cursor — otherwise an
+            // AI unit's projectile flew toward wherever the human cursor sat and read as a miss.
+            const aim = this.resolveRangeShotAim(
+                attacker,
+                target,
+                replayAction?.type === "range_attack" ? replayAction : undefined,
+            );
             const action: GameAction =
                 replayAction?.type === "range_attack"
-                    ? cloneReplayData(replayAction)
+                    ? {
+                          ...cloneReplayData(replayAction),
+                          // An AI action carries no explicit aim; stamp the resolved edge so the engine
+                          // hits the same edge the projectile flies to (a recorded aim is kept as-is).
+                          aimCell: replayAction.aimCell ?? aim?.cell,
+                          aimSide: replayAction.aimSide ?? aim?.side,
+                      }
                     : {
                           type: "range_attack",
                           attackerId: attacker.getId(),
@@ -5549,6 +5743,13 @@ export class Sandbox extends PixiScene {
                 }
                 this.combatVisuals.spawnChainLightning(points, gs.getCellSize());
             }
+
+            // Pikeman's Skewer Strike: a wind spear through the target and the unit(s) behind it. Reads
+            // the authoritative damage.secondary from the live engine result (no-op unless it skewered).
+            const skewerAttackEvent = attackActionEvents?.find(
+                (e): e is Extract<GameEvent, { type: "unit_attacked" }> => e.type === "unit_attacked",
+            );
+            this.spawnSkewerWindSpearVfx(attacker, target, skewerAttackEvent?.damage);
         }
 
         // 1. Target Damage
@@ -7191,70 +7392,37 @@ export class Sandbox extends PixiScene {
             targetUnit = this.selectedBoardUnit;
         }
 
-        // --- 1. Attack & Aura Range Visualization ---
-        if (targetUnit) {
-            // Attack Range
-            if (targetUnit.getAttackType() === AttackVals.RANGE) {
-                if (targetUnit.hasAbilityActive("Sniper")) {
-                    targetUnit.setRangeShotDistance(
-                        Number(
-                            (
-                                GridMath.getDistanceToFurthestCorner(
-                                    targetUnit.getPosition(),
-                                    this.sc_sceneSettings.getGridSettings(),
-                                ) /
-                                    this.sc_sceneSettings.getGridSettings().getStep() -
-                                0.45
-                            ).toFixed(2),
-                        ),
-                    );
-                }
-                const shotDist = targetUnit.getRangeShotDistance();
-                if (shotDist > 0) {
-                    this.sc_hoveredShotRange = {
-                        xy: targetUnit.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
-                        distance: shotDist * GridConstants.STEP,
-                    };
-                } else {
-                    this.sc_hoveredShotRange = undefined;
-                }
-                // Skip if this unit's aura is already drawn elsewhere (active unit / selected board
-                // unit) — avoids stacking a second, darker ring when hovering it.
-                const auraAlreadyVisualized =
-                    targetUnit === this.currentActiveUnit || targetUnit === this.selectedBoardUnit;
-                if (targetUnit && !auraAlreadyVisualized) {
-                    const ar = targetUnit.getAuraRanges();
-                    const ab = targetUnit.getAuraIsBuff();
-                    const finalAuras: { range: number; isBuff: boolean }[] = [];
-                    if (ar && ar.length) {
-                        for (let i = 0; i < ar.length; i++) {
-                            if (ar[i] > 0) {
-                                finalAuras.push({
-                                    range: ar[i] + fightProps.getAdditionalAuraRangePerTeam(targetUnit.getTeam()),
-                                    isBuff: ab && i < ab.length ? ab[i] : true,
-                                });
-                            }
-                        }
-                    }
-                    if (finalAuras.length > 0) {
-                        this.sc_hoveredAuraRanges = {
-                            xy: targetUnit.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
-                            auraRanges: finalAuras,
-                            isSmall: targetUnit.isSmallSize(),
-                        };
-                    } else {
-                        this.sc_hoveredAuraRanges = undefined;
-                    }
-                } else {
-                    this.sc_hoveredAuraRanges = undefined;
-                }
-            } else {
-                this.sc_hoveredShotRange = undefined;
-                this.sc_hoveredAuraRanges = undefined;
+        // --- 1. Attack Range Visualization ---
+        // The hovered unit's AURA is owned by the generic hover block near the top of hover(), which
+        // sets sc_hoveredAuraRanges for melee AND ranged units. It must NOT be recomputed here: this
+        // branch only ran for ranged units, so its else-paths wiped sc_hoveredAuraRanges for a hovered
+        // MELEE aura unit — which is why melee aura units showed no aura ring when hovered during
+        // placement. Only the (range-only) shot-range preview belongs here.
+        if (targetUnit && targetUnit.getAttackType() === AttackVals.RANGE) {
+            if (targetUnit.hasAbilityActive("Sniper")) {
+                targetUnit.setRangeShotDistance(
+                    Number(
+                        (
+                            GridMath.getDistanceToFurthestCorner(
+                                targetUnit.getPosition(),
+                                this.sc_sceneSettings.getGridSettings(),
+                            ) /
+                                this.sc_sceneSettings.getGridSettings().getStep() -
+                            0.45
+                        ).toFixed(2),
+                    ),
+                );
             }
+            const shotDist = targetUnit.getRangeShotDistance();
+            this.sc_hoveredShotRange =
+                shotDist > 0
+                    ? {
+                          xy: targetUnit.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
+                          distance: shotDist * GridConstants.STEP,
+                      }
+                    : undefined;
         } else {
             this.sc_hoveredShotRange = undefined;
-            this.sc_hoveredAuraRanges = undefined;
         }
 
         // --- 2. Movement Visualization (Placement Phase) ---
@@ -8066,6 +8234,14 @@ export class Sandbox extends PixiScene {
             if (!sawFightFinished) {
                 this.updateLiveFightStats();
             }
+        }
+
+        // Pop an icon + name (and colour-wash the target) for any debuff or buff that just landed this
+        // action, e.g. Beholder's Spit Ball. Local sandbox only: ranked drives the same visuals from
+        // authoritative snapshots (processDebuffPops), and a sandbox replay re-applies events whose
+        // effects were already shown live, so skip both (matches the eager-handoff guard below).
+        if (!this.sc_gameActionTransport && !this.replayPlaybackActive) {
+            this.reconcileEffectVisuals();
         }
         this.flushPendingReplayRecords();
 

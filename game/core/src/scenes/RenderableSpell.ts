@@ -36,6 +36,13 @@ const BOOK_TITLE_MARGIN_BOTTOM = 8;
 const BOOK_STACK_BAR_X = 14;
 const AMOUNT_BADGE_HEIGHT = 38;
 
+// "Old book" styling: a gentle warm/sepia multiply tint so the art and name read as ink on aged
+// parchment (not stark white), plus a soft brown shadow cast under each spell image so it looks like
+// it rests on the page rather than floating.
+const AGED_ICON_TINT = 0xf4ead6;
+const AGED_TITLE_TINT = 0xead9b0;
+const SPELL_SHADOW_COLOR = 0x2b1c0b;
+
 export type DigitTextureMap = Map<number, Texture>;
 
 export class PixiRenderableSpell extends Spell {
@@ -54,6 +61,8 @@ export class PixiRenderableSpell extends Spell {
     private amountBadgeGfx: Graphics;
     private disabledOverlayGfx: Graphics;
     private hoverFrameGfx: Graphics;
+    /** Soft brown drop-shadow drawn behind the spell image (old-book look). */
+    private iconShadowGfx: Graphics;
     private amountText: Text;
     private highlighted = false;
     /** Cached hover rect */
@@ -103,6 +112,7 @@ export class PixiRenderableSpell extends Spell {
         this.amountBadgeGfx = new Graphics();
         this.disabledOverlayGfx = new Graphics();
         this.hoverFrameGfx = new Graphics();
+        this.iconShadowGfx = new Graphics();
         this.amountText = new Text({
             text: "",
             style: new TextStyle({ fill: 0xffffff, fontSize: 30, fontWeight: "700" }),
@@ -111,6 +121,8 @@ export class PixiRenderableSpell extends Spell {
         this.amountText.visible = false;
 
         this.layer.addChild(
+            // Shadow first so it sits behind the spell image it's cast from.
+            this.iconShadowGfx,
             this.bgSprite,
             this.iconSprite,
             this.titleSprite,
@@ -139,6 +151,7 @@ export class PixiRenderableSpell extends Spell {
         this.amountBadgeGfx.clear();
         this.disabledOverlayGfx.clear();
         this.hoverFrameGfx.clear();
+        this.iconShadowGfx.clear();
         this.amountText.visible = false;
         this.highlighted = false;
     }
@@ -240,9 +253,10 @@ export class PixiRenderableSpell extends Spell {
         this.bgSprite.alpha = enabled ? 1 : 0.62;
         this.iconSprite.alpha = enabled ? 1 : 0.42;
         this.titleSprite.alpha = enabled ? 1 : 0.42;
+        // Warm/sepia multiply so art + name look inked on aged parchment; hover stays the brighter gold.
         this.bgSprite.tint = enabled ? (this.highlighted ? 0xfff1bf : 0xffffff) : 0x858585;
-        this.iconSprite.tint = enabled ? (this.highlighted ? 0xfff7cc : 0xffffff) : 0x777777;
-        this.titleSprite.tint = enabled ? (this.highlighted ? 0xfff7cc : 0xffffff) : 0x777777;
+        this.iconSprite.tint = enabled ? (this.highlighted ? 0xfff7cc : AGED_ICON_TINT) : 0x7a6f55;
+        this.titleSprite.tint = enabled ? (this.highlighted ? 0xfff7cc : AGED_TITLE_TINT) : 0x7a6f55;
 
         // The scroll-like background plate under each spell is intentionally hidden — only the icon and
         // title show on the book page.
@@ -250,6 +264,7 @@ export class PixiRenderableSpell extends Spell {
         this.iconSprite.visible = true;
         this.titleSprite.visible = true;
 
+        this.renderIconShadow(iconX, iconY, enabled);
         this.renderDisabledOverlay(iconX, iconY, !enabled);
         this.renderHoverFrame(cellX, cellY, enabled);
 
@@ -358,6 +373,28 @@ export class PixiRenderableSpell extends Spell {
             .rect(cellX + 2, cellY + 2, BOOK_CELL_SIZE - 4, BOOK_CELL_SIZE - 4)
             .stroke({ width: 2, color: innerColor, alpha: enabled ? 0.85 : 0.65 });
     }
+    /**
+     * Soft brown shadow under the spell image, cast down-right, so each spell reads as resting on the
+     * old parchment page instead of floating. Stacked translucent rounded squares fake a cheap blur.
+     */
+    private renderIconShadow(iconX: number, iconY: number, enabled: boolean): void {
+        this.iconShadowGfx.clear();
+        const size = BOOK_SPELL_SIZE;
+        const cx = iconX + size / 2 + 6;
+        const cy = iconY + size / 2 + 8;
+        const baseAlpha = enabled ? 1 : 0.5;
+        const layers = [
+            { grow: 14, alpha: 0.1 },
+            { grow: 8, alpha: 0.14 },
+            { grow: 3, alpha: 0.2 },
+        ];
+        for (const l of layers) {
+            const half = size / 2 + l.grow;
+            this.iconShadowGfx
+                .roundRect(cx - half, cy - half, half * 2, half * 2, 18)
+                .fill({ color: SPELL_SHADOW_COLOR, alpha: l.alpha * baseAlpha });
+        }
+    }
     private renderDisabledOverlay(xPos: number, yPos: number, disabled: boolean): void {
         this.disabledOverlayGfx.clear();
         if (!disabled) return;
@@ -375,6 +412,7 @@ export class PixiRenderableSpell extends Spell {
         this.amountBadgeGfx.destroy();
         this.disabledOverlayGfx.destroy();
         this.hoverFrameGfx.destroy();
+        this.iconShadowGfx.destroy();
         this.amountText.destroy();
         this.bgSprite.destroy();
         this.iconSprite.destroy();
