@@ -18,6 +18,7 @@ import "./style.scss";
 import Popover from "./Popover";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
+import { AiControlBadge } from "./AiControlBadge";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
@@ -122,6 +123,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     const manager = usePixiManager();
     const [started, setStarted] = useState(false);
     const [isLoading, setIsLoading] = useState(manager.isLoading);
+    const [aiToggleOn, setAiToggleOn] = useState(false);
 
     useEffect(() => {
         manager.SetGameActionTransport(gameActionTransport);
@@ -129,6 +131,13 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
             manager.SetGameActionTransport(undefined);
         };
     }, [gameActionTransport, manager]);
+
+    useEffect(() => {
+        const connection = manager.onVisibleStateUpdated.connect((state) => setAiToggleOn(!!state.aiToggleOn));
+        return () => {
+            connection.disconnect();
+        };
+    }, [manager]);
 
     useEffect(() => {
         const connection = manager.onHasStarted.connect((hasStarted) => {
@@ -155,6 +164,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                     {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
                     <UpNextOverlay />
                     <FightFinishedOverlay />
+                    {!isLoading && started && aiToggleOn && <AiControlBadge />}
                     {!isLoading && started && <DraggableToolbar />}
                 </CssVarsProvider>
                 <Main />

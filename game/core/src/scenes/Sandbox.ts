@@ -8236,6 +8236,11 @@ export class Sandbox extends PixiScene {
                     if (this.currentActiveUnit?.getId() === event.unitId || activeUnitIdAtStart === event.unitId) {
                         this.finishTurnVisualState(event.hourglass);
                     }
+                    // A turn finished by the human (not the AI mid-action) breaks the missed-turn streak
+                    // that drives the sandbox AI takeover.
+                    if (!this.aiController?.performingAction) {
+                        this.sandboxConsecutiveTimeouts = 0;
+                    }
                     sawTurnCompleted = true;
                     shouldRefreshVisibleState = true;
                     break;
