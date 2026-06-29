@@ -2340,7 +2340,28 @@ export class Sandbox extends PixiScene {
                 targetCells = footprint;
             }
         }
-        const fromPos = attacker.getPosition();
+        // Anchor the walk to the recorded route's first cell (the attacker's pre-move position) rather
+        // than its CURRENT position. A board resync can snap the attacker onto attackFrom before this
+        // replay runs; reading getPosition() then would make fromPos == toPos and skip the walk — the
+        // unit appears to teleport into the strike. path[0] is immune to that. Footprint-correct the
+        // large-unit start the same way as the destination so the walk's first point matches the route.
+        let fromPos = attacker.getPosition();
+        if (path && path.length >= 2) {
+            const startAnchor = GridMath.getPositionForCell(path[0], gs.getMinX(), gs.getStep(), gs.getHalfStep());
+            if (startAnchor) {
+                fromPos = startAnchor;
+                if (!attacker.isSmallSize()) {
+                    const startFootprint = GridMath.getCellsAroundPosition(gs, {
+                        x: startAnchor.x - gs.getHalfStep(),
+                        y: startAnchor.y - gs.getHalfStep(),
+                    });
+                    const startCenter = GridMath.getPositionForCells(gs, startFootprint);
+                    if (startCenter) {
+                        fromPos = startCenter;
+                    }
+                }
+            }
+        }
         if (Math.abs(fromPos.x - toPos.x) < 0.1 && Math.abs(fromPos.y - toPos.y) < 0.1) {
             return; // Already at the attack-from cell — stationary melee, nothing to walk.
         }
@@ -7896,6 +7917,11 @@ export class Sandbox extends PixiScene {
         let shouldRefreshVisibleState = false;
         let sawFightFinished = false;
         let sawTurnCompleted = false;
+        // Narrowing emits narrowing_applied BEFORE the unit_moved_by_system events in the same batch,
+        // but the holes must be punched AFTER the force-moved units have vacated their border cells on
+        // the grid (the engine's order is move-then-hole). Defer the hole render until after the loop so
+        // syncSystemMovedUnit's grid cleanup can't wipe a freshly-placed hole.
+        let pendingNarrowingLayers = 0;
         const activeUnitIdAtStart = this.currentActiveUnit?.getId();
 
         for (const event of events) {
@@ -7922,9 +7948,7 @@ export class Sandbox extends PixiScene {
                     shouldRefreshVisibleState = true;
                     break;
                 case "narrowing_applied":
-                    this.renderNarrowingLayers(event.layers);
-                    this.gridMatrix = this.grid.getMatrix();
-                    this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+                    pendingNarrowingLayers = Math.max(pendingNarrowingLayers, event.layers);
                     shouldRefreshVisibleState = true;
                     break;
                 case "unit_moved_by_system":
@@ -7997,6 +8021,15 @@ export class Sandbox extends PixiScene {
                     shouldRefreshVisibleState = true;
                     break;
             }
+        }
+
+        // Punch the narrowing holes now that the force-moved units have left their border cells on the
+        // grid (see pendingNarrowingLayers above), so the vacated cells become holes and the units'
+        // new cells stay occupied.
+        if (pendingNarrowingLayers > 0) {
+            this.renderNarrowingLayers(pendingNarrowingLayers);
+            this.gridMatrix = this.grid.getMatrix();
+            this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         }
 
         if (shouldRefreshVisibleState) {
@@ -8081,8 +8114,24 @@ export class Sandbox extends PixiScene {
         if (!unit) {
             return;
         }
+        // Reposition on the GRID, not just visually. Map narrowing force-moves a unit off a cell that
+        // becomes a hole; if we move only the sprite, the grid still records the unit on its old cell
+        // and treats the new cell as empty — so the active unit's move preview proposes a destination
+        // silhouette right on top of the freshly force-moved unit, and pathing reads a stale board.
+        // Clean the old occupancy, commit the new position, then re-occupy the destination cells.
+        this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
         unit.setPosition(position.x, position.y);
         unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
+        this.grid.occupyCells(
+            unit.getCells(),
+            unit.getId(),
+            unit.getTeam(),
+            unit.getAttackRange(),
+            unit.hasAbilityActive("Made of Fire"),
+            unit.hasAbilityActive("Made of Water"),
+        );
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
     }
     private syncSummonedUnit(event: Extract<GameEvent, { type: "unit_summoned" }>): void {
         const unit = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
