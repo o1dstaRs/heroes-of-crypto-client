@@ -141,7 +141,10 @@ export const createGameActionFromPlayAction = (action: Partial<PlayAction>): Gam
             return {
                 type: "end_turn",
                 unitId: action.unitId,
-                reason: action.reason === "timeout" || action.reason === "effect" ? action.reason : "manual",
+                reason:
+                    action.reason === "timeout" || action.reason === "effect" || action.reason === "skip"
+                        ? action.reason
+                        : "manual",
             };
         case PlayActionType.WAIT_TURN:
             return action.unitId ? { type: "wait_turn", unitId: action.unitId } : undefined;

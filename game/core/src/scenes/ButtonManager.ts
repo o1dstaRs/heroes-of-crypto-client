@@ -337,7 +337,10 @@ export class ButtonManager {
         switch (name) {
             case "Next": {
                 if (!active || !fightProps.hasFightStarted()) return;
-                if (this.context.applyGameAction({ type: "end_turn", unitId: active.getId() })) {
+                // Pressing Next ends the turn WITHOUT acting — a voluntary skip, so it drops morale
+                // (reason "skip"), matching the legacy. A move/attack finishes the turn via its own
+                // path with reason "manual", which is not penalized.
+                if (this.context.applyGameAction({ type: "end_turn", unitId: active.getId(), reason: "skip" })) {
                     this.refreshButtons(true);
                 }
                 return;
