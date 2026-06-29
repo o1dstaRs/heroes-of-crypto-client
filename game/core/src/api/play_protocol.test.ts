@@ -22,6 +22,12 @@ const stringField = (field: number, value: string): number[] => {
 
 const intField = (field: number, value: number): number[] => [...tag(field, 0), ...encodeVarint(value)];
 
+// Mirrors how protobufjs encodes a negative int32: sign-extended to a 10-byte 64-bit varint.
+const signedIntField = (field: number, value: number): number[] => [
+    ...tag(field, 0),
+    ...encodeVarint(BigInt.asUintN(64, BigInt(value))),
+];
+
 const messageField = (field: number, value: number[]): number[] => [
     ...tag(field, 2),
     ...encodeVarint(value.length),
@@ -46,6 +52,26 @@ describe("play protobuf decoder", () => {
         expect(decoded.units[0]?.speed).toBe(2.5);
     });
 
+    test("decodes the live range shots and effective luck (proto fields 20 and 21)", () => {
+        const unit = [...stringField(1, "unit-1"), ...intField(20, 6), ...intField(21, 3)];
+        const snapshot = new Uint8Array([...stringField(1, "game-1"), ...messageField(12, unit)]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.units[0]?.rangeShots).toBe(6);
+        expect(decoded.units[0]?.luck).toBe(3);
+    });
+
+    test("decodes negative morale and luck (sign-extended int32 from protobufjs)", () => {
+        const unit = [...stringField(1, "unit-1"), ...signedIntField(14, -2), ...signedIntField(21, -5)];
+        const snapshot = new Uint8Array([...stringField(1, "game-1"), ...messageField(12, unit)]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.units[0]?.morale).toBe(-2);
+        expect(decoded.units[0]?.luck).toBe(-5);
+    });
+
     test("decodes a unit's repeated debuff and buff names (proto fields 18 and 19)", () => {
         const unit = [
             ...stringField(1, "unit-1"),
@@ -59,6 +85,32 @@ describe("play protobuf decoder", () => {
 
         expect(decoded.units[0]?.debuffs).toEqual(["Sadness", "Quagmire"]);
         expect(decoded.units[0]?.buffs).toEqual(["Courage"]);
+    });
+
+    test("decodes the fight-start army totals (proto fields 24-27)", () => {
+        const snapshot = new Uint8Array([
+            ...stringField(1, "game-1"),
+            ...intField(24, 7), // lower_start_units
+            ...intField(25, 6), // upper_start_units
+            ...intField(26, 420), // lower_start_health
+            ...intField(27, 360), // upper_start_health
+        ]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.lowerStartUnits).toBe(7);
+        expect(decoded.upperStartUnits).toBe(6);
+        expect(decoded.lowerStartHealth).toBe(420);
+        expect(decoded.upperStartHealth).toBe(360);
+    });
+
+    test("defaults the fight-start army totals to 0 when absent (older server)", () => {
+        const decoded = decodePlaySnapshot(new Uint8Array([...stringField(1, "game-1")]));
+
+        expect(decoded.lowerStartUnits).toBe(0);
+        expect(decoded.upperStartUnits).toBe(0);
+        expect(decoded.lowerStartHealth).toBe(0);
+        expect(decoded.upperStartHealth).toBe(0);
     });
 
     test("a unit with no debuff/buff fields decodes them as undefined", () => {

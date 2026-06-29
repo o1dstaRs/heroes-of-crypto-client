@@ -28,6 +28,8 @@ const unitState = (overrides: Partial<AuthoritativeUnitState>): AuthoritativeUni
     dead: false,
     placed: false,
     stackPower: 0,
+    rangeShots: 0,
+    luck: 0,
     ...overrides,
 });
 

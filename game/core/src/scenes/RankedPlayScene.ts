@@ -143,12 +143,22 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                         ? (unitState.attackType as AttackType)
                         : baseProperties.attack_type_selected,
                 stack_power: unitState.stackPower || baseProperties.stack_power,
+                // Remaining ranged shots are tracked authoritatively by the server; carry the live count
+                // through so the left sidebar decrements as the unit fires. Guard on the base config so
+                // melee units (base 0) stay 0 and a genuine "0 shots left" still shows for ranged units.
+                range_shots: baseProperties.range_shots > 0 ? unitState.rangeShots : baseProperties.range_shots,
                 // The server (running the common engine) computes morale and speed authoritatively and
                 // ships them in the snapshot; carry them through instead of falling back to the base
                 // creature config. These survive the client's adjustBaseStats recompute because it
                 // preserves initialUnitProperties.morale/speed (synergy bonus is re-derived on top).
                 morale: unitState.morale,
                 speed: unitState.speed || baseProperties.speed,
+                // Luck is the server's already-rolled effective value (incl. the per-turn spread and
+                // auras like Leprechaun's Luck Aura). luck_authoritative tells adjustBaseStats to keep
+                // it verbatim rather than re-rolling a divergent client-side spread on top.
+                luck: unitState.luck,
+                luck_mod: 0,
+                luck_authoritative: true,
             } as UnitProperties;
         } catch {
             // Legacy snapshots may not carry a usable creature id, so fall through factions.
@@ -218,6 +228,11 @@ export class RankedPlayScene extends Sandbox {
     private rankedStatsSeries: IFightStatsSample[] = [];
     private rankedSceneLogGameId = "";
     private rankedSceneLogSequence = -1;
+    // High-water mark for Armageddon-wave VFX driven off the authoritative journal. Tracked separately
+    // from the scene-log sequence so the wave's floating damage + shake fire exactly once when the wave
+    // first appears, and historical waves already in the journal on (re)join aren't replayed.
+    private armageddonVfxGameId = "";
+    private armageddonVfxSequence = -1;
     // Remembers every unit's name (and team) as it appears in snapshots, so log lines for units
     // that have since died — and dropped out of the live snapshot — still resolve a real name.
     private readonly rankedUnitNamesById = new Map<string, string>();
@@ -493,6 +508,11 @@ export class RankedPlayScene extends Sandbox {
         // felled by the counter (reconciled here, after the turn handed off) did not. Runs before the
         // board is rebuilt; getShatterInfo() is null once visuals are torn down, so units the replay
         // already shattered are skipped (no double shatter).
+        // Armageddon wave VFX: render the floating damage + screen shake off the journal here (the
+        // reliable channel in ranked — the inline engine-event path is suppressed via
+        // shouldRenderArmageddonInline()). Runs BEFORE shatterNewlyDeadUnits so a unit the wave kills
+        // still has a live position to throw its number from.
+        this.renderNewlyAppliedArmageddon(snapshot);
         this.shatterNewlyDeadUnits(snapshot);
         const state = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
         // Self-heal an active-unit desync: the server says a unit is active but on our board that unit
@@ -577,6 +597,9 @@ export class RankedPlayScene extends Sandbox {
         this.resetRankedFightStats();
         this.rankedSceneLogGameId = "";
         this.rankedSceneLogSequence = -1;
+        // Re-baseline the Armageddon high-water mark so the next snapshot doesn't replay historical waves.
+        this.armageddonVfxGameId = "";
+        this.armageddonVfxSequence = -1;
         this.applyAuthoritativeSnapshot(snapshot);
     }
     public override startScene(): boolean {
@@ -1156,6 +1179,60 @@ export class RankedPlayScene extends Sandbox {
         return "new";
     }
     /**
+     * Ranked drives the Armageddon wave VFX from the authoritative journal (see
+     * renderNewlyAppliedArmageddon), not inline from the engine events — the inline path doesn't fire
+     * reliably here, which is why the wave's damage numbers never showed.
+     */
+    protected override shouldRenderArmageddonInline(): boolean {
+        return false;
+    }
+    /**
+     * Render the Armageddon wave's floating damage + screen shake from the authoritative snapshot's
+     * journal. The wave's `armageddon_applied` events ride on a turn-ending action's journal entry; the
+     * scene log already reads them from journalTail reliably, so we render the VFX from the same source.
+     * Deduped by a per-game high-water sequence so each wave fires once and historical waves present on
+     * (re)join aren't replayed.
+     */
+    private renderNewlyAppliedArmageddon(snapshot: AuthoritativeGameSnapshot): void {
+        const journalTail = snapshot.journalTail;
+        if (!journalTail?.length) {
+            return;
+        }
+        const sorted = [...journalTail].sort((a, b) => a.sequence - b.sequence);
+        const maxSequence = sorted[sorted.length - 1].sequence;
+        // First snapshot for this game: set the baseline without replaying any historical waves.
+        if (this.armageddonVfxGameId !== snapshot.gameId) {
+            this.armageddonVfxGameId = snapshot.gameId;
+            this.armageddonVfxSequence = maxSequence;
+            return;
+        }
+        if (maxSequence <= this.armageddonVfxSequence) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const shakenWaves = new Set<number>();
+        for (const entry of sorted) {
+            if (entry.sequence <= this.armageddonVfxSequence) {
+                continue;
+            }
+            for (const event of this.parseJournalEvents(entry)) {
+                if (event.type !== "armageddon_applied") {
+                    continue;
+                }
+                const unit = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
+                const pos = unit?.getVisualCenter(gs);
+                if (pos && (event.damage > 0 || event.unitsDied > 0)) {
+                    this.combatVisuals?.showFloatingDamage(pos, event.damage, undefined, event.unitsDied);
+                }
+                if (!shakenWaves.has(event.wave)) {
+                    shakenWaves.add(event.wave);
+                    this.triggerScreenShake(12 + event.wave * 3, 0.5);
+                }
+            }
+        }
+        this.armageddonVfxSequence = maxSequence;
+    }
+    /**
      * Spawn the "broken mirror" death shatter for any unit that just died, then tear its sprite down.
      * Detect alive→dead transitions by comparing the local board (units with live sprites) against the
      * authoritative snapshot: a unit we are still rendering that the snapshot reports dead/absent has just
@@ -1233,6 +1310,7 @@ export class RankedPlayScene extends Sandbox {
 
         const lap = Math.max(1, Math.floor(snapshot.currentLap || 1));
         this.ensureRankedFightStatsStarted(units);
+        this.applyServerStartTotals(snapshot);
         this.sampleRankedFightStats(units, lap);
 
         const winner = this.inferRankedWinner(snapshot, units);
@@ -1285,6 +1363,27 @@ export class RankedPlayScene extends Sandbox {
         this.rankedStatsSeries = [];
         this.rankedStatsLowerRoster.clear();
         this.rankedStatsUpperRoster.clear();
+    }
+    /**
+     * Prefer the server's authoritative fight-start army totals when present, overriding what we
+     * captured locally. This makes casualty stats correct even when a team has been fully wiped and its
+     * units are gone from the snapshot — e.g. a completed game loaded cold (the local capture would see
+     * only the survivor's units), or a mid-fight join. Older servers omit these (0) and we keep the
+     * locally-captured totals.
+     */
+    private applyServerStartTotals(snapshot: AuthoritativeGameSnapshot): void {
+        if (snapshot.lowerStartUnits && snapshot.lowerStartUnits > 0) {
+            this.rankedStatsLowerStartTotal = snapshot.lowerStartUnits;
+        }
+        if (snapshot.upperStartUnits && snapshot.upperStartUnits > 0) {
+            this.rankedStatsUpperStartTotal = snapshot.upperStartUnits;
+        }
+        if (snapshot.lowerStartHealth && snapshot.lowerStartHealth > 0) {
+            this.rankedStatsLowerStartHealthTotal = snapshot.lowerStartHealth;
+        }
+        if (snapshot.upperStartHealth && snapshot.upperStartHealth > 0) {
+            this.rankedStatsUpperStartHealthTotal = snapshot.upperStartHealth;
+        }
     }
     private ensureRankedFightStatsStarted(units: SandboxSceneUnitState[]): void {
         if (this.rankedStatsStarted) {

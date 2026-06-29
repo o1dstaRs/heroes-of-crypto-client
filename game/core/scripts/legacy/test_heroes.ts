@@ -1016,7 +1016,7 @@ class Sandbox extends GLScene {
                 this.sc_sceneLog.updateLog(`${this.currentActiveUnit.getName()} skip turn`);
                 this.finishTurn();
             } else if (buttonName === "LuckShield" && this.currentActiveUnit) {
-                this.currentActiveUnit.cleanupLuckPerTurn();
+                this.currentActiveUnit.applyLuckShield();
                 this.currentActiveUnit.decreaseMorale(
                     HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK,
                     FightStateManager.getInstance()

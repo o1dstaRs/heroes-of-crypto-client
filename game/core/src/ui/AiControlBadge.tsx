@@ -1,16 +1,27 @@
 import React from "react";
 
 /**
+ * Left position (px) for the AI badge so it sits at the bottom-left of the FIGHT board, not over the
+ * left sidebar. The board is a centered 2048px square scaled to fit; its left edge is the sidebar
+ * width = (viewportWidth - scaledBoard) / 2. A small inset is added.
+ */
+export const aiBadgeLeft = (windowSize: { width: number; height: number }): number => {
+    const scale = Math.min(windowSize.width / 2048, windowSize.height / 2048);
+    const boardLeft = (windowSize.width - 2048 * scale) / 2;
+    return Math.max(0, Math.round(boardLeft)) + 16;
+};
+
+/**
  * Bottom-left "AI Toggle On" badge with a soft pulse, shown while the AI is playing this player's
  * turns. In ranked this is driven by the server's per-player aiControlled flag (turned on after two
  * consecutive missed turns); in the sandbox it mirrors the local AI toggle. It clears when the player
  * takes control again (a real action in ranked / toggling the AI button off in the sandbox).
  */
-export const AiControlBadge: React.FC = () => (
+export const AiControlBadge: React.FC<{ left?: number }> = ({ left = 16 }) => (
     <div
         style={{
             position: "absolute",
-            left: 16,
+            left,
             bottom: 16,
             zIndex: 7000,
             display: "flex",

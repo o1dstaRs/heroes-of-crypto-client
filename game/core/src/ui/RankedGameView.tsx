@@ -37,7 +37,7 @@ import { Main } from "./Main";
 import Popover from "./Popover";
 import RightSideBar from "./RightSideBar";
 import { UpNextOverlay } from "./UpNextOverlay";
-import { AiControlBadge } from "./AiControlBadge";
+import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { WalletLinker } from "./WalletLinker";
 import { ButtonProvider } from "./context/ButtonContext";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
@@ -258,6 +258,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         [localModelConfig, snapshot, viewerTeam],
     );
     const [selectedUnitId, setSelectedUnitId] = useState("");
+    const [aiToggleOn, setAiToggleOn] = useState(false);
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState("Connecting");
     const [error, setError] = useState("");
@@ -267,6 +268,15 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const snapshotRef = useRef<PlaySnapshot | null>(null);
     const actionQueueRef = useRef<Promise<void>>(Promise.resolve());
     const replayTimersRef = useRef<number[]>([]);
+
+    // Mirror the scene's local AI toggle so the "AI Toggle On" badge shows for a manual toggle too,
+    // not only the server's aiControlled takeover (combined below).
+    useEffect(() => {
+        const connection = manager.onVisibleStateUpdated.connect((state) => setAiToggleOn(!!state.aiToggleOn));
+        return () => {
+            connection.disconnect();
+        };
+    }, [manager]);
     const pendingTurnResolutionRef = useRef(false);
     // Tracks consecutive server rejections at the same turn (expectedSequence). If the same turn keeps
     // getting rejected (e.g. an autobattle AI proposing an illegal move/attack the server refuses, or
@@ -1158,7 +1168,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     </ViewerTeamContext.Provider>
                     <RightSideBar gameStarted={gameStarted} windowSize={windowSize} rankedPanel={rankedPanel} />
                     {gameStarted && <UpNextOverlay />}
-                    {gameStarted && !!myPlayer?.aiControlled && <AiControlBadge />}
+                    {gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
+                        <AiControlBadge left={aiBadgeLeft(windowSize)} />
+                    )}
                     {gameStarted && (
                         <FightFinishedOverlay
                             canReplay={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}

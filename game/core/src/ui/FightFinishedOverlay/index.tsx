@@ -200,13 +200,16 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
         return `${total} units fell over ${laps} ${laps === 1 ? "lap" : "laps"}`;
     }, [stats]);
 
-    // Only a finished fight (with a real winner) shows this overlay.
+    // Only a finished fight (with a real winner) shows this overlay — for BOTH players, and when a
+    // completed game is (re)loaded. We intentionally do NOT gate on the per-team start totals: when a
+    // finished game is loaded cold, the losing team's units have been cleaned up server-side, so its
+    // start total reconstructs as 0 — gating on that would silently swallow the results overlay. The
+    // percentage math (percent() / CasualtyRoster) already guards against a 0 total, so a missing start
+    // total just degrades that team's casualty figures rather than hiding the whole overlay.
     if (
         !visibleState.hasFinished ||
         !stats ||
         dismissed ||
-        stats.lowerStartTotal <= 0 ||
-        stats.upperStartTotal <= 0 ||
         visibleState.teamWin === undefined ||
         visibleState.teamWin === TeamVals.NO_TEAM ||
         stats.winner === TeamVals.NO_TEAM ||

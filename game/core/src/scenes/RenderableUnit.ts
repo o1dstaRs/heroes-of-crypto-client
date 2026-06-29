@@ -1,4 +1,4 @@
-import { Container, Sprite, Graphics, Text, TextStyle, Texture, Rectangle } from "pixi.js";
+import { Container, Sprite, Graphics, Text, TextStyle, Texture, Rectangle, BlurFilter } from "pixi.js";
 import {
     Unit,
     UnitProperties,
@@ -106,6 +106,7 @@ interface OneShotAnimState {
 export class RenderableUnit extends Unit {
     private texResolver!: TexResolver;
     private sprite?: Sprite;
+    private motionBlurFilter?: BlurFilter;
     private shadow?: Sprite;
     private badgeContainer?: Container;
     private badgeFlag?: Graphics;
@@ -400,6 +401,52 @@ export class RenderableUnit extends Unit {
     public setSpriteRotation(rotation: number) {
         if (this.sprite) {
             this.sprite.rotation = rotation;
+        }
+    }
+    /**
+     * Drop a fading "afterimage" copy of the current sprite at its present transform — a frozen ghost
+     * the caller then fades out. Spawned repeatedly along a fast charge (Rapid Charge) it reads as a
+     * motion-blur streak trailing the unit. Returns the ghost so the caller can manage its lifetime,
+     * or undefined when there is no sprite/texture yet.
+     */
+    public createAfterimageSprite(worldRoot: Container): Sprite | undefined {
+        const src = this.sprite;
+        if (!src || !src.texture) return undefined;
+        // Add the ghost into the SAME container as the live sprite (its parent) so it shares the unit
+        // layer's coordinate space and z-sorting; fall back to the passed root only if unparented.
+        const parent = src.parent ?? worldRoot;
+        const ghost = new Sprite(src.texture);
+        ghost.anchor.set(0.5);
+        ghost.x = src.x;
+        ghost.y = src.y;
+        ghost.scale.set(src.scale.x, src.scale.y);
+        ghost.rotation = src.rotation;
+        ghost.tint = src.tint;
+        ghost.alpha = 0.45;
+        // Just under the live sprite so the unit stays crisp on top of its blurred trail.
+        ghost.zIndex = src.zIndex - 1;
+        parent.addChild(ghost);
+        return ghost;
+    }
+    /**
+     * Apply (or clear, when strength <= 0) a light gaussian blur on the live sprite so a fast-charging
+     * unit looks like it's moving too fast to focus on. Reuses a single filter instance; clearing
+     * removes it so the unit renders crisp again the moment the charge ends.
+     */
+    public setMotionBlur(strength: number): void {
+        if (!this.sprite) return;
+        if (strength <= 0) {
+            if (this.motionBlurFilter) {
+                this.sprite.filters = [];
+                this.motionBlurFilter = undefined;
+            }
+            return;
+        }
+        if (!this.motionBlurFilter) {
+            this.motionBlurFilter = new BlurFilter({ strength });
+            this.sprite.filters = [this.motionBlurFilter];
+        } else {
+            this.motionBlurFilter.strength = strength;
         }
     }
     public getCurrentVisualScale(): number {

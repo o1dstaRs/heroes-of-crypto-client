@@ -202,6 +202,7 @@ export class CombatVisuals {
     private debuffPops: IDebuffPop[] = [];
     private debuffStyle?: TextStyle;
     private buffStyle?: TextStyle;
+    private missStyle?: TextStyle;
     // Soft radial ember texture, built once and reused for every Fire Breath sweep.
     private fireTexture?: Texture;
     // Soft radial white-light texture, built once and reused for the Skewer Strike light orb + trail.
@@ -284,6 +285,73 @@ export class CombatVisuals {
         }
         return this.buffStyle;
     }
+    private getMissStyle(): TextStyle {
+        if (!this.missStyle) {
+            this.missStyle = new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 34,
+                fontWeight: "900",
+                fill: "#e8eef5", // neutral cool-white — reads as "no hit", distinct from red/violet/green
+                stroke: { color: "#1b2733", width: 5 },
+                dropShadow: {
+                    color: "#000000",
+                    blur: 4,
+                    angle: Math.PI / 6,
+                    distance: 2,
+                },
+            });
+        }
+        return this.missStyle;
+    }
+    /**
+     * Pop a "MISS" label over a unit that dodged an attack (Dodge / Small Specie / Boar Saliva). Reuses
+     * the floating-text rise/fade so it reads like a damage number but in neutral white. Drifts along the
+     * attack line when a direction is given. Same path in sandbox and ranked.
+     */
+    public showMissLabel(pos: HoCMath.XY, direction?: HoCMath.XY): void {
+        const container = new Container();
+        const label = new PixiText({ text: "MISS", style: this.getMissStyle() });
+        label.anchor.set(0.5);
+        container.addChild(label);
+
+        const baseX = pos.x;
+        const baseY = pos.y + 20;
+        let stack = 0;
+        for (const other of this.floatingTexts) {
+            const dx = other.container.x - baseX;
+            const dy = other.container.y - baseY;
+            if (dx * dx + dy * dy < FT_STACK_DIST * FT_STACK_DIST) stack++;
+        }
+        const startX = baseX;
+        const startY = baseY + stack * FT_STACK_STEP;
+
+        let driftX = 0;
+        let driftY = 0;
+        if (direction) {
+            const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+            if (len > 0.001) {
+                driftX = (direction.x / len) * FT_DRIFT;
+                driftY = (direction.y / len) * FT_DRIFT;
+            }
+        }
+        if (stack > 0) driftX += (stack % 2 === 0 ? 1 : -1) * 10 * stack;
+
+        container.scale.set(FT_START_SCALE, -FT_START_SCALE);
+        container.alpha = 0;
+        container.position.set(startX, startY);
+        this.context.attachToWorldRoot(container, 2000);
+
+        this.floatingTexts.push({
+            container,
+            age: 0,
+            life: FT_LIFE,
+            startX,
+            startY,
+            riseY: FT_RISE,
+            driftX,
+            driftY,
+        });
+    }
     /**
      * Pop a freshly-applied effect's spell icon + name over a unit. `kind` only changes the name's
      * colour — violet for a debuff (e.g. Beholder's Spit Ball landing Sadness / Quagmire / Weakness),
@@ -341,7 +409,10 @@ export class CombatVisuals {
         const count = new PixiText({ text: "0", style: this.getCountStyle() });
         count.anchor.set(0.5);
         count.position.set(0, 55);
-        container.addChild(dmg, count);
+        const miss = new PixiText({ text: "MISS", style: this.getMissStyle() });
+        miss.anchor.set(0.5);
+        miss.position.set(0, 110);
+        container.addChild(dmg, count, miss);
         // Far off-screen + barely visible: renders once (compiling the shader / uploading glyphs)
         // without any visible flash, then update() destroys it on the next tick.
         container.position.set(-100000, -100000);

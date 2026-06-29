@@ -18,7 +18,7 @@ import "./style.scss";
 import Popover from "./Popover";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
-import { AiControlBadge } from "./AiControlBadge";
+import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
@@ -164,7 +164,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                     {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
                     <UpNextOverlay />
                     <FightFinishedOverlay />
-                    {!isLoading && started && aiToggleOn && <AiControlBadge />}
+                    {!isLoading && started && aiToggleOn && <AiControlBadge left={aiBadgeLeft(windowSize)} />}
                     {!isLoading && started && <DraggableToolbar />}
                 </CssVarsProvider>
                 <Main />

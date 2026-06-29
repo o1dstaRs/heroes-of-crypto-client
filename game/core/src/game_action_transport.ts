@@ -23,6 +23,9 @@ export interface AuthoritativeUnitState {
     dead: boolean;
     placed: boolean;
     stackPower: number;
+    rangeShots: number;
+    /** Authoritative effective luck (base + per-turn roll + auras); can be negative. */
+    luck: number;
     debuffs?: string[];
     buffs?: string[];
 }
@@ -61,6 +64,12 @@ export interface AuthoritativeGameSnapshot {
     upNext?: string[];
     damageStats?: IDamageStatistic[];
     journalTail?: AuthoritativeJournalEntry[];
+    // Each team's army totals captured at fight start (units + cumulative HP), so the fight-results
+    // overlay renders casualty stats even for a team later fully wiped (whose units are then gone).
+    lowerStartUnits?: number;
+    upperStartUnits?: number;
+    lowerStartHealth?: number;
+    upperStartHealth?: number;
 }
 
 export type SceneGameActionTransportResult =

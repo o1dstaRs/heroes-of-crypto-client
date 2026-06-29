@@ -283,6 +283,10 @@ export const toAuthoritativeGameSnapshot = (
     centerDried: snapshot.centerDried,
     units: snapshot.units,
     upNext: snapshot.upNext,
+    lowerStartUnits: snapshot.lowerStartUnits,
+    upperStartUnits: snapshot.upperStartUnits,
+    lowerStartHealth: snapshot.lowerStartHealth,
+    upperStartHealth: snapshot.upperStartHealth,
     journalTail: snapshot.journalTail,
     damageStats: snapshot.damageStats.map((stat): IDamageStatistic => ({
         unitName: stat.unitName,

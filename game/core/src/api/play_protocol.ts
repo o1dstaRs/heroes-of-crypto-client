@@ -79,6 +79,11 @@ export interface PlayUnitState {
     dead: boolean;
     placed: boolean;
     stackPower: number;
+    /** Remaining ranged shots (so the left sidebar's shot count updates as the unit fires). */
+    rangeShots: number;
+    /** Authoritative effective luck (base + per-turn roll + auras), so the sidebar matches the server
+     * instead of the client re-rolling its own divergent spread. Can be negative. */
+    luck: number;
     /** Names of debuffs currently active on the unit; used to animate newly-applied ones. */
     debuffs?: string[];
     /** Names of buffs currently active on the unit; used to animate newly-applied ones. */
@@ -127,6 +132,13 @@ export interface PlaySnapshot {
     centerDried: boolean;
     upNext: string[];
     damageStats: PlayDamageStatistic[];
+    /** Each team's army totals captured at fight start (units + cumulative HP), so the fight-results
+     * overlay can render casualty stats for a team that's later fully wiped. 0 before fight start;
+     * absent from older servers (the decoder still defaults them to 0). */
+    lowerStartUnits?: number;
+    upperStartUnits?: number;
+    lowerStartHealth?: number;
+    upperStartHealth?: number;
 }
 
 export interface PlayAction {
@@ -271,6 +283,12 @@ class ProtoReader {
     }
     public varintNumber(): number {
         return Number(this.varintBigInt());
+    }
+    // Signed int32 decode. protobufjs sign-extends negative int32 to a 10-byte varint, which the plain
+    // varintNumber() above would surface as a huge positive number. Used for fields that can go negative
+    // (morale, luck), so e.g. dismorale / negative luck render correctly on the left sidebar.
+    public signedVarintNumber(): number {
+        return Number(BigInt.asIntN(32, this.varintBigInt()));
     }
     public float32(): number {
         const end = this.offset + 4;
@@ -541,6 +559,10 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         centerDried: false,
         upNext: [],
         damageStats: [],
+        lowerStartUnits: 0,
+        upperStartUnits: 0,
+        lowerStartHealth: 0,
+        upperStartHealth: 0,
     };
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
@@ -590,6 +612,14 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             snapshot.currentTurnStartMs = reader.varintNumber();
         } else if (field === 23) {
             snapshot.currentTurnEndMs = reader.varintNumber();
+        } else if (field === 24) {
+            snapshot.lowerStartUnits = reader.varintNumber();
+        } else if (field === 25) {
+            snapshot.upperStartUnits = reader.varintNumber();
+        } else if (field === 26) {
+            snapshot.lowerStartHealth = reader.varintNumber();
+        } else if (field === 27) {
+            snapshot.upperStartHealth = reader.varintNumber();
         } else {
             reader.skip(wireType);
         }
@@ -617,6 +647,8 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
         dead: false,
         placed: false,
         stackPower: 0,
+        rangeShots: 0,
+        luck: 0,
     };
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
@@ -647,7 +679,7 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
         } else if (field === 13) {
             unit.speed = wireType === 5 ? reader.float32() : reader.varintNumber();
         } else if (field === 14) {
-            unit.morale = reader.varintNumber();
+            unit.morale = reader.signedVarintNumber();
         } else if (field === 15) {
             unit.dead = reader.bool();
         } else if (field === 16) {
@@ -658,6 +690,10 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
             (unit.debuffs ??= []).push(reader.string());
         } else if (field === 19) {
             (unit.buffs ??= []).push(reader.string());
+        } else if (field === 20) {
+            unit.rangeShots = reader.varintNumber();
+        } else if (field === 21) {
+            unit.luck = reader.signedVarintNumber();
         } else {
             reader.skip(wireType);
         }

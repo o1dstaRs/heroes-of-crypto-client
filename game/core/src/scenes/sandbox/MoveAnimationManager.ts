@@ -1,7 +1,15 @@
 import { RenderableUnit } from "../RenderableUnit";
 import { GridSettings, HoCMath, TeamType, GridMath } from "@heroesofcrypto/common";
 import { HoverManager } from "../HoverManager";
-import { Container } from "pixi.js";
+import { Container, Sprite } from "pixi.js";
+
+// Rapid Charge: a fast accelerating dash with a motion-blur streak instead of a flat-speed glide.
+const RC_MIN_SPEED_MULT = 0.7; // starts a touch slower than a normal move...
+const RC_MAX_SPEED_MULT = 3.0; // ...and ramps up to a hard sprint by the last cell
+const RC_BLUR_BASE = 2; // gaussian blur on the live sprite at the start of the dash
+const RC_BLUR_RANGE = 8; // extra blur added as it reaches top speed
+const RC_AFTERIMAGE_SPACING_CELLS = 0.4; // drop a ghost every ~0.4 cells travelled
+const RC_AFTERIMAGE_LIFE = 0.22; // seconds a ghost lingers before it has fully faded
 
 export interface IMoveAnimationContext {
     getGridSettings(): GridSettings;
@@ -22,6 +30,16 @@ interface IMoveAnimationState {
     destCell: HoCMath.XY;
     lastTrackWorld: HoCMath.XY;
     onComplete?: () => void;
+    // Rapid Charge: accelerate toward the destination + leave a blurred afterimage trail.
+    rapidCharge: boolean;
+    totalSegments: number;
+    lastAfterimageWorld: HoCMath.XY;
+}
+
+interface IAfterimage {
+    sprite: Sprite;
+    life: number;
+    maxLife: number;
 }
 
 interface ILingeringTrack {
@@ -61,6 +79,7 @@ export class MoveAnimationManager {
     private moveTrackPath?: HoCMath.XY[];
     private moveTrackProgress = 0;
     private lingeringTracks: ILingeringTrack[] = [];
+    private afterimages: IAfterimage[] = [];
     private lastTrackDropIndex: number = -1;
     private isActiveUnitMoving = false;
     public constructor(context: IMoveAnimationContext) {
@@ -112,6 +131,9 @@ export class MoveAnimationManager {
 
         // Initial track anchor
         const start = worldPath[0];
+        // Detect Rapid Charge here (not at the call sites) so BOTH the live sandbox move path and the
+        // recorded-move replay path — i.e. ranked AND sandbox — get the accelerating dash automatically.
+        const rapidCharge = unit.hasAbilityActive("Rapid Charge");
         this.moveAnimation = {
             unit,
             worldPath,
@@ -122,6 +144,9 @@ export class MoveAnimationManager {
             destCell,
             lastTrackWorld: { x: start.x, y: start.y },
             onComplete,
+            rapidCharge,
+            totalSegments: Math.max(1, worldPath.length - 1),
+            lastAfterimageWorld: { x: start.x, y: start.y },
         };
     }
     public startSwapAnimation(
@@ -169,6 +194,19 @@ export class MoveAnimationManager {
         this.stepMoveAnimation(dt);
         this.stepSwapAnimation(dt);
         this.updateLingeringTracks(dt);
+        this.updateAfterimages(dt);
+    }
+    private updateAfterimages(dt: number): void {
+        if (!this.afterimages.length) return;
+        this.afterimages = this.afterimages.filter((g) => {
+            g.life -= dt;
+            if (g.life <= 0) {
+                g.sprite.destroy();
+                return false;
+            }
+            g.sprite.alpha = 0.45 * (g.life / g.maxLife);
+            return true;
+        });
     }
     private stepSwapAnimation(dt: number): void {
         const s = this.swapAnimation;
@@ -212,7 +250,17 @@ export class MoveAnimationManager {
             return;
         }
 
-        let remaining = speed * dt;
+        // Rapid Charge: ramp the speed up toward the destination (ease-in on overall path progress)
+        // and blur the live sprite harder the faster it goes, so it reads as an accelerating dash.
+        let effSpeed = speed;
+        if (anim.rapidCharge) {
+            const progress = Math.min(1, (anim.currentSegment + anim.t) / anim.totalSegments);
+            const accel = RC_MIN_SPEED_MULT + (RC_MAX_SPEED_MULT - RC_MIN_SPEED_MULT) * progress * progress;
+            effSpeed = speed * accel;
+            unit.setMotionBlur(RC_BLUR_BASE + RC_BLUR_RANGE * progress);
+        }
+
+        let remaining = effSpeed * dt;
 
         while (remaining > 0 && this.moveAnimation) {
             const a = this.moveAnimation!;
@@ -276,6 +324,21 @@ export class MoveAnimationManager {
 
             this.moveTrackProgress = a.currentSegment + a.t;
 
+            // Rapid Charge: spill a fading afterimage every ~0.4 cells travelled — the trail of ghosts
+            // behind the dashing unit is the "motion blur" of a fast charge.
+            if (a.rapidCharge) {
+                const adx = newPos.x - a.lastAfterimageWorld.x;
+                const ady = newPos.y - a.lastAfterimageWorld.y;
+                const spacing = cellSize * RC_AFTERIMAGE_SPACING_CELLS;
+                if (adx * adx + ady * ady >= spacing * spacing) {
+                    const ghost = unit.createAfterimageSprite(this.context.getWorldRoot());
+                    if (ghost) {
+                        this.afterimages.push({ sprite: ghost, life: RC_AFTERIMAGE_LIFE, maxLife: RC_AFTERIMAGE_LIFE });
+                    }
+                    a.lastAfterimageWorld = { x: newPos.x, y: newPos.y };
+                }
+            }
+
             if (!isLargeUnit && this.moveTrackPath && this.moveTrackPath.length > 0) {
                 const idx = Math.floor(this.moveTrackProgress);
                 // Skip the final cell (the destination) — dust only trails behind, not where it lands.
@@ -309,6 +372,12 @@ export class MoveAnimationManager {
         const end = worldPath[worldPath.length - 1] ?? unit.getPosition();
 
         unit.setPosition(end.x, end.y);
+
+        // End of a Rapid Charge: drop the blur so the unit snaps back into crisp focus at its
+        // destination. (Afterimages already spawned keep fading on their own via updateAfterimages.)
+        if (anim.rapidCharge) {
+            unit.setMotionBlur(0);
+        }
 
         // No dust at the destination — the trail leads up to it and fades behind the unit. (Large
         // units still drop their trail along the way via dropLargeUnitTrackAtPosition in stepMove.)

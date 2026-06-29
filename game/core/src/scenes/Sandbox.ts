@@ -667,6 +667,14 @@ export class Sandbox extends PixiScene {
     protected shouldRenderUnplacedUnitBench(_unitState: SandboxSceneUnitState): boolean {
         return false;
     }
+    /**
+     * Whether Armageddon-wave VFX (floating damage + screen shake) are rendered inline from engine
+     * events. True in the sandbox; RankedPlayScene overrides it to false and renders the wave from the
+     * authoritative journal instead (the inline path doesn't fire reliably there).
+     */
+    protected shouldRenderArmageddonInline(): boolean {
+        return true;
+    }
     protected getUnplacedUnitBenchGroupKey(_unitState: SandboxSceneUnitState): string {
         return "default";
     }
@@ -8240,18 +8248,22 @@ export class Sandbox extends PixiScene {
                     shouldRefreshVisibleState = true;
                     break;
                 case "armageddon_applied": {
-                    const unit = unitSnapshot.get(event.unitId);
-                    if (unit) {
-                        this.combatVisuals.showFloatingDamage(
-                            unit.getPosition(),
-                            event.damage,
-                            undefined,
-                            event.unitsDied,
-                        );
-                    }
-                    if (!armageddonWaves.has(event.wave)) {
-                        armageddonWaves.add(event.wave);
-                        this.triggerScreenShake(12 + event.wave * 3, 0.5);
+                    // Ranked renders the wave VFX from the authoritative journal instead (the inline
+                    // engine-event path doesn't fire reliably there); it overrides this hook to false.
+                    if (this.shouldRenderArmageddonInline()) {
+                        const unit = unitSnapshot.get(event.unitId);
+                        if (unit) {
+                            this.combatVisuals.showFloatingDamage(
+                                unit.getPosition(),
+                                event.damage,
+                                undefined,
+                                event.unitsDied,
+                            );
+                        }
+                        if (!armageddonWaves.has(event.wave)) {
+                            armageddonWaves.add(event.wave);
+                            this.triggerScreenShake(12 + event.wave * 3, 0.5);
+                        }
                     }
                     break;
                 }
