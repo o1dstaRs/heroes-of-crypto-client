@@ -13,12 +13,23 @@ import { ISceneLog } from "@heroesofcrypto/common";
 
 import Denque from "denque";
 
+export type SceneLogTeamFlagResolver = (line: string) => string;
+
 export class SceneLog implements ISceneLog {
     protected log: Denque<string>;
     protected updated: boolean;
+    private teamFlagResolver?: SceneLogTeamFlagResolver;
     public constructor() {
         this.log = new Denque();
         this.updated = false;
+    }
+    /**
+     * Optional hook (set by the sandbox scene) returning a team marker — 🟢 / 🔴 — for a log line based
+     * on the unit it's about, so each entry is prefixed with its side's colour like the ranked log.
+     * Ranked leaves this unset: it rebuilds its log from events and prefixes lines itself by unit id.
+     */
+    public setTeamFlagResolver(resolver?: SceneLogTeamFlagResolver): void {
+        this.teamFlagResolver = resolver;
     }
     public clear(): void {
         this.log.clear();
@@ -33,7 +44,8 @@ export class SceneLog implements ISceneLog {
     }
     public updateLog(_newLog?: string): void {
         if (_newLog && _newLog.constructor === String) {
-            this.log.unshift(_newLog);
+            const flag = this.teamFlagResolver ? this.teamFlagResolver(_newLog) : "";
+            this.log.unshift(flag ? `${flag} ${_newLog}` : _newLog);
             this.updated = true;
         }
     }

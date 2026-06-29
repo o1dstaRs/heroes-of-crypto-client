@@ -994,6 +994,14 @@ export class RankedPlayScene extends Sandbox {
                 return undefined;
         }
     }
+    /**
+     * Ranked rebuilds its scene log from the authoritative journal and prefixes each line with the
+     * acting unit's team flag by unit id (logTeamFlag), so the sandbox's name-based resolver — which
+     * would double-tag or mis-tag the already-formatted lines — is disabled here.
+     */
+    protected override resolveSceneLogTeamFlag(): string {
+        return "";
+    }
     /** Green/red marker for the acting unit's team (LOWER = green, UPPER = red). */
     private logTeamFlag(unitId: string): string {
         const team = this.rankedUnitTeamsById.get(unitId);

@@ -177,6 +177,11 @@ export class Sandbox extends PixiScene {
     private gridMatrixNoUnits: number[][];
     private cellToUnitPreRound?: Map<string, Unit>;
     protected readonly unitsHolder: UnitsHolder;
+    // Persistent creature-name → team map for scene-log team flags (🟢 LOWER / 🔴 UPPER). Accumulated
+    // across the fight so a just-died unit's final line ("X died") still resolves after it's removed
+    // from the board. A creature type fielded by BOTH teams is "ambiguous" → no flag (the line's name
+    // alone can't say which side it's about).
+    private readonly sceneLogTeamByName = new Map<string, number | "ambiguous">();
     private readonly abilityFactory: AbilityFactory;
     private readonly replayRecorder = new SandboxReplayRecorder(() => this.captureSceneState());
     private replayRecordingSuspended = false;
@@ -386,6 +391,10 @@ export class Sandbox extends PixiScene {
             new DamageStatisticHolder(),
         );
         this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
+        // Prefix each scene-log line with its side's colour (🟢 LOWER / 🔴 UPPER), like the ranked log.
+        // The engine writes plain text lines; the resolver tags them by the unit they're about. Ranked
+        // overrides resolveSceneLogTeamFlag() to "" since it rebuilds + prefixes its own log by unit id.
+        this.sc_sceneLog.setTeamFlagResolver((line) => this.resolveSceneLogTeamFlag(line));
         this.refreshVisibleStateIfNeeded();
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
@@ -3764,17 +3773,6 @@ export class Sandbox extends PixiScene {
             if (this.hoverRangeAttackObstacle && this.attemptObstacleAttack(this.hoverRangeAttackObstacle.position)) {
                 return;
             }
-            // [RANGE-PROBE] localize Gargantuan "can't land targeted shot" — what did the click see?
-            if (this.currentActiveUnit?.hasAbilityActive("Area Throw")) {
-                const dbgCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), p);
-                const dbgOcc = dbgCell ? this.grid.getOccupantUnitId(dbgCell) : undefined;
-                console.warn(
-                    `[rangeDbg] click attacker=${this.currentActiveUnit.getName()} ` +
-                        `areaThrowWouldHandle=${!!this.getAreaThrowCells(p)} occupant=${dbgOcc ?? "none"} ` +
-                        `hoverAttackFromCell=${JSON.stringify(this.hoverManager.hoverAttackFromCell)} ` +
-                        `canRangeTargets=${this.canAttackByRangeTargets?.size ?? "undef"}`,
-                );
-            }
 
             // --- AREA THROW: Gargantuan-style AOE fired at a cell (incl. empty/terrain). ---
             if (this.attemptAreaThrowAttack(p)) {
@@ -3850,8 +3848,22 @@ export class Sandbox extends PixiScene {
                             let isAtTarget = false;
 
                             if (targetPos) {
-                                const dx = Math.abs(currentPos.x - targetPos.x);
-                                const dy = Math.abs(currentPos.y - targetPos.y);
+                                // For large (2x2) units, attackFrom is the footprint's anchor (top-right)
+                                // cell; the unit's actual position is the footprint CENTER, a halfStep
+                                // down-left of that cell's center (mirrors the `position - halfStep`
+                                // footprint math the move branch below uses). Comparing currentPos to the
+                                // raw cell center left a static large RANGED attacker (Tsar Cannon,
+                                // Gargantuan) reading as "needs to move", so it searched for a route to its
+                                // own cell, found none, and silently never fired. Offset the comparison so
+                                // "already in place" is detected and the shot fires immediately.
+                                const compareX = this.currentActiveUnit.isSmallSize()
+                                    ? targetPos.x
+                                    : targetPos.x - gs.getHalfStep();
+                                const compareY = this.currentActiveUnit.isSmallSize()
+                                    ? targetPos.y
+                                    : targetPos.y - gs.getHalfStep();
+                                const dx = Math.abs(currentPos.x - compareX);
+                                const dy = Math.abs(currentPos.y - compareY);
                                 if (dx < 0.1 && dy < 0.1) {
                                     isAtTarget = true;
                                 }
@@ -4431,6 +4443,42 @@ export class Sandbox extends PixiScene {
 
         return this.executeObstacleAttackSequence(unit, mountainTarget.actionPosition, attackFromCell);
     }
+    /**
+     * Team marker (🟢 LOWER / 🔴 UPPER) for a scene-log line, matched by the unit name the line leads
+     * with (the engine writes "<UnitName> …"). Mirrors the ranked log's per-line colour flag, but
+     * resolves by name here since the sandbox log is the engine's plain text rather than a rebuild
+     * from events. Returns "" for lines that aren't about a unit (e.g. "Fight finished!", "Map
+     * narrowed") or when the creature type is fielded by both teams (ambiguous).
+     */
+    protected resolveSceneLogTeamFlag(line: string): string {
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            const name = unit.getName();
+            const existing = this.sceneLogTeamByName.get(name);
+            if (existing === undefined) {
+                this.sceneLogTeamByName.set(name, unit.getTeam());
+            } else if (existing !== "ambiguous" && existing !== unit.getTeam()) {
+                this.sceneLogTeamByName.set(name, "ambiguous");
+            }
+        }
+        // Longest matching name wins so "Wolf Rider" isn't shadowed by a hypothetical "Wolf".
+        let bestName: string | undefined;
+        for (const name of this.sceneLogTeamByName.keys()) {
+            if (line.startsWith(name) && (bestName === undefined || name.length > bestName.length)) {
+                bestName = name;
+            }
+        }
+        if (bestName === undefined) {
+            return "";
+        }
+        const team = this.sceneLogTeamByName.get(bestName);
+        if (team === TeamVals.LOWER) {
+            return "🟢";
+        }
+        if (team === TeamVals.UPPER) {
+            return "🔴";
+        }
+        return "";
+    }
     private executeObstacleAttackSequence(
         unit: RenderableUnit,
         targetPosition: HoCMath.XY,
@@ -4496,27 +4544,35 @@ export class Sandbox extends PixiScene {
 
         // Attack animation against the mountain (was missing entirely): a melee strike (attackFromCell
         // set) lunges into the struck edge along the attack trajectory; a ranged strike lobs a
-        // projectile at it. Mirrors the unit-vs-unit melee lunge / range projectile.
+        // projectile at it. Mirrors the unit-vs-unit melee lunge / range projectile. One animation
+        // plays per hit the engine actually landed on the obstacle, so Double Punch (two lunges) and
+        // Double Shot (two arrows) both read as the two strikes they are — staggered so they're distinct.
         const gsAnim = this.sc_sceneSettings.getGridSettings();
         const muzzle = unit.getVisualCenter(gsAnim);
         const animDir = { x: worldPos.x - muzzle.x, y: worldPos.y - muzzle.y };
         const animLen = Math.hypot(animDir.x, animDir.y);
+        const obstacleEvent = result.events.find((event) => event.type === "obstacle_attacked");
+        const landedHits =
+            obstacleEvent?.type === "obstacle_attacked"
+                ? Math.max(1, obstacleEvent.hitsBefore - obstacleEvent.hitsAfter)
+                : 1;
         if (attackFromCell) {
             if (animLen > 0.001) {
                 const mag = gsAnim.getCellSize() * 0.22;
-                unit.applyRecoil((animDir.x / animLen) * mag, (animDir.y / animLen) * mag);
+                const recoilX = (animDir.x / animLen) * mag;
+                const recoilY = (animDir.y / animLen) * mag;
+                for (let hitIndex = 0; hitIndex < landedHits; hitIndex += 1) {
+                    if (hitIndex === 0) {
+                        unit.applyRecoil(recoilX, recoilY);
+                    } else {
+                        // Stagger extra lunges so they read as distinct (matches the multi-hit cadence).
+                        setTimeout(() => unit.applyRecoil(recoilX, recoilY), hitIndex * 240);
+                    }
+                }
             }
         } else {
             const big = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
-            // Fire one projectile per mountain hit the engine actually applied. Double Shot lands a
-            // second hit on the obstacle (when it still has hits left and the shot can land), so two
-            // arrows must show — previously only ever one fired.
-            const obstacleEvent = result.events.find((event) => event.type === "obstacle_attacked");
-            const projectileCount =
-                obstacleEvent?.type === "obstacle_attacked"
-                    ? Math.max(1, obstacleEvent.hitsBefore - obstacleEvent.hitsAfter)
-                    : 1;
-            for (let shotIndex = 0; shotIndex < projectileCount; shotIndex += 1) {
+            for (let shotIndex = 0; shotIndex < landedHits; shotIndex += 1) {
                 if (shotIndex === 0) {
                     void this.rangedProjectiles.fire({ from: muzzle, to: worldPos, big });
                 } else {
@@ -4961,11 +5017,19 @@ export class Sandbox extends PixiScene {
         if (!largeCaliber && !areaThrow && !throughShot) {
             return false;
         }
+        // Aim at the same visible-edge center the real shot uses (matches the trajectory arrow and
+        // the engine's resolveRangeTargetPosition), not the target's geometric center. For a large
+        // attacker (center sits on a grid boundary) a center->center line has a different angle than
+        // the actual center->edge shot, so highlighting from the center outlined the wrong units.
+        const aim =
+            attacker instanceof RenderableUnit
+                ? this.resolveRangeAimForTarget(attacker, targetUnit)?.position
+                : undefined;
         const evalResult = this.attackHandler.evaluateRangeAttack(
             this.unitsHolder.getAllUnits(),
             attacker,
             attacker.getPosition(),
-            targetUnit.getPosition(),
+            aim ?? targetUnit.getPosition(),
             throughShot, // isThroughShot
             false, // isSelection
             largeCaliber || areaThrow, // splash (Large Caliber / Area Throw)
@@ -5254,15 +5318,6 @@ export class Sandbox extends PixiScene {
                     (dist > GridConstants.STEP * 1.5 &&
                         attackFrom.x === attacker.getPosition().x &&
                         attackFrom.y === attacker.getPosition().y)));
-
-        // [RANGE-PROBE] localize the Tsar Cannon "can't land range / through shot misses 2nd unit" bug.
-        console.warn(
-            `[rangeDbg] attacker=${attacker.getName()} target=${target.getName()} isRange=${isRange} ` +
-                `canRangeTarget=${!!this.canAttackByRangeTargets?.has(target.getId())} ` +
-                `attackSel=${attacker.getAttackTypeSelection()} rangeShots=${attacker.getRangeShots()} ` +
-                `throughShot=${attacker.hasAbilityActive("Through Shot")} dist=${dist.toFixed(0)} ` +
-                `small=${attacker.isSmallSize()}`,
-        );
 
         if (isRange) {
             // Resolve which VISIBLE EDGE of the target the shot is aimed at, from the cursor — the
@@ -6116,27 +6171,36 @@ export class Sandbox extends PixiScene {
         if (this.sc_mouseWorld && !this.isActiveUnitMoving) {
             const hoverTargetUnit = this.getUnitAtPosition(this.sc_mouseWorld);
             if (hoverTargetUnit && !hoverTargetUnit.isDead()) {
-                // Aura Calculations
+                // Aura: visualize the hovered unit's aura range. Routed through sc_hoveredAuraRanges so
+                // SandboxDrawer paints it on the same persistent layer (z=55) as the active/selected
+                // unit's aura. The old hoverManager.drawAuraArea layer (z=51) gets wiped mid-frame by the
+                // placement-hover path (updateHoverPlacementCell -> clearAuraVisuals), which is why the
+                // hover aura "never showed". Skip when the aura is ALREADY drawn for this unit (it's the
+                // active or selected board unit) so we don't stack a second, darker ring on top.
+                const auraAlreadyVisualized =
+                    hoverTargetUnit === this.currentActiveUnit || hoverTargetUnit === this.selectedBoardUnit;
                 const auraRanges = hoverTargetUnit.getAuraRanges();
-                if (auraRanges && auraRanges.length > 0) {
+                if (!auraAlreadyVisualized && auraRanges && auraRanges.length > 0) {
                     const bonus = FightStateManager.getInstance()
                         .getFightProperties()
                         .getAdditionalAuraRangePerTeam(hoverTargetUnit.getTeam());
                     const ab = hoverTargetUnit.getAuraIsBuff();
-
+                    const finalAuras: { range: number; isBuff: boolean }[] = [];
                     for (let i = 0; i < auraRanges.length; i++) {
-                        const r = auraRanges[i];
-                        if (r <= 0) continue;
-                        const isBuff = ab && i < ab.length ? ab[i] : true;
-                        const radiusPixel = (r + bonus) * GridConstants.STEP;
-
-                        this.hoverManager.drawAuraArea(
-                            hoverTargetUnit.getPosition(),
-                            radiusPixel,
-                            isBuff,
-                            hoverTargetUnit.isSmallSize(),
-                            0.7,
-                        );
+                        if (auraRanges[i] <= 0) continue;
+                        finalAuras.push({
+                            range: auraRanges[i] + bonus,
+                            isBuff: ab && i < ab.length ? ab[i] : true,
+                        });
+                    }
+                    if (finalAuras.length > 0) {
+                        this.sc_hoveredAuraRanges = {
+                            xy: (hoverTargetUnit as RenderableUnit).getVisualCenter(
+                                this.sc_sceneSettings.getGridSettings(),
+                            ),
+                            auraRanges: finalAuras,
+                            isSmall: hoverTargetUnit.isSmallSize(),
+                        };
                     }
                 }
 
@@ -7039,7 +7103,11 @@ export class Sandbox extends PixiScene {
                 } else {
                     this.sc_hoveredShotRange = undefined;
                 }
-                if (targetUnit) {
+                // Skip if this unit's aura is already drawn elsewhere (active unit / selected board
+                // unit) — avoids stacking a second, darker ring when hovering it.
+                const auraAlreadyVisualized =
+                    targetUnit === this.currentActiveUnit || targetUnit === this.selectedBoardUnit;
+                if (targetUnit && !auraAlreadyVisualized) {
                     const ar = targetUnit.getAuraRanges();
                     const ab = targetUnit.getAuraIsBuff();
                     const finalAuras: { range: number; isBuff: boolean }[] = [];
