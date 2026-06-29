@@ -27,7 +27,7 @@ import type {
 import type { IFightDeathEntry, IFightStatsReport, IFightStatsSample } from "./VisibleState";
 import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
 import { Sandbox, type SandboxSceneState, type SandboxSceneUnitState, type SceneActionEngine } from "./Sandbox";
-import { diffUnitEffects } from "./effect_pops";
+import { animatableEffectNames, diffUnitEffects } from "./effect_pops";
 import type { RenderableUnit } from "./RenderableUnit";
 import type { UnitsOverlay } from "./UnitsOverlay";
 import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
@@ -357,9 +357,10 @@ export class RankedPlayScene extends Sandbox {
     /**
      * Diff each unit's active debuffs AND buffs against the previously-seen sets and pop a nice icon +
      * name (plus a colour wash) over any unit that just gained one — a debuff (e.g. Beholder's Spit Ball
-     * landing Sadness / Quagmire / Weakness, violet) or a buff (green). A unit's effects are seeded
-     * silently the first time we see it — and only during the fight — so joining/reconnecting mid-game
-     * doesn't burst every existing effect at once.
+     * landing Sadness / Quagmire / Weakness, violet) or a buff (green). Aura effects are excluded (see
+     * animatableEffectNames) since they toggle as units move in and out of range. A unit's effects are
+     * seeded silently the first time we see it — and only during the fight — so joining/reconnecting
+     * mid-game doesn't burst every existing effect at once.
      */
     private processDebuffPops(snapshot: AuthoritativeGameSnapshot): void {
         if (!snapshot.fightStarted || snapshot.fightFinished) {
@@ -368,8 +369,8 @@ export class RankedPlayScene extends Sandbox {
         const seen = new Set<string>();
         for (const unitState of snapshot.units) {
             seen.add(unitState.id);
-            const currentDebuffs = new Set((unitState.debuffs ?? []).filter(Boolean));
-            const currentBuffs = new Set((unitState.buffs ?? []).filter(Boolean));
+            const currentDebuffs = animatableEffectNames(unitState.debuffs ?? []);
+            const currentBuffs = animatableEffectNames(unitState.buffs ?? []);
             const diff = diffUnitEffects(
                 this.unitDebuffs.get(unitState.id),
                 this.unitBuffs.get(unitState.id),
@@ -1014,7 +1015,10 @@ export class RankedPlayScene extends Sandbox {
     }
     /** Green/red marker for the acting unit's team (LOWER = green, UPPER = red). */
     private logTeamFlag(unitId: string): string {
-        const team = this.rankedUnitTeamsById.get(unitId);
+        // Prefer the team captured from authoritative snapshots; fall back to the live units holder so
+        // units that never appear in a snapshot (a local-model opponent's units, units summoned
+        // mid-fight) still get a colour flag instead of an unmarked line.
+        const team = this.rankedUnitTeamsById.get(unitId) ?? this.unitsHolder.getAllUnits().get(unitId)?.getTeam();
         if (team === TeamVals.LOWER) {
             return "🟢";
         }
@@ -1085,8 +1089,10 @@ export class RankedPlayScene extends Sandbox {
                 return `${nameOf(event.sourceUnitId)} split ${event.splitAmount}`;
             case "unit_deleted":
                 return `${nameOf(event.unitId)} removed`;
-            case "unit_summoned":
-                return `${nameOf(event.casterId)} summoned ${event.amount} x ${event.unitName}`;
+            case "unit_summoned": {
+                const at = event.cells[0] ? ` at (${event.cells[0].x}, ${event.cells[0].y})` : "";
+                return `${nameOf(event.casterId)} summoned ${event.amount} x ${event.unitName}${at}`;
+            }
             case "unit_attacked":
                 return `${nameOf(event.attackerId)} ${this.attackIcon(event.attackType, event.damage)} ${nameOf(event.targetId)} (${event.damage.amount})${this.killSuffix(event.damage)}`;
             case "obstacle_attacked":
@@ -1094,7 +1100,15 @@ export class RankedPlayScene extends Sandbox {
             case "area_attacked":
                 return `${nameOf(event.attackerId)} ${this.attackIcon(event.attackType, event.damage)} (${event.damage.amount})${this.killSuffix(event.damage)}`;
             case "spell_cast":
-                return `${nameOf(event.casterId)} cast ${event.spellName}`;
+                // Single-target casts (Riot, Magic Mirror, …) carry the target so the log says on whom
+                // (matching the sandbox engine text); mass casts (Mass Riot, …) have no single target and
+                // read fine from the spell name.
+                if (!event.targetId) {
+                    return `${nameOf(event.casterId)} cast ${event.spellName}`;
+                }
+                return event.targetId === event.casterId
+                    ? `${nameOf(event.casterId)} cast ${event.spellName} on themselves`
+                    : `${nameOf(event.casterId)} cast ${event.spellName} on ${nameOf(event.targetId)}`;
             case "fight_finished":
                 return event.winningTeam === TeamVals.NO_TEAM
                     ? "Fight finished! Draw!"

@@ -62,7 +62,7 @@ import { SceneSettings } from "./SceneSettings";
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
 import { setSpawnFlowPhase } from "../pixi/PixiDrawablePlacement";
 import { PlacementManager } from "./PlacementManager";
-import { diffUnitEffects } from "./effect_pops";
+import { animatableEffectNames, diffUnitEffects } from "./effect_pops";
 import { RenderableUnit } from "./RenderableUnit";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { HoverManager } from "./HoverManager";
@@ -247,6 +247,9 @@ export class Sandbox extends PixiScene {
     private readonly aiControlledTeams = new Set<TeamType>();
     // AIController manages AI decision-making (created in constructor after super())
     private aiController!: AIController;
+    // Sandbox turn-timeout takeover: count consecutive missed turns. The 1st is played by a one-shot AI
+    // turn; the 2nd in a row turns the AI toggle on. Reset whenever the human acts.
+    private sandboxConsecutiveTimeouts = 0;
     private hasInitializedLap = false;
     /** Guards the one-time prewarm of unit animation atlases once the fight has started. */
     private atlasesPrewarmed = false;
@@ -595,6 +598,7 @@ export class Sandbox extends PixiScene {
         this.sc_visibleState.secondsMax = (fightProps.getCurrentTurnEnd() - fightProps.getCurrentTurnStart()) / 1000;
         const remaining = (fightProps.getCurrentTurnEnd() - HoCLib.getTimeMillis()) / 1000;
         this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
+        this.sc_visibleState.aiToggleOn = this.aiController.isAIActive;
         this.sc_visibleStateUpdateNeeded = true;
     }
     protected setLocalModelTeamOverride(team: TeamType | undefined): void {
@@ -2236,6 +2240,21 @@ export class Sandbox extends PixiScene {
             attacker.applyWindupRecoil((dirX / dlen) * mag, (dirY / dlen) * mag);
         }
     }
+    /**
+     * Shatter Armor: slash red "sword wound" gashes across the struck enemy at impact when the attacker
+     * has the ability and the blow landed. Gated like the other melee-ability VFX (hasAbilityActive +
+     * damage), so it fires identically in sandbox (live) and ranked (replay).
+     */
+    protected spawnShatterArmorSlashVfx(attacker: RenderableUnit, target: Unit, damage?: IVisibleDamage): void {
+        if (!attacker.hasAbilityActive("Shatter Armor") || !damage || damage.amount <= 0) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const attackerCenter = attacker.getVisualCenter(gs);
+        const targetCenter = target instanceof RenderableUnit ? target.getVisualCenter(gs) : target.getPosition();
+        const dir = { x: targetCenter.x - attackerCenter.x, y: targetCenter.y - attackerCenter.y };
+        this.combatVisuals?.spawnSlash(targetCenter, gs.getCellSize(), dir);
+    }
     private async playReplayAttackRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
         const action = cloneReplayData(record.action);
         if (action.type !== "melee_attack" && action.type !== "range_attack") {
@@ -2303,6 +2322,8 @@ export class Sandbox extends PixiScene {
 
         this.sc_sceneLog.updateLog(`${attacker.getName()} attk ${target.getName()} (${attackEvent.damage.amount})`);
         this.showReplayAttackDamage(attacker, target, attackEvent, record);
+        // Shatter Armor: red wound gashes across the target, at impact (with the damage number).
+        this.spawnShatterArmorSlashVfx(attacker, target, attackEvent.damage);
         this.applyReplayAttackRecoil(attacker, attackEvent);
         // Melee strikes don't emit a per-target recoil animation (only ranged hits do, via the
         // animations array), so knock the defender back here to give the struck side a visible hit
@@ -4640,28 +4661,19 @@ export class Sandbox extends PixiScene {
      * showed and, for each freshly-applied one (e.g. Beholder's Spit Ball landing Sadness / Quagmire /
      * Weakness, or a buff being cast), pop its spell icon + name over the unit and briefly wash the unit
      * with the effect's colour (violet for a debuff, green for a buff). Effects from one shot stack
-     * upward so they don't overlap; the target washes once per batch. A unit's effects are seeded
-     * silently the first time it's seen so fight start (or a reconnect) doesn't burst every existing one.
-     * Ranked drives the same pops from authoritative snapshots (processDebuffPops), so the caller runs
-     * this for local sandbox only.
+     * upward so they don't overlap; the target washes once per batch. Aura effects are excluded (see
+     * animatableEffectNames) since they toggle as units move in and out of range. A unit's effects are
+     * seeded silently the first time it's seen so fight start (or a reconnect) doesn't burst every
+     * existing one. Ranked drives the same pops from authoritative snapshots (processDebuffPops), so the
+     * caller runs this for local sandbox only.
      */
     protected reconcileEffectVisuals(): void {
         const seen = new Set<string>();
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             const id = unit.getId();
             seen.add(id);
-            const currentDebuffs = new Set(
-                unit
-                    .getDebuffs()
-                    .map((d) => d.getName())
-                    .filter(Boolean),
-            );
-            const currentBuffs = new Set(
-                unit
-                    .getBuffs()
-                    .map((b) => b.getName())
-                    .filter(Boolean),
-            );
+            const currentDebuffs = animatableEffectNames(unit.getDebuffs().map((d) => d.getName()));
+            const currentBuffs = animatableEffectNames(unit.getBuffs().map((b) => b.getName()));
             const diff = diffUnitEffects(
                 this.shownDebuffsByUnit.get(id),
                 this.shownBuffsByUnit.get(id),
@@ -5769,6 +5781,8 @@ export class Sandbox extends PixiScene {
                 (e): e is Extract<GameEvent, { type: "unit_attacked" }> => e.type === "unit_attacked",
             );
             this.spawnSkewerWindSpearVfx(attacker, target, skewerAttackEvent?.damage);
+            // Shatter Armor: red wound gashes across the target on a landed strike.
+            this.spawnShatterArmorSlashVfx(attacker, target, skewerAttackEvent?.damage);
         }
 
         // 1. Target Damage
@@ -7764,12 +7778,28 @@ export class Sandbox extends PixiScene {
             this.hoverManager.setLastPlacement(undefined);
 
             // --- A. TURN TIMER LOGIC ---
+            // On a missed turn we no longer auto-skip: the AI plays the turn. A 2nd missed turn in a row
+            // flips the AI toggle on (so the AI keeps playing until the player turns it off via the AI
+            // button). Skipping is only a fallback if the AI can't act.
             if (
                 !this.sc_gameActionTransport &&
                 !this.replayPlaybackActive &&
+                this.currentActiveUnit &&
+                !this.aiController.performingAction &&
+                !this.aiController.isAIActive &&
                 HoCLib.getTimeMillis() >= fightProps.getCurrentTurnEnd()
             ) {
-                this.finishTurn(false, "timeout");
+                this.sandboxConsecutiveTimeouts += 1;
+                if (this.sandboxConsecutiveTimeouts >= 2) {
+                    // Second miss in a row: turn the AI toggle on; the normal AI trigger loop above takes
+                    // over from here (and the bottom-left "AI Toggle On" badge shows).
+                    this.aiController.isAIActive = true;
+                    this.buttonManager.refreshButtons(true);
+                    this.sc_visibleStateUpdateNeeded = true;
+                } else if (!this.aiController.forceCurrentTurn(300)) {
+                    // First miss: the AI plays just this turn. If it can't, fall back to a skip.
+                    this.finishTurn(false, "timeout");
+                }
             }
 
             if (this.cellToUnitPreRound) {

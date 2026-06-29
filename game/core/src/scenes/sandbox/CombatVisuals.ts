@@ -20,6 +20,7 @@ interface IFloatingText {
     startY: number;
     riseY: number;
     driftX: number;
+    driftY: number;
 }
 
 interface IShard {
@@ -82,6 +83,27 @@ interface IWindSpear {
     cellSize: number;
     age: number; // seconds since spawn (negative = lead delay before the thrust)
     life: number; // total seconds (travel + fade)
+}
+
+interface ISlashDrop {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number; // world px/s; gravity pulls it down so the blood drips
+    r: number;
+    age: number;
+    life: number;
+}
+
+interface ISlash {
+    container: Container;
+    gfx: Graphics; // wound shape + drops, redrawn each frame
+    poly: HoCMath.XY[]; // jagged wound outline (closed loop)
+    centerline: HoCMath.XY[]; // deepest part of the cut (bright red streak)
+    drops: ISlashDrop[]; // blood droplets that drip from the wound
+    age: number; // seconds since spawn
+    life: number; // total seconds (covers the wound flash + the longest drip)
+    woundLife: number; // how long the wound mark itself stays before it has faded
 }
 
 interface IDebuffPop {
@@ -150,6 +172,18 @@ const WINDSPEAR_TRAIL_COUNT = 7; // soft glow orbs trailing the head
 const WINDSPEAR_HEAD_CELLS = 0.95; // head orb diameter in cells
 const WINDSPEAR_TRAIL_SPACING = 0.32; // gap (cells) between successive trail orbs behind the head
 
+// Tuning for Shatter Armor — a single bloody GASH torn across the struck enemy at impact, at a random
+// angle, then it fades while a few droplets of blood drip down. An irregular, tapered, slightly-curved
+// shape (not a clean line) reads as an open wound rather than a drawn stroke.
+const SLASH_Z = 2050; // over the unit sprite (~1000), about level with the damage numbers
+const SLASH_WOUND_LIFE = 0.5; // seconds the gash itself stays before it has faded
+const SLASH_DROP_LIFE = 0.85; // a blood droplet's max life as it drips and fades
+const SLASH_GRAVITY = 1000; // world px/s^2 pulling droplets down (the drip)
+const SLASH_FILL = 0x8a0000; // blood-red wound fill
+const SLASH_RIM = 0x300000; // near-black-red torn edge
+const SLASH_CORE = 0xe00000; // bright red deepest part of the cut
+const SLASH_DROP = 0xa80000; // dripping blood droplets
+
 const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
 const easeOutBack = (t: number): number => {
     const c1 = 1.70158;
@@ -164,6 +198,7 @@ export class CombatVisuals {
     private fireSweeps: IFireSweep[] = [];
     private chainLightnings: IChainLightning[] = [];
     private windSpears: IWindSpear[] = [];
+    private slashes: ISlash[] = [];
     private debuffPops: IDebuffPop[] = [];
     private debuffStyle?: TextStyle;
     private buffStyle?: TextStyle;
@@ -320,6 +355,7 @@ export class CombatVisuals {
             startY: -100000,
             riseY: 0,
             driftX: 0,
+            driftY: 0,
         });
     }
     /** Destroy all floating numbers immediately (e.g. on fight end / restart). */
@@ -356,10 +392,11 @@ export class CombatVisuals {
                 continue;
             }
 
-            // Decelerating rise + slight horizontal drift (feels like it's thrown up and settles).
+            // Decelerating rise + drift along the hit trajectory (both axes) so the number follows the
+            // attack/response line instead of always floating straight up.
             const e = easeOutCubic(t);
             ft.container.x = ft.startX + ft.driftX * e;
-            ft.container.y = ft.startY + ft.riseY * e;
+            ft.container.y = ft.startY + (ft.riseY + ft.driftY) * e;
 
             // Spawn "pop" (slight overshoot), preserving the Y-up flip (negative scale.y).
             let scale = 1;
@@ -412,6 +449,7 @@ export class CombatVisuals {
         this.stepFireSweeps(dt);
         this.stepChainLightnings(dt);
         this.stepWindSpears(dt);
+        this.stepSlashes(dt);
     }
     /**
      * "Broken mirror" death effect: slice the unit's current texture into a grid of shards that
@@ -865,6 +903,121 @@ export class CombatVisuals {
             }
         }
     }
+    /**
+     * Shatter Armor: tear a single bloody GASH across the struck enemy at impact. `center` is the
+     * target's world center; the gash is at a RANDOM angle (the blow direction is ignored so repeated
+     * hits look different). Built as an irregular, tapered, slightly-bowed filled shape (not a straight
+     * line) so it reads as an open wound, plus a few droplets that drip down. Same in sandbox + ranked.
+     */
+    public spawnSlash(center: HoCMath.XY, cellSize: number, _dir?: HoCMath.XY): void {
+        const container = new Container();
+        this.context.attachToWorldRoot(container, SLASH_Z);
+        const gfx = new Graphics();
+        gfx.visible = false; // normal blend — blood, not glow
+        container.addChild(gfx);
+
+        const ang = Math.random() * Math.PI * 2; // random trajectory
+        const len = cellSize * (1.1 + Math.random() * 0.6);
+        const ux = Math.cos(ang);
+        const uy = Math.sin(ang);
+        const px = -uy; // unit perpendicular to the cut
+        const py = ux;
+        const maxHalfW = cellSize * (0.14 + Math.random() * 0.07);
+        const bow = (Math.random() - 0.5) * cellSize * 0.5; // one-sided curve so the cut isn't straight
+        const N = 12;
+        const top: HoCMath.XY[] = [];
+        const bot: HoCMath.XY[] = [];
+        const centerline: HoCMath.XY[] = [];
+        for (let i = 0; i <= N; i++) {
+            const t = i / N;
+            const along = (t - 0.5) * len;
+            const taper = Math.sin(Math.PI * t); // 0 at the ends, 1 in the middle → tapered gash
+            // Jagged, asymmetric half-width so the edges look torn rather than drawn.
+            const wTop = maxHalfW * taper * (0.55 + Math.random() * 0.7);
+            const wBot = maxHalfW * taper * (0.55 + Math.random() * 0.7);
+            const curve = bow * taper;
+            const cx = center.x + ux * along + px * curve;
+            const cy = center.y + uy * along + py * curve;
+            centerline.push({ x: cx, y: cy });
+            top.push({ x: cx + px * wTop, y: cy + py * wTop });
+            bot.push({ x: cx - px * wBot, y: cy - py * wBot });
+        }
+        const poly: HoCMath.XY[] = [...top, ...bot.reverse()];
+
+        // A few blood droplets along the gash, given a downward (gravity) velocity so they drip.
+        const drops: ISlashDrop[] = [];
+        const dropCount = 4 + Math.floor(Math.random() * 4);
+        for (let d = 0; d < dropCount; d++) {
+            const c = centerline[1 + Math.floor(Math.random() * (centerline.length - 2))];
+            drops.push({
+                x: c.x,
+                y: c.y,
+                vx: (Math.random() - 0.5) * cellSize * 0.6,
+                vy: -(Math.random() * cellSize * 0.5), // small initial upward fleck before gravity wins
+                r: cellSize * (0.04 + Math.random() * 0.05),
+                age: -Math.random() * 0.08, // slight stagger
+                life: SLASH_DROP_LIFE * (0.6 + Math.random() * 0.4),
+            });
+        }
+
+        this.slashes.push({
+            container,
+            gfx,
+            poly,
+            centerline,
+            drops,
+            age: 0,
+            life: Math.max(SLASH_WOUND_LIFE, SLASH_DROP_LIFE),
+            woundLife: SLASH_WOUND_LIFE,
+        });
+    }
+    private stepSlashes(dt: number): void {
+        for (let i = this.slashes.length - 1; i >= 0; i--) {
+            const slash = this.slashes[i];
+            slash.age += dt;
+            if (slash.age >= slash.life) {
+                slash.container.destroy({ children: true });
+                this.slashes.splice(i, 1);
+                continue;
+            }
+            const gfx = slash.gfx;
+            gfx.clear();
+            gfx.visible = true;
+
+            // Wound: flash in fast, hold, then bleed out over its life.
+            const wt = slash.age / slash.woundLife;
+            const woundAlpha = slash.age >= slash.woundLife ? 0 : wt < 0.1 ? wt / 0.1 : 1 - (wt - 0.1) / 0.9;
+            if (woundAlpha > 0.01 && slash.poly.length > 2) {
+                gfx.moveTo(slash.poly[0].x, slash.poly[0].y);
+                for (let p = 1; p < slash.poly.length; p++) {
+                    gfx.lineTo(slash.poly[p].x, slash.poly[p].y);
+                }
+                gfx.closePath();
+                gfx.fill({ color: SLASH_FILL, alpha: 0.92 * woundAlpha });
+                gfx.stroke({ width: 2, color: SLASH_RIM, alpha: 0.85 * woundAlpha });
+                // Bright deepest part of the cut, down the centerline.
+                gfx.moveTo(slash.centerline[0].x, slash.centerline[0].y);
+                for (let p = 1; p < slash.centerline.length; p++) {
+                    gfx.lineTo(slash.centerline[p].x, slash.centerline[p].y);
+                }
+                gfx.stroke({ width: 2, color: SLASH_CORE, alpha: 0.9 * woundAlpha, cap: "round", join: "round" });
+            }
+
+            // Blood droplets dripping down with gravity.
+            for (const drop of slash.drops) {
+                drop.age += dt;
+                if (drop.age < 0 || drop.age >= drop.life) {
+                    continue;
+                }
+                drop.vy += SLASH_GRAVITY * dt;
+                drop.x += drop.vx * dt;
+                drop.y += drop.vy * dt;
+                const dropAlpha = 1 - drop.age / drop.life;
+                gfx.circle(drop.x, drop.y, drop.r * (0.7 + 0.3 * dropAlpha));
+                gfx.fill({ color: SLASH_DROP, alpha: 0.9 * dropAlpha });
+            }
+        }
+    }
     public showFloatingDamage(
         pos: HoCMath.XY,
         amount: number,
@@ -915,11 +1068,17 @@ export class CombatVisuals {
         const startX = baseX;
         const startY = baseY + stack * FT_STACK_STEP;
 
-        // Mostly-upward float with a small horizontal drift in the hit direction.
+        // Drift along the FULL hit trajectory (both axes), so the number follows the attack line —
+        // including a counter-attack's responder->attacker line, which is often vertical and used to
+        // only ever float straight up (direction.y was dropped). It still rises (riseY) for legibility.
         let driftX = 0;
+        let driftY = 0;
         if (direction) {
             const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
-            if (len > 0.001) driftX = (direction.x / len) * FT_DRIFT;
+            if (len > 0.001) {
+                driftX = (direction.x / len) * FT_DRIFT;
+                driftY = (direction.y / len) * FT_DRIFT;
+            }
         }
         // Slight alternating fan so stacked numbers don't form a rigid column.
         if (stack > 0) driftX += (stack % 2 === 0 ? 1 : -1) * 10 * stack;
@@ -939,6 +1098,7 @@ export class CombatVisuals {
             startY,
             riseY: FT_RISE,
             driftX,
+            driftY,
         });
     }
     public showDamageVisualsFromDiff(

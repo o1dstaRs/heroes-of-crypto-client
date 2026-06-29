@@ -95,6 +95,8 @@ export interface IVisibleState {
     canRequestAdditionalTime: boolean;
     upNext: IVisibleUnit[];
     lapsNarrowed: number;
+    /** Whether the local AI toggle is currently on (drives the "AI Toggle On" badge). */
+    aiToggleOn?: boolean;
     /** Set when the fight ends: which team won (LOWER = green, UPPER = red). */
     teamWin?: TeamType;
     /** Set when the fight ends: casualty stats for the Fight Finished overlay. */

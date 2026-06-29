@@ -1,8 +1,29 @@
 import { describe, expect, test } from "bun:test";
 
-import { diffUnitEffects } from "./effect_pops";
+import { animatableEffectNames, diffUnitEffects, isAuraEffectName } from "./effect_pops";
 
 const set = (...names: string[]): Set<string> => new Set(names);
+
+describe("isAuraEffectName / animatableEffectNames", () => {
+    test("recognises aura effects by the ' Aura' suffix, not other names", () => {
+        expect(isAuraEffectName("Luck Aura")).toBe(true);
+        expect(isAuraEffectName("War Anger Aura")).toBe(true);
+        expect(isAuraEffectName("Range Null Field Aura")).toBe(true);
+        expect(isAuraEffectName("Sadness")).toBe(false);
+        expect(isAuraEffectName("Quagmire")).toBe(false);
+        // Only a trailing " Aura" counts — a name that merely contains the word doesn't.
+        expect(isAuraEffectName("Aura Blade")).toBe(false);
+    });
+
+    test("filters out aura effects and empties, keeping directly-applied effects", () => {
+        const names = animatableEffectNames(["Sadness", "Luck Aura", "", "Quagmire", "War Anger Aura"]);
+        expect([...names]).toEqual(["Sadness", "Quagmire"]);
+    });
+
+    test("a unit carrying only aura effects yields an empty animatable set", () => {
+        expect(animatableEffectNames(["Luck Aura", "Sharpened Weapons Aura"]).size).toBe(0);
+    });
+});
 
 describe("diffUnitEffects", () => {
     test("seeds silently on first sight (previous sets missing) — animates nothing", () => {
@@ -65,5 +86,15 @@ describe("diffUnitEffects", () => {
         const diff = diffUnitEffects(set(), set(), set("Sadness", "Quagmire", "Weakness"), set());
         expect(diff.newDebuffs).toEqual(["Sadness", "Quagmire", "Weakness"]);
         expect(diff.flash).toBe("debuff");
+    });
+
+    test("an aura gained as a unit moves into range does NOT pop (filtered before diff)", () => {
+        // Raw buff lists as the scene would read them: the unit moves into a Luck Aura, but also gets a
+        // real cast buff (Courage). Only Courage should animate.
+        const prevBuffs = animatableEffectNames(["War Anger Aura"]); // already standing in an aura
+        const currentBuffs = animatableEffectNames(["War Anger Aura", "Luck Aura", "Courage"]);
+        const diff = diffUnitEffects(set(), prevBuffs, set(), currentBuffs);
+        expect(diff.newBuffs).toEqual(["Courage"]);
+        expect(diff.flash).toBe("buff");
     });
 });

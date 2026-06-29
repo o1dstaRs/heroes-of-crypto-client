@@ -8,6 +8,27 @@
  * -----------------------------------------------------------------------------
  */
 
+/**
+ * Aura effects (continuous, radius-based — e.g. "Luck Aura", "War Anger Aura", "Range Null Field Aura")
+ * are applied to and removed from a unit as it / its neighbours move in and out of range, so they must
+ * NOT trigger an "applied" pop — only directly-applied effects (spells, Beholder's Spit Ball, …) should.
+ * Applied aura buff/debuff names always end in " Aura" by convention, and nothing directly-applied does,
+ * so the suffix is a reliable discriminator usable on both the sandbox (AppliedSpell names) and ranked
+ * (snapshot name strings) paths.
+ */
+export const isAuraEffectName = (name: string): boolean => name.endsWith(" Aura");
+
+/** Build the set of animatable effect names from a raw list — drops empties and aura effects. */
+export function animatableEffectNames(names: Iterable<string>): Set<string> {
+    const result = new Set<string>();
+    for (const name of names) {
+        if (name && !isAuraEffectName(name)) {
+            result.add(name);
+        }
+    }
+    return result;
+}
+
 /** Which colour wash to flash on the unit when effects land — a debuff "hit" wins over a buff. */
 export type EffectFlash = "debuff" | "buff" | "none";
 

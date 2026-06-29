@@ -247,6 +247,57 @@ type PendingAuthoritativePlayback = {
     stateAfterSnapshot?: PlaySnapshot;
 };
 
+/**
+ * Bottom-left "AI Toggle On" badge with a soft pulse, shown while the server is playing this player's
+ * turns (after two consecutive missed turns). It clears automatically once the player takes a real
+ * action — the server turns AI control off on any non-heartbeat action.
+ */
+const AiControlBadge: React.FC = () => (
+    <div
+        style={{
+            position: "absolute",
+            left: 16,
+            bottom: 16,
+            zIndex: 7000,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 14px",
+            borderRadius: 10,
+            background: "rgba(7, 9, 13, 0.82)",
+            border: "1px solid rgba(246, 216, 124, 0.55)",
+            color: "#f6d87c",
+            fontWeight: 700,
+            fontSize: 14,
+            letterSpacing: 0.3,
+            pointerEvents: "none",
+            boxShadow: "0 0 14px rgba(246, 216, 124, 0.25)",
+            animation: "hocAiBadgePulse 1.4s ease-in-out infinite",
+        }}
+    >
+        <style>
+            {`@keyframes hocAiBadgePulse {
+                0%, 100% { opacity: 0.62; box-shadow: 0 0 8px rgba(246,216,124,0.18); }
+                50% { opacity: 1; box-shadow: 0 0 18px rgba(246,216,124,0.45); }
+            }
+            @keyframes hocAiBadgeDot {
+                0%, 100% { transform: scale(0.85); opacity: 0.7; }
+                50% { transform: scale(1.25); opacity: 1; }
+            }`}
+        </style>
+        <span
+            style={{
+                width: 9,
+                height: 9,
+                borderRadius: "50%",
+                background: "#f6d87c",
+                animation: "hocAiBadgeDot 1.4s ease-in-out infinite",
+            }}
+        />
+        AI Toggle On
+    </div>
+);
+
 export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }) => {
     const manager = usePixiManager();
     const localModelConfig = useMemo(() => getLocalModelOpponentConfig(), []);
@@ -1157,6 +1208,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     </ViewerTeamContext.Provider>
                     <RightSideBar gameStarted={gameStarted} windowSize={windowSize} rankedPanel={rankedPanel} />
                     {gameStarted && <UpNextOverlay />}
+                    {gameStarted && !!myPlayer?.aiControlled && <AiControlBadge />}
                     {gameStarted && (
                         <FightFinishedOverlay
                             canReplay={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}

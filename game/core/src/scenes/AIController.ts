@@ -265,6 +265,44 @@ export class AIController {
         }, delayMs);
     }
     /**
+     * Force the AI to play the CURRENT unit's turn once, regardless of the player's toggle. Used by the
+     * sandbox turn-timeout takeover: a single missed turn is played by the AI without flipping the
+     * persistent AI toggle on. Returns false (and does nothing) if a unit is missing or an AI action is
+     * already in flight, so the caller can fall back to a plain skip.
+     */
+    public forceCurrentTurn(delayMs: number, onComplete?: () => void): boolean {
+        const currentUnit = this.context.getCurrentActiveUnit();
+        if (!currentUnit || this.performingAction) {
+            return false;
+        }
+        this.performingAction = true;
+        const wasAIActive = this.isAIActive;
+
+        setTimeout(async () => {
+            const unit = this.context.getCurrentActiveUnit();
+            if (!unit) {
+                this.performingAction = false;
+                this.restoreAIState(wasAIActive);
+                onComplete?.();
+                return;
+            }
+            // Cosmetic only: show the AI button as active during the forced turn. The logical toggle
+            // (isAIActive) is left untouched so a single missed turn doesn't turn AI on for good.
+            this.context.getButtonManager().sc_isAIActive = true;
+            this.context.getButtonManager().refreshButtons(true);
+            try {
+                await this.performAction(wasAIActive);
+            } catch (err) {
+                console.error("Forced AI turn failed", err);
+                this.endTurnIfStillActive(unit);
+                this.finishAIAction(wasAIActive);
+            } finally {
+                onComplete?.();
+            }
+        }, delayMs);
+        return true;
+    }
+    /**
      * Main AI action logic - decides and executes the best action for current unit.
      */
     public async performAction(wasAIActive: boolean): Promise<void> {
@@ -1169,23 +1207,19 @@ export class AIController {
 
         const route = movePaths[0].route;
 
-        // Show silhouette
         const gs = this.context.getSceneSettings().getGridSettings();
         const moveToPos = GridMath.getPositionForCell(cellToMove, gs.getMinX(), gs.getStep(), gs.getHalfStep());
 
         // Same 2x2 footprint correction as handleMoveAndMeleeAttack: land the large unit where the
         // silhouette shows instead of letting the move fallback mis-anchor it by one cell diagonally.
+        // (Always computed — it feeds the action's targetCells regardless of whether we draw a silhouette.)
         let moveFootprint: HoCMath.XY[] | undefined;
-        if (moveToPos) {
-            if (!currentUnit.isSmallSize()) {
-                moveToPos.x -= gs.getHalfStep();
-                moveToPos.y -= gs.getHalfStep();
-                moveFootprint = GridMath.getCellsAroundPosition(gs, moveToPos);
-            }
-            this.context.getHoverManager().showSilhouetteForUnit(currentUnit.getUnitProperties(), moveToPos);
+        if (moveToPos && !currentUnit.isSmallSize()) {
+            moveToPos.x -= gs.getHalfStep();
+            moveToPos.y -= gs.getHalfStep();
+            moveFootprint = GridMath.getCellsAroundPosition(gs, moveToPos);
         }
 
-        // Execute move with cleanup callback
         const moveAction = this.modelAction(currentUnit, {
             type: "move_unit",
             unitId: currentUnit.getId(),
@@ -1193,6 +1227,16 @@ export class AIController {
             targetCells: moveFootprint,
         });
         const isAuthoritative = this.context.isAuthoritativeAction?.(moveAction) ?? false;
+
+        // Only paint the local "intent" silhouette for LIVE (sandbox) moves. In ranked the move is
+        // deferred and the authoritative server replay actually drives the unit, so a local silhouette
+        // at the AI's locally-chosen cell would linger at a cell the replayed move can differ from
+        // (the mismatch a viewer sees as "silhouette here, unit goes there"). The replay path shows its
+        // own destination silhouette for opponent moves; the viewer's own moves show none — matching a
+        // human player and handleMoveAndMeleeAttack, which likewise skips the silhouette when authoritative.
+        if (moveToPos && !isAuthoritative) {
+            this.context.getHoverManager().showSilhouetteForUnit(currentUnit.getUnitProperties(), moveToPos);
+        }
         const watchdog = isAuthoritative ? undefined : this.scheduleMoveWatchdog(currentUnit, wasAIActive);
         const moveStarted = this.context.executeMoveSequence(
             currentUnit,
