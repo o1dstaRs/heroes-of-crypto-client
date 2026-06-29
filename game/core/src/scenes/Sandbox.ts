@@ -2293,12 +2293,16 @@ export class Sandbox extends PixiScene {
             if (action.type === "melee_attack" && action.attackFrom) {
                 await this.replayMeleeApproach(attacker, action.attackFrom, action.path);
             }
+            // Spawn the melee ability VFX (Black Dragon Fire Breath, Thunderbird Chain Lightning) so it
+            // erupts DURING the attack animation rather than after it. Awaiting the ~360ms one-shot first
+            // made the fire trail the strike by a beat (the "delayed" fire). Its own small internal lead
+            // (FIRE_LEAD_MS) still syncs the wave to the breath frame.
+            this.playReplayAbilityVfx(attacker, target, attackEvent);
             await this.playReplayOneShot(attacker, "attack", 360);
         }
 
         this.sc_sceneLog.updateLog(`${attacker.getName()} attk ${target.getName()} (${attackEvent.damage.amount})`);
         this.showReplayAttackDamage(attacker, target, attackEvent, record);
-        this.playReplayAbilityVfx(attacker, target, attackEvent);
         this.applyReplayAttackRecoil(attacker, attackEvent);
         // Melee strikes don't emit a per-target recoil animation (only ranged hits do, via the
         // animations array), so knock the defender back here to give the struck side a visible hit
@@ -2506,13 +2510,26 @@ export class Sandbox extends PixiScene {
         // our own units caught in the blast — rather than a single number on the primary target.
         // Each entry keeps the impact-time position so units that died (and were removed) still show.
         if (damage.splash?.length) {
+            // A Double-Shot AOE (Gargantuan Area Throw) lands TWO splash entries on the same unit — one
+            // per shot. Stagger the repeated entries so the two floating numbers don't draw on top of
+            // each other; a single-shot AOE keeps its instant, index-0 number.
+            const shotsShownPerUnit = new Map<string, number>();
             for (const entry of damage.splash) {
                 if (entry.amount <= 0) continue;
                 const splashUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
                 const center = splashUnit ? splashUnit.getVisualCenter(gs) : entry.position;
                 const dir = { x: center.x - attackerCenter.x, y: center.y - attackerCenter.y };
                 const pos = splashUnit ? this.offsetReplayDamagePosition(center, splashUnit, dir) : center;
-                this.combatVisuals.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied);
+                const shotIndex = shotsShownPerUnit.get(entry.unitId) ?? 0;
+                shotsShownPerUnit.set(entry.unitId, shotIndex + 1);
+                if (shotIndex === 0) {
+                    this.combatVisuals.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied);
+                } else {
+                    setTimeout(
+                        () => this.combatVisuals.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied),
+                        shotIndex * 220,
+                    );
+                }
             }
             return;
         }
