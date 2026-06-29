@@ -757,7 +757,23 @@ export class RankedPlayScene extends Sandbox {
      * the target cell even when no live move-aim was relayed (e.g. the opponent clicked quickly).
      */
     protected override shouldShowMoveDestinationSilhouette(unit: RenderableUnit): boolean {
-        return this.viewerTeam !== undefined && unit.getTeam() !== this.viewerTeam;
+        if (this.viewerTeam === undefined) {
+            return false;
+        }
+        // Opponent moves always get a destination preview (no live aim is relayed for them).
+        if (unit.getTeam() !== this.viewerTeam) {
+            return true;
+        }
+        // The viewer's own moves normally don't need one — the player picked the destination and the
+        // locked hover silhouette already marks it. But when the viewer's team is auto-played by the AI
+        // toggle, the human ISN'T choosing the destination and there's no hover, so the unit would slide
+        // with no preview. Show the same destination silhouette for those AI-driven own moves. Covers
+        // both AI paths: the per-team "AI side" set (isTeamAiControlled) and the sc_isAIActive toggle
+        // that auto-plays getToggleAiControlledTeam().
+        const ownTeam = unit.getTeam();
+        return (
+            this.isTeamAiControlled(ownTeam) || (this.sc_isAIActive && this.getToggleAiControlledTeam() === ownTeam)
+        );
     }
     /**
      * It is the enemy's turn whenever the active unit is on the opposing team from the viewer.
