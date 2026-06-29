@@ -1894,7 +1894,7 @@ export class Sandbox extends PixiScene {
             case "range_attack":
                 return this.playReplayAttackRecord(record);
             case "obstacle_attack":
-                return this.playReplayObstacleAttackAction(action);
+                return this.playReplayObstacleAttackAction(record);
             case "area_throw_attack":
                 return this.playReplayAreaThrowAction(action);
             case "cast_spell":
@@ -2604,9 +2604,11 @@ export class Sandbox extends PixiScene {
         }
         this.applyTurnEngineEvents(visibleEvents, this.snapshotRenderableUnits());
     }
-    private async playReplayObstacleAttackAction(
-        action: Extract<GameAction, { type: "obstacle_attack" }>,
-    ): Promise<boolean> {
+    private async playReplayObstacleAttackAction(record: SandboxReplay["actions"][number]): Promise<boolean> {
+        const action = record.action;
+        if (action.type !== "obstacle_attack") {
+            return false;
+        }
         const unit = this.unitsHolder.getAllUnits().get(action.attackerId) as RenderableUnit | undefined;
         if (!unit) {
             return false;
@@ -2614,31 +2616,50 @@ export class Sandbox extends PixiScene {
         this.currentActiveUnit = unit;
         unit.setActiveTurn(true);
 
-        if (!action.attackFrom) {
-            return this.applyObstacleAttackAction(unit, action.targetPosition, undefined, action);
+        // Walk to the melee attack-from cell first (the engine folds the approach into the obstacle
+        // attack, so there's no separate move record to replay).
+        if (action.attackFrom) {
+            const currentPos = unit.getPosition();
+            const attackFromPos = this.getObstacleAttackFromPosition(unit, action.attackFrom);
+            if (
+                action.path?.length &&
+                attackFromPos &&
+                (Math.abs(currentPos.x - attackFromPos.x) > 0.1 || Math.abs(currentPos.y - attackFromPos.y) > 0.1)
+            ) {
+                await new Promise<void>((resolve) => {
+                    const started = this.executeMoveSequence(
+                        unit,
+                        action.path!,
+                        unit.isSmallSize() ? undefined : this.getLargeUnitObstacleFootprint(action.attackFrom!),
+                        resolve,
+                    );
+                    if (!started) {
+                        resolve();
+                    }
+                });
+            }
         }
 
-        const currentPos = unit.getPosition();
-        const attackFromPos = this.getObstacleAttackFromPosition(unit, action.attackFrom);
-        if (
-            action.path?.length &&
-            attackFromPos &&
-            (Math.abs(currentPos.x - attackFromPos.x) > 0.1 || Math.abs(currentPos.y - attackFromPos.y) > 0.1)
-        ) {
-            await new Promise<void>((resolve) => {
-                const started = this.executeMoveSequence(
-                    unit,
-                    action.path!,
-                    unit.isSmallSize() ? undefined : this.getLargeUnitObstacleFootprint(action.attackFrom!),
-                    resolve,
-                );
-                if (!started) {
-                    resolve();
-                }
-            });
-        }
-
-        return this.applyObstacleAttackAction(unit, action.targetPosition, action.attackFrom, action);
+        // Replay the strike from the RECORDED events instead of re-running it through the engine.
+        // Re-running is unreliable mid-replay (validateTurnAction rejects once the actor's turn has
+        // handed over), which would silently drop the whole strike — the mountain damage, the
+        // destroy, and any lap mechanics (lava drying) bundled into this action's events. Driving it
+        // off the journal mirrors how unit attacks replay and guarantees those all show.
+        const obstacleEvent = record.events.find(
+            (event): event is Extract<GameEvent, { type: "obstacle_attacked" }> => event.type === "obstacle_attacked",
+        );
+        const landedHits = obstacleEvent ? Math.max(1, obstacleEvent.hitsBefore - obstacleEvent.hitsAfter) : 1;
+        this.sc_sceneLog.updateLog(`${unit.getName()} hit mountain`);
+        this.animateObstacleStrike(unit, action.targetPosition, action.attackFrom, landedHits);
+        await this.delayReplay(this.getReplayObstacleStrikeHoldMs(landedHits));
+        this.applyReplayEvents(record.events);
+        this.sc_moveBlocked = false;
+        await this.delayReplay(Sandbox.REPLAY_ATTACK_AFTER_APPLY_HOLD_MS);
+        return true;
+    }
+    /** Hold long enough for every staggered obstacle lunge/projectile (240ms cadence) to land. */
+    private getReplayObstacleStrikeHoldMs(landedHits: number): number {
+        return Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS + Math.max(0, landedHits - 1) * 240;
     }
     private async playReplayAreaThrowAction(
         action: Extract<GameAction, { type: "area_throw_attack" }>,
@@ -4520,69 +4541,31 @@ export class Sandbox extends PixiScene {
         unit: RenderableUnit,
         worldPos: HoCMath.XY,
         attackFromCell?: HoCMath.XY,
-        replayAction?: Extract<GameAction, { type: "obstacle_attack" }>,
     ): boolean {
         const routeMetadata = attackFromCell
             ? this.currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y)?.[0]
             : undefined;
-        const action: GameAction = replayAction
-            ? cloneReplayData(replayAction)
-            : {
-                  type: "obstacle_attack",
-                  attackerId: unit.getId(),
-                  targetPosition: worldPos,
-                  attackFrom: attackFromCell,
-                  path: routeMetadata?.route,
-                  hasLavaCell: routeMetadata?.hasLavaCell,
-                  hasWaterCell: routeMetadata?.hasWaterCell,
-              };
+        const action: GameAction = {
+            type: "obstacle_attack",
+            attackerId: unit.getId(),
+            targetPosition: worldPos,
+            attackFrom: attackFromCell,
+            path: routeMetadata?.route,
+            hasLavaCell: routeMetadata?.hasLavaCell,
+            hasWaterCell: routeMetadata?.hasWaterCell,
+        };
         const unitSnapshot = this.snapshotRenderableUnits();
         const result = this.createActionEngine().apply(action);
         if (!result.completed) {
             return false;
         }
 
-        // Attack animation against the mountain (was missing entirely): a melee strike (attackFromCell
-        // set) lunges into the struck edge along the attack trajectory; a ranged strike lobs a
-        // projectile at it. Mirrors the unit-vs-unit melee lunge / range projectile. One animation
-        // plays per hit the engine actually landed on the obstacle, so Double Punch (two lunges) and
-        // Double Shot (two arrows) both read as the two strikes they are — staggered so they're distinct.
-        const gsAnim = this.sc_sceneSettings.getGridSettings();
-        const muzzle = unit.getVisualCenter(gsAnim);
-        const animDir = { x: worldPos.x - muzzle.x, y: worldPos.y - muzzle.y };
-        const animLen = Math.hypot(animDir.x, animDir.y);
         const obstacleEvent = result.events.find((event) => event.type === "obstacle_attacked");
         const landedHits =
             obstacleEvent?.type === "obstacle_attacked"
                 ? Math.max(1, obstacleEvent.hitsBefore - obstacleEvent.hitsAfter)
                 : 1;
-        if (attackFromCell) {
-            if (animLen > 0.001) {
-                const mag = gsAnim.getCellSize() * 0.22;
-                const recoilX = (animDir.x / animLen) * mag;
-                const recoilY = (animDir.y / animLen) * mag;
-                for (let hitIndex = 0; hitIndex < landedHits; hitIndex += 1) {
-                    if (hitIndex === 0) {
-                        unit.applyRecoil(recoilX, recoilY);
-                    } else {
-                        // Stagger extra lunges so they read as distinct (matches the multi-hit cadence).
-                        setTimeout(() => unit.applyRecoil(recoilX, recoilY), hitIndex * 240);
-                    }
-                }
-            }
-        } else {
-            const big = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
-            for (let shotIndex = 0; shotIndex < landedHits; shotIndex += 1) {
-                if (shotIndex === 0) {
-                    void this.rangedProjectiles.fire({ from: muzzle, to: worldPos, big });
-                } else {
-                    // Stagger extra shots so they read as distinct (matches the multi-hit cadence).
-                    setTimeout(() => {
-                        void this.rangedProjectiles.fire({ from: muzzle, to: worldPos, big });
-                    }, shotIndex * 240);
-                }
-            }
-        }
+        this.animateObstacleStrike(unit, worldPos, attackFromCell, landedHits);
 
         this.unitsHolder.refreshStackPowerForAllUnits();
         this.hoverManager.clearHoverSilhouette();
@@ -4593,6 +4576,51 @@ export class Sandbox extends PixiScene {
         this.refreshUnits();
         this.applyTurnEngineEvents(result.events, unitSnapshot);
         return true;
+    }
+    /**
+     * Attack animation against the mountain: a melee strike (attackFromCell set) lunges into the struck
+     * edge along the attack trajectory; a ranged strike lobs a projectile at it. Mirrors the unit-vs-unit
+     * melee lunge / range projectile. One animation plays per landed hit, so Double Punch (two lunges)
+     * and Double Shot (two arrows) both read as the two strikes they are — staggered so they're distinct.
+     */
+    private animateObstacleStrike(
+        unit: RenderableUnit,
+        worldPos: HoCMath.XY,
+        attackFromCell: HoCMath.XY | undefined,
+        landedHits: number,
+    ): void {
+        const gsAnim = this.sc_sceneSettings.getGridSettings();
+        const muzzle = unit.getVisualCenter(gsAnim);
+        const animDir = { x: worldPos.x - muzzle.x, y: worldPos.y - muzzle.y };
+        const animLen = Math.hypot(animDir.x, animDir.y);
+        const hits = Math.max(1, landedHits);
+        if (attackFromCell) {
+            if (animLen > 0.001) {
+                const mag = gsAnim.getCellSize() * 0.22;
+                const recoilX = (animDir.x / animLen) * mag;
+                const recoilY = (animDir.y / animLen) * mag;
+                for (let hitIndex = 0; hitIndex < hits; hitIndex += 1) {
+                    if (hitIndex === 0) {
+                        unit.applyRecoil(recoilX, recoilY);
+                    } else {
+                        // Stagger extra lunges so they read as distinct (matches the multi-hit cadence).
+                        setTimeout(() => unit.applyRecoil(recoilX, recoilY), hitIndex * 240);
+                    }
+                }
+            }
+        } else {
+            const big = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
+            for (let shotIndex = 0; shotIndex < hits; shotIndex += 1) {
+                if (shotIndex === 0) {
+                    void this.rangedProjectiles.fire({ from: muzzle, to: worldPos, big });
+                } else {
+                    // Stagger extra shots so they read as distinct (matches the multi-hit cadence).
+                    setTimeout(() => {
+                        void this.rangedProjectiles.fire({ from: muzzle, to: worldPos, big });
+                    }, shotIndex * 240);
+                }
+            }
+        }
     }
     /** Find a reachable cell adjacent to the center obstacle for a melee strike, if any. */
     private findObstacleAttackFromCell(
@@ -7905,6 +7933,14 @@ export class Sandbox extends PixiScene {
                     this.finishFight(event.winningTeam, { mechanicsAlreadyApplied: true });
                     shouldRefreshVisibleState = true;
                     break;
+                case "obstacle_attacked":
+                    // Reflect the recorded mountain damage authoritatively (hitsAfter), so the center
+                    // hit-bar drops during replay even though we don't re-run the strike through the
+                    // engine. ensureCenterTerrainSprite() redraws the bar from this each frame, and hides
+                    // the mountain entirely once hits reach 0.
+                    FightStateManager.getInstance().getFightProperties().setObstacleHitsLeft(event.hitsAfter);
+                    shouldRefreshVisibleState = true;
+                    break;
                 case "morale_applied":
                 case "unit_skipped":
                 case "unit_waited":
@@ -7914,7 +7950,6 @@ export class Sandbox extends PixiScene {
                 case "unit_placed":
                 case "unit_split":
                 case "unit_attacked":
-                case "obstacle_attacked":
                 case "area_attacked":
                 case "spell_cast":
                 case "next_unit_selected":
