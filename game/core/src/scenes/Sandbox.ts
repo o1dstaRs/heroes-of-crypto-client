@@ -235,6 +235,10 @@ export class Sandbox extends PixiScene {
     private currentActivePath?: HoCMath.XY[];
     private currentActiveKnownPaths?: Map<number, IWeightedRoute[]>;
     private spawnPulseDirection = 1;
+    // Teams fully handed to the AI via the sandbox "AI side" checkboxes (green = LOWER, red = UPPER).
+    // Such a team auto-plays every turn and the human can't act for it (board + toolbar locked on its
+    // turn). Lets you place units and play vs the AI, or check both to watch two AIs clash.
+    private readonly aiControlledTeams = new Set<TeamType>();
     // AIController manages AI decision-making (created in constructor after super())
     private aiController!: AIController;
     private hasInitializedLap = false;
@@ -527,6 +531,7 @@ export class Sandbox extends PixiScene {
             },
             isAuthoritativeAction: (action) => this.shouldDeferActionToAuthoritativeReplay(action),
             getToggleAiControlledTeam: () => this.getToggleAiControlledTeam(),
+            isTeamAiControlled: (team) => this.isTeamAiControlled(team),
             applyGameAction: (action) => this.applyGameAction(action),
             executeAttackSequence: (attacker, target, attackFrom, replayAction) =>
                 this.executeAttackSequence(attacker, target, attackFrom, replayAction),
@@ -6161,8 +6166,32 @@ export class Sandbox extends PixiScene {
             !fightProps.hasFightFinished() &&
             (this.sc_isAIActive ||
                 !!this.currentActiveUnit?.hasAbilityActive("AI Driven") ||
-                this.aiController?.shouldControlCurrentUnit())
+                this.aiController?.shouldControlCurrentUnit() ||
+                // The active unit's whole team is handed to the AI (sandbox "AI side" checkbox): the
+                // human can't act for it, so lock board input + toolbar for its turn.
+                (!!this.currentActiveUnit && this.isTeamAiControlled(this.currentActiveUnit.getTeam())))
         );
+    }
+    /** Whether the given team is fully AI-controlled via the sandbox "AI side" checkboxes. */
+    public override isTeamAiControlled(team: TeamType): boolean {
+        return this.aiControlledTeams.has(team);
+    }
+    /**
+     * Toggle full AI control of a team (sandbox feature). When enabled the AIController auto-plays every
+     * one of that team's turns and the human cannot act for it. Clearing the board hover previews on
+     * enable avoids a stale silhouette/aura lingering from the moment control is handed over.
+     */
+    public override setTeamAiControlled(team: TeamType, enabled: boolean): void {
+        if (enabled) {
+            this.aiControlledTeams.add(team);
+        } else {
+            this.aiControlledTeams.delete(team);
+        }
+        if (enabled && this.currentActiveUnit?.getTeam() === team) {
+            this.clearBoardHoverPreviews();
+        }
+        // Reflect the lock state in the toolbar immediately (enabled/disabled action buttons).
+        this.buttonManager?.refreshButtons(true);
     }
     private clearBoardHoverPreviews(): void {
         this.hoverManager.clearAttackVisuals();

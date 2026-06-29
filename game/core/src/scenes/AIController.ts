@@ -69,6 +69,12 @@ export interface IAIContext {
      * separate local-model team path is unaffected.
      */
     getToggleAiControlledTeam?(): TeamType | undefined;
+    /**
+     * Whether the given team is fully handed over to the AI via the sandbox "AI side" checkboxes.
+     * Such a team auto-plays every turn (independent of the manual AI toggle / local-model path), and
+     * the human cannot act for it. Undefined hook (or false) means the team is human-controlled.
+     */
+    isTeamAiControlled?(team: TeamType): boolean;
     applyGameAction(action: GameAction): boolean;
     executeAttackSequence(
         attacker: RenderableUnit,
@@ -184,7 +190,12 @@ export class AIController {
      */
     private shouldAutoPlay(unit: Unit): boolean {
         const playerAIEnabled = !this.localModelOpponent.enabled && this.isAIActive && this.toggleAiControlsUnit(unit);
-        return this.shouldControlUnit(unit) || playerAIEnabled || unit.hasAbilityActive("AI Driven");
+        return (
+            this.shouldControlUnit(unit) ||
+            playerAIEnabled ||
+            unit.hasAbilityActive("AI Driven") ||
+            !!this.context.isTeamAiControlled?.(unit.getTeam())
+        );
     }
     /**
      * Whether the AI toggle is allowed to auto-play this unit. Restricted to the toggle's controlled
