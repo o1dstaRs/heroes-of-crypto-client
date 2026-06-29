@@ -341,8 +341,17 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
 
     const playAuthoritativeRecordData = useCallback(
         async (record: RankedReplayActionRecord, stateAfterSnapshot?: PlaySnapshot): Promise<boolean> => {
-            if (!pixiReady || playedAuthoritativeSequencesRef.current.has(record.sequence)) {
+            if (!pixiReady) {
                 return false;
+            }
+            // Already animated by the other delivery channel. An own action is delivered TWICE — once
+            // via the SSE stream (which plays the walk first) and once on the submit HTTP response. The
+            // response must treat this as PLAYED (return true), otherwise its caller applies the snapshot
+            // with skipBoardRebuild=false and the resulting full board rebuild teleports the just-walked
+            // unit onto its destination — the "no move animation, then it appears there" bug, seen only
+            // for the local (attacking) team because the opponent's moves arrive on SSE alone.
+            if (playedAuthoritativeSequencesRef.current.has(record.sequence)) {
+                return true;
             }
             if (
                 !record.events.length ||
