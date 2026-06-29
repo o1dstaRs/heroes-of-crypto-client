@@ -81,6 +81,8 @@ export interface PlayUnitState {
     stackPower: number;
     /** Names of debuffs currently active on the unit; used to animate newly-applied ones. */
     debuffs?: string[];
+    /** Names of buffs currently active on the unit; used to animate newly-applied ones. */
+    buffs?: string[];
 }
 
 export interface PlayJournalEntry {
@@ -652,6 +654,10 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
             unit.placed = reader.bool();
         } else if (field === 17) {
             unit.stackPower = reader.varintNumber();
+        } else if (field === 18) {
+            (unit.debuffs ??= []).push(reader.string());
+        } else if (field === 19) {
+            (unit.buffs ??= []).push(reader.string());
         } else {
             reader.skip(wireType);
         }

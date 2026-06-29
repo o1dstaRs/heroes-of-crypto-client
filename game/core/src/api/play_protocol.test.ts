@@ -46,6 +46,31 @@ describe("play protobuf decoder", () => {
         expect(decoded.units[0]?.speed).toBe(2.5);
     });
 
+    test("decodes a unit's repeated debuff and buff names (proto fields 18 and 19)", () => {
+        const unit = [
+            ...stringField(1, "unit-1"),
+            ...stringField(18, "Sadness"), // repeated string debuffs = 18
+            ...stringField(18, "Quagmire"),
+            ...stringField(19, "Courage"), // repeated string buffs = 19
+        ];
+        const snapshot = new Uint8Array([...stringField(1, "game-1"), ...messageField(12, unit)]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.units[0]?.debuffs).toEqual(["Sadness", "Quagmire"]);
+        expect(decoded.units[0]?.buffs).toEqual(["Courage"]);
+    });
+
+    test("a unit with no debuff/buff fields decodes them as undefined", () => {
+        const unit = [...stringField(1, "unit-1")];
+        const snapshot = new Uint8Array([...stringField(1, "game-1"), ...messageField(12, unit)]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.units[0]?.debuffs).toBeUndefined();
+        expect(decoded.units[0]?.buffs).toBeUndefined();
+    });
+
     test("decodes authoritative damage stats from snapshots", () => {
         const damageStat = [...stringField(1, "Arbalester"), ...intField(2, 30), ...intField(3, 2), ...intField(4, 1)];
         const snapshot = new Uint8Array([

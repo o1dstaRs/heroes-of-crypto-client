@@ -4,7 +4,6 @@ import {
     getFactionOf,
     GridMath,
     HoCConfig,
-    SpellHelper,
     TeamVals,
     ToFactionName,
     type AttackType,
@@ -28,6 +27,7 @@ import type {
 import type { IFightDeathEntry, IFightStatsReport, IFightStatsSample } from "./VisibleState";
 import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
 import { Sandbox, type SandboxSceneState, type SandboxSceneUnitState, type SceneActionEngine } from "./Sandbox";
+import { diffUnitEffects } from "./effect_pops";
 import type { RenderableUnit } from "./RenderableUnit";
 import type { UnitsOverlay } from "./UnitsOverlay";
 import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
@@ -196,10 +196,12 @@ export class RankedPlayScene extends Sandbox {
     private readonly rankedStatsUpperRoster = new Map<string, RankedFightRosterEntry>();
     private viewerTeam?: TeamType;
     private upNextUnitIds?: string[];
-    // Per-unit set of currently-active debuff names, tracked across snapshots so we can pop a "nice"
-    // icon + name animation the moment a new debuff lands (e.g. Beholder's Spit Ball). Keyed by unit
-    // id (survives unit rebuilds); seeded silently on first sight so reconnects don't burst.
+    // Per-unit sets of currently-active debuff / buff names, tracked across snapshots so we can pop a
+    // "nice" icon + name animation the moment a new one lands (e.g. Beholder's Spit Ball, or a buff
+    // cast). Keyed by unit id (survives unit rebuilds); seeded silently on first sight so reconnects
+    // don't burst.
     private readonly unitDebuffs = new Map<string, Set<string>>();
+    private readonly unitBuffs = new Map<string, Set<string>>();
     // True between an authoritative action's animation finishing and the next snapshot reassigning the
     // active unit — keeps the just-finished unit's pulse aura suppressed across that gap (no flicker).
     private awaitingTurnHandoff = false;
@@ -353,10 +355,11 @@ export class RankedPlayScene extends Sandbox {
         return this.upNextUnitIds;
     }
     /**
-     * Diff each unit's active debuffs against the previously-seen set and pop a nice icon + name
-     * over any unit that just gained one (e.g. Beholder's Spit Ball landing Sadness / Quagmire /
-     * Weakness). A unit's debuffs are seeded silently the first time we see it — and only during the
-     * fight — so joining/reconnecting mid-game doesn't burst every existing debuff at once.
+     * Diff each unit's active debuffs AND buffs against the previously-seen sets and pop a nice icon +
+     * name (plus a colour wash) over any unit that just gained one — a debuff (e.g. Beholder's Spit Ball
+     * landing Sadness / Quagmire / Weakness, violet) or a buff (green). A unit's effects are seeded
+     * silently the first time we see it — and only during the fight — so joining/reconnecting mid-game
+     * doesn't burst every existing effect at once.
      */
     private processDebuffPops(snapshot: AuthoritativeGameSnapshot): void {
         if (!snapshot.fightStarted || snapshot.fightFinished) {
@@ -365,36 +368,42 @@ export class RankedPlayScene extends Sandbox {
         const seen = new Set<string>();
         for (const unitState of snapshot.units) {
             seen.add(unitState.id);
-            const current = new Set((unitState.debuffs ?? []).filter(Boolean));
-            const previous = this.unitDebuffs.get(unitState.id);
-            this.unitDebuffs.set(unitState.id, current);
-            if (!previous) {
+            const currentDebuffs = new Set((unitState.debuffs ?? []).filter(Boolean));
+            const currentBuffs = new Set((unitState.buffs ?? []).filter(Boolean));
+            const diff = diffUnitEffects(
+                this.unitDebuffs.get(unitState.id),
+                this.unitBuffs.get(unitState.id),
+                currentDebuffs,
+                currentBuffs,
+            );
+            this.unitDebuffs.set(unitState.id, currentDebuffs);
+            this.unitBuffs.set(unitState.id, currentBuffs);
+            if (diff.seeded) {
                 continue; // First time we've seen this unit — seed without animating.
             }
             const unit = this.unitsHolder.getAllUnits().get(unitState.id) as RenderableUnit | undefined;
             if (!unit || unit.isDead()) {
                 continue;
             }
+            if (diff.flash === "debuff") {
+                unit.flashDebuffDarken();
+            } else if (diff.flash === "buff") {
+                unit.flashBuffApplied();
+            }
             let stackIndex = 0;
-            for (const debuffName of current) {
-                if (!previous.has(debuffName)) {
-                    this.spawnDebuffPop(unit, debuffName, stackIndex++);
-                }
+            for (const name of diff.newDebuffs) {
+                this.popEffectOnUnit(unit, name, stackIndex++, "debuff");
+            }
+            for (const name of diff.newBuffs) {
+                this.popEffectOnUnit(unit, name, stackIndex++, "buff");
             }
         }
         for (const id of [...this.unitDebuffs.keys()]) {
             if (!seen.has(id)) {
                 this.unitDebuffs.delete(id);
+                this.unitBuffs.delete(id);
             }
         }
-    }
-    private spawnDebuffPop(unit: RenderableUnit, debuffName: string, stackIndex: number): void {
-        const [iconTextureName] = SpellHelper.spellToTextureNames(debuffName);
-        const iconTexture = this.texAny(iconTextureName);
-        if (!iconTexture) {
-            return;
-        }
-        this.combatVisuals?.spawnDebuffPop(unit.getPosition(), iconTexture, debuffName, stackIndex);
     }
     private applyRankedSnapshotMetadata(snapshot: AuthoritativeGameSnapshot): void {
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
@@ -405,6 +414,7 @@ export class RankedPlayScene extends Sandbox {
             this.authoritativePlaybackGameId = snapshot.gameId;
             this.playedAuthoritativeActionSequences.clear();
             this.unitDebuffs.clear();
+            this.unitBuffs.clear();
         }
         this.upNextUnitIds = [...(snapshot.upNext ?? [])];
     }

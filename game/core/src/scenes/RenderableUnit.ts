@@ -147,6 +147,15 @@ export class RenderableUnit extends Unit {
     private recoilStartMs = 0;
     private recoilDx = 0;
     private recoilDy = 0;
+    // When true the recoil uses a wind-up envelope (pull back, then thrust forward, then settle) over a
+    // longer duration — used for Pikeman's Skewer Strike spear thrust. Otherwise a simple out-and-back.
+    private recoilWindup = false;
+    private recoilDurationMs = 220;
+    // Brief colour wash over the sprite when an effect lands on this unit — dark violet for a debuff
+    // (e.g. Spit Ball), green for a buff. Decays over ~650ms; syncVisual reads it each frame via
+    // currentEffectTint().
+    private effectFlashStartMs = 0;
+    private effectFlashColor = 0x2a0a3a;
     // Spells support
     private pixiSpells: PixiRenderableSpell[] = [];
     private spellBookLayer?: Container;
@@ -173,6 +182,8 @@ export class RenderableUnit extends Unit {
         ru.recoilStartMs = 0;
         ru.recoilDx = 0;
         ru.recoilDy = 0;
+        ru.effectFlashStartMs = 0;
+        ru.effectFlashColor = 0x2a0a3a;
         // Without this, visualScaleMultiplier is `undefined` -> targetSize = 128 * undefined = NaN
         // -> sprite.scale = NaN -> the unit collapses to an invisible point (renders as a bare dot).
         ru.visualScaleMultiplier = 1;
@@ -322,7 +333,7 @@ export class RenderableUnit extends Unit {
         const isHidden = this.hasBuffActive("Hidden");
         const normalSpriteAlpha = isHidden ? 0.4 : 1;
         this.sprite.alpha = this.visualMode === "ghost" ? 0.25 : normalSpriteAlpha;
-        this.sprite.tint = 0xffffff;
+        this.sprite.tint = this.currentEffectTint();
         if (!this.shadow) {
             this.shadow = new Sprite(baseTex);
             this.shadow.anchor.set(0.5);
@@ -1039,18 +1050,62 @@ export class RenderableUnit extends Unit {
         this.recoilStartMs = performance.now();
         this.recoilDx = dx;
         this.recoilDy = dy;
+        this.recoilWindup = false;
+        this.recoilDurationMs = 220;
+    }
+    /**
+     * A wind-up spear thrust ("замахивается копьём"): the sprite first pulls BACK away from the target,
+     * then thrusts FORWARD into it, then settles. (dx, dy) points toward the target (the thrust
+     * direction). Used for Pikeman's Skewer Strike so the two-unit pierce reads as a real lunge.
+     */
+    public applyWindupRecoil(dx: number, dy: number): void {
+        this.recoilStartMs = performance.now();
+        this.recoilDx = dx;
+        this.recoilDy = dy;
+        this.recoilWindup = true;
+        this.recoilDurationMs = 380;
     }
     private currentRecoil(): { x: number; y: number } {
         if (!this.recoilStartMs) return { x: 0, y: 0 };
-        const DURATION = 220;
-        const t = (performance.now() - this.recoilStartMs) / DURATION;
+        const t = (performance.now() - this.recoilStartMs) / this.recoilDurationMs;
         if (t >= 1) {
             this.recoilStartMs = 0;
             return { x: 0, y: 0 };
         }
-        // Out-and-back envelope (0 → peak at t=0.5 → 0).
-        const env = Math.sin(Math.PI * t);
+        // Wind-up: -sin(2πt) pulls back (away from target) over the first half, then thrusts forward
+        // (toward target) over the second half, settling at 0. Plain hit: out-and-back sin(πt).
+        const env = this.recoilWindup ? -Math.sin(2 * Math.PI * t) : Math.sin(Math.PI * t);
         return { x: this.recoilDx * env, y: this.recoilDy * env };
+    }
+    /**
+     * Briefly wash the unit toward a colour then back to normal — a "something just landed on me" cue
+     * when an effect is applied. Debuffs (e.g. Beholder's Spit Ball applying Sadness / Quagmire /
+     * Weakness) wash dark violet; buffs wash green. Read each frame by syncVisual via
+     * currentEffectTint(); decays over ~650ms.
+     */
+    public flashDebuffDarken(): void {
+        this.effectFlashStartMs = performance.now();
+        this.effectFlashColor = 0x2a0a3a; // deep violet
+    }
+    public flashBuffApplied(): void {
+        this.effectFlashStartMs = performance.now();
+        this.effectFlashColor = 0x4dff9e; // bright green (keeps a positive, "buffed" feel)
+    }
+    private currentEffectTint(): number {
+        if (!this.effectFlashStartMs) return 0xffffff;
+        const DURATION = 650;
+        const t = (performance.now() - this.effectFlashStartMs) / DURATION;
+        if (t >= 1) {
+            this.effectFlashStartMs = 0;
+            return 0xffffff;
+        }
+        // Wash in, then back out (peak ~70% toward the effect colour) so it reads as a buff/debuff.
+        const env = Math.sin(Math.PI * t) * 0.7;
+        const lerp = (from: number, to: number): number => Math.round(from + (to - from) * env);
+        const r = lerp(0xff, (this.effectFlashColor >> 16) & 0xff);
+        const g = lerp(0xff, (this.effectFlashColor >> 8) & 0xff);
+        const b = lerp(0xff, this.effectFlashColor & 0xff);
+        return (r << 16) | (g << 8) | b;
     }
     /**
      * Build (and cache) this unit's "default" (active/selection) animation atlas frames so the WebP is

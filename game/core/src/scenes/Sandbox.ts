@@ -62,6 +62,7 @@ import { SceneSettings } from "./SceneSettings";
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
 import { setSpawnFlowPhase } from "../pixi/PixiDrawablePlacement";
 import { PlacementManager } from "./PlacementManager";
+import { diffUnitEffects } from "./effect_pops";
 import { RenderableUnit } from "./RenderableUnit";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { HoverManager } from "./HoverManager";
@@ -4644,30 +4645,31 @@ export class Sandbox extends PixiScene {
                     .map((b) => b.getName())
                     .filter(Boolean),
             );
-            const prevDebuffs = this.shownDebuffsByUnit.get(id);
-            const prevBuffs = this.shownBuffsByUnit.get(id);
+            const diff = diffUnitEffects(
+                this.shownDebuffsByUnit.get(id),
+                this.shownBuffsByUnit.get(id),
+                currentDebuffs,
+                currentBuffs,
+            );
             this.shownDebuffsByUnit.set(id, currentDebuffs);
             this.shownBuffsByUnit.set(id, currentBuffs);
-            if (!prevDebuffs || !prevBuffs) {
+            if (diff.seeded) {
                 continue; // First time we've seen this unit — seed without animating.
             }
             const renderable = unit as RenderableUnit;
             if (renderable.isDead()) {
                 continue;
             }
-            const newDebuffs = [...currentDebuffs].filter((name) => !prevDebuffs.has(name));
-            const newBuffs = [...currentBuffs].filter((name) => !prevBuffs.has(name));
-            // Wash the unit once per batch — a debuff "hit" takes priority over a buff if both landed.
-            if (newDebuffs.length) {
+            if (diff.flash === "debuff") {
                 renderable.flashDebuffDarken();
-            } else if (newBuffs.length) {
+            } else if (diff.flash === "buff") {
                 renderable.flashBuffApplied();
             }
             let stackIndex = 0;
-            for (const name of newDebuffs) {
+            for (const name of diff.newDebuffs) {
                 this.popEffectOnUnit(renderable, name, stackIndex++, "debuff");
             }
-            for (const name of newBuffs) {
+            for (const name of diff.newBuffs) {
                 this.popEffectOnUnit(renderable, name, stackIndex++, "buff");
             }
         }

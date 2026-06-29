@@ -72,6 +72,18 @@ interface IChainLightning {
     bolts: IChainBolt[];
 }
 
+interface IWindSpear {
+    container: Container;
+    head: Sprite; // bright leading light orb
+    trail: Sprite[]; // soft glow orbs lagging behind the head (comet-like light trail)
+    pts: HoCMath.XY[]; // polyline: [attacker, primary target, unit(s) behind]
+    segLens: number[]; // length of each polyline segment
+    total: number; // total polyline length
+    cellSize: number;
+    age: number; // seconds since spawn (negative = lead delay before the thrust)
+    life: number; // total seconds (travel + fade)
+}
+
 interface IDebuffPop {
     container: Container;
     age: number;
@@ -95,12 +107,12 @@ const FT_STACK_STEP = 46; // px: vertical gap per stacked number
 // Tuning for the applied-debuff pop — a spell icon + name that pops over a unit when a debuff lands
 // (e.g. Beholder's Spit Ball applying Sadness / Quagmire / Weakness). Lives a touch longer than a
 // damage number so the icon + name are readable, then drifts up and fades.
-const DP_LIFE = 1.25; // seconds on screen
+const DP_LIFE = 0.95; // seconds on screen (kept short so the icon + name evaporate briskly)
 const DP_RISE = 64; // world px the pop floats up over its life
 const DP_POP_DUR = 0.2; // seconds of the spawn "pop" (icon scales in with overshoot)
 const DP_START_SCALE = 0.25; // scale the pop springs in from
 const DP_FADE_IN = 0.1; // seconds to fade in
-const DP_FADE_OUT_FROM = 0.62; // fraction of life after which it fades out
+const DP_FADE_OUT_FROM = 0.48; // fraction of life after which it fades out (earlier = quicker evaporate)
 const DP_Z = 2100; // above the damage numbers (2000) so the debuff reads on top
 
 // Tuning for the Black Dragon's Fire Breath sweep — a line of embers that rushes from the attacker
@@ -126,6 +138,18 @@ const CHAIN_GLOW = 0x7a2dff; // outer purple glow
 const CHAIN_MID = 0xb36bff; // mid violet
 const CHAIN_CORE = 0xedd6ff; // hot near-white core
 
+// Tuning for Pikeman's Skewer Strike — a soft ORB of LIGHT that glides from the attacker through the
+// primary target and the unit(s) standing behind it (jolting each as it passes), so a two-unit pierce
+// reads at a glance. Fires the instant the strike lands (no lead); a glow trail follows, then it fades.
+const WINDSPEAR_LEAD_MS = 0; // fire immediately with the strike — no delay
+const WINDSPEAR_TRAVEL_MS = 190; // time for the light to glide the whole pierce line
+const WINDSPEAR_FADE_MS = 150; // glow dissipation after the light reaches the end
+const WINDSPEAR_Z = 1955; // just above chain lightning (1950), below the damage numbers (2000)
+const WINDSPEAR_TINT = 0xdff4ff; // soft cyan-white light
+const WINDSPEAR_TRAIL_COUNT = 7; // soft glow orbs trailing the head
+const WINDSPEAR_HEAD_CELLS = 0.95; // head orb diameter in cells
+const WINDSPEAR_TRAIL_SPACING = 0.32; // gap (cells) between successive trail orbs behind the head
+
 const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
 const easeOutBack = (t: number): number => {
     const c1 = 1.70158;
@@ -139,10 +163,14 @@ export class CombatVisuals {
     private shatterGroups: IShatterGroup[] = [];
     private fireSweeps: IFireSweep[] = [];
     private chainLightnings: IChainLightning[] = [];
+    private windSpears: IWindSpear[] = [];
     private debuffPops: IDebuffPop[] = [];
     private debuffStyle?: TextStyle;
+    private buffStyle?: TextStyle;
     // Soft radial ember texture, built once and reused for every Fire Breath sweep.
     private fireTexture?: Texture;
+    // Soft radial white-light texture, built once and reused for the Skewer Strike light orb + trail.
+    private lightTexture?: Texture;
     // Damage/count text styles are reused across strikes — building a fresh TextStyle per hit is
     // wasteful, and (more importantly) the FIRST PixiText render of a style rasterizes the font and
     // compiles PIXI's text shader, a ~30-40ms one-time stall. prewarm() pays that off-screen at load.
@@ -203,13 +231,37 @@ export class CombatVisuals {
         }
         return this.debuffStyle;
     }
+    private getBuffStyle(): TextStyle {
+        if (!this.buffStyle) {
+            this.buffStyle = new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 34,
+                fontWeight: "900",
+                fill: "#7dffb0", // green reads clearly as a buff (vs the violet debuff)
+                stroke: { color: "#0a3a1c", width: 5 },
+                dropShadow: {
+                    color: "#000000",
+                    blur: 4,
+                    angle: Math.PI / 6,
+                    distance: 2,
+                },
+            });
+        }
+        return this.buffStyle;
+    }
     /**
-     * Pop a debuff's spell icon + name over a unit when it's freshly applied (e.g. Beholder's Spit
-     * Ball landing Sadness / Quagmire / Weakness). The icon springs in with a slight overshoot, the
-     * icon + name drift up together and fade out. `stackIndex` lifts each extra debuff from the same
-     * shot so multiple applications don't overlap.
+     * Pop a freshly-applied effect's spell icon + name over a unit. `kind` only changes the name's
+     * colour — violet for a debuff (e.g. Beholder's Spit Ball landing Sadness / Quagmire / Weakness),
+     * green for a buff. The icon springs in with a slight overshoot, the icon + name drift up together
+     * and evaporate. `stackIndex` lifts each extra effect from the same shot so they don't overlap.
      */
-    public spawnDebuffPop(pos: HoCMath.XY, iconTexture: Texture, name: string, stackIndex = 0): void {
+    public spawnDebuffPop(
+        pos: HoCMath.XY,
+        iconTexture: Texture,
+        name: string,
+        stackIndex = 0,
+        kind: "debuff" | "buff" = "debuff",
+    ): void {
         const cell = this.context.getGridSettings().getCellSize();
         const container = new Container();
 
@@ -219,7 +271,10 @@ export class CombatVisuals {
         icon.width = iconSize;
         icon.height = iconSize;
 
-        const label = new PixiText({ text: name, style: this.getDebuffStyle() });
+        const label = new PixiText({
+            text: name,
+            style: kind === "buff" ? this.getBuffStyle() : this.getDebuffStyle(),
+        });
         label.anchor.set(0.5);
         // Sits just under the icon. The container is Y-flipped (see scale below), matching the
         // floating-damage convention where a positive child-y renders below its anchor.
@@ -338,6 +393,9 @@ export class CombatVisuals {
             let scale = 1;
             if (dp.age < DP_POP_DUR) {
                 scale = DP_START_SCALE + (1 - DP_START_SCALE) * easeOutBack(dp.age / DP_POP_DUR);
+            } else if (t > DP_FADE_OUT_FROM) {
+                // Evaporate: the icon + name swell slightly as they dissolve upward and fade out.
+                scale = 1 + 0.2 * ((t - DP_FADE_OUT_FROM) / (1 - DP_FADE_OUT_FROM));
             }
             dp.container.scale.set(scale, -scale);
 
@@ -353,6 +411,7 @@ export class CombatVisuals {
         this.stepShatters(dt);
         this.stepFireSweeps(dt);
         this.stepChainLightnings(dt);
+        this.stepWindSpears(dt);
     }
     /**
      * "Broken mirror" death effect: slice the unit's current texture into a grid of shards that
@@ -472,6 +531,29 @@ export class CombatVisuals {
         ctx.fillRect(0, 0, size, size);
         this.fireTexture = Texture.from(canvas);
         return this.fireTexture;
+    }
+    private getLightTexture(): Texture {
+        if (this.lightTexture) {
+            return this.lightTexture;
+        }
+        const size = 64;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            return Texture.WHITE;
+        }
+        const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+        // Hot white core fading through a soft cyan-white halo to transparent — reads as glowing light.
+        grad.addColorStop(0.0, "rgba(255,255,255,1)");
+        grad.addColorStop(0.35, "rgba(223,244,255,0.85)");
+        grad.addColorStop(0.7, "rgba(180,230,255,0.32)");
+        grad.addColorStop(1.0, "rgba(150,220,255,0)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+        this.lightTexture = Texture.from(canvas);
+        return this.lightTexture;
     }
     /**
      * Fire Breath sweep: a wave of additive embers emitted in order along the line from `from` to `to`
@@ -656,6 +738,130 @@ export class CombatVisuals {
             if (!anyPending) {
                 chain.container.destroy({ children: true });
                 this.chainLightnings.splice(i, 1);
+            }
+        }
+    }
+    /**
+     * Pikeman's Skewer Strike: a wind "spear" that thrusts from the attacker through the primary target
+     * and the unit(s) standing behind it. `points` is the ordered polyline of world centers
+     * [attacker, target, behind…]. The bright tip travels the whole line fast, leaving a fading wind
+     * trail, so a two-unit (or more) pierce reads instantly. Works the same in sandbox and ranked —
+     * both call this with the attacker + struck units once the strike lands.
+     */
+    public spawnWindSpear(points: HoCMath.XY[], cellSize: number): void {
+        if (points.length < 2) {
+            return;
+        }
+        const pts = points.map((p) => ({ x: p.x, y: p.y }));
+        const segLens: number[] = [];
+        let total = 0;
+        for (let i = 0; i < pts.length - 1; i++) {
+            const len = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+            segLens.push(len);
+            total += len;
+        }
+        if (total < 1) {
+            return;
+        }
+        const container = new Container();
+        this.context.attachToWorldRoot(container, WINDSPEAR_Z);
+        const tex = this.getLightTexture();
+        const mkOrb = (): Sprite => {
+            const s = new Sprite(tex);
+            s.anchor.set(0.5);
+            s.blendMode = "add";
+            s.tint = WINDSPEAR_TINT;
+            s.visible = false;
+            container.addChild(s);
+            return s;
+        };
+        // Trail orbs first (drawn under the head), then the bright head on top.
+        const trail: Sprite[] = [];
+        for (let t = 0; t < WINDSPEAR_TRAIL_COUNT; t++) {
+            trail.push(mkOrb());
+        }
+        const head = mkOrb();
+        this.windSpears.push({
+            container,
+            head,
+            trail,
+            pts,
+            segLens,
+            total,
+            cellSize,
+            age: -WINDSPEAR_LEAD_MS / 1000,
+            life: (WINDSPEAR_TRAVEL_MS + WINDSPEAR_FADE_MS) / 1000,
+        });
+    }
+    /** World point at distance `d` along the spear's polyline (clamped to [0, total]). */
+    private pointAlong(spear: IWindSpear, d: number): HoCMath.XY {
+        const clamped = Math.max(0, Math.min(spear.total, d));
+        let acc = 0;
+        for (let i = 0; i < spear.segLens.length; i++) {
+            const seg = spear.segLens[i];
+            if (clamped <= acc + seg || i === spear.segLens.length - 1) {
+                const t = seg > 0 ? (clamped - acc) / seg : 0;
+                const a = spear.pts[i];
+                const b = spear.pts[i + 1];
+                return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+            }
+            acc += seg;
+        }
+        return spear.pts[spear.pts.length - 1];
+    }
+    private stepWindSpears(dt: number): void {
+        const travel = WINDSPEAR_TRAVEL_MS / 1000;
+        for (let i = this.windSpears.length - 1; i >= 0; i--) {
+            const spear = this.windSpears[i];
+            spear.age += dt;
+            if (spear.age < 0) {
+                continue; // thrust hasn't started (lead delay)
+            }
+            if (spear.age >= spear.life) {
+                spear.container.destroy({ children: true });
+                this.windSpears.splice(i, 1);
+                continue;
+            }
+            // The light orb glides down the whole pierce line over the travel window; soft glow orbs lag
+            // behind it as a comet-like trail. After it reaches the end, the whole thing fades out.
+            const cs = spear.cellSize;
+            const tipProgress = Math.min(1, spear.age / travel);
+            const leadDist = easeOutCubic(tipProgress) * spear.total;
+            // Fade out over the fade window once the light has reached the end of the line.
+            const fadeT = Math.max(0, (spear.age - travel) / (WINDSPEAR_FADE_MS / 1000));
+            const groupAlpha = Math.max(0, Math.min(1, 1 - fadeT));
+            if (groupAlpha <= 0.01) {
+                spear.head.visible = false;
+                for (const s of spear.trail) {
+                    s.visible = false;
+                }
+                continue;
+            }
+
+            const headSize = cs * WINDSPEAR_HEAD_CELLS;
+            const texW = spear.head.texture.width || 64;
+            const headPos = this.pointAlong(spear, leadDist);
+            spear.head.visible = true;
+            spear.head.position.set(headPos.x, headPos.y);
+            spear.head.scale.set(headSize / texW);
+            spear.head.alpha = groupAlpha;
+
+            // Each trail orb sits a little further back along the line, shrinking and dimming — a soft
+            // glow tail that reads as light streaming through (not a hard arrow).
+            const spacing = cs * WINDSPEAR_TRAIL_SPACING;
+            for (let s = 0; s < spear.trail.length; s++) {
+                const orb = spear.trail[s];
+                const d = leadDist - spacing * (s + 1);
+                if (d < 0) {
+                    orb.visible = false;
+                    continue;
+                }
+                const k = 1 - (s + 1) / (spear.trail.length + 1); // 1 (near head) → ~0 (far back)
+                const pos = this.pointAlong(spear, d);
+                orb.visible = true;
+                orb.position.set(pos.x, pos.y);
+                orb.scale.set((headSize * (0.45 + 0.5 * k)) / texW);
+                orb.alpha = groupAlpha * 0.55 * k;
             }
         }
     }
