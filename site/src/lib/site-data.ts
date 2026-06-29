@@ -8,6 +8,7 @@ export const pageSlugs = [
     "game",
     "rules",
     "units",
+    "abilities",
     "token",
     "patches",
     "faq",
@@ -79,6 +80,7 @@ export const content = {
             rules: "Rules",
             blog: "Blog",
             units: "Units",
+            abilities: "Abilities",
             token: "Token",
             patches: "Patches",
             faq: "FAQ",
@@ -168,6 +170,12 @@ export const content = {
                 eyebrow: "Roster",
                 description:
                     "Browse every combat unit across all factions of Heroes of Crypto — stats, attack types, abilities, and spells.",
+            },
+            abilities: {
+                title: "Abilities",
+                eyebrow: "Ability codex",
+                description:
+                    "Every unit ability in Heroes of Crypto — icon, what it does, and which units carry it. Pulled straight from the game data, so it always matches the live roster.",
             },
             token: {
                 title: "$HOCAI Token",
@@ -572,6 +580,7 @@ export const content = {
             rules: "Правила",
             blog: "Блог",
             units: "Юниты",
+            abilities: "Способности",
             token: "Токен",
             patches: "Патчи",
             faq: "Вопросы",
@@ -661,6 +670,12 @@ export const content = {
                 eyebrow: "Ростер",
                 description:
                     "Все боевые юниты всех фракций Heroes of Crypto — характеристики, типы атак, способности и заклинания.",
+            },
+            abilities: {
+                title: "Способности",
+                eyebrow: "Справочник способностей",
+                description:
+                    "Все способности юнитов Heroes of Crypto — иконка, описание и носители. Берутся напрямую из игровых данных, поэтому всегда соответствуют актуальному ростеру.",
             },
             token: {
                 title: "Токен $HOCAI",

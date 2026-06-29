@@ -1,4 +1,5 @@
 ---
+import AbilitiesPage from "../../components/AbilitiesPage.astro";
 import ContentPage from "../../components/ContentPage.astro";
 import HomePage from "../../components/HomePage.astro";
 import RulesPage from "../../components/RulesPage.astro";
@@ -27,6 +28,8 @@ const page = copy.pages[slug];
             <RulesPage lang={lang} />
         ) : slug === "units" ? (
             <UnitsPage lang={lang} />
+        ) : slug === "abilities" ? (
+            <AbilitiesPage lang={lang} />
         ) : (
             <ContentPage lang={lang} slug={slug} />
         )

@@ -305,3 +305,61 @@ export const allUnits: Unit[] = factionUnits.flatMap((f) => f.units);
 
 export const unitCount = allUnits.length;
 export const abilityCount = new Set(allUnits.flatMap((u) => u.abilities.map((a) => a.name))).size;
+
+export interface AbilityUnitRef {
+    name: string;
+    faction: FactionName;
+    icon: string;
+}
+
+export type AbilityKind = "aura" | "active" | "passive";
+
+export interface Ability {
+    name: string;
+    description: string;
+    descriptionRu: string;
+    icon: string;
+    type: string;
+    kind: AbilityKind;
+    isAura: boolean;
+    isCastable: boolean;
+    units: AbilityUnitRef[];
+}
+
+// Derive the ability catalogue straight from the units (which are built from the game's
+// creatures.json + abilities.json). Inverting units -> abilities keeps a single source of truth:
+// every ability shown is one a real unit actually has, and "used by" is computed, never hand-listed.
+export const abilities: Ability[] = (() => {
+    const byName = new Map<string, Ability>();
+    for (const unit of allUnits) {
+        for (const ability of unit.abilities) {
+            let entry = byName.get(ability.name);
+            if (!entry) {
+                const raw = (abilitiesJson as Record<string, RawAbility>)[ability.name];
+                entry = {
+                    name: ability.name,
+                    description: ability.description,
+                    descriptionRu: ability.descriptionRu,
+                    icon: ability.icon,
+                    type: raw?.type ?? "",
+                    kind: ability.isCastable ? "active" : ability.isAura ? "aura" : "passive",
+                    isAura: ability.isAura,
+                    isCastable: ability.isCastable,
+                    units: [],
+                };
+                byName.set(ability.name, entry);
+            }
+            if (!entry.units.some((u) => u.name === unit.name)) {
+                entry.units.push({ name: unit.name, faction: unit.faction, icon: unit.icon });
+            }
+        }
+    }
+    return [...byName.values()]
+        .map((ability) => ({
+            ...ability,
+            units: ability.units.sort((a, b) => a.name.localeCompare(b.name)),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+})();
+
+export const abilitiesCount = abilities.length;
