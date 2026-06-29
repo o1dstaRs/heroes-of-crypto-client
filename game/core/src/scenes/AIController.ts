@@ -101,6 +101,9 @@ export class AIController {
     // Unit we last tried to cast a spell for. If it's STILL the active unit on the next decision, the
     // cast didn't advance the turn (rejected) — so we attack instead of re-casting, breaking any loop.
     private spellCastAttemptUnitId: string | undefined;
+    // Aura-bearer we last hourglassed (waited) to reposition later this round. Cleared when a different
+    // unit becomes active, so the same unit doesn't try to wait twice on the same turn.
+    private auraWaitAttemptUnitId: string | undefined;
     // AI State
     public isAIActive = false;
     public performingAction = false;
@@ -281,7 +284,10 @@ export class AIController {
         } else if (action?.actionType() === AI.AIActionType.RANGE_ATTACK) {
             actionPerformed = await this.handleRangeAttack(currentUnit, action);
         } else {
-            // Move only
+            // Move only. For aura emitters, reposition to keep the most allies (buff aura) / enemies
+            // (debuff aura) inside the aura — or hourglass to reposition after others move — instead of
+            // the default rush toward the enemy.
+            if (this.tryAuraReposition(currentUnit, action, wasAIActive)) return;
             const moveHandled = this.handleMoveOnly(currentUnit, action, wasAIActive);
             if (moveHandled) return; // Early return - callback handles cleanup
         }
@@ -1014,6 +1020,70 @@ export class AIController {
         );
     }
     /**
+     * Aura-aware turn for a unit that emits a buff/debuff aura. Moves it onto the reachable cell that
+     * keeps the most allies (buff) / enemies (debuff) inside the aura; if no move improves coverage but
+     * targets are still out of reach (and it's not under melee pressure), hourglasses once so it can
+     * reposition after the others have moved this round. Returns true if it took the unit's turn.
+     */
+    private tryAuraReposition(
+        currentUnit: RenderableUnit,
+        action: AI.IAIAction | undefined,
+        wasAIActive: boolean,
+    ): boolean {
+        if (this.auraWaitAttemptUnitId && this.auraWaitAttemptUnitId !== currentUnit.getId()) {
+            this.auraWaitAttemptUnitId = undefined;
+        }
+        const gs = this.context.getSceneSettings().getGridSettings();
+        const plan = AI.planAuraMove(
+            currentUnit,
+            action?.currentActiveKnownPaths(),
+            gs,
+            this.context.getGridMatrix(),
+            this.context.getUnitsHolder(),
+        );
+        if (!plan) return false; // not an aura emitter
+
+        const baseCell = currentUnit.getBaseCell();
+        const movesElsewhere = plan.bestCell.x !== baseCell.x || plan.bestCell.y !== baseCell.y;
+
+        // 1) A reachable cell covers more targets — move there.
+        if (plan.bestScore > plan.currentScore && movesElsewhere && currentUnit.canMove()) {
+            this.auraWaitAttemptUnitId = undefined;
+            if (this.handleMoveOnly(currentUnit, action, wasAIActive, plan.bestCell)) return true;
+        }
+
+        // 2) No move helps yet but targets remain out of range and we're not under melee pressure —
+        //    wait (once) so allies/enemies move first, then reposition on the later activation.
+        if (
+            plan.bestScore <= plan.currentScore &&
+            plan.bestScore < plan.coverableTargets &&
+            plan.currentThreats === 0 &&
+            this.auraWaitAttemptUnitId !== currentUnit.getId()
+        ) {
+            this.auraWaitAttemptUnitId = currentUnit.getId();
+            const waited = this.context.applyGameAction(
+                this.modelAction(currentUnit, { type: "wait_turn", unitId: currentUnit.getId() }),
+            );
+            if (waited) {
+                this.finishAIAction(wasAIActive);
+                return true;
+            }
+        }
+
+        // 3) Neither moving nor waiting helps. Don't let the default AI move drag the aura off its
+        //    targets: if findTarget's move would cover fewer than standing still, just hold position.
+        const defaultCell = action?.cellToMove();
+        if (defaultCell) {
+            const defaultScore = AI.auraCoverageScore(currentUnit, defaultCell, gs, this.context.getUnitsHolder());
+            if (defaultScore < plan.currentScore) {
+                this.endTurnIfStillActive(currentUnit);
+                this.finishAIAction(wasAIActive);
+                return true;
+            }
+        }
+        return false; // fall through to the default move (it doesn't lose coverage)
+    }
+    /**
      * Handle move-only action.
      * Returns true if move was initiated (cleanup handled via callback).
      */
@@ -1021,8 +1091,9 @@ export class AIController {
         currentUnit: RenderableUnit,
         action: AI.IAIAction | undefined,
         wasAIActive: boolean,
+        overrideCell?: HoCMath.XY,
     ): boolean {
-        const cellToMove = action?.cellToMove();
+        const cellToMove = overrideCell ?? action?.cellToMove();
         if (!cellToMove || !currentUnit.canMove()) return false;
 
         const knownPaths = action?.currentActiveKnownPaths();
