@@ -2044,7 +2044,10 @@ export class Sandbox extends PixiScene {
         // unit is heading even when no live aim was relayed. Cleared when the animation finishes.
         const destinationSilhouetteShown = this.shouldShowMoveDestinationSilhouette(unit);
         if (destinationSilhouetteShown) {
-            this.setOpponentMoveIntent({ unitId: unit.getId(), cell: this.getRecordedMoveDestCell(moveEvent) });
+            this.setOpponentMoveIntent({
+                unitId: unit.getId(),
+                cell: this.getMoveDestinationSilhouetteCell(unit, moveEvent),
+            });
         }
 
         return new Promise((resolve) => {
@@ -2162,6 +2165,26 @@ export class Sandbox extends PixiScene {
         moveEvent: Extract<GameEvent, { type: "unit_moved" }>,
     ): boolean {
         return moveEvent.path.length > 0 && !this.isRecordedMoveFootprintOnly(unit, moveEvent);
+    }
+    /**
+     * Anchor cell for an opponent large-unit move's destination silhouette. The renderer rebuilds the
+     * 2x2 footprint from this single cell via findOpponentLargeUnitFootprint, whose first candidate
+     * extends up-right — so the cell must be the footprint's MIN (bottom-left) corner for the rebuilt
+     * tiles to match where the unit actually lands. getRecordedMoveDestCell returns targetCells[0],
+     * which is the footprint's TOP-left, so for large units it placed the preview one cell above the
+     * real landing. Small units occupy a single cell and are unambiguous.
+     */
+    private getMoveDestinationSilhouetteCell(
+        unit: RenderableUnit,
+        moveEvent: Extract<GameEvent, { type: "unit_moved" }>,
+    ): HoCMath.XY {
+        if (unit.isSmallSize() || !moveEvent.targetCells.length) {
+            return this.getRecordedMoveDestCell(moveEvent);
+        }
+        return moveEvent.targetCells.reduce(
+            (min, cell) => ({ x: Math.min(min.x, cell.x), y: Math.min(min.y, cell.y) }),
+            { x: moveEvent.targetCells[0].x, y: moveEvent.targetCells[0].y },
+        );
     }
     private getRecordedMoveDestCell(moveEvent: Extract<GameEvent, { type: "unit_moved" }>): HoCMath.XY {
         if (moveEvent.targetCells.length) {
