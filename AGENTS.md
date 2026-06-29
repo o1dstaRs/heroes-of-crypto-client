@@ -61,6 +61,20 @@ bunx eslint "game/**/src/**/*.{ts,tsx}"
 - Pixi z-index: terrain ~20, gameplay graphics ~55, units ~4000 (sorted by Y), overlays ~5500+.
 - The `@heroesofcrypto/common` submodule tracks `main`. Run `git submodule update --remote` to pull latest.
 
+## AI tournament analyser
+
+Benchmarks the versioned AI (`common/src/ai`: `v0.1`/`v0.2`/`v0.3`) in headless mirrored battles.
+Run from `game/heroes-of-crypto-common`:
+
+```bash
+# <vA> <vB> [games] [seed] [outDir] [concurrency] — pass 12 (one per perf core; default 16 oversubscribes)
+bun src/simulation/run_tournament.ts v0.2 v0.3 6000 1 "$(pwd)/sim-out" 12
+bun src/simulation/run_match.ts v0.2 v0.3 <seed>   # single game, per-lap log
+```
+
+This is an **M4 Max (12 perf + 4 efficiency cores)** — use concurrency `12`. Output: `sim-out/*.jsonl` +
+`.summary.json`. Mirror self-play is variance-heavy; use 6000+ games and treat sub-1% deltas as noise.
+
 ## Local E2E testing
 
 A skill is installed for both Codex and opencode:
