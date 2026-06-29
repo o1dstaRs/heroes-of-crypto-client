@@ -1,8 +1,9 @@
-import { HoCConstants, TeamVals } from "@heroesofcrypto/common";
+import { HoCConstants, TeamVals, type TeamType } from "@heroesofcrypto/common";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import TimelapseRoundedIcon from "@mui/icons-material/TimelapseRounded";
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
 import Button from "@mui/joy/Button";
+import Checkbox from "@mui/joy/Checkbox";
 import Tooltip from "@mui/joy/Tooltip";
 import Card from "@mui/joy/Card";
 import LinearProgress from "@mui/joy/LinearProgress";
@@ -151,6 +152,24 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     const manager = usePixiManager();
     // Set only in ranked play (the viewer has a fixed side); undefined in sandbox/observer.
     const viewerTeam = useViewerTeam();
+    // Sandbox-only "AI side" toggles: hand green (LOWER) / red (UPPER) entirely to the AI. Such a team
+    // auto-plays every turn and the human can't act for it. Lets you play vs the AI, or clash two AIs.
+    const isSandbox = viewerTeam === undefined;
+    const [greenAi, setGreenAi] = useState(false);
+    const [redAi, setRedAi] = useState(false);
+    useEffect(() => {
+        // Reflect any state the scene already holds (e.g. set, then panel re-rendered).
+        setGreenAi(manager.IsTeamAiControlled(TeamVals.LOWER));
+        setRedAi(manager.IsTeamAiControlled(TeamVals.UPPER));
+    }, [manager]);
+    const toggleTeamAi = (team: TeamType, checked: boolean) => {
+        if (team === TeamVals.LOWER) {
+            setGreenAi(checked);
+        } else {
+            setRedAi(checked);
+        }
+        manager.SetTeamAiControlled(team, checked);
+    };
 
     useEffect(() => {
         const connection = manager.onVisibleStateUpdated.connect(setVisibleState);
@@ -234,11 +253,42 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     // --- CASE 1: Game NOT Started ---
     if (!gameStarted && !hasTimer) {
         return (
-            <Box sx={{ width: "100%", display: "flex", justifyContent: "center", pb: 2 }}>
+            <Box
+                sx={{
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 1,
+                    pb: 2,
+                }}
+            >
                 {visibleState.canBeStarted ? (
                     <AnimatedStartButton onClick={() => manager.StartGame()} />
                 ) : (
                     <DisabledStartButton />
+                )}
+                {/* Sandbox only: hand a side to the AI. That team auto-plays and the human can't act for
+                    it (its toolbar/board are locked on its turn). Check both to watch two AIs clash. */}
+                {isSandbox && (
+                    <Stack direction="row" spacing={2} sx={{ pt: 0.5 }}>
+                        <Checkbox
+                            size="sm"
+                            color="success"
+                            variant="outlined"
+                            label="Green AI"
+                            checked={greenAi}
+                            onChange={(e) => toggleTeamAi(TeamVals.LOWER, e.target.checked)}
+                        />
+                        <Checkbox
+                            size="sm"
+                            color="danger"
+                            variant="outlined"
+                            label="Red AI"
+                            checked={redAi}
+                            onChange={(e) => toggleTeamAi(TeamVals.UPPER, e.target.checked)}
+                        />
+                    </Stack>
                 )}
             </Box>
         );

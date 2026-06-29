@@ -562,6 +562,14 @@ export class PixiGameManager {
         this.onHasStarted.emit(this.started);
         this.fitViewToWindow(); // keep neutral after start too
     }
+    /** Sandbox: hand a whole team to the AI (green = LOWER, red = UPPER). */
+    public SetTeamAiControlled(team: TeamType, enabled: boolean): void {
+        this.m_scene?.setTeamAiControlled(team, enabled);
+    }
+    /** Sandbox: whether a team is currently fully AI-controlled. */
+    public IsTeamAiControlled(team: TeamType): boolean {
+        return this.m_scene?.isTeamAiControlled(team) ?? false;
+    }
     /** Replay the previous fight with the exact same units, positions and map. */
     public Rematch(): void {
         console.log("[Rematch] manager.Rematch; m_scene =", !!this.m_scene);

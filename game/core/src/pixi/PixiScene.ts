@@ -202,6 +202,12 @@ export abstract class PixiScene {
         _options?: AuthoritativeSnapshotOptions,
     ): void {}
     public applyAuthoritativeVfx(_events: GameEvent[]): void {}
+    /** Sandbox-only: hand a whole team to the AI (overridden in Sandbox). No-op elsewhere. */
+    public setTeamAiControlled(_team: TeamType, _enabled: boolean): void {}
+    /** Sandbox-only: whether a team is fully AI-controlled (overridden in Sandbox). */
+    public isTeamAiControlled(_team: TeamType): boolean {
+        return false;
+    }
     public applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
         this.applyAuthoritativeSnapshot(snapshot);
     }
