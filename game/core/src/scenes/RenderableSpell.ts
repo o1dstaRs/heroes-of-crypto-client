@@ -244,7 +244,9 @@ export class PixiRenderableSpell extends Spell {
         this.iconSprite.tint = enabled ? (this.highlighted ? 0xfff7cc : 0xffffff) : 0x777777;
         this.titleSprite.tint = enabled ? (this.highlighted ? 0xfff7cc : 0xffffff) : 0x777777;
 
-        this.bgSprite.visible = true;
+        // The scroll-like background plate under each spell is intentionally hidden — only the icon and
+        // title show on the book page.
+        this.bgSprite.visible = false;
         this.iconSprite.visible = true;
         this.titleSprite.visible = true;
 
