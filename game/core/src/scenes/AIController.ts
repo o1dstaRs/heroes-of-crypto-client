@@ -83,6 +83,17 @@ export interface IAIContext {
         onComplete?: () => void,
         replayAction?: Extract<GameAction, { type: "move_unit" }>,
     ): boolean;
+    /**
+     * Break the destructible center mountain: optionally walk to attackFromCell first, then issue an
+     * obstacle_attack against the mountain cell at targetWorldPosition. onComplete fires once the
+     * strike has landed (after any move). Returns false when the strike couldn't be started.
+     */
+    executeObstacleAttackSequence(
+        unit: RenderableUnit,
+        targetWorldPosition: HoCMath.XY,
+        attackFromCell?: HoCMath.XY,
+        onComplete?: () => void,
+    ): boolean;
     refreshUnits(): void;
 }
 
@@ -278,6 +289,9 @@ export class AIController {
 
         if (action?.actionType() === AI.AIActionType.MOVE_AND_MELEE_ATTACK) {
             actionPerformed = await this.handleMoveAndMeleeAttack(currentUnit, action, wasAIActive);
+            if (actionPerformed) return; // Early return handled internally with callbacks
+        } else if (action?.actionType() === AI.AIActionType.OBSTACLE_ATTACK) {
+            actionPerformed = await this.handleObstacleAttack(currentUnit, action, wasAIActive);
             if (actionPerformed) return; // Early return handled internally with callbacks
         } else if (action?.actionType() === AI.AIActionType.MELEE_ATTACK) {
             actionPerformed = await this.handleMeleeAttack(currentUnit, action);
@@ -949,6 +963,48 @@ export class AIController {
             this.finishAIAction(wasAIActive);
             return true;
         }
+    }
+    /**
+     * Handle OBSTACLE_ATTACK: break the destructible center mountain. cellToAttack is the struck
+     * center cell; cellToMove is the (reachable) cell to strike from. Reuses the player's
+     * obstacle-attack path via the context and manages its own turn-completion in the onComplete
+     * callback (the obstacle_attack itself ends the unit's turn).
+     */
+    private async handleObstacleAttack(
+        currentUnit: RenderableUnit,
+        action: AI.IAIAction,
+        wasAIActive: boolean,
+    ): Promise<boolean> {
+        const targetCell = action.cellToAttack();
+        const attackFromCell = action.cellToMove();
+        if (!targetCell) return false;
+
+        // Mining is a melee strike (ranged units never produce this action — they hold/shoot).
+        if (this.selectAttackType(currentUnit, AttackVals.MELEE)) {
+            this.context.getButtonManager().refreshButtons(true);
+            this.context.refreshUnits();
+        }
+        this.context.setSelectedAttackType(currentUnit.getAttackTypeSelection());
+        this.context.setCurrentActiveKnownPaths(action.currentActiveKnownPaths());
+
+        const gs = this.context.getSceneSettings().getGridSettings();
+        const targetWorldPos = GridMath.getPositionForCell(targetCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+
+        const aiActive = wasAIActive;
+        const watchdog = this.scheduleMoveWatchdog(currentUnit, aiActive);
+        const started = this.context.executeObstacleAttackSequence(currentUnit, targetWorldPos, attackFromCell, () => {
+            clearTimeout(watchdog);
+            // A landed strike ends the unit's turn via the engine (active unit already advanced, so
+            // this is a no-op); if it somehow didn't, end it so the AI loop can't stall.
+            this.endTurnIfStillActive(currentUnit);
+            this.finishAIAction(aiActive);
+        });
+        if (!started) {
+            clearTimeout(watchdog);
+            this.endTurnIfStillActive(currentUnit);
+            this.finishAIAction(aiActive);
+        }
+        return true;
     }
     /**
      * Handle MELEE_ATTACK action type (no move needed).

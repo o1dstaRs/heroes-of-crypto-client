@@ -532,6 +532,8 @@ export class Sandbox extends PixiScene {
                 this.executeAttackSequence(attacker, target, attackFrom, replayAction),
             executeMoveSequence: (unit, path, overrideFootprint, onComplete, replayAction) =>
                 this.executeMoveSequence(unit, path, overrideFootprint, onComplete, replayAction),
+            executeObstacleAttackSequence: (unit, targetWorldPosition, attackFromCell, onComplete) =>
+                this.executeObstacleAttackSequence(unit, targetWorldPosition, attackFromCell, onComplete),
             refreshUnits: () => this.refreshUnits(),
         });
 
@@ -2182,7 +2184,17 @@ export class Sandbox extends PixiScene {
         this.sc_moveBlocked = true;
 
         if (attackEvent.attackType === "range") {
-            await this.playReplayProjectile(attacker, target);
+            // The engine records the shot's aimed visible-edge center as the target animation's
+            // toPosition; fire the replayed projectile there so it lands on the selected edge, not the
+            // target's center.
+            const targetAnimations = (attackEvent.animations ?? []).filter(
+                (animation) => animation.affectedUnitId === target.getId(),
+            );
+            // The aimed visible-edge center is the animation toPosition; all range shot-animations
+            // share it, so fall back to the first one when the primary target's own entry is absent
+            // (e.g. Through Shot records its single animation against the last pierced unit).
+            const aimedEdge = (targetAnimations[0] ?? attackEvent.animations?.[0])?.toPosition;
+            await this.playReplayProjectile(attacker, target, aimedEdge);
             // Double Shot fires a second projectile at the same target. Plain double-shotters expose the
             // second shot as a second damage hit (hits.length > 1), but an AOE double-shotter (Gargantuan
             // = Area Throw) routes its first shot through the AOE path: damage is conveyed via `splash` and
@@ -2190,16 +2202,14 @@ export class Sandbox extends PixiScene {
             // The authoritative animations are reliable for both: the engine records one shot-animation at
             // the target per landed shot (a missed second shot records none), so two target-directed shot
             // animations means the second shot landed.
-            const targetShotAnimations = (attackEvent.animations ?? []).filter(
-                (animation) => animation.affectedUnitId === target.getId(),
-            ).length;
+            const targetShotAnimations = targetAnimations.length;
             const hitsCount = attackEvent.damage.hits?.length ?? 0;
             if (
                 this.shouldPlayReplayDoubleShotProjectile() &&
                 attacker.getAbility("Double Shot") &&
                 (hitsCount > 1 || targetShotAnimations > 1)
             ) {
-                void this.playReplayProjectile(attacker, target);
+                void this.playReplayProjectile(attacker, target, aimedEdge);
             }
         } else {
             // Move + melee: the authoritative engine folds the approach into the attack (one
@@ -2286,10 +2296,16 @@ export class Sandbox extends PixiScene {
             }
         }
     }
-    private async playReplayProjectile(attacker: RenderableUnit, target: RenderableUnit): Promise<void> {
+    private async playReplayProjectile(
+        attacker: RenderableUnit,
+        target: RenderableUnit,
+        toPosition?: HoCMath.XY,
+    ): Promise<void> {
         const gs = this.sc_sceneSettings.getGridSettings();
         const muzzle = attacker.getVisualCenter(gs);
-        const targetPosition = target.getVisualCenter(gs);
+        // Prefer the authoritative aimed edge (the engine records it as the animation toPosition) so
+        // the replayed projectile lands where the shot was aimed, not on the target's center.
+        const targetPosition = toPosition ?? target.getVisualCenter(gs);
         const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
         await this.rangedProjectiles.fire({ from: muzzle, to: targetPosition, big: bigProjectile });
     }
@@ -2571,8 +2587,12 @@ export class Sandbox extends PixiScene {
         this.sc_sceneLog.updateLog(`${target.getName()} resp ${attacker.getName()} (${responseDamage.amount})`);
 
         if (attackEvent.attackType === "range") {
-            // A ranged attack only ever provokes a ranged response, so fire the return shot back.
-            await this.playReplayProjectile(target, attacker);
+            // A ranged attack only ever provokes a ranged response, so fire the return shot back at the
+            // attacker's aimed edge (recorded as the response animation's toPosition), not its center.
+            const responseEdge = attackEvent.animations.find(
+                (animation) => animation.affectedUnitId === attacker.getId(),
+            )?.toPosition;
+            await this.playReplayProjectile(target, attacker, responseEdge);
         } else {
             this.applyReplayLunge(target, attacker);
             await this.delayReplay(Sandbox.REPLAY_CONTROL_HOLD_MS);
@@ -4504,9 +4524,14 @@ export class Sandbox extends PixiScene {
         unit: RenderableUnit,
         targetPosition: HoCMath.XY,
         attackFromCell?: HoCMath.XY,
+        onComplete?: () => void,
     ): boolean {
         if (!attackFromCell) {
-            return this.applyObstacleAttackAction(unit, targetPosition);
+            const ok = this.applyObstacleAttackAction(unit, targetPosition);
+            if (ok) {
+                onComplete?.();
+            }
+            return ok;
         }
 
         const attackFromPos = this.getObstacleAttackFromPosition(unit, attackFromCell);
@@ -4518,7 +4543,11 @@ export class Sandbox extends PixiScene {
         const alreadyAtAttackCell =
             Math.abs(currentPos.x - attackFromPos.x) < 0.1 && Math.abs(currentPos.y - attackFromPos.y) < 0.1;
         if (alreadyAtAttackCell) {
-            return this.applyObstacleAttackAction(unit, targetPosition, attackFromCell);
+            const ok = this.applyObstacleAttackAction(unit, targetPosition, attackFromCell);
+            if (ok) {
+                onComplete?.();
+            }
+            return ok;
         }
 
         const routes = this.currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y);
@@ -4534,6 +4563,7 @@ export class Sandbox extends PixiScene {
 
         this.executeMoveSequence(unit, route, footprint, () => {
             this.applyObstacleAttackAction(unit, targetPosition, attackFromCell);
+            onComplete?.();
         });
         return true;
     }
@@ -5368,10 +5398,13 @@ export class Sandbox extends PixiScene {
             }
 
             // Fire the projectile BEFORE applying damage so the stack-count drop, damage
-            // number and death skull all land in sync with the projectile's arrival.
+            // number and death skull all land in sync with the projectile's arrival. It flies to the
+            // aimed visible-edge center (what the engine resolves the shot to), NOT the target's
+            // geometric center — otherwise the arrow points at an edge but the projectile lands center.
             const muzzle = attacker.getVisualCenter(gs);
+            const shotTarget = aim?.position ?? tVis;
             const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
-            await this.rangedProjectiles.fire({ from: muzzle, to: tVis, big: bigProjectile });
+            await this.rangedProjectiles.fire({ from: muzzle, to: shotTarget, big: bigProjectile });
 
             if (!applyAttackActionResult(this.createActionEngine().apply(action))) {
                 return false;
@@ -5381,7 +5414,7 @@ export class Sandbox extends PixiScene {
             // number appears (~240ms later). Gated on the ability so Through Shot (which also
             // yields multiple hits) doesn't spawn extra projectiles at the primary target.
             if (attacker.getAbility("Double Shot") && damageForAnimation.hits && damageForAnimation.hits.length > 1) {
-                this.rangedProjectiles.fire({ from: muzzle, to: tVis, big: bigProjectile });
+                this.rangedProjectiles.fire({ from: muzzle, to: shotTarget, big: bigProjectile });
             }
 
             // Ranged counter: when the defender shoots back, the engine records a response shot as an
@@ -5398,9 +5431,13 @@ export class Sandbox extends PixiScene {
                 liveAttackEvent.animations.some((animation) => animation.affectedUnitId === attacker.getId())
             ) {
                 const responseMuzzle = target.getVisualCenter(gs);
-                const attackerCenter = attacker.getVisualCenter(gs);
+                // Fire the counter at the attacker's aimed edge (the response animation's toPosition),
+                // not its center, to match the primary shot.
+                const responseEdge =
+                    liveAttackEvent.animations.find((animation) => animation.affectedUnitId === attacker.getId())
+                        ?.toPosition ?? attacker.getVisualCenter(gs);
                 const bigResponse = BIG_PROJECTILE_UNITS.has(target.getName().toLowerCase());
-                void this.rangedProjectiles.fire({ from: responseMuzzle, to: attackerCenter, big: bigResponse });
+                void this.rangedProjectiles.fire({ from: responseMuzzle, to: responseEdge, big: bigResponse });
             }
         } else {
             const routeMetadata = this.currentActiveKnownPaths?.get((attackFrom.x << 4) | attackFrom.y)?.[0];
