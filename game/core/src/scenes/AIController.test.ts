@@ -23,6 +23,7 @@ const createUnit = (id = "ai-unit-1", team = TeamVals.LOWER): RenderableUnit =>
         getPosition: () => ({ x: 0, y: 0 }),
         getUnitProperties: () => ({}),
         getAttackTypeSelection: () => AttackVals.MELEE,
+        getSteps: () => 10,
         hasAbilityActive: () => false,
         isSmallSize: () => true,
     }) as unknown as RenderableUnit;
@@ -222,6 +223,7 @@ describe("AIController", () => {
         const target = {
             getId: () => "target-1",
             getTeam: () => 2,
+            getCells: () => [{ x: 3, y: 3 }],
         };
         const appliedActions: GameAction[] = [];
         const buttonManager = {
@@ -245,6 +247,7 @@ describe("AIController", () => {
             getCurrentActiveUnit: () => unit,
             getGrid: () => ({
                 getOccupantUnitId: () => "target-1",
+                areCellsAdjacent: () => true,
             }),
             getGridMatrix: () => [],
             getHoverManager: () => ({
