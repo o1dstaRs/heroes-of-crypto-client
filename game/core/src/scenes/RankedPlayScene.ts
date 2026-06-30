@@ -563,6 +563,13 @@ export class RankedPlayScene extends Sandbox {
             // the authoritative remaining amounts/hp here so attack and retaliation damage actually
             // updates each unit's stack on the board (otherwise it stays frozen at the pre-hit count).
             this.applyRankedUnitStats(state.units);
+            // Re-run synergies + POSITION-DEPENDENT auras so the AI/targeting agree with the server on
+            // targetability. A skip-rebuild snapshot moves units (animated) but never re-runs the aura
+            // pass, so e.g. White Tiger's Disguise Aura (which Hides it when no enemy is within range,
+            // making it untargetable) stays stale: the AI sees it Visible and fires a doomed melee that
+            // the server rejects (attack_not_available). The move animation has completed (grid occupancy
+            // is final) before a skip-rebuild snapshot applies, so the aura range checks are correct here.
+            this.unitsHolder.refreshStackPowerForAllUnits();
             this.applyRankedFightStats(snapshot, state.units);
             return;
         }
