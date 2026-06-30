@@ -282,7 +282,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     // getting rejected (e.g. an autobattle AI proposing an illegal move/attack the server refuses, or
     // a residual desync), we force a server-authoritative END_TURN to skip the stuck unit so the game
     // can never deadlock on a repeatedly-rejected action.
-    const rejectionStreakRef = useRef<{ seq: number; count: number }>({ seq: -1, count: 0 });
+    const rejectionStreakRef = useRef<{ key: string; count: number }>({ key: "", count: 0 });
     // Timestamp (ms) when pendingTurnResolutionRef was last raised — used to auto-expire a stuck gate.
     const pendingTurnResolutionSinceRef = useRef(0);
     const pendingAuthoritativeRecordsRef = useRef(new Map<number, PendingAuthoritativePlayback>());
@@ -690,11 +690,16 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     // Escape hatch: if the SAME turn keeps getting rejected, the submitter (usually the
                     // autobattle AI) is stuck re-proposing an action the server won't accept. Force a
                     // server-authoritative END_TURN to skip the active unit so the fight can't deadlock.
+                    // Key the streak on the action's IDENTITY (active unit + action type), NOT on
+                    // expectedSequence: in a sequence_mismatch storm the server-reported sequence advances
+                    // on every retry, so an expectedSequence key reset the count to 1 each time and the
+                    // escape never tripped. Unit+type stays constant across the doomed resubmits.
+                    const streakKey = `${snapshotRef.current?.currentUnitId ?? ""}:${payload.type}`;
                     const streak = rejectionStreakRef.current;
-                    if (streak.seq === payload.expectedSequence) {
+                    if (streak.key === streakKey) {
                         streak.count += 1;
                     } else {
-                        rejectionStreakRef.current = { seq: payload.expectedSequence, count: 1 };
+                        rejectionStreakRef.current = { key: streakKey, count: 1 };
                     }
                     const activeUnitId = snapshotRef.current?.currentUnitId;
                     if (
@@ -702,7 +707,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                         payload.type !== PlayActionType.END_TURN &&
                         activeUnitId
                     ) {
-                        rejectionStreakRef.current = { seq: -1, count: 0 };
+                        rejectionStreakRef.current = { key: "", count: 0 };
                         const escape = await sendRankedPlayAction(
                             gameId,
                             {
@@ -725,7 +730,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     }
                     return false;
                 }
-                rejectionStreakRef.current = { seq: -1, count: 0 };
+                rejectionStreakRef.current = { key: "", count: 0 };
                 return true;
             } catch (err: unknown) {
                 pendingTurnResolutionRef.current = false;
