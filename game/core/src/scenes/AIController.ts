@@ -343,7 +343,7 @@ export class AIController {
             actionPerformed = await this.handleObstacleAttack(currentUnit, action, wasAIActive);
             if (actionPerformed) return; // Early return handled internally with callbacks
         } else if (action?.actionType() === AI.AIActionType.MELEE_ATTACK) {
-            actionPerformed = await this.handleMeleeAttack(currentUnit, action);
+            actionPerformed = await this.handleMeleeAttack(currentUnit, action, wasAIActive);
         } else if (action?.actionType() === AI.AIActionType.RANGE_ATTACK) {
             actionPerformed = await this.handleRangeAttack(currentUnit, action);
         } else {
@@ -1130,7 +1130,11 @@ export class AIController {
     /**
      * Handle MELEE_ATTACK action type (no move needed).
      */
-    private async handleMeleeAttack(currentUnit: RenderableUnit, action: AI.IAIAction): Promise<boolean> {
+    private async handleMeleeAttack(
+        currentUnit: RenderableUnit,
+        action: AI.IAIAction,
+        wasAIActive: boolean,
+    ): Promise<boolean> {
         if (this.selectAttackType(currentUnit, AttackVals.MELEE)) {
             this.context.getButtonManager().refreshButtons(true);
             this.context.refreshUnits();
@@ -1149,6 +1153,14 @@ export class AIController {
 
         const targetUnit = this.context.getUnitsHolder().getAllUnits().get(targetUnitId);
         if (!targetUnit) return false;
+
+        // The planner can cap a melee approach SHORT of the target (target out of reach this turn) yet
+        // still label it MELEE_ATTACK with a moved attack-from cell — leaving attackFrom reachable but
+        // NOT adjacent to the target, which the engine rejects (attack_not_available). Detect that and
+        // just advance to the (reachable) cell this turn; the strike lands once the unit is adjacent.
+        if (!this.context.getGrid().areCellsAdjacent([attackFromCell], targetUnit.getCells())) {
+            return this.handleMoveOnly(currentUnit, action, wasAIActive, attackFromCell);
+        }
 
         return this.context.executeAttackSequence(
             currentUnit,
