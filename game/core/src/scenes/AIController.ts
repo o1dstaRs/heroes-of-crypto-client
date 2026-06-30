@@ -1138,6 +1138,16 @@ export class AIController {
         action: AI.IAIAction,
         wasAIActive: boolean,
     ): Promise<boolean> {
+        // A No-Melee unit can never land this strike. If a melee plan still reached this handler (its
+        // range shot was blocked this turn), advance toward the planned cell instead of submitting a
+        // rejected melee — mirrors the guard in handleMoveAndMeleeAttack.
+        if (currentUnit.hasAbilityActive("No Melee")) {
+            const moveTo = action.cellToMove();
+            if (moveTo) {
+                return this.handleMoveOnly(currentUnit, action, wasAIActive, moveTo);
+            }
+            return false;
+        }
         if (this.selectAttackType(currentUnit, AttackVals.MELEE)) {
             this.context.getButtonManager().refreshButtons(true);
             this.context.refreshUnits();
@@ -1369,6 +1379,15 @@ export class AIController {
     private selectAttackType(unit: RenderableUnit, attackType: AttackType): boolean {
         const current = unit.getAttackTypeSelection();
         if (current === attackType) {
+            return false;
+        }
+        // No-Melee units (e.g. Tsar Cannon) can never adopt a melee stance; the engine rejects
+        // select_attack_type(MELEE/MELEE_MAGIC) for them as attack_type_not_available. Refuse it here so
+        // NO caller (move+melee, melee, obstacle, ...) ever submits a doomed attack-type switch.
+        if (
+            (attackType === AttackVals.MELEE || attackType === AttackVals.MELEE_MAGIC) &&
+            unit.hasAbilityActive("No Melee")
+        ) {
             return false;
         }
         // MELEE_MAGIC units (a melee strike plus innate magic) report their melee stance as MELEE_MAGIC,
