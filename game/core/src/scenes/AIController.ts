@@ -964,6 +964,13 @@ export class AIController {
             this.finishAIAction(wasAIActive);
             return true;
         }
+        // Adjacency guard: even when attackFromCell is reachable, the planner can cap the move SHORT of
+        // the target (target unreachable this turn) yet still emit a move+attack, leaving attackFrom not
+        // actually adjacent to the target — which the engine rejects (attack_not_available). Detect that
+        // and just advance to the reachable cell this turn; the strike lands once the unit is adjacent.
+        if (route && !this.context.getGrid().areCellsAdjacent([attackFromCell], unitToAttack.getCells())) {
+            return this.handleMoveOnly(currentUnit, action, wasAIActive, attackFromCell);
+        }
         const authoritativeAction = this.modelAction(currentUnit, {
             type: "melee_attack",
             attackerId: currentUnit.getId(),
