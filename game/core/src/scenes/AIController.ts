@@ -391,11 +391,27 @@ export class AIController {
         const attackValue = this.estimateAttackValue(caster);
         const threat = (u: Unit): number => Math.max(1, u.getAttackDamageMax()) * Math.max(1, u.getAmountAlive());
         // Small enemy cells the caster could reach — the "within movement range" set Castling needs.
-        const castlingSteps = Math.max(1, Math.ceil(caster.getSteps())) + 1;
+        // Use real pathfinding (mirroring the server's enemiesCellsWithinMovementRangeForActive), NOT
+        // straight-line distance: a close-as-the-crow-flies enemy can be unreachable around obstacles or
+        // beyond the actual step budget, and the engine's canCastSpell rejects a Castling swap to an
+        // unreachable cell — so the distance estimate made the AI fire doomed casts (spell_not_available).
+        // Path on the unit-less matrix so enemy-occupied swap destinations are pathable.
+        const castlingReach = new Set(
+            this.context
+                .getPathHelper()
+                .getMovePath(
+                    caster.getBaseCell(),
+                    this.context.getGrid().getMatrixNoUnits(),
+                    caster.getSteps(),
+                    undefined,
+                    caster.canFly(),
+                    caster.isSmallSize(),
+                    caster.hasAbilityActive("Made of Fire"),
+                )
+                .cells.map((c) => (c.x << 4) | c.y),
+        );
         const enemiesInRange = enemies
-            .filter(
-                (e) => e.isSmallSize() && HoCMath.getDistance(caster.getBaseCell(), e.getBaseCell()) <= castlingSteps,
-            )
+            .filter((e) => e.isSmallSize() && castlingReach.has((e.getBaseCell().x << 4) | e.getBaseCell().y))
             .map((e) => e.getBaseCell());
         // Authoritative castability gate (same as the engine's handleMagicAttack) so we never pick a
         // single-target cast the server would reject as spell_not_available.
@@ -883,6 +899,28 @@ export class AIController {
      * Handle MOVE_AND_MELEE_ATTACK action type.
      * Returns true if action was initiated (may be async via callbacks).
      */
+    /**
+     * Farthest cell along `route` the unit can actually reach within `steps` this turn (the route is
+     * planned on an unbounded path, so its tail can exceed the step budget). Used to downgrade an
+     * out-of-reach move+attack to a plain advance instead of submitting a doomed strike.
+     */
+    private farthestReachableRouteCell(
+        route: HoCMath.XY[],
+        knownPaths: Map<number, IWeightedRoute[]> | undefined,
+        steps: number,
+    ): HoCMath.XY | undefined {
+        if (!knownPaths) {
+            return undefined;
+        }
+        let best: HoCMath.XY | undefined;
+        for (const cell of route) {
+            const weight = knownPaths.get((cell.x << 4) | cell.y)?.[0]?.weight;
+            if (weight !== undefined && weight <= steps) {
+                best = cell;
+            }
+        }
+        return best;
+    }
     private async handleMoveAndMeleeAttack(
         currentUnit: RenderableUnit,
         action: AI.IAIAction,
@@ -911,6 +949,21 @@ export class AIController {
         const knownPaths = action.currentActiveKnownPaths();
         const movePaths = knownPaths?.get((attackFromCell.x << 4) | attackFromCell.y);
         const route = movePaths && Array.isArray(movePaths) && movePaths.length > 0 ? movePaths[0].route : undefined;
+        // Reachability guard: the planner picks the strike-from cell using an UNBOUNDED path (so it can
+        // head toward distant targets), so attackFromCell can sit beyond this turn's step budget. A
+        // move+attack there is rejected by the server as attack_not_available — and the AI re-proposes
+        // it every trigger, looping until the rejection-streak escape ends the turn. If attackFrom is out
+        // of reach this turn, advance toward it with a plain capped move instead of a doomed strike.
+        const routeWeight = movePaths?.[0]?.weight;
+        if (route && routeWeight !== undefined && routeWeight > currentUnit.getSteps()) {
+            const reachable = this.farthestReachableRouteCell(route, knownPaths, currentUnit.getSteps());
+            if (reachable) {
+                return this.handleMoveOnly(currentUnit, action, wasAIActive, reachable);
+            }
+            this.endTurnIfStillActive(currentUnit);
+            this.finishAIAction(wasAIActive);
+            return true;
+        }
         const authoritativeAction = this.modelAction(currentUnit, {
             type: "melee_attack",
             attackerId: currentUnit.getId(),
@@ -1130,6 +1183,20 @@ export class AIController {
      * targets are still out of reach (and it's not under melee pressure), hourglasses once so it can
      * reposition after the others have moved this round. Returns true if it took the unit's turn.
      */
+    /**
+     * Mirror the engine's canWaitOnHourglass so the AI never submits a wait_turn the server rejects as
+     * hourglass_not_available (the unit already acted/hourglassed this round, is already queued, or is
+     * its team's last unit alive).
+     */
+    private canHourglassWait(unit: Unit): boolean {
+        const fp = FightStateManager.getInstance().getFightProperties();
+        return (
+            fp.getTeamUnitsAlive(unit.getTeam()) > 1 &&
+            !fp.hourglassIncludes(unit.getId()) &&
+            !fp.hasAlreadyMadeTurn(unit.getId()) &&
+            !fp.hasAlreadyHourglass(unit.getId())
+        );
+    }
     private tryAuraReposition(
         currentUnit: RenderableUnit,
         action: AI.IAIAction | undefined,
@@ -1163,7 +1230,8 @@ export class AIController {
             plan.bestScore <= plan.currentScore &&
             plan.bestScore < plan.coverableTargets &&
             plan.currentThreats === 0 &&
-            this.auraWaitAttemptUnitId !== currentUnit.getId()
+            this.auraWaitAttemptUnitId !== currentUnit.getId() &&
+            this.canHourglassWait(currentUnit)
         ) {
             this.auraWaitAttemptUnitId = currentUnit.getId();
             const waited = this.context.applyGameAction(
