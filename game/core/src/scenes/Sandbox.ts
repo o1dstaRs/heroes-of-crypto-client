@@ -5344,6 +5344,33 @@ export class Sandbox extends PixiScene {
         return seen.size > 0;
     }
     /**
+     * The unit a plain (non-Through-Shot, non-AOE) ranged shot at `targetUnit` would actually hit. A
+     * normal projectile can't pass through units, so if another unit stands on the trajectory between
+     * the attacker and the hovered target, THAT unit is struck instead. Returns the first unit the shot
+     * meets (mirrors legacy test_heroes.ts getHoverAttackUnit = affectedUnits[0][0]); undefined if the
+     * trajectory can't be evaluated, so callers fall back to the hovered target.
+     */
+    private resolveFirstRangeHitUnit(targetUnit: Unit): Unit | undefined {
+        const attacker = this.currentActiveUnit;
+        if (!attacker || !this.attackHandler) {
+            return undefined;
+        }
+        const aim =
+            attacker instanceof RenderableUnit
+                ? this.resolveRangeAimForTarget(attacker, targetUnit)?.position
+                : undefined;
+        const evalResult = this.attackHandler.evaluateRangeAttack(
+            this.unitsHolder.getAllUnits(),
+            attacker,
+            attacker.getPosition(),
+            aim ?? targetUnit.getPosition(),
+            false, // isThroughShot — a normal projectile stops at the first unit it meets
+            false, // isSelection
+            false, // splash
+        );
+        return evalResult.affectedUnits[0]?.[0];
+    }
+    /**
      * The 3x3 splash cells for an Area Throw aimed at worldPos, or undefined when the active unit
      * can't area-throw there (not an Area Throw range unit, off-grid, or aiming directly at an
      * enemy unit — that goes through the normal single-target path).
@@ -6914,9 +6941,14 @@ export class Sandbox extends PixiScene {
                         // Clear previous frame's highlights/visuals before adding new ones
                         this.hoverManager.clearAttackVisuals();
                         // Mass/AOE ranged units (Cyclops/Tsar Cannon/Gargantuan) outline every unit
-                        // the shot will hit; everyone else highlights just the single target.
+                        // the shot will hit; everyone else highlights just the single target — except a
+                        // plain ranged shot can't pass through units, so if one blocks the line to the
+                        // hovered target, outline that actual victim (red) instead of the hovered unit.
                         if (!this.highlightRangeAttackUnits(targetUnit)) {
-                            this.hoverManager.addTargetHighlight(targetUnit);
+                            const highlightUnit = isRangeAttackContext
+                                ? this.resolveFirstRangeHitUnit(targetUnit) ?? targetUnit
+                                : targetUnit;
+                            this.hoverManager.addTargetHighlight(highlightUnit);
                         }
 
                         let attackFromPos: HoCMath.XY | undefined;
