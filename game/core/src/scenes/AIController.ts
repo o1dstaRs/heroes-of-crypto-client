@@ -1304,16 +1304,23 @@ export class AIController {
         // 2) No move helps yet but targets remain out of range and we're not under melee pressure —
         //    wait (once) so allies/enemies move first, then reposition on the later activation.
         const waitAction = this.modelAction(currentUnit, { type: "wait_turn", unitId: currentUnit.getId() });
+        // canHourglassWait reads the local FightStateManager, authoritative only when the local engine
+        // runs the turn (sandbox). In ranked the turn is deferred to the server, so that hourglass/turn
+        // state is stale and the server rejects the wait as hourglass_not_available. Detect ranked by
+        // probing whether a turn-resolving MOVE would be deferred to the authoritative server — true ONLY
+        // in ranked. (Probing the wait action itself always read false — wait_turn is never in the
+        // deferred set — so the gate never fired; this is the corrected check.) Skip the wait in ranked.
+        const deferredToServer =
+            this.context.isAuthoritativeAction?.({
+                type: "move_unit",
+                unitId: currentUnit.getId(),
+            } as unknown as GameAction) ?? false;
         if (
             plan.bestScore <= plan.currentScore &&
             plan.bestScore < plan.coverableTargets &&
             plan.currentThreats === 0 &&
             this.auraWaitAttemptUnitId !== currentUnit.getId() &&
-            // canHourglassWait reads the local FightStateManager, which is authoritative only when the
-            // local engine runs the turn (sandbox). In ranked the turn is deferred to the server, so that
-            // hourglass/turn state is stale and the server rejects the wait as hourglass_not_available —
-            // skip the wait optimization there and just act this turn instead.
-            !(this.context.isAuthoritativeAction?.(waitAction) ?? false) &&
+            !deferredToServer &&
             this.canHourglassWait(currentUnit)
         ) {
             this.auraWaitAttemptUnitId = currentUnit.getId();
