@@ -555,6 +555,10 @@ export class RankedPlayScene extends Sandbox {
                 this.sc_visibleState.lapNumber = Math.max(snapshot.currentLap || 0, 0);
                 this.sc_visibleStateUpdateNeeded = true;
             }
+            // A skip-rebuild snapshot updates stats but never tears down units the server has dropped
+            // (a kill conveyed by snapshot rather than a replayed event), so they linger as "ghosts" the
+            // AI then targets — which the server rejects as unit_not_found. Remove them here.
+            this.reconcileGhostUnits(new Set(state.units.map((u) => u.properties.id)));
             // A replayed action animates the hit but its EVENTS don't mutate the stack counts — apply
             // the authoritative remaining amounts/hp here so attack and retaliation damage actually
             // updates each unit's stack on the board (otherwise it stays frozen at the pre-hit count).

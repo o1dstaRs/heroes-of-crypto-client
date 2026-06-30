@@ -8487,6 +8487,35 @@ export class Sandbox extends PixiScene {
         }
         this.refreshUnits();
     }
+    /**
+     * Remove "ghost" units: still on the local board but absent from the authoritative unit set (the
+     * server killed/removed them, but a skip-rebuild snapshot only refreshed stats and never tore them
+     * down). The full server snapshot lists every live unit, so an absent id mid-fight is genuinely
+     * gone. This is a PURE removal — no live unit ever moves — so it cannot reintroduce the teleport the
+     * skip-rebuild path exists to avoid, while it stops the AI (and targeting) acting on a unit the
+     * server no longer has, which it rejects as unit_not_found.
+     */
+    protected reconcileGhostUnits(presentIds: Set<string>): void {
+        if (this.unitsHolder.getAllUnits().size === presentIds.size) {
+            return;
+        }
+        let removed = false;
+        for (const unit of [...this.unitsHolder.getAllUnits().values()] as RenderableUnit[]) {
+            if (presentIds.has(unit.getId())) {
+                continue;
+            }
+            unit.destroyVisuals();
+            this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
+            this.unitsHolder.deleteUnitById(unit.getId());
+            removed = true;
+        }
+        if (removed) {
+            this.gridMatrix = this.grid.getMatrix();
+            this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+            this.refreshUnits();
+            this.sc_visibleStateUpdateNeeded = true;
+        }
+    }
     private destroyEventDeletedUnit(unitId: string, unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
         const unit = unitSnapshot.get(unitId);
         if (!unit) {
