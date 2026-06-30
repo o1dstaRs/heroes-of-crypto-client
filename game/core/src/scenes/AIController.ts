@@ -4,6 +4,7 @@ import {
     Grid,
     GridMath,
     HoCMath,
+    HoCLib,
     IWeightedRoute,
     PathHelper,
     SpellHelper,
@@ -111,6 +112,11 @@ export interface IAIContext {
  */
 export class AIController {
     private static readonly MOVE_ACTION_TIMEOUT_MS = 6000;
+    // Grace window for the turn-action loop guard (see turnActionAttemptUnitId). Comfortably exceeds a
+    // normal optimistic-submit → animation → authoritative-handoff round-trip, so it never blocks a
+    // legitimate next action, but bounds how long a dropped/never-acknowledged submit can hold the
+    // guard before we let the AI re-evaluate (the server turn-timer / reject-streak END_TURN then recovers).
+    private static readonly TURN_ACTION_GUARD_GRACE_MS = 4000;
     private context: IAIContext;
     private readonly localModelOpponent: LocalModelOpponentConfig;
     private localModelTeamOverride?: TeamType;
@@ -123,6 +129,15 @@ export class AIController {
     // Aura-bearer we last hourglassed (waited) to reposition later this round. Cleared when a different
     // unit becomes active, so the same unit doesn't try to wait twice on the same turn.
     private auraWaitAttemptUnitId: string | undefined;
+    // Unit we last submitted a turn-resolving action (move/attack/end-turn) for. In ranked these submit
+    // OPTIMISTICALLY (fire-and-forget), so a server rejection leaves the same unit active and the
+    // ~60fps AI poll would recompute the SAME doomed action against the still-stale scene and resubmit
+    // it every frame — the observed reject storm. While this id stays the active unit we refuse to
+    // resubmit and wait for the authoritative snapshot to hand off the turn. Cleared when a DIFFERENT
+    // unit becomes active (turn advanced) or after TURN_ACTION_GUARD_GRACE_MS so a dropped submit can't
+    // wedge the unit. Mirrors the spellCastAttemptUnitId / auraWaitAttemptUnitId loop guards.
+    private turnActionAttemptUnitId: string | undefined;
+    private turnActionAttemptAtMs = 0;
     // AI State
     public isAIActive = false;
     public performingAction = false;
@@ -313,6 +328,24 @@ export class AIController {
             this.finishAIAction(wasAIActive);
             return;
         }
+
+        // Turn-action loop guard: if we already submitted a turn-resolving action for THIS still-active
+        // unit, don't recompute + resubmit it every frame while waiting for the authoritative handoff
+        // (ranked submits are optimistic, so a rejection keeps the unit active — that is the reject
+        // storm). The guard clears as soon as a different unit is active (turn advanced) or after a grace
+        // window (dropped submit), so it re-arms each turn and can never permanently wedge the AI.
+        if (this.turnActionAttemptUnitId && this.turnActionAttemptUnitId !== currentUnit.getId()) {
+            this.turnActionAttemptUnitId = undefined;
+        }
+        if (this.turnActionAttemptUnitId === currentUnit.getId()) {
+            if (HoCLib.getTimeMillis() - this.turnActionAttemptAtMs < AIController.TURN_ACTION_GUARD_GRACE_MS) {
+                this.finishAIAction(wasAIActive);
+                return;
+            }
+            this.turnActionAttemptUnitId = undefined;
+        }
+        this.turnActionAttemptUnitId = currentUnit.getId();
+        this.turnActionAttemptAtMs = HoCLib.getTimeMillis();
 
         let actionPerformed = false;
 
