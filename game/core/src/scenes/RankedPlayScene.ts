@@ -210,6 +210,9 @@ export class RankedPlayScene extends Sandbox {
     private authoritativePlaybackGameId = "";
     private readonly rankedStatsLowerRoster = new Map<string, RankedFightRosterEntry>();
     private readonly rankedStatsUpperRoster = new Map<string, RankedFightRosterEntry>();
+    // Unit ids already folded into the casualty roster, so each stack is counted exactly once as the
+    // roster is accumulated across snapshots (see mergeRankedRoster).
+    private readonly rankedStatsCountedUnitIds = new Set<string>();
     private viewerTeam?: TeamType;
     private upNextUnitIds?: string[];
     // Per-unit sets of currently-active debuff / buff names, tracked across snapshots so we can pop a
@@ -1340,7 +1343,8 @@ export class RankedPlayScene extends Sandbox {
         }
 
         const lap = Math.max(1, Math.floor(snapshot.currentLap || 1));
-        this.ensureRankedFightStatsStarted(units);
+        this.ensureRankedFightStatsStarted();
+        this.mergeRankedRoster(units);
         this.applyServerStartTotals(snapshot);
         this.sampleRankedFightStats(units, lap);
 
@@ -1407,6 +1411,7 @@ export class RankedPlayScene extends Sandbox {
         this.rankedStatsSeries = [];
         this.rankedStatsLowerRoster.clear();
         this.rankedStatsUpperRoster.clear();
+        this.rankedStatsCountedUnitIds.clear();
     }
     /**
      * Prefer the server's authoritative fight-start army totals when present, overriding what we
@@ -1429,13 +1434,14 @@ export class RankedPlayScene extends Sandbox {
             this.rankedStatsUpperStartHealthTotal = snapshot.upperStartHealth;
         }
     }
-    private ensureRankedFightStatsStarted(units: SandboxSceneUnitState[]): void {
+    private ensureRankedFightStatsStarted(): void {
         if (this.rankedStatsStarted) {
             return;
         }
 
         this.rankedStatsLowerRoster.clear();
         this.rankedStatsUpperRoster.clear();
+        this.rankedStatsCountedUnitIds.clear();
         this.rankedStatsLowerStartTotal = 0;
         this.rankedStatsUpperStartTotal = 0;
         this.rankedStatsLowerStartHealthTotal = 0;
@@ -1458,13 +1464,25 @@ export class RankedPlayScene extends Sandbox {
             },
         ];
 
+        this.rankedStatsStarted = true;
+    }
+    /**
+     * Fold every unit we can see into the casualty roster + start totals, cumulatively across snapshots
+     * (each stack counted once via its id). A unit that dies is dropped from later snapshots, and a
+     * cold-loaded / mid-joined client may never see the fight-start roster — capturing only at fight
+     * start would then leave those units out of the FALLEN list. A stack's amount_alive + amount_died is
+     * constant, so recording its total whenever we first see it is exact regardless of timing.
+     */
+    private mergeRankedRoster(units: SandboxSceneUnitState[]): void {
         for (const unit of units) {
+            const id = unit.properties.id;
+            if (!id || this.rankedStatsCountedUnitIds.has(id)) {
+                continue;
+            }
             const start = rankedUnitStartAmount(unit);
-            const startHealth = rankedUnitStartHealth(unit);
             if (start <= 0) {
                 continue;
             }
-
             const roster =
                 unit.team === TeamVals.LOWER
                     ? this.rankedStatsLowerRoster
@@ -1474,14 +1492,14 @@ export class RankedPlayScene extends Sandbox {
             if (!roster) {
                 continue;
             }
+            this.rankedStatsCountedUnitIds.add(id);
             if (unit.team === TeamVals.LOWER) {
                 this.rankedStatsLowerStartTotal += start;
-                this.rankedStatsLowerStartHealthTotal += startHealth;
+                this.rankedStatsLowerStartHealthTotal += rankedUnitStartHealth(unit);
             } else {
                 this.rankedStatsUpperStartTotal += start;
-                this.rankedStatsUpperStartHealthTotal += startHealth;
+                this.rankedStatsUpperStartHealthTotal += rankedUnitStartHealth(unit);
             }
-
             const current = roster.get(unit.properties.name);
             if (current) {
                 current.start += start;
@@ -1492,8 +1510,6 @@ export class RankedPlayScene extends Sandbox {
                 });
             }
         }
-
-        this.rankedStatsStarted = true;
     }
     private sampleRankedFightStats(units: SandboxSceneUnitState[], lap: number): boolean {
         if (!this.rankedStatsStarted) {
