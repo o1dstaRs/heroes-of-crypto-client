@@ -1745,9 +1745,12 @@ export class RankedPlayScene extends Sandbox {
         const units = this.unitsHolder.getAllUnits();
         for (const snapUnit of snapshot.units) {
             const unit = units.get(snapUnit.id);
-            if (!unit || !unit.getAppliedAuraEffect("Disguise Aura")) {
+            if (!unit) {
                 continue;
             }
+            // Trust the snapshot's buff list directly — only Disguise-Aura bearers are ever Hidden on the
+            // server, so we needn't gate on a locally-applied aura effect (which may not be set yet at
+            // reconcile time, especially early-game, and was letting the stale Visible state slip through).
             const serverHidden = (snapUnit.buffs ?? []).includes("Hidden");
             if (serverHidden === unit.hasBuffActive("Hidden")) {
                 continue;
