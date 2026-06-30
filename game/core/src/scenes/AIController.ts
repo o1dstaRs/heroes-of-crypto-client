@@ -926,6 +926,18 @@ export class AIController {
         action: AI.IAIAction,
         wasAIActive: boolean,
     ): Promise<boolean> {
+        // No-Melee units (e.g. Tsar Cannon) can never melee. If the planner produced a move+melee for
+        // one — which happens when its range shot is blocked this turn so it has no usable attack — don't
+        // fire the doomed select_attack_type(MELEE) + strike (both are rejected as attack_type_not_available
+        // / attack_not_available). Just advance toward the planned cell so it can line up a range shot next
+        // turn.
+        if (currentUnit.hasAbilityActive("No Melee")) {
+            const moveTo = action.cellToMove();
+            if (moveTo) {
+                return this.handleMoveOnly(currentUnit, action, wasAIActive, moveTo);
+            }
+            return false;
+        }
         if (this.selectAttackType(currentUnit, AttackVals.MELEE)) {
             this.context.getButtonManager().refreshButtons(true);
             this.context.refreshUnits();
