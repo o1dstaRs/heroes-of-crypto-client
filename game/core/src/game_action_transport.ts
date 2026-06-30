@@ -23,9 +23,12 @@ export interface AuthoritativeUnitState {
     dead: boolean;
     placed: boolean;
     stackPower: number;
+    /** Remaining ranged shots, 1-based on the wire (count + 1; 0/absent = unknown). */
     rangeShots: number;
     /** Authoritative effective luck (base + per-turn roll + auras); can be negative. */
     luck: number;
+    /** Whether the unit is waiting on the hourglass (drives the hourglass icon on unit/UpNext/ALT). */
+    onHourglass: boolean;
     debuffs?: string[];
     buffs?: string[];
 }

@@ -30,6 +30,7 @@ const unitState = (overrides: Partial<AuthoritativeUnitState>): AuthoritativeUni
     stackPower: 0,
     rangeShots: 0,
     luck: 0,
+    onHourglass: false,
     ...overrides,
 });
 
@@ -60,6 +61,30 @@ describe("ranked placement scene state", () => {
         // not reset them to base creature config.
         expect(own?.properties.morale).toBe(9);
         expect(own?.properties.speed).toBe(7);
+    });
+
+    test("maps 1-based ranged shots, falling back to base when the field is absent", () => {
+        const rangedOf = (rangeShots: number) => {
+            const state = authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({
+                        id: "archer",
+                        team: TeamVals.LOWER,
+                        name: "Orc",
+                        creatureId: CreatureVals.ORC,
+                        rangeShots,
+                    }),
+                ]),
+            );
+            return state.units.find((unit) => unit.properties.id === "archer")!.properties.range_shots;
+        };
+
+        // Absent on the wire (older server / proto3 zero-default) => fall back to base config (Orc = 6),
+        // so ranged units never read as 0 just because the server didn't send the field.
+        expect(rangedOf(0)).toBe(6);
+        // 1-based: wire 1 => a genuine 0 shots left; wire 5 => 4 shots remaining.
+        expect(rangedOf(1)).toBe(0);
+        expect(rangedOf(5)).toBe(4);
     });
 
     test("keeps revealed opponent units visible while hiding unknown opponent placeholders", () => {

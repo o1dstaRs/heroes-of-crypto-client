@@ -123,6 +123,7 @@ export class MoveAnimationManager {
         destCell: HoCMath.XY,
         moveTrackPath?: HoCMath.XY[],
         onComplete?: () => void,
+        rapidCharge = false,
     ) {
         this.isActiveUnitMoving = true;
         this.moveTrackPath = moveTrackPath;
@@ -131,9 +132,10 @@ export class MoveAnimationManager {
 
         // Initial track anchor
         const start = worldPath[0];
-        // Detect Rapid Charge here (not at the call sites) so BOTH the live sandbox move path and the
-        // recorded-move replay path — i.e. ranked AND sandbox — get the accelerating dash automatically.
-        const rapidCharge = unit.hasAbilityActive("Rapid Charge");
+        // Rapid Charge dash (accelerate + motion blur) ONLY when this move leads into a melee attack —
+        // the caller passes rapidCharge=true for a move+attack approach, never for a plain reposition —
+        // AND the unit actually has the ability. Same gate for sandbox (live) and ranked (replay).
+        const useRapidCharge = rapidCharge && unit.hasAbilityActive("Rapid Charge");
         this.moveAnimation = {
             unit,
             worldPath,
@@ -144,7 +146,7 @@ export class MoveAnimationManager {
             destCell,
             lastTrackWorld: { x: start.x, y: start.y },
             onComplete,
-            rapidCharge,
+            rapidCharge: useRapidCharge,
             totalSegments: Math.max(1, worldPath.length - 1),
             lastAfterimageWorld: { x: start.x, y: start.y },
         };

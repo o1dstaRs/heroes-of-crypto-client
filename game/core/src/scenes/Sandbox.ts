@@ -103,6 +103,8 @@ export interface SandboxSceneUnitState {
     cells: HoCMath.XY[];
     baseCell: HoCMath.XY;
     attackType?: AttackType;
+    /** Whether the unit is waiting on the hourglass (so the hourglass icon survives rebuild/replay). */
+    onHourglass?: boolean;
 }
 
 export interface SandboxSceneState {
@@ -544,8 +546,8 @@ export class Sandbox extends PixiScene {
             applyGameAction: (action) => this.applyGameAction(action),
             executeAttackSequence: (attacker, target, attackFrom, replayAction) =>
                 this.executeAttackSequence(attacker, target, attackFrom, replayAction),
-            executeMoveSequence: (unit, path, overrideFootprint, onComplete, replayAction) =>
-                this.executeMoveSequence(unit, path, overrideFootprint, onComplete, replayAction),
+            executeMoveSequence: (unit, path, overrideFootprint, onComplete, replayAction, rapidCharge) =>
+                this.executeMoveSequence(unit, path, overrideFootprint, onComplete, replayAction, rapidCharge),
             executeObstacleAttackSequence: (unit, targetWorldPosition, attackFromCell, onComplete) =>
                 this.executeObstacleAttackSequence(unit, targetWorldPosition, attackFromCell, onComplete),
             refreshUnits: () => this.refreshUnits(),
@@ -1708,6 +1710,9 @@ export class Sandbox extends PixiScene {
         if (unitState.attackType !== undefined) {
             renderableUnit.selectAttackType(unitState.attackType);
         }
+        // Carry the hourglass (wait) state so the icon renders on rebuilt units (ranked snapshots /
+        // sandbox replay); the engine sets it live during normal sandbox play.
+        renderableUnit.setOnHourglass(unitState.onHourglass ?? false);
         return renderableUnit;
     }
     private captureSceneState(): SandboxSceneState {
@@ -1726,6 +1731,7 @@ export class Sandbox extends PixiScene {
                 cells: occupiedCells,
                 baseCell: { x: baseCell.x, y: baseCell.y },
                 attackType: unit.getAttackTypeSelection(),
+                onHourglass: unit.isOnHourglass(),
             });
         }
 
@@ -2038,6 +2044,7 @@ export class Sandbox extends PixiScene {
     private playRecordedMoveAnimation(
         unit: RenderableUnit,
         moveEvent: Extract<GameEvent, { type: "unit_moved" }>,
+        rapidCharge = false,
     ): Promise<boolean> {
         const worldPath = this.createRecordedMoveWorldPath(unit, moveEvent);
         if (worldPath.length < 2) {
@@ -2074,6 +2081,7 @@ export class Sandbox extends PixiScene {
                     this.syncMovedUnitGridOccupancy(unit, moveEvent);
                     resolve(true);
                 },
+                rapidCharge,
             );
             this.isActiveUnitMoving = true;
             if (this.sc_visibleState) {
@@ -2508,7 +2516,8 @@ export class Sandbox extends PixiScene {
             path: path ?? [],
             targetCells,
         };
-        await this.playRecordedMoveAnimation(attacker, meleeMove);
+        // This walk feeds straight into a melee strike → Rapid Charge dash (if the attacker has it).
+        await this.playRecordedMoveAnimation(attacker, meleeMove, true);
     }
     protected shouldPlayReplayDoubleShotProjectile(): boolean {
         return true;
@@ -2528,6 +2537,22 @@ export class Sandbox extends PixiScene {
             unit.playOneShotAnimation(stateName, finish);
         });
     }
+    /**
+     * Floating-number colour for a secondary-damage source, matching the live sandbox styling:
+     * Petrifying Gaze grey, Chain Lightning purple, Fire Shield amber, everything else plain red.
+     */
+    private getSecondaryDamageStyle(source: string): { fill: string; stroke: string } {
+        switch (source) {
+            case "petrifying_gaze":
+                return { fill: "#d8d8d8", stroke: "#5a5a5a" };
+            case "chain_lightning":
+                return { fill: "#b86bff", stroke: "#3b0a5c" };
+            case "fire_shield":
+                return { fill: "#ffb13c", stroke: "#7a3800" };
+            default:
+                return { fill: "#ff3333", stroke: "#4a0000" };
+        }
+    }
     private showReplayAttackDamage(
         attacker: RenderableUnit,
         target: RenderableUnit,
@@ -2542,16 +2567,35 @@ export class Sandbox extends PixiScene {
         // Chain Lightning bounces, Petrifying Gaze kills, Magic Mirror — each gets its own floating
         // number on the affected unit (impact-time position fallback so dead units still show).
         // Staggered so they don't stack on the primary hit. Additive: shown alongside the
-        // splash/primary numbers below, not instead of them.
+        // splash/primary numbers below, not instead of them. Styled per source (and Petrifying Gaze
+        // yanks the struck unit) so the ranked replay matches the live sandbox effect — otherwise the
+        // gaze read as a plain red number with no reaction on the side that took it.
         (damage.secondary ?? []).forEach((entry, index) => {
             if (entry.amount <= 0 && entry.unitsDied <= 0) return;
             const sUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
             const sCenter = sUnit ? sUnit.getVisualCenter(gs) : entry.position;
             const sDir = { x: sCenter.x - attackerCenter.x, y: sCenter.y - attackerCenter.y };
             const sPos = sUnit ? this.offsetReplayDamagePosition(sCenter, sUnit, sDir) : entry.position;
+            const style = this.getSecondaryDamageStyle(entry.source);
             setTimeout(
                 () => {
-                    this.combatVisuals.showFloatingDamage(sPos, entry.amount, sDir, entry.unitsDied);
+                    if (entry.source === "petrifying_gaze" && sUnit) {
+                        // "Yank" the petrified unit away from the attacker, then it springs back —
+                        // the same reaction the live sandbox path gives a gaze kill.
+                        const len = Math.hypot(sDir.x, sDir.y);
+                        if (len > 0.001) {
+                            const mag = gs.getCellSize() * 0.35;
+                            sUnit.applyRecoil((sDir.x / len) * mag, (sDir.y / len) * mag);
+                        }
+                    }
+                    this.combatVisuals.showFloatingDamage(
+                        sPos,
+                        entry.amount,
+                        sDir,
+                        entry.unitsDied,
+                        style.fill,
+                        style.stroke,
+                    );
                 },
                 220 + index * 180,
             );
@@ -4138,6 +4182,8 @@ export class Sandbox extends PixiScene {
                                                     );
                                                 }
                                             },
+                                            undefined, // replayAction
+                                            true, // rapidCharge — this walk feeds into a melee strike
                                         );
                                     } else {
                                         console.warn(
@@ -4155,15 +4201,22 @@ export class Sandbox extends PixiScene {
                                     }
 
                                     if (route && route.length > 0) {
-                                        this.executeMoveSequence(this.currentActiveUnit, route, undefined, () => {
-                                            if (this.currentActiveUnit) {
-                                                this.executeAttackSequence(
-                                                    this.currentActiveUnit,
-                                                    targetUnit as RenderableUnit,
-                                                    attackFrom,
-                                                );
-                                            }
-                                        });
+                                        this.executeMoveSequence(
+                                            this.currentActiveUnit,
+                                            route,
+                                            undefined,
+                                            () => {
+                                                if (this.currentActiveUnit) {
+                                                    this.executeAttackSequence(
+                                                        this.currentActiveUnit,
+                                                        targetUnit as RenderableUnit,
+                                                        attackFrom,
+                                                    );
+                                                }
+                                            },
+                                            undefined, // replayAction
+                                            true, // rapidCharge — this walk feeds into a melee strike
+                                        );
                                     } else {
                                         console.warn("Move-Attack: no authorized route found in known paths.");
                                     }
@@ -6223,6 +6276,7 @@ export class Sandbox extends PixiScene {
         overrideFootprint?: HoCMath.XY[],
         onComplete?: () => void,
         replayAction?: Extract<GameAction, { type: "move_unit" }>,
+        rapidCharge = false,
     ): boolean {
         if (!path || path.length === 0) return false;
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -6387,6 +6441,7 @@ export class Sandbox extends PixiScene {
             destCell,
             pathLooksLikeFootprintOnly ? undefined : path, // trackPath
             handleMoveComplete,
+            rapidCharge,
         );
 
         this.isActiveUnitMoving = true;

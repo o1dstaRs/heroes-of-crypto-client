@@ -79,11 +79,14 @@ export interface PlayUnitState {
     dead: boolean;
     placed: boolean;
     stackPower: number;
-    /** Remaining ranged shots (so the left sidebar's shot count updates as the unit fires). */
+    /** Remaining ranged shots, 1-based on the wire (count + 1) so a real "0 shots left" survives
+     * proto3's zero-default; 0/absent means unknown (older server). Subtract 1 for the live count. */
     rangeShots: number;
     /** Authoritative effective luck (base + per-turn roll + auras), so the sidebar matches the server
      * instead of the client re-rolling its own divergent spread. Can be negative. */
     luck: number;
+    /** Whether the unit is waiting on the hourglass, so clients show the hourglass icon. */
+    onHourglass: boolean;
     /** Names of debuffs currently active on the unit; used to animate newly-applied ones. */
     debuffs?: string[];
     /** Names of buffs currently active on the unit; used to animate newly-applied ones. */
@@ -649,6 +652,7 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
         stackPower: 0,
         rangeShots: 0,
         luck: 0,
+        onHourglass: false,
     };
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
@@ -694,6 +698,8 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
             unit.rangeShots = reader.varintNumber();
         } else if (field === 21) {
             unit.luck = reader.signedVarintNumber();
+        } else if (field === 22) {
+            unit.onHourglass = reader.bool();
         } else {
             reader.skip(wireType);
         }

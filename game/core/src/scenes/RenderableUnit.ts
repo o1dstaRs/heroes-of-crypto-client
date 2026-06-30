@@ -6,6 +6,7 @@ import {
     GridSettings,
     GridMath,
     TeamVals,
+    AttackVals,
     HoCConstants,
     HoCConfig,
     SpellHelper,
@@ -1008,8 +1009,26 @@ export class RenderableUnit extends Unit {
      * engine — the authoritative "already retaliated this round" state lives on FightProperties
      * (set via addRepliedAttack, cleared each lap), so read it from there.
      */
+    /**
+     * Capability indicator (NOT a "has already retaliated" mark): show the respond tag on a RANGE unit
+     * that can still RETURN FIRE — it has range shots left and isn't blocked from responding (stun,
+     * blindness, Through Shot). Melee retaliation is the default and isn't tagged; the tag flags the
+     * conditional case (a ranged unit will shoot back). Retaliation is once per lap (enforced server-side
+     * by processOneInTheFieldAbility), so once a unit has used its response this lap the tag clears —
+     * except Unicorn's "One in the Field", which responds infinitely and always shows. (In ranked the
+     * per-lap replied state isn't synced to the client, so there it reflects shots/eligibility only.)
+     */
     private shouldShowRespondTag(): boolean {
-        return FightStateManager.getInstance().getFightProperties().hasAlreadyRepliedAttack(this.getId());
+        if (this.getAttackType() !== AttackVals.RANGE) {
+            return false;
+        }
+        if (this.getRangeShots() <= 0 || !this.canRespond(AttackVals.RANGE)) {
+            return false;
+        }
+        if (this.hasAbilityActive("One in the Field")) {
+            return true;
+        }
+        return !FightStateManager.getInstance().getFightProperties().hasAlreadyRepliedAttack(this.getId());
     }
     /**
      * Create/refresh a small corner icon on the unit (stun, retaliation tag, …). Anchored by

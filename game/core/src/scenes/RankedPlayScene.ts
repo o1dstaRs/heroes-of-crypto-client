@@ -48,6 +48,7 @@ export const authoritativeUnitToSandboxUnitState = (
         cells: unitState.cells,
         baseCell: unitState.baseCell,
         attackType: unitState.attackType as AttackType,
+        onHourglass: unitState.onHourglass,
     };
 };
 
@@ -144,9 +145,14 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                         : baseProperties.attack_type_selected,
                 stack_power: unitState.stackPower || baseProperties.stack_power,
                 // Remaining ranged shots are tracked authoritatively by the server; carry the live count
-                // through so the left sidebar decrements as the unit fires. Guard on the base config so
-                // melee units (base 0) stay 0 and a genuine "0 shots left" still shows for ranged units.
-                range_shots: baseProperties.range_shots > 0 ? unitState.rangeShots : baseProperties.range_shots,
+                // through so the left sidebar decrements as the unit fires. The wire value is 1-based
+                // (count + 1) so a genuine "0 shots left" survives proto3's zero-default and is told apart
+                // from "field absent" (older server / not a ranged unit): absent (0) falls back to the
+                // base config, so ranged units never read as 0 just because the server didn't send it.
+                range_shots:
+                    baseProperties.range_shots > 0 && unitState.rangeShots > 0
+                        ? unitState.rangeShots - 1
+                        : baseProperties.range_shots,
                 // The server (running the common engine) computes morale and speed authoritatively and
                 // ships them in the snapshot; carry them through instead of falling back to the base
                 // creature config. These survive the client's adjustBaseStats recompute because it
@@ -1340,7 +1346,14 @@ export class RankedPlayScene extends Sandbox {
         this.applyServerStartTotals(snapshot);
         this.sampleRankedFightStats(units, lap);
 
-        const winner = this.inferRankedWinner(snapshot, units);
+        // Prefer the flagged/journal winner, but fall back to alive counts so the results overlay still
+        // appears when the fight ended via the fight_finished event alone (finishFight already set
+        // hasFinished/teamWin) without the snapshot's fightFinished flag — otherwise this method would
+        // clobber hasFinished back to false and the overlay would never show.
+        let winner = this.inferRankedWinner(snapshot, units);
+        if (winner === TeamVals.NO_TEAM && snapshot.fightStarted) {
+            winner = this.winnerByAliveTotals(units);
+        }
         const fightStats = this.buildRankedFightStats(winner, units, lap);
         const fightOver = winner !== TeamVals.NO_TEAM;
         // Mid-fight (no winner yet) we wait until the roster is captured before publishing stats. But
@@ -1366,6 +1379,12 @@ export class RankedPlayScene extends Sandbox {
             return finishedWinner;
         }
 
+        return this.winnerByAliveTotals(units);
+    }
+    // The fight is decided once a team has no units left alive — derived purely from the snapshot, so it
+    // holds even when the server only emits the fight_finished event without flagging the snapshot
+    // (older servers): otherwise the results overlay never appears in ranked.
+    private winnerByAliveTotals(units: SandboxSceneUnitState[]): TeamType {
         const lowerAlive = this.aliveTotal(units, TeamVals.LOWER as TeamType);
         const upperAlive = this.aliveTotal(units, TeamVals.UPPER as TeamType);
         if (lowerAlive > 0 && upperAlive <= 0) {

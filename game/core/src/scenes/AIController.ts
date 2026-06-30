@@ -88,6 +88,8 @@ export interface IAIContext {
         overrideFootprint?: HoCMath.XY[],
         onComplete?: () => void,
         replayAction?: Extract<GameAction, { type: "move_unit" }>,
+        // True when this move is the approach of a move+melee attack — drives the Rapid Charge dash.
+        rapidCharge?: boolean,
     ): boolean;
     /**
      * Break the destructible center mountain: optionally walk to attackFromCell first, then issue an
@@ -1058,6 +1060,7 @@ export class AIController {
                     path: route,
                     targetCells: moveFootprint,
                 }),
+                true, // rapidCharge — this AI walk feeds into a melee strike
             );
             if (!moveStarted) {
                 clearTimeout(watchdog);

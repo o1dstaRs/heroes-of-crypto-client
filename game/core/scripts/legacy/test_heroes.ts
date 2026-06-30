@@ -995,7 +995,7 @@ class Sandbox extends GLScene {
         } else if (!this.sc_isAIActive) {
             if (buttonName === "Hourglass" && this.checkHourglassCondition()) {
                 this.currentActiveUnit.decreaseMorale(
-                    HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK,
+                    HoCConstants.MORALE_CHANGE_FOR_CLOCK,
                     FightStateManager.getInstance()
                         .getFightProperties()
                         .getAdditionalMoralePerTeam(this.currentActiveUnit.getTeam()),
@@ -1018,7 +1018,7 @@ class Sandbox extends GLScene {
             } else if (buttonName === "LuckShield" && this.currentActiveUnit) {
                 this.currentActiveUnit.applyLuckShield();
                 this.currentActiveUnit.decreaseMorale(
-                    HoCConstants.MORALE_CHANGE_FOR_SHIELD_OR_CLOCK,
+                    HoCConstants.MORALE_CHANGE_FOR_SHIELD,
                     FightStateManager.getInstance()
                         .getFightProperties()
                         .getAdditionalMoralePerTeam(this.currentActiveUnit.getTeam()),

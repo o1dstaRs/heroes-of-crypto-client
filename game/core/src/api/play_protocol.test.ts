@@ -62,6 +62,21 @@ describe("play protobuf decoder", () => {
         expect(decoded.units[0]?.luck).toBe(3);
     });
 
+    test("decodes the hourglass (wait) flag (proto field 22)", () => {
+        const waiting = [...stringField(1, "unit-1"), ...intField(22, 1)]; // bool true
+        const notWaiting = [...stringField(1, "unit-2")]; // absent => false
+        const snapshot = new Uint8Array([
+            ...stringField(1, "game-1"),
+            ...messageField(12, waiting),
+            ...messageField(12, notWaiting),
+        ]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.units[0]?.onHourglass).toBe(true);
+        expect(decoded.units[1]?.onHourglass).toBe(false);
+    });
+
     test("decodes negative morale and luck (sign-extended int32 from protobufjs)", () => {
         const unit = [...stringField(1, "unit-1"), ...signedIntField(14, -2), ...signedIntField(21, -5)];
         const snapshot = new Uint8Array([...stringField(1, "game-1"), ...messageField(12, unit)]);
