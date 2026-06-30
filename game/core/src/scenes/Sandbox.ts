@@ -7001,7 +7001,7 @@ export class Sandbox extends PixiScene {
                         // hovered target, outline that actual victim (red) instead of the hovered unit.
                         if (!this.highlightRangeAttackUnits(targetUnit)) {
                             const highlightUnit = isRangeAttackContext
-                                ? this.resolveFirstRangeHitUnit(targetUnit) ?? targetUnit
+                                ? (this.resolveFirstRangeHitUnit(targetUnit) ?? targetUnit)
                                 : targetUnit;
                             this.hoverManager.addTargetHighlight(highlightUnit);
                         }

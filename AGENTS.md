@@ -49,10 +49,54 @@ bun --cwd site dev
 # Build all (common → core → site)
 bun run build:ws
 
-# Typecheck + lint
-bunx tsc --noEmit          # from game/core
-bunx eslint "game/**/src/**/*.{ts,tsx}"
+# Verify everything (run before pushing — see "Before you push")
+bun run check              # = lint + typecheck + test
+bun run lint:fix           # auto-fix eslint + prettier + scss + package order
 ```
+
+## Before you push
+
+CI runs **`bun run lint`** check-only (eslint + stylelint + sort-package-json + prettier), so unformatted
+or lint-dirty code fails the build even though it runs fine locally. Run the full gate first:
+
+```bash
+bun run check       # lint (eslint/stylelint/prettier --check) + typecheck (tsc) + test (bun test)
+```
+
+If `check` fails:
+
+- **Style/lint** (`prettier`/`eslint`/`scss`/package order) → `bun run lint:fix`, then re-run `bun run check`.
+  (The `.githooks/pre-commit` hook auto-fixes *staged* files via `lint-staged`, but only if hooks are
+  enabled — `bun install` wires them via `prepare`. Don't rely on it; run `bun run check` yourself.)
+- **typecheck** → fix the type errors in *your* files. A peer editing `main` may leave a transient `tsc`
+  error in files you didn't touch — verify your own change with `bun test` rather than blocking on it.
+- **test** → some suites are peer-owned WIP (e.g. `AIController.*`, `ai/v0_*`); ensure the tests covering
+  *your* change pass, and don't "fix" a peer's failing test.
+
+### Changes to the `@heroesofcrypto/common` submodule
+
+`bun run check`'s typecheck reads common's built `dist`, so after editing `game/heroes-of-crypto-common/src`
+rebuild it (this also runs prettier + the common test suite + `tsc`):
+
+```bash
+bun run --cwd game/heroes-of-crypto-common build
+```
+
+### Changes to the wire protocol / shared engine (ranked)
+
+The **server** (`../heroes-of-crypto-server`) consumes `common` via a pinned GitHub commit and runs its own
+authoritative copy of the engine. When you touch `play_protocol`/`play.proto`/`play_session` or the common
+engine, also verify the server and deploy together:
+
+```bash
+cd ../heroes-of-crypto-server
+npx tsc --noEmit
+bun test src/api/game/v1
+```
+
+A ranked-affecting common change only reaches the server after: commit + push `common` → bump the server's
+common pin (lockfile) → reinstall → restart the ranked server. Client-only fixes take effect on a browser
+refresh (vite serves common via the `src` alias).
 
 ## Conventions
 

@@ -788,9 +788,7 @@ export class RankedPlayScene extends Sandbox {
         // both AI paths: the per-team "AI side" set (isTeamAiControlled) and the sc_isAIActive toggle
         // that auto-plays getToggleAiControlledTeam().
         const ownTeam = unit.getTeam();
-        return (
-            this.isTeamAiControlled(ownTeam) || (this.sc_isAIActive && this.getToggleAiControlledTeam() === ownTeam)
-        );
+        return this.isTeamAiControlled(ownTeam) || (this.sc_isAIActive && this.getToggleAiControlledTeam() === ownTeam);
     }
     /**
      * It is the enemy's turn whenever the active unit is on the opposing team from the viewer.
