@@ -1,6 +1,7 @@
 import {
     allFactions,
     AttackVals,
+    Spell,
     getFactionOf,
     GridMath,
     HoCConfig,
@@ -545,6 +546,7 @@ export class RankedPlayScene extends Sandbox {
         if (boardSignature === this.lastBoardSignature && !forceRebuild) {
             this.syncRankedVisibleTurnState(snapshot);
             this.applyRankedUnitStats(state.units);
+            this.reconcileDisguiseHiddenFromSnapshot(snapshot);
             this.applyRankedFightStats(snapshot, state.units);
             return;
         }
@@ -579,6 +581,7 @@ export class RankedPlayScene extends Sandbox {
             // the server rejects (attack_not_available). The move animation has completed (grid occupancy
             // is final) before a skip-rebuild snapshot applies, so the aura range checks are correct here.
             this.unitsHolder.refreshStackPowerForAllUnits();
+            this.reconcileDisguiseHiddenFromSnapshot(snapshot);
             this.applyRankedFightStats(snapshot, state.units);
             return;
         }
@@ -601,6 +604,7 @@ export class RankedPlayScene extends Sandbox {
         const selectedUnitId = this.sc_selectedUnitProperties?.id;
 
         this.hydrateSceneState(state);
+        this.reconcileDisguiseHiddenFromSnapshot(snapshot);
         this.lastBoardSignature = boardSignature;
         this.applyRankedTimer(snapshot);
         this.syncRankedVisibleTurnState(snapshot);
@@ -1728,6 +1732,33 @@ export class RankedPlayScene extends Sandbox {
     private placementStateKey(unit: AuthoritativeUnitState): string {
         const cells = unit.cells.map((cell) => `${cell.x}:${cell.y}`).join(",");
         return `${unit.team}|${unit.name}|${unit.creatureId}|${unit.placed ? 1 : 0}|${unit.dead ? 1 : 0}|${unit.amountAlive}|${cells}`;
+    }
+    /**
+     * Force each Disguise-Aura bearer's "Hidden" buff to match the authoritative snapshot. The client
+     * recomputes Hidden locally (refreshStackPowerForAllUnits, position-based), but that recompute can
+     * diverge from the ranked server's (aura-range / synergy state), leaving a unit Visible on our board
+     * while the server has it Hidden — the AI then fires a melee the server rejects as
+     * attack_not_available. The snapshot carries the server's authoritative buff list, so we trust it
+     * here and only ever touch units that actually carry the Disguise Aura.
+     */
+    private reconcileDisguiseHiddenFromSnapshot(snapshot: AuthoritativeGameSnapshot): void {
+        const units = this.unitsHolder.getAllUnits();
+        for (const snapUnit of snapshot.units) {
+            const unit = units.get(snapUnit.id);
+            if (!unit || !unit.getAppliedAuraEffect("Disguise Aura")) {
+                continue;
+            }
+            const serverHidden = (snapUnit.buffs ?? []).includes("Hidden");
+            if (serverHidden === unit.hasBuffActive("Hidden")) {
+                continue;
+            }
+            if (serverHidden) {
+                unit.deleteDebuff("Visible");
+                unit.applyBuff(new Spell({ spellProperties: HoCConfig.getSpellConfig("System", "Hidden"), amount: 1 }));
+            } else {
+                unit.deleteBuff("Hidden");
+            }
+        }
     }
     private createBoardSignature(snapshot: AuthoritativeGameSnapshot): string {
         return JSON.stringify({
