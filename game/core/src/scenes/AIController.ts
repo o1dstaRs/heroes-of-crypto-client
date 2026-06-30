@@ -1265,7 +1265,19 @@ export class AIController {
         return true;
     }
     private selectAttackType(unit: RenderableUnit, attackType: AttackType): boolean {
-        if (unit.getAttackTypeSelection() === attackType) {
+        const current = unit.getAttackTypeSelection();
+        if (current === attackType) {
+            return false;
+        }
+        // MELEE_MAGIC units (a melee strike plus innate magic) report their melee stance as MELEE_MAGIC,
+        // and their possibleAttackTypes omit plain MELEE — so submitting select_attack_type(MELEE) for
+        // them is both unnecessary (they can already melee-attack) and rejected by the engine as
+        // attack_type_not_available. Treat MELEE and MELEE_MAGIC as the same melee stance so the AI
+        // doesn't fire a doomed attack-type switch before its (accepted) melee attack.
+        if (
+            (attackType === AttackVals.MELEE && current === AttackVals.MELEE_MAGIC) ||
+            (attackType === AttackVals.MELEE_MAGIC && current === AttackVals.MELEE)
+        ) {
             return false;
         }
         return this.context.applyGameAction(
