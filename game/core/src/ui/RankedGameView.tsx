@@ -901,6 +901,22 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 };
             }
 
+            // Drop a turn action whose unit is no longer the one the server has active. The active unit
+            // can advance (a new snapshot lands) between the AI picking an action and submitting it, so a
+            // stale-unit action would be rejected as unit_not_active. Returning not-completed lets the AI
+            // re-trigger for the actually-active unit instead of burning a doomed submit.
+            const controlledUnitId = controlledUnitIdForAction(action);
+            const latestSnap = snapshotRef.current;
+            if (
+                isTurnResolvingAction(action) &&
+                controlledUnitId &&
+                latestSnap?.phase === PlayPhase.PLAY &&
+                latestSnap.currentUnitId &&
+                latestSnap.currentUnitId !== controlledUnitId
+            ) {
+                return { handled: true, completed: false, message: "Not this unit's turn" };
+            }
+
             if (isModelSubmission) {
                 if (isTurnResolvingAction(action)) {
                     pendingTurnResolutionRef.current = true;
