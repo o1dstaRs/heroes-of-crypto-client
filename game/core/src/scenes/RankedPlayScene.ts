@@ -1804,7 +1804,6 @@ export class RankedPlayScene extends Sandbox {
     // between snapshot and decision wipes the gate and the AI proposes an engine-rejected attack.
     private authoritativeHiddenIds = new Set<string>();
     private authoritativeRangeNullIds = new Set<string>();
-
     private reconcileAuraEffectsFromSnapshot(snapshot: AuthoritativeGameSnapshot): void {
         this.authoritativeHiddenIds = new Set(
             snapshot.units.filter((u) => (u.buffs ?? []).includes("Hidden")).map((u) => u.id),
@@ -1821,7 +1820,6 @@ export class RankedPlayScene extends Sandbox {
         }
         this.applyAuthoritativeAuraState();
     }
-
     /**
      * Force each unit's Hidden buff / Range Null Field debuff to match the last authoritative snapshot.
      * Called on every snapshot and again right before every AI decision (via ensureAuthoritativeAuraState)
@@ -1850,7 +1848,6 @@ export class RankedPlayScene extends Sandbox {
             }
         }
     }
-
     protected override ensureAuthoritativeAuraState(): void {
         this.applyAuthoritativeAuraState();
     }
