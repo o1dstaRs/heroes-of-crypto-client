@@ -91,6 +91,8 @@ export interface PlayUnitState {
     debuffs?: string[];
     /** Names of buffs currently active on the unit; used to animate newly-applied ones. */
     buffs?: string[];
+    /** True if the unit already retaliated (replied) this lap — drives the respond tag. */
+    responded?: boolean;
 }
 
 export interface PlayJournalEntry {
@@ -700,6 +702,8 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
             unit.luck = reader.signedVarintNumber();
         } else if (field === 22) {
             unit.onHourglass = reader.bool();
+        } else if (field === 23) {
+            unit.responded = reader.bool();
         } else {
             reader.skip(wireType);
         }

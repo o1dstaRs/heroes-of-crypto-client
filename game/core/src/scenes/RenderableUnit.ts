@@ -1029,7 +1029,13 @@ export class RenderableUnit extends Unit {
         if (this.getAttackType() !== AttackVals.RANGE) {
             return false;
         }
-        return FightStateManager.getInstance().getFightProperties().hasAlreadyRepliedAttack(this.getId());
+        // Sandbox: the local engine tracks the per-lap replied state on FightProperties. Ranked: that
+        // state isn't synced to the client, so trust the per-unit `responded` flag synced from the
+        // snapshot (RankedPlayScene) instead. Either source true => the unit retaliated this lap.
+        return (
+            this.responded ||
+            FightStateManager.getInstance().getFightProperties().hasAlreadyRepliedAttack(this.getId())
+        );
     }
     /**
      * Create/refresh a small corner icon on the unit (stun, retaliation tag, …). Anchored by

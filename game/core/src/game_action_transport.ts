@@ -31,6 +31,7 @@ export interface AuthoritativeUnitState {
     onHourglass: boolean;
     debuffs?: string[];
     buffs?: string[];
+    responded?: boolean;
 }
 
 export interface AuthoritativeJournalEntry {

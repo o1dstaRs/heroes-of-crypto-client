@@ -1812,6 +1812,13 @@ export class RankedPlayScene extends Sandbox {
         this.authoritativeRangeNullIds = new Set(
             snapshot.units.filter((u) => (u.debuffs ?? []).includes("Range Null Field Aura")).map((u) => u.id),
         );
+        // Sync each unit's "already retaliated this lap" flag from the server so the ranked respond tag
+        // reflects real retaliations (the client's FightProperties replied state isn't authoritative in
+        // ranked). shouldShowRespondTag reads this per-unit flag.
+        const unitsById = this.unitsHolder.getAllUnits();
+        for (const snapUnit of snapshot.units) {
+            unitsById.get(snapUnit.id)?.setResponded(snapUnit.responded ?? false);
+        }
         this.applyAuthoritativeAuraState();
     }
 
