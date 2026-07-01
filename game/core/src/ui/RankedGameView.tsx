@@ -1224,7 +1224,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                             onReplay={replayRankedFight}
                         />
                     )}
-                    {gameStarted && <DraggableToolbar />}
+                    {gameStarted && !isObserver && <DraggableToolbar />}
                 </CssVarsProvider>
                 <Main entry={RANKED_SCENE_ENTRY} />
                 <Popover />
