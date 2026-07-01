@@ -117,6 +117,14 @@ export class AIController {
     // legitimate next action, but bounds how long a dropped/never-acknowledged submit can hold the
     // guard before we let the AI re-evaluate (the server turn-timer / reject-streak END_TURN then recovers).
     private static readonly TURN_ACTION_GUARD_GRACE_MS = 4000;
+    // Catch-all backstop above the per-move watchdog: performingAction gates shouldTriggerAI(), and every
+    // early-return path in performAction() hands the flag's reset to a completion callback (animation done,
+    // authoritative handoff, or the MOVE watchdog). If any such callback never fires — a stalled/interrupted
+    // animation, a cast/local-model path with no move watchdog — the flag wedges true and the AI silently
+    // stops taking actions for the rest of the match. If it has been held longer than this window we
+    // force-clear it so the next poll re-evaluates a fresh action. Comfortably exceeds MOVE_ACTION_TIMEOUT_MS
+    // plus an optimistic-submit round-trip so it never fires on a legitimately in-flight action.
+    private static readonly PERFORMING_ACTION_STALL_MS = 10000;
     private context: IAIContext;
     private readonly localModelOpponent: LocalModelOpponentConfig;
     private localModelTeamOverride?: TeamType;
@@ -141,6 +149,9 @@ export class AIController {
     // AI State
     public isAIActive = false;
     public performingAction = false;
+    // Timestamp performingAction last went true; the stall watchdog (PERFORMING_ACTION_STALL_MS) uses it to
+    // recover from a wedged flag. 0 when idle.
+    private performingActionSinceMs = 0;
     public constructor(context: IAIContext) {
         this.context = context;
         this.localModelOpponent = getLocalModelOpponentConfig();
@@ -162,6 +173,7 @@ export class AIController {
     private finishAIAction(priorAIActive: boolean): void {
         this.restoreAIState(priorAIActive);
         this.performingAction = false;
+        this.performingActionSinceMs = 0;
     }
     private endTurnIfStillActive(unit: RenderableUnit): void {
         const currentUnit = this.context.getCurrentActiveUnit();
@@ -194,9 +206,28 @@ export class AIController {
      * Check if AI should be triggered for the current turn.
      */
     public shouldTriggerAI(): boolean {
+        this.recoverIfActionStalled();
         const currentUnit = this.context.getCurrentActiveUnit();
         if (!currentUnit) return false;
         return this.shouldAutoPlay(currentUnit) && !this.performingAction;
+    }
+    /**
+     * Break a wedged performingAction flag. performingAction is the gate for shouldTriggerAI(); if a
+     * per-path completion callback never fires (stalled animation, a cast/local-model path without a move
+     * watchdog, an interrupted handoff), the flag stays true and the AI stops acting for the rest of the
+     * match. Once it has been held past PERFORMING_ACTION_STALL_MS we clear it — leaving the toggle and the
+     * turn-action guard intact — so the very next poll recomputes a fresh action; if that still can't
+     * progress the turn, the server turn-timer / reject-streak END_TURN advances it. Runs each frame from
+     * shouldTriggerAI(), which the update loop polls even while performingAction blocks a fresh trigger.
+     */
+    private recoverIfActionStalled(): void {
+        if (!this.performingAction || this.performingActionSinceMs <= 0) return;
+        if (HoCLib.getTimeMillis() - this.performingActionSinceMs < AIController.PERFORMING_ACTION_STALL_MS) return;
+        console.warn(
+            `AI action watchdog: performingAction stalled > ${AIController.PERFORMING_ACTION_STALL_MS}ms — clearing to unwedge the AI`,
+        );
+        this.performingAction = false;
+        this.performingActionSinceMs = 0;
     }
     /**
      * Whether the AI should auto-play this unit, ignoring whether an action is already in flight.
@@ -248,6 +279,7 @@ export class AIController {
         if (!this.shouldTriggerAI()) return;
 
         this.performingAction = true;
+        this.performingActionSinceMs = HoCLib.getTimeMillis();
         const wasAIActive = this.isAIActive;
 
         setTimeout(async () => {
@@ -293,6 +325,7 @@ export class AIController {
             return false;
         }
         this.performingAction = true;
+        this.performingActionSinceMs = HoCLib.getTimeMillis();
         const wasAIActive = this.isAIActive;
 
         setTimeout(async () => {

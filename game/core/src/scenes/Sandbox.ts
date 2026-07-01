@@ -600,8 +600,17 @@ export class Sandbox extends PixiScene {
         this.sc_visibleState.secondsMax = (fightProps.getCurrentTurnEnd() - fightProps.getCurrentTurnStart()) / 1000;
         const remaining = (fightProps.getCurrentTurnEnd() - HoCLib.getTimeMillis()) / 1000;
         this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
-        this.sc_visibleState.aiToggleOn = this.aiController.isAIActive;
+        this.syncAiToggleToVisibleState();
         this.sc_visibleStateUpdateNeeded = true;
+    }
+    /**
+     * Mirror the live AI toggle onto the visible state so the "AI on" badge tracks it. Extracted so the
+     * ranked scene — which overrides updateVisibleTurnTimer() to drive the timer off the server clock and
+     * would otherwise never set this — can reuse the single source of truth (aiController.isAIActive).
+     */
+    protected syncAiToggleToVisibleState(): void {
+        if (!this.sc_visibleState) return;
+        this.sc_visibleState.aiToggleOn = this.aiController.isAIActive;
     }
     protected setLocalModelTeamOverride(team: TeamType | undefined): void {
         this.aiController.setLocalModelTeamOverride(team);
@@ -2351,15 +2360,18 @@ export class Sandbox extends PixiScene {
             if (action.type === "melee_attack" && action.attackFrom) {
                 await this.replayMeleeApproach(attacker, action.attackFrom, action.path);
             }
-            // Spawn the melee ability VFX (Black Dragon Fire Breath, Thunderbird Chain Lightning) so it
-            // erupts DURING the attack animation rather than after it. Awaiting the ~360ms one-shot first
-            // made the fire trail the strike by a beat (the "delayed" fire). Its own small internal lead
-            // (FIRE_LEAD_MS) still syncs the wave to the breath frame.
+            // Spawn Fire Breath so it erupts DURING the attack animation rather than after it. Awaiting
+            // the ~360ms one-shot first made the fire trail the strike by a beat (the "delayed" fire).
+            // Its own small internal lead (FIRE_LEAD_MS) still syncs the wave to the breath frame.
+            // (Chain Lightning is NOT fired here — it arcs at impact, below, synced with the damage.)
             this.playReplayAbilityVfx(attacker, target, attackEvent);
             await this.playReplayOneShot(attacker, "attack", 360);
         }
 
         this.sc_sceneLog.updateLog(`${attacker.getName()} attk ${target.getName()} (${attackEvent.damage.amount})`);
+        // Chain Lightning bolt arcs at impact, together with the (AOE) damage numbers — not 360ms earlier
+        // during the swing, where it flashed and faded before the damage showed ("no lightning" + "delayed").
+        this.playReplayChainLightningVfx(attacker, target, attackEvent);
         this.showReplayAttackDamage(attacker, target, attackEvent, record);
         // Shatter Armor: red wound gashes across the target, at impact (with the damage number).
         this.spawnShatterArmorSlashVfx(attacker, target, attackEvent.damage);
@@ -2396,7 +2408,7 @@ export class Sandbox extends PixiScene {
         target: RenderableUnit,
         attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
     ): void {
-        // Both are melee line/chain abilities that only fire when the strike actually lands.
+        // Fire Breath erupts DURING the swing (called before the attack one-shot), only on a landed melee.
         if (attackEvent.attackType !== "melee" || attackEvent.damage.amount <= 0) {
             return;
         }
@@ -2417,24 +2429,40 @@ export class Sandbox extends PixiScene {
                 );
             }
         }
-
-        if (attacker.hasAbilityActive("Chain Lightning")) {
-            try {
-                const chain = AllAbilities.getChainLightningTargets(target, this.grid, this.unitsHolder);
-                const points: HoCMath.XY[] = [attackerCenter, targetCenter];
-                const seen = new Set<string>([target.getId()]);
-                for (const u of chain) {
-                    if (seen.has(u.getId())) {
-                        continue;
-                    }
-                    seen.add(u.getId());
-                    const ru = u as RenderableUnit;
-                    points.push(typeof ru.getVisualCenter === "function" ? ru.getVisualCenter(gs) : u.getPosition());
+    }
+    /**
+     * Thunderbird's Chain Lightning arc — fired AT IMPACT (right before the damage numbers), not before
+     * the attack one-shot like Fire Breath. Firing it early flashed the bolt ~360ms before the AOE
+     * (chain) damage appeared, so it faded before the hit and read as "no lightning" + "delayed damage".
+     * Recomputes the same ordered chain the engine used (attacker → target → chained…). Landed-melee only.
+     */
+    private playReplayChainLightningVfx(
+        attacker: RenderableUnit,
+        target: RenderableUnit,
+        attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
+    ): void {
+        if (attackEvent.attackType !== "melee" || attackEvent.damage.amount <= 0) {
+            return;
+        }
+        if (!attacker.hasAbilityActive("Chain Lightning")) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        try {
+            const chain = AllAbilities.getChainLightningTargets(target, this.grid, this.unitsHolder);
+            const points: HoCMath.XY[] = [attacker.getVisualCenter(gs), target.getVisualCenter(gs)];
+            const seen = new Set<string>([target.getId()]);
+            for (const u of chain) {
+                if (seen.has(u.getId())) {
+                    continue;
                 }
-                this.combatVisuals.spawnChainLightning(points, gs.getCellSize());
-            } catch (err) {
-                console.error("Failed to replay Chain Lightning VFX", err);
+                seen.add(u.getId());
+                const ru = u as RenderableUnit;
+                points.push(typeof ru.getVisualCenter === "function" ? ru.getVisualCenter(gs) : u.getPosition());
             }
+            this.combatVisuals.spawnChainLightning(points, gs.getCellSize());
+        } catch (err) {
+            console.error("Failed to replay Chain Lightning VFX", err);
         }
     }
     private async playReplayProjectile(

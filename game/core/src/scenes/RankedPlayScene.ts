@@ -815,6 +815,10 @@ export class RankedPlayScene extends Sandbox {
         return this.viewerTeam;
     }
     protected override updateVisibleTurnTimer(): void {
+        // The base sets aiToggleOn from the live toggle; this override drives the timer off the server
+        // clock and returns before super runs, so mirror the toggle here or the "AI on" badge never shows
+        // in ranked until the server marks the player aiControlled (after missed turns).
+        this.syncAiToggleToVisibleState();
         if (this.rankedPlacementEndLocalMs > Date.now()) {
             this.syncRankedPlacementTimerToVisibleState();
             return;
