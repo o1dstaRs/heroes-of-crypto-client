@@ -1,4 +1,4 @@
-import { AttackVals, TeamVals, type GameAction, type TeamType } from "@heroesofcrypto/common";
+import { AttackVals, GridConstants, TeamVals, type GameAction, type TeamType } from "@heroesofcrypto/common";
 import { Alert, Box, Button, Chip, CircularProgress, Sheet, Slider, Stack, Typography } from "@mui/joy";
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
@@ -644,6 +644,31 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             if (isObserver && !isModelSubmission) {
                 if (!isSilent) {
                     setError("Observer mode is read-only");
+                }
+                return false;
+            }
+            // Guard: never submit an action carrying an off-grid / non-integer cell. The server rejects it
+            // as invalid_cell (validateActionShape) — surfaced to the user as an "invalid cell" error — and
+            // a jammed unit that keeps retrying storms them. Mirror the server's bounds check and drop the
+            // doomed submit locally instead (the unit re-evaluates / ends its turn).
+            const cellInBounds = (c?: { x: number; y: number }): boolean =>
+                !c ||
+                (Number.isInteger(c.x) &&
+                    Number.isInteger(c.y) &&
+                    c.x >= 0 &&
+                    c.y >= 0 &&
+                    c.x < GridConstants.GRID_SIZE &&
+                    c.y < GridConstants.GRID_SIZE);
+            const submittedCells = [
+                ...(payload.cells ?? []),
+                ...(payload.path ?? []),
+                ...(payload.targetCells ?? []),
+                payload.attackFrom,
+                payload.targetCell,
+            ];
+            if (!submittedCells.every(cellInBounds)) {
+                if (!isSilent) {
+                    setError("Dropped an action with an off-grid cell");
                 }
                 return false;
             }
