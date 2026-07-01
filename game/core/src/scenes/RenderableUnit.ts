@@ -1033,8 +1033,7 @@ export class RenderableUnit extends Unit {
         // state isn't synced to the client, so trust the per-unit `responded` flag synced from the
         // snapshot (RankedPlayScene) instead. Either source true => the unit retaliated this lap.
         return (
-            this.responded ||
-            FightStateManager.getInstance().getFightProperties().hasAlreadyRepliedAttack(this.getId())
+            this.responded || FightStateManager.getInstance().getFightProperties().hasAlreadyRepliedAttack(this.getId())
         );
     }
     /**
