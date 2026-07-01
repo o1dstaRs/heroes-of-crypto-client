@@ -1335,11 +1335,15 @@ export class RankedPlayScene extends Sandbox {
     private applyRankedFightStats(snapshot: AuthoritativeGameSnapshot, units: SandboxSceneUnitState[]): void {
         if (this.rankedStatsGameId && this.rankedStatsGameId !== snapshot.gameId) {
             this.resetRankedFightStats();
+            this.clearFinishedVisibleState();
         }
         this.rankedStatsGameId = snapshot.gameId;
 
         if (!snapshot.fightStarted && !snapshot.fightFinished) {
             this.resetRankedFightStats();
+            // A fresh game reached placement — drop any finished-overlay state left from the last fight
+            // so it can't leak in (finishedByEngine below trusts hasFinished as a per-fight signal).
+            this.clearFinishedVisibleState();
             return;
         }
         if (!this.sc_visibleState) {
@@ -1352,16 +1356,27 @@ export class RankedPlayScene extends Sandbox {
         this.applyServerStartTotals(snapshot);
         this.sampleRankedFightStats(units, lap);
 
-        // Prefer the flagged/journal winner, but fall back to alive counts so the results overlay still
-        // appears when the fight ended via the fight_finished event alone (finishFight already set
-        // hasFinished/teamWin) without the snapshot's fightFinished flag — otherwise this method would
-        // clobber hasFinished back to false and the overlay would never show.
+        // The fight is over if ANY authoritative signal says so:
+        //   1. finishFight already ran from the fight_finished event (sc_visibleState.hasFinished) — this
+        //      is the most reliable, and carries the authoritative winner (event.winningTeam) in teamWin;
+        //   2. the snapshot's fightFinished flag / winner (inferRankedWinner);
+        //   3. one team has no units left alive (winnerByAliveTotals) — covers servers that only emit the
+        //      event without flagging the snapshot, and snapshots whose units already show the wipe.
+        // Stale finished-state from a previous game is cleared on gameId change / placement (see top), so
+        // hasFinished being set here only ever reflects the current fight.
+        const finishedByEngine = !!this.sc_visibleState.hasFinished;
         let winner = this.inferRankedWinner(snapshot, units);
         if (winner === TeamVals.NO_TEAM && snapshot.fightStarted) {
             winner = this.winnerByAliveTotals(units);
         }
+        if (winner === TeamVals.NO_TEAM && finishedByEngine) {
+            const priorWinner = this.sc_visibleState.teamWin;
+            if (priorWinner === TeamVals.LOWER || priorWinner === TeamVals.UPPER) {
+                winner = priorWinner;
+            }
+        }
+        const fightOver = winner !== TeamVals.NO_TEAM || finishedByEngine;
         const fightStats = this.buildRankedFightStats(winner, units, lap);
-        const fightOver = winner !== TeamVals.NO_TEAM;
         // Mid-fight (no winner yet) we wait until the roster is captured before publishing stats. But
         // once the fight is OVER we must always publish the finished state — gating it on the start
         // totals could silently swallow the fight-results overlay if the roster snapshot was imperfect.
@@ -1370,7 +1385,7 @@ export class RankedPlayScene extends Sandbox {
         }
 
         this.sc_visibleState.hasFinished = fightOver;
-        this.sc_visibleState.teamWin = fightOver ? winner : undefined;
+        this.sc_visibleState.teamWin = winner !== TeamVals.NO_TEAM ? winner : undefined;
         this.sc_visibleState.fightStats = fightStats;
         this.sc_visibleState.lapNumber = fightStats.totalLaps;
         this.sc_visibleStateUpdateNeeded = true;
@@ -1416,6 +1431,13 @@ export class RankedPlayScene extends Sandbox {
         this.rankedStatsLowerRoster.clear();
         this.rankedStatsUpperRoster.clear();
         this.rankedStatsCountedUnitIds.clear();
+    }
+    private clearFinishedVisibleState(): void {
+        if (this.sc_visibleState?.hasFinished) {
+            this.sc_visibleState.hasFinished = false;
+            this.sc_visibleState.teamWin = undefined;
+            this.sc_visibleStateUpdateNeeded = true;
+        }
     }
     /**
      * Prefer the server's authoritative fight-start army totals when present, overriding what we
