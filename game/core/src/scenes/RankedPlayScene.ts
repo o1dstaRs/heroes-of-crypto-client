@@ -546,7 +546,7 @@ export class RankedPlayScene extends Sandbox {
         if (boardSignature === this.lastBoardSignature && !forceRebuild) {
             this.syncRankedVisibleTurnState(snapshot);
             this.applyRankedUnitStats(state.units);
-            this.reconcileDisguiseHiddenFromSnapshot(snapshot);
+            this.reconcileAuraEffectsFromSnapshot(snapshot);
             this.applyRankedFightStats(snapshot, state.units);
             return;
         }
@@ -581,7 +581,7 @@ export class RankedPlayScene extends Sandbox {
             // the server rejects (attack_not_available). The move animation has completed (grid occupancy
             // is final) before a skip-rebuild snapshot applies, so the aura range checks are correct here.
             this.unitsHolder.refreshStackPowerForAllUnits();
-            this.reconcileDisguiseHiddenFromSnapshot(snapshot);
+            this.reconcileAuraEffectsFromSnapshot(snapshot);
             this.applyRankedFightStats(snapshot, state.units);
             return;
         }
@@ -604,7 +604,7 @@ export class RankedPlayScene extends Sandbox {
         const selectedUnitId = this.sc_selectedUnitProperties?.id;
 
         this.hydrateSceneState(state);
-        this.reconcileDisguiseHiddenFromSnapshot(snapshot);
+        this.reconcileAuraEffectsFromSnapshot(snapshot);
         this.lastBoardSignature = boardSignature;
         this.applyRankedTimer(snapshot);
         this.syncRankedVisibleTurnState(snapshot);
@@ -1767,25 +1767,46 @@ export class RankedPlayScene extends Sandbox {
      * attack_not_available. The snapshot carries the server's authoritative buff list, so we trust it
      * here and only ever touch units that actually carry the Disguise Aura.
      */
-    private reconcileDisguiseHiddenFromSnapshot(snapshot: AuthoritativeGameSnapshot): void {
+    private reconcileAuraEffectsFromSnapshot(snapshot: AuthoritativeGameSnapshot): void {
         const units = this.unitsHolder.getAllUnits();
         for (const snapUnit of snapshot.units) {
             const unit = units.get(snapUnit.id);
             if (!unit) {
                 continue;
             }
-            // Trust the snapshot's buff list directly — only Disguise-Aura bearers are ever Hidden on the
-            // server, so we needn't gate on a locally-applied aura effect (which may not be set yet at
-            // reconcile time, especially early-game, and was letting the stale Visible state slip through).
-            const serverHidden = (snapUnit.buffs ?? []).includes("Hidden");
-            if (serverHidden === unit.hasBuffActive("Hidden")) {
-                continue;
+            const buffs = snapUnit.buffs ?? [];
+            const debuffs = snapUnit.debuffs ?? [];
+
+            // Position-dependent AURA effects gate AI targeting/attack decisions, but the client recomputes
+            // them locally (refreshStackPowerForAllUnits) and can diverge from the authoritative server —
+            // leaving the AI to propose an action the engine rejects. Trust the snapshot's buff/debuff
+            // lists for these specific gate effects so client targeting agrees with the server.
+
+            // Hidden (Disguise Aura, White Tiger): untargetable — the engine rejects any attack on a Hidden
+            // unit (attack_not_available). Only Disguise bearers are ever Hidden, so trust the buff list.
+            const serverHidden = buffs.includes("Hidden");
+            if (serverHidden !== unit.hasBuffActive("Hidden")) {
+                if (serverHidden) {
+                    unit.deleteDebuff("Visible");
+                    unit.applyBuff(
+                        new Spell({ spellProperties: HoCConfig.getSpellConfig("System", "Hidden"), amount: 1 }),
+                    );
+                } else {
+                    unit.deleteBuff("Hidden");
+                }
             }
-            if (serverHidden) {
-                unit.deleteDebuff("Visible");
-                unit.applyBuff(new Spell({ spellProperties: HoCConfig.getSpellConfig("System", "Hidden"), amount: 1 }));
-            } else {
-                unit.deleteBuff("Hidden");
+
+            // Range Null Field Aura (Griffin): a ranged unit standing in it cannot fire — the engine rejects
+            // its shot (attack_not_available). The AI checks hasDebuffActive("Range Null Field Aura") before
+            // proposing a range attack, but the client's local aura recompute can miss the debuff, so a
+            // Medusa/Elf inside the field fires a doomed shot and then skips. Sync it from the snapshot.
+            const serverRangeNull = debuffs.includes("Range Null Field Aura");
+            if (serverRangeNull !== unit.hasDebuffActive("Range Null Field Aura")) {
+                if (serverRangeNull) {
+                    unit.applyAuraEffect("Range Null Field Aura", "", false, 0, "");
+                } else {
+                    unit.deleteDebuff("Range Null Field Aura");
+                }
             }
         }
     }
