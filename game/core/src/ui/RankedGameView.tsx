@@ -56,6 +56,14 @@ const RANKED_SCENE_ENTRY: SceneEntry = {
     SceneClass: RankedPlayScene,
 };
 
+// The play API returns "Game not found" (HTTP 404, message surfaced verbatim by the axios interceptor)
+// when a game was cleaned up (e.g. server restart dropped an in-memory game) or a DB lookup failed. Used
+// to swap the stale board for a plain "game not available" screen.
+const isGameGoneError = (err: unknown): boolean => {
+    const message = err instanceof Error ? err.message : String(err ?? "");
+    return /game not found|not available|no completed pick|not ready for play/i.test(message);
+};
+
 const phaseLabel = (phase: number): string => {
     if (phase === PlayPhase.PLACEMENT) return "Placement";
     if (phase === PlayPhase.PLAY) return "Fight";
@@ -262,6 +270,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState("Connecting");
     const [error, setError] = useState("");
+    // The game no longer exists on the server (cleaned up on restart, or a DB lookup failed → the API
+    // returns "Game not found"). We render a plain "not available" screen instead of the stale board.
+    const [gameUnavailable, setGameUnavailable] = useState(false);
     const [pixiReady, setPixiReady] = useState(!manager.isLoading);
     const abortRef = useRef<AbortController | null>(null);
     const latestSequenceRef = useRef(0);
@@ -501,12 +512,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 if (!cancelled) {
                     setStatus("Connected");
                     setError("");
+                    setGameUnavailable(false);
                 }
             })
             .catch((err: unknown) => {
                 if (!cancelled) {
                     setStatus("Snapshot failed");
                     setError((err as Error).message || "Unable to load play snapshot");
+                    setGameUnavailable(isGameGoneError(err));
                 }
             });
 
@@ -514,7 +527,17 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         // drops or lags. Polls every 4 seconds; the snapshot endpoint is cheap.
         const pollInterval = window.setInterval(() => {
             if (cancelled) return;
-            refreshSnapshot().catch(() => undefined);
+            refreshSnapshot()
+                .then(() => {
+                    if (!cancelled) {
+                        setGameUnavailable(false);
+                    }
+                })
+                .catch((err: unknown) => {
+                    if (!cancelled && isGameGoneError(err)) {
+                        setGameUnavailable(true);
+                    }
+                });
         }, 4000);
 
         return () => {
@@ -1162,6 +1185,34 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         snapshot,
         submitProtocolActionForTeam,
     ]);
+
+    // The game no longer exists on the server (cleaned up / DB error). Show a plain message instead of
+    // the stale board — never keep rendering the last-known scene as if the fight were still live.
+    if (gameUnavailable) {
+        return (
+            <Box
+                sx={{
+                    minHeight: "100vh",
+                    display: "grid",
+                    placeItems: "center",
+                    bgcolor: "#07090d",
+                    color: "#fff",
+                    p: 3,
+                }}
+            >
+                <Stack spacing={1.5} alignItems="center" sx={{ textAlign: "center", maxWidth: 460 }}>
+                    <Typography sx={{ fontSize: "2.4rem", lineHeight: 1 }}>🕯️</Typography>
+                    <Typography sx={{ color: "#f6d87c", fontWeight: 800, fontSize: "1.5rem" }}>
+                        Game is not available
+                    </Typography>
+                    <Typography sx={{ opacity: 0.75 }}>
+                        This match has ended or is no longer on the server — it may have been cleaned up or the server
+                        was restarted.
+                    </Typography>
+                </Stack>
+            </Box>
+        );
+    }
 
     if (!snapshot) {
         return (
