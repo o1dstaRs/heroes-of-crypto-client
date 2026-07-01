@@ -2226,6 +2226,32 @@ export class Sandbox extends PixiScene {
             }
         );
     }
+    /*
+     * ───────────────────────────────────────────────────────────────────────────────────────────────
+     * ABILITY VFX CONTRACT — read before adding a new creature-ability visual effect.
+     *
+     * Ranked is server-authoritative, so the LIVE sandbox path (executeAttackSequence) and the RANKED
+     * REPLAY path (playReplayAttackRecord) are SEPARATE code paths. A VFX added to only one renders in
+     * one mode but not the other — the recurring "works in sandbox, missing in ranked" bug. To keep them
+     * in lockstep, every ability VFX MUST follow this pattern:
+     *
+     *   1. SHARED HELPER. Put it in a `spawn<Ability>Vfx(attacker, target, damage?)` method (like the
+     *      ones below) that gates INTERNALLY on `attacker.hasAbilityActive("<Ability>")` + the damage
+     *      landing. Gate on the ABILITY, never on team/viewer — that keeps it team-agnostic, so it shows
+     *      for BOTH teams (both ranked clients replay the same records).
+     *   2. CALL IT FROM BOTH PATHS — once in executeAttackSequence (live) and once in
+     *      playReplayAttackRecord (ranked replay) — AT IMPACT, next to showReplayAttackDamage, so the
+     *      effect and its damage numbers land in sync. (A VFX fired before the attack one-shot flashes
+     *      ~360ms early; the sole exception is a deliberate WIND-UP effect like Fire Breath.)
+     *   3. SNAPSHOT-DRIVEN effects (debuff/buff icon pops, death shatter, board-wide waves) are NOT part
+     *      of the attack replay — wire them into RankedPlayScene's snapshot path (processDebuffPops /
+     *      shatterNewlyDeadUnits / renderNewlyAppliedArmageddon), diffed BEFORE the board-rebuild guards
+     *      so a mid-animation snapshot can't drop them.
+     *
+     * Retaliation note: playReplayRetaliation currently renders only the responder's return shot +
+     * damage, not its ability sweeps — mirror any of these helpers there if a counter needs the full VFX.
+     * ───────────────────────────────────────────────────────────────────────────────────────────────
+     */
     /**
      * Pikeman's Skewer Strike pierces the primary target AND the unit(s) standing behind it along the
      * attack line. Draw a wind "spear" through attacker → target → those units so the two-unit (or more)
@@ -2304,6 +2330,65 @@ export class Sandbox extends PixiScene {
         const dir = { x: targetCenter.x - attackerCenter.x, y: targetCenter.y - attackerCenter.y };
         this.combatVisuals?.spawnSlash(targetCenter, gs.getCellSize(), dir);
     }
+    /**
+     * Black Dragon's Fire Breath: a fiery wave sweeping from the attacker through the target and ~2 cells
+     * past it, so the line/breath reads. Gated on the ability + a landed hit. Shared by sandbox (live) and
+     * ranked (replay). NOTE: this is a WIND-UP effect — callers fire it DURING the attack swing (before
+     * the one-shot), not at impact, so the fire erupts with the strike instead of trailing it.
+     */
+    protected spawnFireBreathVfx(attacker: RenderableUnit, target: Unit, damage?: IVisibleDamage): void {
+        if (!attacker.hasAbilityActive("Fire Breath") || !damage || damage.amount <= 0) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const from = attacker.getVisualCenter(gs);
+        const tCenter = target instanceof RenderableUnit ? target.getVisualCenter(gs) : target.getPosition();
+        const dx = tCenter.x - from.x;
+        const dy = tCenter.y - from.y;
+        const len = Math.hypot(dx, dy);
+        if (len <= 0.001) {
+            return;
+        }
+        const overshoot = gs.getCellSize() * 2; // breath continues ~2 cells past the target
+        this.combatVisuals.spawnFireSweep(
+            from,
+            { x: tCenter.x + (dx / len) * overshoot, y: tCenter.y + (dy / len) * overshoot },
+            gs.getCellSize(),
+        );
+    }
+    /**
+     * Thunderbird's Chain Lightning: a purple bolt arcing attacker → target → each chained enemy (the
+     * same ordered chain the engine used). Gated on the ability + a landed hit. Shared by sandbox (live)
+     * and ranked (replay); fired AT IMPACT so the bolt lands with the (AOE) damage numbers.
+     */
+    protected spawnChainLightningVfx(attacker: RenderableUnit, target: Unit, damage?: IVisibleDamage): void {
+        if (!attacker.hasAbilityActive("Chain Lightning") || !damage || damage.amount <= 0) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        try {
+            const targetRenderable = target as RenderableUnit;
+            const chain = AllAbilities.getChainLightningTargets(target, this.grid, this.unitsHolder);
+            const points: HoCMath.XY[] = [
+                attacker.getVisualCenter(gs),
+                typeof targetRenderable.getVisualCenter === "function"
+                    ? targetRenderable.getVisualCenter(gs)
+                    : target.getPosition(),
+            ];
+            const seen = new Set<string>([target.getId()]);
+            for (const u of chain) {
+                if (seen.has(u.getId())) {
+                    continue;
+                }
+                seen.add(u.getId());
+                const ru = u as RenderableUnit;
+                points.push(typeof ru.getVisualCenter === "function" ? ru.getVisualCenter(gs) : u.getPosition());
+            }
+            this.combatVisuals.spawnChainLightning(points, gs.getCellSize());
+        } catch (err) {
+            console.error("Failed to spawn Chain Lightning VFX", err);
+        }
+    }
     private async playReplayAttackRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
         const action = cloneReplayData(record.action);
         if (action.type !== "melee_attack" && action.type !== "range_attack") {
@@ -2361,18 +2446,19 @@ export class Sandbox extends PixiScene {
             if (action.type === "melee_attack" && action.attackFrom) {
                 await this.replayMeleeApproach(attacker, action.attackFrom, action.path);
             }
-            // Spawn Fire Breath so it erupts DURING the attack animation rather than after it. Awaiting
-            // the ~360ms one-shot first made the fire trail the strike by a beat (the "delayed" fire).
-            // Its own small internal lead (FIRE_LEAD_MS) still syncs the wave to the breath frame.
-            // (Chain Lightning is NOT fired here — it arcs at impact, below, synced with the damage.)
-            this.playReplayAbilityVfx(attacker, target, attackEvent);
+            // Fire Breath is a WIND-UP effect: erupt it DURING the swing (before the one-shot) so it
+            // doesn't trail the strike by a beat (the "delayed fire" bug). Melee-only, so gate here on
+            // the melee branch; the helper itself gates on the ability + a landed hit.
+            if (attackEvent.attackType === "melee") {
+                this.spawnFireBreathVfx(attacker, target, attackEvent.damage);
+            }
             await this.playReplayOneShot(attacker, "attack", 360);
         }
 
         this.sc_sceneLog.updateLog(`${attacker.getName()} attk ${target.getName()} (${attackEvent.damage.amount})`);
-        // Chain Lightning bolt arcs at impact, together with the (AOE) damage numbers — not 360ms earlier
+        // Chain Lightning arcs AT IMPACT, together with the (AOE) damage numbers — not 360ms earlier
         // during the swing, where it flashed and faded before the damage showed ("no lightning" + "delayed").
-        this.playReplayChainLightningVfx(attacker, target, attackEvent);
+        this.spawnChainLightningVfx(attacker, target, attackEvent.damage);
         this.showReplayAttackDamage(attacker, target, attackEvent, record);
         // Shatter Armor: red wound gashes across the target, at impact (with the damage number).
         this.spawnShatterArmorSlashVfx(attacker, target, attackEvent.damage);
@@ -2397,74 +2483,6 @@ export class Sandbox extends PixiScene {
         this.sc_moveBlocked = false;
         await this.delayReplay(Sandbox.REPLAY_ATTACK_AFTER_APPLY_HOLD_MS);
         return true;
-    }
-    /**
-     * Ranked replay parity: spawn the same melee-ability VFX the local sandbox path shows when a
-     * strike lands — Black Dragon's Fire Breath line-sweep and Thunderbird's Chain Lightning arc.
-     * The authoritative events carry the damage (primary + per-unit secondary), but not these purely
-     * visual sweeps, so we recompute them client-side exactly like executeAttackSequence does.
-     */
-    private playReplayAbilityVfx(
-        attacker: RenderableUnit,
-        target: RenderableUnit,
-        attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
-    ): void {
-        // Fire Breath erupts DURING the swing (called before the attack one-shot), only on a landed melee.
-        if (attackEvent.attackType !== "melee" || attackEvent.damage.amount <= 0) {
-            return;
-        }
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const attackerCenter = attacker.getVisualCenter(gs);
-        const targetCenter = target.getVisualCenter(gs);
-
-        if (attacker.hasAbilityActive("Fire Breath")) {
-            const dx = targetCenter.x - attackerCenter.x;
-            const dy = targetCenter.y - attackerCenter.y;
-            const len = Math.hypot(dx, dy);
-            if (len > 0.001) {
-                const overshoot = gs.getCellSize() * 2; // breath continues ~2 cells past the target
-                this.combatVisuals.spawnFireSweep(
-                    attackerCenter,
-                    { x: targetCenter.x + (dx / len) * overshoot, y: targetCenter.y + (dy / len) * overshoot },
-                    gs.getCellSize(),
-                );
-            }
-        }
-    }
-    /**
-     * Thunderbird's Chain Lightning arc — fired AT IMPACT (right before the damage numbers), not before
-     * the attack one-shot like Fire Breath. Firing it early flashed the bolt ~360ms before the AOE
-     * (chain) damage appeared, so it faded before the hit and read as "no lightning" + "delayed damage".
-     * Recomputes the same ordered chain the engine used (attacker → target → chained…). Landed-melee only.
-     */
-    private playReplayChainLightningVfx(
-        attacker: RenderableUnit,
-        target: RenderableUnit,
-        attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
-    ): void {
-        if (attackEvent.attackType !== "melee" || attackEvent.damage.amount <= 0) {
-            return;
-        }
-        if (!attacker.hasAbilityActive("Chain Lightning")) {
-            return;
-        }
-        const gs = this.sc_sceneSettings.getGridSettings();
-        try {
-            const chain = AllAbilities.getChainLightningTargets(target, this.grid, this.unitsHolder);
-            const points: HoCMath.XY[] = [attacker.getVisualCenter(gs), target.getVisualCenter(gs)];
-            const seen = new Set<string>([target.getId()]);
-            for (const u of chain) {
-                if (seen.has(u.getId())) {
-                    continue;
-                }
-                seen.add(u.getId());
-                const ru = u as RenderableUnit;
-                points.push(typeof ru.getVisualCenter === "function" ? ru.getVisualCenter(gs) : u.getPosition());
-            }
-            this.combatVisuals.spawnChainLightning(points, gs.getCellSize());
-        } catch (err) {
-            console.error("Failed to replay Chain Lightning VFX", err);
-        }
     }
     private async playReplayProjectile(
         attacker: RenderableUnit,
@@ -5878,48 +5896,14 @@ export class Sandbox extends PixiScene {
                     }
                 }
 
-                // Black Dragon's Fire Breath burns through everything in a line behind the target.
-                // Sweep a fiery wave from the attacker through the target and ~2 cells past it so the
-                // line/breath reads visually. Gated on the ability + the strike landing.
-                if (attacker.hasAbilityActive("Fire Breath") && damageForAnimation.amount > 0) {
-                    const ndx = primaryAttackDir.x / lungeLen;
-                    const ndy = primaryAttackDir.y / lungeLen;
-                    const fireFrom = attacker.getVisualCenter(gs);
-                    const rTarget = target as RenderableUnit;
-                    const tCenter =
-                        typeof rTarget.getVisualCenter === "function"
-                            ? rTarget.getVisualCenter(gs)
-                            : target.getPosition();
-                    const overshoot = gs.getCellSize() * 2; // breath continues past the target
-                    this.combatVisuals.spawnFireSweep(
-                        fireFrom,
-                        { x: tCenter.x + ndx * overshoot, y: tCenter.y + ndy * overshoot },
-                        gs.getCellSize(),
-                    );
-                }
+                // Black Dragon's Fire Breath — wind-up sweep, fired here (during the swing). See the
+                // ABILITY VFX CONTRACT: this same helper is called from the ranked replay path too.
+                this.spawnFireBreathVfx(attacker, target, damageForAnimation);
             }
 
-            // Thunderbird's Chain Lightning arcs from the attacker through the target and on to each
-            // chained enemy. Recompute the same ordered chain the engine used, then send a purple bolt
-            // jumping along that path (attacker → target → chained…). Gated on the ability + landing.
-            if (attacker.hasAbilityActive("Chain Lightning") && damageForAnimation.amount > 0) {
-                const chain = AllAbilities.getChainLightningTargets(target, this.grid, this.unitsHolder);
-                const tRender = target as RenderableUnit;
-                const points: HoCMath.XY[] = [
-                    attacker.getVisualCenter(gs),
-                    typeof tRender.getVisualCenter === "function" ? tRender.getVisualCenter(gs) : target.getPosition(),
-                ];
-                const seen = new Set<string>([target.getId()]);
-                for (const u of chain) {
-                    if (seen.has(u.getId())) {
-                        continue;
-                    }
-                    seen.add(u.getId());
-                    const ru = u as RenderableUnit;
-                    points.push(typeof ru.getVisualCenter === "function" ? ru.getVisualCenter(gs) : u.getPosition());
-                }
-                this.combatVisuals.spawnChainLightning(points, gs.getCellSize());
-            }
+            // Thunderbird's Chain Lightning — purple bolt through the chained enemies, fired at impact.
+            // Shared helper (see ABILITY VFX CONTRACT); the ranked replay path calls the same one.
+            this.spawnChainLightningVfx(attacker, target, damageForAnimation);
 
             // Pikeman's Skewer Strike: a wind spear through the target and the unit(s) behind it. Reads
             // the authoritative damage.secondary from the live engine result (no-op unless it skewered).
