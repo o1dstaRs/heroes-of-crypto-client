@@ -1019,16 +1019,17 @@ export class RenderableUnit extends Unit {
      * per-lap replied state isn't synced to the client, so there it reflects shots/eligibility only.)
      */
     private shouldShowRespondTag(): boolean {
+        // The tag is a "HAS already retaliated this lap" marker — NOT a "can still respond" capability
+        // hint. It was inverted before (showing on any ranged unit that COULD return fire), which is why
+        // e.g. a Medusa that had not yet retaliated wrongly showed it. Read the authoritative per-lap
+        // replied state (addRepliedAttack, cleared each lap). Kept to RANGE units since a ranged return-
+        // fire is the notable case the tag flags (melee retaliation is the default and untagged).
+        // NOTE: in ranked this replied state is not yet synced to the client (server-authoritative only),
+        // so the tag currently lights up in sandbox; syncing it via the snapshot is the ranked follow-up.
         if (this.getAttackType() !== AttackVals.RANGE) {
             return false;
         }
-        if (this.getRangeShots() <= 0 || !this.canRespond(AttackVals.RANGE)) {
-            return false;
-        }
-        if (this.hasAbilityActive("One in the Field")) {
-            return true;
-        }
-        return !FightStateManager.getInstance().getFightProperties().hasAlreadyRepliedAttack(this.getId());
+        return FightStateManager.getInstance().getFightProperties().hasAlreadyRepliedAttack(this.getId());
     }
     /**
      * Create/refresh a small corner icon on the unit (stun, retaliation tag, …). Anchored by
