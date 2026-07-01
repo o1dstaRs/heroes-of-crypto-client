@@ -551,6 +551,7 @@ export class Sandbox extends PixiScene {
             executeObstacleAttackSequence: (unit, targetWorldPosition, attackFromCell, onComplete) =>
                 this.executeObstacleAttackSequence(unit, targetWorldPosition, attackFromCell, onComplete),
             refreshUnits: () => this.refreshUnits(),
+            ensureAuthoritativeAuraState: () => this.ensureAuthoritativeAuraState(),
         });
 
         this.spellBookOverlay = new SpellBookOverlay(
@@ -3217,6 +3218,12 @@ export class Sandbox extends PixiScene {
         this.spellBookOverlay?.resize(w, h);
         this.hoverManager.onCameraChanged();
     }
+    /**
+     * Re-assert authoritative aura gates before an AI decision. No-op in sandbox (the local engine is
+     * authoritative); RankedPlayScene overrides it to re-apply the last snapshot's Hidden / Range Null
+     * Field state so a local recompute can't leave a stale gate when the AI picks a target.
+     */
+    protected ensureAuthoritativeAuraState(): void {}
     public refreshUnits(): void {
         // those need to be applied first
         this.unitsHolder.applyAugments();

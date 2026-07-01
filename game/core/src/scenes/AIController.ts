@@ -62,6 +62,8 @@ export interface IAIContext {
 
     // Actions
     isAuthoritativeAction?(action: GameAction): boolean;
+    // Re-assert authoritative aura gates (Hidden / Range Null Field) right before an AI decision.
+    ensureAuthoritativeAuraState?(): void;
     /**
      * The team the generic "AI toggle" (isAIActive) may auto-play, or undefined for no restriction.
      * Sandbox returns undefined so single-player autobattle drives whichever unit is active (both
@@ -396,6 +398,11 @@ export class AIController {
             return;
         }
 
+        // Re-assert the authoritative aura gates (Hidden / Range Null Field) from the last snapshot right
+        // before findTarget reads them. A local aura recompute (refreshStackPowerForAllUnits, re-run after
+        // each AI action) can otherwise leave a stale gate, so the AI proposes an attack the engine rejects
+        // (e.g. a range shot from a unit the server has inside a Range Null Field). No-op in sandbox.
+        this.context.ensureAuthoritativeAuraState?.();
         const action = AI.findTarget(
             currentUnit,
             this.context.getGrid(),

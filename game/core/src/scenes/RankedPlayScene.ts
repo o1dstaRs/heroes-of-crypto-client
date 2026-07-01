@@ -222,6 +222,11 @@ export class RankedPlayScene extends Sandbox {
     // don't burst.
     private readonly unitDebuffs = new Map<string, Set<string>>();
     private readonly unitBuffs = new Map<string, Set<string>>();
+    // High-water sequence for effect-pop diffing, kept separate from the board sequence so a freshly
+    // applied debuff/buff is popped exactly once, in order — even when the snapshot that carries it is
+    // otherwise board-skipped (mid-animation), which used to defer or drop the pop on the receiving side.
+    private effectPopsSequence = -1;
+    private effectPopsGameId = "";
     // True between an authoritative action's animation finishing and the next snapshot reassigning the
     // active unit — keeps the just-finished unit's pulse aura suppressed across that gap (no flicker).
     private awaitingTurnHandoff = false;
@@ -391,6 +396,22 @@ export class RankedPlayScene extends Sandbox {
         if (!snapshot.fightStarted || snapshot.fightFinished) {
             return;
         }
+        // Own the per-game reset here (this now runs before applyRankedSnapshotMetadata): a new game
+        // re-baselines the tracker so the first snapshot seeds silently instead of diffing against the
+        // previous fight's effects.
+        if (this.effectPopsGameId !== snapshot.gameId) {
+            this.effectPopsGameId = snapshot.gameId;
+            this.effectPopsSequence = -1;
+            this.unitDebuffs.clear();
+            this.unitBuffs.clear();
+        }
+        // Process each snapshot's effects at most once and only forward in sequence: this runs BEFORE the
+        // board-rebuild guards (so a debuff applied during an opponent's attack animation still pops on
+        // the receiving side), so it must ignore the stale/duplicate re-applies those guards would catch.
+        if (snapshot.latestSequence <= this.effectPopsSequence) {
+            return;
+        }
+        this.effectPopsSequence = snapshot.latestSequence;
         const seen = new Set<string>();
         for (const unitState of snapshot.units) {
             seen.add(unitState.id);
@@ -439,8 +460,7 @@ export class RankedPlayScene extends Sandbox {
         if (snapshot.gameId !== this.authoritativePlaybackGameId) {
             this.authoritativePlaybackGameId = snapshot.gameId;
             this.playedAuthoritativeActionSequences.clear();
-            this.unitDebuffs.clear();
-            this.unitBuffs.clear();
+            // unitDebuffs/unitBuffs are reset by processDebuffPops (which now runs first, keyed on gameId).
         }
         this.upNextUnitIds = [...(snapshot.upNext ?? [])];
     }
@@ -489,6 +509,14 @@ export class RankedPlayScene extends Sandbox {
         snapshot: AuthoritativeGameSnapshot,
         options?: AuthoritativeSnapshotOptions,
     ): void {
+        // Effect pops (debuff/buff icons) are independent of the board rebuild and use world-attached
+        // visuals, so diff them FIRST — before the animation/board-skip guards below can early-return.
+        // Otherwise a debuff applied during an opponent's attack (which the receiver is mid-animating)
+        // rode a board-skipped snapshot and the pop was deferred to a later snapshot or dropped entirely
+        // — the "debuff animation not rendered for the receiver" bug. Its own sequence guard keeps it
+        // in-order and idempotent regardless of how many times a snapshot is re-applied.
+        this.processDebuffPops(snapshot);
+
         // The 4s fallback poll can fetch the post-move state and apply it (without skipBoardRebuild)
         // while a move/attack animation is still in flight. hydrateSceneState would then recreate every
         // unit at its final cell and snap the in-progress slide. Ignore such full rebuilds while
@@ -505,9 +533,7 @@ export class RankedPlayScene extends Sandbox {
         this.applyAuthoritativeSceneLog(snapshot);
         this.lastAuthoritativeSequence = snapshot.latestSequence;
         this.applyRankedSnapshotMetadata(snapshot);
-        // Pop an icon + name over any unit that just gained a debuff. Runs before the early-return
-        // board-sync paths so it fires whether or not the board itself is rebuilt this snapshot.
-        this.processDebuffPops(snapshot);
+        // (Effect pops already diffed at the top of this method, before the animation/board guards.)
         // Map narrowing is authoritative snapshot state. Reconcile it on every snapshot (idempotent)
         // so the holes render even when the board rebuild that would normally draw them is skipped.
         this.applyAuthoritativeNarrowing(snapshot.narrowingLayers);
@@ -624,6 +650,9 @@ export class RankedPlayScene extends Sandbox {
         // Re-baseline the Armageddon high-water mark so the next snapshot doesn't replay historical waves.
         this.armageddonVfxGameId = "";
         this.armageddonVfxSequence = -1;
+        // Re-baseline effect pops so the replay's first snapshot seeds silently instead of bursting.
+        this.effectPopsGameId = "";
+        this.effectPopsSequence = -1;
         this.applyAuthoritativeSnapshot(snapshot);
     }
     public override startScene(): boolean {
@@ -1767,26 +1796,35 @@ export class RankedPlayScene extends Sandbox {
      * attack_not_available. The snapshot carries the server's authoritative buff list, so we trust it
      * here and only ever touch units that actually carry the Disguise Aura.
      */
+    // Authoritative sets of the position-dependent AURA gates from the last snapshot: units the SERVER
+    // has Hidden (Disguise, untargetable) and units it has inside a Range Null Field (ranged-disabled).
+    // The client recomputes these locally (refreshStackPowerForAllUnits, re-run after each AI action via
+    // refreshUnits) and can diverge, so we cache the server truth and re-assert it both on every snapshot
+    // AND right before the AI picks a target (ensureAuthoritativeAuraState) — otherwise a local recompute
+    // between snapshot and decision wipes the gate and the AI proposes an engine-rejected attack.
+    private authoritativeHiddenIds = new Set<string>();
+    private authoritativeRangeNullIds = new Set<string>();
+
     private reconcileAuraEffectsFromSnapshot(snapshot: AuthoritativeGameSnapshot): void {
-        const units = this.unitsHolder.getAllUnits();
-        for (const snapUnit of snapshot.units) {
-            const unit = units.get(snapUnit.id);
-            if (!unit) {
-                continue;
-            }
-            const buffs = snapUnit.buffs ?? [];
-            const debuffs = snapUnit.debuffs ?? [];
+        this.authoritativeHiddenIds = new Set(
+            snapshot.units.filter((u) => (u.buffs ?? []).includes("Hidden")).map((u) => u.id),
+        );
+        this.authoritativeRangeNullIds = new Set(
+            snapshot.units.filter((u) => (u.debuffs ?? []).includes("Range Null Field Aura")).map((u) => u.id),
+        );
+        this.applyAuthoritativeAuraState();
+    }
 
-            // Position-dependent AURA effects gate AI targeting/attack decisions, but the client recomputes
-            // them locally (refreshStackPowerForAllUnits) and can diverge from the authoritative server —
-            // leaving the AI to propose an action the engine rejects. Trust the snapshot's buff/debuff
-            // lists for these specific gate effects so client targeting agrees with the server.
-
-            // Hidden (Disguise Aura, White Tiger): untargetable — the engine rejects any attack on a Hidden
-            // unit (attack_not_available). Only Disguise bearers are ever Hidden, so trust the buff list.
-            const serverHidden = buffs.includes("Hidden");
-            if (serverHidden !== unit.hasBuffActive("Hidden")) {
-                if (serverHidden) {
+    /**
+     * Force each unit's Hidden buff / Range Null Field debuff to match the last authoritative snapshot.
+     * Called on every snapshot and again right before every AI decision (via ensureAuthoritativeAuraState)
+     * so a local aura recompute can't leave the gate stale when the AI chooses a target.
+     */
+    private applyAuthoritativeAuraState(): void {
+        for (const [id, unit] of this.unitsHolder.getAllUnits()) {
+            const hidden = this.authoritativeHiddenIds.has(id);
+            if (hidden !== unit.hasBuffActive("Hidden")) {
+                if (hidden) {
                     unit.deleteDebuff("Visible");
                     unit.applyBuff(
                         new Spell({ spellProperties: HoCConfig.getSpellConfig("System", "Hidden"), amount: 1 }),
@@ -1795,20 +1833,19 @@ export class RankedPlayScene extends Sandbox {
                     unit.deleteBuff("Hidden");
                 }
             }
-
-            // Range Null Field Aura (Griffin): a ranged unit standing in it cannot fire — the engine rejects
-            // its shot (attack_not_available). The AI checks hasDebuffActive("Range Null Field Aura") before
-            // proposing a range attack, but the client's local aura recompute can miss the debuff, so a
-            // Medusa/Elf inside the field fires a doomed shot and then skips. Sync it from the snapshot.
-            const serverRangeNull = debuffs.includes("Range Null Field Aura");
-            if (serverRangeNull !== unit.hasDebuffActive("Range Null Field Aura")) {
-                if (serverRangeNull) {
+            const rangeNull = this.authoritativeRangeNullIds.has(id);
+            if (rangeNull !== unit.hasDebuffActive("Range Null Field Aura")) {
+                if (rangeNull) {
                     unit.applyAuraEffect("Range Null Field Aura", "", false, 0, "");
                 } else {
                     unit.deleteDebuff("Range Null Field Aura");
                 }
             }
         }
+    }
+
+    protected override ensureAuthoritativeAuraState(): void {
+        this.applyAuthoritativeAuraState();
     }
     private createBoardSignature(snapshot: AuthoritativeGameSnapshot): string {
         return JSON.stringify({
