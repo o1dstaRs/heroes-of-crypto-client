@@ -4825,7 +4825,14 @@ export class Sandbox extends PixiScene {
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             const id = unit.getId();
             seen.add(id);
-            const currentDebuffs = animatableEffectNames(unit.getDebuffs().map((d) => d.getName()));
+            // Ability-applied Effects (Shatter Armor, Stun, Paralysis, …) live on a separate list from
+            // spell debuffs (unit.getEffects() vs getDebuffs()) but read as debuffs everywhere in the UI
+            // (PixiScene folds applied_effects into the HUD's Debuffs). Include them here so their
+            // "debuff applied" pop fires — otherwise e.g. Shatter Armor lands with no on-unit animation.
+            const currentDebuffs = animatableEffectNames([
+                ...unit.getDebuffs().map((d) => d.getName()),
+                ...unit.getEffects().map((e) => e.getName()),
+            ]);
             const currentBuffs = animatableEffectNames(unit.getBuffs().map((b) => b.getName()));
             const diff = diffUnitEffects(
                 this.shownDebuffsByUnit.get(id),
