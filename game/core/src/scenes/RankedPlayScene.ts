@@ -32,6 +32,7 @@ import { animatableEffectNames, diffUnitEffects } from "./effect_pops";
 import type { RenderableUnit } from "./RenderableUnit";
 import type { UnitsOverlay } from "./UnitsOverlay";
 import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
+import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
 
 export const authoritativeUnitToSandboxUnitState = (
     unitState: AuthoritativeUnitState,
@@ -128,7 +129,10 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                 team,
                 ToFactionName[faction],
                 unitName,
-                "",
+                // Real texture name (e.g. "white_tiger_512") so getCreatureConfig derives a valid
+                // small_texture_name ("white_tiger_128"). Passing "" yielded "_128", which resolves to no
+                // image — hence the blank/placeholder unit avatars on the ranked fight-results overlay.
+                unitToTextureName(unitName, TextureType.LARGE),
                 Math.max(0, Math.floor(unitState.amountAlive)),
             );
             const hp = unitState.hp > 0 ? unitState.hp : unitState.dead ? 0 : baseProperties.hp;
