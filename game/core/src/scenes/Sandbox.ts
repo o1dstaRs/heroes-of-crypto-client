@@ -7092,31 +7092,23 @@ export class Sandbox extends PixiScene {
                             attackFromCell = attackFrom;
                             this.hoverManager.hoverAttackFromCell = attackFrom;
 
-                            // Refined Logic (Melee / Move-to-Shoot): Use footprint map for large units.
-                            // The silhouette center must be the geometric center of the unit's 2x2
-                            // footprint — the exact value replayMeleeApproach uses for the real landing
-                            // (getPositionForCells). The previous min-cell-minus-halfStep math placed the
-                            // preview a full cell down-left of the footprint (attackFrom is the footprint's
-                            // top-right cell), so the silhouette sat offset from where the unit lands.
-                            if (!this.currentActiveUnit.isSmallSize() && this.canAttackByMeleeTargets) {
-                                const hash = (attackFrom.x << 4) | attackFrom.y;
-                                const footprint = this.canAttackByMeleeTargets.attackCellHashesToLargeCells.get(hash);
-                                if (footprint && footprint.length > 0) {
-                                    attackFromPos = GridMath.getPositionForCells(gs, footprint);
-                                }
-                            }
-
-                            if (!attackFromPos) {
-                                attackFromPos = GridMath.getPositionForCell(
-                                    attackFrom,
-                                    gs.getMinX(),
-                                    gs.getStep(),
-                                    gs.getHalfStep(),
-                                );
-                                if (!this.currentActiveUnit.isSmallSize()) {
-                                    attackFromPos.x -= gs.getHalfStep();
-                                    attackFromPos.y -= gs.getHalfStep();
-                                }
+                            // Silhouette center = the geometric center of the unit's 2x2 footprint at the
+                            // landing cell (matches where replayMeleeApproach puts it). attackFrom is the
+                            // footprint's TOP-RIGHT anchor — getLargeUnitAttackCells pushes the top-right
+                            // corner and the 2x2 extends down-left from it — so the center is that cell's
+                            // center offset a half step down-left. (The prior getPositionForCells(footprint)
+                            // path was wrong: the map value is a LIST of candidate anchor corners, not a
+                            // single 2x2 footprint, so it returned the anchor's own center and left the
+                            // preview half a cell up-right of the real landing.)
+                            attackFromPos = GridMath.getPositionForCell(
+                                attackFrom,
+                                gs.getMinX(),
+                                gs.getStep(),
+                                gs.getHalfStep(),
+                            );
+                            if (!this.currentActiveUnit.isSmallSize()) {
+                                attackFromPos.x -= gs.getHalfStep();
+                                attackFromPos.y -= gs.getHalfStep();
                             }
 
                             this.hoverManager.updateHoverSilhouette(attackFromPos);
