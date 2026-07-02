@@ -7581,11 +7581,17 @@ export class Sandbox extends PixiScene {
                             this.hoverManager.drawAttackArrow(arrowStartPos, tVis);
                             isAttacking = true;
 
-                            // Add Red Highlight for Secondary Targets (Hidden units are not targetable)
+                            // Red-highlight every secondary target the strike will hit — including a
+                            // "Hidden" one. Pierce/breath/spin/chain damage (Skewer Strike, Fire Breath,
+                            // Lightning Spin, Chain Lightning) lands on a unit even while it carries
+                            // Hidden: Hidden only blocks being the PRIMARY hovered target, not incidental
+                            // AOE/pierce damage (the engine's nextStandingTargets / process*Ability apply
+                            // no Hidden filter). The damage-prediction number above already counts these,
+                            // so a Hidden secondary (e.g. a White Tiger behind the target of a Black
+                            // Dragon or Pikeman) must be outlined too — otherwise it silently takes damage
+                            // with no highlight.
                             for (const enemy of secondaryTargets) {
-                                if (!enemy.hasBuffActive("Hidden")) {
-                                    this.hoverManager.addTargetHighlight(enemy);
-                                }
+                                this.hoverManager.addTargetHighlight(enemy);
                             }
                         }
                     }
