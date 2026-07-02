@@ -547,7 +547,7 @@ export class AIController {
                 if (tt === SpellTargetType.ALL_ALLIES || tt === SpellTargetType.ALL_FLYING) {
                     const benef = (
                         tt === SpellTargetType.ALL_FLYING ? allyCandidates.filter((a) => a.canFly()) : allyCandidates
-                    ).filter((a) => (isHeal ? a.getHp() < a.getMaxHp() : !a.hasBuffActive(name)));
+                    ).filter((a) => (isHeal ? a.canBeHealed() && a.getHp() < a.getMaxHp() : !a.hasBuffActive(name)));
                     if (benef.length) {
                         consider(benef.length * MASS_VALUE, { spellName: name });
                     }
@@ -556,6 +556,9 @@ export class AIController {
                     let value = 0;
                     if (isHeal) {
                         for (const a of allyCandidates) {
+                            if (!a.canBeHealed()) {
+                                continue; // Mechanism units (Tsar Cannon) can't be healed — don't propose a doomed cast
+                            }
                             const missing = a.getMaxHp() - a.getHp();
                             if (missing > value) {
                                 value = missing;
