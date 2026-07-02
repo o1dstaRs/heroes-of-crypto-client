@@ -106,6 +106,10 @@ interface OneShotAnimState {
  */
 export class RenderableUnit extends Unit {
     private texResolver!: TexResolver;
+    // Server-authoritative "already used its hourglass (wait) this lap" flag, synced from the snapshot in
+    // ranked (the client's FightProperties hourglass state isn't authoritative there). Overwritten every
+    // snapshot, so it clears on its own when the lap flips. Drives the Wait button disable in ranked.
+    private hasHourglassedThisLap = false;
     private sprite?: Sprite;
     private motionBlurFilter?: BlurFilter;
     private shadow?: Sprite;
@@ -1035,6 +1039,14 @@ export class RenderableUnit extends Unit {
         return (
             this.responded || FightStateManager.getInstance().getFightProperties().hasAlreadyRepliedAttack(this.getId())
         );
+    }
+    /** Sync the authoritative "already hourglassed (waited) this lap" flag from a ranked snapshot. */
+    public setHasHourglassed(value: boolean): void {
+        this.hasHourglassedThisLap = value;
+    }
+    /** Whether this unit already used its once-per-lap hourglass (wait) — per the last ranked snapshot. */
+    public getHasHourglassed(): boolean {
+        return this.hasHourglassedThisLap;
     }
     /**
      * Create/refresh a small corner icon on the unit (stun, retaliation tag, …). Anchored by

@@ -109,7 +109,12 @@ export class ButtonManager {
         const unitId = currentActiveUnit.getId();
         const inHourglassQueue = fightState.hourglassIncludes(unitId);
         const hasAlreadyMadeTurn = fightState.hasAlreadyMadeTurn(unitId);
-        const hasAlreadyHourglass = fightState.hasAlreadyHourglass(unitId);
+        // Once per lap: disable Wait after the unit has used its hourglass. Sandbox tracks this on the
+        // local FightProperties; ranked (server-authoritative) syncs it as a per-unit flag on the unit
+        // (the client's FightProperties hourglass set isn't authoritative there). Either source true → used.
+        const syncedHourglassed =
+            (currentActiveUnit as unknown as { getHasHourglassed?: () => boolean }).getHasHourglassed?.() ?? false;
+        const hasAlreadyHourglass = syncedHourglassed || fightState.hasAlreadyHourglass(unitId);
 
         if (moreThanOneUnitAlive && !inHourglassQueue && !hasAlreadyMadeTurn && !hasAlreadyHourglass) {
             return true;

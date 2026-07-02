@@ -32,6 +32,8 @@ export interface AuthoritativeUnitState {
     debuffs?: string[];
     buffs?: string[];
     responded?: boolean;
+    /** True if the unit already used its hourglass (wait) this lap — disables the Wait button in ranked. */
+    hasHourglassed?: boolean;
 }
 
 export interface AuthoritativeJournalEntry {

@@ -93,6 +93,9 @@ export interface PlayUnitState {
     buffs?: string[];
     /** True if the unit already retaliated (replied) this lap — drives the respond tag. */
     responded?: boolean;
+    /** True if the unit already used its hourglass (wait) this lap — disables the Wait button in ranked
+     * (the client's FightProperties hourglass state isn't authoritative there). */
+    hasHourglassed?: boolean;
 }
 
 export interface PlayJournalEntry {
@@ -704,6 +707,8 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
             unit.onHourglass = reader.bool();
         } else if (field === 23) {
             unit.responded = reader.bool();
+        } else if (field === 24) {
+            unit.hasHourglassed = reader.bool();
         } else {
             reader.skip(wireType);
         }

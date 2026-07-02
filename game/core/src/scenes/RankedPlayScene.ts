@@ -1821,6 +1821,12 @@ export class RankedPlayScene extends Sandbox {
         const unitsById = this.unitsHolder.getAllUnits();
         for (const snapUnit of snapshot.units) {
             unitsById.get(snapUnit.id)?.setResponded(snapUnit.responded ?? false);
+            // Same idea for the once-per-lap hourglass (wait): the Wait button disables on a unit that
+            // already used its hourglass this lap. The client's FightProperties hourglass set isn't
+            // authoritative in ranked, so drive it off the per-unit flag synced from the snapshot.
+            (unitsById.get(snapUnit.id) as RenderableUnit | undefined)?.setHasHourglassed(
+                snapUnit.hasHourglassed ?? false,
+            );
         }
         this.applyAuthoritativeAuraState();
     }
