@@ -687,6 +687,14 @@ export class Sandbox extends PixiScene {
     protected shouldRenderArmageddonInline(): boolean {
         return true;
     }
+    /**
+     * Whether the lap-start Morale/Dismorale pop is rendered inline from engine events. True in the
+     * sandbox; RankedPlayScene overrides it to false and renders it from the authoritative journal
+     * instead (the inline replay path doesn't carry lap-flip events reliably there — same as Armageddon).
+     */
+    protected shouldRenderMoraleInline(): boolean {
+        return true;
+    }
     protected getUnplacedUnitBenchGroupKey(_unitState: SandboxSceneUnitState): string {
         return "default";
     }
@@ -4883,6 +4891,25 @@ export class Sandbox extends PixiScene {
         }
         this.combatVisuals?.spawnDebuffPop(unit.getPosition(), iconTexture, effectName, stackIndex, kind);
     }
+    /**
+     * Pop the lap-start Morale (green) / Dismorale (violet) effect over a unit + flash it, driven by the
+     * discrete `morale_applied` event (not the generic buff/debuff diff — see effect_pops.isMoraleEffectName).
+     * Shared by sandbox (live, from applyTurnEngineEvents) and ranked (from the snapshot journal). No-op
+     * if the unit is gone/dead.
+     */
+    protected spawnMoralePop(unitId: string, kind: "plus" | "minus"): void {
+        const unit = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
+        if (!unit || unit.isDead()) {
+            return;
+        }
+        if (kind === "plus") {
+            unit.flashBuffApplied();
+            this.popEffectOnUnit(unit, "Morale", 0, "buff");
+        } else {
+            unit.flashDebuffDarken();
+            this.popEffectOnUnit(unit, "Dismorale", 0, "debuff");
+        }
+    }
     private executeObstacleAttackSequence(
         unit: RenderableUnit,
         targetPosition: HoCMath.XY,
@@ -8448,6 +8475,14 @@ export class Sandbox extends PixiScene {
                     shouldRefreshVisibleState = true;
                     break;
                 case "morale_applied":
+                    // Lap-start Morale/Dismorale gets its own pop (excluded from the generic buff/debuff
+                    // diff so it doesn't re-surface on later effects). Sandbox renders it live here; ranked
+                    // renders it from the snapshot journal (renderNewlyAppliedMorale).
+                    if (this.shouldRenderMoraleInline()) {
+                        this.spawnMoralePop(event.unitId, event.kind);
+                    }
+                    shouldRefreshVisibleState = true;
+                    break;
                 case "unit_skipped":
                 case "unit_waited":
                 case "unit_defended":

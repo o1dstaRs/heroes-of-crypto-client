@@ -252,6 +252,9 @@ export class RankedPlayScene extends Sandbox {
     // first appears, and historical waves already in the journal on (re)join aren't replayed.
     private armageddonVfxGameId = "";
     private armageddonVfxSequence = -1;
+    // Same journal-driven, once-per-sequence pattern for the lap-start Morale/Dismorale pops.
+    private moraleVfxGameId = "";
+    private moraleVfxSequence = -1;
     // Remembers every unit's name (and team) as it appears in snapshots, so log lines for units
     // that have since died — and dropped out of the live snapshot — still resolve a real name.
     private readonly rankedUnitNamesById = new Map<string, string>();
@@ -553,6 +556,8 @@ export class RankedPlayScene extends Sandbox {
         // shouldRenderArmageddonInline()). Runs BEFORE shatterNewlyDeadUnits so a unit the wave kills
         // still has a live position to throw its number from.
         this.renderNewlyAppliedArmageddon(snapshot);
+        // Lap-start Morale/Dismorale pops, also off the journal (excluded from the generic effect diff).
+        this.renderNewlyAppliedMorale(snapshot);
         this.shatterNewlyDeadUnits(snapshot);
         const state = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
         // Self-heal an active-unit desync: the server says a unit is active but on our board that unit
@@ -654,6 +659,9 @@ export class RankedPlayScene extends Sandbox {
         // Re-baseline the Armageddon high-water mark so the next snapshot doesn't replay historical waves.
         this.armageddonVfxGameId = "";
         this.armageddonVfxSequence = -1;
+        // Same for the lap-start Morale/Dismorale pops.
+        this.moraleVfxGameId = "";
+        this.moraleVfxSequence = -1;
         // Re-baseline effect pops so the replay's first snapshot seeds silently instead of bursting.
         this.effectPopsGameId = "";
         this.effectPopsSequence = -1;
@@ -1260,6 +1268,44 @@ export class RankedPlayScene extends Sandbox {
      */
     protected override shouldRenderArmageddonInline(): boolean {
         return false;
+    }
+    /** Ranked renders the lap-start Morale/Dismorale pops from the journal, not inline (same as the wave). */
+    protected override shouldRenderMoraleInline(): boolean {
+        return false;
+    }
+    /**
+     * Render the lap-start Morale (green) / Dismorale (violet) pops from the authoritative journal. The
+     * `morale_applied` events ride on the lap-flipping action's journal entry (the scene log reads them
+     * from journalTail already), so we drive the pops off the same source. Deduped by a per-game
+     * high-water sequence so each is popped once and historical ones on (re)join aren't replayed.
+     */
+    private renderNewlyAppliedMorale(snapshot: AuthoritativeGameSnapshot): void {
+        const journalTail = snapshot.journalTail;
+        if (!journalTail?.length) {
+            return;
+        }
+        const sorted = [...journalTail].sort((a, b) => a.sequence - b.sequence);
+        const maxSequence = sorted[sorted.length - 1].sequence;
+        // First snapshot for this game: set the baseline without replaying historical morale events.
+        if (this.moraleVfxGameId !== snapshot.gameId) {
+            this.moraleVfxGameId = snapshot.gameId;
+            this.moraleVfxSequence = maxSequence;
+            return;
+        }
+        if (maxSequence <= this.moraleVfxSequence) {
+            return;
+        }
+        for (const entry of sorted) {
+            if (entry.sequence <= this.moraleVfxSequence) {
+                continue;
+            }
+            for (const event of this.parseJournalEvents(entry)) {
+                if (event.type === "morale_applied") {
+                    this.spawnMoralePop(event.unitId, event.kind);
+                }
+            }
+        }
+        this.moraleVfxSequence = maxSequence;
     }
     /**
      * Render the Armageddon wave's floating damage + screen shake from the authoritative snapshot's

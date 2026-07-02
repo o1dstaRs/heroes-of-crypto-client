@@ -18,11 +18,23 @@
  */
 export const isAuraEffectName = (name: string): boolean => name.endsWith(" Aura");
 
-/** Build the set of animatable effect names from a raw list — drops empties and aura effects. */
+/**
+ * Morale / Dismorale are lap-scoped SYSTEM effects applied to many units at once at the start of a lap
+ * (and cleared at the next). They must NOT ride the generic buff/debuff diff-pop: they'd re-surface
+ * whenever any OTHER effect lands and, being long-lived, muddy "what just got applied". They get their
+ * own dedicated pop driven by the discrete `morale_applied` event at lap start instead — so exclude them
+ * here (matching the aura exclusion) from the diff entirely.
+ */
+export const isMoraleEffectName = (name: string): boolean => name === "Morale" || name === "Dismorale";
+
+/**
+ * Build the set of animatable effect names from a raw list — drops empties, aura effects, and the
+ * lap-scoped Morale/Dismorale system effects (those animate via the morale_applied event, not the diff).
+ */
 export function animatableEffectNames(names: Iterable<string>): Set<string> {
     const result = new Set<string>();
     for (const name of names) {
-        if (name && !isAuraEffectName(name)) {
+        if (name && !isAuraEffectName(name) && !isMoraleEffectName(name)) {
             result.add(name);
         }
     }
