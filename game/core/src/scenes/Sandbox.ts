@@ -2411,6 +2411,18 @@ export class Sandbox extends PixiScene {
         this.sc_moveBlocked = true;
 
         if (attackEvent.attackType === "range") {
+            // A plain (non-piercing) shot stops at the FIRST unit on its trajectory. When a unit
+            // intercepts the shot before the aimed target, the damage lands on that intercepting unit —
+            // the engine records it as the first shot animation's affectedUnitId. Fire the projectile at
+            // THAT unit so it visually stops where the damage lands, instead of flying to the aimed
+            // target behind it. Through Shot pierces everyone, so it still travels to the aimed edge.
+            const throughShot = attacker.hasAbilityActive("Through Shot");
+            const impactUnitId = attackEvent.animations?.[0]?.affectedUnitId;
+            const impactUnit = impactUnitId
+                ? (this.unitsHolder.getAllUnits().get(impactUnitId) as RenderableUnit | undefined)
+                : undefined;
+            const intercepted = !throughShot && !!impactUnit && impactUnit.getId() !== target.getId();
+
             // The engine records the shot's aimed visible-edge center as the target animation's
             // toPosition; fire the replayed projectile there so it lands on the selected edge, not the
             // target's center.
@@ -2421,7 +2433,11 @@ export class Sandbox extends PixiScene {
             // share it, so fall back to the first one when the primary target's own entry is absent
             // (e.g. Through Shot records its single animation against the last pierced unit).
             const aimedEdge = (targetAnimations[0] ?? attackEvent.animations?.[0])?.toPosition;
-            await this.playReplayProjectile(attacker, target, aimedEdge);
+            // For an intercepted shot, land on the intercepting unit's center (undefined toPosition →
+            // playReplayProjectile uses its visual center); otherwise use the recorded aimed edge.
+            const projectileTarget = intercepted && impactUnit ? impactUnit : target;
+            const projectileTo = intercepted ? undefined : aimedEdge;
+            await this.playReplayProjectile(attacker, projectileTarget, projectileTo);
             // Double Shot fires a second projectile at the same target. Plain double-shotters expose the
             // second shot as a second damage hit (hits.length > 1), but an AOE double-shotter (Gargantuan
             // = Area Throw) routes its first shot through the AOE path: damage is conveyed via `splash` and
@@ -2436,7 +2452,7 @@ export class Sandbox extends PixiScene {
                 attacker.getAbility("Double Shot") &&
                 (hitsCount > 1 || targetShotAnimations > 1)
             ) {
-                void this.playReplayProjectile(attacker, target, aimedEdge);
+                void this.playReplayProjectile(attacker, projectileTarget, projectileTo);
             }
         } else {
             // Move + melee: the authoritative engine folds the approach into the attack (one
@@ -5442,11 +5458,10 @@ export class Sandbox extends PixiScene {
                 this.hoverManager.addTargetHighlight(affectedUnit);
             }
         }
-        // Always include the unit directly under the cursor.
-        if (!seen.has(targetUnit.getId())) {
-            this.hoverManager.addTargetHighlight(targetUnit);
-            seen.add(targetUnit.getId());
-        }
+        // Only highlight units the shot actually reaches. A non-piercing shot (Large Caliber / Area
+        // Throw) stops at the first unit on its path, so when a unit intercepts the shot before the
+        // aimed target, the target under the cursor is NOT hit — don't outline it. (A Through Shot or a
+        // direct hit already includes the target above, since it's in evalResult.affectedUnits.)
         return seen.size > 0;
     }
     /**
@@ -5817,7 +5832,18 @@ export class Sandbox extends PixiScene {
             // aimed visible-edge center (what the engine resolves the shot to), NOT the target's
             // geometric center — otherwise the arrow points at an edge but the projectile lands center.
             const muzzle = attacker.getVisualCenter(gs);
-            const shotTarget = aim?.position ?? tVis;
+            // A plain (non-piercing) shot stops at the first unit on its trajectory. If a unit
+            // intercepts the shot before the aimed target, land the projectile on THAT unit (where the
+            // damage lands) instead of the aimed edge behind it. Through Shot pierces, so it still flies
+            // to the aimed edge.
+            const interceptUnit = attacker.hasAbilityActive("Through Shot")
+                ? undefined
+                : this.resolveFirstRangeHitUnit(target);
+            const intercepted = !!interceptUnit && interceptUnit.getId() !== target.getId();
+            const shotTarget =
+                intercepted && interceptUnit instanceof RenderableUnit
+                    ? interceptUnit.getVisualCenter(gs)
+                    : (aim?.position ?? tVis);
             const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
             await this.rangedProjectiles.fire({ from: muzzle, to: shotTarget, big: bigProjectile });
 
