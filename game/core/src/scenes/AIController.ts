@@ -391,6 +391,16 @@ export class AIController {
             }
         }
 
+        // Re-assert the authoritative aura gates (Hidden / Range Null Field) from the last snapshot
+        // before BOTH the spell decision AND findTarget read them. A local aura recompute
+        // (refreshStackPowerForAllUnits, re-run after each AI action) can otherwise leave a stale gate,
+        // so the AI proposes an action the engine rejects: a range shot from a unit the server has inside
+        // a Range Null Field (attack_not_available), OR a spell cast on a unit the server has Hidden —
+        // chooseBestSpell filters Hidden out of its enemy list, so a stale-un-Hidden target slips in and
+        // the cast is refused (spell_not_available). Reasserting here fixes both. Nothing between this and
+        // findTarget mutates aura state (a rejected/declined cast returns without applying). No-op in sandbox.
+        this.context.ensureAuthoritativeAuraState?.();
+
         // Spell casting: the built-in AI.findTarget only does move/attack, so evaluate the active
         // unit's spells (heal/buff allies, debuff/Castling enemies, summon) here. Cast only when it
         // beats just attacking, so the unit still progresses the fight to a finish.
@@ -398,11 +408,6 @@ export class AIController {
             return;
         }
 
-        // Re-assert the authoritative aura gates (Hidden / Range Null Field) from the last snapshot right
-        // before findTarget reads them. A local aura recompute (refreshStackPowerForAllUnits, re-run after
-        // each AI action) can otherwise leave a stale gate, so the AI proposes an attack the engine rejects
-        // (e.g. a range shot from a unit the server has inside a Range Null Field). No-op in sandbox.
-        this.context.ensureAuthoritativeAuraState?.();
         const action = AI.findTarget(
             currentUnit,
             this.context.getGrid(),
