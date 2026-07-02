@@ -7109,7 +7109,22 @@ export class Sandbox extends PixiScene {
                             tVis = targetUnit.getPosition();
                         }
 
-                        const centerVis = { x: tVis.x, y: tVis.y };
+                        // A plain (non-piercing) shot stops at the first unit on its trajectory: if a
+                        // unit intercepts it before the aimed target, THAT unit takes the damage — so
+                        // predict damage against it and show the number over it, not the target behind
+                        // it. Through Shot pierces, so it keeps predicting on the aimed target.
+                        const rangeInterceptUnit =
+                            isRangeAttackContext && !this.currentActiveUnit.hasAbilityActive("Through Shot")
+                                ? this.resolveFirstRangeHitUnit(targetUnit)
+                                : undefined;
+                        const damageUnit =
+                            rangeInterceptUnit && rangeInterceptUnit.getId() !== targetUnit.getId()
+                                ? rangeInterceptUnit
+                                : targetUnit;
+                        const damageCenterVis =
+                            damageUnit instanceof RenderableUnit
+                                ? damageUnit.getVisualCenter(gs)
+                                : damageUnit.getPosition();
                         let arrowStartPos: HoCMath.XY;
 
                         if (!attackFromPos) {
@@ -7315,8 +7330,9 @@ export class Sandbox extends PixiScene {
                             multiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
                         }
 
-                        // 4. Deep Wounds (Target Effect -> Attacker Bonus)
-                        const deepWoundsEffect = targetUnit.getEffect("Deep Wounds");
+                        // 4. Deep Wounds (Target Effect -> Attacker Bonus); read it from the unit that
+                        // actually receives the shot (the interceptor, if any).
+                        const deepWoundsEffect = damageUnit.getEffect("Deep Wounds");
                         if (
                             deepWoundsEffect &&
                             (this.currentActiveUnit.hasAbilityActive("Deep Wounds Level 1") ||
@@ -7350,22 +7366,22 @@ export class Sandbox extends PixiScene {
                         let minDmg =
                             this.currentActiveUnit.calculateAttackDamageMin(
                                 effectiveAttackRate,
-                                targetUnit,
+                                damageUnit,
                                 isMelee,
                                 abilityPower,
                                 rangeDivisor,
                                 multiplier,
-                            ) + AllAbilities.processPenetratingBiteAbility(this.currentActiveUnit, targetUnit);
+                            ) + AllAbilities.processPenetratingBiteAbility(this.currentActiveUnit, damageUnit);
 
                         let maxDmg =
                             this.currentActiveUnit.calculateAttackDamageMax(
                                 effectiveAttackRate,
-                                targetUnit,
+                                damageUnit,
                                 isMelee,
                                 abilityPower,
                                 rangeDivisor,
                                 multiplier,
-                            ) + AllAbilities.processPenetratingBiteAbility(this.currentActiveUnit, targetUnit);
+                            ) + AllAbilities.processPenetratingBiteAbility(this.currentActiveUnit, damageUnit);
 
                         // Lucky Strike (Legacy)
                         const luckyStrikeAbility = this.currentActiveUnit.getAbility("Lucky Strike");
@@ -7376,8 +7392,8 @@ export class Sandbox extends PixiScene {
                             );
                         }
 
-                        let totalMinKills = targetUnit.calculatePossibleLosses(minDmg);
-                        let totalMaxKills = targetUnit.calculatePossibleLosses(maxDmg);
+                        let totalMinKills = damageUnit.calculatePossibleLosses(minDmg);
+                        let totalMaxKills = damageUnit.calculatePossibleLosses(maxDmg);
                         let totalMinDmg = minDmg;
                         let totalMaxDmg = maxDmg;
 
@@ -7531,8 +7547,8 @@ export class Sandbox extends PixiScene {
                             this.hoverManager.drawDamagePrediction(
                                 dmgStr,
                                 killStr,
-                                centerVis,
-                                !targetUnit.isSmallSize(), // isLargeTarget
+                                damageCenterVis,
+                                !damageUnit.isSmallSize(), // isLargeTarget
                                 iconPath,
                             );
                             this.hoverManager.drawAttackArrow(arrowStartPos, tVis);
