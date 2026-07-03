@@ -409,6 +409,132 @@ describe("AIController", () => {
             expect(controller.performingAction).toBe(false);
         });
 
+        // A move+melee plan carries the route as the melee_attack's `path`. It MUST be executed as ONE
+        // combined action so the engine/server moves-then-strikes atomically. Splitting it into a
+        // standalone move_unit + attack makes the server treat the move as the whole turn and skip the
+        // strike ("moved to (x,y)" then "skips turn"). These two tests pin that invariant for BOTH the
+        // authoritative (ranked/deferred) branch and the sandbox (local-animation) branch.
+        const meleePath: HoCMath.XY[] = [
+            { x: 1, y: 1 },
+            { x: 2, y: 2 },
+            { x: 3, y: 4 },
+        ];
+        const attackFrom = { x: 3, y: 4 };
+        const buildMoveMeleeTarget = () => ({
+            getId: () => "target-1",
+            getTeam: () => TeamVals.UPPER,
+            getCells: () => [{ x: 3, y: 5 }],
+            hasBuffActive: () => false,
+        });
+        const moveMeleePlan = (unitId: string): GameAction[] =>
+            [
+                { type: "select_attack_type", unitId, attackType: AttackVals.MELEE },
+                { type: "melee_attack", attackerId: unitId, targetId: "target-1", attackFrom, path: meleePath },
+            ] as GameAction[];
+
+        it("submits a move+melee plan as ONE combined melee_attack (with path) in the authoritative branch", async () => {
+            const unit = createUnit();
+            const target = buildMoveMeleeTarget();
+            stubStrategy(() => moveMeleePlan(unit.getId()));
+            const executeAttackSequence = mock(async () => true);
+            const executeMoveSequence = mock(() => true);
+            const appliedActions: GameAction[] = [];
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                executeAttackSequence,
+                executeMoveSequence,
+                // Ranked/authoritative: melee_attack (and move_unit) are deferred to the server replay.
+                isAuthoritativeAction: (action: GameAction) => action.type === "melee_attack",
+                applyGameAction: (action: GameAction) => {
+                    appliedActions.push(action);
+                    return true;
+                },
+                getUnitsHolder: () => ({ getAllUnits: () => new Map([["target-1", target]]) }),
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+
+            // The strike is the ONE combined action: executeAttackSequence gets the melee_attack WITH the
+            // route path preserved and the resolved attack-from cell.
+            expect(executeAttackSequence).toHaveBeenCalledTimes(1);
+            const [attacker, struck, from, replayAction] = executeAttackSequence.mock.calls[0] as unknown as [
+                RenderableUnit,
+                typeof target,
+                HoCMath.XY,
+                Extract<GameAction, { type: "melee_attack" }>,
+            ];
+            expect(attacker).toBe(unit);
+            expect(struck).toBe(target);
+            expect(from).toEqual(attackFrom);
+            expect(replayAction.type).toBe("melee_attack");
+            expect(replayAction.path).toEqual(meleePath);
+            // Crucially: NO separate move is animated or submitted — the server does the combined move+strike.
+            expect(executeMoveSequence).not.toHaveBeenCalled();
+            expect(appliedActions.some((a) => a.type === "move_unit")).toBe(false);
+            expect(controller.performingAction).toBe(false);
+        });
+
+        it("animates the approach then strikes with the combined action in the sandbox branch (no lone move_unit)", async () => {
+            const unit = createUnit();
+            const target = buildMoveMeleeTarget();
+            stubStrategy(() => moveMeleePlan(unit.getId()));
+            const executeAttackSequence = mock(async () => true);
+            // Sandbox move: capture args, then fire the completion callback (mirrors a finished walk).
+            const executeMoveSequence = mock((..._args: unknown[]) => {
+                const onComplete = _args[3] as (() => void) | undefined;
+                void onComplete?.();
+                return true;
+            });
+            const appliedActions: GameAction[] = [];
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                executeAttackSequence,
+                executeMoveSequence,
+                // Sandbox / local engine: nothing is deferred, so the approach is animated locally.
+                isAuthoritativeAction: () => false,
+                applyGameAction: (action: GameAction) => {
+                    appliedActions.push(action);
+                    return true;
+                },
+                getUnitsHolder: () => ({ getAllUnits: () => new Map([["target-1", target]]) }),
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+            // Let the awaited attack inside the move-completion callback settle.
+            await Promise.resolve();
+            await Promise.resolve();
+
+            // The approach is animated via executeMoveSequence with the route...
+            expect(executeMoveSequence).toHaveBeenCalledTimes(1);
+            const moveArgs = executeMoveSequence.mock.calls[0] as unknown as unknown[];
+            expect(moveArgs[1]).toEqual(meleePath); // path
+            // ...but its replayAction (arg 5) MUST be undefined so no standalone move_unit is submitted
+            // (that would end the turn on the server and skip the strike), and rapidCharge (arg 6) is on.
+            expect(moveArgs[4]).toBeUndefined(); // replayAction
+            expect(moveArgs[5]).toBe(true); // rapidCharge
+            // The strike still submits the ONE combined melee_attack WITH the path.
+            expect(executeAttackSequence).toHaveBeenCalledTimes(1);
+            const [attacker, struck, from, replayAction] = executeAttackSequence.mock.calls[0] as unknown as [
+                RenderableUnit,
+                typeof target,
+                HoCMath.XY,
+                Extract<GameAction, { type: "melee_attack" }>,
+            ];
+            expect(attacker).toBe(unit);
+            expect(struck).toBe(target);
+            expect(from).toEqual(attackFrom);
+            expect(replayAction.type).toBe("melee_attack");
+            expect(replayAction.path).toEqual(meleePath);
+            // No standalone move_unit was pushed through applyGameAction either.
+            expect(appliedActions.some((a) => a.type === "move_unit")).toBe(false);
+        });
+
         it("falls back to the AI.findTarget path when decideTurn returns an empty plan", async () => {
             const unit = createUnit();
             stubStrategy(() => [] as GameAction[]);

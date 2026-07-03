@@ -628,11 +628,14 @@ export class AIController {
                         this.finishAIAction(wasAIActive);
                     }
                 },
-                this.modelAction(currentUnit, {
-                    type: "move_unit",
-                    unitId: currentUnit.getId(),
-                    path: action.path,
-                }),
+                // replayAction MUST be undefined: this move only ANIMATES the approach. Submitting a
+                // standalone move_unit here (in any authoritative/deferring scene) makes the server treat
+                // the move as the unit's whole turn and SKIP the strike ("moved to (x,y)" then "skips
+                // turn") — the exact regression this guards. The strike itself submits the ONE combined
+                // melee_attack (WITH path) via executeAttackSequence below, so the server moves-then-
+                // strikes atomically. Mirrors Sandbox.ts's proven move+melee player path (replayAction
+                // undefined on the move, combined action on the strike).
+                undefined, // replayAction — animate only; never submit a lone move_unit
                 true, // rapidCharge — this AI walk feeds into a melee strike
             );
             if (!moveStarted) {
