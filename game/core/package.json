@@ -33,7 +33,7 @@
         "@types/node-schedule": "^2.1.7",
         "@types/randomcolor": "^0.5.9",
         "@types/react": "^18.3.12",
-        "@types/react-dom": "^18.3.1",
+        "@types/react-dom": "^19.2.3",
         "@types/react-router-dom": "^5.3.3",
         "@types/uuid": "^11.0.0",
         "axios": "^1.18.0",
