@@ -1,6 +1,8 @@
 import {
     AI,
     AttackVals,
+    DEFAULT_AI_VERSION,
+    getAIStrategy,
     Grid,
     GridMath,
     HoCMath,
@@ -382,10 +384,8 @@ export class AIController {
         this.turnActionAttemptUnitId = currentUnit.getId();
         this.turnActionAttemptAtMs = HoCLib.getTimeMillis();
 
-        let actionPerformed = false;
-
         if (this.shouldControlUnit(currentUnit)) {
-            actionPerformed = await this.performLocalModelAction(currentUnit, wasAIActive);
+            const actionPerformed = await this.performLocalModelAction(currentUnit, wasAIActive);
             if (actionPerformed) {
                 return;
             }
@@ -401,6 +401,319 @@ export class AIController {
         // findTarget mutates aura state (a rejected/declined cast returns without applying). No-op in sandbox.
         this.context.ensureAuthoritativeAuraState?.();
 
+        // Route production AI through the shipped learned strategy (v0.5: tuned weights + strategic
+        // hourglass). This is the SAME entry point (getAIStrategy(DEFAULT_AI_VERSION).decideTurn) that
+        // measured the ~68%-vs-v0.4 win rate in the sim — the client previously bypassed it via
+        // AI.findTarget + local handlers. Gated so we can A/B / roll back: default ON in the browser
+        // bundle (process.env is build-time-replaced; undefined → "on"), consistent with other V05_* gates.
+        const USE_STRATEGY = (process.env.V05_CLIENT_AI ?? "on") !== "off";
+        if (USE_STRATEGY) {
+            let strategyActions: GameAction[] = [];
+            try {
+                strategyActions = getAIStrategy(DEFAULT_AI_VERSION).decideTurn(currentUnit, {
+                    grid: this.context.getGrid(),
+                    matrix: this.context.getGridMatrix(),
+                    unitsHolder: this.context.getUnitsHolder(),
+                    pathHelper: this.context.getPathHelper(),
+                    attackHandler: this.context.getAttackHandler(),
+                    fightProperties: FightStateManager.getInstance().getFightProperties(),
+                });
+            } catch (err) {
+                // Never regress to a dead turn: a strategy throw drops us onto the proven findTarget path.
+                console.error("v0.5 decideTurn threw; falling back to base AI", err);
+                strategyActions = [];
+            }
+            // Empty plan → fall back too (decideTurn never returns [] in practice, but be defensive).
+            if (strategyActions.length && (await this.performStrategyActions(currentUnit, strategyActions, wasAIActive))) {
+                return;
+            }
+        }
+
+        // Fallback: the pre-v0.5 spell + AI.findTarget path (kept intact for A/B, rollback, and as the
+        // safety net whenever the strategy declines / throws so a turn is never left dead).
+        await this.performFindTargetAction(currentUnit, wasAIActive);
+    }
+    /**
+     * Execute a v0.5 GameAction[] plan (from decideTurn) via the same animation-preserving primitives the
+     * findTarget handlers use — so ranked transport (applyGameAction / execute* route sandbox=local-engine
+     * vs ranked=deferred automatically) and animations are identical to the human/handler path. Preserves
+     * the exact finishAIAction / scheduleMoveWatchdog / endTurnIfStillActive discipline. Returns true when
+     * the plan was taken (turn driven to completion via callbacks); false to fall back to findTarget.
+     */
+    private async performStrategyActions(
+        currentUnit: RenderableUnit,
+        actions: GameAction[],
+        wasAIActive: boolean,
+    ): Promise<boolean> {
+        // The strike/move/etc. is the plan's payload; leading select_attack_type entries are re-derived and
+        // applied via selectAttackType() inside each strike handler (so we don't double-select).
+        const primary = actions.find((a) => a.type !== "select_attack_type");
+        if (!primary) {
+            // Only attack-type setup was emitted — apply it and end so the unit still progresses.
+            for (const a of actions) {
+                this.context.applyGameAction(this.modelAction(currentUnit, a));
+            }
+            this.endTurnIfStillActive(currentUnit);
+            this.finishAIAction(wasAIActive);
+            return true;
+        }
+
+        switch (primary.type) {
+            case "move_unit":
+                return this.executeStrategyMove(currentUnit, primary.path, primary.targetCells, wasAIActive);
+            case "melee_attack":
+                return this.executeStrategyMelee(currentUnit, primary, wasAIActive);
+            case "range_attack":
+                return this.executeStrategyRange(currentUnit, primary, wasAIActive);
+            case "obstacle_attack":
+                return this.executeStrategyObstacle(currentUnit, primary, wasAIActive);
+            case "cast_spell": {
+                // Loop guard mirrors tryCastSpell: don't re-cast for the same still-active unit (optimistic
+                // ranked submit that got rejected keeps the unit active).
+                if (this.spellCastAttemptUnitId === currentUnit.getId()) {
+                    return false;
+                }
+                this.spellCastAttemptUnitId = currentUnit.getId();
+                if (!this.context.applyGameAction(this.modelAction(currentUnit, primary))) {
+                    return false; // engine/transport rejected — fall back to findTarget this turn
+                }
+                this.endTurnIfStillActive(currentUnit);
+                this.finishAIAction(wasAIActive);
+                return true;
+            }
+            case "wait_turn":
+            case "end_turn": {
+                // Park/end the turn: no animation, just submit and release the AI lock.
+                this.context.applyGameAction(this.modelAction(currentUnit, primary));
+                this.finishAIAction(wasAIActive);
+                return true;
+            }
+            default: {
+                // Any other engine action (e.g. defend_turn): apply generically and end.
+                if (!this.context.applyGameAction(this.modelAction(currentUnit, primary))) {
+                    return false;
+                }
+                this.endTurnIfStillActive(currentUnit);
+                this.finishAIAction(wasAIActive);
+                return true;
+            }
+        }
+    }
+    /**
+     * Drive a strategy move_unit via executeMoveSequence. Mirrors handleMoveOnly's completion/watchdog
+     * discipline, but consumes the strategy-supplied path + footprint directly (no re-derivation).
+     */
+    private executeStrategyMove(
+        currentUnit: RenderableUnit,
+        path: HoCMath.XY[],
+        targetCells: HoCMath.XY[] | undefined,
+        wasAIActive: boolean,
+    ): boolean {
+        if (!path?.length || !currentUnit.canMove()) {
+            return false;
+        }
+        const moveAction = this.modelAction(currentUnit, {
+            type: "move_unit",
+            unitId: currentUnit.getId(),
+            path,
+            targetCells,
+        });
+        const isAuthoritative = this.context.isAuthoritativeAction?.(moveAction) ?? false;
+        const watchdog = isAuthoritative ? undefined : this.scheduleMoveWatchdog(currentUnit, wasAIActive);
+        const moveStarted = this.context.executeMoveSequence(
+            currentUnit,
+            path,
+            targetCells,
+            () => {
+                if (!watchdog) {
+                    return;
+                }
+                clearTimeout(watchdog);
+                this.endTurnIfStillActive(currentUnit);
+                this.finishAIAction(wasAIActive);
+            },
+            moveAction,
+        );
+        if (!moveStarted) {
+            if (watchdog) {
+                clearTimeout(watchdog);
+            }
+            this.endTurnIfStillActive(currentUnit);
+            this.finishAIAction(wasAIActive);
+        } else if (isAuthoritative) {
+            this.finishAIAction(wasAIActive);
+        }
+        return true;
+    }
+    /**
+     * Drive a strategy melee_attack. With a path: move (rapid charge) then strike (mirrors
+     * handleMoveAndMeleeAttack); without: strike in place (mirrors handleMeleeAttack). Guards a Hidden
+     * target or a No-Melee attacker down to a plain advance/end so we never submit a doomed strike.
+     */
+    private async executeStrategyMelee(
+        currentUnit: RenderableUnit,
+        action: Extract<GameAction, { type: "melee_attack" }>,
+        wasAIActive: boolean,
+    ): Promise<boolean> {
+        const target = this.context.getUnitsHolder().getAllUnits().get(action.targetId);
+        if (!target) {
+            return false;
+        }
+        // v0.5's excludeHiddenAttack should already keep Hidden targets out, and its planner never melees a
+        // No-Melee unit — but guard anyway: downgrade to a plain advance along the planned path (or end) so
+        // a stale gate can't push a rejected strike (attack_not_available / attack_type_not_available).
+        if (currentUnit.hasAbilityActive("No Melee") || target.hasBuffActive("Hidden")) {
+            if (action.path?.length && currentUnit.canMove()) {
+                return this.executeStrategyMove(currentUnit, action.path, undefined, wasAIActive);
+            }
+            this.endTurnIfStillActive(currentUnit);
+            this.finishAIAction(wasAIActive);
+            return true;
+        }
+        const attackFrom = action.attackFrom ?? currentUnit.getBaseCell();
+        // Select the melee stance first, exactly as the handlers do (No-Melee / MELEE_MAGIC guarded inside).
+        if (this.selectAttackType(currentUnit, AttackVals.MELEE)) {
+            this.context.getButtonManager().refreshButtons(true);
+            this.context.refreshUnits();
+        }
+        const authoritativeAction = this.modelAction(currentUnit, {
+            type: "melee_attack",
+            attackerId: currentUnit.getId(),
+            targetId: target.getId(),
+            attackFrom,
+            path: action.path,
+        });
+
+        if (action.path?.length) {
+            // Ranked: the deferred replay drives the whole move+attack in one submit (mirror
+            // handleMoveAndMeleeAttack's authoritative branch).
+            if (this.context.isAuthoritativeAction?.(authoritativeAction)) {
+                const completed = await this.context.executeAttackSequence(
+                    currentUnit,
+                    target,
+                    attackFrom,
+                    authoritativeAction,
+                );
+                if (!completed) {
+                    this.endTurnIfStillActive(currentUnit);
+                }
+                this.finishAIAction(wasAIActive);
+                return true;
+            }
+            // Sandbox: animate the approach, then strike in the move's completion callback.
+            const watchdog = this.scheduleMoveWatchdog(currentUnit, wasAIActive);
+            const moveStarted = this.context.executeMoveSequence(
+                currentUnit,
+                action.path,
+                undefined,
+                async () => {
+                    clearTimeout(watchdog);
+                    try {
+                        const completed = await this.context.executeAttackSequence(
+                            currentUnit,
+                            target,
+                            attackFrom,
+                            authoritativeAction,
+                        );
+                        if (!completed) {
+                            this.endTurnIfStillActive(currentUnit);
+                        }
+                    } catch (err) {
+                        console.error("AI strategy move-and-melee failed", err);
+                        this.endTurnIfStillActive(currentUnit);
+                    } finally {
+                        this.finishAIAction(wasAIActive);
+                    }
+                },
+                this.modelAction(currentUnit, {
+                    type: "move_unit",
+                    unitId: currentUnit.getId(),
+                    path: action.path,
+                }),
+                true, // rapidCharge — this AI walk feeds into a melee strike
+            );
+            if (!moveStarted) {
+                clearTimeout(watchdog);
+                this.endTurnIfStillActive(currentUnit);
+                this.finishAIAction(wasAIActive);
+            }
+            return true;
+        }
+
+        // No move — strike in place.
+        const completed = await this.context.executeAttackSequence(currentUnit, target, attackFrom, authoritativeAction);
+        if (!completed) {
+            this.endTurnIfStillActive(currentUnit);
+        }
+        this.finishAIAction(wasAIActive);
+        return true;
+    }
+    /** Drive a strategy range_attack (mirror handleRangeAttack). */
+    private async executeStrategyRange(
+        currentUnit: RenderableUnit,
+        action: Extract<GameAction, { type: "range_attack" }>,
+        wasAIActive: boolean,
+    ): Promise<boolean> {
+        const target = this.context.getUnitsHolder().getAllUnits().get(action.targetId);
+        const gs = this.context.getSceneSettings().getGridSettings();
+        const attackFrom = GridMath.getCellForPosition(gs, currentUnit.getPosition());
+        if (!target || !attackFrom) {
+            return false;
+        }
+        if (this.selectAttackType(currentUnit, AttackVals.RANGE)) {
+            this.context.getButtonManager().refreshButtons(true);
+            this.context.refreshUnits();
+        }
+        const completed = await this.context.executeAttackSequence(
+            currentUnit,
+            target,
+            attackFrom,
+            this.modelAction(currentUnit, {
+                type: "range_attack",
+                attackerId: currentUnit.getId(),
+                targetId: target.getId(),
+            }),
+        );
+        if (!completed) {
+            this.endTurnIfStillActive(currentUnit);
+        }
+        this.finishAIAction(wasAIActive);
+        return true;
+    }
+    /** Drive a strategy obstacle_attack (mirror handleObstacleAttack). targetPosition is already world XY. */
+    private executeStrategyObstacle(
+        currentUnit: RenderableUnit,
+        action: Extract<GameAction, { type: "obstacle_attack" }>,
+        wasAIActive: boolean,
+    ): boolean {
+        // Mining is a melee strike (ranged units never emit this).
+        if (this.selectAttackType(currentUnit, AttackVals.MELEE)) {
+            this.context.getButtonManager().refreshButtons(true);
+            this.context.refreshUnits();
+        }
+        const watchdog = this.scheduleMoveWatchdog(currentUnit, wasAIActive);
+        const started = this.context.executeObstacleAttackSequence(
+            currentUnit,
+            action.targetPosition,
+            action.attackFrom,
+            () => {
+                clearTimeout(watchdog);
+                this.endTurnIfStillActive(currentUnit);
+                this.finishAIAction(wasAIActive);
+            },
+        );
+        if (!started) {
+            clearTimeout(watchdog);
+            this.endTurnIfStillActive(currentUnit);
+            this.finishAIAction(wasAIActive);
+        }
+        return true;
+    }
+    /**
+     * The pre-v0.5 decision path: spell heuristics + AI.findTarget + the move/attack handlers. Kept as the
+     * fallback whenever the v0.5 strategy is gated off, declines, or throws — so a turn is never left dead.
+     */
+    private async performFindTargetAction(currentUnit: RenderableUnit, wasAIActive: boolean): Promise<void> {
         // Spell casting: the built-in AI.findTarget only does move/attack, so evaluate the active
         // unit's spells (heal/buff allies, debuff/Castling enemies, summon) here. Cast only when it
         // beats just attacking, so the unit still progresses the fight to a finish.
@@ -416,6 +729,7 @@ export class AIController {
             this.context.getPathHelper(),
         );
 
+        let actionPerformed = false;
         if (action?.actionType() === AI.AIActionType.MOVE_AND_MELEE_ATTACK) {
             actionPerformed = await this.handleMoveAndMeleeAttack(currentUnit, action, wasAIActive);
             if (actionPerformed) return; // Early return handled internally with callbacks

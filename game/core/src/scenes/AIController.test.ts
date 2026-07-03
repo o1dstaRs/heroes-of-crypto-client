@@ -1,11 +1,13 @@
-import { describe, expect, it, mock } from "bun:test";
+import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
 
+import * as HoC from "@heroesofcrypto/common";
 import {
     AttackVals,
     GridSettings,
     TeamVals,
     type GameAction,
     type HoCMath,
+    type IAIStrategy,
     type IWeightedRoute,
 } from "@heroesofcrypto/common";
 
@@ -289,5 +291,141 @@ describe("AIController", () => {
         // still on here — both stay true.
         expect(controller.isAIActive).toBe(true);
         expect(buttonManager.sc_isAIActive).toBe(true);
+    });
+
+    // --- v0.5 learned-strategy routing (performAction → decideTurn) ---------------------------------
+    describe("v0.5 strategy routing", () => {
+        // Swap getAIStrategy(DEFAULT_AI_VERSION) for a fake whose decideTurn we control. spyOn on the
+        // @heroesofcrypto/common namespace also rebinds AIController's own `getAIStrategy` import (verified),
+        // so performAction() drives the fake plan through the real translation/execution machinery.
+        let strategySpy: ReturnType<typeof spyOn> | undefined;
+        const stubStrategy = (decideTurn: (...args: unknown[]) => GameAction[]) => {
+            const strategy = { version: "test", placeArmy: () => new Map(), decideTurn } as unknown as IAIStrategy;
+            strategySpy = spyOn(HoC, "getAIStrategy").mockReturnValue(strategy);
+            return strategy;
+        };
+        afterEach(() => {
+            strategySpy?.mockRestore();
+            strategySpy = undefined;
+        });
+
+        const baseContext = (overrides: Record<string, unknown>): IAIContext =>
+            ({
+                applyGameAction: mock(() => true),
+                executeAttackSequence: mock(async () => true),
+                executeMoveSequence: mock(() => true),
+                executeObstacleAttackSequence: mock(() => true),
+                getButtonManager: () => ({ refreshButtons: mock(() => undefined), sc_isAIActive: true }),
+                getCurrentActiveUnit: () => createUnit(),
+                getGrid: () => ({}),
+                getGridMatrix: () => [],
+                getAttackHandler: () => ({}),
+                getHoverManager: () => ({ showSilhouetteForUnit: mock(() => undefined) }),
+                getPathHelper: () => ({}),
+                getSceneLog: () => ({ updateLog: mock(() => undefined) }),
+                getSceneSettings: () => new SceneSettings(new GridSettings(4, 400, 0, 400, 0, 0, 0), true),
+                getUnitsHolder: () => ({ getAllUnits: () => new Map() }),
+                ensureAuthoritativeAuraState: mock(() => undefined),
+                refreshUnits: mock(() => undefined),
+                setCurrentActiveKnownPaths: mock(() => undefined),
+                setSelectedAttackType: mock(() => undefined),
+                ...overrides,
+            }) as unknown as IAIContext;
+
+        it("routes the production turn through decideTurn and executes its wait_turn plan", async () => {
+            const unit = createUnit();
+            const grid = { grid: true };
+            const matrix = [[1]];
+            const decideTurn = mock(() => [{ type: "wait_turn", unitId: unit.getId() }] as GameAction[]);
+            stubStrategy(decideTurn);
+            const appliedActions: GameAction[] = [];
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                getGrid: () => grid as never,
+                getGridMatrix: () => matrix,
+                applyGameAction: (action: GameAction) => {
+                    appliedActions.push(action);
+                    return true;
+                },
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+
+            // (i) decideTurn was called for the active unit with the wired IDecisionContext.
+            expect(decideTurn).toHaveBeenCalledTimes(1);
+            const [decidedUnit, decidedCtx] = decideTurn.mock.calls[0] as unknown as [
+                RenderableUnit,
+                { grid: unknown; matrix: unknown },
+            ];
+            expect(decidedUnit).toBe(unit);
+            expect(decidedCtx.grid).toBe(grid);
+            expect(decidedCtx.matrix).toBe(matrix);
+            // (iii) wait_turn is applied via applyGameAction and the AI lock is released (no animation).
+            expect(appliedActions).toEqual([{ type: "wait_turn", unitId: unit.getId() }]);
+            expect(controller.performingAction).toBe(false);
+        });
+
+        it("translates a melee_attack plan into executeAttackSequence with the target and attackFrom", async () => {
+            const unit = createUnit();
+            const attackFrom = { x: 3, y: 4 };
+            const target = {
+                getId: () => "target-1",
+                getTeam: () => TeamVals.UPPER,
+                getCells: () => [{ x: 3, y: 5 }],
+                hasBuffActive: () => false,
+            };
+            stubStrategy(
+                () =>
+                    [
+                        { type: "select_attack_type", unitId: unit.getId(), attackType: AttackVals.MELEE },
+                        { type: "melee_attack", attackerId: unit.getId(), targetId: "target-1", attackFrom },
+                    ] as GameAction[],
+            );
+            const executeAttackSequence = mock(async () => true);
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                executeAttackSequence,
+                getUnitsHolder: () => ({ getAllUnits: () => new Map([["target-1", target]]) }),
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+
+            // (ii) the strike routes through executeAttackSequence with the resolved target + attack-from cell.
+            expect(executeAttackSequence).toHaveBeenCalledTimes(1);
+            const [attacker, struck, from] = executeAttackSequence.mock.calls[0] as unknown as [
+                RenderableUnit,
+                typeof target,
+                HoCMath.XY,
+            ];
+            expect(attacker).toBe(unit);
+            expect(struck).toBe(target);
+            expect(from).toEqual(attackFrom);
+            expect(controller.performingAction).toBe(false);
+        });
+
+        it("falls back to the AI.findTarget path when decideTurn returns an empty plan", async () => {
+            const unit = createUnit();
+            stubStrategy(() => [] as GameAction[]);
+            const context = baseContext({ getCurrentActiveUnit: () => unit });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            // Observe the fallback without exercising the real findTarget engine path.
+            const fallback = mock(async () => undefined);
+            (controller as unknown as { performFindTargetAction: typeof fallback }).performFindTargetAction = fallback;
+
+            await controller.performAction(true);
+
+            // (iv) an empty strategy plan hands off to the proven findTarget fallback (never a dead turn).
+            expect(fallback).toHaveBeenCalledTimes(1);
+            expect((fallback.mock.calls[0] as unknown as [RenderableUnit])[0]).toBe(unit);
+        });
     });
 });
