@@ -445,6 +445,22 @@ export abstract class PixiScene {
         const visibleBuffsImpact: IVisibleImpact[] = [];
         const visibleDebuffsImpact: IVisibleImpact[] = [];
 
+        // Applied buff/debuff descriptions are stored as "text;firstProp;secondProp" — fill the text's
+        // `{}` placeholders with those properties in order (e.g. Dulling Defense's reduced amount) so the
+        // hover tooltip shows the real value instead of a literal "{}". Empty props are skipped.
+        const fillDescProps = (raw: string): string => {
+            const parts = raw.split(";");
+            let text = parts[0] ?? "";
+            for (let p = 1; p < parts.length; p++) {
+                const value = parts[p];
+                if (value === undefined || value === "" || !text.includes("{}")) {
+                    continue;
+                }
+                text = text.replace("{}", value);
+            }
+            return text;
+        };
+
         for (let i = 0; i < unitProperties.abilities.length; i++) {
             const abilityName = unitProperties.abilities[i];
             const abilityDescription = unitProperties.abilities_descriptions[i];
@@ -501,7 +517,7 @@ export abstract class PixiScene {
 
                 const buffName = unitProperties.applied_buffs[i];
 
-                const description = unitProperties.applied_buffs_descriptions[i].split(";")[0];
+                const description = fillDescProps(unitProperties.applied_buffs_descriptions[i]);
 
                 visibleBuffsImpact.push({
                     name: buffName,
@@ -526,7 +542,7 @@ export abstract class PixiScene {
                 }
 
                 const debuffName = unitProperties.applied_debuffs[i];
-                const description = unitProperties.applied_debuffs_descriptions[i].split(";")[0];
+                const description = fillDescProps(unitProperties.applied_debuffs_descriptions[i]);
 
                 visibleDebuffsImpact.push({
                     name: debuffName,
