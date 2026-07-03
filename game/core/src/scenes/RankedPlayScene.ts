@@ -1033,12 +1033,45 @@ export class RankedPlayScene extends Sandbox {
                     const flag = actorId ? this.logTeamFlag(actorId) : "";
                     lines.push(flag ? `${flag} ${line}` : line);
                 }
+                // AOE range attacks (Area Throw / Large Caliber) log one line per splashed unit with its
+                // real ranged damage — the single primary line is suppressed above (damage.amount is 0).
+                for (const splashLine of this.splashLogLines(event, unitNames)) {
+                    lines.push(splashLine);
+                }
                 // Secondary-damage abilities (Fire Shield / Chain Lightning / Petrifying Gaze / Magic
                 // Mirror) ride on the attack's damage payload — each gets its own follow-up log line.
                 for (const secondaryLine of this.secondaryLogLines(event, unitNames)) {
                     lines.push(secondaryLine);
                 }
             }
+        }
+        return lines;
+    }
+    /**
+     * One scene-log line per unit hit by an AOE range attack (Gargantuan Area Throw / Cyclops Large
+     * Caliber). The shot's damage is carried per-unit in damage.splash[] (NOT damage.amount, which is 0
+     * for a pure-splash shot), so eventToSceneLogLine suppresses the single "(0)" primary line and each
+     * splashed unit is logged here with its own ranged damage + kills.
+     */
+    private splashLogLines(event: GameEvent, unitNames: ReadonlyMap<string, string>): string[] {
+        if (event.type !== "unit_attacked" && event.type !== "area_attacked") {
+            return [];
+        }
+        const splash = event.damage?.splash;
+        if (!splash?.length) {
+            return [];
+        }
+        const attackerName = unitNames.get(event.attackerId) ?? "Unit";
+        const flag = this.logTeamFlag(event.attackerId);
+        const lines: string[] = [];
+        for (const entry of splash) {
+            if (entry.amount <= 0 && entry.unitsDied <= 0) {
+                continue;
+            }
+            const name = unitNames.get(entry.unitId) ?? "Unit";
+            const kills = entry.unitsDied > 0 ? ` 💀 ${entry.unitsDied}` : "";
+            const text = `${attackerName} 💥 ${name} (${entry.amount})${kills}`;
+            lines.push(flag ? `${flag} ${text}` : text);
         }
         return lines;
     }
@@ -1225,10 +1258,20 @@ export class RankedPlayScene extends Sandbox {
                 return `${nameOf(event.casterId)} summoned ${event.amount} x ${event.unitName}${at}`;
             }
             case "unit_attacked":
+                // AOE (Gargantuan Area Throw / Cyclops Large Caliber) carries its damage per-splashed-
+                // unit in damage.splash[], NOT in damage.amount (which is 0 for a pure-splash shot). Emit
+                // one line per affected unit via splashLogLines() and suppress the misleading single
+                // "(0)" primary line here.
+                if (event.damage.splash?.length) {
+                    return undefined;
+                }
                 return `${nameOf(event.attackerId)} ${this.attackIcon(event.attackType, event.damage)} ${nameOf(event.targetId)} (${event.damage.amount})${this.killSuffix(event.damage)}`;
             case "obstacle_attacked":
                 return `${nameOf(event.attackerId)} attacked obstacle (${event.hitsAfter})`;
             case "area_attacked":
+                if (event.damage.splash?.length) {
+                    return undefined;
+                }
                 return `${nameOf(event.attackerId)} ${this.attackIcon(event.attackType, event.damage)} (${event.damage.amount})${this.killSuffix(event.damage)}`;
             case "spell_cast":
                 // Single-target casts (Riot, Magic Mirror, …) carry the target so the log says on whom
