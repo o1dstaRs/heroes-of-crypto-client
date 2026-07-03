@@ -66,9 +66,17 @@ const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? curren
             <img src="/assets/icons/navbar/joystick.svg" alt="" width="17" height="17" />
             <span>{copy.play.startCta}</span>
         </a>
-        <a class="header-login-link" href={`${localPath(lang, "home")}auth/login/`}>
+        <a class="header-login-link" data-auth-login href={`${localPath(lang, "home")}auth/login/`}>
             {copy.nav.login}
         </a>
+        <div class="header-account" data-auth-account hidden>
+            <a class="header-account-name" data-auth-username href={playHref} aria-label={copy.nav.login}>
+                Account
+            </a>
+            <button type="button" class="header-logout" data-auth-logout data-logout-redirect={localPath(lang, "home")}>
+                {copy.nav.logout}
+            </button>
+        </div>
         <div class="language-switcher" aria-label={copy.ui.language}>
             <a class:list={["language-option", { active: lang === "en" }]} href={languageSwitchPath(currentPath, "en")}>
                 {copy.ui.english}
@@ -80,13 +88,74 @@ const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? curren
     </div>
 </header>
 
+<script>
+    import { displayName, getAuthUser, isLoggedIn, logout, onAuthStateChange } from "../lib/auth-state";
+
+    const loginLink = document.querySelector<HTMLElement>("[data-auth-login]");
+    const account = document.querySelector<HTMLElement>("[data-auth-account]");
+    const usernameEl = document.querySelector<HTMLElement>("[data-auth-username]");
+    const logoutBtn = document.querySelector<HTMLButtonElement>("[data-auth-logout]");
+
+    logoutBtn?.addEventListener("click", () => logout(logoutBtn.dataset.logoutRedirect || "/"));
+
+    onAuthStateChange(() => {
+        const loggedIn = isLoggedIn();
+        if (usernameEl && loggedIn) usernameEl.textContent = displayName(getAuthUser());
+        if (loginLink) loginLink.hidden = loggedIn;
+        if (account) account.hidden = !loggedIn;
+    });
+</script>
+
 <style>
     .header-login-link {
         min-width: 88px;
     }
 
+    .header-account {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* Higher specificity than .header-account so the hidden attribute still wins over display:flex. */
+    .header-account[hidden] {
+        display: none;
+    }
+
+    .header-account-name {
+        max-width: 160px;
+        overflow: hidden;
+        color: var(--gold, #f2c75d);
+        font-weight: 700;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .header-logout {
+        padding: 6px 10px;
+        border: 1px solid var(--line, rgba(255, 255, 255, 0.16));
+        border-radius: 8px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        font-size: 0.82rem;
+        cursor: pointer;
+        transition:
+            border-color 0.18s ease,
+            background 0.18s ease;
+    }
+
+    .header-logout:hover {
+        border-color: rgba(242, 199, 93, 0.56);
+        background: rgba(242, 199, 93, 0.1);
+    }
+
     @media (max-width: 720px) {
         .header-login-link {
+            display: none;
+        }
+
+        .header-account-name {
             display: none;
         }
 

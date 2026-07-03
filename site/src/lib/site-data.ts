@@ -86,6 +86,7 @@ export const content = {
             faq: "FAQ",
             contact: "Contact",
             login: "Login",
+            logout: "Log out",
             proposal: "Proposal",
             terms: "Terms",
             privacy: "Privacy",
@@ -108,6 +109,12 @@ export const content = {
             modeTitle: "Choose how to play",
             modeBody:
                 "Start ranked matchmaking when you want a real opponent, or open the sandbox beta when you want to test armies and board states.",
+            signedInAs: "Signed in as",
+            statWins: "Wins",
+            statLosses: "Losses",
+            statGames: "Games",
+            guestPrompt: "You're playing as a guest.",
+            guestPromptCta: "Log in to save ranked progress",
         },
         auth: {
             loginTitle: "Login",
@@ -586,6 +593,7 @@ export const content = {
             faq: "Вопросы",
             contact: "Контакты",
             login: "Войти",
+            logout: "Выйти",
             proposal: "Документ",
             terms: "Условия",
             privacy: "Приватность",
@@ -608,6 +616,12 @@ export const content = {
             modeTitle: "Выберите режим",
             modeBody:
                 "Запускайте рейтинговый матч против реального соперника или открывайте песочницу для тестов армий и состояний поля.",
+            signedInAs: "Вы вошли как",
+            statWins: "Победы",
+            statLosses: "Поражения",
+            statGames: "Игры",
+            guestPrompt: "Вы играете как гость.",
+            guestPromptCta: "Войдите, чтобы сохранять прогресс",
         },
         auth: {
             loginTitle: "Вход",

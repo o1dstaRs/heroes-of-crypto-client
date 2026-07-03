@@ -22,6 +22,21 @@ const copy = content[lang];
                 <div class="hero-highlights" aria-label={copy.hero.availability}>
                     {copy.hero.highlights.map((item) => <span>{item}</span>)}
                 </div>
+
+                <div class="play-account" data-play-account hidden>
+                    <p class="play-account-greeting">
+                        {copy.play.signedInAs} <strong data-play-username>Player</strong>
+                    </p>
+                    <dl class="play-account-stats">
+                        <div><dt>{copy.play.statWins}</dt><dd data-play-wins>0</dd></div>
+                        <div><dt>{copy.play.statLosses}</dt><dd data-play-losses>0</dd></div>
+                        <div><dt>{copy.play.statGames}</dt><dd data-play-games>0</dd></div>
+                    </dl>
+                    <button type="button" class="play-account-logout" data-play-logout>{copy.nav.logout}</button>
+                </div>
+                <p class="play-account-guest" data-play-guest hidden>
+                    {copy.play.guestPrompt} <a href="/auth/login/">{copy.play.guestPromptCta}</a>
+                </p>
             </div>
 
             <div class="mode-card-grid" aria-label={copy.play.startLabel}>
@@ -69,6 +84,31 @@ const copy = content[lang];
 
 <script>
     import { LobbyList } from "@heroesofcrypto/common/src/generated/protobuf/v1/messages_reexports";
+    import { displayName, getAuthUser, isLoggedIn, logout, onAuthStateChange } from "../lib/auth-state";
+
+    // Reflect the signed-in account on the play hub: greet by name + show ranked record, or nudge a
+    // guest to log in. Both blocks ship hidden so neither flashes before we know the session state.
+    const accountPanel = document.querySelector<HTMLElement>("[data-play-account]");
+    const guestPrompt = document.querySelector<HTMLElement>("[data-play-guest]");
+    const playUsername = document.querySelector<HTMLElement>("[data-play-username]");
+    const playWins = document.querySelector<HTMLElement>("[data-play-wins]");
+    const playLosses = document.querySelector<HTMLElement>("[data-play-losses]");
+    const playGames = document.querySelector<HTMLElement>("[data-play-games]");
+
+    document.querySelector<HTMLButtonElement>("[data-play-logout]")?.addEventListener("click", () => logout("/"));
+
+    onAuthStateChange(() => {
+        const loggedIn = isLoggedIn();
+        if (loggedIn) {
+            const user = getAuthUser();
+            if (playUsername) playUsername.textContent = displayName(user);
+            if (playWins) playWins.textContent = String(user?.wins ?? 0);
+            if (playLosses) playLosses.textContent = String(user?.losses ?? 0);
+            if (playGames) playGames.textContent = String(user?.total_games_played ?? 0);
+        }
+        if (accountPanel) accountPanel.hidden = !loggedIn;
+        if (guestPrompt) guestPrompt.hidden = loggedIn;
+    });
 
     const isProd =
         import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true" || import.meta.env.VITE_IS_PROD === true;
@@ -159,6 +199,84 @@ const copy = content[lang];
         max-width: 620px;
         color: rgba(251, 244, 232, 0.8);
         font-size: 1.06rem;
+    }
+
+    .play-account {
+        display: grid;
+        gap: 14px;
+        max-width: 620px;
+        margin-top: 26px;
+        padding: 18px 20px;
+        border: 1px solid rgba(242, 199, 93, 0.28);
+        border-radius: 10px;
+        background: linear-gradient(180deg, rgba(242, 199, 93, 0.08), rgba(255, 255, 255, 0.02));
+    }
+
+    .play-account[hidden],
+    .play-account-guest[hidden] {
+        display: none;
+    }
+
+    .play-account-greeting {
+        margin: 0;
+        color: rgba(251, 244, 232, 0.82);
+        font-size: 1.02rem;
+    }
+
+    .play-account-greeting strong {
+        color: var(--gold, #f2c75d);
+    }
+
+    .play-account-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 22px;
+        margin: 0;
+    }
+
+    .play-account-stats div {
+        display: grid;
+        gap: 2px;
+    }
+
+    .play-account-stats dt {
+        color: rgba(251, 244, 232, 0.6);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .play-account-stats dd {
+        margin: 0;
+        color: #fff;
+        font-size: 1.34rem;
+        font-weight: 800;
+    }
+
+    .play-account-logout {
+        justify-self: start;
+        padding: 8px 14px;
+        border: 1px solid var(--line, rgba(255, 255, 255, 0.16));
+        border-radius: 8px;
+        background: transparent;
+        color: rgba(251, 244, 232, 0.86);
+        font: inherit;
+        font-size: 0.86rem;
+        cursor: pointer;
+        transition:
+            border-color 0.18s ease,
+            background 0.18s ease;
+    }
+
+    .play-account-logout:hover {
+        border-color: rgba(242, 199, 93, 0.56);
+        background: rgba(242, 199, 93, 0.1);
+    }
+
+    .play-account-guest {
+        max-width: 620px;
+        margin-top: 22px;
+        color: rgba(251, 244, 232, 0.72);
     }
 
     .mode-card-grid {
