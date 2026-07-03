@@ -3269,6 +3269,7 @@ export class Sandbox extends PixiScene {
     public refreshUnits(): void {
         // those need to be applied first
         this.unitsHolder.applyAugments();
+        this.unitsHolder.applyArtifacts();
         // now we can refresh unit properties
         this.unitsHolder.refreshAuraEffectsForAllUnits();
         this.unitsHolder.refreshStackPowerForAllUnits();
@@ -3478,6 +3479,25 @@ export class Sandbox extends PixiScene {
             this.sc_unitPropertiesUpdateNeeded = true;
         }
         return augmented;
+    }
+    public propagateArtifact(teamType: TeamType, tier: number, artifactId: number): boolean {
+        const fp = FightStateManager.getInstance().getFightProperties();
+        const applied = fp.setArtifactPerTeam(teamType, tier, artifactId);
+        if (applied) {
+            this.refreshUnits();
+            if (this.sc_selectedUnitProperties) {
+                const unitId = this.sc_selectedUnitProperties.id;
+                if (unitId) {
+                    const unit = this.unitsHolder.getAllUnits().get(unitId);
+                    if (unit) {
+                        this.sc_selectedUnitProperties = { ...unit.getUnitProperties() };
+                    }
+                }
+                this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
+            }
+            this.sc_unitPropertiesUpdateNeeded = true;
+        }
+        return applied;
     }
     public propagateSynergy(
         teamType: TeamType,
@@ -4559,7 +4579,7 @@ export class Sandbox extends PixiScene {
                 undefined,
                 caster.canFly(),
                 caster.isSmallSize(),
-                caster.hasAbilityActive("Made of Fire"),
+                caster.canTraverseLava(),
             ).cells;
             const enemies: HoCMath.XY[] = [];
             for (const c of moveCells) {
@@ -7716,7 +7736,7 @@ export class Sandbox extends PixiScene {
                             this.grid.getAggrMatrixByTeam(targetUnit.getOppositeTeam()),
                             targetUnit.canFly(),
                             targetUnit.isSmallSize(),
-                            targetUnit.hasAbilityActive("Made of Fire"),
+                            targetUnit.canTraverseLava(),
                         );
                         this.sc_placementMoveRange = movePath.cells;
                         this.sc_lastCalcRef = key;
@@ -9171,7 +9191,7 @@ export class Sandbox extends PixiScene {
                     this.grid.getAggrMatrixByTeam(this.currentActiveUnit.getOppositeTeam()),
                     this.currentActiveUnit.canFly(),
                     this.currentActiveUnit.isSmallSize(),
-                    this.currentActiveUnit.hasAbilityActive("Made of Fire"),
+                    this.currentActiveUnit.canTraverseLava(),
                 );
             } else {
                 // Paralysis: Can't move, but treat as staying at current cell to allow attack targeting

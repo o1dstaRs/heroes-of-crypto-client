@@ -574,7 +574,7 @@ const getEnemiesWithinMovementRange = (
         undefined,
         activeUnit.canFly(),
         activeUnit.isSmallSize(),
-        activeUnit.hasAbilityActive("Made of Fire"),
+        activeUnit.canTraverseLava(),
     ).cells;
     const enemies = moveCells.filter((cell) => {
         const enemyId = grid.getOccupantUnitId(cell);

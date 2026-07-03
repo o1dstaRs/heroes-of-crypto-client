@@ -4573,6 +4573,7 @@ class Sandbox extends GLScene {
     public refreshUnits(): void {
         // those need to be applied first
         this.unitsHolder.applyAugments();
+        this.unitsHolder.applyArtifacts();
         // now we can refresh unit properties
         this.unitsHolder.refreshAuraEffectsForAllUnits();
         this.unitsHolder.refreshStackPowerForAllUnits();

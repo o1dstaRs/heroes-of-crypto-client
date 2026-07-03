@@ -32,6 +32,7 @@ import {
 } from "@mui/joy";
 import { VisibleSynergyLevel } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { ArtifactToggler } from "./ArtifactToggler";
 const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import.meta.url).toString();
 const augmentArmorImg = new URL("../../../images/armor_augment_256.webp", import.meta.url).toString();
 const augmentMightImg = new URL("../../../images/might_augment_256.webp", import.meta.url).toString();
@@ -720,6 +721,8 @@ const SideToggleContainer = ({
                 </Tooltip>
             </Box>
             <Divider />
+
+            <ArtifactToggler teamType={teamType} />
 
             {hasAnySynergies && (
                 <Box sx={{ display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>

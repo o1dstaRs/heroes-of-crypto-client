@@ -486,7 +486,7 @@ export class AIController {
                     undefined,
                     caster.canFly(),
                     caster.isSmallSize(),
-                    caster.hasAbilityActive("Made of Fire"),
+                    caster.canTraverseLava(),
                 )
                 .cells.map((c) => (c.x << 4) | c.y),
         );

@@ -71,6 +71,7 @@ export class PixiGameManager {
     public readonly onHasButtonsGroupUpdate = new Signal<(buttons: IVisibleButton[]) => void>();
     public readonly onPlacementChanged = new Signal<(changed: boolean) => void>();
     public readonly onAugmentChanged = new Signal<(changed: boolean) => void>();
+    public readonly onArtifactChanged = new Signal<(changed: boolean) => void>();
     public readonly onGridTypeChanged = new Signal<(gridType: GridType) => void>();
     public readonly onAttackLanded = new Signal<(attackMessage: string) => void>();
     public readonly onDamageReceived = new Signal<(attackDamage: number) => void>();
@@ -732,6 +733,14 @@ export class PixiGameManager {
             this.onAugmentChanged.emit(augmented);
         }
         return augmented || false;
+    }
+    public PropagateArtifact(teamType: TeamType, tier: number, artifactId: number): boolean {
+        const applied = this.m_scene?.propagateArtifact(teamType, tier, artifactId);
+        if (applied) {
+            this.m_scene!.sc_artifactChanged = true;
+            this.onArtifactChanged.emit(applied);
+        }
+        return applied || false;
     }
     public PropagateSynergy(
         teamType: TeamType,

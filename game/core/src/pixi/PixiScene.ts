@@ -167,6 +167,7 @@ export abstract class PixiScene {
     public sc_gridTypeUpdateNeeded = false;
     public sc_moveBlocked = false;
     public sc_augmentChanged = false;
+    public sc_artifactChanged = false;
     public sc_buttonGroupUpdated = false;
     protected sc_mouseWorld: HoCMath.XY = { x: 0, y: 0 };
     protected sc_isAnimating = false;
@@ -241,6 +242,8 @@ export abstract class PixiScene {
     }
     protected abstract verifyButtonsTrigger(): void;
     public abstract propagateAugmentation(teamType: TeamType, augmentType: Augment.AugmentType): boolean;
+    // tier is 1 (Tier 1) or 2 (Tier 2); artifactId is the artifact enum value (0 clears the slot).
+    public abstract propagateArtifact(teamType: TeamType, tier: number, artifactId: number): boolean;
     public abstract propagateSynergy(
         teamType: TeamType,
         faction: FactionType,

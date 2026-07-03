@@ -11,6 +11,7 @@ import {
     ResponseMe,
     PickPairRequest,
     PickBanRequest,
+    ArtifactRequest,
     RevealRequest,
 } from "@heroesofcrypto/common";
 import { useCallback, useEffect, useMemo, useReducer } from "react";
@@ -407,6 +408,24 @@ export function AuthProvider({ children }: Props) {
         });
     }, []);
 
+    const artifact = useCallback(async (artifactId: number, tier: number) => {
+        refreshLocalStorageFromCookie();
+        const accessToken = localStorage.getItem(STORAGE_KEY);
+
+        // ArtifactRequest carries the artifact id in `artifact` and the tier (1|2) in `level`.
+        const artifactRequest = new ArtifactRequest({ artifact: artifactId, level: tier });
+        const data = artifactRequest.serializeBinary();
+
+        await axiosGameInstance.post(`${endpoints.game.artifact}`, data, {
+            responseType: "arraybuffer",
+            headers: {
+                "Content-Type": "application/octet-stream",
+                "x-request-id": uuidv4(),
+                Authorization: accessToken,
+            },
+        });
+    }, []);
+
     const ban = useCallback(async (creature: number) => {
         refreshLocalStorageFromCookie();
         const accessToken = localStorage.getItem(STORAGE_KEY);
@@ -728,6 +747,7 @@ export function AuthProvider({ children }: Props) {
             abandonGame,
             pickPair,
             pick,
+            artifact,
             ban,
             reveal,
             getCurrentGame,
@@ -753,6 +773,7 @@ export function AuthProvider({ children }: Props) {
             abandonGame,
             pickPair,
             pick,
+            artifact,
             ban,
             reveal,
             getCurrentGame,

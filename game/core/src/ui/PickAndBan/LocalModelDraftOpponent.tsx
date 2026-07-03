@@ -1,4 +1,6 @@
 import {
+    Artifact,
+    ArtifactRequest,
     CREATURES_JSON,
     CreatureByLevel,
     CreatureLevels,
@@ -23,11 +25,13 @@ import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 interface DraftChoice {
     label: string;
     index: number;
-    type: "pick_pair" | "pick" | "ban";
+    type: "pick_pair" | "pick" | "ban" | "artifact";
     summary: string;
     pairIndex?: number;
     pair?: [number, number];
     creatureId?: number;
+    artifactId?: number;
+    artifactTier?: number;
     score: number;
     tags: string[];
 }
@@ -121,6 +125,10 @@ const phaseName = (phase: number): string => {
             return "pick";
         case PickPhaseVals.BAN:
             return "ban";
+        case PickPhaseVals.ARTIFACT_1:
+            return "tier 1 artifact";
+        case PickPhaseVals.ARTIFACT_2:
+            return "tier 2 artifact";
         case PickPhaseVals.AUGMENTS:
         case PickPhaseVals.AUGMENTS_SCOUT:
             return "handoff";
@@ -303,6 +311,28 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
                 score,
                 summary: `Pick pair ${pairIndex + 1}: ${pair.map(creatureName).join(" + ")}`,
                 tags: pair.flatMap(choiceTags),
+            });
+        }
+        return choices;
+    }
+
+    if (event.pp === PickPhaseVals.ARTIFACT_1 || event.pp === PickPhaseVals.ARTIFACT_2) {
+        // The AI picks one strong, generic artifact of the phase's tier. Tier 1: Veteran Helm (+5% atk/def);
+        // Tier 2: Warlord's Edge (+15% atk).
+        const tier = event.pp === PickPhaseVals.ARTIFACT_1 ? 1 : 2;
+        const artifactId = tier === 1 ? Artifact.Tier1Artifact.VETERAN_HELM : Artifact.Tier2Artifact.WARLORDS_EDGE;
+        const props = Artifact.getArtifactProperties(tier as Artifact.ArtifactTier, artifactId);
+        const choiceId = `artifact:${tier}:${artifactId}`;
+        if (!failedChoiceIds.has(choiceId)) {
+            choices.push({
+                label: labels[0] ?? "1",
+                index: 1,
+                type: "artifact",
+                artifactId,
+                artifactTier: tier,
+                score: 1,
+                summary: `Pick Tier ${tier} artifact: ${props.name}`,
+                tags: ["artifact"],
             });
         }
         return choices;
@@ -578,6 +608,12 @@ const submitDraftChoice = async (choice: DraftChoice, authorization: string): Pr
         return;
     }
 
+    if (choice.type === "artifact") {
+        const request = new ArtifactRequest({ artifact: choice.artifactId ?? 0, level: choice.artifactTier ?? 0 });
+        await postPickBody(endpoints.game.artifact, request.serializeBinary(), authorization);
+        return;
+    }
+
     const request = new PickBanRequest({ creature: choice.creatureId ?? 0 });
     await postPickBody(
         choice.type === "ban" ? endpoints.game.ban : endpoints.game.pick,
@@ -652,7 +688,9 @@ export const LocalModelDraftOpponent: React.FC<{ eventUrl: string; userTeam: Tea
                 const failedId =
                     choice.type === "pick_pair"
                         ? `pair:${choice.pairIndex ?? 0}`
-                        : `${choice.type}:${choice.creatureId ?? 0}`;
+                        : choice.type === "artifact"
+                          ? `artifact:${choice.artifactTier ?? 0}:${choice.artifactId ?? 0}`
+                          : `${choice.type}:${choice.creatureId ?? 0}`;
                 try {
                     console.info("[local model draft]", choice.summary);
                     await submitDraftChoice(choice, authorization);

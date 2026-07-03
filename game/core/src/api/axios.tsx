@@ -214,6 +214,7 @@ export const endpoints = {
         playAction: IS_PROD ? "/v1/play-action" : "/v1/game/play-action",
         pickPair: IS_PROD ? "/v1/pick-pair" : "/v1/game/pick-pair",
         pick: IS_PROD ? "/v1/pick" : "/v1/game/pick",
+        artifact: IS_PROD ? "/v1/artifact" : "/v1/game/artifact",
         ban: IS_PROD ? "/v1/ban" : "/v1/game/ban",
         reveal: IS_PROD ? "/v1/reveal" : "/v1/game/reveal",
     },
