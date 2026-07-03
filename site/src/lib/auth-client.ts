@@ -195,6 +195,34 @@ function validate(action: AuthAction, form: HTMLFormElement) {
     return "";
 }
 
+function localizedAuthPath(path: string): string {
+    return typeof document !== "undefined" && document.documentElement.lang === "ru" ? `/ru${path}` : path;
+}
+
+// Honour a ?redirect= return URL only when it's a same-site absolute path — guards against
+// open-redirects (external URLs, protocol-relative //host).
+function safeRedirectTarget(): string {
+    const raw = new URLSearchParams(globalThis.location?.search ?? "").get("redirect");
+    return raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : "";
+}
+
+// Auth succeeds but nothing was navigating the user onward — the token is stored and the form just
+// sat on "success". Route each action to where it should go next (login/verify -> the game).
+function redirectAfterAuth(action: AuthAction, email: string): void {
+    let target = "";
+    if (action === "login" || action === "verify") {
+        target = safeRedirectTarget() || localizedAuthPath("/play");
+    } else if (action === "register") {
+        target = localizedAuthPath(`/auth/verify/${email ? `?email=${encodeURIComponent(email)}` : ""}`);
+    } else if (action === "reset-password") {
+        target = localizedAuthPath("/auth/login/");
+    }
+    if (target) {
+        // Brief pause so the success status is visible before we navigate.
+        globalThis.setTimeout(() => globalThis.location.assign(target), 700);
+    }
+}
+
 async function submitAuthForm(form: HTMLFormElement) {
     const action = form.dataset.authAction as AuthAction;
     const successMessage = form.dataset.successMessage || messages.success;
@@ -243,6 +271,7 @@ async function submitAuthForm(form: HTMLFormElement) {
 
         setStatus(form, successMessage, "success");
         form.dispatchEvent(new CustomEvent("hoc-auth-success", { bubbles: true, detail: { action } }));
+        redirectAfterAuth(action, value(form, "email"));
     } catch (error) {
         setStatus(form, error instanceof Error ? error.message : String(error), "error");
     } finally {
