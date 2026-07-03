@@ -1,0 +1,95 @@
+---
+/**
+ * Frameless animated creature sprite. Plays a cols×rows sprite-sheet ("atlas") the game exports for
+ * each unit, stepping background-position through the frames at `fps`, holding the last frame for
+ * `pauseMs`, then looping. Uses percentage positions so it scales with the element (no fixed pixels).
+ */
+interface Props {
+    atlas: string;
+    cols?: number;
+    rows?: number;
+    frames?: number;
+    fps?: number;
+    pauseMs?: number;
+    label?: string;
+    class?: string;
+}
+const { atlas, cols = 8, rows = 10, frames = 73, fps = 12, pauseMs = 2190, label = "", class: className = "" } =
+    Astro.props;
+---
+
+<div
+    class:list={["hoc-anim", className]}
+    data-cols={cols}
+    data-rows={rows}
+    data-frames={frames}
+    data-fps={fps}
+    data-pause={pauseMs}
+    style={`--anim-cols:${cols};--anim-rows:${rows};background-image:url("${atlas}");`}
+    role="img"
+    aria-label={label}
+>
+</div>
+
+<style>
+    .hoc-anim {
+        aspect-ratio: 1 / 1;
+        width: 100%;
+        background-repeat: no-repeat;
+        /* Scale the whole atlas so one frame fills the element; step through frames via background-position. */
+        background-size: calc(var(--anim-cols, 8) * 100%) calc(var(--anim-rows, 10) * 100%);
+        background-position: 0 0;
+    }
+</style>
+
+<script>
+    // One animator drives every .hoc-anim on the page (this hoisted script runs once). Percentage
+    // background-position keeps it resolution/size independent; IntersectionObserver pauses off-screen
+    // ones; reduced-motion holds the first frame.
+    const animate = (el: HTMLElement) => {
+        const cols = Number(el.dataset.cols) || 1;
+        const rows = Number(el.dataset.rows) || 1;
+        const frames = Number(el.dataset.frames) || cols * rows;
+        const fps = Number(el.dataset.fps) || 12;
+        const pause = Number(el.dataset.pause) || 0;
+        const frameMs = 1000 / fps;
+        const cycle = frames * frameMs + pause;
+
+        const place = (i: number) => {
+            const c = i % cols;
+            const r = Math.floor(i / cols);
+            el.style.backgroundPositionX = cols > 1 ? `${(c / (cols - 1)) * 100}%` : "0";
+            el.style.backgroundPositionY = rows > 1 ? `${(r / (rows - 1)) * 100}%` : "0";
+        };
+
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            place(0);
+            return;
+        }
+
+        let raf = 0;
+        let startedAt = 0;
+        const step = (t: number) => {
+            if (!startedAt) startedAt = t;
+            const inCycle = (t - startedAt) % cycle;
+            const active = frames * frameMs;
+            place(inCycle < active ? Math.min(frames - 1, Math.floor(inCycle / frameMs)) : frames - 1);
+            raf = requestAnimationFrame(step);
+        };
+
+        const io = new IntersectionObserver((entries) => {
+            for (const e of entries) {
+                if (e.isIntersecting && !raf) {
+                    startedAt = 0;
+                    raf = requestAnimationFrame(step);
+                } else if (!e.isIntersecting && raf) {
+                    cancelAnimationFrame(raf);
+                    raf = 0;
+                }
+            }
+        });
+        io.observe(el);
+    };
+
+    document.querySelectorAll<HTMLElement>(".hoc-anim").forEach(animate);
+</script>

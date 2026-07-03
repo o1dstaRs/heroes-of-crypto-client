@@ -421,6 +421,30 @@ code {
     text-shadow: 0 4px 32px rgba(0, 0, 0, 0.55);
 }
 
+/* Logo lockup replacing the plain "Heroes of Crypto" wordmark. */
+.hero-logo {
+    margin: 0 0 6px;
+    line-height: 0;
+}
+
+.hero-logo img {
+    width: min(460px, 78%);
+    height: auto;
+    filter: drop-shadow(0 8px 30px rgba(0, 0, 0, 0.6));
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 .hero-tagline {
     max-width: 700px;
     margin-bottom: 16px;
@@ -783,6 +807,88 @@ code {
     background: rgba(5, 6, 6, 0.62);
     color: #fff;
     font-size: 0.75rem;
+    font-style: normal;
+    font-weight: 860;
+}
+
+/* Frameless + animated spotlight unit (test variant): the creature sprite floats free — no card border
+   or fill — over a soft faction-tinted glow, with the name label beneath it. */
+.hero-unit-anim {
+    position: relative;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    min-width: 0;
+    min-height: clamp(168px, 15vw, 208px);
+    color: #fff;
+    text-decoration: none;
+    transition: transform 0.2s ease;
+}
+
+.hero-unit-anim:nth-child(2),
+.hero-unit-anim:nth-child(3) {
+    transform: translateY(10px);
+}
+
+.hero-unit-anim:hover {
+    transform: translateY(-6px);
+}
+
+.hero-unit-anim:nth-child(2):hover,
+.hero-unit-anim:nth-child(3):hover {
+    transform: translateY(4px);
+}
+
+.hero-unit-anim-stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: 0;
+}
+
+/* Faction-tinted radial glow behind the frameless sprite (replaces the card fill). */
+.hero-unit-anim-stage::before {
+    position: absolute;
+    inset: 6% 2% 4%;
+    content: "";
+    background: radial-gradient(
+        58% 52% at 50% 46%,
+        color-mix(in srgb, var(--faction) 42%, transparent),
+        transparent 72%
+    );
+    filter: blur(2px);
+    z-index: -1;
+}
+
+.hero-unit-anim-stage .hoc-anim {
+    width: 100%;
+    max-width: clamp(140px, 15vw, 200px);
+    filter: drop-shadow(0 16px 26px rgba(0, 0, 0, 0.55));
+    transition: transform 0.22s ease;
+}
+
+.hero-unit-anim:hover .hoc-anim {
+    transform: scale(1.06);
+}
+
+.hero-unit-anim .hero-unit-text {
+    position: relative;
+    align-self: end;
+    padding: 0 4px 2px;
+    text-align: center;
+    justify-items: center;
+}
+
+.hero-unit-anim em {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    min-height: 26px;
+    padding: 4px 7px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(5, 6, 6, 0.55);
+    color: #fff;
+    font-size: 0.72rem;
     font-style: normal;
     font-weight: 860;
 }

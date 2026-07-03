@@ -2,6 +2,15 @@
 import { content, contractAddress, links, localPath, type Language } from "../lib/site-data";
 import { localizedFactionName } from "../lib/localization";
 import { abilityCount, factionColors, factionUnits, unitCount, type Unit } from "../lib/units-data";
+import AnimatedUnit from "./AnimatedUnit.astro";
+
+// Frameless animated sprite-sheets (8x10, 73 frames) exported from the game for the hero spotlight.
+const animAtlas: Record<string, string> = {
+    "Black Dragon": "/assets/images/units/anim/black_dragon_default_atlas_half.webp",
+    Angel: "/assets/images/units/anim/angel_default_atlas_half.webp",
+    Behemoth: "/assets/images/units/anim/behemoth_default_atlas_half.webp",
+    Thunderbird: "/assets/images/units/anim/thunderbird_default_atlas_half.webp",
+};
 
 interface Props {
     lang: Language;
@@ -88,17 +97,26 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
 <section class="hero">
     <img
         class="hero-bg"
-        src="/assets/images/preview_game.webp"
+        src="/assets/images/background_dark_old.webp"
         alt=""
-        width="1200"
-        height="630"
+        width="1024"
+        height="1024"
         fetchpriority="high"
     />
     <div class="hero-shade"></div>
     <div class="hero-grid page-shell">
         <div class="hero-content">
             <p class="eyebrow">{copy.hero.kicker}</p>
-            <h1>{copy.hero.title}</h1>
+            <h1 class="hero-logo">
+                <img
+                    src="/assets/images/home/logo/logo_transparent.webp"
+                    alt={copy.hero.title}
+                    width="640"
+                    height="200"
+                    fetchpriority="high"
+                />
+                <span class="sr-only">{copy.hero.title}</span>
+            </h1>
             <p class="hero-tagline">{copy.hero.tagline}</p>
             <p class="hero-copy">{copy.hero.body}</p>
             <div class="hero-actions">
@@ -119,23 +137,47 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
             </div>
             <div class="hero-unit-battleline">
                 {
-                    spotlightUnits.map((unit) => (
-                        <a
-                            class="hero-unit-chip"
-                            href={factionUnitsHref(unit.faction)}
-                            style={`--faction: ${factionColors[unit.faction]}`}
-                            aria-label={`${unit.name}, ${factionLabel(unit.faction)}`}
-                        >
-                            <span class="hero-unit-image">
-                                <img src={unit.portrait} alt="" width="512" height="512" />
-                            </span>
-                            <span class="hero-unit-text">
-                                <strong>{unit.name}</strong>
-                                <span>{factionLabel(unit.faction)}</span>
-                            </span>
-                            <em>{homeLabels.level} {unit.level}</em>
-                        </a>
-                    ))
+                    spotlightUnits.map((unit, index) => {
+                        // TEST: first two units render frameless + animated (sprite-sheet), the last two
+                        // keep the framed portrait chip — so we can compare and pick a direction.
+                        const atlas = animAtlas[unit.name];
+                        if (index < 2 && atlas) {
+                            return (
+                                <a
+                                    class="hero-unit-anim"
+                                    href={factionUnitsHref(unit.faction)}
+                                    style={`--faction: ${factionColors[unit.faction]}`}
+                                    aria-label={`${unit.name}, ${factionLabel(unit.faction)}`}
+                                >
+                                    <span class="hero-unit-anim-stage">
+                                        <AnimatedUnit atlas={atlas} label={unit.name} />
+                                    </span>
+                                    <span class="hero-unit-text">
+                                        <strong>{unit.name}</strong>
+                                        <span>{factionLabel(unit.faction)}</span>
+                                    </span>
+                                    <em>{homeLabels.level} {unit.level}</em>
+                                </a>
+                            );
+                        }
+                        return (
+                            <a
+                                class="hero-unit-chip"
+                                href={factionUnitsHref(unit.faction)}
+                                style={`--faction: ${factionColors[unit.faction]}`}
+                                aria-label={`${unit.name}, ${factionLabel(unit.faction)}`}
+                            >
+                                <span class="hero-unit-image">
+                                    <img src={unit.portrait} alt="" width="512" height="512" />
+                                </span>
+                                <span class="hero-unit-text">
+                                    <strong>{unit.name}</strong>
+                                    <span>{factionLabel(unit.faction)}</span>
+                                </span>
+                                <em>{homeLabels.level} {unit.level}</em>
+                            </a>
+                        );
+                    })
                 }
             </div>
             <div class="hero-roster-caption">
