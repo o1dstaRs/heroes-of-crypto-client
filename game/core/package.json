@@ -44,7 +44,7 @@
         "path-browserify": "^1.0.1",
         "pixi.js": "^8.19.0",
         "react": "^18.3.1",
-        "react-dom": "^18.3.1",
+        "react-dom": "^19.2.7",
         "react-is": "^18.3.1",
         "react-router": "^7.18.0",
         "react-router-dom": "^7.18.0",
