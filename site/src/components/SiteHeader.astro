@@ -18,8 +18,10 @@ const navItems = [
     { label: copy.nav.blog, href: `${localPath(lang, "home")}blog/` },
     { label: copy.nav.units, href: localPath(lang, "units") },
     { label: copy.nav.abilities, href: localPath(lang, "abilities") },
+    { label: copy.nav.artifacts, href: localPath(lang, "artifacts") },
     { label: copy.nav.token, href: localPath(lang, "token") },
-    { label: copy.nav.patches, href: localPath(lang, "patches") },
+    // Patches intentionally omitted from the main nav to keep it uncluttered — the version badge
+    // (below, in .brand-lockup) links to the patches page instead.
 ];
 
 const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? currentPath.slice(0, -1) : currentPath;
@@ -109,6 +111,13 @@ const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? curren
 <style>
     .header-login-link {
         min-width: 88px;
+    }
+
+    /* The login link is display:inline-flex (global.css), which overrides the plain [hidden] attribute
+       the auth script sets once logged in — so it stayed visible next to the account chip. Force it
+       hidden here (higher specificity than the global rule), same guard as .header-account below. */
+    .header-login-link[hidden] {
+        display: none;
     }
 
     .header-account {
