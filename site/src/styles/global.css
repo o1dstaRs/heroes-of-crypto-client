@@ -354,7 +354,7 @@ code {
     position: relative;
     z-index: 1;
     display: grid;
-    grid-template-columns: minmax(420px, 0.92fr) minmax(420px, 0.78fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 48px;
     align-items: center;
     min-height: clamp(620px, calc(100svh - 86px), 760px);
