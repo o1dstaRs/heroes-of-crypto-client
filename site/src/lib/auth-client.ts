@@ -8,9 +8,19 @@ import {
 
 type AuthAction = "login" | "register" | "verify" | "forgot-password" | "reset-password";
 
-const isProd = import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true" || import.meta.env.VITE_IS_PROD === true;
-
 const sameOrigin = globalThis.location?.origin ?? "";
+const host = globalThis.location?.hostname ?? "";
+
+// Resolve prod from the runtime hostname first. Astro doesn't reliably inline the build-time env
+// flags (import.meta.env.PROD / VITE_IS_PROD) into this client-side script the way it does in page
+// frontmatter, so relying on them pointed account creation at the static site origin (heroesofcrypto.io)
+// — which nginx serves as static files and rejects POST with 405 — instead of the auth API. The
+// hostname is authoritative: any *.heroesofcrypto.io (or the bare apex) is production.
+const isProd =
+    host === "heroesofcrypto.io" ||
+    host.endsWith(".heroesofcrypto.io") ||
+    import.meta.env.PROD === true ||
+    import.meta.env.VITE_IS_PROD === "true";
 
 const authBaseUrl =
     import.meta.env.VITE_HOST_AUTH_API ||
