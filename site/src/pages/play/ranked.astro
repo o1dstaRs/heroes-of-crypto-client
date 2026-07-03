@@ -18,7 +18,7 @@ const configuredGameClientUrls = [
     .filter(Boolean)
     .map((url) => rankedPath(String(url)));
 const fallbackGameClientUrls = isProd
-    ? ["https://game.heroesofcrypto.io/play"]
+    ? ["https://beta.heroesofcrypto.io/play"]
     : [
           "http://127.0.0.1:5175/play",
           "http://localhost:5175/play",
