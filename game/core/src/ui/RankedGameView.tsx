@@ -1,4 +1,12 @@
-import { AttackVals, GridConstants, TeamVals, type GameAction, type TeamType } from "@heroesofcrypto/common";
+import {
+    Artifact,
+    AttackVals,
+    Augment,
+    GridConstants,
+    TeamVals,
+    type GameAction,
+    type TeamType,
+} from "@heroesofcrypto/common";
 import { Alert, Box, Button, Chip, CircularProgress, Sheet, Slider, Stack, Typography } from "@mui/joy";
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
@@ -1162,6 +1170,28 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 );
                 if (!latestModelPlayer || latestSnapshot.readyPlayerIds.includes(latestModelPlayer.playerId)) {
                     return;
+                }
+
+                // The AI opponent spends its upgrade budget on a solid combat-augment loadout (Might/Armor/
+                // Movement = 3+2+1 = 6 pts, within the default budget) so it "uses upgrades" like a real
+                // player. Applied to the model team's FightProperties before placement so its units get
+                // buffed once the fight starts.
+                try {
+                    const modelTeam = effectiveLocalModelConfig.modelTeam;
+                    manager.PropagateAugmentation(modelTeam, { type: "Might", value: Augment.MightAugment.LEVEL_3 });
+                    manager.PropagateAugmentation(modelTeam, { type: "Armor", value: Augment.ArmorAugment.LEVEL_2 });
+                    manager.PropagateAugmentation(modelTeam, {
+                        type: "Movement",
+                        value: Augment.MovementAugment.LEVEL_1,
+                    });
+                    // Apply the AI's picked Tier-2 artifact (the draft opponent takes Warlord's Edge).
+                    manager.PropagateArtifact(
+                        modelTeam,
+                        Artifact.ArtifactTier.TIER_2,
+                        Artifact.Tier2Artifact.WARLORDS_EDGE,
+                    );
+                } catch (augErr) {
+                    console.warn("[model] augment setup failed", (augErr as Error)?.message ?? augErr);
                 }
 
                 for (const action of createModelPlacementActions(latestSnapshot, effectiveLocalModelConfig.modelTeam)) {
