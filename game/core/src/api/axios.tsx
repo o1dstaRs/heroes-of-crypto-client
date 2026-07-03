@@ -1,52 +1,35 @@
 import axios, { AxiosRequestConfig, AxiosInstance } from "axios";
 
-/** Narrowed shape for Vite-like env bag */
-interface ImportMetaEnvLike {
-    [key: string]: string | boolean | undefined;
-    PROD?: boolean;
-    VITE_HOST_AUTH_API?: string;
-    VITE_HOST_MATCHMAKING_API?: string;
-    VITE_HOST_GAME_API?: string;
-}
-
-/** Access Vite env in browser (or undefined on server / non-Vite builds) */
-function getViteEnv(): ImportMetaEnvLike | undefined {
-    // Use unknown cast + structural narrowing (no `any`)
-    const meta = (typeof import.meta !== "undefined" ? (import.meta as unknown) : undefined) as
-        { env?: ImportMetaEnvLike } | undefined;
-    return meta?.env;
-}
-
-/** Safely read string env var from Vite first, then process.env */
-function readEnvString(keyVite: keyof ImportMetaEnvLike, keyNode: string): string | undefined {
-    const vite = getViteEnv();
-    if (vite && typeof vite[keyVite] === "string") return vite[keyVite] as string;
-    if (typeof process !== "undefined" && typeof process.env !== "undefined") {
-        const v = process.env[keyNode];
-        if (typeof v === "string" && v.length > 0) return v;
-    }
-    return undefined;
-}
-
-/** Safely read boolean env (Vite’s PROD or NODE_ENV) */
-function readIsProd(): boolean {
-    const vite = getViteEnv();
-    if (typeof vite?.PROD === "boolean") return vite.PROD;
-    if (typeof process !== "undefined" && typeof process.env !== "undefined") {
-        return process.env.NODE_ENV === "production";
-    }
-    return false;
-}
-
-const IS_PROD = readIsProd();
 const DEFAULT_DEV_API = "http://127.0.0.1:3001";
+const PROD_AUTH_API = "https://auth.heroesofcrypto.io";
+const PROD_MATCHMAKING_API = "https://mm.heroesofcrypto.io";
+const PROD_GAME_API = "https://game.heroesofcrypto.io";
 
-export const HOST_AUTH_API =
-    readEnvString("VITE_HOST_AUTH_API", "HOST_AUTH_API") ?? (IS_PROD ? undefined : DEFAULT_DEV_API);
+// Prod detection MUST be robust. The old code read env via a dynamic `env[key]` lookup, which Vite
+// cannot statically inline — so in the production bundle IS_PROD came out false and every host fell
+// back to the dev default (127.0.0.1:3001), while endpoint paths used the dev "/v1/auth/*" form. The
+// game could then never reach the real auth API: /me hit a dead localhost URL, auth failed, and the
+// client dropped straight to its own login. The authoritative signal is the runtime host — any
+// *.heroesofcrypto.io (or the apex) is production. We still honour Vite's literal build flags as a
+// secondary signal (these ARE inlined because they're read directly, not through a variable key).
+const runtimeHost = typeof window !== "undefined" ? window.location.hostname : "";
+// `import.meta.env.PROD` is a real boolean at runtime (Vite inlines it), but the ambient type here is
+// string|undefined — cast through unknown so the literal read still inlines while TS stays happy.
+const viteProd = import.meta.env.PROD as unknown;
+const IS_PROD =
+    runtimeHost === "heroesofcrypto.io" ||
+    runtimeHost.endsWith(".heroesofcrypto.io") ||
+    viteProd === true ||
+    viteProd === "true" ||
+    import.meta.env.VITE_IS_PROD === "true";
+
+// Read each var with a LITERAL `import.meta.env.X` so Vite inlines it at build. Fall back to the
+// hard-coded prod origin (never localhost) whenever we're in production, so a missing env var can't
+// silently point the game at a dev API again.
+export const HOST_AUTH_API = import.meta.env.VITE_HOST_AUTH_API || (IS_PROD ? PROD_AUTH_API : DEFAULT_DEV_API);
 export const HOST_MATCHMAKING_API =
-    readEnvString("VITE_HOST_MATCHMAKING_API", "HOST_MATCHMAKING_API") ?? (IS_PROD ? undefined : DEFAULT_DEV_API);
-export const HOST_GAME_API =
-    readEnvString("VITE_HOST_GAME_API", "HOST_GAME_API") ?? (IS_PROD ? undefined : DEFAULT_DEV_API);
+    import.meta.env.VITE_HOST_MATCHMAKING_API || (IS_PROD ? PROD_MATCHMAKING_API : DEFAULT_DEV_API);
+export const HOST_GAME_API = import.meta.env.VITE_HOST_GAME_API || (IS_PROD ? PROD_GAME_API : DEFAULT_DEV_API);
 
 const isAbsoluteUrl = (url: string): boolean => /^[a-z][a-z\d+\-.]*:\/\//i.test(url) || url.startsWith("//");
 
