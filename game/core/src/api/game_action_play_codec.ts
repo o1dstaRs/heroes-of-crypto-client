@@ -116,6 +116,9 @@ export const createPlayActionFromGameAction = (action: GameAction, envelope: Pla
             });
         case "delete_unit":
             return withEnvelope(envelope, { type: PlayActionType.DELETE_UNIT, unitId: action.unitId });
+        case "request_additional_time":
+            // No unit — the server keys the once-per-lap extension off the requesting team.
+            return withEnvelope(envelope, { type: PlayActionType.REQUEST_ADDITIONAL_TIME, team: action.team });
     }
 };
 
@@ -228,6 +231,10 @@ export const createGameActionFromPlayAction = (action: Partial<PlayAction>): Gam
         case PlayActionType.SPLIT_UNIT:
             return action.unitId && typeof action.amount === "number"
                 ? { type: "split_unit", unitId: action.unitId, amount: action.amount }
+                : undefined;
+        case PlayActionType.REQUEST_ADDITIONAL_TIME:
+            return typeof action.team === "number"
+                ? { type: "request_additional_time", team: action.team as TeamType }
                 : undefined;
         default:
             return undefined;
