@@ -196,6 +196,7 @@ export const endpoints = {
         playSnapshot: IS_PROD ? "/v1/play-snapshot" : "/v1/game/play-snapshot",
         playAction: IS_PROD ? "/v1/play-action" : "/v1/game/play-action",
         pickPair: IS_PROD ? "/v1/pick-pair" : "/v1/game/pick-pair",
+        perk: IS_PROD ? "/v1/perk" : "/v1/game/perk",
         pick: IS_PROD ? "/v1/pick" : "/v1/game/pick",
         artifact: IS_PROD ? "/v1/artifact" : "/v1/game/artifact",
         ban: IS_PROD ? "/v1/ban" : "/v1/game/ban",

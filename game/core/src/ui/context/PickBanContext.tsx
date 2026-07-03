@@ -22,7 +22,10 @@ export const PickBanEventProvider: React.FC<{
     const [pickPhase, setPickPhase] = useState<number>(-1);
     const [secondsRemaining, setSecondsRemaining] = useState<number>(-1);
     const [revealsRemaining, setRevealsRemaining] = useState<number>(0);
-    const [initialCreaturesPairs, setInitialCreaturesPairs] = useState<[number, number][]>([]);
+    const [initialBundles, setInitialBundles] = useState<[number, number, number][]>([]);
+    const [perk, setPerk] = useState<number>(0);
+    const [upgradePoints, setUpgradePoints] = useState<number>(0);
+    const [requiredLevel, setRequiredLevel] = useState<number>(0);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -63,7 +66,10 @@ export const PickBanEventProvider: React.FC<{
             setSecondsRemaining(Math.ceil(event.t / 1000));
             setRevealsRemaining(event.r);
             setError(null);
-            setInitialCreaturesPairs(event.ip);
+            setInitialBundles(event.ip);
+            setPerk(event.pk ?? 0);
+            setUpgradePoints(event.up ?? 0);
+            setRequiredLevel(event.lv ?? 0);
         };
 
         eventSource.onerror = (error: Error) => {
@@ -92,7 +98,10 @@ export const PickBanEventProvider: React.FC<{
             pickPhase,
             secondsRemaining,
             revealsRemaining,
-            initialCreaturesPairs,
+            initialBundles,
+            perk,
+            upgradePoints,
+            requiredLevel,
         }),
         [
             isConnected,
@@ -106,7 +115,10 @@ export const PickBanEventProvider: React.FC<{
             pickPhase,
             secondsRemaining,
             revealsRemaining,
-            initialCreaturesPairs,
+            initialBundles,
+            perk,
+            upgradePoints,
+            requiredLevel,
         ],
     );
 

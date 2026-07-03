@@ -1,6 +1,8 @@
 import {
     Artifact,
     ArtifactRequest,
+    Perk,
+    PerkRequest,
     CREATURES_JSON,
     CreatureByLevel,
     CreatureLevels,
@@ -25,13 +27,14 @@ import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 interface DraftChoice {
     label: string;
     index: number;
-    type: "pick_pair" | "pick" | "ban" | "artifact";
+    type: "pick_pair" | "pick" | "ban" | "artifact" | "perk";
     summary: string;
     pairIndex?: number;
     pair?: [number, number];
     creatureId?: number;
     artifactId?: number;
     artifactTier?: number;
+    perkId?: number;
     score: number;
     tags: string[];
 }
@@ -125,6 +128,8 @@ const phaseName = (phase: number): string => {
             return "pick";
         case PickPhaseVals.BAN:
             return "ban";
+        case PickPhaseVals.PERK:
+            return "perk";
         case PickPhaseVals.ARTIFACT_1:
             return "tier 1 artifact";
         case PickPhaseVals.ARTIFACT_2:
@@ -294,23 +299,43 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
     const ownRangedCount = rangedCreatureCount(ownPicked);
     const choices: DraftChoice[] = [];
 
+    if (event.pp === PickPhaseVals.PERK) {
+        // The AI takes the Scout doctrine (3 reveals, 6 upgrade points) by default.
+        const perkId = Perk.Perk.THREE_REVEALS;
+        const choiceId = `perk:${perkId}`;
+        if (!failedChoiceIds.has(choiceId)) {
+            choices.push({
+                label: labels[0] ?? "1",
+                index: 1,
+                type: "perk",
+                perkId,
+                score: 1,
+                summary: `Perk: ${Perk.getPerkProperties(perkId).name}`,
+                tags: ["perk"],
+            });
+        }
+        return choices;
+    }
+
     if (event.pp === PickPhaseVals.INITIAL_PICK) {
-        for (const [pairIndex, pair] of event.ip.entries()) {
-            const choiceId = `pair:${pairIndex}`;
+        // Each bundle is [l1Creature, l2Creature, tier1ArtifactId]; the AI scores by the two creatures.
+        for (const [bundleIndex, bundle] of event.ip.entries()) {
+            const choiceId = `pair:${bundleIndex}`;
             if (failedChoiceIds.has(choiceId)) {
                 continue;
             }
-            const baseScore = pair.reduce((total, creatureId) => total + scoreCreature(creatureId, "pick"), 0);
-            const score = balanceDraftPickScore(baseScore, ownRangedCount, pair);
+            const creaturePair: [number, number] = [bundle[0], bundle[1]];
+            const baseScore = creaturePair.reduce((total, creatureId) => total + scoreCreature(creatureId, "pick"), 0);
+            const score = balanceDraftPickScore(baseScore, ownRangedCount, creaturePair);
             choices.push({
                 label: labels[choices.length] ?? String(choices.length + 1),
                 index: choices.length + 1,
                 type: "pick_pair",
-                pairIndex,
-                pair,
+                pairIndex: bundleIndex,
+                pair: creaturePair,
                 score,
-                summary: `Pick pair ${pairIndex + 1}: ${pair.map(creatureName).join(" + ")}`,
-                tags: pair.flatMap(choiceTags),
+                summary: `Pick bundle ${bundleIndex + 1}: ${creaturePair.map(creatureName).join(" + ")}`,
+                tags: creaturePair.flatMap(choiceTags),
             });
         }
         return choices;
@@ -614,6 +639,12 @@ const submitDraftChoice = async (choice: DraftChoice, authorization: string): Pr
         return;
     }
 
+    if (choice.type === "perk") {
+        const request = new PerkRequest({ perk: choice.perkId ?? 0 });
+        await postPickBody(endpoints.game.perk, request.serializeBinary(), authorization);
+        return;
+    }
+
     const request = new PickBanRequest({ creature: choice.creatureId ?? 0 });
     await postPickBody(
         choice.type === "ban" ? endpoints.game.ban : endpoints.game.pick,
@@ -690,7 +721,9 @@ export const LocalModelDraftOpponent: React.FC<{ eventUrl: string; userTeam: Tea
                         ? `pair:${choice.pairIndex ?? 0}`
                         : choice.type === "artifact"
                           ? `artifact:${choice.artifactTier ?? 0}:${choice.artifactId ?? 0}`
-                          : `${choice.type}:${choice.creatureId ?? 0}`;
+                          : choice.type === "perk"
+                            ? `perk:${choice.perkId ?? 0}`
+                            : `${choice.type}:${choice.creatureId ?? 0}`;
                 try {
                     console.info("[local model draft]", choice.summary);
                     await submitDraftChoice(choice, authorization);

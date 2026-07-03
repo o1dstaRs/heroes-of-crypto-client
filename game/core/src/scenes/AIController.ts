@@ -424,7 +424,10 @@ export class AIController {
                 strategyActions = [];
             }
             // Empty plan → fall back too (decideTurn never returns [] in practice, but be defensive).
-            if (strategyActions.length && (await this.performStrategyActions(currentUnit, strategyActions, wasAIActive))) {
+            if (
+                strategyActions.length &&
+                (await this.performStrategyActions(currentUnit, strategyActions, wasAIActive))
+            ) {
                 return;
             }
         }
@@ -641,7 +644,12 @@ export class AIController {
         }
 
         // No move — strike in place.
-        const completed = await this.context.executeAttackSequence(currentUnit, target, attackFrom, authoritativeAction);
+        const completed = await this.context.executeAttackSequence(
+            currentUnit,
+            target,
+            attackFrom,
+            authoritativeAction,
+        );
         if (!completed) {
             this.endTurnIfStillActive(currentUnit);
         }

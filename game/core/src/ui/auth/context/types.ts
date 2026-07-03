@@ -66,6 +66,7 @@ export type JWTContextType = {
     pickPair: (pairIndex: number) => Promise<void>;
     pick: (creature: number) => Promise<void>;
     artifact: (artifactId: number, tier: number) => Promise<void>;
+    perk: (perkId: number) => Promise<void>;
     ban: (creature: number) => Promise<void>;
     reveal: (slot: number) => Promise<void>;
     getCurrentGame: () => Promise<GamePublicObject | null>;
