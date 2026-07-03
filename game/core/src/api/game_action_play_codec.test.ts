@@ -211,6 +211,15 @@ describe("createPlayActionFromGameAction", () => {
             },
         );
     });
+
+    it("maps request_additional_time carrying the requesting team", () => {
+        expect(
+            createPlayActionFromGameAction({ type: "request_additional_time", team: TeamVals.UPPER }, envelope),
+        ).toMatchObject({
+            type: PlayActionType.REQUEST_ADDITIONAL_TIME,
+            team: TeamVals.UPPER,
+        });
+    });
 });
 
 describe("createGameActionFromPlayAction", () => {
@@ -283,6 +292,10 @@ describe("createGameActionFromPlayAction", () => {
                 amount: 4,
             }),
         ).toEqual({ type: "split_unit", unitId: "u3", amount: 4 });
+
+        expect(
+            createGameActionFromPlayAction({ type: PlayActionType.REQUEST_ADDITIONAL_TIME, team: TeamVals.LOWER }),
+        ).toEqual({ type: "request_additional_time", team: TeamVals.LOWER });
     });
 
     it("skips protocol entries that do not describe one concrete common action", () => {

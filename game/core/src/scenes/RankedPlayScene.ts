@@ -817,6 +817,31 @@ export class RankedPlayScene extends Sandbox {
         if (!currentActiveUnit || this.viewerTeam === undefined) return true;
         return currentActiveUnit.getTeam() === this.viewerTeam;
     }
+    /** Only the viewer's own turn may extend the clock — never the opponent's. */
+    protected override canOfferAdditionalTimeForTeam(team: TeamType): boolean {
+        return this.viewerTeam !== undefined && team === this.viewerTeam;
+    }
+    /**
+     * Ranked routes "Use additional time" through the authoritative server: send a
+     * request_additional_time action for the viewer's team. The server validates (owns the team, its
+     * active turn, once per lap), extends fightProperties.currentTurnEnd, and re-broadcasts the snapshot
+     * — which updates the visible timer. Optimistically hide the button until that snapshot lands.
+     */
+    public override requestTime(team: number): void {
+        const transport = this.sc_gameActionTransport;
+        if (!transport) {
+            super.requestTime(team);
+            return;
+        }
+        if (this.viewerTeam === undefined || (team as TeamType) !== this.viewerTeam) {
+            return;
+        }
+        if (this.sc_visibleState) {
+            this.sc_visibleState.canRequestAdditionalTime = false;
+            this.sc_visibleStateUpdateNeeded = true;
+        }
+        transport({ type: "request_additional_time", team: team as TeamType });
+    }
     /**
      * Show a destination silhouette while an opponent unit's move animates, so the viewer can see
      * the target cell even when no live move-aim was relayed (e.g. the opponent clicked quickly).

@@ -103,7 +103,7 @@ const controlledUnitIdForAction = (action: GameAction): string | undefined => {
 };
 
 const teamForAction = (snapshot: PlaySnapshot | null, action: GameAction): TeamType | undefined => {
-    if (action.type === "place_unit") {
+    if (action.type === "place_unit" || action.type === "request_additional_time") {
         return action.team as TeamType;
     }
     const controlledUnitId = controlledUnitIdForAction(action);

@@ -3840,7 +3840,32 @@ export class Sandbox extends PixiScene {
     public getGridType(): GridType {
         return FightStateManager.getInstance().getFightProperties().getGridType();
     }
-    public requestTime(_team: number): void {}
+    /**
+     * "Use additional time": extend the active team's running turn clock once per lap. Local sandbox
+     * applies it straight to the shared FightProperties (RankedPlayScene overrides this to route the
+     * request through the authoritative server instead). No-op if the team already used it this lap or
+     * has no remaining budget (requestAdditionalTurnTime returns 0).
+     */
+    public requestTime(team: number): void {
+        if (team === undefined || team === null) {
+            return;
+        }
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        const additionalTime = fightProps.requestAdditionalTurnTime(team as TeamType);
+        if (additionalTime > 0 && this.sc_visibleState) {
+            this.sc_visibleState.canRequestAdditionalTime = false;
+            this.sc_visibleState.hasAdditionalTime = true;
+            this.sc_visibleStateUpdateNeeded = true;
+        }
+    }
+    /**
+     * Whether the local viewer may request additional turn time for `team`. Local sandbox drives every
+     * team (single-player autobattle acts for both sides), so this is always true. RankedPlayScene
+     * overrides it to the viewer's own team — you can't extend the opponent's clock.
+     */
+    protected canOfferAdditionalTimeForTeam(_team: TeamType): boolean {
+        return true;
+    }
     private clearBoardSelection(_notifyUnitDeselected: boolean = true): void {
         // stop board selection animation if any
         if (this.selectedBoardUnit) {
@@ -8829,6 +8854,14 @@ export class Sandbox extends PixiScene {
             this.sc_visibleState.upNext = unitsNext;
             this.sc_visibleState.teamTypeTurn = nextUnit.getTeam();
             this.sc_visibleState.lapNumber = fightProps.hasFightStarted() ? fightProps.getCurrentLap() : 0;
+            // Whether the active team can still extend its clock this lap — computed for the ACTIVE team
+            // (checkOnly=true never mutates). The prior code passed `undefined`, so this was always false
+            // and the "Use additional time" button never appeared. Ranked additionally restricts this to
+            // the viewer's own turn (canOfferAdditionalTimeForTeam) so it can't extend the opponent's clock.
+            this.sc_visibleState.canRequestAdditionalTime =
+                fightProps.hasFightStarted() &&
+                this.canOfferAdditionalTimeForTeam(nextUnit.getTeam()) &&
+                !!fightProps.requestAdditionalTurnTime(nextUnit.getTeam(), true);
             this.sc_visibleStateUpdateNeeded = true;
         }
 
