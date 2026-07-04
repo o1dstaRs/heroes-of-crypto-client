@@ -50,7 +50,7 @@ import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { WalletLinker } from "./WalletLinker";
 import { ButtonProvider } from "./context/ButtonContext";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
-import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
+import { hocColors, hocDangerAlertSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx, hocSpinnerSx } from "./hocTheme";
 import {
     resolveEffectiveLocalModelOpponentConfig,
     shouldApplyActionResponseSnapshotToViewer,
@@ -1249,9 +1249,13 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         return (
             <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", bgcolor: "#07090d", color: "#fff" }}>
                 <Stack spacing={2} alignItems="center">
-                    <CircularProgress />
-                    <Typography>Loading ranked fight</Typography>
-                    {error && <Alert color="danger">{error}</Alert>}
+                    <CircularProgress sx={hocSpinnerSx} />
+                    <Typography sx={{ color: hocColors.parchment }}>Loading ranked fight</Typography>
+                    {error && (
+                        <Alert variant="soft" sx={hocDangerAlertSx}>
+                            {error}
+                        </Alert>
+                    )}
                 </Stack>
             </Box>
         );
@@ -1519,29 +1523,37 @@ const ArtifactTierIcons: React.FC<{ tier1Id: number; tier2Id: number }> = ({ tie
 const RankedArtifactsPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamType }> = ({ snapshot, userTeam }) => {
     const lower = { tier1: snapshot.lowerArtifactTier1 ?? 0, tier2: snapshot.lowerArtifactTier2 ?? 0 };
     const upper = { tier1: snapshot.upperArtifactTier1 ?? 0, tier2: snapshot.upperArtifactTier2 ?? 0 };
-    if (!lower.tier1 && !lower.tier2 && !upper.tier1 && !upper.tier2) {
-        return null;
-    }
     const yours = userTeam === TeamVals.UPPER ? upper : lower;
     const theirs = userTeam === TeamVals.UPPER ? lower : upper;
+    const hasYours = !!(yours.tier1 || yours.tier2);
+    // The opponent's artifacts only reach us once the fight starts (server withholds them during placement),
+    // so the Opponent column simply appears when its ids show up in the snapshot.
+    const hasTheirs = !!(theirs.tier1 || theirs.tier2);
+    if (!hasYours && !hasTheirs) {
+        return null;
+    }
     return (
         <Stack spacing={0.5}>
             <Typography level="body-sm" textColor={hocColors.parchment}>
                 Artifacts
             </Typography>
             <Stack direction="row" spacing={1.5} flexWrap="wrap">
-                <Stack spacing={0.25}>
-                    <Typography level="body-xs" textColor={hocColors.muted}>
-                        Yours
-                    </Typography>
-                    <ArtifactTierIcons tier1Id={yours.tier1} tier2Id={yours.tier2} />
-                </Stack>
-                <Stack spacing={0.25}>
-                    <Typography level="body-xs" textColor={hocColors.muted}>
-                        Opponent
-                    </Typography>
-                    <ArtifactTierIcons tier1Id={theirs.tier1} tier2Id={theirs.tier2} />
-                </Stack>
+                {hasYours && (
+                    <Stack spacing={0.25}>
+                        <Typography level="body-xs" textColor={hocColors.muted}>
+                            Yours
+                        </Typography>
+                        <ArtifactTierIcons tier1Id={yours.tier1} tier2Id={yours.tier2} />
+                    </Stack>
+                )}
+                {hasTheirs && (
+                    <Stack spacing={0.25}>
+                        <Typography level="body-xs" textColor={hocColors.muted}>
+                            Opponent
+                        </Typography>
+                        <ArtifactTierIcons tier1Id={theirs.tier1} tier2Id={theirs.tier2} />
+                    </Stack>
+                )}
             </Stack>
         </Stack>
     );
@@ -1732,9 +1744,12 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
             )}
 
             {gameStarted && !isObserver && (
-                <Typography level="body-xs" textColor={hocColors.muted}>
-                    Use the board and combat toolbar for movement, attacks, spells, and turn actions.
-                </Typography>
+                <Stack spacing={0.75}>
+                    <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
+                    <Typography level="body-xs" textColor={hocColors.muted}>
+                        Use the board and combat toolbar for movement, attacks, spells, and turn actions.
+                    </Typography>
+                </Stack>
             )}
 
             {isObserver && (
@@ -1745,14 +1760,14 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 
             {busy && (
                 <Stack direction="row" spacing={1} alignItems="center">
-                    <CircularProgress size="sm" />
+                    <CircularProgress size="sm" sx={hocSpinnerSx} />
                     <Typography level="body-sm" textColor={hocColors.mutedStrong}>
                         Submitting
                     </Typography>
                 </Stack>
             )}
             {error && (
-                <Alert variant="soft" color="danger">
+                <Alert variant="soft" sx={hocDangerAlertSx}>
                     {error}
                 </Alert>
             )}

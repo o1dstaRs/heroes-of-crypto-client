@@ -105,6 +105,9 @@ export interface SandboxSceneUnitState {
     attackType?: AttackType;
     /** Whether the unit is waiting on the hourglass (so the hourglass icon survives rebuild/replay). */
     onHourglass?: boolean;
+    /** Whether the unit already used its one hourglass (wait) this lap — restored into fightProperties so the
+     *  ranked client's canHourglass matches the server (else the AI re-requests a rejected wait → skip). */
+    hasHourglassed?: boolean;
 }
 
 export interface SandboxSceneState {
@@ -568,6 +571,7 @@ export class Sandbox extends PixiScene {
             const w = window as unknown as {
                 __hocSetAI?: (active: boolean) => void;
                 __hocAiState?: () => Record<string, unknown>;
+                __hocGetLog?: () => string;
             };
             w.__hocSetAI = (active: boolean) => {
                 this.sc_isAIActive = active;
@@ -577,12 +581,19 @@ export class Sandbox extends PixiScene {
                     this.clearBoardHoverPreviews();
                 }
             };
+            // Headless-harness hook: read the authoritative battle log (same lines the player sees) so an
+            // automated run can measure skip/timeout/hourglass rates over many AI-vs-AI games.
+            w.__hocGetLog = () => this.sc_sceneLog.getLog();
             // Diagnostic snapshot of the AI-gating state — lets a headless runner explain WHY the
             // autobattle isn't acting during a silent stall (which gate is stuck).
             w.__hocAiState = () => {
                 const u = this.currentActiveUnit;
+                const fp = FightStateManager.getInstance().getFightProperties();
                 return {
-                    fightStarted: FightStateManager.getInstance().getFightProperties().hasFightStarted(),
+                    fightStarted: fp.hasFightStarted(),
+                    fightFinished: fp.hasFightFinished(),
+                    lowerAlive: fp.getTeamUnitsAlive(TeamVals.LOWER),
+                    upperAlive: fp.getTeamUnitsAlive(TeamVals.UPPER),
                     activeUnit: u ? `${u.getName()}:${u.getTeam()}` : null,
                     controlledTeam: this.getToggleAiControlledTeam() ?? null,
                     isAIActive: this.aiController.isAIActive,
@@ -1636,15 +1647,40 @@ export class Sandbox extends PixiScene {
                 continue;
             }
 
-            const position =
-                GridMath.getPositionForCells(gs, unitState.cells) ??
-                GridMath.getPositionForCell(unitState.baseCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+            // A 2x2 unit's visual center is the shared corner of its four footprint cells — half a step
+            // down-left of its baseCell (always the max corner) center. getPositionForCells only returns
+            // a value for a 1- or 4-cell array, so a heartbeat snapshot captured while the server is
+            // mid-AI-planning (which can carry a PARTIAL 2-3 cell footprint for the active large unit)
+            // falls through to the raw getPositionForCell(baseCell), landing the unit on the baseCell
+            // center — exactly (halfStep, halfStep) off diagonally. The next clean 4-cell snapshot
+            // re-centers it: the intermittent "half-cell diagonal jerk" seen while the AI deliberates.
+            // Rebuild the full footprint from baseCell so both the render position AND grid occupancy are
+            // correct regardless of how many cells the snapshot carried.
+            let cells = unitState.cells;
+            let position = GridMath.getPositionForCells(gs, cells);
+            if (!position) {
+                const cornerCenter = GridMath.getPositionForCell(
+                    unitState.baseCell,
+                    gs.getMinX(),
+                    gs.getStep(),
+                    gs.getHalfStep(),
+                );
+                if (unit.isSmallSize()) {
+                    position = cornerCenter;
+                } else {
+                    position = { x: cornerCenter.x - gs.getHalfStep(), y: cornerCenter.y - gs.getHalfStep() };
+                    const rebuilt = GridMath.getCellsAroundPosition(gs, position);
+                    if (rebuilt.length === 4) {
+                        cells = rebuilt;
+                    }
+                }
+            }
             if (position) {
                 unit.setPosition(position.x, position.y);
             }
 
             this.grid.occupyCells(
-                unitState.cells,
+                cells,
                 unit.getId(),
                 unit.getTeam(),
                 unit.getAttackRange(),
@@ -1673,6 +1709,14 @@ export class Sandbox extends PixiScene {
         fightProps.setTeamUnitsAlive(
             TeamVals.UPPER,
             snapshot.units.filter((unit) => unit.team === TeamVals.UPPER && !unit.dead).length,
+        );
+        // Rebuild the "already used a hourglass this lap" set from the authoritative per-unit flag. The ranked
+        // client never runs flipLap()/enqueueHourglass(), so without this alreadyHourglass stays empty forever
+        // → canHourglass is always true → the AI re-requests a hourglass on a unit's re-up, the server rejects
+        // it (hourglass_not_available) and the turn dies as a skip. Rebuilding here (every snapshot) keeps it
+        // authoritative and clears it at lap change (the server resets hasHourglassed in flipLap()).
+        fightProps.restoreAlreadyHourglass(
+            snapshot.units.filter((unit) => unit.hasHourglassed && !unit.dead).map((unit) => unit.properties.id),
         );
 
         this.layoutVersion++;
@@ -3023,10 +3067,19 @@ export class Sandbox extends PixiScene {
         const afterById = new Map(record.stateAfter.units.map((u) => [u.properties.id, u]));
         const casterAfter = afterById.get(caster.getId());
         const targetAfter = target ? afterById.get(target.getId()) : undefined;
-        const cellToPos = (cell: HoCMath.XY): HoCMath.XY | undefined =>
-            GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-        const newCasterPos = casterAfter?.baseCell ? cellToPos(casterAfter.baseCell) : undefined;
-        const newTargetPos = targetAfter?.baseCell ? cellToPos(targetAfter.baseCell) : undefined;
+        // baseCell is the max corner; a 2x2 unit sits half a step down-left of it (see hydrateSceneState).
+        // Subtract the half-step for a large caster/target so a swapped large unit lands on its footprint
+        // center, not the baseCell corner (which would leave it half a cell off diagonally).
+        const cellToPos = (cell: HoCMath.XY, unit: RenderableUnit): HoCMath.XY | undefined => {
+            const p = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+            if (p && !unit.isSmallSize()) {
+                p.x -= gs.getHalfStep();
+                p.y -= gs.getHalfStep();
+            }
+            return p;
+        };
+        const newCasterPos = casterAfter?.baseCell ? cellToPos(casterAfter.baseCell, caster) : undefined;
+        const newTargetPos = targetAfter?.baseCell && target ? cellToPos(targetAfter.baseCell, target) : undefined;
         const oldCasterPos = { ...caster.getPosition() };
         const isSwap =
             !!target &&
@@ -3869,10 +3922,15 @@ export class Sandbox extends PixiScene {
         }
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const additionalTime = fightProps.requestAdditionalTurnTime(team as TeamType);
-        if (additionalTime > 0 && this.sc_visibleState) {
-            this.sc_visibleState.canRequestAdditionalTime = false;
-            this.sc_visibleState.hasAdditionalTime = true;
-            this.sc_visibleStateUpdateNeeded = true;
+        if (additionalTime > 0) {
+            // Log it — flagged by the active unit's team via the scene-log resolver (the active unit is
+            // the requesting team's). Ranked logs this from the journal instead (engine text suppressed).
+            this.sc_sceneLog.updateLog(`${this.currentActiveUnit?.getName() ?? "Team"} requested additional time`);
+            if (this.sc_visibleState) {
+                this.sc_visibleState.canRequestAdditionalTime = false;
+                this.sc_visibleState.hasAdditionalTime = true;
+                this.sc_visibleStateUpdateNeeded = true;
+            }
         }
     }
     /**

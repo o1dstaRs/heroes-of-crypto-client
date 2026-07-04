@@ -63,6 +63,19 @@ describe("ranked placement scene state", () => {
         expect(own?.properties.speed).toBe(7);
     });
 
+    test("carries the server hasHourglassed flag onto reconstructed units (drives ranked canHourglass sync)", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({ id: "waited", team: TeamVals.LOWER, hasHourglassed: true }),
+                unitState({ id: "fresh", team: TeamVals.LOWER, hasHourglassed: false }),
+            ]),
+        );
+        // Sandbox.applyAuthoritativeSnapshot folds this per-unit flag into fightProperties.alreadyHourglass so
+        // the ranked client's canHourglass matches the server (else the AI re-requests a rejected wait -> skip).
+        expect(state.units.find((unit) => unit.properties.id === "waited")?.hasHourglassed).toBe(true);
+        expect(state.units.find((unit) => unit.properties.id === "fresh")?.hasHourglassed).toBe(false);
+    });
+
     test("maps 1-based ranged shots, falling back to base when the field is absent", () => {
         const rangedOf = (rangeShots: number) => {
             const state = authoritativeSnapshotToSandboxSceneState(

@@ -18,6 +18,10 @@ ARANGO_PASSWORD="${HOC_ARANGODB_PASSWORD:-ChangeMe}"
 SERVER_LOG="/tmp/hoc-e2e-server.log"
 CLIENT_LOG="/tmp/hoc-e2e-client.log"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MONITOR="$SCRIPT_DIR/hoc-monitor.sh"
+ANOMALY_LOG="${HOC_ANOMALY_LOG:-/private/tmp/hoc-anomalies.log}"
+
 port_busy() { lsof -iTCP:"$1" -sTCP:LISTEN -n -P >/dev/null 2>&1; }
 wait_for() { local n="${2:-60}"; while ((n-- > 0)); do eval "$1" && return 0; sleep 1; done; return 1; }
 
@@ -52,6 +56,15 @@ ensure_server() {
     echo "server: up on :$SERVER_PORT (bootstraps DB collections on first boot)"
 }
 
+ensure_monitor() {
+    # Detached server-log watchdog: self-discovers the running server's log and records crashes/fatal
+    # anomalies to $ANOMALY_LOG. Survives across shells (nohup) so it keeps watching the whole session.
+    if pgrep -f "hoc-monitor.sh" >/dev/null 2>&1; then echo "monitor: already running (see $ANOMALY_LOG)"; return; fi
+    echo "monitor: starting server-log watchdog -> $ANOMALY_LOG"
+    HOC_SERVER_PORT="$SERVER_PORT" HOC_ANOMALY_LOG="$ANOMALY_LOG" nohup bash "$MONITOR" >/dev/null 2>&1 &
+    disown 2>/dev/null || true
+}
+
 ensure_client() {
     if port_busy "$CLIENT_PORT"; then echo "client: already on :$CLIENT_PORT"; return; fi
     echo "client: starting (vite --port $CLIENT_PORT --strictPort) -> $CLIENT_LOG"
@@ -63,6 +76,7 @@ ensure_client() {
 cmd_match() {
     ensure_docker_db
     ensure_server
+    ensure_monitor
     ensure_client
     echo "match: seeding two players + pick game, driving confirm -> PICK ..."
     # Run from the server dir so bun auto-loads its .env (HOC_ARANGODB_* creds).
@@ -72,6 +86,7 @@ cmd_match() {
 cmd_placement() {
     ensure_docker_db
     ensure_server
+    ensure_monitor
     ensure_client
     echo "placement: creating dev play game (skips pick/ban) with randomized rosters ..."
     # Run from the server dir so bun auto-loads its .env (HOC_ARANGODB_* creds).
@@ -82,18 +97,28 @@ cmd_status() {
     docker ps --format '{{.Names}}\t{{.Status}}' 2>/dev/null | grep -E 'hoc-(arangodb|redis)' || echo "db containers: none"
     port_busy "$SERVER_PORT" && echo "server: UP :$SERVER_PORT" || echo "server: DOWN :$SERVER_PORT"
     port_busy "$CLIENT_PORT" && echo "client: UP :$CLIENT_PORT" || echo "client: DOWN :$CLIENT_PORT"
+    pgrep -f "hoc-monitor.sh" >/dev/null 2>&1 && echo "monitor: RUNNING -> $ANOMALY_LOG" || echo "monitor: not running"
+}
+
+# Start (if needed) the watchdog and print any anomalies it has recorded so far.
+cmd_monitor() {
+    ensure_monitor
+    echo "--- anomalies ($ANOMALY_LOG) ---"
+    [ -s "$ANOMALY_LOG" ] && tail -n 40 "$ANOMALY_LOG" || echo "(none recorded)"
 }
 
 cmd_cleanup() {
     pkill -f "bun index.ts" 2>/dev/null || true
     pkill -f "vite --port $CLIENT_PORT" 2>/dev/null || true
-    echo "cleanup: stopped server + client (DB containers left running; 'docker stop hoc-arangodb hoc-redis' to stop them)"
+    pkill -f "hoc-monitor.sh" 2>/dev/null || true
+    echo "cleanup: stopped server + client + monitor (DB containers left running; 'docker stop hoc-arangodb hoc-redis' to stop them)"
 }
 
 case "${1:-match}" in
     all|match|up)      cmd_match ;;
     placement|play)    cmd_placement ;;
     status)            cmd_status ;;
+    monitor|anomalies) cmd_monitor ;;
     cleanup|down)      cmd_cleanup ;;
-    *) echo "Usage: $(basename "$0") {match|placement|status|cleanup}"; exit 1 ;;
+    *) echo "Usage: $(basename "$0") {match|placement|status|monitor|cleanup}"; exit 1 ;;
 esac

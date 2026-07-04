@@ -45,9 +45,22 @@ and show an empty board during pick — don't use them for pick.)
 ```bash
 .claude/skills/heroes-e2e/scripts/hoc-e2e.sh match       # full pick/ban -> play match, print links
 .claude/skills/heroes-e2e/scripts/hoc-e2e.sh placement   # SKIP pick/ban: start in placement, randomized rosters
-.claude/skills/heroes-e2e/scripts/hoc-e2e.sh status      # what's running
-.claude/skills/heroes-e2e/scripts/hoc-e2e.sh cleanup     # stop server + client (leaves DB containers)
+.claude/skills/heroes-e2e/scripts/hoc-e2e.sh status      # what's running (incl. monitor)
+.claude/skills/heroes-e2e/scripts/hoc-e2e.sh monitor     # start watchdog (if needed) + print recorded anomalies
+.claude/skills/heroes-e2e/scripts/hoc-e2e.sh cleanup     # stop server + client + monitor (leaves DB containers)
 ```
+
+### Server-log monitoring (always-on)
+
+`match` and `placement` auto-start a detached **watchdog** (`scripts/hoc-monitor.sh`) that keeps watching the
+server for the whole session. It **self-discovers** the running server's log file via `lsof` on the listening
+pid (robust to whichever launcher started the server, and to different log paths), scans new lines for FATAL
+anomalies (`uncaught_exception`, `RangeError`, `must be safe integers`, …), and detects crashes (port gone
+for ~9s). Findings are appended, timestamped, to `$HOC_ANOMALY_LOG` (default `/private/tmp/hoc-anomalies.log`);
+known-benign noise (`Game not found`, journal dedup) is ignored, and intentional SIGTERM restarts are not
+flagged. **Check it any time** with `hoc-e2e.sh monitor` (or `tail -f /private/tmp/hoc-anomalies.log`). This
+exists because a server that dies on an uncaught exception otherwise fails silently — every in-flight game
+just "gets stuck" with no board updates.
 
 ### `placement` mode (fast iteration)
 

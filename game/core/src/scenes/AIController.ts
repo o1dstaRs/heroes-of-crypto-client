@@ -141,6 +141,11 @@ export class AIController {
     // Aura-bearer we last hourglassed (waited) to reposition later this round. Cleared when a different
     // unit becomes active, so the same unit doesn't try to wait twice on the same turn.
     private auraWaitAttemptUnitId: string | undefined;
+    // Unit we last submitted a strategy wait_turn (hourglass) for. If decideTurn re-emits wait_turn for the
+    // SAME still-active unit, the hourglass isn't taking (server refused it / active-unit not yet synced) —
+    // re-waiting spins into a skip, so recover with a real action (findTarget). Cleared when a different unit
+    // becomes active. Mirrors auraWaitAttemptUnitId / spellCastAttemptUnitId.
+    private strategyWaitAttemptUnitId: string | undefined;
     // Unit we last submitted a turn-resolving action (move/attack/end-turn) for. In ranked these submit
     // OPTIMISTICALLY (fire-and-forget), so a server rejection leaves the same unit active and the
     // ~60fps AI poll would recompute the SAME doomed action against the still-stale scene and resubmit
@@ -374,6 +379,10 @@ export class AIController {
         if (this.turnActionAttemptUnitId && this.turnActionAttemptUnitId !== currentUnit.getId()) {
             this.turnActionAttemptUnitId = undefined;
         }
+        // Clear the wait-loop guard once the turn has genuinely advanced to a different unit.
+        if (this.strategyWaitAttemptUnitId && this.strategyWaitAttemptUnitId !== currentUnit.getId()) {
+            this.strategyWaitAttemptUnitId = undefined;
+        }
         if (this.turnActionAttemptUnitId === currentUnit.getId()) {
             if (HoCLib.getTimeMillis() - this.turnActionAttemptAtMs < AIController.TURN_ACTION_GUARD_GRACE_MS) {
                 this.finishAIAction(wasAIActive);
@@ -498,9 +507,29 @@ export class AIController {
                 this.finishAIAction(wasAIActive);
                 return true;
             }
-            case "wait_turn":
+            case "wait_turn": {
+                // Loop guard: if we already submitted a wait for this STILL-active unit, the hourglass isn't
+                // taking (the server refused it — the unit already waited this lap / the active unit hasn't
+                // synced) and re-waiting just spins ~4s then dies as "skips turn". Recover with a real action
+                // via findTarget instead of wasting the turn.
+                if (this.strategyWaitAttemptUnitId === currentUnit.getId()) {
+                    return false;
+                }
+                this.strategyWaitAttemptUnitId = currentUnit.getId();
+                // Ranked submits wait_turn straight to the server WITHOUT running the local engine, so the
+                // client's fightProperties never learns this unit hourglassed — canHourglass stays stale-true
+                // and decideTurn re-emits wait_turn on re-up. Optimistically mirror the server's per-unit
+                // hourglass flag so canHourglass is correct immediately; every authoritative snapshot re-syncs
+                // onHourglass (Sandbox restore), so this self-heals and clears next lap.
+                const applied = this.context.applyGameAction(this.modelAction(currentUnit, primary));
+                if (applied) {
+                    currentUnit.setOnHourglass(true);
+                }
+                this.finishAIAction(wasAIActive);
+                return true;
+            }
             case "end_turn": {
-                // Park/end the turn: no animation, just submit and release the AI lock.
+                // End the turn: no animation, just submit and release the AI lock.
                 this.context.applyGameAction(this.modelAction(currentUnit, primary));
                 this.finishAIAction(wasAIActive);
                 return true;
@@ -558,6 +587,14 @@ export class AIController {
             this.endTurnIfStillActive(currentUnit);
             this.finishAIAction(wasAIActive);
         } else if (isAuthoritative) {
+            // A bare move keeps the unit ACTIVE server-side — the ranked transport never ends the turn for
+            // a move (RankedPlayScene TURN_ENDING_ACTION_TYPES excludes move_unit, "keeps the unit active to
+            // still strike"). executeMoveSequence's authoritative path submits the move and returns WITHOUT
+            // firing onComplete, so without this the turn dangled until the server's turn timer fired
+            // ("<unit> turn timed out"). End it explicitly; the follow-up end_turn is sequenced right after
+            // the move (dispatch is synchronous + in order) so the server records a clean move, not a skip.
+            // endTurnIfStillActive is a no-op if the move already advanced the active unit.
+            this.endTurnIfStillActive(currentUnit);
             this.finishAIAction(wasAIActive);
         }
         return true;
@@ -612,7 +649,12 @@ export class AIController {
                     authoritativeAction,
                 );
                 if (!completed) {
-                    this.endTurnIfStillActive(currentUnit);
+                    // The server declined the move+strike (e.g. a 2x2 unit's planned landing filled after we
+                    // decided, or the target shifted). Don't burn the turn as a "skips turn" — return false so
+                    // performAction falls back to the base findTarget path, which advances / retargets / ends
+                    // cleanly (mirrors the sim's advance-then-defend recovery). No finishAIAction here: the
+                    // fallback owns turn completion (same contract as the cast_spell rejection above).
+                    return false;
                 }
                 this.finishAIAction(wasAIActive);
                 return true;
@@ -668,7 +710,8 @@ export class AIController {
             authoritativeAction,
         );
         if (!completed) {
-            this.endTurnIfStillActive(currentUnit);
+            // Declined in-place strike -> recover via findTarget instead of skipping (see the charge branch).
+            return false;
         }
         this.finishAIAction(wasAIActive);
         return true;
@@ -700,7 +743,9 @@ export class AIController {
             }),
         );
         if (!completed) {
-            this.endTurnIfStillActive(currentUnit);
+            // Declined shot (e.g. server has the shooter in a Range Null Field) -> recover via findTarget
+            // instead of skipping (see executeStrategyMelee).
+            return false;
         }
         this.finishAIAction(wasAIActive);
         return true;
@@ -1802,6 +1847,9 @@ export class AIController {
             this.endTurnIfStillActive(currentUnit);
             this.finishAIAction(wasAIActive);
         } else if (isAuthoritative) {
+            // See executeStrategyMove: a ranked bare move never ends the turn server-side and the deferred
+            // submit doesn't fire onComplete, so end the turn explicitly or the unit dangles into a timeout.
+            this.endTurnIfStillActive(currentUnit);
             this.finishAIAction(wasAIActive);
         }
 

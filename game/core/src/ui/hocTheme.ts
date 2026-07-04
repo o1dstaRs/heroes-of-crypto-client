@@ -44,6 +44,20 @@ export const hocSoftButtonSx = {
     },
 };
 
+// Error/alert styling in the game's palette (MUI Joy's default `color="danger"` renders a pink that's
+// off-theme, especially on the un-themed loading/error screens). Uses hocColors.danger (an ember red-orange).
+export const hocDangerAlertSx = {
+    bgcolor: "rgba(255, 90, 63, 0.14)",
+    color: hocColors.parchment,
+    border: `1px solid rgba(255, 90, 63, 0.5)`,
+};
+
+// Spinner in the game's orange instead of MUI Joy's default blue.
+export const hocSpinnerSx = {
+    "--CircularProgress-progressColor": hocColors.orange,
+    "--CircularProgress-trackColor": "rgba(255, 143, 0, 0.18)",
+};
+
 export const hocInputSx = {
     bgcolor: "rgba(0,0,0,0.28)",
     color: hocColors.parchment,

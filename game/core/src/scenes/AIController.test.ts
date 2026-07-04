@@ -28,6 +28,8 @@ const createUnit = (id = "ai-unit-1", team = TeamVals.LOWER): RenderableUnit =>
         getSteps: () => 10,
         hasAbilityActive: () => false,
         isSmallSize: () => true,
+        isOnHourglass: () => false,
+        setOnHourglass: () => undefined,
     }) as unknown as RenderableUnit;
 
 const createMoveAction = (cellToMove: HoCMath.XY) => {
@@ -159,7 +161,7 @@ describe("AIController", () => {
         expect(buttonManager.sc_isAIActive).toBe(true);
     });
 
-    it("unlocks without a fallback end turn when an authoritative move is submitted", () => {
+    it("ends the turn after an authoritative move so the unit never dangles into a server timeout", () => {
         const unit = createUnit();
         const appliedActions: GameAction[] = [];
         const buttonManager = {
@@ -211,7 +213,10 @@ describe("AIController", () => {
 
         expect(handled).toBe(true);
         expect(executeMoveSequence).toHaveBeenCalledTimes(1);
-        expect(appliedActions).toEqual([]);
+        // A ranked bare move keeps the unit ACTIVE server-side (TURN_ENDING_ACTION_TYPES excludes move_unit)
+        // and the deferred submit never fires onComplete — so the AI MUST explicitly end the turn, else the
+        // unit dangles until the server's turn timer fires ("<unit> turn timed out"). Regression guard.
+        expect(appliedActions).toEqual([{ type: "end_turn", unitId: unit.getId() }]);
         expect(controller.performingAction).toBe(false);
         // isAIActive is the player's toggle and is no longer reset by an AI turn (so a manual
         // toggle-off mid-turn sticks); the button visual just re-syncs to the live toggle, which is
@@ -552,6 +557,92 @@ describe("AIController", () => {
             // (iv) an empty strategy plan hands off to the proven findTarget fallback (never a dead turn).
             expect(fallback).toHaveBeenCalledTimes(1);
             expect((fallback.mock.calls[0] as unknown as [RenderableUnit])[0]).toBe(unit);
+        });
+
+        it("ends the turn after an authoritative strategy MOVE so the unit never dangles into a timeout", async () => {
+            const unit = createUnit();
+            const movePath: HoCMath.XY[] = [
+                { x: 1, y: 1 },
+                { x: 2, y: 2 },
+            ];
+            stubStrategy(
+                () =>
+                    [
+                        { type: "move_unit", unitId: unit.getId(), path: movePath, targetCells: [{ x: 2, y: 2 }] },
+                    ] as GameAction[],
+            );
+            const appliedActions: GameAction[] = [];
+            const executeMoveSequence = mock(() => true);
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                executeMoveSequence,
+                // Ranked: a bare move is deferred and NEVER ends the turn server-side.
+                isAuthoritativeAction: (action: GameAction) => action.type === "move_unit",
+                applyGameAction: (action: GameAction) => {
+                    appliedActions.push(action);
+                    return true;
+                },
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+
+            // The move is submitted, then the AI explicitly ends the turn — otherwise the unit stays active
+            // until the server's turn timer fires ("<unit> turn timed out"). Regression guard for that bug.
+            expect(executeMoveSequence).toHaveBeenCalledTimes(1);
+            expect(appliedActions).toEqual([{ type: "end_turn", unitId: unit.getId() }]);
+            expect(controller.performingAction).toBe(false);
+        });
+
+        it("recovers via findTarget (never a skip) when an authoritative strike is rejected", async () => {
+            const unit = createUnit();
+            const target = buildMoveMeleeTarget();
+            stubStrategy(() => moveMeleePlan(unit.getId()));
+            const appliedActions: GameAction[] = [];
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                // The server DECLINES the charge (e.g. a 2x2 unit's planned landing filled after we decided).
+                executeAttackSequence: mock(async () => false),
+                isAuthoritativeAction: (action: GameAction) => action.type === "melee_attack",
+                applyGameAction: (action: GameAction) => {
+                    appliedActions.push(action);
+                    return true;
+                },
+                getUnitsHolder: () => ({ getAllUnits: () => new Map([["target-1", target]]) }),
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            const fallback = mock(async () => undefined);
+            (controller as unknown as { performFindTargetAction: typeof fallback }).performFindTargetAction = fallback;
+
+            await controller.performAction(true);
+
+            // A rejected strike must hand off to findTarget to advance/retarget/end cleanly — NOT immediately
+            // burn the turn as a "skips turn" (the sim's advance-then-defend recovery, ported to the client).
+            expect(fallback).toHaveBeenCalledTimes(1);
+            expect(appliedActions.some((a) => a.type === "end_turn")).toBe(false);
+        });
+
+        it("optimistically marks the unit on-hourglass when it submits a wait so canHourglass stops re-emitting wait", async () => {
+            const unit = createUnit();
+            const setOnHourglass = mock(() => undefined);
+            (unit as unknown as { setOnHourglass: typeof setOnHourglass }).setOnHourglass = setOnHourglass;
+            stubStrategy(() => [{ type: "wait_turn", unitId: unit.getId() }] as GameAction[]);
+            const context = baseContext({ getCurrentActiveUnit: () => unit, applyGameAction: () => true });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+
+            // Ranked submits wait_turn to the server without running the local engine, so the client must
+            // mirror the hourglass flag itself — otherwise canHourglass stays stale-true and decideTurn spins
+            // on wait_turn until the turn dies as "skips turn". Regression guard for that loop.
+            expect(setOnHourglass).toHaveBeenCalledWith(true);
         });
     });
 });

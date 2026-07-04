@@ -28,7 +28,8 @@ const PERK_ICON: Record<number, string> = {
 };
 
 const PHASE_HINT: Record<number, string> = {
-    [PickPhaseVals.PERK]: "Trade vision for power — your doctrine lasts the whole draft.",
+    [PickPhaseVals.PERK]:
+        "Choose your doctrine AND a starting bundle. Doctrine lasts the whole draft; each bundle gives two creatures and a Tier-1 artifact.",
     [PickPhaseVals.INITIAL_PICK]: "Each bundle gives you two creatures and a Tier-1 artifact. Pick one.",
     [PickPhaseVals.PICK]: "Greyed portraits are banned or already taken by your opponent.",
     [PickPhaseVals.ARTIFACT_2]: "Choose one Tier-2 artifact for your whole army.",
@@ -38,21 +39,20 @@ const PHASE_HINT: Record<number, string> = {
 
 // ---- Draft progress stepper ----------------------------------------------
 
-const STEP_LABELS = ["Doctrine", "Bundle", "Lvl 1", "Lvl 2", "Lvl 3", "Artifact", "Lvl 4", "Place"];
+// Doctrine + Bundle are chosen together in one combined first step.
+const STEP_LABELS = ["Doctrine + Bundle", "Lvl 1", "Lvl 2", "Lvl 3", "Artifact", "Lvl 4", "Place"];
 
 const currentStep = (phase: number, level: number): number => {
     switch (phase) {
-        case PickPhaseVals.PERK:
+        case PickPhaseVals.PERK: // combined doctrine + bundle
             return 0;
-        case PickPhaseVals.INITIAL_PICK:
-            return 1;
         case PickPhaseVals.ARTIFACT_2:
-            return 5;
+            return 4;
         case PickPhaseVals.AUGMENTS:
         case PickPhaseVals.AUGMENTS_SCOUT:
-            return 7;
+            return 6;
         case PickPhaseVals.PICK:
-            return level === 4 ? 6 : 1 + level; // L1->2, L2->3, L3->4
+            return level === 4 ? 5 : level; // L1->1, L2->2, L3->3, L4->5
         default:
             return -1;
     }
@@ -422,16 +422,21 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
         banned,
         picked,
         opponentPicked,
+        perk,
         upgradePoints,
     } = usePickBanEvents();
     const { perk: sendPerk, pickPair, pick, artifact } = useAuthContext();
     const [busy, setBusy] = useState(false);
     // Remember what the player chose this phase so the UI can confirm it while the opponent acts.
     const [selection, setSelection] = useState<{ phase: number; value: number } | null>(null);
+    // Combined PERK phase does TWO independent actions on one screen, so it needs its own local choices
+    // (the single `selection` can't hold both). Locks are derived from authoritative server state below.
+    const [setupBundleChoice, setSetupBundleChoice] = useState<number>(-1);
 
-    // Clear the local selection whenever the phase advances.
+    // Clear the local selections whenever the phase advances.
     useEffect(() => {
         setSelection((prev) => (prev && prev.phase === pickPhase ? prev : null));
+        setSetupBundleChoice(-1);
     }, [pickPhase]);
 
     const send = async (value: number, fn: () => Promise<void>): Promise<void> => {
@@ -452,17 +457,54 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
     const hint = PHASE_HINT[pickPhase] ?? "";
     const opponentTaken = opponentPicked.filter((id) => id && id !== CreatureVals.NO_CREATURE);
     const isHandoff = pickPhase === PickPhaseVals.AUGMENTS || pickPhase === PickPhaseVals.AUGMENTS_SCOUT;
+    const isCombinedSetup = pickPhase === PickPhaseVals.PERK;
+    // Authoritative per-dimension locks for the combined phase: the server echoes the player's own perk
+    // (perk > 0) and their bundle (picked.length > 0), so both survive reload and disable their panel.
+    const perkLocked = isCombinedSetup && perk > 0;
+    const bundleLocked = isCombinedSetup && picked.length > 0;
+    // Which bundle was chosen — local index if just picked, else recover it from the picked creatures.
+    const bundleChosenIndex =
+        setupBundleChoice >= 0
+            ? setupBundleChoice
+            : bundleLocked
+              ? initialBundles.findIndex((b) => b[0] === picked[0] && b[1] === picked[1])
+              : -1;
+    const setupBothLocked = perkLocked && bundleLocked;
 
     let panel: React.ReactNode = <CircularProgress />;
-    if (pickPhase === PickPhaseVals.PERK) {
+    if (isCombinedSetup) {
+        // Combined first step: choose a doctrine AND a starting bundle on one screen, each locking independently.
         panel = (
-            <PerkPanel
-                disabled={disabled}
-                selected={selectedValue}
-                onSelect={(id) => void send(id, () => sendPerk(id))}
-            />
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2.5, width: "100%" }}>
+                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+                    <Chip size="sm" variant="soft" color={perkLocked ? "success" : "primary"}>
+                        1 · Doctrine {perkLocked ? "✓" : ""}
+                    </Chip>
+                    <PerkPanel
+                        disabled={busy || perkLocked}
+                        selected={perkLocked ? perk : selectedValue}
+                        onSelect={(id) => void send(id, () => sendPerk(id))}
+                    />
+                </Box>
+                <Divider sx={{ width: "80%" }} />
+                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+                    <Chip size="sm" variant="soft" color={bundleLocked ? "success" : "primary"}>
+                        2 · Starting bundle {bundleLocked ? "✓" : ""}
+                    </Chip>
+                    <BundlePanel
+                        bundles={initialBundles}
+                        disabled={busy || bundleLocked}
+                        selected={bundleChosenIndex}
+                        onSelect={(i) => {
+                            setSetupBundleChoice(i);
+                            void send(i, () => pickPair(i));
+                        }}
+                    />
+                </Box>
+            </Box>
         );
     } else if (pickPhase === PickPhaseVals.INITIAL_PICK) {
+        // Legacy in-flight picks only — new picks fold the bundle into the combined PERK phase above.
         panel = (
             <BundlePanel
                 bundles={initialBundles}
@@ -549,11 +591,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
                 {userTeam ? panel : null}
             </Box>
 
-            {!isYourTurn && !isHandoff && (
+            {/* In the combined phase both players are actors, so gate the wait on having locked BOTH choices. */}
+            {((!isYourTurn && !isHandoff) || setupBothLocked) && (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, opacity: 0.7 }}>
                     <CircularProgress size="sm" />
                     <Typography level="body-sm">
-                        {selectedValue >= 0 ? "Locked in — waiting for your opponent…" : "Waiting for your opponent…"}
+                        {setupBothLocked || selectedValue >= 0
+                            ? "Locked in — waiting for your opponent…"
+                            : "Waiting for your opponent…"}
                     </Typography>
                 </Box>
             )}

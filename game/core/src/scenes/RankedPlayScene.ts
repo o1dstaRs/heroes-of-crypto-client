@@ -29,6 +29,7 @@ import type { IFightDeathEntry, IFightStatsReport, IFightStatsSample } from "./V
 import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
 import { Sandbox, type SandboxSceneState, type SandboxSceneUnitState, type SceneActionEngine } from "./Sandbox";
 import { animatableEffectNames, diffUnitEffects } from "./effect_pops";
+import { PlayActionType } from "../api/play_protocol";
 import type { RenderableUnit } from "./RenderableUnit";
 import type { UnitsOverlay } from "./UnitsOverlay";
 import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
@@ -51,6 +52,7 @@ export const authoritativeUnitToSandboxUnitState = (
         baseCell: unitState.baseCell,
         attackType: unitState.attackType as AttackType,
         onHourglass: unitState.onHourglass,
+        hasHourglassed: unitState.hasHourglassed,
     };
 };
 
@@ -434,15 +436,24 @@ export class RankedPlayScene extends Sandbox {
                 currentDebuffs,
                 currentBuffs,
             );
-            this.unitDebuffs.set(unitState.id, currentDebuffs);
-            this.unitBuffs.set(unitState.id, currentBuffs);
             if (diff.seeded) {
-                continue; // First time we've seen this unit — seed without animating.
+                // First time we've seen this unit — seed the tracker silently, animate nothing.
+                this.unitDebuffs.set(unitState.id, currentDebuffs);
+                this.unitBuffs.set(unitState.id, currentBuffs);
+                continue;
             }
             const unit = this.unitsHolder.getAllUnits().get(unitState.id) as RenderableUnit | undefined;
             if (!unit || unit.isDead()) {
+                // The unit isn't renderable in THIS snapshot (mid board-rebuild, or its sprite hasn't been
+                // (re)created yet — common on the acting player's client while it's animating its own turn).
+                // Do NOT advance the tracker: leave the pre-effect baseline in place so the freshly-applied
+                // debuff/buff still pops on the next snapshot where the unit is present. Advancing here would
+                // record the effect without ever popping it, permanently swallowing the animation — the
+                // "debuff applied by my own action doesn't animate on my screen" bug.
                 continue;
             }
+            this.unitDebuffs.set(unitState.id, currentDebuffs);
+            this.unitBuffs.set(unitState.id, currentBuffs);
             if (diff.flash === "debuff") {
                 unit.flashDebuffDarken();
             } else if (diff.flash === "buff") {
@@ -1057,6 +1068,13 @@ export class RankedPlayScene extends Sandbox {
         const lines: string[] = [];
         const sortedEntries = [...journalTail].sort((a, b) => a.sequence - b.sequence);
         for (const entry of sortedEntries) {
+            // "Use additional time" carries no game events (the extension is applied server-side), so
+            // render it from the journal entry's action type — flagged by the requesting team.
+            if (entry.actionType === PlayActionType.REQUEST_ADDITIONAL_TIME) {
+                const flag = this.teamFlag(entry.team);
+                lines.push(flag ? `${flag} requested additional time` : "requested additional time");
+                continue;
+            }
             const events = this.parseJournalEvents(entry);
             // A unit that moved/attacked/cast this entry also emits a trailing "manual" unit_skipped
             // as its turn auto-completes — that isn't a real skip, so don't log "skips turn" for it.
@@ -1245,6 +1263,10 @@ export class RankedPlayScene extends Sandbox {
         // units that never appear in a snapshot (a local-model opponent's units, units summoned
         // mid-fight) still get a colour flag instead of an unmarked line.
         const team = this.rankedUnitTeamsById.get(unitId) ?? this.unitsHolder.getAllUnits().get(unitId)?.getTeam();
+        return this.teamFlag(team);
+    }
+    /** Green/red marker straight from a team value (for team-scoped lines with no acting unit). */
+    private teamFlag(team: number | undefined): string {
         if (team === TeamVals.LOWER) {
             return "🟢";
         }
