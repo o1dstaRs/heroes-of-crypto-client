@@ -432,6 +432,15 @@ export class RankedPlayScene extends Sandbox {
             seen.add(unitState.id);
             const currentDebuffs = animatableEffectNames(unitState.debuffs ?? []);
             const currentBuffs = animatableEffectNames(unitState.buffs ?? []);
+            if (unitState.dead) {
+                // The snapshot is the source of truth for death; the local sprite can still be alive here
+                // mid board-rebuild (common when loading/replaying a game), so unit.isDead() below would
+                // miss it and pop an effect (e.g. Deep Wounds) over a unit that's about to be destroyed.
+                // Record the effects silently — never animate a pop on a dead unit.
+                this.unitDebuffs.set(unitState.id, currentDebuffs);
+                this.unitBuffs.set(unitState.id, currentBuffs);
+                continue;
+            }
             const diff = diffUnitEffects(
                 this.unitDebuffs.get(unitState.id),
                 this.unitBuffs.get(unitState.id),

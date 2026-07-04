@@ -220,6 +220,20 @@ describe("createPlayActionFromGameAction", () => {
             team: TeamVals.UPPER,
         });
     });
+
+    it("maps an augment carrying category (attackType) + level (amount) + team", () => {
+        expect(
+            createPlayActionFromGameAction(
+                { type: "augment", team: TeamVals.UPPER, augmentKind: "Might", augmentValue: 17 },
+                envelope,
+            ),
+        ).toMatchObject({
+            type: PlayActionType.AUGMENT,
+            team: TeamVals.UPPER,
+            attackType: 3, // Might
+            amount: 17,
+        });
+    });
 });
 
 describe("createGameActionFromPlayAction", () => {
@@ -296,6 +310,15 @@ describe("createGameActionFromPlayAction", () => {
         expect(
             createGameActionFromPlayAction({ type: PlayActionType.REQUEST_ADDITIONAL_TIME, team: TeamVals.LOWER }),
         ).toEqual({ type: "request_additional_time", team: TeamVals.LOWER });
+
+        expect(
+            createGameActionFromPlayAction({
+                type: PlayActionType.AUGMENT,
+                team: TeamVals.LOWER,
+                attackType: 4, // Sniper
+                amount: 40,
+            }),
+        ).toEqual({ type: "augment", team: TeamVals.LOWER, augmentKind: "Sniper", augmentValue: 40 });
     });
 
     it("skips protocol entries that do not describe one concrete common action", () => {

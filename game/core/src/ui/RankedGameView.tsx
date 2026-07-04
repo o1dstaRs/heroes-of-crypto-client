@@ -2,7 +2,9 @@ import {
     Artifact,
     AttackVals,
     Augment,
+    FightStateManager,
     GridConstants,
+    Perk,
     TeamVals,
     type GameAction,
     type TeamType,
@@ -57,6 +59,7 @@ import LeftSideBar from "./LeftSideBar";
 import { Main } from "./Main";
 import Popover from "./Popover";
 import RightSideBar from "./RightSideBar";
+import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { WalletLinker } from "./WalletLinker";
@@ -300,6 +303,20 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const snapshotRef = useRef<PlaySnapshot | null>(null);
     const actionQueueRef = useRef<Promise<void>>(Promise.resolve());
     const replayTimersRef = useRef<number[]>([]);
+
+    // Sync the viewer's chosen doctrine into the local FightProperties so the placement augment sidebar
+    // shows the correct upgrade-point budget (getUpgradePoints reads the perk). The server is authoritative
+    // for actually spending; this only drives the local budget/remaining-points display. The opponent's
+    // perk stays hidden (0) during placement, so we only ever set our own team's.
+    useEffect(() => {
+        if (viewerTeam === undefined || !snapshot) {
+            return;
+        }
+        const perk = viewerTeam === TeamVals.LOWER ? snapshot.lowerPerk : snapshot.upperPerk;
+        FightStateManager.getInstance()
+            .getFightProperties()
+            .setPerkPerTeam(viewerTeam, (perk || Perk.Perk.NO_PERK) as Perk.Perk);
+    }, [snapshot, viewerTeam]);
 
     // Mirror the scene's local AI toggle so the "AI Toggle On" badge shows for a manual toggle too,
     // not only the server's aiControlled takeover (combined below).
@@ -1736,6 +1753,9 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     <Stack spacing={0.75}>
                         <RankedOpponentPlacementIntel snapshot={snapshot} userTeam={userTeam} />
                         <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
+                        {/* Spend the perk's upgrade points on army augments. Routed to the authoritative
+                            server via RankedPlayScene.propagateAugmentation (the AUGMENT play-action). */}
+                        <SideToggleContainer side={userTeam === TeamVals.LOWER ? "green" : "red"} teamType={userTeam} />
                         <Button
                             variant="solid"
                             disabled={!canSubmit || ready}
