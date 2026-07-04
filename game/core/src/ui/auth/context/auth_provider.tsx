@@ -629,7 +629,10 @@ export function AuthProvider({ children }: Props) {
                 payload: {
                     user: {
                         ...state.user,
-                        isActive: true,
+                        // ResponseMe.toObject() uses the snake_case field `is_active`; setting
+                        // `isActive` here left the real flag false, so the app never saw the account
+                        // as activated until a full re-login. Flip the correct field.
+                        is_active: true,
                     } as AuthUserType,
                 },
             });

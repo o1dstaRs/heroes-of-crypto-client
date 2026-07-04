@@ -435,7 +435,12 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
 };
 
 const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
-    const { loading, authenticated } = useAuthContext();
+    const { loading, authenticated, user } = useAuthContext();
+
+    // Online play requires an activated (email-verified) account. An authenticated-but-inactive
+    // user (a fresh email registration, or an old account that never verified) is funneled to the
+    // LoginScreen, which renders the verification-code step so they can activate.
+    const activated = authenticated && user?.is_active !== false;
 
     if (loading) {
         return null;
@@ -450,7 +455,7 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                 path="/play"
                 element={
                     <WalletProvider>
-                        {authenticated || isMockPortalEnabled() ? <MatchmakingRoute /> : <LoginScreen />}
+                        {activated || isMockPortalEnabled() ? <MatchmakingRoute /> : <LoginScreen />}
                     </WalletProvider>
                 }
             />
@@ -459,7 +464,7 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
             <Route
                 path="/lobbies"
                 element={
-                    authenticated ? (
+                    activated ? (
                         <LobbiesBrowse />
                     ) : (
                         <WalletProvider>
@@ -471,7 +476,7 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
             <Route
                 path="/lobby/:lobbyId"
                 element={
-                    authenticated ? (
+                    activated ? (
                         <LobbyView />
                     ) : (
                         <WalletProvider>
@@ -484,7 +489,7 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
             <Route
                 path="/portal"
                 element={
-                    authenticated || isMockPortalEnabled() ? (
+                    activated || isMockPortalEnabled() ? (
                         <PlayerPortalPage />
                     ) : (
                         <WalletProvider>

@@ -1,6 +1,8 @@
 import {
     allFactions,
     AttackVals,
+    Augment,
+    FightStateManager,
     Spell,
     getFactionOf,
     GridMath,
@@ -868,6 +870,37 @@ export class RankedPlayScene extends Sandbox {
     /** Only the viewer's own turn may extend the clock — never the opponent's. */
     protected override canOfferAdditionalTimeForTeam(team: TeamType): boolean {
         return this.viewerTeam !== undefined && team === this.viewerTeam;
+    }
+    /**
+     * Ranked routes placement-time augment spending through the authoritative server: send an `augment`
+     * action for the viewer's own team. The server validates the upgrade-point budget (canAugment against
+     * the seeded perk), stores it, resizes the placement grid / applies stats, and re-broadcasts the
+     * snapshot. We optimistically apply locally too so the sidebar's remaining-points + selection update
+     * immediately; the next authoritative snapshot reconciles. Only the viewer's own team, never the opponent.
+     */
+    public override propagateAugmentation(teamType: TeamType, augmentType: Augment.AugmentType): boolean {
+        const transport = this.sc_gameActionTransport;
+        if (!transport) {
+            return super.propagateAugmentation(teamType, augmentType);
+        }
+        if (this.viewerTeam === undefined || teamType !== this.viewerTeam) {
+            return false;
+        }
+        const fightProperties = FightStateManager.getInstance().getFightProperties();
+        if (!fightProperties.canAugment(teamType, augmentType)) {
+            return false;
+        }
+        // Optimistic local apply for immediate sidebar feedback (budget + selection). Kept light — the
+        // server owns the authoritative placement/stat recompute and rebroadcasts it.
+        fightProperties.setAugmentPerTeam(teamType, augmentType);
+        this.refreshUnits();
+        transport({
+            type: "augment",
+            team: teamType,
+            augmentKind: augmentType.type,
+            augmentValue: augmentType.value,
+        });
+        return true;
     }
     /**
      * Ranked routes "Use additional time" through the authoritative server: send a

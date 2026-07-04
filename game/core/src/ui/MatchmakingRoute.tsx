@@ -24,7 +24,7 @@ const matchEventUrl = () => buildApiUrl(HOST_MATCHMAKING_API, endpoints.mm.event
 
 export const MatchmakingRoute: React.FC = () => {
     const navigate = useNavigate();
-    const { startGameSearch, stopGameSearch, confirmGame, getCurrentGame } = useAuthContext();
+    const { startGameSearch, stopGameSearch, confirmGame, getCurrentGame, user, requestCode } = useAuthContext();
 
     const streamRef = useRef<CustomEventSource<MatchmakingEvent> | null>(null);
     const acceptedGameIdRef = useRef("");
@@ -33,6 +33,14 @@ export const MatchmakingRoute: React.FC = () => {
     const [queueSize, setQueueSize] = useState<number | null>(null);
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
     const [error, setError] = useState("");
+    const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
+
+    // A logged-in but email-unverified account (is_active === false) cannot enter matchmaking:
+    // the server rejects POST /queue with "Activate your account to join the matchmaking queue".
+    // Gate the whole ranked flow on activation so the user gets a clear "verify your email" path
+    // instead of a doomed Find Opponent click that surfaces as a meaningless "Connection aborted".
+    const needsActivation = user?.is_active === false;
+    const accountEmail = user?.email ?? "";
 
     const closeStream = useCallback(() => {
         streamRef.current?.close();
@@ -119,6 +127,9 @@ export const MatchmakingRoute: React.FC = () => {
     }, [getCurrentGame, navigate, openStream]);
 
     const statusText = useMemo(() => {
+        if (needsActivation) {
+            return "Email verification required";
+        }
         if (state === "searching") {
             return queueSize ? `Looking for opponent (${queueSize} in queue)` : "Looking for opponent";
         }
@@ -136,9 +147,12 @@ export const MatchmakingRoute: React.FC = () => {
             return "Connection error";
         }
         return "Ready";
-    }, [queueSize, secondsRemaining, state]);
+    }, [needsActivation, queueSize, secondsRemaining, state]);
 
     const handleStart = async () => {
+        if (needsActivation) {
+            return;
+        }
         setError("");
         acceptedGameIdRef.current = "";
         setState("searching");
@@ -150,6 +164,19 @@ export const MatchmakingRoute: React.FC = () => {
             closeStream();
             setState("error");
             setError((err as Error)?.message ?? "Unable to enter matchmaking");
+        }
+    };
+
+    const handleResend = async () => {
+        if (!accountEmail || resendState === "sending") {
+            return;
+        }
+        setResendState("sending");
+        try {
+            await requestCode(accountEmail);
+            setResendState("sent");
+        } catch {
+            setResendState("idle");
         }
     };
 
@@ -219,7 +246,33 @@ export const MatchmakingRoute: React.FC = () => {
                             </Typography>
                         </Box>
 
-                        <WalletLinker />
+                        {needsActivation && (
+                            <Stack spacing={1.5}>
+                                <Alert variant="soft" color="warning">
+                                    Verify your email to play ranked. We sent a verification code to{" "}
+                                    {accountEmail || "your email address"}.
+                                </Alert>
+                                <Button
+                                    fullWidth
+                                    variant="solid"
+                                    onClick={handleResend}
+                                    disabled={resendState === "sending" || !accountEmail}
+                                    sx={hocPrimaryButtonSx}
+                                >
+                                    {resendState === "sending"
+                                        ? "Sending…"
+                                        : resendState === "sent"
+                                          ? "Email sent — check your inbox"
+                                          : "Resend verification email"}
+                                </Button>
+                                <Typography level="body-xs" textColor={hocColors.muted}>
+                                    Enter the code from the email to activate your account, then reload this page to
+                                    play ranked.
+                                </Typography>
+                            </Stack>
+                        )}
+
+                        {!needsActivation && <WalletLinker />}
 
                         {(state === "searching" || state === "accepted") && (
                             <Stack direction="row" spacing={1.5} alignItems="center">
@@ -237,7 +290,7 @@ export const MatchmakingRoute: React.FC = () => {
                         )}
 
                         <Stack direction="row" spacing={1}>
-                            {state === "idle" || state === "error" ? (
+                            {!needsActivation && (state === "idle" || state === "error") ? (
                                 <Button fullWidth variant="solid" onClick={handleStart} sx={hocPrimaryButtonSx}>
                                     Find Opponent
                                 </Button>

@@ -7,7 +7,19 @@ import {
     type GameAction,
     type TeamType,
 } from "@heroesofcrypto/common";
-import { Alert, Box, Button, Chip, CircularProgress, Sheet, Slider, Stack, Typography } from "@mui/joy";
+import {
+    Alert,
+    Box,
+    Button,
+    Chip,
+    CircularProgress,
+    Modal,
+    ModalDialog,
+    Sheet,
+    Slider,
+    Stack,
+    Typography,
+} from "@mui/joy";
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1665,112 +1677,159 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     submitProtocolAction,
     userTeam,
     isObserver,
-}) => (
-    <Sheet
-        variant="outlined"
-        sx={{
-            position: embedded ? "static" : "fixed",
-            top: embedded ? undefined : 12,
-            right: embedded ? undefined : 12,
-            zIndex: embedded ? "auto" : 20,
-            width: embedded ? "100%" : { xs: "calc(100vw - 24px)", sm: 340 },
-            maxHeight: embedded ? "none" : "calc(100vh - 24px)",
-            overflow: embedded ? "visible" : "auto",
-            p: 1.25,
-            ...hocPanelSx,
-            backdropFilter: "blur(10px)",
-        }}
-    >
-        <Stack spacing={1}>
-            <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
-                <Typography level="title-md" textColor={hocColors.parchment}>
-                    Ranked Fight
-                </Typography>
-                <Chip
-                    size="sm"
-                    variant="soft"
-                    sx={{
-                        bgcolor: hocColors.orangeSoft,
-                        color: hocColors.gold,
-                        border: `1px solid ${hocColors.orangeBorder}`,
-                    }}
-                >
-                    {phaseLabel(snapshot.phase)}
-                </Chip>
-                <PlacementCountdownChip snapshot={snapshot} />
-                <Chip size="sm" variant="soft" color={status === "Connected" ? "success" : "warning"}>
-                    {status}
-                </Chip>
-                <Chip size="sm" variant="soft" color="neutral">
-                    Seq {snapshot.latestSequence}
-                </Chip>
-                {isObserver && (
-                    <Chip size="sm" variant="soft" color="primary">
-                        Observer
-                    </Chip>
-                )}
-            </Stack>
-
-            <WalletLinker compact />
-
-            <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                {isObserver ? "Watching as observer" : `You: ${teamLabel(userTeam)}`}
-                {currentUnit ? ` | Active: ${currentUnit.name} (${teamLabel(currentUnit.team)})` : ""}
-            </Typography>
-
-            {snapshot.phase === PlayPhase.PLACEMENT && !isObserver && (
-                <Stack spacing={0.75}>
-                    <RankedOpponentPlacementIntel snapshot={snapshot} userTeam={userTeam} />
-                    <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
-                    <Button
-                        variant="solid"
-                        disabled={!canSubmit || ready}
-                        onClick={() => void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT })}
-                        sx={ready ? hocSoftButtonSx : hocPrimaryButtonSx}
+}) => {
+    const [confirmExitOpen, setConfirmExitOpen] = useState(false);
+    return (
+        <Sheet
+            variant="outlined"
+            sx={{
+                position: embedded ? "static" : "fixed",
+                top: embedded ? undefined : 12,
+                right: embedded ? undefined : 12,
+                zIndex: embedded ? "auto" : 20,
+                width: embedded ? "100%" : { xs: "calc(100vw - 24px)", sm: 340 },
+                maxHeight: embedded ? "none" : "calc(100vh - 24px)",
+                overflow: embedded ? "visible" : "auto",
+                p: 1.25,
+                ...hocPanelSx,
+                backdropFilter: "blur(10px)",
+            }}
+        >
+            <Stack spacing={1}>
+                <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
+                    <Typography level="title-md" textColor={hocColors.parchment}>
+                        Ranked Fight
+                    </Typography>
+                    <Chip
+                        size="sm"
+                        variant="soft"
+                        sx={{
+                            bgcolor: hocColors.orangeSoft,
+                            color: hocColors.gold,
+                            border: `1px solid ${hocColors.orangeBorder}`,
+                        }}
                     >
-                        {ready ? "Ready" : "Ready Placement"}
-                    </Button>
-                    {selectedUnit?.placed && selectedUnit.team === userTeam && (
-                        <RankedPlacementStackActions
-                            canSubmit={canSubmit}
-                            selectedUnit={selectedUnit}
-                            snapshot={snapshot}
-                            submitGameAction={submitGameAction}
-                            submitProtocolAction={submitProtocolAction}
-                            userTeam={userTeam}
-                        />
+                        {phaseLabel(snapshot.phase)}
+                    </Chip>
+                    <PlacementCountdownChip snapshot={snapshot} />
+                    <Chip size="sm" variant="soft" color={status === "Connected" ? "success" : "warning"}>
+                        {status}
+                    </Chip>
+                    <Chip size="sm" variant="soft" color="neutral">
+                        Seq {snapshot.latestSequence}
+                    </Chip>
+                    {isObserver && (
+                        <Chip size="sm" variant="soft" color="primary">
+                            Observer
+                        </Chip>
                     )}
                 </Stack>
-            )}
 
-            {gameStarted && !isObserver && (
-                <Stack spacing={0.75}>
-                    <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
-                    <Typography level="body-xs" textColor={hocColors.muted}>
-                        Use the board and combat toolbar for movement, attacks, spells, and turn actions.
-                    </Typography>
-                </Stack>
-            )}
+                <WalletLinker compact />
 
-            {isObserver && (
-                <Typography level="body-xs" textColor={hocColors.muted}>
-                    Live observer mode. Controls are disabled; replay is available after the fight ends.
+                <Typography level="body-sm" textColor={hocColors.mutedStrong}>
+                    {isObserver ? "Watching as observer" : `You: ${teamLabel(userTeam)}`}
+                    {currentUnit ? ` | Active: ${currentUnit.name} (${teamLabel(currentUnit.team)})` : ""}
                 </Typography>
-            )}
 
-            {busy && (
-                <Stack direction="row" spacing={1} alignItems="center">
-                    <CircularProgress size="sm" sx={hocSpinnerSx} />
-                    <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                        Submitting
+                {snapshot.phase === PlayPhase.PLACEMENT && !isObserver && (
+                    <Stack spacing={0.75}>
+                        <RankedOpponentPlacementIntel snapshot={snapshot} userTeam={userTeam} />
+                        <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
+                        <Button
+                            variant="solid"
+                            disabled={!canSubmit || ready}
+                            onClick={() => void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT })}
+                            sx={ready ? hocSoftButtonSx : hocPrimaryButtonSx}
+                        >
+                            {ready ? "Ready" : "Ready Placement"}
+                        </Button>
+                        {selectedUnit?.placed && selectedUnit.team === userTeam && (
+                            <RankedPlacementStackActions
+                                canSubmit={canSubmit}
+                                selectedUnit={selectedUnit}
+                                snapshot={snapshot}
+                                submitGameAction={submitGameAction}
+                                submitProtocolAction={submitProtocolAction}
+                                userTeam={userTeam}
+                            />
+                        )}
+                    </Stack>
+                )}
+
+                {gameStarted && !isObserver && (
+                    <Stack spacing={0.75}>
+                        <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
+                        <Typography level="body-xs" textColor={hocColors.muted}>
+                            Use the board and combat toolbar for movement, attacks, spells, and turn actions.
+                        </Typography>
+                        <Button
+                            variant="soft"
+                            color="danger"
+                            disabled={busy}
+                            onClick={() => setConfirmExitOpen(true)}
+                            sx={{ mt: 0.5 }}
+                        >
+                            Exit Fight (Forfeit)
+                        </Button>
+                    </Stack>
+                )}
+
+                {isObserver && (
+                    <Typography level="body-xs" textColor={hocColors.muted}>
+                        Live observer mode. Controls are disabled; replay is available after the fight ends.
                     </Typography>
-                </Stack>
-            )}
-            {error && (
-                <Alert variant="soft" sx={hocDangerAlertSx}>
-                    {error}
-                </Alert>
-            )}
-        </Stack>
-    </Sheet>
-);
+                )}
+
+                {busy && (
+                    <Stack direction="row" spacing={1} alignItems="center">
+                        <CircularProgress size="sm" sx={hocSpinnerSx} />
+                        <Typography level="body-sm" textColor={hocColors.mutedStrong}>
+                            Submitting
+                        </Typography>
+                    </Stack>
+                )}
+                {error && (
+                    <Alert variant="soft" sx={hocDangerAlertSx}>
+                        {error}
+                    </Alert>
+                )}
+
+                <Modal open={confirmExitOpen} onClose={() => !busy && setConfirmExitOpen(false)}>
+                    <ModalDialog sx={hocPanelSx}>
+                        <Typography level="h4" sx={{ color: hocColors.parchment }}>
+                            Exit the fight?
+                        </Typography>
+                        <Stack spacing={2} sx={{ mt: 1, minWidth: 300, maxWidth: 360 }}>
+                            <Typography level="body-sm" textColor={hocColors.mutedStrong}>
+                                This forfeits the fight — your opponent is declared the winner immediately and it counts
+                                as a loss for you. This cannot be undone.
+                            </Typography>
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                <Button
+                                    variant="plain"
+                                    disabled={busy}
+                                    onClick={() => setConfirmExitOpen(false)}
+                                    sx={hocSoftButtonSx}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    variant="solid"
+                                    color="danger"
+                                    loading={busy}
+                                    onClick={() => {
+                                        setConfirmExitOpen(false);
+                                        void submitProtocolAction({ type: PlayActionType.ABANDON });
+                                    }}
+                                >
+                                    Forfeit
+                                </Button>
+                            </Stack>
+                        </Stack>
+                    </ModalDialog>
+                </Modal>
+            </Stack>
+        </Sheet>
+    );
+};

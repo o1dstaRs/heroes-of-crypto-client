@@ -28,6 +28,8 @@ export interface IPickPhaseEventData {
     r: number;
     // is abandoned
     ia: boolean;
+    // this player's own picked artifacts so far, as [tier, artifactId] pairs (drives the draft summary)
+    art?: [number, number][];
 }
 
 // Context for SSE and pick/ban state
@@ -50,6 +52,9 @@ export interface PickBanContextType {
     // This player's chosen perk (0 = none) and its upgrade-point budget.
     perk: number;
     upgradePoints: number;
+    // This player's own picked artifacts so far (Tier1Artifact/Tier2Artifact enum ids; 0 = none yet).
+    artifactTier1: number;
+    artifactTier2: number;
     // Required creature level for the current PICK phase (0 for non-pick phases).
     requiredLevel: number;
 }
@@ -68,6 +73,8 @@ export const PickBanContext = createContext<PickBanContextType>({
     tier2Offers: [],
     perk: 0,
     upgradePoints: 0,
+    artifactTier1: 0,
+    artifactTier2: 0,
     requiredLevel: 0,
     secondsRemaining: -1,
     revealsRemaining: 0,

@@ -29,6 +29,8 @@ export const PlayActionType = {
     MOVE_INTENT: 17,
     UNPLACE_UNIT: 18,
     REQUEST_ADDITIONAL_TIME: 19,
+    AUGMENT: 20,
+    ABANDON: 21,
 } as const;
 
 export type PlayActionTypeValue = (typeof PlayActionType)[keyof typeof PlayActionType];
@@ -158,6 +160,22 @@ export interface PlaySnapshot {
     lowerArtifactTier2?: number;
     upperArtifactTier1?: number;
     upperArtifactTier2?: number;
+    /** Each team's perk (Perk enum id; 0 = none) — the placement sidebar derives the upgrade-point budget.
+     * The opponent's is hidden (0) until the fight starts. Absent from older servers (decoder defaults 0). */
+    lowerPerk?: number;
+    upperPerk?: number;
+    /** Placement-time army augments picked per team (augment level enum ids; 0 = none). Opponent values are
+     * hidden (0) during placement, revealed at fight start (same as artifacts). */
+    lowerAugmentPlacement?: number;
+    lowerAugmentArmor?: number;
+    lowerAugmentMight?: number;
+    lowerAugmentSniper?: number;
+    lowerAugmentMovement?: number;
+    upperAugmentPlacement?: number;
+    upperAugmentArmor?: number;
+    upperAugmentMight?: number;
+    upperAugmentSniper?: number;
+    upperAugmentMovement?: number;
 }
 
 export interface PlayAction {
@@ -586,6 +604,18 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         lowerArtifactTier2: 0,
         upperArtifactTier1: 0,
         upperArtifactTier2: 0,
+        lowerPerk: 0,
+        upperPerk: 0,
+        lowerAugmentPlacement: 0,
+        lowerAugmentArmor: 0,
+        lowerAugmentMight: 0,
+        lowerAugmentSniper: 0,
+        lowerAugmentMovement: 0,
+        upperAugmentPlacement: 0,
+        upperAugmentArmor: 0,
+        upperAugmentMight: 0,
+        upperAugmentSniper: 0,
+        upperAugmentMovement: 0,
     };
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
@@ -651,6 +681,30 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             snapshot.upperArtifactTier1 = reader.varintNumber();
         } else if (field === 31) {
             snapshot.upperArtifactTier2 = reader.varintNumber();
+        } else if (field === 32) {
+            snapshot.lowerPerk = reader.varintNumber();
+        } else if (field === 33) {
+            snapshot.upperPerk = reader.varintNumber();
+        } else if (field === 34) {
+            snapshot.lowerAugmentPlacement = reader.varintNumber();
+        } else if (field === 35) {
+            snapshot.lowerAugmentArmor = reader.varintNumber();
+        } else if (field === 36) {
+            snapshot.lowerAugmentMight = reader.varintNumber();
+        } else if (field === 37) {
+            snapshot.lowerAugmentSniper = reader.varintNumber();
+        } else if (field === 38) {
+            snapshot.lowerAugmentMovement = reader.varintNumber();
+        } else if (field === 39) {
+            snapshot.upperAugmentPlacement = reader.varintNumber();
+        } else if (field === 40) {
+            snapshot.upperAugmentArmor = reader.varintNumber();
+        } else if (field === 41) {
+            snapshot.upperAugmentMight = reader.varintNumber();
+        } else if (field === 42) {
+            snapshot.upperAugmentSniper = reader.varintNumber();
+        } else if (field === 43) {
+            snapshot.upperAugmentMovement = reader.varintNumber();
         } else {
             reader.skip(wireType);
         }

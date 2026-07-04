@@ -26,6 +26,8 @@ export const PickBanEventProvider: React.FC<{
     const [tier2Offers, setTier2Offers] = useState<number[]>([]);
     const [perk, setPerk] = useState<number>(0);
     const [upgradePoints, setUpgradePoints] = useState<number>(0);
+    const [artifactTier1, setArtifactTier1] = useState<number>(0);
+    const [artifactTier2, setArtifactTier2] = useState<number>(0);
     const [requiredLevel, setRequiredLevel] = useState<number>(0);
     const [error, setError] = useState<string | null>(null);
 
@@ -71,6 +73,10 @@ export const PickBanEventProvider: React.FC<{
             setTier2Offers(event.t2 ?? []);
             setPerk(event.pk ?? 0);
             setUpgradePoints(event.up ?? 0);
+            // event.art is [tier, artifactId] pairs (tier 1 or 2); split into the two slots for display.
+            const artifacts = event.art ?? [];
+            setArtifactTier1(artifacts.find((pair) => pair[0] === 1)?.[1] ?? 0);
+            setArtifactTier2(artifacts.find((pair) => pair[0] === 2)?.[1] ?? 0);
             setRequiredLevel(event.lv ?? 0);
         };
 
@@ -104,6 +110,8 @@ export const PickBanEventProvider: React.FC<{
             tier2Offers,
             perk,
             upgradePoints,
+            artifactTier1,
+            artifactTier2,
             requiredLevel,
         }),
         [
@@ -122,6 +130,8 @@ export const PickBanEventProvider: React.FC<{
             tier2Offers,
             perk,
             upgradePoints,
+            artifactTier1,
+            artifactTier2,
             requiredLevel,
         ],
     );

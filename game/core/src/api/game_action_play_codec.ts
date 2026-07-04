@@ -1,6 +1,23 @@
-import type { GameAction, TeamType } from "@heroesofcrypto/common";
+import type { AugmentKind, GameAction, TeamType } from "@heroesofcrypto/common";
 
 import { PlayActionType, type PlayAction, type PlayCell } from "./play_protocol";
+
+// The augment play-action carries no unit; the augment category rides in `attackType` (1-based so it
+// survives the varint zero-skip) and its level in `amount`. Keep in sync with play.proto's comment.
+const AUGMENT_KIND_TO_CODE: Record<AugmentKind, number> = {
+    Placement: 1,
+    Armor: 2,
+    Might: 3,
+    Sniper: 4,
+    Movement: 5,
+};
+const AUGMENT_CODE_TO_KIND: Record<number, AugmentKind> = {
+    1: "Placement",
+    2: "Armor",
+    3: "Might",
+    4: "Sniper",
+    5: "Movement",
+};
 
 type PlayActionEnvelope = {
     actionId: string;
@@ -119,6 +136,14 @@ export const createPlayActionFromGameAction = (action: GameAction, envelope: Pla
         case "request_additional_time":
             // No unit — the server keys the once-per-lap extension off the requesting team.
             return withEnvelope(envelope, { type: PlayActionType.REQUEST_ADDITIONAL_TIME, team: action.team });
+        case "augment":
+            // Placement-time army augment: category in attackType, level in amount, team in the envelope.
+            return withEnvelope(envelope, {
+                type: PlayActionType.AUGMENT,
+                team: action.team,
+                attackType: AUGMENT_KIND_TO_CODE[action.augmentKind],
+                amount: action.augmentValue,
+            });
     }
 };
 
@@ -236,6 +261,12 @@ export const createGameActionFromPlayAction = (action: Partial<PlayAction>): Gam
             return typeof action.team === "number"
                 ? { type: "request_additional_time", team: action.team as TeamType }
                 : undefined;
+        case PlayActionType.AUGMENT: {
+            const kind = typeof action.attackType === "number" ? AUGMENT_CODE_TO_KIND[action.attackType] : undefined;
+            return kind && typeof action.team === "number" && typeof action.amount === "number"
+                ? { type: "augment", team: action.team as TeamType, augmentKind: kind, augmentValue: action.amount }
+                : undefined;
+        }
         default:
             return undefined;
     }

@@ -37,6 +37,25 @@ const PHASE_HINT: Record<number, string> = {
     [PickPhaseVals.AUGMENTS_SCOUT]: "Get ready to place your army.",
 };
 
+// The full "How to Play" guide (covers the whole draft). Opened in a new tab from the Rules link.
+const RULES_URL = "https://heroesofcrypto.io/rules";
+
+// One imperative line telling the player exactly what to do THIS stage (distinct from the contextual hint).
+const phaseAction = (phase: number, level: number): string => {
+    switch (phase) {
+        case PickPhaseVals.PERK:
+            return "Pick one doctrine and one starting bundle to continue.";
+        case PickPhaseVals.INITIAL_PICK:
+            return "Pick one starting bundle.";
+        case PickPhaseVals.PICK:
+            return level > 0 ? `Pick one Level ${level} creature for your army.` : "Pick one creature for your army.";
+        case PickPhaseVals.ARTIFACT_2:
+            return "Pick one Tier-2 artifact for your whole army.";
+        default:
+            return "";
+    }
+};
+
 // ---- Draft progress stepper ----------------------------------------------
 
 // Doctrine + Bundle are chosen together in one combined first step.
@@ -180,39 +199,41 @@ const PerkPanel: React.FC<{ disabled: boolean; selected: number; onSelect: (perk
     onSelect,
 }) => (
     <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "center" }}>
-        {Perk.PERK_LIST.map((p) => {
-            const isSelected = selected === p.id;
-            return (
-                <Card
-                    key={p.id}
-                    variant={isSelected ? "solid" : "outlined"}
-                    color={isSelected ? "primary" : "neutral"}
-                    sx={{ width: 250, bgcolor: isSelected ? undefined : "rgba(0,0,0,0.35)" }}
-                >
-                    <CardContent sx={{ gap: 1, alignItems: "flex-start" }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Typography level="h4">{PERK_ICON[p.id] ?? "•"}</Typography>
-                            <Typography level="title-md">{p.name}</Typography>
-                        </Box>
-                        <Chip size="sm" color="warning" variant="soft">
-                            {p.upgradePoints} upgrade points
-                        </Chip>
-                        <Typography level="body-sm" sx={{ minHeight: 60 }}>
-                            {p.description}
-                        </Typography>
-                        <Button
-                            disabled={disabled}
-                            variant={isSelected ? "soft" : "solid"}
-                            onClick={() => onSelect(p.id)}
-                            sx={{ mt: 0.5 }}
-                            fullWidth
-                        >
-                            {isSelected ? "✓ Chosen" : "Choose"}
-                        </Button>
-                    </CardContent>
-                </Card>
-            );
-        })}
+        {[...Perk.PERK_LIST]
+            .sort((a, b) => a.upgradePoints - b.upgradePoints)
+            .map((p) => {
+                const isSelected = selected === p.id;
+                return (
+                    <Card
+                        key={p.id}
+                        variant={isSelected ? "solid" : "outlined"}
+                        color={isSelected ? "primary" : "neutral"}
+                        sx={{ width: 250, bgcolor: isSelected ? undefined : "rgba(0,0,0,0.35)" }}
+                    >
+                        <CardContent sx={{ gap: 1, alignItems: "flex-start" }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <Typography level="h4">{PERK_ICON[p.id] ?? "•"}</Typography>
+                                <Typography level="title-md">{p.name}</Typography>
+                            </Box>
+                            <Chip size="sm" color="warning" variant="soft">
+                                {p.upgradePoints} upgrade points
+                            </Chip>
+                            <Typography level="body-sm" sx={{ minHeight: 60 }}>
+                                {p.description}
+                            </Typography>
+                            <Button
+                                disabled={disabled}
+                                variant={isSelected ? "soft" : "solid"}
+                                onClick={() => onSelect(p.id)}
+                                sx={{ mt: 0.5 }}
+                                fullWidth
+                            >
+                                {isSelected ? "✓ Chosen" : "Choose"}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                );
+            })}
     </Box>
 );
 
@@ -327,7 +348,16 @@ const PickPanel: React.FC<{
                 </Typography>
             </Box>
             <Legend />
-            <Box sx={{ display: "flex", gap: 1.75, flexWrap: "wrap", justifyContent: "center", maxWidth: 960 }}>
+            {/* Two balanced rows: ceil(N/2) columns puts half the creatures on each row (top row gets the
+                extra when the count is odd) instead of a lopsided wrap. */}
+            <Box
+                sx={{
+                    display: "grid",
+                    gridTemplateColumns: `repeat(${Math.max(1, Math.ceil(creatures.length / 2))}, auto)`,
+                    gap: 1.75,
+                    justifyContent: "center",
+                }}
+            >
                 {creatures.map((creatureId) => {
                     let state: PortraitState = "available";
                     if (pickedSet.has(creatureId)) state = "picked";
@@ -404,6 +434,154 @@ const ArtifactPanel: React.FC<{
     );
 };
 
+// ---- "Your army" summary bar ---------------------------------------------
+
+const perkName = (perkId: number): string => Perk.getPerkProperties(perkId as Perk.Perk)?.name ?? "";
+
+const BarDivider: React.FC = () => (
+    <Box sx={{ width: "1px", alignSelf: "stretch", bgcolor: "rgba(255,255,255,0.14)", mx: 0.25 }} />
+);
+
+// Sticky bottom-center summary of the player's own draft so far — chosen doctrine (perk), picked units, and
+// picked artifacts. Stays pinned as the draft advances so the player always sees the army they're building.
+const MyDraftBar: React.FC<{
+    perk: number;
+    picked: number[];
+    artifactTier1: number;
+    artifactTier2: number;
+}> = ({ perk, picked, artifactTier1, artifactTier2 }) => {
+    const units = picked.filter((id) => id && id !== CreatureVals.NO_CREATURE);
+    const t1 = artifactTier1 ? Artifact.getTier1ArtifactProperties(artifactTier1 as Artifact.Tier1Artifact) : undefined;
+    const t2 = artifactTier2 ? Artifact.getTier2ArtifactProperties(artifactTier2 as Artifact.Tier2Artifact) : undefined;
+    const artifacts = [t1, t2].filter((a): a is Artifact.ArtifactProperties => !!a);
+    if (!perk && !units.length && !artifacts.length) {
+        return null;
+    }
+    return (
+        <Box
+            sx={{
+                position: "sticky",
+                bottom: 0,
+                mt: "auto",
+                width: "100%",
+                display: "flex",
+                justifyContent: "center",
+                pt: 1.5,
+                pointerEvents: "none",
+            }}
+        >
+            <Sheet
+                variant="soft"
+                sx={{
+                    pointerEvents: "auto",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    px: 2,
+                    py: 1,
+                    maxWidth: "94%",
+                    flexWrap: "wrap",
+                    justifyContent: "center",
+                    borderRadius: "14px",
+                    bgcolor: "rgba(8,10,18,0.92)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    boxShadow: "0 -6px 24px rgba(0,0,0,0.5)",
+                    color: "#e7e9f0",
+                }}
+            >
+                <Typography level="body-xs" sx={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                    Your army
+                </Typography>
+                {perk > 0 && (
+                    <>
+                        <BarDivider />
+                        <Tooltip title="Your doctrine (perk)" variant="soft">
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                                <Typography level="body-sm">{PERK_ICON[perk] ?? "•"}</Typography>
+                                <Typography level="body-sm" sx={{ fontWeight: 600 }}>
+                                    {perkName(perk)}
+                                </Typography>
+                            </Box>
+                        </Tooltip>
+                    </>
+                )}
+                {units.length > 0 && (
+                    <>
+                        <BarDivider />
+                        <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                            {units.map((id, i) => {
+                                const src = creatureImage(id);
+                                return (
+                                    <Tooltip key={`${id}-${i}`} title={creatureName(id)} variant="soft">
+                                        <Box
+                                            sx={{
+                                                width: 34,
+                                                height: 34,
+                                                borderRadius: "7px",
+                                                overflow: "hidden",
+                                                border: "1px solid rgba(120,220,150,0.5)",
+                                            }}
+                                        >
+                                            {src ? (
+                                                <img
+                                                    src={src}
+                                                    alt={creatureName(id)}
+                                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                                />
+                                            ) : (
+                                                <Typography level="body-xs" sx={{ p: 0.5 }}>
+                                                    {creatureName(id)}
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    </Tooltip>
+                                );
+                            })}
+                        </Box>
+                    </>
+                )}
+                {artifacts.length > 0 && (
+                    <>
+                        <BarDivider />
+                        <Box sx={{ display: "flex", gap: 0.5 }}>
+                            {artifacts.map((a) => {
+                                const img = images[a.imageKey];
+                                return (
+                                    <Tooltip
+                                        key={a.id}
+                                        title={`${a.name} — ${Artifact.formatArtifactDescription(a)}`}
+                                        variant="soft"
+                                    >
+                                        <Box
+                                            sx={{
+                                                width: 34,
+                                                height: 34,
+                                                borderRadius: "7px",
+                                                display: "grid",
+                                                placeItems: "center",
+                                                border: "1px solid rgba(245,158,11,0.45)",
+                                                bgcolor: "rgba(245,158,11,0.08)",
+                                            }}
+                                        >
+                                            {img && (
+                                                <img
+                                                    src={img}
+                                                    alt={a.name}
+                                                    style={{ width: 28, height: 28, objectFit: "contain" }}
+                                                />
+                                            )}
+                                        </Box>
+                                    </Tooltip>
+                                );
+                            })}
+                        </Box>
+                    </>
+                )}
+            </Sheet>
+        </Box>
+    );
+};
+
 // ---- Root view ------------------------------------------------------------
 
 interface StainedGlassProps {
@@ -424,6 +602,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
         opponentPicked,
         perk,
         upgradePoints,
+        artifactTier1,
+        artifactTier2,
     } = usePickBanEvents();
     const { perk: sendPerk, pickPair, pick, artifact } = useAuthContext();
     const [busy, setBusy] = useState(false);
@@ -556,8 +736,34 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
                 bgcolor: "rgba(8,10,18,0.94)",
                 color: "#e7e9f0",
                 overflowY: "auto",
+                position: "relative",
             }}
         >
+            <Tooltip title="Open the full How-to-Play guide in a new tab" variant="soft" placement="left">
+                <Typography
+                    component="a"
+                    href={RULES_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    level="body-sm"
+                    sx={{
+                        position: "absolute",
+                        top: 12,
+                        right: 16,
+                        zIndex: 5,
+                        color: "#9fd0ff",
+                        textDecoration: "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        fontWeight: 600,
+                        "&:hover": { textDecoration: "underline" },
+                    }}
+                >
+                    📖 Rules
+                </Typography>
+            </Tooltip>
+
             <Stepper step={currentStep(pickPhase, requiredLevel)} />
 
             <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
@@ -587,6 +793,13 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
                 )}
             </Box>
 
+            {/* Imperative "what to do now" so first-time players always know the expected action. */}
+            {isYourTurn && !isHandoff && phaseAction(pickPhase, requiredLevel) && (
+                <Typography level="title-sm" sx={{ color: "#7CFC9B", fontWeight: 700, textAlign: "center", mt: -0.5 }}>
+                    👉 {phaseAction(pickPhase, requiredLevel)}
+                </Typography>
+            )}
+
             <Box sx={{ mt: 1, display: "flex", justifyContent: "center", width: "100%" }}>
                 {userTeam ? panel : null}
             </Box>
@@ -602,6 +815,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
                     </Typography>
                 </Box>
             )}
+
+            <MyDraftBar perk={perk} picked={picked} artifactTier1={artifactTier1} artifactTier2={artifactTier2} />
         </Sheet>
     );
 };
