@@ -1751,6 +1751,23 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 
                 {snapshot.phase === PlayPhase.PLACEMENT && !isObserver && (
                     <Stack spacing={0.75}>
+                        {/* Prompt both players up-front: augments + placement share this single timer. */}
+                        <Box
+                            sx={{
+                                p: 1,
+                                borderRadius: "8px",
+                                bgcolor: hocColors.orangeSoft,
+                                border: `1px solid ${hocColors.orangeBorder}`,
+                            }}
+                        >
+                            <Typography level="title-sm" textColor={hocColors.gold}>
+                                Set up your army
+                            </Typography>
+                            <Typography level="body-xs" textColor={hocColors.mutedStrong}>
+                                1) Spend your upgrade points on augments below, 2) position your units on the board,
+                                then hit Ready. Augments and placement share one timer.
+                            </Typography>
+                        </Box>
                         <RankedOpponentPlacementIntel snapshot={snapshot} userTeam={userTeam} />
                         <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
                         {/* Spend the perk's upgrade points on army augments. Routed to the authoritative

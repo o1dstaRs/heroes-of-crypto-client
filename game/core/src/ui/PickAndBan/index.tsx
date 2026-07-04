@@ -1,7 +1,9 @@
 import {
     Artifact,
+    CREATURES_JSON,
     CreatureVals,
     getCreaturesByLevel,
+    HoCConfig,
     Perk,
     PickPhaseVals,
     type TeamType,
@@ -19,6 +21,160 @@ const images = rawImages as Record<string, string>;
 
 const creatureName = (creatureId: number): string => UNIT_ID_TO_NAME[creatureId] ?? `Creature ${creatureId}`;
 const creatureImage = (creatureId: number): string | undefined => UNIT_ID_TO_IMAGE[creatureId];
+
+// ---- Creature stats + abilities lookup (shared creatures.json / abilities.json) ------------------
+
+interface CreatureFullConfig {
+    name: string;
+    hp: number;
+    attack: number;
+    attack_damage_min: number;
+    attack_damage_max: number;
+    armor: number;
+    speed: number;
+    steps: number;
+    magic_resist: number;
+    attack_type: string;
+    range_shots: number;
+    shot_distance: number;
+    level: number;
+    size: number;
+    abilities?: string[];
+}
+
+// Index every creature by name once (creatures.json is faction -> { name -> config }, plus a version key).
+const creatureConfigByName: Map<string, { faction: string; config: CreatureFullConfig }> = (() => {
+    const map = new Map<string, { faction: string; config: CreatureFullConfig }>();
+    for (const faction of Object.keys(CREATURES_JSON)) {
+        const roster = (CREATURES_JSON as Record<string, unknown>)[faction];
+        if (!roster || typeof roster !== "object") {
+            continue; // skip the top-level "version" number
+        }
+        for (const [unitName, cfg] of Object.entries(roster as Record<string, CreatureFullConfig>)) {
+            map.set(unitName, { faction, config: cfg });
+        }
+    }
+    return map;
+})();
+
+const creatureFullConfig = (creatureId: number) => creatureConfigByName.get(creatureName(creatureId));
+
+// Ability description with the {} power placeholder filled in (mirrors how the game renders it).
+const abilityDescription = (abilityName: string): string => {
+    try {
+        const cfg = HoCConfig.getAbilityConfig(abilityName);
+        return (cfg.desc ?? [])
+            .join(" ")
+            .replace(/\{\}/g, String(cfg.power ?? ""))
+            .trim();
+    } catch {
+        return "";
+    }
+};
+
+const StatCell: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
+    <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1 }}>
+        <Typography level="body-xs" sx={{ opacity: 0.6 }}>
+            {label}
+        </Typography>
+        <Typography level="body-xs" sx={{ fontWeight: 700 }}>
+            {value}
+        </Typography>
+    </Box>
+);
+
+// Fixed left-side panel showing the currently inspected (hovered) creature's stats + abilities, so players
+// can read what a unit does before picking it. Renders nothing until a creature is hovered.
+const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creatureId }) => {
+    if (!creatureId) {
+        return null;
+    }
+    const entry = creatureFullConfig(creatureId);
+    if (!entry) {
+        return null;
+    }
+    const c = entry.config;
+    const isRanged = c.attack_type === "RANGE";
+    const img = creatureImage(creatureId);
+    const abilities = (c.abilities ?? []).filter(Boolean);
+    return (
+        <Sheet
+            variant="soft"
+            sx={{
+                position: "fixed",
+                left: 16,
+                top: 96,
+                zIndex: 6,
+                width: 248,
+                maxHeight: "calc(100vh - 120px)",
+                overflowY: "auto",
+                p: 1.5,
+                borderRadius: "14px",
+                bgcolor: "rgba(8,10,18,0.94)",
+                border: "1px solid rgba(255,255,255,0.14)",
+                boxShadow: "0 8px 28px rgba(0,0,0,0.5)",
+                color: "#e7e9f0",
+                display: { xs: "none", md: "block" },
+            }}
+        >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                {img && (
+                    <Box
+                        component="img"
+                        src={img}
+                        alt={c.name}
+                        sx={{ width: 48, height: 48, borderRadius: "8px", objectFit: "cover" }}
+                    />
+                )}
+                <Box>
+                    <Typography level="title-sm">{c.name}</Typography>
+                    <Typography level="body-xs" sx={{ opacity: 0.65 }}>
+                        {entry.faction} · Lvl {c.level} · {c.size === 2 ? "2×2" : "1×1"}
+                    </Typography>
+                </Box>
+            </Box>
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 1.5, rowGap: 0.25, mb: 1 }}>
+                <StatCell label="HP" value={c.hp} />
+                <StatCell label="Armor" value={c.armor} />
+                <StatCell label="Attack" value={c.attack} />
+                <StatCell label="Damage" value={`${c.attack_damage_min}–${c.attack_damage_max}`} />
+                <StatCell label="Speed" value={c.speed} />
+                <StatCell label="Move" value={Math.round(c.steps)} />
+                <StatCell label="Type" value={isRanged ? "Ranged" : "Melee"} />
+                <StatCell label="Resist" value={`${c.magic_resist}%`} />
+                {isRanged && <StatCell label="Shots" value={c.range_shots} />}
+                {isRanged && <StatCell label="Range" value={c.shot_distance} />}
+            </Box>
+            <Divider sx={{ my: 0.75 }} />
+            <Typography level="body-xs" sx={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 0.5, mb: 0.5 }}>
+                Abilities
+            </Typography>
+            {abilities.length === 0 ? (
+                <Typography level="body-xs" sx={{ opacity: 0.55 }}>
+                    No special abilities.
+                </Typography>
+            ) : (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                    {abilities.map((ability) => {
+                        const desc = abilityDescription(ability);
+                        return (
+                            <Box key={ability}>
+                                <Typography level="body-xs" sx={{ fontWeight: 700, color: "#9fd0ff" }}>
+                                    {ability}
+                                </Typography>
+                                {desc && (
+                                    <Typography level="body-xs" sx={{ opacity: 0.8, lineHeight: 1.25 }}>
+                                        {desc}
+                                    </Typography>
+                                )}
+                            </Box>
+                        );
+                    })}
+                </Box>
+            )}
+        </Sheet>
+    );
+};
 
 // Emoji cue per perk (Scout / Spymaster / Blind Fury) so the vision trade-off reads at a glance.
 const PERK_ICON: Record<number, string> = {
@@ -119,7 +275,8 @@ const CreaturePortrait: React.FC<{
     disabled?: boolean;
     size?: number;
     onClick?: () => void;
-}> = ({ creatureId, state, disabled, size = 104, onClick }) => {
+    onInspect?: (creatureId: number) => void;
+}> = ({ creatureId, state, disabled, size = 104, onClick, onInspect }) => {
     const src = creatureImage(creatureId);
     const selectable = state === "available" && !disabled && !!onClick;
     const ring =
@@ -129,6 +286,7 @@ const CreaturePortrait: React.FC<{
         <Tooltip title={tip} variant="soft" placement="top">
             <Box
                 onClick={selectable ? onClick : undefined}
+                onMouseEnter={() => onInspect?.(creatureId)}
                 sx={{
                     position: "relative",
                     width: size,
@@ -242,7 +400,8 @@ const BundlePanel: React.FC<{
     disabled: boolean;
     selected: number;
     onSelect: (index: number) => void;
-}> = ({ bundles, disabled, selected, onSelect }) => (
+    onInspect?: (creatureId: number) => void;
+}> = ({ bundles, disabled, selected, onSelect, onInspect }) => (
     <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap", justifyContent: "center" }}>
         {bundles.map((bundle, index) => {
             const [l1, l2, artifactId] = bundle;
@@ -267,7 +426,12 @@ const BundlePanel: React.FC<{
                                     key={tag}
                                     sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}
                                 >
-                                    <CreaturePortrait creatureId={id} state="available" disabled />
+                                    <CreaturePortrait
+                                        creatureId={id}
+                                        state="available"
+                                        disabled
+                                        onInspect={onInspect}
+                                    />
                                     <Typography level="body-xs" sx={{ opacity: 0.7 }}>
                                         {tag}: {creatureName(id)}
                                     </Typography>
@@ -331,7 +495,8 @@ const PickPanel: React.FC<{
     opponentTaken: number[];
     disabled: boolean;
     onSelect: (creatureId: number) => void;
-}> = ({ level, banned, picked, opponentTaken, disabled, onSelect }) => {
+    onInspect?: (creatureId: number) => void;
+}> = ({ level, banned, picked, opponentTaken, disabled, onSelect, onInspect }) => {
     const bannedSet = new Set(banned);
     const pickedSet = new Set(picked);
     const takenSet = new Set(opponentTaken);
@@ -370,6 +535,7 @@ const PickPanel: React.FC<{
                             state={state}
                             disabled={disabled}
                             onClick={() => onSelect(creatureId)}
+                            onInspect={onInspect}
                         />
                     );
                 })}
@@ -449,7 +615,8 @@ const MyDraftBar: React.FC<{
     picked: number[];
     artifactTier1: number;
     artifactTier2: number;
-}> = ({ perk, picked, artifactTier1, artifactTier2 }) => {
+    onInspect?: (creatureId: number) => void;
+}> = ({ perk, picked, artifactTier1, artifactTier2, onInspect }) => {
     const units = picked.filter((id) => id && id !== CreatureVals.NO_CREATURE);
     const t1 = artifactTier1 ? Artifact.getTier1ArtifactProperties(artifactTier1 as Artifact.Tier1Artifact) : undefined;
     const t2 = artifactTier2 ? Artifact.getTier2ArtifactProperties(artifactTier2 as Artifact.Tier2Artifact) : undefined;
@@ -508,16 +675,17 @@ const MyDraftBar: React.FC<{
                 {units.length > 0 && (
                     <>
                         <BarDivider />
-                        <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                        <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
                             {units.map((id, i) => {
                                 const src = creatureImage(id);
                                 return (
                                     <Tooltip key={`${id}-${i}`} title={creatureName(id)} variant="soft">
                                         <Box
+                                            onMouseEnter={() => onInspect?.(id)}
                                             sx={{
-                                                width: 34,
-                                                height: 34,
-                                                borderRadius: "7px",
+                                                width: 50,
+                                                height: 50,
+                                                borderRadius: "9px",
                                                 overflow: "hidden",
                                                 border: "1px solid rgba(120,220,150,0.5)",
                                             }}
@@ -582,6 +750,120 @@ const MyDraftBar: React.FC<{
     );
 };
 
+// Opponent army display (mirror of MyDraftBar, top of the screen). Shows the opponent's slots based on
+// what our doctrine reveals: Spymaster (SEE_ALL) shows every unit; Scout (THREE_REVEALS) shows the auto-
+// revealed units + hidden slots we can still click to reveal (up to revealsRemaining); Blind Fury shows a
+// hidden silhouette. Hidden-but-revealable slots arrive as NEGATIVE placeholders in `op` (reveal convention
+// slot = -creatureId); if the server instead sends only compact positives, we pad with a plain "?" silhouette
+// up to our own army size so the opponent's army footprint is still visible.
+const OpponentDraftBar: React.FC<{
+    opponentPicked: number[];
+    revealsRemaining: number;
+    perk: number;
+    myArmySize: number;
+}> = ({ opponentPicked, revealsRemaining, perk, myArmySize }) => {
+    const { reveal } = useAuthContext();
+    const [busy, setBusy] = useState(false);
+    const doReveal = async (slot: number): Promise<void> => {
+        if (busy || revealsRemaining <= 0) return;
+        setBusy(true);
+        try {
+            await reveal(slot);
+        } catch (err) {
+            console.warn("[pick] reveal rejected", (err as Error)?.message ?? err);
+        } finally {
+            setBusy(false);
+        }
+    };
+    const slots = [...opponentPicked];
+    const hasPlaceholders = opponentPicked.some((v) => v < 0);
+    if (!hasPlaceholders) {
+        const revealedCount = opponentPicked.filter((v) => v > 0 && v !== CreatureVals.NO_CREATURE).length;
+        for (let i = 0; i < Math.max(0, myArmySize - revealedCount); i += 1) slots.push(0);
+    }
+    if (!slots.length) {
+        return null;
+    }
+    return (
+        <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
+            <Sheet
+                variant="soft"
+                sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    px: 2,
+                    py: 1,
+                    maxWidth: "94%",
+                    flexWrap: "wrap",
+                    justifyContent: "center",
+                    borderRadius: "14px",
+                    bgcolor: "rgba(18,10,12,0.92)",
+                    border: "1px solid rgba(255,120,120,0.18)",
+                    color: "#f0e7e9",
+                }}
+            >
+                <Typography level="body-xs" sx={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                    Opponent&apos;s army
+                </Typography>
+                {perk > 0 && <Typography level="body-sm">{PERK_ICON[perk] ?? ""}</Typography>}
+                {revealsRemaining > 0 && (
+                    <Chip size="sm" variant="soft" color="warning">
+                        {revealsRemaining} reveal{revealsRemaining === 1 ? "" : "s"} left
+                    </Chip>
+                )}
+                <BarDivider />
+                <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
+                    {slots.map((v, i) => {
+                        const revealed = v > 0 && v !== CreatureVals.NO_CREATURE;
+                        const revealable = v < 0 && revealsRemaining > 0;
+                        const src = revealed ? creatureImage(v) : undefined;
+                        return (
+                            <Tooltip
+                                key={`op-${i}-${v}`}
+                                title={revealed ? creatureName(v) : revealable ? "Click to reveal this slot" : "Hidden"}
+                                variant="soft"
+                            >
+                                <Box
+                                    onClick={revealable ? () => void doReveal(-v) : undefined}
+                                    sx={{
+                                        width: 50,
+                                        height: 50,
+                                        borderRadius: "9px",
+                                        overflow: "hidden",
+                                        display: "grid",
+                                        placeItems: "center",
+                                        cursor: revealable ? "pointer" : "default",
+                                        border: revealed
+                                            ? "1px solid rgba(255,140,140,0.5)"
+                                            : "1px dashed rgba(255,255,255,0.25)",
+                                        bgcolor: revealed ? "transparent" : "rgba(255,255,255,0.04)",
+                                        opacity: busy && revealable ? 0.5 : 1,
+                                        transition: "border-color 120ms",
+                                        "&:hover": revealable ? { borderColor: "rgba(120,220,150,0.8)" } : {},
+                                    }}
+                                >
+                                    {revealed && src ? (
+                                        <img
+                                            src={src}
+                                            alt={creatureName(v)}
+                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                        />
+                                    ) : (
+                                        <Typography level="body-lg" sx={{ opacity: 0.5 }}>
+                                            {revealable ? "🔍" : "?"}
+                                        </Typography>
+                                    )}
+                                </Box>
+                            </Tooltip>
+                        );
+                    })}
+                </Box>
+            </Sheet>
+        </Box>
+    );
+};
+
 // ---- Root view ------------------------------------------------------------
 
 interface StainedGlassProps {
@@ -600,6 +882,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
         banned,
         picked,
         opponentPicked,
+        revealsRemaining,
         perk,
         upgradePoints,
         artifactTier1,
@@ -609,6 +892,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
     const [busy, setBusy] = useState(false);
     // Remember what the player chose this phase so the UI can confirm it while the opponent acts.
     const [selection, setSelection] = useState<{ phase: number; value: number } | null>(null);
+    // Creature currently hovered anywhere in the draft — its stats + abilities show in the left detail panel.
+    const [inspectedId, setInspectedId] = useState<number>(0);
     // Combined PERK phase does TWO independent actions on one screen, so it needs its own local choices
     // (the single `selection` can't hold both). Locks are derived from authoritative server state below.
     const [setupBundleChoice, setSetupBundleChoice] = useState<number>(-1);
@@ -679,6 +964,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
                             setSetupBundleChoice(i);
                             void send(i, () => pickPair(i));
                         }}
+                        onInspect={setInspectedId}
                     />
                 </Box>
             </Box>
@@ -691,6 +977,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
                 disabled={disabled}
                 selected={selectedValue}
                 onSelect={(i) => void send(i, () => pickPair(i))}
+                onInspect={setInspectedId}
             />
         );
     } else if (pickPhase === PickPhaseVals.PICK) {
@@ -702,6 +989,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
                 opponentTaken={opponentTaken}
                 disabled={disabled}
                 onSelect={(id) => void send(id, () => pick(id))}
+                onInspect={setInspectedId}
             />
         );
     } else if (pickPhase === PickPhaseVals.ARTIFACT_2) {
@@ -793,6 +1081,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
                 )}
             </Box>
 
+            {/* Opponent's army — what our doctrine lets us see (all / scouted-so-far / hidden silhouette). */}
+            <OpponentDraftBar
+                opponentPicked={opponentPicked}
+                revealsRemaining={revealsRemaining}
+                perk={perk}
+                myArmySize={picked.filter((id) => id && id !== CreatureVals.NO_CREATURE).length}
+            />
+
             {/* Imperative "what to do now" so first-time players always know the expected action. */}
             {isYourTurn && !isHandoff && phaseAction(pickPhase, requiredLevel) && (
                 <Typography level="title-sm" sx={{ color: "#7CFC9B", fontWeight: 700, textAlign: "center", mt: -0.5 }}>
@@ -816,7 +1112,15 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
                 </Box>
             )}
 
-            <MyDraftBar perk={perk} picked={picked} artifactTier1={artifactTier1} artifactTier2={artifactTier2} />
+            <CreatureDetailPanel creatureId={inspectedId} />
+
+            <MyDraftBar
+                perk={perk}
+                picked={picked}
+                artifactTier1={artifactTier1}
+                artifactTier2={artifactTier2}
+                onInspect={setInspectedId}
+            />
         </Sheet>
     );
 };
