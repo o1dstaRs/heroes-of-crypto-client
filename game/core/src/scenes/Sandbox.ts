@@ -508,6 +508,7 @@ export class Sandbox extends PixiScene {
                     if (active) {
                         this.clearBoardHoverPreviews();
                     }
+                    this.onAiToggleChanged(active);
                 },
                 setSpellBookOverlay: (active) => {
                     this.sc_renderSpellBookOverlay = active;
@@ -2624,6 +2625,42 @@ export class Sandbox extends PixiScene {
                 return { fill: "#ff3333", stroke: "#4a0000" };
         }
     }
+    /**
+     * Render an AOE attack's per-unit floating damage from `damage.splash` — one number on EVERY splashed
+     * unit at its own position. A Double-Shot AOE (Gargantuan Area Throw) lands TWO entries per unit (one
+     * per shot); the repeated entry is staggered so the two numbers don't draw on top of each other.
+     * Shared by the live paths (targeted range + area throw) and the ranked replay so all of them show
+     * every shot's damage. Returns true if it rendered anything.
+     */
+    protected showSplashDamage(splash: IVisibleDamage["splash"], attackerCenter: HoCMath.XY): boolean {
+        if (!splash?.length) {
+            return false;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const shotsShownPerUnit = new Map<string, number>();
+        let rendered = false;
+        for (const entry of splash) {
+            if (entry.amount <= 0) {
+                continue;
+            }
+            const splashUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+            const center = splashUnit ? splashUnit.getVisualCenter(gs) : entry.position;
+            const dir = { x: center.x - attackerCenter.x, y: center.y - attackerCenter.y };
+            const pos = splashUnit ? this.offsetReplayDamagePosition(center, splashUnit, dir) : center;
+            const shotIndex = shotsShownPerUnit.get(entry.unitId) ?? 0;
+            shotsShownPerUnit.set(entry.unitId, shotIndex + 1);
+            if (shotIndex === 0) {
+                this.combatVisuals.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied);
+            } else {
+                setTimeout(
+                    () => this.combatVisuals.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied),
+                    shotIndex * 220,
+                );
+            }
+            rendered = true;
+        }
+        return rendered;
+    }
     private showReplayAttackDamage(
         attacker: RenderableUnit,
         target: RenderableUnit,
@@ -2677,27 +2714,7 @@ export class Sandbox extends PixiScene {
         // our own units caught in the blast — rather than a single number on the primary target.
         // Each entry keeps the impact-time position so units that died (and were removed) still show.
         if (damage.splash?.length) {
-            // A Double-Shot AOE (Gargantuan Area Throw) lands TWO splash entries on the same unit — one
-            // per shot. Stagger the repeated entries so the two floating numbers don't draw on top of
-            // each other; a single-shot AOE keeps its instant, index-0 number.
-            const shotsShownPerUnit = new Map<string, number>();
-            for (const entry of damage.splash) {
-                if (entry.amount <= 0) continue;
-                const splashUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-                const center = splashUnit ? splashUnit.getVisualCenter(gs) : entry.position;
-                const dir = { x: center.x - attackerCenter.x, y: center.y - attackerCenter.y };
-                const pos = splashUnit ? this.offsetReplayDamagePosition(center, splashUnit, dir) : center;
-                const shotIndex = shotsShownPerUnit.get(entry.unitId) ?? 0;
-                shotsShownPerUnit.set(entry.unitId, shotIndex + 1);
-                if (shotIndex === 0) {
-                    this.combatVisuals.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied);
-                } else {
-                    setTimeout(
-                        () => this.combatVisuals.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied),
-                        shotIndex * 220,
-                    );
-                }
-            }
+            this.showSplashDamage(damage.splash, attackerCenter);
             return;
         }
 
@@ -4936,6 +4953,24 @@ export class Sandbox extends PixiScene {
         }
         this.combatVisuals?.spawnDebuffPop(unit.getPosition(), iconTexture, effectName, stackIndex, kind);
     }
+    /** Hook fired whenever the manual AI toggle changes. Sandbox no-ops; ranked persists it. */
+    protected onAiToggleChanged(_active: boolean): void {}
+    /**
+     * Force the manual AI toggle to a state and refresh its button + badge — used to restore a persisted
+     * toggle on (re)load. Mirrors what the AI button does, plus a button/visible-state refresh so the
+     * "AI" button and the React badge reflect the restored state.
+     */
+    protected forceAiToggle(active: boolean): void {
+        this.sc_isAIActive = active;
+        this.aiController.isAIActive = active;
+        this.buttonManager.sc_isAIActive = active;
+        if (active) {
+            this.clearBoardHoverPreviews();
+        }
+        this.buttonManager.refreshButtons(true);
+        this.sc_visibleStateUpdateNeeded = true;
+        this.onAiToggleChanged(active);
+    }
     /**
      * Pop the lap-start Morale (green) / Dismorale (violet) effect over a unit + flash it, driven by the
      * discrete `morale_applied` event (not the generic buff/debuff diff — see effect_pops.isMoraleEffectName).
@@ -5678,7 +5713,15 @@ export class Sandbox extends PixiScene {
             return;
         }
 
-        this.combatVisuals.showDamageVisualsFromDiff(preState, effectiveCell);
+        // Prefer the engine's per-unit `splash` breakdown so a Double-Shot AOE shows BOTH hits on each
+        // affected unit (staggered). The HP-diff fallback only ever sums to one number per unit, which is
+        // why the double throw's two projectiles landed with a single damage animation.
+        const areaEvent = result.events.find(
+            (e): e is Extract<GameEvent, { type: "area_attacked" }> => e.type === "area_attacked",
+        );
+        if (!this.showSplashDamage(areaEvent?.damage.splash, unit.getVisualCenter(gs))) {
+            this.combatVisuals.showDamageVisualsFromDiff(preState, effectiveCell);
+        }
         this.sc_damageStatsUpdateNeeded = true;
         this.unitsHolder.refreshStackPowerForAllUnits();
         this.hoverManager.clearAOEArea();
@@ -5856,6 +5899,13 @@ export class Sandbox extends PixiScene {
             damageForAnimation.unitIsSmall = attackEvent.damage.unitIsSmall;
             damageForAnimation.unitId = attackEvent.damage.unitId;
             damageForAnimation.hits = attackEvent.damage.hits?.map((hit) => ({ ...hit }));
+            // Carry the per-affected-unit AOE breakdown (Gargantuan Area Throw / Large Caliber). Without
+            // it the live path can't tell a Double-Shot AOE landed twice — so its second projectile and
+            // second damage number were both dropped (the damage read as a single summed hit).
+            damageForAnimation.splash = attackEvent.damage.splash?.map((entry) => ({
+                ...entry,
+                position: { ...entry.position },
+            }));
             attackActionEvents = result.events;
             scheduleAttackCleanupWatchdog();
             this.sc_damageStatsUpdateNeeded = true;
@@ -5930,10 +5980,18 @@ export class Sandbox extends PixiScene {
                 return false;
             }
 
-            // Double Shot: a second projectile timed to land as the staggered second damage
-            // number appears (~240ms later). Gated on the ability so Through Shot (which also
-            // yields multiple hits) doesn't spawn extra projectiles at the primary target.
-            if (attacker.getAbility("Double Shot") && damageForAnimation.hits && damageForAnimation.hits.length > 1) {
+            // Double Shot: a second projectile timed to land as the staggered second damage number
+            // appears. Gated on the ability so Through Shot (which also yields multiple hits) doesn't
+            // spawn extras. A plain double-shotter reports two `hits`; Gargantuan's AREA double shot
+            // reports two `splash` entries on the target instead (hits is empty), so check BOTH — else the
+            // targeted Gargantuan shot fired only one projectile.
+            const doubleShotTargetSplash = (damageForAnimation.splash ?? []).filter(
+                (s) => s.unitId === target.getId(),
+            ).length;
+            if (
+                attacker.getAbility("Double Shot") &&
+                ((damageForAnimation.hits?.length ?? 0) > 1 || doubleShotTargetSplash > 1)
+            ) {
                 this.rangedProjectiles.fire({ from: muzzle, to: shotTarget, big: bigProjectile });
             }
 
@@ -6021,7 +6079,15 @@ export class Sandbox extends PixiScene {
         }
 
         // 1. Target Damage
-        if (damageForAnimation.amount > 0) {
+        // AOE shots (Gargantuan Area Throw / Large Caliber) convey their damage per-affected-unit via
+        // `splash` — including two entries on the target for a Double-Shot AOE. Render those (one number
+        // per shot, per unit) instead of the single-target block below, which only knows `amount`/`hits`.
+        if (damageForAnimation.splash?.length) {
+            this.showSplashDamage(
+                damageForAnimation.splash,
+                attacker.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
+            );
+        } else if (damageForAnimation.amount > 0) {
             const gs = this.sc_sceneSettings.getGridSettings();
             const aCenter = attacker.getVisualCenter(gs);
 

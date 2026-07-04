@@ -19,9 +19,24 @@ export class SceneLog implements ISceneLog {
     protected log: Denque<string>;
     protected updated: boolean;
     private teamFlagResolver?: SceneLogTeamFlagResolver;
+    // When true, updateLog() (the engine/replay text channel) is a no-op. Ranked sets this so the log is
+    // driven ONLY by the authoritative journal (via pushLine, which bypasses it) — otherwise the engine's
+    // replay of the opponent's turn writes unflagged lines that then fight the journal rebuild.
+    private suppressed = false;
     public constructor() {
         this.log = new Denque();
         this.updated = false;
+    }
+    public setSuppressed(suppressed: boolean): void {
+        this.suppressed = suppressed;
+    }
+    /**
+     * Append a fully-formed line directly, bypassing both the suppression switch and the team-flag
+     * resolver. Used by ranked's journal-driven log, whose lines already carry their team flag.
+     */
+    public pushLine(line: string): void {
+        this.log.unshift(line);
+        this.updated = true;
     }
     /**
      * Optional hook (set by the sandbox scene) returning a team marker — 🟢 / 🔴 — for a log line based
@@ -43,6 +58,9 @@ export class SceneLog implements ISceneLog {
             .join("\n");
     }
     public updateLog(_newLog?: string): void {
+        if (this.suppressed) {
+            return;
+        }
         if (_newLog && _newLog.constructor === String) {
             const flag = this.teamFlagResolver ? this.teamFlagResolver(_newLog) : "";
             this.log.unshift(flag ? `${flag} ${_newLog}` : _newLog);

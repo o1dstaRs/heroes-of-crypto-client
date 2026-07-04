@@ -1,35 +1,28 @@
-import { Box, Typography } from "@mui/joy";
+import { Chip } from "@mui/joy";
 import React from "react";
 
-export const Timer = ({ localSeconds, isYourTurn }: { localSeconds: number; isYourTurn: boolean }) => (
-    <Box
-        sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1, // Surrounding element with lower z-index
-        }}
-    >
-        <Typography
+// Compact inline countdown that lives in the status row (next to the turn/upgrade chips).
+// Turns urgent (red, pulsing) only in the final seconds of your own turn — otherwise it's a
+// calm neutral chip. Previously this was an absolutely-centered 6rem number that floated over
+// the creature grid because its "urgent" threshold (< 400000) was effectively always true.
+const URGENT_SECONDS = 10;
+
+export const Timer = ({ localSeconds, isYourTurn }: { localSeconds: number; isYourTurn: boolean }) => {
+    const seconds = localSeconds > 0 ? localSeconds : 0;
+    const urgent = isYourTurn && seconds <= URGENT_SECONDS;
+    return (
+        <Chip
+            variant={urgent ? "solid" : "soft"}
+            color={urgent ? "danger" : "neutral"}
             sx={{
-                color: isYourTurn && localSeconds < 400000 ? "red" : "white",
-                fontWeight: "bold",
-                fontSize: isYourTurn && localSeconds < 400000 ? "6rem" : "4rem",
-                zIndex: 2,
-                textShadow: "0 0 15px rgba(0, 0, 0, 1)",
                 fontFamily: "DigitalDream, sans-serif",
-                animation: localSeconds < 400000 ? "pulseEffect 1s infinite forwards" : "none", // Pulsing effect if less than 400000 seconds
-                display: "flex",
-                alignItems: "center",
+                fontWeight: "bold",
+                minWidth: 56,
                 justifyContent: "center",
-                margin: "auto", // Ensure always centered
+                animation: urgent ? "pulseEffect 1s infinite forwards" : "none",
             }}
         >
-            {localSeconds > 0 ? `${localSeconds}` : 0}
-        </Typography>
-    </Box>
-);
+            {`0:${seconds.toString().padStart(2, "0")}`}
+        </Chip>
+    );
+};

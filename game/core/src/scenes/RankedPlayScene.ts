@@ -269,6 +269,10 @@ export class RankedPlayScene extends Sandbox {
     }
     public override setGameActionTransport(transport?: SceneGameActionTransport): void {
         super.setGameActionTransport(transport);
+        // Ranked drives its scene log ONLY from the authoritative journal (applyAuthoritativeSceneLog +
+        // pushLine). Suppress the engine/replay text channel so the local replay of the opponent's turn
+        // doesn't write unflagged lines that flash in and then get wiped by the journal rebuild.
+        this.sc_sceneLog.setSuppressed(!!transport);
         this.updateUnitsOverlayVisibility();
     }
     protected override updateUnitsOverlayVisibility(): void {
@@ -468,8 +472,41 @@ export class RankedPlayScene extends Sandbox {
             this.authoritativePlaybackGameId = snapshot.gameId;
             this.playedAuthoritativeActionSequences.clear();
             // unitDebuffs/unitBuffs are reset by processDebuffPops (which now runs first, keyed on gameId).
+            // Restore a manual AI toggle the player left on for THIS game before a reload — otherwise a
+            // refresh silently drops auto-play and their units start timing out.
+            this.restoreRankedAiToggle(snapshot.gameId);
         }
         this.upNextUnitIds = [...(snapshot.upNext ?? [])];
+    }
+    // Persist the manual AI toggle per game so a page reload keeps auto-play on. One key holds the
+    // current game's choice, so it never leaks to a different match and doesn't accumulate.
+    private static readonly RANKED_AI_TOGGLE_KEY = "hoc:rankedAiToggle";
+    protected override onAiToggleChanged(active: boolean): void {
+        const gameId = this.authoritativePlaybackGameId;
+        if (!gameId || typeof localStorage === "undefined") {
+            return;
+        }
+        try {
+            localStorage.setItem(RankedPlayScene.RANKED_AI_TOGGLE_KEY, JSON.stringify({ gameId, active }));
+        } catch {
+            /* storage unavailable (private mode / quota) — persistence is best-effort */
+        }
+    }
+    private restoreRankedAiToggle(gameId: string): void {
+        if (!gameId || typeof localStorage === "undefined") {
+            return;
+        }
+        try {
+            const raw = localStorage.getItem(RankedPlayScene.RANKED_AI_TOGGLE_KEY);
+            const saved = raw ? (JSON.parse(raw) as { gameId?: string; active?: boolean }) : undefined;
+            // Runs once per game (on the gameId change), i.e. right after (re)load when the toggle is
+            // still off, so simply turning it back on is correct.
+            if (saved?.gameId === gameId && saved.active === true) {
+                this.forceAiToggle(true);
+            }
+        } catch {
+            /* ignore malformed/unavailable storage */
+        }
     }
     private syncRankedVisibleTurnState(snapshot: AuthoritativeGameSnapshot): void {
         if (!snapshot.fightStarted || snapshot.fightFinished) {
@@ -995,18 +1032,27 @@ export class RankedPlayScene extends Sandbox {
             return;
         }
 
+        // Append ONLY the journal entries we haven't logged yet, so the log accumulates the whole fight
+        // instead of being wiped and rebuilt from the capped (64-entry) tail every turn — which dropped
+        // older lines and flashed a full refresh. pushLine bypasses the suppression + resolver (these
+        // lines already carry their team flag). A new game starts fresh.
+        const lastLoggedSequence = gameChanged ? -1 : this.rankedSceneLogSequence;
         this.rankedSceneLogGameId = snapshot.gameId;
         this.rankedSceneLogSequence = maxSequence;
-        const lines = this.buildAuthoritativeSceneLogLines(journalTail, this.rankedUnitNamesById);
+        const newEntries = journalTail.filter((entry) => entry.sequence > lastLoggedSequence);
+        const lines = this.buildAuthoritativeSceneLogLines(newEntries, this.rankedUnitNamesById, snapshot.units);
 
-        this.sc_sceneLog.clear();
+        if (gameChanged) {
+            this.sc_sceneLog.clear();
+        }
         for (const line of lines) {
-            this.sc_sceneLog.updateLog(line);
+            this.sc_sceneLog.pushLine(line);
         }
     }
     private buildAuthoritativeSceneLogLines(
         journalTail: AuthoritativeJournalEntry[],
         unitNames: ReadonlyMap<string, string>,
+        snapshotUnits: readonly AuthoritativeUnitState[] = [],
     ): string[] {
         const lines: string[] = [];
         const sortedEntries = [...journalTail].sort((a, b) => a.sequence - b.sequence);
@@ -1032,6 +1078,19 @@ export class RankedPlayScene extends Sandbox {
                     const actorId = this.logActorUnitId(event);
                     const flag = actorId ? this.logTeamFlag(actorId) : "";
                     lines.push(flag ? `${flag} ${line}` : line);
+                }
+                // The engine's per-unit "spawned at (x, y)" deployment lines are sandbox-only text, not
+                // journal events — so ranked never saw them. Reconstruct them right after "Fight started!"
+                // from the fight-start snapshot's units (baseCell is still their placement cell then).
+                if (event.type === "fight_started") {
+                    for (const unit of snapshotUnits) {
+                        if (unit.dead || !unit.name || !unit.baseCell) {
+                            continue;
+                        }
+                        const flag = this.logTeamFlag(unit.id);
+                        const spawnLine = `${unit.name} spawned at (${unit.baseCell.x}, ${unit.baseCell.y})`;
+                        lines.push(flag ? `${flag} ${spawnLine}` : spawnLine);
+                    }
                 }
                 // AOE range attacks (Area Throw / Large Caliber) log one line per splashed unit with its
                 // real ranged damage — the single primary line is suppressed above (damage.amount is 0).
@@ -1070,7 +1129,10 @@ export class RankedPlayScene extends Sandbox {
             }
             const name = unitNames.get(entry.unitId) ?? "Unit";
             const kills = entry.unitsDied > 0 ? ` 💀 ${entry.unitsDied}` : "";
-            const text = `${attackerName} 💥 ${name} (${entry.amount})${kills}`;
+            // 🏹💥 = ranged splash: `splash[]` is only ever filled by the range AOE abilities (Cyclops'
+            // Large Caliber / Gargantuan's Area Throw), so the icon must read as a ranged attack — a bare
+            // 💥 looked like a magic/generic blast. (Magic AOE like Fire Breath rides `secondary[]`.)
+            const text = `${attackerName} 🏹💥 ${name} (${entry.amount})${kills}`;
             lines.push(flag ? `${flag} ${text}` : text);
         }
         return lines;
@@ -1307,13 +1369,14 @@ export class RankedPlayScene extends Sandbox {
     }
     /**
      * Icon for an attack's scene-log line so the kind of strike reads at a glance: ⚔️ melee, 🏹
-     * range, 💥 splash/AOE (Cyclops' Large Caliber range splash, Gargantuan's Area Throw). AOE is
-     * detected via the per-unit splash breakdown so a splashing range shot reads as splash, not a
-     * plain arrow.
+     * range, 🏹💥 ranged splash/AOE (Cyclops' Large Caliber, Gargantuan's Area Throw — both RANGE, so
+     * the splash keeps the arrow). AOE is detected via the per-unit splash breakdown so a splashing
+     * range shot reads as splash, not a plain arrow. (In practice splash-carrying events are logged
+     * per-unit by splashLogLines(); this branch only fires for a target-less area_throw.)
      */
     private attackIcon(attackType: "melee" | "range" | "area_throw", damage: IVisibleDamage): string {
         if (damage.splash?.length || attackType === "area_throw") {
-            return "💥";
+            return "🏹💥";
         }
         return attackType === "range" ? "🏹" : "⚔️";
     }
@@ -1934,13 +1997,21 @@ export class RankedPlayScene extends Sandbox {
         // ranked). shouldShowRespondTag reads this per-unit flag.
         const unitsById = this.unitsHolder.getAllUnits();
         for (const snapUnit of snapshot.units) {
-            unitsById.get(snapUnit.id)?.setResponded(snapUnit.responded ?? false);
+            const unit = unitsById.get(snapUnit.id);
+            unit?.setResponded(snapUnit.responded ?? false);
+            // Whether the unit is CURRENTLY waiting on the hourglass (queued to act later this lap) —
+            // drives the hourglass corner icon (shouldShowHourglassIndicator reads isOnHourglass()). The
+            // client runs no engine in ranked, so this per-unit flag from the snapshot is the only source;
+            // without it the icon never showed on the waiting unit in ranked (it works in sandbox because
+            // the local engine sets it).
+            unit?.setOnHourglass(snapUnit.onHourglass ?? false);
             // Same idea for the once-per-lap hourglass (wait): the Wait button disables on a unit that
             // already used its hourglass this lap. The client's FightProperties hourglass set isn't
             // authoritative in ranked, so drive it off the per-unit flag synced from the snapshot.
-            (unitsById.get(snapUnit.id) as RenderableUnit | undefined)?.setHasHourglassed(
-                snapUnit.hasHourglassed ?? false,
-            );
+            (unit as RenderableUnit | undefined)?.setHasHourglassed(snapUnit.hasHourglassed ?? false);
+            // And the stun icon: "skipping this turn" comes from a Stun/Blindness EFFECT, which isn't on
+            // the wire — so drive it off this synced flag (OR'd with the local effect check in sandbox).
+            (unit as RenderableUnit | undefined)?.setSkipping(snapUnit.skipping ?? false);
         }
         this.applyAuthoritativeAuraState();
     }

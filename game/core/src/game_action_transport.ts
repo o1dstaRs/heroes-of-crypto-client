@@ -34,6 +34,8 @@ export interface AuthoritativeUnitState {
     responded?: boolean;
     /** True if the unit already used its hourglass (wait) this lap — disables the Wait button in ranked. */
     hasHourglassed?: boolean;
+    /** True if the unit is skipping this turn (Stun/Blindness) — drives the stun icon in ranked. */
+    skipping?: boolean;
 }
 
 export interface AuthoritativeJournalEntry {

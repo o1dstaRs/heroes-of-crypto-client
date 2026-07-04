@@ -9,6 +9,7 @@ export const pageSlugs = [
     "rules",
     "units",
     "abilities",
+    "artifacts",
     "token",
     "patches",
     "faq",
@@ -81,6 +82,7 @@ export const content = {
             blog: "Blog",
             units: "Units",
             abilities: "Abilities",
+            artifacts: "Artifacts",
             token: "Token",
             patches: "Patches",
             faq: "FAQ",
@@ -183,6 +185,12 @@ export const content = {
                 eyebrow: "Ability codex",
                 description:
                     "Every unit ability in Heroes of Crypto — icon, what it does, and which units carry it. Pulled straight from the game data, so it always matches the live roster.",
+            },
+            artifacts: {
+                title: "Artifacts",
+                eyebrow: "Artifact codex",
+                description:
+                    "Army-wide artifacts you draft in the pick phase — one Tier 1 and one Tier 2 per team. Every artifact, its icon and exactly what it does for your whole army.",
             },
             token: {
                 title: "$HOCAI Token",
@@ -588,6 +596,7 @@ export const content = {
             blog: "Блог",
             units: "Юниты",
             abilities: "Способности",
+            artifacts: "Артефакты",
             token: "Токен",
             patches: "Патчи",
             faq: "Вопросы",
@@ -690,6 +699,12 @@ export const content = {
                 eyebrow: "Справочник способностей",
                 description:
                     "Все способности юнитов Heroes of Crypto — иконка, описание и носители. Берутся напрямую из игровых данных, поэтому всегда соответствуют актуальному ростеру.",
+            },
+            artifacts: {
+                title: "Артефакты",
+                eyebrow: "Справочник артефактов",
+                description:
+                    "Армейские артефакты, которые вы выбираете в фазе пика — по одному 1-го и 2-го уровня на команду. Все артефакты, их иконки и точное действие на всю вашу армию.",
             },
             token: {
                 title: "Токен $HOCAI",

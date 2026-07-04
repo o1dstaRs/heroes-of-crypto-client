@@ -27,6 +27,7 @@ import {
 import { PlayActionType, PlayEventKind, PlayPhase } from "../api/play_protocol";
 import type { PlayAction, PlaySnapshot, PlayUnitState } from "../api/play_protocol";
 import type { SceneGameActionTransport } from "../game_action_transport";
+import { images } from "../generated/image_imports";
 import { usePixiManager } from "../pixi/PixiGameManager";
 import type { SceneEntry } from "../pixi/PixiScene";
 import {
@@ -1463,6 +1464,89 @@ const PlacementCountdownChip: React.FC<{ snapshot: PlaySnapshot }> = ({ snapshot
     );
 };
 
+const artifactImageFor = (imageKey: string): string | undefined => (images as Record<string, string>)[imageKey];
+
+// One team's picked artifacts (Tier 1 + Tier 2 icons). Reads the ids straight off the snapshot, which the
+// server seeds from the pick doc (ranked) or randomly (dev/e2e). NO_ARTIFACT (0) slots render as an empty
+// placeholder so the row width stays stable while a pick is still pending.
+const ArtifactTierIcons: React.FC<{ tier1Id: number; tier2Id: number }> = ({ tier1Id, tier2Id }) => {
+    const entries: Array<{ key: string; art?: Artifact.ArtifactProperties }> = [
+        { key: "t1", art: tier1Id ? Artifact.TIER1_ARTIFACTS[tier1Id as Artifact.Tier1Artifact] : undefined },
+        { key: "t2", art: tier2Id ? Artifact.TIER2_ARTIFACTS[tier2Id as Artifact.Tier2Artifact] : undefined },
+    ];
+    return (
+        <Box sx={{ display: "flex", gap: 0.6 }}>
+            {entries.map(({ key, art }) => {
+                const src = art ? artifactImageFor(art.imageKey) : undefined;
+                return (
+                    <Box
+                        key={key}
+                        title={art ? `${art.name} — ${art.description}` : "No artifact"}
+                        sx={{
+                            position: "relative",
+                            flex: "0 0 auto",
+                            width: 42,
+                            height: 42,
+                            borderRadius: 6,
+                            border: `1px solid ${art ? "rgba(245,158,11,0.4)" : "rgba(148,163,184,0.18)"}`,
+                            bgcolor: art ? "rgba(245,158,11,0.08)" : "rgba(15,23,42,0.45)",
+                            display: "grid",
+                            placeItems: "center",
+                            overflow: "hidden",
+                        }}
+                    >
+                        {src ? (
+                            <Box
+                                component="img"
+                                src={src}
+                                alt={art?.name ?? ""}
+                                sx={{ width: 36, height: 36, objectFit: "contain" }}
+                            />
+                        ) : (
+                            <Typography level="body-xs" textColor={hocColors.muted}>
+                                —
+                            </Typography>
+                        )}
+                    </Box>
+                );
+            })}
+        </Box>
+    );
+};
+
+// Shows both armies' picked artifacts during the placement stage so each player can see what they (and the
+// opponent) drafted. Renders nothing if neither side picked anything (e.g. an older server / no artifacts).
+const RankedArtifactsPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamType }> = ({ snapshot, userTeam }) => {
+    const lower = { tier1: snapshot.lowerArtifactTier1 ?? 0, tier2: snapshot.lowerArtifactTier2 ?? 0 };
+    const upper = { tier1: snapshot.upperArtifactTier1 ?? 0, tier2: snapshot.upperArtifactTier2 ?? 0 };
+    if (!lower.tier1 && !lower.tier2 && !upper.tier1 && !upper.tier2) {
+        return null;
+    }
+    const yours = userTeam === TeamVals.UPPER ? upper : lower;
+    const theirs = userTeam === TeamVals.UPPER ? lower : upper;
+    return (
+        <Stack spacing={0.5}>
+            <Typography level="body-sm" textColor={hocColors.parchment}>
+                Artifacts
+            </Typography>
+            <Stack direction="row" spacing={1.5} flexWrap="wrap">
+                <Stack spacing={0.25}>
+                    <Typography level="body-xs" textColor={hocColors.muted}>
+                        Yours
+                    </Typography>
+                    <ArtifactTierIcons tier1Id={yours.tier1} tier2Id={yours.tier2} />
+                </Stack>
+                <Stack spacing={0.25}>
+                    <Typography level="body-xs" textColor={hocColors.muted}>
+                        Opponent
+                    </Typography>
+                    <ArtifactTierIcons tier1Id={theirs.tier1} tier2Id={theirs.tier2} />
+                </Stack>
+            </Stack>
+        </Stack>
+    );
+};
+
 const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamType }> = ({
     snapshot,
     userTeam,
@@ -1625,6 +1709,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
             {snapshot.phase === PlayPhase.PLACEMENT && !isObserver && (
                 <Stack spacing={0.75}>
                     <RankedOpponentPlacementIntel snapshot={snapshot} userTeam={userTeam} />
+                    <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
                     <Button
                         variant="solid"
                         disabled={!canSubmit || ready}

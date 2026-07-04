@@ -23,6 +23,7 @@ export const PickBanEventProvider: React.FC<{
     const [secondsRemaining, setSecondsRemaining] = useState<number>(-1);
     const [revealsRemaining, setRevealsRemaining] = useState<number>(0);
     const [initialBundles, setInitialBundles] = useState<[number, number, number][]>([]);
+    const [tier2Offers, setTier2Offers] = useState<number[]>([]);
     const [perk, setPerk] = useState<number>(0);
     const [upgradePoints, setUpgradePoints] = useState<number>(0);
     const [requiredLevel, setRequiredLevel] = useState<number>(0);
@@ -67,6 +68,7 @@ export const PickBanEventProvider: React.FC<{
             setRevealsRemaining(event.r);
             setError(null);
             setInitialBundles(event.ip);
+            setTier2Offers(event.t2 ?? []);
             setPerk(event.pk ?? 0);
             setUpgradePoints(event.up ?? 0);
             setRequiredLevel(event.lv ?? 0);
@@ -99,6 +101,7 @@ export const PickBanEventProvider: React.FC<{
             secondsRemaining,
             revealsRemaining,
             initialBundles,
+            tier2Offers,
             perk,
             upgradePoints,
             requiredLevel,
@@ -116,6 +119,7 @@ export const PickBanEventProvider: React.FC<{
             secondsRemaining,
             revealsRemaining,
             initialBundles,
+            tier2Offers,
             perk,
             upgradePoints,
             requiredLevel,

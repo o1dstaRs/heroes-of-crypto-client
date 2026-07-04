@@ -1,0 +1,460 @@
+---
+import { content, type Language } from "../lib/site-data";
+import { artifacts, artifactsCount, tier1Count, tier2Count } from "../lib/artifacts-data";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+const copy = content[lang];
+const page = copy.pages.artifacts;
+
+const labels =
+    lang === "ru"
+        ? {
+              eyebrow: "Справочник артефактов",
+              search: "Поиск артефактов",
+              searchPlaceholder: "Название, эффект...",
+              empty: "Артефакты не найдены.",
+              all: "Все",
+              tier1: "Уровень 1",
+              tier2: "Уровень 2",
+              artifacts: "Артефактов",
+              cursed: "Проклятый",
+              filter: "Фильтр по уровню",
+          }
+        : {
+              eyebrow: "Artifact codex",
+              search: "Search artifacts",
+              searchPlaceholder: "Name, effect...",
+              empty: "No artifacts found.",
+              all: "All",
+              tier1: "Tier 1",
+              tier2: "Tier 2",
+              artifacts: "Artifacts",
+              cursed: "Cursed",
+              filter: "Filter by tier",
+          };
+
+const tierLabel = (tier: number) => (tier === 2 ? labels.tier2 : labels.tier1);
+
+const summaryStats = [
+    { value: artifactsCount, label: labels.artifacts },
+    { value: tier1Count, label: labels.tier1 },
+    { value: tier2Count, label: labels.tier2 },
+];
+
+const tiers = [
+    { key: "all", label: labels.all },
+    { key: "1", label: labels.tier1 },
+    { key: "2", label: labels.tier2 },
+];
+
+const searchText = (artifact: (typeof artifacts)[number]) =>
+    [artifact.name, artifact.description, tierLabel(artifact.tier), artifact.cursed ? labels.cursed : ""]
+        .join(" ")
+        .toLowerCase();
+---
+
+<section class="subhero artifacts-subhero">
+    <div class="page-shell artifacts-hero-shell">
+        <div class="artifacts-hero-copy">
+            <p class="eyebrow">{page.eyebrow}</p>
+            <h1>{page.title}</h1>
+            <p>{page.description}</p>
+        </div>
+        <div class="artifacts-summary" aria-label={labels.eyebrow}>
+            {
+                summaryStats.map((item) => (
+                    <div>
+                        <strong>{item.value}</strong>
+                        <span>{item.label}</span>
+                    </div>
+                ))
+            }
+        </div>
+    </div>
+</section>
+
+<section class="section artifacts-section">
+    <div class="page-shell">
+        <div class="artifacts-controls">
+            <label class="artifact-search">
+                <span>{labels.search}</span>
+                <input data-artifact-search type="search" autocomplete="off" placeholder={labels.searchPlaceholder} />
+            </label>
+
+            <div class="artifacts-toolbar" role="tablist" aria-label={labels.filter}>
+                {
+                    tiers.map((t) => (
+                        <button
+                            class={`tier-pill${t.key === "all" ? " active" : ""}`}
+                            data-tier={t.key}
+                            type="button"
+                            aria-pressed={t.key === "all" ? "true" : "false"}
+                        >
+                            {t.label}
+                        </button>
+                    ))
+                }
+            </div>
+        </div>
+
+        <div class="artifacts-grid" data-artifacts-grid>
+            {
+                artifacts.map((artifact) => (
+                    <article
+                        class="artifact-card"
+                        data-tier={String(artifact.tier)}
+                        data-search={searchText(artifact)}
+                    >
+                        <header class="artifact-card-head">
+                            <img
+                                class="artifact-card-icon"
+                                src={artifact.icon}
+                                alt=""
+                                width="72"
+                                height="72"
+                                loading="lazy"
+                                onerror="this.onerror=null;this.style.visibility='hidden'"
+                            />
+                            <div class="artifact-card-title">
+                                <h2>{artifact.name}</h2>
+                                <div class="artifact-tags">
+                                    <span class={`artifact-tier tier-${artifact.tier}`}>{tierLabel(artifact.tier)}</span>
+                                    {artifact.cursed && <span class="artifact-cursed">{labels.cursed}</span>}
+                                </div>
+                            </div>
+                        </header>
+                        <p class="artifact-card-desc">{artifact.description}</p>
+                    </article>
+                ))
+            }
+        </div>
+
+        <p class="artifacts-empty" data-artifacts-empty hidden>{labels.empty}</p>
+    </div>
+</section>
+
+<script>
+    const cards = Array.from(document.querySelectorAll<HTMLElement>(".artifact-card"));
+    const pills = Array.from(document.querySelectorAll<HTMLButtonElement>(".tier-pill"));
+    const searchInput = document.querySelector<HTMLInputElement>("[data-artifact-search]");
+    const emptyState = document.querySelector<HTMLElement>("[data-artifacts-empty]");
+    let activeTier = "all";
+
+    const applyFilters = () => {
+        const query = searchInput?.value.trim().toLowerCase() ?? "";
+        let visible = 0;
+        cards.forEach((card) => {
+            const tierMatch = activeTier === "all" || card.dataset.tier === activeTier;
+            const searchMatch = !query || (card.dataset.search ?? "").includes(query);
+            const show = tierMatch && searchMatch;
+            card.hidden = !show;
+            if (show) visible += 1;
+        });
+        if (emptyState) emptyState.hidden = visible > 0;
+    };
+
+    const setTier = (tier: string) => {
+        activeTier = tier;
+        pills.forEach((pill) => {
+            const isActive = (pill.dataset.tier ?? "all") === tier;
+            pill.classList.toggle("active", isActive);
+            pill.setAttribute("aria-pressed", isActive ? "true" : "false");
+        });
+        applyFilters();
+    };
+
+    pills.forEach((pill) => pill.addEventListener("click", () => setTier(pill.dataset.tier ?? "all")));
+    searchInput?.addEventListener("input", applyFilters);
+</script>
+
+<style>
+    .artifacts-subhero {
+        padding: 34px 0 26px;
+    }
+
+    .artifacts-hero-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 30px;
+        align-items: center;
+    }
+
+    .artifacts-subhero .eyebrow {
+        margin-bottom: 8px;
+        color: rgba(242, 199, 93, 0.9);
+    }
+
+    .artifacts-subhero h1 {
+        margin-bottom: 10px;
+        font-size: clamp(3.1rem, 7vw, 5.2rem);
+        font-weight: 860;
+    }
+
+    .artifacts-subhero p {
+        max-width: 760px;
+        margin-bottom: 0;
+    }
+
+    .artifacts-section {
+        padding-top: 18px;
+        background:
+            linear-gradient(180deg, rgba(251, 244, 232, 0.035), rgba(7, 8, 8, 0) 150px),
+            #0b0f12;
+    }
+
+    /* Same reveal override as the abilities catalogue: the grid is taller than the viewport, so the
+       IntersectionObserver threshold is never hit and the section would stay invisible. */
+    :global(html.reveal-on) .artifacts-section {
+        opacity: 1 !important;
+        transform: none !important;
+    }
+
+    .artifacts-summary {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        min-width: 0;
+    }
+
+    .artifacts-summary div {
+        display: grid;
+        gap: 2px;
+        min-width: 78px;
+        padding-left: 18px;
+        border-left: 1px solid rgba(251, 244, 232, 0.22);
+    }
+
+    .artifacts-summary div:first-child {
+        padding-left: 0;
+        border-left: 0;
+    }
+
+    .artifacts-summary strong {
+        color: var(--ink-strong);
+        font-size: 1.85rem;
+        line-height: 1;
+    }
+
+    .artifacts-summary span {
+        color: rgba(251, 244, 232, 0.66);
+        font-size: 0.78rem;
+        font-weight: 820;
+        text-transform: uppercase;
+    }
+
+    .artifacts-controls {
+        display: grid;
+        grid-template-columns: minmax(260px, 0.42fr) minmax(0, 1fr);
+        gap: 10px 18px;
+        align-items: center;
+        margin-bottom: 22px;
+        padding: 2px 0 16px;
+        border-bottom: 1px solid rgba(251, 244, 232, 0.14);
+    }
+
+    .artifact-search {
+        display: grid;
+        gap: 5px;
+    }
+
+    .artifact-search span {
+        color: var(--muted);
+        font-size: 0.82rem;
+        font-weight: 760;
+    }
+
+    .artifact-search input {
+        width: 100%;
+        min-height: 42px;
+        border: 0;
+        border-bottom: 1px solid rgba(251, 244, 232, 0.24);
+        border-radius: 0;
+        background: transparent;
+        color: var(--ink);
+        font: inherit;
+        padding: 8px 0;
+        outline: none;
+    }
+
+    .artifact-search input:focus {
+        border-color: rgba(242, 199, 93, 0.72);
+    }
+
+    .artifacts-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: flex-end;
+    }
+
+    .tier-pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        padding: 5px 12px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.9rem;
+        font-weight: 780;
+        cursor: pointer;
+        transition:
+            color 0.15s ease,
+            border-color 0.15s ease;
+    }
+
+    .tier-pill:hover {
+        color: var(--ink);
+    }
+
+    .tier-pill.active {
+        border-color: rgba(242, 199, 93, 0.78);
+        color: var(--ink);
+    }
+
+    .artifacts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+        gap: 18px;
+    }
+
+    .artifact-card {
+        display: grid;
+        gap: 14px;
+        align-content: start;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+    }
+
+    .artifact-card[hidden] {
+        display: none;
+    }
+
+    .artifact-card-head {
+        display: grid;
+        grid-template-columns: 72px minmax(0, 1fr);
+        gap: 14px;
+        align-items: center;
+    }
+
+    .artifact-card-icon {
+        width: 72px;
+        height: 72px;
+        border-radius: 10px;
+        object-fit: contain;
+        background: #0c0b09;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    .artifact-card-title {
+        display: grid;
+        gap: 7px;
+        min-width: 0;
+    }
+
+    .artifact-card-title h2 {
+        margin: 0;
+        font-size: 1.2rem;
+        line-height: 1.15;
+        color: var(--ink);
+    }
+
+    .artifact-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .artifact-tier {
+        padding: 2px 9px;
+        border-radius: 999px;
+        background: rgba(251, 244, 232, 0.1);
+        color: var(--muted);
+        font-size: 0.68rem;
+        font-weight: 820;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+
+    .artifact-tier.tier-1 {
+        background: rgba(111, 155, 214, 0.16);
+        color: #9ec1f2;
+    }
+
+    .artifact-tier.tier-2 {
+        background: rgba(224, 176, 74, 0.18);
+        color: var(--gold);
+    }
+
+    .artifact-cursed {
+        padding: 2px 9px;
+        border-radius: 999px;
+        background: rgba(198, 61, 51, 0.18);
+        color: #f0938b;
+        font-size: 0.68rem;
+        font-weight: 820;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+
+    .artifact-card-desc {
+        margin: 0;
+        color: rgba(251, 244, 232, 0.82);
+        font-size: 0.92rem;
+        line-height: 1.45;
+    }
+
+    .artifacts-empty {
+        margin: 24px 0 0;
+        padding: 22px;
+        border: 1px dashed var(--line-strong);
+        border-radius: 8px;
+        color: var(--muted);
+        text-align: center;
+    }
+
+    @media (max-width: 640px) {
+        .artifacts-hero-shell,
+        .artifacts-controls {
+            grid-template-columns: 1fr;
+        }
+
+        .artifacts-subhero h1 {
+            font-size: 2.35rem;
+        }
+
+        .artifacts-summary {
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .artifacts-summary div {
+            min-width: 0;
+            padding-left: 10px;
+        }
+
+        .artifacts-toolbar {
+            justify-content: flex-start;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+        }
+
+        .tier-pill {
+            flex: 0 0 auto;
+        }
+
+        .artifacts-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>

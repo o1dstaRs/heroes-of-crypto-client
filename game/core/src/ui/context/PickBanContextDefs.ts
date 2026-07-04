@@ -4,6 +4,8 @@ import { createContext, useContext } from "react";
 export interface IPickPhaseEventData {
     // offered bundles for THIS player during INITIAL_PICK: each [l1Creature, l2Creature, tier1ArtifactId]
     ip: [number, number, number][];
+    // Tier-2 artifacts offered to THIS player during ARTIFACT_2 (3 distinct ids of 12); empty otherwise.
+    t2?: number[];
     // perk chosen by THIS player (0 = not chosen)
     pk?: number;
     // upgrade (augment) point budget granted by THIS player's perk
@@ -43,6 +45,8 @@ export interface PickBanContextType {
     revealsRemaining: number;
     // Bundles offered to this player: [l1, l2, tier1ArtifactId].
     initialBundles: [number, number, number][];
+    // Tier-2 artifacts offered to this player during ARTIFACT_2 (3 distinct ids of 12).
+    tier2Offers: number[];
     // This player's chosen perk (0 = none) and its upgrade-point budget.
     perk: number;
     upgradePoints: number;
@@ -61,6 +65,7 @@ export const PickBanContext = createContext<PickBanContextType>({
     isAbandoned: null,
     pickPhase: -1,
     initialBundles: [],
+    tier2Offers: [],
     perk: 0,
     upgradePoints: 0,
     requiredLevel: 0,

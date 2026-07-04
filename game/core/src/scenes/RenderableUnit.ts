@@ -110,6 +110,10 @@ export class RenderableUnit extends Unit {
     // ranked (the client's FightProperties hourglass state isn't authoritative there). Overwritten every
     // snapshot, so it clears on its own when the lap flips. Drives the Wait button disable in ranked.
     private hasHourglassedThisLap = false;
+    // Server-authoritative "skipping this turn" (Stun/Blindness) flag, synced from the snapshot in ranked.
+    // The effect itself isn't on the wire, so isSkippingThisTurn() (which reads getEffects) can't see it
+    // there — this flag is the only source. Drives the stun icon; OR'd with the live check for sandbox.
+    private skippingThisTurnSynced = false;
     private sprite?: Sprite;
     private motionBlurFilter?: BlurFilter;
     private shadow?: Sprite;
@@ -380,7 +384,7 @@ export class RenderableUnit extends Unit {
                 props,
                 -1,
                 1,
-                this.isSkippingThisTurn(),
+                this.isSkippingForDisplay(),
             );
             this.stunContainer = r.container;
             this.stunSprite = r.sprite;
@@ -475,7 +479,7 @@ export class RenderableUnit extends Unit {
             this.hourglassContainer.visible = visible && this.shouldShowHourglassIndicator();
         }
         if (this.stunContainer) {
-            this.stunContainer.visible = visible && this.isSkippingThisTurn();
+            this.stunContainer.visible = visible && this.isSkippingForDisplay();
         }
         if (this.respondContainer) {
             this.respondContainer.visible = visible && this.shouldShowRespondTag();
@@ -501,7 +505,7 @@ export class RenderableUnit extends Unit {
             this.hourglassContainer.visible = !active && visible && this.shouldShowHourglassIndicator();
         }
         if (this.stunContainer) {
-            this.stunContainer.visible = !active && visible && this.isSkippingThisTurn();
+            this.stunContainer.visible = !active && visible && this.isSkippingForDisplay();
         }
         if (this.respondContainer) {
             this.respondContainer.visible = !active && visible && this.shouldShowRespondTag();
@@ -1004,7 +1008,7 @@ export class RenderableUnit extends Unit {
     private shouldShowHourglassIndicator(): boolean {
         // A stunned/skipping unit shows the stun icon in this same corner instead, so suppress the
         // hourglass when skipping (mirrors legacy, where stop and hourglass were mutually exclusive).
-        if (this.isSkippingThisTurn()) return false;
+        if (this.isSkippingForDisplay()) return false;
         const fightProps = FightStateManager.getInstance().getFightProperties();
         return this.isOnHourglass() || fightProps.hourglassIncludes(this.getId());
     }
@@ -1047,6 +1051,17 @@ export class RenderableUnit extends Unit {
     /** Whether this unit already used its once-per-lap hourglass (wait) — per the last ranked snapshot. */
     public getHasHourglassed(): boolean {
         return this.hasHourglassedThisLap;
+    }
+    /** Sync the authoritative "skipping this turn" (Stun/Blindness) flag from a ranked snapshot. */
+    public setSkipping(value: boolean): void {
+        this.skippingThisTurnSynced = value;
+    }
+    /**
+     * Whether to show the stun icon / treat the unit as skipping this turn FOR DISPLAY — the live effect
+     * check (sandbox) OR the flag synced from the ranked snapshot (where the effect isn't on the wire).
+     */
+    private isSkippingForDisplay(): boolean {
+        return this.skippingThisTurnSynced || this.isSkippingThisTurn();
     }
     /**
      * Create/refresh a small corner icon on the unit (stun, retaliation tag, …). Anchored by

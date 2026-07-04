@@ -97,6 +97,9 @@ export interface PlayUnitState {
     /** True if the unit already used its hourglass (wait) this lap — disables the Wait button in ranked
      * (the client's FightProperties hourglass state isn't authoritative there). */
     hasHourglassed?: boolean;
+    /** True if the unit is skipping this turn (Stun/Blindness) — drives the stun icon in ranked (the
+     * effect itself isn't synced, so this is the only source there). */
+    skipping?: boolean;
 }
 
 export interface PlayJournalEntry {
@@ -148,6 +151,13 @@ export interface PlaySnapshot {
     upperStartUnits?: number;
     lowerStartHealth?: number;
     upperStartHealth?: number;
+    /** Army-wide artifacts picked per team (Tier1Artifact/Tier2Artifact enum ids; 0 = none), so the
+     * placement UI can render each side's picked artifacts. Absent from older servers (decoder defaults
+     * to 0). */
+    lowerArtifactTier1?: number;
+    lowerArtifactTier2?: number;
+    upperArtifactTier1?: number;
+    upperArtifactTier2?: number;
 }
 
 export interface PlayAction {
@@ -572,6 +582,10 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         upperStartUnits: 0,
         lowerStartHealth: 0,
         upperStartHealth: 0,
+        lowerArtifactTier1: 0,
+        lowerArtifactTier2: 0,
+        upperArtifactTier1: 0,
+        upperArtifactTier2: 0,
     };
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
@@ -629,6 +643,14 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             snapshot.lowerStartHealth = reader.varintNumber();
         } else if (field === 27) {
             snapshot.upperStartHealth = reader.varintNumber();
+        } else if (field === 28) {
+            snapshot.lowerArtifactTier1 = reader.varintNumber();
+        } else if (field === 29) {
+            snapshot.lowerArtifactTier2 = reader.varintNumber();
+        } else if (field === 30) {
+            snapshot.upperArtifactTier1 = reader.varintNumber();
+        } else if (field === 31) {
+            snapshot.upperArtifactTier2 = reader.varintNumber();
         } else {
             reader.skip(wireType);
         }
@@ -710,6 +732,8 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
             unit.responded = reader.bool();
         } else if (field === 24) {
             unit.hasHourglassed = reader.bool();
+        } else if (field === 25) {
+            unit.skipping = reader.bool();
         } else {
             reader.skip(wireType);
         }

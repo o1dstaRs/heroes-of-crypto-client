@@ -100,7 +100,7 @@ const CreaturePortrait: React.FC<{
     disabled?: boolean;
     size?: number;
     onClick?: () => void;
-}> = ({ creatureId, state, disabled, size = 74, onClick }) => {
+}> = ({ creatureId, state, disabled, size = 104, onClick }) => {
     const src = creatureImage(creatureId);
     const selectable = state === "available" && !disabled && !!onClick;
     const ring =
@@ -254,7 +254,7 @@ const BundlePanel: React.FC<{
                             ))}
                         </Box>
                         <Divider sx={{ my: 0.5 }} />
-                        <Tooltip title={artifact.description} variant="soft">
+                        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
                             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                                 {artifactImg && (
                                     <img
@@ -270,7 +270,10 @@ const BundlePanel: React.FC<{
                                     <Typography level="body-sm">{artifact.name}</Typography>
                                 </Box>
                             </Box>
-                        </Tooltip>
+                            <Typography level="body-xs" sx={{ opacity: 0.85, textAlign: "center" }}>
+                                {Artifact.formatArtifactDescription(artifact)}
+                            </Typography>
+                        </Box>
                         <Button
                             disabled={disabled}
                             variant={isSelected ? "soft" : "solid"}
@@ -324,7 +327,7 @@ const PickPanel: React.FC<{
                 </Typography>
             </Box>
             <Legend />
-            <Box sx={{ display: "flex", gap: 1.25, flexWrap: "wrap", justifyContent: "center", maxWidth: 660 }}>
+            <Box sx={{ display: "flex", gap: 1.75, flexWrap: "wrap", justifyContent: "center", maxWidth: 960 }}>
                 {creatures.map((creatureId) => {
                     let state: PortraitState = "available";
                     if (pickedSet.has(creatureId)) state = "picked";
@@ -345,47 +348,61 @@ const PickPanel: React.FC<{
     );
 };
 
-const ArtifactPanel: React.FC<{ disabled: boolean; selected: number; onSelect: (artifactId: number) => void }> = ({
-    disabled,
-    selected,
-    onSelect,
-}) => (
-    <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", justifyContent: "center", maxWidth: 720 }}>
-        {Artifact.TIER2_ARTIFACT_LIST.map((a) => {
-            const img = images[a.imageKey];
-            const isSelected = selected === a.id;
-            return (
-                <Tooltip key={a.id} title={a.description} variant="soft" placement="top">
-                    <Card
-                        variant={isSelected ? "solid" : "outlined"}
-                        color={isSelected ? "primary" : "neutral"}
-                        onClick={disabled ? undefined : () => onSelect(a.id)}
-                        sx={{
-                            width: 132,
-                            bgcolor: isSelected ? undefined : "rgba(0,0,0,0.35)",
-                            cursor: disabled ? "default" : "pointer",
-                            "&:hover": disabled ? undefined : { boxShadow: "0 0 12px rgba(120,180,255,0.55)" },
-                        }}
-                    >
-                        <CardContent sx={{ alignItems: "center", gap: 0.5, p: 1 }}>
-                            {img && (
-                                <img src={img} alt={a.name} style={{ width: 46, height: 46, objectFit: "contain" }} />
-                            )}
-                            <Typography level="body-xs" sx={{ textAlign: "center", fontWeight: 600 }}>
-                                {a.name}
-                            </Typography>
-                            {isSelected && (
-                                <Chip size="sm" color="primary" variant="soft">
-                                    ✓ Chosen
-                                </Chip>
-                            )}
-                        </CardContent>
-                    </Card>
-                </Tooltip>
-            );
-        })}
-    </Box>
-);
+const ArtifactPanel: React.FC<{
+    disabled: boolean;
+    selected: number;
+    offered: number[];
+    onSelect: (artifactId: number) => void;
+}> = ({ disabled, selected, offered, onSelect }) => {
+    // The server offers 3 random Tier-2 artifacts (of 12). Fall back to the full list only if no offer has
+    // arrived yet (e.g. a server that predates the offer field), so the picker is never empty.
+    const offeredIds = offered.length ? offered : Artifact.TIER2_ARTIFACT_LIST.map((a) => a.id);
+    return (
+        <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", justifyContent: "center", maxWidth: 640 }}>
+            {offeredIds.map((id) => {
+                const a = Artifact.getTier2ArtifactProperties(id as Artifact.Tier2Artifact);
+                const img = images[a.imageKey];
+                const isSelected = selected === a.id;
+                return (
+                    <Tooltip key={a.id} title={Artifact.formatArtifactDescription(a)} variant="soft" placement="top">
+                        <Card
+                            variant={isSelected ? "solid" : "outlined"}
+                            color={isSelected ? "primary" : "neutral"}
+                            onClick={disabled ? undefined : () => onSelect(a.id)}
+                            sx={{
+                                width: 200,
+                                bgcolor: isSelected ? undefined : "rgba(0,0,0,0.35)",
+                                cursor: disabled ? "default" : "pointer",
+                                "&:hover": disabled ? undefined : { boxShadow: "0 0 12px rgba(120,180,255,0.55)" },
+                            }}
+                        >
+                            <CardContent sx={{ alignItems: "center", gap: 0.5, p: 1.25 }}>
+                                {img && (
+                                    <img
+                                        src={img}
+                                        alt={a.name}
+                                        style={{ width: 46, height: 46, objectFit: "contain" }}
+                                    />
+                                )}
+                                <Typography level="body-sm" sx={{ textAlign: "center", fontWeight: 600 }}>
+                                    {a.name}
+                                </Typography>
+                                <Typography level="body-xs" sx={{ textAlign: "center", opacity: 0.85 }}>
+                                    {Artifact.formatArtifactDescription(a)}
+                                </Typography>
+                                {isSelected && (
+                                    <Chip size="sm" color="primary" variant="soft">
+                                        ✓ Chosen
+                                    </Chip>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </Tooltip>
+                );
+            })}
+        </Box>
+    );
+};
 
 // ---- Root view ------------------------------------------------------------
 
@@ -400,6 +417,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
         isYourTurn,
         secondsRemaining,
         initialBundles,
+        tier2Offers,
         requiredLevel,
         banned,
         picked,
@@ -469,6 +487,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
             <ArtifactPanel
                 disabled={disabled}
                 selected={selectedValue}
+                offered={tier2Offers}
                 onSelect={(id) => void send(id, () => artifact(id, 2))}
             />
         );
