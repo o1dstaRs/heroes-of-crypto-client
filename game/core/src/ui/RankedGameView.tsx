@@ -20,6 +20,7 @@ import {
     Sheet,
     Slider,
     Stack,
+    Tooltip,
     Typography,
 } from "@mui/joy";
 import CssBaseline from "@mui/joy/CssBaseline";
@@ -304,19 +305,44 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const actionQueueRef = useRef<Promise<void>>(Promise.resolve());
     const replayTimersRef = useRef<number[]>([]);
 
-    // Sync the viewer's chosen doctrine into the local FightProperties so the placement augment sidebar
-    // shows the correct upgrade-point budget (getUpgradePoints reads the perk). The server is authoritative
-    // for actually spending; this only drives the local budget/remaining-points display. The opponent's
-    // perk stays hidden (0) during placement, so we only ever set our own team's.
+    // Sync the authoritative doctrine + army-wide artifacts + placement augments into the local
+    // FightProperties so the client's applyArtifacts / applyAugments (run when the scene hydrates units
+    // from the snapshot -> refreshUnits) reproduce the same per-unit "System" buffs and boosted stats the
+    // server computed. Without this the left sidebar shows base stats and no artifact/augment buffs, since
+    // the ranked client never picks these locally. Perk also drives the placement augment sidebar's
+    // upgrade-point budget. Defined BEFORE the snapshot-apply effect below, so FightProperties is populated
+    // before hydration. Opponent values are hidden (0) during placement and revealed at fight start, so we
+    // sync each team verbatim (0 clears to NO_ARTIFACT / NO_AUGMENT / NO_PERK).
     useEffect(() => {
-        if (viewerTeam === undefined || !snapshot) {
+        if (!snapshot) {
             return;
         }
-        const perk = viewerTeam === TeamVals.LOWER ? snapshot.lowerPerk : snapshot.upperPerk;
-        FightStateManager.getInstance()
-            .getFightProperties()
-            .setPerkPerTeam(viewerTeam, (perk || Perk.Perk.NO_PERK) as Perk.Perk);
-    }, [snapshot, viewerTeam]);
+        const fp = FightStateManager.getInstance().getFightProperties();
+        const syncTeam = (team: TeamType, side: "lower" | "upper"): void => {
+            const s = snapshot;
+            fp.setPerkPerTeam(team, ((side === "lower" ? s.lowerPerk : s.upperPerk) || Perk.Perk.NO_PERK) as Perk.Perk);
+            fp.setArtifactPerTeam(
+                team,
+                Artifact.ArtifactTier.TIER_1,
+                (side === "lower" ? s.lowerArtifactTier1 : s.upperArtifactTier1) ?? 0,
+            );
+            fp.setArtifactPerTeam(
+                team,
+                Artifact.ArtifactTier.TIER_2,
+                (side === "lower" ? s.lowerArtifactTier2 : s.upperArtifactTier2) ?? 0,
+            );
+            const aug = (kind: Augment.AugmentType["type"], v: number | undefined): void => {
+                fp.setAugmentPerTeam(team, { type: kind, value: v ?? 0 } as Augment.AugmentType);
+            };
+            aug("Placement", side === "lower" ? s.lowerAugmentPlacement : s.upperAugmentPlacement);
+            aug("Armor", side === "lower" ? s.lowerAugmentArmor : s.upperAugmentArmor);
+            aug("Might", side === "lower" ? s.lowerAugmentMight : s.upperAugmentMight);
+            aug("Sniper", side === "lower" ? s.lowerAugmentSniper : s.upperAugmentSniper);
+            aug("Movement", side === "lower" ? s.lowerAugmentMovement : s.upperAugmentMovement);
+        };
+        syncTeam(TeamVals.LOWER, "lower");
+        syncTeam(TeamVals.UPPER, "upper");
+    }, [snapshot]);
 
     // Mirror the scene's local AI toggle so the "AI Toggle On" badge shows for a manual toggle too,
     // not only the server's aiControlled takeover (combined below).
@@ -1511,36 +1537,62 @@ const ArtifactTierIcons: React.FC<{ tier1Id: number; tier2Id: number }> = ({ tie
         <Box sx={{ display: "flex", gap: 0.6 }}>
             {entries.map(({ key, art }) => {
                 const src = art ? artifactImageFor(art.imageKey) : undefined;
-                return (
-                    <Box
-                        key={key}
-                        title={art ? `${art.name} — ${art.description}` : "No artifact"}
-                        sx={{
-                            position: "relative",
-                            flex: "0 0 auto",
-                            width: 42,
-                            height: 42,
-                            borderRadius: 6,
-                            border: `1px solid ${art ? "rgba(245,158,11,0.4)" : "rgba(148,163,184,0.18)"}`,
-                            bgcolor: art ? "rgba(245,158,11,0.08)" : "rgba(15,23,42,0.45)",
-                            display: "grid",
-                            placeItems: "center",
-                            overflow: "hidden",
-                        }}
-                    >
-                        {src ? (
-                            <Box
-                                component="img"
-                                src={src}
-                                alt={art?.name ?? ""}
-                                sx={{ width: 36, height: 36, objectFit: "contain" }}
-                            />
-                        ) : (
-                            <Typography level="body-xs" textColor={hocColors.muted}>
-                                —
-                            </Typography>
-                        )}
+                const tierLabel = key === "t1" ? "Tier 1" : "Tier 2";
+                // Rich hover: name + tier + the effect text with its real numbers substituted in
+                // (art.description keeps {}/[] placeholders — formatArtifactDescription fills them).
+                const tip = art ? (
+                    <Box sx={{ maxWidth: 260, py: 0.5 }}>
+                        <Typography level="title-sm" textColor={hocColors.gold}>
+                            {art.name}
+                        </Typography>
+                        <Typography level="body-xs" textColor={hocColors.muted} sx={{ mb: 0.5 }}>
+                            {tierLabel} artifact
+                        </Typography>
+                        <Typography level="body-xs" textColor={hocColors.parchment}>
+                            {Artifact.formatArtifactDescription(art)}
+                        </Typography>
                     </Box>
+                ) : (
+                    `No ${tierLabel} artifact`
+                );
+                return (
+                    <Tooltip
+                        key={key}
+                        title={tip}
+                        variant="soft"
+                        placement="top"
+                        arrow
+                        sx={{ bgcolor: "rgba(15,23,42,0.97)", border: "1px solid rgba(245,158,11,0.35)" }}
+                    >
+                        <Box
+                            sx={{
+                                position: "relative",
+                                flex: "0 0 auto",
+                                width: 42,
+                                height: 42,
+                                borderRadius: 6,
+                                border: `1px solid ${art ? "rgba(245,158,11,0.4)" : "rgba(148,163,184,0.18)"}`,
+                                bgcolor: art ? "rgba(245,158,11,0.08)" : "rgba(15,23,42,0.45)",
+                                display: "grid",
+                                placeItems: "center",
+                                overflow: "hidden",
+                                cursor: art ? "help" : "default",
+                            }}
+                        >
+                            {src ? (
+                                <Box
+                                    component="img"
+                                    src={src}
+                                    alt={art?.name ?? ""}
+                                    sx={{ width: 36, height: 36, objectFit: "contain" }}
+                                />
+                            ) : (
+                                <Typography level="body-xs" textColor={hocColors.muted}>
+                                    —
+                                </Typography>
+                            )}
+                        </Box>
+                    </Tooltip>
                 );
             })}
         </Box>
@@ -1771,8 +1823,14 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                         <RankedOpponentPlacementIntel snapshot={snapshot} userTeam={userTeam} />
                         <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
                         {/* Spend the perk's upgrade points on army augments. Routed to the authoritative
-                            server via RankedPlayScene.propagateAugmentation (the AUGMENT play-action). */}
-                        <SideToggleContainer side={userTeam === TeamVals.LOWER ? "green" : "red"} teamType={userTeam} />
+                            server via RankedPlayScene.propagateAugmentation (the AUGMENT play-action).
+                            Artifacts are drafted in the pick/ban phase (shown read-only above), so the free
+                            artifact picker is hidden here — it's a sandbox-only tool. */}
+                        <SideToggleContainer
+                            side={userTeam === TeamVals.LOWER ? "green" : "red"}
+                            teamType={userTeam}
+                            showArtifactPicker={false}
+                        />
                         <Button
                             variant="solid"
                             disabled={!canSubmit || ready}

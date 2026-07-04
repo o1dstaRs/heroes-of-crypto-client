@@ -502,10 +502,15 @@ const SideToggleContainer = ({
     side,
     teamType,
     unitFaction,
+    // Free army-wide artifact picking (one per tier) is a SANDBOX-only tool. In ranked the artifacts are
+    // drafted during the pick/ban phase and shown read-only (RankedArtifactsPanel), so the ranked view
+    // passes false to hide the picker while keeping the augment/synergy togglers.
+    showArtifactPicker = true,
 }: {
     side: string;
     teamType: TeamType;
     unitFaction?: FactionType;
+    showArtifactPicker?: boolean;
 }) => {
     const [totalPoints, setTotalPoints] = useState(HoCConstants.MAX_AUGMENT_POINTS);
     const [placementSelection, setPlacementSelection] = useState<number | null>(null);
@@ -722,7 +727,7 @@ const SideToggleContainer = ({
             </Box>
             <Divider />
 
-            <ArtifactToggler teamType={teamType} />
+            {showArtifactPicker && <ArtifactToggler teamType={teamType} />}
 
             {hasAnySynergies && (
                 <Box sx={{ display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
