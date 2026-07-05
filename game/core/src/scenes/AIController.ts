@@ -155,6 +155,20 @@ export class AIController {
     // wedge the unit. Mirrors the spellCastAttemptUnitId / auraWaitAttemptUnitId loop guards.
     private turnActionAttemptUnitId: string | undefined;
     private turnActionAttemptAtMs = 0;
+    // Unit whose last strategy-chosen turn-action did NOT advance the turn (still active after the guard
+    // grace = the optimistic ranked submit was rejected/dropped). decideTurn is deterministic on the board,
+    // so re-running it re-emits the SAME doomed move/attack — an invalid_move / attack_not_available reject
+    // storm that ends in a forced skip. On the retry we instead route this unit through the proven
+    // findTarget path (a DIFFERENT algorithm that recomputes its own reachable move / targetable enemy), so
+    // a client↔server desync the strategy can't see gets a real second action before the escape-hatch skip.
+    // Mirrors how spellCastAttemptUnitId / strategyWaitAttemptUnitId fall back to findTarget. Cleared when a
+    // different unit becomes active. strategyRejectedCount escalates the recovery ladder for the SAME stuck
+    // unit: 1 = route through findTarget (a different decision algorithm), >=2 = the client<->server desync is
+    // one neither algorithm can see past (both re-propose the same refused action), so submit an
+    // always-valid defend_turn — mirroring the SIM's advanceTowardEnemy->defend_turn recovery — instead of
+    // letting the escape-hatch force a bare "skips turn". Cleared alongside strategyRejectedUnitId.
+    private strategyRejectedUnitId: string | undefined;
+    private strategyRejectedCount = 0;
     // AI State
     public isAIActive = false;
     public performingAction = false;
@@ -383,15 +397,49 @@ export class AIController {
         if (this.strategyWaitAttemptUnitId && this.strategyWaitAttemptUnitId !== currentUnit.getId()) {
             this.strategyWaitAttemptUnitId = undefined;
         }
+        // Clear the strategy-rejected recovery ladder once the turn has genuinely advanced to a different unit.
+        if (this.strategyRejectedUnitId && this.strategyRejectedUnitId !== currentUnit.getId()) {
+            this.strategyRejectedUnitId = undefined;
+            this.strategyRejectedCount = 0;
+        }
         if (this.turnActionAttemptUnitId === currentUnit.getId()) {
             if (HoCLib.getTimeMillis() - this.turnActionAttemptAtMs < AIController.TURN_ACTION_GUARD_GRACE_MS) {
                 this.finishAIAction(wasAIActive);
                 return;
             }
+            // Grace elapsed but THIS unit is still active — our prior turn-action never advanced the turn
+            // (the optimistic submit was rejected or dropped). Escalate this unit's recovery ladder: 1st retry
+            // routes through findTarget (a different algorithm); a 2nd falls to an always-valid defend_turn so
+            // a client<->server desync neither algorithm can see past ends in a shield, not a forced skip.
             this.turnActionAttemptUnitId = undefined;
+            if (this.strategyRejectedUnitId === currentUnit.getId()) {
+                this.strategyRejectedCount += 1;
+            } else {
+                this.strategyRejectedUnitId = currentUnit.getId();
+                this.strategyRejectedCount = 1;
+            }
         }
         this.turnActionAttemptUnitId = currentUnit.getId();
         this.turnActionAttemptAtMs = HoCLib.getTimeMillis();
+
+        // Recovery net: a unit whose last two turn-actions were BOTH rejected/dropped is wedged on a
+        // client<->server desync that re-deciding can't escape — the strategy AND findTarget both re-propose
+        // the refused action against the same stale board (observed: the identical MELEE_ATTACK refused as
+        // attack_not_available three times, then a forced skip). Mirror the SIM's stuck-unit recovery
+        // (battle_engine advanceTowardEnemy -> defend_turn) with an always-valid defend_turn: the unit shields
+        // (+luck) and its turn resolves, instead of the reject-streak escape forcing a bare "skips turn".
+        if (this.strategyRejectedUnitId === currentUnit.getId() && this.strategyRejectedCount >= 2) {
+            if (
+                this.context.applyGameAction(
+                    this.modelAction(currentUnit, { type: "defend_turn", unitId: currentUnit.getId() }),
+                )
+            ) {
+                this.endTurnIfStillActive(currentUnit);
+                this.finishAIAction(wasAIActive);
+                return;
+            }
+            // defend_turn itself refused (should never happen) — fall through to the normal decision path.
+        }
 
         if (this.shouldControlUnit(currentUnit)) {
             const actionPerformed = await this.performLocalModelAction(currentUnit, wasAIActive);
@@ -415,7 +463,11 @@ export class AIController {
         // measured the ~68%-vs-v0.4 win rate in the sim — the client previously bypassed it via
         // AI.findTarget + local handlers. Gated so we can A/B / roll back: default ON in the browser
         // bundle (process.env is build-time-replaced; undefined → "on"), consistent with other V05_* gates.
-        const USE_STRATEGY = (process.env.V05_CLIENT_AI ?? "on") !== "off";
+        // Skip the strategy for a unit whose previous strategy action was rejected/dropped this turn — its
+        // deterministic re-decision would just re-emit the refused move/attack. Fall straight through to
+        // findTarget (a different algorithm) for a real second attempt before the escape-hatch skip.
+        const USE_STRATEGY =
+            (process.env.V05_CLIENT_AI ?? "on") !== "off" && this.strategyRejectedUnitId !== currentUnit.getId();
         if (USE_STRATEGY) {
             let strategyActions: GameAction[] = [];
             try {
