@@ -187,7 +187,8 @@ const PHASE_HINT: Record<number, string> = {
     [PickPhaseVals.PERK]:
         "Choose your doctrine AND a starting bundle. Doctrine lasts the whole draft; each bundle gives two creatures and a Tier-1 artifact.",
     [PickPhaseVals.INITIAL_PICK]: "Each bundle gives you two creatures and a Tier-1 artifact. Pick one.",
-    [PickPhaseVals.PICK]: "Greyed portraits are banned or already taken by your opponent.",
+    [PickPhaseVals.PICK]:
+        "Greyed portraits are banned. Opponent picks are hidden — if you pick one they already took, you'll re-pick.",
     [PickPhaseVals.ARTIFACT_2]: "Choose one Tier-2 artifact for your whole army.",
     [PickPhaseVals.AUGMENTS]: "Get ready to place your army.",
     [PickPhaseVals.AUGMENTS_SCOUT]: "Get ready to place your army.",
@@ -750,120 +751,6 @@ const MyDraftBar: React.FC<{
     );
 };
 
-// Opponent army display (mirror of MyDraftBar, top of the screen). Shows the opponent's slots based on
-// what our doctrine reveals: Spymaster (SEE_ALL) shows every unit; Scout (THREE_REVEALS) shows the auto-
-// revealed units + hidden slots we can still click to reveal (up to revealsRemaining); Blind Fury shows a
-// hidden silhouette. Hidden-but-revealable slots arrive as NEGATIVE placeholders in `op` (reveal convention
-// slot = -creatureId); if the server instead sends only compact positives, we pad with a plain "?" silhouette
-// up to our own army size so the opponent's army footprint is still visible.
-const OpponentDraftBar: React.FC<{
-    opponentPicked: number[];
-    revealsRemaining: number;
-    perk: number;
-    myArmySize: number;
-}> = ({ opponentPicked, revealsRemaining, perk, myArmySize }) => {
-    const { reveal } = useAuthContext();
-    const [busy, setBusy] = useState(false);
-    const doReveal = async (slot: number): Promise<void> => {
-        if (busy || revealsRemaining <= 0) return;
-        setBusy(true);
-        try {
-            await reveal(slot);
-        } catch (err) {
-            console.warn("[pick] reveal rejected", (err as Error)?.message ?? err);
-        } finally {
-            setBusy(false);
-        }
-    };
-    const slots = [...opponentPicked];
-    const hasPlaceholders = opponentPicked.some((v) => v < 0);
-    if (!hasPlaceholders) {
-        const revealedCount = opponentPicked.filter((v) => v > 0 && v !== CreatureVals.NO_CREATURE).length;
-        for (let i = 0; i < Math.max(0, myArmySize - revealedCount); i += 1) slots.push(0);
-    }
-    if (!slots.length) {
-        return null;
-    }
-    return (
-        <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
-            <Sheet
-                variant="soft"
-                sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                    px: 2,
-                    py: 1,
-                    maxWidth: "94%",
-                    flexWrap: "wrap",
-                    justifyContent: "center",
-                    borderRadius: "14px",
-                    bgcolor: "rgba(18,10,12,0.92)",
-                    border: "1px solid rgba(255,120,120,0.18)",
-                    color: "#f0e7e9",
-                }}
-            >
-                <Typography level="body-xs" sx={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 0.6 }}>
-                    Opponent&apos;s army
-                </Typography>
-                {perk > 0 && <Typography level="body-sm">{PERK_ICON[perk] ?? ""}</Typography>}
-                {revealsRemaining > 0 && (
-                    <Chip size="sm" variant="soft" color="warning">
-                        {revealsRemaining} reveal{revealsRemaining === 1 ? "" : "s"} left
-                    </Chip>
-                )}
-                <BarDivider />
-                <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
-                    {slots.map((v, i) => {
-                        const revealed = v > 0 && v !== CreatureVals.NO_CREATURE;
-                        const revealable = v < 0 && revealsRemaining > 0;
-                        const src = revealed ? creatureImage(v) : undefined;
-                        return (
-                            <Tooltip
-                                key={`op-${i}-${v}`}
-                                title={revealed ? creatureName(v) : revealable ? "Click to reveal this slot" : "Hidden"}
-                                variant="soft"
-                            >
-                                <Box
-                                    onClick={revealable ? () => void doReveal(-v) : undefined}
-                                    sx={{
-                                        width: 50,
-                                        height: 50,
-                                        borderRadius: "9px",
-                                        overflow: "hidden",
-                                        display: "grid",
-                                        placeItems: "center",
-                                        cursor: revealable ? "pointer" : "default",
-                                        border: revealed
-                                            ? "1px solid rgba(255,140,140,0.5)"
-                                            : "1px dashed rgba(255,255,255,0.25)",
-                                        bgcolor: revealed ? "transparent" : "rgba(255,255,255,0.04)",
-                                        opacity: busy && revealable ? 0.5 : 1,
-                                        transition: "border-color 120ms",
-                                        "&:hover": revealable ? { borderColor: "rgba(120,220,150,0.8)" } : {},
-                                    }}
-                                >
-                                    {revealed && src ? (
-                                        <img
-                                            src={src}
-                                            alt={creatureName(v)}
-                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                                        />
-                                    ) : (
-                                        <Typography level="body-lg" sx={{ opacity: 0.5 }}>
-                                            {revealable ? "🔍" : "?"}
-                                        </Typography>
-                                    )}
-                                </Box>
-                            </Tooltip>
-                        );
-                    })}
-                </Box>
-            </Sheet>
-        </Box>
-    );
-};
-
 // ---- Root view ------------------------------------------------------------
 
 interface StainedGlassProps {
@@ -881,8 +768,6 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
         requiredLevel,
         banned,
         picked,
-        opponentPicked,
-        revealsRemaining,
         perk,
         upgradePoints,
         artifactTier1,
@@ -897,11 +782,16 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
     // Combined PERK phase does TWO independent actions on one screen, so it needs its own local choices
     // (the single `selection` can't hold both). Locks are derived from authoritative server state below.
     const [setupBundleChoice, setSetupBundleChoice] = useState<number>(-1);
+    // Opponent picks are fully hidden by the server. The ONLY way we learn a unit is taken is by picking it
+    // and getting a 409 collision back — we remember those locally so they grey out and we don't re-try them.
+    const [collided, setCollided] = useState<number[]>([]);
+    const [pickError, setPickError] = useState<string>("");
 
     // Clear the local selections whenever the phase advances.
     useEffect(() => {
         setSelection((prev) => (prev && prev.phase === pickPhase ? prev : null));
         setSetupBundleChoice(-1);
+        setPickError("");
     }, [pickPhase]);
 
     const send = async (value: number, fn: () => Promise<void>): Promise<void> => {
@@ -917,10 +807,34 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
         }
     };
 
+    // Creature pick: on a collision (409 — the opponent secretly holds this unit) the server does NOT advance
+    // the phase, so remember the unit (grey it out) and prompt a re-pick instead of locking in a selection.
+    const pickCreature = async (id: number): Promise<void> => {
+        if (busy) return;
+        setBusy(true);
+        setPickError("");
+        try {
+            await pick(id);
+            setSelection({ phase: pickPhase, value: id });
+        } catch (err) {
+            const status = (err as { response?: { status?: number } })?.response?.status;
+            const msg = (err as Error)?.message ?? "";
+            if (status === 409 || /already taken|already picked/i.test(msg)) {
+                setCollided((prev) => (prev.includes(id) ? prev : [...prev, id]));
+                setPickError("Already picked by your opponent — choose another.");
+            } else {
+                setPickError(msg || "Pick rejected — choose another.");
+            }
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const disabled = !isYourTurn || busy;
     const selectedValue = selection && selection.phase === pickPhase ? selection.value : -1;
     const hint = PHASE_HINT[pickPhase] ?? "";
-    const opponentTaken = opponentPicked.filter((id) => id && id !== CreatureVals.NO_CREATURE);
+    // "Taken" units are ONLY the ones we've collided on locally — the server never reveals opponent picks.
+    const opponentTaken = collided;
     const isHandoff = pickPhase === PickPhaseVals.AUGMENTS || pickPhase === PickPhaseVals.AUGMENTS_SCOUT;
     const isCombinedSetup = pickPhase === PickPhaseVals.PERK;
     // Authoritative per-dimension locks for the combined phase: the server echoes the player's own perk
@@ -982,15 +896,22 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
         );
     } else if (pickPhase === PickPhaseVals.PICK) {
         panel = (
-            <PickPanel
-                level={requiredLevel}
-                banned={banned}
-                picked={picked}
-                opponentTaken={opponentTaken}
-                disabled={disabled}
-                onSelect={(id) => void send(id, () => pick(id))}
-                onInspect={setInspectedId}
-            />
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+                {pickError && (
+                    <Chip size="sm" color="danger" variant="soft">
+                        {pickError}
+                    </Chip>
+                )}
+                <PickPanel
+                    level={requiredLevel}
+                    banned={banned}
+                    picked={picked}
+                    opponentTaken={opponentTaken}
+                    disabled={disabled}
+                    onSelect={(id) => void pickCreature(id)}
+                    onInspect={setInspectedId}
+                />
+            </Box>
         );
     } else if (pickPhase === PickPhaseVals.ARTIFACT_2) {
         panel = (
@@ -1081,13 +1002,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
                 )}
             </Box>
 
-            {/* Opponent's army — what our doctrine lets us see (all / scouted-so-far / hidden silhouette). */}
-            <OpponentDraftBar
-                opponentPicked={opponentPicked}
-                revealsRemaining={revealsRemaining}
-                perk={perk}
-                myArmySize={picked.filter((id) => id && id !== CreatureVals.NO_CREATURE).length}
-            />
+            {/* Opponent picks are fully hidden — no opponent army bar. You learn a unit is taken only by
+                colliding on it (the pick re-prompts you). */}
 
             {/* Imperative "what to do now" so first-time players always know the expected action. */}
             {isYourTurn && !isHandoff && phaseAction(pickPhase, requiredLevel) && (

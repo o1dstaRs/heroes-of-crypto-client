@@ -506,13 +506,17 @@ const SideToggleContainer = ({
     // drafted during the pick/ban phase and shown read-only (RankedArtifactsPanel), so the ranked view
     // passes false to hide the picker while keeping the augment/synergy togglers.
     showArtifactPicker = true,
+    // Upgrade-point budget for augments. In ranked this is the perk's allotment (5/6/7 via
+    // getUpgradePoints); Sandbox omits it and gets the full MAX_AUGMENT_POINTS default.
+    budgetPoints = HoCConstants.MAX_AUGMENT_POINTS,
 }: {
     side: string;
     teamType: TeamType;
     unitFaction?: FactionType;
     showArtifactPicker?: boolean;
+    budgetPoints?: number;
 }) => {
-    const [totalPoints, setTotalPoints] = useState(HoCConstants.MAX_AUGMENT_POINTS);
+    const [totalPoints, setTotalPoints] = useState(budgetPoints);
     const [placementSelection, setPlacementSelection] = useState<number | null>(null);
     const [armorSelection, setArmorSelection] = useState<number | null>(null);
     const [mightSelection, setMightSelection] = useState<number | null>(null);

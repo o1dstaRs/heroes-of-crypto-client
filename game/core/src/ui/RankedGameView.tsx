@@ -1640,6 +1640,66 @@ const RankedArtifactsPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamTyp
     );
 };
 
+// Read-only recap of the augments/synergies chosen in the placement overlay, shown in the sidebar
+// while the player positions units. Augment levels come straight from the authoritative snapshot;
+// selected synergies come from the local FightProperties (kept in sync by the picker).
+const RankedAugmentSummary: React.FC<{
+    snapshot: PlaySnapshot;
+    userTeam: TeamType;
+    budget: number;
+    onEdit: () => void;
+}> = ({ snapshot, userTeam, budget, onEdit }) => {
+    const isUpper = userTeam === TeamVals.UPPER;
+    const pick = (lowerVal?: number, upperVal?: number): number => (isUpper ? upperVal : lowerVal) ?? 0;
+    const rows = [
+        { label: "Placement", level: pick(snapshot.lowerAugmentPlacement, snapshot.upperAugmentPlacement) },
+        { label: "Armor", level: pick(snapshot.lowerAugmentArmor, snapshot.upperAugmentArmor) },
+        { label: "Might", level: pick(snapshot.lowerAugmentMight, snapshot.upperAugmentMight) },
+        { label: "Sniper", level: pick(snapshot.lowerAugmentSniper, snapshot.upperAugmentSniper) },
+        { label: "Movement", level: pick(snapshot.lowerAugmentMovement, snapshot.upperAugmentMovement) },
+    ];
+    // Point cost equals the augment level value (Placement LEVEL_1 == 0 == free); the server enforces
+    // the same sum against the perk budget (getUpgradePoints / canAugment).
+    const spent = rows.reduce((total, r) => total + r.level, 0);
+    // Placement always resolves to at least LEVEL_1 (value 0); other categories start at NO_AUGMENT (0).
+    const chosen = rows.filter((r) => r.label === "Placement" || r.level > 0);
+    const synergies = FightStateManager.getInstance().getFightProperties().getSynergiesPerTeam(userTeam);
+    return (
+        <Stack spacing={0.5}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Typography level="body-sm" textColor={hocColors.parchment}>
+                    Augments &amp; Synergies ({spent}/{budget} pts)
+                </Typography>
+                <Button size="sm" variant="soft" onClick={onEdit} sx={hocSoftButtonSx}>
+                    Edit
+                </Button>
+            </Stack>
+            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                {chosen.length === 0 ? (
+                    <Typography level="body-xs" textColor={hocColors.muted}>
+                        No augments chosen yet
+                    </Typography>
+                ) : (
+                    chosen.map((r) => (
+                        <Chip key={r.label} size="sm" variant="soft">
+                            {r.label === "Placement" ? `Placement L${r.level + 1}` : `${r.label} L${r.level}`}
+                        </Chip>
+                    ))
+                )}
+            </Stack>
+            {synergies.length > 0 && (
+                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                    {synergies.map((s) => (
+                        <Chip key={s} size="sm" variant="soft" color="success">
+                            {s}
+                        </Chip>
+                    ))}
+                </Stack>
+            )}
+        </Stack>
+    );
+};
+
 const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamType }> = ({
     snapshot,
     userTeam,
@@ -1748,6 +1808,16 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     isObserver,
 }) => {
     const [confirmExitOpen, setConfirmExitOpen] = useState(false);
+    // Ranked placement opens an augment/synergy overlay by default; the player picks there, hits
+    // "Continue to placement", and the chosen upgrades collapse to a read-only sidebar summary
+    // (re-openable via Edit). null = not yet interacted -> open by default at placement start.
+    const [augmentOverlayOpenState, setAugmentOverlayOpen] = useState<boolean | null>(null);
+    // The perk sets the upgrade-point budget (5/6/7 via getUpgradePoints).
+    const userPerkId = ((userTeam === TeamVals.LOWER ? snapshot?.lowerPerk : snapshot?.upperPerk) ||
+        Perk.Perk.NO_PERK) as Perk.Perk;
+    const augmentBudget = Perk.getUpgradePoints(userPerkId);
+    const perkName = Perk.getPerkProperties(userPerkId).name;
+    const augmentOverlayOpen = augmentOverlayOpenState ?? true;
     return (
         <Sheet
             variant="outlined"
@@ -1816,21 +1886,64 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 Set up your army
                             </Typography>
                             <Typography level="body-xs" textColor={hocColors.mutedStrong}>
-                                1) Spend your upgrade points on augments below, 2) position your units on the board,
+                                1) Choose augments &amp; synergies in the pop-up, 2) position your units on the board,
                                 then hit Ready. Augments and placement share one timer.
                             </Typography>
                         </Box>
                         <RankedOpponentPlacementIntel snapshot={snapshot} userTeam={userTeam} />
                         <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
-                        {/* Spend the perk's upgrade points on army augments. Routed to the authoritative
-                            server via RankedPlayScene.propagateAugmentation (the AUGMENT play-action).
-                            Artifacts are drafted in the pick/ban phase (shown read-only above), so the free
-                            artifact picker is hidden here — it's a sandbox-only tool. */}
-                        <SideToggleContainer
-                            side={userTeam === TeamVals.LOWER ? "green" : "red"}
-                            teamType={userTeam}
-                            showArtifactPicker={false}
+                        {/* The augment/synergy picker lives in an overlay (open by default at placement
+                            start), not the sidebar. After "Continue to placement" the chosen upgrades
+                            collapse to this read-only summary; "Edit" re-opens the overlay. The picker
+                            routes to the authoritative server via RankedPlayScene.propagateAugmentation
+                            (the AUGMENT play-action); artifacts are drafted in pick/ban (read-only above),
+                            so the sandbox-only artifact picker stays hidden. */}
+                        <RankedAugmentSummary
+                            snapshot={snapshot}
+                            userTeam={userTeam}
+                            budget={augmentBudget}
+                            onEdit={() => setAugmentOverlayOpen(true)}
                         />
+                        <Modal keepMounted open={augmentOverlayOpen} onClose={() => setAugmentOverlayOpen(false)}>
+                            <ModalDialog
+                                variant="outlined"
+                                sx={{
+                                    ...hocPanelSx,
+                                    width: 460,
+                                    maxWidth: "94vw",
+                                    maxHeight: "90vh",
+                                    overflowY: "auto",
+                                }}
+                            >
+                                {/* Show the shared placement countdown INSIDE the pop-up — the header chip is
+                                    hidden behind this modal while the player picks augments/synergies. */}
+                                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                                    <Typography level="title-lg" textColor={hocColors.gold}>
+                                        Set up your army
+                                    </Typography>
+                                    <PlacementCountdownChip snapshot={snapshot} />
+                                </Stack>
+                                <Typography level="body-sm" textColor={hocColors.mutedStrong}>
+                                    {perkName === "None"
+                                        ? `You have ${augmentBudget} upgrade points.`
+                                        : `${perkName} — ${augmentBudget} upgrade points.`}{" "}
+                                    Spend them on augments and pick your synergies, then continue to place your units.
+                                </Typography>
+                                <SideToggleContainer
+                                    side={userTeam === TeamVals.LOWER ? "green" : "red"}
+                                    teamType={userTeam}
+                                    showArtifactPicker={false}
+                                    budgetPoints={augmentBudget}
+                                />
+                                <Button
+                                    variant="solid"
+                                    onClick={() => setAugmentOverlayOpen(false)}
+                                    sx={hocPrimaryButtonSx}
+                                >
+                                    Continue to placement
+                                </Button>
+                            </ModalDialog>
+                        </Modal>
                         <Button
                             variant="solid"
                             disabled={!canSubmit || ready}

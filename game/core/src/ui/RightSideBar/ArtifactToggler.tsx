@@ -27,9 +27,17 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
                 return (
                     <Tooltip
                         key={artifact.id}
-                        title={`${artifact.name}: ${artifact.description}`}
+                        // formatArtifactDescription fills the {}/[] placeholders in artifact.description with
+                        // the real power values — the raw description would show literal "{}" otherwise.
+                        title={
+                            <Box sx={{ maxWidth: 240, py: 0.25 }}>
+                                <Typography level="title-sm">{artifact.name}</Typography>
+                                <Typography level="body-xs">{Artifact.formatArtifactDescription(artifact)}</Typography>
+                            </Box>
+                        }
                         variant="soft"
                         placement="top"
+                        arrow
                     >
                         <IconButton
                             size="sm"

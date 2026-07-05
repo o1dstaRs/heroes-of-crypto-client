@@ -19,6 +19,7 @@ import {
     GridType,
     SynergyWithLevel,
     AbilityHelper,
+    Artifact,
     GridSettings,
     type GameAction,
     type GameEvent,
@@ -114,6 +115,22 @@ export function getScenesGrouped() {
             return { name, scenes };
         });
 }
+
+// Artifact buffs are applied as named "System" spells (e.g. "Veteran Helm"), but their icon lives under the
+// artifact image key (artifact_t{tier}_<slug>_256), not the generic "<name>_256" that abilityToTextureName
+// produces — so without this map the left-sidebar buff/debuff icons for artifacts render blank.
+const ARTIFACT_BUFF_TEXTURE: Record<string, string> = (() => {
+    const map: Record<string, string> = {};
+    for (const artifact of [...Artifact.TIER1_ARTIFACT_LIST, ...Artifact.TIER2_ARTIFACT_LIST]) {
+        if (artifact.buffName) {
+            map[artifact.buffName] = artifact.imageKey;
+        }
+    }
+    return map;
+})();
+
+const buffDebuffTextureName = (name: string): string =>
+    ARTIFACT_BUFF_TEXTURE[name] ?? AbilityHelper.abilityToTextureName(name);
 
 export abstract class PixiScene {
     private sc_sceneStarted = false;
@@ -521,7 +538,7 @@ export abstract class PixiScene {
 
                 visibleBuffsImpact.push({
                     name: buffName,
-                    smallTextureName: AbilityHelper.abilityToTextureName(buffName),
+                    smallTextureName: buffDebuffTextureName(buffName),
                     description: description,
                     laps: lapsRemaining,
                     stackPower: 0,
@@ -546,7 +563,7 @@ export abstract class PixiScene {
 
                 visibleDebuffsImpact.push({
                     name: debuffName,
-                    smallTextureName: AbilityHelper.abilityToTextureName(debuffName),
+                    smallTextureName: buffDebuffTextureName(debuffName),
                     description: description,
                     laps: lapsRemaining,
                     stackPower: 0,
