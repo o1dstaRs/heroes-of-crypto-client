@@ -768,10 +768,19 @@ const OPPONENT_ARMY_SLOTS = 6;
 // above the "Your army" bar so both drafts are visible side-by-side at the bottom of the pick screen.
 const OpponentDraftBar: React.FC<{
     opponentPicked: number[];
+    viewerPerk: number;
     onInspect?: (creatureId: number) => void;
-}> = ({ opponentPicked, onInspect }) => {
+}> = ({ opponentPicked, viewerPerk, onInspect }) => {
     const revealed = opponentPicked.filter((id) => id && id !== CreatureVals.NO_CREATURE);
-    const hiddenCount = Math.max(0, OPPONENT_ARMY_SLOTS - revealed.length);
+    // How many of the opponent's slots YOUR doctrine lets you watch (Spymaster all, Scout 3, Blind Fury none).
+    // Watched-but-not-yet-picked slots show an eye (they flip to a portrait once the opponent picks there); the
+    // rest stay face-down. Derived from your own perk, so the "eye" slots appear immediately at draft start —
+    // before the opponent has picked anything — telling you up front which slots you'll get to see.
+    const revealMode = Perk.getPerkRevealMode(viewerPerk as Perk.Perk);
+    const watchedSlots =
+        revealMode === "all" ? OPPONENT_ARMY_SLOTS : revealMode === "random3" ? Perk.PERK_RANDOM_REVEAL_SLOTS : 0;
+    const eyeCount = Math.max(0, Math.min(watchedSlots, OPPONENT_ARMY_SLOTS) - revealed.length);
+    const hiddenCount = Math.max(0, OPPONENT_ARMY_SLOTS - revealed.length - eyeCount);
     return (
         <Box sx={{ width: "100%", display: "flex", justifyContent: "center", pt: 1.5, pointerEvents: "none" }}>
             <Sheet
@@ -826,6 +835,29 @@ const OpponentDraftBar: React.FC<{
                             </Tooltip>
                         );
                     })}
+                    {Array.from({ length: eyeCount }).map((_, i) => (
+                        <Tooltip
+                            key={`opp-eye-${i}`}
+                            title="Revealed by your doctrine — flips to the unit once your opponent picks here"
+                            variant="soft"
+                        >
+                            <Box
+                                sx={{
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: "9px",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    border: "1px solid rgba(240,180,90,0.55)",
+                                    bgcolor: "rgba(240,180,90,0.1)",
+                                    color: "rgba(245,205,130,0.95)",
+                                    fontSize: 20,
+                                }}
+                            >
+                                👁
+                            </Box>
+                        </Tooltip>
+                    ))}
                     {Array.from({ length: hiddenCount }).map((_, i) => (
                         <Tooltip key={`opp-hidden-${i}`} title="Hidden — not revealed by your doctrine" variant="soft">
                             <Box
@@ -1125,7 +1157,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
             {/* Both draft bars share ONE mt:auto wrapper so they stack together at the bottom (two separate
                 mt:auto flex items would split the free space and float the opponent bar mid-screen). */}
             <Box sx={{ mt: "auto", width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <OpponentDraftBar opponentPicked={opponentPicked} onInspect={setInspectedId} />
+                <OpponentDraftBar opponentPicked={opponentPicked} viewerPerk={perk} onInspect={setInspectedId} />
 
                 <MyDraftBar
                     perk={perk}

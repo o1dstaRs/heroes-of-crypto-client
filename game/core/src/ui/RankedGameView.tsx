@@ -818,24 +818,36 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     if (
                         rejectionStreakRef.current.count >= 3 &&
                         payload.type !== PlayActionType.END_TURN &&
+                        payload.type !== PlayActionType.DEFEND_TURN &&
                         activeUnitId
                     ) {
                         rejectionStreakRef.current = { key: "", count: 0 };
-                        const escape = await sendRankedPlayAction(
-                            gameId,
-                            {
-                                ...payload,
-                                actionId: uuidv4(),
-                                type: PlayActionType.END_TURN,
-                                unitId: activeUnitId,
-                                targetUnitId: "",
-                                attackFrom: undefined,
-                                path: [],
-                                targetCells: [],
-                                expectedSequence: latestSequenceRef.current,
-                            },
-                            options,
-                        ).catch(() => undefined);
+                        // Escape a stuck unit by DEFENDING (armor stance) rather than skipping: it resolves the
+                        // turn so the game still advances, but renders as a defend instead of "<unit> skips turn"
+                        // (the ~1/fight boxed-unit skips). Fall back to END_TURN if the defend produces no
+                        // snapshot, preserving the original stall-break guarantee.
+                        const submitEscape = (
+                            escapeType: typeof PlayActionType.END_TURN | typeof PlayActionType.DEFEND_TURN,
+                        ) =>
+                            sendRankedPlayAction(
+                                gameId,
+                                {
+                                    ...payload,
+                                    actionId: uuidv4(),
+                                    type: escapeType,
+                                    unitId: activeUnitId,
+                                    targetUnitId: "",
+                                    attackFrom: undefined,
+                                    path: [],
+                                    targetCells: [],
+                                    expectedSequence: latestSequenceRef.current,
+                                },
+                                options,
+                            ).catch(() => undefined);
+                        let escape = await submitEscape(PlayActionType.DEFEND_TURN);
+                        if (!escape?.event?.snapshot) {
+                            escape = await submitEscape(PlayActionType.END_TURN);
+                        }
                         if (escape?.event?.snapshot) {
                             await waitForAuthoritativePlayback();
                             applySnapshot(escape.event.snapshot, { forceBoardRebuild: true });
