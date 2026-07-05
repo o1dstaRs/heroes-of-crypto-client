@@ -51,7 +51,7 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
                                 <img
                                     src={src}
                                     alt={artifact.name}
-                                    style={{ width: 32, height: 32, objectFit: "contain" }}
+                                    style={{ width: 48, height: 48, objectFit: "contain" }}
                                 />
                             ) : (
                                 <Typography level="body-xs">{artifact.name}</Typography>

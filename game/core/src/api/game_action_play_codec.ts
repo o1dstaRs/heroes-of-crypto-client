@@ -1,4 +1,4 @@
-import type { AugmentKind, GameAction, TeamType } from "@heroesofcrypto/common";
+import type { AugmentKind, FactionType, GameAction, TeamType } from "@heroesofcrypto/common";
 
 import { PlayActionType, type PlayAction, type PlayCell } from "./play_protocol";
 
@@ -144,6 +144,15 @@ export const createPlayActionFromGameAction = (action: GameAction, envelope: Pla
                 attackType: AUGMENT_KIND_TO_CODE[action.augmentKind],
                 amount: action.augmentValue,
             });
+        case "synergy":
+            // Placement-time synergy pick: faction in attackType, synergy name in unitName, level in amount.
+            return withEnvelope(envelope, {
+                type: PlayActionType.SYNERGY,
+                team: action.team,
+                attackType: action.faction,
+                unitName: action.synergyName,
+                amount: action.level,
+            });
     }
 };
 
@@ -267,6 +276,19 @@ export const createGameActionFromPlayAction = (action: Partial<PlayAction>): Gam
                 ? { type: "augment", team: action.team as TeamType, augmentKind: kind, augmentValue: action.amount }
                 : undefined;
         }
+        case PlayActionType.SYNERGY:
+            return typeof action.team === "number" &&
+                typeof action.attackType === "number" &&
+                !!action.unitName &&
+                typeof action.amount === "number"
+                ? {
+                      type: "synergy",
+                      team: action.team as TeamType,
+                      faction: action.attackType as FactionType,
+                      synergyName: action.unitName,
+                      level: action.amount,
+                  }
+                : undefined;
         default:
             return undefined;
     }

@@ -76,6 +76,28 @@ describe("ranked placement scene state", () => {
         expect(state.units.find((unit) => unit.properties.id === "fresh")?.hasHourglassed).toBe(false);
     });
 
+    test("populates applied_debuffs (name/laps/description) so the ranked HUD renders server-applied effects", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({
+                    id: "victim",
+                    team: TeamVals.UPPER,
+                    debuffs: ["Deep Wounds"],
+                    debuffLaps: [3],
+                    debuffDescriptions: ["Next attack with Deep Wounds ability will deal 12% more damage."],
+                }),
+            ]),
+        );
+        // The ranked client can't run the engine, so it fills the DISPLAY arrays (only) from the snapshot; the
+        // HUD reads applied_debuffs to show combat debuffs/effects (Deep Wounds, Rime slow, Shatter Armor, …).
+        const props = state.units.find((unit) => unit.properties.id === "victim")?.properties;
+        expect(props?.applied_debuffs).toEqual(["Deep Wounds"]);
+        expect(props?.applied_debuffs_laps).toEqual([3]);
+        expect(props?.applied_debuffs_descriptions).toEqual([
+            "Next attack with Deep Wounds ability will deal 12% more damage.",
+        ]);
+    });
+
     test("maps 1-based ranged shots, falling back to base when the field is absent", () => {
         const rangedOf = (rangeShots: number) => {
             const state = authoritativeSnapshotToSandboxSceneState(

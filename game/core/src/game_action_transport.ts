@@ -30,6 +30,10 @@ export interface AuthoritativeUnitState {
     /** Whether the unit is waiting on the hourglass (drives the hourglass icon on unit/UpNext/ALT). */
     onHourglass: boolean;
     debuffs?: string[];
+    /** Remaining laps per debuff/effect, parallel to `debuffs` — lets the ranked HUD render combat debuffs. */
+    debuffLaps?: number[];
+    /** Display-ready description per debuff/effect, parallel to `debuffs` (power already substituted in). */
+    debuffDescriptions?: string[];
     buffs?: string[];
     responded?: boolean;
     /** True if the unit already used its hourglass (wait) this lap — disables the Wait button in ranked. */

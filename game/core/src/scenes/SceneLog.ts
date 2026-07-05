@@ -37,6 +37,12 @@ export class SceneLog implements ISceneLog {
     public pushLine(line: string): void {
         this.log.unshift(line);
         this.updated = true;
+        // DEV-only: mirror every scene-log line into a window buffer so headless harnesses can read the
+        // ranked log (e.g. count "skips turn"). Same spirit as __hocActionLog. Zero effect in prod builds.
+        if (import.meta.env?.DEV && typeof window !== "undefined") {
+            const w = window as unknown as { __hocSceneLog?: string[] };
+            (w.__hocSceneLog ??= []).push(line);
+        }
     }
     /**
      * Optional hook (set by the sandbox scene) returning a team marker — 🟢 / 🔴 — for a log line based

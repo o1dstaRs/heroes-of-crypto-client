@@ -5004,6 +5004,30 @@ export class Sandbox extends PixiScene {
         stackIndex: number,
         kind: "debuff" | "buff",
     ): void {
+        // Deep Wounds also rakes an Ursa-style orange claw across the target, scaled by the effect's power
+        // (which reflects its level: L1≈6% / L2≈13% / L3≈21%, and stacks). The power is carried in the
+        // display description ("… deal N% more damage.") — the only source the ranked client has, since it
+        // can't run the engine — so parse it from there (works for the sandbox path too). Fired before the
+        // icon guard so the claw plays even if the icon texture is missing.
+        if (effectName === "Deep Wounds") {
+            const props = unit.getUnitProperties();
+            const idxD = props.applied_debuffs?.indexOf(effectName) ?? -1;
+            const idxE = props.applied_effects?.indexOf(effectName) ?? -1;
+            const at = (arr: number[] | undefined, idx: number): number | undefined =>
+                idx >= 0 && arr && idx < arr.length ? arr[idx] : undefined;
+            // Prefer the exact numeric power — the sandbox's live unit carries it. The ranked snapshot ships
+            // only the display description (power already substituted), so fall back to the N% inside it.
+            let power = at(props.applied_debuffs_powers, idxD) ?? at(props.applied_effects_powers, idxE) ?? 0;
+            if (!power) {
+                const desc =
+                    (idxD >= 0 ? props.applied_debuffs_descriptions?.[idxD] : undefined) ??
+                    (idxE >= 0 ? props.applied_effects_descriptions?.[idxE] : undefined);
+                power = desc ? Number(desc.match(/(\d+(?:\.\d+)?)%/)?.[1] ?? 0) : 0;
+            }
+            const cellSize = this.sc_sceneSettings.getGridSettings().getCellSize();
+            this.combatVisuals?.spawnClawSlash(unit.getPosition(), cellSize, power);
+        }
+
         const [iconTextureName] = SpellHelper.spellToTextureNames(effectName);
         const iconTexture = this.texAny(iconTextureName);
         if (!iconTexture) {

@@ -758,6 +758,100 @@ interface StainedGlassProps {
     height?: number;
 }
 
+// Total creatures each team drafts — mirrors sum(CreaturePoolByLevel) = [2,2,1,1] on the server. Used to
+// render the opponent's remaining (unrevealed) slots face-down.
+const OPPONENT_ARMY_SLOTS = 6;
+
+// The opponent's army as disclosed by YOUR scouting doctrine (perk): revealed creatures show as portraits,
+// the rest as face-down slots. Spymaster reveals every slot as the opponent fills it, Scout 3 random slots,
+// Blind Fury none. `opponentPicked` is the server-revealed set (empty when nothing is visible). Sits just
+// above the "Your army" bar so both drafts are visible side-by-side at the bottom of the pick screen.
+const OpponentDraftBar: React.FC<{
+    opponentPicked: number[];
+    onInspect?: (creatureId: number) => void;
+}> = ({ opponentPicked, onInspect }) => {
+    const revealed = opponentPicked.filter((id) => id && id !== CreatureVals.NO_CREATURE);
+    const hiddenCount = Math.max(0, OPPONENT_ARMY_SLOTS - revealed.length);
+    return (
+        <Box sx={{ width: "100%", display: "flex", justifyContent: "center", pt: 1.5, pointerEvents: "none" }}>
+            <Sheet
+                variant="soft"
+                sx={{
+                    pointerEvents: "auto",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    px: 2,
+                    py: 0.75,
+                    maxWidth: "94%",
+                    flexWrap: "wrap",
+                    justifyContent: "center",
+                    borderRadius: "14px",
+                    bgcolor: "rgba(18,8,10,0.9)",
+                    border: "1px solid rgba(255,120,120,0.22)",
+                    color: "#f0e7e9",
+                }}
+            >
+                <Typography level="body-xs" sx={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                    Opponent&apos;s army
+                </Typography>
+                <BarDivider />
+                <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
+                    {revealed.map((id, i) => {
+                        const src = creatureImage(id);
+                        return (
+                            <Tooltip key={`opp-${id}-${i}`} title={creatureName(id)} variant="soft">
+                                <Box
+                                    onMouseEnter={() => onInspect?.(id)}
+                                    sx={{
+                                        width: 44,
+                                        height: 44,
+                                        borderRadius: "9px",
+                                        overflow: "hidden",
+                                        border: "1px solid rgba(240,120,120,0.6)",
+                                    }}
+                                >
+                                    {src ? (
+                                        <img
+                                            src={src}
+                                            alt={creatureName(id)}
+                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                        />
+                                    ) : (
+                                        <Typography level="body-xs" sx={{ p: 0.5 }}>
+                                            {creatureName(id)}
+                                        </Typography>
+                                    )}
+                                </Box>
+                            </Tooltip>
+                        );
+                    })}
+                    {Array.from({ length: hiddenCount }).map((_, i) => (
+                        <Tooltip key={`opp-hidden-${i}`} title="Hidden — not revealed by your doctrine" variant="soft">
+                            <Box
+                                sx={{
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: "9px",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    border: "1px dashed rgba(255,255,255,0.22)",
+                                    bgcolor: "rgba(255,255,255,0.04)",
+                                    color: "rgba(255,255,255,0.5)",
+                                    fontSize: 18,
+                                    fontWeight: 700,
+                                }}
+                            >
+                                ?
+                            </Box>
+                        </Tooltip>
+                    ))}
+                </Box>
+            </Sheet>
+        </Box>
+    );
+};
+
 const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
     const {
         pickPhase,
@@ -772,6 +866,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
         upgradePoints,
         artifactTier1,
         artifactTier2,
+        opponentPicked,
     } = usePickBanEvents();
     const { perk: sendPerk, pickPair, pick, artifact } = useAuthContext();
     const [busy, setBusy] = useState(false);
@@ -1002,9 +1097,6 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
                 )}
             </Box>
 
-            {/* Opponent picks are fully hidden — no opponent army bar. You learn a unit is taken only by
-                colliding on it (the pick re-prompts you). */}
-
             {/* Imperative "what to do now" so first-time players always know the expected action. */}
             {isYourTurn && !isHandoff && phaseAction(pickPhase, requiredLevel) && (
                 <Typography level="title-sm" sx={{ color: "#7CFC9B", fontWeight: 700, textAlign: "center", mt: -0.5 }}>
@@ -1030,13 +1122,19 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
 
             <CreatureDetailPanel creatureId={inspectedId} />
 
-            <MyDraftBar
-                perk={perk}
-                picked={picked}
-                artifactTier1={artifactTier1}
-                artifactTier2={artifactTier2}
-                onInspect={setInspectedId}
-            />
+            {/* Both draft bars share ONE mt:auto wrapper so they stack together at the bottom (two separate
+                mt:auto flex items would split the free space and float the opponent bar mid-screen). */}
+            <Box sx={{ mt: "auto", width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <OpponentDraftBar opponentPicked={opponentPicked} onInspect={setInspectedId} />
+
+                <MyDraftBar
+                    perk={perk}
+                    picked={picked}
+                    artifactTier1={artifactTier1}
+                    artifactTier2={artifactTier2}
+                    onInspect={setInspectedId}
+                />
+            </Box>
         </Sheet>
     );
 };

@@ -57,6 +57,7 @@ import type { IWindowSize } from "../scenes/VisibleState";
 import DraggableToolbar from "./DraggableToolbar";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import LeftSideBar from "./LeftSideBar";
+import SynergiesRow from "./LeftSideBar/SynergiesRow";
 import { Main } from "./Main";
 import Popover from "./Popover";
 import RightSideBar from "./RightSideBar";
@@ -1354,6 +1355,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                         <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />
                     </ViewerTeamContext.Provider>
                     <RightSideBar gameStarted={gameStarted} windowSize={windowSize} rankedPanel={rankedPanel} />
+                    {gameStarted && <RankedSynergiesPanel snapshot={snapshot} userTeam={userTeam} />}
                     {gameStarted && <UpNextOverlay />}
                     {gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
                         <AiControlBadge left={aiBadgeLeft(windowSize)} />
@@ -1788,6 +1790,67 @@ const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam:
                 })}
             </Box>
         </Stack>
+    );
+};
+
+// Top-left HUD panel showing both armies' active synergies once the fight has started. The server only
+// populates snapshot.*Synergies after fight start (empty during placement), so this stays hidden until the
+// fight begins — and it never reveals picks during placement.
+const RankedSynergiesPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamType }> = ({ snapshot, userTeam }) => {
+    const isLower = userTeam === TeamVals.LOWER;
+    const yours = (isLower ? snapshot.lowerSynergies : snapshot.upperSynergies) ?? [];
+    const theirs = (isLower ? snapshot.upperSynergies : snapshot.lowerSynergies) ?? [];
+    if (!yours.length && !theirs.length) {
+        return null;
+    }
+    return (
+        <Sheet
+            variant="outlined"
+            sx={{
+                position: "fixed",
+                top: 12,
+                left: 12,
+                zIndex: 15,
+                p: 1,
+                borderRadius: "md",
+                minWidth: 120,
+                ...hocPanelSx,
+                backdropFilter: "blur(10px)",
+            }}
+        >
+            <Stack spacing={0.75}>
+                <Box>
+                    <Typography
+                        level="body-xs"
+                        sx={{ color: "#46d160", textTransform: "uppercase", letterSpacing: 0.5, mb: 0.25 }}
+                    >
+                        Your synergies
+                    </Typography>
+                    {yours.length ? (
+                        <SynergiesRow synergies={yours} />
+                    ) : (
+                        <Typography level="body-xs" textColor={hocColors.muted}>
+                            None
+                        </Typography>
+                    )}
+                </Box>
+                <Box>
+                    <Typography
+                        level="body-xs"
+                        sx={{ color: "#ff5a5a", textTransform: "uppercase", letterSpacing: 0.5, mb: 0.25 }}
+                    >
+                        Opponent
+                    </Typography>
+                    {theirs.length ? (
+                        <SynergiesRow synergies={theirs} />
+                    ) : (
+                        <Typography level="body-xs" textColor={hocColors.muted}>
+                            None
+                        </Typography>
+                    )}
+                </Box>
+            </Stack>
+        </Sheet>
     );
 };
 

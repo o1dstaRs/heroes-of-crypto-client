@@ -106,6 +106,21 @@ interface ISlash {
     woundLife: number; // how long the wound mark itself stays before it has faded
 }
 
+interface IClawMark {
+    top: HoCMath.XY[]; // one tapered edge of the gash
+    bot: HoCMath.XY[]; // the other tapered edge
+    spine: HoCMath.XY[]; // bright centerline down the deepest part
+    delay: number; // seconds this mark lags the first, so the set rakes in sequence
+}
+
+interface IClawSlash {
+    container: Container;
+    gfx: Graphics; // all marks, redrawn each frame (rake reveal + flare-out)
+    marks: IClawMark[];
+    age: number; // seconds since spawn
+    life: number; // total seconds on screen
+}
+
 interface IDebuffPop {
     container: Container;
     age: number;
@@ -184,6 +199,19 @@ const SLASH_RIM = 0x300000; // near-black-red torn edge
 const SLASH_CORE = 0xe00000; // bright red deepest part of the cut
 const SLASH_DROP = 0xa80000; // dripping blood droplets
 
+// Tuning for the Deep Wounds "claw rake" — Ursa-style glowing orange claw marks that streak across the
+// target as the debuff lands. Snappy: each mark rakes in fast (staggered so they read as a swipe), holds,
+// then flares out. The mark count + rake width scale with the effect's power (Deep Wounds L1→L3, which
+// also stacks), so a deeper wound reads as a bigger, angrier claw.
+const CLAW_Z = 2120; // above the debuff pop (2100) so the rake reads on top of the icon
+const CLAW_LIFE = 0.5; // seconds the whole rake lives
+const CLAW_RAKE_DUR = 0.13; // seconds for one mark to streak to full length
+const CLAW_STAGGER = 0.035; // seconds each successive mark lags → they rake in sequence
+const CLAW_FADE_FROM = 0.5; // fraction of life after which the marks flare out
+const CLAW_GLOW = 0xff6a14; // outer orange glow (the torn flesh)
+const CLAW_MID = 0xff9a3a; // mid flame-orange body
+const CLAW_CORE = 0xffe6b0; // hot near-white core down each gash
+
 const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
 const easeOutBack = (t: number): number => {
     const c1 = 1.70158;
@@ -199,6 +227,7 @@ export class CombatVisuals {
     private chainLightnings: IChainLightning[] = [];
     private windSpears: IWindSpear[] = [];
     private slashes: ISlash[] = [];
+    private clawSlashes: IClawSlash[] = [];
     private debuffPops: IDebuffPop[] = [];
     private debuffStyle?: TextStyle;
     private buffStyle?: TextStyle;
@@ -451,6 +480,10 @@ export class CombatVisuals {
             dp.container.destroy();
         }
         this.debuffPops.length = 0;
+        for (const claw of this.clawSlashes) {
+            claw.container.destroy({ children: true });
+        }
+        this.clawSlashes.length = 0;
     }
     public update(dt: number) {
         for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
@@ -521,6 +554,7 @@ export class CombatVisuals {
         this.stepChainLightnings(dt);
         this.stepWindSpears(dt);
         this.stepSlashes(dt);
+        this.stepClawSlashes(dt);
     }
     /**
      * "Broken mirror" death effect: slice the unit's current texture into a grid of shards that
@@ -1086,6 +1120,97 @@ export class CombatVisuals {
                 const dropAlpha = 1 - drop.age / drop.life;
                 gfx.circle(drop.x, drop.y, drop.r * (0.7 + 0.3 * dropAlpha));
                 gfx.fill({ color: SLASH_DROP, alpha: 0.9 * dropAlpha });
+            }
+        }
+    }
+    /**
+     * Deep Wounds "claw rake": a fan of glowing orange claw marks that streak diagonally across the
+     * target as the effect lands (Ursa-style). `intensity` is the effect's power % (Deep Wounds L1≈6,
+     * L2≈13, L3≈21, and it stacks) — the deeper the wound, the more marks and the wider the rake.
+     */
+    public spawnClawSlash(center: HoCMath.XY, cellSize: number, intensity: number): void {
+        const level = intensity >= 18 ? 3 : intensity >= 10 ? 2 : 1;
+        const markCount = 2 + level; // 3, 4, or 5 claws
+        const spanScale = 0.85 + 0.12 * level; // a deeper wound rakes bigger
+
+        const container = new Container();
+        this.context.attachToWorldRoot(container, CLAW_Z);
+        const gfx = new Graphics();
+        container.addChild(gfx);
+
+        // Diagonal swipe (top-right → bottom-left), jittered so repeats don't look identical.
+        const ang = -Math.PI / 3 + (Math.random() - 0.5) * 0.5;
+        const ux = Math.cos(ang);
+        const uy = Math.sin(ang);
+        const px = -uy; // perpendicular: marks are offset along this, and each bows along it too
+        const py = ux;
+        const len = cellSize * 1.15 * spanScale;
+        const spread = cellSize * 0.14; // gap between adjacent marks
+        const maxHalfW = cellSize * 0.055; // each mark is thin
+        const N = 10;
+
+        const marks: IClawMark[] = [];
+        for (let m = 0; m < markCount; m++) {
+            const offset = (m - (markCount - 1) / 2) * spread;
+            const bow = (0.35 + Math.random() * 0.2) * cellSize; // all marks curve the same way → a rake
+            const top: HoCMath.XY[] = [];
+            const bot: HoCMath.XY[] = [];
+            const spine: HoCMath.XY[] = [];
+            for (let i = 0; i <= N; i++) {
+                const t = i / N;
+                const along = (t - 0.5) * len;
+                const taper = Math.sin(Math.PI * t); // pointed at both ends
+                const w = maxHalfW * taper;
+                const curve = bow * taper;
+                const cx = center.x + ux * along + px * (offset + curve);
+                const cy = center.y + uy * along + py * (offset + curve);
+                spine.push({ x: cx, y: cy });
+                top.push({ x: cx + px * w, y: cy + py * w });
+                bot.push({ x: cx - px * w, y: cy - py * w });
+            }
+            marks.push({ top, bot, spine, delay: m * CLAW_STAGGER });
+        }
+
+        this.clawSlashes.push({ container, gfx, marks, age: 0, life: CLAW_LIFE });
+    }
+    private stepClawSlashes(dt: number): void {
+        for (let i = this.clawSlashes.length - 1; i >= 0; i--) {
+            const claw = this.clawSlashes[i];
+            claw.age += dt;
+            if (claw.age >= claw.life) {
+                claw.container.destroy({ children: true });
+                this.clawSlashes.splice(i, 1);
+                continue;
+            }
+            const gfx = claw.gfx;
+            gfx.clear();
+            const lifeT = claw.age / claw.life;
+            const fade = lifeT < CLAW_FADE_FROM ? 1 : 1 - (lifeT - CLAW_FADE_FROM) / (1 - CLAW_FADE_FROM);
+            for (const mark of claw.marks) {
+                const local = claw.age - mark.delay;
+                if (local <= 0) {
+                    continue;
+                }
+                // Rake: each mark streaks from its leading end to full length.
+                const reveal = Math.min(1, local / CLAW_RAKE_DUR);
+                const n = mark.spine.length - 1;
+                const k = Math.max(1, Math.ceil(reveal * n));
+                gfx.moveTo(mark.top[0].x, mark.top[0].y);
+                for (let p = 1; p <= k; p++) {
+                    gfx.lineTo(mark.top[p].x, mark.top[p].y);
+                }
+                for (let p = k; p >= 0; p--) {
+                    gfx.lineTo(mark.bot[p].x, mark.bot[p].y);
+                }
+                gfx.closePath();
+                gfx.fill({ color: CLAW_GLOW, alpha: 0.5 * fade });
+                gfx.stroke({ width: 2, color: CLAW_MID, alpha: 0.85 * fade, cap: "round", join: "round" });
+                // Hot core down the revealed spine.
+                gfx.moveTo(mark.spine[0].x, mark.spine[0].y);
+                for (let p = 1; p <= k; p++) {
+                    gfx.lineTo(mark.spine[p].x, mark.spine[p].y);
+                }
+                gfx.stroke({ width: 1.5, color: CLAW_CORE, alpha: 0.95 * fade, cap: "round" });
             }
         }
     }

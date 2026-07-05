@@ -731,8 +731,6 @@ const SideToggleContainer = ({
             </Box>
             <Divider />
 
-            {showArtifactPicker && <ArtifactToggler teamType={teamType} />}
-
             {hasAnySynergies && (
                 <Box sx={{ display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
                     {possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] > 0 &&
@@ -1088,6 +1086,8 @@ const SideToggleContainer = ({
                     </>
                 )
             )}
+
+            {showArtifactPicker && <ArtifactToggler teamType={teamType} />}
         </Box>
     );
 };

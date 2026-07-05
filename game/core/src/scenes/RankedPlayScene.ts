@@ -11,6 +11,7 @@ import {
     ToFactionName,
     type AttackType,
     type CreatureId,
+    type FactionType,
     type GameAction,
     type GameEvent,
     type GridType,
@@ -174,6 +175,15 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                 luck: unitState.luck,
                 luck_mod: 0,
                 luck_authoritative: true,
+                // Server-applied combat debuffs + effects for the HUD's Debuffs list. Ranked can't run the
+                // engine, so these arrive pre-computed in the snapshot (name + laps + power-filled description).
+                // DISPLAY strings ONLY — we deliberately do NOT rebuild the debuff/effect OBJECT arrays
+                // (this.debuffs/this.effects), because adjustBaseStats re-derives stats from those and would
+                // double-apply penalties on top of the already-authoritative stats. The stats are authoritative;
+                // this is purely so the player sees Deep Wounds, Rime slow, Shatter Armor, etc.
+                applied_debuffs: unitState.debuffs ?? [],
+                applied_debuffs_laps: unitState.debuffLaps ?? [],
+                applied_debuffs_descriptions: unitState.debuffDescriptions ?? [],
             } as UnitProperties;
         } catch {
             // Legacy snapshots may not carry a usable creature id, so fall through factions.
@@ -583,6 +593,20 @@ export class RankedPlayScene extends Sandbox {
         // in-order and idempotent regardless of how many times a snapshot is re-applied.
         this.processDebuffPops(snapshot);
 
+        // The results overlay must appear once the fight is finished — independent of the board-rebuild
+        // guards below. A terminal (fight-finished) snapshot can arrive while an action animation is still
+        // in flight (very common when BOTH teams are AI on the same client: the killing blow is mid-animation
+        // as the final snapshot lands), or be short-circuited by the board-signature guard — either way the
+        // full-hydrate path that normally calls applyRankedFightStats never runs, so the finish (and its
+        // winner) is never published and the overlay never shows. Publishing fight stats is animation- and
+        // board-rebuild-independent (it only touches world visuals + React state), so do it up front for a
+        // finished fight, before any early return. Gated on !hasFinished so it fires once, then the sticky
+        // finished state keeps it idempotent across the 4s fallback poll's repeated finished snapshots.
+        if (snapshot.fightFinished && !this.sc_visibleState?.hasFinished) {
+            const finishedState = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
+            this.applyRankedFightStats(snapshot, finishedState.units);
+        }
+
         // The 4s fallback poll can fetch the post-move state and apply it (without skipBoardRebuild)
         // while a move/attack animation is still in flight. hydrateSceneState would then recreate every
         // unit at its final cell and snap the in-progress slide. Ignore such full rebuilds while
@@ -909,6 +933,32 @@ export class RankedPlayScene extends Sandbox {
             augmentKind: augmentType.type,
             augmentValue: augmentType.value,
         });
+        return true;
+    }
+    /**
+     * Ranked synergy selection also routes through the authoritative server: apply optimistically for
+     * instant sidebar feedback (super derives the specific synergy + updateSynergyPerTeam), then send a
+     * `synergy` action for the viewer's own team. The server resolves the pick, re-derives the level from
+     * army composition, and rebroadcasts — so synergies finally apply to the ranked fight. Own team only.
+     */
+    public override propagateSynergy(
+        teamType: TeamType,
+        faction: FactionType,
+        synergyName: string,
+        synergyLevel: number,
+    ): boolean {
+        const transport = this.sc_gameActionTransport;
+        if (!transport) {
+            return super.propagateSynergy(teamType, faction, synergyName, synergyLevel);
+        }
+        if (this.viewerTeam === undefined || teamType !== this.viewerTeam) {
+            return false;
+        }
+        const applied = super.propagateSynergy(teamType, faction, synergyName, synergyLevel);
+        if (!applied) {
+            return false;
+        }
+        transport({ type: "synergy", team: teamType, faction, synergyName, level: synergyLevel });
         return true;
     }
     /**

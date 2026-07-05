@@ -31,6 +31,7 @@ export const PlayActionType = {
     REQUEST_ADDITIONAL_TIME: 19,
     AUGMENT: 20,
     ABANDON: 21,
+    SYNERGY: 22,
 } as const;
 
 export type PlayActionTypeValue = (typeof PlayActionType)[keyof typeof PlayActionType];
@@ -92,6 +93,10 @@ export interface PlayUnitState {
     onHourglass: boolean;
     /** Names of debuffs currently active on the unit; used to animate newly-applied ones. */
     debuffs?: string[];
+    /** Remaining laps per debuff/effect, parallel to `debuffs` — drives the ranked HUD's debuff list. */
+    debuffLaps?: number[];
+    /** Display-ready description per debuff/effect, parallel to `debuffs` (power already substituted in). */
+    debuffDescriptions?: string[];
     /** Names of buffs currently active on the unit; used to animate newly-applied ones. */
     buffs?: string[];
     /** True if the unit already retaliated (replied) this lap — drives the respond tag. */
@@ -176,6 +181,11 @@ export interface PlaySnapshot {
     upperAugmentMight?: number;
     upperAugmentSniper?: number;
     upperAugmentMovement?: number;
+    /** Each team's selected synergies (keys like "Might:2:1"). Only populated once the fight has started
+     * (empty during placement, for both teams) — the ranked HUD shows them top-left. Absent from older
+     * servers (decoder defaults to []). */
+    lowerSynergies?: string[];
+    upperSynergies?: string[];
 }
 
 export interface PlayAction {
@@ -616,6 +626,8 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         upperAugmentMight: 0,
         upperAugmentSniper: 0,
         upperAugmentMovement: 0,
+        lowerSynergies: [],
+        upperSynergies: [],
     };
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
@@ -705,6 +717,11 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             snapshot.upperAugmentSniper = reader.varintNumber();
         } else if (field === 43) {
             snapshot.upperAugmentMovement = reader.varintNumber();
+        } else if (field === 44) {
+            // repeated string: each occurrence is one synergy key ("Faction:synergy:level").
+            (snapshot.lowerSynergies ??= []).push(reader.string());
+        } else if (field === 45) {
+            (snapshot.upperSynergies ??= []).push(reader.string());
         } else {
             reader.skip(wireType);
         }
@@ -788,6 +805,12 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
             unit.hasHourglassed = reader.bool();
         } else if (field === 25) {
             unit.skipping = reader.bool();
+        } else if (field === 26) {
+            // debuff_laps (packed=false): one varint per active debuff/effect, parallel to `debuffs`.
+            (unit.debuffLaps ??= []).push(reader.varintNumber());
+        } else if (field === 27) {
+            // debuff_descriptions: display-ready string per active debuff/effect, parallel to `debuffs`.
+            (unit.debuffDescriptions ??= []).push(reader.string());
         } else {
             reader.skip(wireType);
         }
