@@ -56,6 +56,7 @@ export const authoritativeUnitToSandboxUnitState = (
         attackType: unitState.attackType as AttackType,
         onHourglass: unitState.onHourglass,
         hasHourglassed: unitState.hasHourglassed,
+        forcedTargetId: unitState.forcedTargetId,
     };
 };
 

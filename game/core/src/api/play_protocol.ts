@@ -107,6 +107,9 @@ export interface PlayUnitState {
     /** True if the unit is skipping this turn (Stun/Blindness) — drives the stun icon in ranked (the
      * effect itself isn't synced, so this is the only source there). */
     skipping?: boolean;
+    /** Aggr forced target: the unit id this unit is compelled to attack (empty = none). Kept across
+     * board rebuilds so the client never draws attack arrows to other targets. */
+    forcedTargetId?: string;
 }
 
 export interface PlayJournalEntry {
@@ -811,6 +814,8 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
         } else if (field === 27) {
             // debuff_descriptions: display-ready string per active debuff/effect, parallel to `debuffs`.
             (unit.debuffDescriptions ??= []).push(reader.string());
+        } else if (field === 28) {
+            unit.forcedTargetId = reader.string();
         } else {
             reader.skip(wireType);
         }

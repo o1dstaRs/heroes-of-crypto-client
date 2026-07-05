@@ -108,6 +108,9 @@ export interface SandboxSceneUnitState {
     /** Whether the unit already used its one hourglass (wait) this lap — restored into fightProperties so the
      *  ranked client's canHourglass matches the server (else the AI re-requests a rejected wait → skip). */
     hasHourglassed?: boolean;
+    /** Aggr forced target: the unit id this unit is compelled to attack (empty/undefined = none). Restored
+     *  on rebuild so attack arrows never point at anyone but the forced target. */
+    forcedTargetId?: string;
 }
 
 export interface SandboxSceneState {
@@ -1324,6 +1327,7 @@ export class Sandbox extends PixiScene {
                 cells: unitState.cells,
                 baseCell: unitState.baseCell,
                 attackType: unitState.attackType as AttackType,
+                forcedTargetId: unitState.forcedTargetId,
             });
         }
 
@@ -1776,6 +1780,9 @@ export class Sandbox extends PixiScene {
         // Carry the hourglass (wait) state so the icon renders on rebuilt units (ranked snapshots /
         // sandbox replay); the engine sets it live during normal sandbox play.
         renderableUnit.setOnHourglass(unitState.onHourglass ?? false);
+        // Restore the Aggr forced-target lock so a rebuilt unit still only offers its compelled target
+        // (empty string clears it — the source died or the effect expired).
+        renderableUnit.setTarget(unitState.forcedTargetId ?? "");
         return renderableUnit;
     }
     private captureSceneState(): SandboxSceneState {
@@ -1795,6 +1802,7 @@ export class Sandbox extends PixiScene {
                 baseCell: { x: baseCell.x, y: baseCell.y },
                 attackType: unit.getAttackTypeSelection(),
                 onHourglass: unit.isOnHourglass(),
+                forcedTargetId: unit.getTarget() || undefined,
             });
         }
 
@@ -2752,6 +2760,12 @@ export class Sandbox extends PixiScene {
                 220 + index * 180,
             );
         });
+
+        // Deep Wounds: rake an orange claw slash across the wounded unit for EVERY application recorded
+        // during this attack (a double-punch wounder produces two entries -> two claws). Driven off the
+        // authoritative damage.deepWounds so it fires per-application (not once via the effect diff) and
+        // matches between the live sandbox and the ranked replay.
+        this.spawnDeepWoundsClaws(damage.deepWounds);
 
         // AOE attacks (Cyclops' Large Caliber, Gargantuan's Area Throw) carry a per-affected-unit
         // breakdown. Draw a floating number on EVERY splashed unit at its own position — including
@@ -4997,6 +5011,26 @@ export class Sandbox extends PixiScene {
             }
         }
     }
+    /**
+     * Rake an Ursa-style orange Deep Wounds claw over each wounded unit — ONE slash per application that
+     * landed during the attack. A double-punch wounder (e.g. Wolf) that wounds on both hits produces two
+     * entries and therefore two claws. Driven off the authoritative `damage.deepWounds`, so it fires
+     * per-application (not once via the effect-name diff) and is identical in the live sandbox and the
+     * ranked replay. `power` scales the claw (reflects the effect's level / stack).
+     */
+    protected spawnDeepWoundsClaws(deepWounds?: { unitId: string; power: number }[]): void {
+        if (!deepWounds?.length || !this.combatVisuals) {
+            return;
+        }
+        const cellSize = this.sc_sceneSettings.getGridSettings().getCellSize();
+        for (const dw of deepWounds) {
+            const woundedUnit = this.unitsHolder.getAllUnits().get(dw.unitId) as RenderableUnit | undefined;
+            if (!woundedUnit) {
+                continue;
+            }
+            this.combatVisuals.spawnClawSlash(woundedUnit.getPosition(), cellSize, dw.power);
+        }
+    }
     /** Pop a freshly-applied effect's spell icon + name over a unit (shared by sandbox + ranked). */
     protected popEffectOnUnit(
         unit: RenderableUnit,
@@ -5004,30 +5038,10 @@ export class Sandbox extends PixiScene {
         stackIndex: number,
         kind: "debuff" | "buff",
     ): void {
-        // Deep Wounds also rakes an Ursa-style orange claw across the target, scaled by the effect's power
-        // (which reflects its level: L1≈6% / L2≈13% / L3≈21%, and stacks). The power is carried in the
-        // display description ("… deal N% more damage.") — the only source the ranked client has, since it
-        // can't run the engine — so parse it from there (works for the sandbox path too). Fired before the
-        // icon guard so the claw plays even if the icon texture is missing.
-        if (effectName === "Deep Wounds") {
-            const props = unit.getUnitProperties();
-            const idxD = props.applied_debuffs?.indexOf(effectName) ?? -1;
-            const idxE = props.applied_effects?.indexOf(effectName) ?? -1;
-            const at = (arr: number[] | undefined, idx: number): number | undefined =>
-                idx >= 0 && arr && idx < arr.length ? arr[idx] : undefined;
-            // Prefer the exact numeric power — the sandbox's live unit carries it. The ranked snapshot ships
-            // only the display description (power already substituted), so fall back to the N% inside it.
-            let power = at(props.applied_debuffs_powers, idxD) ?? at(props.applied_effects_powers, idxE) ?? 0;
-            if (!power) {
-                const desc =
-                    (idxD >= 0 ? props.applied_debuffs_descriptions?.[idxD] : undefined) ??
-                    (idxE >= 0 ? props.applied_effects_descriptions?.[idxE] : undefined);
-                power = desc ? Number(desc.match(/(\d+(?:\.\d+)?)%/)?.[1] ?? 0) : 0;
-            }
-            const cellSize = this.sc_sceneSettings.getGridSettings().getCellSize();
-            this.combatVisuals?.spawnClawSlash(unit.getPosition(), cellSize, power);
-        }
-
+        // NOTE: the Deep Wounds orange claw is NO LONGER fired here. The effect-name diff pops only once
+        // (when the name first appears) and can't tell a double-punch's two applications apart, so the claw
+        // is driven per-application off `damage.deepWounds` via spawnDeepWoundsClaws() on both the live and
+        // replay attack paths. Only the effect ICON still pops here.
         const [iconTextureName] = SpellHelper.spellToTextureNames(effectName);
         const iconTexture = this.texAny(iconTextureName);
         if (!iconTexture) {
@@ -6158,6 +6172,9 @@ export class Sandbox extends PixiScene {
             this.spawnSkewerWindSpearVfx(attacker, target, skewerAttackEvent?.damage);
             // Shatter Armor: red wound gashes across the target on a landed strike.
             this.spawnShatterArmorSlashVfx(attacker, target, skewerAttackEvent?.damage);
+            // Deep Wounds: one orange claw slash per application recorded on this strike (a double-punch
+            // wounder shows two). Shared helper — the ranked replay fires the same one in showReplayAttackDamage.
+            this.spawnDeepWoundsClaws(skewerAttackEvent?.damage?.deepWounds);
         }
 
         // 1. Target Damage
@@ -9392,12 +9409,26 @@ export class Sandbox extends PixiScene {
             this.currentActivePathHashes = movePath.hashes;
 
             if (this.currentActiveUnit) {
-                const enemyTeam = this.unitsHolder.getAllEnemyUnits(this.currentActiveUnit.getTeam());
+                let enemyTeam = this.unitsHolder.getAllEnemyUnits(this.currentActiveUnit.getTeam());
                 const positions = new Map<string, HoCMath.XY>();
                 for (const u of this.unitsHolder.getAllUnits().values()) {
                     positions.set(u.getId(), u.getPosition());
                 }
-                const adjacentEnemies = this.unitsHolder.allEnemiesAroundUnit(this.currentActiveUnit, false, undefined);
+                let adjacentEnemies = this.unitsHolder.allEnemiesAroundUnit(this.currentActiveUnit, false, undefined);
+
+                // Aggr forced target: when the active unit is compelled onto one enemy (and it's still
+                // alive), it can ONLY attack that unit. Restrict the attackable sets to it so we never
+                // draw attack arrows / red previews to anyone else — mirrors the engine's forced-target
+                // enforcement (attack_handler.ts) and legacy canTarget(). Applies to sandbox AND ranked
+                // (RankedPlayScene extends Sandbox). If the forced target has died, the lock is released.
+                const forcedTargetId = this.currentActiveUnit.getTarget();
+                if (forcedTargetId) {
+                    const forcedTarget = this.unitsHolder.getAllUnits().get(forcedTargetId);
+                    if (forcedTarget && !forcedTarget.isDead()) {
+                        enemyTeam = enemyTeam.filter((u) => u.getId() === forcedTargetId);
+                        adjacentEnemies = adjacentEnemies.filter((u) => u.getId() === forcedTargetId);
+                    }
+                }
 
                 // MAGIC attack type is spell-casting mode — it has no melee attack positions, so
                 // skip the melee-target computation (keeps the move silhouette but drops the red

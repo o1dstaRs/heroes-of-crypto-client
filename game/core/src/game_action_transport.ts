@@ -40,6 +40,8 @@ export interface AuthoritativeUnitState {
     hasHourglassed?: boolean;
     /** True if the unit is skipping this turn (Stun/Blindness) — drives the stun icon in ranked. */
     skipping?: boolean;
+    /** Aggr forced target: the unit id this unit is compelled to attack (empty/undefined = none). */
+    forcedTargetId?: string;
 }
 
 export interface AuthoritativeJournalEntry {
