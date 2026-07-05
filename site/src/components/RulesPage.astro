@@ -237,7 +237,18 @@ const copy = isRu
               { label: "Скорость", text: "сильно влияет на порядок ходов внутри круга" },
               { label: "Шаги", text: "сколько клеток юнит может пройти за ход" },
               { label: "Выстрелы", text: "боезапас дальних атак, если юнит стреляет" },
-              { label: "Маг. сопротивление", text: "шанс сопротивляться дебаффам и магическим эффектам" },
+              {
+                  label: "Маг. сопротивление",
+                  text: "снижает магический урон (100 = полный иммунитет) и шанс, что дебафф от заклинания сработает — но НЕ статус-эффекты",
+              },
+              {
+                  label: "Статус-сопротивление",
+                  text: "снижает шанс, что Оглушение и Паралич сработают (например, от Amulet of Resolve); не защищает от магии",
+              },
+              {
+                  label: "Сопротивление разуму",
+                  text: "полная невосприимчивость к эффектам разума (Blindness, Aggravating, Boar Saliva, Petrifying Gaze). Даётся только способностями Madness/Mechanism, не артефактами",
+              },
           ],
           upgradesTitle: "Апгрейды команды: 7 очков, настоящие компромиссы",
           upgradesIntro:
@@ -317,7 +328,7 @@ const copy = isRu
               },
               {
                   title: "Книга заклинаний",
-                  text: "Маги и юниты с книгой заклинаний применяют баффы, дебаффы, лечение, массовые эффекты, призыв и позиционные трюки. Магическое и ментальное сопротивление могут остановить эффект.",
+                  text: "Маги и юниты с книгой заклинаний применяют баффы, дебаффы, лечение, массовые эффекты, призыв и позиционные трюки. Есть три разных сопротивления: магическое (магический урон + дебаффы заклинаний), статус (шанс Оглушения/Паралича) и ментальное (полный иммунитет к эффектам разума).",
               },
               {
                   title: "Hourglass",
@@ -341,6 +352,19 @@ const copy = isRu
               "Удача - от -10 до +10 и в основном защитная: удачливый стек получает меньше урона, неудачливый - больше (примерно 1% за единицу). Ваша удача также усиливает ваши способности и повышает шанс их срабатывания. Каждый круг удача получает небольшой случайный сдвиг; Luck Shield (защита) убирает этот сдвиг за небольшую цену в мораль.",
               "Сила стека пересчитывается от ценности стека на доске: опыт юнита умножается на количество живых существ и сравнивается с крупнейшим стеком. Диапазон - от 1 до 5.",
           ],
+          moraleBreakdownTitle: "Точные изменения морали",
+          moraleBreakdown: [
+              { change: "+3", text: "Ход к ближайшему врагу" },
+              { change: "+4", text: "Убийство вражеского стека (получает атакующий стек)" },
+              { change: "-3", text: "Отход от ближайшего врага" },
+              { change: "-4", text: "Каждый ваш уцелевший стек того же юнита, чей стек погиб" },
+              { change: "-3", text: "Hourglass (ожидание) — походить позже в очереди" },
+              { change: "-2", text: "Защита (Luck Shield)" },
+              { change: "-1", text: "Пропуск хода или истёкший таймер хода" },
+              { change: "±20", text: "Жёсткий предел — мораль не выходит за эти границы" },
+          ],
+          moraleBreakdownNote:
+              "Обычное завершение хода после действия ничего не стоит. Каждый круг юнит с шансом примерно в свою мораль в процентах ходит лишний раз (при плюсе — ещё и бьёт чуть сильнее) или пропускает ход (при минусе).",
           mapTitle: "Карта не ждет вечно",
           mapParagraphs: [
               "Поле - сетка 16x16. В текущей ротации есть обычные карты, карты с лавовым центром и карты с заблокированным центром. Центральная гора может блокировать выстрелы и выдерживает 5 ударов; лавовый центр может дать смысл способностям Made of Fire.",
@@ -424,7 +448,18 @@ const copy = isRu
               { label: "Speed", text: "a major input into turn order inside each lap" },
               { label: "Steps", text: "how far the unit can move on its turn" },
               { label: "Shots", text: "ammo for ranged attacks, when the unit has a ranged attack" },
-              { label: "Magic resist", text: "chance to resist debuffs and magical effects" },
+              {
+                  label: "Magic resist",
+                  text: "reduces magic damage (100 = immune) and the chance a spell debuff lands — it does NOT stop status effects",
+              },
+              {
+                  label: "Status resist",
+                  text: "lowers the chance Stun and Paralysis land (e.g. from Amulet of Resolve); it does not reduce magic",
+              },
+              {
+                  label: "Mind resist",
+                  text: "full immunity to mind effects (Blindness, Aggravating, Boar Saliva, Petrifying Gaze). Comes only from the Madness/Mechanism abilities, never from an artifact",
+              },
           ],
           upgradesTitle: "Team upgrades: 7 points, real tradeoffs",
           upgradesIntro:
@@ -504,7 +539,7 @@ const copy = isRu
               },
               {
                   title: "Spellbook",
-                  text: "Spellbook units cast buffs, debuffs, healing, mass effects, summons, and position tricks. Magic resist and mind resistance can stop effects.",
+                  text: "Spellbook units cast buffs, debuffs, healing, mass effects, summons, and position tricks. Three separate resistances gate effects: magic resist (magic damage + spell debuffs), status resist (Stun/Paralysis chance), and mind resist (full immunity to mind effects).",
               },
               {
                   title: "Hourglass",
@@ -528,6 +563,19 @@ const copy = isRu
               "Luck runs from -10 to +10 and is mostly defensive: a lucky stack takes less damage, an unlucky one takes more (about 1% per point). Your own luck also makes your abilities stronger and more likely to fire. Luck gets a small random swing each lap; Luck Shield (defend) clears that swing for a small morale cost.",
               "Stack power is recalculated from a stack's board value: unit experience times living amount, compared with the largest stack present. It ranges from 1 to 5.",
           ],
+          moraleBreakdownTitle: "Exact morale changes",
+          moraleBreakdown: [
+              { change: "+3", text: "Move toward the nearest enemy" },
+              { change: "+4", text: "Kill an enemy stack (goes to the attacking stack)" },
+              { change: "-3", text: "Move away from the nearest enemy" },
+              { change: "-4", text: "Each surviving stack of yours of a unit whose stack was wiped out" },
+              { change: "-3", text: "Hourglass (Wait) to act later in the queue" },
+              { change: "-2", text: "Defend (Luck Shield)" },
+              { change: "-1", text: "Skip the turn, or let the turn timer run out" },
+              { change: "±20", text: "Hard cap — morale never leaves this range" },
+          ],
+          moraleBreakdownNote:
+              "Ending your turn normally after acting costs nothing. Each lap a unit rolls about its morale value in percent: a positive hit lets it act an extra time (and hit a little harder), a negative hit gets it skipped.",
           mapTitle: "The map does not wait forever",
           mapParagraphs: [
               "The board is a 16x16 grid. The current random map rotation includes normal, lava-center, and block-center maps. The center mountain can block shots and has 5 hits; lava-center maps make Made of Fire matter.",
@@ -896,6 +944,33 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 </summary>
                 <div class="rules-acc-body">
                     <div class="rules-note-list large">{copy.moraleItems.map((item) => <p>{item}</p>)}</div>
+                    <div class="rules-morale-breakdown">
+                        <h4>{copy.moraleBreakdownTitle}</h4>
+                        <table class="rules-morale-table">
+                            <tbody>
+                                {
+                                    copy.moraleBreakdown.map((row) => (
+                                        <tr>
+                                            <td
+                                                class:list={[
+                                                    "rules-morale-delta",
+                                                    row.change.startsWith("-")
+                                                        ? "neg"
+                                                        : row.change.startsWith("+")
+                                                          ? "pos"
+                                                          : "cap",
+                                                ]}
+                                            >
+                                                {row.change}
+                                            </td>
+                                            <td>{row.text}</td>
+                                        </tr>
+                                    ))
+                                }
+                            </tbody>
+                        </table>
+                        <p class="rules-morale-note">{copy.moraleBreakdownNote}</p>
+                    </div>
                 </div>
             </details>
 
@@ -1259,6 +1334,62 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
 
     .rules-note-list.large p {
         font-weight: 620;
+    }
+
+    .rules-morale-breakdown {
+        margin-top: 22px;
+    }
+
+    .rules-morale-breakdown h4 {
+        margin: 0 0 12px;
+        color: var(--gold);
+        font-size: 1.02rem;
+    }
+
+    .rules-morale-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.035));
+    }
+
+    .rules-morale-table td {
+        padding: 11px 16px;
+        border-top: 1px solid var(--line);
+        color: rgba(251, 244, 232, 0.82);
+        font-size: 0.98rem;
+        vertical-align: top;
+    }
+
+    .rules-morale-table tr:first-child td {
+        border-top: none;
+    }
+
+    .rules-morale-delta {
+        width: 62px;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .rules-morale-delta.pos {
+        color: #7bd88f;
+    }
+
+    .rules-morale-delta.neg {
+        color: #e78a7a;
+    }
+
+    .rules-morale-delta.cap {
+        color: var(--gold);
+    }
+
+    .rules-morale-note {
+        margin: 14px 2px 0;
+        color: var(--muted);
+        font-size: 0.96rem;
     }
 
     .rules-clean-list {
