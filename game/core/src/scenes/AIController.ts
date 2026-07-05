@@ -187,18 +187,7 @@ export class AIController {
     private endTurnIfStillActive(unit: RenderableUnit): void {
         const currentUnit = this.context.getCurrentActiveUnit();
         if (currentUnit?.getId() === unit.getId()) {
-            // A still-active unit that hasn't moved would end its turn as a SKIP (attacks complete the turn
-            // directly, so "still active" means it never attacked either). A skip costs 1 morale for nothing;
-            // DEFENDING instead costs 2 morale but grants +3 luck for the lap — ~3% less incoming damage while
-            // the (usually surrounded) unit is stuck, plus better rolls. Strictly the better stuck-turn. If it
-            // DID move, end normally. Toggle off with window.__hocNoDefend for A/B.
-            const noDefend =
-                typeof window !== "undefined" && (window as unknown as { __hocNoDefend?: boolean }).__hocNoDefend;
-            const action: GameAction =
-                unit.hasMovedThisTurn() || noDefend
-                    ? { type: "end_turn", unitId: unit.getId() }
-                    : { type: "defend_turn", unitId: unit.getId() };
-            this.context.applyGameAction(this.modelAction(unit, action));
+            this.context.applyGameAction(this.modelAction(unit, { type: "end_turn", unitId: unit.getId() }));
         }
     }
     private scheduleMoveWatchdog(
