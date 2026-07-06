@@ -509,12 +509,16 @@ const SideToggleContainer = ({
     // Upgrade-point budget for augments. In ranked this is the perk's allotment (5/6/7 via
     // getUpgradePoints); Sandbox omits it and gets the full MAX_AUGMENT_POINTS default.
     budgetPoints = HoCConstants.MAX_AUGMENT_POINTS,
+    // Ranked reads this to gate its "Continue to placement" button: fires whenever the remaining augment
+    // points or the "every available synergy is picked" status changes. Sandbox omits it.
+    onReadyChange,
 }: {
     side: string;
     teamType: TeamType;
     unitFaction?: FactionType;
     showArtifactPicker?: boolean;
     budgetPoints?: number;
+    onReadyChange?: (state: { pointsRemaining: number; allSynergiesSelected: boolean }) => void;
 }) => {
     const [totalPoints, setTotalPoints] = useState(budgetPoints);
     const [placementSelection, setPlacementSelection] = useState<number | null>(null);
@@ -659,6 +663,32 @@ const SideToggleContainer = ({
         possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] > 0 ||
         possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] > 0 ||
         possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] > 0;
+
+    // A faction's synergy is "done" when it isn't available for this army, or the player has picked one of
+    // its two variants. All available synergies are selected once every faction is done.
+    const lifeAvailable =
+        possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] > 0 ||
+        possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] > 0;
+    const chaosAvailable =
+        possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] > 0 ||
+        possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] > 0;
+    const mightAvailable =
+        possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] > 0 ||
+        possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] > 0;
+    const natureAvailable =
+        possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] > 0 ||
+        possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] > 0;
+    const allSynergiesSelected =
+        (!lifeAvailable || synergyPairLife !== null) &&
+        (!chaosAvailable || synergyPairChaos !== null) &&
+        (!mightAvailable || synergyPairMight !== null) &&
+        (!natureAvailable || synergyPairNature !== null);
+
+    // Report readiness up to ranked (points + synergies), stably: onReadyChange should be a stable setter
+    // so this only re-fires when the remaining points or synergy-completion actually change.
+    useEffect(() => {
+        onReadyChange?.({ pointsRemaining: totalPoints, allSynergiesSelected });
+    }, [onReadyChange, totalPoints, allSynergiesSelected]);
 
     return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, paddingTop: 2 }}>

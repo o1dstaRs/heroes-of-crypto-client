@@ -1881,6 +1881,13 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     const augmentBudget = Perk.getUpgradePoints(userPerkId);
     const perkName = Perk.getPerkProperties(userPerkId).name;
     const augmentOverlayOpen = augmentOverlayOpenState ?? true;
+    // "Continue to placement" unlocks only once every upgrade point is spent AND every available synergy is
+    // picked. SideToggleContainer reports this up via onReadyChange (setAugmentReady is stable, no render loop).
+    const [augmentReady, setAugmentReady] = useState<{ pointsRemaining: number; allSynergiesSelected: boolean }>({
+        pointsRemaining: 1,
+        allSynergiesSelected: false,
+    });
+    const canContinue = augmentReady.pointsRemaining <= 0 && augmentReady.allSynergiesSelected;
     return (
         <Sheet
             variant="outlined"
@@ -1997,11 +2004,21 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                     teamType={userTeam}
                                     showArtifactPicker={false}
                                     budgetPoints={augmentBudget}
+                                    onReadyChange={setAugmentReady}
                                 />
+                                {!canContinue && (
+                                    <Typography level="body-xs" textColor={hocColors.muted}>
+                                        {augmentReady.pointsRemaining > 0
+                                            ? `Spend all your upgrade points (${augmentReady.pointsRemaining} left)`
+                                            : "Pick one synergy for every available faction"}{" "}
+                                        to continue.
+                                    </Typography>
+                                )}
                                 <Button
                                     variant="solid"
+                                    disabled={!canContinue}
                                     onClick={() => setAugmentOverlayOpen(false)}
-                                    sx={hocPrimaryButtonSx}
+                                    sx={canContinue ? hocPrimaryButtonSx : hocSoftButtonSx}
                                 >
                                     Continue to placement
                                 </Button>
