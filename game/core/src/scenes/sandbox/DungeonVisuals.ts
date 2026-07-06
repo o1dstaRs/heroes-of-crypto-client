@@ -1,5 +1,5 @@
 import { Container, Filter, Graphics, Sprite, Texture } from "pixi.js";
-import { GridSettings, GridVals, FightStateManager, HoCConstants } from "@heroesofcrypto/common";
+import { GridSettings, GridVals, FightStateManager, GridMath, HoCConstants } from "@heroesofcrypto/common";
 
 import { createDungeonLightFilter, updateDungeonLightUniforms } from "./DungeonLightFilter";
 
@@ -192,12 +192,13 @@ export class DungeonVisuals {
             return;
         }
 
-        // Mountain is destroyed once its hit points run out — hide sprite + hit bar.
+        // Both mountains destroyed — hide both sprites + hit bars.
         if (
             gridType === GridVals.BLOCK_CENTER &&
             FightStateManager.getInstance().getFightProperties().getObstacleHitsLeft() <= 0
         ) {
             if (this.centerTerrainSprite) this.centerTerrainSprite.visible = false;
+            if (this.centerTerrainSpriteB) this.centerTerrainSpriteB.visible = false;
             if (this.centerHitBar) this.centerHitBar.clear();
             return;
         }
@@ -230,13 +231,21 @@ export class DungeonVisuals {
         if (gridType === GridVals.BLOCK_CENTER) {
             // Two 2x2 mountains (each 2 cells) offset ±2 cells from center, leaving a 2-cell corridor between
             // — matches grid.isCenterObstacleCell. scale.y is negative because the world root is y-flipped.
-            const blockSize = cellSize * 2;
+            // Draw each mountain a bit larger than its 2x2 collision footprint so the rock reads as a chunky
+            // block (the texture has transparent padding), and push them apart a touch to keep the corridor open.
+            const fp = FightStateManager.getInstance().getFightProperties();
+            const leftHits = fp.getObstacleHitsLeftLeft();
+            const rightHits = fp.getObstacleHitsLeftRight();
+            // Place each sprite at its mountain's ACTUAL cell centre (same call units use), so sprite,
+            // collision, HP routing and bar all line up regardless of the world-X mapping.
+            const { left, right } = this.mountainCenters(gs);
+            const blockSize = cellSize * 2.75;
             const sx = blockSize / texW;
             const sy = -(blockSize / texH);
             this.centerTerrainSprite.scale.set(sx, sy);
-            this.centerTerrainSprite.x = centerX - cellSize * 2;
-            this.centerTerrainSprite.y = centerY;
-            this.centerTerrainSprite.visible = true;
+            this.centerTerrainSprite.x = left.x;
+            this.centerTerrainSprite.y = left.y;
+            this.centerTerrainSprite.visible = leftHits > 0;
 
             if (!this.centerTerrainSpriteB) {
                 this.centerTerrainSpriteB = new Sprite(tex);
@@ -246,9 +255,9 @@ export class DungeonVisuals {
                 this.centerTerrainSpriteB.texture = tex;
             }
             this.centerTerrainSpriteB.scale.set(sx, sy);
-            this.centerTerrainSpriteB.x = centerX + cellSize * 2;
-            this.centerTerrainSpriteB.y = centerY;
-            this.centerTerrainSpriteB.visible = true;
+            this.centerTerrainSpriteB.x = right.x;
+            this.centerTerrainSpriteB.y = right.y;
+            this.centerTerrainSpriteB.visible = rightHits > 0;
         } else {
             const targetW = cellSize * 4;
             const targetH = cellSize * 4;
@@ -262,38 +271,62 @@ export class DungeonVisuals {
         // started — there's nothing to attack during placement).
         const fightProps = FightStateManager.getInstance().getFightProperties();
         if (gridType === GridVals.BLOCK_CENTER && fightProps.hasFightStarted()) {
-            this.drawCenterHitBar(fightProps.getObstacleHitsLeft());
+            this.drawCenterHitBars(fightProps.getObstacleHitsLeftLeft(), fightProps.getObstacleHitsLeftRight());
         } else if (this.centerHitBar) {
             this.centerHitBar.clear();
         }
     }
-    /** Draw the mountain hit-point bar at the grid center (mirrors the legacy obstacle hitbar). */
-    private drawCenterHitBar(hitsRemaining: number): void {
+    /** One HP bar drawn ON each mountain — positioned at its actual cell centre, HITS_PER_MOUNTAIN max. */
+    private drawCenterHitBars(leftHits: number, rightHits: number): void {
         if (!this.centerHitBar) {
             this.centerHitBar = new Graphics();
-            this.context.attachToWorldRoot(this.centerHitBar, 51);
+            this.context.attachToWorldRoot(this.centerHitBar, 52); // above the mountain sprites (z=50)
         }
         const bar = this.centerHitBar;
         bar.clear();
-        if (hitsRemaining <= 0) {
-            return;
-        }
 
         const gs = this.context.getGridSettings();
-        const centerX = (gs.getMinX() + gs.getMaxX()) * 0.5;
-        const centerY = (gs.getMinY() + gs.getMaxY()) * 0.5;
-        const twoSteps = gs.getTwoSteps();
-        const startX = centerX - twoSteps;
-        const startY = centerY - twoSteps;
-        const shiftX = Math.floor(
-            (gs.getStep() / HoCConstants.MAX_HITS_MOUNTAIN) * (HoCConstants.MAX_HITS_MOUNTAIN - 1),
-        );
-        const barHeight = 40;
-        for (let i = 0; i < hitsRemaining; i++) {
-            const x = startX + shiftX * i;
-            bar.rect(x, startY, shiftX, barHeight).stroke({ width: 1, color: 0xffffff });
-            bar.rect(x + 2, startY + 2, Math.max(0, shiftX - 4), Math.max(0, barHeight - 4)).fill({ color: 0xfdfa70 });
+        const { left, right } = this.mountainCenters(gs);
+        const barW = gs.getCellSize() * 1.55;
+
+        this.drawOneHitBar(bar, left.x, left.y, barW, leftHits);
+        this.drawOneHitBar(bar, right.x, right.y, barW, rightHits);
+    }
+    private drawOneHitBar(bar: Graphics, cx: number, cy: number, barW: number, hits: number): void {
+        const totalHits = HoCConstants.HITS_PER_MOUNTAIN;
+        const barH = Math.max(9, Math.round(barW * 0.17));
+        const x0 = cx - barW / 2;
+        const y0 = cy - barH / 2; // centred on the rock
+        const radius = barH / 2;
+
+        // Dark backing with a warm gold rim so it reads on the rock.
+        bar.roundRect(x0 - 2, y0 - 2, barW + 4, barH + 4, radius + 2)
+            .fill({ color: 0x140d06, alpha: 0.86 })
+            .stroke({ width: 1, color: 0xd9a441, alpha: 0.65 });
+
+        // Orange fill (game palette); deepens toward ember-red on the last hit.
+        const ratio = Math.max(0, Math.min(1, hits / totalHits));
+        if (ratio > 0) {
+            const fillColor = ratio > 0.34 ? 0xf5a623 : 0xd9531e;
+            bar.roundRect(x0, y0, Math.max(barH, barW * ratio), barH, radius).fill({ color: fillColor });
         }
+
+        // Per-hit tick separators so the discrete HP is readable.
+        for (let i = 1; i < totalHits; i++) {
+            const tx = x0 + (barW / totalHits) * i;
+            bar.rect(tx - 0.6, y0, 1.2, barH).fill({ color: 0x140d06, alpha: 0.6 });
+        }
+    }
+    /** World-space centres of the two mountains (from their actual cells, so everything stays aligned). */
+    private mountainCenters(gs: GridSettings): { left: { x: number; y: number }; right: { x: number; y: number } } {
+        const mid = gs.getGridSize() >> 1;
+        const columns = [mid - 1, mid];
+        const cellsFor = (rows: number[]): { x: number; y: number }[] =>
+            rows.flatMap((x) => columns.map((y) => ({ x, y })));
+        return {
+            left: GridMath.getPositionForCells(gs, cellsFor([mid - 3, mid - 2])),
+            right: GridMath.getPositionForCells(gs, cellsFor([mid + 1, mid + 2])),
+        };
     }
     public ensureBackgroundSprite(): void {
         if (this.bgSprite) return;
