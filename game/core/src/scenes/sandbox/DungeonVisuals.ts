@@ -33,6 +33,9 @@ export class DungeonVisuals {
     private holeContainer: Container;
     private bgSprite?: Sprite;
     private centerTerrainSprite?: Sprite;
+    // Second mountain sprite: BLOCK_CENTER draws two 2x2 mountains flanking a 2x2 corridor (this is the
+    // right-hand one; centerTerrainSprite is the left). Hidden for lava/water (single sprite).
+    private centerTerrainSpriteB?: Sprite;
     private centerHitBar?: Graphics;
     /** Once the lava/water center dries out it becomes walkable and shows a frozen/dry sprite. */
     private centerDried = false;
@@ -165,6 +168,8 @@ export class DungeonVisuals {
     public ensureCenterTerrainSprite(): void {
         const gridType = FightStateManager.getInstance().getFightProperties().getGridType();
         let texKey: string | undefined;
+        // Default the second mountain sprite off; only the BLOCK_CENTER branch below shows it.
+        if (this.centerTerrainSpriteB) this.centerTerrainSpriteB.visible = false;
 
         switch (gridType) {
             case GridVals.WATER_CENTER:
@@ -219,15 +224,39 @@ export class DungeonVisuals {
         const centerX = (gs.getMinX() + gs.getMaxX()) * 0.5;
         const centerY = (gs.getMinY() + gs.getMaxY()) * 0.5;
         const cellSize = gs.getCellSize();
-        const targetW = cellSize * 4;
-        const targetH = cellSize * 4;
         const texW = tex.width || 1;
         const texH = tex.height || 1;
 
-        this.centerTerrainSprite.scale.set(targetW / texW, -(targetH / texH));
-        this.centerTerrainSprite.x = centerX;
-        this.centerTerrainSprite.y = centerY;
-        this.centerTerrainSprite.visible = true;
+        if (gridType === GridVals.BLOCK_CENTER) {
+            // Two 2x2 mountains (each 2 cells) offset ±2 cells from center, leaving a 2-cell corridor between
+            // — matches grid.isCenterObstacleCell. scale.y is negative because the world root is y-flipped.
+            const blockSize = cellSize * 2;
+            const sx = blockSize / texW;
+            const sy = -(blockSize / texH);
+            this.centerTerrainSprite.scale.set(sx, sy);
+            this.centerTerrainSprite.x = centerX - cellSize * 2;
+            this.centerTerrainSprite.y = centerY;
+            this.centerTerrainSprite.visible = true;
+
+            if (!this.centerTerrainSpriteB) {
+                this.centerTerrainSpriteB = new Sprite(tex);
+                this.centerTerrainSpriteB.anchor.set(0.5);
+                this.context.attachToWorldRoot(this.centerTerrainSpriteB, 50);
+            } else if (this.centerTerrainSpriteB.texture !== tex) {
+                this.centerTerrainSpriteB.texture = tex;
+            }
+            this.centerTerrainSpriteB.scale.set(sx, sy);
+            this.centerTerrainSpriteB.x = centerX + cellSize * 2;
+            this.centerTerrainSpriteB.y = centerY;
+            this.centerTerrainSpriteB.visible = true;
+        } else {
+            const targetW = cellSize * 4;
+            const targetH = cellSize * 4;
+            this.centerTerrainSprite.scale.set(targetW / texW, -(targetH / texH));
+            this.centerTerrainSprite.x = centerX;
+            this.centerTerrainSprite.y = centerY;
+            this.centerTerrainSprite.visible = true;
+        }
 
         // Draw the mountain's remaining hit points (BLOCK_CENTER only, and only once the fight has
         // started — there's nothing to attack during placement).
