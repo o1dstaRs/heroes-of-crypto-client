@@ -42,6 +42,9 @@ export interface AuthoritativeUnitState {
     skipping?: boolean;
     /** Aggr forced target: the unit id this unit is compelled to attack (empty/undefined = none). */
     forcedTargetId?: string;
+    /** Remaining casts (scrolls) per spell in the unit's spellbook, in getSpells() order. Ranked syncs this
+     * so the client's spell.amountRemaining matches the server (it never runs the cast engine locally). */
+    spellAmounts?: number[];
 }
 
 export interface AuthoritativeJournalEntry {

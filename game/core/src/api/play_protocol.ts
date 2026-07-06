@@ -110,6 +110,9 @@ export interface PlayUnitState {
     /** Aggr forced target: the unit id this unit is compelled to attack (empty = none). Kept across
      * board rebuilds so the client never draws attack arrows to other targets. */
     forcedTargetId?: string;
+    /** Remaining casts (scrolls) per spell in the unit's spellbook, in getSpells() order — lets ranked
+     * sync used-up scroll counts (the client never runs the cast engine). */
+    spellAmounts?: number[];
 }
 
 export interface PlayJournalEntry {
@@ -816,6 +819,9 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
             (unit.debuffDescriptions ??= []).push(reader.string());
         } else if (field === 28) {
             unit.forcedTargetId = reader.string();
+        } else if (field === 29) {
+            // spell_amounts (packed=false): one varint per spell in the unit's spellbook (getSpells() order).
+            (unit.spellAmounts ??= []).push(reader.varintNumber());
         } else {
             reader.skip(wireType);
         }

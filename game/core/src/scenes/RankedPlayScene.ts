@@ -2127,6 +2127,15 @@ export class RankedPlayScene extends Sandbox {
             // And the stun icon: "skipping this turn" comes from a Stun/Blindness EFFECT, which isn't on
             // the wire — so drive it off this synced flag (OR'd with the local effect check in sandbox).
             (unit as RenderableUnit | undefined)?.setSkipping(snapUnit.skipping ?? false);
+            // Sync each spell's remaining casts (scrolls) from the server. The ranked client never runs the
+            // cast engine, so without this a spell's amountRemaining stays stale-high and the AI re-proposes a
+            // spell the server already spent → spell_not_available. spellAmounts is parallel to getSpells().
+            if (unit && snapUnit.spellAmounts) {
+                const spells = unit.getSpells();
+                for (let i = 0; i < spells.length && i < snapUnit.spellAmounts.length; i++) {
+                    spells[i].setAmount(snapUnit.spellAmounts[i]);
+                }
+            }
         }
         // Keep the FightProperties "already used a hourglass this lap" SET authoritative on EVERY snapshot,
         // not just the destructive full board rebuild. The engine's canWaitOnHourglass (and the AI's own
@@ -2171,6 +2180,26 @@ export class RankedPlayScene extends Sandbox {
     }
     protected override ensureAuthoritativeAuraState(): void {
         this.applyAuthoritativeAuraState();
+    }
+    /**
+     * Re-stamp the grid (occupancy + AGGRO board) from the CURRENT authoritative unit positions before the AI
+     * pathfinds. On ranked skip-rebuild snapshots the aggro board isn't rebuilt, so it drifts LESS restrictive
+     * than the server's — the AI then plans a move / move+melee whose path threads enemy threat cells the
+     * server blocks, and the action is refused (attack_not_available / invalid_move) until the reject-streak
+     * force-skips the turn. Diagnosed (server-instrumented): 89% of attack_not_available were exactly this.
+     * Two passes (clear every unit, then re-occupy every unit) so a unit that moved onto another's vacated
+     * cell can't transiently collide. Obstacles/narrowing aren't units, so they're left intact. Cheap: one
+     * pass per AI decision, not per frame, and it keeps the aggro MECHANIC fully functional — it just makes
+     * the client's copy match the server's.
+     */
+    protected override ensureAuthoritativeGrid(): void {
+        const ranges = new Map<string, number>();
+        for (const u of this.unitsHolder.getAllUnits().values()) {
+            if (!u.isDead()) {
+                ranges.set(u.getId(), u.getAttackRange());
+            }
+        }
+        this.grid.rebuildAggrBoards(ranges);
     }
     private createBoardSignature(snapshot: AuthoritativeGameSnapshot): string {
         return JSON.stringify({

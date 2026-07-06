@@ -66,6 +66,10 @@ export interface IAIContext {
     isAuthoritativeAction?(action: GameAction): boolean;
     // Re-assert authoritative aura gates (Hidden / Range Null Field) right before an AI decision.
     ensureAuthoritativeAuraState?(): void;
+    // Rebuild grid occupancy + AGGRO board from authoritative unit positions right before an AI decision, so
+    // the AI's pathfinding sees the SAME reachable set the server will validate against (otherwise the client
+    // plans move/melee through enemy threat cells the server blocks -> attack_not_available / invalid_move).
+    ensureAuthoritativeGrid?(): void;
     /**
      * The team the generic "AI toggle" (isAIActive) may auto-play, or undefined for no restriction.
      * Sandbox returns undefined so single-player autobattle drives whichever unit is active (both
@@ -457,6 +461,11 @@ export class AIController {
         // the cast is refused (spell_not_available). Reasserting here fixes both. Nothing between this and
         // findTarget mutates aura state (a rejected/declined cast returns without applying). No-op in sandbox.
         this.context.ensureAuthoritativeAuraState?.();
+        // Re-stamp the grid (occupancy + aggro) from authoritative unit positions before pathing, so a move
+        // or move+melee the AI plans is reachable on the SERVER's board too (the aggro board otherwise drifts
+        // less-restrictive on skip-rebuild snapshots -> the server refuses the action as attack_not_available /
+        // invalid_move). Runs once per decision; no-op in sandbox (grid already authoritative there).
+        this.context.ensureAuthoritativeGrid?.();
 
         // Route production AI through the shipped learned strategy (v0.5: tuned weights + strategic
         // hourglass). This is the SAME entry point (getAIStrategy(DEFAULT_AI_VERSION).decideTurn) that

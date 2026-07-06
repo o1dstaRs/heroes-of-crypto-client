@@ -146,7 +146,7 @@ export class Sandbox extends PixiScene {
     // it only fires on a genuine hang. On a rare overrun it just snaps the animation to its end and
     // reconciles via the next authoritative snapshot — never a correctness issue, only a visual one.
     private static readonly REPLAY_HANG_WATCHDOG_MS = 5000;
-    private readonly grid: Grid;
+    protected readonly grid: Grid;
     private readonly pathHelper: PathHelper;
     private canAttackByMeleeTargets?: IAttackTargets;
     private canAttackByRangeTargets?: Set<string>;
@@ -559,6 +559,7 @@ export class Sandbox extends PixiScene {
                 this.executeObstacleAttackSequence(unit, targetWorldPosition, attackFromCell, onComplete),
             refreshUnits: () => this.refreshUnits(),
             ensureAuthoritativeAuraState: () => this.ensureAuthoritativeAuraState(),
+            ensureAuthoritativeGrid: () => this.ensureAuthoritativeGrid(),
         });
 
         this.spellBookOverlay = new SpellBookOverlay(
@@ -3350,6 +3351,12 @@ export class Sandbox extends PixiScene {
      * Field state so a local recompute can't leave a stale gate when the AI picks a target.
      */
     protected ensureAuthoritativeAuraState(): void {}
+    /**
+     * No-op in sandbox: the local engine mutates the grid authoritatively as units move, so occupancy + the
+     * aggro board are always current. RankedPlayScene overrides this to re-stamp the grid from authoritative
+     * unit positions before an AI decision (ranked skip-rebuild snapshots leave the aggro board stale).
+     */
+    protected ensureAuthoritativeGrid(): void {}
     public refreshUnits(): void {
         // those need to be applied first
         this.unitsHolder.applyAugments();
