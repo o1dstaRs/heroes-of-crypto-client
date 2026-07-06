@@ -2128,6 +2128,17 @@ export class RankedPlayScene extends Sandbox {
             // the wire — so drive it off this synced flag (OR'd with the local effect check in sandbox).
             (unit as RenderableUnit | undefined)?.setSkipping(snapUnit.skipping ?? false);
         }
+        // Keep the FightProperties "already used a hourglass this lap" SET authoritative on EVERY snapshot,
+        // not just the destructive full board rebuild. The engine's canWaitOnHourglass (and the AI's own
+        // hourglass gate) read this SET — but restoreAlreadyHourglass was only wired into the full-hydrate
+        // path (Sandbox), so on the common skip-rebuild snapshots the set stayed stale: a unit that
+        // hourglassed and then re-upped re-requested a hourglass the server rejects (hourglass_not_available),
+        // wasting the turn as a skip. The server sends the permanent hasHourglassed flag (hasAlreadyHourglass,
+        // reset at lap change), so rebuilding the set from it here — on every snapshot — stops the AI ever
+        // proposing a doomed second hourglass. (Diagnosed: 100% of hourglass rejects were alreadyHourglass=true.)
+        FightStateManager.getInstance()
+            .getFightProperties()
+            .restoreAlreadyHourglass(snapshot.units.filter((u) => u.hasHourglassed && !u.dead).map((u) => u.id));
         this.applyAuthoritativeAuraState();
     }
     /**
