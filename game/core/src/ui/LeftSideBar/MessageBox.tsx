@@ -48,8 +48,8 @@ const commonTooltipSx = {
 // 1. Animated Button Component (Ping-Pong Loop)
 const AnimatedStartButton = ({ onClick }: { onClick: () => void }) => {
     const [frameIndex, setFrameIndex] = useState(0);
-    const requestRef = useRef<number>();
-    const previousTimeRef = useRef<number>();
+    const requestRef = useRef<number | undefined>(undefined);
+    const previousTimeRef = useRef<number | undefined>(undefined);
     // Track direction: 1 for forward, -1 for backward
     const directionRef = useRef<number>(1);
 

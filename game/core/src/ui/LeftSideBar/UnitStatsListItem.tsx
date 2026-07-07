@@ -553,7 +553,7 @@ const StatGroup: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 const StatItem: React.FC<{
-    icon: React.ReactElement;
+    icon: React.ReactElement<Record<string, unknown>>;
     value: string | number;
     tooltip: string;
     color: string;
