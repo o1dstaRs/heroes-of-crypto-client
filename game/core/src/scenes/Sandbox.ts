@@ -4906,7 +4906,11 @@ export class Sandbox extends PixiScene {
         }
 
         // Melee attackers need a cell adjacent to the obstacle to strike from; ranged units auto-land.
-        let attackFromCell = canLandRangeHit ? undefined : this.hoverManager.hoverAttackFromCell;
+        // Prefer a stationary strike from the unit's own cell when it's already adjacent to the target.
+        let attackFromCell = canLandRangeHit
+            ? undefined
+            : (this.preferStationaryObstacleCell(unit, centerCells, mountainTarget.actionPosition) ??
+              this.hoverManager.hoverAttackFromCell);
         if (attackFromCell && !this.canMeleeAttackObstacleFromCell(attackFromCell, centerCells, unit)) {
             attackFromCell = undefined;
         }
@@ -5225,6 +5229,35 @@ export class Sandbox extends PixiScene {
             }
         }
     }
+    /**
+     * Stationary obstacle strike: when the (small) active unit already stands on a cell adjacent to the
+     * targeted mountain cell, that cell IS the attack-from — no move. Without this the attack-from
+     * resolves to whichever exposed edge is nearest the cursor, which can force a needless (and
+     * sometimes move_blocked) one-cell step, e.g. a Pikeman beside the rock routed into a blocked
+     * corridor square so the strike never lands. Small units only; large units keep the reach logic.
+     */
+    private preferStationaryObstacleCell(
+        unit: RenderableUnit,
+        centerCells: HoCMath.XY[],
+        targetActionPosition: HoCMath.XY,
+    ): HoCMath.XY | undefined {
+        if (!unit.isSmallSize()) {
+            return undefined;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const targetCell = GridMath.getCellForPosition(gs, targetActionPosition);
+        const standCell = GridMath.getCellForPosition(gs, unit.getPosition());
+        if (
+            !targetCell ||
+            !standCell ||
+            Math.abs(standCell.x - targetCell.x) > 1 ||
+            Math.abs(standCell.y - targetCell.y) > 1 ||
+            !this.canMeleeAttackObstacleFromCell(standCell, centerCells, unit)
+        ) {
+            return undefined;
+        }
+        return standCell;
+    }
     /** Find a reachable cell adjacent to the center obstacle for a melee strike, if any. */
     private findObstacleAttackFromCell(
         centerCells: HoCMath.XY[],
@@ -5306,13 +5339,11 @@ export class Sandbox extends PixiScene {
         if (unit.hasAbilityActive("No Melee")) {
             return false;
         }
-        const gridSize = this.sc_sceneSettings.getGridSettings().getGridSize();
-        const innerCenterHashes = new Set<number>([
-            ((gridSize / 2) << 4) | (gridSize / 2),
-            ((gridSize / 2 - 1) << 4) | (gridSize / 2 - 1),
-            ((gridSize / 2) << 4) | (gridSize / 2 - 1),
-            ((gridSize / 2 - 1) << 4) | (gridSize / 2),
-        ]);
+        // Two-mountain BLOCK_CENTER: the 2x2 corridor between the mountains (cells mid-1,mid on both
+        // axes) is WALKABLE, so a unit standing there is a legal attack-from position — a corridor
+        // row is orthogonally adjacent to the near mountain. The old single solid-block layout used
+        // to exclude those inner cells because they sat inside the rock; that no longer applies, and
+        // keeping the exclusion is exactly what stopped attacks "from between them".
         const attackFromCells = [attackFromCell];
         if (!unit.isSmallSize()) {
             attackFromCells.push(
@@ -5322,16 +5353,8 @@ export class Sandbox extends PixiScene {
             );
         }
 
-        const attackableCenterCells = centerCells.filter((cell) => !innerCenterHashes.has((cell.x << 4) | cell.y));
         for (const cell of attackFromCells) {
-            if (innerCenterHashes.has((cell.x << 4) | cell.y)) {
-                break;
-            }
-            if (
-                attackableCenterCells.some(
-                    (center) => Math.abs(cell.x - center.x) <= 1 && Math.abs(cell.y - center.y) <= 1,
-                )
-            ) {
+            if (centerCells.some((center) => Math.abs(cell.x - center.x) <= 1 && Math.abs(cell.y - center.y) <= 1)) {
                 return true;
             }
         }
@@ -5371,10 +5394,6 @@ export class Sandbox extends PixiScene {
             return undefined;
         }
 
-        const minCellX = Math.min(...centerCells.map((c) => c.x));
-        const maxCellX = Math.max(...centerCells.map((c) => c.x));
-        const minCellY = Math.min(...centerCells.map((c) => c.y));
-        const maxCellY = Math.max(...centerCells.map((c) => c.y));
         const halfStep = gs.getHalfStep();
         const insideOffset = Math.min(halfStep * 0.25, Math.max(1, gs.getStep() * 0.01));
         const candidates: MountainEdgeTarget[] = [];
@@ -5387,40 +5406,36 @@ export class Sandbox extends PixiScene {
             });
         };
 
-        for (let x = minCellX; x <= maxCellX; x++) {
-            const topCell = { x, y: maxCellY };
-            const topCenter = GridMath.getPositionForCell(topCell, gs.getMinX(), gs.getStep(), halfStep);
-            addCandidate(
-                topCell,
-                { x: topCenter.x, y: topCenter.y + halfStep },
-                { x: topCenter.x, y: topCenter.y + halfStep - insideOffset },
-            );
-
-            const bottomCell = { x, y: minCellY };
-            const bottomCenter = GridMath.getPositionForCell(bottomCell, gs.getMinX(), gs.getStep(), halfStep);
-            addCandidate(
-                bottomCell,
-                { x: bottomCenter.x, y: bottomCenter.y - halfStep },
-                { x: bottomCenter.x, y: bottomCenter.y - halfStep + insideOffset },
-            );
-        }
-
-        for (let y = minCellY; y <= maxCellY; y++) {
-            const leftCell = { x: minCellX, y };
-            const leftCenter = GridMath.getPositionForCell(leftCell, gs.getMinX(), gs.getStep(), halfStep);
-            addCandidate(
-                leftCell,
-                { x: leftCenter.x - halfStep, y: leftCenter.y },
-                { x: leftCenter.x - halfStep + insideOffset, y: leftCenter.y },
-            );
-
-            const rightCell = { x: maxCellX, y };
-            const rightCenter = GridMath.getPositionForCell(rightCell, gs.getMinX(), gs.getStep(), halfStep);
-            addCandidate(
-                rightCell,
-                { x: rightCenter.x + halfStep, y: rightCenter.y },
-                { x: rightCenter.x + halfStep - insideOffset, y: rightCenter.y },
-            );
+        // Generate an attack edge for every EXPOSED face of every standing mountain cell. A face is
+        // exposed when the neighbouring cell in that direction is not itself mountain. This is what makes
+        // the two mountains' corridor-facing faces targetable: the old code took a single bounding box
+        // over BOTH mountains and only produced its outer perimeter, so the inner faces (the ones you
+        // reach from the gap between the mountains) never existed and a unit standing in the corridor got
+        // routed all the way around to an outer edge. actionPosition stays inside the mountain cell (so it
+        // maps back to that cell → correct left/right hit), visualPosition sits on the face for aiming.
+        const centerSet = new Set<number>(centerCells.map((c) => (c.x << 4) | c.y));
+        const faces = [
+            { dx: 1, dy: 0 },
+            { dx: -1, dy: 0 },
+            { dx: 0, dy: 1 },
+            { dx: 0, dy: -1 },
+        ];
+        for (const mountainCell of centerCells) {
+            const center = GridMath.getPositionForCell(mountainCell, gs.getMinX(), gs.getStep(), halfStep);
+            for (const face of faces) {
+                const neighbor = { x: mountainCell.x + face.dx, y: mountainCell.y + face.dy };
+                if (centerSet.has((neighbor.x << 4) | neighbor.y)) {
+                    continue; // face shared with the other mountain cell — not exposed
+                }
+                addCandidate(
+                    mountainCell,
+                    { x: center.x + face.dx * halfStep, y: center.y + face.dy * halfStep },
+                    {
+                        x: center.x + face.dx * (halfStep - insideOffset),
+                        y: center.y + face.dy * (halfStep - insideOffset),
+                    },
+                );
+            }
         }
 
         // Ranged strikes can only hit the mountain edge cells the attacker can actually SEE — the
@@ -5577,12 +5592,15 @@ export class Sandbox extends PixiScene {
             return true;
         }
 
-        // Melee: only if the unit can reach a legal cell adjacent to the mountain. Pick the
-        // attack-from cell closest to the cursor so the silhouette tracks the hovered side.
+        // Melee: only if the unit can reach a legal cell adjacent to the mountain. Prefer a stationary
+        // strike from the unit's own cell (matches the click path); otherwise pick the attack-from cell
+        // closest to the cursor so the silhouette tracks the hovered side.
         if (unit.getAttackTypeSelection() === AttackVals.MAGIC || unit.hasAbilityActive("No Melee")) {
             return notHovering();
         }
-        const attackFromCell = this.findObstacleAttackFromCell(centerCells, mountainTarget.visualPosition);
+        const attackFromCell =
+            this.preferStationaryObstacleCell(unit, centerCells, mountainTarget.actionPosition) ??
+            this.findObstacleAttackFromCell(centerCells, mountainTarget.visualPosition);
         if (!attackFromCell) {
             return notHovering();
         }
@@ -8682,11 +8700,20 @@ export class Sandbox extends PixiScene {
                     shouldRefreshVisibleState = true;
                     break;
                 case "obstacle_attacked":
-                    // Reflect the recorded mountain damage authoritatively (hitsAfter), so the center
-                    // hit-bar drops during replay even though we don't re-run the strike through the
-                    // engine. ensureCenterTerrainSprite() redraws the bar from this each frame, and hides
-                    // the mountain entirely once hits reach 0.
-                    FightStateManager.getInstance().getFightProperties().setObstacleHitsLeft(event.hitsAfter);
+                    // Reflect the recorded mountain damage authoritatively, so the center hit-bar drops
+                    // during replay even though we don't re-run the strike through the engine.
+                    // ensureCenterTerrainSprite() redraws the bar from this each frame, and hides a
+                    // mountain entirely once its hits reach 0. Apply PER-MOUNTAIN so the side that was
+                    // actually struck loses HP — the total-only field can't say which one, and splitting
+                    // it left-first dropped the wrong sprite (attacking the left mountain showed the
+                    // right one losing HP). Fall back to the total for events from an older server.
+                    if (event.hitsAfterLeft !== undefined && event.hitsAfterRight !== undefined) {
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .setObstacleHitsPerMountain(event.hitsAfterLeft, event.hitsAfterRight);
+                    } else {
+                        FightStateManager.getInstance().getFightProperties().setObstacleHitsLeft(event.hitsAfter);
+                    }
                     shouldRefreshVisibleState = true;
                     break;
                 case "morale_applied":

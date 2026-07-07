@@ -287,16 +287,22 @@ export class DungeonVisuals {
 
         const gs = this.context.getGridSettings();
         const { left, right } = this.mountainCenters(gs);
-        const barW = gs.getCellSize() * 1.55;
+        const cellSize = gs.getCellSize();
+        const barW = cellSize * 1.55;
+        // Sit each bar at the BASE of its rock (like the unit stack-power bar sits at the bottom of the
+        // unit), not floating outside it. The sprite is 2.75 cells tall but has transparent padding, so
+        // the visible rock is ~⅔ of that; the world root is y-flipped (screen-down is -y), so we drop the
+        // bar by roughly the visible half-height to land it on the rock's base.
+        const belowOffset = cellSize * 0.95;
 
-        this.drawOneHitBar(bar, left.x, left.y, barW, leftHits);
-        this.drawOneHitBar(bar, right.x, right.y, barW, rightHits);
+        this.drawOneHitBar(bar, left.x, left.y - belowOffset, barW, leftHits);
+        this.drawOneHitBar(bar, right.x, right.y - belowOffset, barW, rightHits);
     }
     private drawOneHitBar(bar: Graphics, cx: number, cy: number, barW: number, hits: number): void {
         const totalHits = HoCConstants.HITS_PER_MOUNTAIN;
         const barH = Math.max(9, Math.round(barW * 0.17));
         const x0 = cx - barW / 2;
-        const y0 = cy - barH / 2; // centred on the rock
+        const y0 = cy - barH / 2; // cy is the bar's centre (caller places it beneath the rock)
         const radius = barH / 2;
 
         // Dark backing with a warm gold rim so it reads on the rock.
@@ -323,9 +329,10 @@ export class DungeonVisuals {
         const columns = [mid - 1, mid];
         const cellsFor = (rows: number[]): { x: number; y: number }[] =>
             rows.flatMap((x) => columns.map((y) => ({ x, y })));
+        // Each side passes a full 4-cell (2x2) footprint, so getPositionForCells always resolves a centre.
         return {
-            left: GridMath.getPositionForCells(gs, cellsFor([mid - 3, mid - 2])),
-            right: GridMath.getPositionForCells(gs, cellsFor([mid + 1, mid + 2])),
+            left: GridMath.getPositionForCells(gs, cellsFor([mid - 3, mid - 2]))!,
+            right: GridMath.getPositionForCells(gs, cellsFor([mid + 1, mid + 2]))!,
         };
     }
     public ensureBackgroundSprite(): void {
