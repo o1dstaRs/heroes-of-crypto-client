@@ -5636,9 +5636,24 @@ export class Sandbox extends PixiScene {
             return clearInfo();
         }
 
+        const affectedGroups = AllAbilities.evaluateAffectedUnits(cells, this.unitsHolder, this.grid) ?? [];
+
+        // Aggr: an aggravated AOE unit can only attack the enemy that aggr'd it. Only preview/allow the throw
+        // when its splash actually covers that forced target; suppress it (no AOE outline) anywhere else.
+        const forcedTargetId = this.currentActiveUnit?.getTarget();
+        if (forcedTargetId) {
+            const forcedTarget = this.unitsHolder.getAllUnits().get(forcedTargetId);
+            if (forcedTarget && !forcedTarget.isDead()) {
+                const coversForcedTarget = affectedGroups.some((g) => g.some((u) => u.getId() === forcedTargetId));
+                if (!coversForcedTarget) {
+                    return clearInfo();
+                }
+            }
+        }
+
         this.hoverManager.drawAOEArea(cells);
         // Outline every unit caught in the splash in red — same highlight as a single target.
-        for (const affectedGroup of AllAbilities.evaluateAffectedUnits(cells, this.unitsHolder, this.grid) ?? []) {
+        for (const affectedGroup of affectedGroups) {
             for (const affectedUnit of affectedGroup) {
                 this.hoverManager.addTargetHighlight(affectedUnit);
             }
@@ -7186,7 +7201,12 @@ export class Sandbox extends PixiScene {
                 if (
                     targetUnit &&
                     targetUnit.getTeam() !== this.currentActiveUnit.getTeam() &&
-                    !targetUnit.hasBuffActive("Hidden")
+                    !targetUnit.hasBuffActive("Hidden") &&
+                    // Aggr: an aggravated unit can ONLY attack the enemy that aggr'd it, so never draw a red
+                    // attack highlight on any other enemy (the ranged long-range visual relaxation below would
+                    // otherwise light up non-target enemies). The canAttackBy*Targets sets are already filtered
+                    // for the actual attack in updateCurrentMovePath; this guards the hover VISUAL too.
+                    this.isAttackableUnderForcedTarget(targetUnit)
                 ) {
                     let attackFrom: HoCMath.XY | undefined;
 
@@ -9069,11 +9089,17 @@ export class Sandbox extends PixiScene {
         }
 
         this.sc_moveBlocked = false;
+        const tRefresh = performance.now();
         this.refreshUnits();
+        this.turnTrace("refreshUnits (augments+artifacts+auras x2)", tRefresh);
+        const tGrid = performance.now();
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+        this.turnTrace("grid.getMatrix x2", tGrid);
         nextUnit.setBoardSelected(true);
+        const tVis = performance.now();
         this.refreshVisibleStateIfNeeded();
+        this.turnTrace("refreshVisibleStateIfNeeded (React)", tVis);
         this.currentActiveUnit = nextUnit;
         this.buttonManager.setButtonsRefreshLocked(false);
 
@@ -9087,6 +9113,7 @@ export class Sandbox extends PixiScene {
             this.sc_unitPropertiesUpdateNeeded = true;
         }
 
+        const tPath = performance.now();
         const canLandRange =
             this.attackHandler?.canLandRangeAttack(nextUnit, this.grid.getEnemyAggrMatrixByUnitId(nextUnit.getId())) ??
             false;
@@ -9120,6 +9147,24 @@ export class Sandbox extends PixiScene {
 
         this.buttonManager.setButtonsRefreshLocked(false);
         this.buttonManager.refreshButtons(true);
+        this.turnTrace("aggro+path+attackTypes+buttons", tPath);
+    }
+    /**
+     * Aggr forced-target gate for attack HIGHLIGHTS. An aggravated unit (getTarget() set + target alive) can
+     * only attack the unit that aggr'd it, so no other enemy should draw a red attack highlight — mirrors the
+     * canAttackBy*Targets forced-target filter in updateCurrentMovePath. Returns true (attackable) when there
+     * is no active forced target, when the lock has released (target dead/gone), or when this IS the target.
+     */
+    private isAttackableUnderForcedTarget(targetUnit: Unit): boolean {
+        const forcedTargetId = this.currentActiveUnit?.getTarget();
+        if (!forcedTargetId) {
+            return true;
+        }
+        const forcedTarget = this.unitsHolder.getAllUnits().get(forcedTargetId);
+        if (!forcedTarget || forcedTarget.isDead()) {
+            return true;
+        }
+        return targetUnit.getId() === forcedTargetId;
     }
     /**
      * Start a screen shake (decaying random offset of the world root). Re-triggering while a
@@ -9239,6 +9284,13 @@ export class Sandbox extends PixiScene {
     public override getDamageStatisics(): IDamageStatistic[] {
         return this.attackHandler.getDamageStatisticHolder().get();
     }
+    // Turn-handoff perf trace. Enable at runtime from devtools: `window.__hocTurnTrace = true`, then take a
+    // turn — each phase logs `[turn-lag] <phase>: <ms>` so we can see what dominates the pass-to-next-unit lag.
+    protected turnTrace(label: string, startMs: number): void {
+        if (typeof window !== "undefined" && (window as unknown as { __hocTurnTrace?: boolean }).__hocTurnTrace) {
+            console.debug(`[turn-lag] ${label}: ${(performance.now() - startMs).toFixed(1)}ms`);
+        }
+    }
     protected finishTurn = (isHourglass = false, skipReason?: "effect" | "timeout"): void => {
         if (!this.currentActiveUnit) {
             this.finishTurnVisualState(isHourglass);
@@ -9252,13 +9304,20 @@ export class Sandbox extends PixiScene {
                   unitId: this.currentActiveUnit.getId(),
                   reason: skipReason ?? "manual",
               };
+        const tFinish = performance.now();
         const unitSnapshot = this.snapshotRenderableUnits();
+        this.turnTrace("snapshotRenderableUnits", tFinish);
+        const tApply = performance.now();
         const result = this.createActionEngine().apply(action);
+        this.turnTrace("engine.apply(end_turn)", tApply);
         if (!result.completed) {
             this.sc_sceneLog.updateLog(result.message ?? `Cannot finish turn: ${result.rejectionReason ?? "unknown"}`);
             return;
         }
+        const tEvents = performance.now();
         this.applyTurnEngineEvents(result.events, unitSnapshot);
+        this.turnTrace("applyTurnEngineEvents", tEvents);
+        this.turnTrace("finishTurn TOTAL", tFinish);
     };
     private finishTurnVisualState(_isHourglass = false): void {
         this.buttonManager.setButtonsRefreshLocked(true);

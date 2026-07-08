@@ -6,7 +6,6 @@ import {
     GridSettings,
     GridMath,
     TeamVals,
-    AttackVals,
     HoCConstants,
     HoCConfig,
     SpellHelper,
@@ -1032,14 +1031,10 @@ export class RenderableUnit extends Unit {
         // e.g. a Medusa that had not yet retaliated wrongly showed it. Read the authoritative per-lap
         // replied state (addRepliedAttack, cleared each lap). Kept to RANGE units since a ranged return-
         // fire is the notable case the tag flags (melee retaliation is the default and untagged).
-        // NOTE: in ranked this replied state is not yet synced to the client (server-authoritative only),
-        // so the tag currently lights up in sandbox; syncing it via the snapshot is the ranked follow-up.
-        if (this.getAttackType() !== AttackVals.RANGE) {
-            return false;
-        }
-        // Sandbox: the local engine tracks the per-lap replied state on FightProperties. Ranked: that
-        // state isn't synced to the client, so trust the per-unit `responded` flag synced from the
-        // snapshot (RankedPlayScene) instead. Either source true => the unit retaliated this lap.
+        // Show it for ANY unit (melee OR ranged) that has used its retaliation this lap — retaliation is
+        // once per lap and the tag flags "already responded". Sources: `responded` is set by the engine on
+        // every responder (processOneInTheFieldAbility) and, in ranked, synced from the snapshot
+        // (RankedPlayScene). FightProperties' replied set is the sandbox-authoritative fallback. Either => true.
         return (
             this.responded || FightStateManager.getInstance().getFightProperties().hasAlreadyRepliedAttack(this.getId())
         );
