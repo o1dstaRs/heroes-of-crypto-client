@@ -52,7 +52,12 @@ export const artifacts: Artifact[] = [
         "Ranged units gain +15% attack and -15% defense (or +30% attack with 3+ archers).",
     ),
     t1("helm_of_focus", "Helm of Focus", "Increases the army's mind resistance by 25%."),
-    t1("aegis_shield", "Aegis Shield", "Reduces damage taken from area attacks by 15%."),
+    t1(
+        "broken_aegis",
+        "Broken Aegis",
+        "Cursed: the wielder's attacks have a 60% chance to Break the enemy they hit (muting its abilities), at the cost of a 4% chance to miss.",
+        true,
+    ),
     // Tier 2
     t2("warlords_edge", "Warlord's Edge", "Increases the army's attack by 15%."),
     t2("titan_plate", "Titan Plate", "Increases the army's defense by 15%."),
