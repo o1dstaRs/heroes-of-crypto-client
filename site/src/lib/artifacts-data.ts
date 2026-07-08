@@ -37,7 +37,7 @@ const t2 = (slug: string, name: string, description: string, cursed = false): Ar
 
 export const artifacts: Artifact[] = [
     // Tier 1
-    t1("veteran_helm", "Veteran Helm", "Boosts the entire army's attack and defense by 5%."),
+    t1("veteran_helm", "Veteran Helm", "Boosts the entire army's defense by 4%."),
     t1("amulet_of_resolve", "Amulet of Resolve", "Increases the army's status resistance by 25%."),
     t1("keen_blade", "Keen Blade", "Increases the army's attack by 1."),
     t1("iron_plate", "Iron Plate", "Increases the army's defense by 1."),
