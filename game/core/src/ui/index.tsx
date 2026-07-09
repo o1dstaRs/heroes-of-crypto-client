@@ -19,6 +19,7 @@ import Popover from "./Popover";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
+import { ExitReplayBadge } from "./ExitReplayBadge";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
@@ -124,6 +125,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     const [started, setStarted] = useState(false);
     const [isLoading, setIsLoading] = useState(manager.isLoading);
     const [aiToggleOn, setAiToggleOn] = useState(false);
+    const [replayPlaybackActive, setReplayPlaybackActive] = useState(false);
 
     useEffect(() => {
         manager.SetGameActionTransport(gameActionTransport);
@@ -133,7 +135,10 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     }, [gameActionTransport, manager]);
 
     useEffect(() => {
-        const connection = manager.onVisibleStateUpdated.connect((state) => setAiToggleOn(!!state.aiToggleOn));
+        const connection = manager.onVisibleStateUpdated.connect((state) => {
+            setAiToggleOn(!!state.aiToggleOn);
+            setReplayPlaybackActive(!!state.replayPlaybackActive);
+        });
         return () => {
             connection.disconnect();
         };
@@ -165,6 +170,10 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                     <UpNextOverlay />
                     <FightFinishedOverlay />
                     {!isLoading && started && aiToggleOn && <AiControlBadge left={aiBadgeLeft(windowSize)} />}
+                    {!isLoading && replayPlaybackActive && (
+                        // Sandbox: leaving the replay drops back to the regular (fresh) sandbox screen.
+                        <ExitReplayBadge left={aiBadgeLeft(windowSize)} onExit={() => window.location.reload()} />
+                    )}
                     {!isLoading && started && <DraggableToolbar />}
                 </CssVarsProvider>
                 <Main />

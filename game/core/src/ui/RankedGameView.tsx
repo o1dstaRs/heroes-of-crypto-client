@@ -64,6 +64,7 @@ import RightSideBar from "./RightSideBar";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
+import { ExitReplayBadge } from "./ExitReplayBadge";
 import { WalletLinker } from "./WalletLinker";
 import { ButtonProvider } from "./context/ButtonContext";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
@@ -293,6 +294,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     );
     const [selectedUnitId, setSelectedUnitId] = useState("");
     const [aiToggleOn, setAiToggleOn] = useState(false);
+    const [replayPlaybackActive, setReplayPlaybackActive] = useState(false);
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState("Connecting");
     const [error, setError] = useState("");
@@ -348,7 +350,10 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     // Mirror the scene's local AI toggle so the "AI Toggle On" badge shows for a manual toggle too,
     // not only the server's aiControlled takeover (combined below).
     useEffect(() => {
-        const connection = manager.onVisibleStateUpdated.connect((state) => setAiToggleOn(!!state.aiToggleOn));
+        const connection = manager.onVisibleStateUpdated.connect((state) => {
+            setAiToggleOn(!!state.aiToggleOn);
+            setReplayPlaybackActive(!!state.replayPlaybackActive);
+        });
         return () => {
             connection.disconnect();
         };
@@ -1359,6 +1364,13 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     {gameStarted && <UpNextOverlay />}
                     {gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
                         <AiControlBadge left={aiBadgeLeft(windowSize)} />
+                    )}
+                    {replayPlaybackActive && (
+                        // Ranked: leaving the replay returns to the account / game-selection screen.
+                        <ExitReplayBadge
+                            left={aiBadgeLeft(windowSize)}
+                            onExit={() => window.location.assign("/portal")}
+                        />
                     )}
                     {gameStarted && (
                         <FightFinishedOverlay

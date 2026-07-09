@@ -629,6 +629,14 @@ export class Sandbox extends PixiScene {
         if (!this.sc_visibleState) return;
         this.sc_visibleState.aiToggleOn = this.aiController.isAIActive;
     }
+    /** Flip the replay-playback flag and mirror it to the visible state so the React "Exit Replay" button appears. */
+    protected setReplayPlaybackActive(active: boolean): void {
+        this.replayPlaybackActive = active;
+        if (this.sc_visibleState) {
+            this.sc_visibleState.replayPlaybackActive = active;
+            this.sc_visibleStateUpdateNeeded = true;
+        }
+    }
     protected setLocalModelTeamOverride(team: TeamType | undefined): void {
         this.aiController.setLocalModelTeamOverride(team);
     }
@@ -1380,7 +1388,19 @@ export class Sandbox extends PixiScene {
     }
     private stepMoveAnimation(dt: number): void {
         this.moveAnimManager.update(dt);
+        const wasMoving = this.isActiveUnitMoving;
         this.isActiveUnitMoving = this.moveAnimManager.isMoving();
+        // The hover silhouette is LOCKED at move-start (setSilhouetteLocked(true)) so the destination
+        // preview holds steady while the unit slides. Nothing else ever releases it — so once ANY unit has
+        // moved, the lock stays set for the rest of the session and every later clearHoverSilhouette() /
+        // hideSilhouettesOnly() bails out, leaving a stale silhouette behind (e.g. after hovering the board
+        // on the way to a button placed near it and clicking hourglass to end the turn). Release the lock —
+        // and force-clear the now-stale preview — the instant the move animation finishes. Shared by the
+        // live sandbox and the ranked replay (both drive moves through moveAnimManager).
+        if (wasMoving && !this.isActiveUnitMoving) {
+            this.hoverManager.setSilhouetteLocked(false);
+            this.hoverManager.clearHoverSilhouette(true);
+        }
     }
     protected selectUnitPreStart(
         _teamType: TeamType,
@@ -1844,7 +1864,7 @@ export class Sandbox extends PixiScene {
                 undefined,
             );
 
-        this.replayPlaybackActive = true;
+        this.setReplayPlaybackActive(true);
         this.replayRecordingSuspended = true;
         this.pendingReplayRecords = [];
         try {
@@ -1887,7 +1907,7 @@ export class Sandbox extends PixiScene {
             return true;
         } finally {
             this.replayRecordingSuspended = false;
-            this.replayPlaybackActive = false;
+            this.setReplayPlaybackActive(false);
         }
     }
     public override async playAuthoritativeActionRecord(
@@ -6170,7 +6190,15 @@ export class Sandbox extends PixiScene {
             if (this.shouldDeferActionToAuthoritativeReplay(action)) {
                 return this.submitActionForAuthoritativeReplay(action);
             }
-            if (!applyAttackActionResult(this.createActionEngine().apply(action))) {
+            // A local (sandbox) move+melee is recorded as TWO actions: a move_unit (whose own replay record
+            // animates the walk) then this melee_attack. The unit is already standing on attackFrom, so the
+            // engine resolves a stationary strike — but leaving the move `path` on the recorded melee_attack
+            // makes the replay's melee-approach re-walk that same route on top of the move_unit record, so the
+            // attacker appears to travel to the target TWICE. Strip the path for the local strike; the
+            // authoritative (ranked) branch above keeps it so the server moves-and-strikes atomically.
+            const localMeleeAction: GameAction =
+                action.type === "melee_attack" && action.path?.length ? { ...action, path: undefined } : action;
+            if (!applyAttackActionResult(this.createActionEngine().apply(localMeleeAction))) {
                 return false;
             }
 

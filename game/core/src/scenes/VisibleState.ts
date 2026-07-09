@@ -97,6 +97,8 @@ export interface IVisibleState {
     lapsNarrowed: number;
     /** Whether the local AI toggle is currently on (drives the "AI Toggle On" badge). */
     aiToggleOn?: boolean;
+    /** Whether a fight replay is currently playing back (drives the bottom-left "Exit Replay" button). */
+    replayPlaybackActive?: boolean;
     /** Set when the fight ends: which team won (LOWER = green, UPPER = red). */
     teamWin?: TeamType;
     /** Set when the fight ends: casualty stats for the Fight Finished overlay. */
