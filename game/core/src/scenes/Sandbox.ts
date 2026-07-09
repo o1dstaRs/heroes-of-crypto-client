@@ -9288,7 +9288,7 @@ export class Sandbox extends PixiScene {
     // turn — each phase logs `[turn-lag] <phase>: <ms>` so we can see what dominates the pass-to-next-unit lag.
     protected turnTrace(label: string, startMs: number): void {
         if (typeof window !== "undefined" && (window as unknown as { __hocTurnTrace?: boolean }).__hocTurnTrace) {
-            console.debug(`[turn-lag] ${label}: ${(performance.now() - startMs).toFixed(1)}ms`);
+            console.log(`[turn-lag] ${label}: ${(performance.now() - startMs).toFixed(1)}ms`);
         }
     }
     protected finishTurn = (isHourglass = false, skipReason?: "effect" | "timeout"): void => {
