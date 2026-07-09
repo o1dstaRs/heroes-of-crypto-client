@@ -295,8 +295,14 @@ export class DungeonVisuals {
         // bar by roughly the visible half-height to land it on the rock's base.
         const belowOffset = cellSize * 0.95;
 
-        this.drawOneHitBar(bar, left.x, left.y - belowOffset, barW, leftHits);
-        this.drawOneHitBar(bar, right.x, right.y - belowOffset, barW, rightHits);
+        // Only draw a bar for a mountain that still stands — a destroyed one (hits <= 0) hides its sprite
+        // (visible = hits > 0 above), so its HP bar (backing + rim included) must disappear too.
+        if (leftHits > 0) {
+            this.drawOneHitBar(bar, left.x, left.y - belowOffset, barW, leftHits);
+        }
+        if (rightHits > 0) {
+            this.drawOneHitBar(bar, right.x, right.y - belowOffset, barW, rightHits);
+        }
     }
     private drawOneHitBar(bar: Graphics, cx: number, cy: number, barW: number, hits: number): void {
         const totalHits = HoCConstants.HITS_PER_MOUNTAIN;
