@@ -7735,18 +7735,23 @@ export class Sandbox extends PixiScene {
                                 );
 
                                 for (const enemy of targets) {
-                                    if (enemy.getId() === targetUnit.getId() || enemy.isDead()) {
+                                    // Dead units don't block the wave — the fire passes through their cell.
+                                    if (enemy.isDead()) {
                                         continue;
                                     }
-                                    // Fire Breath deals FIRE damage: a unit immune to fire (Fire Element, e.g.
-                                    // Efreet) or with full magic resistance takes none, and the engine skips it
-                                    // (fire_breath_ability). So don't outline it as affected — otherwise the red
-                                    // highlight promises damage the strike won't deal. (Skewer Strike is physical,
-                                    // so it still hits fire-immune units — only gate this on Fire Breath.)
+                                    // Fire Breath is FIRE: a fully fire-immune unit (Fire Element, e.g. Efreet /
+                                    // Black Dragon, or 100% magic resist) takes no damage AND acts as a fire wall —
+                                    // it shields every unit behind it. Stop the sweep highlight here so neither the
+                                    // immune unit nor anything behind it is outlined (mirrors fire_breath_ability's
+                                    // break). Skewer Strike is physical, so gate this on Fire Breath only.
                                     if (
                                         attackerHasFireBreath &&
                                         (enemy.hasAbilityActive("Fire Element") || enemy.getMagicResist() >= 100)
                                     ) {
+                                        break;
+                                    }
+                                    // The primary target is outlined separately — don't double-add it here.
+                                    if (enemy.getId() === targetUnit.getId()) {
                                         continue;
                                     }
                                     secondaryTargets.push(enemy);
