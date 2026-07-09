@@ -7723,6 +7723,7 @@ export class Sandbox extends PixiScene {
                                 this.currentActiveUnit.hasAbilityActive("Fire Breath") ||
                                 this.currentActiveUnit.hasAbilityActive("Skewer Strike")
                             ) {
+                                const attackerHasFireBreath = this.currentActiveUnit.hasAbilityActive("Fire Breath");
                                 const targets = AbilityHelper.nextStandingTargets(
                                     this.currentActiveUnit,
                                     targetUnit,
@@ -7734,9 +7735,21 @@ export class Sandbox extends PixiScene {
                                 );
 
                                 for (const enemy of targets) {
-                                    if (enemy.getId() !== targetUnit.getId() && !enemy.isDead()) {
-                                        secondaryTargets.push(enemy);
+                                    if (enemy.getId() === targetUnit.getId() || enemy.isDead()) {
+                                        continue;
                                     }
+                                    // Fire Breath deals FIRE damage: a unit immune to fire (Fire Element, e.g.
+                                    // Efreet) or with full magic resistance takes none, and the engine skips it
+                                    // (fire_breath_ability). So don't outline it as affected — otherwise the red
+                                    // highlight promises damage the strike won't deal. (Skewer Strike is physical,
+                                    // so it still hits fire-immune units — only gate this on Fire Breath.)
+                                    if (
+                                        attackerHasFireBreath &&
+                                        (enemy.hasAbilityActive("Fire Element") || enemy.getMagicResist() >= 100)
+                                    ) {
+                                        continue;
+                                    }
+                                    secondaryTargets.push(enemy);
                                 }
                             }
 
@@ -7841,11 +7854,20 @@ export class Sandbox extends PixiScene {
 
                         if (blockedByObstacle) {
                             this.hoverRangeAttackObstacle = blockedByObstacle;
-                            this.hoverManager.drawAttackArrow(arrowStartPos, blockedByObstacle.position);
+                            // Arrow to the mountain (what actually takes the hit), plus a faint dashed
+                            // continuation on to the intended unit so the whole projection still reads, and
+                            // a red glow on the mountain as the real target (the unit behind takes no damage).
+                            this.hoverManager.drawAttackArrow(arrowStartPos, blockedByObstacle.position, tVis);
+                            this.hoverManager.highlightObstacle(
+                                blockedByObstacle.position,
+                                this.sc_sceneSettings.getGridSettings().getCellSize(),
+                            );
                             this.sc_hoverInfoArr = ["Hit the mountain"];
                             this.sc_hoverTextUpdateNeeded = true;
                             isAttacking = true;
                         } else {
+                            // Moving onto a reachable (unblocked) target: drop any mountain-hit glow.
+                            this.hoverManager.clearObstacleHighlight();
                             this.hoverManager.drawDamagePrediction(
                                 dmgStr,
                                 killStr,

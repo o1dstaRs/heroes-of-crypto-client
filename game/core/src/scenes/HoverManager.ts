@@ -668,6 +668,7 @@ export class HoverManager {
         if (this.hoverAttackArrow) {
             this.hoverAttackArrow.clear();
         }
+        this.clearObstacleHighlight();
 
         // 1. Restore stack visibility for ALL highlighted units
         for (const unit of this.highlightedUnits) {
@@ -752,7 +753,7 @@ export class HoverManager {
 
         this.hoverTargetSilhouettes.push(silhouette);
     }
-    public drawAttackArrow(from: HoCMath.XY, to: HoCMath.XY): void {
+    public drawAttackArrow(from: HoCMath.XY, to: HoCMath.XY, continuationTo?: HoCMath.XY): void {
         // If attacking from same position (Stand Ground), don't draw arrow
         const dist = Math.sqrt(Math.pow(to.x - from.x, 2) + Math.pow(to.y - from.y, 2));
         if (dist < 10) {
@@ -803,6 +804,50 @@ export class HoverManager {
             .moveTo(endX, endY)
             .lineTo(endX - headLen * Math.cos(angle + headAngle), endY - headLen * Math.sin(angle + headAngle))
             .stroke({ width: 4, color: 0xffffff, alpha: 1.0 });
+
+        // Optional faint dashed continuation PAST the arrow tip. Used when a ranged shot is stopped by a
+        // mountain: the arrow ends at the rock, then this thin dotted line traces where the shot WOULD
+        // have carried on to the intended unit, so the whole projection still reads at a glance.
+        if (continuationTo) {
+            const cDist = Math.hypot(continuationTo.x - endX, continuationTo.y - endY);
+            if (cDist > 6) {
+                const cAngle = Math.atan2(continuationTo.y - endY, continuationTo.x - endX);
+                const dash = 9;
+                const gap = 9;
+                for (let d = 0; d < cDist; d += dash + gap) {
+                    const segEnd = Math.min(d + dash, cDist);
+                    g.moveTo(endX + Math.cos(cAngle) * d, endY + Math.sin(cAngle) * d)
+                        .lineTo(endX + Math.cos(cAngle) * segEnd, endY + Math.sin(cAngle) * segEnd)
+                        .stroke({ width: 2, color: 0xff4444, alpha: 0.4 });
+                }
+            }
+        }
+    }
+    // Soft red glow marking an obstacle (a BLOCK_CENTER mountain) as the thing a blocked ranged shot
+    // actually hits — used instead of the unit target-silhouette, since the unit behind it takes no damage.
+    private hoverObstacleHighlight?: Graphics;
+    public highlightObstacle(position: HoCMath.XY, cellSize: number): void {
+        if (!this.isGraphicsUsable(this.hoverObstacleHighlight)) {
+            this.hoverObstacleHighlight = new Graphics();
+            if (!this.safeAttachGraphics(this.hoverObstacleHighlight, 2150)) {
+                this.hoverObstacleHighlight.destroy();
+                this.hoverObstacleHighlight = undefined;
+                return;
+            }
+        }
+        const g = this.hoverObstacleHighlight;
+        g.clear();
+        g.visible = true;
+        const r = cellSize * 0.72;
+        g.circle(position.x, position.y, r * 1.25).fill({ color: 0xaa0000, alpha: 0.22 });
+        g.circle(position.x, position.y, r).fill({ color: 0xff2a2a, alpha: 0.3 });
+        g.circle(position.x, position.y, r).stroke({ width: 3, color: 0xff4444, alpha: 0.85 });
+    }
+    public clearObstacleHighlight(): void {
+        if (this.hoverObstacleHighlight) {
+            this.hoverObstacleHighlight.clear();
+            this.hoverObstacleHighlight.visible = false;
+        }
     }
     // --- Armed-spell on-board preview: a colored beam caster→target plus a persistent icon+name
     // badge floating above the caster, so the player can always see which spell is about to fire. ---
