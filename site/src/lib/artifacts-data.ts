@@ -55,7 +55,7 @@ export const artifacts: Artifact[] = [
     t1(
         "broken_aegis",
         "Broken Aegis",
-        "Cursed: the wielder's attacks have a 15% chance to Break the enemy they hit (muting its abilities), at the cost of a 5% chance to miss.",
+        "Cursed: the wielder's attacks have a 20% chance to Break the enemy they hit (muting its abilities), at the cost of a 4% chance to miss.",
         true,
     ),
     // Tier 2
