@@ -6473,6 +6473,16 @@ export class Sandbox extends PixiScene {
                     alreadyShown = damageForAnimation.amount;
                 }
             }
+            // AOE / Through Shot shots render each affected unit's damage via `splash` (showSplashDamage
+            // in Section 1 above), so that number is already on screen. Deduct it here too — otherwise
+            // this HP-diff pass draws a SECOND number on every splashed unit (Tsar Cannon's Through Shot
+            // showed two per unit). Pure-splash shots carry no `hits`/`amount`, so without this the whole
+            // diff read as "unaccounted". A genuine Fire Shield burn beyond the splash still surfaces.
+            if (damageForAnimation.splash?.length) {
+                alreadyShown += damageForAnimation.splash
+                    .filter((s) => s.unitId === uId)
+                    .reduce((sum, s) => sum + s.amount, 0);
+            }
 
             const unaccountedDiff = diff - alreadyShown;
 
