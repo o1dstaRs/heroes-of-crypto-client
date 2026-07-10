@@ -507,11 +507,14 @@ export class AIController {
         await this.performFindTargetAction(currentUnit, wasAIActive);
     }
     /**
-     * Execute a v0.5 GameAction[] plan (from decideTurn) via the same animation-preserving primitives the
-     * findTarget handlers use — so ranked transport (applyGameAction / execute* route sandbox=local-engine
-     * vs ranked=deferred automatically) and animations are identical to the human/handler path. Preserves
-     * the exact finishAIAction / scheduleMoveWatchdog / endTurnIfStillActive discipline. Returns true when
-     * the plan was taken (turn driven to completion via callbacks); false to fall back to findTarget.
+     * Execute a decideTurn GameAction[] plan via the same animation-preserving primitives the findTarget
+     * handlers use — so ranked transport (applyGameAction / execute* route sandbox=local-engine vs
+     * ranked=deferred automatically) and animations are identical to the human/handler path. Preserves
+     * the exact finishAIAction / scheduleMoveWatchdog / endTurnIfStillActive discipline. The FULL plan is
+     * driven, mirroring battle_engine.ts's apply loop (`for (const action of decided) engine.apply(action)`)
+     * — the client previously executed only the first productive action, silently dropping e.g. the cast of
+     * a [move_unit, cast_spell] plan (see memory client-sim-action-divergence). Returns true when the plan
+     * was taken (turn driven to completion via callbacks); false to fall back to findTarget.
      */
     private async performStrategyActions(
         currentUnit: RenderableUnit,
@@ -524,7 +527,8 @@ export class AIController {
         // applies the full move handler for ~+2.5pp). Our transport drives ONE authoritative action per turn,
         // so without this we'd run only the move and the unit "walks next to the enemy but doesn't attack".
         // Fold the pair into a single path-bearing melee_attack, which executeStrategyMelee drives as one
-        // move+attack in both sandbox and ranked.
+        // move+attack in both sandbox and ranked. (Kept AHEAD of the generic sequence loop: a split
+        // move_unit + melee_attack submit makes the ranked server treat the move as the whole turn.)
         const payload = actions.filter((a) => a.type !== "select_attack_type");
         const [p0, p1] = payload;
         if (payload.length === 2 && p0?.type === "move_unit" && p1?.type === "melee_attack") {
@@ -534,8 +538,7 @@ export class AIController {
                 wasAIActive,
             );
         }
-        const primary = actions.find((a) => a.type !== "select_attack_type");
-        if (!primary) {
+        if (!payload.length) {
             // Only attack-type setup was emitted — apply it and end so the unit still progresses.
             for (const a of actions) {
                 this.context.applyGameAction(this.modelAction(currentUnit, a));
@@ -544,7 +547,143 @@ export class AIController {
             this.finishAIAction(wasAIActive);
             return true;
         }
-
+        if (payload.length === 1) {
+            return this.executeStrategyAction(currentUnit, payload[0], wasAIActive);
+        }
+        return this.executeStrategySequence(currentUnit, payload, wasAIActive);
+    }
+    /**
+     * Execute a multi-action decideTurn plan action-by-action, in order — the client mirror of
+     * battle_engine.ts's apply loop, which runs the full decided GameAction[] through the engine. The
+     * realistic shapes are [move_unit, <turn-consuming action>] (move+cast, move+area_throw, ...);
+     * [move_unit, melee_attack] never reaches here (folded upstream into one path-bearing melee_attack).
+     * Sequence guards (see memory ranked-skip-rejections for the desync class these avoid):
+     * - an action declined BEFORE anything landed → return false, so performAction falls back to the
+     *   proven findTarget path (the shipped recovery ladder — same contract as the single-action cases);
+     * - an action declined AFTER an earlier action landed → STOP the sequence gracefully: log and close
+     *   the turn with end_turn. Re-deciding from a half-executed plan would re-propose actions against a
+     *   board that already changed (the reject-storm/desync class); the sim behaves the same way — a
+     *   landed move whose follow-up is declined simply ends the turn.
+     * - anything after a turn-consuming action is skipped: its turn is already over, so the engine/server
+     *   would reject those submits anyway (the sim applies-and-rejects; the client just doesn't send them).
+     */
+    private async executeStrategySequence(
+        currentUnit: RenderableUnit,
+        payload: GameAction[],
+        wasAIActive: boolean,
+    ): Promise<boolean> {
+        let landedAny = false;
+        for (let i = 0; i < payload.length; i += 1) {
+            const action = payload[i];
+            const isLast = i === payload.length - 1;
+            // An intermediate move (one that precedes another productive action) must NOT end the turn:
+            // a bare move leaves the unit active in the engine, so the follow-up acts from the landed cell.
+            if (action.type === "move_unit" && !isLast) {
+                const moved = await this.executeStrategyMoveStep(currentUnit, action);
+                if (!moved) {
+                    if (!landedAny) {
+                        return false; // nothing landed yet — findTarget can safely re-decide this turn
+                    }
+                    console.warn("AI strategy sequence: intermediate move failed after a landed action — ending turn");
+                    this.endTurnIfStillActive(currentUnit);
+                    this.finishAIAction(wasAIActive);
+                    return true;
+                }
+                landedAny = true;
+                continue;
+            }
+            // Terminal (or turn-consuming) action: the per-action executor owns turn completion
+            // (endTurnIfStillActive + finishAIAction), exactly as in the single-action plan case.
+            const taken = await this.executeStrategyAction(currentUnit, action, wasAIActive);
+            if (!taken) {
+                if (!landedAny) {
+                    return false;
+                }
+                console.warn(`AI strategy sequence: ${action.type} declined after a landed move — ending turn`);
+                this.endTurnIfStillActive(currentUnit);
+                this.finishAIAction(wasAIActive);
+                return true;
+            }
+            if (!isLast) {
+                console.warn(
+                    `AI strategy sequence: skipped ${payload.length - 1 - i} trailing action(s) after turn-consuming ${action.type}`,
+                );
+            }
+            return true;
+        }
+        // Defensive: unreachable while the last action returns above (a move-only tail is handled by
+        // executeStrategyAction's move case) — but never leave the AI lock wedged.
+        this.endTurnIfStillActive(currentUnit);
+        this.finishAIAction(wasAIActive);
+        return true;
+    }
+    /**
+     * Drive an INTERMEDIATE strategy move — a move_unit that precedes another productive action in the
+     * same plan — without ending the turn. Resolves true once the move has been driven far enough for the
+     * next action to submit: in ranked the deferred submit is synchronous + in-order (the server sequences
+     * the follow-up right behind it, and a bare move keeps the unit active server-side); in sandbox the
+     * engine applies the move immediately and we wait for the walk animation so the follow-up fires from
+     * the landed position. Resolves false when the move can't start or its animation stalls past the move
+     * watchdog window — the caller then stops the sequence gracefully.
+     */
+    private executeStrategyMoveStep(
+        currentUnit: RenderableUnit,
+        action: Extract<GameAction, { type: "move_unit" }>,
+    ): Promise<boolean> {
+        if (!action.path?.length || !currentUnit.canMove()) {
+            return Promise.resolve(false);
+        }
+        const moveAction = this.modelAction(currentUnit, {
+            type: "move_unit",
+            unitId: currentUnit.getId(),
+            path: action.path,
+            targetCells: action.targetCells,
+            hasLavaCell: action.hasLavaCell,
+            hasWaterCell: action.hasWaterCell,
+        });
+        const isAuthoritative = this.context.isAuthoritativeAction?.(moveAction) ?? false;
+        if (isAuthoritative) {
+            // Ranked: the deferred path submits and returns WITHOUT firing onComplete (see
+            // executeStrategyMove); the follow-up action is dispatched right after, in order.
+            return Promise.resolve(
+                this.context.executeMoveSequence(currentUnit, action.path, action.targetCells, undefined, moveAction),
+            );
+        }
+        return new Promise((resolve) => {
+            let settled = false;
+            const settle = (ok: boolean): void => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                clearTimeout(timer);
+                resolve(ok);
+            };
+            // Mirrors scheduleMoveWatchdog's discipline: a stalled walk animation must not wedge
+            // performingAction forever — time out and let the caller close the turn.
+            const timer = setTimeout(() => settle(false), AIController.MOVE_ACTION_TIMEOUT_MS);
+            const started = this.context.executeMoveSequence(
+                currentUnit,
+                action.path,
+                action.targetCells,
+                () => settle(true),
+                moveAction,
+            );
+            if (!started) {
+                settle(false);
+            }
+        });
+    }
+    /**
+     * Execute ONE strategy action via its per-type client path (animation-preserving, transport-routing).
+     * Owns turn completion for turn-consuming actions. Returns false to signal "declined — recover via
+     * findTarget" (single-action plans) or "stop the sequence" (multi-action plans).
+     */
+    private async executeStrategyAction(
+        currentUnit: RenderableUnit,
+        primary: GameAction,
+        wasAIActive: boolean,
+    ): Promise<boolean> {
         switch (primary.type) {
             case "move_unit":
                 return this.executeStrategyMove(currentUnit, primary.path, primary.targetCells, wasAIActive);
@@ -554,6 +693,8 @@ export class AIController {
                 return this.executeStrategyRange(currentUnit, primary, wasAIActive);
             case "obstacle_attack":
                 return this.executeStrategyObstacle(currentUnit, primary, wasAIActive);
+            case "area_throw_attack":
+                return this.executeStrategyAreaThrow(currentUnit, primary, wasAIActive);
             case "cast_spell": {
                 // Loop guard mirrors tryCastSpell: don't re-cast for the same still-active unit (optimistic
                 // ranked submit that got rejected keeps the unit active).
@@ -838,6 +979,42 @@ export class AIController {
             this.endTurnIfStillActive(currentUnit);
             this.finishAIAction(wasAIActive);
         }
+        return true;
+    }
+    /**
+     * Drive a strategy area_throw_attack (Gargantuan-class splash throw at an empty cell). The engine gates
+     * it on the RANGE stance + Area Throw ability + shots left (action_engine.areaThrowAttack), so select
+     * the range stance first exactly as the shot handler does. The throw routes through applyGameAction:
+     * ranked dispatches it to the server (the authoritative echo replays/animates it, mirroring the
+     * player's performAreaThrow deferral); sandbox applies it through the local engine (state, deaths and
+     * log land — the projectile VFX exists only on the player's click path today). The engine completes the
+     * unit's turn on a landed throw. This case was previously MISSING entirely, so an AI-planned throw fell
+     * to the generic default and was rejected (no RANGE stance selected) — the client-vs-sim divergence
+     * documented in memory client-sim-action-divergence.
+     */
+    private executeStrategyAreaThrow(
+        currentUnit: RenderableUnit,
+        action: Extract<GameAction, { type: "area_throw_attack" }>,
+        wasAIActive: boolean,
+    ): boolean {
+        if (this.selectAttackType(currentUnit, AttackVals.RANGE)) {
+            this.context.getButtonManager().refreshButtons(true);
+            this.context.refreshUnits();
+        }
+        const completed = this.context.applyGameAction(
+            this.modelAction(currentUnit, {
+                type: "area_throw_attack",
+                attackerId: currentUnit.getId(),
+                targetCell: action.targetCell,
+            }),
+        );
+        if (!completed) {
+            // Declined throw (no ammo / stance refused / target cell filled since the decision) → recover
+            // via findTarget instead of burning the turn (mirrors executeStrategyRange).
+            return false;
+        }
+        this.endTurnIfStillActive(currentUnit);
+        this.finishAIAction(wasAIActive);
         return true;
     }
     /**
