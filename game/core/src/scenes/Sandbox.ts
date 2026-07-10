@@ -77,7 +77,7 @@ import { LightingLayer } from "./sandbox/LightingLayer";
 import { MoveAnimationManager } from "./sandbox/MoveAnimationManager";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
 import { RangedProjectiles, BIG_PROJECTILE_UNITS } from "./sandbox/RangedProjectiles";
-import type { AuthoritativeGameSnapshot } from "../game_action_transport";
+import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 import { cloneReplayData, SandboxReplayRecorder, type SandboxReplay } from "../replay/sandbox_replay";
 
 /** One unit captured at fight start, enough to recreate it exactly on "Rematch". */
@@ -553,8 +553,16 @@ export class Sandbox extends PixiScene {
             applyGameAction: (action) => this.applyGameAction(action),
             executeAttackSequence: (attacker, target, attackFrom, replayAction) =>
                 this.executeAttackSequence(attacker, target, attackFrom, replayAction),
-            executeMoveSequence: (unit, path, overrideFootprint, onComplete, replayAction, rapidCharge) =>
-                this.executeMoveSequence(unit, path, overrideFootprint, onComplete, replayAction, rapidCharge),
+            executeMoveSequence: (unit, path, overrideFootprint, onComplete, replayAction, rapidCharge, continueTurn) =>
+                this.executeMoveSequence(
+                    unit,
+                    path,
+                    overrideFootprint,
+                    onComplete,
+                    replayAction,
+                    rapidCharge,
+                    continueTurn,
+                ),
             executeObstacleAttackSequence: (unit, targetWorldPosition, attackFromCell, onComplete) =>
                 this.executeObstacleAttackSequence(unit, targetWorldPosition, attackFromCell, onComplete),
             refreshUnits: () => this.refreshUnits(),
@@ -6653,6 +6661,7 @@ export class Sandbox extends PixiScene {
         onComplete?: () => void,
         replayAction?: Extract<GameAction, { type: "move_unit" }>,
         rapidCharge = false,
+        continueTurn = false,
     ): boolean {
         if (!path || path.length === 0) return false;
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -6704,7 +6713,7 @@ export class Sandbox extends PixiScene {
                   hasWaterCell: routeMetadata?.hasWaterCell,
               };
         if (this.shouldDeferActionToAuthoritativeReplay(action)) {
-            return this.submitActionForAuthoritativeReplay(action);
+            return this.submitActionForAuthoritativeReplay(action, { continueTurn });
         }
         const moveResult = this.createActionEngine().apply(action);
         if (!moveResult.completed) {
@@ -8577,7 +8586,10 @@ export class Sandbox extends PixiScene {
     protected isPlayingAuthoritativeReplay(): boolean {
         return this.replayPlaybackActive;
     }
-    private submitActionForAuthoritativeReplay(action: GameAction): boolean {
+    private submitActionForAuthoritativeReplay(
+        action: GameAction,
+        options?: Parameters<SceneGameActionTransport>[1],
+    ): boolean {
         // For attacks only: snapshot every unit's HP BEFORE applying locally, so the authoritative
         // replay can recover the attacker's true pre-action state and still show its counter-attack
         // (the local apply below would otherwise leave it at post-action and zero out the replay's
@@ -8595,7 +8607,20 @@ export class Sandbox extends PixiScene {
                 });
             }
         }
-        const result = this.createActionEngine().apply(action);
+        // Intermediate ranked moves need submission metadata that GameAction does not carry. Route this
+        // one case directly through the transport; all ordinary deferred actions retain the scene-engine
+        // wrapper (including its turn-handoff visual bookkeeping).
+        const result = options?.continueTurn
+            ? (() => {
+                  const transported = this.dispatchExternalGameAction(action, options);
+                  return {
+                      completed: transported.handled && transported.completed,
+                      events: [] as GameEvent[],
+                      message: transported.message,
+                      rejectionReason: transported.handled ? undefined : "unsupported_action",
+                  };
+              })()
+            : this.createActionEngine().apply(action);
         if (!result.completed) {
             this.sc_moveBlocked = false;
             this.sc_sceneLog.updateLog(result.message ?? result.rejectionReason ?? "Action rejected");

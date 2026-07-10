@@ -36,6 +36,10 @@ export const PlayActionType = {
 
 export type PlayActionTypeValue = (typeof PlayActionType)[keyof typeof PlayActionType];
 
+// Existing `reason` field sentinel used only on MOVE_UNIT. It is intentionally not a new protobuf field:
+// old clients retain move-is-the-turn behavior, while a new client can request one planned follow-up.
+export const PLAY_MOVE_CONTINUE_TURN_REASON = "continue_turn";
+
 export const PlayEventKind = {
     UNKNOWN: 0,
     SNAPSHOT: 1,

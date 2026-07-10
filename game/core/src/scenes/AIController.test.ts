@@ -670,10 +670,46 @@ describe("AIController", () => {
             const moveArgs = executeMoveSequence.mock.calls[0] as unknown as unknown[];
             expect(moveArgs[1]).toEqual(seqMovePath);
             expect((moveArgs[4] as GameAction | undefined)?.type).toBe("move_unit");
+            expect(moveArgs[6]).toBe(true); // reserve the server continuation for the queued cast
             // ...then the cast is applied (previously DROPPED — the unit walked and never cast), then the
             // turn is closed so the unit never dangles into a server timeout.
             expect(appliedActions.map((a) => a.type)).toEqual(["cast_spell", "end_turn"]);
             expect(controller.performingAction).toBe(false);
+        });
+
+        it("executes a [move_unit, area_throw_attack] authoritative plan under the same continuation", async () => {
+            const unit = createUnit();
+            const executeMoveSequence = mock(() => true);
+            const appliedActions: GameAction[] = [];
+            stubStrategy(
+                () =>
+                    [
+                        { type: "move_unit", unitId: unit.getId(), path: seqMovePath },
+                        { type: "area_throw_attack", attackerId: unit.getId(), targetCell: { x: 5, y: 6 } },
+                    ] as GameAction[],
+            );
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                executeMoveSequence,
+                isAuthoritativeAction: (action: GameAction) => action.type === "move_unit",
+                applyGameAction: (action: GameAction) => {
+                    appliedActions.push(action);
+                    return true;
+                },
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+
+            const moveArgs = executeMoveSequence.mock.calls[0] as unknown as unknown[];
+            expect(moveArgs[6]).toBe(true);
+            expect(appliedActions.map((action) => action.type)).toEqual([
+                "select_attack_type",
+                "area_throw_attack",
+                "end_turn",
+            ]);
         });
 
         it("executes a [move_unit, cast_spell] plan fully in the sandbox branch (cast fires after the walk completes)", async () => {

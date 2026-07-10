@@ -100,4 +100,12 @@ export type SceneGameActionTransportResult =
           message?: string;
       };
 
-export type SceneGameActionTransport = (action: GameAction) => SceneGameActionTransportResult;
+export interface SceneGameActionTransportOptions {
+    /** Keep an accepted move active for the immediately queued spell/area-throw follow-up. */
+    continueTurn?: boolean;
+}
+
+export type SceneGameActionTransport = (
+    action: GameAction,
+    options?: SceneGameActionTransportOptions,
+) => SceneGameActionTransportResult;

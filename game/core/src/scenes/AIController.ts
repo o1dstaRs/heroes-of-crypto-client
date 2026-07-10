@@ -99,6 +99,8 @@ export interface IAIContext {
         replayAction?: Extract<GameAction, { type: "move_unit" }>,
         // True when this move is the approach of a move+melee attack — drives the Rapid Charge dash.
         rapidCharge?: boolean,
+        // True only for an intermediate ranked move with a planned spell/area-throw follow-up.
+        continueTurn?: boolean,
     ): boolean;
     /**
      * Break the destructible center mountain: optionally walk to attackFromCell first, then issue an
@@ -654,7 +656,15 @@ export class AIController {
             // Ranked: the deferred path submits and returns WITHOUT firing onComplete (see
             // executeStrategyMove); the follow-up action is dispatched right after, in order.
             return Promise.resolve(
-                this.context.executeMoveSequence(currentUnit, action.path, action.targetCells, undefined, moveAction),
+                this.context.executeMoveSequence(
+                    currentUnit,
+                    action.path,
+                    action.targetCells,
+                    undefined,
+                    moveAction,
+                    false,
+                    true,
+                ),
             );
         }
         return new Promise((resolve) => {

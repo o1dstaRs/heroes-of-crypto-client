@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { AttackVals, TeamVals, type GameAction } from "@heroesofcrypto/common";
 
 import { createGameActionFromPlayAction, createPlayActionFromGameAction } from "./game_action_play_codec";
-import { PlayActionType } from "./play_protocol";
+import { PlayActionType, PLAY_MOVE_CONTINUE_TURN_REASON } from "./play_protocol";
 
 const envelope = {
     actionId: "action-1",
@@ -55,17 +55,25 @@ describe("createPlayActionFromGameAction", () => {
         ];
         const targetCells = [{ x: 1, y: 3 }];
 
-        expect(
-            createPlayActionFromGameAction(
-                { type: "move_unit", unitId: "u1", path, targetCells, hasLavaCell: true },
-                envelope,
-            ),
-        ).toMatchObject({
+        const ordinaryMove = createPlayActionFromGameAction(
+            { type: "move_unit", unitId: "u1", path, targetCells, hasLavaCell: true },
+            envelope,
+        );
+        expect(ordinaryMove).toMatchObject({
             type: PlayActionType.MOVE_UNIT,
             unitId: "u1",
             path,
             targetCells,
             hasLavaCell: true,
+        });
+        expect(ordinaryMove.reason).toBeUndefined();
+        expect(
+            createPlayActionFromGameAction({ type: "move_unit", unitId: "u1", path, targetCells }, envelope, {
+                continueTurn: true,
+            }),
+        ).toMatchObject({
+            type: PlayActionType.MOVE_UNIT,
+            reason: PLAY_MOVE_CONTINUE_TURN_REASON,
         });
 
         expect(

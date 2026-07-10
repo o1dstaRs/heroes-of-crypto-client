@@ -39,9 +39,9 @@ import {
     sendRankedPlayMoveIntent,
     toAuthoritativeGameSnapshot,
 } from "../api/ranked_play_client";
-import { PlayActionType, PlayEventKind, PlayPhase } from "../api/play_protocol";
+import { PlayActionType, PlayEventKind, PlayPhase, PLAY_MOVE_CONTINUE_TURN_REASON } from "../api/play_protocol";
 import type { PlayAction, PlaySnapshot, PlayUnitState } from "../api/play_protocol";
-import type { SceneGameActionTransport } from "../game_action_transport";
+import type { SceneGameActionTransport, SceneGameActionTransportOptions } from "../game_action_transport";
 import { images } from "../generated/image_imports";
 import { usePixiManager } from "../pixi/PixiGameManager";
 import type { SceneEntry } from "../pixi/PixiScene";
@@ -72,6 +72,7 @@ import { hocColors, hocDangerAlertSx, hocPanelSx, hocPrimaryButtonSx, hocSoftBut
 import {
     resolveEffectiveLocalModelOpponentConfig,
     shouldApplyActionResponseSnapshotToViewer,
+    shouldRecoverRejectedMoveFollowUp,
 } from "./rankedActionResponse";
 import { resolveUnitImage } from "./unitImage";
 
@@ -359,6 +360,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         };
     }, [manager]);
     const pendingTurnResolutionRef = useRef(false);
+    // Unit whose accepted move explicitly reserved one queued follow-up. A rejected follow-up is closed
+    // immediately with END_TURN instead of waiting for the generic three-rejection escape hatch.
+    const pendingMoveFollowUpUnitIdRef = useRef<string>();
     // Tracks consecutive server rejections at the same turn (expectedSequence). If the same turn keeps
     // getting rejected (e.g. an autobattle AI proposing an illegal move/attack the server refuses, or
     // a residual desync), we force a server-authoritative END_TURN to skip the stuck unit so the game
@@ -376,7 +380,13 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
 
     const applySnapshot = useCallback(
         (nextSnapshot: PlaySnapshot, options?: { skipBoardRebuild?: boolean; forceBoardRebuild?: boolean }) => {
-            pendingTurnResolutionRef.current = false;
+            const continuedMoveUnitId = pendingMoveFollowUpUnitIdRef.current;
+            if (continuedMoveUnitId && nextSnapshot.currentUnitId !== continuedMoveUnitId) {
+                pendingMoveFollowUpUnitIdRef.current = undefined;
+            }
+            if (!pendingMoveFollowUpUnitIdRef.current) {
+                pendingTurnResolutionRef.current = false;
+            }
             latestSequenceRef.current = Math.max(latestSequenceRef.current, nextSnapshot.latestSequence);
             skipBoardRebuildRef.current = !!options?.skipBoardRebuild;
             // Sticky until consumed by the snapshot effect — a forced resync must rebuild the board
@@ -777,6 +787,25 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 if (payload.type === PlayActionType.PING && result.accepted) {
                     return true;
                 }
+                if (
+                    result.accepted &&
+                    payload.type === PlayActionType.MOVE_UNIT &&
+                    payload.reason === PLAY_MOVE_CONTINUE_TURN_REASON
+                ) {
+                    pendingMoveFollowUpUnitIdRef.current = payload.unitId;
+                } else if (
+                    !result.accepted &&
+                    payload.type === PlayActionType.MOVE_UNIT &&
+                    payload.reason === PLAY_MOVE_CONTINUE_TURN_REASON
+                ) {
+                    pendingMoveFollowUpUnitIdRef.current = undefined;
+                } else if (
+                    result.accepted &&
+                    pendingMoveFollowUpUnitIdRef.current &&
+                    payload.type !== PlayActionType.SELECT_ATTACK_TYPE
+                ) {
+                    pendingMoveFollowUpUnitIdRef.current = undefined;
+                }
                 const responseSnapshot = result.event?.snapshot;
                 // A rejection means the client's view disagrees with the server (e.g. it targeted a
                 // unit the server already removed -> unit_not_found). Force a full board rebuild from
@@ -804,6 +833,38 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 if (rejected) {
                     pendingTurnResolutionRef.current = false;
                     setError(result.rejectionReason || result.message || "Action rejected");
+
+                    const continuedMoveUnitId = pendingMoveFollowUpUnitIdRef.current;
+                    if (shouldRecoverRejectedMoveFollowUp(continuedMoveUnitId, payload)) {
+                        // The move already landed, so re-deciding from the changed board can only produce
+                        // another incompatible continuation. Close that exact unit's turn at the server's
+                        // latest sequence; the response snapshot then releases the normal action gate.
+                        pendingMoveFollowUpUnitIdRef.current = undefined;
+                        rejectionStreakRef.current = { key: "", count: 0 };
+                        if (snapshotRef.current?.currentUnitId === continuedMoveUnitId) {
+                            const recovery = await sendRankedPlayAction(
+                                gameId,
+                                {
+                                    ...payload,
+                                    actionId: uuidv4(),
+                                    type: PlayActionType.END_TURN,
+                                    unitId: continuedMoveUnitId,
+                                    targetUnitId: "",
+                                    attackFrom: undefined,
+                                    path: [],
+                                    targetCells: [],
+                                    reason: "manual",
+                                    expectedSequence: latestSequenceRef.current,
+                                },
+                                options,
+                            ).catch(() => undefined);
+                            if (recovery?.event?.snapshot) {
+                                await waitForAuthoritativePlayback();
+                                applySnapshot(recovery.event.snapshot, { forceBoardRebuild: true });
+                            }
+                        }
+                        return false;
+                    }
 
                     // Escape hatch: if the SAME turn keeps getting rejected, the submitter (usually the
                     // autobattle AI) is stuck re-proposing an action the server won't accept. Force a
@@ -852,6 +913,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 return true;
             } catch (err: unknown) {
                 pendingTurnResolutionRef.current = false;
+                if (payload.type === PlayActionType.MOVE_UNIT && payload.reason === PLAY_MOVE_CONTINUE_TURN_REASON) {
+                    pendingMoveFollowUpUnitIdRef.current = undefined;
+                }
                 if (!isSilent) {
                     setError((err as Error).message || "Unable to submit action");
                 }
@@ -930,13 +994,18 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     );
 
     const submitGameActionForTeam = useCallback(
-        async (action: GameAction, team: TeamType, authorization?: string) => {
+        async (
+            action: GameAction,
+            team: TeamType,
+            authorization?: string,
+            transportOptions?: SceneGameActionTransportOptions,
+        ) => {
             await queueActionSubmission(async () => {
                 const envelope = buildActionEnvelope(team);
                 if (!envelope) return;
 
                 await sendPlayAction(
-                    createPlayActionFromGameAction(action, envelope),
+                    createPlayActionFromGameAction(action, envelope, transportOptions),
                     authorization ? { authorization } : undefined,
                 );
             });
@@ -945,8 +1014,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     );
 
     const submitGameAction = useCallback(
-        async (action: GameAction) => {
-            await submitGameActionForTeam(action, userTeam);
+        async (action: GameAction, transportOptions?: SceneGameActionTransportOptions) => {
+            await submitGameActionForTeam(action, userTeam, undefined, transportOptions);
         },
         [submitGameActionForTeam, userTeam],
     );
@@ -991,7 +1060,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     }, [gameId, hasSnapshot, isObserver, submitProtocolActionForTeam, userTeam]);
 
     const transport = useCallback<SceneGameActionTransport>(
-        (action) => {
+        (action, transportOptions) => {
             // Auto-expire the turn-resolution gate: if it has been pending too long, the submit/playback
             // chain that should have cleared it is stuck. Don't block submissions forever (which would
             // silently freeze an autobattle AI) — treat a long-pending gate as stale and proceed.
@@ -1030,6 +1099,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             // re-trigger for the actually-active unit instead of burning a doomed submit.
             const controlledUnitId = controlledUnitIdForAction(action);
             const latestSnap = snapshotRef.current;
+            const continuesMovedUnitTurn = action.type === "move_unit" && transportOptions?.continueTurn === true;
             if (
                 isTurnResolvingAction(action) &&
                 controlledUnitId &&
@@ -1039,9 +1109,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             ) {
                 return { handled: true, completed: false, message: "Not this unit's turn" };
             }
-
             if (isModelSubmission) {
-                if (isTurnResolvingAction(action)) {
+                if (continuesMovedUnitTurn && controlledUnitId) {
+                    pendingMoveFollowUpUnitIdRef.current = controlledUnitId;
+                }
+                if (isTurnResolvingAction(action) && !continuesMovedUnitTurn) {
                     pendingTurnResolutionRef.current = true;
                     pendingTurnResolutionSinceRef.current = Date.now();
                 }
@@ -1049,17 +1121,21 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     action,
                     effectiveLocalModelConfig.modelTeam,
                     effectiveLocalModelConfig.authorization,
+                    transportOptions,
                 );
                 return { handled: true, completed: true };
             }
             if (isObserver) {
                 return { handled: true, completed: false, message: "Observer mode is read-only" };
             }
-            if (isTurnResolvingAction(action)) {
+            if (continuesMovedUnitTurn && controlledUnitId) {
+                pendingMoveFollowUpUnitIdRef.current = controlledUnitId;
+            }
+            if (isTurnResolvingAction(action) && !continuesMovedUnitTurn) {
                 pendingTurnResolutionRef.current = true;
                 pendingTurnResolutionSinceRef.current = Date.now();
             }
-            void submitGameAction(action);
+            void submitGameAction(action, transportOptions);
             return { handled: true, completed: true };
         },
         [

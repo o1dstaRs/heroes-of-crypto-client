@@ -242,11 +242,12 @@ export abstract class PixiScene {
     public setOpponentMoveIntent(_intent?: { unitId: string; cell: HoCMath.XY }): void {}
     protected dispatchExternalGameAction(
         action: Parameters<SceneGameActionTransport>[0],
+        options?: Parameters<SceneGameActionTransport>[1],
     ): SceneGameActionTransportResult {
         if (!this.sc_gameActionTransport) {
             return { handled: false };
         }
-        return this.sc_gameActionTransport(action);
+        return this.sc_gameActionTransport(action, options);
     }
     public setupControls() {}
     protected selectedSmallUnit(): boolean {
