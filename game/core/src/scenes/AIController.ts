@@ -401,6 +401,14 @@ export class AIController {
         if (this.strategyWaitAttemptUnitId && this.strategyWaitAttemptUnitId !== currentUnit.getId()) {
             this.strategyWaitAttemptUnitId = undefined;
         }
+        // Clear the cast-loop guard once the turn has genuinely advanced to a different unit — same
+        // discipline as its sibling guards above. Previously it only cleared when a DIFFERENT unit
+        // attempted a cast (tryCastSpell), so an army's SOLE caster (e.g. a lone Angel/Troll routed by the
+        // v0.6 caster router) stayed suppressed on every lap after its first strategy cast: the guard held
+        // its id, executeStrategyPrimary returned false, and the cast silently degraded to findTarget.
+        if (this.spellCastAttemptUnitId && this.spellCastAttemptUnitId !== currentUnit.getId()) {
+            this.spellCastAttemptUnitId = undefined;
+        }
         // Clear the strategy-rejected recovery ladder once the turn has genuinely advanced to a different unit.
         if (this.strategyRejectedUnitId && this.strategyRejectedUnitId !== currentUnit.getId()) {
             this.strategyRejectedUnitId = undefined;
