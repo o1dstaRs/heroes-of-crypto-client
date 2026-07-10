@@ -37,19 +37,19 @@ const t2 = (slug: string, name: string, description: string, cursed = false): Ar
 
 export const artifacts: Artifact[] = [
     // Tier 1
-    t1("veteran_helm", "Veteran Helm", "Boosts the entire army's defense by 4%."),
+    t1("veteran_helm", "Veteran Helm", "Boosts the entire army's defense by an additional 4%."),
     t1("amulet_of_resolve", "Amulet of Resolve", "Increases the army's status resistance by 25%."),
-    t1("keen_blade", "Keen Blade", "Increases the army's attack by 1."),
-    t1("iron_plate", "Iron Plate", "Increases the army's defense by 1."),
-    t1("swift_boots", "Swift Boots", "Grants +1 movement to melee units."),
-    t1("winged_boots", "Winged Boots", "Grants +1 movement to flying units."),
+    t1("keen_blade", "Keen Blade", "Increases the army's base attack (both ranged and melee) by 1."),
+    t1("iron_plate", "Iron Plate", "Increases the army's base armor by 1."),
+    t1("swift_boots", "Swift Boots", "Increases melee units' movement by 15% of their base steps."),
+    t1("winged_boots", "Winged Boots", "Grants +1 base movement distance to all flying units."),
     t1("dual_strike_charm", "Dual Strike Charm", "A unit's second attack deals 50% extra damage."),
     t1("wounding_charm", "Wounding Charm", "Adds +1 Deep Wounds stack for the whole army."),
     t1("cursed_ward", "Cursed Ward", "Cursed: +5 luck but -5 morale for the whole army.", true),
     t1(
         "hunters_longbow",
         "Hunter's Longbow",
-        "Ranged units gain +15% attack and -15% defense (or +30% attack with 3+ archers).",
+        "Ranged units gain +1 attack and -15% defense (or +2 attack with 3+ archers).",
     ),
     t1("helm_of_focus", "Helm of Focus", "Increases the army's mind resistance by 25%."),
     t1(
