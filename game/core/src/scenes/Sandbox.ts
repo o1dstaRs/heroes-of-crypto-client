@@ -5267,16 +5267,25 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const targetCell = GridMath.getCellForPosition(gs, targetActionPosition);
         const standCell = GridMath.getCellForPosition(gs, unit.getPosition());
-        if (
-            !targetCell ||
-            !standCell ||
-            Math.abs(standCell.x - targetCell.x) > 1 ||
-            Math.abs(standCell.y - targetCell.y) > 1 ||
-            !this.canMeleeAttackObstacleFromCell(standCell, centerCells, unit)
-        ) {
+        if (!targetCell || !standCell || !this.canMeleeAttackObstacleFromCell(standCell, centerCells, unit)) {
             return undefined;
         }
-        return standCell;
+        // Strike in place if the unit already stands adjacent — INCLUDING diagonally (corner cells) — to
+        // the SAME mountain the cursor targets. Chebyshev <= 1 to any of that mountain's cells, not just
+        // the single hovered cell: from a corner the hovered cell can be 2 away while another cell of the
+        // same 2x2 is diagonally adjacent, so the old exact-cell check refused a legal corner strike even
+        // though the unit could stand there. The two mountains are split along X (world-X), so "same
+        // mountain" = cells on the target's side of the mid line — this keeps a unit hugging one mountain
+        // from stationary-striking the other.
+        const mid = gs.getGridSize() >> 1;
+        const targetOnRight = targetCell.x >= mid;
+        const adjacentToTargetMountain = centerCells.some(
+            (cell) =>
+                cell.x >= mid === targetOnRight &&
+                Math.abs(standCell.x - cell.x) <= 1 &&
+                Math.abs(standCell.y - cell.y) <= 1,
+        );
+        return adjacentToTargetMountain ? standCell : undefined;
     }
     /** Find a reachable cell adjacent to the center obstacle for a melee strike, if any. */
     private findObstacleAttackFromCell(
