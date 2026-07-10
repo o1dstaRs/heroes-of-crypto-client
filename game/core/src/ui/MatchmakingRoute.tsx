@@ -1,9 +1,12 @@
 import { CustomEventSource } from "@heroesofcrypto/common";
+import PersonSearchRoundedIcon from "@mui/icons-material/PersonSearchRounded";
+import SmartToyRoundedIcon from "@mui/icons-material/SmartToyRounded";
 import { Alert, Box, Button, CircularProgress, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
+import { createVsAiGame } from "../api/vs_ai_client";
 import { useAuthContext } from "./auth/context/auth_context";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
@@ -16,7 +19,7 @@ type MatchmakingEvent = {
     c?: number;
 };
 
-type MatchmakingState = "idle" | "searching" | "confirming" | "accepted" | "error";
+type MatchmakingState = "idle" | "searching" | "confirming" | "accepted" | "starting-ai" | "error";
 
 const STORAGE_KEY = "accessToken";
 
@@ -28,6 +31,7 @@ export const MatchmakingRoute: React.FC = () => {
 
     const streamRef = useRef<CustomEventSource<MatchmakingEvent> | null>(null);
     const acceptedGameIdRef = useRef("");
+    const aiStartInFlightRef = useRef(false);
     const [state, setState] = useState<MatchmakingState>("idle");
     const [pendingGameId, setPendingGameId] = useState("");
     const [queueSize, setQueueSize] = useState<number | null>(null);
@@ -143,6 +147,9 @@ export const MatchmakingRoute: React.FC = () => {
                 ? `Accepted. Waiting for opponent: ${secondsRemaining}s left.`
                 : "Accepted. Waiting for opponent.";
         }
+        if (state === "starting-ai") {
+            return "Preparing AI match";
+        }
         if (state === "error") {
             return "Connection error";
         }
@@ -150,7 +157,7 @@ export const MatchmakingRoute: React.FC = () => {
     }, [needsActivation, queueSize, secondsRemaining, state]);
 
     const handleStart = async () => {
-        if (needsActivation) {
+        if (needsActivation || aiStartInFlightRef.current) {
             return;
         }
         setError("");
@@ -164,6 +171,48 @@ export const MatchmakingRoute: React.FC = () => {
             closeStream();
             setState("error");
             setError((err as Error)?.message ?? "Unable to enter matchmaking");
+        }
+    };
+
+    const handlePlayAi = async () => {
+        if (needsActivation || aiStartInFlightRef.current) {
+            return;
+        }
+
+        aiStartInFlightRef.current = true;
+        setError("");
+        acceptedGameIdRef.current = "";
+        setState("starting-ai");
+        closeStream();
+        try {
+            const game = await createVsAiGame();
+            navigate(`/game/${game.id}`);
+        } catch (err) {
+            try {
+                const currentGame = await getCurrentGame();
+                if (currentGame?.id && !currentGame.abandoned) {
+                    if (currentGame.confirmed) {
+                        navigate(`/game/${currentGame.id}`);
+                    } else {
+                        setPendingGameId(currentGame.id);
+                        setState("confirming");
+                        openStream();
+                    }
+                    return;
+                }
+            } catch {
+                // No recoverable current game; surface the original vs-AI error.
+            }
+
+            const message = err instanceof Error ? err.message : typeof err === "string" ? err : "";
+            setState("error");
+            setError(
+                message === "Already in game"
+                    ? "Leave matchmaking before starting an AI match"
+                    : message || "Unable to start an AI match",
+            );
+        } finally {
+            aiStartInFlightRef.current = false;
         }
     };
 
@@ -239,7 +288,7 @@ export const MatchmakingRoute: React.FC = () => {
                     <Stack spacing={2.25}>
                         <Box>
                             <Typography level="h3" textColor={hocColors.parchment}>
-                                Ranked Match
+                                Play
                             </Typography>
                             <Typography level="body-sm" textColor={hocColors.muted}>
                                 {statusText}
@@ -249,7 +298,7 @@ export const MatchmakingRoute: React.FC = () => {
                         {needsActivation && (
                             <Stack spacing={1.5}>
                                 <Alert variant="soft" color="warning">
-                                    Verify your email to play ranked. We sent a verification code to{" "}
+                                    Verify your email to play online. We sent a verification code to{" "}
                                     {accountEmail || "your email address"}.
                                 </Alert>
                                 <Button
@@ -267,18 +316,22 @@ export const MatchmakingRoute: React.FC = () => {
                                 </Button>
                                 <Typography level="body-xs" textColor={hocColors.muted}>
                                     Enter the code from the email to activate your account, then reload this page to
-                                    play ranked.
+                                    play online.
                                 </Typography>
                             </Stack>
                         )}
 
                         {!needsActivation && <WalletLinker />}
 
-                        {(state === "searching" || state === "accepted") && (
+                        {(state === "searching" || state === "accepted" || state === "starting-ai") && (
                             <Stack direction="row" spacing={1.5} alignItems="center">
                                 <CircularProgress size="sm" />
                                 <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                                    {state === "accepted" ? "Waiting for the other player" : "Queue stream connected"}
+                                    {state === "accepted"
+                                        ? "Waiting for the other player"
+                                        : state === "starting-ai"
+                                          ? "Creating AI match"
+                                          : "Queue stream connected"}
                                 </Typography>
                             </Stack>
                         )}
@@ -289,11 +342,31 @@ export const MatchmakingRoute: React.FC = () => {
                             </Typography>
                         )}
 
-                        <Stack direction="row" spacing={1}>
-                            {!needsActivation && (state === "idle" || state === "error") ? (
-                                <Button fullWidth variant="solid" onClick={handleStart} sx={hocPrimaryButtonSx}>
-                                    Find Opponent
-                                </Button>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                            {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (
+                                <>
+                                    <Button
+                                        fullWidth
+                                        variant="solid"
+                                        disabled={state === "starting-ai"}
+                                        onClick={handleStart}
+                                        startDecorator={<PersonSearchRoundedIcon />}
+                                        sx={hocPrimaryButtonSx}
+                                    >
+                                        Find Opponent
+                                    </Button>
+                                    <Button
+                                        fullWidth
+                                        variant="soft"
+                                        loading={state === "starting-ai"}
+                                        disabled={state === "starting-ai"}
+                                        onClick={handlePlayAi}
+                                        startDecorator={<SmartToyRoundedIcon />}
+                                        sx={hocSoftButtonSx}
+                                    >
+                                        Play vs AI
+                                    </Button>
+                                </>
                             ) : null}
 
                             {state === "searching" ? (
