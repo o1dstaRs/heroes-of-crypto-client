@@ -3,10 +3,11 @@ import PersonSearchRoundedIcon from "@mui/icons-material/PersonSearchRounded";
 import SmartToyRoundedIcon from "@mui/icons-material/SmartToyRounded";
 import { Alert, Box, Button, CircularProgress, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 
 import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
 import { createVsAiGame } from "../api/vs_ai_client";
+import { markVsAiGame } from "../utils/aiOpponent";
 import { useAuthContext } from "./auth/context/auth_context";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
@@ -27,11 +28,13 @@ const matchEventUrl = () => buildApiUrl(HOST_MATCHMAKING_API, endpoints.mm.event
 
 export const MatchmakingRoute: React.FC = () => {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { startGameSearch, stopGameSearch, confirmGame, getCurrentGame, user, requestCode } = useAuthContext();
 
     const streamRef = useRef<CustomEventSource<MatchmakingEvent> | null>(null);
     const acceptedGameIdRef = useRef("");
     const aiStartInFlightRef = useRef(false);
+    const vsAiAutoStartedRef = useRef(false);
     const [state, setState] = useState<MatchmakingState>("idle");
     const [pendingGameId, setPendingGameId] = useState("");
     const [queueSize, setQueueSize] = useState<number | null>(null);
@@ -45,6 +48,7 @@ export const MatchmakingRoute: React.FC = () => {
     // instead of a doomed Find Opponent click that surfaces as a meaningless "Connection aborted".
     const needsActivation = user?.is_active === false;
     const accountEmail = user?.email ?? "";
+    const vsAiRequested = searchParams.get("mode") === "vs-ai";
 
     const closeStream = useCallback(() => {
         streamRef.current?.close();
@@ -174,7 +178,7 @@ export const MatchmakingRoute: React.FC = () => {
         }
     };
 
-    const handlePlayAi = async () => {
+    const handlePlayAi = useCallback(async () => {
         if (needsActivation || aiStartInFlightRef.current) {
             return;
         }
@@ -186,7 +190,14 @@ export const MatchmakingRoute: React.FC = () => {
         closeStream();
         try {
             const game = await createVsAiGame();
-            navigate(`/game/${game.id}`);
+            const gameId = game.id;
+            if (!gameId) {
+                throw new Error("AI match response was incomplete");
+            }
+            // Remember the game is vs the bot so the pick phase (which never sees the opponent's
+            // playerId) can label the opponent as the AI.
+            markVsAiGame(gameId);
+            navigate(`/game/${gameId}`);
         } catch (err) {
             try {
                 const currentGame = await getCurrentGame();
@@ -214,7 +225,20 @@ export const MatchmakingRoute: React.FC = () => {
         } finally {
             aiStartInFlightRef.current = false;
         }
-    };
+    }, [closeStream, getCurrentGame, navigate, needsActivation, openStream]);
+
+    // A /play?mode=vs-ai deep link starts the AI match on arrival. Consume the mode before starting
+    // so browser Back or a remount cannot unintentionally create another match.
+    useEffect(() => {
+        if (!vsAiRequested || vsAiAutoStartedRef.current || needsActivation || state !== "idle") {
+            return;
+        }
+        vsAiAutoStartedRef.current = true;
+        const nextSearchParams = new URLSearchParams(searchParams);
+        nextSearchParams.delete("mode");
+        setSearchParams(nextSearchParams, { replace: true });
+        void handlePlayAi();
+    }, [handlePlayAi, needsActivation, searchParams, setSearchParams, state, vsAiRequested]);
 
     const handleResend = async () => {
         if (!accountEmail || resendState === "sending") {

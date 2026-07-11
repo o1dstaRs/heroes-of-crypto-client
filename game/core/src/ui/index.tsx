@@ -35,6 +35,7 @@ import { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { RankedGameView } from "./RankedGameView";
+import { isMarkedVsAiGame } from "../utils/aiOpponent";
 
 const isEditableTarget = (target: EventTarget | null): boolean => {
     if (!(target instanceof HTMLElement)) {
@@ -237,7 +238,7 @@ const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType; ga
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
                     {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
                 </CssVarsProvider>
-                <StainedGlassWindow userTeam={userTeam} />
+                <StainedGlassWindow userTeam={userTeam} opponentLabel={isMarkedVsAiGame(gameId) ? "AI" : "Opponent"} />
                 <LocalModelDraftOpponent eventUrl={pickEventsUrl} userTeam={userTeam} />
                 <Popover />
             </div>

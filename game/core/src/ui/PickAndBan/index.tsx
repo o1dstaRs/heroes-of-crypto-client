@@ -755,6 +755,7 @@ const MyDraftBar: React.FC<{
 
 interface StainedGlassProps {
     userTeam: TeamType;
+    opponentLabel?: string;
     height?: number;
 }
 
@@ -768,9 +769,10 @@ const OPPONENT_ARMY_SLOTS = 6;
 // above the "Your army" bar so both drafts are visible side-by-side at the bottom of the pick screen.
 const OpponentDraftBar: React.FC<{
     opponentPicked: number[];
+    opponentLabel: string;
     viewerPerk: number;
     onInspect?: (creatureId: number) => void;
-}> = ({ opponentPicked, viewerPerk, onInspect }) => {
+}> = ({ opponentPicked, opponentLabel, viewerPerk, onInspect }) => {
     const revealed = opponentPicked.filter((id) => id && id !== CreatureVals.NO_CREATURE);
     // How many of the opponent's slots YOUR doctrine lets you watch (Spymaster all, Scout 3, Blind Fury none).
     // Watched-but-not-yet-picked slots show an eye (they flip to a portrait once the opponent picks there); the
@@ -802,7 +804,7 @@ const OpponentDraftBar: React.FC<{
                 }}
             >
                 <Typography level="body-xs" sx={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 0.6 }}>
-                    Opponent&apos;s army
+                    {opponentLabel}&apos;s army
                 </Typography>
                 <BarDivider />
                 <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
@@ -884,7 +886,7 @@ const OpponentDraftBar: React.FC<{
     );
 };
 
-const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
+const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLabel = "Opponent" }) => {
     const {
         pickPhase,
         isYourTurn,
@@ -1115,7 +1117,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                 <Chip color={isYourTurn ? "success" : "warning"} variant="soft">
-                    {isYourTurn ? "Your turn" : "Opponent's turn"}
+                    {isYourTurn ? "Your turn" : `${opponentLabel}'s turn`}
                 </Chip>
                 {upgradePoints > 0 && (
                     <Tooltip title="Points you can spend on upgrades before placement" variant="soft">
@@ -1157,7 +1159,12 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
             {/* Both draft bars share ONE mt:auto wrapper so they stack together at the bottom (two separate
                 mt:auto flex items would split the free space and float the opponent bar mid-screen). */}
             <Box sx={{ mt: "auto", width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <OpponentDraftBar opponentPicked={opponentPicked} viewerPerk={perk} onInspect={setInspectedId} />
+                <OpponentDraftBar
+                    opponentPicked={opponentPicked}
+                    opponentLabel={opponentLabel}
+                    viewerPerk={perk}
+                    onInspect={setInspectedId}
+                />
 
                 <MyDraftBar
                     perk={perk}
