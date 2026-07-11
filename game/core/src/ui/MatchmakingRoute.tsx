@@ -304,7 +304,8 @@ export const MatchmakingRoute: React.FC = () => {
                     sx={{
                         width: 420,
                         maxWidth: "100%",
-                        p: 3,
+                        boxSizing: "border-box",
+                        p: { xs: 2, sm: 3 },
                         borderRadius: "md",
                         ...hocPanelSx,
                     }}
