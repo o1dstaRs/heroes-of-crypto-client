@@ -89,7 +89,8 @@ cmd_match() {
 cmd_vs_ai() {
     ensure_docker_db
     if [[ -n "${HOC_VS_AI_VERSION:-}" ]] && port_busy "$SERVER_PORT"; then
-        echo "vs-ai: existing server keeps its startup AI version; run cleanup before changing HOC_VS_AI_VERSION" >&2
+        echo "vs-ai: HOC_VS_AI_VERSION requires a fresh server; run cleanup, then retry" >&2
+        exit 1
     fi
     ensure_server
     ensure_monitor
