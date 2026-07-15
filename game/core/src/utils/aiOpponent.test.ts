@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 
-import { aiOpponentLabel, getAiSeatVersion, isAiSeatPlayerId, isMarkedVsAiGame, markVsAiGame } from "./aiOpponent";
+import {
+    aiOpponentLabel,
+    getAiSeatVersion,
+    hasAiSeatPlayer,
+    isAiSeatPlayerId,
+    isMarkedVsAiGame,
+    markVsAiGame,
+} from "./aiOpponent";
 
 // The exact shape the server persists: "ai:<version>:<seat>:" padded to 36 chars (ai_seat.ts).
 const AI_SEAT_ID = "ai:v0.7:default:".padEnd(36, "0");
@@ -22,6 +29,18 @@ describe("aiOpponent seat identification", () => {
 
     test("falls back to a generic AI label when the version segment is empty", () => {
         expect(aiOpponentLabel("ai::default:".padEnd(36, "0"))).toBe("AI");
+    });
+
+    test("finds an AI seat when it is first", () => {
+        expect(hasAiSeatPlayer([{ playerId: AI_SEAT_ID }, { playerId: "human-upper" }])).toBe(true);
+    });
+
+    test("finds an AI seat when it is second", () => {
+        expect(hasAiSeatPlayer([{ playerId: "human-lower" }, { playerId: AI_SEAT_ID }])).toBe(true);
+    });
+
+    test("rejects a human-only player list", () => {
+        expect(hasAiSeatPlayer([{ playerId: "human-lower" }, { playerId: "human-upper" }])).toBe(false);
     });
 });
 

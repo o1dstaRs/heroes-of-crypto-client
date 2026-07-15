@@ -10,6 +10,9 @@ export const AI_SEAT_PLAYER_ID_PREFIX = "ai:";
 export const isAiSeatPlayerId = (playerId?: string): boolean =>
     !!playerId && playerId.startsWith(AI_SEAT_PLAYER_ID_PREFIX);
 
+export const hasAiSeatPlayer = (players?: readonly { playerId?: string }[]): boolean =>
+    !!players?.some((player) => isAiSeatPlayerId(player.playerId));
+
 export const getAiSeatVersion = (playerId?: string): string | undefined => {
     if (!playerId || !isAiSeatPlayerId(playerId)) {
         return undefined;

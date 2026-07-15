@@ -78,7 +78,7 @@ import {
     shouldRecoverRejectedMoveFollowUp,
 } from "./rankedActionResponse";
 import { resolveUnitImage } from "./unitImage";
-import { isAiSeatPlayerId, isMarkedVsAiGame, markVsAiGame } from "../utils/aiOpponent";
+import { hasAiSeatPlayer, isMarkedVsAiGame, markVsAiGame } from "../utils/aiOpponent";
 
 export { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 
@@ -732,16 +732,15 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const myPlayer = useMemo(() => snapshot?.players.find((player) => player.team === userTeam), [snapshot, userTeam]);
     const isObserver = userTeam === TeamVals.NO_TEAM || !myPlayer;
     // Detect a vs-AI match two ways: the local "just created this via Play vs AI" marker (works even
-    // before the snapshot names an opponent) and the opponent's playerId carrying the bot-seat prefix
-    // (works after a refresh / on a different device, where the marker never got set). Either is
-    // sufficient — this only gates whether the end-of-match overlay offers "Play Again vs AI".
+    // before the snapshot names an opponent) and the server-assigned bot-seat prefix in either seat
+    // (works after refresh or from an observer snapshot without depending on player order). Match
+    // identity is kept separate from CTA eligibility; only participants get the rematch action below.
     const isVsAiMatch = useMemo(() => {
         if (isMarkedVsAiGame(gameId)) {
             return true;
         }
-        const opponent = snapshot?.players.find((player) => player.team !== userTeam);
-        return isAiSeatPlayerId(opponent?.playerId);
-    }, [gameId, snapshot, userTeam]);
+        return hasAiSeatPlayer(snapshot?.players);
+    }, [gameId, snapshot]);
     const handleBackToLobby = useCallback(() => {
         navigate("/play");
     }, [navigate]);
@@ -1484,7 +1483,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                             canReplay={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}
                             mode="ranked"
                             onReplay={replayRankedFight}
-                            onPlayAgainVsAi={isVsAiMatch ? handlePlayAgainVsAi : undefined}
+                            onPlayAgainVsAi={isVsAiMatch && !isObserver ? handlePlayAgainVsAi : undefined}
                             onBackToLobby={handleBackToLobby}
                         />
                     )}
