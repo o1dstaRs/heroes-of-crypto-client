@@ -155,6 +155,10 @@ interface FightFinishedOverlayProps {
     mode?: "sandbox" | "ranked";
     canReplay?: boolean;
     onReplay?: () => void | Promise<void>;
+    // Ranked-only post-match actions. Both are optional so the overlay degrades to the old bare
+    // "Close" button for any caller that doesn't wire them (e.g. a future non-vs-AI ranked surface).
+    onPlayAgainVsAi?: () => void | Promise<void>;
+    onBackToLobby?: () => void;
 }
 
 // =============================================================================
@@ -164,11 +168,15 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     canReplay: canReplayOverride,
     mode = "sandbox",
     onReplay,
+    onPlayAgainVsAi,
+    onBackToLobby,
 }) => {
     const manager = usePixiManager();
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [dismissed, setDismissed] = useState(false);
     const [replayResult, setReplayResult] = useState(false);
+    const [playAgainBusy, setPlayAgainBusy] = useState(false);
+    const [playAgainError, setPlayAgainError] = useState("");
     const replayInProgress = useRef(false);
     const replayTimers = useRef<number[]>([]);
 
@@ -182,6 +190,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 if (!replayInProgress.current) {
                     setReplayResult(false);
                 }
+                setPlayAgainBusy(false);
+                setPlayAgainError("");
             }
         });
         return () => {
@@ -408,7 +418,39 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             }}
                         />
                     )}
-                    {!showSandboxActions && (
+                    {!showSandboxActions && onPlayAgainVsAi && (
+                        <ActionButton
+                            label={playAgainBusy ? "Starting…" : "⚔ Play Again vs AI"}
+                            primary
+                            disabled={playAgainBusy}
+                            onClick={() => {
+                                if (playAgainBusy) return;
+                                setPlayAgainError("");
+                                setPlayAgainBusy(true);
+                                Promise.resolve(onPlayAgainVsAi())
+                                    // On success the caller navigates away; only clear the busy flag on
+                                    // failure so a rejected click stays clickable instead of stuck.
+                                    .catch((err: unknown) => {
+                                        setPlayAgainBusy(false);
+                                        setPlayAgainError(
+                                            err instanceof Error ? err.message : "Unable to start an AI match",
+                                        );
+                                    });
+                            }}
+                        />
+                    )}
+                    {!showSandboxActions && onBackToLobby && (
+                        <ActionButton
+                            label="Back to Lobby"
+                            primary={!onPlayAgainVsAi}
+                            onClick={() => {
+                                clearReplayTimers();
+                                setDismissed(true);
+                                onBackToLobby();
+                            }}
+                        />
+                    )}
+                    {!showSandboxActions && !onPlayAgainVsAi && !onBackToLobby && (
                         <ActionButton
                             label="Close"
                             primary
@@ -419,6 +461,13 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         />
                     )}
                 </Stack>
+                {!showSandboxActions && playAgainError && (
+                    <Typography
+                        sx={{ color: "#ff8a8a", opacity: 0.9, fontSize: "0.78rem", textAlign: "center", mt: 1 }}
+                    >
+                        {playAgainError}
+                    </Typography>
+                )}
                 {showSandboxActions && (
                     <Typography
                         sx={{ color: PARCHMENT, opacity: 0.45, fontSize: "0.72rem", textAlign: "center", mt: 1.5 }}

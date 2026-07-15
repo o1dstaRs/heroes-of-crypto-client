@@ -26,9 +26,11 @@ import {
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import { v4 as uuidv4 } from "uuid";
 
 import { createPlayActionFromGameAction } from "../api/game_action_play_codec";
+import { createVsAiGame } from "../api/vs_ai_client";
 import {
     fetchRankedPlayReplay,
     fetchRankedPlaySnapshot,
@@ -70,11 +72,13 @@ import { ButtonProvider } from "./context/ButtonContext";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
 import { hocColors, hocDangerAlertSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx, hocSpinnerSx } from "./hocTheme";
 import {
+    rejectionErrorFromPlayEvent,
     resolveEffectiveLocalModelOpponentConfig,
     shouldApplyActionResponseSnapshotToViewer,
     shouldRecoverRejectedMoveFollowUp,
 } from "./rankedActionResponse";
 import { resolveUnitImage } from "./unitImage";
+import { isAiSeatPlayerId, isMarkedVsAiGame, markVsAiGame } from "../utils/aiOpponent";
 
 export { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 
@@ -286,6 +290,7 @@ type PendingAuthoritativePlayback = {
 
 export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }) => {
     const manager = usePixiManager();
+    const navigate = useNavigate();
     const localModelConfig = useMemo(() => getLocalModelOpponentConfig(), []);
     const viewerTeam = userTeam === TeamVals.NO_TEAM ? undefined : userTeam;
     const [snapshot, setSnapshot] = useState<PlaySnapshot | null>(null);
@@ -691,8 +696,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                             await waitForAuthoritativePlayback();
                             applySnapshot(event.snapshot, { skipBoardRebuild: played });
                         }
-                        if (event.rejectionReason || event.message) {
-                            setError(event.rejectionReason || event.message);
+                        const sseError = rejectionErrorFromPlayEvent(event);
+                        if (sseError) {
+                            setError(sseError);
                         }
                     }
                 }
@@ -725,6 +731,31 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
 
     const myPlayer = useMemo(() => snapshot?.players.find((player) => player.team === userTeam), [snapshot, userTeam]);
     const isObserver = userTeam === TeamVals.NO_TEAM || !myPlayer;
+    // Detect a vs-AI match two ways: the local "just created this via Play vs AI" marker (works even
+    // before the snapshot names an opponent) and the opponent's playerId carrying the bot-seat prefix
+    // (works after a refresh / on a different device, where the marker never got set). Either is
+    // sufficient — this only gates whether the end-of-match overlay offers "Play Again vs AI".
+    const isVsAiMatch = useMemo(() => {
+        if (isMarkedVsAiGame(gameId)) {
+            return true;
+        }
+        const opponent = snapshot?.players.find((player) => player.team !== userTeam);
+        return isAiSeatPlayerId(opponent?.playerId);
+    }, [gameId, snapshot, userTeam]);
+    const handleBackToLobby = useCallback(() => {
+        navigate("/play");
+    }, [navigate]);
+    const handlePlayAgainVsAi = useCallback(async () => {
+        const game = await createVsAiGame();
+        const nextGameId = game.id;
+        if (!nextGameId) {
+            throw new Error("AI match response was incomplete");
+        }
+        // Remembered the same way the initial Play-vs-AI entry (MatchmakingRoute) does, so the new
+        // match's pick phase can label the opponent as the AI.
+        markVsAiGame(nextGameId);
+        navigate(`/game/${nextGameId}`);
+    }, [navigate]);
     const selectedUnit = useMemo(
         () => snapshot?.units.find((unit) => unit.id === selectedUnitId),
         [selectedUnitId, snapshot],
@@ -1453,6 +1484,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                             canReplay={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}
                             mode="ranked"
                             onReplay={replayRankedFight}
+                            onPlayAgainVsAi={isVsAiMatch ? handlePlayAgainVsAi : undefined}
+                            onBackToLobby={handleBackToLobby}
                         />
                     )}
                     {gameStarted && !isObserver && <DraggableToolbar />}

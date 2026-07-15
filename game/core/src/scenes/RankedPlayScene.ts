@@ -274,6 +274,9 @@ export class RankedPlayScene extends Sandbox {
     // that have since died — and dropped out of the live snapshot — still resolve a real name.
     private readonly rankedUnitNamesById = new Map<string, string>();
     private readonly rankedUnitTeamsById = new Map<string, number>();
+    // How many (id, name, team) entries were persisted to sessionStorage last write — lets
+    // persistRankedUnitNames skip a redundant write when nothing new was learned this snapshot.
+    private rankedUnitNamesPersistedCount = 0;
     private rankedPlacementDeadlineServerMs = 0;
     private rankedPlacementEndLocalMs = 0;
     private rankedPlacementSecondsMax = 0;
@@ -1112,6 +1115,57 @@ export class RankedPlayScene extends Sandbox {
         this.sc_visibleState.secondsRemaining = remaining > 0 ? remaining : 0;
         this.sc_visibleStateUpdateNeeded = true;
     }
+    /** sessionStorage key holding this game's accumulated unit id -> [name, team] map (see below). */
+    private rankedUnitNamesStorageKey(gameId: string): string {
+        return `hoc_ranked_unit_names_${gameId}`;
+    }
+    /**
+     * A cold load (fresh mount / page refresh) after the fight has finished only ever sees ONE
+     * snapshot — the final one — and the server prunes the losing team's dead units out of it (see
+     * FightFinishedOverlay's comment on the same cleanup). Without a name learned from an earlier LIVE
+     * snapshot, every historical log line mentioning one of those units degrades to the generic "Unit"
+     * fallback (nameOf in buildAuthoritativeSceneLogLines). sessionStorage survives a same-tab refresh
+     * (unlike this in-memory map, which starts empty on every mount), so persist the accumulated names
+     * as they're learned and reseed from it here — recovering the "played the fight, then refreshed"
+     * case, which is exactly the flow a finished ranked match funnels the player through.
+     */
+    private loadPersistedRankedUnitNames(gameId: string): void {
+        try {
+            const raw = window.sessionStorage?.getItem(this.rankedUnitNamesStorageKey(gameId));
+            if (!raw) {
+                return;
+            }
+            const entries = JSON.parse(raw) as [string, string, number][];
+            if (!Array.isArray(entries)) {
+                return;
+            }
+            for (const [id, name, team] of entries) {
+                if (id && name) {
+                    this.rankedUnitNamesById.set(id, name);
+                    this.rankedUnitTeamsById.set(id, team);
+                }
+            }
+            this.rankedUnitNamesPersistedCount = this.rankedUnitNamesById.size;
+        } catch {
+            // Storage unavailable (private mode / disabled) or corrupt payload — the in-memory map
+            // still degrades gracefully to the "Unit" fallback, same as before this cache existed.
+        }
+    }
+    private persistRankedUnitNames(gameId: string): void {
+        if (this.rankedUnitNamesById.size === this.rankedUnitNamesPersistedCount) {
+            return;
+        }
+        try {
+            const entries: [string, string, number][] = [];
+            for (const [id, name] of this.rankedUnitNamesById) {
+                entries.push([id, name, this.rankedUnitTeamsById.get(id) ?? 0]);
+            }
+            window.sessionStorage?.setItem(this.rankedUnitNamesStorageKey(gameId), JSON.stringify(entries));
+            this.rankedUnitNamesPersistedCount = this.rankedUnitNamesById.size;
+        } catch {
+            // Storage full/unavailable — best-effort cache only, never fatal.
+        }
+    }
     private applyAuthoritativeSceneLog(snapshot: AuthoritativeGameSnapshot): void {
         const journalTail = snapshot.journalTail;
         if (!journalTail) {
@@ -1123,6 +1177,8 @@ export class RankedPlayScene extends Sandbox {
         if (gameChanged) {
             this.rankedUnitNamesById.clear();
             this.rankedUnitTeamsById.clear();
+            this.rankedUnitNamesPersistedCount = 0;
+            this.loadPersistedRankedUnitNames(snapshot.gameId);
         }
         // Accumulate names/teams from every snapshot (even when the log itself doesn't need a
         // rebuild) so a unit that dies and leaves the live snapshot keeps a resolvable name.
@@ -1132,6 +1188,7 @@ export class RankedPlayScene extends Sandbox {
                 this.rankedUnitTeamsById.set(unit.id, unit.team);
             }
         }
+        this.persistRankedUnitNames(snapshot.gameId);
         if (!gameChanged && maxSequence <= this.rankedSceneLogSequence) {
             return;
         }

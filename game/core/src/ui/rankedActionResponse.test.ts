@@ -4,6 +4,7 @@ import { TeamVals } from "@heroesofcrypto/common";
 import { PlayActionType, PlayPhase, type PlaySnapshot } from "../api/play_protocol";
 import type { LocalModelOpponentConfig } from "../scenes/LocalModelOpponent";
 import {
+    rejectionErrorFromPlayEvent,
     resolveEffectiveLocalModelOpponentConfig,
     shouldApplyActionResponseSnapshotToViewer,
     shouldRecoverRejectedMoveFollowUp,
@@ -37,6 +38,18 @@ const snapshot = (overrides: Partial<PlaySnapshot>): PlaySnapshot => ({
 });
 
 describe("ranked action response snapshots", () => {
+    test("never surfaces a bare informational message (e.g. ACTION_ACCEPTED's raw action-type name) as an error", () => {
+        expect(rejectionErrorFromPlayEvent({ rejectionReason: "", message: "RANGE_ATTACK" })).toBe("");
+        expect(rejectionErrorFromPlayEvent({ rejectionReason: "", message: "END_TURN" })).toBe("");
+        expect(rejectionErrorFromPlayEvent({ rejectionReason: "", message: "" })).toBe("");
+    });
+
+    test("surfaces a real rejection reason as the error", () => {
+        expect(rejectionErrorFromPlayEvent({ rejectionReason: "attack_not_available", message: "" })).toBe(
+            "attack_not_available",
+        );
+    });
+
     test("recovers a rejected continued-move follow-up but not its move, ping, or recovery end", () => {
         expect(
             shouldRecoverRejectedMoveFollowUp("unit-1", {

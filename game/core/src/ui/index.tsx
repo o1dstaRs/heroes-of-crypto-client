@@ -1,4 +1,4 @@
-import { TeamVals, TeamType } from "@heroesofcrypto/common";
+import { PickPhaseVals, TeamVals, TeamType } from "@heroesofcrypto/common";
 import { PICK_EVENT_SOURCE } from "./env";
 
 import CssBaseline from "@mui/joy/CssBaseline";
@@ -20,6 +20,7 @@ import { UpNextOverlay } from "./UpNextOverlay";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
+import { PlayRankedBadge } from "./PlayRankedBadge";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
@@ -175,6 +176,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                         // Sandbox: leaving the replay drops back to the regular (fresh) sandbox screen.
                         <ExitReplayBadge left={aiBadgeLeft(windowSize)} onExit={() => window.location.reload()} />
                     )}
+                    {!isLoading && !replayPlaybackActive && <PlayRankedBadge left={aiBadgeLeft(windowSize)} />}
                     {!isLoading && started && <DraggableToolbar />}
                 </CssVarsProvider>
                 <Main />
@@ -188,6 +190,17 @@ export type { IPickPhaseEventData } from "./context/PickBanContext";
 import { PickBanEventProvider, usePickBanEvents } from "./context/PickBanContext";
 export { PickBanEventProvider, usePickBanEvents };
 
+// Bridges the live pick-phase SSE stream (only reachable from inside PickBanEventProvider) up to
+// GameRoute, which has no context of its own. GameRoute uses this to gate its play-snapshot polling
+// fallback on phase — see the "nearingPlay" note on that effect.
+const PickPhaseReporter: React.FC<{ onPhaseChange?: (phase: number) => void }> = ({ onPhaseChange }) => {
+    const { pickPhase } = usePickBanEvents();
+    useEffect(() => {
+        onPhaseChange?.(pickPhase);
+    }, [pickPhase, onPhaseChange]);
+    return null;
+};
+
 const appendEncodedPath = (baseUrl: string, value: string): string =>
     `${baseUrl.replace(/\/+$/, "")}/${encodeURIComponent(value)}`;
 
@@ -198,11 +211,12 @@ const pickEventUrl = (gameId: string): string => {
     return appendEncodedPath(buildApiUrl(HOST_GAME_API, endpoints.game.pickEvents), gameId);
 };
 
-const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType; gameId: string }> = ({
-    windowSize,
-    userTeam,
-    gameId,
-}) => {
+const PickAndBanView: React.FC<{
+    windowSize: IWindowSize;
+    userTeam: TeamType;
+    gameId: string;
+    onPickPhaseChange?: (phase: number) => void;
+}> = ({ windowSize, userTeam, gameId, onPickPhaseChange }) => {
     const manager = usePixiManager();
     const [started, setStarted] = useState(false);
     const [isLoading, setIsLoading] = useState(manager.isLoading);
@@ -225,6 +239,7 @@ const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType; ga
 
     return (
         <PickBanEventProvider url={pickEventsUrl} userTeam={userTeam}>
+            <PickPhaseReporter onPhaseChange={onPickPhaseChange} />
             <div
                 className="container"
                 style={{
@@ -302,6 +317,21 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const [errorMessage, setErrorMessage] = useState("");
     const [userTeam, setUserTeam] = useState<TeamType>(TeamVals.NO_TEAM as TeamType);
     const [routeMode, setRouteMode] = useState<"checking" | "pick" | "play">("checking");
+    // Set once the live pick-phase SSE (already open inside PickAndBanView) reports one of the two
+    // phases that hand the completed draft off to placement/play (see LIVE_PICK_PHASES in
+    // common/picks/pick_sim.ts — AUGMENTS/AUGMENTS_SCOUT are last, PICK/BAN/ARTIFACT_* come first).
+    // Gates the play-snapshot poll below so it isn't hit every 2.5s for the many minutes a match
+    // spends in the early pick/ban/artifact phases (that route 400s until a play session exists).
+    const [pickNearingPlay, setPickNearingPlay] = useState(false);
+    const handlePickPhaseChange = useCallback((phase: number) => {
+        if (phase === PickPhaseVals.AUGMENTS || phase === PickPhaseVals.AUGMENTS_SCOUT) {
+            setPickNearingPlay(true);
+        }
+    }, []);
+
+    useEffect(() => {
+        setPickNearingPlay(false);
+    }, [gameId]);
 
     useEffect(() => {
         const openObserverMode = async (): Promise<boolean> => {
@@ -374,14 +404,43 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         fetchGame();
     }, [authenticated, gameId, getCurrentGame]);
 
+    // One-shot: resolve "checking" into "pick" or "play" as soon as we know which (e.g. a fresh load
+    // or a mid-fight reconnect). Not an interval — the gated poll below picks up from "pick".
     useEffect(() => {
-        if (!gameId || showOverlay || userTeam === TeamVals.NO_TEAM || routeMode === "play") {
+        if (!gameId || showOverlay || userTeam === TeamVals.NO_TEAM || routeMode !== "checking") {
             return;
         }
 
         let cancelled = false;
-        let intervalId: number | undefined;
+        fetchRankedPlaySnapshot(gameId)
+            .then(() => {
+                if (!cancelled) {
+                    setRouteMode("play");
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setRouteMode("pick");
+                }
+            });
 
+        return () => {
+            cancelled = true;
+        };
+    }, [gameId, routeMode, showOverlay, userTeam]);
+
+    // Fallback poll for the "pick -> play" handoff: the pick-events SSE stream (open inside
+    // PickAndBanView) has no "picking is done" message of its own, so this polls play-snapshot until
+    // the play session exists. Always armed (so the transition can never get permanently stuck even
+    // if the phase signal below is wrong or the pick UI's phase model changes), but SLOW by default —
+    // the many-minute early pick/ban/artifact phases would otherwise 400 every 2.5s for nothing. Once
+    // pickNearingPlay reports we've reached the draft's final phase, it speeds up for a snappy handoff.
+    useEffect(() => {
+        if (!gameId || showOverlay || routeMode !== "pick") {
+            return;
+        }
+
+        let cancelled = false;
         const probePlaySnapshot = async () => {
             try {
                 await fetchRankedPlaySnapshot(gameId);
@@ -389,22 +448,18 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
                     setRouteMode("play");
                 }
             } catch {
-                if (!cancelled) {
-                    setRouteMode("pick");
-                }
+                // Not ready yet — keep polling until the play session is created.
             }
         };
 
         void probePlaySnapshot();
-        intervalId = window.setInterval(probePlaySnapshot, 2500);
+        const intervalId = window.setInterval(probePlaySnapshot, pickNearingPlay ? 2000 : 15000);
 
         return () => {
             cancelled = true;
-            if (intervalId) {
-                window.clearInterval(intervalId);
-            }
+            window.clearInterval(intervalId);
         };
-    }, [gameId, routeMode, showOverlay, userTeam]);
+    }, [gameId, routeMode, showOverlay, pickNearingPlay]);
 
     return (
         <>
@@ -433,7 +488,12 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             {!showOverlay && gameId && routeMode !== "checking" && (
                 <>
                     {routeMode === "pick" && (
-                        <PickAndBanView windowSize={windowSize} userTeam={userTeam} gameId={gameId} />
+                        <PickAndBanView
+                            windowSize={windowSize}
+                            userTeam={userTeam}
+                            gameId={gameId}
+                            onPickPhaseChange={handlePickPhaseChange}
+                        />
                     )}
                     {routeMode === "play" && (
                         <RankedGameView windowSize={windowSize} gameId={gameId} userTeam={userTeam} />

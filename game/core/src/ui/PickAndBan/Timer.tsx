@@ -8,8 +8,12 @@ import React from "react";
 const URGENT_SECONDS = 10;
 
 export const Timer = ({ localSeconds, isYourTurn }: { localSeconds: number; isYourTurn: boolean }) => {
-    const seconds = localSeconds > 0 ? localSeconds : 0;
-    const urgent = isYourTurn && seconds <= URGENT_SECONDS;
+    const totalSeconds = localSeconds > 0 ? localSeconds : 0;
+    const urgent = isYourTurn && totalSeconds <= URGENT_SECONDS;
+    // Some phases (e.g. PERK at 70s) run past a minute — divmod into minutes:seconds instead of
+    // always prefixing "0:" (which rendered a 69-second countdown as the nonsensical "0:69").
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
     return (
         <Chip
             variant={urgent ? "solid" : "soft"}
@@ -22,7 +26,7 @@ export const Timer = ({ localSeconds, isYourTurn }: { localSeconds: number; isYo
                 animation: urgent ? "pulseEffect 1s infinite forwards" : "none",
             }}
         >
-            {`0:${seconds.toString().padStart(2, "0")}`}
+            {`${minutes}:${seconds.toString().padStart(2, "0")}`}
         </Chip>
     );
 };
