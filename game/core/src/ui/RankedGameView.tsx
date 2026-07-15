@@ -909,7 +909,16 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 }
                 if (rejected) {
                     pendingTurnResolutionRef.current = false;
-                    setError(result.rejectionReason || result.message || "Action rejected");
+                    const reason = result.rejectionReason || result.message || "Action rejected";
+                    // "fight_not_started" is a pure client/server startup race — an action (e.g. from the
+                    // autobattle AI toggle) submitted in the last few ms before the server's fightStarted
+                    // flag flips at the placement -> fight transition. The board resync below already
+                    // recovers it on the next turn, so surfacing the raw engine reason code here just
+                    // scared players with an alarming red "fight_not_started" banner for a condition that
+                    // silently self-heals. Every other rejection reason is still shown as-is.
+                    if (reason !== "fight_not_started") {
+                        setError(reason);
+                    }
 
                     const continuedMoveUnitId = pendingMoveFollowUpUnitIdRef.current;
                     if (shouldRecoverRejectedMoveFollowUp(continuedMoveUnitId, payload)) {
@@ -1861,13 +1870,10 @@ const RankedAugmentSummary: React.FC<{
                 )}
             </Stack>
             {synergies.length > 0 && (
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                    {synergies.map((s) => (
-                        <Chip key={s} size="sm" variant="soft" color="success">
-                            {s}
-                        </Chip>
-                    ))}
-                </Stack>
+                // Reuse the same icon+tooltip renderer as the in-fight "Your synergies" panel below —
+                // synergy keys are raw internal ids ("Life:1:1"); rendering them as bare Chip text here
+                // leaked that id straight to players instead of a name/description.
+                <SynergiesRow synergies={synergies} wrap />
             )}
         </Stack>
     );
