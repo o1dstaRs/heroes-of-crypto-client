@@ -1892,7 +1892,6 @@ const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam:
         return null;
     }
 
-    const knownCount = opponentUnits.filter((unit) => unit.creatureId > 0 && unit.name !== "Unknown").length;
     // The opponent's readiness rides along in the broadcast snapshot's readyPlayerIds, so show it
     // here — when they click "Ready Placement" we reflect it (and they see ours the same way).
     const opponentPlayer = snapshot.players.find((player) => player.team !== userTeam);
@@ -1917,15 +1916,17 @@ const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam:
                         {opponentReady ? "Ready" : "Placing…"}
                     </Chip>
                 </Stack>
+                {/* The full roster is always visible during placement (server reveals every opponent unit's
+                    identity) — stack sizes and on-board positions stay hidden, but who they fielded does not. */}
                 <Typography level="body-xs" textColor={hocColors.muted}>
-                    {knownCount}/{opponentUnits.length} known
+                    {opponentUnits.length} units
                 </Typography>
             </Stack>
             <Box
                 sx={{
                     display: "flex",
-                    // Wrap onto multiple rows so every revealed unit stays visible when the right
-                    // sidebar is narrow — a single scrolling row would hide units off-screen.
+                    // Wrap onto multiple rows so every unit stays visible when the right sidebar is narrow —
+                    // a single scrolling row would hide units off-screen.
                     flexWrap: "wrap",
                     gap: 0.6,
                     pb: 0.25,
@@ -1934,35 +1935,36 @@ const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam:
                 {opponentUnits.map((unit) => {
                     const known = unit.creatureId > 0 && unit.name !== "Unknown";
                     return (
-                        <Box
-                            key={unit.id}
-                            sx={{
-                                position: "relative",
-                                flex: "0 0 auto",
-                                width: 42,
-                                height: 42,
-                                borderRadius: 6,
-                                border: `1px solid ${known ? "rgba(245,158,11,0.28)" : "rgba(148,163,184,0.18)"}`,
-                                bgcolor: known ? "rgba(245,158,11,0.08)" : "rgba(15,23,42,0.45)",
-                                display: "grid",
-                                placeItems: "center",
-                                overflow: "hidden",
-                            }}
-                        >
+                        <Tooltip key={unit.id} title={known ? unit.name : "Unknown"} placement="top">
                             <Box
-                                component="img"
-                                src={resolveUnitImage(undefined, known ? unit.name : undefined)}
-                                alt=""
                                 sx={{
-                                    width: 36,
-                                    height: 36,
-                                    objectFit: "contain",
-                                    // Revealed (known) units show their real creature art in full color;
-                                    // still-hidden units stay a dark grayscale silhouette.
-                                    filter: known ? "none" : "grayscale(1) brightness(0.42) opacity(0.55)",
+                                    position: "relative",
+                                    flex: "0 0 auto",
+                                    width: 42,
+                                    height: 42,
+                                    borderRadius: 6,
+                                    border: `1px solid ${known ? "rgba(245,158,11,0.28)" : "rgba(148,163,184,0.18)"}`,
+                                    bgcolor: known ? "rgba(245,158,11,0.08)" : "rgba(15,23,42,0.45)",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    overflow: "hidden",
                                 }}
-                            />
-                        </Box>
+                            >
+                                <Box
+                                    component="img"
+                                    src={resolveUnitImage(undefined, known ? unit.name : undefined)}
+                                    alt=""
+                                    sx={{
+                                        width: 36,
+                                        height: 36,
+                                        objectFit: "contain",
+                                        // Full roster is visible in color during placement; the grayscale
+                                        // silhouette is only a fallback for legacy/edge-case unknown units.
+                                        filter: known ? "none" : "grayscale(1) brightness(0.42) opacity(0.55)",
+                                    }}
+                                />
+                            </Box>
+                        </Tooltip>
                     );
                 })}
             </Box>

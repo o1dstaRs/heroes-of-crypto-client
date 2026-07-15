@@ -5,7 +5,6 @@ import {
     FightStateManager,
     Spell,
     getFactionOf,
-    GridMath,
     HoCConfig,
     TeamVals,
     ToFactionName,
@@ -842,10 +841,10 @@ export class RankedPlayScene extends Sandbox {
         return this.viewerTeam;
     }
     /**
-     * During placement the opponent's placement zone is never drawn (see getPlacementDrawTeam).
-     * Instead, lay out the units we have revealed (scouted) inside the opponent's placement area,
-     * each on its own cell so they never stack. These are synthetic display positions — the
-     * opponent's real placement cells stay hidden.
+     * During placement the opponent's placement zone is never drawn (see getPlacementDrawTeam). Instead,
+     * lay the opponent's revealed roster out in a single horizontal LINE across the top of the board (their
+     * side), evenly spaced so each unit gets its own spot and none overlap. These are synthetic display
+     * positions — the opponent's real placement cells stay hidden until the fight starts.
      */
     protected override getRevealedOpponentUnitPositions(units: SandboxSceneUnitState[]): Map<string, HoCMath.XY> {
         const positions = new Map<string, HoCMath.XY>();
@@ -861,35 +860,18 @@ export class RankedPlayScene extends Sandbox {
             return positions;
         }
 
+        // Spread the roster in one horizontal line across the board width, on the opponent's edge (top of the
+        // board for a LOWER viewer, bottom for an UPPER viewer). (index + 0.5)/total centers each unit in its
+        // own equal-width slot with a half-slot margin from both edges, so end units don't overflow.
         const gs = this.sc_sceneSettings.getGridSettings();
-        const slots: HoCMath.XY[] = [];
-        const seen = new Set<number>();
-        for (const placementIndex of [0, 1]) {
-            const placement = this.getPlacement(opponentTeam, placementIndex);
-            if (!placement) {
-                continue;
-            }
-            for (const cell of placement.possibleCellPositions(true)) {
-                if (!cell) {
-                    continue;
-                }
-                const hash = (cell.x << 4) | cell.y;
-                if (seen.has(hash)) {
-                    continue;
-                }
-                seen.add(hash);
-                slots.push(GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()));
-            }
-        }
-        if (!slots.length) {
-            return positions;
-        }
-        // Stable order so each revealed unit keeps the same cell across snapshots.
-        slots.sort((a, b) => a.y - b.y || a.x - b.x);
-
+        const minX = gs.getMinX();
+        const maxX = gs.getMaxX();
+        const isLowerViewer = this.viewerTeam === TeamVals.LOWER;
+        const lineY = isLowerViewer ? gs.getMaxY() : gs.getMinY();
+        const total = revealedUnits.length;
         revealedUnits.forEach((unit, index) => {
-            // More revealed units than cells is not expected; modulo just keeps it bounded.
-            positions.set(unit.properties.id, slots[index % slots.length]);
+            const fraction = (index + 0.5) / total;
+            positions.set(unit.properties.id, { x: minX + (maxX - minX) * fraction, y: lineY });
         });
         return positions;
     }

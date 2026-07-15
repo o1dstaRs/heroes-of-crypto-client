@@ -22,6 +22,8 @@ export interface IPickPhaseEventData {
     b: number[];
     // opponent picked
     op: number[];
+    // opponent slot indices this player's doctrine watches (into the opponent's level-sorted picked array).
+    ws: number[];
     // time remaining
     t: number;
     // reveals remanining
@@ -44,6 +46,8 @@ export interface PickBanContextType {
     banned: number[];
     picked: number[];
     opponentPicked: number[];
+    // Opponent slot indices (0..5, into the opponent's level-sorted army) this player's doctrine watches.
+    watchedSlots: number[];
     isYourTurn: boolean | null;
     isAbandoned: boolean | null;
     pickPhase: number;
@@ -74,6 +78,7 @@ export const PickBanContext = createContext<PickBanContextType>({
     banned: [],
     picked: [],
     opponentPicked: [],
+    watchedSlots: [],
     isYourTurn: null,
     isAbandoned: null,
     pickPhase: -1,
