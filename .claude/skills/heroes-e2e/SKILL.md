@@ -1,6 +1,6 @@
 ---
 name: heroes-e2e
-description: Start a local end-to-end Heroes of Crypto multiplayer match (real pick/ban -> play) and generate two browser join links — GREEN/LOWER and RED/UPPER. Use when the user asks to start an e2e game, test multiplayer, or get two match links for two browsers.
+description: Start a local end-to-end Heroes of Crypto match and generate browser join links. Supports human-vs-human multiplayer (real pick/ban -> play, two links GREEN/LOWER + RED/UPPER) and single-human "Play vs AI" (one link, AI opponent drives picks/placement/fight). Use when the user asks to start an e2e game, test multiplayer, or play/test against the AI.
 ---
 
 # Heroes of Crypto — Local E2E Multiplayer (pick-phase)
@@ -43,12 +43,36 @@ and show an empty board during pick — don't use them for pick.)
 ## Usage
 
 ```bash
-.claude/skills/heroes-e2e/scripts/hoc-e2e.sh match       # full pick/ban -> play match, print links
+.claude/skills/heroes-e2e/scripts/hoc-e2e.sh match       # human-vs-human: full pick/ban -> play match, print TWO links
+.claude/skills/heroes-e2e/scripts/hoc-e2e.sh vs-ai       # human-vs-AI: ONE link, opens in pick phase against the bot
 .claude/skills/heroes-e2e/scripts/hoc-e2e.sh placement   # SKIP pick/ban: start in placement, randomized rosters
 .claude/skills/heroes-e2e/scripts/hoc-e2e.sh status      # what's running (incl. monitor)
 .claude/skills/heroes-e2e/scripts/hoc-e2e.sh monitor     # start watchdog (if needed) + print recorded anomalies
 .claude/skills/heroes-e2e/scripts/hoc-e2e.sh cleanup     # stop server + client + monitor (leaves DB containers)
 ```
+
+### `vs-ai` mode (play against the AI, from picks)
+
+One-command "Play vs AI": brings up the stack, seeds a single active player, and prints **one**
+auto-login deep link:
+
+```
+http://localhost:5174/play?mode=vs-ai&e2eEmail=<email>&e2ePassword=Password1!
+```
+
+Open it in one browser. It auto-logs-in and the client's `/play?mode=vs-ai` deep link fires the real
+**Play vs AI** button path (`MatchmakingRoute`): `createVsAiGame()` → `POST /v1/mm/vs-ai` creates a
+PICK-status game with the human on one team and a persistent bot seat (`ai:<version>:default` playerId)
+on the other. From there the **server drives the AI end-to-end** — the pick-phase daemon takes the
+bot's draft turns immediately, and the play session pins the bot seat `aiControlled` so it auto-places
+its army and runs every fight turn. No opponent browser needed; the human just plays their own side.
+
+The bot's AI version is the shipped `DEFAULT_AI_VERSION`; override a fresh server start with
+`HOC_VS_AI_VERSION=v0.6 .../hoc-e2e.sh vs-ai` (any registered `AI_VERSIONS` value). Run `cleanup` before
+changing the version if the server is already up. Helper:
+`heroes-of-crypto-server/simple_client/create_vs_ai_match.ts`. Each run seeds a fresh player — re-run
+for a new match. The entire vs-AI feature (client button + deep link + server ingress + bot driving)
+is shipped product code; this mode is just a convenience launcher around it.
 
 ### Server-log monitoring (always-on)
 

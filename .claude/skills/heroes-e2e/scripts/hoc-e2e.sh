@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Heroes of Crypto — local E2E multiplayer harness (PICK-phase, real multiplayer).
+# Heroes of Crypto — local E2E harness (PICK-phase).
 #
-# Brings up the full local stack and creates a real pick/ban match between two
-# seeded players, printing two browser join links (GREEN = LOWER, RED = UPPER).
-# Each link uses the dev e2e auto-login (?e2eEmail=&e2ePassword=) so the browser
-# is authenticated and lands directly in the pick & ban phase.
+# Brings up the full local stack, then either:
+#   match  — a real human-vs-human pick/ban match between two seeded players, printing two browser
+#            join links (GREEN = LOWER, RED = UPPER); or
+#   vs-ai  — a single-human "Play vs AI" match, printing one link that opens in the pick phase against
+#            an AI opponent that drives its own picks/placement/fight server-side.
+# Each link uses the dev e2e auto-login (?e2eEmail=&e2ePassword=) so the browser is authenticated and
+# lands directly in the match.
 #
 # Stack: ArangoDB + Redis (Docker) -> server (:3001) -> game client (:5174).
 set -euo pipefail
@@ -83,6 +86,23 @@ cmd_match() {
     (cd "$SERVER_DIR" && bun simple_client/create_pick_match.ts)
 }
 
+cmd_vs_ai() {
+    ensure_docker_db
+    if [[ -n "${HOC_VS_AI_VERSION:-}" ]] && port_busy "$SERVER_PORT"; then
+        echo "vs-ai: existing server keeps its startup AI version; run cleanup before changing HOC_VS_AI_VERSION" >&2
+    fi
+    ensure_server
+    ensure_monitor
+    ensure_client
+    echo "vs-ai: seeding one active player + printing a Play-vs-AI deep link (AI drives picks/placement/fight) ..."
+    # Run from the server dir so bun auto-loads its .env (HOC_ARANGODB_* creds).
+    # HOC_VS_AI_VERSION picks the bot's AI version (defaults to the shipped DEFAULT_AI_VERSION).
+    (cd "$SERVER_DIR" && \
+        HOC_PLAY_BASE_URL="${HOC_PLAY_BASE_URL:-http://localhost:$SERVER_PORT}" \
+        HOC_CLIENT_BASE_URL="${HOC_CLIENT_BASE_URL:-http://localhost:$CLIENT_PORT}" \
+        bun simple_client/create_vs_ai_match.ts)
+}
+
 cmd_placement() {
     ensure_docker_db
     ensure_server
@@ -116,9 +136,10 @@ cmd_cleanup() {
 
 case "${1:-match}" in
     all|match|up)      cmd_match ;;
+    vs-ai|ai|vsai)     cmd_vs_ai ;;
     placement|play)    cmd_placement ;;
     status)            cmd_status ;;
     monitor|anomalies) cmd_monitor ;;
     cleanup|down)      cmd_cleanup ;;
-    *) echo "Usage: $(basename "$0") {match|placement|status|monitor|cleanup}"; exit 1 ;;
+    *) echo "Usage: $(basename "$0") {match|vs-ai|placement|status|monitor|cleanup}"; exit 1 ;;
 esac
