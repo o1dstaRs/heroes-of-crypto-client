@@ -8,6 +8,7 @@ import {
     rankedUnitAliveHealth,
     rankedUnitStartAmount,
     rankedUnitStartHealth,
+    shouldPublishRankedFinish,
 } from "./RankedPlayScene";
 
 const unitState = (overrides: Partial<AuthoritativeUnitState>): AuthoritativeUnitState => ({
@@ -52,6 +53,47 @@ const placementSnapshot = (units: AuthoritativeUnitState[]): AuthoritativeGameSn
 });
 
 describe("ranked placement scene state", () => {
+    test("publishes terminal stats when finishFight retained a pre-final ranked report", () => {
+        const terminalSnapshot = {
+            ...placementSnapshot([]),
+            phase: 3,
+            fightStarted: true,
+            fightFinished: true,
+        };
+        const preFinalStats = {
+            winner: TeamVals.NO_TEAM,
+            series: [],
+            lowerDeaths: [],
+            upperDeaths: [],
+            lowerStartTotal: 10,
+            upperStartTotal: 12,
+            lowerKilledTotal: 0,
+            upperKilledTotal: 0,
+            totalLaps: 1,
+        };
+        const visibleStateAfterFinishEvent = {
+            hasFinished: true,
+            teamWin: TeamVals.UPPER,
+            fightStats: preFinalStats,
+        };
+
+        // A terminal snapshot must replace these pre-final stats even though their roster totals are
+        // populated. The results overlay requires fightStats.winner to match teamWin.
+        expect(shouldPublishRankedFinish(terminalSnapshot, visibleStateAfterFinishEvent)).toBe(true);
+        expect(
+            shouldPublishRankedFinish(terminalSnapshot, {
+                ...visibleStateAfterFinishEvent,
+                fightStats: { ...preFinalStats, winner: TeamVals.UPPER },
+            }),
+        ).toBe(false);
+        expect(
+            shouldPublishRankedFinish(terminalSnapshot, {
+                ...visibleStateAfterFinishEvent,
+                fightStats: { ...preFinalStats, winner: TeamVals.LOWER },
+            }),
+        ).toBe(true);
+    });
+
     test("carries server-computed morale and speed onto reconstructed units", () => {
         const state = authoritativeSnapshotToSandboxSceneState(
             placementSnapshot([unitState({ id: "own", team: TeamVals.LOWER, morale: 9, speed: 7 })]),

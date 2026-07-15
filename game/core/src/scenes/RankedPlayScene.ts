@@ -28,7 +28,7 @@ import type {
     AuthoritativeUnitState,
     SceneGameActionTransport,
 } from "../game_action_transport";
-import type { IFightDeathEntry, IFightStatsReport, IFightStatsSample } from "./VisibleState";
+import type { IFightDeathEntry, IFightStatsReport, IFightStatsSample, IVisibleState } from "./VisibleState";
 import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
 import { Sandbox, type SandboxSceneState, type SandboxSceneUnitState, type SceneActionEngine } from "./Sandbox";
 import { animatableEffectNames, diffUnitEffects } from "./effect_pops";
@@ -219,6 +219,24 @@ export const rankedUnitStartHealth = (unit: SandboxSceneUnitState): number => {
         return 0;
     }
     return startAmount * Math.max(1, Math.floor(unit.properties.max_hp));
+};
+
+export const shouldPublishRankedFinish = (
+    snapshot: Pick<AuthoritativeGameSnapshot, "fightFinished">,
+    visibleState: Pick<IVisibleState, "hasFinished" | "teamWin" | "fightStats"> | undefined,
+): boolean => {
+    if (!snapshot.fightFinished) {
+        return false;
+    }
+    const stats = visibleState?.fightStats;
+    const statsWinner = stats?.winner;
+    const finishAlreadyPublished =
+        !!visibleState?.hasFinished &&
+        !!stats &&
+        (stats.lowerStartTotal > 0 || stats.upperStartTotal > 0) &&
+        (statsWinner === TeamVals.LOWER || statsWinner === TeamVals.UPPER) &&
+        statsWinner === visibleState.teamWin;
+    return !finishAlreadyPublished;
 };
 
 export class RankedPlayScene extends Sandbox {
@@ -608,14 +626,10 @@ export class RankedPlayScene extends Sandbox {
         // finished state keeps it idempotent across the 4s fallback poll's repeated finished snapshots.
         // hasFinished ALONE is not enough: the engine's own finishFight (fired while playing the final
         // action record) can set it BEFORE any finished snapshot applies, but it cannot build ranked
-        // fight stats (the sandbox tracker never runs in ranked) — the overlay then has a winner and no
-        // stats and hides itself. Treat "finished but stats never published" the same as "not finished".
-        const publishedFinishStats = this.sc_visibleState?.fightStats;
-        const finishAlreadyPublished =
-            !!this.sc_visibleState?.hasFinished &&
-            !!publishedFinishStats &&
-            (publishedFinishStats.lowerStartTotal > 0 || publishedFinishStats.upperStartTotal > 0);
-        if (snapshot.fightFinished && !finishAlreadyPublished) {
+        // fight stats (the sandbox tracker never runs in ranked). It can therefore leave no stats, or
+        // retain a pre-final ranked report whose winner is still NO_TEAM; either makes the overlay hide.
+        // A published finish needs a real stats winner matching teamWin, not only populated roster totals.
+        if (shouldPublishRankedFinish(snapshot, this.sc_visibleState)) {
             const finishedState = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
             this.applyRankedFightStats(snapshot, finishedState.units);
         }
