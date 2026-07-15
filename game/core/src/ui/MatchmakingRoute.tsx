@@ -7,7 +7,14 @@ import { useNavigate, useSearchParams } from "react-router";
 
 import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
 import { createVsAiGame } from "../api/vs_ai_client";
-import { markVsAiGame } from "../utils/aiOpponent";
+import {
+    DEFAULT_VS_AI_DIFFICULTY,
+    markVsAiGame,
+    parseVsAiDifficulty,
+    VS_AI_DIFFICULTIES,
+    VS_AI_DIFFICULTY_VERSIONS,
+    type VsAiDifficulty,
+} from "../utils/aiOpponent";
 import { useAuthContext } from "./auth/context/auth_context";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
@@ -49,6 +56,11 @@ export const MatchmakingRoute: React.FC = () => {
     const needsActivation = user?.is_active === false;
     const accountEmail = user?.email ?? "";
     const vsAiRequested = searchParams.get("mode") === "vs-ai";
+    // AI difficulty tier for "Play vs AI" (default Normal). A ?difficulty= deep-link param seeds the
+    // selector so /play?mode=vs-ai&difficulty=brutal starts the requested tier.
+    const [aiDifficulty, setAiDifficulty] = useState<VsAiDifficulty>(
+        () => parseVsAiDifficulty(searchParams.get("difficulty")) ?? DEFAULT_VS_AI_DIFFICULTY,
+    );
 
     const closeStream = useCallback(() => {
         streamRef.current?.close();
@@ -189,14 +201,14 @@ export const MatchmakingRoute: React.FC = () => {
         setState("starting-ai");
         closeStream();
         try {
-            const game = await createVsAiGame();
+            const game = await createVsAiGame(aiDifficulty);
             const gameId = game.id;
             if (!gameId) {
                 throw new Error("AI match response was incomplete");
             }
-            // Remember the game is vs the bot so the pick phase (which never sees the opponent's
-            // playerId) can label the opponent as the AI.
-            markVsAiGame(gameId);
+            // Remember the game is vs the bot (and at which tier) so the pick phase — which never sees
+            // the opponent's playerId — can label the opponent as the AI at the chosen difficulty.
+            markVsAiGame(gameId, aiDifficulty);
             navigate(`/game/${gameId}`);
         } catch (err) {
             try {
@@ -225,10 +237,11 @@ export const MatchmakingRoute: React.FC = () => {
         } finally {
             aiStartInFlightRef.current = false;
         }
-    }, [closeStream, getCurrentGame, navigate, needsActivation, openStream]);
+    }, [aiDifficulty, closeStream, getCurrentGame, navigate, needsActivation, openStream]);
 
-    // A /play?mode=vs-ai deep link starts the AI match on arrival. Consume the mode before starting
-    // so browser Back or a remount cannot unintentionally create another match.
+    // A /play?mode=vs-ai deep link starts the AI match on arrival (optionally at ?difficulty=<tier>).
+    // Consume the params before starting so browser Back or a remount cannot unintentionally create
+    // another match.
     useEffect(() => {
         if (!vsAiRequested || vsAiAutoStartedRef.current || needsActivation || state !== "idle") {
             return;
@@ -236,6 +249,7 @@ export const MatchmakingRoute: React.FC = () => {
         vsAiAutoStartedRef.current = true;
         const nextSearchParams = new URLSearchParams(searchParams);
         nextSearchParams.delete("mode");
+        nextSearchParams.delete("difficulty");
         setSearchParams(nextSearchParams, { replace: true });
         void handlePlayAi();
     }, [handlePlayAi, needsActivation, searchParams, setSearchParams, state, vsAiRequested]);
@@ -365,6 +379,47 @@ export const MatchmakingRoute: React.FC = () => {
                             <Typography level="body-xs" textColor="rgba(239, 228, 204, 0.46)">
                                 Game {pendingGameId}
                             </Typography>
+                        )}
+
+                        {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") && (
+                            <Stack spacing={0.75}>
+                                <Typography level="body-xs" textColor={hocColors.muted}>
+                                    AI difficulty (AI {VS_AI_DIFFICULTY_VERSIONS[aiDifficulty]}
+                                    {aiDifficulty === "brutal" ? " + search" : ""})
+                                </Typography>
+                                <Stack direction="row" spacing={0} role="radiogroup" aria-label="AI difficulty">
+                                    {VS_AI_DIFFICULTIES.map((difficulty, index) => {
+                                        const selected = difficulty === aiDifficulty;
+                                        return (
+                                            <Button
+                                                key={difficulty}
+                                                size="sm"
+                                                variant={selected ? "solid" : "soft"}
+                                                role="radio"
+                                                aria-checked={selected}
+                                                disabled={state === "starting-ai"}
+                                                onClick={() => setAiDifficulty(difficulty)}
+                                                sx={{
+                                                    ...(selected ? hocPrimaryButtonSx : hocSoftButtonSx),
+                                                    flex: 1,
+                                                    textTransform: "capitalize",
+                                                    borderRadius: 0,
+                                                    ...(index === 0 && {
+                                                        borderTopLeftRadius: 6,
+                                                        borderBottomLeftRadius: 6,
+                                                    }),
+                                                    ...(index === VS_AI_DIFFICULTIES.length - 1 && {
+                                                        borderTopRightRadius: 6,
+                                                        borderBottomRightRadius: 6,
+                                                    }),
+                                                }}
+                                            >
+                                                {difficulty}
+                                            </Button>
+                                        );
+                                    })}
+                                </Stack>
+                            </Stack>
                         )}
 
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>

@@ -23,7 +23,7 @@ describe("vs AI client", () => {
             return { data: encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength) };
         };
 
-        const game = await createVsAiGame(post);
+        const game = await createVsAiGame(undefined, post);
 
         expect(requestedUrl).toBe(endpoints.mm.vsAi);
         expect(requestedBody).toBeNull();
@@ -37,9 +37,28 @@ describe("vs AI client", () => {
         });
     });
 
+    test("carries the selected difficulty tier as a query param", async () => {
+        const encoded = new GamePublic({
+            id: "00000000-0000-4000-8000-000000000002",
+            confirmed: true,
+            init_time: 1234,
+            abandoned: false,
+            team: TeamVals.UPPER,
+        }).serializeBinary();
+        let requestedUrl = "";
+        const post: VsAiPost = async (url) => {
+            requestedUrl = url;
+            return { data: encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength) };
+        };
+
+        await createVsAiGame("brutal", post);
+
+        expect(requestedUrl).toBe(`${endpoints.mm.vsAi}?difficulty=brutal`);
+    });
+
     test("rejects a response that cannot enter the confirmed pick flow", async () => {
         const post: VsAiPost = async () => ({ data: new Uint8Array() });
-        const error = await createVsAiGame(post).catch((reason: unknown) => reason);
+        const error = await createVsAiGame(undefined, post).catch((reason: unknown) => reason);
         expect(error).toBeInstanceOf(Error);
         expect((error as Error).message).toBe("AI match response was incomplete");
     });

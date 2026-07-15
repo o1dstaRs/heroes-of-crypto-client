@@ -154,6 +154,8 @@ const ActionButton: React.FC<{ label: string; disabled?: boolean; primary?: bool
 interface FightFinishedOverlayProps {
     mode?: "sandbox" | "ranked";
     canReplay?: boolean;
+    /** Set for vs-AI matches: the tiered bot identity ("AI — Hard (v0.7)"), shown under the banner. */
+    opponentLabel?: string;
     onReplay?: () => void | Promise<void>;
     // Ranked-only post-match actions. Both are optional so the overlay degrades to the old bare
     // "Close" button for any caller that doesn't wire them (e.g. a future non-vs-AI ranked surface).
@@ -167,6 +169,7 @@ interface FightFinishedOverlayProps {
 export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     canReplay: canReplayOverride,
     mode = "sandbox",
+    opponentLabel,
     onReplay,
     onPlayAgainVsAi,
     onBackToLobby,
@@ -346,6 +349,11 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         {teamName(stats.winner).toUpperCase()} TEAM WINS
                     </Typography>
                     <Typography sx={{ color: PARCHMENT, opacity: 0.75, fontSize: "0.95rem" }}>{subtitle}</Typography>
+                    {opponentLabel && (
+                        <Typography sx={{ color: GOLD, opacity: 0.9, fontSize: "0.85rem", fontWeight: 700, mt: 0.25 }}>
+                            vs {opponentLabel}
+                        </Typography>
+                    )}
                 </Stack>
 
                 {/* Legend */}

@@ -37,7 +37,7 @@ import { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { RankedGameView } from "./RankedGameView";
-import { isMarkedVsAiGame } from "../utils/aiOpponent";
+import { getMarkedVsAiDifficulty, isMarkedVsAiGame, vsAiDifficultyLabel } from "../utils/aiOpponent";
 
 const isEditableTarget = (target: EventTarget | null): boolean => {
     if (!(target instanceof HTMLElement)) {
@@ -254,7 +254,19 @@ const PickAndBanView: React.FC<{
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
                     {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
                 </CssVarsProvider>
-                <StainedGlassWindow userTeam={userTeam} opponentLabel={isMarkedVsAiGame(gameId) ? "AI" : "Opponent"} />
+                <StainedGlassWindow
+                    userTeam={userTeam}
+                    opponentLabel={
+                        isMarkedVsAiGame(gameId)
+                            ? (() => {
+                                  // Show the tier when this browser created the match ("AI — Hard (v0.7)");
+                                  // a legacy/foreign marker degrades to the bare "AI".
+                                  const difficulty = getMarkedVsAiDifficulty(gameId);
+                                  return difficulty ? vsAiDifficultyLabel(difficulty) : "AI";
+                              })()
+                            : "Opponent"
+                    }
+                />
                 <LocalModelDraftOpponent eventUrl={pickEventsUrl} userTeam={userTeam} />
                 <AutoPickToast />
                 <Popover />

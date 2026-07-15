@@ -78,7 +78,18 @@ import {
     shouldRecoverRejectedMoveFollowUp,
 } from "./rankedActionResponse";
 import { resolveUnitImage } from "./unitImage";
-import { hasAiSeatPlayer, isMarkedVsAiGame, markVsAiGame } from "../utils/aiOpponent";
+import {
+    aiOpponentLabel,
+    DEFAULT_VS_AI_DIFFICULTY,
+    findAiSeatPlayerId,
+    getAiSeatDifficulty,
+    getMarkedVsAiDifficulty,
+    hasAiSeatPlayer,
+    isMarkedVsAiGame,
+    markVsAiGame,
+    vsAiDifficultyLabel,
+    type VsAiDifficulty,
+} from "../utils/aiOpponent";
 
 export { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 
@@ -741,20 +752,37 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         }
         return hasAiSeatPlayer(snapshot?.players);
     }, [gameId, snapshot]);
+    // The AI opponent's identity, tier first: the seat playerId in the snapshot encodes the difficulty
+    // ("ai:v0.7:brutal:…" — authoritative, survives refresh/other browsers); the local marker covers the
+    // pre-snapshot window. Legacy tier-less seats degrade to "AI (v0.7)".
+    const aiSeatPlayerId = useMemo(() => findAiSeatPlayerId(snapshot?.players), [snapshot]);
+    const vsAiDifficulty = useMemo<VsAiDifficulty | undefined>(
+        () => getAiSeatDifficulty(aiSeatPlayerId) ?? getMarkedVsAiDifficulty(gameId),
+        [aiSeatPlayerId, gameId],
+    );
+    const vsAiOpponentLabel = useMemo(() => {
+        if (vsAiDifficulty) {
+            return vsAiDifficultyLabel(vsAiDifficulty);
+        }
+        return aiOpponentLabel(aiSeatPlayerId) ?? (isVsAiMatch ? "AI" : undefined);
+    }, [aiSeatPlayerId, isVsAiMatch, vsAiDifficulty]);
     const handleBackToLobby = useCallback(() => {
         navigate("/play");
     }, [navigate]);
     const handlePlayAgainVsAi = useCallback(async () => {
-        const game = await createVsAiGame();
+        // Repeat the SAME tier the finished match was played at (fall back to the default for legacy
+        // tier-less games).
+        const difficulty = vsAiDifficulty ?? DEFAULT_VS_AI_DIFFICULTY;
+        const game = await createVsAiGame(difficulty);
         const nextGameId = game.id;
         if (!nextGameId) {
             throw new Error("AI match response was incomplete");
         }
         // Remembered the same way the initial Play-vs-AI entry (MatchmakingRoute) does, so the new
-        // match's pick phase can label the opponent as the AI.
-        markVsAiGame(nextGameId);
+        // match's pick phase can label the opponent as the AI at the same difficulty.
+        markVsAiGame(nextGameId, difficulty);
         navigate(`/game/${nextGameId}`);
-    }, [navigate]);
+    }, [navigate, vsAiDifficulty]);
     const selectedUnit = useMemo(
         () => snapshot?.units.find((unit) => unit.id === selectedUnitId),
         [selectedUnitId, snapshot],
@@ -1436,6 +1464,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             embedded
             error={error}
             gameStarted={gameStarted}
+            opponentLabel={vsAiOpponentLabel}
             ready={ready}
             selectedUnit={selectedUnit}
             snapshot={snapshot}
@@ -1482,6 +1511,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                         <FightFinishedOverlay
                             canReplay={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}
                             mode="ranked"
+                            opponentLabel={vsAiOpponentLabel}
                             onReplay={replayRankedFight}
                             onPlayAgainVsAi={isVsAiMatch && !isObserver ? handlePlayAgainVsAi : undefined}
                             onBackToLobby={handleBackToLobby}
@@ -1503,6 +1533,8 @@ interface RankedOverlayProps {
     embedded?: boolean;
     error: string;
     gameStarted: boolean;
+    /** Set for vs-AI matches: the tiered bot identity, e.g. "AI — Hard (v0.7)". */
+    opponentLabel?: string;
     ready: boolean;
     selectedUnit?: PlayUnitState;
     snapshot: PlaySnapshot;
@@ -1981,6 +2013,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     embedded = false,
     error,
     gameStarted,
+    opponentLabel,
     ready,
     selectedUnit,
     snapshot,
@@ -2044,6 +2077,19 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                         {phaseLabel(snapshot.phase)}
                     </Chip>
                     <PlacementCountdownChip snapshot={snapshot} />
+                    {opponentLabel && (
+                        <Chip
+                            size="sm"
+                            variant="soft"
+                            sx={{
+                                bgcolor: hocColors.orangeSoft,
+                                color: hocColors.parchment,
+                                border: `1px solid ${hocColors.orangeBorder}`,
+                            }}
+                        >
+                            {opponentLabel}
+                        </Chip>
+                    )}
                     <Chip size="sm" variant="soft" color={status === "Connected" ? "success" : "warning"}>
                         {status}
                     </Chip>
