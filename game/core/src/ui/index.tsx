@@ -24,6 +24,7 @@ import { PlayRankedBadge } from "./PlayRankedBadge";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
+import AutoPickToast from "./PickAndBan/AutoPickToast";
 import { buildApiUrl, endpoints, HOST_GAME_API } from "../api/axios";
 import { AuthProvider } from "./auth/context/auth_provider";
 import { useAuthContext } from "./auth/context/auth_context";
@@ -255,6 +256,7 @@ const PickAndBanView: React.FC<{
                 </CssVarsProvider>
                 <StainedGlassWindow userTeam={userTeam} opponentLabel={isMarkedVsAiGame(gameId) ? "AI" : "Opponent"} />
                 <LocalModelDraftOpponent eventUrl={pickEventsUrl} userTeam={userTeam} />
+                <AutoPickToast />
                 <Popover />
             </div>
         </PickBanEventProvider>

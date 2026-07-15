@@ -196,6 +196,16 @@ export interface PlaySnapshot {
      * servers (decoder defaults to []). */
     lowerSynergies?: string[];
     upperSynergies?: string[];
+    /** Each team's starting army broken down per creature type, captured once at fight start and never
+     * pruned afterward — unlike `units`, which only ever lists CURRENTLY-existing stacks (a fully-wiped
+     * stack is removed server-side and never reappears in a later snapshot). Parallel arrays:
+     * creatureIds[i] fielded in amounts[i]. Lets a cold-loaded/reloaded finished game render a correct
+     * per-creature casualty breakdown even for a team that lost an entire creature type. Empty before
+     * the fight starts; absent from older servers (decoder defaults to []). */
+    lowerStartRosterCreatureIds?: number[];
+    lowerStartRosterAmounts?: number[];
+    upperStartRosterCreatureIds?: number[];
+    upperStartRosterAmounts?: number[];
 }
 
 export interface PlayAction {
@@ -638,6 +648,10 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         upperAugmentMovement: 0,
         lowerSynergies: [],
         upperSynergies: [],
+        lowerStartRosterCreatureIds: [],
+        lowerStartRosterAmounts: [],
+        upperStartRosterCreatureIds: [],
+        upperStartRosterAmounts: [],
     };
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
@@ -732,6 +746,14 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             (snapshot.lowerSynergies ??= []).push(reader.string());
         } else if (field === 45) {
             (snapshot.upperSynergies ??= []).push(reader.string());
+        } else if (field === 46) {
+            (snapshot.lowerStartRosterCreatureIds ??= []).push(reader.varintNumber());
+        } else if (field === 47) {
+            (snapshot.lowerStartRosterAmounts ??= []).push(reader.varintNumber());
+        } else if (field === 48) {
+            (snapshot.upperStartRosterCreatureIds ??= []).push(reader.varintNumber());
+        } else if (field === 49) {
+            (snapshot.upperStartRosterAmounts ??= []).push(reader.varintNumber());
         } else {
             reader.skip(wireType);
         }

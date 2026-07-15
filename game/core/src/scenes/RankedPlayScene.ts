@@ -194,6 +194,33 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
     return undefined;
 };
 
+// Derives just {name, smallTextureName} for a creature type purely from its id — used to render the
+// server's fight-start roster (lowerStartRosterCreatureIds/Amounts etc.), which covers creature types
+// that may already be fully wiped (and so absent from `units`) by the time this client sees ANY
+// snapshot, e.g. a finished ranked game loaded cold. Mirrors getUnitPropertiesFromAuthoritativeState's
+// name/texture derivation without needing a live unit to hang the lookup off of.
+const creatureVisualsById = (
+    creatureId: number,
+    team: TeamType,
+): { name: string; smallTextureName: string } | undefined => {
+    const unitName = UNIT_ID_TO_NAME[creatureId];
+    if (!unitName || creatureId <= 0) {
+        return undefined;
+    }
+    try {
+        const baseProperties = HoCConfig.getCreatureConfig(
+            team,
+            ToFactionName[getFactionOf(creatureId as CreatureId)],
+            unitName,
+            unitToTextureName(unitName, TextureType.LARGE),
+            0,
+        );
+        return { name: unitName, smallTextureName: baseProperties.small_texture_name };
+    } catch {
+        return undefined;
+    }
+};
+
 interface RankedFightRosterEntry {
     smallTextureName: string;
     start: number;
@@ -1867,6 +1894,53 @@ export class RankedPlayScene extends Sandbox {
         }
         if (snapshot.upperStartHealth && snapshot.upperStartHealth > 0) {
             this.rankedStatsUpperStartHealthTotal = snapshot.upperStartHealth;
+        }
+        this.applyServerStartRoster(
+            TeamVals.LOWER as TeamType,
+            snapshot.lowerStartRosterCreatureIds,
+            snapshot.lowerStartRosterAmounts,
+            this.rankedStatsLowerRoster,
+        );
+        this.applyServerStartRoster(
+            TeamVals.UPPER as TeamType,
+            snapshot.upperStartRosterCreatureIds,
+            snapshot.upperStartRosterAmounts,
+            this.rankedStatsUpperRoster,
+        );
+    }
+    /**
+     * Same override as applyServerStartTotals, but for the PER-CREATURE breakdown that drives the
+     * casualty roster's icons/names: replaces whatever mergeRankedRoster accumulated from live-visible
+     * units with the server's authoritative fight-start composition, which — unlike `units` — still
+     * covers creature types that are already fully wiped (dropped from the engine, never seen live).
+     * A cold-loaded/reloaded finished game only ever gets ONE snapshot, so without this override any
+     * creature type with zero survivors at that point never made it into the roster at all.
+     */
+    private applyServerStartRoster(
+        team: TeamType,
+        creatureIds: number[] | undefined,
+        amounts: number[] | undefined,
+        roster: Map<string, RankedFightRosterEntry>,
+    ): void {
+        if (!creatureIds?.length || !amounts?.length || creatureIds.length !== amounts.length) {
+            return;
+        }
+        roster.clear();
+        for (let i = 0; i < creatureIds.length; i++) {
+            const amount = Math.max(0, Math.floor(amounts[i]));
+            if (amount <= 0) {
+                continue;
+            }
+            const visuals = creatureVisualsById(creatureIds[i], team);
+            if (!visuals) {
+                continue;
+            }
+            const current = roster.get(visuals.name);
+            if (current) {
+                current.start += amount;
+            } else {
+                roster.set(visuals.name, { smallTextureName: visuals.smallTextureName, start: amount });
+            }
         }
     }
     private ensureRankedFightStatsStarted(): void {

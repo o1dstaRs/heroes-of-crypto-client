@@ -287,6 +287,10 @@ export const toAuthoritativeGameSnapshot = (
     upperStartUnits: snapshot.upperStartUnits,
     lowerStartHealth: snapshot.lowerStartHealth,
     upperStartHealth: snapshot.upperStartHealth,
+    lowerStartRosterCreatureIds: snapshot.lowerStartRosterCreatureIds,
+    lowerStartRosterAmounts: snapshot.lowerStartRosterAmounts,
+    upperStartRosterCreatureIds: snapshot.upperStartRosterCreatureIds,
+    upperStartRosterAmounts: snapshot.upperStartRosterAmounts,
     journalTail: snapshot.journalTail,
     damageStats: snapshot.damageStats.map((stat): IDamageStatistic => ({
         unitName: stat.unitName,

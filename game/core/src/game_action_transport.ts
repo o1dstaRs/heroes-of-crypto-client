@@ -87,6 +87,13 @@ export interface AuthoritativeGameSnapshot {
     upperStartUnits?: number;
     lowerStartHealth?: number;
     upperStartHealth?: number;
+    // Same fight-start capture, broken down per creature type (parallel arrays: creatureIds[i] fielded
+    // in amounts[i]) — lets the fight-results overlay render a correct per-creature casualty breakdown
+    // even for a team that lost an entire creature type (whose stacks are then gone from `units` too).
+    lowerStartRosterCreatureIds?: number[];
+    lowerStartRosterAmounts?: number[];
+    upperStartRosterCreatureIds?: number[];
+    upperStartRosterAmounts?: number[];
 }
 
 export type SceneGameActionTransportResult =

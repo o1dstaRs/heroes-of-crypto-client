@@ -30,6 +30,10 @@ export interface IPickPhaseEventData {
     ia: boolean;
     // this player's own picked artifacts so far, as [tier, artifactId] pairs (drives the draft summary)
     art?: [number, number][];
+    // true exactly on the one SSE frame where THIS player's choice for the phase that just completed
+    // was filled by the server's timeout decider (they ran out the clock) rather than by the player
+    // themselves — drives a one-shot "auto-picked for you" toast instead of the transition landing silently.
+    ap?: boolean;
 }
 
 // Context for SSE and pick/ban state
@@ -57,6 +61,10 @@ export interface PickBanContextType {
     artifactTier2: number;
     // Required creature level for the current PICK phase (0 for non-pick phases).
     requiredLevel: number;
+    // Monotonically increasing counter, bumped once per SSE frame that carries `ap: true` for us — a
+    // toast component watches it (in a useEffect keyed on this value) to show "auto-picked for you"
+    // exactly once per timeout, even though the underlying server flag never persists across frames.
+    autoPickedSignal: number;
 }
 
 export const PickBanContext = createContext<PickBanContextType>({
@@ -78,6 +86,7 @@ export const PickBanContext = createContext<PickBanContextType>({
     requiredLevel: 0,
     secondsRemaining: -1,
     revealsRemaining: 0,
+    autoPickedSignal: 0,
 });
 
 // Custom hook to use the Pick Ban Context
