@@ -1821,7 +1821,11 @@ export class RankedPlayScene extends Sandbox {
         }
 
         this.sc_visibleState.hasFinished = fightOver;
-        this.sc_visibleState.teamWin = winner !== TeamVals.NO_TEAM ? winner : undefined;
+        // NO_TEAM is overloaded: mid-fight it means "no winner decided yet" (teamWin stays undefined so
+        // the overlay's gating doesn't fire), but once fightOver it means a genuine DRAW (e.g. armageddon
+        // wiping both sides on the same lap) and must be published as TeamVals.NO_TEAM — collapsing it to
+        // undefined here (as before) discarded the draw signal and the results overlay never showed.
+        this.sc_visibleState.teamWin = fightOver ? winner : undefined;
         this.sc_visibleState.fightStats = fightStats;
         this.sc_visibleState.lapNumber = fightStats.totalLaps;
         this.sc_visibleStateUpdateNeeded = true;

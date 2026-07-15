@@ -15,6 +15,13 @@ export class PixiApp {
     private unitsContainer!: Container;
     private effectsContainer!: Container;
     private uiContainer!: Container;
+    // Guards against a second destroy() on the same instance. pixi.js's Application.destroy() runs its
+    // teardown plugins (ResizePlugin, TickerPlugin, ...) in a bare forEach with no per-plugin try/catch —
+    // a plugin that already tore itself down (e.g. ResizePlugin nulling its own _cancelResize) throws on
+    // the second call and ABORTS the loop before the renderer/stage destroy calls below it ever run,
+    // leaking the WebGL context. Short-circuiting a repeat call here keeps double-teardown (e.g. a racy
+    // unmount/re-init) from leaking contexts even if some caller mistakenly destroys twice.
+    private destroyed = false;
     public constructor() {}
     public async init(canvas: HTMLCanvasElement, width = 2048, height = 2048): Promise<void> {
         // Cap render resolution at 2x: 3x (dense phone/tablet screens) costs ~2.25x the fragment
@@ -109,6 +116,10 @@ export class PixiApp {
         c.style.height = `${height}px`;
     }
     public destroy(): void {
+        if (this.destroyed) {
+            return;
+        }
+        this.destroyed = true;
         this.ticker?.stop();
         try {
             this.app?.destroy(true, {

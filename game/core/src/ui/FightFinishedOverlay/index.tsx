@@ -213,25 +213,27 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
         return `${total} units fell over ${laps} ${laps === 1 ? "lap" : "laps"}`;
     }, [stats]);
 
-    // Only a finished fight (with a real winner) shows this overlay — for BOTH players, and when a
-    // completed game is (re)loaded. We intentionally do NOT gate on the per-team start totals: when a
-    // finished game is loaded cold, the losing team's units have been cleaned up server-side, so its
-    // start total reconstructs as 0 — gating on that would silently swallow the results overlay. The
-    // percentage math (percent() / CasualtyRoster) already guards against a 0 total, so a missing start
-    // total just degrades that team's casualty figures rather than hiding the whole overlay.
+    // A finished fight shows this overlay — for BOTH players, and when a completed game is (re)loaded.
+    // teamWin === TeamVals.NO_TEAM is a genuine DRAW (e.g. armageddon wiping both sides on the same lap),
+    // NOT "no winner yet" — that in-progress state is represented by teamWin === undefined instead (see
+    // RankedPlayScene.applyRankedFightStats), so NO_TEAM is a valid, overlay-showing value here. We
+    // intentionally do NOT gate on the per-team start totals: when a finished game is loaded cold, the
+    // losing team's units have been cleaned up server-side, so its start total reconstructs as 0 — gating
+    // on that would silently swallow the results overlay. The percentage math (percent() / CasualtyRoster)
+    // already guards against a 0 total, so a missing start total just degrades that team's casualty
+    // figures rather than hiding the whole overlay.
     if (
         !visibleState.hasFinished ||
         !stats ||
         dismissed ||
         visibleState.teamWin === undefined ||
-        visibleState.teamWin === TeamVals.NO_TEAM ||
-        stats.winner === TeamVals.NO_TEAM ||
         stats.winner !== visibleState.teamWin
     ) {
         return null;
     }
 
-    const winnerColor = teamColor(stats.winner);
+    const isDraw = stats.winner === TeamVals.NO_TEAM;
+    const winnerColor = isDraw ? GOLD : teamColor(stats.winner);
     const canSandboxReplay = manager.CanPlayCurrentSandboxReplay();
     const canReplay = canReplayOverride ?? canSandboxReplay;
     const showSandboxActions = mode === "sandbox" && canSandboxReplay;
@@ -334,9 +336,9 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     ✕
                 </Box>
 
-                {/* Winner banner */}
+                {/* Winner banner (or draw banner — armageddon can wipe both sides on the same lap) */}
                 <Stack sx={{ alignItems: "center", textAlign: "center", mb: 2 }}>
-                    <Typography sx={{ fontSize: "2.2rem", lineHeight: 1, mb: 0.5 }}>🏆</Typography>
+                    <Typography sx={{ fontSize: "2.2rem", lineHeight: 1, mb: 0.5 }}>{isDraw ? "⚖️" : "🏆"}</Typography>
                     <Typography
                         sx={{
                             color: winnerColor,
@@ -346,7 +348,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             textShadow: `0 0 18px ${winnerColor}aa`,
                         }}
                     >
-                        {teamName(stats.winner).toUpperCase()} TEAM WINS
+                        {isDraw ? "DRAW" : `${teamName(stats.winner).toUpperCase()} TEAM WINS`}
                     </Typography>
                     <Typography sx={{ color: PARCHMENT, opacity: 0.75, fontSize: "0.95rem" }}>{subtitle}</Typography>
                     {opponentLabel && (

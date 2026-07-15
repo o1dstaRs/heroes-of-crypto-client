@@ -773,15 +773,34 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         // Repeat the SAME tier the finished match was played at (fall back to the default for legacy
         // tier-less games).
         const difficulty = vsAiDifficulty ?? DEFAULT_VS_AI_DIFFICULTY;
-        const game = await createVsAiGame(difficulty);
-        const nextGameId = game.id;
-        if (!nextGameId) {
-            throw new Error("AI match response was incomplete");
+        // The just-finished match's result write (game doc -> finished, both players' inGameId released)
+        // is fire-and-forget on the server (play_session.ts tryWriteGameResult) so it can still be
+        // in flight the instant this overlay's button becomes clickable. A same-tick click then hits a
+        // 409 "Already in game" against the account's own about-to-clear membership. Retry with backoff
+        // instead of surfacing a scary error for what is normally a sub-second race.
+        const RETRY_ATTEMPTS = 4;
+        const RETRY_DELAY_MS = 800;
+        let lastError: unknown;
+        for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt += 1) {
+            try {
+                const game = await createVsAiGame(difficulty);
+                const nextGameId = game.id;
+                if (!nextGameId) {
+                    throw new Error("AI match response was incomplete");
+                }
+                // Remembered the same way the initial Play-vs-AI entry (MatchmakingRoute) does, so the
+                // new match's pick phase can label the opponent as the AI at the same difficulty.
+                markVsAiGame(nextGameId, difficulty);
+                navigate(`/game/${nextGameId}`);
+                return;
+            } catch (err) {
+                lastError = err;
+                if (attempt < RETRY_ATTEMPTS) {
+                    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS * attempt));
+                }
+            }
         }
-        // Remembered the same way the initial Play-vs-AI entry (MatchmakingRoute) does, so the new
-        // match's pick phase can label the opponent as the AI at the same difficulty.
-        markVsAiGame(nextGameId, difficulty);
-        navigate(`/game/${nextGameId}`);
+        throw lastError instanceof Error ? lastError : new Error("Unable to start an AI match");
     }, [navigate, vsAiDifficulty]);
     const selectedUnit = useMemo(
         () => snapshot?.units.find((unit) => unit.id === selectedUnitId),

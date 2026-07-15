@@ -62,7 +62,15 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
                 const setSceneInUrl = (test: SceneEntry) => navigate(getSceneLink(test));
                 await manager.init(glCanvas, debugCanvas, wrapper, setSceneInUrl);
                 if (cancelled) {
-                    manager.Uninitialize();
+                    // This effect instance was already torn down while manager.init() was still in
+                    // flight — its cleanup below already called manager.Uninitialize() unconditionally,
+                    // so don't call it again here. manager is a process-wide singleton (PixiManagerContext
+                    // holds one instance for the whole app), and by the time this async continuation
+                    // resumes a NEWER mount may already have reinitialized it for the next match; a second
+                    // Uninitialize() call here would tear down THAT instance instead of this stale one —
+                    // wedging same-tab "Play Again" navigation (the Pixi canvas never re-initializes for
+                    // the new game). manager.init()'s own lifecycle-id guards already self-destroy this
+                    // stale local pixiApp if a newer init() call superseded it while we were awaiting.
                     return;
                 }
                 frameId = window.requestAnimationFrame(loop);
