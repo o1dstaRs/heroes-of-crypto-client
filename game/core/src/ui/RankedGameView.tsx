@@ -1969,13 +1969,16 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     const augmentBudget = Perk.getUpgradePoints(userPerkId);
     const perkName = Perk.getPerkProperties(userPerkId).name;
     const augmentOverlayOpen = augmentOverlayOpenState ?? true;
-    // "Continue to placement" unlocks only once every upgrade point is spent AND every available synergy is
-    // picked. SideToggleContainer reports this up via onReadyChange (setAugmentReady is stable, no render loop).
+    // Remaining-points / synergy-completion state, reported up by SideToggleContainer via onReadyChange
+    // (setAugmentReady is stable, no render loop). This is INFORMATIONAL only: augments and synergies are
+    // optional — every toggle commits to the server immediately and the fight starts with whatever was
+    // chosen — so "Continue to placement" must never hold the player hostage to an unspent budget
+    // (audit P1: the old gate blocked until ALL points were spent and every synergy was picked).
     const [augmentReady, setAugmentReady] = useState<{ pointsRemaining: number; allSynergiesSelected: boolean }>({
         pointsRemaining: 1,
         allSynergiesSelected: false,
     });
-    const canContinue = augmentReady.pointsRemaining <= 0 && augmentReady.allSynergiesSelected;
+    const setupComplete = augmentReady.pointsRemaining <= 0 && augmentReady.allSynergiesSelected;
     return (
         <Sheet
             variant="outlined"
@@ -2094,19 +2097,22 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                     budgetPoints={augmentBudget}
                                     onReadyChange={setAugmentReady}
                                 />
-                                {!canContinue && (
+                                {!setupComplete && (
                                     <Typography level="body-xs" textColor={hocColors.muted}>
                                         {augmentReady.pointsRemaining > 0
-                                            ? `Spend all your upgrade points (${augmentReady.pointsRemaining} left)`
-                                            : "Pick one synergy for every available faction"}{" "}
-                                        to continue.
+                                            ? `${augmentReady.pointsRemaining} upgrade point${
+                                                  augmentReady.pointsRemaining === 1 ? "" : "s"
+                                              } still unspent`
+                                            : "Some factions still have an unpicked synergy"}{" "}
+                                        — optional; you can reopen this with Edit until the fight starts.
                                     </Typography>
                                 )}
+                                {/* Always enabled: choices commit as you click them, so closing the
+                                    pop-up never loses anything and the phase itself requires nothing. */}
                                 <Button
                                     variant="solid"
-                                    disabled={!canContinue}
                                     onClick={() => setAugmentOverlayOpen(false)}
-                                    sx={canContinue ? hocPrimaryButtonSx : hocSoftButtonSx}
+                                    sx={hocPrimaryButtonSx}
                                 >
                                     Continue to placement
                                 </Button>
