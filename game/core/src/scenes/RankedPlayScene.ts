@@ -606,7 +606,16 @@ export class RankedPlayScene extends Sandbox {
         // board-rebuild-independent (it only touches world visuals + React state), so do it up front for a
         // finished fight, before any early return. Gated on !hasFinished so it fires once, then the sticky
         // finished state keeps it idempotent across the 4s fallback poll's repeated finished snapshots.
-        if (snapshot.fightFinished && !this.sc_visibleState?.hasFinished) {
+        // hasFinished ALONE is not enough: the engine's own finishFight (fired while playing the final
+        // action record) can set it BEFORE any finished snapshot applies, but it cannot build ranked
+        // fight stats (the sandbox tracker never runs in ranked) — the overlay then has a winner and no
+        // stats and hides itself. Treat "finished but stats never published" the same as "not finished".
+        const publishedFinishStats = this.sc_visibleState?.fightStats;
+        const finishAlreadyPublished =
+            !!this.sc_visibleState?.hasFinished &&
+            !!publishedFinishStats &&
+            (publishedFinishStats.lowerStartTotal > 0 || publishedFinishStats.upperStartTotal > 0);
+        if (snapshot.fightFinished && !finishAlreadyPublished) {
             const finishedState = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
             this.applyRankedFightStats(snapshot, finishedState.units);
         }

@@ -584,6 +584,7 @@ export class Sandbox extends PixiScene {
                 __hocSetAI?: (active: boolean) => void;
                 __hocAiState?: () => Record<string, unknown>;
                 __hocGetLog?: () => string;
+                __hocVisibleState?: () => Record<string, unknown>;
             };
             w.__hocSetAI = (active: boolean) => {
                 this.sc_isAIActive = active;
@@ -617,6 +618,17 @@ export class Sandbox extends PixiScene {
                     boardInputLockedByAI: this.isBoardInputLockedByAI(),
                 };
             };
+            // Diagnostic view of the PUBLISHED visible state + the pending-emission flag — lets an e2e
+            // run explain a missing fight-results overlay: was the finish never published (scene bug),
+            // published but never emitted (manager tick bug), or emitted with a winner mismatch.
+            w.__hocVisibleState = () => ({
+                updateNeeded: this.sc_visibleStateUpdateNeeded,
+                hasFinished: this.sc_visibleState?.hasFinished,
+                teamWin: this.sc_visibleState?.teamWin,
+                statsWinner: this.sc_visibleState?.fightStats?.winner,
+                lowerStartTotal: this.sc_visibleState?.fightStats?.lowerStartTotal,
+                upperStartTotal: this.sc_visibleState?.fightStats?.upperStartTotal,
+            });
         }
     }
     protected updateVisibleTurnTimer(): void {
@@ -9367,7 +9379,15 @@ export class Sandbox extends PixiScene {
 
             if (this.sc_visibleState) {
                 this.sc_visibleState.canBeStarted = false;
-                this.sc_visibleState.hasFinished = false;
+                // Only a fight actually STARTING re-arms the finished flag. This shared signal also
+                // fires with started=false after EVERY post-finish authoritative snapshot apply
+                // (PixiGameManager emits started = fightStarted && !fightFinished), and resetting
+                // hasFinished there reverted the just-published fight result in the same tick —
+                // hiding the ranked results overlay at the live finish. (Cold loads of a finished
+                // game were unaffected only because this pre-fight listener never connects there.)
+                if (started) {
+                    this.sc_visibleState.hasFinished = false;
+                }
                 this.sc_visibleStateUpdateNeeded = true;
             }
             // If fight ended (started=false), ensure we reset
