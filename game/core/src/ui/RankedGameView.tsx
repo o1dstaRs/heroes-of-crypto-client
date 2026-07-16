@@ -2050,6 +2050,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     userTeam,
     isObserver,
 }) => {
+    const navigate = useNavigate();
     const [confirmExitOpen, setConfirmExitOpen] = useState(false);
     // Ranked placement opens an augment/synergy overlay by default; the player picks there, hits
     // "Continue to placement", and the chosen upgrades collapse to a read-only sidebar summary
@@ -2305,9 +2306,12 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                     variant="solid"
                                     color="danger"
                                     loading={busy}
-                                    onClick={() => {
+                                    onClick={async () => {
+                                        // Record the forfeit (opponent wins), then drop the player back to
+                                        // game-mode selection instead of leaving them on the finished board.
+                                        await submitProtocolAction({ type: PlayActionType.ABANDON });
                                         setConfirmExitOpen(false);
-                                        void submitProtocolAction({ type: PlayActionType.ABANDON });
+                                        navigate("/play");
                                     }}
                                 >
                                     Forfeit
