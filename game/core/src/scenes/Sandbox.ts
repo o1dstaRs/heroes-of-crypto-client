@@ -1666,11 +1666,36 @@ export class Sandbox extends PixiScene {
         this.rangedProjectiles.clear();
 
         const existingUnits = Array.from(this.unitsHolder.getAllUnits().values()) as RenderableUnit[];
-        if (existingUnits.length) {
-            this.destroySpecificUnits(existingUnits, true, false);
+        // During placement, KEEP already-drawn revealed opponent units alive across snapshot rebuilds instead
+        // of destroying + recreating them each tick (which makes them flicker / play their spawn animation
+        // repeatedly while the player drags their own units). They are non-interactive ghosts with no grid
+        // occupancy, so preserving them is safe; their positions are re-applied below if they changed.
+        const preservedRevealedOpponentUnitIds = new Set<string>();
+        const preservedRevealedOpponentUnits = new Map<string, RenderableUnit>();
+        if (!snapshot.fightStarted) {
+            for (const id of this.revealedOpponentUnitIds) {
+                preservedRevealedOpponentUnitIds.add(id);
+                const u = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
+                if (u) {
+                    preservedRevealedOpponentUnits.set(id, u);
+                }
+            }
+        }
+        const unitsToDestroy = !snapshot.fightStarted
+            ? existingUnits.filter((u) => !preservedRevealedOpponentUnitIds.has(u.getId()))
+            : existingUnits;
+        if (unitsToDestroy.length) {
+            this.destroySpecificUnits(unitsToDestroy, true, false);
         }
         this.clearPlacementBench();
-        this.revealedOpponentUnitIds.clear();
+        if (!snapshot.fightStarted) {
+            // Keep the preserved set; non-preserved (everything else) is already cleared above.
+            for (const id of preservedRevealedOpponentUnitIds) {
+                this.revealedOpponentUnitIds.add(id);
+            }
+        } else {
+            this.revealedOpponentUnitIds.clear();
+        }
 
         const gs = this.sc_sceneSettings.getGridSettings();
         const unitsContainer = this.drawer.getUnitsContainer();
@@ -1709,18 +1734,25 @@ export class Sandbox extends PixiScene {
         }
 
         for (const unitState of snapshot.units) {
-            const unit = this.createRenderableUnitFromSceneState(unitState);
+            const revealedPosition = revealedOpponentPositions.get(unitState.properties.id);
+            const isRevealedOpponent = !snapshot.fightStarted && !!revealedPosition;
+            // Reuse a preserved revealed-opponent unit instead of recreating it (avoids the spawn/flicker on
+            // every placement rebuild). Falls through to create+render for fresh ones (or after fight start).
+            let unit: RenderableUnit | undefined;
+            if (isRevealedOpponent) {
+                unit = preservedRevealedOpponentUnits.get(unitState.properties.id);
+            }
+            if (!unit) {
+                unit = this.createRenderableUnitFromSceneState(unitState);
+            }
             this.unitsHolder.addUnit(unit);
             if (!unitState.placed || !unitState.cells.length) {
                 const benchPosition = benchPositions.get(unitState.properties.id);
                 if (benchPosition) {
                     this.renderUnplacedBenchUnit(unit, benchPosition, unitState);
-                } else {
-                    const revealedPosition = revealedOpponentPositions.get(unitState.properties.id);
-                    if (revealedPosition) {
-                        this.revealedOpponentUnitIds.add(unit.getId());
-                        this.renderRevealedOpponentUnit(unit, revealedPosition);
-                    }
+                } else if (revealedPosition) {
+                    this.revealedOpponentUnitIds.add(unit.getId());
+                    this.renderRevealedOpponentUnit(unit, revealedPosition);
                 }
                 continue;
             }

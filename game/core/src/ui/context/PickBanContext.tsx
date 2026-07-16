@@ -17,6 +17,7 @@ export const PickBanEventProvider: React.FC<{
     const [banned, setBanned] = useState<number[]>([]);
     const [picked, setPicked] = useState<number[]>([]);
     const [opponentPicked, setOpponentPicked] = useState<number[]>([]);
+    const [watchedSlots, setWatchedSlots] = useState<number[]>([]);
     const [isYourTurn, setIsYourTurn] = useState<boolean | null>(null);
     const [isAbandoned, setIsAbandoned] = useState<boolean | null>(null);
     const [pickPhase, setPickPhase] = useState<number>(-1);
@@ -64,6 +65,7 @@ export const PickBanEventProvider: React.FC<{
             setBanned(event.b);
             setPicked(event.p);
             setOpponentPicked(event.op);
+            setWatchedSlots(event.ws ?? []);
             setPickPhase(event.pp);
             setIsYourTurn(event.a.includes(userTeam));
             setIsAbandoned(event.ia);
@@ -105,6 +107,7 @@ export const PickBanEventProvider: React.FC<{
             banned,
             picked,
             opponentPicked,
+            watchedSlots,
             isYourTurn,
             isAbandoned,
             pickPhase,
@@ -126,6 +129,7 @@ export const PickBanEventProvider: React.FC<{
             banned,
             picked,
             opponentPicked,
+            watchedSlots,
             isYourTurn,
             isAbandoned,
             pickPhase,
