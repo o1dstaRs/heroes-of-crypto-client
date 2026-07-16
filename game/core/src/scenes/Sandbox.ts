@@ -6521,9 +6521,15 @@ export class Sandbox extends PixiScene {
             // Gaze = the sum) instead of the isolated gaze.
             const primaryVictimId = damageForAnimation.unitId ?? target.getId();
             let alreadyShown = 0;
+            // Kills the primary hit numbers already rendered for this victim (Section 1). The extra
+            // number below must show only the deaths from the UNACCOUNTED damage, not the victim's
+            // cumulative deaths — otherwise a multi-hit attack (Double Punch) whose second hit isn't
+            // in `hits` draws the running total (11 + 8 = 19) instead of the isolated second hit (8).
+            let alreadyDied = 0;
             if (uId === primaryVictimId) {
                 if (damageForAnimation.hits && damageForAnimation.hits.length > 0) {
                     alreadyShown = damageForAnimation.hits.reduce((sum, h) => sum + h.amount, 0);
+                    alreadyDied = damageForAnimation.hits.reduce((sum, h) => sum + h.unitsDied, 0);
                 } else {
                     alreadyShown = damageForAnimation.amount;
                 }
@@ -6592,8 +6598,12 @@ export class Sandbox extends PixiScene {
                 const uName = u?.getName();
                 const isPetrified = !!uName && petrifyKillsByName.has(uName);
                 // For Petrifying Gaze, show only the gaze's own kill count (parsed from the log),
-                // not the target's total deaths (which include the main attack's kills).
-                const extraDiedCount = isPetrified ? (petrifyKillsByName.get(uName!) ?? 0) : diedCount;
+                // not the target's total deaths (which include the main attack's kills). For any other
+                // extra number on the primary victim, subtract the kills its primary hits already showed
+                // so a Double Punch's second hit reads its own count (8), not the running total (19).
+                const extraDiedCount = isPetrified
+                    ? (petrifyKillsByName.get(uName!) ?? 0)
+                    : Math.max(0, diedCount - alreadyDied);
                 const uFireShield = uName ? (fireShieldByName.get(uName) ?? 0) : 0;
                 const isFsBurn = uFireShield > 0 && Math.abs(unaccountedDiff - uFireShield) <= 2;
                 const uChainLightning = uName ? (chainLightningByName.get(uName) ?? 0) : 0;
