@@ -1,6 +1,23 @@
 import { describe, expect, test } from "bun:test";
 
-import { decodePlayEvent, decodePlaySnapshot, PlayEventKind } from "./play_protocol";
+import {
+    decodePlayEvent,
+    decodePlaySnapshot,
+    encodePlayAction,
+    PlayActionType,
+    PlayEventKind,
+    type PlayAction,
+} from "./play_protocol";
+
+/** True if `haystack` contains `needle` as a contiguous run (byte-subsequence search). */
+const containsSubsequence = (haystack: number[], needle: number[]): boolean => {
+    for (let i = 0; i + needle.length <= haystack.length; i += 1) {
+        if (needle.every((b, j) => haystack[i + j] === b)) {
+            return true;
+        }
+    }
+    return false;
+};
 
 const encodeVarint = (value: number | bigint): number[] => {
     const bytes: number[] = [];
@@ -85,6 +102,38 @@ describe("play protobuf decoder", () => {
 
         expect(decoded.units[0]?.morale).toBe(-2);
         expect(decoded.units[0]?.luck).toBe(-5);
+    });
+
+    test("decodes a negative cell coordinate (left-mountain world X) as a signed int32", () => {
+        // A PlayCell (base_cell = field 11) whose x (field 1) is negative, sign-extended like protobufjs.
+        const cell = [...signedIntField(1, -384), ...intField(2, 256)];
+        const unit = [...stringField(1, "unit-1"), ...messageField(11, cell)];
+        const snapshot = new Uint8Array([...stringField(1, "game-1"), ...messageField(12, unit)]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        // Without the signed decode this surfaced as a huge positive number (the raw 10-byte varint).
+        expect(decoded.units[0]?.baseCell).toEqual({ x: -384, y: 256 });
+    });
+
+    test("encodes a negative cell coordinate as a sign-extended int32 (server-decodable)", () => {
+        // OBSTACLE_ATTACK aims at the mountain by WORLD position; the left mountain's X is negative. The
+        // encoder must sign-extend it to a 10-byte varint, or the server reads the wrong cell and the
+        // ranked mountain hit silently fails (the bug this guards). y stays a plain positive varint.
+        const encoded = Array.from(
+            encodePlayAction({
+                actionId: "a",
+                gameId: "g",
+                playerId: "p",
+                expectedSequence: 1,
+                type: PlayActionType.OBSTACLE_ATTACK,
+                unitId: "u",
+                team: 1,
+                targetCell: { x: -384, y: 256 },
+            } as unknown as PlayAction),
+        );
+        const expectedTargetCell = messageField(14, [...signedIntField(1, -384), ...intField(2, 256)]);
+        expect(containsSubsequence(encoded, expectedTargetCell)).toBe(true);
     });
 
     test("decodes a unit's repeated debuff and buff names (proto fields 18 and 19)", () => {

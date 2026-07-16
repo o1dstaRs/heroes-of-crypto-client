@@ -325,6 +325,14 @@ class ProtoWriter {
     }
     private varint(value: number | bigint): void {
         let nextValue = BigInt(value);
+        // A negative int32/int64 is encoded as its 64-bit two's-complement — a full 10-byte varint — per
+        // the protobuf spec (protobufjs and the server's decoder both expect this). Without the mask a
+        // negative number never exceeds 0x7f, so the loop is skipped and it's emitted as ONE corrupt byte.
+        // That silently broke every value that can go negative on the wire — notably a left-mountain's
+        // negative world-X in an OBSTACLE_ATTACK's target cell, so ranked mountain hits never landed.
+        if (nextValue < 0n) {
+            nextValue &= 0xffffffffffffffffn;
+        }
         while (nextValue > 0x7fn) {
             this.bytes.push(Number((nextValue & 0x7fn) | 0x80n));
             nextValue >>= 7n;
@@ -434,9 +442,12 @@ const decodeCell = (bytes: Uint8Array): PlayCell => {
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
         if (field === 1) {
-            cell.x = reader.varintNumber();
+            // Cell coordinates can be negative world positions (a left-mountain OBSTACLE_ATTACK target,
+            // whose world-X < 0), so decode as a signed int32 — varintNumber() would surface the
+            // sign-extended 10-byte varint as a huge positive number.
+            cell.x = reader.signedVarintNumber();
         } else if (field === 2) {
-            cell.y = reader.varintNumber();
+            cell.y = reader.signedVarintNumber();
         } else {
             reader.skip(wireType);
         }
