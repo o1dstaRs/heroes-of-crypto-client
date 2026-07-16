@@ -27,7 +27,7 @@
         "@mui/icons-material": "^7.3.5",
         "@mui/joy": "^5.0.0-beta.52",
         "@mui/material": "^7.3.5",
-        "@mui/system": "^7.3.5",
+        "@mui/system": "^9.2.0",
         "@rainbow-me/rainbowkit": "^2.2.2",
         "@tanstack/react-query": "^5.62.0",
         "@types/node-schedule": "^2.1.7",
