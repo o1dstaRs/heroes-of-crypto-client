@@ -138,6 +138,11 @@ describe("ranked placement scene state", () => {
         expect(props?.applied_debuffs_descriptions).toEqual([
             "Next attack with Deep Wounds ability will deal 12% more damage.",
         ]);
+        // All four applied_debuffs* arrays MUST be equal length: deleteBuff/deleteDebuff only prune them
+        // when the lengths match, so a desynced powers array made artifact-debuff cleanup silently no-op
+        // and every refreshUnits() re-appended the cursed-artifact marker (the "million debuffs" runaway).
+        expect(props?.applied_debuffs_powers).toEqual([0]);
+        expect(props?.applied_debuffs_powers?.length).toBe(props?.applied_debuffs?.length);
     });
 
     test("maps 1-based ranged shots, falling back to base when the field is absent", () => {

@@ -184,6 +184,13 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                 applied_debuffs: unitState.debuffs ?? [],
                 applied_debuffs_laps: unitState.debuffLaps ?? [],
                 applied_debuffs_descriptions: unitState.debuffDescriptions ?? [],
+                // MUST stay parallel to the three arrays above. deleteBuff/deleteDebuff only prune the
+                // unitProperties.applied_* arrays when ALL FOUR are equal length; leaving this at the base
+                // config's [] desynced them, so the guard silently skipped cleanup and every refreshUnits()
+                // -> applyArtifacts() re-appended the cursed/dual-artifact marker debuff without ever
+                // removing the old one — the "artifact debuff rendered a million times" runaway. Powers are
+                // always 0 for these display-only debuffs (applyDebuff pushes 0), so mirror that per entry.
+                applied_debuffs_powers: (unitState.debuffs ?? []).map(() => 0),
             } as UnitProperties;
         } catch {
             // Legacy snapshots may not carry a usable creature id, so fall through factions.
