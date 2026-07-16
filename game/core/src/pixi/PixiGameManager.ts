@@ -636,11 +636,14 @@ export class PixiGameManager {
         // `await pixiApp.init(...)` truly resolves — defer destruction to that instead of racing it here.
         // NOTE (nightly QA #3, 2026-07-16): this removes ONE confirmed contributor — reproduced via the
         // exact TypeError above during a same-tab "Play Again vs AI" transition, and confirmed this fix
-        // stops that specific throw from firing — but a same-tab "Play Again vs AI" client freeze (no
-        // further console/network activity; only the server's own pick/placement timeouts move the game
-        // forward) was STILL observed once after this fix landed, so a second, not-yet-isolated
-        // contributor remains. Left in as a genuine, safe improvement; the freeze itself is still OPEN
-        // and needs dedicated follow-up (see docs/v0_7_plan.html §8 nightly-QA-#3 entry).
+        // stops that specific throw from firing. The remaining same-tab "Play Again vs AI" FREEZE was
+        // subsequently root-caused and fixed: react-router's useNavigate() changes identity on every
+        // navigation and sat in GameScreen's boot-effect deps, so a same-tab route change re-ran the
+        // effect without unmounting — Uninitialize() here force-lost the canvas's WebGL context (pixi's
+        // GlContextSystem.destroy() -> loseContext()) and the immediate re-init on the SAME canvas
+        // adopted the lost context, spinning forever in pixi's checkMaxIfStatementsInShader. See
+        // ui/Main/index.tsx (boot strictly once per canvas mount) and pixi/webglContextGuard.ts
+        // (restore-or-throw guard for any residual same-canvas re-init).
         const pixiAppWasFullyInitialized = this.isInitialized;
         this.isInitialized = false;
         this._isLoading = true;

@@ -4,6 +4,8 @@
 import "pixi.js/unsafe-eval";
 import { Application, Container, Ticker } from "pixi.js";
 
+import { ensureCanvasContextUsable, recordContextAboutToBeLost } from "./webglContextGuard";
+
 export class PixiApp {
     private app!: Application;
     private stage!: Container;
@@ -24,6 +26,12 @@ export class PixiApp {
     private destroyed = false;
     public constructor() {}
     public async init(canvas: HTMLCanvasElement, width = 2048, height = 2048): Promise<void> {
+        // Never hand pixi a canvas whose WebGL context a previous PixiApp.destroy() force-lost:
+        // pixi would adopt the same, permanently-lost context and spin forever inside
+        // checkMaxIfStatementsInShader — a total main-thread freeze (nightly QA #3's P0), not an
+        // error. Restores the context when possible; throws (recoverable) when it can't.
+        await ensureCanvasContextUsable(canvas);
+
         // Cap render resolution at 2x: 3x (dense phone/tablet screens) costs ~2.25x the fragment
         // work for no perceptible gain over retina-sharp 2x — a big, safe fps win on weak GPUs.
         const DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
@@ -121,6 +129,26 @@ export class PixiApp {
         }
         this.destroyed = true;
         this.ticker?.stop();
+        // pixi's GlContextSystem.destroy() (run inside app.destroy below) unconditionally calls
+        // WEBGL_lose_context.loseContext(), permanently disabling this canvas's WebGL context.
+        // Record the context + restore handle FIRST, so a later PixiApp.init() against the same
+        // canvas can restore it (or fail loudly) instead of freezing the tab in pixi's context
+        // re-init loop. Recorded before the destroy because pixi nulls its renderer refs during it.
+        try {
+            const renderer = this.app?.renderer as
+                | {
+                      gl?: WebGLRenderingContext & {
+                          getExtension(name: "WEBGL_lose_context"): WEBGL_lose_context | null;
+                      };
+                  }
+                | undefined;
+            const canvas = this.app?.canvas;
+            if (renderer?.gl && canvas) {
+                recordContextAboutToBeLost(canvas, renderer.gl, renderer.gl.getExtension("WEBGL_lose_context"));
+            }
+        } catch {
+            // Never let diagnostics-keeping block the teardown itself.
+        }
         try {
             this.app?.destroy(true, {
                 children: true,
