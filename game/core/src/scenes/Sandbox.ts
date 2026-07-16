@@ -121,6 +121,11 @@ export interface SandboxSceneState {
     currentUnitId?: string;
     narrowingLayers?: number;
     centerDried?: boolean;
+    // Remaining hit points of the two BLOCK_CENTER mountains. Snapshotted so a replay checkpoint (or any
+    // hydrate) restores the mountains' battered state — without it hydrateSceneState re-inits them to full
+    // (setGridType), so a mountain's HP visibly sprang back to full on the turn after it was hit.
+    obstacleHitsLeftLeft?: number;
+    obstacleHitsLeftRight?: number;
     units: SandboxSceneUnitState[];
 }
 
@@ -1576,6 +1581,14 @@ export class Sandbox extends PixiScene {
         return renderableUnit;
     }
     protected hydrateSceneState(snapshot: SandboxSceneState): void {
+        // Preserve the mountains' battered state across the reset below. reset()+setGridType() re-inits
+        // both mountains to full HP, so without carrying the prior (or snapshotted) hit counts a mountain
+        // sprang back to full on the next hydrate — e.g. the turn after it was struck, or during replay.
+        const priorFightProps = FightStateManager.getInstance().getFightProperties();
+        const priorGridWasBlock = priorFightProps.getGridType() === GridVals.BLOCK_CENTER;
+        const priorObstacleHitsLeft = priorGridWasBlock ? priorFightProps.getObstacleHitsLeftLeft() : undefined;
+        const priorObstacleHitsRight = priorGridWasBlock ? priorFightProps.getObstacleHitsLeftRight() : undefined;
+
         FightStateManager.getInstance().reset();
         const fightProps = FightStateManager.getInstance().getFightProperties();
         fightProps.setDefaultPlacementPerTeam(TeamVals.LOWER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
@@ -1594,6 +1607,26 @@ export class Sandbox extends PixiScene {
         }
         if (snapshot.fightFinished) {
             fightProps.finishFight();
+        }
+
+        // Restore the mountains' remaining HP after startFight() (which, via setGridType, just reset them
+        // to full). Prefer the snapshot's explicit counts (sandbox replay records them); otherwise keep the
+        // value we were already tracking from obstacle_attacked events (the ranked snapshot carries none, so
+        // this stops a full board rebuild from wiping mid-fight mountain damage).
+        if (snapshot.gridType === GridVals.BLOCK_CENTER && snapshot.fightStarted) {
+            const left = snapshot.obstacleHitsLeftLeft ?? priorObstacleHitsLeft;
+            const right = snapshot.obstacleHitsLeftRight ?? priorObstacleHitsRight;
+            if (left !== undefined && right !== undefined) {
+                fightProps.setObstacleHitsPerMountain(left, right);
+                // A mountain reduced to 0 was cleared from the grid during the fight; refreshWithNewType
+                // above rebuilt it solid, so re-clear the destroyed side(s) to match the restored HP.
+                if (left <= 0) {
+                    this.grid.clearMountainSide(false);
+                }
+                if (right <= 0) {
+                    this.grid.clearMountainSide(true);
+                }
+            }
         }
 
         this.currentActiveUnit?.setActiveTurn(false);
@@ -1857,6 +1890,8 @@ export class Sandbox extends PixiScene {
                 ? Math.min(Math.max(0, fightProps.getLapsNarrowed()), HoCConstants.MAX_HOLE_LAYERS)
                 : 0,
             centerDried: this.dungeonVisuals.isCenterDried(),
+            obstacleHitsLeftLeft: fightProps.getObstacleHitsLeftLeft(),
+            obstacleHitsLeftRight: fightProps.getObstacleHitsLeftRight(),
             units,
         };
     }
