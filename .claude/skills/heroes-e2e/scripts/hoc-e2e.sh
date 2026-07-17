@@ -53,7 +53,10 @@ ensure_docker_db() {
 ensure_server() {
     if port_busy "$SERVER_PORT"; then echo "server: already on :$SERVER_PORT"; return; fi
     echo "server: starting (bun index.ts) -> $SERVER_LOG"
-    (cd "$SERVER_DIR" && nohup bun index.ts >"$SERVER_LOG" 2>&1 &)
+    # HOC_DISABLE_RATE_LIMIT: the per-IP limiter is a prod defense; a single dev box running many vs-AI
+    # games + snapshot polling all comes from one address and trips it (empty board / seat timeouts). Off
+    # for local e2e only; never set in prod.
+    (cd "$SERVER_DIR" && HOC_DISABLE_RATE_LIMIT=1 nohup bun index.ts >"$SERVER_LOG" 2>&1 &)
     wait_for "curl -s -o /dev/null http://127.0.0.1:$SERVER_PORT/" 40 \
         || { echo "server failed; see $SERVER_LOG"; tail -20 "$SERVER_LOG"; exit 1; }
     echo "server: up on :$SERVER_PORT (bootstraps DB collections on first boot)"
