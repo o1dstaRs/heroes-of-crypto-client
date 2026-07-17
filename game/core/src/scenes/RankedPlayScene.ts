@@ -966,9 +966,18 @@ export class RankedPlayScene extends Sandbox {
         if (!fightProperties.canAugment(teamType, augmentType)) {
             return false;
         }
-        // Optimistic local apply for immediate sidebar feedback (budget + selection). Kept light — the
-        // server owns the authoritative placement/stat recompute and rebroadcasts it.
+        // Optimistic local apply for immediate sidebar feedback (budget + selection). The stat augments
+        // (armor/might/sniper/movement) fold into stats via refreshUnits; the server owns the authoritative
+        // recompute and rebroadcasts it.
         fightProperties.setAugmentPerTeam(teamType, augmentType);
+        // A Placement augment widens the placement zone (wider at L1, +rows at L2/L3). The base (sandbox)
+        // override rebuilds the zone here; ranked previously relied on the server rebroadcast, but the
+        // player's own augment doesn't change units so its snapshot takes the skip-hydrate early return and
+        // the wider zone never rendered ("works in sandbox, not in ranked"). Rebuild it locally so the zone
+        // grows immediately, exactly like sandbox — the server stays authoritative on the final placement.
+        if (augmentType.type === "Placement") {
+            this.placementManager.rebuildFromFightProps();
+        }
         this.refreshUnits();
         transport({
             type: "augment",

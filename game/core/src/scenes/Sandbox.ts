@@ -65,6 +65,7 @@ import { PlacementManager } from "./PlacementManager";
 import { animatableEffectNames, diffUnitEffects } from "./effect_pops";
 import { RenderableUnit } from "./RenderableUnit";
 import { PixiRenderableSpell } from "./RenderableSpell";
+import { indexUnitTeam, resolveLineTeamFlag } from "./scene_log_flag";
 import { HoverManager } from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
 import { SpellBookOverlay } from "./SpellBookOverlay";
@@ -167,7 +168,7 @@ export class Sandbox extends PixiScene {
     private hoverRangeAttackObstacle?: IAttackObstacle;
     private currentEnemiesCellsWithinMovementRange?: HoCMath.XY[];
     protected unitsOverlay: UnitsOverlay;
-    private placementManager: PlacementManager;
+    protected placementManager: PlacementManager;
     private spawnPulsePhase = 0;
     private bgKey = "background_new";
     private placementGraphics?: Graphics;
@@ -1593,10 +1594,35 @@ export class Sandbox extends PixiScene {
         const priorObstacleHitsLeft = priorGridWasBlock ? priorFightProps.getObstacleHitsLeftLeft() : undefined;
         const priorObstacleHitsRight = priorGridWasBlock ? priorFightProps.getObstacleHitsLeftRight() : undefined;
 
+        // Preserve each team's SETUP (perk + augments) across reset(): reset() builds a fresh FightProperties
+        // with no perk/augments, and the authoritative snapshot doesn't carry these into hydrate. Without this
+        // any full hydrate (e.g. the opponent placing a unit) reverted the placement zone to the base 3x3 —
+        // so a Placement augment "worked in sandbox but not ranked" — and dropped the stat-augment buffs.
+        const priorSetup = [TeamVals.LOWER, TeamVals.UPPER].map((team) => ({
+            team,
+            perk: priorFightProps.getPerk(team),
+            placement: priorFightProps.getAugmentPlacementLevel(team),
+            armor: priorFightProps.getAugmentArmor(team),
+            might: priorFightProps.getAugmentMight(team),
+            sniper: priorFightProps.getAugmentSniper(team),
+            movement: priorFightProps.getAugmentMovement(team),
+        }));
+
         FightStateManager.getInstance().reset();
         const fightProps = FightStateManager.getInstance().getFightProperties();
         fightProps.setDefaultPlacementPerTeam(TeamVals.LOWER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
         fightProps.setDefaultPlacementPerTeam(TeamVals.UPPER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+        // Restore the captured setup BEFORE rebuildFromFightProps so the placement zone (getAugmentPlacement)
+        // reflects the augment and the stat-augment buffs survive. Perk first — setAugmentPerTeam budget-checks
+        // against it; the running total is monotonic so every restore stays within the (already-valid) budget.
+        for (const s of priorSetup) {
+            fightProps.setPerkPerTeam(s.team, s.perk);
+            fightProps.setAugmentPerTeam(s.team, { type: "Placement", value: s.placement });
+            fightProps.setAugmentPerTeam(s.team, { type: "Armor", value: s.armor });
+            fightProps.setAugmentPerTeam(s.team, { type: "Might", value: s.might });
+            fightProps.setAugmentPerTeam(s.team, { type: "Sniper", value: s.sniper });
+            fightProps.setAugmentPerTeam(s.team, { type: "Movement", value: s.movement });
+        }
         fightProps.setGridType(snapshot.gridType);
         this.grid.refreshWithNewType(snapshot.gridType);
         this.placementManager.rebuildFromFightProps();
@@ -5046,32 +5072,15 @@ export class Sandbox extends PixiScene {
      */
     protected resolveSceneLogTeamFlag(line: string): string {
         for (const unit of this.unitsHolder.getAllUnits().values()) {
-            const name = unit.getName();
-            const existing = this.sceneLogTeamByName.get(name);
-            if (existing === undefined) {
-                this.sceneLogTeamByName.set(name, unit.getTeam());
-            } else if (existing !== "ambiguous" && existing !== unit.getTeam()) {
-                this.sceneLogTeamByName.set(name, "ambiguous");
-            }
+            indexUnitTeam(this.sceneLogTeamByName, unit.getName(), unit.getTeam());
         }
-        // Longest matching name wins so "Wolf Rider" isn't shadowed by a hypothetical "Wolf".
-        let bestName: string | undefined;
-        for (const name of this.sceneLogTeamByName.keys()) {
-            if (line.startsWith(name) && (bestName === undefined || name.length > bestName.length)) {
-                bestName = name;
-            }
-        }
-        if (bestName === undefined) {
-            return "";
-        }
-        const team = this.sceneLogTeamByName.get(bestName);
-        if (team === TeamVals.LOWER) {
-            return "🟢";
-        }
-        if (team === TeamVals.UPPER) {
-            return "🔴";
-        }
-        return "";
+        // Delegate to the pure resolver (tested in scene_log_flag.test.ts). Passing the active unit lets
+        // it disambiguate a creature mirrored on BOTH teams (e.g. a Beholder-vs-Beholder fight): the
+        // active unit's own lines resolve to its side, and response lines resolve to its opponent's.
+        const active = this.currentActiveUnit
+            ? { name: this.currentActiveUnit.getName(), team: this.currentActiveUnit.getTeam() }
+            : undefined;
+        return resolveLineTeamFlag(line, this.sceneLogTeamByName, active);
     }
     /**
      * Sandbox-local effect visuals: diff every unit's active debuffs AND buffs against what we last
