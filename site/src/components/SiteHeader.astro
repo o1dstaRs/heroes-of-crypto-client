@@ -12,6 +12,7 @@ const copy = content[lang];
 const versionLabel = `v${corePackage.version}`;
 const mainNavigationLabel = lang === "ru" ? "Основная навигация" : "Main navigation";
 const playHref = lang === "ru" ? "/ru/play/" : links.play;
+const profileHref = lang === "ru" ? "/ru/profile/" : "/profile/";
 const navItems = [
     { label: copy.nav.game, href: localPath(lang, "game") },
     { label: copy.nav.rules, href: localPath(lang, "rules") },
@@ -72,7 +73,7 @@ const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? curren
             {copy.nav.login}
         </a>
         <div class="header-account" data-auth-account hidden>
-            <a class="header-account-name" data-auth-username href={playHref} aria-label={copy.nav.login}>
+            <a class="header-account-name" data-auth-username href={profileHref} aria-label={copy.nav.profile}>
                 Account
             </a>
             <button type="button" class="header-logout" data-auth-logout data-logout-redirect={localPath(lang, "home")}>
