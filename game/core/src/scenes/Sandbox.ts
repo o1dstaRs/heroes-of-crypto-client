@@ -238,6 +238,10 @@ export class Sandbox extends PixiScene {
     };
     // Movement Visualization
     private sc_placementMoveRange?: HoCMath.XY[];
+    // Fight-phase hover: the HOVERED unit's reachable movement cells, drawn as larger rings than the
+    // active unit's own path so the two overlays read separately. Recomputed on each hover (hover() is
+    // event-driven — mouse-move / selection — not per-frame), so it always reflects the live board.
+    private sc_hoveredMoveRange?: HoCMath.XY[];
     private sc_lastCalcRef?: { unitId: string; x: number; y: number; steps: number; layoutVersion: number };
     private layoutVersion = 0; // Tracks board topology changes during placement
     private atmosphereAlpha = 0; // [NEW] Transition alpha for night/lights
@@ -7102,11 +7106,13 @@ export class Sandbox extends PixiScene {
         this.hoverManager.clearAuraVisuals(); // Ensure previous frame visual is cleared
         this.sc_hoveredAuraRanges = undefined;
         this.sc_hoveredShotRange = undefined;
+        this.sc_hoveredMoveRange = undefined;
 
         // Always calculate hovered unit visuals (unless moving active unit)
         if (this.sc_mouseWorld && !this.isActiveUnitMoving) {
             const hoverTargetUnit = this.getUnitAtPosition(this.sc_mouseWorld);
-            if (hoverTargetUnit && !hoverTargetUnit.isDead()) {
+            // A Hidden unit is concealed — never reveal its move/attack/aura ranges on hover.
+            if (hoverTargetUnit && !hoverTargetUnit.isDead() && !hoverTargetUnit.hasBuffActive("Hidden")) {
                 // Aura: visualize the hovered unit's aura range. Routed through sc_hoveredAuraRanges so
                 // SandboxDrawer paints it on the same persistent layer (z=55) as the active/selected
                 // unit's aura. The old hoverManager.drawAuraArea layer (z=51) gets wiped mid-frame by the
@@ -7166,6 +7172,26 @@ export class Sandbox extends PixiScene {
                             distance: dist * GridConstants.STEP,
                         };
                     }
+                }
+
+                // Movement range: the hovered unit's reachable cells. Only meaningful during a fight, and
+                // skipped for the active unit (its own path is already drawn as currentActivePath — drawing
+                // the hover overlay on top would just stack).
+                if (
+                    fightProps.hasFightStarted() &&
+                    hoverTargetUnit !== this.currentActiveUnit &&
+                    hoverTargetUnit.canMove()
+                ) {
+                    const movePath = this.pathHelper.getMovePath(
+                        hoverTargetUnit.getBaseCell(),
+                        this.gridMatrix,
+                        hoverTargetUnit.getSteps(),
+                        this.grid.getAggrMatrixByTeam(hoverTargetUnit.getOppositeTeam()),
+                        hoverTargetUnit.canFly(),
+                        hoverTargetUnit.isSmallSize(),
+                        hoverTargetUnit.canTraverseLava(),
+                    );
+                    this.sc_hoveredMoveRange = movePath.cells;
                 }
             }
         }
@@ -8625,6 +8651,7 @@ export class Sandbox extends PixiScene {
             hoveredAuraRanges: this.sc_hoveredAuraRanges,
             lingeringTracks: this.moveAnimManager.getLingeringTracks(),
             hoveredMoveRange: this.sc_placementMoveRange,
+            hoveredUnitMoveRange: this.sc_hoveredMoveRange,
             enemyTurnView: this.isEnemyActiveTurn(),
         });
     }

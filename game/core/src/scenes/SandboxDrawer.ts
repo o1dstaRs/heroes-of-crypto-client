@@ -51,6 +51,9 @@ export interface IGameplayDrawContext {
     };
     lingeringTracks: ILingeringTrack[];
     hoveredMoveRange?: HoCMath.XY[];
+    /** Fight-phase: reachable cells of the unit under the cursor, drawn as larger rings than the
+     *  active unit's own path (currentActivePath) so the inspection overlay reads separately. */
+    hoveredUnitMoveRange?: HoCMath.XY[];
     /**
      * Ranked play: true while the active unit belongs to the viewer's enemy. Tints the movement
      * highlight red and draws a glowing red border around the board to signal it is not your turn.
@@ -85,6 +88,7 @@ export class SandboxDrawer {
             currentActiveUnit,
             sidebarUnitRanges,
             hoveredAuraRanges,
+            hoveredUnitMoveRange,
         } = ctx;
         const fightStarted = fightProps.hasFightStarted();
         // On the enemy's turn the movement highlight switches from white to red.
@@ -196,6 +200,32 @@ export class SandboxDrawer {
                         alpha: innerAlpha,
                     });
                 }
+            }
+        }
+
+        // 2b. Hovered unit's movement range (inspection overlay). Drawn as LARGER cyan rings than the
+        //     active unit's white/red dots above, so hovering a unit to inspect its reach never visually
+        //     merges with the active unit's own path even where the two ranges overlap.
+        if (hoveredUnitMoveRange && hoveredUnitMoveRange.length > 0 && !sc_isAnimating) {
+            const HOVER_MOVE_COLOR = 0x66ccff;
+            for (let i = 0; i < hoveredUnitMoveRange.length; i++) {
+                const pos = GridMath.getPositionForCell(
+                    hoveredUnitMoveRange[i],
+                    gs.getMinX(),
+                    gs.getStep(),
+                    gs.getHalfStep(),
+                );
+                // ~2x the active path's baseRadius (0.12) so the rings are clearly distinct.
+                const baseRadius = gs.getCellSize() * 0.24;
+                const phase = hoverGlowPhase + i * 0.4;
+                const wave = (Math.sin(phase) + 1) / 2;
+                const radius = baseRadius * (0.9 + 0.15 * wave);
+                g.circle(pos.x, pos.y, radius).fill({ color: HOVER_MOVE_COLOR, alpha: 0.1 + 0.06 * wave });
+                g.circle(pos.x, pos.y, radius).stroke({
+                    width: 2,
+                    color: HOVER_MOVE_COLOR,
+                    alpha: 0.45 + 0.2 * wave,
+                });
             }
         }
 
