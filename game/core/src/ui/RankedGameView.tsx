@@ -77,6 +77,7 @@ import {
     shouldApplyActionResponseSnapshotToViewer,
     shouldRecoverRejectedMoveFollowUp,
 } from "./rankedActionResponse";
+import { syncRankedSnapshotSynergies } from "./rankedSynergySync";
 import { resolveUnitImage } from "./unitImage";
 import {
     aiOpponentLabel,
@@ -322,6 +323,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const abortRef = useRef<AbortController | null>(null);
     const latestSequenceRef = useRef(0);
     const snapshotRef = useRef<PlaySnapshot | null>(null);
+    const synergyGameIdRef = useRef<string | undefined>(undefined);
     const actionQueueRef = useRef<Promise<void>>(Promise.resolve());
     const replayTimersRef = useRef<number[]>([]);
 
@@ -362,6 +364,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         };
         syncTeam(TeamVals.LOWER, "lower");
         syncTeam(TeamVals.UPPER, "upper");
+        synergyGameIdRef.current = syncRankedSnapshotSynergies(fp, snapshot, synergyGameIdRef.current);
     }, [snapshot]);
 
     // Mirror the scene's local AI toggle so the "AI Toggle On" badge shows for a manual toggle too,

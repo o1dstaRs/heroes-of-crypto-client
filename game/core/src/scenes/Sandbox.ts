@@ -1606,6 +1606,8 @@ export class Sandbox extends PixiScene {
             might: priorFightProps.getAugmentMight(team),
             sniper: priorFightProps.getAugmentSniper(team),
             movement: priorFightProps.getAugmentMovement(team),
+            // FightStateManager.reset() does not preserve active synergies.
+            synergies: priorFightProps.getSynergiesPerTeam(team),
         }));
 
         FightStateManager.getInstance().reset();
@@ -1622,6 +1624,7 @@ export class Sandbox extends PixiScene {
             fightProps.setAugmentPerTeam(s.team, { type: "Might", value: s.might });
             fightProps.setAugmentPerTeam(s.team, { type: "Sniper", value: s.sniper });
             fightProps.setAugmentPerTeam(s.team, { type: "Movement", value: s.movement });
+            fightProps.setSynergiesPerTeam(s.team, s.synergies);
         }
         fightProps.setGridType(snapshot.gridType);
         this.grid.refreshWithNewType(snapshot.gridType);
