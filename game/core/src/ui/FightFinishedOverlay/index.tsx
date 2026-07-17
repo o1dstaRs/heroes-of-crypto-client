@@ -157,6 +157,7 @@ interface FightFinishedOverlayProps {
     /** Set for vs-AI matches: the tiered bot identity ("AI — Hard (v0.7)"), shown under the banner. */
     opponentLabel?: string;
     onReplay?: () => void | Promise<void>;
+    backLabel?: string;
     // Ranked-only post-match actions. Both are optional so the overlay degrades to the old bare
     // "Close" button for any caller that doesn't wire them (e.g. a future non-vs-AI ranked surface).
     onPlayAgainVsAi?: () => void | Promise<void>;
@@ -171,6 +172,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     mode = "sandbox",
     opponentLabel,
     onReplay,
+    backLabel = "Back to Lobby",
     onPlayAgainVsAi,
     onBackToLobby,
 }) => {
@@ -451,7 +453,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {!showSandboxActions && onBackToLobby && (
                         <ActionButton
-                            label="Back to Lobby"
+                            label={backLabel}
                             primary={!onPlayAgainVsAi}
                             onClick={() => {
                                 clearReplayTimers();

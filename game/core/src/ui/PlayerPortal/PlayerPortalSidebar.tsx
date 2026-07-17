@@ -1,9 +1,11 @@
-import { Box, Button, Chip, CircularProgress, Divider, Sheet, Stack, Typography } from "@mui/joy";
+import { Box, Button, CircularProgress, Divider, Sheet, Stack, Typography } from "@mui/joy";
 import React from "react";
 import { useNavigate } from "react-router";
 
 import { hocColors, hocPanelSx, hocSoftButtonSx } from "../hocTheme";
-import { CreatureIcon, streakLabel, timeAgo, winRateColor, winRatePct } from "./portalFormat";
+import { MatchHistory } from "./MatchHistory";
+import { matchReplayPath } from "./matchHistoryModel";
+import { streakLabel, winRateColor, winRatePct } from "./portalFormat";
 import { usePlayerPortal } from "./usePlayerPortal";
 
 const StatBlock: React.FC<{ label: string; value: string | number; color?: string }> = ({ label, value, color }) => (
@@ -33,8 +35,8 @@ export const PlayerPortalSidebar: React.FC = () => {
                 top: 0,
                 right: 0,
                 bottom: 0,
-                width: { xs: "0", md: "26vw" },
-                minWidth: { md: 300 },
+                width: { xs: "0", md: "clamp(340px, 30vw, 440px)" },
+                boxSizing: "border-box",
                 display: { xs: "none", md: "flex" },
                 flexDirection: "column",
                 p: 2,
@@ -81,57 +83,7 @@ export const PlayerPortalSidebar: React.FC = () => {
                         <Typography level="title-sm" textColor={hocColors.parchment}>
                             Recent matches
                         </Typography>
-                        <Stack spacing={0.75}>
-                            {recent.length === 0 && (
-                                <Typography level="body-xs" textColor={hocColors.muted}>
-                                    No finished matches yet.
-                                </Typography>
-                            )}
-                            {recent.map((match) => (
-                                <Sheet
-                                    key={match.game_id}
-                                    variant="soft"
-                                    sx={{
-                                        bgcolor: "rgba(0,0,0,0.25)",
-                                        borderRadius: "sm",
-                                        p: 0.75,
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 1,
-                                    }}
-                                >
-                                    <Chip
-                                        size="sm"
-                                        variant="solid"
-                                        sx={{
-                                            bgcolor: match.won ? "rgba(70,209,96,0.85)" : "rgba(255,90,90,0.85)",
-                                            color: "#0b0b0b",
-                                            fontWeight: 700,
-                                            minWidth: 26,
-                                        }}
-                                    >
-                                        {match.won ? "W" : "L"}
-                                    </Chip>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography level="body-xs" noWrap textColor={hocColors.mutedStrong}>
-                                            vs {match.opponent_username || "Unknown"}
-                                        </Typography>
-                                        <Stack direction="row" spacing={0.25}>
-                                            {(match.creature_ids ?? []).slice(0, 6).map((id, i) => (
-                                                <CreatureIcon
-                                                    key={`${match.game_id}_${id}_${i}`}
-                                                    creatureId={id}
-                                                    size={18}
-                                                />
-                                            ))}
-                                        </Stack>
-                                    </Box>
-                                    <Typography level="body-xs" textColor={hocColors.muted}>
-                                        {timeAgo(match.finished_time ?? 0)}
-                                    </Typography>
-                                </Sheet>
-                            ))}
-                        </Stack>
+                        <MatchHistory compact matches={recent} onReplay={(match) => navigate(matchReplayPath(match))} />
 
                         <Box sx={{ flex: 1 }} />
                         <Button fullWidth variant="soft" sx={hocSoftButtonSx} onClick={() => navigate("/portal")}>

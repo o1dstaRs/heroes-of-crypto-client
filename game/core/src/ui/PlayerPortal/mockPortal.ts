@@ -1,6 +1,7 @@
 import { getFactionOf, type CreatureId, type ResponsePlayerPortalObject } from "@heroesofcrypto/common";
 
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
+import type { PortalMatchData, PortalUnitPerformanceData } from "./matchHistoryModel";
 
 /**
  * Dev-only fake portal data so the dashboard can be previewed without finished ranked matches.
@@ -92,7 +93,7 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
     const dayMs = 86_400_000;
     const now = Date.now();
 
-    const matches: NonNullable<ResponsePlayerPortalObject["recent_matches"]> = [];
+    const matches: PortalMatchData[] = [];
     const comboTally = new Map<string, Tally>();
     const comboCreatures = new Map<string, number[]>();
     const creatureTally = new Map<number, Tally>();
@@ -101,18 +102,40 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
     for (let i = 0; i < TOTAL; i++) {
         const base = baseLineups[Math.floor(rng() * baseLineups.length)];
         const lineup = [...base.lineup];
-        const won = rng() < base.winChance;
+        const opponentLineup = pickLineup(6);
+        const draw = rng() < 0.08;
+        const abandoned = !draw && rng() < 0.08;
+        const playerAbandoned = abandoned && rng() < 0.35;
+        const won = draw ? false : abandoned ? !playerAbandoned : rng() < base.winChance;
         const finishedTime = now - i * (dayMs * 0.6) - Math.floor(rng() * dayMs * 0.4);
+        const makePerformance = (creatureIds: number[]): PortalUnitPerformanceData[] =>
+            creatureIds
+                .map((creatureId) => ({
+                    creature_id: creatureId,
+                    damage_dealt: Math.round(90 + rng() * 1450),
+                }))
+                .sort((a, b) => (b.damage_dealt ?? 0) - (a.damage_dealt ?? 0));
+        const playerPerformance = makePerformance(lineup);
+        const opponentPerformance = makePerformance(opponentLineup);
 
         matches.push({
             game_id: `mock-${i}`,
             won,
-            abandoned: rng() < 0.06,
+            draw,
+            abandoned,
+            player_abandoned: playerAbandoned,
             finished_time: finishedTime,
             opponent_username: OPPONENTS[Math.floor(rng() * OPPONENTS.length)],
             team: rng() < 0.5 ? 2 : 1,
             creature_ids: lineup,
-            opponent_creature_ids: pickLineup(6),
+            opponent_creature_ids: opponentLineup,
+            duration_ms: Math.round((4 * 60 + rng() * 22 * 60) * 1000),
+            total_laps: 4 + Math.floor(rng() * 12),
+            player_damage: playerPerformance.reduce((sum, performance) => sum + (performance.damage_dealt ?? 0), 0),
+            opponent_damage: opponentPerformance.reduce((sum, performance) => sum + (performance.damage_dealt ?? 0), 0),
+            replay_available: i % 6 !== 5,
+            player_top_units: playerPerformance.slice(0, 3),
+            opponent_top_units: opponentPerformance.slice(0, 3),
         });
 
         const comboKey = lineup.join(",");
@@ -135,14 +158,14 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
     }
 
     const wins = matches.filter((m) => m.won).length;
-    const losses = matches.length - wins;
+    const losses = matches.filter((m) => !m.won && !m.draw).length;
 
     // Streaks from newest to oldest.
     let currentStreak = 0;
-    if (matches.length) {
+    if (matches.length && !matches[0].draw) {
         const latestWon = matches[0].won;
         for (const m of matches) {
-            if (m.won !== latestWon) break;
+            if (m.draw || m.won !== latestWon) break;
             currentStreak += 1;
         }
         currentStreak = latestWon ? currentStreak : -currentStreak;
@@ -150,7 +173,7 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
     let bestWinStreak = 0;
     let run = 0;
     for (const m of matches) {
-        if (m.won) {
+        if (m.won && !m.draw) {
             run += 1;
             bestWinStreak = Math.max(bestWinStreak, run);
         } else {

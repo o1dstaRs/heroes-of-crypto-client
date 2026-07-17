@@ -1,8 +1,10 @@
-import { Box, Button, Chip, CircularProgress, Divider, Sheet, Stack, Typography } from "@mui/joy";
+import { Box, Button, CircularProgress, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router";
 
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
+import { MatchHistory } from "./MatchHistory";
+import { matchReplayPath } from "./matchHistoryModel";
 import {
     CreatureIcon,
     creatureName,
@@ -104,9 +106,15 @@ export const PlayerPortalPage: React.FC = () => {
             }}
         >
             <Box sx={{ maxWidth: 1200, mx: "auto" }}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-                    <Box>
-                        <Typography level="h2" textColor={hocColors.gold}>
+                <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    alignItems={{ xs: "stretch", sm: "center" }}
+                    justifyContent="space-between"
+                    spacing={1.25}
+                    sx={{ mb: 2, minWidth: 0 }}
+                >
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography level="h2" textColor={hocColors.gold} sx={{ overflowWrap: "anywhere" }}>
                             {data?.username || "Player Profile"}
                         </Typography>
                         <Typography level="body-sm" textColor={hocColors.muted}>
@@ -115,7 +123,7 @@ export const PlayerPortalPage: React.FC = () => {
                             {data?.last_login ? ` · last seen ${timeAgo(data.last_login)}` : ""}
                         </Typography>
                     </Box>
-                    <Stack direction="row" spacing={1}>
+                    <Stack direction="row" spacing={1} sx={{ alignSelf: { xs: "flex-end", sm: "center" } }}>
                         <Button variant="soft" sx={hocSoftButtonSx} onClick={reload} disabled={loading}>
                             Refresh
                         </Button>
@@ -265,81 +273,24 @@ export const PlayerPortalPage: React.FC = () => {
                         </Box>
 
                         {/* Match history */}
-                        <Section title="Match history" subtitle={`${matches.length} most recent finished matches`}>
-                            <Stack spacing={0.75}>
-                                {matches.length === 0 && (
-                                    <Typography level="body-sm" textColor={hocColors.muted}>
-                                        No finished matches yet.
-                                    </Typography>
-                                )}
-                                {matches.map((match) => (
-                                    <Sheet
-                                        key={match.game_id}
-                                        variant="soft"
-                                        sx={{
-                                            bgcolor: "rgba(0,0,0,0.25)",
-                                            borderRadius: "sm",
-                                            p: 1,
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: 1.5,
-                                            flexWrap: { xs: "wrap", md: "nowrap" },
-                                        }}
-                                    >
-                                        <Chip
-                                            size="sm"
-                                            variant="solid"
-                                            sx={{
-                                                bgcolor: match.won ? "rgba(70,209,96,0.85)" : "rgba(255,90,90,0.85)",
-                                                color: "#0b0b0b",
-                                                fontWeight: 700,
-                                                minWidth: 34,
-                                            }}
-                                        >
-                                            {match.won ? "WIN" : "LOSS"}
-                                        </Chip>
-                                        <Typography
-                                            level="body-sm"
-                                            textColor={hocColors.mutedStrong}
-                                            sx={{ minWidth: 130 }}
-                                            noWrap
-                                        >
-                                            vs {match.opponent_username || "Unknown"}
-                                            {match.abandoned ? " (abandoned)" : ""}
-                                        </Typography>
-                                        <Stack direction="row" spacing={0.5} sx={{ flex: 1, flexWrap: "wrap" }}>
-                                            {(match.creature_ids ?? []).map((id, i) => (
-                                                <CreatureIcon
-                                                    key={`me_${match.game_id}_${id}_${i}`}
-                                                    creatureId={id}
-                                                    size={24}
-                                                />
-                                            ))}
-                                            {(match.opponent_creature_ids ?? []).length > 0 && (
-                                                <>
-                                                    <Divider orientation="vertical" sx={{ mx: 0.5 }} />
-                                                    {(match.opponent_creature_ids ?? []).map((id, i) => (
-                                                        <Box
-                                                            key={`op_${match.game_id}_${id}_${i}`}
-                                                            sx={{ opacity: 0.55 }}
-                                                        >
-                                                            <CreatureIcon creatureId={id} size={24} />
-                                                        </Box>
-                                                    ))}
-                                                </>
-                                            )}
-                                        </Stack>
-                                        <Typography
-                                            level="body-xs"
-                                            textColor={hocColors.muted}
-                                            sx={{ minWidth: 64, textAlign: "right" }}
-                                        >
-                                            {timeAgo(match.finished_time ?? 0)}
-                                        </Typography>
-                                    </Sheet>
-                                ))}
-                            </Stack>
-                        </Section>
+                        <Box
+                            component="section"
+                            sx={{ width: "100%", maxWidth: "100%", minWidth: 0, overflow: "hidden" }}
+                        >
+                            <Box sx={{ mb: 1.25 }}>
+                                <Typography level="title-md" textColor={hocColors.gold}>
+                                    Match history
+                                </Typography>
+                                <Typography level="body-xs" textColor={hocColors.muted}>
+                                    {matches.length} most recent finished matches
+                                </Typography>
+                            </Box>
+                            <MatchHistory
+                                filterable
+                                matches={matches}
+                                onReplay={(match) => navigate(matchReplayPath(match))}
+                            />
+                        </Box>
                     </Stack>
                 )}
             </Box>

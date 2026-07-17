@@ -518,6 +518,17 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     );
 };
 
+const RankedReplayRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
+    const { gameId } = useParams<{ gameId: string }>();
+    const requestedTeam = Number(new URL(window.location.href).searchParams.get("team"));
+    const userTeam =
+        requestedTeam === TeamVals.LOWER || requestedTeam === TeamVals.UPPER
+            ? (requestedTeam as TeamType)
+            : (TeamVals.NO_TEAM as TeamType);
+
+    return gameId ? <RankedGameView gameId={gameId} replayOnly userTeam={userTeam} windowSize={windowSize} /> : null;
+};
+
 const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const { loading, authenticated, user } = useAuthContext();
 
@@ -580,6 +591,14 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                             <LoginScreen />
                         </WalletProvider>
                     )
+                }
+            />
+            <Route
+                path="/game/:gameId/replay"
+                element={
+                    <WalletProvider>
+                        {activated ? <RankedReplayRoute windowSize={windowSize} /> : <LoginScreen />}
+                    </WalletProvider>
                 }
             />
             <Route
