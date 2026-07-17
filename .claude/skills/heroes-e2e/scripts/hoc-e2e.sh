@@ -95,9 +95,11 @@ cmd_vs_ai() {
     ensure_server
     ensure_monitor
     ensure_client
-    echo "vs-ai: seeding one active player + printing a Play-vs-AI deep link (AI drives picks/placement/fight) ..."
+    echo "vs-ai: seeding one active player + creating the game + printing a Play-vs-AI link (AI drives picks/placement/fight) ..."
     # Run from the server dir so bun auto-loads its .env (HOC_ARANGODB_* creds).
-    # HOC_VS_AI_VERSION picks the bot's AI version (defaults to the shipped DEFAULT_AI_VERSION).
+    # AI version = difficulty tier, passed PER-GAME (no fresh server needed): HOC_VS_AI_DIFFICULTY =
+    # easy(v0.4)|normal(v0.6)|hard(v0.7)|brutal(v0.7+search). HOC_VS_AI_VERSION still works (mapped),
+    # but it's the older path — the difficulty gate above only applies to it.
     (cd "$SERVER_DIR" && \
         HOC_PLAY_BASE_URL="${HOC_PLAY_BASE_URL:-http://localhost:$SERVER_PORT}" \
         HOC_CLIENT_BASE_URL="${HOC_CLIENT_BASE_URL:-http://localhost:$CLIENT_PORT}" \

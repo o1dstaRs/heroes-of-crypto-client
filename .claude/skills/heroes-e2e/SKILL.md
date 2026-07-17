@@ -53,26 +53,32 @@ and show an empty board during pick — don't use them for pick.)
 
 ### `vs-ai` mode (play against the AI, from picks)
 
-One-command "Play vs AI": brings up the stack, seeds a single active player, and prints **one**
-auto-login deep link:
+One-command "Play vs AI": brings up the stack, seeds a single active player, **creates the vs-AI game
+server-side**, and prints a **reliable auto-login link** straight into pick & ban:
 
 ```
-http://localhost:5174/play?mode=vs-ai&e2eEmail=<email>&e2ePassword=Password1!
+http://localhost:5174/game/<gameId>?e2eEmail=<email>&e2ePassword=Password1!
 ```
 
-Open it in one browser. It auto-logs-in and the client's `/play?mode=vs-ai` deep link fires the real
-**Play vs AI** button path (`MatchmakingRoute`): `createVsAiGame()` → `POST /v1/mm/vs-ai` creates a
-PICK-status game with the human on one team and a persistent bot seat (`ai:<version>:default` playerId)
-on the other. From there the **server drives the AI end-to-end** — the pick-phase daemon takes the
-bot's draft turns immediately, and the play session pins the bot seat `aiControlled` so it auto-places
-its army and runs every fight turn. No opponent browser needed; the human just plays their own side.
+Open it in one browser. It uses the same `/game/<gameId>?e2eEmail=&e2ePassword=` auto-login form as the
+two-human pick match (waits for auth, renders `PickAndBanView` for the PICK game). The game is created
+up front via `POST /v1/mm/vs-ai` — the human on one team, a persistent bot seat (`ai:<version>:<tier>`
+playerId) on the other. From there the **server drives the AI end-to-end** — the pick-phase daemon takes
+the bot's draft turns immediately, and the play session pins the bot seat `aiControlled` so it
+auto-places its army and runs every fight turn. No opponent browser needed; the human just plays their
+own side.
 
-The bot's AI version is the shipped `DEFAULT_AI_VERSION`; override a fresh server start with
-`HOC_VS_AI_VERSION=v0.6 .../hoc-e2e.sh vs-ai` (any registered `AI_VERSIONS` value). Run `cleanup` before
-changing the version if the server is already up. Helper:
-`heroes-of-crypto-server/simple_client/create_vs_ai_match.ts`. Each run seeds a fresh player — re-run
-for a new match. The entire vs-AI feature (client button + deep link + server ingress + bot driving)
-is shipped product code; this mode is just a convenience launcher around it.
+> **Why not `/play?mode=vs-ai`?** That client-driven deep link *also* works, but its async auto-login can
+> lose a race with the route's sign-in gate (link "just shows the login screen"). The helper prints it as
+> a secondary `(alt, client-driven start)` line, but hand out the `/game/<gameId>` link — it's stable.
+
+**AI version = difficulty tier** (server `api/game/v1/ai_seat.ts`): `easy`=v0.4, `normal`=v0.6,
+`hard`=**v0.7**, `brutal`=v0.7 + per-match rollout search. Choose it with `HOC_VS_AI_DIFFICULTY`, or
+`HOC_VS_AI_VERSION` (mapped v0.4→easy, v0.6→normal, v0.7→hard); unset keeps the server's default seat. e.g.
+`HOC_VS_AI_DIFFICULTY=hard .../hoc-e2e.sh vs-ai` for a v0.7 opponent. Run `cleanup` before changing it if
+the server is already up. Helper: `heroes-of-crypto-server/simple_client/create_vs_ai_match.ts`. Each run
+seeds a fresh player + game — re-run for a new match. The entire vs-AI feature (client button + deep link
++ server ingress + bot driving) is shipped product code; this mode is just a convenience launcher.
 
 ### Server-log monitoring (always-on)
 
