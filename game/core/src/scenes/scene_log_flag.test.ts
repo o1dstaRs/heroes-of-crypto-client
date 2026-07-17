@@ -75,4 +75,11 @@ describe("resolveLineTeamFlag", () => {
         // Line is about Wolf Rider (red), not the active Wolf — longest match keeps it correct.
         expect(resolveLineTeamFlag("Wolf Rider moved to(1, 1)", m, activeWolf)).toBe("🔴");
     });
+
+    test("flags a count-led line (Petrifying Gaze kill) by the struck unit's team", () => {
+        const m = indexed(["Medusa", GREEN], ["Beholder", RED]);
+        // "N <Unit> killed by Petrifying Gaze" leads with the count; colour by the receiver (Beholder).
+        expect(resolveLineTeamFlag("4 Beholder killed by Petrifying Gaze", m)).toBe("🔴");
+        expect(resolveLineTeamFlag("12 Medusa killed by Petrifying Gaze", m)).toBe("🟢");
+    });
 });

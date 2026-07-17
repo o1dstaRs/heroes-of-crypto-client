@@ -29,18 +29,25 @@ export function indexUnitTeam(teamByName: Map<string, TeamOrAmbiguous>, name: st
 
 /**
  * Resolve a scene-log line to its team flag. Picks the longest unit name that prefixes the line (so
- * "Wolf Rider" isn't shadowed by "Wolf"); returns "" for lines that aren't about a unit. When the
- * matched name is the active unit's, the active unit's real team wins — disambiguating a creature
- * mirrored on both teams for that unit's own move/attack lines (the common case, AI- or player-driven).
+ * "Wolf Rider" isn't shadowed by "Wolf"); returns "" for lines that aren't about a unit. A few lines
+ * lead with a count instead of the unit name ("4 Beholder killed by Petrifying Gaze") — those are
+ * about the RECEIVER, so we also try matching after stripping a leading "<n> " count, colouring the
+ * line by the struck unit's team. When the matched name is the active unit's, the active unit's real
+ * team wins — disambiguating a creature mirrored on both teams for that unit's own lines.
  */
 export function resolveLineTeamFlag(
     line: string,
     teamByName: ReadonlyMap<string, TeamOrAmbiguous>,
     active?: { name: string; team: number },
 ): string {
+    // Lines like "4 Beholder killed by Petrifying Gaze" lead with a kill count, not the unit name.
+    const countStripped = line.replace(/^\d+\s+/, "");
     let bestName: string | undefined;
     for (const name of teamByName.keys()) {
-        if (line.startsWith(name) && (bestName === undefined || name.length > bestName.length)) {
+        if (
+            (line.startsWith(name) || countStripped.startsWith(name)) &&
+            (bestName === undefined || name.length > bestName.length)
+        ) {
             bestName = name;
         }
     }
