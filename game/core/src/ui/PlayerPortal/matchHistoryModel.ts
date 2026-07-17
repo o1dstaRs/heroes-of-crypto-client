@@ -7,6 +7,36 @@ export interface PortalUnitPerformanceData {
     damage_dealt?: number;
 }
 
+export interface PortalMatchSetupData {
+    artifact_tier_1?: number;
+    artifact_tier_2?: number;
+    perk?: number;
+    augment_placement?: number;
+    augment_armor?: number;
+    augment_might?: number;
+    augment_sniper?: number;
+    augment_movement?: number;
+    synergies?: string[];
+    complete?: boolean;
+}
+
+export type MatchAugmentKind = "Placement" | "Armor" | "Might" | "Sniper" | "Movement";
+
+export interface MatchAugmentChoice {
+    kind: MatchAugmentKind;
+    level: number;
+}
+
+export interface MatchTeamSetup {
+    artifactTier1: number;
+    artifactTier2: number;
+    perk: number;
+    augments: MatchAugmentChoice[];
+    synergies: string[];
+    available: boolean;
+    complete: boolean;
+}
+
 /**
  * Forward-compatible view of PortalMatch. The optional fields are duplicated here so the client can
  * ship alongside the protobuf update without coupling this component to generated-code timing.
@@ -21,6 +51,8 @@ export type PortalMatchData = PortalMatchBase & {
     opponent_top_units?: PortalUnitPerformanceData[];
     draw?: boolean;
     player_abandoned?: boolean;
+    player_setup?: PortalMatchSetupData;
+    opponent_setup?: PortalMatchSetupData;
 };
 
 export type MatchHistoryFilter = "all" | "wins" | "losses";
@@ -34,6 +66,42 @@ export interface MatchResultPresentation {
 
 const finiteNonNegative = (value: number | undefined): number =>
     Number.isFinite(value) ? Math.max(0, Number(value)) : 0;
+
+const nonNegativeInteger = (value: number | undefined): number => Math.floor(finiteNonNegative(value));
+
+/** Normalizes the optional wire setup while preserving message presence for legacy-match fallback UI. */
+export const normalizeMatchSetup = (setup: PortalMatchSetupData | undefined): MatchTeamSetup => {
+    const complete = setup?.complete === true;
+    const placement = Math.min(2, nonNegativeInteger(setup?.augment_placement));
+    const leveledAugments: Array<[MatchAugmentKind, number]> = [
+        ["Armor", Math.min(3, nonNegativeInteger(setup?.augment_armor))],
+        ["Might", Math.min(3, nonNegativeInteger(setup?.augment_might))],
+        ["Sniper", Math.min(3, nonNegativeInteger(setup?.augment_sniper))],
+        ["Movement", Math.min(2, nonNegativeInteger(setup?.augment_movement))],
+    ];
+
+    return {
+        artifactTier1: nonNegativeInteger(setup?.artifact_tier_1),
+        artifactTier2: nonNegativeInteger(setup?.artifact_tier_2),
+        perk: nonNegativeInteger(setup?.perk),
+        // Placement's enum is zero-based: value 0 is the free Level 1 choice, not "none".
+        augments: complete
+            ? [
+                  { kind: "Placement", level: placement + 1 },
+                  ...leveledAugments.filter(([, level]) => level > 0).map(([kind, level]) => ({ kind, level })),
+              ]
+            : [],
+        synergies: complete
+            ? [
+                  ...new Set(
+                      (setup?.synergies ?? []).map((synergy) => synergy.trim()).filter((synergy) => synergy.length > 0),
+                  ),
+              ]
+            : [],
+        available: !!setup,
+        complete,
+    };
+};
 
 export const matchResultPresentation = (match: PortalMatchData): MatchResultPresentation => {
     const detail = match.abandoned ? (match.player_abandoned ? "You left" : "Opponent left") : "";

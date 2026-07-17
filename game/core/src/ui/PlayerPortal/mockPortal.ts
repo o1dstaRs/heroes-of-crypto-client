@@ -1,7 +1,7 @@
-import { getFactionOf, type CreatureId, type ResponsePlayerPortalObject } from "@heroesofcrypto/common";
+import { Artifact, getFactionOf, Perk, type CreatureId, type ResponsePlayerPortalObject } from "@heroesofcrypto/common";
 
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
-import type { PortalMatchData, PortalUnitPerformanceData } from "./matchHistoryModel";
+import type { PortalMatchData, PortalMatchSetupData, PortalUnitPerformanceData } from "./matchHistoryModel";
 
 /**
  * Dev-only fake portal data so the dashboard can be previewed without finished ranked matches.
@@ -53,6 +53,60 @@ const OPPONENTS = [
     "GraveTactician",
     "VoidPilgrim",
 ];
+
+const SETUP_PRESETS: PortalMatchSetupData[] = [
+    {
+        artifact_tier_1: Artifact.Tier1Artifact.IRON_PLATE,
+        artifact_tier_2: Artifact.Tier2Artifact.WARLORDS_EDGE,
+        perk: Perk.Perk.SEE_NONE,
+        augment_placement: 0,
+        augment_armor: 3,
+        augment_might: 3,
+        augment_sniper: 1,
+        augment_movement: 0,
+        synergies: ["Might:1:2", "Life:2:2"],
+        complete: true,
+    },
+    {
+        artifact_tier_1: Artifact.Tier1Artifact.HUNTERS_LONGBOW,
+        artifact_tier_2: Artifact.Tier2Artifact.FARSIGHT_QUIVER,
+        perk: Perk.Perk.THREE_REVEALS,
+        augment_placement: 0,
+        augment_armor: 2,
+        augment_might: 1,
+        augment_sniper: 3,
+        augment_movement: 0,
+        synergies: ["Nature:2:3", "Chaos:1:2"],
+        complete: true,
+    },
+    {
+        artifact_tier_1: Artifact.Tier1Artifact.SWIFT_BOOTS,
+        artifact_tier_2: Artifact.Tier2Artifact.CROWN_OF_COMMAND,
+        perk: Perk.Perk.SEE_ALL,
+        augment_placement: 1,
+        augment_armor: 1,
+        augment_might: 2,
+        augment_sniper: 0,
+        augment_movement: 1,
+        synergies: ["Chaos:1:3", "Might:2:1"],
+        complete: true,
+    },
+];
+
+const setupPreset = (index: number): PortalMatchSetupData => {
+    const preset = SETUP_PRESETS[index % SETUP_PRESETS.length];
+    return { ...preset, synergies: [...(preset.synergies ?? [])] };
+};
+
+const historicalSetupPreset = (index: number): PortalMatchSetupData => {
+    const preset = setupPreset(index);
+    return {
+        artifact_tier_1: preset.artifact_tier_1,
+        artifact_tier_2: preset.artifact_tier_2,
+        perk: preset.perk,
+        complete: false,
+    };
+};
 
 interface Tally {
     games: number;
@@ -136,6 +190,9 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
             replay_available: i % 6 !== 5,
             player_top_units: playerPerformance.slice(0, 3),
             opponent_top_units: opponentPerformance.slice(0, 3),
+            // Exercise both partial historical setup and matches that predate setup tracking entirely.
+            player_setup: i % 12 === 11 ? undefined : i % 8 === 7 ? historicalSetupPreset(i) : setupPreset(i),
+            opponent_setup: i % 12 === 11 ? undefined : i % 8 === 7 ? historicalSetupPreset(i + 1) : setupPreset(i + 1),
         });
 
         const comboKey = lineup.join(",");

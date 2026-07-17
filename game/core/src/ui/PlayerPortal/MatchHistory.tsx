@@ -1,20 +1,28 @@
+import { Artifact, Perk, SynergyKeysToPower } from "@heroesofcrypto/common";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
+import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
+import ExploreRoundedIcon from "@mui/icons-material/ExploreRounded";
 import LoopRoundedIcon from "@mui/icons-material/LoopRounded";
 import MilitaryTechRoundedIcon from "@mui/icons-material/MilitaryTechRounded";
 import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
 import { Box, Button, IconButton, Sheet, Stack, ToggleButtonGroup, Tooltip, Typography } from "@mui/joy";
 import React, { useMemo, useState } from "react";
 
+import { images } from "../../generated/image_imports";
+import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
 import { hocColors } from "../hocTheme";
 import {
     filterPortalMatches,
     formatMatchDamage,
     formatMatchDuration,
     matchResultPresentation,
+    normalizeMatchSetup,
     normalizePerformances,
+    type MatchAugmentChoice,
     type MatchHistoryFilter,
     type MatchResultTone,
+    type MatchTeamSetup,
     type PortalMatchData,
     type PortalUnitPerformanceData,
 } from "./matchHistoryModel";
@@ -24,6 +32,48 @@ const RESULT_COLORS: Record<MatchResultTone, string> = {
     draw: hocColors.gold,
     loss: hocColors.danger,
     win: "#46d160",
+};
+
+const AUGMENT_IMAGE_KEY: Record<MatchAugmentChoice["kind"], keyof typeof images> = {
+    Placement: "board_augment_256",
+    Armor: "armor_augment_256",
+    Might: "might_augment_256",
+    Sniper: "sniper_augment_256",
+    Movement: "movement_augment_256",
+};
+
+const SYNERGY_NAMES: Record<string, string> = {
+    "Life:1": "Deep reserves",
+    "Life:2": "High spirits",
+    "Chaos:1": "Rapid advance",
+    "Chaos:2": "Disrupting strikes",
+    "Might:1": "Aura mastery",
+    "Might:2": "Ability mastery",
+    "Nature:1": "Expanded ranks",
+    "Nature:2": "Winged armor",
+};
+
+const synergyName = (key: string): string => {
+    const [faction, id] = key.split(":");
+    return SYNERGY_NAMES[`${faction}:${id}`] ?? `${faction || "Unknown"} synergy`;
+};
+
+const synergyLevel = (key: string): number => {
+    const level = Number(key.split(":")[2]);
+    return Number.isFinite(level) ? Math.max(0, Math.floor(level)) : 0;
+};
+
+const synergyDescription = (key: string): string => {
+    const template = SYNERGY_NAME_TO_DESCRIPTION[key as keyof typeof SYNERGY_NAME_TO_DESCRIPTION];
+    if (!template) {
+        return synergyName(key);
+    }
+    let powerIndex = 0;
+    return template.replace(/\{\}/g, () => {
+        const power = SynergyKeysToPower[key]?.[powerIndex];
+        powerIndex += 1;
+        return power?.toString() ?? "0";
+    });
 };
 
 interface MatchHistoryProps {
@@ -130,6 +180,219 @@ const PerformanceList: React.FC<{
         </Stack>
     </Box>
 );
+
+const SetupChoice: React.FC<{
+    alt?: string;
+    badge?: string;
+    detail: string;
+    fallback?: React.ReactNode;
+    image?: string;
+    name: string;
+}> = ({ alt = "", badge, detail, fallback, image, name }) => (
+    <Tooltip title={detail} placement="top" size="sm" variant="soft">
+        <Stack
+            direction="row"
+            spacing={0.65}
+            alignItems="center"
+            sx={{
+                minWidth: 0,
+                maxWidth: "100%",
+                py: 0.25,
+                pr: 0.6,
+                borderRadius: "6px",
+                bgcolor: "rgba(255,255,255,0.035)",
+            }}
+        >
+            <Box
+                sx={{
+                    width: 30,
+                    height: 30,
+                    flex: "0 0 30px",
+                    display: "grid",
+                    placeItems: "center",
+                    overflow: "hidden",
+                    borderRadius: "6px",
+                    bgcolor: "rgba(0,0,0,0.28)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    color: hocColors.gold,
+                    "& svg": { fontSize: 18 },
+                }}
+            >
+                {image ? (
+                    <Box component="img" src={image} alt={alt} sx={{ width: 26, height: 26, objectFit: "contain" }} />
+                ) : (
+                    fallback
+                )}
+            </Box>
+            <Typography level="body-xs" textColor={hocColors.mutedStrong} noWrap sx={{ minWidth: 0, maxWidth: 128 }}>
+                {name}
+            </Typography>
+            {badge && (
+                <Typography
+                    level="body-xs"
+                    sx={{ color: hocColors.gold, fontWeight: 700, whiteSpace: "nowrap", ml: "auto" }}
+                >
+                    {badge}
+                </Typography>
+            )}
+        </Stack>
+    </Tooltip>
+);
+
+const SetupRow: React.FC<{ children: React.ReactNode; label: string }> = ({ children, label }) => (
+    <Box sx={{ minWidth: 0 }}>
+        <Typography level="body-xs" textColor={hocColors.muted} sx={{ mb: 0.45 }}>
+            {label}
+        </Typography>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.55, minWidth: 0 }}>{children}</Box>
+    </Box>
+);
+
+const TeamBuildChoices: React.FC<{
+    label: string;
+    setup: MatchTeamSetup;
+    tone: "opponent" | "player";
+}> = ({ label, setup, tone }) => {
+    if (!setup.available) {
+        return (
+            <Box sx={{ minWidth: 0 }}>
+                <Typography level="title-sm" sx={{ color: tone === "player" ? "#46d160" : "#ff7272", mb: 0.65 }}>
+                    {label}
+                </Typography>
+                <Typography level="body-xs" textColor={hocColors.muted}>
+                    Build choices were not recorded for this match.
+                </Typography>
+            </Box>
+        );
+    }
+
+    const perk = Perk.getPerkProperties(setup.perk as Perk.Perk);
+    const artifacts = [
+        setup.artifactTier1 > 0 ? Artifact.TIER1_ARTIFACTS[setup.artifactTier1 as Artifact.Tier1Artifact] : undefined,
+        setup.artifactTier2 > 0 ? Artifact.TIER2_ARTIFACTS[setup.artifactTier2 as Artifact.Tier2Artifact] : undefined,
+    ].filter((artifact): artifact is Artifact.ArtifactProperties => !!artifact);
+
+    return (
+        <Stack spacing={1.05} sx={{ minWidth: 0 }}>
+            <Typography level="title-sm" sx={{ color: tone === "player" ? "#46d160" : "#ff7272" }}>
+                {label}
+            </Typography>
+
+            <SetupRow label="Perk">
+                <SetupChoice
+                    detail={perk.description}
+                    fallback={<ExploreRoundedIcon />}
+                    name={perk.name}
+                    badge={`${perk.upgradePoints} pts`}
+                />
+            </SetupRow>
+
+            <SetupRow label="Artifacts">
+                {artifacts.map((artifact) => (
+                    <SetupChoice
+                        key={`${artifact.tier}_${artifact.id}`}
+                        alt={artifact.name}
+                        detail={Artifact.formatArtifactDescription(artifact)}
+                        image={(images as Record<string, string>)[artifact.imageKey]}
+                        name={artifact.name}
+                        badge={`T${artifact.tier}`}
+                    />
+                ))}
+                {artifacts.length === 0 && (
+                    <Typography level="body-xs" textColor={hocColors.muted}>
+                        None recorded
+                    </Typography>
+                )}
+            </SetupRow>
+
+            {setup.complete ? (
+                <>
+                    <SetupRow label="Augments">
+                        {setup.augments.map((augment) => (
+                            <SetupChoice
+                                key={augment.kind}
+                                alt={`${augment.kind} augment`}
+                                detail={`${augment.kind} augment, level ${augment.level}`}
+                                image={images[AUGMENT_IMAGE_KEY[augment.kind]]}
+                                name={augment.kind}
+                                badge={`L${augment.level}`}
+                            />
+                        ))}
+                    </SetupRow>
+
+                    <SetupRow label="Synergies">
+                        {setup.synergies.map((synergy) => {
+                            const name = synergyName(synergy);
+                            const level = synergyLevel(synergy);
+                            return (
+                                <SetupChoice
+                                    key={synergy}
+                                    alt={name}
+                                    detail={`Level ${level}: ${synergyDescription(synergy)}`}
+                                    image={SYNERGY_KEY_TO_IMAGE[synergy as keyof typeof SYNERGY_KEY_TO_IMAGE]}
+                                    name={name}
+                                    badge={`L${level}`}
+                                />
+                            );
+                        })}
+                        {setup.synergies.length === 0 && (
+                            <Typography level="body-xs" textColor={hocColors.muted}>
+                                None recorded
+                            </Typography>
+                        )}
+                    </SetupRow>
+                </>
+            ) : (
+                <Typography
+                    level="body-xs"
+                    textColor={hocColors.muted}
+                    sx={{ borderTop: "1px solid rgba(255,255,255,0.08)", pt: 0.9 }}
+                >
+                    Augments and synergies were not recorded for this historical match.
+                </Typography>
+            )}
+        </Stack>
+    );
+};
+
+const BuildChoices: React.FC<{
+    compact: boolean;
+    match: PortalMatchData;
+    opponent: string;
+}> = ({ compact, match, opponent }) => {
+    const playerSetup = normalizeMatchSetup(match.player_setup);
+    const opponentSetup = normalizeMatchSetup(match.opponent_setup);
+
+    return (
+        <Box sx={{ mt: 1.6, pt: 1.35, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+            <Stack direction="row" spacing={0.65} alignItems="center" sx={{ mb: 1.15 }}>
+                <AutoAwesomeRoundedIcon sx={{ color: hocColors.gold, fontSize: 17 }} />
+                <Typography level="title-sm" textColor={hocColors.parchment}>
+                    Build choices
+                </Typography>
+            </Stack>
+            <Box
+                sx={{
+                    display: "grid",
+                    gridTemplateColumns: compact ? "1fr" : { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+                    gap: compact ? 1.4 : { xs: 1.4, sm: 0 },
+                    "& > *:nth-of-type(2)": compact
+                        ? { borderTop: "1px solid rgba(255,255,255,0.08)", pt: 1.35 }
+                        : {
+                              borderTop: { xs: "1px solid rgba(255,255,255,0.08)", sm: "none" },
+                              borderLeft: { xs: "none", sm: "1px solid rgba(255,255,255,0.08)" },
+                              pt: { xs: 1.35, sm: 0 },
+                              pl: { xs: 0, sm: 1.5 },
+                          },
+                    "& > *:first-of-type": compact ? undefined : { pr: { xs: 0, sm: 1.5 } },
+                }}
+            >
+                <TeamBuildChoices label="Your build" setup={playerSetup} tone="player" />
+                <TeamBuildChoices label={`${opponent}'s build`} setup={opponentSetup} tone="opponent" />
+            </Box>
+        </Box>
+    );
+};
 
 const ReplayIconButton: React.FC<{
     available: boolean;
@@ -314,6 +577,8 @@ const MatchCard: React.FC<{
                         <PerformanceList label="Your top damage" performances={playerPerformances} />
                         <PerformanceList label={`${opponent}'s top damage`} performances={opponentPerformances} />
                     </Box>
+
+                    <BuildChoices compact={compact} match={match} opponent={opponent} />
 
                     <Stack
                         direction={compact ? "column" : { xs: "column", sm: "row" }}

@@ -6,6 +6,7 @@ import {
     formatMatchDuration,
     matchReplayPath,
     matchResultPresentation,
+    normalizeMatchSetup,
     normalizePerformances,
     type PortalMatchData,
 } from "./matchHistoryModel";
@@ -78,6 +79,67 @@ describe("match history model", () => {
             { creature_id: 1, damage_dealt: 800 },
             { creature_id: 2, damage_dealt: 400 },
         ]);
+    });
+
+    it("normalizes recorded setup choices and keeps legacy availability explicit", () => {
+        expect(normalizeMatchSetup(undefined)).toEqual({
+            artifactTier1: 0,
+            artifactTier2: 0,
+            perk: 0,
+            augments: [],
+            synergies: [],
+            available: false,
+            complete: false,
+        });
+
+        expect(
+            normalizeMatchSetup({
+                artifact_tier_1: 7.9,
+                artifact_tier_2: 2,
+                perk: 3,
+                augment_placement: 2,
+                augment_armor: 3,
+                augment_might: 0,
+                augment_sniper: 9,
+                augment_movement: -2,
+                synergies: ["Might:2:3", " Life:1:2 ", "Might:2:3", ""],
+                complete: true,
+            }),
+        ).toEqual({
+            artifactTier1: 7,
+            artifactTier2: 2,
+            perk: 3,
+            augments: [
+                { kind: "Placement", level: 3 },
+                { kind: "Armor", level: 3 },
+                { kind: "Sniper", level: 3 },
+            ],
+            synergies: ["Might:2:3", "Life:1:2"],
+            available: true,
+            complete: true,
+        });
+    });
+
+    it("does not invent combat choices for an incomplete historical setup", () => {
+        expect(
+            normalizeMatchSetup({
+                artifact_tier_1: 4,
+                artifact_tier_2: 9,
+                perk: 2,
+                augment_placement: 0,
+                augment_armor: 3,
+                synergies: ["Might:2:3"],
+                complete: false,
+            }),
+        ).toEqual({
+            artifactTier1: 4,
+            artifactTier2: 9,
+            perk: 2,
+            augments: [],
+            synergies: [],
+            available: true,
+            complete: false,
+        });
     });
 
     it("builds an encoded historical replay route", () => {
