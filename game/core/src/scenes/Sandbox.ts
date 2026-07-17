@@ -7999,11 +7999,18 @@ export class Sandbox extends PixiScene {
                         if (isRangeAttackContext) {
                             const fp = FightStateManager.getInstance().getFightProperties();
                             if (fp.getGridType() === GridVals.BLOCK_CENTER && fp.getObstacleHitsLeft() > 0) {
+                                // Test the SHOT'S ACTUAL trajectory — attacker -> the resolved visible
+                                // edge the projectile flies to (arrowEndPos, same edge the arrow and the
+                                // committed shot use) — NOT the target's geometric CENTER. A shot at a
+                                // unit whose near edge threads the 2x2 corridor or clears a mountain has a
+                                // center line that clips the mountain but an edge line that is clear; using
+                                // the center here wrongly reported "Hit the mountain" and routed the click
+                                // to the obstacle, so reachable units became unattackable.
                                 blockedByObstacle = this.attackHandler.evaluateRangeAttack(
                                     this.unitsHolder.getAllUnits(),
                                     this.currentActiveUnit,
                                     this.currentActiveUnit.getPosition(),
-                                    targetUnit.getPosition(),
+                                    arrowEndPos!,
                                     false,
                                     this.sc_isSelection,
                                     this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
