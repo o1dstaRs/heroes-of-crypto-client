@@ -51,6 +51,7 @@ import {
     collectRankedReplaySnapshots,
     createSandboxReplayFromRankedReplay,
     parseRankedReplayAction,
+    type RankedReplay,
     type RankedReplayActionRecord,
 } from "../replay/ranked_replay";
 import { getLocalModelOpponentConfig, isLocalModelAction } from "../scenes/LocalModelOpponent";
@@ -293,6 +294,7 @@ type Props = {
     gameId: string;
     userTeam: TeamType;
     windowSize: IWindowSize;
+    replayOnly?: boolean;
 };
 
 type PendingAuthoritativePlayback = {
@@ -300,7 +302,7 @@ type PendingAuthoritativePlayback = {
     stateAfterSnapshot?: PlaySnapshot;
 };
 
-export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }) => {
+export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, replayOnly = false }) => {
     const manager = usePixiManager();
     const navigate = useNavigate();
     const localModelConfig = useMemo(() => getLocalModelOpponentConfig(), []);
@@ -314,7 +316,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const [aiToggleOn, setAiToggleOn] = useState(false);
     const [replayPlaybackActive, setReplayPlaybackActive] = useState(false);
     const [busy, setBusy] = useState(false);
-    const [status, setStatus] = useState("Connecting");
+    const [status, setStatus] = useState(replayOnly ? "Loading replay" : "Connecting");
     const [error, setError] = useState("");
     // The game no longer exists on the server (cleaned up on restart, or a DB lookup failed → the API
     // returns "Game not found"). We render a plain "not available" screen instead of the stale board.
@@ -326,6 +328,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     const synergyGameIdRef = useRef<string | undefined>(undefined);
     const actionQueueRef = useRef<Promise<void>>(Promise.resolve());
     const replayTimersRef = useRef<number[]>([]);
+    const storedReplayRef = useRef<RankedReplay>();
+    const replayAutoplayStartedRef = useRef(false);
 
     // Sync the authoritative doctrine + army-wide artifacts + placement augments into the local
     // FightProperties so the client's applyArtifacts / applyAugments (run when the scene hydrates units
@@ -604,6 +608,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
     }, [drainPendingAuthoritativeRecords, manager, pixiReady, selectedUnitId, snapshot, toSceneSnapshot]);
 
     useEffect(() => {
+        if (replayOnly) {
+            return undefined;
+        }
         let cancelled = false;
 
         refreshSnapshot()
@@ -643,9 +650,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
             cancelled = true;
             window.clearInterval(pollInterval);
         };
-    }, [refreshSnapshot]);
+    }, [refreshSnapshot, replayOnly]);
 
     useEffect(() => {
+        if (replayOnly) {
+            return undefined;
+        }
         let closed = false;
         let retryTimer: number | undefined;
 
@@ -741,10 +751,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         playAuthoritativeRecord,
         rememberAuthoritativeRecord,
         waitForAuthoritativePlayback,
+        replayOnly,
     ]);
 
     const myPlayer = useMemo(() => snapshot?.players.find((player) => player.team === userTeam), [snapshot, userTeam]);
-    const isObserver = userTeam === TeamVals.NO_TEAM || !myPlayer;
+    const isObserver = replayOnly || userTeam === TeamVals.NO_TEAM || !myPlayer;
     // Detect a vs-AI match two ways: the local "just created this via Play vs AI" marker (works even
     // before the snapshot names an opponent) and the server-assigned bot-seat prefix in either seat
     // (works after refresh or from an observer snapshot without depending on player order). Match
@@ -770,8 +781,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         return aiOpponentLabel(aiSeatPlayerId) ?? (isVsAiMatch ? "AI" : undefined);
     }, [aiSeatPlayerId, isVsAiMatch, vsAiDifficulty]);
     const handleBackToLobby = useCallback(() => {
-        navigate("/play");
-    }, [navigate]);
+        navigate(replayOnly ? "/portal" : "/play");
+    }, [navigate, replayOnly]);
     const handlePlayAgainVsAi = useCallback(async () => {
         // Repeat the SAME tier the finished match was played at (fall back to the default for legacy
         // tier-less games).
@@ -1238,62 +1249,132 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
         ],
     );
 
+    const playLoadedRankedReplay = useCallback(
+        async (replay: RankedReplay) => {
+            clearReplayTimers();
+            setBusy(true);
+            setStatus("Preparing replay");
+            setError("");
+
+            try {
+                const replaySnapshots = collectRankedReplaySnapshots(replay);
+                const initialSnapshot = replaySnapshots[0] ?? replay.currentSnapshot;
+                if (initialSnapshot) {
+                    applySnapshot(initialSnapshot, { forceBoardRebuild: true });
+                    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+                }
+
+                const sandboxReplay = createSandboxReplayFromRankedReplay(replay, {
+                    snapshotToState: (playSnapshot) =>
+                        authoritativeSnapshotToSandboxSceneState(toSceneSnapshot(playSnapshot)),
+                });
+
+                setStatus("Replaying");
+                if (sandboxReplay) {
+                    const replayed = await manager.PlaySandboxReplay(sandboxReplay);
+                    if (replayed) {
+                        setStatus("Replay complete");
+                        return;
+                    }
+                }
+
+                if (!replaySnapshots.length) {
+                    throw new Error("Replay has no snapshots to play");
+                }
+
+                const stepDelayMs = 550;
+                for (let index = 0; index < replaySnapshots.length; index += 1) {
+                    if (index > 0) {
+                        await new Promise<void>((resolve) => {
+                            const timer = window.setTimeout(() => {
+                                replayTimersRef.current = replayTimersRef.current.filter((value) => value !== timer);
+                                resolve();
+                            }, stepDelayMs);
+                            replayTimersRef.current.push(timer);
+                        });
+                    }
+                    const replaySnapshot = replaySnapshots[index];
+                    if (replaySnapshot) {
+                        manager.ApplyAuthoritativeReplaySnapshot(toSceneSnapshot(replaySnapshot));
+                    }
+                }
+                setStatus("Replay complete");
+            } catch (err: unknown) {
+                setStatus("Replay failed");
+                setError((err as Error).message || "Unable to load replay");
+            } finally {
+                if (replay.currentSnapshot) {
+                    applySnapshot(replay.currentSnapshot, { forceBoardRebuild: true });
+                }
+                setBusy(false);
+            }
+        },
+        [applySnapshot, clearReplayTimers, manager, toSceneSnapshot],
+    );
+
     const replayRankedFight = useCallback(async () => {
-        clearReplayTimers();
-        setBusy(true);
         setStatus("Loading replay");
         setError("");
-
         try {
-            const replay = await fetchRankedPlayReplay(gameId);
-            const sandboxReplay = createSandboxReplayFromRankedReplay(replay, {
-                snapshotToState: (playSnapshot) =>
-                    authoritativeSnapshotToSandboxSceneState(toSceneSnapshot(playSnapshot)),
-            });
-
-            setStatus("Replaying");
-            if (sandboxReplay) {
-                const replayed = await manager.PlaySandboxReplay(sandboxReplay);
-                if (replayed) {
-                    setStatus("Connected");
-                    return;
-                }
-            }
-
-            const replaySnapshots = collectRankedReplaySnapshots(replay);
-            if (!replaySnapshots.length) {
-                throw new Error("Replay has no snapshots to play");
-            }
-
-            const stepDelayMs = 550;
-            for (let index = 0; index < replaySnapshots.length; index += 1) {
-                if (index > 0) {
-                    await new Promise<void>((resolve) => {
-                        const timer = window.setTimeout(() => {
-                            replayTimersRef.current = replayTimersRef.current.filter((value) => value !== timer);
-                            resolve();
-                        }, stepDelayMs);
-                        replayTimersRef.current.push(timer);
-                    });
-                }
-                const replaySnapshot = replaySnapshots[index];
-                if (replaySnapshot) {
-                    manager.ApplyAuthoritativeReplaySnapshot(toSceneSnapshot(replaySnapshot));
-                }
-            }
-            setStatus("Connected");
+            await playLoadedRankedReplay(await fetchRankedPlayReplay(gameId));
         } catch (err: unknown) {
             setStatus("Replay failed");
             setError((err as Error).message || "Unable to load replay");
-        } finally {
-            setBusy(false);
         }
-    }, [clearReplayTimers, gameId, manager, toSceneSnapshot]);
+    }, [gameId, playLoadedRankedReplay]);
 
     useEffect(() => {
+        if (!replayOnly) {
+            return undefined;
+        }
+
+        let cancelled = false;
+        replayAutoplayStartedRef.current = false;
+        storedReplayRef.current = undefined;
+        setGameUnavailable(false);
+        setStatus("Loading replay");
+        setError("");
+
+        fetchRankedPlayReplay(gameId)
+            .then((replay) => {
+                if (cancelled) {
+                    return;
+                }
+                storedReplayRef.current = replay;
+                const initialSnapshot = collectRankedReplaySnapshots(replay)[0] ?? replay.currentSnapshot;
+                applySnapshot(initialSnapshot, { forceBoardRebuild: true });
+            })
+            .catch((err: unknown) => {
+                if (!cancelled) {
+                    setStatus("Replay unavailable");
+                    setError((err as Error).message || "This match does not have a stored replay");
+                    setGameUnavailable(true);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+            storedReplayRef.current = undefined;
+        };
+    }, [applySnapshot, gameId, replayOnly]);
+
+    useEffect(() => {
+        const replay = storedReplayRef.current;
+        if (!replayOnly || !pixiReady || !snapshot || !replay || replayAutoplayStartedRef.current) {
+            return;
+        }
+        replayAutoplayStartedRef.current = true;
+        void playLoadedRankedReplay(replay);
+    }, [pixiReady, playLoadedRankedReplay, replayOnly, snapshot]);
+
+    useEffect(() => {
+        if (replayOnly) {
+            manager.SetGameActionTransport(undefined);
+            return undefined;
+        }
         manager.SetGameActionTransport(transport);
         return () => manager.SetGameActionTransport(undefined);
-    }, [manager, transport]);
+    }, [manager, replayOnly, transport]);
 
     // Relay our live move aim to the opponent, throttled so a fast-moving cursor produces a
     // steady trickle of hints rather than a flood. Clears (no cell) are sent immediately.
@@ -1458,14 +1539,19 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                 }}
             >
                 <Stack spacing={1.5} alignItems="center" sx={{ textAlign: "center", maxWidth: 460 }}>
-                    <Typography sx={{ fontSize: "2.4rem", lineHeight: 1 }}>🕯️</Typography>
                     <Typography sx={{ color: "#f6d87c", fontWeight: 800, fontSize: "1.5rem" }}>
-                        Game is not available
+                        {replayOnly ? "Replay unavailable" : "Game is not available"}
                     </Typography>
                     <Typography sx={{ opacity: 0.75 }}>
-                        This match has ended or is no longer on the server — it may have been cleaned up or the server
-                        was restarted.
+                        {replayOnly
+                            ? "This older match does not have a complete stored replay."
+                            : "This match has ended or is no longer on the server. It may have been cleaned up or the server was restarted."}
                     </Typography>
+                    {replayOnly && (
+                        <Button variant="soft" sx={hocSoftButtonSx} onClick={() => navigate("/portal")}>
+                            Back to match history
+                        </Button>
+                    )}
                 </Stack>
             </Box>
         );
@@ -1531,7 +1617,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     {gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
                         <AiControlBadge left={aiBadgeLeft(windowSize)} />
                     )}
-                    {replayPlaybackActive && (
+                    {(replayOnly || replayPlaybackActive) && (
                         // Ranked: leaving the replay returns to the account / game-selection screen.
                         <ExitReplayBadge
                             left={aiBadgeLeft(windowSize)}
@@ -1540,6 +1626,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize }
                     )}
                     {gameStarted && (
                         <FightFinishedOverlay
+                            backLabel={replayOnly ? "Match History" : undefined}
                             canReplay={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}
                             mode="ranked"
                             opponentLabel={vsAiOpponentLabel}
@@ -2199,6 +2286,12 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                         : `${perkName} — ${augmentBudget} upgrade points.`}{" "}
                                     Spend them on augments and pick your synergies, then continue to place your units.
                                 </Typography>
+                                {/* Their 6-creature roster is the only opponent intel the engine reveals during
+                                    placement (their augments/synergies/artifacts stay hidden until the fight) — so
+                                    surface it INSIDE the picker, above the selectors, to choose your build against
+                                    their army instead of blind. The identical sidebar panel sits behind this modal
+                                    while it's open, so without this the roster is invisible exactly when it matters. */}
+                                <RankedOpponentPlacementIntel snapshot={snapshot} userTeam={userTeam} />
                                 <SideToggleContainer
                                     side={userTeam === TeamVals.LOWER ? "green" : "red"}
                                     teamType={userTeam}
