@@ -82,4 +82,30 @@ describe("resolveLineTeamFlag", () => {
         expect(resolveLineTeamFlag("4 Beholder killed by Petrifying Gaze", m)).toBe("🔴");
         expect(resolveLineTeamFlag("12 Medusa killed by Petrifying Gaze", m)).toBe("🟢");
     });
+
+    describe("mirror match (same creature on both teams)", () => {
+        // Beholder-vs-Beholder: the name is ambiguous, so without the active-unit hint nothing flags.
+        const m = indexed(["Beholder", GREEN], ["Beholder", RED]);
+        const activeRedBeholder = { name: "Beholder", team: RED };
+
+        test("the active unit's own action lines flag its side", () => {
+            expect(resolveLineTeamFlag("Beholder moved to(8, 3)", m, activeRedBeholder)).toBe("🔴");
+            expect(resolveLineTeamFlag("Beholder 🏹 Beholder (97)", m, activeRedBeholder)).toBe("🔴");
+            expect(resolveLineTeamFlag("Beholder applied Cowardice on Beholder for 1 lap", m, activeRedBeholder)).toBe(
+                "🔴",
+            );
+        });
+
+        test("a response line flags the opponent (the responder is the active unit's enemy)", () => {
+            expect(resolveLineTeamFlag("Beholder resp Beholder (116)", m, activeRedBeholder)).toBe("🟢");
+        });
+
+        test("a death / killed line stays unflagged (the victim instance is ambiguous)", () => {
+            expect(resolveLineTeamFlag("Beholder died", m, activeRedBeholder)).toBe("");
+        });
+
+        test("without an active unit, mirror lines stay unflagged (no false colour)", () => {
+            expect(resolveLineTeamFlag("Beholder moved to(8, 3)", m)).toBe("");
+        });
+    });
 });

@@ -54,7 +54,24 @@ export function resolveLineTeamFlag(
     if (bestName === undefined) {
         return "";
     }
-    const team = active && bestName === active.name ? active.team : teamByName.get(bestName);
+
+    let team: TeamOrAmbiguous | undefined = teamByName.get(bestName);
+    if (active) {
+        const afterName = countStripped.slice(bestName.length);
+        if (/^\s+resp\b/.test(afterName)) {
+            // A response line ("<Responder> resp <Attacker> …") is authored by the RESPONDER — the unit
+            // that was attacked, i.e. the active (acting) unit's opponent. In a mirror match the name
+            // can't tell the two instances apart, but the responder is always the enemy of the active
+            // unit, so its side is the opposite of the active unit's.
+            team = oppositeTeam(active.team);
+        } else if (bestName === active.name && !/\bdied\b|killed by/.test(countStripped)) {
+            // The active unit's own action line (moved / ⚔️ / 🏹 / applied / skips / Morale …). Its real
+            // team disambiguates a creature mirrored on both sides. Death / "killed by" lines are skipped
+            // because they name the VICTIM, which may be either mirrored instance.
+            team = active.team;
+        }
+    }
+
     if (team === TeamVals.LOWER) {
         return "🟢";
     }
@@ -62,4 +79,9 @@ export function resolveLineTeamFlag(
         return "🔴";
     }
     return "";
+}
+
+/** The other side. Two-team game: LOWER <-> UPPER. */
+function oppositeTeam(team: number): number {
+    return team === TeamVals.LOWER ? TeamVals.UPPER : TeamVals.LOWER;
 }
