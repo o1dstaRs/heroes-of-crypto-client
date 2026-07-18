@@ -8673,7 +8673,11 @@ export class Sandbox extends PixiScene {
             sidebarUnitRanges,
             hoveredAuraRanges: this.sc_hoveredAuraRanges,
             lingeringTracks: this.moveAnimManager.getLingeringTracks(),
-            hoveredMoveRange: this.sc_placementMoveRange,
+            // Placement-only overlay. The calc that maintains sc_placementMoveRange is gated to the
+            // placement phase, so once the fight starts it is never updated OR cleared — feeding the stale
+            // value to the drawer left its little dots scattered across the board mid-fight (intermittent:
+            // only when a unit happened to be selected at ready-up). Never render it during the fight.
+            hoveredMoveRange: fightProps.hasFightStarted() ? undefined : this.sc_placementMoveRange,
             hoveredUnitMoveRange: this.sc_hoveredMoveRange,
             enemyTurnView: this.isEnemyActiveTurn(),
         });
