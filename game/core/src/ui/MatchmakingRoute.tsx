@@ -18,7 +18,6 @@ import {
 import { useAuthContext } from "./auth/context/auth_context";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
-import { WalletLinker } from "./WalletLinker";
 
 type MatchmakingEvent = {
     ps?: string;
@@ -36,7 +35,7 @@ const matchEventUrl = () => buildApiUrl(HOST_MATCHMAKING_API, endpoints.mm.event
 export const MatchmakingRoute: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const { startGameSearch, stopGameSearch, confirmGame, getCurrentGame, user, requestCode } = useAuthContext();
+    const { startGameSearch, stopGameSearch, confirmGame, getCurrentGame, user, requestCode, me } = useAuthContext();
 
     const streamRef = useRef<CustomEventSource<MatchmakingEvent> | null>(null);
     const acceptedGameIdRef = useRef("");
@@ -48,6 +47,14 @@ export const MatchmakingRoute: React.FC = () => {
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
     const [error, setError] = useState("");
     const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
+
+    // No-accept penalty: the server sets match_making_cooldown_till (ms epoch) when a player lets a found
+    // match expire without accepting, and rejects re-queue until it passes. Surface it as a live countdown
+    // instead of a bare "connection aborted" so the player knows why they can't search and for how long.
+    const [nowMs, setNowMs] = useState(() => Date.now());
+    const cooldownTill = Number(user?.match_making_cooldown_till ?? 0) || 0;
+    const penaltySeconds = cooldownTill > nowMs ? Math.ceil((cooldownTill - nowMs) / 1000) : 0;
+    const penalized = penaltySeconds > 0;
 
     // A logged-in but email-unverified account (is_active === false) cannot enter matchmaking:
     // the server rejects POST /queue with "Activate your account to join the matchmaking queue".
@@ -96,6 +103,9 @@ export const MatchmakingRoute: React.FC = () => {
                 setState("idle");
                 setPendingGameId("");
                 setSecondsRemaining(null);
+                // The found match window closed. If WE let it expire the server just set a no-accept
+                // cooldown — refresh /me so the penalty countdown renders (a no-op if we weren't at fault).
+                void me().catch(() => undefined);
                 return;
             }
 
@@ -112,12 +122,36 @@ export const MatchmakingRoute: React.FC = () => {
         source.onerror = (err: Error) => {
             setError(err.message);
             setState((current) => (current === "accepted" ? current : "error"));
+            // A dropped stream right after a found match is usually the accept window expiring. Pull the
+            // fresh /me so a no-accept penalty renders as a countdown instead of just "connection aborted".
+            void me().catch(() => undefined);
         };
 
         streamRef.current = source;
-    }, [closeStream, navigate]);
+    }, [closeStream, navigate, me]);
 
     useEffect(() => closeStream, [closeStream]);
+
+    // Refresh /me on arrival so a penalty applied in a previous session/route shows immediately.
+    useEffect(() => {
+        void me().catch(() => undefined);
+    }, [me]);
+
+    // Tick the countdown while a penalty is active, then stop once it elapses.
+    useEffect(() => {
+        if (cooldownTill <= Date.now()) {
+            return undefined;
+        }
+        setNowMs(Date.now());
+        const id = window.setInterval(() => {
+            const t = Date.now();
+            setNowMs(t);
+            if (t >= cooldownTill) {
+                window.clearInterval(id);
+            }
+        }, 500);
+        return () => window.clearInterval(id);
+    }, [cooldownTill]);
 
     useEffect(() => {
         let cancelled = false;
@@ -150,6 +184,9 @@ export const MatchmakingRoute: React.FC = () => {
         if (needsActivation) {
             return "Email verification required";
         }
+        if (penalized) {
+            return `Match not accepted — search again in ${penaltySeconds}s`;
+        }
         if (state === "searching") {
             return queueSize ? `Looking for opponent (${queueSize} in queue)` : "Looking for opponent";
         }
@@ -170,10 +207,10 @@ export const MatchmakingRoute: React.FC = () => {
             return "Connection error";
         }
         return "Ready";
-    }, [needsActivation, queueSize, secondsRemaining, state]);
+    }, [needsActivation, penalized, penaltySeconds, queueSize, secondsRemaining, state]);
 
     const handleStart = async () => {
-        if (needsActivation || aiStartInFlightRef.current) {
+        if (needsActivation || penalized || aiStartInFlightRef.current) {
             return;
         }
         setError("");
@@ -187,6 +224,9 @@ export const MatchmakingRoute: React.FC = () => {
             closeStream();
             setState("error");
             setError((err as Error)?.message ?? "Unable to enter matchmaking");
+            // The server rejects re-queue during a no-accept cooldown (429); refresh /me so the render
+            // switches from the raw error to the penalty countdown.
+            void me().catch(() => undefined);
         }
     };
 
@@ -360,8 +400,6 @@ export const MatchmakingRoute: React.FC = () => {
                             </Stack>
                         )}
 
-                        {!needsActivation && <WalletLinker />}
-
                         {(state === "searching" || state === "accepted" || state === "starting-ai") && (
                             <Stack direction="row" spacing={1.5} alignItems="center">
                                 <CircularProgress size="sm" />
@@ -428,12 +466,12 @@ export const MatchmakingRoute: React.FC = () => {
                                     <Button
                                         fullWidth
                                         variant="solid"
-                                        disabled={state === "starting-ai"}
+                                        disabled={state === "starting-ai" || penalized}
                                         onClick={handleStart}
                                         startDecorator={<PersonSearchRoundedIcon />}
                                         sx={hocPrimaryButtonSx}
                                     >
-                                        Find Opponent
+                                        {penalized ? `Search again in ${penaltySeconds}s` : "Find Opponent"}
                                     </Button>
                                     <Button
                                         fullWidth
@@ -468,7 +506,13 @@ export const MatchmakingRoute: React.FC = () => {
                             ) : null}
                         </Stack>
 
-                        {error && (
+                        {penalized && (
+                            <Alert variant="soft" color="warning">
+                                You didn&apos;t accept the last match. You can search again in {penaltySeconds}s.
+                            </Alert>
+                        )}
+
+                        {error && !penalized && (
                             <Alert variant="soft" color="danger">
                                 {error}
                             </Alert>
