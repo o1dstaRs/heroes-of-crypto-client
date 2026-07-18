@@ -68,6 +68,7 @@ import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
+import { RankedFinishedActions } from "./RankedFinishedActions";
 import { WalletLinker } from "./WalletLinker";
 import { ButtonProvider } from "./context/ButtonContext";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
@@ -318,6 +319,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState(replayOnly ? "Loading replay" : "Connecting");
     const [error, setError] = useState("");
+    // Top-left "Play another" post-match action state (see RankedFinishedActions).
+    const [playAnotherBusy, setPlayAnotherBusy] = useState(false);
+    const [playAnotherError, setPlayAnotherError] = useState("");
     // The game no longer exists on the server (cleaned up on restart, or a DB lookup failed → the API
     // returns "Game not found"). We render a plain "not available" screen instead of the stale board.
     const [gameUnavailable, setGameUnavailable] = useState(false);
@@ -816,6 +820,27 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         }
         throw lastError instanceof Error ? lastError : new Error("Unable to start an AI match");
     }, [navigate, vsAiDifficulty]);
+    // Top-left "Play another": start a fresh ranked game. A vs-AI match rematches directly at the same
+    // tier; a human match has no instant rematch, so route to the game-type selection (/play) where
+    // Find Opponent / Play vs AI live.
+    const handlePlayAnother = useCallback(async () => {
+        if (playAnotherBusy) {
+            return;
+        }
+        setPlayAnotherError("");
+        if (!isVsAiMatch) {
+            navigate("/play");
+            return;
+        }
+        setPlayAnotherBusy(true);
+        try {
+            await handlePlayAgainVsAi();
+        } catch (err) {
+            // On success handlePlayAgainVsAi navigates away; only a failure lands here.
+            setPlayAnotherBusy(false);
+            setPlayAnotherError(err instanceof Error ? err.message : "Unable to start another match");
+        }
+    }, [handlePlayAgainVsAi, isVsAiMatch, navigate, playAnotherBusy]);
     const selectedUnit = useMemo(
         () => snapshot?.units.find((unit) => unit.id === selectedUnitId),
         [selectedUnitId, snapshot],
@@ -1635,6 +1660,19 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             onBackToLobby={handleBackToLobby}
                         />
                     )}
+                    {/* Persistent top-left post-match actions for the participant: quick access after the
+                        results overlay is dismissed. Not shown to observers/replay (ExitReplayBadge covers those). */}
+                    {gameStarted &&
+                        !isObserver &&
+                        (snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished) && (
+                            <RankedFinishedActions
+                                left={aiBadgeLeft(windowSize)}
+                                playAnotherBusy={playAnotherBusy}
+                                error={playAnotherError}
+                                onPlayAnother={handlePlayAnother}
+                                onHome={() => navigate("/play")}
+                            />
+                        )}
                     {gameStarted && !isObserver && <DraggableToolbar />}
                 </CssVarsProvider>
                 <Main entry={RANKED_SCENE_ENTRY} />
@@ -1972,47 +2010,39 @@ const RankedAugmentSummary: React.FC<{
     );
 };
 
-const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamType }> = ({
-    snapshot,
-    userTeam,
-}) => {
-    if (snapshot.phase !== PlayPhase.PLACEMENT) {
+// One army's roster as a wrapping grid of unit icons, with a title + readiness chip. Reused for both
+// the viewer's own army and the opponent's during placement.
+const RankedArmyRosterRow: React.FC<{
+    title: string;
+    units: PlaySnapshot["units"];
+    ready: boolean;
+    // Accent for KNOWN units (your own are always known; the server reveals the opponent's identities).
+    accent: { border: string; bg: string };
+}> = ({ title, units, ready, accent }) => {
+    if (!units.length) {
         return null;
     }
-
-    const opponentUnits = snapshot.units.filter((unit) => unit.team !== userTeam && !unit.dead);
-    if (!opponentUnits.length) {
-        return null;
-    }
-
-    // The opponent's readiness rides along in the broadcast snapshot's readyPlayerIds, so show it
-    // here — when they click "Ready Placement" we reflect it (and they see ours the same way).
-    const opponentPlayer = snapshot.players.find((player) => player.team !== userTeam);
-    const opponentReady = !!opponentPlayer && snapshot.readyPlayerIds.includes(opponentPlayer.playerId);
-
     return (
         <Stack spacing={0.5}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Stack direction="row" spacing={0.75} alignItems="center">
                     <Typography level="body-sm" textColor={hocColors.parchment}>
-                        Opponent army
+                        {title}
                     </Typography>
                     <Chip
                         size="sm"
                         variant="soft"
                         sx={{
-                            bgcolor: opponentReady ? "rgba(34,197,94,0.18)" : "rgba(148,163,184,0.12)",
-                            color: opponentReady ? "#4ade80" : hocColors.muted,
-                            border: `1px solid ${opponentReady ? "rgba(34,197,94,0.5)" : "rgba(148,163,184,0.25)"}`,
+                            bgcolor: ready ? "rgba(34,197,94,0.18)" : "rgba(148,163,184,0.12)",
+                            color: ready ? "#4ade80" : hocColors.muted,
+                            border: `1px solid ${ready ? "rgba(34,197,94,0.5)" : "rgba(148,163,184,0.25)"}`,
                         }}
                     >
-                        {opponentReady ? "Ready" : "Placing…"}
+                        {ready ? "Ready" : "Placing…"}
                     </Chip>
                 </Stack>
-                {/* The full roster is always visible during placement (server reveals every opponent unit's
-                    identity) — stack sizes and on-board positions stay hidden, but who they fielded does not. */}
                 <Typography level="body-xs" textColor={hocColors.muted}>
-                    {opponentUnits.length} units
+                    {units.length} units
                 </Typography>
             </Stack>
             <Box
@@ -2025,7 +2055,7 @@ const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam:
                     pb: 0.25,
                 }}
             >
-                {opponentUnits.map((unit) => {
+                {units.map((unit) => {
                     const known = unit.creatureId > 0 && unit.name !== "Unknown";
                     return (
                         <Tooltip key={unit.id} title={known ? unit.name : "Unknown"} placement="top">
@@ -2033,11 +2063,11 @@ const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam:
                                 sx={{
                                     position: "relative",
                                     flex: "0 0 auto",
-                                    width: 42,
-                                    height: 42,
+                                    width: 52,
+                                    height: 52,
                                     borderRadius: 6,
-                                    border: `1px solid ${known ? "rgba(245,158,11,0.28)" : "rgba(148,163,184,0.18)"}`,
-                                    bgcolor: known ? "rgba(245,158,11,0.08)" : "rgba(15,23,42,0.45)",
+                                    border: `1px solid ${known ? accent.border : "rgba(148,163,184,0.18)"}`,
+                                    bgcolor: known ? accent.bg : "rgba(15,23,42,0.45)",
                                     display: "grid",
                                     placeItems: "center",
                                     overflow: "hidden",
@@ -2048,8 +2078,8 @@ const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam:
                                     src={resolveUnitImage(undefined, known ? unit.name : undefined)}
                                     alt=""
                                     sx={{
-                                        width: 36,
-                                        height: 36,
+                                        width: 46,
+                                        height: 46,
                                         objectFit: "contain",
                                         // Full roster is visible in color during placement; the grayscale
                                         // silhouette is only a fallback for legacy/edge-case unknown units.
@@ -2061,6 +2091,49 @@ const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam:
                     );
                 })}
             </Box>
+        </Stack>
+    );
+};
+
+const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamType }> = ({
+    snapshot,
+    userTeam,
+}) => {
+    if (snapshot.phase !== PlayPhase.PLACEMENT) {
+        return null;
+    }
+
+    const myUnits = snapshot.units.filter((unit) => unit.team === userTeam && !unit.dead);
+    const opponentUnits = snapshot.units.filter((unit) => unit.team !== userTeam && !unit.dead);
+    if (!myUnits.length && !opponentUnits.length) {
+        return null;
+    }
+
+    // Readiness rides along in the broadcast snapshot's readyPlayerIds — show both sides so each player
+    // sees when the other clicks "Ready Placement" (and their own state for symmetry).
+    const myPlayer = snapshot.players.find((player) => player.team === userTeam);
+    const myReady = !!myPlayer && snapshot.readyPlayerIds.includes(myPlayer.playerId);
+    const opponentPlayer = snapshot.players.find((player) => player.team !== userTeam);
+    const opponentReady = !!opponentPlayer && snapshot.readyPlayerIds.includes(opponentPlayer.playerId);
+
+    return (
+        <Stack spacing={1}>
+            {/* Your army first — the units you're placing. Friendly green accent. */}
+            <RankedArmyRosterRow
+                title="Your army"
+                units={myUnits}
+                ready={myReady}
+                accent={{ border: "rgba(34,197,94,0.35)", bg: "rgba(34,197,94,0.10)" }}
+            />
+            {/* The full opponent roster is always visible during placement (server reveals every opponent
+                unit's identity) — stack sizes and on-board positions stay hidden, but who they fielded does
+                not. Amber accent to distinguish it from your own army. */}
+            <RankedArmyRosterRow
+                title="Opponent army"
+                units={opponentUnits}
+                ready={opponentReady}
+                accent={{ border: "rgba(245,158,11,0.28)", bg: "rgba(245,158,11,0.08)" }}
+            />
         </Stack>
     );
 };
