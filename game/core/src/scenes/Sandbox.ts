@@ -4410,7 +4410,10 @@ export class Sandbox extends PixiScene {
                 if (
                     targetUnit &&
                     targetUnit.getTeam() !== this.currentActiveUnit.getTeam() &&
-                    !targetUnit.hasBuffActive("Hidden")
+                    !targetUnit.hasBuffActive("Hidden") &&
+                    // Cowardice bars striking a stronger (more cumulative HP) stack — don't arm the click-to-attack
+                    // for it either, so the click falls through to a move instead of a strike the engine rejects.
+                    !this.isCowardiceBlockedTarget(targetUnit)
                 ) {
                     const attackFrom = this.pathHelper.calculateClosestAttackFrom(
                         p,
@@ -7400,7 +7403,11 @@ export class Sandbox extends PixiScene {
                     // attack highlight on any other enemy (the ranged long-range visual relaxation below would
                     // otherwise light up non-target enemies). The canAttackBy*Targets sets are already filtered
                     // for the actual attack in updateCurrentMovePath; this guards the hover VISUAL too.
-                    this.isAttackableUnderForcedTarget(targetUnit)
+                    this.isAttackableUnderForcedTarget(targetUnit) &&
+                    // Cowardice: the active unit cannot strike a stack with MORE cumulative HP than itself
+                    // (the engine rejects it, cause "cowardice"). Suppress the melee/range hover highlight on
+                    // those targets so the visual only ever shows attacks we can actually make.
+                    !this.isCowardiceBlockedTarget(targetUnit)
                 ) {
                     let attackFrom: HoCMath.XY | undefined;
 
@@ -8092,6 +8099,20 @@ export class Sandbox extends PixiScene {
                 }
             } else {
                 this.emitLocalMoveIntent(undefined);
+            }
+
+            // A paralyzed active unit can't move, so a move hover/click is silently ignored — surface
+            // the reason in the cursor popover the whole time the player aims at anything that isn't
+            // an attack (striking in place is still allowed, so an attack hover keeps its preview).
+            // "Hidden" keeps priority: hovering a concealed enemy stays explained as Hidden.
+            const showParalyzedHint =
+                !isAttacking && !this.currentActiveUnit.canMove() && this.sc_hoverInfoArr[0] !== "Hidden";
+            if (showParalyzedHint && this.sc_hoverInfoArr[0] !== "Paralyzed — can't move") {
+                this.sc_hoverInfoArr = ["Paralyzed — can't move"];
+                this.sc_hoverTextUpdateNeeded = true;
+            } else if (!showParalyzedHint && this.sc_hoverInfoArr[0] === "Paralyzed — can't move") {
+                this.sc_hoverInfoArr = [];
+                this.sc_hoverTextUpdateNeeded = true;
             }
 
             return;
@@ -9275,6 +9296,15 @@ export class Sandbox extends PixiScene {
         // unit's stats is wiped on the next snapshot and the sidebar snaps back to the active unit.
         if (!reactivatingSameUnit) {
             this.currentShiftedUnit = undefined;
+            // A genuine turn change must never inherit the previous unit's aim preview (attack arrow /
+            // damage prediction / target highlights) — hover() only reconciles on a canvas mouse-move,
+            // so a resting cursor left the old unit's arrow on the board for the whole next turn. A
+            // same-unit re-activation must NOT clear: it would wipe the player's live aim on every
+            // ranked snapshot echo. Mirrors the finishTurnVisualState cleanup for paths (e.g. a ranked
+            // snapshot advancing the turn without a local turn_completed event) that skip it.
+            this.hoverManager.clearAttackVisuals();
+            this.hoverManager.hoverAttackFromCell = undefined;
+            this.hoverRangeAttackObstacle = undefined;
         }
 
         if (this.currentActiveUnit) {
@@ -9343,6 +9373,15 @@ export class Sandbox extends PixiScene {
             // non-skipping unit activates.
             this.buttonManager.setButtonsRefreshLocked(false);
             return;
+        }
+
+        // Announce Paralysis the moment the afflicted unit's turn starts — without an explicit cue the
+        // board silently ignores move clicks and the player can't tell why their unit "won't move"
+        // (the hover popover adds a persistent "Paralyzed" hint on top of this). Genuine activations
+        // only: ranked re-runs this for the same unit on every snapshot echo mid-turn.
+        if (!reactivatingSameUnit && nextUnit.hasEffectActive("Paralysis")) {
+            this.sc_sceneLog.updateLog(`${nextUnit.getName()} is paralyzed and cannot move this turn`);
+            this.popEffectOnUnit(nextUnit, "Paralysis", 0, "debuff");
         }
 
         this.sc_moveBlocked = false;
@@ -9422,6 +9461,17 @@ export class Sandbox extends PixiScene {
             return true;
         }
         return targetUnit.getId() === forcedTargetId;
+    }
+    // Cowardice: the active unit cannot attack a stack with MORE cumulative HP than itself — the engine
+    // rejects such strikes (cause "cowardice"; see handlers/attack_handler.ts and the AI candidate guards).
+    // Mirrors that rule client-side so the melee/range attack hover visual never highlights a target the
+    // debuff makes illegal. Only the aimed/primary target is checked (AOE splash onto stronger stacks is fine).
+    private isCowardiceBlockedTarget(targetUnit: Unit): boolean {
+        const active = this.currentActiveUnit;
+        if (!active || !active.hasDebuffActive("Cowardice")) {
+            return false;
+        }
+        return active.getCumulativeHp() < targetUnit.getCumulativeHp();
     }
     /**
      * Start a screen shake (decaying random offset of the world root). Re-triggering while a
@@ -9593,6 +9643,15 @@ export class Sandbox extends PixiScene {
         this.hoverRangeAttackDivisors = [];
         this.currentActiveSpell = undefined;
         this.currentEnemiesCellsWithinMovementRange = undefined;
+        // The finished unit's aim previews are definitionally stale — and hover() only runs on a canvas
+        // mouse-move (never while sc_isAnimating), so nothing else clears them when the cursor is
+        // resting or parked on the HTML toolbar. Without this, the old unit's attack arrow / damage
+        // prediction / target highlights survive the turn handoff and sit on the board through the NEXT
+        // unit's turn — reading as e.g. a melee Behemoth aiming a long ranged arrow. The stale
+        // hoverRangeAttackObstacle is also an input hazard: MouseDown routes clicks to it.
+        this.hoverManager.clearAttackVisuals();
+        this.hoverManager.hoverAttackFromCell = undefined;
+        this.hoverRangeAttackObstacle = undefined;
 
         if (
             this.currentActiveUnit &&
