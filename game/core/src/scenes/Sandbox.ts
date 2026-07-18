@@ -1822,14 +1822,13 @@ export class Sandbox extends PixiScene {
                 unit.setPosition(position.x, position.y);
             }
 
-            this.grid.occupyCells(
-                cells,
-                unit.getId(),
-                unit.getTeam(),
-                unit.getAttackRange(),
-                unit.hasAbilityActive("Made of Fire"),
-                unit.hasAbilityActive("Made of Water"),
-            );
+            // Trust the recorded/authoritative position: pass canOccupyLava/Water = true. Deriving them
+            // from hasAbilityActive("Made of Fire"/"Made of Water") silently FAILED the occupy for units
+            // whose traversal comes from a granted ability (Lava Striders artifact grants "Made of Fire"),
+            // because ranked rebuilds units from the base creature config and the snapshot-ability filter
+            // drops granted abilities. The unit then never landed in grid occupancy — invisible to
+            // getUnitAtPosition, so a lava-standing enemy could not be hovered or attacked at all.
+            this.grid.occupyCells(cells, unit.getId(), unit.getTeam(), unit.getAttackRange(), true, true);
 
             if (!unitState.dead) {
                 unit.ensureVisual(unitsContainer, gs);
@@ -2325,14 +2324,9 @@ export class Sandbox extends PixiScene {
             return;
         }
         this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
-        this.grid.occupyCells(
-            destCells,
-            unit.getId(),
-            unit.getTeam(),
-            unit.getAttackRange(),
-            unit.hasAbilityActive("Made of Fire"),
-            unit.hasAbilityActive("Made of Water"),
-        );
+        // Recorded move = server-validated destination; always stamp it (see hydrateSceneState — deriving
+        // lava/water permission locally fails for granted abilities like Lava Striders' "Made of Fire").
+        this.grid.occupyCells(destCells, unit.getId(), unit.getTeam(), unit.getAttackRange(), true, true);
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
     }
@@ -3261,21 +3255,23 @@ export class Sandbox extends PixiScene {
                         // cleanup wipes the other's freshly-occupied cells).
                         this.grid.cleanupAll(caster.getId(), caster.getAttackRange(), caster.isSmallSize());
                         this.grid.cleanupAll(target.getId(), target.getAttackRange(), target.isSmallSize());
+                        // Replayed (authoritative) swap positions — always stamp; see hydrateSceneState
+                        // on why deriving lava/water permission locally fails for granted abilities.
                         this.grid.occupyCells(
                             casterAfter.cells,
                             caster.getId(),
                             caster.getTeam(),
                             caster.getAttackRange(),
-                            caster.hasAbilityActive("Made of Fire"),
-                            caster.hasAbilityActive("Made of Water"),
+                            true,
+                            true,
                         );
                         this.grid.occupyCells(
                             targetAfter.cells,
                             target.getId(),
                             target.getTeam(),
                             target.getAttackRange(),
-                            target.hasAbilityActive("Made of Fire"),
-                            target.hasAbilityActive("Made of Water"),
+                            true,
+                            true,
                         );
                         this.gridMatrix = this.grid.getMatrix();
                         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
@@ -9146,14 +9142,9 @@ export class Sandbox extends PixiScene {
         this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
         unit.setPosition(position.x, position.y);
         unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
-        this.grid.occupyCells(
-            unit.getCells(),
-            unit.getId(),
-            unit.getTeam(),
-            unit.getAttackRange(),
-            unit.hasAbilityActive("Made of Fire"),
-            unit.hasAbilityActive("Made of Water"),
-        );
+        // Authoritative force-move destination — always stamp; see hydrateSceneState on why deriving
+        // lava/water permission locally fails for granted abilities (Lava Striders' "Made of Fire").
+        this.grid.occupyCells(unit.getCells(), unit.getId(), unit.getTeam(), unit.getAttackRange(), true, true);
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
     }
