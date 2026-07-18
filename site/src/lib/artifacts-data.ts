@@ -65,7 +65,7 @@ export const artifacts: Artifact[] = [
     t2("clover_of_fortune", "Clover of Fortune", "Increases the army's luck by 10."),
     t2("crown_of_command", "Crown of Command", "Grants +1 movement and +5 morale to the whole army."),
     t2("giants_maul", "Giant's Maul", "Increases non-magical (physical) AOE damage by 50% at impact, then reduced by the target's status resistance."),
-    t2("pendant_of_vitality", "Pendant of Vitality", "Cursed: +28% HP but -14% attack for the whole army.", true),
+    t2("pendant_of_vitality", "Pendant of Vitality", "Cursed: +25% HP but -12.5% attack for the whole army.", true),
     t2("farsight_quiver", "Farsight Quiver", "Extends all allied archers' basic shot range by an additional 50%."),
     t2("berserkers_bond", "Berserker's Bond", "Cursed: +3 attack but -2 defense for the whole army.", true),
     t2("tome_of_amplification", "Tome of Amplification", "Increases the power of all buffs by 50%."),
