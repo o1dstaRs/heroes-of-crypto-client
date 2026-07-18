@@ -153,6 +153,11 @@ export interface PlaySnapshot {
     latestSequence: number;
     serverTimeMs: number;
     placementDeadlineMs: number;
+    // Split-placement sub-stage: 0 = Setup (augments/synergies), 1 = Board (positioning). Always 1 for a
+    // legacy single-window placement. `placementSplit` gates the two-stage UX. Default 1/false on older
+    // servers (decoder), i.e. the combined placement.
+    placementStage: number;
+    placementSplit: boolean;
     currentTurnStartMs: number;
     currentTurnEndMs: number;
     units: PlayUnitState[];
@@ -629,6 +634,10 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         latestSequence: 0,
         serverTimeMs: 0,
         placementDeadlineMs: 0,
+        // Default to the legacy combined placement (Board stage, not split) so pre-split servers behave
+        // exactly as before.
+        placementStage: 1,
+        placementSplit: false,
         currentTurnStartMs: 0,
         currentTurnEndMs: 0,
         units: [],
@@ -769,6 +778,10 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             (snapshot.upperStartRosterCreatureIds ??= []).push(reader.varintNumber());
         } else if (field === 49) {
             (snapshot.upperStartRosterAmounts ??= []).push(reader.varintNumber());
+        } else if (field === 50) {
+            snapshot.placementStage = reader.varintNumber();
+        } else if (field === 51) {
+            snapshot.placementSplit = reader.bool();
         } else {
             reader.skip(wireType);
         }

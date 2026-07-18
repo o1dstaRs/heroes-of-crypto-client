@@ -2228,7 +2228,17 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         Perk.Perk.NO_PERK) as Perk.Perk;
     const augmentBudget = Perk.getUpgradePoints(userPerkId);
     const perkName = Perk.getPerkProperties(userPerkId).name;
-    const augmentOverlayOpen = augmentOverlayOpenState ?? true;
+    // Split placement runs Setup (augments/synergies, stage 0) then Board (positioning, stage 1). A legacy
+    // combined placement reports placementSplit=false and behaves as before (augments + board share one
+    // window). During the split Setup stage the picker is forced open and the board is locked; during the
+    // split Board stage the picker is locked shut (augments committed) and the board opens.
+    const inSetupStage = snapshot.placementSplit && snapshot.placementStage === 0;
+    const inBoardStage = !snapshot.placementSplit || snapshot.placementStage === 1;
+    const augmentOverlayOpen = inSetupStage
+        ? true
+        : snapshot.placementSplit
+          ? false
+          : (augmentOverlayOpenState ?? true);
     // Remaining-points / synergy-completion state, reported up by SideToggleContainer via onReadyChange
     // (setAugmentReady is stable, no render loop). This is INFORMATIONAL only: augments and synergies are
     // optional — every toggle commits to the server immediately and the fight starts with whatever was
@@ -2317,11 +2327,18 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             }}
                         >
                             <Typography level="title-sm" textColor={hocColors.gold}>
-                                Set up your army
+                                {snapshot.placementSplit
+                                    ? inSetupStage
+                                        ? "Step 1 of 2 — Augments & synergies"
+                                        : "Step 2 of 2 — Position your army"
+                                    : "Set up your army"}
                             </Typography>
                             <Typography level="body-xs" textColor={hocColors.mutedStrong}>
-                                1) Choose augments &amp; synergies in the pop-up, 2) position your units on the board,
-                                then hit Ready. Augments and placement share one timer.
+                                {snapshot.placementSplit
+                                    ? inSetupStage
+                                        ? "Spend your upgrade points on augments & synergies in the pop-up, then lock in. The board unlocks next (units are auto-placed if you run out of time)."
+                                        : "Position and split your units on the board, then hit Ready. Augments are locked for this fight."
+                                    : "1) Choose augments & synergies in the pop-up, 2) position your units on the board, then hit Ready. Augments and placement share one timer."}
                             </Typography>
                         </Box>
                         <RankedOpponentPlacementIntel snapshot={snapshot} userTeam={userTeam} />
@@ -2338,7 +2355,17 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             budget={augmentBudget}
                             onEdit={() => setAugmentOverlayOpen(true)}
                         />
-                        <Modal keepMounted open={augmentOverlayOpen} onClose={() => setAugmentOverlayOpen(false)}>
+                        <Modal
+                            keepMounted
+                            open={augmentOverlayOpen}
+                            onClose={() => {
+                                // In the split Setup stage the picker is not dismissible to a locked board —
+                                // you lock in (which advances to the board) or wait out the timer.
+                                if (!inSetupStage) {
+                                    setAugmentOverlayOpen(false);
+                                }
+                            }}
+                        >
                             <ModalDialog
                                 variant="outlined"
                                 sx={{
@@ -2386,26 +2413,42 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                         — optional; you can reopen this with Edit until the fight starts.
                                     </Typography>
                                 )}
-                                {/* Always enabled: choices commit as you click them, so closing the
-                                    pop-up never loses anything and the phase itself requires nothing. */}
+                                {/* Split Setup: this is the setup-ready that advances to the board (both-ready
+                                    or the 30s deadline advances; the AI auto-spends for anyone not locked in).
+                                    Legacy: choices commit as clicked, so this just closes the pop-up. */}
                                 <Button
                                     variant="solid"
-                                    onClick={() => setAugmentOverlayOpen(false)}
-                                    sx={hocPrimaryButtonSx}
+                                    disabled={inSetupStage && (!canSubmit || ready)}
+                                    onClick={() => {
+                                        if (inSetupStage) {
+                                            void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT });
+                                        } else {
+                                            setAugmentOverlayOpen(false);
+                                        }
+                                    }}
+                                    sx={inSetupStage && ready ? hocSoftButtonSx : hocPrimaryButtonSx}
                                 >
-                                    Continue to placement
+                                    {inSetupStage
+                                        ? ready
+                                            ? "Waiting for opponent…"
+                                            : "Lock in & place units →"
+                                        : "Continue to placement"}
                                 </Button>
                             </ModalDialog>
                         </Modal>
-                        <Button
-                            variant="solid"
-                            disabled={!canSubmit || ready}
-                            onClick={() => void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT })}
-                            sx={ready ? hocSoftButtonSx : hocPrimaryButtonSx}
-                        >
-                            {ready ? "Ready" : "Ready Placement"}
-                        </Button>
-                        {selectedUnit?.placed && selectedUnit.team === userTeam && (
+                        {/* The board-stage Ready (start the fight) + per-stack split/unplace controls are hidden
+                            during the split Setup stage, when the board is locked. */}
+                        {inBoardStage && (
+                            <Button
+                                variant="solid"
+                                disabled={!canSubmit || ready}
+                                onClick={() => void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT })}
+                                sx={ready ? hocSoftButtonSx : hocPrimaryButtonSx}
+                            >
+                                {ready ? "Ready" : "Ready Placement"}
+                            </Button>
+                        )}
+                        {inBoardStage && selectedUnit?.placed && selectedUnit.team === userTeam && (
                             <RankedPlacementStackActions
                                 canSubmit={canSubmit}
                                 selectedUnit={selectedUnit}

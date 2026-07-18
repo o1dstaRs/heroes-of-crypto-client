@@ -22,6 +22,8 @@ const snapshot = (overrides: Partial<PlaySnapshot>): PlaySnapshot => ({
     latestSequence: 1,
     serverTimeMs: 0,
     placementDeadlineMs: 0,
+    placementStage: 1,
+    placementSplit: false,
     currentTurnStartMs: 0,
     currentTurnEndMs: 0,
     units: [],
