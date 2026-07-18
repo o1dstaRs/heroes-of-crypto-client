@@ -168,6 +168,8 @@ export interface PlaySnapshot {
     maxUpperUnits: number;
     narrowingLayers: number;
     centerDried: boolean;
+    /** Server-authoritative cumulative multiplier applied to morale when deriving movement steps. */
+    stepsMoraleMultiplier?: number;
     upNext: string[];
     damageStats: PlayDamageStatistic[];
     /** Each team's army totals captured at fight start (units + cumulative HP), so the fight-results
@@ -380,6 +382,15 @@ class ProtoReader {
             throw new Error("Unexpected end of protobuf float");
         }
         const value = new DataView(this.bytes.buffer, this.bytes.byteOffset + this.offset, 4).getFloat32(0, true);
+        this.offset = end;
+        return value;
+    }
+    public float64(): number {
+        const end = this.offset + 8;
+        if (end > this.bytes.length) {
+            throw new Error("Unexpected end of protobuf double");
+        }
+        const value = new DataView(this.bytes.buffer, this.bytes.byteOffset + this.offset, 8).getFloat64(0, true);
         this.offset = end;
         return value;
     }
@@ -652,6 +663,7 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         maxUpperUnits: 0,
         narrowingLayers: 0,
         centerDried: false,
+        stepsMoraleMultiplier: 0,
         upNext: [],
         damageStats: [],
         lowerStartUnits: 0,
@@ -786,6 +798,8 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             snapshot.placementStage = reader.varintNumber();
         } else if (field === 51) {
             snapshot.placementSplit = reader.bool();
+        } else if (field === 52) {
+            snapshot.stepsMoraleMultiplier = reader.float64();
         } else {
             reader.skip(wireType);
         }

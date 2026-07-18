@@ -80,6 +80,8 @@ export interface AuthoritativeGameSnapshot {
     currentTurnEndMs?: number;
     narrowingLayers: number;
     centerDried: boolean;
+    /** Cumulative server movement penalty used with unit morale when calculating effective speed. */
+    stepsMoraleMultiplier?: number;
     units: AuthoritativeUnitState[];
     upNext?: string[];
     damageStats?: IDamageStatistic[];

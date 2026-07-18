@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { CreatureVals, TeamVals } from "@heroesofcrypto/common";
+import { CreatureVals, FightStateManager, TeamVals } from "@heroesofcrypto/common";
 
 import type { AuthoritativeGameSnapshot, AuthoritativeUnitState } from "../game_action_transport";
 import {
@@ -8,6 +8,7 @@ import {
     rankedUnitAliveHealth,
     rankedUnitStartAmount,
     rankedUnitStartHealth,
+    restoreRankedStepsMoraleMultiplier,
     shouldPublishRankedFinish,
 } from "./RankedPlayScene";
 
@@ -53,6 +54,24 @@ const placementSnapshot = (units: AuthoritativeUnitState[]): AuthoritativeGameSn
 });
 
 describe("ranked placement scene state", () => {
+    test("restores the server movement penalty used by ranked AI pathfinding", () => {
+        const manager = FightStateManager.getInstance();
+        manager.reset();
+        const fightProperties = manager.getFightProperties();
+
+        try {
+            expect(restoreRankedStepsMoraleMultiplier(0.15)).toBe(true);
+            expect(fightProperties.getStepsMoraleMultiplier()).toBeCloseTo(0.15);
+            expect(restoreRankedStepsMoraleMultiplier(0.15)).toBe(false);
+
+            // An older snapshot omits the field; it must clear any value retained from a previous game.
+            expect(restoreRankedStepsMoraleMultiplier(undefined)).toBe(true);
+            expect(fightProperties.getStepsMoraleMultiplier()).toBe(0);
+        } finally {
+            manager.reset();
+        }
+    });
+
     test("publishes terminal stats when finishFight retained a pre-final ranked report", () => {
         const terminalSnapshot = {
             ...placementSnapshot([]),

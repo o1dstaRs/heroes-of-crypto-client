@@ -132,6 +132,16 @@ export const authoritativeSnapshotToSandboxSceneState = (
     }),
 });
 
+export const restoreRankedStepsMoraleMultiplier = (stepsMoraleMultiplier?: number): boolean => {
+    const fightProperties = FightStateManager.getInstance().getFightProperties();
+    const authoritativeValue = stepsMoraleMultiplier ?? 0;
+    if (fightProperties.getStepsMoraleMultiplier() === authoritativeValue) {
+        return false;
+    }
+    fightProperties.restoreStepsMoraleMultiplier(authoritativeValue);
+    return true;
+};
+
 const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitState): UnitProperties | undefined => {
     const unitName = UNIT_ID_TO_NAME[unitState.creatureId] ?? unitState.name;
     const team = unitState.team as TeamType;
@@ -581,6 +591,13 @@ export class RankedPlayScene extends Sandbox {
         }
     }
     private applyRankedSnapshotMetadata(snapshot: AuthoritativeGameSnapshot): void {
+        // This affects reachability without changing the board, so restore it before the board-signature
+        // early return. Otherwise the ranked AI keeps planning with base speed after no-progress laps.
+        if (restoreRankedStepsMoraleMultiplier(snapshot.stepsMoraleMultiplier)) {
+            // Unit movement is cached in steps_mod by adjustBaseStats; refresh it immediately so AI
+            // reachability consumes the new multiplier even when no unit/board field changed.
+            this.refreshUnits();
+        }
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
         this.setLocalModelTeamOverride(
             snapshot.localModelTeam === undefined ? undefined : (snapshot.localModelTeam as TeamType),
@@ -812,6 +829,10 @@ export class RankedPlayScene extends Sandbox {
         const selectedUnitId = this.sc_selectedUnitProperties?.id;
 
         this.hydrateSceneState(state);
+        // hydrateSceneState resets FightStateManager; reapply the authoritative scalar it just cleared.
+        if (restoreRankedStepsMoraleMultiplier(snapshot.stepsMoraleMultiplier)) {
+            this.refreshUnits();
+        }
         this.reconcileAuraEffectsFromSnapshot(snapshot);
         this.lastBoardSignature = boardSignature;
         this.applyRankedTimer(snapshot);

@@ -281,6 +281,7 @@ export const toAuthoritativeGameSnapshot = (
     currentTurnEndMs: snapshot.currentTurnEndMs,
     narrowingLayers: snapshot.narrowingLayers,
     centerDried: snapshot.centerDried,
+    stepsMoraleMultiplier: snapshot.stepsMoraleMultiplier,
     units: snapshot.units,
     upNext: snapshot.upNext,
     lowerStartUnits: snapshot.lowerStartUnits,

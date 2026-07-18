@@ -57,6 +57,12 @@ const floatField = (field: number, value: number): number[] => {
     return [...tag(field, 5), ...bytes];
 };
 
+const doubleField = (field: number, value: number): number[] => {
+    const bytes = new Uint8Array(8);
+    new DataView(bytes.buffer).setFloat64(0, value, true);
+    return [...tag(field, 1), ...bytes];
+};
+
 describe("play protobuf decoder", () => {
     test("decodes unit speed from protobuf float fields", () => {
         const unit = [...stringField(1, "unit-1"), ...floatField(13, 2.5)];
@@ -197,6 +203,16 @@ describe("play protobuf decoder", () => {
         const legacy = decodePlaySnapshot(new Uint8Array([...stringField(1, "legacy-game")]));
         expect(legacy.placementSplit).toBe(false);
         expect(legacy.placementStage).toBe(0);
+    });
+
+    test("decodes the authoritative steps morale multiplier and defaults it for older snapshots", () => {
+        const current = decodePlaySnapshot(
+            new Uint8Array([...stringField(1, "current-game"), ...doubleField(52, 0.15)]),
+        );
+        expect(current.stepsMoraleMultiplier).toBeCloseTo(0.15);
+
+        const legacy = decodePlaySnapshot(new Uint8Array([...stringField(1, "legacy-game")]));
+        expect(legacy.stepsMoraleMultiplier).toBe(0);
     });
 
     test("a unit with no debuff/buff fields decodes them as undefined", () => {
