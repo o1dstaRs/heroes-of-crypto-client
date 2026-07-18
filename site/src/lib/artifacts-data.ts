@@ -63,14 +63,14 @@ export const artifacts: Artifact[] = [
     t2("titan_plate", "Titan Plate", "Grants the whole army an additional 12% defense (melee and ranged)."),
     t2("holy_cross", "Holy Cross", "+50% healing and resurrection; the Troll's ability is not consumed on cast."),
     t2("clover_of_fortune", "Clover of Fortune", "Increases the army's luck by 10."),
-    t2("crown_of_command", "Crown of Command", "Grants +1 movement and +2 morale to the whole army."),
+    t2("crown_of_command", "Crown of Command", "Grants +1 movement and +5 morale to the whole army."),
     t2("giants_maul", "Giant's Maul", "Mass/area units deal +35% damage to all non-primary targets."),
-    t2("pendant_of_vitality", "Pendant of Vitality", "Cursed: +25% HP but -20% attack for the whole army.", true),
+    t2("pendant_of_vitality", "Pendant of Vitality", "Cursed: +30% HP but -15% attack for the whole army.", true),
     t2("farsight_quiver", "Farsight Quiver", "Extends all allied archers' basic shot range by an additional 50%."),
     t2("berserkers_bond", "Berserker's Bond", "Cursed: +3 attack but -3 defense for the whole army.", true),
     t2("tome_of_amplification", "Tome of Amplification", "Increases the power of all buffs by 50%."),
     t2("rime_charm", "Rime Charm", "30% chance for any attack to slow the target for 3 laps."),
-    t2("lava_striders", "Lava Striders", "All of the army's units may move over lava."),
+    t2("lava_striders", "Lava Striders", "All army units may move over and stand in lava; while on central lava they gain Made of Fire (+10% to all stats and abilities)."),
 ];
 
 export const artifactsCount = artifacts.length;
