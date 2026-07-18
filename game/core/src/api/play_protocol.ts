@@ -117,6 +117,10 @@ export interface PlayUnitState {
     /** Remaining casts (scrolls) per spell in the unit's spellbook, in getSpells() order — lets ranked
      * sync used-up scroll counts (the client never runs the cast engine). */
     spellAmounts?: number[];
+    /** The unit's LIVE ability names. Ranked rebuilds each unit from the base creature config (which lists
+     * every ability), so this lets the client drop a consumable ability (e.g. Angel's Resurrection) — and
+     * its ability-derived spellbook entry — once the server has spent it. */
+    abilities?: string[];
 }
 
 export interface PlayJournalEntry {
@@ -859,6 +863,9 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
         } else if (field === 29) {
             // spell_amounts (packed=false): one varint per spell in the unit's spellbook (getSpells() order).
             (unit.spellAmounts ??= []).push(reader.varintNumber());
+        } else if (field === 30) {
+            // abilities: one string per live ability name (see PlayUnit.abilities).
+            (unit.abilities ??= []).push(reader.string());
         } else {
             reader.skip(wireType);
         }

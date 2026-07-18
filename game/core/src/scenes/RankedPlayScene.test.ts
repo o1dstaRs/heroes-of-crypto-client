@@ -203,6 +203,38 @@ describe("ranked placement scene state", () => {
         });
     });
 
+    test("drops a spent ability the snapshot no longer lists (Angel's Resurrection), keeping the rest", () => {
+        // Ranked rebuilds units from the base creature config, which always lists Resurrection. After the
+        // Angel resurrects, the server drops it from the unit's live abilities — the client must honour that
+        // (and, since Resurrection's spell is ability-derived, this also clears it from the spellbook).
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({
+                    id: "angel",
+                    team: TeamVals.LOWER,
+                    name: "Angel",
+                    creatureId: CreatureVals.ANGEL,
+                    abilities: ["Arrows Wingshield Aura"], // Resurrection already spent
+                }),
+            ]),
+        );
+
+        const angel = state.units.find((unit) => unit.properties.id === "angel");
+        expect(angel?.properties.abilities).toContain("Arrows Wingshield Aura");
+        expect(angel?.properties.abilities).not.toContain("Resurrection");
+    });
+
+    test("keeps all base abilities when the snapshot omits the live ability list (older server)", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({ id: "angel", team: TeamVals.LOWER, name: "Angel", creatureId: CreatureVals.ANGEL }),
+            ]),
+        );
+
+        const angel = state.units.find((unit) => unit.properties.id === "angel");
+        expect(angel?.properties.abilities).toContain("Resurrection");
+    });
+
     test("renders a redacted opponent placement unit as a live 1-stack silhouette, not a corpse", () => {
         // The server hides the opponent's live stack size during simultaneous placement by sending
         // amountAlive = 0. The client shows the opponent's roster as ghost silhouettes on their edge, so it

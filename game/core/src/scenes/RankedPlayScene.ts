@@ -150,9 +150,29 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                 unitToTextureName(unitName, TextureType.LARGE),
                 Math.max(0, Math.floor(unitState.amountAlive)),
             );
+            // Ranked rebuilds every unit from the base creature config, which lists ALL abilities — including
+            // consumable ones the server has already spent (e.g. Angel's Resurrection). The snapshot carries
+            // the unit's LIVE ability names, so filter the base config's four parallel ability arrays down to
+            // those. This also removes the ability-derived spellbook entry: parseAbilities() only re-adds
+            // Resurrection's castable spell for a unit that still holds the ability — so a spent Resurrection
+            // disappears from BOTH the abilities list and the spellbook. Absent (older server) → keep base.
+            const abilityOverride = ((): Partial<UnitProperties> => {
+                if (unitState.abilities === undefined) {
+                    return {};
+                }
+                const keep = new Set(unitState.abilities);
+                const idx = baseProperties.abilities.map((name, i) => (keep.has(name) ? i : -1)).filter((i) => i >= 0);
+                return {
+                    abilities: idx.map((i) => baseProperties.abilities[i]),
+                    abilities_descriptions: idx.map((i) => baseProperties.abilities_descriptions[i]),
+                    abilities_stack_powered: idx.map((i) => baseProperties.abilities_stack_powered[i]),
+                    abilities_auras: idx.map((i) => baseProperties.abilities_auras[i]),
+                };
+            })();
             const hp = unitState.hp > 0 ? unitState.hp : unitState.dead ? 0 : baseProperties.hp;
             return {
                 ...baseProperties,
+                ...abilityOverride,
                 id: unitState.id,
                 team,
                 hp,
