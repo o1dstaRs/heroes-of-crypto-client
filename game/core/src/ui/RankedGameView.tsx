@@ -1983,8 +1983,7 @@ const RankedAugmentSummary: React.FC<{
     snapshot: PlaySnapshot;
     userTeam: TeamType;
     budget: number;
-    onEdit: () => void;
-}> = ({ snapshot, userTeam, budget, onEdit }) => {
+}> = ({ snapshot, userTeam, budget }) => {
     const isUpper = userTeam === TeamVals.UPPER;
     const pick = (lowerVal?: number, upperVal?: number): number => (isUpper ? upperVal : lowerVal) ?? 0;
     const rows = [
@@ -2002,14 +2001,9 @@ const RankedAugmentSummary: React.FC<{
     const synergies = FightStateManager.getInstance().getFightProperties().getSynergiesPerTeam(userTeam);
     return (
         <Stack spacing={0.5}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography level="body-sm" textColor={hocColors.parchment}>
-                    Augments &amp; Synergies ({spent}/{budget} pts)
-                </Typography>
-                <Button size="sm" variant="soft" onClick={onEdit} sx={hocSoftButtonSx}>
-                    Edit
-                </Button>
-            </Stack>
+            <Typography level="body-sm" textColor={hocColors.parchment}>
+                Augments &amp; Synergies ({spent}/{budget} pts)
+            </Typography>
             <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
                 {chosen.length === 0 ? (
                     <Typography level="body-xs" textColor={hocColors.muted}>
@@ -2248,8 +2242,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     const navigate = useNavigate();
     const [confirmExitOpen, setConfirmExitOpen] = useState(false);
     // Ranked placement opens an augment/synergy overlay by default; the player picks there, hits
-    // "Continue to placement", and the chosen upgrades collapse to a read-only sidebar summary
-    // (re-openable via Edit). null = not yet interacted -> open by default at placement start.
+    // "Continue to placement", and the chosen upgrades collapse to a read-only sidebar summary.
+    // null = not yet interacted -> open by default at placement start.
     const [augmentOverlayOpenState, setAugmentOverlayOpen] = useState<boolean | null>(null);
     // The perk sets the upgrade-point budget (5/6/7 via getUpgradePoints).
     const userPerkId = ((userTeam === TeamVals.LOWER ? snapshot?.lowerPerk : snapshot?.upperPerk) ||
@@ -2373,16 +2367,12 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                         <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
                         {/* The augment/synergy picker lives in an overlay (open by default at placement
                             start), not the sidebar. After "Continue to placement" the chosen upgrades
-                            collapse to this read-only summary; "Edit" re-opens the overlay. The picker
-                            routes to the authoritative server via RankedPlayScene.propagateAugmentation
+                            collapse to this read-only summary — augments must be finished in the Setup
+                            stage, so there is no way to reopen the picker from here. The picker routes
+                            to the authoritative server via RankedPlayScene.propagateAugmentation
                             (the AUGMENT play-action); artifacts are drafted in pick/ban (read-only above),
                             so the sandbox-only artifact picker stays hidden. */}
-                        <RankedAugmentSummary
-                            snapshot={snapshot}
-                            userTeam={userTeam}
-                            budget={augmentBudget}
-                            onEdit={() => setAugmentOverlayOpen(true)}
-                        />
+                        <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={augmentBudget} />
                         <Modal
                             keepMounted
                             open={augmentOverlayOpen}
@@ -2452,7 +2442,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                   augmentReady.pointsRemaining === 1 ? "" : "s"
                                               } still unspent`
                                             : "Some factions still have an unpicked synergy"}{" "}
-                                        — optional; you can reopen this with Edit until the fight starts.
+                                        — optional, but augments lock in once you continue and can&apos;t be changed
+                                        afterwards.
                                     </Typography>
                                 )}
                                 {/* Split Setup: this is the setup-ready that advances to the board (both-ready
