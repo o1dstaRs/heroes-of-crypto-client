@@ -634,9 +634,13 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         latestSequence: 0,
         serverTimeMs: 0,
         placementDeadlineMs: 0,
-        // Default to the legacy combined placement (Board stage, not split) so pre-split servers behave
-        // exactly as before.
-        placementStage: 1,
+        // MUST default to 0: protobuf omits an int32 whose value is 0, so a split game's SETUP stage
+        // (placement_stage = 0) arrives with field 50 ABSENT — decoding it as anything but 0 would make
+        // the client think Setup is Board (hiding augments, letting the server reject every placement).
+        // Legacy (non-split) games are unaffected: placement_split defaults false, and every stage gate
+        // (inSetupStage/inBoardStage) requires placementSplit, so stage is ignored there. A legacy/current
+        // server on the BOARD stage sends placement_stage = 1 explicitly (1 != 0, so it IS on the wire).
+        placementStage: 0,
         placementSplit: false,
         currentTurnStartMs: 0,
         currentTurnEndMs: 0,

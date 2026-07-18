@@ -177,16 +177,26 @@ describe("play protobuf decoder", () => {
         expect(decoded.upperStartHealth).toBe(0);
     });
 
-    test("decodes split placement fields and defaults older servers to legacy placement", () => {
-        const split = decodePlaySnapshot(
-            new Uint8Array([...stringField(1, "split-game"), ...intField(50, 0), ...intField(51, 1)]),
-        );
-        expect(split.placementStage).toBe(0);
-        expect(split.placementSplit).toBe(true);
+    test("decodes split placement fields; SETUP stage (0, omitted on the wire) decodes to 0", () => {
+        // Real protobuf OMITS an int32 whose value is 0, so a split game's SETUP stage arrives with only
+        // placement_split (field 51) on the wire — placement_stage (field 50) is absent. It MUST decode to
+        // stage 0, not the legacy board default, or the client renders Setup as Board.
+        const setup = decodePlaySnapshot(new Uint8Array([...stringField(1, "split-setup"), ...intField(51, 1)]));
+        expect(setup.placementSplit).toBe(true);
+        expect(setup.placementStage).toBe(0);
 
+        // BOARD stage (1) is non-zero, so it IS written on the wire.
+        const board = decodePlaySnapshot(
+            new Uint8Array([...stringField(1, "split-board"), ...intField(50, 1), ...intField(51, 1)]),
+        );
+        expect(board.placementSplit).toBe(true);
+        expect(board.placementStage).toBe(1);
+
+        // Legacy / pre-split server: no fields. Not split; stage defaults to 0 but is ignored everywhere
+        // (every stage gate requires placementSplit), so the combined placement UI is used.
         const legacy = decodePlaySnapshot(new Uint8Array([...stringField(1, "legacy-game")]));
-        expect(legacy.placementStage).toBe(1);
         expect(legacy.placementSplit).toBe(false);
+        expect(legacy.placementStage).toBe(0);
     });
 
     test("a unit with no debuff/buff fields decodes them as undefined", () => {
