@@ -2262,10 +2262,11 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
           ? false
           : (augmentOverlayOpenState ?? true);
     // Remaining-points / synergy-completion state, reported up by SideToggleContainer via onReadyChange
-    // (setAugmentReady is stable, no render loop). This is INFORMATIONAL only: augments and synergies are
-    // optional — every toggle commits to the server immediately and the fight starts with whatever was
-    // chosen — so "Continue to placement" must never hold the player hostage to an unspent budget
-    // (audit P1: the old gate blocked until ALL points were spent and every synergy was picked).
+    // (setAugmentReady is stable, no render loop). Gates the "Lock in & place units" / "Continue to
+    // placement" button: it stays disabled until every upgrade point is spent and every available synergy
+    // is picked, so nobody advances with an unfinished build by accident. This can never hold the fight
+    // hostage — the Setup timer advances the stage regardless and the AI auto-spends for anyone not
+    // locked in (and any leftover point is always spendable: every augment step-up costs exactly 1).
     const [augmentReady, setAugmentReady] = useState<{ pointsRemaining: number; allSynergiesSelected: boolean }>({
         pointsRemaining: 1,
         allSynergiesSelected: false,
@@ -2442,16 +2443,19 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                   augmentReady.pointsRemaining === 1 ? "" : "s"
                                               } still unspent`
                                             : "Some factions still have an unpicked synergy"}{" "}
-                                        — optional, but augments lock in once you continue and can&apos;t be changed
-                                        afterwards.
+                                        — finish picking to continue (if the timer runs out, the rest is picked for
+                                        you).
                                     </Typography>
                                 )}
                                 {/* Split Setup: this is the setup-ready that advances to the board (both-ready
                                     or the 30s deadline advances; the AI auto-spends for anyone not locked in).
-                                    Legacy: choices commit as clicked, so this just closes the pop-up. */}
+                                    Legacy: choices commit as clicked, so this just closes the pop-up.
+                                    Disabled until the build is complete (all points spent + all synergies
+                                    picked) — see the setupComplete comment; the ready-locked state stays
+                                    disabled regardless. */}
                                 <Button
                                     variant="solid"
-                                    disabled={inSetupStage && (!canSubmit || ready)}
+                                    disabled={(!ready && !setupComplete) || (inSetupStage && (!canSubmit || ready))}
                                     onClick={() => {
                                         if (inSetupStage) {
                                             void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT });
