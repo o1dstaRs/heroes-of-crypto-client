@@ -203,6 +203,33 @@ describe("ranked placement scene state", () => {
         });
     });
 
+    test("renders a redacted opponent placement unit as a live 1-stack silhouette, not a corpse", () => {
+        // The server hides the opponent's live stack size during simultaneous placement by sending
+        // amountAlive = 0. The client shows the opponent's roster as ghost silhouettes on their edge, so it
+        // must NOT treat that 0 as dead — cleanupDeadUnits() reaps amountAlive<=0 units WITH a death
+        // animation every tick, which was the "opponent army getting killed on the edge every second" bug.
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({ id: "own", team: TeamVals.LOWER, name: "Peasant", creatureId: CreatureVals.PEASANT }),
+                unitState({
+                    id: "op",
+                    team: TeamVals.UPPER,
+                    name: "Orc",
+                    creatureId: CreatureVals.ORC,
+                    placed: true,
+                    cells: [{ x: 9, y: 13 }],
+                    baseCell: { x: 9, y: 13 },
+                    amountAlive: 0, // server-redacted stack size
+                }),
+            ]),
+            { hideOpponentPlacements: true },
+        );
+
+        const op = state.units.find((unit) => unit.properties.id === "op");
+        expect(op).toMatchObject({ placed: false, cells: [] });
+        expect(op?.properties.amount_alive).toBeGreaterThanOrEqual(1);
+    });
+
     test("keeps real opponent placement once fight starts", () => {
         const state = authoritativeSnapshotToSandboxSceneState(
             {

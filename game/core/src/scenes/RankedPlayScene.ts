@@ -115,6 +115,16 @@ export const authoritativeSnapshotToSandboxSceneState = (
                     placed: false,
                     cells: [],
                     baseCell: { x: 0, y: 0 },
+                    // The server redacts the opponent's live stack size during simultaneous placement
+                    // (amountAlive = 0 hides how many they fielded). But these units are shown as ghost
+                    // roster silhouettes on the opponent's edge, and a 0 stack reads as DEAD — so
+                    // cleanupDeadUnits() reaps them WITH a death animation every tick (the "opponent army
+                    // getting killed on the edge every second" glitch). Render them as a live 1-stack
+                    // placeholder (still hides the real count) so the silhouettes stay put.
+                    properties: {
+                        ...restored.properties,
+                        amount_alive: Math.max(1, Math.floor(restored.properties.amount_alive)),
+                    },
                 },
             ];
         }
