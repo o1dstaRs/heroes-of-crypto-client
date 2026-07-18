@@ -1480,7 +1480,10 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             return;
         }
 
-        const runKey = `${snapshot.gameId}:${modelPlayer.playerId}`;
+        // A split placement needs one model pass per sub-stage: setup choices + setup-ready first, then
+        // board placement + board-ready after the server opens the board. Legacy placement keeps one pass.
+        const placementStageKey = snapshot.placementSplit ? snapshot.placementStage : "legacy";
+        const runKey = `${snapshot.gameId}:${modelPlayer.playerId}:${placementStageKey}`;
         if (modelPlacementRunKeyRef.current === runKey) {
             return;
         }
@@ -1505,34 +1508,53 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                     return;
                 }
 
+                const runSetup = !latestSnapshot.placementSplit || latestSnapshot.placementStage === 0;
+                const runBoard = !latestSnapshot.placementSplit || latestSnapshot.placementStage === 1;
+                if (!runSetup && !runBoard) {
+                    return;
+                }
+
                 // The AI opponent spends its upgrade budget on a solid combat-augment loadout (Might/Armor/
                 // Movement = 3+2+1 = 6 pts, within the default budget) so it "uses upgrades" like a real
                 // player. Applied to the model team's FightProperties before placement so its units get
                 // buffed once the fight starts.
-                try {
-                    const modelTeam = effectiveLocalModelConfig.modelTeam;
-                    manager.PropagateAugmentation(modelTeam, { type: "Might", value: Augment.MightAugment.LEVEL_3 });
-                    manager.PropagateAugmentation(modelTeam, { type: "Armor", value: Augment.ArmorAugment.LEVEL_2 });
-                    manager.PropagateAugmentation(modelTeam, {
-                        type: "Movement",
-                        value: Augment.MovementAugment.LEVEL_1,
-                    });
-                    // Apply the AI's picked Tier-2 artifact (the draft opponent takes Warlord's Edge).
-                    manager.PropagateArtifact(
-                        modelTeam,
-                        Artifact.ArtifactTier.TIER_2,
-                        Artifact.Tier2Artifact.WARLORDS_EDGE,
-                    );
-                } catch (augErr) {
-                    console.warn("[model] augment setup failed", (augErr as Error)?.message ?? augErr);
+                if (runSetup) {
+                    try {
+                        const modelTeam = effectiveLocalModelConfig.modelTeam;
+                        manager.PropagateAugmentation(modelTeam, {
+                            type: "Might",
+                            value: Augment.MightAugment.LEVEL_3,
+                        });
+                        manager.PropagateAugmentation(modelTeam, {
+                            type: "Armor",
+                            value: Augment.ArmorAugment.LEVEL_2,
+                        });
+                        manager.PropagateAugmentation(modelTeam, {
+                            type: "Movement",
+                            value: Augment.MovementAugment.LEVEL_1,
+                        });
+                        // Apply the AI's picked Tier-2 artifact (the draft opponent takes Warlord's Edge).
+                        manager.PropagateArtifact(
+                            modelTeam,
+                            Artifact.ArtifactTier.TIER_2,
+                            Artifact.Tier2Artifact.WARLORDS_EDGE,
+                        );
+                    } catch (augErr) {
+                        console.warn("[model] augment setup failed", (augErr as Error)?.message ?? augErr);
+                    }
                 }
 
-                for (const action of createModelPlacementActions(latestSnapshot, effectiveLocalModelConfig.modelTeam)) {
-                    await submitProtocolActionForTeam(
-                        action,
+                if (runBoard) {
+                    for (const action of createModelPlacementActions(
+                        latestSnapshot,
                         effectiveLocalModelConfig.modelTeam,
-                        effectiveLocalModelConfig.authorization,
-                    );
+                    )) {
+                        await submitProtocolActionForTeam(
+                            action,
+                            effectiveLocalModelConfig.modelTeam,
+                            effectiveLocalModelConfig.authorization,
+                        );
+                    }
                 }
                 await submitProtocolActionForTeam(
                     { type: PlayActionType.READY_PLACEMENT },
@@ -2105,7 +2127,10 @@ const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam:
     }
 
     const myUnits = snapshot.units.filter((unit) => unit.team === userTeam && !unit.dead);
-    const opponentUnits = snapshot.units.filter((unit) => unit.team !== userTeam && !unit.dead);
+    // Only opponent units with a real identity (creatureId > 0). The server masks the opponent's roster to
+    // identity-less stubs (creatureId 0) during the split Setup stage, revealing only what the viewer
+    // learned in the pick phase; the full roster is revealed once the Board stage opens.
+    const opponentUnits = snapshot.units.filter((unit) => unit.team !== userTeam && !unit.dead && unit.creatureId > 0);
     if (!myUnits.length && !opponentUnits.length) {
         return null;
     }
@@ -2126,15 +2151,18 @@ const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam:
                 ready={myReady}
                 accent={{ border: "rgba(34,197,94,0.35)", bg: "rgba(34,197,94,0.10)" }}
             />
-            {/* The full opponent roster is always visible during placement (server reveals every opponent
-                unit's identity) — stack sizes and on-board positions stay hidden, but who they fielded does
-                not. Amber accent to distinguish it from your own army. */}
-            <RankedArmyRosterRow
-                title="Opponent army"
-                units={opponentUnits}
-                ready={opponentReady}
-                accent={{ border: "rgba(245,158,11,0.28)", bg: "rgba(245,158,11,0.08)" }}
-            />
+            {/* Opponent roster. On the Board stage the server reveals every opponent unit's identity (stack
+                sizes + positions still hidden); on the split Setup stage only pick-revealed opponents come
+                through, so this row is hidden entirely until you've scouted something (or the board opens).
+                Amber accent to distinguish it from your own army. */}
+            {opponentUnits.length > 0 && (
+                <RankedArmyRosterRow
+                    title="Opponent army"
+                    units={opponentUnits}
+                    ready={opponentReady}
+                    accent={{ border: "rgba(245,158,11,0.28)", bg: "rgba(245,158,11,0.08)" }}
+                />
+            )}
         </Stack>
     );
 };
@@ -2396,13 +2424,27 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                     their army instead of blind. The identical sidebar panel sits behind this modal
                                     while it's open, so without this the roster is invisible exactly when it matters. */}
                                 <RankedOpponentPlacementIntel snapshot={snapshot} userTeam={userTeam} />
-                                <SideToggleContainer
-                                    side={userTeam === TeamVals.LOWER ? "green" : "red"}
-                                    teamType={userTeam}
-                                    showArtifactPicker={false}
-                                    budgetPoints={augmentBudget}
-                                    onReadyChange={setAugmentReady}
-                                />
+                                <Box
+                                    component="fieldset"
+                                    disabled={ready}
+                                    aria-disabled={ready}
+                                    sx={{
+                                        minWidth: 0,
+                                        m: 0,
+                                        p: 0,
+                                        border: 0,
+                                        pointerEvents: ready ? "none" : "auto",
+                                        opacity: ready ? 0.64 : 1,
+                                    }}
+                                >
+                                    <SideToggleContainer
+                                        side={userTeam === TeamVals.LOWER ? "green" : "red"}
+                                        teamType={userTeam}
+                                        showArtifactPicker={false}
+                                        budgetPoints={augmentBudget}
+                                        onReadyChange={setAugmentReady}
+                                    />
+                                </Box>
                                 {!setupComplete && (
                                     <Typography level="body-xs" textColor={hocColors.muted}>
                                         {augmentReady.pointsRemaining > 0

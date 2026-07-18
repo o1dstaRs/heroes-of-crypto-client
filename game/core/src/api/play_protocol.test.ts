@@ -177,6 +177,18 @@ describe("play protobuf decoder", () => {
         expect(decoded.upperStartHealth).toBe(0);
     });
 
+    test("decodes split placement fields and defaults older servers to legacy placement", () => {
+        const split = decodePlaySnapshot(
+            new Uint8Array([...stringField(1, "split-game"), ...intField(50, 0), ...intField(51, 1)]),
+        );
+        expect(split.placementStage).toBe(0);
+        expect(split.placementSplit).toBe(true);
+
+        const legacy = decodePlaySnapshot(new Uint8Array([...stringField(1, "legacy-game")]));
+        expect(legacy.placementStage).toBe(1);
+        expect(legacy.placementSplit).toBe(false);
+    });
+
     test("a unit with no debuff/buff fields decodes them as undefined", () => {
         const unit = [...stringField(1, "unit-1")];
         const snapshot = new Uint8Array([...stringField(1, "game-1"), ...messageField(12, unit)]);
