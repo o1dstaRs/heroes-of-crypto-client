@@ -1682,7 +1682,9 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
 }) => {
     const amountAlive = Math.max(0, Math.floor(selectedUnit.amountAlive));
     const maxSplitAmount = Math.max(0, amountAlive - 1);
-    const [splitAmount, setSplitAmount] = useState(Math.max(1, Math.floor(amountAlive / 2)));
+    // Default to peeling a single off (1 / N-1), not a 50/50 split — the common ranked use is splitting a
+    // lone unit to screen/body-block or bait a spell, so 1 is the far more frequent starting point.
+    const [splitAmount, setSplitAmount] = useState(1);
     const maxUnits = userTeam === TeamVals.LOWER ? snapshot.maxLowerUnits : snapshot.maxUpperUnits;
     const effectiveMaxUnits = maxUnits > 0 ? maxUnits : Number.POSITIVE_INFINITY;
     const teamUnitCount = snapshot.units.filter((unit) => unit.team === userTeam && !unit.dead).length;
@@ -1691,7 +1693,8 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
     const sliderValue = Math.min(Math.max(1, splitAmount), Math.max(1, maxSplitAmount));
 
     useEffect(() => {
-        setSplitAmount(Math.max(1, Math.floor(amountAlive / 2)));
+        // Reset to a single-unit split (1 / N-1) whenever a different stack is selected — see above.
+        setSplitAmount(1);
     }, [amountAlive, selectedUnit.id]);
 
     return (
