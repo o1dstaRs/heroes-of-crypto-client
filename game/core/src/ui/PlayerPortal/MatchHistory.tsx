@@ -76,6 +76,12 @@ const synergyDescription = (key: string): string => {
     });
 };
 
+const artifactsForSetup = (setup: MatchTeamSetup): Artifact.ArtifactProperties[] =>
+    [
+        setup.artifactTier1 > 0 ? Artifact.TIER1_ARTIFACTS[setup.artifactTier1 as Artifact.Tier1Artifact] : undefined,
+        setup.artifactTier2 > 0 ? Artifact.TIER2_ARTIFACTS[setup.artifactTier2 as Artifact.Tier2Artifact] : undefined,
+    ].filter((artifact): artifact is Artifact.ArtifactProperties => !!artifact);
+
 interface MatchHistoryProps {
     compact?: boolean;
     filterable?: boolean;
@@ -239,6 +245,175 @@ const SetupChoice: React.FC<{
     </Tooltip>
 );
 
+const SetupSummaryIcon: React.FC<{
+    alt?: string;
+    badge: string;
+    compact: boolean;
+    detail: string;
+    fallback?: React.ReactNode;
+    image?: string;
+}> = ({ alt = "", badge, compact, detail, fallback, image }) => {
+    const size = compact ? 24 : 28;
+    return (
+        <Tooltip title={detail} placement="top" size="sm" variant="soft">
+            <Box
+                aria-label={detail}
+                sx={{
+                    position: "relative",
+                    width: size,
+                    height: size,
+                    flex: `0 0 ${size}px`,
+                    display: "grid",
+                    placeItems: "center",
+                    borderRadius: "5px",
+                    bgcolor: "rgba(0,0,0,0.3)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    color: hocColors.gold,
+                    "& svg": { fontSize: compact ? 15 : 18 },
+                }}
+            >
+                {image ? (
+                    <Box
+                        component="img"
+                        src={image}
+                        alt={alt}
+                        sx={{ width: size - 3, height: size - 3, objectFit: "contain" }}
+                    />
+                ) : (
+                    fallback
+                )}
+                <Box
+                    component="span"
+                    sx={{
+                        position: "absolute",
+                        right: -3,
+                        bottom: -3,
+                        minWidth: compact ? 13 : 15,
+                        height: compact ? 11 : 12,
+                        px: 0.2,
+                        display: "grid",
+                        placeItems: "center",
+                        borderRadius: "3px",
+                        bgcolor: "#3a2204",
+                        border: `1px solid ${hocColors.orangeBorder}`,
+                        color: hocColors.gold,
+                        fontSize: compact ? "0.44rem" : "0.5rem",
+                        fontWeight: 800,
+                        lineHeight: 1,
+                    }}
+                >
+                    {badge}
+                </Box>
+            </Box>
+        </Tooltip>
+    );
+};
+
+const SetupSummaryGroup: React.FC<{
+    children: React.ReactNode;
+    compact: boolean;
+    label: string;
+}> = ({ children, compact, label }) => (
+    <Box sx={{ minWidth: 0 }}>
+        <Typography
+            level="body-xs"
+            textColor={hocColors.muted}
+            sx={{ mb: 0.35, fontSize: compact ? "0.56rem" : "0.62rem" }}
+        >
+            {label}
+        </Typography>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: compact ? 0.45 : 0.55 }}>{children}</Box>
+    </Box>
+);
+
+const SetupSummary: React.FC<{
+    compact: boolean;
+    setup: MatchTeamSetup;
+}> = ({ compact, setup }) => {
+    if (!setup.available) {
+        return (
+            <Typography level="body-xs" textColor={hocColors.muted} sx={{ mt: 0.75 }}>
+                Build data unavailable
+            </Typography>
+        );
+    }
+
+    const perk = Perk.getPerkProperties(setup.perk as Perk.Perk);
+    const artifacts = artifactsForSetup(setup);
+    return (
+        <Box sx={{ mt: compact ? 0.65 : 0.8, minWidth: 0 }}>
+            <Typography
+                level="body-xs"
+                sx={{ color: hocColors.mutedStrong, mb: 0.45, fontSize: compact ? "0.6rem" : "0.66rem" }}
+            >
+                Your build
+            </Typography>
+            <Box sx={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: compact ? 0.7 : 0.9 }}>
+                <SetupSummaryGroup compact={compact} label="Perk">
+                    <SetupSummaryIcon
+                        badge={`${perk.upgradePoints}`}
+                        compact={compact}
+                        detail={`${perk.name}: ${perk.description}`}
+                        fallback={<ExploreRoundedIcon />}
+                    />
+                </SetupSummaryGroup>
+                {artifacts.length > 0 && (
+                    <SetupSummaryGroup compact={compact} label="Artifacts">
+                        {artifacts.map((artifact) => (
+                            <SetupSummaryIcon
+                                key={`${artifact.tier}_${artifact.id}`}
+                                alt={artifact.name}
+                                badge={`T${artifact.tier}`}
+                                compact={compact}
+                                detail={`${artifact.name}: ${Artifact.formatArtifactDescription(artifact)}`}
+                                image={(images as Record<string, string>)[artifact.imageKey]}
+                            />
+                        ))}
+                    </SetupSummaryGroup>
+                )}
+                {setup.complete && setup.augments.length > 0 && (
+                    <SetupSummaryGroup compact={compact} label="Augments">
+                        {setup.augments.map((augment) => (
+                            <SetupSummaryIcon
+                                key={augment.kind}
+                                alt={`${augment.kind} augment`}
+                                badge={`L${augment.level}`}
+                                compact={compact}
+                                detail={`${augment.kind} augment, level ${augment.level}`}
+                                image={images[AUGMENT_IMAGE_KEY[augment.kind]]}
+                            />
+                        ))}
+                    </SetupSummaryGroup>
+                )}
+                {setup.complete && setup.synergies.length > 0 && (
+                    <SetupSummaryGroup compact={compact} label="Synergies">
+                        {setup.synergies.map((synergy) => {
+                            const name = synergyName(synergy);
+                            const level = synergyLevel(synergy);
+                            return (
+                                <SetupSummaryIcon
+                                    key={synergy}
+                                    alt={name}
+                                    badge={`L${level}`}
+                                    compact={compact}
+                                    detail={`${name}, level ${level}: ${synergyDescription(synergy)}`}
+                                    fallback={<AutoAwesomeRoundedIcon />}
+                                    image={SYNERGY_KEY_TO_IMAGE[synergy as keyof typeof SYNERGY_KEY_TO_IMAGE]}
+                                />
+                            );
+                        })}
+                    </SetupSummaryGroup>
+                )}
+                {!setup.complete && (
+                    <Typography level="body-xs" textColor={hocColors.muted} sx={{ alignSelf: "center" }}>
+                        Combat setup not recorded
+                    </Typography>
+                )}
+            </Box>
+        </Box>
+    );
+};
+
 const SetupRow: React.FC<{ children: React.ReactNode; label: string }> = ({ children, label }) => (
     <Box sx={{ minWidth: 0 }}>
         <Typography level="body-xs" textColor={hocColors.muted} sx={{ mb: 0.45 }}>
@@ -267,10 +442,7 @@ const TeamBuildChoices: React.FC<{
     }
 
     const perk = Perk.getPerkProperties(setup.perk as Perk.Perk);
-    const artifacts = [
-        setup.artifactTier1 > 0 ? Artifact.TIER1_ARTIFACTS[setup.artifactTier1 as Artifact.Tier1Artifact] : undefined,
-        setup.artifactTier2 > 0 ? Artifact.TIER2_ARTIFACTS[setup.artifactTier2 as Artifact.Tier2Artifact] : undefined,
-    ].filter((artifact): artifact is Artifact.ArtifactProperties => !!artifact);
+    const artifacts = artifactsForSetup(setup);
 
     return (
         <Stack spacing={1.05} sx={{ minWidth: 0 }}>
@@ -438,6 +610,7 @@ const MatchCard: React.FC<{
     const replayAvailable = !!match.replay_available;
     const opponent = match.opponent_username || "Unknown opponent";
     const exactFinished = match.finished_time ? new Date(match.finished_time).toLocaleString() : "Unknown";
+    const playerSetup = normalizeMatchSetup(match.player_setup);
 
     return (
         <Sheet
@@ -454,6 +627,7 @@ const MatchCard: React.FC<{
                 borderRadius: "8px",
                 bgcolor: expanded ? "rgba(25,15,8,0.84)" : "rgba(0,0,0,0.27)",
                 transition: "border-color 150ms ease, background-color 150ms ease",
+                flexShrink: 0,
             }}
         >
             <Box sx={{ position: "absolute", inset: "0 auto 0 0", width: 3, bgcolor: resultColor }} />
@@ -483,27 +657,32 @@ const MatchCard: React.FC<{
                         size="sm"
                         variant="soft"
                     >
-                        <IconButton
+                        <Button
                             aria-expanded={expanded}
                             aria-label={expanded ? "Collapse match details" : "Expand match details"}
                             size={compact ? "sm" : "md"}
                             variant="plain"
                             onClick={onExpand}
+                            endDecorator={
+                                <ExpandMoreRoundedIcon
+                                    fontSize="small"
+                                    sx={{
+                                        transform: expanded ? "rotate(180deg)" : "none",
+                                        transition: "transform 150ms ease",
+                                    }}
+                                />
+                            }
                             sx={{
                                 color: hocColors.mutedStrong,
-                                minWidth: compact ? 34 : 42,
+                                minWidth: compact ? 68 : 76,
                                 minHeight: compact ? 34 : 42,
+                                px: compact ? 0.75 : 1,
+                                borderRadius: "6px",
                                 "&:hover": { bgcolor: hocColors.orangeSoft },
                             }}
                         >
-                            <ExpandMoreRoundedIcon
-                                fontSize="small"
-                                sx={{
-                                    transform: expanded ? "rotate(180deg)" : "none",
-                                    transition: "transform 150ms ease",
-                                }}
-                            />
-                        </IconButton>
+                            Details
+                        </Button>
                     </Tooltip>
                 </Stack>
 
@@ -541,6 +720,8 @@ const MatchCard: React.FC<{
                         muted
                     />
                 </Box>
+
+                <SetupSummary compact={compact} setup={playerSetup} />
             </Box>
 
             {expanded && (
