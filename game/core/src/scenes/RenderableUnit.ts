@@ -288,16 +288,18 @@ export class RenderableUnit extends Unit {
         return undefined;
     }
     private syncSpellAmountsFromProperties(): void {
-        const spellsData = this.parseSpellData(this.unitProperties.spells);
+        // Authoritative remaining casts come from the Spell objects (getSpells()). In sandbox the engine's
+        // useSpell keeps their amount in lockstep with the unitProperties.spells entry list; in RANKED the
+        // client never runs the cast engine and only syncs the Spell objects from the snapshot's
+        // spellAmounts (reconcileAuraEffectsFromSnapshot -> setAmount) — the raw entry list stays at the
+        // base count. Reading that list here made the spellbook show every spell as still available after a
+        // cast in ranked. Sum by name so the pixi badge matches each spell's real getAmount().
+        const remainingByName = new Map<string, number>();
+        for (const spell of this.getSpells()) {
+            remainingByName.set(spell.getName(), (remainingByName.get(spell.getName()) ?? 0) + spell.getAmount());
+        }
         for (const spell of this.pixiSpells) {
-            let amount = 0;
-            for (const [spellKey, spellAmount] of spellsData.entries()) {
-                const [, spellName] = spellKey.split(":");
-                if (spellName === spell.getName()) {
-                    amount += spellAmount;
-                }
-            }
-            spell.syncAmount(amount);
+            spell.syncAmount(remainingByName.get(spell.getName()) ?? 0);
         }
     }
     /** Ensure sprite + badge exist and are laid out for the current unit state. */
