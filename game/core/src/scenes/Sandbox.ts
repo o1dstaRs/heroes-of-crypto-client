@@ -7080,20 +7080,15 @@ export class Sandbox extends PixiScene {
             return;
         }
 
-        // Ranked mode: during the FIGHT, suppress hover visuals when the active unit is on the enemy
-        // team — the viewer should only see their own unit's previews, not the opponent's. This must
-        // NOT apply during placement: there is no active unit then, so canShowHoverForActiveUnit()
-        // returns false, and firing here would clear the placement silhouette on every mouse-move
-        // while the per-frame loop re-shows it — i.e. the dragged unit's silhouette flickers.
-        if (fightProps.hasFightStarted() && !this.canShowHoverForActiveUnit()) {
-            this.clearBoardHoverPreviews();
-            this.setHoveredSpell(undefined);
-            this.emitLocalMoveIntent(undefined);
-            return;
-        }
+        // Whether the local player may DRIVE the active unit this frame. Ranked returns false during the
+        // opponent's turn (and there's no active unit during placement, so this is only meaningful once the
+        // fight is live). The read-only hover previews — a hovered unit's aura / range / movement — are
+        // still shown to the viewer even on the opponent's turn; only the active unit's INTERACTIVE previews
+        // (move silhouette, attack/spell targeting, the move-intent relay) are gated below.
+        const canDriveActiveUnit = !fightProps.hasFightStarted() || this.canShowHoverForActiveUnit();
 
-        // 0. Spellbook Interaction
-        if (this.sc_renderSpellBookOverlay && this.currentActiveUnit && this.sc_mouseWorld) {
+        // 0. Spellbook Interaction — the active unit's own book, so only when we can drive it.
+        if (canDriveActiveUnit && this.sc_renderSpellBookOverlay && this.currentActiveUnit && this.sc_mouseWorld) {
             if (this.currentActiveUnit instanceof RenderableUnit) {
                 const hoveredSpell = this.currentActiveUnit.getHoveredSpell(
                     this.spellbookGlobalFromWorld(this.sc_mouseWorld),
@@ -7206,6 +7201,22 @@ export class Sandbox extends PixiScene {
                     this.sc_hoveredMoveRange = movePath.cells;
                 }
             }
+        }
+
+        // Opponent's turn (ranked): the read-only hovered previews above still render, but we must NOT run
+        // the active unit's interactive targeting below — clear its move silhouette / attack / spell visuals
+        // and relay no move intent, then stop. sc_hoveredAuraRanges/ShotRange/MoveRange are deliberately kept
+        // so the drawer still shows what the hovered unit can do.
+        if (!canDriveActiveUnit) {
+            this.hoverManager.clearAttackVisuals();
+            this.hoverManager.clearHoverSilhouette();
+            this.hoverManager.clearAOEArea();
+            this.hoverManager.clearSpellPreview();
+            this.hoverManager.hoverAttackFromCell = undefined;
+            this.hoverManager.hoveredUnitHighlight = undefined;
+            this.hoverRangeAttackObstacle = undefined;
+            this.emitLocalMoveIntent(undefined);
+            return;
         }
 
         // --- FIGHT MODE: active unit move-hover silhouette ---
