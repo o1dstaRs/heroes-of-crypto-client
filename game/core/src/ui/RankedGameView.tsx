@@ -1664,6 +1664,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         results overlay is dismissed. Not shown to observers/replay (ExitReplayBadge covers those). */}
                     {gameStarted &&
                         !isObserver &&
+                        !replayPlaybackActive &&
                         (snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished) && (
                             <RankedFinishedActions
                                 left={aiBadgeLeft(windowSize)}
