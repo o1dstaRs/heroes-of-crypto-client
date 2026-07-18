@@ -170,11 +170,15 @@ export class ButtonManager {
         // 2. Locked/Finished State
         if (this.buttonsRefreshLocked || fightFinished) {
             const disabled = (b: IVisibleButton): IVisibleButton => ({ ...b, isDisabled: true });
+            // The AI toggle must survive the turn-transition lock (buttonsRefreshLocked): in ranked that
+            // lock spans a server round-trip after EVERY completed turn, and the toolbar swallows clicks
+            // on disabled buttons — so a disabled AI button silently ate the player's toggle-off exactly
+            // while autobattle was chaining turns. Only a finished fight disables it.
             pushAll(
                 disabled(baseHourglass),
                 disabled(baseShield),
                 disabled(baseNext),
-                disabled(baseAI),
+                fightFinished ? disabled(baseAI) : baseAI,
                 disabled(baseAttackType),
                 disabled(baseSpellBook),
             );

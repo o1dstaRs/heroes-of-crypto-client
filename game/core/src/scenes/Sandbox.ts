@@ -9338,6 +9338,10 @@ export class Sandbox extends PixiScene {
         }
 
         if (nextUnit.isSkippingThisTurn()) {
+            // A skipping unit's activation must still release the turn-transition button lock —
+            // otherwise the whole toolbar (including the AI toggle) stays dead until the next
+            // non-skipping unit activates.
+            this.buttonManager.setButtonsRefreshLocked(false);
             return;
         }
 

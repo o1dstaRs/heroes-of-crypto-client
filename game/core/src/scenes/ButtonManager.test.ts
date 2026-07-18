@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import type { GameAction, Unit } from "@heroesofcrypto/common";
 
 import { ButtonManager, type ISandboxButtonContext } from "./ButtonManager";
-import { VisibleButtonState } from "./VisibleState";
+import { VisibleButtonState, type IVisibleButton } from "./VisibleState";
 
 const makeUnit = (opts: { aiDriven?: boolean } = {}): Unit =>
     ({
@@ -72,6 +72,51 @@ describe("ButtonManager AI toggle", () => {
         bm.propagateButtonClicked("Next", VisibleButtonState.FIRST);
 
         expect(rec.actions).toEqual([]);
+    });
+
+    it("keeps the AI button clickable while the turn-transition button lock is on", () => {
+        // Regression: after every completed turn the scene locks button refreshes until the next unit
+        // activates. In ranked that window spans a server round-trip per turn, and the toolbar swallows
+        // clicks on disabled buttons — a disabled AI button silently ate the player's toggle-off while
+        // autobattle chained turns ("toggle off doesn't work, still can't move").
+        let rendered: IVisibleButton[] = [];
+        const { ctx, rec } = makeContext({
+            getCurrentActiveUnit: () => makeUnit(),
+            setVisibleButtons: (buttons) => {
+                rendered = buttons;
+            },
+        });
+        const bm = new ButtonManager(ctx, true);
+
+        bm.setButtonsRefreshLocked(true);
+
+        const byName = new Map(rendered.map((b) => [b.name, b]));
+        expect(byName.get("AI")?.isDisabled).toBe(false);
+        expect(byName.get("Next")?.isDisabled).toBe(true);
+        expect(byName.get("Hourglass")?.isDisabled).toBe(true);
+
+        // And the click actually toggles while locked.
+        bm.propagateButtonClicked("AI", VisibleButtonState.SECOND);
+        expect(rec.aiActive).toEqual([false]);
+        expect(bm.sc_isAIActive).toBe(false);
+    });
+
+    it("disables the AI button once the fight is finished", () => {
+        let rendered: IVisibleButton[] = [];
+        const { ctx } = makeContext({
+            getCurrentActiveUnit: () => makeUnit(),
+            getVisibleState: () =>
+                ({ hasFinished: true }) as unknown as ReturnType<ISandboxButtonContext["getVisibleState"]>,
+            setVisibleButtons: (buttons) => {
+                rendered = buttons;
+            },
+        });
+        const bm = new ButtonManager(ctx, true);
+
+        bm.refreshButtons(true);
+
+        const byName = new Map(rendered.map((b) => [b.name, b]));
+        expect(byName.get("AI")?.isDisabled).toBe(true);
     });
 
     it("blocks switching the AI toggle mid-turn for an AI-Driven ability unit", () => {
