@@ -7516,7 +7516,11 @@ export class Sandbox extends PixiScene {
                         // the shot will hit; everyone else highlights just the single target — except a
                         // plain ranged shot can't pass through units, so if one blocks the line to the
                         // hovered target, outline that actual victim (red) instead of the hovered unit.
-                        if (!this.highlightRangeAttackUnits(targetUnit)) {
+                        // The mass/AOE outline is a RANGE-attack visual only. A ranged unit that also has an
+                        // AOE ability (e.g. Gargantuan's Area Throw) can still MELEE when adjacent, so gate it
+                        // on the range-attack context — otherwise a melee hover painted the whole splash as if
+                        // the punch were an area attack. Melee (and blocked single shots) highlight one unit.
+                        if (!(isRangeAttackContext && this.highlightRangeAttackUnits(targetUnit))) {
                             const highlightUnit = isRangeAttackContext
                                 ? (this.resolveFirstRangeHitUnit(targetUnit) ?? targetUnit)
                                 : targetUnit;
