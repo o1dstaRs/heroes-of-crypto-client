@@ -29,6 +29,7 @@ import { images as rawImages } from "../../generated/image_imports";
 import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
+import { MapBadge, MapRevealModal } from "./MapReveal";
 import { Timer } from "./Timer";
 
 const images = rawImages as Record<string, string>;
@@ -1004,19 +1005,19 @@ interface StainedGlassProps {
 const OpponentDraftBar: React.FC<{
     opponentPicked: number[];
     opponentLabel: string;
-    viewerPerk: number;
+    // Opponent slot indices (0..5) this player's scouting doctrine actually watches — server-authoritative
+    // (SSE `ws` / slotsSeen), seeded at doctrine selection: all six for Spymaster, the three tier-block-random
+    // slots for Scout, none for Blind Fury.
+    watchedSlots: number[];
     onInspect?: (creatureId: number) => void;
-}> = ({ opponentPicked, opponentLabel, viewerPerk, onInspect }) => {
+}> = ({ opponentPicked, opponentLabel, watchedSlots, onInspect }) => {
     // Build the 6 fixed level-ordered slots directly from the slot-aligned reveal array (no bucketing), so each
     // creature lands at its real slot index — preserving bundle-vs-picked ordering within a level.
     const slots = ARMY_LAYOUT.map((level, i) => ({ id: opponentPicked[i] ?? 0, level }));
-    // The set of slot indices YOUR doctrine watches (Spymaster all, Scout 3, Blind Fury none). Watched-but-not-
-    // yet-picked slots show an eye; the rest stay face-down. Derived from your own perk, so the eye slots appear
-    // immediately at draft start, telling you up front which slots you'll get to see.
-    const revealMode = Perk.getPerkRevealMode(viewerPerk as Perk.Perk);
-    const watchedCount =
-        revealMode === "all" ? ARMY_LAYOUT.length : revealMode === "random3" ? Perk.PERK_RANDOM_REVEAL_SLOTS : 0;
-    const watched = new Set(slots.slice(0, watchedCount).map((_, i) => i));
+    // The exact slot indices your doctrine watches, straight from the server (NOT the first-N slots): the Scout
+    // doctrine watches three tier-block-random slots the server seeded, so the eye lands on the SAME slot the
+    // reveal flips — no longer a misleading fixed 1-2-3. A watched-but-not-yet-picked slot shows the eye.
+    const watched = new Set(watchedSlots);
     return (
         <Box sx={{ width: "100%", display: "flex", justifyContent: "center", pt: 1.5, pointerEvents: "none" }}>
             <Sheet
@@ -1144,6 +1145,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
         artifactTier1,
         artifactTier2,
         opponentPicked,
+        watchedSlots,
+        mapType,
     } = usePickBanEvents();
     const { perk: sendPerk, pickPair, pick, artifact } = useAuthContext();
     const [busy, setBusy] = useState(false);
@@ -1347,6 +1350,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                 {secondsRemaining >= 0 && !isHandoff && (
                     <Timer localSeconds={secondsRemaining} isYourTurn={!!isYourTurn} />
                 )}
+                {/* Reads "Map: ?" until the server reveals the map right before the L3 picks, then the name. */}
+                <MapBadge mapType={mapType} />
             </Box>
 
             {/* Imperative "what to do now" so first-time players always know the expected action. */}
@@ -1394,6 +1399,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                 }}
                 onCancel={() => setPendingArtifact(0)}
             />
+            {/* Fires once, right before the L3 picks, the moment the server reveals the map type. */}
+            <MapRevealModal mapType={mapType} />
 
             {/* Both draft bars share ONE mt:auto wrapper so they stack together at the bottom (two separate
                 mt:auto flex items would split the free space and float the opponent bar mid-screen). */}
@@ -1401,7 +1408,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                 <OpponentDraftBar
                     opponentPicked={opponentPicked}
                     opponentLabel={opponentLabel}
-                    viewerPerk={perk}
+                    watchedSlots={watchedSlots}
                     onInspect={setInspectedId}
                 />
 

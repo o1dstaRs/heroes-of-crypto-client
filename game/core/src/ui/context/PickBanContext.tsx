@@ -30,6 +30,7 @@ export const PickBanEventProvider: React.FC<{
     const [artifactTier1, setArtifactTier1] = useState<number>(0);
     const [artifactTier2, setArtifactTier2] = useState<number>(0);
     const [requiredLevel, setRequiredLevel] = useState<number>(0);
+    const [mapType, setMapType] = useState<number>(0);
     const [error, setError] = useState<string | null>(null);
     const [autoPickedSignal, setAutoPickedSignal] = useState<number>(0);
 
@@ -81,6 +82,11 @@ export const PickBanEventProvider: React.FC<{
             setArtifactTier1(artifacts.find((pair) => pair[0] === 1)?.[1] ?? 0);
             setArtifactTier2(artifacts.find((pair) => pair[0] === 2)?.[1] ?? 0);
             setRequiredLevel(event.lv ?? 0);
+            // The server reveals the map from the L3 picks onward and sends it on every frame after that.
+            // Latch it (never clear back to "?") so a stray/reordered frame can't un-reveal the map.
+            if (event.mt) {
+                setMapType(event.mt);
+            }
             if (event.ap) {
                 setAutoPickedSignal((prev) => prev + 1);
             }
@@ -120,6 +126,7 @@ export const PickBanEventProvider: React.FC<{
             artifactTier1,
             artifactTier2,
             requiredLevel,
+            mapType,
             autoPickedSignal,
         }),
         [
@@ -142,6 +149,7 @@ export const PickBanEventProvider: React.FC<{
             artifactTier1,
             artifactTier2,
             requiredLevel,
+            mapType,
             autoPickedSignal,
         ],
     );

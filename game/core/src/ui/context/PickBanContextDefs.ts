@@ -36,6 +36,9 @@ export interface IPickPhaseEventData {
     // was filled by the server's timeout decider (they ran out the clock) rather than by the player
     // themselves — drives a one-shot "auto-picked for you" toast instead of the transition landing silently.
     ap?: boolean;
+    // Revealed map type (GridVals: 1=Standard, 3=Lava, 4=Mountains). ABSENT until the pick reaches the
+    // first level-3 pick phase, then present on every frame — drives the map reveal + the "Map:" badge.
+    mt?: number;
 }
 
 // Context for SSE and pick/ban state
@@ -65,6 +68,9 @@ export interface PickBanContextType {
     artifactTier2: number;
     // Required creature level for the current PICK phase (0 for non-pick phases).
     requiredLevel: number;
+    // Revealed map type (GridVals: 1=Standard, 3=Lava, 4=Mountains). 0 = not revealed yet (before the L3
+    // picks); the pick UI shows "Map: ?" until this becomes non-zero, then reveals the map and shows it.
+    mapType: number;
     // Monotonically increasing counter, bumped once per SSE frame that carries `ap: true` for us — a
     // toast component watches it (in a useEffect keyed on this value) to show "auto-picked for you"
     // exactly once per timeout, even though the underlying server flag never persists across frames.
@@ -89,6 +95,7 @@ export const PickBanContext = createContext<PickBanContextType>({
     artifactTier1: 0,
     artifactTier2: 0,
     requiredLevel: 0,
+    mapType: 0,
     secondsRemaining: -1,
     revealsRemaining: 0,
     autoPickedSignal: 0,
