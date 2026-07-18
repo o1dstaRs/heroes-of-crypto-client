@@ -103,6 +103,10 @@ export interface PlayUnitState {
     debuffDescriptions?: string[];
     /** Names of buffs currently active on the unit; used to animate newly-applied ones. */
     buffs?: string[];
+    /** Remaining laps per buff, parallel to `buffs` — drives the ranked HUD's buff list. */
+    buffLaps?: number[];
+    /** Display-ready description per buff, parallel to `buffs` (power already substituted in). */
+    buffDescriptions?: string[];
     /** True if the unit already retaliated (replied) this lap — drives the respond tag. */
     responded?: boolean;
     /** True if the unit already used its hourglass (wait) this lap — disables the Wait button in ranked
@@ -897,6 +901,12 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
         } else if (field === 30) {
             // abilities: one string per live ability name (see PlayUnit.abilities).
             (unit.abilities ??= []).push(reader.string());
+        } else if (field === 31) {
+            // buff_laps (packed=false): one varint per active buff, parallel to `buffs`.
+            (unit.buffLaps ??= []).push(reader.varintNumber());
+        } else if (field === 32) {
+            // buff_descriptions: display-ready string per active buff, parallel to `buffs`.
+            (unit.buffDescriptions ??= []).push(reader.string());
         } else {
             reader.skip(wireType);
         }

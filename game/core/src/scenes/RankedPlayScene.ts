@@ -232,14 +232,15 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                 // always 0 for these display-only debuffs (applyDebuff pushes 0), so mirror that per entry.
                 applied_debuffs_powers: (unitState.debuffs ?? []).map(() => 0),
                 // Server-applied BUFFS for the HUD's Buffs list — the mirror of the debuff block above,
-                // which was missing entirely, so NO buff (Morale, Battle Roar, Blessing, Courage, …) ever
+                // which was missing entirely, so NO buff (Morale, Helping Hand, Battle Roar, …) ever
                 // rendered in ranked. Same DISPLAY-ONLY contract: we set the name strings so the player
-                // sees the buff, but do NOT rebuild the buff OBJECT array (stats stay authoritative). The
-                // snapshot only carries buff names today (no laps/descriptions), so those are placeholders;
-                // all four arrays MUST stay parallel or deleteBuff's cleanup guard silently skips pruning.
+                // sees the buff, but do NOT rebuild the buff OBJECT array (stats stay authoritative).
+                // buffLaps/buffDescriptions now come from the snapshot (parallel to buffs); fall back to a
+                // 1-lap placeholder only for legacy snapshots that predate those fields. All four arrays
+                // MUST stay parallel or deleteBuff's cleanup guard silently skips pruning.
                 applied_buffs: unitState.buffs ?? [],
-                applied_buffs_laps: (unitState.buffs ?? []).map(() => 1),
-                applied_buffs_descriptions: (unitState.buffs ?? []).map(() => ""),
+                applied_buffs_laps: unitState.buffLaps ?? (unitState.buffs ?? []).map(() => 1),
+                applied_buffs_descriptions: unitState.buffDescriptions ?? (unitState.buffs ?? []).map(() => ""),
                 applied_buffs_powers: (unitState.buffs ?? []).map(() => 0),
             } as UnitProperties;
         } catch {

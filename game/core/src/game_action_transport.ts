@@ -35,6 +35,10 @@ export interface AuthoritativeUnitState {
     /** Display-ready description per debuff/effect, parallel to `debuffs` (power already substituted in). */
     debuffDescriptions?: string[];
     buffs?: string[];
+    /** Remaining laps per buff, parallel to `buffs` — lets the ranked HUD render buff lap counts. */
+    buffLaps?: number[];
+    /** Display-ready description per buff, parallel to `buffs` (power already substituted in). */
+    buffDescriptions?: string[];
     responded?: boolean;
     /** True if the unit already used its hourglass (wait) this lap — disables the Wait button in ranked. */
     hasHourglassed?: boolean;
