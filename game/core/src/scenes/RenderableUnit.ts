@@ -563,9 +563,10 @@ export class RenderableUnit extends Unit {
             if (this.respondContainer) this.respondContainer.zIndex = baseZ + 2;
         }
 
-        // Active-turn "light waves" aura: animated glow + radiating rings under the unit.
-        // Suppressed while the unit is moving/attacking so the action reads clearly.
-        if (this.isActiveTurn && !this.isDead() && !this.suppressActiveAura) {
+        // Active-turn "light waves" identify an aura source; units with no aura ranges (for example,
+        // Squire) must not look as though they project one. Suppress it during movement/attacks too.
+        const hasAuraRange = this.getAuraRanges().some((range) => range > 0);
+        if (this.isActiveTurn && !this.isDead() && !this.suppressActiveAura && hasAuraRange) {
             this.updateActiveAura(worldRoot, gs, pos);
         } else if (this.activeAura) {
             this.activeAura.visible = false;

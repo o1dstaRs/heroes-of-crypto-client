@@ -16,6 +16,8 @@ describe("isAuraEffectName / animatableEffectNames", () => {
         expect(isAuraEffectName("Pegasus Might")).toBe(true);
         expect(isAuraEffectName("War Anger")).toBe(true);
         expect(isAuraEffectName("Disguise")).toBe(true);
+        expect(isAuraEffectName("Flesh Shield Aura")).toBe(true);
+        expect(isAuraEffectName("Flesh Shield")).toBe(true);
         // Directly-applied (cast) debuffs are not auras.
         expect(isAuraEffectName("Sadness")).toBe(false);
         expect(isAuraEffectName("Quagmire")).toBe(false);

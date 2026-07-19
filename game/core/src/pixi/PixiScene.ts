@@ -3,6 +3,7 @@ import { Texture } from "pixi.js";
 import { Signal } from "typed-signals";
 import {
     HoCConstants,
+    HoCConfig,
     HoCLib,
     HoCMath,
     Augment,
@@ -566,7 +567,7 @@ export abstract class PixiScene {
                     laps: lapsRemaining,
                     stackPower: 0,
                     isStackPowered: false,
-                    isAura: false,
+                    isAura: HoCConfig.isAuraEffectName(buffName),
                 });
             }
         }
@@ -591,7 +592,7 @@ export abstract class PixiScene {
                     laps: lapsRemaining,
                     stackPower: 0,
                     isStackPowered: false,
-                    isAura: false,
+                    isAura: HoCConfig.isAuraEffectName(debuffName),
                 });
             }
         }

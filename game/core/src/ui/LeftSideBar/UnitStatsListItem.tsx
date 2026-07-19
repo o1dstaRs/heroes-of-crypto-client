@@ -546,6 +546,7 @@ const EffectColumnOrRow: React.FC<{
                                 objectFit: "contain",
                                 zIndex: 3,
                                 margin: isHorizontalLayout && index !== 0 ? "0 2px" : "1px",
+                                borderRadius: effect.isAura ? "50%" : undefined,
                                 imageRendering: "auto",
                                 transform: "translateZ(0)",
                                 transition: "opacity 160ms ease-out, transform 160ms ease-out",
