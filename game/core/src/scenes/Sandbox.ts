@@ -4,7 +4,6 @@ import { SandboxDrawer, ENEMY_TURN_HIGHLIGHT_COLOR } from "./SandboxDrawer";
 import {
     AttackHandler,
     Augment,
-    HoCConfig,
     AbilityFactory,
     FactionType,
     EffectFactory,
@@ -19,7 +18,6 @@ import {
     SpellTargetType,
     SpellPowerType,
     SpellHelper,
-    ToFactionName,
     HoCMath,
     IWeightedRoute,
     PathHelper,
@@ -78,6 +76,7 @@ import { LightingLayer } from "./sandbox/LightingLayer";
 import { MoveAnimationManager } from "./sandbox/MoveAnimationManager";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
 import { RangedProjectiles, BIG_PROJECTILE_UNITS } from "./sandbox/RangedProjectiles";
+import { createSummonedUnitProperties } from "./summonedUnitProperties";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 import { cloneReplayData, SandboxReplayRecorder, type SandboxReplay } from "../replay/sandbox_replay";
 
@@ -1530,7 +1529,7 @@ export class Sandbox extends PixiScene {
     ): RenderableUnit | undefined {
         let properties: UnitProperties;
         try {
-            properties = HoCConfig.getCreatureConfig(team, ToFactionName[faction], unitName, "", amount);
+            properties = createSummonedUnitProperties(team, faction, unitName, amount);
         } catch {
             this.sc_sceneLog.updateLog(`Cannot summon ${unitName}`);
             return undefined;
