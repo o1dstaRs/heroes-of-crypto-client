@@ -312,7 +312,7 @@ const creatures = creaturesJson as unknown as { version: number } & Record<Facti
 
 // Historical spell summons without public roster art stay hidden. New summon-only units are exposed and
 // explicitly labelled so the codex remains complete without implying that they are draftable.
-const hiddenUnits = new Set(["Faerie Dragon", "Phoenix", "Arachna Spider"]);
+const hiddenUnits = new Set(["Faerie Dragon", "Phoenix"]);
 
 export const factionUnits: FactionUnits[] = factionOrder
     .filter((faction) => creatures[faction])
