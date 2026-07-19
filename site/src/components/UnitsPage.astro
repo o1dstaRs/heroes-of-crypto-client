@@ -27,6 +27,7 @@ const serialized = JSON.stringify(
             icon: ability.icon,
             isAura: ability.isAura,
             isCastable: ability.isCastable,
+            isStackPowered: ability.isStackPowered,
         })),
     })),
 );
@@ -41,6 +42,8 @@ const labels =
               close: "Закрыть",
               aura: "аура",
               active: "активно",
+              stack: "стек",
+              summonedOnly: "Только призыв",
               units: "Юнитов",
               factions: "Фракции",
               abilities: "Способности",
@@ -60,6 +63,8 @@ const labels =
               close: "Close",
               aura: "aura",
               active: "active",
+              stack: "stack",
+              summonedOnly: "Summoned-only",
               units: "Units",
               factions: "Factions",
               abilities: "Abilities",
@@ -123,6 +128,7 @@ function unitSearchText(unit: Unit) {
         localizedMovementLabel(unit.movementType),
         unit.spells.join(" "),
         unit.abilities.map((ability) => ability.name).join(" "),
+        unit.summonedOnly ? labels.summonedOnly : "",
     ]
         .join(" ")
         .toLowerCase();
@@ -206,7 +212,7 @@ function unitSearchText(unit: Unit) {
                             data-search={searchText}
                             type="button"
                             style={`--faction: ${factionColors[unit.faction]}`}
-                            aria-label={`${unit.name}, ${factionLabel(unit.faction)}, ${ui.level} ${unit.level}`}
+                            aria-label={`${unit.name}, ${factionLabel(unit.faction)}, ${ui.level} ${unit.level}${unit.summonedOnly ? `, ${labels.summonedOnly}` : ""}`}
                         >
                             <span class="unit-portrait">
                                 <img
@@ -230,6 +236,7 @@ function unitSearchText(unit: Unit) {
                                 <span class="unit-tags">
                                     <span class="unit-faction" data-faction={unit.faction}>{factionLabel(unit.faction)}</span>
                                     <span>{movementType}</span>
+                                    {unit.summonedOnly && <span class="unit-summoned-only">{labels.summonedOnly}</span>}
                                 </span>
                                 <span class="unit-ability-line">{abilityLine(unit)}</span>
                             </span>
@@ -264,6 +271,7 @@ function unitSearchText(unit: Unit) {
         <div class="unit-dialog-body">
             <dl class="unit-stats">
                 <div><dt>{s.hp}</dt><dd data-stat="hp"></dd></div>
+                <div><dt>{s.experience}</dt><dd data-stat="experience"></dd></div>
                 <div><dt>{s.armor}</dt><dd data-stat="armor"></dd></div>
                 <div><dt>{s.attack}</dt><dd data-stat="attack"></dd></div>
                 <div><dt>{s.damage}</dt><dd data-stat="damage"></dd></div>
@@ -273,6 +281,7 @@ function unitSearchText(unit: Unit) {
                 <div><dt>{s.magicResist}</dt><dd data-stat="magicResist"></dd></div>
                 <div><dt>{s.attackType}</dt><dd data-stat="attackType"></dd></div>
                 <div><dt>{s.movement}</dt><dd data-stat="movement"></dd></div>
+                <div><dt>{s.size}</dt><dd data-stat="size"></dd></div>
             </dl>
 
             <div class="unit-abilities">
@@ -297,6 +306,7 @@ function unitSearchText(unit: Unit) {
         factionLabel?: string;
         level: number;
         size: number;
+        experience: number;
         hp: number;
         armor: number;
         attack: number;
@@ -310,7 +320,15 @@ function unitSearchText(unit: Unit) {
         magicResist: number;
         movementType: string;
         spells: string[];
-        abilities: { name: string; description: string; icon: string; isAura: boolean; isCastable: boolean }[];
+        abilities: {
+            name: string;
+            description: string;
+            icon: string;
+            isAura: boolean;
+            isCastable: boolean;
+            isStackPowered: boolean;
+        }[];
+        summonedOnly: boolean;
         portrait: string;
         icon: string;
     };
@@ -319,6 +337,8 @@ function unitSearchText(unit: Unit) {
     const LEVEL_LABEL = LANG === "ru" ? "Уровень" : "Level";
     const AURA_LABEL = LANG === "ru" ? "аура" : "aura";
     const ACTIVE_LABEL = LANG === "ru" ? "активно" : "active";
+    const STACK_LABEL = LANG === "ru" ? "стек" : "stack";
+    const SUMMONED_ONLY_LABEL = LANG === "ru" ? "Только призыв" : "Summoned-only";
     const ATTACK_LABEL: Record<string, string> =
         LANG === "ru"
             ? {
@@ -373,12 +393,13 @@ function unitSearchText(unit: Unit) {
             nameEl.textContent = unit.name;
             portrait.src = unit.portrait;
             portrait.alt = unit.name;
-            metaEl.textContent = `${LEVEL_LABEL} ${unit.level} · ${ATTACK_LABEL[unit.attackType] ?? unit.attackType} · ${MOVE_LABEL[unit.movementType] ?? unit.movementType}`;
+            metaEl.textContent = `${LEVEL_LABEL} ${unit.level} · ${ATTACK_LABEL[unit.attackType] ?? unit.attackType} · ${MOVE_LABEL[unit.movementType] ?? unit.movementType}${unit.summonedOnly ? ` · ${SUMMONED_ONLY_LABEL}` : ""}`;
             factionP.style.setProperty("--faction", factionColor(unit.faction));
             factionImg.src = FACTION_ICON[unit.faction] ?? "";
             factionTxt.textContent = unit.factionLabel ?? FACTION_LABEL[unit.faction] ?? unit.faction;
 
             statEls.hp.textContent = String(unit.hp);
+            statEls.experience.textContent = String(unit.experience);
             statEls.armor.textContent = String(unit.armor);
             statEls.attack.textContent = String(unit.attack);
             statEls.damage.textContent = `${unit.damageMin}–${unit.damageMax}`;
@@ -388,6 +409,7 @@ function unitSearchText(unit: Unit) {
             statEls.magicResist.textContent = unit.magicResist > 0 ? `${unit.magicResist}%` : "—";
             statEls.attackType.textContent = ATTACK_LABEL[unit.attackType] ?? unit.attackType;
             statEls.movement.textContent = MOVE_LABEL[unit.movementType] ?? unit.movementType;
+            statEls.size.textContent = String(unit.size);
 
             abilityList.innerHTML = "";
             if (unit.abilities.length === 0) {
@@ -422,6 +444,12 @@ function unitSearchText(unit: Unit) {
                         const tag = document.createElement("span");
                         tag.className = "ability-tag cast";
                         tag.textContent = ACTIVE_LABEL;
+                        head.appendChild(tag);
+                    }
+                    if (a.isStackPowered) {
+                        const tag = document.createElement("span");
+                        tag.className = "ability-tag stack";
+                        tag.textContent = STACK_LABEL;
                         head.appendChild(tag);
                     }
                     const desc = document.createElement("p");
@@ -889,6 +917,16 @@ function unitSearchText(unit: Unit) {
         text-transform: uppercase;
     }
 
+    .unit-tags .unit-summoned-only {
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: rgba(138, 118, 191, 0.2);
+        color: #cbbdf2;
+        font-size: 0.68rem;
+        font-weight: 820;
+        text-transform: uppercase;
+    }
+
     .unit-ability-line {
         min-height: 38px;
         color: rgba(251, 244, 232, 0.76);
@@ -1085,6 +1123,11 @@ function unitSearchText(unit: Unit) {
     .ability-tag.cast {
         background: rgba(78, 163, 110, 0.18);
         color: var(--green);
+    }
+
+    .ability-tag.stack {
+        background: rgba(138, 118, 191, 0.2);
+        color: #cbbdf2;
     }
 
     .ability-desc {

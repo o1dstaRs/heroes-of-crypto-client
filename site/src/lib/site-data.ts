@@ -1,4 +1,5 @@
 import { patchNotes } from "./patch-notes";
+import { abilityCount, unitCount } from "./units-data";
 
 export const supportedLanguages = ["en", "ru"] as const;
 
@@ -66,8 +67,7 @@ export const content = {
     en: {
         meta: {
             title: "Heroes of Crypto - Free Browser Strategy Game",
-            description:
-                "Play Heroes of Crypto in your browser: fast tactical battles, 4 factions, 44 units, and 74 abilities. Free to play, no download.",
+            description: `Play Heroes of Crypto in your browser: fast tactical battles, 4 factions, ${unitCount} units, and ${abilityCount} abilities. Free to play, no download.`,
         },
         ui: {
             language: "Language",
@@ -277,8 +277,8 @@ export const content = {
             highlights: ["No download", "No wallet gate", "Ranked or sandbox beta"],
             stats: [
                 { value: "4", label: "Factions" },
-                { value: "44", label: "Combat units" },
-                { value: "74", label: "Abilities" },
+                { value: String(unitCount), label: "Combat units" },
+                { value: String(abilityCount), label: "Abilities" },
             ],
         },
         socials: [
@@ -314,7 +314,7 @@ export const content = {
         roster: {
             eyebrow: "What's in the game",
             title: "Every army tells a different story",
-            body: "Four factions, 44 units, and layer after layer of strategy: faction bonuses, upgradeable placement, magic, auras, and maps that shrink as the fight wears on. No two battles play the same.",
+            body: `Four factions, ${unitCount} units, and layer after layer of strategy: faction bonuses, upgradeable placement, magic, auras, and maps that shrink as the fight wears on. No two battles play the same.`,
             points: ["Faction bonuses", "Upgradeable placement", "Magic and aura effects", "Shrinking maps"],
         },
         units: {
@@ -326,6 +326,7 @@ export const content = {
             noAbilities: "No special abilities.",
             stats: {
                 hp: "Health",
+                experience: "Experience",
                 attack: "Attack",
                 damage: "Damage",
                 armor: "Armor",
@@ -335,6 +336,7 @@ export const content = {
                 magicResist: "Magic resist",
                 attackType: "Attack type",
                 movement: "Movement",
+                size: "Size",
                 level: "Level",
                 faction: "Faction",
             },
@@ -622,8 +624,7 @@ export const content = {
     ru: {
         meta: {
             title: "Heroes of Crypto - браузерная стратегия",
-            description:
-                "Играйте в Heroes of Crypto в браузере: быстрые тактические бои, 4 фракции, 44 юнита и 74 способности. Бесплатно и без скачивания.",
+            description: `Играйте в Heroes of Crypto в браузере: быстрые тактические бои, 4 фракции, ${unitCount} юнитов и ${abilityCount} способностей. Бесплатно и без скачивания.`,
         },
         ui: {
             language: "Язык",
@@ -833,8 +834,8 @@ export const content = {
             highlights: ["Без скачивания", "Без привязки кошелька", "Рейтинг или песочница"],
             stats: [
                 { value: "4", label: "Фракции" },
-                { value: "44", label: "Боевых юнита" },
-                { value: "74", label: "Способности" },
+                { value: String(unitCount), label: "Боевых юнитов" },
+                { value: String(abilityCount), label: "Способности" },
             ],
         },
         socials: [
@@ -882,6 +883,7 @@ export const content = {
             noAbilities: "Нет особых способностей.",
             stats: {
                 hp: "Здоровье",
+                experience: "Опыт",
                 attack: "Атака",
                 damage: "Урон",
                 armor: "Броня",
@@ -891,6 +893,7 @@ export const content = {
                 magicResist: "Маг. сопр.",
                 attackType: "Тип атаки",
                 movement: "Перемещение",
+                size: "Размер",
                 level: "Уровень",
                 faction: "Фракция",
             },

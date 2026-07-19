@@ -164,6 +164,21 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
     "Disguise Aura": ["Владельца нельзя выбрать целью, пока в радиусе ауры нет вражеского юнита."],
     "Dulling Defense": ["Враг навсегда теряет {} базовой атаки, когда атакует владельца в ближнем бою."],
     "Devour Essence": ["После убийства врага юнит восстанавливается до {}% максимального здоровья."],
+    "Dense Flesh": ["Вражеские дальние атаки, направленные на этого юнита, расходуют {} выстрела вместо одного."],
+    "Flesh Shield Aura": [
+        "Поглощает {}% урона от атак, нанесенного союзникам в радиусе.",
+        "Поглощенный урон пересчитывается с учетом защиты владельца и наносится владельцу вместо союзника.",
+    ],
+    "Web Aura": [
+        "Вражеские летающие юниты, начинающие ход в радиусе {} клетки от этого юнита, не могут двигаться в этот ход.",
+    ],
+    Infest: [
+        "Когда этот юнит уничтожает существо 1–3 уровня, из него появляется один юнит Arachna Spider.",
+        "При уничтожении существа 4 уровня вместо этого появляется один юнит Arachna Queen.",
+    ],
+    "Predatory Assimilation": [
+        "Каждая попавшая прямая атака имеет зависящий от силы стека шанс ({}% при полной силе стека до модификаторов) навсегда отключить и украсть одну случайную активную способность цели.",
+    ],
 };
 
 function abilityDescription(name: string, language: "en" | "ru" = "en"): string {
@@ -199,6 +214,7 @@ export interface UnitAbility {
     icon: string;
     isAura: boolean;
     isCastable: boolean;
+    isStackPowered: boolean;
 }
 
 export interface Unit {
@@ -206,6 +222,7 @@ export interface Unit {
     faction: FactionName;
     level: number;
     size: number;
+    experience: number;
     hp: number;
     armor: number;
     attack: number;
@@ -220,6 +237,7 @@ export interface Unit {
     movementType: string;
     spells: string[];
     abilities: UnitAbility[];
+    summonedOnly: boolean;
     portrait: string;
     icon: string;
 }
@@ -247,6 +265,8 @@ const movementTypeLabel: Record<string, string> = {
 export const attackLabel = (t: string) => attackTypeLabel[t] ?? t;
 export const movementLabel = (t: string) => movementTypeLabel[t] ?? t;
 
+const summonedOnlyUnits = new Set(["Arachna Spider"]);
+
 function buildUnit(faction: FactionName, raw: RawCreature): Unit {
     const base = slug(raw.name);
     const portrait = `/assets/images/units/units/${base}_512.webp`;
@@ -259,6 +279,7 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
         icon: `/assets/images/units/abilities/${slug(name)}_256.webp`,
         isAura: !!(abilitiesJson as Record<string, RawAbility>)[name]?.aura_effect,
         isCastable: !!(abilitiesJson as Record<string, RawAbility>)[name]?.can_be_cast,
+        isStackPowered: !!(abilitiesJson as Record<string, RawAbility>)[name]?.stack_powered,
     }));
 
     return {
@@ -266,6 +287,7 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
         faction,
         level: raw.level,
         size: raw.size,
+        experience: raw.exp,
         hp: raw.hp,
         armor: raw.armor,
         attack: raw.attack,
@@ -280,6 +302,7 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
         movementType: raw.movement_type,
         spells: raw.spells,
         abilities,
+        summonedOnly: summonedOnlyUnits.has(raw.name),
         portrait,
         icon,
     };
@@ -287,8 +310,8 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
 
 const creatures = creaturesJson as unknown as { version: number } & Record<FactionName, CreatureMap>;
 
-// Summoned-only creatures belong in the engine configuration for authoritative reconstruction, but are not
-// draftable roster entries. Their abilities still appear through the regular units that own them.
+// Historical spell summons without public roster art stay hidden. New summon-only units are exposed and
+// explicitly labelled so the codex remains complete without implying that they are draftable.
 const hiddenUnits = new Set(["Faerie Dragon", "Phoenix", "Arachna Spider"]);
 
 export const factionUnits: FactionUnits[] = factionOrder
@@ -312,6 +335,7 @@ export interface AbilityUnitRef {
     name: string;
     faction: FactionName;
     icon: string;
+    summonedOnly: boolean;
 }
 
 export type AbilityKind = "aura" | "active" | "passive";
@@ -325,6 +349,7 @@ export interface Ability {
     kind: AbilityKind;
     isAura: boolean;
     isCastable: boolean;
+    isStackPowered: boolean;
     units: AbilityUnitRef[];
 }
 
@@ -347,12 +372,18 @@ export const abilities: Ability[] = (() => {
                     kind: ability.isCastable ? "active" : ability.isAura ? "aura" : "passive",
                     isAura: ability.isAura,
                     isCastable: ability.isCastable,
+                    isStackPowered: ability.isStackPowered,
                     units: [],
                 };
                 byName.set(ability.name, entry);
             }
             if (!entry.units.some((u) => u.name === unit.name)) {
-                entry.units.push({ name: unit.name, faction: unit.faction, icon: unit.icon });
+                entry.units.push({
+                    name: unit.name,
+                    faction: unit.faction,
+                    icon: unit.icon,
+                    summonedOnly: unit.summonedOnly,
+                });
             }
         }
     }

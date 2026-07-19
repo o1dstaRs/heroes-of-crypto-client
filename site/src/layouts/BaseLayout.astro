@@ -2,6 +2,7 @@
 import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import { content, languageSwitchPath, type Language } from "../lib/site-data";
+import { abilityCount, unitCount } from "../lib/units-data";
 import "../styles/global.css";
 
 interface Props {
@@ -31,7 +32,7 @@ const schemaCopy =
     lang === "ru"
         ? {
               videoGameDescription:
-                  "Бесплатная браузерная пошаговая стратегия с 4 фракциями, 44 юнитами и 74 способностями.",
+                  `Бесплатная браузерная пошаговая стратегия с 4 фракциями, ${unitCount} юнитами и ${abilityCount} способностями.`,
               genre: ["Стратегия", "Пошаговая тактика", "Тактика"],
               gamePlatform: ["Браузер"],
               applicationCategory: "Игра",
@@ -40,7 +41,7 @@ const schemaCopy =
           }
         : {
               videoGameDescription:
-                  "Free-to-play turn-based strategy game with 4 factions, 44 units, and 74 abilities. Play in your browser.",
+                  `Free-to-play turn-based strategy game with 4 factions, ${unitCount} units, and ${abilityCount} abilities. Play in your browser.`,
               genre: ["Strategy", "Turn-based", "Tactics"],
               gamePlatform: ["Web Browser"],
               applicationCategory: "Game",

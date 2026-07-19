@@ -24,6 +24,8 @@ const labels =
               passive: "Пассивные",
               aura: "Аура",
               active: "Активные",
+              stack: "От силы стека",
+              summonedOnly: "Только призыв",
               abilities: "Способностей",
               auras: "Аур",
               actives: "Активных",
@@ -39,6 +41,8 @@ const labels =
               passive: "Passive",
               aura: "Aura",
               active: "Active",
+              stack: "Stack-powered",
+              summonedOnly: "Summoned-only",
               abilities: "Abilities",
               auras: "Auras",
               actives: "Active",
@@ -69,6 +73,7 @@ const searchText = (ability: (typeof abilities)[number]) =>
         ability.name,
         lang === "ru" ? ability.descriptionRu : ability.description,
         kindLabel(ability.kind),
+        ability.isStackPowered ? labels.stack : "",
         ability.units.map((u) => `${u.name} ${u.faction} ${localizedFactionName(lang, u.faction)}`).join(" "),
     ]
         .join(" ")
@@ -139,7 +144,10 @@ const searchText = (ability: (typeof abilities)[number]) =>
                             />
                             <div class="ability-card-title">
                                 <h2>{ability.name}</h2>
-                                <span class={`ability-kind ${ability.kind}`}>{kindLabel(ability.kind)}</span>
+                                <div class="ability-badges">
+                                    <span class={`ability-kind ${ability.kind}`}>{kindLabel(ability.kind)}</span>
+                                    {ability.isStackPowered && <span class="ability-stack">{labels.stack}</span>}
+                                </div>
                             </div>
                         </header>
                         <p class="ability-card-desc">
@@ -155,7 +163,7 @@ const searchText = (ability: (typeof abilities)[number]) =>
                                         class="ability-unit-chip"
                                         href={`${unitsHref}?faction=${u.faction.toLowerCase()}`}
                                         style={`--faction: ${factionColors[u.faction]}`}
-                                        title={`${u.name} · ${localizedFactionName(lang, u.faction)}`}
+                                        title={`${u.name} · ${localizedFactionName(lang, u.faction)}${u.summonedOnly ? ` · ${labels.summonedOnly}` : ""}`}
                                     >
                                         <img
                                             src={u.icon}
@@ -166,6 +174,7 @@ const searchText = (ability: (typeof abilities)[number]) =>
                                             onerror="this.onerror=null;this.src='/assets/images/units/units/unknown_creature_512.webp'"
                                         />
                                         <span>{u.name}</span>
+                                        {u.summonedOnly && <em>{labels.summonedOnly}</em>}
                                     </a>
                                 ))}
                             </div>
@@ -412,8 +421,14 @@ const searchText = (ability: (typeof abilities)[number]) =>
         color: var(--ink);
     }
 
-    .ability-kind {
-        justify-self: start;
+    .ability-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .ability-kind,
+    .ability-stack {
         padding: 2px 9px;
         border-radius: 999px;
         background: rgba(251, 244, 232, 0.1);
@@ -432,6 +447,11 @@ const searchText = (ability: (typeof abilities)[number]) =>
     .ability-kind.active {
         background: rgba(78, 163, 110, 0.18);
         color: var(--green);
+    }
+
+    .ability-stack {
+        background: rgba(138, 118, 191, 0.2);
+        color: #cbbdf2;
     }
 
     .ability-card-desc {
@@ -493,6 +513,14 @@ const searchText = (ability: (typeof abilities)[number]) =>
         object-fit: cover;
         object-position: center top;
         background: #0b0d0f;
+    }
+
+    .ability-unit-chip em {
+        color: #cbbdf2;
+        font-size: 0.65rem;
+        font-style: normal;
+        font-weight: 800;
+        text-transform: uppercase;
     }
 
     .abilities-empty {
