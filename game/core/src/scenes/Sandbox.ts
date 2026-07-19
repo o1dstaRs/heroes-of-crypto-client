@@ -3646,6 +3646,46 @@ export class Sandbox extends PixiScene {
         }
         container.destroy({ children: true });
     }
+    /**
+     * Record, on CombatVisuals, what killed every unit that died in this attack (melee vs range, plus
+     * the blow's direction) BEFORE the death visuals spawn — spawnDeathVfx uses it to pick the melee
+     * "cleave" / ranged "dissolve" death animation over the generic mirror shatter. Area throws count
+     * as ranged kills. Only the engine's unitIdsDied are noted, so a unit that merely got hit here and
+     * dies later (to a spell, armageddon…) still gets the generic death.
+     */
+    protected noteDeathBlowsFromAttackEvent(
+        event: Extract<GameEvent, { type: "unit_attacked" | "area_attacked" }>,
+    ): void {
+        if (!event.unitIdsDied?.length) {
+            return;
+        }
+        const kind = event.type === "unit_attacked" ? event.attackType : "range";
+        const units = this.unitsHolder.getAllUnits();
+        // Strike line from VISUAL centers: getPosition() on a 2x2 unit is its base cell, which would
+        // skew the blow's angle for large attackers/victims (same reason the splash VFX uses it).
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const centerOf = (unitId: string): HoCMath.XY | undefined => {
+            const unit = units.get(unitId) as RenderableUnit | undefined;
+            return unit ? unit.getVisualCenter(gs) : undefined;
+        };
+        const attackerPos = centerOf(event.attackerId);
+        const primaryPos = event.type === "unit_attacked" ? centerOf(event.targetId) : event.targetPosition;
+        for (const unitId of event.unitIdsDied) {
+            // The attacker itself dying (melee retaliation) is a blow FROM the target's side.
+            const from = unitId === event.attackerId ? primaryPos : attackerPos;
+            const to = unitId === event.attackerId ? attackerPos : (centerOf(unitId) ?? primaryPos);
+            let dir: HoCMath.XY | undefined;
+            if (from && to) {
+                const dx = to.x - from.x;
+                const dy = to.y - from.y;
+                const len = Math.hypot(dx, dy);
+                if (len > 0.001) {
+                    dir = { x: dx / len, y: dy / len };
+                }
+            }
+            this.combatVisuals.noteDeathBlow(unitId, kind, dir);
+        }
+    }
     protected destroySpecificUnits(unitsToDestroy: RenderableUnit[], force = false, isDead = false): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         if ((!force && fightProps.hasFightStarted()) || !unitsToDestroy.length) return;
@@ -3693,7 +3733,7 @@ export class Sandbox extends PixiScene {
                 if (isDead) {
                     const shatterInfo = utd.getShatterInfo();
                     if (shatterInfo) {
-                        this.combatVisuals?.spawnShatter(shatterInfo);
+                        this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId);
                     }
                 }
                 // console.log(`Sandbox: calling destroyVisuals for ${unitId}`);
@@ -6083,6 +6123,10 @@ export class Sandbox extends PixiScene {
         const areaEvent = result.events.find(
             (e): e is Extract<GameEvent, { type: "area_attacked" }> => e.type === "area_attacked",
         );
+        // Attribute kills before cleanupDeadUnits below tears the dead down and spawns death visuals.
+        if (areaEvent) {
+            this.noteDeathBlowsFromAttackEvent(areaEvent);
+        }
         const fleshShieldDamageByUnit = this.showFleshShieldAbsorbedDamage(
             areaEvent?.damage.secondary,
             unit.getVisualCenter(gs),
@@ -6267,6 +6311,10 @@ export class Sandbox extends PixiScene {
                 this.sc_moveBlocked = false;
                 return false;
             }
+
+            // Attribute kills now: performCleanup tears the dead down (spawning death visuals) BEFORE
+            // these events reach applyTurnEngineEvents, so the event-switch note there is too late here.
+            this.noteDeathBlowsFromAttackEvent(attackEvent);
 
             damageForAnimation.amount = attackEvent.damage.amount;
             damageForAnimation.render = attackEvent.damage.render;
@@ -9148,6 +9196,14 @@ export class Sandbox extends PixiScene {
                     }
                     shouldRefreshVisibleState = true;
                     break;
+                case "unit_attacked":
+                case "area_attacked":
+                    // Attribute the kill (melee vs range + direction) before the same batch's
+                    // unit_deleted / unit_destroyed teardown spawns the death visuals — the
+                    // death-animation choice needs the blow recorded first.
+                    this.noteDeathBlowsFromAttackEvent(event);
+                    shouldRefreshVisibleState = true;
+                    break;
                 case "unit_skipped":
                 case "unit_waited":
                 case "unit_defended":
@@ -9155,8 +9211,6 @@ export class Sandbox extends PixiScene {
                 case "unit_moved":
                 case "unit_placed":
                 case "unit_split":
-                case "unit_attacked":
-                case "area_attacked":
                 case "spell_cast":
                 case "next_unit_selected":
                     shouldRefreshVisibleState = true;
@@ -9340,10 +9394,11 @@ export class Sandbox extends PixiScene {
             return;
         }
 
-        // "Broken mirror" shatter from the unit's current sprite before tearing it down.
+        // Death visuals (mirror shatter, or a kill-specific cleave/dissolve when the lethal blow was
+        // noted) from the unit's current sprite before tearing it down.
         const shatterInfo = unit.getShatterInfo();
         if (shatterInfo) {
-            this.combatVisuals?.spawnShatter(shatterInfo);
+            this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId);
         }
 
         this.layoutVersion++;

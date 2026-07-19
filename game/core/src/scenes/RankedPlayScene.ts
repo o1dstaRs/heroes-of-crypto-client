@@ -486,6 +486,9 @@ export class RankedPlayScene extends Sandbox {
     public override applyAuthoritativeVfx(events: GameEvent[]): void {
         for (const event of events) {
             if (event.type === "unit_attacked") {
+                // Attribute kills (melee vs range + direction) before this batch's unit_destroyed /
+                // unit_deleted events — and the later snapshot diff — spawn the death visuals.
+                this.noteDeathBlowsFromAttackEvent(event);
                 // AOE attacks (Cyclops' Large Caliber, etc.) carry a per-affected-unit breakdown so each
                 // splashed unit gets its own floating number AT ITS OWN POSITION — the single-target
                 // payload below only knows the primary target's spot.
@@ -503,6 +506,7 @@ export class RankedPlayScene extends Sandbox {
                     this.combatVisuals?.showFloatingDamage(pos, event.damage.amount, dir);
                 }
             } else if (event.type === "area_attacked") {
+                this.noteDeathBlowsFromAttackEvent(event);
                 this.applyAuthoritativeSecondaryVfx(event.attackerId, event.damage);
                 if (this.applyAuthoritativeSplashVfx(event.attackerId, event.damage)) continue;
                 if (!event.damage?.render) continue;
@@ -522,7 +526,7 @@ export class RankedPlayScene extends Sandbox {
             } else if (event.type === "unit_destroyed" || event.type === "unit_deleted") {
                 const u = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
                 const info = u?.getShatterInfo();
-                if (info) this.combatVisuals?.spawnShatter(info);
+                if (info) this.combatVisuals?.spawnDeathVfx(info, event.unitId);
             }
         }
     }
@@ -1881,7 +1885,7 @@ export class RankedPlayScene extends Sandbox {
             if (!shatterInfo) {
                 continue;
             }
-            this.combatVisuals?.spawnShatter(shatterInfo);
+            this.combatVisuals?.spawnDeathVfx(shatterInfo, renderable.getId());
             // Drop the dead unit's visuals now so the imminent rebuild/skip doesn't leave it on the board,
             // and so a repeated snapshot can't shatter it twice (getShatterInfo is null after this).
             renderable.destroyVisuals();

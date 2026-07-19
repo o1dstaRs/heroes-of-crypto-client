@@ -40,6 +40,72 @@ interface IShatterGroup {
     shards: IShard[];
 }
 
+/** What killed a unit — recorded before its death visuals spawn so the animation can match the blow. */
+export type DeathBlowKind = "melee" | "range";
+
+interface ICleaveHalf {
+    node: Container; // full unit sprite masked to one side of the cut
+    vx: number;
+    vy: number;
+    rotSpeed: number;
+}
+
+interface ICleaveDeath {
+    container: Container;
+    halves: ICleaveHalf[];
+    streak: Graphics; // slash flash swept along the cut, redrawn each frame
+    dropsGfx: Graphics; // blood droplets shed from the rip, redrawn each frame
+    drops: ISlashDrop[];
+    cutU: HoCMath.XY; // unit vector along the cut line
+    cutLen: number; // half-length of the flash sweep
+    streakWidth: number; // base stroke width of the flash (scales with the unit)
+    age: number;
+    life: number;
+    releaseAt: number; // when the halves let go of each other
+    halfLife: number; // seconds each half lives after release
+}
+
+interface IDissolveShard {
+    sprite: Sprite;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    delay: number; // when the erosion wave reaches this shard
+    age: number;
+    life: number; // seconds from release
+    baseScaleX: number;
+    baseScaleY: number;
+    swayAmp: number; // ash-flutter lateral sway
+    swayFreq: number;
+    swayPhase: number;
+    rotSpeed: number;
+}
+
+interface IDissolveSpark {
+    sprite: Sprite;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    life: number;
+}
+
+interface IDissolveDeath {
+    container: Container;
+    shards: IDissolveShard[];
+    tracer: Graphics; // the killing shot's streak through the body, redrawn each frame
+    tracerFrom: HoCMath.XY;
+    tracerTo: HoCMath.XY;
+    tracerWidth: number;
+    flash: Sprite; // impact flash at the unit's center
+    flashScale: number;
+    sparks: IDissolveSpark[]; // exit-side sparks — the shot punches THROUGH
+    dirPerp: HoCMath.XY; // unit vector perpendicular to the shot — the shards' flutter axis
+    age: number;
+    life: number;
+}
+
 interface IFireParticle {
     sprite: Sprite;
     age: number; // seconds; negative means still delayed — the breath wave hasn't reached it yet
@@ -212,6 +278,49 @@ const CLAW_GLOW = 0xff6a14; // outer orange glow (the torn flesh)
 const CLAW_MID = 0xff9a3a; // mid flame-orange body
 const CLAW_CORE = 0xffe6b0; // hot near-white core down each gash
 
+// Tuning for the MELEE death "cleave" — the killing blow tears the dying stack in TWO along a jagged,
+// near-vertical rip: a white-hot slash flash sweeps the cut first, the body holds together for a beat
+// (so the eye registers the intact unit + flash), then the halves let go — shoved apart and away from
+// the attacker, toppling under gravity while a few drops of blood shed from the rip. Reads heavy and
+// physical, unlike the mirror shatter's 36-piece radial burst.
+const CLEAVE_Z = 4500; // same layer as the mirror shatter
+const CLEAVE_RELEASE_S = 0.09; // beat between the flash and the halves letting go
+const CLEAVE_HALF_LIFE = 0.72; // seconds each half lives after release (fall + fade)
+const CLEAVE_FADE_FROM = 0.5; // fraction of a half's life after which it fades out
+const CLEAVE_GRAVITY = 700; // world px/s^2 — the halves are heavy; they drop faster than mirror shards
+const CLEAVE_STREAK_LIFE = 0.22; // seconds the slash flash lives in total
+const CLEAVE_STREAK_SWEEP_S = 0.07; // seconds for the flash tip to sweep the full cut
+const CLEAVE_DROP_GRAVITY = 900; // world px/s^2 on the shed blood droplets
+const CLEAVE_GLOW = 0xff4a26; // outer hot-red glow of the slash flash
+const CLEAVE_MID = 0xffb199; // mid warm body
+const CLEAVE_CORE = 0xffffff; // white-hot core
+
+// Tuning for the RANGE death "dissolve" — the killing shot punches THROUGH the stack: a pale-gold
+// tracer streak + impact flash first, then the body erodes into a wave of shards that release from the
+// entry side through to the exit side, carried along the shot's direction, slowing under drag and
+// fluttering down like ash (lateral sway, shrink, soft fade) while a few sparks fly out the far side.
+// Directional and airy where the mirror shatter is radial and the cleave is heavy.
+const DISSOLVE_Z = 4500;
+const DISSOLVE_COLS = 8;
+const DISSOLVE_ROWS = 8;
+const DISSOLVE_WAVE_S = 0.2; // seconds for the erosion wave to cross the whole body
+const DISSOLVE_WAVE_JITTER_S = 0.02; // per-shard wavefront noise — small, so the front stays crisp
+const DISSOLVE_LIFE_MIN = 0.55; // a shard's minimum life once released
+const DISSOLVE_LIFE_VAR = 0.3;
+const DISSOLVE_FADE_FROM = 0.45; // fraction of a shard's life after which it fades
+// Shard speeds scale with the BODY SIZE (not absolute px) so the debris is visibly thrown along the
+// shot for units of any size: at speed ≈ 2-3.6 bodies/s with this drag, a shard travels roughly a
+// body length or two along the shot line before the ash-fall takes over — the angle must READ.
+const DISSOLVE_SPEED_MIN = 2.0; // body-lengths/s carried along the shot at release
+const DISSOLVE_SPEED_VAR = 1.6;
+const DISSOLVE_CONE = 0.55; // perpendicular spread as a fraction of the body — tight = directional
+const DISSOLVE_DRAG = 2.0; // 1/s exponential decay of shard velocity — the burst slows into a drift
+const DISSOLVE_SINK = 110; // world px/s^2 gentle pull down once the burst has slowed (ash fall)
+const DISSOLVE_TRACER_LIFE = 0.18; // seconds the shot streak stays
+const DISSOLVE_FLASH_LIFE = 0.2; // seconds the impact flash stays
+const DISSOLVE_TRACER_TINT = 0xffe9c2; // pale hot gold — a physical shot, not a spell
+const DISSOLVE_SPARK_TINT = 0xffe9b8;
+
 const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
 const easeOutBack = (t: number): number => {
     const c1 = 1.70158;
@@ -223,6 +332,11 @@ export class CombatVisuals {
     private context: ICombatVisualsContext;
     private floatingTexts: IFloatingText[] = [];
     private shatterGroups: IShatterGroup[] = [];
+    private cleaveDeaths: ICleaveDeath[] = [];
+    private dissolveDeaths: IDissolveDeath[] = [];
+    // Kill attribution, keyed by the dying unit's id: noted from the lethal attack event (only units
+    // in unitIdsDied land here), consumed by spawnDeathVfx when the death visuals spawn.
+    private deathBlowByUnitId = new Map<string, { kind: DeathBlowKind; dir?: HoCMath.XY }>();
     private fireSweeps: IFireSweep[] = [];
     private chainLightnings: IChainLightning[] = [];
     private windSpears: IWindSpear[] = [];
@@ -539,6 +653,15 @@ export class CombatVisuals {
             group.container.destroy({ children: true });
         }
         this.shatterGroups.length = 0;
+        for (const cleave of this.cleaveDeaths) {
+            cleave.container.destroy({ children: true });
+        }
+        this.cleaveDeaths.length = 0;
+        for (const dissolve of this.dissolveDeaths) {
+            dissolve.container.destroy({ children: true });
+        }
+        this.dissolveDeaths.length = 0;
+        this.deathBlowByUnitId.clear();
         for (const sweep of this.fireSweeps) {
             sweep.container.destroy({ children: true });
         }
@@ -621,6 +744,8 @@ export class CombatVisuals {
         }
 
         this.stepShatters(dt);
+        this.stepCleaveDeaths(dt);
+        this.stepDissolveDeaths(dt);
         this.stepFireSweeps(dt);
         this.stepChainLightnings(dt);
         this.stepWindSpears(dt);
@@ -723,6 +848,472 @@ export class CombatVisuals {
             }
         }
     }
+    /**
+     * Record what killed a unit (and the blow's direction, attacker → victim) BEFORE its death
+     * visuals spawn, so spawnDeathVfx can pick a kill-specific animation. Only note units that
+     * actually died from the blow (the engine's unitIdsDied) — noting mere hits would misattribute
+     * a later death by spell to the earlier attack.
+     */
+    public noteDeathBlow(unitId: string, kind: DeathBlowKind, dir?: HoCMath.XY): void {
+        this.deathBlowByUnitId.set(unitId, { kind, dir });
+    }
+    /**
+     * Death-visuals dispatcher: a melee kill has a 50% chance of the "cleave" (torn in two) and a
+     * ranged kill a 50% chance of the "dissolve" (shot through into drifting ash) — otherwise, and
+     * for any death with no recorded blow (spells, armageddon, narrowing…), the classic broken-mirror
+     * shatter. Consumes the recorded blow so a stale entry can never color a later death.
+     */
+    public spawnDeathVfx(
+        info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number },
+        unitId?: string,
+    ): void {
+        const blow = unitId ? this.deathBlowByUnitId.get(unitId) : undefined;
+        if (unitId) {
+            this.deathBlowByUnitId.delete(unitId);
+        }
+        if (blow && Math.random() < 0.5) {
+            if (blow.kind === "melee") {
+                this.spawnCleaveDeath(info, blow.dir);
+            } else {
+                this.spawnDissolveDeath(info, blow.dir);
+            }
+        } else {
+            this.spawnShatter(info);
+        }
+    }
+    /**
+     * Melee death "cleave": a slash flash sweeps a jagged cut through the unit PERPENDICULAR to the
+     * strike line (`dir`, attacker → victim); the body holds intact for a beat, then the two masked
+     * halves let go — separating along the blow and shoved away from the attacker, toppling under
+     * gravity and shedding a few drops of blood from the rip.
+     */
+    private spawnCleaveDeath(
+        info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number },
+        dir?: HoCMath.XY,
+    ): void {
+        const tex = info.texture;
+        const source = tex?.source;
+        const frame = tex?.frame;
+        if (!source || !frame || frame.width <= 1 || frame.height <= 1) return;
+
+        const worldW = Math.abs(info.scaleX) * frame.width;
+        const worldH = Math.abs(info.scaleY) * frame.height;
+
+        const container = new Container();
+        this.context.attachToWorldRoot(container, CLEAVE_Z);
+        container.position.set(info.x, info.y);
+
+        // Shove direction: away from the attacker; sideways at random when the blow's origin is unknown.
+        let px = dir?.x ?? 0;
+        let py = dir?.y ?? 0;
+        const pLen = Math.hypot(px, py);
+        const hadDir = pLen >= 0.001;
+        if (!hadDir) {
+            const a = Math.random() * Math.PI * 2;
+            px = Math.cos(a);
+            py = Math.sin(a);
+        } else {
+            px /= pLen;
+            py /= pLen;
+        }
+
+        // The cut runs PERPENDICULAR to the strike line (attacker center → struck unit), with a small
+        // random blade lean, jagged along its length so it reads as torn flesh, not a laser slice: a
+        // horizontal blow cleaves the body into left/right halves, a strike from below cuts it at the
+        // waist, a diagonal blow cuts diagonally — and the halves then separate ALONG the blow.
+        // Without a known direction, fall back to a mostly-vertical random cut. All coordinates are
+        // unit-local (the container sits at the unit's center).
+        let ux: number;
+        let uy: number;
+        if (hadDir) {
+            const lean = (Math.random() - 0.5) * 0.4;
+            const cs = Math.cos(lean);
+            const sn = Math.sin(lean);
+            // perp(strike line), rotated by the blade lean.
+            ux = -py * cs - px * sn;
+            uy = px * cs - py * sn;
+        } else {
+            const lean = (0.25 + Math.random() * 0.35) * (Math.random() < 0.5 ? -1 : 1);
+            ux = Math.sin(lean);
+            uy = Math.cos(lean);
+        }
+        // The slash flash sweeps from the +cutLen end toward -cutLen: orient the tangent so the
+        // stroke comes DOWN along the cut (random for a horizontal cut, e.g. a waist cut).
+        if (uy < -0.05 || (Math.abs(uy) <= 0.05 && Math.random() < 0.5)) {
+            ux = -ux;
+            uy = -uy;
+        }
+        const nx = uy;
+        const ny = -ux; // cut normal — the halves separate along ±n (≈ the strike line when known)
+        const cutLen = 0.62 * Math.hypot(worldW, worldH); // past the sprite corners on both ends
+
+        const SEGS = 7;
+        const jags: HoCMath.XY[] = [];
+        for (let i = 0; i <= SEGS; i++) {
+            const t = -cutLen + (2 * cutLen * i) / SEGS;
+            const wobble = i === 0 || i === SEGS ? 0 : (Math.random() - 0.5) * worldW * 0.09;
+            jags.push({ x: ux * t + nx * wobble, y: uy * t + ny * wobble });
+        }
+
+        const halves: ICleaveHalf[] = [];
+        const FAR = cutLen * 2.5;
+        for (const side of [1, -1]) {
+            const half = new Container();
+            const sprite = new Sprite(tex);
+            sprite.anchor.set(0.5);
+            // Same orientation as the dying unit (scaleY carries the y-up flip).
+            sprite.scale.set(info.scaleX, info.scaleY);
+            // Mask this copy to one side of the jagged cut: the cut polyline, closed far out along ±n.
+            const maskG = new Graphics();
+            maskG.moveTo(jags[0].x, jags[0].y);
+            for (let i = 1; i < jags.length; i++) {
+                maskG.lineTo(jags[i].x, jags[i].y);
+            }
+            maskG.lineTo(jags[SEGS].x + nx * FAR * side, jags[SEGS].y + ny * FAR * side);
+            maskG.lineTo(jags[0].x + nx * FAR * side, jags[0].y + ny * FAR * side);
+            maskG.closePath();
+            maskG.fill({ color: 0xffffff });
+            half.addChild(sprite, maskG);
+            half.mask = maskG;
+            container.addChild(half);
+
+            const sep = 55 + Math.random() * 35; // lateral separation along the cut normal
+            halves.push({
+                node: half,
+                vx: nx * sep * side + px * (70 + Math.random() * 50),
+                vy: ny * sep * side + py * (70 + Math.random() * 50) * 0.5 + 30 + Math.random() * 30,
+                rotSpeed: -side * (0.6 + Math.random() * 0.8),
+            });
+        }
+
+        // Blood shed from the rip: droplets spray perpendicular to the cut as the halves let go
+        // (negative age holds them until the release beat).
+        const drops: ISlashDrop[] = [];
+        const bodyR = 0.45 * Math.min(worldW, worldH);
+        const dropCount = 8 + Math.floor(Math.random() * 4);
+        for (let d = 0; d < dropCount; d++) {
+            const along = (Math.random() - 0.5) * 2 * bodyR;
+            const side = Math.random() < 0.5 ? 1 : -1;
+            drops.push({
+                x: ux * along + nx * side * 2,
+                y: uy * along + ny * side * 2,
+                vx: nx * side * (120 + Math.random() * 140) + ux * (Math.random() - 0.5) * 120,
+                vy: ny * side * (120 + Math.random() * 140) + uy * (Math.random() - 0.5) * 120,
+                r: 1.6 + Math.random() * 2.2,
+                age: -CLEAVE_RELEASE_S - Math.random() * 0.05,
+                life: 0.3 + Math.random() * 0.25,
+            });
+        }
+        const dropsGfx = new Graphics();
+        container.addChild(dropsGfx);
+
+        const streak = new Graphics();
+        streak.blendMode = "add";
+        container.addChild(streak);
+
+        this.cleaveDeaths.push({
+            container,
+            halves,
+            streak,
+            dropsGfx,
+            drops,
+            cutU: { x: ux, y: uy },
+            cutLen,
+            streakWidth: Math.max(3, worldH * 0.05),
+            age: 0,
+            life: CLEAVE_RELEASE_S + CLEAVE_HALF_LIFE,
+            releaseAt: CLEAVE_RELEASE_S,
+            halfLife: CLEAVE_HALF_LIFE,
+        });
+    }
+    private stepCleaveDeaths(dt: number): void {
+        for (let i = this.cleaveDeaths.length - 1; i >= 0; i--) {
+            const cd = this.cleaveDeaths[i];
+            cd.age += dt;
+            if (cd.age >= cd.life) {
+                cd.container.destroy({ children: true });
+                this.cleaveDeaths.splice(i, 1);
+                continue;
+            }
+
+            // Slash flash: the tip sweeps the cut top-to-bottom fast, then the whole streak fades.
+            cd.streak.clear();
+            if (cd.age < CLEAVE_STREAK_LIFE) {
+                const sweepT = Math.min(1, cd.age / CLEAVE_STREAK_SWEEP_S);
+                const tip = cd.cutLen - 2 * cd.cutLen * easeOutCubic(sweepT);
+                const fade =
+                    cd.age <= CLEAVE_STREAK_SWEEP_S
+                        ? 1
+                        : 1 - (cd.age - CLEAVE_STREAK_SWEEP_S) / (CLEAVE_STREAK_LIFE - CLEAVE_STREAK_SWEEP_S);
+                const x0 = cd.cutU.x * cd.cutLen;
+                const y0 = cd.cutU.y * cd.cutLen;
+                const x1 = cd.cutU.x * tip;
+                const y1 = cd.cutU.y * tip;
+                const w = cd.streakWidth;
+                cd.streak.moveTo(x0, y0);
+                cd.streak.lineTo(x1, y1);
+                cd.streak.stroke({ width: w * 3.2, color: CLEAVE_GLOW, alpha: 0.3 * fade, cap: "round" });
+                cd.streak.moveTo(x0, y0);
+                cd.streak.lineTo(x1, y1);
+                cd.streak.stroke({ width: w * 1.4, color: CLEAVE_MID, alpha: 0.7 * fade, cap: "round" });
+                cd.streak.moveTo(x0, y0);
+                cd.streak.lineTo(x1, y1);
+                cd.streak.stroke({ width: w * 0.55, color: CLEAVE_CORE, alpha: fade, cap: "round" });
+            }
+
+            // The halves hold together until the release beat, then slide apart, topple, and fade.
+            if (cd.age >= cd.releaseAt) {
+                const ht = (cd.age - cd.releaseAt) / cd.halfLife;
+                const alpha = ht > CLEAVE_FADE_FROM ? 1 - (ht - CLEAVE_FADE_FROM) / (1 - CLEAVE_FADE_FROM) : 1;
+                for (const half of cd.halves) {
+                    half.vy -= CLEAVE_GRAVITY * dt;
+                    half.node.x += half.vx * dt;
+                    half.node.y += half.vy * dt;
+                    half.node.rotation += half.rotSpeed * dt;
+                    half.node.alpha = Math.max(0, alpha);
+                }
+            }
+
+            // Blood droplets from the rip (unit-local coords; world y-up so gravity subtracts).
+            const gfx = cd.dropsGfx;
+            gfx.clear();
+            for (const drop of cd.drops) {
+                drop.age += dt;
+                if (drop.age < 0 || drop.age >= drop.life) {
+                    continue;
+                }
+                drop.vy -= CLEAVE_DROP_GRAVITY * dt;
+                drop.x += drop.vx * dt;
+                drop.y += drop.vy * dt;
+                const dropAlpha = 1 - drop.age / drop.life;
+                gfx.circle(drop.x, drop.y, drop.r * (0.7 + 0.3 * dropAlpha));
+                gfx.fill({ color: SLASH_DROP, alpha: 0.9 * dropAlpha });
+            }
+        }
+    }
+    /**
+     * Ranged death "dissolve": the killing shot punches through — a tracer streak + impact flash,
+     * then the body erodes into a wave of shards released entry-side first, carried along the shot's
+     * direction (`dir`, attacker → victim), slowing under drag and fluttering down like ash while a
+     * few sparks fly out the exit side.
+     */
+    private spawnDissolveDeath(
+        info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number },
+        dir?: HoCMath.XY,
+    ): void {
+        const tex = info.texture;
+        const source = tex?.source;
+        const frame = tex?.frame;
+        if (!source || !frame || frame.width <= 1 || frame.height <= 1) return;
+
+        const worldW = Math.abs(info.scaleX) * frame.width;
+        const worldH = Math.abs(info.scaleY) * frame.height;
+
+        // Shot direction; a mostly-horizontal random one when the origin is unknown.
+        let dx = dir?.x ?? 0;
+        let dy = dir?.y ?? 0;
+        const dLen = Math.hypot(dx, dy);
+        if (dLen < 0.001) {
+            const a = (Math.random() < 0.5 ? 0 : Math.PI) + (Math.random() - 0.5) * 0.6;
+            dx = Math.cos(a);
+            dy = Math.sin(a);
+        } else {
+            dx /= dLen;
+            dy /= dLen;
+        }
+        const perpX = -dy;
+        const perpY = dx;
+
+        const container = new Container();
+        this.context.attachToWorldRoot(container, DISSOLVE_Z);
+
+        const COLS = DISSOLVE_COLS;
+        const ROWS = DISSOLVE_ROWS;
+        const tileTexW = frame.width / COLS;
+        const tileTexH = frame.height / ROWS;
+        const tileWorldW = worldW / COLS;
+        const tileWorldH = worldH / ROWS;
+        const bodyR = 0.5 * Math.hypot(worldW, worldH);
+
+        const shards: IDissolveShard[] = [];
+        let lastRelease = 0;
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                const subTex = new Texture({
+                    source,
+                    frame: new Rectangle(frame.x + c * tileTexW, frame.y + r * tileTexH, tileTexW, tileTexH),
+                });
+                const shard = new Sprite(subTex);
+                shard.anchor.set(0.5);
+                // Same orientation as the dying unit (scaleY carries the y-up flip); texture row 0 is
+                // the top of the image, so walk rows top-down to keep the composite upright.
+                shard.scale.set(info.scaleX, info.scaleY);
+                const sx = info.x - worldW / 2 + (c + 0.5) * tileWorldW;
+                const sy = info.y + worldH / 2 - (r + 0.5) * tileWorldH;
+                shard.position.set(sx, sy);
+                container.addChild(shard);
+
+                // The erosion wave enters on the side facing the shooter and crosses the body in
+                // DISSOLVE_WAVE_S — shards release in shot order, so the unit visibly erodes THROUGH.
+                const along = (sx - info.x) * dx + (sy - info.y) * dy;
+                const delay =
+                    ((along + bodyR) / (2 * bodyR)) * DISSOLVE_WAVE_S + Math.random() * DISSOLVE_WAVE_JITTER_S;
+                // A tight cone along the shot: strong carry in the shot direction, modest spread
+                // across it — the debris streams away at the ATTACK ANGLE, whatever it is.
+                const bodyMax = Math.max(worldW, worldH);
+                const speed = bodyMax * (DISSOLVE_SPEED_MIN + Math.random() * DISSOLVE_SPEED_VAR);
+                const spread = bodyMax * DISSOLVE_CONE * (Math.random() - 0.5);
+                const life = DISSOLVE_LIFE_MIN + Math.random() * DISSOLVE_LIFE_VAR;
+                lastRelease = Math.max(lastRelease, delay + life);
+                shards.push({
+                    sprite: shard,
+                    x: sx,
+                    y: sy,
+                    vx: dx * speed + perpX * spread,
+                    vy: dy * speed + perpY * spread + 18,
+                    delay,
+                    age: 0,
+                    life,
+                    baseScaleX: info.scaleX,
+                    baseScaleY: info.scaleY,
+                    swayAmp: 5 + Math.random() * 8,
+                    swayFreq: 6 + Math.random() * 4,
+                    swayPhase: Math.random() * Math.PI * 2,
+                    rotSpeed: (Math.random() - 0.5) * 4,
+                });
+            }
+        }
+
+        // The shot's tracer through the body + an impact flash at the center. Asymmetric on purpose:
+        // short on the entry side, long past the exit side — it reads as the shot PASSING THROUGH
+        // along its actual flight line.
+        const tracer = new Graphics();
+        tracer.blendMode = "add";
+        container.addChild(tracer);
+        const tracerEntryR = 0.7 * Math.hypot(worldW, worldH);
+        const tracerExitR = 1.25 * Math.hypot(worldW, worldH);
+
+        const lightTex = this.getLightTexture();
+        const flash = new Sprite(lightTex);
+        flash.anchor.set(0.5);
+        flash.blendMode = "add";
+        flash.tint = DISSOLVE_TRACER_TINT;
+        flash.position.set(info.x, info.y);
+        container.addChild(flash);
+        const flashScale = (worldH * 0.85) / Math.max(1, lightTex.width || 64);
+
+        // Sparks out the exit side — the shot goes THROUGH.
+        const sparks: IDissolveSpark[] = [];
+        const sparkCount = 6;
+        const sparkBody = Math.max(worldW, worldH);
+        let sparkLife = 0;
+        for (let s = 0; s < sparkCount; s++) {
+            const sprite = new Sprite(lightTex);
+            sprite.anchor.set(0.5);
+            sprite.blendMode = "add";
+            sprite.tint = DISSOLVE_SPARK_TINT;
+            sprite.scale.set(flashScale * 0.28);
+            container.addChild(sprite);
+            const life = 0.2 + Math.random() * 0.15;
+            sparkLife = Math.max(sparkLife, life);
+            sparks.push({
+                sprite,
+                x: info.x + dx * bodyR * 0.4,
+                y: info.y + dy * bodyR * 0.4,
+                vx: dx * sparkBody * (2.6 + Math.random() * 1.4) + perpX * (Math.random() - 0.5) * sparkBody,
+                vy: dy * sparkBody * (2.6 + Math.random() * 1.4) + perpY * (Math.random() - 0.5) * sparkBody,
+                life,
+            });
+        }
+
+        this.dissolveDeaths.push({
+            container,
+            shards,
+            tracer,
+            tracerFrom: { x: info.x - dx * tracerEntryR, y: info.y - dy * tracerEntryR },
+            tracerTo: { x: info.x + dx * tracerExitR, y: info.y + dy * tracerExitR },
+            tracerWidth: Math.max(2.5, worldH * 0.035),
+            flash,
+            flashScale,
+            sparks,
+            dirPerp: { x: perpX, y: perpY },
+            age: 0,
+            life: Math.max(lastRelease, DISSOLVE_TRACER_LIFE, DISSOLVE_FLASH_LIFE, sparkLife) + 0.02,
+        });
+    }
+    private stepDissolveDeaths(dt: number): void {
+        for (let i = this.dissolveDeaths.length - 1; i >= 0; i--) {
+            const dd = this.dissolveDeaths[i];
+            dd.age += dt;
+            if (dd.age >= dd.life) {
+                dd.container.destroy({ children: true });
+                this.dissolveDeaths.splice(i, 1);
+                continue;
+            }
+
+            // Tracer: full-bright with the impact, gone in a couple of frames' worth of afterglow.
+            dd.tracer.clear();
+            if (dd.age < DISSOLVE_TRACER_LIFE) {
+                const fade = 1 - dd.age / DISSOLVE_TRACER_LIFE;
+                const w = dd.tracerWidth;
+                dd.tracer.moveTo(dd.tracerFrom.x, dd.tracerFrom.y);
+                dd.tracer.lineTo(dd.tracerTo.x, dd.tracerTo.y);
+                dd.tracer.stroke({ width: w * 3, color: DISSOLVE_TRACER_TINT, alpha: 0.28 * fade, cap: "round" });
+                dd.tracer.moveTo(dd.tracerFrom.x, dd.tracerFrom.y);
+                dd.tracer.lineTo(dd.tracerTo.x, dd.tracerTo.y);
+                dd.tracer.stroke({ width: w, color: 0xffffff, alpha: fade, cap: "round" });
+            }
+
+            // Impact flash: springs open with the hit, then dissipates.
+            if (dd.age < DISSOLVE_FLASH_LIFE) {
+                const pop = easeOutCubic(Math.min(1, dd.age / 0.09));
+                dd.flash.scale.set(dd.flashScale * (0.45 + 0.7 * pop));
+                dd.flash.alpha = 1 - dd.age / DISSOLVE_FLASH_LIFE;
+            } else if (dd.flash.visible) {
+                dd.flash.visible = false;
+            }
+
+            // Exit-side sparks: fast, additive, quickly gone.
+            for (const spark of dd.sparks) {
+                if (dd.age >= spark.life) {
+                    if (spark.sprite.visible) spark.sprite.visible = false;
+                    continue;
+                }
+                spark.x += spark.vx * dt;
+                spark.y += spark.vy * dt;
+                spark.sprite.position.set(spark.x, spark.y);
+                spark.sprite.alpha = 1 - dd.age / spark.life;
+            }
+
+            // The erosion wave: shards stay composed until the wave reaches them, then get carried
+            // along the shot, slow under drag, and flutter down like ash — sway, shrink, soft fade.
+            const drag = Math.exp(-DISSOLVE_DRAG * dt);
+            for (const s of dd.shards) {
+                s.age += dt;
+                if (s.age < s.delay) {
+                    continue; // still part of the (eroding) body
+                }
+                const a = s.age - s.delay;
+                const t = a / s.life;
+                if (t >= 1) {
+                    if (s.sprite.visible) s.sprite.visible = false;
+                    continue;
+                }
+                s.vx *= drag;
+                s.vy = s.vy * drag - DISSOLVE_SINK * dt;
+                s.x += s.vx * dt;
+                s.y += s.vy * dt;
+                // Ash flutter: lateral sway ACROSS the flight line (not world-x), ramping in as the
+                // burst slows — so the flutter reads correctly at any attack angle.
+                const sway = Math.sin(a * s.swayFreq + s.swayPhase) * s.swayAmp * Math.min(1, a * 2);
+                s.sprite.position.set(s.x + dd.dirPerp.x * sway, s.y + dd.dirPerp.y * sway);
+                s.sprite.rotation += s.rotSpeed * dt;
+                const shrink = 1 - 0.65 * t;
+                s.sprite.scale.set(s.baseScaleX * shrink, s.baseScaleY * shrink);
+                s.sprite.alpha = t > DISSOLVE_FADE_FROM ? 1 - (t - DISSOLVE_FADE_FROM) / (1 - DISSOLVE_FADE_FROM) : 1;
+            }
+        }
+    }
     /** Soft white→amber→transparent radial ember, drawn once and tinted per particle. */
     private getFireTexture(): Texture {
         if (this.fireTexture) {
@@ -749,6 +1340,10 @@ export class CombatVisuals {
     private getLightTexture(): Texture {
         if (this.lightTexture) {
             return this.lightTexture;
+        }
+        // Headless (tests): no DOM to rasterize the radial gradient on — a plain white texture works.
+        if (typeof document === "undefined") {
+            return Texture.WHITE;
         }
         const size = 64;
         const canvas = document.createElement("canvas");
