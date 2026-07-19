@@ -83,7 +83,6 @@ import { syncRankedSnapshotSynergies } from "./rankedSynergySync";
 import { resolveUnitImage } from "./unitImage";
 import {
     aiOpponentLabel,
-    DEFAULT_VS_AI_DIFFICULTY,
     findAiSeatPlayerId,
     getAiSeatDifficulty,
     getMarkedVsAiDifficulty,
@@ -788,9 +787,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         navigate(replayOnly ? "/portal" : "/play");
     }, [navigate, replayOnly]);
     const handlePlayAgainVsAi = useCallback(async () => {
-        // Repeat the SAME tier the finished match was played at (fall back to the default for legacy
-        // tier-less games).
-        const difficulty = vsAiDifficulty ?? DEFAULT_VS_AI_DIFFICULTY;
+        // Always rematch the default AI (no difficulty tiers) — matches the tier-less "Play vs AI" entry.
         // The just-finished match's result write (game doc -> finished, both players' inGameId released)
         // is fire-and-forget on the server (play_session.ts tryWriteGameResult) so it can still be
         // in flight the instant this overlay's button becomes clickable. A same-tick click then hits a
@@ -801,14 +798,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         let lastError: unknown;
         for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt += 1) {
             try {
-                const game = await createVsAiGame(difficulty);
+                const game = await createVsAiGame();
                 const nextGameId = game.id;
                 if (!nextGameId) {
                     throw new Error("AI match response was incomplete");
                 }
                 // Remembered the same way the initial Play-vs-AI entry (MatchmakingRoute) does, so the
-                // new match's pick phase can label the opponent as the AI at the same difficulty.
-                markVsAiGame(nextGameId, difficulty);
+                // new match's pick phase can label the opponent as the AI (version-only, tier-less seat).
+                markVsAiGame(nextGameId);
                 navigate(`/game/${nextGameId}`);
                 return;
             } catch (err) {
@@ -819,7 +816,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             }
         }
         throw lastError instanceof Error ? lastError : new Error("Unable to start an AI match");
-    }, [navigate, vsAiDifficulty]);
+    }, [navigate]);
     // Top-left "Play another": start a fresh ranked game. A vs-AI match rematches directly at the same
     // tier; a human match has no instant rematch, so route to the game-type selection (/play) where
     // Find Opponent / Play vs AI live.
@@ -1976,9 +1973,41 @@ const RankedArtifactsPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamTyp
     );
 };
 
+// Sidebar art per augment category — the same images the picker overlay and the player portal's
+// match history use, so the recap reads visually instead of as text chips.
+const AUGMENT_SIDEBAR_IMAGES: Record<string, keyof typeof images> = {
+    Placement: "board_augment_256",
+    Armor: "armor_augment_256",
+    Might: "might_augment_256",
+    Sniper: "sniper_augment_256",
+    Movement: "movement_augment_256",
+};
+
+// Tooltip effect text per category/level, worded exactly like the picker overlay's radio labels
+// (SideToggleContainer) so the recap and the picker describe the same choice the same way.
+const augmentEffectText = (label: string, level: number): string => {
+    switch (label) {
+        case "Placement":
+            return ["Height 3 partial", "Height 4 full", "Height 5 full"][level] ?? "Height 3 partial";
+        case "Armor":
+            return `+${Augment.getArmorPower(level as Augment.ArmorAugment)}% Armor`;
+        case "Might":
+            return `+${Augment.getMightPower(level as Augment.MightAugment)}% Melee attack`;
+        case "Sniper": {
+            const [attack, distance] = Augment.getSniperPower(level as Augment.SniperAugment);
+            return `+${attack}% attack/+${distance}% distance`;
+        }
+        case "Movement":
+            return `+${Augment.getMovementPower(level as Augment.MovementAugment)} Movement steps`;
+        default:
+            return "";
+    }
+};
+
 // Read-only recap of the augments/synergies chosen in the placement overlay, shown in the sidebar
 // while the player positions units. Augment levels come straight from the authoritative snapshot;
-// selected synergies come from the local FightProperties (kept in sync by the picker).
+// selected synergies come from the local FightProperties (kept in sync by the picker). Read-only on
+// purpose: augments are committed in the Setup stage, so there is no edit affordance here.
 const RankedAugmentSummary: React.FC<{
     snapshot: PlaySnapshot;
     userTeam: TeamType;
@@ -2004,17 +2033,80 @@ const RankedAugmentSummary: React.FC<{
             <Typography level="body-sm" textColor={hocColors.parchment}>
                 Augments &amp; Synergies ({spent}/{budget} pts)
             </Typography>
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
                 {chosen.length === 0 ? (
                     <Typography level="body-xs" textColor={hocColors.muted}>
                         No augments chosen yet
                     </Typography>
                 ) : (
-                    chosen.map((r) => (
-                        <Chip key={r.label} size="sm" variant="soft">
-                            {r.label === "Placement" ? `Placement L${r.level + 1}` : `${r.label} L${r.level}`}
-                        </Chip>
-                    ))
+                    chosen.map((r) => {
+                        // Placement levels are 0-based (LEVEL_1 == 0), the rest are already 1-based.
+                        const displayLevel = r.label === "Placement" ? r.level + 1 : r.level;
+                        return (
+                            <Tooltip
+                                key={r.label}
+                                title={
+                                    <Box sx={{ maxWidth: 240, py: 0.5 }}>
+                                        <Typography level="title-sm" textColor={hocColors.gold}>
+                                            {r.label} augment — level {displayLevel}
+                                        </Typography>
+                                        <Typography level="body-xs" textColor={hocColors.parchment}>
+                                            {augmentEffectText(r.label, r.level)}
+                                        </Typography>
+                                    </Box>
+                                }
+                                variant="soft"
+                                placement="top"
+                                arrow
+                                sx={{ bgcolor: "rgba(15,23,42,0.97)", border: "1px solid rgba(245,158,11,0.35)" }}
+                            >
+                                <Box
+                                    sx={{
+                                        position: "relative",
+                                        flex: "0 0 auto",
+                                        width: 42,
+                                        height: 42,
+                                        borderRadius: 6,
+                                        border: "1px solid rgba(245,158,11,0.4)",
+                                        bgcolor: "rgba(245,158,11,0.08)",
+                                        display: "grid",
+                                        placeItems: "center",
+                                        overflow: "visible",
+                                        cursor: "help",
+                                    }}
+                                >
+                                    <Box
+                                        component="img"
+                                        src={images[AUGMENT_SIDEBAR_IMAGES[r.label]]}
+                                        alt={`${r.label} augment`}
+                                        sx={{ width: 36, height: 36, objectFit: "contain", borderRadius: 4 }}
+                                    />
+                                    <Box
+                                        component="span"
+                                        sx={{
+                                            position: "absolute",
+                                            right: -4,
+                                            bottom: -4,
+                                            minWidth: 16,
+                                            height: 13,
+                                            px: 0.25,
+                                            display: "grid",
+                                            placeItems: "center",
+                                            borderRadius: "3px",
+                                            bgcolor: "#3a2204",
+                                            border: `1px solid ${hocColors.orangeBorder}`,
+                                            color: hocColors.gold,
+                                            fontSize: "0.52rem",
+                                            fontWeight: 800,
+                                            lineHeight: 1,
+                                        }}
+                                    >
+                                        L{displayLevel}
+                                    </Box>
+                                </Box>
+                            </Tooltip>
+                        );
+                    })
                 )}
             </Stack>
             {synergies.length > 0 && (

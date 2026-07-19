@@ -755,7 +755,11 @@ const UnitStatsLayout: React.FC<{
                     negativeFrame={unitProperties.attack_multiplier < 1}
                 />
             </StatGroup>
-            {unitProperties.attack_type === AttackVals.RANGE && (
+            {(unitProperties.attack_type === AttackVals.RANGE ||
+                // Runtime shooter: a melee unit holding a stolen Endless Quiver gains shots
+                // (range_shots_mod) and a granted shot_distance — show its ranged stats too.
+                (unitProperties.shot_distance > 0 &&
+                    (unitProperties.range_shots_mod || unitProperties.range_shots) > 0)) && (
                 <StatGroup>
                     <StatItem
                         icon={<ShotRangeIcon />}

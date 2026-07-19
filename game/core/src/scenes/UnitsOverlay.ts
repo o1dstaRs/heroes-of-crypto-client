@@ -365,8 +365,11 @@ export class UnitsOverlay {
 
                 const chips = bucketCont.children as unknown as UnitChip[];
                 const n = chips.length;
-                const iconSide = cell * (this.levelBuckets[b].unitSize === 2 ? 1.05 : 0.9);
-                const spacing = Math.min(iconSide * 1.1, (colW * 0.85) / Math.max(1, n));
+                const baseSide = cell * (this.levelBuckets[b].unitSize === 2 ? 1.05 : 0.9);
+                const spacing = Math.min(baseSide * 1.1, (colW * 0.85) / Math.max(1, n));
+                // Crowded buckets (3+ large units per faction level, e.g. Chaos/Life/Might L4) shrink
+                // the chips to the spacing so they stay side by side and centered instead of overlapping.
+                const iconSide = Math.min(baseSide, spacing * 0.98);
                 const startX = colW * 0.5 - ((n - 1) * spacing) / 2;
 
                 for (let i = 0; i < n; i++) {

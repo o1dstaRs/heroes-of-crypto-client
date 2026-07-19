@@ -2,8 +2,10 @@
 <!doctype html>
 <html lang="en">
     <head>
-        <!-- Favicon -->
-        <link rel="icon" type="image/x-icon" href="../../images/favicon.ico" />
+        <!-- Favicon: served from vite's publicDir (game/core/public/favicon.ico). The old relative
+             ../../images/ path escaped the vite root (src/ui), so in dev the browser resolved it to
+             /images/favicon.ico — answered by the SPA fallback with HTML, never an icon. -->
+        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Play Heroes of Crypto</title>

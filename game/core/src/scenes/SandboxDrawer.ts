@@ -54,6 +54,9 @@ export interface IGameplayDrawContext {
     /** Fight-phase: reachable cells of the unit under the cursor, drawn as larger rings than the
      *  active unit's own path (currentActivePath) so the inspection overlay reads separately. */
     hoveredUnitMoveRange?: HoCMath.XY[];
+    // True when hoveredUnitMoveRange belongs to an ENEMY of the active unit — only then do the
+    // active unit's own move dots switch to the light-orange threat cue (allies aren't a threat).
+    hoveredUnitMoveRangeIsEnemy?: boolean;
     /**
      * Ranked play: true while the active unit belongs to the viewer's enemy. Tints the movement
      * highlight red and draws a glowing red border around the board to signal it is not your turn.
@@ -181,33 +184,68 @@ export class SandboxDrawer {
         // 2. Active path lights
         if (currentActivePath && currentActiveUnit && !sc_isAnimating) {
             const path = currentActivePath;
+            // While an ENEMY's yellow inspection overlay (2b) is up, the active unit's move cells that
+            // OVERLAP or sit ADJACENT to the enemy's reach flip to a vivid dark orange: "move here and
+            // you are inside their melee threat". Cells outside the enemy's reach keep the plain white
+            // dots, and hovering an ALLY changes nothing (no threat). The enemy-turn red always wins.
+            const enemyReachKeys =
+                !ctx.enemyTurnView && hoveredUnitMoveRange?.length && ctx.hoveredUnitMoveRangeIsEnemy
+                    ? new Set(hoveredUnitMoveRange.map((cell) => (cell.x << 4) | cell.y))
+                    : undefined;
+            const DANGER_COLOR = 0xff8c00;
             if (path.length > 0) {
                 for (let i = 0; i < path.length; i++) {
-                    const pos = GridMath.getPositionForCell(path[i], gs.getMinX(), gs.getStep(), gs.getHalfStep());
+                    const cell = path[i];
+                    let cellColor = movementColor;
+                    let danger = false;
+                    if (enemyReachKeys) {
+                        // Bounds-check the neighbor probe: the (x << 4) | y key packing has a 4-bit y
+                        // field, so an off-board y of 16 would overflow into x and alias a BOTTOM-row
+                        // key — top-row cells lit orange whenever the enemy could reach the bottom row.
+                        const gridSize = gs.getGridSize();
+                        for (let dx = -1; dx <= 1 && !danger; dx++) {
+                            for (let dy = -1; dy <= 1; dy++) {
+                                const nx = cell.x + dx;
+                                const ny = cell.y + dy;
+                                if (nx < 0 || ny < 0 || nx >= gridSize || ny >= gridSize) {
+                                    continue;
+                                }
+                                if (enemyReachKeys.has((nx << 4) | ny)) {
+                                    danger = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (danger) {
+                            cellColor = DANGER_COLOR;
+                        }
+                    }
+                    const pos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
                     const baseRadius = gs.getCellSize() * 0.12; // Reduced from 0.18 to 0.06 (Small dots)
                     const phase = hoverGlowPhase + i * 0.4;
                     const wave = (Math.sin(phase) + 1) / 2;
                     const innerRadius = baseRadius * (0.9 + 0.2 * wave);
                     const outerRadius = baseRadius * 1.8 * (0.9 + 0.25 * wave);
-                    const innerAlpha = 0.38 + 0.2 * wave;
-                    const outerAlpha = 0.08 + 0.06 * wave;
+                    // Danger dots render brighter (higher alpha) so the orange pops against the yellow.
+                    const innerAlpha = (danger ? 0.55 : 0.38) + (danger ? 0.25 : 0.2) * wave;
+                    const outerAlpha = (danger ? 0.14 : 0.08) + (danger ? 0.08 : 0.06) * wave;
                     g.circle(pos.x, pos.y, outerRadius).fill({
-                        color: movementColor,
+                        color: cellColor,
                         alpha: outerAlpha,
                     });
                     g.circle(pos.x, pos.y, innerRadius).fill({
-                        color: movementColor,
+                        color: cellColor,
                         alpha: innerAlpha,
                     });
                 }
             }
         }
 
-        // 2b. Hovered unit's movement range (inspection overlay). Drawn as LARGER cyan rings than the
-        //     active unit's white/red dots above, so hovering a unit to inspect its reach never visually
+        // 2b. Hovered unit's movement range (inspection overlay). Drawn as LARGER yellow rings than the
+        //     active unit's dots above, so hovering a unit to inspect its reach never visually
         //     merges with the active unit's own path even where the two ranges overlap.
         if (hoveredUnitMoveRange && hoveredUnitMoveRange.length > 0 && !sc_isAnimating) {
-            const HOVER_MOVE_COLOR = 0x66ccff;
+            const HOVER_MOVE_COLOR = 0xffd700;
             for (let i = 0; i < hoveredUnitMoveRange.length; i++) {
                 const pos = GridMath.getPositionForCell(
                     hoveredUnitMoveRange[i],

@@ -1,4 +1,14 @@
-import { Container, Sprite, Graphics, Text, TextStyle, Texture, Rectangle, BlurFilter } from "pixi.js";
+import {
+    Container,
+    Sprite,
+    Graphics,
+    Text,
+    TextStyle,
+    Texture,
+    Rectangle,
+    BlurFilter,
+    ColorMatrixFilter,
+} from "pixi.js";
 import {
     Unit,
     UnitProperties,
@@ -175,7 +185,10 @@ export class RenderableUnit extends Unit {
     private stackForcedHidden = false;
     private isActiveTurn = false;
     private isDestroyed = false;
-    private visualMode: "normal" | "hidden" | "ghost" = "normal";
+    private visualMode: "normal" | "hidden" | "ghost" | "revealed" = "normal";
+    // Grayscale filter for the "revealed" mode (ranked placement: opponent roster shown in B&W).
+    // Created lazily, reused for the unit's lifetime.
+    private desaturateFilter?: ColorMatrixFilter;
     // Uniform multiplier applied to the rendered sprite, shadow, badge and corner indicators.
     // 1 = normal one-cell board size. The placement bench renders unplaced units larger (>1) so
     // they read at "full size" while waiting to be deployed; placed/board units keep the default 1.
@@ -398,8 +411,22 @@ export class RenderableUnit extends Unit {
         // Units with the "Hidden" buff (e.g. White Tiger) are drawn semi-transparent as a cue.
         const isHidden = this.hasBuffActive("Hidden");
         const normalSpriteAlpha = isHidden ? 0.4 : 1;
-        this.sprite.alpha = this.visualMode === "ghost" ? 0.25 : normalSpriteAlpha;
+        this.sprite.alpha =
+            this.visualMode === "ghost" ? 0.25 : this.visualMode === "revealed" ? 0.9 : normalSpriteAlpha;
         this.sprite.tint = this.currentEffectTint();
+        // "Revealed" mode (ranked placement: the opponent's known roster) draws the sprite in black &
+        // white so it clearly reads as an enemy silhouette, not one of the viewer's own units.
+        if (this.visualMode === "revealed") {
+            if (!this.desaturateFilter) {
+                this.desaturateFilter = new ColorMatrixFilter();
+                this.desaturateFilter.desaturate();
+            }
+            if (this.sprite.filters?.[0] !== this.desaturateFilter) {
+                this.sprite.filters = this.desaturateFilter;
+            }
+        } else if (this.sprite.filters?.length) {
+            this.sprite.filters = null;
+        }
         if (!this.shadow) {
             this.shadow = new Sprite(baseTex);
             this.shadow.anchor.set(0.5);
@@ -569,6 +596,20 @@ export class RenderableUnit extends Unit {
             this.respondContainer.visible = !active && visible && this.shouldShowRespondTag();
         }
     }
+    /**
+     * "Revealed opponent" mode (ranked placement): the sprite is drawn in black & white and
+     * near-opaque — clearly present but clearly not the viewer's unit — and the team-colored flag
+     * badge stays visible with a "?" count (the roster is known, the stack size is not). The actual
+     * alpha/filter/badge application lives in ensureVisual/ensureBadge, which key off visualMode,
+     * so the look survives every subsequent sync pass.
+     */
+    public setVisualRevealed(active: boolean): void {
+        if (active) {
+            this.visualMode = "revealed";
+        } else if (this.visualMode === "revealed") {
+            this.visualMode = "normal";
+        }
+    }
     public applyMoveEffect(spawnPulsePhase: number): void {
         const sprite = this.sprite;
         if (!sprite) return;
@@ -615,10 +656,12 @@ export class RenderableUnit extends Unit {
             if (this.respondContainer) this.respondContainer.zIndex = baseZ + 2;
         }
 
-        // Active-turn "light waves" identify an aura source; units with no aura ranges (for example,
-        // Squire) must not look as though they project one. Suppress it during movement/attacks too.
-        const hasAuraRange = this.getAuraRanges().some((range) => range > 0);
-        if (this.isActiveTurn && !this.isDead() && !this.suppressActiveAura && hasAuraRange) {
+        // Active-turn "light waves" pulse: the SAME animated glow + radiating rings under EVERY
+        // active unit. Owner call (2026-07-18): do NOT gate or vary this per unit — gating it on aura
+        // ownership (5a20846) silently removed the turn cue for plain units, and a per-unit variant
+        // read as two different pulse animations. Aura REACH is telegraphed separately by the
+        // SandboxDrawer range rings. Suppressed while moving/attacking so the action reads clearly.
+        if (this.isActiveTurn && !this.isDead() && !this.suppressActiveAura) {
             this.updateActiveAura(worldRoot, gs, pos);
         } else if (this.activeAura) {
             this.activeAura.visible = false;
@@ -960,7 +1003,10 @@ export class RenderableUnit extends Unit {
         const flag = this.badgeFlag!;
         const text = this.badgeText!;
         const container = this.badgeContainer!;
-        const label = String(amount);
+        // Revealed opponents (ranked placement) carry a sanitized stack of 0 — the flag still shows,
+        // team-colored, with "?" standing in for the hidden stack size.
+        const isRevealed = this.visualMode === "revealed";
+        const label = isRevealed && amount <= 0 ? "?" : String(amount);
         const fs = Math.max(10, Math.floor(iconSide * 0.18));
         const flagHeight = Math.max(14, Math.floor(iconSide * 0.24));
         const flagWidth = Math.max(26, Math.floor(iconSide * 0.44), Math.ceil(label.length * fs * 0.62 + fs * 0.9));
@@ -1013,7 +1059,7 @@ export class RenderableUnit extends Unit {
         const offsetY = h * 0.5 - margin;
         container.x = pos.x + offsetX;
         container.y = pos.y + offsetY;
-        container.visible = amount > 0;
+        container.visible = amount > 0 || isRevealed;
     }
     private ensureHourglassIndicator(
         worldRoot: Container,

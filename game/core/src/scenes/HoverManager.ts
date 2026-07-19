@@ -1,7 +1,6 @@
 import { Sprite, Graphics, BlurFilter, Texture, Text } from "pixi.js";
 import {
     FightStateManager,
-    GridVals,
     IPlacement,
     Grid,
     PathHelper,
@@ -14,7 +13,6 @@ import {
     UnitProperties,
     GridMath,
     HoCLib,
-    UnitVals,
     GridConstants,
 } from "@heroesofcrypto/common";
 import { SceneSettings } from "./SceneSettings";
@@ -1273,7 +1271,6 @@ export class HoverManager {
 
         const draggingUnitTeam = this.context.getDraggingUnitTeam();
         const draggingUnitId = this.context.getDraggingUnitId();
-        const effectiveTeam = teamFromPlacement ?? draggingUnitTeam ?? selected.team ?? TeamVals.LOWER;
 
         // Placing a NEW unit (not repositioning a board unit) while the cursor sits on another unit:
         // a click here SELECTS that unit, it isn't a placement. So don't show any placement square
@@ -1324,53 +1321,11 @@ export class HoverManager {
             candidateCells = [cell];
         }
 
-        // --- 2. Draw Aura & Attack Range (ALWAYS, Visuals First) ---
-        // Verify we have a position to draw at
-        const possiblePosition = GridMath.getPositionForCells(gs, candidateCells);
-        if (possiblePosition) {
-            const gridType = FightStateManager.getInstance().getFightProperties().getGridType();
-            const skipPreStartGeom =
-                gridType === GridVals.LAVA_CENTER ||
-                gridType === GridVals.WATER_CENTER ||
-                gridType === GridVals.BLOCK_CENTER;
-
-            if (!skipPreStartGeom) {
-                const mockUnit = Unit.createUnit(
-                    selected,
-                    gs,
-                    effectiveTeam,
-                    UnitVals.CREATURE,
-                    this.context.abilityFactory,
-                    this.context.abilityFactory.getEffectsFactory(),
-                    false,
-                );
-                mockUnit.setPosition(possiblePosition.x, possiblePosition.y, false);
-
-                // Draw Aura
-                const auras = mockUnit.getAuraRanges();
-                const auraBuffs = mockUnit.getAuraIsBuff();
-                if (auras && auras.length > 0) {
-                    const center = possiblePosition;
-                    const bonus = fightProps.getAdditionalAuraRangePerTeam(effectiveTeam);
-                    for (let i = 0; i < auras.length; i++) {
-                        if (auras[i] > 0) {
-                            const range = (auras[i] + bonus) * gs.getStep();
-                            const isBuff = auraBuffs && i < auraBuffs.length ? auraBuffs[i] : true;
-                            this.drawAuraArea(center, range, isBuff, mockUnit.isSmallSize(), 0.7);
-                        }
-                    }
-                }
-
-                // Draw Attack Range
-                if (mockUnit.getAttackType() === 3 /* AttackVals.RANGE */ && !mockUnit.hasAbilityActive("Handyman")) {
-                    const dist = mockUnit.getRangeShotDistance();
-                    if (dist > 0) {
-                        const rangePixel = dist * gs.getStep();
-                        this.drawAttackRange(possiblePosition, rangePixel);
-                    }
-                }
-            }
-        }
+        // --- 2. (Removed) Aura & attack-range preview for the unplaced selection ---
+        // Selecting a unit for placement (sandbox UnitsOverlay / ranked bench) used to project its
+        // aura square + range circle at the candidate drop cell via a mock unit. Range visuals are
+        // now reserved for units actually PLACED on the board (hovered/selected board units); the
+        // cursor-following placement preview shows only the silhouette + placement square.
 
         // --- 3. Validation & Interaction Highlight ---
 

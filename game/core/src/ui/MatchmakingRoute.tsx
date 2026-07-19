@@ -15,14 +15,7 @@ import { useNavigate, useSearchParams } from "react-router";
 
 import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
 import { createVsAiGame } from "../api/vs_ai_client";
-import {
-    DEFAULT_VS_AI_DIFFICULTY,
-    markVsAiGame,
-    parseVsAiDifficulty,
-    VS_AI_DIFFICULTIES,
-    VS_AI_DIFFICULTY_VERSIONS,
-    type VsAiDifficulty,
-} from "../utils/aiOpponent";
+import { markVsAiGame } from "../utils/aiOpponent";
 import { useAuthContext } from "./auth/context/auth_context";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
@@ -97,11 +90,8 @@ export const MatchmakingRoute: React.FC = () => {
     const needsActivation = user?.is_active === false;
     const accountEmail = user?.email ?? "";
     const vsAiRequested = searchParams.get("mode") === "vs-ai";
-    // AI difficulty tier for "Play vs AI" (default Normal). A ?difficulty= deep-link param seeds the
-    // selector so /play?mode=vs-ai&difficulty=brutal starts the requested tier.
-    const [aiDifficulty, setAiDifficulty] = useState<VsAiDifficulty>(
-        () => parseVsAiDifficulty(searchParams.get("difficulty")) ?? DEFAULT_VS_AI_DIFFICULTY,
-    );
+    // "Play vs AI" always uses the default AI (server's DEFAULT_AI_VERSION, tier-less seat) — no
+    // difficulty picker. createVsAiGame() with no tier makes the server pick the default opponent.
 
     const closeStream = useCallback(() => {
         streamRef.current?.close();
@@ -275,14 +265,14 @@ export const MatchmakingRoute: React.FC = () => {
         setState("starting-ai");
         closeStream();
         try {
-            const game = await createVsAiGame(aiDifficulty);
+            const game = await createVsAiGame();
             const gameId = game.id;
             if (!gameId) {
                 throw new Error("AI match response was incomplete");
             }
-            // Remember the game is vs the bot (and at which tier) so the pick phase — which never sees
-            // the opponent's playerId — can label the opponent as the AI at the chosen difficulty.
-            markVsAiGame(gameId, aiDifficulty);
+            // Remember the game is vs the bot so the pick phase — which never sees the opponent's
+            // playerId — can label the opponent as the AI (version-only, tier-less default seat).
+            markVsAiGame(gameId);
             navigate(`/game/${gameId}`);
         } catch (err) {
             try {
@@ -311,7 +301,7 @@ export const MatchmakingRoute: React.FC = () => {
         } finally {
             aiStartInFlightRef.current = false;
         }
-    }, [aiDifficulty, closeStream, getCurrentGame, navigate, needsActivation, openStream]);
+    }, [closeStream, getCurrentGame, navigate, needsActivation, openStream]);
 
     // A /play?mode=vs-ai deep link starts the AI match on arrival (optionally at ?difficulty=<tier>).
     // Consume the params before starting so browser Back or a remount cannot unintentionally create
@@ -911,39 +901,6 @@ export const MatchmakingRoute: React.FC = () => {
                                         Enter the code from the email to activate your account, then reload this page.
                                     </Typography>
                                 </>
-                            )}
-
-                            {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") && (
-                                <Box sx={{ textAlign: "left" }}>
-                                    <Typography level="body-xs" sx={{ color: hocColors.muted, mb: 0.75 }}>
-                                        AI opponent · {VS_AI_DIFFICULTY_VERSIONS[aiDifficulty]}
-                                        {aiDifficulty === "brutal" ? " + search" : ""}
-                                    </Typography>
-                                    <Stack direction="row" spacing={0.5} role="radiogroup" aria-label="AI difficulty">
-                                        {VS_AI_DIFFICULTIES.map((difficulty) => {
-                                            const selected = difficulty === aiDifficulty;
-                                            return (
-                                                <Button
-                                                    key={difficulty}
-                                                    size="sm"
-                                                    variant={selected ? "solid" : "soft"}
-                                                    role="radio"
-                                                    aria-checked={selected}
-                                                    disabled={state === "starting-ai"}
-                                                    onClick={() => setAiDifficulty(difficulty)}
-                                                    sx={{
-                                                        ...(selected ? hocPrimaryButtonSx : hocSoftButtonSx),
-                                                        flex: 1,
-                                                        minWidth: 0,
-                                                        textTransform: "capitalize",
-                                                    }}
-                                                >
-                                                    {difficulty}
-                                                </Button>
-                                            );
-                                        })}
-                                    </Stack>
-                                </Box>
                             )}
 
                             {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (

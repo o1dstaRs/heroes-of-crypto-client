@@ -132,6 +132,12 @@ export interface SandboxSceneState {
 interface MountainEdgeTarget {
     visualPosition: HoCMath.XY;
     actionPosition: HoCMath.XY;
+    // Attack-from selection anchor: pushed OUTWARD past the cell boundary along the edge's direction.
+    // The boundary point itself (visualPosition) is ambiguous for corners — a grid vertex is exactly
+    // equidistant from the diagonal cell and both orthogonal neighbours, so "closest reachable cell"
+    // degenerated to map-iteration-order tie-breaks (only some corners resolved to the diagonal cell,
+    // depending on approach direction). The outward anchor makes the intended cell strictly closest.
+    selectPosition: HoCMath.XY;
     cell: HoCMath.XY;
 }
 
@@ -242,6 +248,7 @@ export class Sandbox extends PixiScene {
     // active unit's own path so the two overlays read separately. Recomputed on each hover (hover() is
     // event-driven — mouse-move / selection — not per-frame), so it always reflects the live board.
     private sc_hoveredMoveRange?: HoCMath.XY[];
+    private sc_hoveredMoveRangeIsEnemy = false;
     private sc_lastCalcRef?: { unitId: string; x: number; y: number; steps: number; layoutVersion: number };
     private layoutVersion = 0; // Tracks board topology changes during placement
     private atmosphereAlpha = 0; // [NEW] Transition alpha for night/lights
@@ -276,6 +283,8 @@ export class Sandbox extends PixiScene {
     private spellHoverInfoKey = "";
     private drawnNarrowingLaps: Set<number> = new Set();
     // Debug: render the cell grid once (helps verify attack trajectories / cell alignment).
+    /** Debug cell-grid overlay master switch — off for now; flip to true to draw the grid again. */
+    private static readonly DRAW_DEBUG_GRID = false;
     private gridDebugRendered = false;
     // Spellbook
     private spellBookContainer: Container;
@@ -659,6 +668,44 @@ export class Sandbox extends PixiScene {
                 lowerStartTotal: this.sc_visibleState?.fightStats?.lowerStartTotal,
                 upperStartTotal: this.sc_visibleState?.fightStats?.upperStartTotal,
             });
+            // Diagnostic for the mountain-attack pipeline: hover the rock where the attack SHOULD be
+            // offered, then run window.__hocObstacleProbe() in the console. Dumps every stage — aim
+            // target, stationary preference, picked attack-from, route availability — so a "click does
+            // nothing" repro turns into data instead of guesswork.
+            (w as { __hocObstacleProbe?: () => Record<string, unknown> }).__hocObstacleProbe = () => {
+                const unit = this.currentActiveUnit;
+                const mouse = this.sc_mouseWorld;
+                if (!unit || !mouse) {
+                    return { error: "no active unit or mouse position" };
+                }
+                const gsProbe = this.sc_sceneSettings.getGridSettings();
+                const centerCells = this.grid.getCenterCells();
+                const target = this.getMountainEdgeTarget(mouse, centerCells);
+                const stationary = target
+                    ? this.preferStationaryObstacleCell(unit, centerCells, target.actionPosition)
+                    : undefined;
+                const picked = target ? this.findObstacleAttackFromCell(centerCells, target.selectPosition) : undefined;
+                const attackFrom = stationary ?? picked;
+                const routes = attackFrom
+                    ? this.currentActiveKnownPaths?.get((attackFrom.x << 4) | attackFrom.y)
+                    : undefined;
+                return {
+                    unit: `${unit.getName()} ${unit.isSmallSize() ? "1x1" : "2x2"}`,
+                    unitPosition: { ...unit.getPosition() },
+                    unitCell: GridMath.getCellForPosition(gsProbe, unit.getPosition()),
+                    mouseCell: GridMath.getCellForPosition(gsProbe, mouse),
+                    aimTarget: target
+                        ? { cell: target.cell, visual: target.visualPosition, select: target.selectPosition }
+                        : null,
+                    stationaryCell: stationary ?? null,
+                    pickedAttackFrom: picked ?? null,
+                    chosenAttackFrom: attackFrom ?? null,
+                    routeToChosen: routes?.[0]?.route ?? null,
+                    knownPathsSize: this.currentActiveKnownPaths?.size ?? 0,
+                    hoverAttackFromCell: this.hoverManager.hoverAttackFromCell ?? null,
+                    hoverInfo: [...this.sc_hoverInfoArr],
+                };
+            };
         }
     }
     protected updateVisibleTurnTimer(): void {
@@ -689,6 +736,12 @@ export class Sandbox extends PixiScene {
     }
     protected setLocalModelTeamOverride(team: TeamType | undefined): void {
         this.aiController.setLocalModelTeamOverride(team);
+    }
+    /** The team the local player is viewing as, or undefined when there is no single viewer (local
+     *  sandbox / spectator). Ranked overrides this so hover previews respect concealment (Hidden units)
+     *  from the opponent's perspective. */
+    protected getViewerTeam(): TeamType | undefined {
+        return undefined;
     }
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return this.sc_gameActionTransport ? undefined : this.unitsOverlay;
@@ -1288,17 +1341,19 @@ export class Sandbox extends PixiScene {
         });
     }
     /**
-     * Render a revealed opponent unit as a ghost at a fixed spot in the opponent placement area.
-     * Unlike bench units these are non-interactive and never occupy grid cells — they only show
-     * the viewer *which* enemy units exist, never their real (hidden) positions.
+     * Render a revealed opponent unit at a fixed spot in the opponent placement area: black & white
+     * (clearly not the viewer's unit) with its team-colored flag showing a "?" stack count. Unlike
+     * bench units these are non-interactive and never occupy grid cells — they only show the viewer
+     * *which* enemy units exist, never their real (hidden) positions or stack sizes.
      */
     private renderRevealedOpponentUnit(unit: RenderableUnit, position: HoCMath.XY): void {
         const gs = this.sc_sceneSettings.getGridSettings();
         const worldRoot = this.drawer.getUnitsContainer();
+        // Set the mode BEFORE the visual passes so the very first rendered frame is already B&W.
+        unit.setVisualRevealed(true);
         unit.setPosition(position.x, position.y);
         unit.ensureVisual(worldRoot, gs);
         unit.syncVisual(worldRoot, gs);
-        unit.setVisualGhost(true);
     }
     private getBenchUnitAtPosition(worldPos: HoCMath.XY): Unit | undefined {
         const hitEntries = Array.from(this.placementBenchHitBoxes.entries()).reverse();
@@ -4622,7 +4677,12 @@ export class Sandbox extends PixiScene {
                     !targetUnit.hasBuffActive("Hidden") &&
                     // Cowardice bars striking a stronger (more cumulative HP) stack — don't arm the click-to-attack
                     // for it either, so the click falls through to a move instead of a strike the engine rejects.
-                    !this.isCowardiceBlockedTarget(targetUnit)
+                    !this.isCowardiceBlockedTarget(targetUnit) &&
+                    // Only targets the engine deems melee-attackable — mirrors the hover gate. Without it,
+                    // calculateClosestAttackFrom can return the unit's own standing cell for a far-away
+                    // enemy (valid "in place" spot vs some OTHER adjacent enemy) and the click arms a
+                    // melee strike the engine would reject (the Arachna Queen phantom-range bug).
+                    this.canAttackByMeleeTargets.unitIds.has(targetUnit.getId())
                 ) {
                     const attackFrom = this.pathHelper.calculateClosestAttackFrom(
                         p,
@@ -5266,11 +5326,36 @@ export class Sandbox extends PixiScene {
         if (attackFromCell && !this.canMeleeAttackObstacleFromCell(attackFromCell, centerCells, unit)) {
             attackFromCell = undefined;
         }
+        // A hover-computed attack-from can be stale (board changed since the hover frame). If its
+        // landing footprint is no longer occupiable, drop it and let the guarded picker below choose
+        // a fresh cell instead of dying downstream with the engine's move_blocked.
+        if (attackFromCell) {
+            const unitCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), unit.getPosition());
+            const stationary = !!unitCell && unitCell.x === attackFromCell.x && unitCell.y === attackFromCell.y;
+            if (!stationary) {
+                const footprint = unit.isSmallSize()
+                    ? [attackFromCell]
+                    : this.getLargeUnitObstacleFootprint(attackFromCell);
+                if (
+                    !footprint ||
+                    !(
+                        this.grid.areAllCellsEmpty(footprint, unit.getId()) ||
+                        this.grid.canOccupyCells(
+                            footprint,
+                            unit.hasAbilityActive("Made of Fire"),
+                            unit.hasAbilityActive("Made of Water"),
+                        )
+                    )
+                ) {
+                    attackFromCell = undefined;
+                }
+            }
+        }
         if (!canLandRangeHit && unit.getAttackTypeSelection() === AttackVals.MAGIC) {
             return false;
         }
         if (!canLandRangeHit && !attackFromCell) {
-            attackFromCell = this.findObstacleAttackFromCell(centerCells, mountainTarget.visualPosition);
+            attackFromCell = this.findObstacleAttackFromCell(centerCells, mountainTarget.selectPosition);
             if (!attackFromCell) {
                 return false;
             }
@@ -5565,40 +5650,46 @@ export class Sandbox extends PixiScene {
         }
     }
     /**
-     * Stationary obstacle strike: when the (small) active unit already stands on a cell adjacent to the
-     * targeted mountain cell, that cell IS the attack-from — no move. Without this the attack-from
-     * resolves to whichever exposed edge is nearest the cursor, which can force a needless (and
-     * sometimes move_blocked) one-cell step, e.g. a Pikeman beside the rock routed into a blocked
-     * corridor square so the strike never lands. Small units only; large units keep the reach logic.
+     * Stationary obstacle strike: when the active unit already stands adjacent to the targeted
+     * mountain, its own cell (anchor cell for a 2x2) IS the attack-from — no move. Without this the
+     * attack-from resolves to whichever exposed edge is nearest the cursor, which can force a
+     * needless (and sometimes blocked) one-cell step, e.g. a Pikeman beside the rock routed into a
+     * blocked corridor square so the strike never lands. Applies to BOTH sizes: a 2x2 touching the
+     * rock corner-to-corner (45°) used to be excluded ("large units keep the reach logic"), so the
+     * picker walked it to an edge-on anchor — or failed outright when those anchors were blocked —
+     * even though the engine happily accepts the diagonal strike in place.
      */
     private preferStationaryObstacleCell(
         unit: RenderableUnit,
         centerCells: HoCMath.XY[],
         targetActionPosition: HoCMath.XY,
     ): HoCMath.XY | undefined {
-        if (!unit.isSmallSize()) {
-            return undefined;
-        }
         const gs = this.sc_sceneSettings.getGridSettings();
         const targetCell = GridMath.getCellForPosition(gs, targetActionPosition);
+        // For a 2x2 the body center sits on the footprint's shared vertex, which resolves to the
+        // ANCHOR (max-corner) cell — the same convention knownPaths and the engine use.
         const standCell = GridMath.getCellForPosition(gs, unit.getPosition());
         if (!targetCell || !standCell || !this.canMeleeAttackObstacleFromCell(standCell, centerCells, unit)) {
             return undefined;
         }
-        // Strike in place if the unit already stands adjacent — INCLUDING diagonally (corner cells) — to
-        // the SAME mountain the cursor targets. Chebyshev <= 1 to any of that mountain's cells, not just
-        // the single hovered cell: from a corner the hovered cell can be 2 away while another cell of the
-        // same 2x2 is diagonally adjacent, so the old exact-cell check refused a legal corner strike even
-        // though the unit could stand there. The two mountains are split along X (world-X), so "same
-        // mountain" = cells on the target's side of the mid line — this keeps a unit hugging one mountain
-        // from stationary-striking the other.
+        // Strike in place if the unit's FOOTPRINT already touches — INCLUDING diagonally (corner
+        // cells) — the SAME mountain the cursor targets. Chebyshev <= 1 from any footprint cell to
+        // any of that mountain's cells, not just the single hovered cell: from a corner the hovered
+        // cell can be 2 away while another cell of the same 2x2 rock is diagonally adjacent. The two
+        // mountains are split along X (world-X), so "same mountain" = cells on the target's side of
+        // the mid line — this keeps a unit hugging one mountain from stationary-striking the other.
+        const footprint = unit.isSmallSize()
+            ? [standCell]
+            : (this.getLargeUnitObstacleFootprint(standCell) ?? [standCell]);
         const mid = gs.getGridSize() >> 1;
         const targetOnRight = targetCell.x >= mid;
         const adjacentToTargetMountain = centerCells.some(
             (cell) =>
                 cell.x >= mid === targetOnRight &&
-                Math.abs(standCell.x - cell.x) <= 1 &&
-                Math.abs(standCell.y - cell.y) <= 1,
+                footprint.some(
+                    (footprintCell) =>
+                        Math.abs(footprintCell.x - cell.x) <= 1 && Math.abs(footprintCell.y - cell.y) <= 1,
+                ),
         );
         return adjacentToTargetMountain ? standCell : undefined;
     }
@@ -5622,6 +5713,27 @@ export class Sandbox extends PixiScene {
             const key = (cell.x << 4) | cell.y;
             if (seen.has(key) || !this.canMeleeAttackObstacleFromCell(cell, centerCells, unit)) {
                 return;
+            }
+            // Guard against a stale route map: the landing footprint must still be occupiable RIGHT
+            // NOW — currentActiveKnownPaths can lag the board (e.g. mid-turn continue-moves), and
+            // offering a since-taken cell makes the click die downstream with the engine's
+            // move_blocked ("failed to move to target footprint"). The unit's own cell always passes.
+            const stationary = currentCell !== undefined && currentCell.x === cell.x && currentCell.y === cell.y;
+            if (!stationary) {
+                const footprint = unit.isSmallSize() ? [cell] : this.getLargeUnitObstacleFootprint(cell);
+                if (
+                    !footprint ||
+                    !(
+                        this.grid.areAllCellsEmpty(footprint, unit.getId()) ||
+                        this.grid.canOccupyCells(
+                            footprint,
+                            unit.hasAbilityActive("Made of Fire"),
+                            unit.hasAbilityActive("Made of Water"),
+                        )
+                    )
+                ) {
+                    return;
+                }
             }
             seen.add(key);
             candidates.push(cell);
@@ -5740,13 +5852,29 @@ export class Sandbox extends PixiScene {
 
         const halfStep = gs.getHalfStep();
         const insideOffset = Math.min(halfStep * 0.25, Math.max(1, gs.getStep() * 0.01));
+        // How far past the cell boundary the attack-from selection anchor sits (see MountainEdgeTarget).
+        // 1.5 half-steps out makes the intended cell strictly closest for FACE aims. CORNER aims use
+        // 2.5: the attack-from picker measures a LARGE unit's distance from its FOOTPRINT CENTER, and
+        // at 1.5 the edge-on anchors (~0.79 steps) beat the true 45° corner anchor (~1.06) — a 2x2
+        // aiming at the corner was walked to an edge instead. The inequalities pin the window: large
+        // needs > 2 half-steps for the 45° anchor to win strictly, small needs < 3 or the anchor
+        // drifts into a tie with the NEXT diagonal cell over at corridor corners (legal via the other
+        // mountain). 2.5 satisfies both strictly for every corner of both mountains.
+        const faceSelectOffset = halfStep * 1.5;
+        const cornerSelectOffset = halfStep * 2.5;
         const candidates: MountainEdgeTarget[] = [];
 
-        const addCandidate = (cell: HoCMath.XY, visualPosition: HoCMath.XY, actionPosition: HoCMath.XY): void => {
+        const addCandidate = (
+            cell: HoCMath.XY,
+            visualPosition: HoCMath.XY,
+            actionPosition: HoCMath.XY,
+            selectPosition: HoCMath.XY,
+        ): void => {
             candidates.push({
                 cell: { ...cell },
                 visualPosition: { ...visualPosition },
                 actionPosition: { ...actionPosition },
+                selectPosition: { ...selectPosition },
             });
         };
 
@@ -5764,6 +5892,18 @@ export class Sandbox extends PixiScene {
             { dx: 0, dy: 1 },
             { dx: 0, dy: -1 },
         ];
+        // Exposed CORNERS are candidates too — parity with unit-vs-unit melee, where the cursor can aim
+        // the attack at the target's corner and strike from the DIAGONAL cell. Faces alone meant the
+        // attack-from picker (closest reachable cell to the aimed edge) could never resolve to a diagonal
+        // cell, so "attack the mountain from a corner position" was impossible in the UI even though the
+        // engine and server fully accept it. A corner is exposed when its diagonal neighbour AND both
+        // flanking orthogonal neighbours are not mountain cells (inner/shared corners are skipped).
+        const corners = [
+            { dx: 1, dy: 1 },
+            { dx: 1, dy: -1 },
+            { dx: -1, dy: 1 },
+            { dx: -1, dy: -1 },
+        ];
         for (const mountainCell of centerCells) {
             const center = GridMath.getPositionForCell(mountainCell, gs.getMinX(), gs.getStep(), halfStep);
             for (const face of faces) {
@@ -5778,6 +5918,28 @@ export class Sandbox extends PixiScene {
                         x: center.x + face.dx * (halfStep - insideOffset),
                         y: center.y + face.dy * (halfStep - insideOffset),
                     },
+                    { x: center.x + face.dx * faceSelectOffset, y: center.y + face.dy * faceSelectOffset },
+                );
+            }
+            for (const corner of corners) {
+                const diagonal = { x: mountainCell.x + corner.dx, y: mountainCell.y + corner.dy };
+                const flankX = { x: mountainCell.x + corner.dx, y: mountainCell.y };
+                const flankY = { x: mountainCell.x, y: mountainCell.y + corner.dy };
+                if (
+                    centerSet.has((diagonal.x << 4) | diagonal.y) ||
+                    centerSet.has((flankX.x << 4) | flankX.y) ||
+                    centerSet.has((flankY.x << 4) | flankY.y)
+                ) {
+                    continue; // corner buried in (or flanked by) the mountain itself — not exposed
+                }
+                addCandidate(
+                    mountainCell,
+                    { x: center.x + corner.dx * halfStep, y: center.y + corner.dy * halfStep },
+                    {
+                        x: center.x + corner.dx * (halfStep - insideOffset),
+                        y: center.y + corner.dy * (halfStep - insideOffset),
+                    },
+                    { x: center.x + corner.dx * cornerSelectOffset, y: center.y + corner.dy * cornerSelectOffset },
                 );
             }
         }
@@ -5836,6 +5998,7 @@ export class Sandbox extends PixiScene {
             cell: { ...closest.cell },
             visualPosition: { ...closest.visualPosition },
             actionPosition: { ...closest.actionPosition },
+            selectPosition: { ...closest.selectPosition },
         };
     }
     /**
@@ -5944,7 +6107,7 @@ export class Sandbox extends PixiScene {
         }
         const attackFromCell =
             this.preferStationaryObstacleCell(unit, centerCells, mountainTarget.actionPosition) ??
-            this.findObstacleAttackFromCell(centerCells, mountainTarget.visualPosition);
+            this.findObstacleAttackFromCell(centerCells, mountainTarget.selectPosition);
         if (!attackFromCell) {
             return notHovering();
         }
@@ -6782,7 +6945,7 @@ export class Sandbox extends PixiScene {
                             fsPos,
                             attackerFireShield,
                             dir,
-                            pureDamage > 0 ? 0 : stackLost,
+                            pureDamage > 0 ? 0 : lossesNotAbsorbed,
                             "#ffb13c",
                             "#7a3800",
                         );
@@ -7377,12 +7540,22 @@ export class Sandbox extends PixiScene {
         this.sc_hoveredAuraRanges = undefined;
         this.sc_hoveredShotRange = undefined;
         this.sc_hoveredMoveRange = undefined;
+        this.sc_hoveredMoveRangeIsEnemy = false;
 
         // Always calculate hovered unit visuals (unless moving active unit)
         if (this.sc_mouseWorld && !this.isActiveUnitMoving) {
             const hoverTargetUnit = this.getUnitAtPosition(this.sc_mouseWorld);
-            // A Hidden unit is concealed — never reveal its move/attack/aura ranges on hover.
-            if (hoverTargetUnit && !hoverTargetUnit.isDead() && !hoverTargetUnit.hasBuffActive("Hidden")) {
+            // A Hidden unit (e.g. Tiger) is concealed FROM THE OPPONENT: you can still hover your own
+            // Hidden units to see their move/attack/aura ranges, but an enemy Hidden unit reveals nothing.
+            // The viewer's team is known in ranked (getViewerTeam); in the local sandbox it is undefined,
+            // so nothing is concealed there (you control/observe both sides).
+            const viewerTeam = this.getViewerTeam();
+            const concealedFromViewer =
+                !!hoverTargetUnit &&
+                hoverTargetUnit.hasBuffActive("Hidden") &&
+                viewerTeam !== undefined &&
+                hoverTargetUnit.getTeam() !== viewerTeam;
+            if (hoverTargetUnit && !hoverTargetUnit.isDead() && !concealedFromViewer) {
                 // Aura: visualize the hovered unit's aura range. Routed through sc_hoveredAuraRanges so
                 // SandboxDrawer paints it on the same persistent layer (z=55) as the active/selected
                 // unit's aura. The old hoverManager.drawAuraArea layer (z=51) gets wiped mid-frame by the
@@ -7462,6 +7635,12 @@ export class Sandbox extends PixiScene {
                         hoverTargetUnit.canTraverseLava(),
                     );
                     this.sc_hoveredMoveRange = movePath.cells;
+                    // Whether the hovered unit is an ENEMY of the active unit. Drives the active path's
+                    // white -> light-orange switch: an enemy's reach overlapping your cells is a threat
+                    // cue; an ally's is not, so hovering your own units keeps the plain white dots.
+                    this.sc_hoveredMoveRangeIsEnemy =
+                        this.currentActiveUnit !== undefined &&
+                        hoverTargetUnit.getTeam() !== this.currentActiveUnit.getTeam();
                 }
             }
         }
@@ -7674,6 +7853,14 @@ export class Sandbox extends PixiScene {
                     // Check if mouse cell is actually part of the target unit (for precise targeting)
                     const isMouseInsideUnit = targetUnit.getCells().some((c) => c.x === cell.x && c.y === cell.y);
 
+                    // The engine only allows a melee strike on targets in canAttackByMeleeTargets.unitIds
+                    // (computed in updateCurrentMovePath). Without this gate, calculateClosestAttackFrom
+                    // could still return the active unit's own standing cell for a FAR-AWAY hovered enemy
+                    // (its own cell qualifies as an "attack in place" spot while it stands adjacent to some
+                    // OTHER enemy), painting a full attack preview — arrow from the unit + damage — that
+                    // reads as a ranged shot (the melee Arachna Queen phantom-range bug).
+                    const isMeleeAttackableTarget = this.canAttackByMeleeTargets.unitIds.has(targetUnit.getId());
+
                     const isRangedUnit = this.currentActiveUnit.getAttackTypeSelection() === AttackVals.RANGE;
                     const canStaticRangeAttack = this.canAttackByRangeTargets?.has(targetUnit.getId());
                     let isRangeAttackContext = false;
@@ -7758,7 +7945,7 @@ export class Sandbox extends PixiScene {
                         }
                     }
 
-                    if (!skipMeleeCheck && isMouseInsideUnit) {
+                    if (!skipMeleeCheck && isMouseInsideUnit && isMeleeAttackableTarget) {
                         attackFrom = this.pathHelper.calculateClosestAttackFrom(
                             this.sc_mouseWorld,
                             this.canAttackByMeleeTargets.attackCells,
@@ -7773,7 +7960,7 @@ export class Sandbox extends PixiScene {
                     }
 
                     // Fallback: Melee if not found
-                    if (!attackFrom && !skipMeleeCheck) {
+                    if (!attackFrom && !skipMeleeCheck && isMeleeAttackableTarget) {
                         attackFrom = this.pathHelper.calculateClosestAttackFrom(
                             this.sc_mouseWorld,
                             this.canAttackByMeleeTargets.attackCells,
@@ -8692,8 +8879,9 @@ export class Sandbox extends PixiScene {
             this.aiController.triggerAIAction(1500);
         }
 
-        // Debug grid overlay: draw the cell grid once so attack trajectories / cell coverage are visible.
-        if (!this.gridDebugRendered) {
+        // Debug grid overlay: draw the cell grid once so attack trajectories / cell coverage are
+        // visible. Disabled for now (owner call, 2026-07-18) — flip DRAW_DEBUG_GRID to bring it back.
+        if (Sandbox.DRAW_DEBUG_GRID && !this.gridDebugRendered) {
             this.drawer.drawGrid();
             this.gridDebugRendered = true;
         }
@@ -8971,6 +9159,7 @@ export class Sandbox extends PixiScene {
             // only when a unit happened to be selected at ready-up). Never render it during the fight.
             hoveredMoveRange: fightProps.hasFightStarted() ? undefined : this.sc_placementMoveRange,
             hoveredUnitMoveRange: this.sc_hoveredMoveRange,
+            hoveredUnitMoveRangeIsEnemy: this.sc_hoveredMoveRangeIsEnemy,
             enemyTurnView: this.isEnemyActiveTurn(),
         });
     }
@@ -9585,6 +9774,19 @@ export class Sandbox extends PixiScene {
             this.hoverManager.clearAttackVisuals();
             this.hoverManager.hoverAttackFromCell = undefined;
             this.hoverRangeAttackObstacle = undefined;
+            // The BOARD SELECTION follows the turn too: leaving the previous unit selected kept its
+            // sidebar panel open and its aura/attack-range inspection rings painted through the whole
+            // next turn (drawGameplayVisuals draws them for any selected non-active unit). Selecting
+            // the new active unit matches the sidebar hand-off below; inspection-only, so no drag /
+            // placement state is armed.
+            if (this.selectedBoardUnit && this.selectedBoardUnit !== nextUnit) {
+                this.selectedBoardUnit.setBoardSelected(false);
+            }
+            this.selectedBoardUnit = nextUnit;
+            this.hasActiveSelection = false;
+            this.selectionFromOverlay = false;
+            this.draggingUnitId = undefined;
+            this.draggingUnitTeam = undefined;
         }
 
         if (this.currentActiveUnit) {

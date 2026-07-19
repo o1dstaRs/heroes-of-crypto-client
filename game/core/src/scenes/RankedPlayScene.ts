@@ -433,6 +433,11 @@ export class RankedPlayScene extends Sandbox {
     // roster is accumulated across snapshots (see mergeRankedRoster).
     private readonly rankedStatsCountedUnitIds = new Set<string>();
     private viewerTeam?: TeamType;
+    /** Hover concealment (Hidden units) is from the viewer's perspective: own Hidden units still preview,
+     *  the opponent's do not. */
+    protected override getViewerTeam(): TeamType | undefined {
+        return this.viewerTeam;
+    }
     private upNextUnitIds?: string[];
     // Per-unit sets of currently-active debuff / buff names, tracked across snapshots so we can pop a
     // "nice" icon + name animation the moment a new one lands (e.g. Beholder's Spit Ball, or a buff
@@ -1027,9 +1032,12 @@ export class RankedPlayScene extends Sandbox {
     }
     /**
      * During placement the opponent's placement zone is never drawn (see getPlacementDrawTeam). Instead,
-     * lay the opponent's revealed roster out in a single horizontal LINE across the top of the board (their
-     * side), evenly spaced so each unit gets its own spot and none overlap. These are synthetic display
-     * positions — the opponent's real placement cells stay hidden until the fight starts.
+     * lay the opponent's revealed roster out in a centered horizontal row INSIDE the footprint of their
+     * placement zone, so the units sit where the opponent's army will actually deploy. The zone geometry
+     * comes from the client-side PlacementManager, which during ranked placement always holds the
+     * opponent's BASELINE (LEVEL_1) zone — their real Placement augment is sanitized to 0 by the server
+     * until fight start. These are synthetic display positions — the opponent's real placement cells
+     * stay hidden until the fight starts.
      */
     protected override getRevealedOpponentUnitPositions(units: SandboxSceneUnitState[]): Map<string, HoCMath.XY> {
         const positions = new Map<string, HoCMath.XY>();
@@ -1045,18 +1053,51 @@ export class RankedPlayScene extends Sandbox {
             return positions;
         }
 
-        // Spread the roster in one horizontal line across the board width, on the opponent's edge (top of the
-        // board for a LOWER viewer, bottom for an UPPER viewer). (index + 0.5)/total centers each unit in its
-        // own equal-width slot with a half-slot margin from both edges, so end units don't overflow.
         const gs = this.sc_sceneSettings.getGridSettings();
-        const minX = gs.getMinX();
-        const maxX = gs.getMaxX();
-        const isLowerViewer = this.viewerTeam === TeamVals.LOWER;
-        const lineY = isLowerViewer ? gs.getMaxY() : gs.getMinY();
         const total = revealedUnits.length;
+
+        // Bound the opponent zone from its possible cell centers (covers both the single RECTANGLE zone
+        // and the two-square corner layout, whichever the fight uses).
+        const cellCenters: HoCMath.XY[] = [];
+        for (const placementIndex of [0, 1]) {
+            const placement = this.placementManager.getPlacement(opponentTeam, placementIndex);
+            if (placement) {
+                cellCenters.push(...placement.possibleCellPositions(true));
+            }
+        }
+        if (!cellCenters.length) {
+            // No zone geometry yet (shouldn't happen in ranked) — fall back to a line on the opponent's edge.
+            const lineY = this.viewerTeam === TeamVals.LOWER ? gs.getMaxY() : gs.getMinY();
+            revealedUnits.forEach((unit, index) => {
+                const fraction = (index + 0.5) / total;
+                positions.set(unit.properties.id, {
+                    x: gs.getMinX() + (gs.getMaxX() - gs.getMinX()) * fraction,
+                    y: lineY,
+                });
+            });
+            return positions;
+        }
+
+        let zoneMinX = Infinity;
+        let zoneMaxX = -Infinity;
+        let zoneMinY = Infinity;
+        let zoneMaxY = -Infinity;
+        for (const center of cellCenters) {
+            zoneMinX = Math.min(zoneMinX, center.x);
+            zoneMaxX = Math.max(zoneMaxX, center.x);
+            zoneMinY = Math.min(zoneMinY, center.y);
+            zoneMaxY = Math.max(zoneMaxY, center.y);
+        }
+
+        // One row across the zone's vertical middle. Spacing between unit centers is capped at 2.5
+        // cells so a small roster clusters in the middle of the zone instead of stretching wall to
+        // wall; a full 6-unit roster still spans (nearly) the whole zone width.
+        const rowY = (zoneMinY + zoneMaxY) / 2;
+        const centerX = (zoneMinX + zoneMaxX) / 2;
+        const spacing = total > 1 ? Math.min(gs.getCellSize() * 2.5, (zoneMaxX - zoneMinX) / (total - 1)) : 0;
+        const startX = centerX - (spacing * (total - 1)) / 2;
         revealedUnits.forEach((unit, index) => {
-            const fraction = (index + 0.5) / total;
-            positions.set(unit.properties.id, { x: minX + (maxX - minX) * fraction, y: lineY });
+            positions.set(unit.properties.id, { x: startX + spacing * index, y: rowY });
         });
         return positions;
     }

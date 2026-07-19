@@ -12,6 +12,33 @@ export interface IDungeonVisualsContext {
     attachToWorldRoot(obj: Container, zIndex?: number): void;
 }
 
+export interface IMountainHitBarLayout {
+    width: number;
+    height: number;
+    gap: number;
+    framePadding: number;
+    centerOffset: number;
+}
+
+/**
+ * Keep the mountain HP meter inside the broad stone shelf at the sprite's base. The source texture's
+ * visible rock ends just under one cell below its centre; reserving the last 10% keeps the frame from
+ * leaking into the row beneath it at any board scale.
+ */
+export const getMountainHitBarLayout = (cellSize: number): IMountainHitBarLayout => {
+    const height = Math.max(6, Math.round(cellSize * 0.085));
+    const framePadding = Math.max(1, Math.round(cellSize * 0.012));
+    const bottomLimit = cellSize * 0.9;
+
+    return {
+        width: cellSize * 1.12,
+        height,
+        gap: Math.max(2, Math.round(cellSize * 0.022)),
+        framePadding,
+        centerOffset: Math.min(cellSize * 0.8, bottomLimit - height / 2 - framePadding),
+    };
+};
+
 export class DungeonVisuals {
     private context: IDungeonVisualsContext;
     // State
@@ -276,7 +303,7 @@ export class DungeonVisuals {
             this.centerHitBar.clear();
         }
     }
-    /** One HP bar drawn ON each mountain — positioned at its actual cell centre, HITS_PER_MOUNTAIN max. */
+    /** One compact HP meter drawn inside the base of each mountain, HITS_PER_MOUNTAIN pips max. */
     private drawCenterHitBars(leftHits: number, rightHits: number): void {
         if (!this.centerHitBar) {
             this.centerHitBar = new Graphics();
@@ -288,45 +315,57 @@ export class DungeonVisuals {
         const gs = this.context.getGridSettings();
         const { left, right } = this.mountainCenters(gs);
         const cellSize = gs.getCellSize();
-        const barW = cellSize * 1.55;
-        // Sit each bar at the BASE of its rock (like the unit stack-power bar sits at the bottom of the
-        // unit), not floating outside it. The sprite is 2.75 cells tall but has transparent padding, so
-        // the visible rock is ~⅔ of that; the world root is y-flipped (screen-down is -y), so we drop the
-        // bar by roughly the visible half-height to land it on the rock's base.
-        const belowOffset = cellSize * 0.95;
+        const layout = getMountainHitBarLayout(cellSize);
 
         // Only draw a bar for a mountain that still stands — a destroyed one (hits <= 0) hides its sprite
         // (visible = hits > 0 above), so its HP bar (backing + rim included) must disappear too.
         if (leftHits > 0) {
-            this.drawOneHitBar(bar, left.x, left.y - belowOffset, barW, leftHits);
+            this.drawOneHitBar(bar, left.x, left.y - layout.centerOffset, layout, leftHits);
         }
         if (rightHits > 0) {
-            this.drawOneHitBar(bar, right.x, right.y - belowOffset, barW, rightHits);
+            this.drawOneHitBar(bar, right.x, right.y - layout.centerOffset, layout, rightHits);
         }
     }
-    private drawOneHitBar(bar: Graphics, cx: number, cy: number, barW: number, hits: number): void {
+    private drawOneHitBar(bar: Graphics, cx: number, cy: number, layout: IMountainHitBarLayout, hits: number): void {
         const totalHits = HoCConstants.HITS_PER_MOUNTAIN;
-        const barH = Math.max(9, Math.round(barW * 0.17));
+        const { width: barW, height: barH, gap, framePadding } = layout;
         const x0 = cx - barW / 2;
-        const y0 = cy - barH / 2; // cy is the bar's centre (caller places it beneath the rock)
-        const radius = barH / 2;
+        const y0 = cy - barH / 2;
+        const radius = Math.max(2, barH * 0.28);
+        const pipW = (barW - gap * (totalHits - 1)) / totalHits;
 
-        // Dark backing with a warm gold rim so it reads on the rock.
-        bar.roundRect(x0 - 2, y0 - 2, barW + 4, barH + 4, radius + 2)
-            .fill({ color: 0x140d06, alpha: 0.86 })
-            .stroke({ width: 1, color: 0xd9a441, alpha: 0.65 });
+        // A low-profile iron rail anchors the meter to the rock without becoming another large pill.
+        bar.roundRect(
+            x0 - framePadding,
+            y0 - framePadding,
+            barW + framePadding * 2,
+            barH + framePadding * 2,
+            radius + framePadding,
+        )
+            .fill({ color: 0x090806, alpha: 0.84 })
+            .stroke({ width: 1, color: 0x74552e, alpha: 0.9 });
 
-        // Orange fill (game palette); deepens toward ember-red on the last hit.
-        const ratio = Math.max(0, Math.min(1, hits / totalHits));
-        if (ratio > 0) {
-            const fillColor = ratio > 0.34 ? 0xf5a623 : 0xd9531e;
-            bar.roundRect(x0, y0, Math.max(barH, barW * ratio), barH, radius).fill({ color: fillColor });
-        }
+        // Separate pips make the mountain's discrete hit count readable at a glance. Empty slots stay
+        // visible, while the final remaining hit shifts from bronze to ember-red.
+        for (let i = 0; i < totalHits; i++) {
+            const pipX = x0 + i * (pipW + gap);
+            const active = i < hits;
+            const fillColor = active ? (hits === 1 ? 0xc8532f : 0xcf9130) : 0x211a14;
+            const borderColor = active ? (hits === 1 ? 0xf18a58 : 0xe9bd61) : 0x60482d;
 
-        // Per-hit tick separators so the discrete HP is readable.
-        for (let i = 1; i < totalHits; i++) {
-            const tx = x0 + (barW / totalHits) * i;
-            bar.rect(tx - 0.6, y0, 1.2, barH).fill({ color: 0x140d06, alpha: 0.6 });
+            bar.roundRect(pipX, y0, pipW, barH, radius)
+                .fill({ color: fillColor, alpha: active ? 1 : 0.92 })
+                .stroke({ width: 1, color: borderColor, alpha: active ? 0.95 : 0.72 });
+
+            if (active) {
+                const highlightH = Math.max(1, barH * 0.22);
+                // World-space is y-up, so the visually top edge is the high-Y edge of the local shape.
+                const highlightY = y0 + barH - highlightH - 1;
+                bar.roundRect(pipX + 1, highlightY, Math.max(0, pipW - 2), highlightH, radius * 0.65).fill({
+                    color: 0xffdc82,
+                    alpha: 0.42,
+                });
+            }
         }
     }
     /** World-space centres of the two mountains (from their actual cells, so everything stays aligned). */

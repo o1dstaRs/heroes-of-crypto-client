@@ -22,6 +22,7 @@ export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.EFREET]: images.efreet_512,
     [CreatureVals.BLACK_DRAGON]: images.black_dragon_512,
     [CreatureVals.HYDRA]: images.hydra_512,
+    [CreatureVals.ABOMINATION]: images.abomination_512,
     [CreatureVals.CENTAUR]: images.centaur_512,
     [CreatureVals.BERSERKER]: images.berserker_512,
     [CreatureVals.WOLF_RIDER]: images.wolf_rider_512,
@@ -32,6 +33,7 @@ export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.OGRE_MAGE]: images.ogre_mage_512,
     [CreatureVals.THUNDERBIRD]: images.thunderbird_512,
     [CreatureVals.BEHEMOTH]: images.behemoth_512,
+    [CreatureVals.FRENZIED_BOAR]: images.frenzied_boar_512,
     [CreatureVals.WOLF]: images.wolf_512,
     [CreatureVals.FAIRY]: images.fairy_512,
     [CreatureVals.LEPRECHAUN]: images.leprechaun_512,
@@ -54,6 +56,7 @@ export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.CRUSADER]: images.crusader_512,
     [CreatureVals.TSAR_CANNON]: images.tsar_cannon_512,
     [CreatureVals.ANGEL]: images.angel_512,
+    [CreatureVals.CHAMPION]: images.champion_512,
 };
 
 export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
@@ -68,6 +71,7 @@ export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
     [CreatureVals.EFREET]: "Efreet",
     [CreatureVals.BLACK_DRAGON]: "Black Dragon",
     [CreatureVals.HYDRA]: "Hydra",
+    [CreatureVals.ABOMINATION]: "Abomination",
     [CreatureVals.CENTAUR]: "Centaur",
     [CreatureVals.BERSERKER]: "Berserker",
     [CreatureVals.WOLF_RIDER]: "Wolf Rider",
@@ -78,6 +82,7 @@ export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
     [CreatureVals.OGRE_MAGE]: "Ogre Mage",
     [CreatureVals.THUNDERBIRD]: "Thunderbird",
     [CreatureVals.BEHEMOTH]: "Behemoth",
+    [CreatureVals.FRENZIED_BOAR]: "Frenzied Boar",
     [CreatureVals.WOLF]: "Wolf",
     [CreatureVals.FAIRY]: "Fairy",
     [CreatureVals.LEPRECHAUN]: "Leprechaun",
@@ -100,4 +105,5 @@ export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
     [CreatureVals.CRUSADER]: "Crusader",
     [CreatureVals.TSAR_CANNON]: "Tsar Cannon",
     [CreatureVals.ANGEL]: "Angel",
+    [CreatureVals.CHAMPION]: "Champion",
 };
