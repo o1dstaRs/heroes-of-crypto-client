@@ -1,3 +1,5 @@
+import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
+import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import { Box, Button, CircularProgress, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router";
@@ -17,12 +19,26 @@ import {
 } from "./portalFormat";
 import { usePlayerPortal } from "./usePlayerPortal";
 
+const profileBackgroundUrl = new URL("../../../images/background_dark.webp", import.meta.url).toString();
+const logoUrl = new URL("../../../images/logo_hoc.webp", import.meta.url).toString();
+
 const Section: React.FC<{ title: string; subtitle?: string; children: React.ReactNode }> = ({
     title,
     subtitle,
     children,
 }) => (
-    <Sheet variant="outlined" sx={{ p: 2, borderRadius: "md", ...hocPanelSx }}>
+    <Sheet
+        variant="outlined"
+        sx={{
+            p: { xs: 1.5, sm: 2.25 },
+            minWidth: 0,
+            borderRadius: "16px",
+            ...hocPanelSx,
+            bgcolor: "rgba(12,8,5,0.91)",
+            borderColor: "rgba(255,143,0,0.27)",
+            backdropFilter: "blur(14px)",
+        }}
+    >
         <Box sx={{ mb: 1.25 }}>
             <Typography level="title-md" textColor={hocColors.gold}>
                 {title}
@@ -42,10 +58,10 @@ const StatCard: React.FC<{ label: string; value: string | number; color?: string
         variant="soft"
         sx={{
             bgcolor: "rgba(0,0,0,0.3)",
-            borderRadius: "md",
+            border: "1px solid rgba(239,228,204,0.08)",
+            borderRadius: "12px",
             p: 1.5,
             minWidth: 110,
-            flex: "1 1 110px",
             textAlign: "center",
         }}
     >
@@ -61,7 +77,15 @@ const StatCard: React.FC<{ label: string; value: string | number; color?: string
 const ComboRow: React.FC<{ creatureIds: number[]; games: number; wins: number }> = ({ creatureIds, games, wins }) => (
     <Sheet
         variant="soft"
-        sx={{ bgcolor: "rgba(0,0,0,0.25)", borderRadius: "sm", p: 1, display: "flex", alignItems: "center", gap: 1 }}
+        sx={{
+            bgcolor: "rgba(0,0,0,0.25)",
+            border: "1px solid rgba(239,228,204,0.06)",
+            borderRadius: "10px",
+            p: 1,
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+        }}
     >
         <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", flex: 1 }}>
             {creatureIds.map((id, i) => (
@@ -101,37 +125,92 @@ export const PlayerPortalPage: React.FC = () => {
                 inset: 0,
                 bgcolor: hocColors.black,
                 overflowY: "auto",
-                px: { xs: 1.5, md: 4 },
-                py: 3,
+                px: { xs: 1.5, md: 3 },
+                py: { xs: 1.5, md: 2.5 },
+                backgroundImage: `linear-gradient(112deg, rgba(7,5,4,0.97), rgba(7,5,4,0.89) 52%, rgba(7,5,4,0.96)), url(${profileBackgroundUrl})`,
+                backgroundPosition: "center top",
+                backgroundSize: "cover",
+                backgroundAttachment: "fixed",
             }}
         >
-            <Box sx={{ maxWidth: 1200, mx: "auto" }}>
-                <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    alignItems={{ xs: "stretch", sm: "center" }}
-                    justifyContent="space-between"
-                    spacing={1.25}
-                    sx={{ mb: 2, minWidth: 0 }}
+            <Box sx={{ maxWidth: 1480, mx: "auto" }}>
+                <Sheet
+                    component="header"
+                    variant="outlined"
+                    sx={{
+                        mb: 2,
+                        p: { xs: 1.5, sm: 2 },
+                        borderRadius: "18px",
+                        ...hocPanelSx,
+                        bgcolor: "rgba(9,6,4,0.85)",
+                        borderColor: "rgba(255,143,0,0.25)",
+                        boxShadow: "0 18px 48px rgba(0,0,0,0.42)",
+                        backdropFilter: "blur(16px)",
+                    }}
                 >
-                    <Box sx={{ minWidth: 0 }}>
-                        <Typography level="h2" textColor={hocColors.gold} sx={{ overflowWrap: "anywhere" }}>
-                            {data?.username || "Player Profile"}
-                        </Typography>
-                        <Typography level="body-sm" textColor={hocColors.muted}>
-                            {streakLabel(data?.current_streak ?? 0)}
-                            {data?.best_win_streak ? ` · best win streak ${data.best_win_streak}` : ""}
-                            {data?.last_login ? ` · last seen ${timeAgo(data.last_login)}` : ""}
-                        </Typography>
-                    </Box>
-                    <Stack direction="row" spacing={1} sx={{ alignSelf: { xs: "flex-end", sm: "center" } }}>
-                        <Button variant="soft" sx={hocSoftButtonSx} onClick={reload} disabled={loading}>
-                            Refresh
-                        </Button>
-                        <Button variant="solid" sx={hocPrimaryButtonSx} onClick={() => navigate("/play")}>
-                            Back
-                        </Button>
+                    <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        alignItems={{ xs: "stretch", sm: "center" }}
+                        justifyContent="space-between"
+                        spacing={1.5}
+                        sx={{ minWidth: 0 }}
+                    >
+                        <Stack direction="row" spacing={1.35} alignItems="center" sx={{ minWidth: 0 }}>
+                            <Box
+                                component="img"
+                                src={logoUrl}
+                                alt="Heroes of Crypto"
+                                sx={{
+                                    width: { xs: 46, sm: 56 },
+                                    height: { xs: 46, sm: 56 },
+                                    flexShrink: 0,
+                                    objectFit: "contain",
+                                    filter: "drop-shadow(0 0 10px #ff8f0055)",
+                                }}
+                            />
+                            <Box sx={{ minWidth: 0 }}>
+                                <Typography
+                                    level="body-xs"
+                                    sx={{ color: hocColors.gold, fontWeight: 800, letterSpacing: "0.16em" }}
+                                >
+                                    COMMANDER PROFILE
+                                </Typography>
+                                <Typography
+                                    level="h2"
+                                    sx={{ color: hocColors.parchment, overflowWrap: "anywhere", lineHeight: 1.05 }}
+                                >
+                                    {data?.username || "Player Profile"}
+                                </Typography>
+                                <Typography level="body-sm" textColor={hocColors.muted} sx={{ mt: 0.3 }}>
+                                    {streakLabel(data?.current_streak ?? 0)}
+                                    {data?.best_win_streak ? ` · best win streak ${data.best_win_streak}` : ""}
+                                    {data?.last_login ? ` · last seen ${timeAgo(data.last_login)}` : ""}
+                                </Typography>
+                            </Box>
+                        </Stack>
+                        <Stack direction="row" spacing={1} sx={{ alignSelf: { xs: "stretch", sm: "center" } }}>
+                            <Button
+                                fullWidth
+                                variant="soft"
+                                startDecorator={<RefreshRoundedIcon />}
+                                sx={{ ...hocSoftButtonSx, minWidth: { sm: 126 }, whiteSpace: "nowrap" }}
+                                onClick={reload}
+                                disabled={loading}
+                            >
+                                Refresh
+                            </Button>
+                            <Button
+                                fullWidth
+                                variant="solid"
+                                startDecorator={<SportsEsportsRoundedIcon />}
+                                sx={{ ...hocPrimaryButtonSx, minWidth: { sm: 154 }, whiteSpace: "nowrap" }}
+                                onClick={() => navigate("/play")}
+                            >
+                                Ranked arena
+                            </Button>
+                        </Stack>
                     </Stack>
-                </Stack>
+                </Sheet>
 
                 {loading && (
                     <Stack direction="row" spacing={1.5} alignItems="center" sx={{ py: 6, justifyContent: "center" }}>
@@ -148,7 +227,17 @@ export const PlayerPortalPage: React.FC = () => {
                 {!loading && !error && data && (
                     <Stack spacing={2}>
                         {/* Overview */}
-                        <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
+                        <Box
+                            sx={{
+                                display: "grid",
+                                gridTemplateColumns: {
+                                    xs: "repeat(2, minmax(0, 1fr))",
+                                    sm: "repeat(3, minmax(0, 1fr))",
+                                    lg: "repeat(6, minmax(0, 1fr))",
+                                },
+                                gap: 1.25,
+                            }}
+                        >
                             <StatCard label="Wins" value={data.wins ?? 0} color="#46d160" />
                             <StatCard label="Losses" value={data.losses ?? 0} color="#ff5a5a" />
                             <StatCard label="Win rate" value={`${overallPct}%`} color={winRateColor(overallPct)} />
@@ -159,7 +248,7 @@ export const PlayerPortalPage: React.FC = () => {
                                 color={(data.current_streak ?? 0) >= 0 ? "#46d160" : "#ff5a5a"}
                             />
                             <StatCard label="Best streak" value={data.best_win_streak ?? 0} color={hocColors.gold} />
-                        </Stack>
+                        </Box>
 
                         {/* Combos & strategies */}
                         <Box
@@ -273,24 +362,13 @@ export const PlayerPortalPage: React.FC = () => {
                         </Box>
 
                         {/* Match history */}
-                        <Box
-                            component="section"
-                            sx={{ width: "100%", maxWidth: "100%", minWidth: 0, overflow: "hidden" }}
-                        >
-                            <Box sx={{ mb: 1.25 }}>
-                                <Typography level="title-md" textColor={hocColors.gold}>
-                                    Match history
-                                </Typography>
-                                <Typography level="body-xs" textColor={hocColors.muted}>
-                                    {matches.length} most recent finished matches
-                                </Typography>
-                            </Box>
+                        <Section title="Match history" subtitle={`${matches.length} most recent finished matches`}>
                             <MatchHistory
                                 filterable
                                 matches={matches}
                                 onReplay={(match) => navigate(matchReplayPath(match))}
                             />
-                        </Box>
+                        </Section>
                     </Stack>
                 )}
             </Box>

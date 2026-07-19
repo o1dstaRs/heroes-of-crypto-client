@@ -1,7 +1,15 @@
 import { CustomEventSource } from "@heroesofcrypto/common";
+import AccountCircleRoundedIcon from "@mui/icons-material/AccountCircleRounded";
+import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
+import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
+import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
+import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import PersonSearchRoundedIcon from "@mui/icons-material/PersonSearchRounded";
+import ShieldRoundedIcon from "@mui/icons-material/ShieldRounded";
 import SmartToyRoundedIcon from "@mui/icons-material/SmartToyRounded";
-import { Alert, Box, Button, CircularProgress, Sheet, Stack, Typography } from "@mui/joy";
+import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
+import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
+import { Alert, Box, Button, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
@@ -31,6 +39,32 @@ type MatchmakingState = "idle" | "searching" | "confirming" | "accepted" | "star
 const STORAGE_KEY = "accessToken";
 
 const matchEventUrl = () => buildApiUrl(HOST_MATCHMAKING_API, endpoints.mm.events);
+const rankedBackgroundUrl = new URL("../../images/background_dark.webp", import.meta.url).toString();
+const logoUrl = new URL("../../images/logo_hoc.webp", import.meta.url).toString();
+
+const ArenaFeature: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
+    <Stack
+        direction="row"
+        spacing={0.75}
+        alignItems="center"
+        justifyContent="center"
+        sx={{
+            minWidth: 0,
+            px: 1.15,
+            py: 0.75,
+            borderRadius: "999px",
+            bgcolor: "rgba(0,0,0,0.32)",
+            border: "1px solid rgba(239,228,204,0.1)",
+            color: hocColors.mutedStrong,
+            "& svg": { color: hocColors.gold, fontSize: 17 },
+        }}
+    >
+        {icon}
+        <Typography level="body-xs" sx={{ color: "inherit", fontWeight: 650, whiteSpace: "nowrap" }}>
+            {label}
+        </Typography>
+    </Stack>
+);
 
 export const MatchmakingRoute: React.FC = () => {
     const navigate = useNavigate();
@@ -340,138 +374,590 @@ export const MatchmakingRoute: React.FC = () => {
         }
     };
 
+    const navigationLocked =
+        state === "searching" || state === "confirming" || state === "accepted" || state === "starting-ai";
+    const shortGameId =
+        pendingGameId.length > 16 ? `${pendingGameId.slice(0, 8)}…${pendingGameId.slice(-5)}` : pendingGameId;
+    const presentation = (() => {
+        if (needsActivation) {
+            return {
+                accent: hocColors.gold,
+                eyebrow: "ACCOUNT ACTIVATION",
+                headline: "Verify before entering the arena",
+                description: "Activate your account to unlock ranked matchmaking and practice battles.",
+            };
+        }
+        if (penalized) {
+            return {
+                accent: hocColors.danger,
+                eyebrow: "QUEUE COOLDOWN",
+                headline: `Search unlocks in ${penaltySeconds}s`,
+                description: "Ranked matches must be accepted in time. The queue will reopen automatically.",
+            };
+        }
+        if (state === "searching") {
+            return {
+                accent: hocColors.orange,
+                eyebrow: "MATCHMAKING",
+                headline: "Scouting for a worthy rival",
+                description: queueSize
+                    ? `${queueSize} ${queueSize === 1 ? "commander is" : "commanders are"} currently in the queue.`
+                    : "Stay ready while we search the live ranked queue.",
+            };
+        }
+        if (state === "confirming") {
+            return {
+                accent: "#ffd166",
+                eyebrow: "OPPONENT FOUND",
+                headline: "Your rival is ready",
+                description: "Accept before the timer expires to lock in the match.",
+            };
+        }
+        if (state === "accepted") {
+            return {
+                accent: "#55d878",
+                eyebrow: "MATCH ACCEPTED",
+                headline: "You’re locked in",
+                description: "Waiting for your opponent to accept. The arena will open automatically.",
+            };
+        }
+        if (state === "starting-ai") {
+            return {
+                accent: hocColors.gold,
+                eyebrow: "PRACTICE ARENA",
+                headline: "Summoning a training opponent",
+                description: "Preparing a private match against the default AI commander.",
+            };
+        }
+        if (state === "error") {
+            return {
+                accent: hocColors.danger,
+                eyebrow: "CONNECTION ISSUE",
+                headline: "The arena link was interrupted",
+                description: "Try the ranked queue again, or sharpen your strategy against the AI.",
+            };
+        }
+        return {
+            accent: hocColors.orange,
+            eyebrow: "READY FOR BATTLE",
+            headline: "Choose your next opponent",
+            description: "Enter the ranked queue for a live duel, or practice your draft against the AI.",
+        };
+    })();
+
     return (
-        <>
+        <Box
+            sx={{
+                position: "fixed",
+                inset: 0,
+                overflowY: "auto",
+                bgcolor: hocColors.black,
+                color: hocColors.parchment,
+                backgroundImage: `linear-gradient(105deg, rgba(7,5,4,0.97) 0%, rgba(7,5,4,0.88) 46%, rgba(7,5,4,0.95) 100%), url(${rankedBackgroundUrl})`,
+                backgroundPosition: "center",
+                backgroundSize: "cover",
+                "@keyframes arenaPulse": {
+                    "0%": { transform: "scale(0.7)", opacity: 0.58 },
+                    "70%, 100%": { transform: "scale(1.35)", opacity: 0 },
+                },
+                "@keyframes matchFoundGlow": {
+                    "0%, 100%": {
+                        boxShadow: "0 28px 80px rgba(0,0,0,0.52), 0 0 0 1px rgba(255,209,102,0.18)",
+                    },
+                    "50%": {
+                        boxShadow:
+                            "0 28px 80px rgba(0,0,0,0.52), 0 0 0 1px rgba(255,209,102,0.72), 0 0 54px rgba(255,183,0,0.28)",
+                    },
+                },
+                "@keyframes acceptAttention": {
+                    "0%, 100%": { transform: "translateY(0)", boxShadow: "0 8px 26px rgba(85,216,120,0.24)" },
+                    "50%": { transform: "translateY(-2px)", boxShadow: "0 12px 38px rgba(85,216,120,0.48)" },
+                },
+            }}
+        >
             <Box
+                aria-hidden="true"
                 sx={{
                     position: "fixed",
                     inset: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    bgcolor: hocColors.black,
-                    px: 2,
+                    pointerEvents: "none",
+                    background:
+                        state === "confirming"
+                            ? "radial-gradient(circle at 34% 58%, rgba(255,209,102,0.2), transparent 38%), radial-gradient(circle at 78% 35%, rgba(255,143,0,0.12), transparent 32%), linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0.38))"
+                            : "radial-gradient(circle at 28% 35%, rgba(255,143,0,0.1), transparent 31%), radial-gradient(circle at 88% 8%, rgba(220,177,88,0.07), transparent 24%), linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.45))",
+                    transition: "background 320ms ease",
+                }}
+            />
+
+            <Box
+                component="header"
+                sx={{
+                    position: "relative",
+                    zIndex: 1,
+                    width: "min(1480px, calc(100% - 32px))",
+                    mx: "auto",
+                    pt: { xs: 2, md: 2.5 },
+                }}
+            >
+                <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={{ xs: 1.25, sm: 2 }}
+                    alignItems={{ xs: "stretch", sm: "center" }}
+                    justifyContent="space-between"
+                    sx={{
+                        px: { xs: 1.25, md: 1.75 },
+                        py: 1.1,
+                        borderRadius: "16px",
+                        bgcolor: "rgba(9,6,4,0.78)",
+                        border: "1px solid rgba(239,228,204,0.1)",
+                        boxShadow: "0 12px 34px rgba(0,0,0,0.34)",
+                        backdropFilter: "blur(16px)",
+                    }}
+                >
+                    <Button
+                        variant="plain"
+                        onClick={() => navigate("/")}
+                        disabled={navigationLocked}
+                        title={navigationLocked ? "Leave matchmaking before navigating away" : "Open battle sandbox"}
+                        sx={{
+                            justifyContent: "flex-start",
+                            px: 0.5,
+                            color: hocColors.parchment,
+                            "&:hover": { bgcolor: "rgba(255,255,255,0.04)" },
+                            "&.Mui-disabled": { color: hocColors.muted },
+                        }}
+                    >
+                        <Stack direction="row" spacing={1.15} alignItems="center">
+                            <Box
+                                component="img"
+                                src={logoUrl}
+                                alt="Heroes of Crypto"
+                                sx={{
+                                    width: 38,
+                                    height: 38,
+                                    objectFit: "contain",
+                                    filter: "drop-shadow(0 0 8px #ff8f0066)",
+                                }}
+                            />
+                            <Box sx={{ textAlign: "left" }}>
+                                <Typography
+                                    level="title-md"
+                                    sx={{ color: "inherit", fontWeight: 800, lineHeight: 1.05 }}
+                                >
+                                    Heroes of Crypto
+                                </Typography>
+                                <Typography level="body-xs" sx={{ color: hocColors.gold, letterSpacing: "0.13em" }}>
+                                    RANKED ARENA
+                                </Typography>
+                            </Box>
+                        </Stack>
+                    </Button>
+
+                    <Stack
+                        component="nav"
+                        aria-label="Game navigation"
+                        direction="row"
+                        spacing={0.5}
+                        sx={{ width: { xs: "100%", sm: "auto" }, pb: { xs: 0.25, sm: 0 } }}
+                    >
+                        <Button
+                            aria-label="Custom games"
+                            size="sm"
+                            variant="soft"
+                            aria-current="page"
+                            startDecorator={<SportsEsportsRoundedIcon />}
+                            sx={{
+                                ...hocSoftButtonSx,
+                                flex: { xs: 1, sm: "0 0 auto" },
+                                minWidth: 0,
+                                px: { xs: 0.75, sm: 1.25 },
+                                color: hocColors.gold,
+                            }}
+                        >
+                            Ranked
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="plain"
+                            disabled={navigationLocked}
+                            onClick={() => navigate("/lobbies")}
+                            title={navigationLocked ? "Leave matchmaking before navigating away" : undefined}
+                            startDecorator={<GroupsRoundedIcon />}
+                            sx={{
+                                color: hocColors.mutedStrong,
+                                flex: { xs: 1, sm: "0 0 auto" },
+                                minWidth: 0,
+                                px: { xs: 0.75, sm: 1.25 },
+                                "&:hover": { bgcolor: hocColors.orangeSoft },
+                            }}
+                        >
+                            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                                Custom
+                            </Box>
+                        </Button>
+                        <Button
+                            aria-label="Sandbox"
+                            size="sm"
+                            variant="plain"
+                            disabled={navigationLocked}
+                            onClick={() => navigate("/")}
+                            title={navigationLocked ? "Leave matchmaking before navigating away" : undefined}
+                            startDecorator={<HomeRoundedIcon />}
+                            sx={{
+                                color: hocColors.mutedStrong,
+                                flex: { xs: 1, sm: "0 0 auto" },
+                                minWidth: 0,
+                                px: { xs: 0.75, sm: 1.25 },
+                                "&:hover": { bgcolor: hocColors.orangeSoft },
+                            }}
+                        >
+                            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                                Sandbox
+                            </Box>
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="plain"
+                            disabled={navigationLocked}
+                            onClick={() => navigate("/portal")}
+                            title={navigationLocked ? "Leave matchmaking before navigating away" : undefined}
+                            startDecorator={<AccountCircleRoundedIcon />}
+                            sx={{
+                                color: hocColors.mutedStrong,
+                                flex: { xs: 1, sm: "0 0 auto" },
+                                minWidth: 0,
+                                px: { xs: 0.75, sm: 1.25 },
+                                "&:hover": { bgcolor: hocColors.orangeSoft },
+                            }}
+                        >
+                            Profile
+                        </Button>
+                    </Stack>
+                </Stack>
+            </Box>
+
+            <Box
+                role="main"
+                sx={{
+                    position: "relative",
+                    zIndex: 1,
+                    width: "min(1480px, calc(100% - 32px))",
+                    mx: "auto",
+                    py: { xs: 2, md: 3 },
+                    display: "grid",
+                    gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(560px, 1fr) minmax(370px, 420px)" },
+                    gap: { xs: 2, md: 3 },
+                    alignItems: "start",
                 }}
             >
                 <Sheet
+                    component="section"
+                    aria-labelledby="ranked-heading"
                     variant="outlined"
                     sx={{
-                        width: 420,
-                        maxWidth: "100%",
-                        boxSizing: "border-box",
-                        p: { xs: 2, sm: 3 },
-                        borderRadius: "md",
+                        minHeight: { lg: 724 },
+                        minWidth: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        overflow: "hidden",
+                        borderRadius: "22px",
                         ...hocPanelSx,
+                        bgcolor: "rgba(12,8,5,0.91)",
+                        borderColor:
+                            state === "confirming"
+                                ? "rgba(255,209,102,0.9)"
+                                : state === "accepted"
+                                  ? "rgba(85,216,120,0.62)"
+                                  : "rgba(255,143,0,0.3)",
+                        boxShadow:
+                            state === "confirming"
+                                ? "0 28px 80px rgba(0,0,0,0.52), 0 0 46px rgba(255,183,0,0.2)"
+                                : state === "accepted"
+                                  ? "0 28px 80px rgba(0,0,0,0.52), 0 0 40px rgba(85,216,120,0.13)"
+                                  : "0 28px 80px rgba(0,0,0,0.52)",
+                        animation: state === "confirming" ? "matchFoundGlow 1.65s ease-in-out infinite" : "none",
+                        transition: "border-color 280ms ease, box-shadow 280ms ease, background-color 280ms ease",
+                        "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                        backdropFilter: "blur(16px)",
                     }}
                 >
-                    <Stack spacing={2.25}>
-                        <Box>
-                            <Typography level="h3" textColor={hocColors.parchment}>
-                                Play
-                            </Typography>
-                            <Typography level="body-sm" textColor={hocColors.muted}>
-                                {statusText}
-                            </Typography>
+                    <Box
+                        sx={{
+                            position: "relative",
+                            overflow: "hidden",
+                            px: { xs: 2.25, sm: 4, md: 5 },
+                            py: { xs: 3, md: 4.5 },
+                            borderBottom: "1px solid rgba(239,228,204,0.09)",
+                            background:
+                                state === "confirming"
+                                    ? "linear-gradient(112deg, rgba(255,209,102,0.2), rgba(255,143,0,0.07) 58%, transparent)"
+                                    : state === "accepted"
+                                      ? "linear-gradient(112deg, rgba(85,216,120,0.13), rgba(220,177,88,0.035) 58%, transparent)"
+                                      : "linear-gradient(112deg, rgba(255,143,0,0.12), rgba(220,177,88,0.035) 58%, transparent)",
+                            transition: "background 280ms ease",
+                        }}
+                    >
+                        <Box
+                            component="img"
+                            src={logoUrl}
+                            alt=""
+                            aria-hidden="true"
+                            sx={{
+                                position: "absolute",
+                                width: { xs: 190, md: 260 },
+                                height: { xs: 190, md: 260 },
+                                right: { xs: -75, md: -55 },
+                                top: { xs: -45, md: -70 },
+                                objectFit: "contain",
+                                opacity: 0.085,
+                                filter: "grayscale(0.35)",
+                                pointerEvents: "none",
+                            }}
+                        />
+                        <Typography
+                            level="body-xs"
+                            sx={{ color: hocColors.gold, fontWeight: 800, letterSpacing: "0.2em", mb: 1.1 }}
+                        >
+                            LIVE RANKED COMBAT
+                        </Typography>
+                        <Typography
+                            id="ranked-heading"
+                            level="h1"
+                            sx={{
+                                maxWidth: 700,
+                                color: hocColors.parchment,
+                                fontSize: { xs: "2rem", sm: "2.65rem", md: "3.15rem" },
+                                lineHeight: 1.02,
+                                letterSpacing: "-0.035em",
+                            }}
+                        >
+                            Command the arena.
+                        </Typography>
+                        <Typography
+                            level="body-md"
+                            sx={{ color: hocColors.muted, maxWidth: 620, mt: 1.35, lineHeight: 1.65 }}
+                        >
+                            Draft your army, adapt your build, and face another commander in a match that counts.
+                        </Typography>
+                        <Box
+                            sx={{
+                                display: "grid",
+                                gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(3, max-content)" },
+                                gap: 0.8,
+                                maxWidth: "100%",
+                                mt: 2.2,
+                                "& > :last-child": { gridColumn: { xs: "1 / -1", sm: "auto" } },
+                            }}
+                        >
+                            <ArenaFeature icon={<GroupsRoundedIcon />} label="Live PvP" />
+                            <ArenaFeature icon={<ShieldRoundedIcon />} label="Full army draft" />
+                            <ArenaFeature icon={<AccountCircleRoundedIcon />} label="Tracked results" />
+                        </Box>
+                    </Box>
+
+                    <Box
+                        aria-live="polite"
+                        sx={{
+                            flex: 1,
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            px: { xs: 2.25, sm: 4 },
+                            py: { xs: 3.25, md: 4 },
+                            textAlign: "center",
+                            background:
+                                state === "confirming"
+                                    ? "radial-gradient(circle at 50% 43%, rgba(255,209,102,0.16), transparent 47%)"
+                                    : state === "accepted"
+                                      ? "radial-gradient(circle at 50% 43%, rgba(85,216,120,0.11), transparent 47%)"
+                                      : "transparent",
+                            transition: "background 280ms ease",
+                        }}
+                    >
+                        <Box
+                            sx={{
+                                position: "relative",
+                                width: 126,
+                                height: 126,
+                                display: "grid",
+                                placeItems: "center",
+                                mb: 2.25,
+                            }}
+                        >
+                            {(state === "searching" || state === "starting-ai" || state === "confirming") && (
+                                <>
+                                    <Box
+                                        sx={{
+                                            position: "absolute",
+                                            inset: 3,
+                                            borderRadius: "50%",
+                                            border: `1px solid ${presentation.accent}`,
+                                            animation:
+                                                state === "confirming"
+                                                    ? "arenaPulse 1.35s ease-out infinite"
+                                                    : "arenaPulse 2.1s ease-out infinite",
+                                            "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                                        }}
+                                    />
+                                    <Box
+                                        sx={{
+                                            position: "absolute",
+                                            inset: 3,
+                                            borderRadius: "50%",
+                                            border: `1px solid ${presentation.accent}`,
+                                            animation:
+                                                state === "confirming"
+                                                    ? "arenaPulse 1.35s 0.45s ease-out infinite"
+                                                    : "arenaPulse 2.1s 0.7s ease-out infinite",
+                                            "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                                        }}
+                                    />
+                                </>
+                            )}
+                            <Box
+                                sx={{
+                                    position: "relative",
+                                    zIndex: 1,
+                                    width: 98,
+                                    height: 98,
+                                    borderRadius: "50%",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    color: presentation.accent,
+                                    bgcolor: "rgba(0,0,0,0.42)",
+                                    border: `1px solid ${presentation.accent}99`,
+                                    boxShadow: `0 0 0 8px ${presentation.accent}12, 0 0 38px ${presentation.accent}24`,
+                                    "& svg": { fontSize: 40 },
+                                }}
+                            >
+                                {state === "confirming" ? (
+                                    <Stack spacing={0} alignItems="center">
+                                        <Typography level="h2" sx={{ color: presentation.accent, lineHeight: 0.95 }}>
+                                            {secondsRemaining && secondsRemaining > 0 ? secondsRemaining : "!"}
+                                        </Typography>
+                                        <Typography
+                                            level="body-xs"
+                                            sx={{ color: hocColors.muted, fontSize: "0.62rem", letterSpacing: "0.1em" }}
+                                        >
+                                            SECONDS
+                                        </Typography>
+                                    </Stack>
+                                ) : state === "accepted" ? (
+                                    <CheckCircleRoundedIcon />
+                                ) : state === "starting-ai" ? (
+                                    <SmartToyRoundedIcon />
+                                ) : penalized ? (
+                                    <TimerRoundedIcon />
+                                ) : needsActivation || state === "error" ? (
+                                    <ShieldRoundedIcon />
+                                ) : (
+                                    <PersonSearchRoundedIcon />
+                                )}
+                            </Box>
                         </Box>
 
-                        {needsActivation && (
-                            <Stack spacing={1.5}>
-                                <Alert variant="soft" color="warning">
-                                    Verify your email to play online. We sent a verification code to{" "}
-                                    {accountEmail || "your email address"}.
-                                </Alert>
-                                <Button
-                                    fullWidth
-                                    variant="solid"
-                                    onClick={handleResend}
-                                    disabled={resendState === "sending" || !accountEmail}
-                                    sx={hocPrimaryButtonSx}
-                                >
-                                    {resendState === "sending"
-                                        ? "Sending…"
-                                        : resendState === "sent"
-                                          ? "Email sent — check your inbox"
-                                          : "Resend verification email"}
-                                </Button>
-                                <Typography level="body-xs" textColor={hocColors.muted}>
-                                    Enter the code from the email to activate your account, then reload this page to
-                                    play online.
-                                </Typography>
-                            </Stack>
-                        )}
+                        <Typography
+                            level="body-xs"
+                            sx={{ color: presentation.accent, fontWeight: 800, letterSpacing: "0.18em" }}
+                        >
+                            {presentation.eyebrow}
+                        </Typography>
+                        <Typography
+                            level="h2"
+                            sx={{ color: hocColors.parchment, mt: 0.75, fontSize: { xs: "1.55rem", sm: "2rem" } }}
+                        >
+                            {presentation.headline}
+                        </Typography>
+                        <Typography level="body-sm" sx={{ color: hocColors.muted, maxWidth: 540, mt: 0.8 }}>
+                            {presentation.description}
+                        </Typography>
+                        <Typography
+                            level="body-xs"
+                            sx={{
+                                color: hocColors.muted,
+                                mt: 1.25,
+                                px: 1.2,
+                                py: 0.55,
+                                borderRadius: "999px",
+                                bgcolor: "rgba(255,255,255,0.035)",
+                                border: "1px solid rgba(255,255,255,0.07)",
+                            }}
+                        >
+                            {statusText}
+                        </Typography>
 
-                        {(state === "searching" || state === "accepted" || state === "starting-ai") && (
-                            <Stack direction="row" spacing={1.5} alignItems="center">
-                                <CircularProgress size="sm" />
-                                <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                                    {state === "accepted"
-                                        ? "Waiting for the other player"
-                                        : state === "starting-ai"
-                                          ? "Creating AI match"
-                                          : "Queue stream connected"}
-                                </Typography>
-                            </Stack>
-                        )}
-
-                        {pendingGameId && (
-                            <Typography level="body-xs" textColor="rgba(239, 228, 204, 0.46)">
-                                Game {pendingGameId}
-                            </Typography>
-                        )}
-
-                        {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") && (
-                            <Stack spacing={0.75}>
-                                <Typography level="body-xs" textColor={hocColors.muted}>
-                                    AI difficulty (AI {VS_AI_DIFFICULTY_VERSIONS[aiDifficulty]}
-                                    {aiDifficulty === "brutal" ? " + search" : ""})
-                                </Typography>
-                                <Stack direction="row" spacing={0} role="radiogroup" aria-label="AI difficulty">
-                                    {VS_AI_DIFFICULTIES.map((difficulty, index) => {
-                                        const selected = difficulty === aiDifficulty;
-                                        return (
-                                            <Button
-                                                key={difficulty}
-                                                size="sm"
-                                                variant={selected ? "solid" : "soft"}
-                                                role="radio"
-                                                aria-checked={selected}
-                                                disabled={state === "starting-ai"}
-                                                onClick={() => setAiDifficulty(difficulty)}
-                                                sx={{
-                                                    ...(selected ? hocPrimaryButtonSx : hocSoftButtonSx),
-                                                    flex: 1,
-                                                    textTransform: "capitalize",
-                                                    borderRadius: 0,
-                                                    ...(index === 0 && {
-                                                        borderTopLeftRadius: 6,
-                                                        borderBottomLeftRadius: 6,
-                                                    }),
-                                                    ...(index === VS_AI_DIFFICULTIES.length - 1 && {
-                                                        borderTopRightRadius: 6,
-                                                        borderBottomRightRadius: 6,
-                                                    }),
-                                                }}
-                                            >
-                                                {difficulty}
-                                            </Button>
-                                        );
-                                    })}
-                                </Stack>
-                            </Stack>
-                        )}
-
-                        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                            {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (
+                        <Stack spacing={1.25} sx={{ width: "100%", maxWidth: 650, mt: 2.75 }}>
+                            {needsActivation && (
                                 <>
+                                    <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
+                                        Verify your email to play online. We sent a verification code to{" "}
+                                        {accountEmail || "your email address"}.
+                                    </Alert>
+                                    <Button
+                                        fullWidth
+                                        variant="solid"
+                                        onClick={handleResend}
+                                        disabled={resendState === "sending" || !accountEmail}
+                                        sx={{ ...hocPrimaryButtonSx, minHeight: 50 }}
+                                    >
+                                        {resendState === "sending"
+                                            ? "Sending…"
+                                            : resendState === "sent"
+                                              ? "Email sent — check your inbox"
+                                              : "Resend verification email"}
+                                    </Button>
+                                    <Typography level="body-xs" textColor={hocColors.muted}>
+                                        Enter the code from the email to activate your account, then reload this page.
+                                    </Typography>
+                                </>
+                            )}
+
+                            {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") && (
+                                <Box sx={{ textAlign: "left" }}>
+                                    <Typography level="body-xs" sx={{ color: hocColors.muted, mb: 0.75 }}>
+                                        AI opponent · {VS_AI_DIFFICULTY_VERSIONS[aiDifficulty]}
+                                        {aiDifficulty === "brutal" ? " + search" : ""}
+                                    </Typography>
+                                    <Stack direction="row" spacing={0.5} role="radiogroup" aria-label="AI difficulty">
+                                        {VS_AI_DIFFICULTIES.map((difficulty) => {
+                                            const selected = difficulty === aiDifficulty;
+                                            return (
+                                                <Button
+                                                    key={difficulty}
+                                                    size="sm"
+                                                    variant={selected ? "solid" : "soft"}
+                                                    role="radio"
+                                                    aria-checked={selected}
+                                                    disabled={state === "starting-ai"}
+                                                    onClick={() => setAiDifficulty(difficulty)}
+                                                    sx={{
+                                                        ...(selected ? hocPrimaryButtonSx : hocSoftButtonSx),
+                                                        flex: 1,
+                                                        minWidth: 0,
+                                                        textTransform: "capitalize",
+                                                    }}
+                                                >
+                                                    {difficulty}
+                                                </Button>
+                                            );
+                                        })}
+                                    </Stack>
+                                </Box>
+                            )}
+
+                            {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (
+                                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.15}>
                                     <Button
                                         fullWidth
                                         variant="solid"
                                         disabled={state === "starting-ai" || penalized}
                                         onClick={handleStart}
                                         startDecorator={<PersonSearchRoundedIcon />}
-                                        sx={hocPrimaryButtonSx}
+                                        endDecorator={!penalized ? <ArrowForwardRoundedIcon /> : undefined}
+                                        sx={{ ...hocPrimaryButtonSx, minHeight: 54, fontSize: "0.96rem" }}
                                     >
-                                        {penalized ? `Search again in ${penaltySeconds}s` : "Find Opponent"}
+                                        {penalized ? `Search again in ${penaltySeconds}s` : "Find ranked opponent"}
                                     </Button>
                                     <Button
                                         fullWidth
@@ -480,16 +966,21 @@ export const MatchmakingRoute: React.FC = () => {
                                         disabled={state === "starting-ai"}
                                         onClick={handlePlayAi}
                                         startDecorator={<SmartToyRoundedIcon />}
-                                        sx={hocSoftButtonSx}
+                                        sx={{ ...hocSoftButtonSx, minHeight: 54, fontSize: "0.96rem" }}
                                     >
-                                        Play vs AI
+                                        Practice vs AI
                                     </Button>
-                                </>
+                                </Stack>
                             ) : null}
 
                             {state === "searching" ? (
-                                <Button fullWidth variant="soft" onClick={handleCancel} sx={hocSoftButtonSx}>
-                                    Leave Queue
+                                <Button
+                                    fullWidth
+                                    variant="soft"
+                                    onClick={handleCancel}
+                                    sx={{ ...hocSoftButtonSx, minHeight: 52 }}
+                                >
+                                    Leave ranked queue
                                 </Button>
                             ) : null}
 
@@ -499,28 +990,97 @@ export const MatchmakingRoute: React.FC = () => {
                                     variant="solid"
                                     disabled={state === "accepted"}
                                     onClick={handleAccept}
-                                    sx={hocPrimaryButtonSx}
+                                    startDecorator={state === "accepted" ? <CheckCircleRoundedIcon /> : undefined}
+                                    endDecorator={state === "confirming" ? <ArrowForwardRoundedIcon /> : undefined}
+                                    sx={{
+                                        ...(state === "confirming"
+                                            ? {
+                                                  bgcolor: "#55d878",
+                                                  color: "#07130a",
+                                                  border: "1px solid #b8ffc8",
+                                                  fontWeight: 900,
+                                                  boxShadow: "0 8px 26px rgba(85,216,120,0.3)",
+                                                  animation: "acceptAttention 1.4s ease-in-out infinite",
+                                                  "&:hover": {
+                                                      bgcolor: "#8aea9f",
+                                                      color: "#07130a",
+                                                      boxShadow: "0 12px 40px rgba(85,216,120,0.5)",
+                                                  },
+                                                  "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                                              }
+                                            : hocPrimaryButtonSx),
+                                        minHeight: 64,
+                                        fontSize: "1.06rem",
+                                        "&.Mui-disabled": {
+                                            bgcolor: "rgba(85,216,120,0.16)",
+                                            color: "rgba(210,255,220,0.68)",
+                                            border: "1px solid rgba(85,216,120,0.35)",
+                                        },
+                                    }}
                                 >
-                                    Accept Match
+                                    {state === "accepted" ? "Match accepted" : "Accept ranked match"}
                                 </Button>
                             ) : null}
+
+                            {penalized && (
+                                <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
+                                    You didn&apos;t accept the last match. You can search again in {penaltySeconds}s.
+                                </Alert>
+                            )}
+
+                            {error && !penalized && (
+                                <Alert variant="soft" color="danger" sx={{ textAlign: "left" }}>
+                                    {error}
+                                </Alert>
+                            )}
+
+                            {pendingGameId && (
+                                <Typography
+                                    level="body-xs"
+                                    title={pendingGameId}
+                                    sx={{ color: "rgba(239,228,204,0.4)", letterSpacing: "0.08em" }}
+                                >
+                                    MATCH REF · {shortGameId}
+                                </Typography>
+                            )}
                         </Stack>
+                    </Box>
 
-                        {penalized && (
-                            <Alert variant="soft" color="warning">
-                                You didn&apos;t accept the last match. You can search again in {penaltySeconds}s.
-                            </Alert>
-                        )}
-
-                        {error && !penalized && (
-                            <Alert variant="soft" color="danger">
-                                {error}
-                            </Alert>
-                        )}
-                    </Stack>
+                    <Box
+                        sx={{
+                            display: "grid",
+                            gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" },
+                            borderTop: "1px solid rgba(239,228,204,0.09)",
+                            bgcolor: "rgba(0,0,0,0.2)",
+                        }}
+                    >
+                        {[
+                            ["LIVE DUEL", "Real opponent"],
+                            ["FULL DRAFT", "Army & loadout"],
+                            ["RANKED RECORD", "Profile history"],
+                        ].map(([label, value], index) => (
+                            <Box
+                                key={label}
+                                sx={{
+                                    px: 2.25,
+                                    py: 1.5,
+                                    borderLeft: { xs: "none", sm: index ? "1px solid rgba(239,228,204,0.07)" : "none" },
+                                    borderTop: { xs: index ? "1px solid rgba(239,228,204,0.07)" : "none", sm: "none" },
+                                }}
+                            >
+                                <Typography level="body-xs" sx={{ color: hocColors.gold, fontWeight: 800 }}>
+                                    {label}
+                                </Typography>
+                                <Typography level="body-xs" sx={{ color: hocColors.muted, mt: 0.2 }}>
+                                    {value}
+                                </Typography>
+                            </Box>
+                        ))}
+                    </Box>
                 </Sheet>
+
+                <PlayerPortalSidebar navigationDisabled={navigationLocked} />
             </Box>
-            <PlayerPortalSidebar />
-        </>
+        </Box>
     );
 };
