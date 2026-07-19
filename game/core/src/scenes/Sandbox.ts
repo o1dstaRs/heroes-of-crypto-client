@@ -627,6 +627,27 @@ export class Sandbox extends PixiScene {
                     boardInputLockedByAI: this.isBoardInputLockedByAI(),
                 };
             };
+            // Visual smoke/tuning hook for the missed-attack VFX: fires the "MISS" pop + bullet-time
+            // dodge on the first two placed units (second dodges, first "attacks") without needing a
+            // real in-fight miss roll — the animation only plays for ~900ms, so an on-demand trigger is
+            // the only reliable way to eyeball or screenshot it.
+            (w as { __hocMissVfxTest?: () => boolean }).__hocMissVfxTest = () => {
+                const units = [...this.unitsHolder.getAllUnits().values()];
+                if (units.length < 2) {
+                    return false;
+                }
+                const attacker = units[0] as RenderableUnit;
+                const target = units[1] as RenderableUnit;
+                this.showAttackMissedVfx(attacker, target, {
+                    amount: 0,
+                    render: false,
+                    unitPosition: target.getPosition(),
+                    unitIsSmall: target.isSmallSize(),
+                    unitId: target.getId(),
+                    missed: true,
+                });
+                return true;
+            };
             // Diagnostic view of the PUBLISHED visible state + the pending-emission flag — lets an e2e
             // run explain a missing fight-results overlay: was the finish never published (scene bug),
             // published but never emitted (manager tick bug), or emitted with a winner mismatch.
@@ -2584,6 +2605,45 @@ export class Sandbox extends PixiScene {
             console.error("Failed to spawn Chain Lightning VFX", err);
         }
     }
+    /**
+     * A fully-MISSED attack (Dodge / Small Specie / Boar Saliva / Broken Aegis): pop a "MISS" label
+     * under the dodging unit and play its bullet-time dodge (sidestep + afterimage trail). Shared by
+     * the live sandbox path (executeAttackSequence) and the ranked replay path (showReplayAttackDamage)
+     * per the ABILITY VFX CONTRACT above. Gates internally on damage.missed so callers can pass the
+     * payload unconditionally. The dodger is resolved from damage.unitId (the unit the engine actually
+     * aimed the blow at — e.g. the unit intercepting a ranged shot), falling back to the clicked target.
+     */
+    protected showAttackMissedVfx(attacker: RenderableUnit, target: Unit, damage?: IVisibleDamage): void {
+        if (!damage?.missed) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cell = gs.getCellSize();
+        const aCenter = attacker.getVisualCenter(gs);
+        const victimId = damage.unitId ?? target.getId();
+        const victim = (this.unitsHolder.getAllUnits().get(victimId) as RenderableUnit | undefined) ?? target;
+        const rVictim = victim as RenderableUnit;
+        const vCenter =
+            typeof rVictim.getVisualCenter === "function" ? rVictim.getVisualCenter(gs) : victim.getPosition();
+        const dir = { x: vCenter.x - aCenter.x, y: vCenter.y - aCenter.y };
+        const len = Math.hypot(dir.x, dir.y);
+
+        if (typeof rVictim.playDodgeAnimation === "function" && len > 0.001) {
+            const nx = dir.x / len;
+            const ny = dir.y / len;
+            // Sidestep mostly perpendicular to the strike line with a touch of "away"; large (2x2)
+            // units step a bit further so the dodge visibly clears their silhouette. The perpendicular
+            // side is picked per-unit (id parity) so repeated dodges don't all lean the same way.
+            const side = victim.getId().charCodeAt(0) % 2 === 0 ? 1 : -1;
+            const mag = cell * (victim.isSmallSize() ? 1 : 1.3);
+            rVictim.playDodgeAnimation((-ny * side * 0.4 + nx * 0.3) * mag, (nx * side * 0.4 + ny * 0.3) * mag);
+        }
+
+        // "MISS" pops UNDER the unit (world +y is up) and drifts along the strike line, clear of the
+        // dodge itself.
+        const below = { x: vCenter.x, y: vCenter.y - (victim.isSmallSize() ? cell * 0.85 : cell * 1.25) };
+        this.combatVisuals.showMissLabel(below, dir);
+    }
     private async playReplayAttackRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
         const action = cloneReplayData(record.action);
         if (action.type !== "melee_attack" && action.type !== "range_attack") {
@@ -2666,7 +2726,15 @@ export class Sandbox extends PixiScene {
             await this.playReplayOneShot(attacker, "attack", 360);
         }
 
-        this.sc_sceneLog.updateLog(`${attacker.getName()} attk ${target.getName()} (${attackEvent.damage.amount})`);
+        if (attackEvent.damage.missed) {
+            // Match the engine's own miss wording (sandbox replays; ranked suppresses updateLog and
+            // rebuilds its log from the authoritative journal instead).
+            this.sc_sceneLog.updateLog(
+                `${attacker.getName()} misses ${attackEvent.attackType === "range" ? "🏹" : "⚔️"} on ${target.getName()}`,
+            );
+        } else {
+            this.sc_sceneLog.updateLog(`${attacker.getName()} attk ${target.getName()} (${attackEvent.damage.amount})`);
+        }
         // Chain Lightning arcs AT IMPACT, together with the (AOE) damage numbers — not 360ms earlier
         // during the swing, where it flashed and faded before the damage showed ("no lightning" + "delayed").
         this.spawnChainLightningVfx(attacker, target, attackEvent.damage);
@@ -2676,8 +2744,9 @@ export class Sandbox extends PixiScene {
         this.applyReplayAttackRecoil(attacker, attackEvent);
         // Melee strikes don't emit a per-target recoil animation (only ranged hits do, via the
         // animations array), so knock the defender back here to give the struck side a visible hit
-        // reaction regardless of attacker/target.
-        if (attackEvent.attackType !== "range") {
+        // reaction regardless of attacker/target. A fully-dodged strike never connected — the dodge
+        // animation (showAttackMissedVfx) is the reaction, so no knockback on top of it.
+        if (attackEvent.attackType !== "range" && !attackEvent.damage.missed) {
             this.applyReplayHitKnockback(target, attacker);
         }
         // Pikeman Skewer Strike: light streak through the pierced units + a wind-up thrust on the
@@ -2980,6 +3049,14 @@ export class Sandbox extends PixiScene {
         const direction = { x: victimCenter.x - attackerCenter.x, y: victimCenter.y - attackerCenter.y };
         const spawnPos = this.offsetReplayDamagePosition(damage.unitPosition ?? victimCenter, victim, direction);
         const hits = damage.hits ?? [];
+
+        // Fully-missed attack: "MISS" + bullet-time dodge instead of a damage number. Placed after the
+        // secondary/deepWounds rendering above (a missed primary can still land Skewer/Lightning-Spin
+        // side damage) and before the HP-diff fallback, which must not run for a dodge.
+        if (damage.missed) {
+            this.showAttackMissedVfx(attacker, target, damage);
+            return;
+        }
 
         if (!damage.render || (damage.amount <= 0 && !hits.length)) {
             // Secondary entries above already rendered their own numbers (including the yellow Flesh
@@ -6320,6 +6397,9 @@ export class Sandbox extends PixiScene {
             damageForAnimation.unitPosition = { ...attackEvent.damage.unitPosition };
             damageForAnimation.unitIsSmall = attackEvent.damage.unitIsSmall;
             damageForAnimation.unitId = attackEvent.damage.unitId;
+            // A fully-dodged attack (Dodge / Small Specie / Boar Saliva / Broken Aegis) — drives the
+            // "MISS" pop + bullet-time dodge below instead of a damage number.
+            damageForAnimation.missed = attackEvent.damage.missed;
             damageForAnimation.hits = attackEvent.damage.hits?.map((hit) => ({ ...hit }));
             // Carry the per-affected-unit AOE breakdown (Gargantuan Area Throw / Large Caliber). Without
             // it the live path can't tell a Double-Shot AOE landed twice — so its second projectile and
@@ -6523,6 +6603,10 @@ export class Sandbox extends PixiScene {
             attacker.getVisualCenter(gs),
             180,
         );
+
+        // Fully-missed attack: no damage number to draw — pop "MISS" under the dodging unit and play
+        // its bullet-time dodge instead (no-op unless damageForAnimation.missed).
+        this.showAttackMissedVfx(attacker, target, damageForAnimation);
 
         // 1. Target Damage
         // AOE shots (Gargantuan Area Throw / Large Caliber) convey their damage per-affected-unit via

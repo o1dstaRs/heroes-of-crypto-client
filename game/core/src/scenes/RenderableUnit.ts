@@ -98,6 +98,43 @@ interface OneShotAnimState {
     durationPerFrame: number;
     onComplete?: () => void;
 }
+interface DodgeGhost {
+    sprite: Sprite;
+    bornMs: number;
+}
+interface DodgeAnimState {
+    startMs: number;
+    durationMs: number;
+    /** World-space displacement (sprite + shadow) at full extension. */
+    dx: number;
+    dy: number;
+    /** Sprite lean (radians) at full extension. */
+    lean: number;
+    lastGhostMs: number;
+    ghosts: DodgeGhost[];
+}
+// Tuning for the "bullet-time" dodge played when an attack fully MISSES this unit (Dodge /
+// Small Specie / Boar Saliva / Broken Aegis): dash out of the strike line, hang at full extension
+// for a beat, then spring back — trailing matrix-style afterimages the whole way out.
+const DODGE_DURATION_MS = 640;
+const DODGE_DASH_END = 0.22; // fraction of the dodge spent dashing out
+const DODGE_HOLD_END = 0.55; // fraction after which the unit springs back
+const DODGE_LEAN_RAD = 0.26; // sprite lean at full extension
+const DODGE_GHOST_EVERY_MS = 45;
+const DODGE_GHOST_LIFE_MS = 300;
+const DODGE_GHOST_ALPHA = 0.35;
+const DODGE_GHOST_TINT = 0xaaffcc; // faint green wash so the trail reads "bullet time", not "unit copy"
+const DODGE_BLUR_STRENGTH = 2.5;
+function dodgeEaseOutCubic(t: number): number {
+    const u = 1 - t;
+    return 1 - u * u * u;
+}
+function dodgeEaseOutBack(t: number): number {
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    const u = t - 1;
+    return 1 + c3 * u * u * u + c1 * u * u;
+}
 /**
  * Unit + Pixi visualization (sprite, stack badge, spawn animation).
  * We never `new RenderableUnit` directly; instead we "upgrade"
@@ -165,6 +202,11 @@ export class RenderableUnit extends Unit {
     // currentEffectTint().
     private effectFlashStartMs = 0;
     private effectFlashColor = 0x2a0a3a;
+    // "Bullet-time" dodge played when an attack fully misses this unit; stepped every frame from
+    // ensureVisual. Lives until the spring-back finishes AND its afterimage ghosts have faded.
+    private dodgeAnim?: DodgeAnimState;
+    // undefined = not built yet; null = construction failed (headless — no GL), don't retry.
+    private dodgeBlurFilter?: BlurFilter | null;
     // Spells support
     private pixiSpells: PixiRenderableSpell[] = [];
     private spellBookLayer?: Container;
@@ -193,6 +235,8 @@ export class RenderableUnit extends Unit {
         ru.recoilDy = 0;
         ru.effectFlashStartMs = 0;
         ru.effectFlashColor = 0x2a0a3a;
+        ru.dodgeAnim = undefined;
+        ru.dodgeBlurFilter = undefined;
         // Without this, visualScaleMultiplier is `undefined` -> targetSize = 128 * undefined = NaN
         // -> sprite.scale = NaN -> the unit collapses to an invisible point (renders as a bare dot).
         ru.visualScaleMultiplier = 1;
@@ -373,6 +417,8 @@ export class RenderableUnit extends Unit {
         const normalShadowAlpha = isHidden ? 0.15 : 0.35;
         this.shadow.alpha = this.visualMode === "ghost" ? 0.1 : normalShadowAlpha;
         this.shadow.tint = 0x000000;
+        // --- bullet-time dodge (missed attack): offsets sprite+shadow, leans, trails ghosts ---
+        this.stepDodgeAnimation(worldRoot);
         // --- badge ---
         this.ensureBadge(worldRoot, gs, props, pos);
         // --- stack power indicator ---
@@ -821,6 +867,12 @@ export class RenderableUnit extends Unit {
     public destroyVisuals(): void {
         this.isDestroyed = true;
 
+        if (this.dodgeAnim) {
+            for (const ghost of this.dodgeAnim.ghosts) {
+                if (!ghost.sprite.destroyed) ghost.sprite.destroy();
+            }
+            this.dodgeAnim = undefined;
+        }
         if (this.sprite) {
             this.sprite.destroy();
             this.sprite = undefined;
@@ -1154,6 +1206,115 @@ export class RenderableUnit extends Unit {
         this.recoilDy = dy;
         this.recoilWindup = false;
         this.recoilDurationMs = 220;
+    }
+    /**
+     * "Bullet-time" dodge for a fully-missed attack: the unit dashes (dx, dy) out of the strike line
+     * with a lean and a green-washed afterimage trail, hangs at full extension for a beat, then springs
+     * back with a slight overshoot. (dx, dy) is the world-space displacement at full extension — the
+     * caller computes it from the attack direction (see Sandbox.showAttackMissedVfx). Safe to call in
+     * any mode; a dodge already in flight is restarted but keeps its fading ghosts.
+     */
+    public playDodgeAnimation(dx: number, dy: number): void {
+        if (!this.sprite || this.isDestroyed) return;
+        // Lean INTO the dodge: tip the sprite toward the escape direction so the sidestep reads as a
+        // committed lean rather than a horizontal teleport. Screen-x sign picks the tilt side.
+        const lean = (dx >= 0 ? -1 : 1) * DODGE_LEAN_RAD;
+        this.dodgeAnim = {
+            startMs: performance.now(),
+            durationMs: DODGE_DURATION_MS,
+            dx,
+            dy,
+            lean,
+            lastGhostMs: 0,
+            ghosts: this.dodgeAnim?.ghosts ?? [],
+        };
+    }
+    /** True while a dodge (including its fading ghost trail) is still animating. */
+    public isDodging(): boolean {
+        return !!this.dodgeAnim;
+    }
+    /** Take the dodge blur off the sprite if it is the installed filter (leave other filters alone). */
+    private removeDodgeBlur(): void {
+        if (this.sprite && this.dodgeBlurFilter && this.sprite.filters?.[0] === this.dodgeBlurFilter) {
+            this.sprite.filters = null;
+        }
+    }
+    private stepDodgeAnimation(worldRoot: Container): void {
+        const anim = this.dodgeAnim;
+        if (!anim) return;
+        const now = performance.now();
+        const t = (now - anim.startMs) / anim.durationMs;
+
+        // Fade + expire the afterimage ghosts regardless of phase (they outlive the spring-back).
+        anim.ghosts = anim.ghosts.filter((ghost) => {
+            const age = now - ghost.bornMs;
+            if (age >= DODGE_GHOST_LIFE_MS || ghost.sprite.destroyed) {
+                if (!ghost.sprite.destroyed) ghost.sprite.destroy();
+                return false;
+            }
+            ghost.sprite.alpha = DODGE_GHOST_ALPHA * (1 - age / DODGE_GHOST_LIFE_MS);
+            return true;
+        });
+
+        if (t >= 1) {
+            if (this.sprite) {
+                this.sprite.rotation = 0;
+                this.removeDodgeBlur();
+            }
+            if (!anim.ghosts.length) this.dodgeAnim = undefined;
+            return;
+        }
+
+        // Dash out fast, hang at full extension (the "bullet-time" beat), then spring back with a
+        // slight overshoot past the origin so the recovery reads springy instead of a rewind.
+        let env: number;
+        if (t < DODGE_DASH_END) {
+            env = dodgeEaseOutCubic(t / DODGE_DASH_END);
+        } else if (t < DODGE_HOLD_END) {
+            env = 1;
+        } else {
+            env = 1 - dodgeEaseOutBack((t - DODGE_HOLD_END) / (1 - DODGE_HOLD_END));
+        }
+
+        if (this.sprite) {
+            this.sprite.x += anim.dx * env;
+            this.sprite.y += anim.dy * env;
+            this.sprite.rotation = anim.lean * env;
+            // Light blur while dashing/held so the sidestep looks too fast to focus on; removed
+            // explicitly on the spring-back (don't rely on any ambient per-frame filter reset).
+            if (t < DODGE_HOLD_END) {
+                if (this.dodgeBlurFilter === undefined) {
+                    // BlurFilter compiles its GL program at construction — unavailable headless
+                    // (bun tests / battle runner). null remembers the failure so it isn't retried
+                    // (and rethrown) every frame.
+                    try {
+                        this.dodgeBlurFilter = new BlurFilter({ strength: DODGE_BLUR_STRENGTH });
+                    } catch {
+                        this.dodgeBlurFilter = null;
+                    }
+                }
+                if (this.dodgeBlurFilter) {
+                    this.sprite.filters = [this.dodgeBlurFilter];
+                }
+            } else {
+                this.removeDodgeBlur();
+            }
+        }
+        if (this.shadow) {
+            this.shadow.x += anim.dx * env;
+            this.shadow.y += anim.dy * env;
+        }
+
+        // Trail: drop a fading ghost of the current transform every few ms while dashing/held.
+        if (t < DODGE_HOLD_END && now - anim.lastGhostMs >= DODGE_GHOST_EVERY_MS) {
+            anim.lastGhostMs = now;
+            const ghost = this.createAfterimageSprite(worldRoot);
+            if (ghost) {
+                ghost.tint = DODGE_GHOST_TINT;
+                ghost.alpha = DODGE_GHOST_ALPHA;
+                anim.ghosts.push({ sprite: ghost, bornMs: now });
+            }
+        }
     }
     /**
      * A wind-up spear thrust ("замахивается копьём"): the sprite first pulls BACK away from the target,

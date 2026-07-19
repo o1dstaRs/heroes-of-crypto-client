@@ -1694,6 +1694,12 @@ export class RankedPlayScene extends Sandbox {
                 return `${nameOf(event.casterId)} summoned ${event.amount} x ${event.unitName}${at}`;
             }
             case "unit_attacked":
+                // Dodged attack (Dodge / Small Specie / Boar Saliva / Broken Aegis): the engine flags it
+                // on the damage payload. Say so instead of the misleading "X ⚔️ Y (0)" zero-damage line —
+                // matching the sandbox engine's own "misses ⚔️ on" wording.
+                if (event.damage.missed) {
+                    return `${nameOf(event.attackerId)} misses ${this.attackIcon(event.attackType, event.damage)} on ${nameOf(event.targetId)}`;
+                }
                 // AOE (Gargantuan Area Throw / Cyclops Large Caliber) carries its damage per-splashed-
                 // unit in damage.splash[], NOT in damage.amount (which is 0 for a pure-splash shot). Emit
                 // one line per affected unit via splashLogLines() and suppress the misleading single
