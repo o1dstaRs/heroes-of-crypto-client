@@ -196,6 +196,24 @@ interface IDebuffPop {
     riseY: number;
 }
 
+interface IAbilitySteal {
+    container: Container;
+    web: Graphics;
+    rings: Graphics;
+    payload: Container;
+    payloadGlow: Sprite;
+    trail: Sprite[];
+    stolenLabel: PixiText;
+    from: HoCMath.XY;
+    to: HoCMath.XY;
+    control: HoCMath.XY;
+    cellSize: number;
+    age: number;
+    life: number;
+    arrived: boolean;
+    onArrival?: () => void;
+}
+
 // Tuning for the floating damage numbers.
 const FT_LIFE = 0.8; // seconds on screen
 const FT_RISE = 72; // world px the number floats up
@@ -217,6 +235,18 @@ const DP_START_SCALE = 0.25; // scale the pop springs in from
 const DP_FADE_IN = 0.1; // seconds to fade in
 const DP_FADE_OUT_FROM = 0.48; // fraction of life after which it fades out (earlier = quicker evaporate)
 const DP_Z = 2100; // above the damage numbers (2000) so the debuff reads on top
+
+// Tuning for Predatory Assimilation's ability transfer. Three lime strands cinch the stolen card out
+// of the victim and carry it into Arachna Queen. The palette deliberately matches the permanent
+// STOLEN overlay in the sidebar so the board moment and the resulting unit state read as one mechanic.
+const ABILITY_STEAL_Z = 2180;
+const ABILITY_STEAL_LIFE = 0.82;
+const ABILITY_STEAL_TRAVEL = 0.46;
+const ABILITY_STEAL_WEB_REVEAL = 0.16;
+const ABILITY_STEAL_FADE_FROM = 0.54;
+const ABILITY_STEAL_TINT = 0x9acd32;
+const ABILITY_STEAL_CORE = 0xf2ffd0;
+const ABILITY_STEAL_TRAIL_COUNT = 6;
 
 // Tuning for the Black Dragon's Fire Breath sweep — a line of embers that rushes from the attacker
 // through every unit the breath burns. Timed to land with the strike: a tiny lead so the fire erupts
@@ -343,10 +373,13 @@ export class CombatVisuals {
     private slashes: ISlash[] = [];
     private clawSlashes: IClawSlash[] = [];
     private debuffPops: IDebuffPop[] = [];
+    private abilitySteals: IAbilitySteal[] = [];
     private debuffStyle?: TextStyle;
     private buffStyle?: TextStyle;
     private missStyle?: TextStyle;
     private absorbedLabelStyle?: TextStyle;
+    private stolenLabelStyle?: TextStyle;
+    private stolenAbilityNameStyle?: TextStyle;
     // Soft radial ember texture, built once and reused for every Fire Breath sweep.
     private fireTexture?: Texture;
     // Soft radial white-light texture, built once and reused for the Skewer Strike light orb + trail.
@@ -464,6 +497,42 @@ export class CombatVisuals {
             });
         }
         return this.absorbedLabelStyle;
+    }
+    private getStolenLabelStyle(): TextStyle {
+        if (!this.stolenLabelStyle) {
+            this.stolenLabelStyle = new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 34,
+                fontWeight: "900",
+                fill: "#d7ff66",
+                stroke: { color: "#172400", width: 6 },
+                dropShadow: {
+                    color: "#000000",
+                    blur: 5,
+                    angle: Math.PI / 6,
+                    distance: 2,
+                },
+            });
+        }
+        return this.stolenLabelStyle;
+    }
+    private getStolenAbilityNameStyle(): TextStyle {
+        if (!this.stolenAbilityNameStyle) {
+            this.stolenAbilityNameStyle = new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 20,
+                fontWeight: "900",
+                fill: "#f4ffd7",
+                stroke: { color: "#172400", width: 4 },
+                dropShadow: {
+                    color: "#000000",
+                    blur: 4,
+                    angle: Math.PI / 6,
+                    distance: 2,
+                },
+            });
+        }
+        return this.stolenAbilityNameStyle;
     }
     /** Put an upright container into the shared damage/MISS rise, drift, pop and fade animation. */
     private enqueueFloatingContainer(container: Container, pos: HoCMath.XY, direction?: HoCMath.XY): void {
@@ -600,6 +669,272 @@ export class CombatVisuals {
         this.debuffPops.push({ container, age: 0, life: DP_LIFE, startX, startY, riseY: DP_RISE });
     }
     /**
+     * Predatory Assimilation: pull the stolen ability out of the victim and into Arachna Queen. A
+     * three-strand web briefly connects the units while the ability card rides a lime glow along a
+     * curved path. `onArrival` lets the scene flash the Queen exactly when the card reaches her.
+     */
+    public spawnAbilitySteal(
+        from: HoCMath.XY,
+        to: HoCMath.XY,
+        cellSize: number,
+        abilityName: string,
+        iconTexture?: Texture,
+        onArrival?: () => void,
+    ): void {
+        if (Math.hypot(to.x - from.x, to.y - from.y) < 1) {
+            onArrival?.();
+            return;
+        }
+
+        const container = new Container();
+        const web = new Graphics();
+        const rings = new Graphics();
+        web.blendMode = "add";
+        rings.blendMode = "add";
+        container.addChild(web, rings);
+
+        const lightTexture = this.getLightTexture();
+        const trail: Sprite[] = [];
+        for (let i = 0; i < ABILITY_STEAL_TRAIL_COUNT; i++) {
+            const mote = new Sprite(lightTexture);
+            mote.anchor.set(0.5);
+            mote.blendMode = "add";
+            mote.tint = ABILITY_STEAL_TINT;
+            mote.visible = false;
+            container.addChild(mote);
+            trail.push(mote);
+        }
+
+        // Counter-flip this payload against the y-up world root so the stolen card and its name remain
+        // upright while moving in world coordinates. The glow itself is radial, so the flip is invisible.
+        const payload = new Container();
+        const payloadGlow = new Sprite(lightTexture);
+        payloadGlow.anchor.set(0.5);
+        payloadGlow.blendMode = "add";
+        payloadGlow.tint = ABILITY_STEAL_TINT;
+        payloadGlow.width = cellSize * 1.05;
+        payloadGlow.height = cellSize * 1.05;
+        payload.addChild(payloadGlow);
+
+        const iconSize = cellSize * 0.5;
+        if (iconTexture && iconTexture !== Texture.EMPTY) {
+            const icon = new Sprite(iconTexture);
+            icon.anchor.set(0.5);
+            icon.width = iconSize;
+            icon.height = iconSize;
+            const frame = new Graphics();
+            frame.roundRect(-iconSize * 0.54, -iconSize * 0.54, iconSize * 1.08, iconSize * 1.08, iconSize * 0.14);
+            frame.stroke({ width: Math.max(2, cellSize * 0.035), color: ABILITY_STEAL_CORE, alpha: 0.95 });
+            payload.addChild(icon, frame);
+        }
+
+        const abilityLabel = new PixiText({ text: abilityName, style: this.getStolenAbilityNameStyle() });
+        abilityLabel.anchor.set(0.5);
+        abilityLabel.position.set(0, iconTexture ? iconSize * 0.82 : 0);
+        const maxLabelWidth = cellSize * 1.75;
+        // Avoid asking Pixi to rasterize/measure the text here (which would make the rare first steal
+        // pay that cost on its impact frame and breaks headless tests). Arial Black at 20px averages
+        // roughly 11px per character; this estimate is only used to cap unusually long names.
+        const estimatedLabelWidth = abilityName.length * 11;
+        if (estimatedLabelWidth > maxLabelWidth) {
+            abilityLabel.scale.set(maxLabelWidth / estimatedLabelWidth);
+        }
+        payload.addChild(abilityLabel);
+        payload.scale.set(0.45, -0.45);
+        container.addChild(payload);
+
+        const stolenLabel = new PixiText({ text: "STOLEN", style: this.getStolenLabelStyle() });
+        stolenLabel.anchor.set(0.5);
+        stolenLabel.position.set(from.x, from.y + cellSize * 0.62);
+        stolenLabel.scale.set(0.5, -0.5);
+        stolenLabel.alpha = 0;
+        container.addChild(stolenLabel);
+
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const len = Math.hypot(dx, dy);
+        const nx = -dy / len;
+        const ny = dx / len;
+        const bend = Math.min(cellSize * 0.72, len * 0.24);
+        // Alternate the bend deterministically by direction so repeated steals do not always bow toward
+        // the same screen edge, while both ranked clients still render the exact same path.
+        const bendSign = dx * dy >= 0 ? 1 : -1;
+        const control = {
+            x: (from.x + to.x) * 0.5 + nx * bend * bendSign,
+            y: (from.y + to.y) * 0.5 + ny * bend * bendSign,
+        };
+
+        this.context.attachToWorldRoot(container, ABILITY_STEAL_Z);
+        this.abilitySteals.push({
+            container,
+            web,
+            rings,
+            payload,
+            payloadGlow,
+            trail,
+            stolenLabel,
+            from: { ...from },
+            to: { ...to },
+            control,
+            cellSize,
+            age: 0,
+            life: ABILITY_STEAL_LIFE,
+            arrived: false,
+            onArrival,
+        });
+    }
+    private abilityStealPoint(steal: IAbilitySteal, t: number, strand = 0): HoCMath.XY {
+        const clamped = Math.max(0, Math.min(1, t));
+        const oneMinus = 1 - clamped;
+        const x =
+            oneMinus * oneMinus * steal.from.x +
+            2 * oneMinus * clamped * steal.control.x +
+            clamped * clamped * steal.to.x;
+        const y =
+            oneMinus * oneMinus * steal.from.y +
+            2 * oneMinus * clamped * steal.control.y +
+            clamped * clamped * steal.to.y;
+        if (!strand) {
+            return { x, y };
+        }
+        const tx = 2 * oneMinus * (steal.control.x - steal.from.x) + 2 * clamped * (steal.to.x - steal.control.x);
+        const ty = 2 * oneMinus * (steal.control.y - steal.from.y) + 2 * clamped * (steal.to.y - steal.control.y);
+        const tangentLength = Math.hypot(tx, ty) || 1;
+        const taper = Math.sin(Math.PI * clamped);
+        const webWidth = steal.cellSize * 0.13 * taper;
+        const wobble = Math.sin(clamped * Math.PI * 5 + strand * 1.7) * steal.cellSize * 0.022 * taper;
+        const offset = strand * webWidth + wobble;
+        return { x: x + (-ty / tangentLength) * offset, y: y + (tx / tangentLength) * offset };
+    }
+    private traceAbilityStealStrand(steal: IAbilitySteal, strand: number, reveal: number): void {
+        const segments = 24;
+        const first = this.abilityStealPoint(steal, 0, strand);
+        steal.web.moveTo(first.x, first.y);
+        const visibleSegments = Math.max(1, Math.ceil(segments * reveal));
+        for (let i = 1; i <= visibleSegments; i++) {
+            const t = Math.min(reveal, i / segments);
+            const point = this.abilityStealPoint(steal, t, strand);
+            steal.web.lineTo(point.x, point.y);
+        }
+    }
+    private drawAbilityStealWeb(steal: IAbilitySteal, reveal: number, alpha: number): void {
+        steal.web.clear();
+        for (const strand of [-1, 0, 1]) {
+            this.traceAbilityStealStrand(steal, strand, reveal);
+            steal.web.stroke({
+                width: steal.cellSize * 0.06,
+                color: ABILITY_STEAL_TINT,
+                alpha: alpha * 0.25,
+                cap: "round",
+                join: "round",
+            });
+            this.traceAbilityStealStrand(steal, strand, reveal);
+            steal.web.stroke({
+                width: Math.max(1.5, steal.cellSize * 0.016),
+                color: strand === 0 ? ABILITY_STEAL_CORE : ABILITY_STEAL_TINT,
+                alpha: alpha * (strand === 0 ? 0.95 : 0.72),
+                cap: "round",
+                join: "round",
+            });
+        }
+
+        // Short cross-threads make the tether read as Arachna's web rather than a generic spell beam.
+        for (let t = 0.14; t < reveal; t += 0.14) {
+            const a = this.abilityStealPoint(steal, t, -1);
+            const b = this.abilityStealPoint(steal, t, 1);
+            steal.web.moveTo(a.x, a.y);
+            steal.web.lineTo(b.x, b.y);
+        }
+        steal.web.stroke({
+            width: Math.max(1, steal.cellSize * 0.01),
+            color: ABILITY_STEAL_CORE,
+            alpha: alpha * 0.5,
+            cap: "round",
+        });
+    }
+    private stepAbilitySteals(dt: number): void {
+        for (let i = this.abilitySteals.length - 1; i >= 0; i--) {
+            const steal = this.abilitySteals[i];
+            steal.age += dt;
+            if (!steal.arrived && steal.age >= ABILITY_STEAL_TRAVEL) {
+                steal.arrived = true;
+                steal.onArrival?.();
+            }
+            if (steal.age >= steal.life) {
+                steal.container.destroy({ children: true });
+                this.abilitySteals.splice(i, 1);
+                continue;
+            }
+
+            const fade =
+                steal.age <= ABILITY_STEAL_FADE_FROM
+                    ? 1
+                    : 1 - (steal.age - ABILITY_STEAL_FADE_FROM) / Math.max(0.001, steal.life - ABILITY_STEAL_FADE_FROM);
+            const reveal = Math.min(1, steal.age / ABILITY_STEAL_WEB_REVEAL);
+            this.drawAbilityStealWeb(steal, reveal, Math.max(0, fade));
+
+            const travelProgress = Math.min(1, steal.age / ABILITY_STEAL_TRAVEL);
+            const easedTravel = easeOutCubic(travelProgress);
+            const payloadPoint = this.abilityStealPoint(steal, easedTravel);
+            steal.payload.position.set(payloadPoint.x, payloadPoint.y);
+            const pop = Math.min(1, steal.age / 0.14);
+            const payloadScale = 0.45 + 0.55 * easeOutBack(pop);
+            steal.payload.scale.set(payloadScale, -payloadScale);
+            steal.payload.alpha = Math.max(0, fade);
+            steal.payloadGlow.rotation += dt * 2.8;
+            steal.payloadGlow.alpha = 0.72 + Math.sin(steal.age * 28) * 0.2;
+
+            for (let trailIndex = 0; trailIndex < steal.trail.length; trailIndex++) {
+                const mote = steal.trail[trailIndex];
+                const p = travelProgress - (trailIndex + 1) * 0.055;
+                if (p <= 0 || fade <= 0) {
+                    mote.visible = false;
+                    continue;
+                }
+                const point = this.abilityStealPoint(steal, easeOutCubic(Math.min(1, p)));
+                const strength = 1 - trailIndex / steal.trail.length;
+                const size = steal.cellSize * (0.5 * strength + 0.16);
+                mote.visible = true;
+                mote.position.set(point.x, point.y);
+                mote.width = size;
+                mote.height = size;
+                mote.alpha = fade * strength * 0.52;
+            }
+
+            const labelPop = Math.min(1, steal.age / 0.12);
+            const labelScale = 0.5 + 0.5 * easeOutBack(labelPop);
+            steal.stolenLabel.scale.set(labelScale, -labelScale);
+            steal.stolenLabel.y = steal.from.y + steal.cellSize * (0.62 + 0.2 * easeOutCubic(steal.age / steal.life));
+            steal.stolenLabel.alpha = Math.max(0, Math.min(1, steal.age / 0.07)) * fade;
+
+            steal.rings.clear();
+            const extractProgress = Math.min(1, steal.age / 0.32);
+            const extractRadius = steal.cellSize * (0.58 - extractProgress * 0.3);
+            steal.rings.circle(steal.from.x, steal.from.y, extractRadius);
+            steal.rings.stroke({
+                width: steal.cellSize * 0.045,
+                color: ABILITY_STEAL_TINT,
+                alpha: fade * (1 - extractProgress * 0.45),
+            });
+            const arrivalProgress = Math.max(
+                0,
+                Math.min(1, (steal.age - ABILITY_STEAL_TRAVEL * 0.72) / (steal.life - ABILITY_STEAL_TRAVEL * 0.72)),
+            );
+            if (arrivalProgress > 0) {
+                steal.rings.circle(
+                    steal.to.x,
+                    steal.to.y,
+                    steal.cellSize * (0.18 + 0.78 * easeOutCubic(arrivalProgress)),
+                );
+                steal.rings.stroke({
+                    width: steal.cellSize * 0.055,
+                    color: ABILITY_STEAL_CORE,
+                    alpha: (1 - arrivalProgress) * 0.9,
+                });
+            }
+        }
+    }
+    /**
      * Render the damage/count text once, off-screen, so the one-time font rasterization + text-shader
      * compilation happen during scene load instead of stalling the first move+attack landing frame.
      */
@@ -626,7 +961,13 @@ export class CombatVisuals {
         });
         absorbedValue.anchor.set(0.5);
         absorbedValue.position.set(0, 210);
-        container.addChild(dmg, count, miss, absorbedLabel, absorbedValue);
+        const stolenLabel = new PixiText({ text: "STOLEN", style: this.getStolenLabelStyle() });
+        stolenLabel.anchor.set(0.5);
+        stolenLabel.position.set(0, 255);
+        const stolenName = new PixiText({ text: "Ability", style: this.getStolenAbilityNameStyle() });
+        stolenName.anchor.set(0.5);
+        stolenName.position.set(0, 300);
+        container.addChild(dmg, count, miss, absorbedLabel, absorbedValue, stolenLabel, stolenName);
         // Far off-screen + barely visible: renders once (compiling the shader / uploading glyphs)
         // without any visible flash, then update() destroys it on the next tick.
         container.position.set(-100000, -100000);
@@ -674,6 +1015,10 @@ export class CombatVisuals {
             dp.container.destroy();
         }
         this.debuffPops.length = 0;
+        for (const steal of this.abilitySteals) {
+            steal.container.destroy({ children: true });
+        }
+        this.abilitySteals.length = 0;
         for (const claw of this.clawSlashes) {
             claw.container.destroy({ children: true });
         }
@@ -749,6 +1094,7 @@ export class CombatVisuals {
         this.stepFireSweeps(dt);
         this.stepChainLightnings(dt);
         this.stepWindSpears(dt);
+        this.stepAbilitySteals(dt);
         this.stepSlashes(dt);
         this.stepClawSlashes(dt);
     }

@@ -35,6 +35,7 @@ type VisualsInternals = {
     shatterGroups: unknown[];
     cleaveDeaths: unknown[];
     dissolveDeaths: unknown[];
+    abilitySteals: { payload: Container; arrived: boolean }[];
 };
 const internals = (visuals: CombatVisuals): VisualsInternals => visuals as unknown as VisualsInternals;
 
@@ -159,5 +160,46 @@ describe("spawnDeathVfx kill-specific death animations", () => {
         visuals.spawnDeathVfx(makeInfo(), "u2");
         expect(internals(visuals).shatterGroups.length).toBe(1);
         expect(internals(visuals).dissolveDeaths.length).toBe(0);
+    });
+});
+
+describe("Predatory Assimilation ability-steal VFX", () => {
+    test("carries the ability from victim to Queen, fires arrival once, and tears itself down", () => {
+        const { visuals, attached } = makeVisuals();
+        let arrivals = 0;
+        visuals.spawnAbilitySteal({ x: 20, y: 30 }, { x: 220, y: 130 }, 80, "Dodge", undefined, () => {
+            arrivals++;
+        });
+
+        expect(attached.length).toBe(1);
+        expect(internals(visuals).abilitySteals.length).toBe(1);
+        visuals.update(0.23);
+        const inFlight = internals(visuals).abilitySteals[0];
+        expect(inFlight.payload.x).toBeGreaterThan(20);
+        expect(inFlight.payload.x).toBeLessThan(220);
+        expect(arrivals).toBe(0);
+
+        visuals.update(0.24);
+        expect(arrivals).toBe(1);
+        expect(internals(visuals).abilitySteals[0].arrived).toBe(true);
+        visuals.update(0.2);
+        expect(arrivals).toBe(1);
+        visuals.update(0.2);
+        expect(internals(visuals).abilitySteals.length).toBe(0);
+        expect(attached[0].destroyed).toBe(true);
+    });
+
+    test("clear removes an in-flight transfer without applying its arrival flash", () => {
+        const { visuals, attached } = makeVisuals();
+        let arrived = false;
+        visuals.spawnAbilitySteal({ x: 0, y: 0 }, { x: 100, y: 0 }, 80, "Dodge", undefined, () => {
+            arrived = true;
+        });
+        visuals.update(0.1);
+        visuals.clear();
+
+        expect(arrived).toBe(false);
+        expect(internals(visuals).abilitySteals.length).toBe(0);
+        expect(attached[0].destroyed).toBe(true);
     });
 });

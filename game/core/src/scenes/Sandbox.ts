@@ -2524,6 +2524,51 @@ export class Sandbox extends PixiScene {
      * ───────────────────────────────────────────────────────────────────────────────────────────────
      */
     /**
+     * Render every authoritative Predatory Assimilation transfer performed by `thiefId`. The event is
+     * the outcome gate (so a failed chance never flashes), while callers choose the correct impact:
+     * initiating strike or response strike. Both local combat and replayed/ranked combat call this same
+     * helper. `unitSnapshot` keeps a lethal victim's last visual position available until cleanup.
+     */
+    protected spawnAbilityStealVfx(
+        events: readonly GameEvent[] | undefined,
+        thiefId: string,
+        unitSnapshot?: ReadonlyMap<string, RenderableUnit>,
+    ): void {
+        if (!events?.length || !this.combatVisuals) {
+            return;
+        }
+        const units = this.unitsHolder.getAllUnits();
+        const thief = (units.get(thiefId) as RenderableUnit | undefined) ?? unitSnapshot?.get(thiefId);
+        if (!thief) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        for (const event of events) {
+            if (event.type !== "ability_stolen" || event.thiefId !== thiefId) {
+                continue;
+            }
+            const victim =
+                (units.get(event.targetId) as RenderableUnit | undefined) ?? unitSnapshot?.get(event.targetId);
+            if (!victim) {
+                continue;
+            }
+            victim.flashDebuffDarken();
+            const iconTexture = this.texAny(AbilityHelper.abilityToTextureName(event.abilityName));
+            this.combatVisuals.spawnAbilitySteal(
+                victim.getVisualCenter(gs),
+                thief.getVisualCenter(gs),
+                gs.getCellSize(),
+                event.abilityName,
+                iconTexture,
+                () => {
+                    if (!thief.isDead()) {
+                        thief.flashBuffApplied();
+                    }
+                },
+            );
+        }
+    }
+    /**
      * Pikeman's Skewer Strike pierces the primary target AND the unit(s) standing behind it along the
      * attack line. Draw a wind "spear" through attacker → target → those units so the two-unit (or more)
      * pierce reads at a glance. Driven off the authoritative `damage.secondary` (source "skewer_strike"),
@@ -2794,6 +2839,7 @@ export class Sandbox extends PixiScene {
         // during the swing, where it flashed and faded before the damage showed ("no lightning" + "delayed").
         this.spawnChainLightningVfx(attacker, target, attackEvent.damage);
         this.showReplayAttackDamage(attacker, target, attackEvent, record);
+        this.spawnAbilityStealVfx(record.events, attacker.getId());
         // Shatter Armor: red wound gashes across the target, at impact (with the damage number).
         this.spawnShatterArmorSlashVfx(attacker, target, attackEvent.damage);
         this.applyReplayAttackRecoil(attacker, attackEvent);
@@ -3267,7 +3313,9 @@ export class Sandbox extends PixiScene {
         attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
         record: SandboxReplay["actions"][number],
     ): Promise<void> {
+        const spawnResponseAbilitySteal = (): void => this.spawnAbilityStealVfx(record.events, target.getId());
         if (attacker.isDead() || target.isDead()) {
+            spawnResponseAbilitySteal();
             return;
         }
         // For ranged attacks, only animate a counter the engine actually emitted. A real response
@@ -3281,6 +3329,7 @@ export class Sandbox extends PixiScene {
             attackEvent.attackType === "range" &&
             !attackEvent.animations.some((animation) => animation.affectedUnitId === attacker.getId())
         ) {
+            spawnResponseAbilitySteal();
             return;
         }
         const totalResponseDamage = this.getReplayUnitDamage(record, attacker.getId());
@@ -3301,6 +3350,7 @@ export class Sandbox extends PixiScene {
             unitsDied: Math.max(0, totalResponseDamage.unitsDied - secondaryOnAttacker.unitsDied),
         };
         if (responseDamage.amount <= 0) {
+            spawnResponseAbilitySteal();
             return;
         }
 
@@ -3327,6 +3377,7 @@ export class Sandbox extends PixiScene {
         const direction = { x: attackerCenter.x - targetCenter.x, y: attackerCenter.y - targetCenter.y };
         const spawnPos = this.offsetReplayDamagePosition(attackerCenter, attacker, direction);
         this.combatVisuals.showFloatingDamage(spawnPos, responseDamage.amount, direction, responseDamage.unitsDied);
+        spawnResponseAbilitySteal();
 
         await this.delayReplay(Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS);
     }
@@ -6758,6 +6809,11 @@ export class Sandbox extends PixiScene {
             this.spawnDeepWoundsClaws(skewerAttackEvent?.damage?.deepWounds);
         }
 
+        // Predatory Assimilation is event-gated: draw the victim -> Queen transfer only when the engine
+        // says this initiating strike actually stole an ability. Response steals are rendered with the
+        // response damage below, using the same event payload in the opposite direction.
+        this.spawnAbilityStealVfx(attackActionEvents, attacker.getId(), actionEventSnapshot);
+
         // Flesh Shield is event-driven so its aura owner receives one labelled value even when many AOE
         // victims redirected damage in this exchange. Keep these totals for the HP-diff passes below: that
         // damage is already spoken for and must not reappear as a red hit or a fake counterattack.
@@ -6888,6 +6944,7 @@ export class Sandbox extends PixiScene {
 
         // 2. Attacker Damage (Counter-Attack)
         const attackerAfter = { amount: attacker.getAmountAlive(), health: attacker.getHp() };
+        this.spawnAbilityStealVfx(attackActionEvents, target.getId(), actionEventSnapshot);
 
         const stackLost = Math.max(0, attackerBefore.amount - attackerAfter.amount);
         const hpLost = attackerBefore.health - attackerAfter.health;
@@ -9418,6 +9475,22 @@ export class Sandbox extends PixiScene {
                         this.ensureDigitTextures();
                         if (this.digitTextures) {
                             thief.ensureSpellBookRendering(this.spellBookContainer, this.digitTextures);
+                        }
+                    }
+                    // If either endpoint is open in the sidebar, publish its mutated mechanics now:
+                    // the victim's card gains the permanent STOLEN wash, while the Queen gains the
+                    // acquired card. A general visible-state refresh does not rebuild selected-unit
+                    // properties, so without this the board VFX could finish before the sidebar caught up.
+                    const selectedId = this.sc_selectedUnitProperties?.id;
+                    if (selectedId === event.thiefId || selectedId === event.targetId) {
+                        const selected =
+                            (this.unitsHolder.getAllUnits().get(selectedId) as RenderableUnit | undefined) ??
+                            unitSnapshot.get(selectedId);
+                        if (selected) {
+                            const props = { ...selected.getUnitProperties() };
+                            this.sc_selectedUnitProperties = props;
+                            this.setSelectedUnitProperties(props);
+                            this.sc_unitPropertiesUpdateNeeded = true;
                         }
                     }
                     shouldRefreshVisibleState = true;
