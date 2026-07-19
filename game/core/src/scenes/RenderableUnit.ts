@@ -247,6 +247,12 @@ export class RenderableUnit extends Unit {
         this.digitTextures = digitTextures;
         this.parseSpells();
     }
+    /** Attach/rebuild Pixi spellbook cells after a runtime ability grants this unit its first spell. */
+    public ensureSpellBookRendering(layer: Container, digitTextures: Map<number, Texture>): boolean {
+        if (this.getSpellsCount() <= 0) return false;
+        this.setSpellBookLayer(layer, digitTextures);
+        return true;
+    }
     public override parseSpells(): void {
         // Keep Unit's authoritative Spell objects synchronized even before a Pixi spellbook layer exists.
         // Runtime ability changes (for example Predatory Assimilation) call this method to remove or grant

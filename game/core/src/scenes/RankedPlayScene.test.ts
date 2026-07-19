@@ -15,6 +15,7 @@ import type { AuthoritativeGameSnapshot, AuthoritativeUnitState } from "../game_
 import {
     authoritativeSnapshotToSandboxSceneState,
     applyRankedUnitSnapshotStats,
+    rankedUnitMechanicsMatch,
     rankedUnitAliveHealth,
     rankedUnitStartAmount,
     rankedUnitStartHealth,
@@ -440,6 +441,84 @@ describe("ranked placement scene state", () => {
         expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(false))).toBe(true);
         expect(liveUnit.isWebMovementLocked()).toBe(false);
         expect(liveUnit.canMove()).toBe(true);
+    });
+
+    test("detects authoritative ability and remaining-spell changes before a skip-rebuild is cached", () => {
+        const initialProperties = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({ id: "queen", name: "Arachna Queen", creatureId: CreatureVals.ARACHNA_QUEEN }),
+            ]),
+        ).units[0]!.properties;
+        const grantedProperties = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({
+                    id: "queen",
+                    name: "Arachna Queen",
+                    creatureId: CreatureVals.ARACHNA_QUEEN,
+                    abilities: [...initialProperties.abilities, "Book of Healing"],
+                    spellEntries: ["Life:Heal", "Life:Spiritual Armor", "Life:Spiritual Armor"],
+                    spellEntriesAuthoritative: true,
+                }),
+            ]),
+        ).units[0]!.properties;
+        const effectFactory = new EffectFactory();
+        const liveUnit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                initialProperties,
+                new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+                TeamVals.LOWER,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+
+        expect(rankedUnitMechanicsMatch(liveUnit, initialProperties)).toBe(true);
+        expect(
+            rankedUnitMechanicsMatch(liveUnit, {
+                ...initialProperties,
+                stolen_abilities: ["Predatory Assimilation"],
+            }),
+        ).toBe(false);
+        expect(
+            rankedUnitMechanicsMatch(liveUnit, {
+                ...initialProperties,
+                spells: ["Life:Heal"],
+            }),
+        ).toBe(false);
+        expect(rankedUnitMechanicsMatch(liveUnit, grantedProperties)).toBe(false);
+    });
+
+    test("keeps an authoritative spent stolen direct spell empty when rebuilding the Queen", () => {
+        const properties = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({
+                    id: "spent-spell-queen",
+                    name: "Arachna Queen",
+                    creatureId: CreatureVals.ARACHNA_QUEEN,
+                    abilities: ["Web Aura", "Infest", "Predatory Assimilation", "Wind Flow"],
+                    spellEntries: [],
+                    spellEntriesAuthoritative: true,
+                }),
+            ]),
+        ).units[0]!.properties;
+        const effectFactory = new EffectFactory();
+        const rebuilt = Unit.createUnit(
+            properties,
+            new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+            TeamVals.LOWER,
+            UnitVals.CREATURE,
+            new AbilityFactory(effectFactory),
+            effectFactory,
+            false,
+        );
+
+        expect(properties.spell_entries_authoritative).toBe(true);
+        expect(rebuilt.hasAbilityActive("Wind Flow")).toBe(true);
+        expect(rebuilt.hasSpellRemaining("Wind Flow")).toBe(false);
+        expect(rebuilt.getUnitProperties().spells).toEqual([]);
     });
 
     test("renders a redacted opponent placement unit as a live 1-stack silhouette, not a corpse", () => {

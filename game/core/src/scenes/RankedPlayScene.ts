@@ -170,6 +170,18 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
     return changed;
 };
 
+/** Mechanics that cannot be reconciled by the animation-preserving ranked stats update. */
+export const rankedUnitMechanicsMatch = (unit: RenderableUnit, properties: UnitProperties): boolean => {
+    const live = unit.getUnitProperties();
+    const same = (left: readonly string[] | undefined, right: readonly string[] | undefined): boolean =>
+        JSON.stringify(left ?? []) === JSON.stringify(right ?? []);
+    return (
+        same(live.abilities, properties.abilities) &&
+        same(live.stolen_abilities, properties.stolen_abilities) &&
+        same(live.spells, properties.spells)
+    );
+};
+
 const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitState): UnitProperties | undefined => {
     const unitName = UNIT_ID_TO_NAME[unitState.creatureId] ?? unitState.name;
     const team = unitState.team as TeamType;
@@ -262,6 +274,10 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
             return {
                 ...baseProperties,
                 ...abilityOverride,
+                // Unit normally synthesizes the one initial charge for a direct-cast ability while building a
+                // fresh creature. A ranked snapshot's explicit spell-entry marker makes even an empty list
+                // authoritative, so reconnecting a Queen must not recreate a spent stolen spell.
+                spell_entries_authoritative: unitState.spellEntriesAuthoritative,
                 stolen_abilities: unitState.stolenAbilities ?? [],
                 web_movement_locked: unitState.webMovementLocked ?? false,
                 id: unitState.id,
@@ -863,7 +879,18 @@ export class RankedPlayScene extends Sandbox {
                 const u = this.unitsHolder.getAllUnits().get(snapshot.currentUnitId);
                 return !u || u.isDead();
             })();
-        const forceRebuild = !!options?.forceBoardRebuild || activeUnitDesynced;
+        // Action replay animates movement/damage but does not apply durable ability theft or transferred
+        // spell entries. Never cache a skip-rebuild signature while those mechanics are stale: the next
+        // identical snapshot would hit the same-signature early return forever. A rare ability transfer is
+        // worth one full hydrate so both engine mechanics and the spellbook UI become authoritative.
+        const unitMechanicsDesynced =
+            snapshot.fightStarted &&
+            !snapshot.fightFinished &&
+            state.units.some((unitState) => {
+                const live = this.unitsHolder.getAllUnits().get(unitState.properties.id) as RenderableUnit | undefined;
+                return !live || !rankedUnitMechanicsMatch(live, unitState.properties);
+            });
+        const forceRebuild = !!options?.forceBoardRebuild || activeUnitDesynced || unitMechanicsDesynced;
         // forceBoardRebuild self-heals a desync: the client just had an action rejected because its
         // view disagrees with the server (e.g. a stale ghost unit), so the signature short-circuit
         // (which assumes "same server board => client already in sync") must NOT fire — fall through

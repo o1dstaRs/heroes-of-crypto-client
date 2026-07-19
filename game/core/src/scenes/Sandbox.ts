@@ -9216,6 +9216,24 @@ export class Sandbox extends PixiScene {
                     this.syncResurrectedUnit(event, unitSnapshot);
                     shouldRefreshVisibleState = true;
                     break;
+                case "ability_stolen": {
+                    // Predatory Assimilation can give an initially spell-less unit (Arachna Queen) its
+                    // first castable card. Such a unit had no spellbook layer attached at creation, so
+                    // RenderableUnit.parseSpells updated the logical spells but could not build their Pixi
+                    // cells. Attach it as soon as the transfer event arrives; existing spellbooks are
+                    // rebuilt idempotently and the target's parseSpells already removed transferred casts.
+                    const thief =
+                        (this.unitsHolder.getAllUnits().get(event.thiefId) as RenderableUnit | undefined) ??
+                        unitSnapshot.get(event.thiefId);
+                    if (thief?.getSpellsCount()) {
+                        this.ensureDigitTextures();
+                        if (this.digitTextures) {
+                            thief.ensureSpellBookRendering(this.spellBookContainer, this.digitTextures);
+                        }
+                    }
+                    shouldRefreshVisibleState = true;
+                    break;
+                }
                 case "armageddon_applied": {
                     // Ranked renders the wave VFX from the authoritative journal instead (the inline
                     // engine-event path doesn't fire reliably there); it overrides this hook to false.

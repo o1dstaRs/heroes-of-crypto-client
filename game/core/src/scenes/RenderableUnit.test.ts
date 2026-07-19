@@ -40,6 +40,7 @@ function createRenderableUnit(
     factionName: string,
     creatureName: string,
     textureName: string,
+    textureResolver: (name: string) => Texture | undefined = () => undefined,
 ): RenderableUnit {
     const effectFactory = new EffectFactory();
     const base = Unit.createUnit(
@@ -51,7 +52,7 @@ function createRenderableUnit(
         effectFactory,
         false,
     );
-    return RenderableUnit.fromBase(base, () => undefined);
+    return RenderableUnit.fromBase(base, textureResolver);
 }
 
 const spellAmounts = (unit: Unit): Record<string, number> =>
@@ -87,6 +88,31 @@ describe("RenderableUnit runtime spell synchronization", () => {
         );
         expect(spellAmounts(satyr)).toEqual({});
         expect(spellAmounts(queen)).toEqual({ Courage: 2, "Helping Hand": 1, "Summon Wolves": 1 });
+    });
+
+    test("builds spellbook rendering when an initially spell-less unit gains a runtime spell", () => {
+        const queen = createRenderableUnit(
+            TeamVals.LOWER,
+            "Nature",
+            "Arachna Queen",
+            "arachna_queen_512",
+            () => Texture.WHITE,
+        );
+        const angel = createRenderableUnit(TeamVals.UPPER, "Life", "Angel", "angel_512");
+        const spellBookLayer = new Container();
+        const digits = new Map([[1, Texture.WHITE]]);
+        HoCLib.setDeterministicRandomSource(() => 0);
+
+        expect(queen.ensureSpellBookRendering(spellBookLayer, digits)).toBe(false);
+        expect(spellBookLayer.children).toHaveLength(0);
+
+        expect(AllAbilities.processPredatoryAssimilationAbility(queen, angel, sceneLog)?.abilityName).toBe(
+            "Resurrection",
+        );
+        expect(queen.ensureSpellBookRendering(spellBookLayer, digits)).toBe(true);
+        queen.renderSpells(1);
+        expect(spellBookLayer.children.length).toBeGreaterThan(0);
+        expect(spellBookLayer.children.some((child) => child.visible)).toBe(true);
     });
 });
 
