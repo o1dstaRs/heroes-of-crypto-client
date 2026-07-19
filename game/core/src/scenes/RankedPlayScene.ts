@@ -498,7 +498,11 @@ export class RankedPlayScene extends Sandbox {
         const attackerPos = (
             this.unitsHolder.getAllUnits().get(attackerId) as RenderableUnit | undefined
         )?.getVisualCenter(gs);
+        this.showFleshShieldAbsorbedDamage(secondary, attackerPos);
         for (const entry of secondary) {
+            // Flesh Shield was grouped and rendered above as a labelled yellow value. Keeping it out of
+            // this generic loop prevents the same absorption from also appearing as an ordinary red hit.
+            if (entry.source === "flesh_shield") continue;
             if (entry.amount <= 0 && entry.unitsDied <= 0) continue;
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
             const pos = unit?.getVisualCenter(gs) ?? entry.position;
@@ -1433,6 +1437,9 @@ export class RankedPlayScene extends Sandbox {
             switch (entry.source) {
                 case "fire_shield":
                     text = `${name} received (${entry.amount}) from Fire Shield${kills}`;
+                    break;
+                case "flesh_shield":
+                    text = `${name} absorbed (${entry.amount}) with Flesh Shield${kills}`;
                     break;
                 case "chain_lightning":
                     text = `${name} hit ${entry.amount} by Chain Lightning${kills}`;

@@ -232,6 +232,7 @@ export class CombatVisuals {
     private debuffStyle?: TextStyle;
     private buffStyle?: TextStyle;
     private missStyle?: TextStyle;
+    private absorbedLabelStyle?: TextStyle;
     // Soft radial ember texture, built once and reused for every Fire Breath sweep.
     private fireTexture?: Texture;
     // Soft radial white-light texture, built once and reused for the Skewer Strike light orb + trail.
@@ -332,17 +333,28 @@ export class CombatVisuals {
         }
         return this.missStyle;
     }
-    /**
-     * Pop a "MISS" label over a unit that dodged an attack (Dodge / Small Specie / Boar Saliva). Reuses
-     * the floating-text rise/fade so it reads like a damage number but in neutral white. Drifts along the
-     * attack line when a direction is given. Same path in sandbox and ranked.
-     */
-    public showMissLabel(pos: HoCMath.XY, direction?: HoCMath.XY): void {
-        const container = new Container();
-        const label = new PixiText({ text: "MISS", style: this.getMissStyle() });
-        label.anchor.set(0.5);
-        container.addChild(label);
-
+    private getAbsorbedLabelStyle(): TextStyle {
+        if (!this.absorbedLabelStyle) {
+            this.absorbedLabelStyle = new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 28,
+                fontWeight: "900",
+                fill: "#fff36d",
+                stroke: { color: "#5c4600", width: 5 },
+                dropShadow: {
+                    color: "#000000",
+                    blur: 4,
+                    angle: Math.PI / 6,
+                    distance: 2,
+                },
+            });
+        }
+        return this.absorbedLabelStyle;
+    }
+    /** Put an upright container into the shared damage/MISS rise, drift, pop and fade animation. */
+    private enqueueFloatingContainer(container: Container, pos: HoCMath.XY, direction?: HoCMath.XY): void {
+        // Anti-overlap: if numbers are already floating near this spot, stack this one
+        // above them instead of drawing on top.
         const baseX = pos.x;
         const baseY = pos.y + 20;
         let stack = 0;
@@ -351,9 +363,11 @@ export class CombatVisuals {
             const dy = other.container.y - baseY;
             if (dx * dx + dy * dy < FT_STACK_DIST * FT_STACK_DIST) stack++;
         }
+
         const startX = baseX;
         const startY = baseY + stack * FT_STACK_STEP;
 
+        // Drift along the full hit trajectory (both axes), with a small alternating fan for stacked text.
         let driftX = 0;
         let driftY = 0;
         if (direction) {
@@ -380,6 +394,54 @@ export class CombatVisuals {
             driftX,
             driftY,
         });
+    }
+    /**
+     * Pop a "MISS" label over a unit that dodged an attack (Dodge / Small Specie / Boar Saliva). Reuses
+     * the floating-text rise/fade so it reads like a damage number but in neutral white. Drifts along the
+     * attack line when a direction is given. Same path in sandbox and ranked.
+     */
+    public showMissLabel(pos: HoCMath.XY, direction?: HoCMath.XY): void {
+        const container = new Container();
+        const label = new PixiText({ text: "MISS", style: this.getMissStyle() });
+        label.anchor.set(0.5);
+        container.addChild(label);
+        this.enqueueFloatingContainer(container, pos, direction);
+    }
+    /**
+     * Show Flesh Shield damage on its owner as a positive, yellow two-line value. The label distinguishes
+     * redirected damage from an ordinary hit while the shared floating-text lifecycle keeps both paths in
+     * visual sync. `unitsDied` belongs only to this absorbed chunk, so its skull never duplicates a primary
+     * or response hit's losses.
+     */
+    public showFloatingAbsorbed(pos: HoCMath.XY, amount: number, direction?: HoCMath.XY, unitsDied?: number): void {
+        const container = new Container();
+        const label = new PixiText({ text: "ABSORBED", style: this.getAbsorbedLabelStyle() });
+        label.anchor.set(0.5);
+        label.position.set(0, -34);
+
+        const amountText = new PixiText({
+            text: `${amount}`,
+            style: this.getDamageStyle("#fff36d", "#5c4600"),
+        });
+        amountText.anchor.set(0.5);
+        amountText.position.set(0, 16);
+        container.addChild(label, amountText);
+
+        if (unitsDied && unitsDied > 0) {
+            const skullTex = Texture.from(images.skull || "/skull.webp");
+            const skullSprite = new Sprite(skullTex);
+            skullSprite.anchor.set(0.5);
+            skullSprite.width = 40;
+            skullSprite.height = 40;
+
+            const countText = new PixiText({ text: `${unitsDied}`, style: this.getCountStyle() });
+            countText.anchor.set(0.5);
+            skullSprite.position.set(-25, 72);
+            countText.position.set(25, 72);
+            container.addChild(skullSprite, countText);
+        }
+
+        this.enqueueFloatingContainer(container, pos, direction);
     }
     /**
      * Pop a freshly-applied effect's spell icon + name over a unit. `kind` only changes the name's
@@ -441,7 +503,16 @@ export class CombatVisuals {
         const miss = new PixiText({ text: "MISS", style: this.getMissStyle() });
         miss.anchor.set(0.5);
         miss.position.set(0, 110);
-        container.addChild(dmg, count, miss);
+        const absorbedLabel = new PixiText({ text: "ABSORBED", style: this.getAbsorbedLabelStyle() });
+        absorbedLabel.anchor.set(0.5);
+        absorbedLabel.position.set(0, 165);
+        const absorbedValue = new PixiText({
+            text: "0",
+            style: this.getDamageStyle("#fff36d", "#5c4600"),
+        });
+        absorbedValue.anchor.set(0.5);
+        absorbedValue.position.set(0, 210);
+        container.addChild(dmg, count, miss, absorbedLabel, absorbedValue);
         // Far off-screen + barely visible: renders once (compiling the shader / uploading glyphs)
         // without any visible flash, then update() destroys it on the next tick.
         container.position.set(-100000, -100000);
@@ -1249,59 +1320,14 @@ export class CombatVisuals {
 
             container.addChild(skullSprite, countText);
         }
-
-        // Anti-overlap: if numbers are already floating near this spot, stack this one
-        // above them instead of drawing on top.
-        const baseX = pos.x;
-        const baseY = pos.y + 20;
-        let stack = 0;
-        for (const other of this.floatingTexts) {
-            const dx = other.container.x - baseX;
-            const dy = other.container.y - baseY;
-            if (dx * dx + dy * dy < FT_STACK_DIST * FT_STACK_DIST) stack++;
-        }
-
-        const startX = baseX;
-        const startY = baseY + stack * FT_STACK_STEP;
-
-        // Drift along the FULL hit trajectory (both axes), so the number follows the attack line —
-        // including a counter-attack's responder->attacker line, which is often vertical and used to
-        // only ever float straight up (direction.y was dropped). It still rises (riseY) for legibility.
-        let driftX = 0;
-        let driftY = 0;
-        if (direction) {
-            const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
-            if (len > 0.001) {
-                driftX = (direction.x / len) * FT_DRIFT;
-                driftY = (direction.y / len) * FT_DRIFT;
-            }
-        }
-        // Slight alternating fan so stacked numbers don't form a rigid column.
-        if (stack > 0) driftX += (stack % 2 === 0 ? 1 : -1) * 10 * stack;
-
-        // Initial transform; update() animates the pop/rise/fade from here.
-        container.scale.set(FT_START_SCALE, -FT_START_SCALE);
-        container.alpha = 0;
-        container.position.set(startX, startY);
-
-        this.context.attachToWorldRoot(container, 2000);
-
-        this.floatingTexts.push({
-            container,
-            age: 0,
-            life: FT_LIFE,
-            startX,
-            startY,
-            riseY: FT_RISE,
-            driftX,
-            driftY,
-        });
+        this.enqueueFloatingContainer(container, pos, direction);
     }
     public showDamageVisualsFromDiff(
         preState: Map<string, { hp: number; amount: number }>,
         attackerCell?: HoCMath.XY,
         ignoredUnitIds?: Set<string>,
         forcedDirection?: HoCMath.XY,
+        alreadyDisplayedByUnit?: ReadonlyMap<string, { amount: number; unitsDied: number }>,
     ): void {
         const gs = this.context.getGridSettings();
         const unitsHolder = this.context.getUnitsHolder();
@@ -1322,8 +1348,15 @@ export class CombatVisuals {
             const newTotal = u.getCumulativeHp();
 
             if (newTotal < oldState.hp) {
-                const diff = oldState.hp - newTotal;
-                const unitsDied = Math.max(0, oldState.amount - u.getAmountAlive());
+                const alreadyDisplayed = alreadyDisplayedByUnit?.get(id);
+                const diff = Math.max(0, oldState.hp - newTotal - (alreadyDisplayed?.amount ?? 0));
+                const unitsDied = Math.max(
+                    0,
+                    oldState.amount - u.getAmountAlive() - (alreadyDisplayed?.unitsDied ?? 0),
+                );
+                if (diff <= 0) {
+                    continue;
+                }
 
                 let direction: HoCMath.XY | undefined = forcedDirection;
                 if (!direction && attackerCell) {

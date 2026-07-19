@@ -2808,9 +2808,68 @@ export class Sandbox extends PixiScene {
                 return { fill: "#b86bff", stroke: "#3b0a5c" };
             case "fire_shield":
                 return { fill: "#ffb13c", stroke: "#7a3800" };
+            case "flesh_shield":
+                return { fill: "#cdd34a", stroke: "#4a4a00" };
             default:
                 return { fill: "#ff3333", stroke: "#4a0000" };
         }
+    }
+    /**
+     * Collapse Flesh Shield metadata to one display value per aura owner. The engine normally emits one
+     * already-aggregated entry, but grouping here keeps old/replayed journals and multi-hit attacks from
+     * producing several overlapping ABSORBED pops for the same Abomination.
+     */
+    protected aggregateFleshShieldDamage(
+        secondary?: IVisibleDamage["secondary"],
+    ): Map<string, { unitId: string; position: HoCMath.XY; amount: number; unitsDied: number }> {
+        const aggregated = new Map<
+            string,
+            { unitId: string; position: HoCMath.XY; amount: number; unitsDied: number }
+        >();
+        for (const entry of secondary ?? []) {
+            if (entry.source !== "flesh_shield") {
+                continue;
+            }
+            const existing = aggregated.get(entry.unitId);
+            if (existing) {
+                existing.amount += entry.amount;
+                existing.unitsDied += entry.unitsDied;
+            } else {
+                aggregated.set(entry.unitId, {
+                    unitId: entry.unitId,
+                    position: { ...entry.position },
+                    amount: entry.amount,
+                    unitsDied: entry.unitsDied,
+                });
+            }
+        }
+        return aggregated;
+    }
+    /** Render one yellow, two-line Flesh Shield value per aura owner and return the same totals for diff accounting. */
+    protected showFleshShieldAbsorbedDamage(
+        secondary?: IVisibleDamage["secondary"],
+        attackerCenter?: HoCMath.XY,
+        delayMs = 0,
+    ): Map<string, { unitId: string; position: HoCMath.XY; amount: number; unitsDied: number }> {
+        const aggregated = this.aggregateFleshShieldDamage(secondary);
+        const gs = this.sc_sceneSettings.getGridSettings();
+        for (const entry of aggregated.values()) {
+            if (entry.amount <= 0 && entry.unitsDied <= 0) {
+                continue;
+            }
+            const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+            const pos = unit?.getVisualCenter(gs) ?? entry.position;
+            const direction = attackerCenter ? { x: pos.x - attackerCenter.x, y: pos.y - attackerCenter.y } : undefined;
+            const show = (): void => {
+                this.combatVisuals.showFloatingAbsorbed(pos, entry.amount, direction, entry.unitsDied);
+            };
+            if (delayMs > 0) {
+                setTimeout(show, delayMs);
+            } else {
+                show();
+            }
+        }
+        return aggregated;
     }
     /**
      * Render an AOE attack's per-unit floating damage from `damage.splash` — one number on EVERY splashed
@@ -2865,36 +2924,41 @@ export class Sandbox extends PixiScene {
         // splash/primary numbers below, not instead of them. Styled per source (and Petrifying Gaze
         // yanks the struck unit) so the ranked replay matches the live sandbox effect — otherwise the
         // gaze read as a plain red number with no reaction on the side that took it.
-        (damage.secondary ?? []).forEach((entry, index) => {
-            if (entry.amount <= 0 && entry.unitsDied <= 0) return;
-            const sUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-            const sCenter = sUnit ? sUnit.getVisualCenter(gs) : entry.position;
-            const sDir = { x: sCenter.x - attackerCenter.x, y: sCenter.y - attackerCenter.y };
-            const sPos = sUnit ? this.offsetReplayDamagePosition(sCenter, sUnit, sDir) : entry.position;
-            const style = this.getSecondaryDamageStyle(entry.source);
-            setTimeout(
-                () => {
-                    if (entry.source === "petrifying_gaze" && sUnit) {
-                        // "Yank" the petrified unit away from the attacker, then it springs back —
-                        // the same reaction the live sandbox path gives a gaze kill.
-                        const len = Math.hypot(sDir.x, sDir.y);
-                        if (len > 0.001) {
-                            const mag = gs.getCellSize() * 0.35;
-                            sUnit.applyRecoil((sDir.x / len) * mag, (sDir.y / len) * mag);
+        // Flesh Shield is deliberately rendered as ONE aggregated, labelled value on the aura owner.
+        // Keep it out of the generic secondary loop below or it would also draw as an ordinary `-X` hit.
+        this.showFleshShieldAbsorbedDamage(damage.secondary, attackerCenter, 220);
+        (damage.secondary ?? [])
+            .filter((entry) => entry.source !== "flesh_shield")
+            .forEach((entry, index) => {
+                if (entry.amount <= 0 && entry.unitsDied <= 0) return;
+                const sUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+                const sCenter = sUnit ? sUnit.getVisualCenter(gs) : entry.position;
+                const sDir = { x: sCenter.x - attackerCenter.x, y: sCenter.y - attackerCenter.y };
+                const sPos = sUnit ? this.offsetReplayDamagePosition(sCenter, sUnit, sDir) : entry.position;
+                const style = this.getSecondaryDamageStyle(entry.source);
+                setTimeout(
+                    () => {
+                        if (entry.source === "petrifying_gaze" && sUnit) {
+                            // "Yank" the petrified unit away from the attacker, then it springs back —
+                            // the same reaction the live sandbox path gives a gaze kill.
+                            const len = Math.hypot(sDir.x, sDir.y);
+                            if (len > 0.001) {
+                                const mag = gs.getCellSize() * 0.35;
+                                sUnit.applyRecoil((sDir.x / len) * mag, (sDir.y / len) * mag);
+                            }
                         }
-                    }
-                    this.combatVisuals.showFloatingDamage(
-                        sPos,
-                        entry.amount,
-                        sDir,
-                        entry.unitsDied,
-                        style.fill,
-                        style.stroke,
-                    );
-                },
-                220 + index * 180,
-            );
-        });
+                        this.combatVisuals.showFloatingDamage(
+                            sPos,
+                            entry.amount,
+                            sDir,
+                            entry.unitsDied,
+                            style.fill,
+                            style.stroke,
+                        );
+                    },
+                    220 + index * 180,
+                );
+            });
 
         // Deep Wounds: rake an orange claw slash across the wounded unit for EVERY application recorded
         // during this attack (a double-punch wounder produces two entries -> two claws). Driven off the
@@ -2919,7 +2983,24 @@ export class Sandbox extends PixiScene {
         const hits = damage.hits ?? [];
 
         if (!damage.render || (damage.amount <= 0 && !hits.length)) {
-            const fallbackDamage = this.getReplayUnitDamage(record, damageUnitId);
+            // Secondary entries above already rendered their own numbers (including the yellow Flesh
+            // Shield total). The snapshot diff includes those same HP losses, so remove them before
+            // using the diff as a last-resort primary value. This is essential for Lightning Spin,
+            // whose clicked victim is represented only in `secondary`, and prevents a second red copy.
+            const secondaryAlreadyShown = (damage.secondary ?? [])
+                .filter((entry) => entry.unitId === damageUnitId)
+                .reduce(
+                    (total, entry) => ({
+                        amount: total.amount + entry.amount,
+                        unitsDied: total.unitsDied + entry.unitsDied,
+                    }),
+                    { amount: 0, unitsDied: 0 },
+                );
+            const totalFallbackDamage = this.getReplayUnitDamage(record, damageUnitId);
+            const fallbackDamage = {
+                amount: Math.max(0, totalFallbackDamage.amount - secondaryAlreadyShown.amount),
+                unitsDied: Math.max(0, totalFallbackDamage.unitsDied - secondaryAlreadyShown.unitsDied),
+            };
             if (fallbackDamage.amount <= 0) {
                 return;
             }
@@ -3071,7 +3152,23 @@ export class Sandbox extends PixiScene {
         ) {
             return;
         }
-        const responseDamage = this.getReplayUnitDamage(record, attacker.getId());
+        const totalResponseDamage = this.getReplayUnitDamage(record, attacker.getId());
+        // The state diff includes every HP loss suffered by the initiating attacker. Every secondary
+        // entry has already rendered above (Flesh Shield yellow, the rest in their source colours), so
+        // remove all of those exact chunks before deciding whether a real retaliation remains.
+        const secondaryOnAttacker = (attackEvent.damage.secondary ?? [])
+            .filter((entry) => entry.unitId === attacker.getId())
+            .reduce(
+                (total, entry) => ({
+                    amount: total.amount + entry.amount,
+                    unitsDied: total.unitsDied + entry.unitsDied,
+                }),
+                { amount: 0, unitsDied: 0 },
+            );
+        const responseDamage = {
+            amount: Math.max(0, totalResponseDamage.amount - secondaryOnAttacker.amount),
+            unitsDied: Math.max(0, totalResponseDamage.unitsDied - secondaryOnAttacker.unitsDied),
+        };
         if (responseDamage.amount <= 0) {
             return;
         }
@@ -5986,8 +6083,19 @@ export class Sandbox extends PixiScene {
         const areaEvent = result.events.find(
             (e): e is Extract<GameEvent, { type: "area_attacked" }> => e.type === "area_attacked",
         );
+        const fleshShieldDamageByUnit = this.showFleshShieldAbsorbedDamage(
+            areaEvent?.damage.secondary,
+            unit.getVisualCenter(gs),
+            180,
+        );
         if (!this.showSplashDamage(areaEvent?.damage.splash, unit.getVisualCenter(gs))) {
-            this.combatVisuals.showDamageVisualsFromDiff(preState, effectiveCell);
+            this.combatVisuals.showDamageVisualsFromDiff(
+                preState,
+                effectiveCell,
+                undefined,
+                undefined,
+                fleshShieldDamageByUnit,
+            );
         }
         this.sc_damageStatsUpdateNeeded = true;
         this.unitsHolder.refreshStackPowerForAllUnits();
@@ -6170,6 +6278,10 @@ export class Sandbox extends PixiScene {
             // it the live path can't tell a Double-Shot AOE landed twice — so its second projectile and
             // second damage number were both dropped (the damage read as a single summed hit).
             damageForAnimation.splash = attackEvent.damage.splash?.map((entry) => ({
+                ...entry,
+                position: { ...entry.position },
+            }));
+            damageForAnimation.secondary = attackEvent.damage.secondary?.map((entry) => ({
                 ...entry,
                 position: { ...entry.position },
             }));
@@ -6356,6 +6468,15 @@ export class Sandbox extends PixiScene {
             this.spawnDeepWoundsClaws(skewerAttackEvent?.damage?.deepWounds);
         }
 
+        // Flesh Shield is event-driven so its aura owner receives one labelled value even when many AOE
+        // victims redirected damage in this exchange. Keep these totals for the HP-diff passes below: that
+        // damage is already spoken for and must not reappear as a red hit or a fake counterattack.
+        const fleshShieldDamageByUnit = this.showFleshShieldAbsorbedDamage(
+            damageForAnimation.secondary,
+            attacker.getVisualCenter(gs),
+            180,
+        );
+
         // 1. Target Damage
         // AOE shots (Gargantuan Area Throw / Large Caliber) convey their damage per-affected-unit via
         // `splash` — including two entries on the target for a Double-Shot AOE. Render those (one number
@@ -6480,7 +6601,8 @@ export class Sandbox extends PixiScene {
         if (stackLost > 0 || hpLost > 0) {
             const maxHp = attacker.getMaxHp();
             const totalHpBefore = (attackerBefore.amount - 1) * maxHp + attackerBefore.health;
-            const totalHpAfter = (attackerAfter.amount - 1) * maxHp + attackerAfter.health;
+            const totalHpAfter =
+                attackerAfter.amount > 0 ? (attackerAfter.amount - 1) * maxHp + attackerAfter.health : 0;
             const damageTaken = totalHpBefore - totalHpAfter;
 
             if (damageTaken > 0) {
@@ -6516,9 +6638,11 @@ export class Sandbox extends PixiScene {
                 // burn, shown as two separate numbers (parity with the log). Fire Shield is amber and
                 // staggered so it reads as its own distinct hit instead of a single summed number.
                 const attackerFireShield = fireShieldByName.get(attacker.getName()) ?? 0;
-                const pureDamage = Math.max(0, damageTaken - attackerFireShield);
+                const attackerFleshShield = fleshShieldDamageByUnit.get(attacker.getId());
+                const lossesNotAbsorbed = Math.max(0, stackLost - (attackerFleshShield?.unitsDied ?? 0));
+                const pureDamage = Math.max(0, damageTaken - attackerFireShield - (attackerFleshShield?.amount ?? 0));
                 if (pureDamage > 0) {
-                    this.combatVisuals.showFloatingDamage(spawnPos, pureDamage, dir, stackLost);
+                    this.combatVisuals.showFloatingDamage(spawnPos, pureDamage, dir, lossesNotAbsorbed);
                 }
                 if (attackerFireShield > 0) {
                     const fsPos = { ...spawnPos };
@@ -6555,7 +6679,10 @@ export class Sandbox extends PixiScene {
             // Use snapshot MaxHP to ensure we can calc damage even if unit died/vanished
             const unitMaxHp = snap.maxHp;
             const totalHpBefore = (snap.amount - 1) * unitMaxHp + snap.hp;
-            const totalHpAfter = (currentAmount - 1) * unitMaxHp + currentHp;
+            // A deleted/dead stack has zero cumulative HP. Applying the living-stack formula at
+            // amount=0 produces -maxHp, inventing one extra unit of damage; lethal Flesh Shield then
+            // showed its correct yellow total plus a bogus red max-HP number from this fallback.
+            const totalHpAfter = currentAmount > 0 ? (currentAmount - 1) * unitMaxHp + currentHp : 0;
             const diff = totalHpBefore - totalHpAfter;
 
             const diedCount = Math.max(0, snap.amount - currentAmount);
@@ -6591,6 +6718,12 @@ export class Sandbox extends PixiScene {
                     .filter((s) => s.unitId === uId)
                     .reduce((sum, s) => sum + s.amount, 0);
             }
+            // Flesh Shield damage is displayed from the authoritative secondary payload as one yellow
+            // ABSORBED value. Account for both its HP and stack losses before the generic diff fallback,
+            // otherwise the same damage appears again as an ordinary red number.
+            const fleshShieldDamage = fleshShieldDamageByUnit.get(uId);
+            alreadyShown += fleshShieldDamage?.amount ?? 0;
+            alreadyDied += fleshShieldDamage?.unitsDied ?? 0;
 
             const unaccountedDiff = diff - alreadyShown;
 

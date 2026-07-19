@@ -1759,6 +1759,21 @@ export class RenderableUnit extends Unit {
             }
         }
 
+        // Flesh Shield Aura
+        const fleshShieldAuraAbility = this.getAbility("Flesh Shield Aura");
+        if (fleshShieldAuraAbility) {
+            const auraEffect = this.effectFactory.makeAuraEffect("Flesh Shield");
+            if (auraEffect) {
+                this.refreshAbiltyDescription(
+                    fleshShieldAuraAbility.getName(),
+                    fleshShieldAuraAbility
+                        .getDesc()
+                        .join("\n")
+                        .replace(/\{\}/g, this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease).toString()),
+                );
+            }
+        }
+
         // Penetrating Bite
         const penetratingBiteAbility = this.getAbility("Penetrating Bite");
         if (penetratingBiteAbility) {
