@@ -32,6 +32,8 @@ export interface IVisibleImpact {
     stackPower: number;
     isStackPowered: boolean;
     isAura: boolean;
+    /** Permanently removed by Predatory Assimilation; retained only so the sidebar can show STOLEN. */
+    isStolen?: boolean;
 }
 
 export interface IVisibleOverallImpact {

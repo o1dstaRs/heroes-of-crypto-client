@@ -1,6 +1,15 @@
 import { CreatureVals } from "@heroesofcrypto/common";
 import { images } from "../generated/image_imports";
 
+// Numeric fallbacks keep the client usable during a rolling common/client deploy (or before a local common
+// rebuild refreshes dist). The generated enum is authoritative as soon as the new values are available.
+const extendedCreatureVals = CreatureVals as typeof CreatureVals & {
+    readonly ARACHNA_QUEEN?: number;
+    readonly ARACHNA_SPIDER?: number;
+};
+const ARACHNA_QUEEN_CREATURE_ID = extendedCreatureVals.ARACHNA_QUEEN ?? 44;
+const ARACHNA_SPIDER_CREATURE_ID = extendedCreatureVals.ARACHNA_SPIDER ?? 45;
+
 export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.NO_CREATURE]: images.unknown_creature_512,
     [CreatureVals.ORC]: images.orc_512,
@@ -33,6 +42,8 @@ export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.UNICORN]: images.unicorn_512,
     [CreatureVals.GARGANTUAN]: images.gargantuan_512,
     [CreatureVals.PEGASUS]: images.pegasus_512,
+    [ARACHNA_QUEEN_CREATURE_ID]: images.arachna_queen_512,
+    [ARACHNA_SPIDER_CREATURE_ID]: images.arachna_spider_512,
     [CreatureVals.PEASANT]: images.peasant_512,
     [CreatureVals.SQUIRE]: images.squire_512,
     [CreatureVals.ARBALESTER]: images.arbalester_512,
@@ -77,6 +88,8 @@ export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
     [CreatureVals.UNICORN]: "Unicorn",
     [CreatureVals.GARGANTUAN]: "Gargantuan",
     [CreatureVals.PEGASUS]: "Pegasus",
+    [ARACHNA_QUEEN_CREATURE_ID]: "Arachna Queen",
+    [ARACHNA_SPIDER_CREATURE_ID]: "Arachna Spider",
     [CreatureVals.PEASANT]: "Peasant",
     [CreatureVals.SQUIRE]: "Squire",
     [CreatureVals.ARBALESTER]: "Arbalester",

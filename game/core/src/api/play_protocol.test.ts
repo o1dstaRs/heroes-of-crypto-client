@@ -157,6 +157,53 @@ describe("play protobuf decoder", () => {
         expect(decoded.units[0]?.buffs).toEqual(["Courage"]);
     });
 
+    test("decodes stolen abilities and the turn-start Web movement lock (proto fields 33 and 34)", () => {
+        const locked = [
+            ...stringField(1, "unit-1"),
+            ...stringField(33, "Bitter Experience"),
+            ...stringField(33, "Dodge"),
+            ...intField(34, 1),
+        ];
+        const unlocked = [...stringField(1, "unit-2")];
+        const snapshot = new Uint8Array([
+            ...stringField(1, "game-1"),
+            ...messageField(12, locked),
+            ...messageField(12, unlocked),
+        ]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.units[0]?.stolenAbilities).toEqual(["Bitter Experience", "Dodge"]);
+        expect(decoded.units[0]?.webMovementLocked).toBe(true);
+        expect(decoded.units[1]?.stolenAbilities).toBeUndefined();
+        expect(decoded.units[1]?.webMovementLocked).toBe(false);
+    });
+
+    test("decodes authoritative remaining spell entries, including an empty spellbook", () => {
+        const withSpells = [
+            ...stringField(1, "unit-1"),
+            ...stringField(35, "Life:Heal"),
+            ...stringField(35, "Life:Heal"),
+            ...intField(36, 1),
+        ];
+        const empty = [...stringField(1, "unit-2"), ...intField(36, 1)];
+        const legacy = [...stringField(1, "unit-3")];
+        const snapshot = new Uint8Array([
+            ...stringField(1, "game-1"),
+            ...messageField(12, withSpells),
+            ...messageField(12, empty),
+            ...messageField(12, legacy),
+        ]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.units[0]?.spellEntries).toEqual(["Life:Heal", "Life:Heal"]);
+        expect(decoded.units[0]?.spellEntriesAuthoritative).toBe(true);
+        expect(decoded.units[1]?.spellEntries).toBeUndefined();
+        expect(decoded.units[1]?.spellEntriesAuthoritative).toBe(true);
+        expect(decoded.units[2]?.spellEntriesAuthoritative).toBe(false);
+    });
+
     test("decodes the fight-start army totals (proto fields 24-27)", () => {
         const snapshot = new Uint8Array([
             ...stringField(1, "game-1"),

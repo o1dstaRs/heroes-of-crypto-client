@@ -52,6 +52,14 @@ export interface AuthoritativeUnitState {
     /** The unit's LIVE ability names — lets ranked drop a consumable ability (e.g. Angel's Resurrection) and
      * its ability-derived spell once spent, instead of re-deriving them from the base creature config. */
     abilities?: string[];
+    /** Abilities permanently removed by Predatory Assimilation. They stay visible in the HUD as STOLEN. */
+    stolenAbilities?: string[];
+    /** Turn-start Web Aura lock. Flying through/landing in Web is legal; starting a turn there blocks movement. */
+    webMovementLocked?: boolean;
+    /** Exact remaining spell entries; duplicate entries represent multiple remaining casts. */
+    spellEntries?: string[];
+    /** True when spellEntries is authoritative, including when the list is empty. */
+    spellEntriesAuthoritative?: boolean;
 }
 
 export interface AuthoritativeJournalEntry {

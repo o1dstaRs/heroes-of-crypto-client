@@ -27,6 +27,7 @@ import type {
     AuthoritativeUnitState,
     SceneGameActionTransport,
 } from "../game_action_transport";
+import { getAbilityDisplayMetadata } from "../abilityDisplay";
 import type { IFightDeathEntry, IFightStatsReport, IFightStatsSample, IVisibleState } from "./VisibleState";
 import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
 import { Sandbox, type SandboxSceneState, type SandboxSceneUnitState, type SceneActionEngine } from "./Sandbox";
@@ -142,6 +143,33 @@ export const restoreRankedStepsMoraleMultiplier = (stepsMoraleMultiplier?: numbe
     return true;
 };
 
+/**
+ * Reconcile the snapshot-owned fields that action replay does not mutate. Both same-board snapshots and
+ * skip-rebuild snapshots use this helper, so turn-start state such as Web remains authoritative without
+ * destroying and recreating the live unit.
+ */
+export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: UnitProperties): boolean => {
+    const alive = Math.max(0, Math.floor(properties.amount_alive));
+    if (alive <= 0 || unit.isDead()) {
+        return false;
+    }
+
+    let changed = false;
+    const hp = Math.max(0, Math.floor(properties.hp));
+    if (unit.getAmountAlive() !== alive || unit.getHp() !== hp) {
+        unit.setRemainingStats(alive, hp, properties.amount_died);
+        changed = true;
+    }
+
+    const webMovementLocked = properties.web_movement_locked ?? false;
+    if (unit.isWebMovementLocked() !== webMovementLocked) {
+        unit.setWebMovementLocked(webMovementLocked);
+        changed = true;
+    }
+
+    return changed;
+};
+
 const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitState): UnitProperties | undefined => {
     const unitName = UNIT_ID_TO_NAME[unitState.creatureId] ?? unitState.name;
     const team = unitState.team as TeamType;
@@ -162,27 +190,80 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
             );
             // Ranked rebuilds every unit from the base creature config, which lists ALL abilities — including
             // consumable ones the server has already spent (e.g. Angel's Resurrection). The snapshot carries
-            // the unit's LIVE ability names, so filter the base config's four parallel ability arrays down to
-            // those. This also removes the ability-derived spellbook entry: parseAbilities() only re-adds
-            // Resurrection's castable spell for a unit that still holds the ability — so a spent Resurrection
-            // disappears from BOTH the abilities list and the spellbook. Absent (older server) → keep base.
+            // the unit's LIVE ability names, so rebuild every ability-driven property from those names. That
+            // removes aura/spell mechanics for stolen or consumed native abilities and adds them for abilities
+            // granted at runtime (including Predatory Assimilation steals). Absent (older server) → keep base.
             const abilityOverride = ((): Partial<UnitProperties> => {
                 if (unitState.abilities === undefined) {
                     return {};
                 }
-                const keep = new Set(unitState.abilities);
-                const idx = baseProperties.abilities.map((name, i) => (keep.has(name) ? i : -1)).filter((i) => i >= 0);
+
+                const abilities = unitState.abilities.flatMap((name) => {
+                    const configured = getAbilityDisplayMetadata(name);
+                    if (!configured) {
+                        return [];
+                    }
+
+                    const baseIndex = baseProperties.abilities.indexOf(name);
+                    if (baseIndex >= 0) {
+                        return [
+                            {
+                                name,
+                                description: baseProperties.abilities_descriptions[baseIndex],
+                                isStackPowered: baseProperties.abilities_stack_powered[baseIndex],
+                                isAura: baseProperties.abilities_auras[baseIndex],
+                                auraEffect: configured.auraEffect,
+                                auraRange: configured.auraRange,
+                                auraIsBuff: configured.auraIsBuff,
+                                spellEntry: configured.spellEntry,
+                            },
+                        ];
+                    }
+
+                    return [{ name, ...configured }];
+                });
+                const auras = abilities.filter(
+                    (
+                        ability,
+                    ): ability is typeof ability & {
+                        auraEffect: string;
+                    } => !!ability.auraEffect,
+                );
+                const inferredSpells = [...baseProperties.spells];
+                for (const ability of abilities) {
+                    if (ability.spellEntry && !inferredSpells.includes(ability.spellEntry)) {
+                        inferredSpells.push(ability.spellEntry);
+                    }
+                }
+                // New ranked servers ship the exact remaining entry list. Besides reconnect-safe cast counts,
+                // this is what makes a stolen SPELLBOOK move its spells with the card: the target's list is
+                // empty and the thief's contains the transferred entries. The explicit marker distinguishes
+                // an authoritative empty list from a legacy server that has no field 35.
+                const spells = unitState.spellEntriesAuthoritative
+                    ? [...(unitState.spellEntries ?? [])]
+                    : inferredSpells;
+
                 return {
-                    abilities: idx.map((i) => baseProperties.abilities[i]),
-                    abilities_descriptions: idx.map((i) => baseProperties.abilities_descriptions[i]),
-                    abilities_stack_powered: idx.map((i) => baseProperties.abilities_stack_powered[i]),
-                    abilities_auras: idx.map((i) => baseProperties.abilities_auras[i]),
+                    abilities: abilities.map((ability) => ability.name),
+                    abilities_descriptions: abilities.map((ability) => ability.description),
+                    abilities_stack_powered: abilities.map((ability) => ability.isStackPowered),
+                    abilities_auras: abilities.map((ability) => ability.isAura),
+                    aura_effects: auras.map((ability) => ability.auraEffect),
+                    // These two arrays intentionally stay ability-aligned (non-auras contribute 0/true),
+                    // matching getCreatureConfig and the HUD range-rendering contract. aura_effects itself
+                    // remains aura-only because Unit.parseAuraEffects consumes effect names directly.
+                    aura_ranges: abilities.map((ability) => ability.auraRange),
+                    aura_is_buff: abilities.map((ability) => ability.auraIsBuff),
+                    spells,
+                    can_cast_spells: spells.length > 0,
                 };
             })();
             const hp = unitState.hp > 0 ? unitState.hp : unitState.dead ? 0 : baseProperties.hp;
             return {
                 ...baseProperties,
                 ...abilityOverride,
+                stolen_abilities: unitState.stolenAbilities ?? [],
+                web_movement_locked: unitState.webMovementLocked ?? false,
                 id: unitState.id,
                 team,
                 hp,
@@ -1816,19 +1897,14 @@ export class RankedPlayScene extends Sandbox {
     private applyRankedUnitStats(units: SandboxSceneUnitState[]): void {
         let changed = false;
         for (const u of units) {
-            const alive = Math.max(0, Math.floor(u.properties.amount_alive));
-            if (alive <= 0) {
+            if (Math.max(0, Math.floor(u.properties.amount_alive)) <= 0) {
                 continue;
             }
             const unit = this.unitsHolder.getAllUnits().get(u.properties.id) as RenderableUnit | undefined;
             if (!unit || unit.isDead()) {
                 continue;
             }
-            const hp = Math.max(0, Math.floor(u.properties.hp));
-            if (unit.getAmountAlive() !== alive || unit.getHp() !== hp) {
-                unit.setRemainingStats(alive, hp, u.properties.amount_died);
-                changed = true;
-            }
+            changed = applyRankedUnitSnapshotStats(unit, u.properties) || changed;
         }
         if (changed) {
             this.refreshUnits();
@@ -2352,10 +2428,18 @@ export class RankedPlayScene extends Sandbox {
             // And the stun icon: "skipping this turn" comes from a Stun/Blindness EFFECT, which isn't on
             // the wire — so drive it off this synced flag (OR'd with the local effect check in sandbox).
             (unit as RenderableUnit | undefined)?.setSkipping(snapUnit.skipping ?? false);
-            // Sync each spell's remaining casts (scrolls) from the server. The ranked client never runs the
-            // cast engine, so without this a spell's amountRemaining stays stale-high and the AI re-proposes a
-            // spell the server already spent → spell_not_available. spellAmounts is parallel to getSpells().
-            if (unit && snapUnit.spellAmounts) {
+            // New snapshots encode each remaining cast as a duplicate spell entry, so sync by spell NAME.
+            // Positional amounts cannot survive an earlier spell being exhausted or a SPELLBOOK transfer.
+            if (unit && snapUnit.spellEntriesAuthoritative) {
+                const remainingByName = new Map<string, number>();
+                for (const entry of snapUnit.spellEntries ?? []) {
+                    const name = entry.substring(entry.indexOf(":") + 1);
+                    remainingByName.set(name, (remainingByName.get(name) ?? 0) + 1);
+                }
+                for (const spell of unit.getSpells()) {
+                    spell.setAmount(remainingByName.get(spell.getName()) ?? 0);
+                }
+            } else if (unit && snapUnit.spellAmounts) {
                 const spells = unit.getSpells();
                 for (let i = 0; i < spells.length && i < snapUnit.spellAmounts.length; i++) {
                     spells[i].setAmount(snapUnit.spellAmounts[i]);
@@ -2455,6 +2539,9 @@ export class RankedPlayScene extends Sandbox {
                 dead: unit.dead,
                 placed: unit.placed,
                 stackPower: unit.stackPower,
+                abilities: unit.abilities,
+                stolenAbilities: unit.stolenAbilities,
+                spellEntries: unit.spellEntriesAuthoritative ? (unit.spellEntries ?? []) : undefined,
             })),
         });
     }

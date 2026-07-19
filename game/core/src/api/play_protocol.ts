@@ -125,6 +125,14 @@ export interface PlayUnitState {
      * every ability), so this lets the client drop a consumable ability (e.g. Angel's Resurrection) — and
      * its ability-derived spellbook entry — once the server has spent it. */
     abilities?: string[];
+    /** Ability names permanently removed by Predatory Assimilation (proto field 33). */
+    stolenAbilities?: string[];
+    /** Whether Web Aura locked this unit's movement at the start of its current turn (proto field 34). */
+    webMovementLocked: boolean;
+    /** Exact remaining spell entries (duplicates are remaining casts), authoritative when field 36 is true. */
+    spellEntries?: string[];
+    /** Distinguishes an authoritative empty spellbook from a legacy server that omitted field 35. */
+    spellEntriesAuthoritative: boolean;
 }
 
 export interface PlayJournalEntry {
@@ -834,6 +842,8 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
         rangeShots: 0,
         luck: 0,
         onHourglass: false,
+        webMovementLocked: false,
+        spellEntriesAuthoritative: false,
     };
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
@@ -907,6 +917,18 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
         } else if (field === 32) {
             // buff_descriptions: display-ready string per active buff, parallel to `buffs`.
             (unit.buffDescriptions ??= []).push(reader.string());
+        } else if (field === 33) {
+            // stolen_abilities: permanently disabled abilities retained for the target unit's HUD.
+            (unit.stolenAbilities ??= []).push(reader.string());
+        } else if (field === 34) {
+            // web_movement_locked: authoritative turn-start movement lock from an enemy Web Aura.
+            unit.webMovementLocked = reader.bool();
+        } else if (field === 35) {
+            // spell_entries: exact remaining `${faction}:${name}` entries; duplicates encode casts.
+            (unit.spellEntries ??= []).push(reader.string());
+        } else if (field === 36) {
+            // Presence marker so an empty authoritative spellbook differs from an older server.
+            unit.spellEntriesAuthoritative = reader.bool();
         } else {
             reader.skip(wireType);
         }

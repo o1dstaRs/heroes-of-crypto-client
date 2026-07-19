@@ -1,16 +1,27 @@
 import { describe, expect, test } from "bun:test";
 
-import { CreatureVals, FightStateManager, TeamVals } from "@heroesofcrypto/common";
+import {
+    AbilityFactory,
+    CreatureVals,
+    EffectFactory,
+    FightStateManager,
+    GridSettings,
+    TeamVals,
+    Unit,
+    UnitVals,
+} from "@heroesofcrypto/common";
 
 import type { AuthoritativeGameSnapshot, AuthoritativeUnitState } from "../game_action_transport";
 import {
     authoritativeSnapshotToSandboxSceneState,
+    applyRankedUnitSnapshotStats,
     rankedUnitAliveHealth,
     rankedUnitStartAmount,
     rankedUnitStartHealth,
     restoreRankedStepsMoraleMultiplier,
     shouldPublishRankedFinish,
 } from "./RankedPlayScene";
+import { RenderableUnit } from "./RenderableUnit";
 
 const unitState = (overrides: Partial<AuthoritativeUnitState>): AuthoritativeUnitState => ({
     id: "unit",
@@ -252,6 +263,183 @@ describe("ranked placement scene state", () => {
 
         const angel = state.units.find((unit) => unit.properties.id === "angel");
         expect(angel?.properties.abilities).toContain("Resurrection");
+    });
+
+    test("reconstructs a runtime-granted ability that is absent from the creature's base config", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({
+                    id: "assimilator",
+                    abilities: ["Backstab"],
+                }),
+            ]),
+        );
+
+        const properties = state.units.find((unit) => unit.properties.id === "assimilator")?.properties;
+        expect(properties?.abilities).toEqual(["Backstab"]);
+        expect(properties?.abilities_descriptions[0]).toContain("25% higher damage");
+        expect(properties?.abilities_stack_powered).toEqual([true]);
+        expect(properties?.abilities_auras).toEqual([false]);
+    });
+
+    test("reconstructs runtime-granted aura mechanics and removes stolen native aura mechanics", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({
+                    id: "assimilator",
+                    abilities: ["Web Aura"],
+                }),
+                unitState({
+                    id: "aura-victim",
+                    team: TeamVals.UPPER,
+                    name: "Angel",
+                    creatureId: CreatureVals.ANGEL,
+                    abilities: ["Resurrection"],
+                    stolenAbilities: ["Arrows Wingshield Aura"],
+                }),
+            ]),
+        );
+
+        const assimilator = state.units.find((unit) => unit.properties.id === "assimilator")?.properties;
+        expect(assimilator?.aura_effects).toEqual(["Web"]);
+        expect(assimilator?.aura_ranges).toEqual([1]);
+        expect(assimilator?.aura_is_buff).toEqual([false]);
+
+        const victim = state.units.find((unit) => unit.properties.id === "aura-victim")?.properties;
+        expect(victim?.abilities).toEqual(["Resurrection"]);
+        expect(victim?.aura_effects).toEqual([]);
+        expect(victim?.aura_ranges).toEqual([0]);
+        expect(victim?.aura_is_buff).toEqual([true]);
+    });
+
+    test("reconstructs castable ability spells and removes spells for stolen abilities", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({ id: "spell-thief", abilities: ["Resurrection"] }),
+                unitState({
+                    id: "spell-victim",
+                    team: TeamVals.UPPER,
+                    name: "Angel",
+                    creatureId: CreatureVals.ANGEL,
+                    abilities: ["Arrows Wingshield Aura"],
+                    stolenAbilities: ["Resurrection"],
+                }),
+            ]),
+        );
+
+        const thief = state.units.find((unit) => unit.properties.id === "spell-thief")?.properties;
+        expect(thief?.spells).toContain(":Resurrection");
+        expect(thief?.can_cast_spells).toBe(true);
+
+        const victim = state.units.find((unit) => unit.properties.id === "spell-victim")?.properties;
+        expect(victim?.spells).not.toContain(":Resurrection");
+        expect(victim?.can_cast_spells).toBe(false);
+    });
+
+    test("reconstructs an authoritative stolen spellbook with its exact remaining casts", () => {
+        const transferredEntries = ["Life:Heal", "Life:Spiritual Armor", "Life:Spiritual Armor"];
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({
+                    id: "spellbook-thief",
+                    abilities: ["Book of Healing"],
+                    spellEntries: transferredEntries,
+                    spellEntriesAuthoritative: true,
+                }),
+                unitState({
+                    id: "spellbook-victim",
+                    team: TeamVals.UPPER,
+                    name: "Healer",
+                    creatureId: CreatureVals.HEALER,
+                    abilities: [],
+                    stolenAbilities: ["Book of Healing"],
+                    spellEntriesAuthoritative: true,
+                }),
+            ]),
+        );
+
+        const thief = state.units.find((unit) => unit.properties.id === "spellbook-thief")?.properties;
+        expect(thief?.spells).toEqual(transferredEntries);
+        expect(thief?.can_cast_spells).toBe(true);
+
+        const victim = state.units.find((unit) => unit.properties.id === "spellbook-victim")?.properties;
+        expect(victim?.spells).toEqual([]);
+        expect(victim?.can_cast_spells).toBe(false);
+    });
+
+    test("carries permanently stolen abilities separately from live abilities", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({
+                    id: "victim",
+                    abilities: ["Absorb Penalties Aura"],
+                    stolenAbilities: ["Bitter Experience"],
+                }),
+            ]),
+        );
+
+        const properties = state.units.find((unit) => unit.properties.id === "victim")?.properties;
+        const stolenAbilities = (
+            properties as typeof properties & {
+                stolen_abilities?: string[];
+            }
+        )?.stolen_abilities;
+        expect(properties?.abilities).toEqual(["Absorb Penalties Aura"]);
+        expect(stolenAbilities).toEqual(["Bitter Experience"]);
+    });
+
+    test("carries the authoritative turn-start Web movement lock", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([unitState({ id: "webbed", webMovementLocked: true })]),
+        );
+
+        const properties = state.units.find((unit) => unit.properties.id === "webbed")?.properties;
+        const webMovementLocked = (
+            properties as typeof properties & {
+                web_movement_locked?: boolean;
+            }
+        )?.web_movement_locked;
+        expect(webMovementLocked).toBe(true);
+    });
+
+    test("syncs Web lock changes onto a live unit without rebuilding the board", () => {
+        const snapshotProperties = (webMovementLocked: boolean) =>
+            authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({
+                        id: "webbed-flyer",
+                        name: "Griffin",
+                        creatureId: CreatureVals.GRIFFIN,
+                        webMovementLocked,
+                    }),
+                ]),
+            ).units[0]!.properties;
+        const initialProperties = snapshotProperties(false);
+        const effectFactory = new EffectFactory();
+        const liveUnit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                initialProperties,
+                new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+                TeamVals.LOWER,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+
+        // Same-signature and skip-rebuild snapshots both take this non-destructive reconciliation path.
+        expect(liveUnit.isWebMovementLocked()).toBe(false);
+        expect(liveUnit.canMove()).toBe(true);
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(true))).toBe(true);
+        expect(liveUnit.isWebMovementLocked()).toBe(true);
+        expect(liveUnit.canMove()).toBe(false);
+
+        // The next activation snapshot can authoritatively clear the lock without recreating the unit.
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(false))).toBe(true);
+        expect(liveUnit.isWebMovementLocked()).toBe(false);
+        expect(liveUnit.canMove()).toBe(true);
     });
 
     test("renders a redacted opponent placement unit as a live 1-stack silhouette, not a corpse", () => {

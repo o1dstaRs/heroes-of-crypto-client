@@ -29,6 +29,7 @@ import type {
     SceneGameActionTransport,
     SceneGameActionTransportResult,
 } from "../game_action_transport";
+import { getAbilityDisplayMetadata } from "../abilityDisplay";
 import type { SandboxReplay } from "../replay/sandbox_replay";
 
 import {
@@ -479,13 +480,33 @@ export abstract class PixiScene {
             return text;
         };
 
-        for (let i = 0; i < unitProperties.abilities.length; i++) {
-            const abilityName = unitProperties.abilities[i];
-            const abilityDescription = unitProperties.abilities_descriptions[i];
-            const isStackPowered = unitProperties.abilities_stack_powered[i];
-            const isAura = unitProperties.abilities_auras[i];
+        // Stolen abilities are no longer active and therefore are intentionally absent from `abilities`.
+        // Keep them visible in the sidebar as disabled entries so the permanent loss is legible to players.
+        const stolenAbilityNames =
+            (
+                unitProperties as UnitProperties & {
+                    readonly stolen_abilities?: readonly string[];
+                }
+            ).stolen_abilities ?? [];
+        const stolenAbilities = new Set(stolenAbilityNames);
+        const displayedAbilityNames = [...new Set([...unitProperties.abilities, ...stolenAbilityNames])];
 
-            if (!abilityName || !abilityDescription) break;
+        for (const abilityName of displayedAbilityNames) {
+            const activeIndex = unitProperties.abilities.indexOf(abilityName);
+            const configured = getAbilityDisplayMetadata(abilityName);
+            const abilityDescription =
+                (activeIndex >= 0 ? unitProperties.abilities_descriptions[activeIndex] : undefined) ??
+                configured?.description;
+            const isStackPowered =
+                (activeIndex >= 0 ? unitProperties.abilities_stack_powered[activeIndex] : undefined) ??
+                configured?.isStackPowered ??
+                false;
+            const isAura =
+                (activeIndex >= 0 ? unitProperties.abilities_auras[activeIndex] : undefined) ??
+                configured?.isAura ??
+                false;
+
+            if (!abilityName || !abilityDescription) continue;
 
             visibleAbilitiesImpact.push({
                 name: abilityName,
@@ -495,6 +516,7 @@ export abstract class PixiScene {
                 stackPower: unitProperties.stack_power,
                 isStackPowered,
                 isAura,
+                isStolen: stolenAbilities.has(abilityName),
             });
         }
 

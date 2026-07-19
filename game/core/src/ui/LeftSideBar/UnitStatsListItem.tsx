@@ -369,8 +369,13 @@ const AbilityCell: React.FC<{
     const theme = useTheme();
     const isDarkMode = theme.palette.mode === "dark";
     const auraColor = isDarkMode ? "rgba(255, 255, 255, 0.75)" : "rgba(0, 0, 0, 0.75)";
+    const disabledStatus = ability.isStolen
+        ? { label: "STOLEN", color: "#9acd32", tooltip: "ABILITY STOLEN PERMANENTLY!\n" }
+        : hasBreakApplied
+          ? { label: "BREAK", color: "#ff0000", tooltip: "BREAK APPLIED!\n" }
+          : undefined;
 
-    // The stack-power pips and break overlay are pure CSS, so they'd otherwise pop in before the
+    // The stack-power pips and disabled-status overlay are pure CSS, so they'd otherwise pop in before the
     // ability image finishes loading (the pips visibly racing ahead). Gate them — and fade the image
     // in — on the image's load so everything appears together.
     const [loaded, setLoaded] = React.useState(false);
@@ -385,7 +390,7 @@ const AbilityCell: React.FC<{
         <Tooltip
             title={
                 <>
-                    {hasBreakApplied && "BREAK APPLIED!\n"}
+                    {disabledStatus?.tooltip}
                     {ability.name}:&nbsp;
                     {ability.description.split("\n").map((line, idx) => (
                         <React.Fragment key={idx}>
@@ -442,7 +447,13 @@ const AbilityCell: React.FC<{
                         willChange: "opacity, transform",
                     }}
                 />
-                {loaded && hasBreakApplied && <BreakOverlay isAura={ability.isAura} />}
+                {loaded && disabledStatus && (
+                    <AbilityStatusOverlay
+                        isAura={ability.isAura}
+                        label={disabledStatus.label}
+                        color={disabledStatus.color}
+                    />
+                )}
                 {loaded && (
                     <StackPowerOverlay
                         stackPower={ability.isStackPowered ? ability.stackPower : 0}
@@ -869,11 +880,12 @@ const UnitStatsLayout: React.FC<{
                         onLoaded={onImageLoaded}
                     />
                 ) : (
-                    <Avatar
+                    <Box
+                        component="img"
                         // @ts-ignore: images index signature
                         src={images[largeTextureName]}
-                        variant="plain"
                         sx={{
+                            display: "block",
                             width: "100%",
                             height: "auto",
                             objectFit: "contain",
@@ -906,7 +918,11 @@ const UnitStatsLayout: React.FC<{
     );
 };
 
-const BreakOverlay: React.FC<{ isAura?: boolean }> = ({ isAura }) => (
+const AbilityStatusOverlay: React.FC<{ isAura?: boolean; label: string; color: string }> = ({
+    isAura,
+    label,
+    color,
+}) => (
     <Box
         sx={{
             position: "absolute",
@@ -925,16 +941,16 @@ const BreakOverlay: React.FC<{ isAura?: boolean }> = ({ isAura }) => (
     >
         <Box
             sx={{
-                color: "#ff0000",
+                color,
                 fontWeight: "bold",
                 transform: "rotate(-45deg)",
-                fontSize: "1.2em",
+                fontSize: label === "STOLEN" ? "1em" : "1.2em",
                 textShadow: "1px 1px 2px rgba(0, 0, 0, 0.5)",
                 whiteSpace: "nowrap",
                 userSelect: "none",
             }}
         >
-            BREAK
+            {label}
         </Box>
     </Box>
 );

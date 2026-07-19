@@ -204,6 +204,11 @@ export class RenderableUnit extends Unit {
         this.parseSpells();
     }
     public override parseSpells(): void {
+        // Keep Unit's authoritative Spell objects synchronized even before a Pixi spellbook layer exists.
+        // Runtime ability changes (for example Predatory Assimilation) call this method to remove or grant
+        // castable/spellbook mechanics; returning before the base parser left getSpells() stale in sandbox.
+        super.parseSpells();
+
         if (!this.spellBookLayer || !this.digitTextures) return;
 
         // Clear existing

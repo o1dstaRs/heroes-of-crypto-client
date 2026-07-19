@@ -287,7 +287,9 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
 
 const creatures = creaturesJson as unknown as { version: number } & Record<FactionName, CreatureMap>;
 
-const hiddenUnits = new Set(["Faerie Dragon", "Phoenix"]);
+// Summoned-only creatures belong in the engine configuration for authoritative reconstruction, but are not
+// draftable roster entries. Their abilities still appear through the regular units that own them.
+const hiddenUnits = new Set(["Faerie Dragon", "Phoenix", "Arachna Spider"]);
 
 export const factionUnits: FactionUnits[] = factionOrder
     .filter((faction) => creatures[faction])
