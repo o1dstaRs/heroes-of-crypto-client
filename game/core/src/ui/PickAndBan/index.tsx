@@ -1210,8 +1210,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
     const disabled = !isYourTurn || busy;
     const selectedValue = selection && selection.phase === pickPhase ? selection.value : -1;
     const hint = PHASE_HINT[pickPhase] ?? "";
-    // "Taken" units are ONLY the ones we've collided on locally — the server never reveals opponent picks.
-    const opponentTaken = collided;
+    // "Taken" units are the opponent picks we legitimately know about: the ones we've collided on locally
+    // (a 409 re-pick) PLUS the ones the server has already revealed to us through our scouting doctrine /
+    // reveal perks. Those arrive in `opponentPicked` (the `op` field) — a slot-aligned array carrying the
+    // creature id at each watched-and-filled slot and 0 (NO_CREATURE) elsewhere, so we drop the empties.
+    // Mirrors getKnownOpponentCreatures() in the pick sim (and the LocalModelDraftOpponent path) so the grid
+    // greys out units we already know are gone instead of letting us pick into a guaranteed collision.
+    const knownOpponentPicked = opponentPicked.filter((id) => !!id && id !== CreatureVals.NO_CREATURE);
+    const opponentTaken = Array.from(new Set([...collided, ...knownOpponentPicked]));
     const isHandoff = pickPhase === PickPhaseVals.AUGMENTS || pickPhase === PickPhaseVals.AUGMENTS_SCOUT;
     // PERK is now a doctrine-only phase; the server echoes the player's perk (perk > 0), which survives reload
     // and locks the panel.
