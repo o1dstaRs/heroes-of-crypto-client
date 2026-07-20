@@ -49,7 +49,7 @@ export const artifacts: Artifact[] = [
     t1(
         "hunters_longbow",
         "Hunter's Longbow",
-        "Ranged units gain +1 attack and -7.5% defense for each ranged unit in the army.",
+        "Ranged units gain +1 attack for each ranged unit in the army.",
     ),
     t1("helm_of_focus", "Helm of Focus", "Increases the army's mind resistance by 25%."),
     t1(

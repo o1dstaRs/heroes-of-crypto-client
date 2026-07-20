@@ -129,18 +129,6 @@ export interface SandboxSceneState {
     units: SandboxSceneUnitState[];
 }
 
-interface MountainEdgeTarget {
-    visualPosition: HoCMath.XY;
-    actionPosition: HoCMath.XY;
-    // Attack-from selection anchor: pushed OUTWARD past the cell boundary along the edge's direction.
-    // The boundary point itself (visualPosition) is ambiguous for corners — a grid vertex is exactly
-    // equidistant from the diagonal cell and both orthogonal neighbours, so "closest reachable cell"
-    // degenerated to map-iteration-order tie-breaks (only some corners resolved to the diagonal cell,
-    // depending on approach direction). The outward anchor makes the intended cell strictly closest.
-    selectPosition: HoCMath.XY;
-    cell: HoCMath.XY;
-}
-
 interface PlacementBenchHitBox {
     center: HoCMath.XY;
     radius: number;
@@ -160,6 +148,9 @@ export class Sandbox extends PixiScene {
     protected readonly grid: Grid;
     private readonly pathHelper: PathHelper;
     private canAttackByMeleeTargets?: IAttackTargets;
+    // Mountain pseudo-targets (BLOCK_CENTER): same IAttackTargets shape as enemy units, so mountain
+    // melee attacks reuse the identical hover/click machinery.
+    private canAttackMountainTargets?: IAttackTargets;
     private canAttackByRangeTargets?: Set<string>;
     // --- Components ---
     private readonly attackHandler: AttackHandler;
@@ -337,6 +328,8 @@ export class Sandbox extends PixiScene {
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
             texAny: (n) => this.texAny(n),
             attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
+            // A collapsing mountain rumbles the whole board (smaller than an Armageddon wave's shake).
+            onMountainCollapse: () => this.triggerScreenShake(10, 0.45),
         });
 
         this.moveAnimManager = new MoveAnimationManager({
@@ -657,6 +650,18 @@ export class Sandbox extends PixiScene {
                 });
                 return true;
             };
+            // Visual smoke/tuning hook for the mountain-collapse VFX: crashes one/both mountains apart
+            // on demand (BLOCK_CENTER map only) without grinding their hit points down in a real fight.
+            (w as { __hocMountainCollapseTest?: (side?: "left" | "right") => boolean }).__hocMountainCollapseTest = (
+                side?: "left" | "right",
+            ) => {
+                if (FightStateManager.getInstance().getFightProperties().getGridType() !== GridVals.BLOCK_CENTER) {
+                    return false;
+                }
+                if (side !== "right") this.dungeonVisuals.spawnMountainCollapse("left");
+                if (side !== "left") this.dungeonVisuals.spawnMountainCollapse("right");
+                return true;
+            };
             // Diagnostic view of the PUBLISHED visible state + the pending-emission flag — lets an e2e
             // run explain a missing fight-results overlay: was the finish never published (scene bug),
             // published but never emitted (manager tick bug), or emitted with a winner mismatch.
@@ -668,44 +673,6 @@ export class Sandbox extends PixiScene {
                 lowerStartTotal: this.sc_visibleState?.fightStats?.lowerStartTotal,
                 upperStartTotal: this.sc_visibleState?.fightStats?.upperStartTotal,
             });
-            // Diagnostic for the mountain-attack pipeline: hover the rock where the attack SHOULD be
-            // offered, then run window.__hocObstacleProbe() in the console. Dumps every stage — aim
-            // target, stationary preference, picked attack-from, route availability — so a "click does
-            // nothing" repro turns into data instead of guesswork.
-            (w as { __hocObstacleProbe?: () => Record<string, unknown> }).__hocObstacleProbe = () => {
-                const unit = this.currentActiveUnit;
-                const mouse = this.sc_mouseWorld;
-                if (!unit || !mouse) {
-                    return { error: "no active unit or mouse position" };
-                }
-                const gsProbe = this.sc_sceneSettings.getGridSettings();
-                const centerCells = this.grid.getCenterCells();
-                const target = this.getMountainEdgeTarget(mouse, centerCells);
-                const stationary = target
-                    ? this.preferStationaryObstacleCell(unit, centerCells, target.actionPosition)
-                    : undefined;
-                const picked = target ? this.findObstacleAttackFromCell(centerCells, target.selectPosition) : undefined;
-                const attackFrom = stationary ?? picked;
-                const routes = attackFrom
-                    ? this.currentActiveKnownPaths?.get((attackFrom.x << 4) | attackFrom.y)
-                    : undefined;
-                return {
-                    unit: `${unit.getName()} ${unit.isSmallSize() ? "1x1" : "2x2"}`,
-                    unitPosition: { ...unit.getPosition() },
-                    unitCell: GridMath.getCellForPosition(gsProbe, unit.getPosition()),
-                    mouseCell: GridMath.getCellForPosition(gsProbe, mouse),
-                    aimTarget: target
-                        ? { cell: target.cell, visual: target.visualPosition, select: target.selectPosition }
-                        : null,
-                    stationaryCell: stationary ?? null,
-                    pickedAttackFrom: picked ?? null,
-                    chosenAttackFrom: attackFrom ?? null,
-                    routeToChosen: routes?.[0]?.route ?? null,
-                    knownPathsSize: this.currentActiveKnownPaths?.size ?? 0,
-                    hoverAttackFromCell: this.hoverManager.hoverAttackFromCell ?? null,
-                    hoverInfo: [...this.sc_hoverInfoArr],
-                };
-            };
         }
     }
     protected updateVisibleTurnTimer(): void {
@@ -1752,6 +1719,7 @@ export class Sandbox extends PixiScene {
         this.currentEnemiesCellsWithinMovementRange = undefined;
         this.cellToUnitPreRound = undefined;
         this.canAttackByMeleeTargets = undefined;
+        this.canAttackMountainTargets = undefined;
         this.canAttackByRangeTargets = undefined;
         this.hoverRangeAttackObstacle = undefined;
         this.sc_currentActiveShotRange = undefined;
@@ -4926,7 +4894,26 @@ export class Sandbox extends PixiScene {
                             return;
                         }
                     }
-                    this.executeMoveSequence(this.currentActiveUnit, candidate, candidate);
+                    // A footprint-only move animates as a straight A->B line, cutting across whatever
+                    // lies between — on the Mountains map that reads as walking/flying THROUGH the
+                    // rocks. Use the real route (keyed by the footprint's anchor = max corner) when it
+                    // exists: walkers always follow it; flyers keep their straight glide unless the
+                    // straight segment would cross a standing rock.
+                    const anchor = candidate.reduce(
+                        (acc, c) => ({ x: Math.max(acc.x, c.x), y: Math.max(acc.y, c.y) }),
+                        { x: Number.MIN_SAFE_INTEGER, y: Number.MIN_SAFE_INTEGER },
+                    );
+                    const route = this.currentActiveKnownPaths.get((anchor.x << 4) | anchor.y)?.[0]?.route;
+                    const wantsRoute =
+                        !!route?.length &&
+                        (!this.currentActiveUnit.canFly() ||
+                            (targetPos !== undefined &&
+                                this.straightSegmentBlockedForFlyer(this.currentActiveUnit, currentPos, targetPos)));
+                    if (wantsRoute && route) {
+                        this.executeMoveSequence(this.currentActiveUnit, route, candidate);
+                    } else {
+                        this.executeMoveSequence(this.currentActiveUnit, candidate, candidate);
+                    }
                     return;
                 } else {
                     if (!this.hoverManager.isCellReachableForActiveUnit(cell)) return;
@@ -5338,11 +5325,12 @@ export class Sandbox extends PixiScene {
         this.currentActiveSpell = undefined;
     }
     /**
-     * Attempt to attack the destructible center obstacle (BLOCK_CENTER maps). Ranged units land
-     * automatically; melee units move to a cell adjacent to the obstacle, then land the hit. When
-     * the obstacle's hits run out, the center is cleared and the map reverts to NORMAL. Ports the
-     * obstacle branch of legacy landAttack (test_heroes.ts:3445-3485).
-     * Returns true if an obstacle hit was landed (turn consumed).
+     * Attack the destructible center mountains (BLOCK_CENTER). A mountain is a plain 2x2 footprint,
+     * so melee targeting REUSES the unit-vs-unit machinery verbatim: its attack cells come from the
+     * same attackMeleeAllowed pass as enemy units (canAttackMountainTargets, built in
+     * updateCurrentMovePath) and the landing under the cursor is resolved by the same
+     * pathHelper.calculateClosestAttackFrom. Ranged units shoot in place. Returns true if a hit was
+     * initiated (turn consumed).
      */
     private attemptObstacleAttack(worldPos: HoCMath.XY): boolean {
         const unit = this.currentActiveUnit;
@@ -5353,66 +5341,90 @@ export class Sandbox extends PixiScene {
         if (fightProps.getGridType() !== GridVals.BLOCK_CENTER || fightProps.getObstacleHitsLeft() <= 0) {
             return false;
         }
-
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const hoveredCell = GridMath.getCellForPosition(gs, worldPos);
         const centerCells = this.grid.getCenterCells();
+        if (!hoveredCell || !centerCells.some((c) => c.x === hoveredCell.x && c.y === hoveredCell.y)) {
+            return false;
+        }
+
         const canLandRangeHit =
             unit.getAttackTypeSelection() === AttackVals.RANGE &&
             this.attackHandler.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId()));
-        // A ranged strike may only land on the mountain edges visible to the attacker (near side).
-        const mountainTarget = this.getMountainEdgeTarget(
-            worldPos,
-            centerCells,
-            canLandRangeHit ? unit.getVisualCenter(this.sc_sceneSettings.getGridSettings()) : undefined,
+        if (canLandRangeHit) {
+            return this.executeObstacleAttackSequence(unit, worldPos, undefined);
+        }
+        if (unit.getAttackTypeSelection() === AttackVals.MAGIC) {
+            return false;
+        }
+
+        const attackFrom = this.resolveMountainAttackFrom(worldPos);
+        if (!attackFrom) {
+            return false;
+        }
+        return this.executeObstacleAttackSequence(unit, worldPos, attackFrom);
+    }
+    /**
+     * Whether the straight world-space segment from -> to passes over anything a FLYER cannot
+     * traverse. Mirrors the pathfinder's rule exactly: flyers may overfly lava ("L") and water
+     * ("W") only — units, mountains ("B") and holes ("H") force a detour, so a straight glide
+     * across them would misrepresent the actual route (a dragon soaring through a rock or over an
+     * enemy line it logically flew around). The moving unit's own cells never block.
+     */
+    private straightSegmentBlockedForFlyer(unit: RenderableUnit, from: HoCMath.XY, to: HoCMath.XY): boolean {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const distance = Math.hypot(to.x - from.x, to.y - from.y);
+        const steps = Math.max(2, Math.ceil(distance / (gs.getCellSize() * 0.4)));
+        for (let i = 1; i < steps; i++) {
+            const t = i / steps;
+            const cell = GridMath.getCellForPosition(gs, {
+                x: from.x + (to.x - from.x) * t,
+                y: from.y + (to.y - from.y) * t,
+            });
+            if (!cell) {
+                continue;
+            }
+            const occupant = this.grid.getOccupantUnitId(cell);
+            if (occupant && occupant !== unit.getId() && occupant !== "L" && occupant !== "W") {
+                return true;
+            }
+        }
+        return false;
+    }
+    /**
+     * The melee landing for a mountain strike under the cursor — the EXACT call the unit-vs-unit
+     * hover/click path uses (pathHelper.calculateClosestAttackFrom), fed with the mountain
+     * pseudo-target's attack cells. The hovered rock's own 2x2 plays the role of the target's cells.
+     */
+    private resolveMountainAttackFrom(worldPos: HoCMath.XY): HoCMath.XY | undefined {
+        const unit = this.currentActiveUnit;
+        const targets = this.canAttackMountainTargets;
+        if (!unit || !targets || !targets.attackCells.length) {
+            return undefined;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const hoveredCell = GridMath.getCellForPosition(gs, worldPos);
+        if (!hoveredCell) {
+            return undefined;
+        }
+        const mid = gs.getGridSize() >> 1;
+        const mountainCells = this.grid.getCenterCells().filter((c) => c.x >= mid === hoveredCell.x >= mid);
+        if (!mountainCells.some((c) => c.x === hoveredCell.x && c.y === hoveredCell.y)) {
+            return undefined;
+        }
+        return (
+            this.pathHelper.calculateClosestAttackFrom(
+                worldPos,
+                targets.attackCells,
+                unit.getCells(),
+                mountainCells,
+                unit.isSmallSize(),
+                unit.getAttackRange(),
+                false,
+                TeamVals.NO_TEAM,
+                targets.attackCellHashesToLargeCells,
+            ) ?? undefined
         );
-        if (!mountainTarget) {
-            return false;
-        }
-
-        // Melee attackers need a cell adjacent to the obstacle to strike from; ranged units auto-land.
-        // Prefer a stationary strike from the unit's own cell when it's already adjacent to the target.
-        let attackFromCell = canLandRangeHit
-            ? undefined
-            : (this.preferStationaryObstacleCell(unit, centerCells, mountainTarget.actionPosition) ??
-              this.hoverManager.hoverAttackFromCell);
-        if (attackFromCell && !this.canMeleeAttackObstacleFromCell(attackFromCell, centerCells, unit)) {
-            attackFromCell = undefined;
-        }
-        // A hover-computed attack-from can be stale (board changed since the hover frame). If its
-        // landing footprint is no longer occupiable, drop it and let the guarded picker below choose
-        // a fresh cell instead of dying downstream with the engine's move_blocked.
-        if (attackFromCell) {
-            const unitCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), unit.getPosition());
-            const stationary = !!unitCell && unitCell.x === attackFromCell.x && unitCell.y === attackFromCell.y;
-            if (!stationary) {
-                const footprint = unit.isSmallSize()
-                    ? [attackFromCell]
-                    : this.getLargeUnitObstacleFootprint(attackFromCell);
-                if (
-                    !footprint ||
-                    !(
-                        this.grid.areAllCellsEmpty(footprint, unit.getId()) ||
-                        this.grid.canOccupyCells(
-                            footprint,
-                            unit.hasAbilityActive("Made of Fire"),
-                            unit.hasAbilityActive("Made of Water"),
-                        )
-                    )
-                ) {
-                    attackFromCell = undefined;
-                }
-            }
-        }
-        if (!canLandRangeHit && unit.getAttackTypeSelection() === AttackVals.MAGIC) {
-            return false;
-        }
-        if (!canLandRangeHit && !attackFromCell) {
-            attackFromCell = this.findObstacleAttackFromCell(centerCells, mountainTarget.selectPosition);
-            if (!attackFromCell) {
-                return false;
-            }
-        }
-
-        return this.executeObstacleAttackSequence(unit, mountainTarget.actionPosition, attackFromCell);
     }
     /**
      * Team marker (🟢 LOWER / 🔴 UPPER) for a scene-log line, matched by the unit name the line leads
@@ -5700,173 +5712,6 @@ export class Sandbox extends PixiScene {
             }
         }
     }
-    /**
-     * Stationary obstacle strike: when the active unit already stands adjacent to the targeted
-     * mountain, its own cell (anchor cell for a 2x2) IS the attack-from — no move. Without this the
-     * attack-from resolves to whichever exposed edge is nearest the cursor, which can force a
-     * needless (and sometimes blocked) one-cell step, e.g. a Pikeman beside the rock routed into a
-     * blocked corridor square so the strike never lands. Applies to BOTH sizes: a 2x2 touching the
-     * rock corner-to-corner (45°) used to be excluded ("large units keep the reach logic"), so the
-     * picker walked it to an edge-on anchor — or failed outright when those anchors were blocked —
-     * even though the engine happily accepts the diagonal strike in place.
-     */
-    private preferStationaryObstacleCell(
-        unit: RenderableUnit,
-        centerCells: HoCMath.XY[],
-        targetActionPosition: HoCMath.XY,
-    ): HoCMath.XY | undefined {
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const targetCell = GridMath.getCellForPosition(gs, targetActionPosition);
-        // For a 2x2 the body center sits on the footprint's shared vertex, which resolves to the
-        // ANCHOR (max-corner) cell — the same convention knownPaths and the engine use.
-        const standCell = GridMath.getCellForPosition(gs, unit.getPosition());
-        if (!targetCell || !standCell || !this.canMeleeAttackObstacleFromCell(standCell, centerCells, unit)) {
-            return undefined;
-        }
-        // Strike in place if the unit's FOOTPRINT already touches — INCLUDING diagonally (corner
-        // cells) — the SAME mountain the cursor targets. Chebyshev <= 1 from any footprint cell to
-        // any of that mountain's cells, not just the single hovered cell: from a corner the hovered
-        // cell can be 2 away while another cell of the same 2x2 rock is diagonally adjacent. The two
-        // mountains are split along X (world-X), so "same mountain" = cells on the target's side of
-        // the mid line — this keeps a unit hugging one mountain from stationary-striking the other.
-        const footprint = unit.isSmallSize()
-            ? [standCell]
-            : (this.getLargeUnitObstacleFootprint(standCell) ?? [standCell]);
-        const mid = gs.getGridSize() >> 1;
-        const targetOnRight = targetCell.x >= mid;
-        const adjacentToTargetMountain = centerCells.some(
-            (cell) =>
-                cell.x >= mid === targetOnRight &&
-                footprint.some(
-                    (footprintCell) =>
-                        Math.abs(footprintCell.x - cell.x) <= 1 && Math.abs(footprintCell.y - cell.y) <= 1,
-                ),
-        );
-        return adjacentToTargetMountain ? standCell : undefined;
-    }
-    /** Find a reachable cell adjacent to the center obstacle for a melee strike, if any. */
-    private findObstacleAttackFromCell(
-        centerCells: HoCMath.XY[],
-        preferredWorldPos: HoCMath.XY | undefined = this.sc_mouseWorld,
-    ): HoCMath.XY | undefined {
-        const unit = this.currentActiveUnit;
-        if (!unit) {
-            return undefined;
-        }
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const candidates: HoCMath.XY[] = [];
-        const seen = new Set<number>();
-        const currentCell = GridMath.getCellForPosition(gs, unit.getPosition());
-        const addCandidate = (cell?: HoCMath.XY): void => {
-            if (!cell) {
-                return;
-            }
-            const key = (cell.x << 4) | cell.y;
-            if (seen.has(key) || !this.canMeleeAttackObstacleFromCell(cell, centerCells, unit)) {
-                return;
-            }
-            // Guard against a stale route map: the landing footprint must still be occupiable RIGHT
-            // NOW — currentActiveKnownPaths can lag the board (e.g. mid-turn continue-moves), and
-            // offering a since-taken cell makes the click die downstream with the engine's
-            // move_blocked ("failed to move to target footprint"). The unit's own cell always passes.
-            const stationary = currentCell !== undefined && currentCell.x === cell.x && currentCell.y === cell.y;
-            if (!stationary) {
-                const footprint = unit.isSmallSize() ? [cell] : this.getLargeUnitObstacleFootprint(cell);
-                if (
-                    !footprint ||
-                    !(
-                        this.grid.areAllCellsEmpty(footprint, unit.getId()) ||
-                        this.grid.canOccupyCells(
-                            footprint,
-                            unit.hasAbilityActive("Made of Fire"),
-                            unit.hasAbilityActive("Made of Water"),
-                        )
-                    )
-                ) {
-                    return;
-                }
-            }
-            seen.add(key);
-            candidates.push(cell);
-        };
-
-        // Already adjacent → strike without moving.
-        addCandidate(currentCell);
-
-        // Prefer route-backed cells. For large units, movement paths are keyed by the anchor cell,
-        // while `currentActivePath` also contains the other cells in the 2x2 footprint.
-        if (this.currentActiveKnownPaths) {
-            for (const [key, routes] of this.currentActiveKnownPaths) {
-                if (!routes?.length) {
-                    continue;
-                }
-                const routeCell = routes[0].cell ?? { x: key >> 4, y: key & 0xf };
-                addCandidate(routeCell);
-            }
-        }
-
-        // Fallback for path sets that carry only cells. Non-stationary cells still need route
-        // metadata, otherwise the shared obstacle handler rejects the melee attack.
-        if (this.currentActivePath) {
-            for (const cell of this.currentActivePath) {
-                const stationary = currentCell !== undefined && currentCell.x === cell.x && currentCell.y === cell.y;
-                if (stationary || this.currentActiveKnownPaths?.get((cell.x << 4) | cell.y)?.length) {
-                    addCandidate(cell);
-                }
-            }
-        }
-
-        if (!candidates.length) {
-            return undefined;
-        }
-        if (!preferredWorldPos) {
-            return candidates[0];
-        }
-
-        let closest = candidates[0];
-        let closestDistance = Number.MAX_SAFE_INTEGER;
-        for (const candidate of candidates) {
-            const pos = this.getObstacleAttackFromPosition(unit, candidate);
-            if (!pos) {
-                continue;
-            }
-            const distance = HoCMath.getDistance(preferredWorldPos, pos);
-            if (distance < closestDistance) {
-                closestDistance = distance;
-                closest = candidate;
-            }
-        }
-        return closest;
-    }
-    private canMeleeAttackObstacleFromCell(
-        attackFromCell: HoCMath.XY,
-        centerCells: HoCMath.XY[],
-        unit: RenderableUnit,
-    ): boolean {
-        if (unit.hasAbilityActive("No Melee")) {
-            return false;
-        }
-        // Two-mountain BLOCK_CENTER: the 2x2 corridor between the mountains (cells mid-1,mid on both
-        // axes) is WALKABLE, so a unit standing there is a legal attack-from position — a corridor
-        // row is orthogonally adjacent to the near mountain. The old single solid-block layout used
-        // to exclude those inner cells because they sat inside the rock; that no longer applies, and
-        // keeping the exclusion is exactly what stopped attacks "from between them".
-        const attackFromCells = [attackFromCell];
-        if (!unit.isSmallSize()) {
-            attackFromCells.push(
-                { x: attackFromCell.x, y: attackFromCell.y - 1 },
-                { x: attackFromCell.x - 1, y: attackFromCell.y },
-                { x: attackFromCell.x - 1, y: attackFromCell.y - 1 },
-            );
-        }
-
-        for (const cell of attackFromCells) {
-            if (centerCells.some((center) => Math.abs(cell.x - center.x) <= 1 && Math.abs(cell.y - center.y) <= 1)) {
-                return true;
-            }
-        }
-        return false;
-    }
     private getObstacleAttackFromPosition(unit: RenderableUnit, attackFromCell: HoCMath.XY): HoCMath.XY | undefined {
         const gs = this.sc_sceneSettings.getGridSettings();
         const position = GridMath.getPositionForCell(attackFromCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
@@ -5890,208 +5735,10 @@ export class Sandbox extends PixiScene {
             y: position.y - gs.getHalfStep(),
         });
     }
-    private getMountainEdgeTarget(
-        worldPos: HoCMath.XY,
-        centerCells: HoCMath.XY[],
-        attackerPos?: HoCMath.XY,
-    ): MountainEdgeTarget | undefined {
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const hoveredCell = GridMath.getCellForPosition(gs, worldPos);
-        if (!hoveredCell || !centerCells.some((c) => c.x === hoveredCell.x && c.y === hoveredCell.y)) {
-            return undefined;
-        }
-
-        const halfStep = gs.getHalfStep();
-        const insideOffset = Math.min(halfStep * 0.25, Math.max(1, gs.getStep() * 0.01));
-        // How far past the cell boundary the attack-from selection anchor sits (see MountainEdgeTarget).
-        // 1.5 half-steps out makes the intended cell strictly closest for FACE aims. CORNER aims use
-        // 2.5: the attack-from picker measures a LARGE unit's distance from its FOOTPRINT CENTER, and
-        // at 1.5 the edge-on anchors (~0.79 steps) beat the true 45° corner anchor (~1.06) — a 2x2
-        // aiming at the corner was walked to an edge instead. The inequalities pin the window: large
-        // needs > 2 half-steps for the 45° anchor to win strictly, small needs < 3 or the anchor
-        // drifts into a tie with the NEXT diagonal cell over at corridor corners (legal via the other
-        // mountain). 2.5 satisfies both strictly for every corner of both mountains.
-        const faceSelectOffset = halfStep * 1.5;
-        const cornerSelectOffset = halfStep * 2.5;
-        const candidates: MountainEdgeTarget[] = [];
-
-        const addCandidate = (
-            cell: HoCMath.XY,
-            visualPosition: HoCMath.XY,
-            actionPosition: HoCMath.XY,
-            selectPosition: HoCMath.XY,
-        ): void => {
-            candidates.push({
-                cell: { ...cell },
-                visualPosition: { ...visualPosition },
-                actionPosition: { ...actionPosition },
-                selectPosition: { ...selectPosition },
-            });
-        };
-
-        // Generate an attack edge for every EXPOSED face of every standing mountain cell. A face is
-        // exposed when the neighbouring cell in that direction is not itself mountain. This is what makes
-        // the two mountains' corridor-facing faces targetable: the old code took a single bounding box
-        // over BOTH mountains and only produced its outer perimeter, so the inner faces (the ones you
-        // reach from the gap between the mountains) never existed and a unit standing in the corridor got
-        // routed all the way around to an outer edge. actionPosition stays inside the mountain cell (so it
-        // maps back to that cell → correct left/right hit), visualPosition sits on the face for aiming.
-        const centerSet = new Set<number>(centerCells.map((c) => (c.x << 4) | c.y));
-        const faces = [
-            { dx: 1, dy: 0 },
-            { dx: -1, dy: 0 },
-            { dx: 0, dy: 1 },
-            { dx: 0, dy: -1 },
-        ];
-        // Exposed CORNERS are candidates too — parity with unit-vs-unit melee, where the cursor can aim
-        // the attack at the target's corner and strike from the DIAGONAL cell. Faces alone meant the
-        // attack-from picker (closest reachable cell to the aimed edge) could never resolve to a diagonal
-        // cell, so "attack the mountain from a corner position" was impossible in the UI even though the
-        // engine and server fully accept it. A corner is exposed when its diagonal neighbour AND both
-        // flanking orthogonal neighbours are not mountain cells (inner/shared corners are skipped).
-        const corners = [
-            { dx: 1, dy: 1 },
-            { dx: 1, dy: -1 },
-            { dx: -1, dy: 1 },
-            { dx: -1, dy: -1 },
-        ];
-        for (const mountainCell of centerCells) {
-            const center = GridMath.getPositionForCell(mountainCell, gs.getMinX(), gs.getStep(), halfStep);
-            for (const face of faces) {
-                const neighbor = { x: mountainCell.x + face.dx, y: mountainCell.y + face.dy };
-                if (centerSet.has((neighbor.x << 4) | neighbor.y)) {
-                    continue; // face shared with the other mountain cell — not exposed
-                }
-                addCandidate(
-                    mountainCell,
-                    { x: center.x + face.dx * halfStep, y: center.y + face.dy * halfStep },
-                    {
-                        x: center.x + face.dx * (halfStep - insideOffset),
-                        y: center.y + face.dy * (halfStep - insideOffset),
-                    },
-                    { x: center.x + face.dx * faceSelectOffset, y: center.y + face.dy * faceSelectOffset },
-                );
-            }
-            for (const corner of corners) {
-                const diagonal = { x: mountainCell.x + corner.dx, y: mountainCell.y + corner.dy };
-                const flankX = { x: mountainCell.x + corner.dx, y: mountainCell.y };
-                const flankY = { x: mountainCell.x, y: mountainCell.y + corner.dy };
-                if (
-                    centerSet.has((diagonal.x << 4) | diagonal.y) ||
-                    centerSet.has((flankX.x << 4) | flankX.y) ||
-                    centerSet.has((flankY.x << 4) | flankY.y)
-                ) {
-                    continue; // corner buried in (or flanked by) the mountain itself — not exposed
-                }
-                addCandidate(
-                    mountainCell,
-                    { x: center.x + corner.dx * halfStep, y: center.y + corner.dy * halfStep },
-                    {
-                        x: center.x + corner.dx * (halfStep - insideOffset),
-                        y: center.y + corner.dy * (halfStep - insideOffset),
-                    },
-                    { x: center.x + corner.dx * cornerSelectOffset, y: center.y + corner.dy * cornerSelectOffset },
-                );
-            }
-        }
-
-        // Ranged strikes can only hit the mountain edge cells the attacker can actually SEE — the
-        // ones with clear line-of-sight from the unit's centre. An edge whose ray from the attacker
-        // passes through another mountain cell first is occluded behind the rock (a projectile would
-        // fly through it), so drop it. Legacy did this with a raycast from the unit position; the
-        // unit centre differs for small (1x1) vs large (2x2) units, so getVisualCenter is the anchor.
-        let pool = candidates;
-        if (attackerPos) {
-            const cellSize = gs.getCellSize();
-            const centerKeys = new Set(centerCells.map((c) => (c.x << 4) | c.y));
-            const hasLineOfSight = (target: MountainEdgeTarget): boolean => {
-                const dest = GridMath.getPositionForCell(target.cell, gs.getMinX(), gs.getStep(), halfStep);
-                const dist = HoCMath.getDistance(attackerPos, dest);
-                const steps = Math.max(2, Math.ceil(dist / (cellSize * 0.4)));
-                for (let i = 1; i < steps; i++) {
-                    const t = i / steps;
-                    const sample = {
-                        x: attackerPos.x + (dest.x - attackerPos.x) * t,
-                        y: attackerPos.y + (dest.y - attackerPos.y) * t,
-                    };
-                    const cell = GridMath.getCellForPosition(gs, sample);
-                    if (!cell) continue;
-                    // A mountain cell on the way that ISN'T the target edge cell occludes it.
-                    if (
-                        centerKeys.has((cell.x << 4) | cell.y) &&
-                        !(cell.x === target.cell.x && cell.y === target.cell.y)
-                    ) {
-                        return false;
-                    }
-                }
-                return true;
-            };
-            const visible = candidates.filter(hasLineOfSight);
-            if (visible.length) {
-                pool = visible;
-            }
-        }
-
-        const hoveredSideCandidates = pool.filter(
-            (candidate) => candidate.cell.x === hoveredCell.x && candidate.cell.y === hoveredCell.y,
-        );
-        const eligibleCandidates = hoveredSideCandidates.length ? hoveredSideCandidates : pool;
-        let closest = eligibleCandidates[0];
-        let closestDistance = Number.MAX_SAFE_INTEGER;
-        for (const candidate of eligibleCandidates) {
-            const distance = HoCMath.getDistance(worldPos, candidate.visualPosition);
-            if (distance < closestDistance) {
-                closestDistance = distance;
-                closest = candidate;
-            }
-        }
-        return {
-            cell: { ...closest.cell },
-            visualPosition: { ...closest.visualPosition },
-            actionPosition: { ...closest.actionPosition },
-            selectPosition: { ...closest.selectPosition },
-        };
-    }
     /**
-     * Melee mountain arrow target: point only at the edge of the mountain cell actually being
-     * struck (the border cell nearest the attacker), instead of the cursor-hovered edge. For large
-     * mountains the hovered edge can sit on the far side of the attack-from cell, which made the
-     * arrow span across the whole obstacle. We aim at the near edge/corner of the struck cell so the
-     * arrow lands on the side we are hitting.
-     */
-    private getMeleeMountainArrowTarget(attackFromPos: HoCMath.XY, centerCells: HoCMath.XY[]): HoCMath.XY | undefined {
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const halfStep = gs.getHalfStep();
-        let targetCenter: HoCMath.XY | undefined;
-        let bestDistance = Number.MAX_SAFE_INTEGER;
-        for (const cell of centerCells) {
-            const center = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), halfStep);
-            const distance = HoCMath.getDistance(attackFromPos, center);
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                targetCenter = center;
-            }
-        }
-        if (!targetCenter) {
-            return undefined;
-        }
-        // Land the arrow tip on the struck cell's boundary in the direction of the attacker:
-        // edge midpoint when orthogonally adjacent, toward the corner when diagonal.
-        const dx = attackFromPos.x - targetCenter.x;
-        const dy = attackFromPos.y - targetCenter.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist <= 0) {
-            return { ...targetCenter };
-        }
-        const k = halfStep / dist;
-        return { x: targetCenter.x + dx * k, y: targetCenter.y + dy * k };
-    }
-    /**
-     * When the active unit hovers the destructible center obstacle, preview the attack:
-     * a ranged unit shows it can shoot in place; a melee unit projects to the reachable cell
-     * closest to the cursor (move silhouette). Only shows when the unit can actually attack the
-     * hovered mountain cell, and clears the "Hit the mountain" info as soon as it cannot. Returns
-     * true when the obstacle is being targeted, so hover() skips the normal unit/cell hover logic.
+     * Mountain hover: mirrors hovering a 2x2 ENEMY. Ranged units preview a shot in place; melee
+     * units get the same cursor-tracked attack-from selection as unit targets (the landing follows
+     * the cursor around the rock — edges, corners, both flanks), plus the move silhouette and arrow.
      */
     private updateObstacleHover(): boolean {
         // Clear any stale "Hit the mountain" state and report "not targeting the mountain".
@@ -6121,44 +5768,31 @@ export class Sandbox extends PixiScene {
             return notHovering();
         }
         const gs = this.sc_sceneSettings.getGridSettings();
+        const hoveredCell = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
         const centerCells = this.grid.getCenterCells();
-
-        const canRangeObstacle = this.attackHandler.canLandRangeAttack(
-            unit,
-            this.grid.getEnemyAggrMatrixByUnitId(unit.getId()),
-        );
-        const isRangeObstacleAttack = unit.getAttackTypeSelection() === AttackVals.RANGE && canRangeObstacle;
-        // Mirror the click path: a ranged strike only targets the mountain edges facing the attacker.
-        const mountainTarget = this.getMountainEdgeTarget(
-            this.sc_mouseWorld,
-            centerCells,
-            isRangeObstacleAttack ? unit.getVisualCenter(gs) : undefined,
-        );
-        if (!mountainTarget) {
+        if (!hoveredCell || !centerCells.some((c) => c.x === hoveredCell.x && c.y === hoveredCell.y)) {
             return notHovering();
         }
         this.hoverManager.clearAttackVisuals();
 
-        // Ranged attackers can shoot the mountain in place (unless pinned into melee). Show
-        // "Hit the mountain" plus a trajectory arrow from the unit to the selected visible edge. Uses
-        // getAttackTypeSelection() to match the click path (handleObstacleAttack), so units like the
-        // Tsar Cannon (RANGE selection, No Melee) preview correctly.
+        // Ranged attackers shoot the mountain in place (unless pinned into melee). Same
+        // getAttackTypeSelection gating as the click path, so e.g. the Tsar Cannon previews correctly.
+        const canRangeObstacle = this.attackHandler.canLandRangeAttack(
+            unit,
+            this.grid.getEnemyAggrMatrixByUnitId(unit.getId()),
+        );
         if (unit.getAttackTypeSelection() === AttackVals.RANGE && canRangeObstacle) {
             this.hoverManager.hoverAttackFromCell = undefined;
-            this.hoverManager.drawAttackArrow(unit.getVisualCenter(gs), mountainTarget.visualPosition);
+            const cellCenter = GridMath.getPositionForCell(hoveredCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+            this.hoverManager.drawAttackArrow(unit.getVisualCenter(gs), cellCenter);
             showHit();
             return true;
         }
-
-        // Melee: only if the unit can reach a legal cell adjacent to the mountain. Prefer a stationary
-        // strike from the unit's own cell (matches the click path); otherwise pick the attack-from cell
-        // closest to the cursor so the silhouette tracks the hovered side.
         if (unit.getAttackTypeSelection() === AttackVals.MAGIC || unit.hasAbilityActive("No Melee")) {
             return notHovering();
         }
-        const attackFromCell =
-            this.preferStationaryObstacleCell(unit, centerCells, mountainTarget.actionPosition) ??
-            this.findObstacleAttackFromCell(centerCells, mountainTarget.selectPosition);
+
+        const attackFromCell = this.resolveMountainAttackFrom(this.sc_mouseWorld);
         if (!attackFromCell) {
             return notHovering();
         }
@@ -6166,9 +5800,7 @@ export class Sandbox extends PixiScene {
         const attackFromPos = this.getObstacleAttackFromPosition(unit, attackFromCell);
         if (attackFromPos) {
             this.hoverManager.updateHoverSilhouette(attackFromPos);
-            const arrowTarget =
-                this.getMeleeMountainArrowTarget(attackFromPos, centerCells) ?? mountainTarget.visualPosition;
-            this.hoverManager.drawAttackArrow(attackFromPos, arrowTarget);
+            this.hoverManager.drawAttackArrow(attackFromPos, this.sc_mouseWorld);
         }
         showHit();
         return true;
@@ -10415,6 +10047,55 @@ export class Sandbox extends PixiScene {
                         movePath.cells,
                         movePath.knownPaths,
                     );
+                }
+
+                // Mountains are 2x2 blocks — feed each standing mountain through the SAME
+                // melee-targeting pass as enemy units (a pseudo-target exposing getId/isSmallSize/
+                // getCells is all attackMeleeAllowed reads), so every landing — edges, corners,
+                // large-unit anchors, striking in place — comes from the identical code path.
+                // An alive forced target (aggr) forbids mountain attacks, mirroring the engine.
+                this.canAttackMountainTargets = undefined;
+                const mountainFightProps = FightStateManager.getInstance().getFightProperties();
+                const forcedMountainBlocker = forcedTargetId
+                    ? this.unitsHolder.getAllUnits().get(forcedTargetId)
+                    : undefined;
+                if (
+                    this.currentActiveUnit.getAttackTypeSelection() !== AttackVals.MAGIC &&
+                    mountainFightProps.getGridType() === GridVals.BLOCK_CENTER &&
+                    mountainFightProps.getObstacleHitsLeft() > 0 &&
+                    !(forcedMountainBlocker && !forcedMountainBlocker.isDead())
+                ) {
+                    const gsMountain = this.sc_sceneSettings.getGridSettings();
+                    const midColumn = gsMountain.getGridSize() >> 1;
+                    const centerCells = this.grid.getCenterCells();
+                    const pseudoTargets: Unit[] = [];
+                    const pseudoPositions = new Map<string, HoCMath.XY>();
+                    for (const side of ["left", "right"] as const) {
+                        const cells = centerCells.filter((c) => (side === "left" ? c.x < midColumn : c.x >= midColumn));
+                        if (cells.length !== 4) {
+                            continue; // this side is already destroyed
+                        }
+                        const position = GridMath.getPositionForCells(gsMountain, cells);
+                        if (!position) {
+                            continue;
+                        }
+                        const id = `mountain:${side}`;
+                        pseudoTargets.push({
+                            getId: () => id,
+                            isSmallSize: () => false,
+                            getCells: () => cells,
+                        } as unknown as Unit);
+                        pseudoPositions.set(id, position);
+                    }
+                    if (pseudoTargets.length) {
+                        this.canAttackMountainTargets = this.currentActiveUnit.attackMeleeAllowed(
+                            pseudoTargets,
+                            pseudoPositions,
+                            [],
+                            movePath.cells,
+                            movePath.knownPaths,
+                        );
+                    }
                 }
 
                 this.canAttackByRangeTargets = undefined;
