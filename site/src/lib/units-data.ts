@@ -267,10 +267,17 @@ export const movementLabel = (t: string) => movementTypeLabel[t] ?? t;
 
 const summonedOnlyUnits = new Set(["Arachna Spider"]);
 
+// Public unit portraits are cached by nginx for a day. Bump only the portraits whose bytes change so
+// returning visitors receive the new art immediately without invalidating the entire unit catalogue.
+const portraitRevisions: Record<string, string> = {
+    Abomination: "d1342ae7",
+};
+
 function buildUnit(faction: FactionName, raw: RawCreature): Unit {
     const base = slug(raw.name);
-    const portrait = `/assets/images/units/units/${base}_512.webp`;
-    const icon = `/assets/images/units/units/${base}_512.webp`;
+    const revision = portraitRevisions[raw.name];
+    const portrait = `/assets/images/units/units/${base}_512.webp${revision ? `?v=${revision}` : ""}`;
+    const icon = portrait;
 
     const abilities: UnitAbility[] = raw.abilities.map((name) => ({
         name,
