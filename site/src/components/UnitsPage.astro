@@ -613,6 +613,12 @@ function unitSearchText(unit: Unit) {
             #0b0f12;
     }
 
+    /* The mobile roster is too tall to reach the global reveal observer's 8% threshold. */
+    :global(html.reveal-on) .units-section {
+        opacity: 1 !important;
+        transform: none !important;
+    }
+
     .units-summary {
         display: flex;
         align-items: center;
