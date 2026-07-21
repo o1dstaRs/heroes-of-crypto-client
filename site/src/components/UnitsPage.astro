@@ -438,19 +438,19 @@ function unitSearchText(unit: Unit) {
                         const tag = document.createElement("span");
                         tag.className = "ability-tag aura";
                         tag.textContent = AURA_LABEL;
-                        head.appendChild(tag);
+                        head.append(" ", tag);
                     }
                     if (a.isCastable) {
                         const tag = document.createElement("span");
                         tag.className = "ability-tag cast";
                         tag.textContent = ACTIVE_LABEL;
-                        head.appendChild(tag);
+                        head.append(" ", tag);
                     }
                     if (a.isStackPowered) {
                         const tag = document.createElement("span");
                         tag.className = "ability-tag stack";
                         tag.textContent = STACK_LABEL;
-                        head.appendChild(tag);
+                        head.append(" ", tag);
                     }
                     const desc = document.createElement("p");
                     desc.className = "ability-desc";
@@ -1087,7 +1087,8 @@ function unitSearchText(unit: Unit) {
         list-style: none;
     }
 
-    .ability-list li {
+    /* These descendants are created at runtime, so they do not receive Astro's scope attribute. */
+    .ability-list :global(li) {
         display: grid;
         grid-template-columns: 40px minmax(0, 1fr);
         gap: 12px;
@@ -1098,14 +1099,14 @@ function unitSearchText(unit: Unit) {
         background: var(--surface);
     }
 
-    .ability-list li img {
+    .ability-list :global(li img) {
         width: 40px;
         height: 40px;
         border-radius: 6px;
         background: #0c0b09;
     }
 
-    .ability-name {
+    .ability-list :global(.ability-name) {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
@@ -1115,35 +1116,40 @@ function unitSearchText(unit: Unit) {
         font-weight: 780;
     }
 
-    .ability-tag {
+    .ability-list :global(.ability-tag) {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
         padding: 1px 7px;
         border-radius: 8px;
         background: rgba(224, 176, 74, 0.16);
         color: var(--gold);
         font-size: 0.68rem;
         font-weight: 800;
+        line-height: 1.35;
         text-transform: uppercase;
         letter-spacing: 0;
+        white-space: nowrap;
     }
 
-    .ability-tag.cast {
+    .ability-list :global(.ability-tag.cast) {
         background: rgba(78, 163, 110, 0.18);
         color: var(--green);
     }
 
-    .ability-tag.stack {
+    .ability-list :global(.ability-tag.stack) {
         background: rgba(138, 118, 191, 0.2);
         color: #cbbdf2;
     }
 
-    .ability-desc {
+    .ability-list :global(.ability-desc) {
         margin: 0;
         color: var(--muted);
         font-size: 0.9rem;
         white-space: pre-line;
     }
 
-    .ability-empty {
+    .ability-list :global(.ability-empty) {
         color: var(--muted) !important;
         font-style: italic;
     }
@@ -1154,7 +1160,7 @@ function unitSearchText(unit: Unit) {
         gap: 8px;
     }
 
-    .spell-chip {
+    .spell-chips :global(.spell-chip) {
         padding: 6px 12px;
         border: 1px solid var(--line);
         border-radius: 8px;
