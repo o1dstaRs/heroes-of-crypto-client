@@ -1240,6 +1240,27 @@ export class RenderableUnit extends Unit {
         this.unitProperties.amount_died = died;
         this.initialUnitProperties.amount_died = died;
     }
+    /**
+     * Reconcile the one ranked snapshot effect that must be mechanical rather than display-only. Break mutes
+     * every ability lookup in common; keeping it as text alone lets local passive refreshes and movement
+     * previews re-enable abilities that the authoritative server has disabled.
+     */
+    public syncAuthoritativeBreak(laps?: number): boolean {
+        const authoritativeLaps = laps !== undefined && Number.isFinite(laps) && laps > 0 ? Math.floor(laps) : 0;
+        const current = this.getEffect("Break");
+
+        if (!authoritativeLaps) {
+            if (!current) return false;
+            this.deleteEffect("Break");
+            return true;
+        }
+        if (current?.getLaps() === authoritativeLaps) return false;
+
+        const effect = this.effectFactory.makeEffect("Break");
+        if (!effect) return false;
+        effect.getProperties().laps = authoritativeLaps;
+        return this.applyEffect(effect);
+    }
     /** Tint the active-turn aura (e.g. red for the enemy's turn in ranked, white otherwise). */
     public setActiveAuraColor(color: number): void {
         this.activeAuraColor = color;

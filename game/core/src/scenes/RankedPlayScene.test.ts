@@ -5,15 +5,21 @@ import {
     CreatureVals,
     EffectFactory,
     FightStateManager,
+    Grid,
+    GridConstants,
+    GridMath,
     GridSettings,
+    GridVals,
     TeamVals,
     Unit,
     UnitVals,
+    UnitsHolder,
 } from "@heroesofcrypto/common";
 
 import type { AuthoritativeGameSnapshot, AuthoritativeUnitState } from "../game_action_transport";
 import {
     authoritativeSnapshotToSandboxSceneState,
+    applyRankedUnitMechanicalEffects,
     applyRankedUnitSnapshotStats,
     rankedUnitMechanicsMatch,
     rankedUnitAliveHealth,
@@ -23,6 +29,7 @@ import {
     shouldPublishRankedFinish,
 } from "./RankedPlayScene";
 import { RenderableUnit } from "./RenderableUnit";
+import { shouldDisplayAppliedBuff } from "../pixi/PixiScene";
 
 const unitState = (overrides: Partial<AuthoritativeUnitState>): AuthoritativeUnitState => ({
     id: "unit",
@@ -176,6 +183,128 @@ describe("ranked placement scene state", () => {
         expect(props?.applied_debuffs_powers?.length).toBe(props?.applied_debuffs?.length);
     });
 
+    test("mechanically applies and clears ranked Break before Angelic Host refresh", () => {
+        FightStateManager.getInstance().reset();
+        const angelCell = { x: 2, y: 2 };
+        const flyerCell = { x: 10, y: 8 };
+        const snapshotWithBreak = authoritativeSnapshotToSandboxSceneState({
+            ...placementSnapshot([
+                unitState({
+                    id: "angel",
+                    name: "Angel",
+                    creatureId: CreatureVals.ANGEL,
+                    placed: true,
+                    baseCell: angelCell,
+                    cells: [angelCell],
+                    debuffs: ["Break", "Deep Wounds"],
+                    debuffLaps: [1, 3],
+                    debuffDescriptions: [
+                        "Disables all the unit's abilities for one turn.",
+                        "Next attack with Deep Wounds ability will deal 12% more damage.",
+                    ],
+                }),
+                unitState({
+                    id: "flyer",
+                    name: "Griffin",
+                    creatureId: CreatureVals.GRIFFIN,
+                    placed: true,
+                    baseCell: flyerCell,
+                    cells: [flyerCell],
+                }),
+            ]),
+            phase: 2,
+            fightStarted: true,
+            currentLap: 1,
+        });
+        const angelState = snapshotWithBreak.units.find((state) => state.properties.id === "angel")!;
+        const flyerState = snapshotWithBreak.units.find((state) => state.properties.id === "flyer")!;
+
+        // Break is the sole mechanical effect reconstructed from ranked's combined debuff/effect list;
+        // unrelated effects remain display-only and their parallel metadata stays aligned.
+        expect(angelState.mechanicalBreakLaps).toBe(1);
+        expect(angelState.properties.applied_debuffs).toEqual(["Deep Wounds"]);
+        expect(angelState.properties.applied_debuffs_laps).toEqual([3]);
+        expect(angelState.properties.applied_debuffs_descriptions).toEqual([
+            "Next attack with Deep Wounds ability will deal 12% more damage.",
+        ]);
+
+        const gridSettings = new GridSettings(
+            GridConstants.GRID_SIZE,
+            GridConstants.MAX_Y,
+            GridConstants.MIN_Y,
+            GridConstants.MAX_X,
+            GridConstants.MIN_X,
+            GridConstants.MOVEMENT_DELTA,
+            GridConstants.UNIT_SIZE_DELTA,
+        );
+        const grid = new Grid(gridSettings, GridVals.NORMAL);
+        const unitsHolder = new UnitsHolder(grid);
+        const makeRenderable = (properties: typeof angelState.properties): RenderableUnit => {
+            const effectFactory = new EffectFactory();
+            return RenderableUnit.fromBase(
+                Unit.createUnit(
+                    structuredClone(properties),
+                    gridSettings,
+                    properties.team,
+                    UnitVals.CREATURE,
+                    new AbilityFactory(effectFactory),
+                    effectFactory,
+                    false,
+                ),
+                undefined as never,
+            );
+        };
+        const place = (unit: RenderableUnit, cell: { x: number; y: number }): void => {
+            const position = GridMath.getPositionForCell(
+                cell,
+                gridSettings.getMinX(),
+                gridSettings.getStep(),
+                gridSettings.getHalfStep(),
+            );
+            unit.setPosition(position.x, position.y);
+            grid.occupyCell(
+                cell,
+                unit.getId(),
+                unit.getTeam(),
+                unit.getAttackRange(),
+                unit.hasAbilityActive("Made of Fire"),
+                unit.hasAbilityActive("Made of Water"),
+            );
+            unitsHolder.addUnit(unit);
+        };
+        const angel = makeRenderable(angelState.properties);
+        const flyer = makeRenderable(flyerState.properties);
+        place(angel, angelCell);
+        place(flyer, flyerCell);
+
+        expect(applyRankedUnitMechanicalEffects(angel, angelState)).toBe(true);
+        unitsHolder.refreshStackPowerForAllUnits();
+        const stepsWhileBroken = flyer.getSteps();
+        expect(angel.hasEffectActive("Break")).toBe(true);
+        expect(angel.hasAbilityActive("Angelic Host")).toBe(false);
+        expect(flyer.hasBuffActive("Angelic Host")).toBe(false);
+
+        const stateWithoutBreak = { ...angelState, mechanicalBreakLaps: undefined };
+        expect(applyRankedUnitMechanicalEffects(angel, stateWithoutBreak)).toBe(true);
+        unitsHolder.refreshStackPowerForAllUnits();
+        expect(angel.hasEffectActive("Break")).toBe(false);
+        expect(angel.hasAbilityActive("Angelic Host")).toBe(true);
+        expect(flyer.hasBuffActive("Angelic Host")).toBe(true);
+        expect(flyer.getSteps()).toBe(stepsWhileBroken + 1);
+
+        // A later same-board snapshot can re-apply Break and immediately remove the movement preview bonus.
+        expect(applyRankedUnitMechanicalEffects(angel, angelState)).toBe(true);
+        unitsHolder.refreshStackPowerForAllUnits();
+        expect(flyer.hasBuffActive("Angelic Host")).toBe(false);
+        expect(flyer.getSteps()).toBe(stepsWhileBroken);
+    });
+
+    test("suppresses only the redundant Angelic Host beneficiary marker on its active provider", () => {
+        expect(shouldDisplayAppliedBuff("Angelic Host", ["Angelic Host"])).toBe(false);
+        expect(shouldDisplayAppliedBuff("Angelic Host", [])).toBe(true);
+        expect(shouldDisplayAppliedBuff("Morale", ["Morale"])).toBe(true);
+    });
+
     test("maps 1-based ranged shots, falling back to base when the field is absent", () => {
         const rangedOf = (rangeShots: number) => {
             const state = authoritativeSnapshotToSandboxSceneState(
@@ -245,13 +374,14 @@ describe("ranked placement scene state", () => {
                     team: TeamVals.LOWER,
                     name: "Angel",
                     creatureId: CreatureVals.ANGEL,
-                    abilities: ["Arrows Wingshield Aura"], // Resurrection already spent
+                    abilities: ["Arrows Wingshield Aura", "Angelic Host"], // Resurrection already spent
                 }),
             ]),
         );
 
         const angel = state.units.find((unit) => unit.properties.id === "angel");
         expect(angel?.properties.abilities).toContain("Arrows Wingshield Aura");
+        expect(angel?.properties.abilities).toContain("Angelic Host");
         expect(angel?.properties.abilities).not.toContain("Resurrection");
     });
 

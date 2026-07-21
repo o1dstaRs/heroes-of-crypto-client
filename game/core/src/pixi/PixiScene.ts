@@ -134,6 +134,10 @@ const ARTIFACT_BUFF_TEXTURE: Record<string, string> = (() => {
 const buffDebuffTextureName = (name: string): string =>
     ARTIFACT_BUFF_TEXTURE[name] ?? AbilityHelper.abilityToTextureName(name);
 
+/** Angelic Host's carrier already displays the passive card; hide only its redundant beneficiary marker. */
+export const shouldDisplayAppliedBuff = (buffName: string, activeAbilityNames: readonly string[]): boolean =>
+    buffName !== "Angelic Host" || !activeAbilityNames.includes("Angelic Host");
+
 export abstract class PixiScene {
     private sc_sceneStarted = false;
     public readonly sc_debugLines: Array<[string, string]> = [];
@@ -490,6 +494,16 @@ export abstract class PixiScene {
                 }
             ).stolen_abilities ?? [];
         const stolenAbilities = new Set(stolenAbilityNames);
+        const hasBreakApplied =
+            unitProperties.applied_effects.some(
+                (name, index) => name === "Break" && (unitProperties.applied_effects_laps[index] ?? 0) > 0,
+            ) ||
+            unitProperties.applied_debuffs.some(
+                (name, index) => name === "Break" && (unitProperties.applied_debuffs_laps[index] ?? 0) > 0,
+            );
+        const mechanicallyActiveAbilityNames = hasBreakApplied
+            ? []
+            : unitProperties.abilities.filter((name) => !stolenAbilities.has(name));
         const displayedAbilityNames = [...new Set([...unitProperties.abilities, ...stolenAbilityNames])];
 
         for (const abilityName of displayedAbilityNames) {
@@ -557,6 +571,9 @@ export abstract class PixiScene {
                 }
 
                 const buffName = unitProperties.applied_buffs[i];
+                if (!shouldDisplayAppliedBuff(buffName, mechanicallyActiveAbilityNames)) {
+                    continue;
+                }
 
                 const description = fillDescProps(unitProperties.applied_buffs_descriptions[i]);
 

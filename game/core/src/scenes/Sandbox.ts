@@ -111,6 +111,10 @@ export interface SandboxSceneUnitState {
     /** Aggr forced target: the unit id this unit is compelled to attack (empty/undefined = none). Restored
      *  on rebuild so attack arrows never point at anyone but the forced target. */
     forcedTargetId?: string;
+    /** Remaining laps for a mechanically active Break effect. Ranked normally treats snapshot effects as
+     *  display-only, but Break must exist in Unit.effects before passive/stat refresh so disabled abilities
+     *  (notably Angelic Host) stay disabled in local previews too. */
+    mechanicalBreakLaps?: number;
 }
 
 export interface SandboxSceneState {
@@ -1958,6 +1962,9 @@ export class Sandbox extends PixiScene {
                 renderableUnit.setSpellBookLayer(this.spellBookContainer, this.digitTextures);
             }
         }
+        // Initialize durable spellbook rendering before Break makes getSpellsCount() temporarily return 0.
+        // The mechanical effect still lands before hydrate's passive/stat refresh below.
+        renderableUnit.syncAuthoritativeBreak(unitState.mechanicalBreakLaps);
         renderableUnit.refreshPossibleAttackTypes(true);
         if (unitState.attackType !== undefined) {
             renderableUnit.selectAttackType(unitState.attackType);
@@ -1988,6 +1995,7 @@ export class Sandbox extends PixiScene {
                 attackType: unit.getAttackTypeSelection(),
                 onHourglass: unit.isOnHourglass(),
                 forcedTargetId: unit.getTarget() || undefined,
+                mechanicalBreakLaps: unit.getEffect("Break")?.getLaps(),
             });
         }
 

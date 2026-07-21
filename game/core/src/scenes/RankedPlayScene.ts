@@ -57,8 +57,21 @@ export const authoritativeUnitToSandboxUnitState = (
         onHourglass: unitState.onHourglass,
         hasHourglassed: unitState.hasHourglassed,
         forcedTargetId: unitState.forcedTargetId,
+        mechanicalBreakLaps: getAuthoritativeBreakLaps(unitState),
     };
 };
+
+const getAuthoritativeBreakLaps = (unitState: AuthoritativeUnitState): number | undefined => {
+    const breakIndex = (unitState.debuffs ?? []).indexOf("Break");
+    if (breakIndex < 0) return undefined;
+    const snapshotLaps = unitState.debuffLaps?.[breakIndex];
+    return snapshotLaps !== undefined && Number.isFinite(snapshotLaps) && snapshotLaps > 0
+        ? Math.floor(snapshotLaps)
+        : 1;
+};
+
+const getDisplayDebuffIndexes = (unitState: AuthoritativeUnitState): number[] =>
+    (unitState.debuffs ?? []).flatMap((name, index) => (name === "Break" ? [] : [index]));
 
 // Fight actions that consume the unit's turn (the engine runs completeTurn for each). A bare
 // move_unit is intentionally absent: it leaves the unit active so it can still attack afterwards.
@@ -170,6 +183,10 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
     return changed;
 };
 
+/** Sync snapshot-owned mechanics that must affect common lookups even when ranked preserves the live board. */
+export const applyRankedUnitMechanicalEffects = (unit: RenderableUnit, state: SandboxSceneUnitState): boolean =>
+    unit.syncAuthoritativeBreak(state.mechanicalBreakLaps);
+
 /** Mechanics that cannot be reconciled by the animation-preserving ranked stats update. */
 export const rankedUnitMechanicsMatch = (unit: RenderableUnit, properties: UnitProperties): boolean => {
     const live = unit.getUnitProperties();
@@ -187,6 +204,10 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
     const team = unitState.team as TeamType;
     const candidateFactions =
         unitState.creatureId > 0 ? [getFactionOf(unitState.creatureId as CreatureId)] : allFactions;
+    const displayDebuffIndexes = getDisplayDebuffIndexes(unitState);
+    const displayDebuffs = displayDebuffIndexes.map((index) => unitState.debuffs?.[index] ?? "");
+    const displayDebuffLaps = displayDebuffIndexes.map((index) => unitState.debuffLaps?.[index] ?? 1);
+    const displayDebuffDescriptions = displayDebuffIndexes.map((index) => unitState.debuffDescriptions?.[index] ?? "");
 
     for (const faction of candidateFactions) {
         try {
@@ -317,17 +338,19 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                 // DISPLAY strings ONLY — we deliberately do NOT rebuild the debuff/effect OBJECT arrays
                 // (this.debuffs/this.effects), because adjustBaseStats re-derives stats from those and would
                 // double-apply penalties on top of the already-authoritative stats. The stats are authoritative;
-                // this is purely so the player sees Deep Wounds, Rime slow, Shatter Armor, etc.
-                applied_debuffs: unitState.debuffs ?? [],
-                applied_debuffs_laps: unitState.debuffLaps ?? [],
-                applied_debuffs_descriptions: unitState.debuffDescriptions ?? [],
+                // this is purely so the player sees Deep Wounds, Rime slow, Shatter Armor, etc. Break is the
+                // sole exception: it is removed from these display arrays and reconstructed mechanically from
+                // SandboxSceneUnitState.mechanicalBreakLaps before common refreshes abilities/passives.
+                applied_debuffs: displayDebuffs,
+                applied_debuffs_laps: displayDebuffLaps,
+                applied_debuffs_descriptions: displayDebuffDescriptions,
                 // MUST stay parallel to the three arrays above. deleteBuff/deleteDebuff only prune the
                 // unitProperties.applied_* arrays when ALL FOUR are equal length; leaving this at the base
                 // config's [] desynced them, so the guard silently skipped cleanup and every refreshUnits()
                 // -> applyArtifacts() re-appended the cursed/dual-artifact marker debuff without ever
                 // removing the old one — the "artifact debuff rendered a million times" runaway. Powers are
                 // always 0 for these display-only debuffs (applyDebuff pushes 0), so mirror that per entry.
-                applied_debuffs_powers: (unitState.debuffs ?? []).map(() => 0),
+                applied_debuffs_powers: displayDebuffs.map(() => 0),
                 // Server-applied BUFFS for the HUD's Buffs list — the mirror of the debuff block above,
                 // which was missing entirely, so NO buff (Morale, Helping Hand, Battle Roar, …) ever
                 // rendered in ranked. Same DISPLAY-ONLY contract: we set the name strings so the player
@@ -901,6 +924,11 @@ export class RankedPlayScene extends Sandbox {
         // (which assumes "same server board => client already in sync") must NOT fire — fall through
         // to the full hydrate below to rebuild from authoritative truth.
         if (boardSignature === this.lastBoardSignature && !forceRebuild) {
+            if (this.syncRankedUnitMechanicalEffects(state.units)) {
+                this.unitsHolder.refreshStackPowerForAllUnits();
+            }
+            // Break must be mechanical before activating the authoritative unit: activation refreshes stats,
+            // movement paths and buttons synchronously, so syncing it afterward leaves a stale Host preview.
             this.syncRankedVisibleTurnState(snapshot);
             this.applyRankedUnitStats(state.units);
             this.reconcileAuraEffectsFromSnapshot(snapshot);
@@ -918,6 +946,8 @@ export class RankedPlayScene extends Sandbox {
             !forceRebuild && !!options?.skipBoardRebuild && snapshot.fightStarted && !snapshot.fightFinished;
         if (skipBoardRebuild) {
             this.lastBoardSignature = boardSignature;
+            // See the same-signature path above: apply Break before turn activation/path generation.
+            this.syncRankedUnitMechanicalEffects(state.units);
             this.syncRankedVisibleTurnState(snapshot);
             if (this.sc_visibleState) {
                 this.sc_visibleState.lapNumber = Math.max(snapshot.currentLap || 0, 0);
@@ -973,6 +1003,16 @@ export class RankedPlayScene extends Sandbox {
         if (selectedUnitId && !snapshot.fightStarted && !snapshot.fightFinished) {
             this.selectSceneUnitForPlacement(selectedUnitId);
         }
+    }
+    private syncRankedUnitMechanicalEffects(units: SandboxSceneUnitState[]): boolean {
+        let changed = false;
+        for (const state of units) {
+            const live = this.unitsHolder.getAllUnits().get(state.properties.id) as RenderableUnit | undefined;
+            if (live && !live.isDead()) {
+                changed = applyRankedUnitMechanicalEffects(live, state) || changed;
+            }
+        }
+        return changed;
     }
     public override applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
         this.lastAuthoritativeSequence = snapshot.latestSequence - 1;
