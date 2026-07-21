@@ -627,6 +627,10 @@ export class Sandbox extends PixiScene {
                     isActiveUnitMoving: this.isActiveUnitMoving,
                     moveBlocked: this.sc_moveBlocked,
                     boardInputLockedByAI: this.isBoardInputLockedByAI(),
+                    // Replay/hydrate leak diagnostics: logical units vs pixi children in the units
+                    // container. A doubling board with a normal holder count = orphaned visuals.
+                    unitsInHolder: this.unitsHolder.getAllUnits().size,
+                    unitsContainerChildren: this.drawer?.getUnitsContainer()?.children?.length ?? -1,
                 };
             };
             // Visual smoke/tuning hook for the missed-attack VFX: fires the "MISS" pop + bullet-time

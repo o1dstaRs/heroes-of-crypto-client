@@ -176,6 +176,7 @@ export const endpoints = {
     },
     mm: {
         queue: IS_PROD ? "/v1/queue" : "/v1/mm/queue",
+        online: IS_PROD ? "/v1/online" : "/v1/mm/online",
         events: IS_PROD ? "/v1/events" : "/v1/mm/events",
         vsAi: IS_PROD ? "/v1/vs-ai" : "/v1/mm/vs-ai",
         lobbies: IS_PROD ? "/v1/lobbies" : "/v1/mm/lobbies",

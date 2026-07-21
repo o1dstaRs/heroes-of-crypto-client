@@ -33,31 +33,6 @@ const STORAGE_KEY = "accessToken";
 
 const matchEventUrl = () => buildApiUrl(HOST_MATCHMAKING_API, endpoints.mm.events);
 const rankedBackgroundUrl = new URL("../../images/background_dark.webp", import.meta.url).toString();
-const logoUrl = new URL("../../images/logo_hoc.webp", import.meta.url).toString();
-
-const ArenaFeature: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
-    <Stack
-        direction="row"
-        spacing={0.75}
-        alignItems="center"
-        justifyContent="center"
-        sx={{
-            minWidth: 0,
-            px: 1.15,
-            py: 0.75,
-            borderRadius: "999px",
-            bgcolor: "rgba(0,0,0,0.32)",
-            border: "1px solid rgba(239,228,204,0.1)",
-            color: hocColors.mutedStrong,
-            "& svg": { color: hocColors.gold, fontSize: 17 },
-        }}
-    >
-        {icon}
-        <Typography level="body-xs" sx={{ color: "inherit", fontWeight: 650, whiteSpace: "nowrap" }}>
-            {label}
-        </Typography>
-    </Stack>
-);
 
 export const MatchmakingRoute: React.FC = () => {
     const navigate = useNavigate();
@@ -69,6 +44,28 @@ export const MatchmakingRoute: React.FC = () => {
     const aiStartInFlightRef = useRef(false);
     const vsAiAutoStartedRef = useRef(false);
     const [state, setState] = useState<MatchmakingState>("idle");
+    // Commanders currently on the arena (queue + live games) — polled from the public mm endpoint.
+    const [onlineNow, setOnlineNow] = useState<{ searching: number; playing: number; online: number }>();
+
+    useEffect(() => {
+        let cancelled = false;
+        const poll = async (): Promise<void> => {
+            try {
+                const response = await fetch(buildApiUrl(HOST_MATCHMAKING_API, endpoints.mm.online));
+                if (!response.ok) return;
+                const data = (await response.json()) as { searching: number; playing: number; online: number };
+                if (!cancelled) setOnlineNow(data);
+            } catch {
+                // Non-critical decoration — stay silent on failure.
+            }
+        };
+        void poll();
+        const interval = setInterval(() => void poll(), 15_000);
+        return () => {
+            cancelled = true;
+            clearInterval(interval);
+        };
+    }, []);
     const [pendingGameId, setPendingGameId] = useState("");
     const [queueSize, setQueueSize] = useState<number | null>(null);
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
@@ -518,17 +515,6 @@ export const MatchmakingRoute: React.FC = () => {
                         }}
                     >
                         <Stack direction="row" spacing={1.15} alignItems="center">
-                            <Box
-                                component="img"
-                                src={logoUrl}
-                                alt="Heroes of Crypto"
-                                sx={{
-                                    width: 38,
-                                    height: 38,
-                                    objectFit: "contain",
-                                    filter: "drop-shadow(0 0 8px #ff8f0066)",
-                                }}
-                            />
                             <Box sx={{ textAlign: "left" }}>
                                 <Typography
                                     level="title-md"
@@ -687,23 +673,6 @@ export const MatchmakingRoute: React.FC = () => {
                             transition: "background 280ms ease",
                         }}
                     >
-                        <Box
-                            component="img"
-                            src={logoUrl}
-                            alt=""
-                            aria-hidden="true"
-                            sx={{
-                                position: "absolute",
-                                width: { xs: 190, md: 260 },
-                                height: { xs: 190, md: 260 },
-                                right: { xs: -75, md: -55 },
-                                top: { xs: -45, md: -70 },
-                                objectFit: "contain",
-                                opacity: 0.085,
-                                filter: "grayscale(0.35)",
-                                pointerEvents: "none",
-                            }}
-                        />
                         <Typography
                             level="body-xs"
                             sx={{ color: hocColors.gold, fontWeight: 800, letterSpacing: "0.2em", mb: 1.1 }}
@@ -729,20 +698,21 @@ export const MatchmakingRoute: React.FC = () => {
                         >
                             Draft your army, adapt your build, and face another commander in a match that counts.
                         </Typography>
-                        <Box
-                            sx={{
-                                display: "grid",
-                                gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(3, max-content)" },
-                                gap: 0.8,
-                                maxWidth: "100%",
-                                mt: 2.2,
-                                "& > :last-child": { gridColumn: { xs: "1 / -1", sm: "auto" } },
-                            }}
-                        >
-                            <ArenaFeature icon={<GroupsRoundedIcon />} label="Live PvP" />
-                            <ArenaFeature icon={<ShieldRoundedIcon />} label="Full army draft" />
-                            <ArenaFeature icon={<AccountCircleRoundedIcon />} label="Tracked results" />
-                        </Box>
+                        {onlineNow !== undefined && (
+                            <Typography level="body-sm" sx={{ color: hocColors.gold, mt: 2, fontWeight: 650 }}>
+                                {onlineNow.online} commander{onlineNow.online === 1 ? "" : "s"} online
+                                {onlineNow.online > 0 && (
+                                    <Typography
+                                        component="span"
+                                        level="body-sm"
+                                        sx={{ color: hocColors.muted, fontWeight: 400 }}
+                                    >
+                                        {" "}
+                                        — {onlineNow.searching} searching · {onlineNow.playing} in battle
+                                    </Typography>
+                                )}
+                            </Typography>
+                        )}
                     </Box>
 
                     <Box
@@ -1001,38 +971,6 @@ export const MatchmakingRoute: React.FC = () => {
                                 </Typography>
                             )}
                         </Stack>
-                    </Box>
-
-                    <Box
-                        sx={{
-                            display: "grid",
-                            gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" },
-                            borderTop: "1px solid rgba(239,228,204,0.09)",
-                            bgcolor: "rgba(0,0,0,0.2)",
-                        }}
-                    >
-                        {[
-                            ["LIVE DUEL", "Real opponent"],
-                            ["FULL DRAFT", "Army & loadout"],
-                            ["RANKED RECORD", "Profile history"],
-                        ].map(([label, value], index) => (
-                            <Box
-                                key={label}
-                                sx={{
-                                    px: 2.25,
-                                    py: 1.5,
-                                    borderLeft: { xs: "none", sm: index ? "1px solid rgba(239,228,204,0.07)" : "none" },
-                                    borderTop: { xs: index ? "1px solid rgba(239,228,204,0.07)" : "none", sm: "none" },
-                                }}
-                            >
-                                <Typography level="body-xs" sx={{ color: hocColors.gold, fontWeight: 800 }}>
-                                    {label}
-                                </Typography>
-                                <Typography level="body-xs" sx={{ color: hocColors.muted, mt: 0.2 }}>
-                                    {value}
-                                </Typography>
-                            </Box>
-                        ))}
                     </Box>
                 </Sheet>
 
