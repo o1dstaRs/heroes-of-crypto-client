@@ -1044,10 +1044,18 @@ export class RankedPlayScene extends Sandbox {
         if (this.viewerTeam === undefined) {
             return positions;
         }
+        // The synthetic roster row is a PLACEMENT-phase display only. Once the fight has started
+        // (including replay hydrates of fight-era snapshots), NOTHING may resolve a row position:
+        // a fight snapshot's DEAD opponent units also have no cells, so without this gate they
+        // matched the filter below and the whole enemy roster re-appeared as a phantom row on top
+        // of the real board (the replay "everything is doubled" screenshot).
+        if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            return positions;
+        }
 
         const opponentTeam = this.viewerTeam === TeamVals.LOWER ? TeamVals.UPPER : TeamVals.LOWER;
         const revealedUnits = units
-            .filter((unit) => unit.team === opponentTeam && (!unit.placed || !unit.cells.length))
+            .filter((unit) => unit.team === opponentTeam && !unit.dead && (!unit.placed || !unit.cells.length))
             .sort((a, b) => a.properties.id.localeCompare(b.properties.id));
         if (!revealedUnits.length) {
             return positions;
