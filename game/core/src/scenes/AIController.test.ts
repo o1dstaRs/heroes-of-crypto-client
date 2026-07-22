@@ -677,6 +677,75 @@ describe("AIController", () => {
             expect(controller.performingAction).toBe(false);
         });
 
+        it("executes an authoritative [move_unit, range_attack] in order and preserves bounded aim intent", async () => {
+            const unit = createUnit();
+            const aimCell = { x: 5, y: 6 };
+            const target = {
+                getId: () => "target-1",
+                getTeam: () => TeamVals.UPPER,
+                getCells: () => [aimCell],
+                hasBuffActive: () => false,
+            };
+            stubStrategy(
+                () =>
+                    [
+                        { type: "move_unit", unitId: unit.getId(), path: seqMovePath },
+                        {
+                            type: "range_attack",
+                            attackerId: unit.getId(),
+                            targetId: target.getId(),
+                            aimCell,
+                            aimSide: 0,
+                        },
+                    ] as GameAction[],
+            );
+            const dispatchOrder: GameAction["type"][] = [];
+            const executeMoveSequence = mock((...args: unknown[]) => {
+                dispatchOrder.push((args[4] as GameAction).type);
+                return true;
+            });
+            const executeAttackSequence = mock(async (...args: unknown[]) => {
+                dispatchOrder.push((args[3] as GameAction).type);
+                return true;
+            });
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                executeMoveSequence,
+                executeAttackSequence,
+                // A ranked move submit does not fire its local animation callback. The continuation flag
+                // keeps the moved unit active so the queued authoritative shot can follow immediately.
+                isAuthoritativeAction: (action: GameAction) =>
+                    action.type === "move_unit" || action.type === "range_attack",
+                applyGameAction: (action: GameAction) => {
+                    dispatchOrder.push(action.type);
+                    return true;
+                },
+                getUnitsHolder: () => ({ getAllUnits: () => new Map([[target.getId(), target]]) }),
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+
+            expect(executeMoveSequence).toHaveBeenCalledTimes(1);
+            const moveArgs = executeMoveSequence.mock.calls[0] as unknown as unknown[];
+            expect((moveArgs[4] as GameAction).type).toBe("move_unit");
+            expect(moveArgs[6]).toBe(true);
+            expect(executeAttackSequence).toHaveBeenCalledTimes(1);
+            const rangeArgs = executeAttackSequence.mock.calls[0] as unknown as unknown[];
+            expect(rangeArgs[3]).toEqual({
+                type: "range_attack",
+                attackerId: unit.getId(),
+                targetId: target.getId(),
+                aimCell,
+                // Side zero is deliberately pinned: it must not disappear through a truthiness check.
+                aimSide: 0,
+            });
+            expect(dispatchOrder).toEqual(["move_unit", "select_attack_type", "range_attack"]);
+            expect(controller.performingAction).toBe(false);
+        });
+
         it("executes a [move_unit, area_throw_attack] authoritative plan under the same continuation", async () => {
             const unit = createUnit();
             const executeMoveSequence = mock(() => true);

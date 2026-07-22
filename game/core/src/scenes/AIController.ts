@@ -960,6 +960,8 @@ export class AIController {
                 type: "range_attack",
                 attackerId: currentUnit.getId(),
                 targetId: target.getId(),
+                aimCell: action.aimCell,
+                aimSide: action.aimSide,
             }),
         );
         if (!completed) {
