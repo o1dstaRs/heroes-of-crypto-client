@@ -1189,6 +1189,12 @@ export class RankedPlayScene extends Sandbox {
     protected override canSelectUnitForPlacement(unit: Unit): boolean {
         return this.viewerTeam !== undefined && unit.getTeam() === this.viewerTeam;
     }
+    // The drag-to-split placement gesture positions the peeled-off stack locally. In ranked the split
+    // is server-authoritative (the split_unit action carries no target cell), so it is disabled here
+    // until the server accepts a target-cell (or a split-then-drag) flow. See Sandbox.commitPlacementSplit.
+    protected override placementSplitEnabled(): boolean {
+        return false;
+    }
     /**
      * Suppress hover visuals (move silhouette, attack highlights, spell targeting) when the
      * active unit belongs to the enemy team. The viewer should only see their own unit's
@@ -1703,6 +1709,7 @@ export class RankedPlayScene extends Sandbox {
             case "morale_applied":
             case "attack_type_selected":
             case "unit_deleted":
+            case "poison_ticked":
                 return event.unitId;
             case "unit_attacked":
             case "obstacle_attacked":
@@ -1779,7 +1786,9 @@ export class RankedPlayScene extends Sandbox {
                         ? "died"
                         : event.reason === "armageddon"
                           ? "destroyed by Armageddon"
-                          : "destroyed by narrowing"
+                          : event.reason === "poison"
+                            ? "succumbed to poison"
+                            : "destroyed by narrowing"
                 }`;
             case "unit_resurrected":
                 return `${nameOf(event.unitId)} resurrected (${event.amount})`;
@@ -1787,6 +1796,8 @@ export class RankedPlayScene extends Sandbox {
                 return `${nameOf(event.unitId)} received (${event.damage}) from Armageddon`;
             case "morale_applied":
                 return `${nameOf(event.unitId)} is on ${event.kind === "plus" ? "Morale" : "Dismorale"} this lap!`;
+            case "poison_ticked":
+                return `${nameOf(event.unitId)} takes ${event.damage} poison damage`;
             case "unit_skipped":
                 return event.reason === "timeout"
                     ? `${nameOf(event.unitId)} turn timed out`

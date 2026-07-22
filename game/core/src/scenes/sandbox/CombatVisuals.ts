@@ -258,6 +258,9 @@ const FIRE_PARTICLE_LIFE = 0.55; // seconds each ember lives
 const FIRE_RISE = 30; // world px an ember floats up over its life
 const FIRE_Z = 1900; // above units (~1000), below the damage numbers (2000) / death shatter (4500)
 const FIRE_TINTS = [0xff3a0a, 0xff6a14, 0xff9a2e, 0xffc861]; // ember red → flame orange → spark gold
+const POISON_PARTICLE_LIFE = 0.95; // seconds each toxic puff lingers (longer than an ember — gas hangs)
+const POISON_RISE = 44; // world px a puff floats up over its life (gas rises further than embers)
+const POISON_TINTS = [0x9be15a, 0x6fd23a, 0x4caf2e, 0xbdf06a]; // toxic lime → poison green
 
 // Tuning for Thunderbird's Chain Lightning — a purple bolt that jumps from the attacker through the
 // target and on to each chained enemy. Like the fire sweep, it's timed to the strike (small lead so
@@ -368,6 +371,7 @@ export class CombatVisuals {
     // in unitIdsDied land here), consumed by spawnDeathVfx when the death visuals spawn.
     private deathBlowByUnitId = new Map<string, { kind: DeathBlowKind; dir?: HoCMath.XY }>();
     private fireSweeps: IFireSweep[] = [];
+    private poisonClouds: IFireSweep[] = [];
     private chainLightnings: IChainLightning[] = [];
     private windSpears: IWindSpear[] = [];
     private slashes: ISlash[] = [];
@@ -382,6 +386,7 @@ export class CombatVisuals {
     private stolenAbilityNameStyle?: TextStyle;
     // Soft radial ember texture, built once and reused for every Fire Breath sweep.
     private fireTexture?: Texture;
+    private poisonTexture?: Texture;
     // Soft radial white-light texture, built once and reused for the Skewer Strike light orb + trail.
     private lightTexture?: Texture;
     // Damage/count text styles are reused across strikes — building a fresh TextStyle per hit is
@@ -1007,6 +1012,10 @@ export class CombatVisuals {
             sweep.container.destroy({ children: true });
         }
         this.fireSweeps.length = 0;
+        for (const cloud of this.poisonClouds) {
+            cloud.container.destroy({ children: true });
+        }
+        this.poisonClouds.length = 0;
         for (const chain of this.chainLightnings) {
             chain.container.destroy({ children: true });
         }
@@ -1092,6 +1101,7 @@ export class CombatVisuals {
         this.stepCleaveDeaths(dt);
         this.stepDissolveDeaths(dt);
         this.stepFireSweeps(dt);
+        this.stepPoisonClouds(dt);
         this.stepChainLightnings(dt);
         this.stepWindSpears(dt);
         this.stepAbilitySteals(dt);
@@ -1798,6 +1808,106 @@ export class CombatVisuals {
             if (!anyPending) {
                 sweep.container.destroy({ children: true });
                 this.fireSweeps.splice(i, 1);
+            }
+        }
+    }
+    /** Soft green→transparent radial puff, drawn once and tinted per particle — one wisp of the toxic cloud. */
+    private getPoisonTexture(): Texture {
+        if (this.poisonTexture) {
+            return this.poisonTexture;
+        }
+        // Headless (tests): no DOM to rasterize on — a plain white texture keeps the particle path alive.
+        if (typeof document === "undefined") {
+            return Texture.WHITE;
+        }
+        const size = 64;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            return Texture.WHITE;
+        }
+        const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+        grad.addColorStop(0.0, "rgba(226,255,188,0.95)");
+        grad.addColorStop(0.35, "rgba(126,226,86,0.7)");
+        grad.addColorStop(0.7, "rgba(60,170,54,0.3)");
+        grad.addColorStop(1.0, "rgba(28,120,42,0)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+        this.poisonTexture = Texture.from(canvas);
+        return this.poisonTexture;
+    }
+    /**
+     * Poison tick VFX: a puff of toxic-green gas rises off the poisoned unit at the start of its turn
+     * (driven by the `poison_ticked` engine event). Particles pop in, float up, SWELL, and fade — the
+     * fire-ember lifecycle but green and expanding (billowing gas) instead of shrinking (burning ember).
+     * Shared by the live sandbox and the ranked replay (both route the event through applyTurnEngineEvents).
+     */
+    public spawnPoisonCloud(center: HoCMath.XY, cellSize: number): void {
+        const container = new Container();
+        this.context.attachToWorldRoot(container, FIRE_Z);
+        const tex = this.getPoisonTexture();
+        const texW = tex.width || 64;
+        const particles: IFireParticle[] = [];
+        for (let k = 0; k < 14; k++) {
+            const rand = Math.random();
+            const jitter = cellSize * 0.34;
+            const sprite = new Sprite(tex);
+            sprite.anchor.set(0.5);
+            sprite.blendMode = "add";
+            sprite.tint = POISON_TINTS[Math.floor(Math.random() * POISON_TINTS.length)];
+            sprite.scale.set(0.001);
+            sprite.alpha = 0;
+            sprite.visible = false;
+            container.addChild(sprite);
+            particles.push({
+                sprite,
+                age: -Math.random() * 0.18, // slight stagger so the cloud billows up rather than popping at once
+                life: POISON_PARTICLE_LIFE * (0.75 + 0.5 * rand),
+                x: center.x + (Math.random() - 0.5) * jitter,
+                y: center.y + (Math.random() - 0.5) * jitter * 0.5,
+                riseY: POISON_RISE * (0.7 + 0.7 * rand),
+                driftX: (Math.random() - 0.5) * cellSize * 0.3,
+                baseScale: (cellSize * (0.34 + 0.4 * rand)) / texW,
+                rot: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 2.4,
+            });
+        }
+        this.poisonClouds.push({ container, particles });
+    }
+    private stepPoisonClouds(dt: number): void {
+        for (let i = this.poisonClouds.length - 1; i >= 0; i--) {
+            const cloud = this.poisonClouds[i];
+            let anyPending = false;
+            for (const p of cloud.particles) {
+                p.age += dt;
+                if (p.age < 0) {
+                    anyPending = true; // still staggered in
+                    continue;
+                }
+                if (p.age >= p.life) {
+                    if (p.sprite.visible) {
+                        p.sprite.visible = false;
+                    }
+                    continue;
+                }
+                anyPending = true;
+                const t = p.age / p.life;
+                const e = easeOutCubic(t);
+                p.sprite.visible = true;
+                p.sprite.position.set(p.x + p.driftX * e, p.y + p.riseY * e);
+                // Toxic gas SWELLS as it rises (embers shrink; poison billows out).
+                const scale = p.baseScale * (0.5 + 1.15 * e);
+                p.sprite.scale.set(scale, scale);
+                p.rot += p.spin * dt;
+                p.sprite.rotation = p.rot;
+                const alpha = t < 0.12 ? t / 0.12 : 1 - (t - 0.12) / 0.88;
+                p.sprite.alpha = Math.max(0, Math.min(1, alpha)) * 0.85;
+            }
+            if (!anyPending) {
+                cloud.container.destroy({ children: true });
+                this.poisonClouds.splice(i, 1);
             }
         }
     }

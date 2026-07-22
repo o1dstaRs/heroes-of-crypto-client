@@ -1,4 +1,4 @@
-import { Sprite, Graphics, Container, Texture, BlurFilter, RenderTexture } from "pixi.js";
+import { Sprite, Graphics, Container, Texture, BlurFilter, RenderTexture, Text, TextStyle } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
 import { SandboxDrawer, ENEMY_TURN_HIGHLIGHT_COLOR } from "./SandboxDrawer";
 import {
@@ -224,6 +224,14 @@ export class Sandbox extends PixiScene {
     /** Active-board-selection state (move existing unit) */
     private draggingUnitId?: string;
     private draggingUnitTeam?: TeamType;
+    // --- Placement split-drag: shift-press a placed stack and drag out to peel models into a new
+    // stack (default peels 1, source keeps N-1; dragging further past the target grows the peel). ---
+    private splitDragActive = false;
+    private splitDragSourceId?: string;
+    private splitDragSourceCells: HoCMath.XY[] = [];
+    private splitDragTargetCells?: HoCMath.XY[];
+    private splitDragAmount = 1;
+    private placementSplitLabel?: Text;
     /** Is there an actual *active* selection (overlay or board)? */
     private hasActiveSelection = false;
     /** True if the active selection came from overlay; false if from board. */
@@ -4589,6 +4597,9 @@ export class Sandbox extends PixiScene {
         this.sc_mouseWorld = p;
         if (this.sc_isAnimating) return;
 
+        // During placement, shift-pressing your own placed stack starts a split-drag instead of inspection.
+        if (this.tryBeginPlacementSplit(p)) return;
+
         // Shift-click is read-only inspection (stats on the sidebar), so it is NOT gated by team or
         // placement eligibility — any visible unit can be inspected, matching the sandbox. Also look
         // beyond grid-occupying units so off-grid units (the ranked placement bench, and revealed
@@ -8388,6 +8399,10 @@ export class Sandbox extends PixiScene {
         }
     }
     public override MouseMove(p: HoCMath.XY, leftDrag: boolean): void {
+        if (this.splitDragActive) {
+            this.updatePlacementSplitFromCursor(p);
+            return;
+        }
         super.MouseMove(p, leftDrag);
         this.updatePlacementBenchToggleHover(p);
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -8422,6 +8437,212 @@ export class Sandbox extends PixiScene {
         this.hoverManager.clear();
         this.sc_hoveredAuraRanges = undefined;
         this.sc_hoveredShotRange = undefined;
+        this.cancelPlacementSplit();
+    }
+    public override MouseUp(): void {
+        if (this.splitDragActive) {
+            this.finishPlacementSplit();
+            return;
+        }
+        super.MouseUp();
+    }
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Placement split-drag. Shift-press a placed stack (>=2 models) to grab it, drag onto an empty
+    // allowed cell (it becomes the destination, default peel = 1 → source keeps N-1), then keep
+    // dragging further out to grow the peel (drag back to shrink); release to commit. The peeled-off
+    // models spawn as a new stack on the destination cell and the source shrinks by that many.
+    // Sandbox-only for now — RankedPlayScene disables it (its split position is server-authoritative).
+    // ─────────────────────────────────────────────────────────────────────────────
+    protected placementSplitEnabled(): boolean {
+        return true;
+    }
+    private tryBeginPlacementSplit(p: HoCMath.XY): boolean {
+        if (!this.placementSplitEnabled()) return false;
+        if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) return false;
+        const unit = this.getUnitAtPosition(p);
+        if (!unit) return false;
+        // Only a unit already placed on the board (occupying its own cells), controllable, with >=2 models.
+        const cells = unit.getCells();
+        const isPlaced = cells.some((c) => this.grid.getOccupantUnitId(c) === unit.getId());
+        if (!isPlaced) return false;
+        if (!this.canSelectUnitForPlacement(unit)) return false;
+        if (unit.getAmountAlive() < 2) return false;
+        if (!this.canSplitUnitWithCommonRules(unit)) return false;
+
+        this.splitDragActive = true;
+        this.splitDragSourceId = unit.getId();
+        this.splitDragSourceCells = cells.map((c) => ({ x: c.x, y: c.y }));
+        this.splitDragTargetCells = undefined;
+        this.splitDragAmount = 1;
+
+        // Show the source as selected and clear the normal click-to-place drag so the two never mix.
+        if (this.selectedBoardUnit && this.selectedBoardUnit.getId() !== unit.getId()) {
+            this.selectedBoardUnit.setBoardSelected(false);
+        }
+        if (unit instanceof RenderableUnit) {
+            this.selectedBoardUnit = unit;
+            unit.setBoardSelected(true);
+        }
+        this.draggingUnitId = undefined;
+        this.draggingUnitTeam = undefined;
+        this.hasActiveSelection = false;
+
+        this.updatePlacementSplitFromCursor(p);
+        return true;
+    }
+    private placementSplitFootprint(cell: HoCMath.XY, isSmall: boolean): HoCMath.XY[] {
+        if (isSmall) return [{ x: cell.x, y: cell.y }];
+        return [
+            { x: cell.x, y: cell.y },
+            { x: cell.x + 1, y: cell.y },
+            { x: cell.x, y: cell.y + 1 },
+            { x: cell.x + 1, y: cell.y + 1 },
+        ];
+    }
+    private isValidEmptySplitTarget(cells: HoCMath.XY[], team: TeamType): boolean {
+        const allowed = this.placementManager.getAllowedPlacementCellHashesForTeam(team);
+        if (!allowed) return false;
+        if (cells.some((c) => !allowed.has((c.x << 4) | c.y))) return false;
+        return this.grid.areAllCellsEmpty(cells);
+    }
+    private updatePlacementSplitFromCursor(p: HoCMath.XY): void {
+        this.sc_mouseWorld = p;
+        const source = this.splitDragSourceId ? this.unitsHolder.getAllUnits().get(this.splitDragSourceId) : undefined;
+        if (!source) {
+            this.cancelPlacementSplit();
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const isSmall = source.getSize() === 1;
+        const footprint = this.placementSplitFootprint(GridMath.getCellForPosition(gs, p), isSmall);
+        // Over a valid empty cell → that cell is (re)selected as the destination and the peel resets toward 1.
+        // Off valid cells → the last destination sticks and the drag distance beyond it sizes the peel.
+        if (this.isValidEmptySplitTarget(footprint, source.getTeam())) {
+            this.splitDragTargetCells = footprint;
+        }
+        const maxPeel = Math.max(1, source.getAmountAlive() - 1);
+        if (this.splitDragTargetCells) {
+            const center = GridMath.getPositionForCells(gs, this.splitDragTargetCells);
+            const cellSize = gs.getCellSize();
+            this.splitDragAmount =
+                center && cellSize > 0
+                    ? Math.max(
+                          1,
+                          Math.min(maxPeel, 1 + Math.floor(Math.hypot(p.x - center.x, p.y - center.y) / cellSize)),
+                      )
+                    : 1;
+        } else {
+            this.splitDragAmount = 1;
+        }
+    }
+    private finishPlacementSplit(): void {
+        const source = this.splitDragSourceId ? this.unitsHolder.getAllUnits().get(this.splitDragSourceId) : undefined;
+        const target = this.splitDragTargetCells;
+        const amount = this.splitDragAmount;
+        if (source && target && amount >= 1 && amount < source.getAmountAlive()) {
+            this.commitPlacementSplit(source, amount, target);
+        }
+        this.cancelPlacementSplit();
+    }
+    protected commitPlacementSplit(source: Unit, amount: number, targetCells: HoCMath.XY[]): boolean {
+        const alive = source.getAmountAlive();
+        if (amount < 1 || amount >= alive) return false;
+        if (!this.canSplitUnitWithCommonRules(source)) return false;
+        if (!this.isValidEmptySplitTarget(targetCells, source.getTeam())) return false;
+
+        const newUnit = this.createSplitRenderableUnit(source, amount);
+        if (!newUnit) return false;
+        this.unitsHolder.addUnit(newUnit);
+
+        const placementResult = this.createActionEngine().apply({
+            type: "place_unit",
+            unitId: newUnit.getId(),
+            team: newUnit.getTeam(),
+            unitName: newUnit.getName(),
+            cells: targetCells,
+        });
+        if (!placementResult.completed) {
+            // Placement rejected — undo the peel entirely (source is untouched until here).
+            this.unitsHolder.deleteUnitById(newUnit.getId());
+            return false;
+        }
+
+        source.setAmountAlive(alive - amount);
+        this.layoutVersion++;
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const placeEvent = placementResult.events.find((event) => event.type === "unit_placed");
+        const placePos =
+            placeEvent?.type === "unit_placed" ? placeEvent.position : GridMath.getPositionForCells(gs, targetCells);
+        if (placePos) newUnit.setPosition(placePos.x, placePos.y);
+        const scale = newUnit.ensureVisual(this.drawer.getUnitsContainer(), gs);
+        if (scale) {
+            newUnit.startSpawnAnimation(scale);
+        }
+        this.unitsHolder.refreshStackPowerForAllUnits();
+        this.refreshSynergyNumbers(source.getTeam());
+        this.refreshUnits();
+        this.flushPendingReplayRecords();
+        return true;
+    }
+    private cancelPlacementSplit(): void {
+        this.splitDragActive = false;
+        this.splitDragSourceId = undefined;
+        this.splitDragSourceCells = [];
+        this.splitDragTargetCells = undefined;
+        this.splitDragAmount = 1;
+        if (this.placementSplitLabel) {
+            this.placementSplitLabel.visible = false;
+        }
+    }
+    private ensurePlacementSplitLabel(): Text {
+        if (!this.placementSplitLabel) {
+            this.placementSplitLabel = new Text({
+                text: "",
+                style: new TextStyle({
+                    fill: 0xffe08a,
+                    fontSize: 18,
+                    fontWeight: "800",
+                    stroke: { color: 0x000000, width: 4, join: "round" },
+                }),
+            });
+            this.placementSplitLabel.anchor.set(0.5);
+            this.placementSplitLabel.scale.y = -1; // world Y is inverted (see RenderableUnit.ensureBadge)
+            this.attachToWorldRoot(this.placementSplitLabel, 2600);
+        }
+        return this.placementSplitLabel;
+    }
+    private drawPlacementSplitOverlay(): void {
+        const g = this.placementGraphics;
+        if (!g || !this.splitDragActive) {
+            if (this.placementSplitLabel) this.placementSplitLabel.visible = false;
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const size = gs.getCellSize();
+        const half = size / 2;
+        const drawCells = (cells: HoCMath.XY[], color: number, fillAlpha: number): void => {
+            for (const c of cells) {
+                const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+                g.rect(pos.x - half + 1, pos.y - half + 1, size - 2, size - 2)
+                    .stroke({ width: 2.5, color, alpha: 0.95 })
+                    .fill({ color, alpha: fillAlpha });
+            }
+        };
+        // Green = where it peels FROM; gold = where the new stack lands.
+        if (this.splitDragSourceCells.length) drawCells(this.splitDragSourceCells, 0x39d353, 0.16);
+        if (this.splitDragTargetCells) drawCells(this.splitDragTargetCells, 0xffcc33, 0.28);
+
+        const source = this.splitDragSourceId ? this.unitsHolder.getAllUnits().get(this.splitDragSourceId) : undefined;
+        const alive = source ? source.getAmountAlive() : 0;
+        const peel = this.splitDragAmount;
+        const label = this.ensurePlacementSplitLabel();
+        label.text = `${Math.max(0, alive - peel)} / ${peel}`;
+        const anchorCells = this.splitDragTargetCells ?? this.splitDragSourceCells;
+        const anchor = anchorCells.length ? GridMath.getPositionForCells(gs, anchorCells) : this.sc_mouseWorld;
+        if (anchor) label.position.set(anchor.x, anchor.y + size * 0.9);
+        label.visible = true;
     }
     protected updateUnitsOverlayVisibility(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -9102,6 +9323,25 @@ export class Sandbox extends PixiScene {
                     this.destroyEventDeletedUnit(event.unitId, unitSnapshot);
                     shouldRefreshVisibleState = true;
                     break;
+                case "poison_ticked": {
+                    const poisoned = unitSnapshot.get(event.unitId);
+                    if (poisoned) {
+                        this.combatVisuals?.showFloatingDamage(
+                            poisoned.getPosition(),
+                            event.damage,
+                            undefined,
+                            event.unitsDied,
+                            "#7be639",
+                            "#123d0a",
+                        );
+                        this.combatVisuals?.spawnPoisonCloud(
+                            poisoned.getPosition(),
+                            this.sc_sceneSettings.getGridSettings().getCellSize(),
+                        );
+                    }
+                    shouldRefreshVisibleState = true;
+                    break;
+                }
                 case "unit_resurrected":
                     this.syncResurrectedUnit(event, unitSnapshot);
                     shouldRefreshVisibleState = true;
@@ -9713,6 +9953,7 @@ export class Sandbox extends PixiScene {
             placementGraphics: this.placementGraphics,
             restrictToTeam: this.getPlacementDrawTeam(),
         });
+        this.drawPlacementSplitOverlay();
     }
     /**
      * Which team's placement zone should be drawn. Undefined draws both (sandbox). Ranked play
