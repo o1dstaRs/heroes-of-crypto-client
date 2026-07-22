@@ -3849,10 +3849,18 @@ export class Sandbox extends PixiScene {
         };
         const attackerPos = centerOf(event.attackerId);
         const primaryPos = event.type === "unit_attacked" ? centerOf(event.targetId) : event.targetPosition;
+        // A ranged death "dissolve" should punch through along the projectile's ACTUAL travel angle, not the
+        // attacker-center -> victim-center line. The shot flies from the attacker's visual center (the muzzle,
+        // == attackerPos, matching RangedProjectiles.fire) to its aimed edge (unit_attacked
+        // animations[0].toPosition) or, for area throws, the area center — so aim the blow at that, not the
+        // dead unit's own center.
+        const rangeAim =
+            event.type === "area_attacked" ? event.targetPosition : (event.animations[0]?.toPosition ?? primaryPos);
         for (const unitId of event.unitIdsDied) {
             // The attacker itself dying (melee retaliation) is a blow FROM the target's side.
-            const from = unitId === event.attackerId ? primaryPos : attackerPos;
-            const to = unitId === event.attackerId ? attackerPos : (centerOf(unitId) ?? primaryPos);
+            const isAttackerDeath = unitId === event.attackerId;
+            const from = isAttackerDeath ? primaryPos : attackerPos;
+            const to = isAttackerDeath ? attackerPos : kind === "range" ? rangeAim : (centerOf(unitId) ?? primaryPos);
             let dir: HoCMath.XY | undefined;
             if (from && to) {
                 const dx = to.x - from.x;
