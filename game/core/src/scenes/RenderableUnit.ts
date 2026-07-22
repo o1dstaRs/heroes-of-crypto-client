@@ -1726,6 +1726,18 @@ export class RenderableUnit extends Unit {
             );
         }
 
+        // Predatory Assimilation (stack-powered steal chance, same shape as Stun)
+        const predatoryAssimilationAbility = this.getAbility("Predatory Assimilation");
+        if (predatoryAssimilationAbility) {
+            const percentage = Number(
+                this.calculateAbilityApplyChance(predatoryAssimilationAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
+            this.refreshAbiltyDescription(
+                predatoryAssimilationAbility.getName(),
+                predatoryAssimilationAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
         // Double Punch
         const doublePunchAbility = this.getAbility("Double Punch");
         if (doublePunchAbility) {
@@ -2078,6 +2090,36 @@ export class RenderableUnit extends Unit {
                         .replace(/\{\}/g, this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease).toString()),
                 );
             }
+        }
+
+        // Poison Cloud Aura — {} is the base % plus this unit's luck (combined, like the other aura
+        // tooltips); the per-ally luck is what actually applies at hit time (processPoisonAuraAbility).
+        const poisonCloudAuraAbility = this.getAbility("Poison Cloud Aura");
+        if (poisonCloudAuraAbility) {
+            const auraEffect = this.effectFactory.makeAuraEffect("Poison Cloud");
+            if (auraEffect) {
+                const poisonPercent = Math.max(
+                    0,
+                    this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease) + this.getLuck(),
+                );
+                this.refreshAbiltyDescription(
+                    poisonCloudAuraAbility.getName(),
+                    poisonCloudAuraAbility.getDesc().join("\n").replace(/\{\}/g, poisonPercent.toString()),
+                );
+            }
+        }
+
+        // Hamstring — {} is the stack+luck apply chance, the exact value processHamstringAbility rolls
+        // against (calculateAbilityApplyChance), same as Stun and the other on-hit chance abilities.
+        const hamstringAbility = this.getAbility("Hamstring");
+        if (hamstringAbility) {
+            const percentage = Number(
+                this.calculateAbilityApplyChance(hamstringAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
+            this.refreshAbiltyDescription(
+                hamstringAbility.getName(),
+                hamstringAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
         }
 
         // Penetrating Bite
