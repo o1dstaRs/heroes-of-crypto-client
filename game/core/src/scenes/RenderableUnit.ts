@@ -207,6 +207,11 @@ export class RenderableUnit extends Unit {
     // Light-blue circulating ring + small orbiting dots shown around a unit while its Water Shield buff is
     // active (the once-per-battle absorb). Created lazily; hidden the frame the shield breaks.
     private waterShieldAura?: Graphics;
+    // Water Shield dissolve burst: a one-shot ring-snap + droplet spray fired the instant the shield is
+    // consumed (the buff disappears while the unit is still alive).
+    private waterShieldWasActive = false;
+    private waterShieldBreakStartMs?: number;
+    private waterShieldBreakGfx?: Graphics;
     // Brief "jerk back" applied to the sprite/shadow (e.g. a petrifying-gaze hit yanking the
     // target away from the attacker). Decays to zero over ~220ms.
     private recoilStartMs = 0;
@@ -251,6 +256,9 @@ export class RenderableUnit extends Unit {
         ru.badgeAmountOverride = undefined;
         ru.activeAura = undefined;
         ru.waterShieldAura = undefined;
+        ru.waterShieldBreakGfx = undefined;
+        ru.waterShieldBreakStartMs = undefined;
+        ru.waterShieldWasActive = false;
         ru.suppressActiveAura = false;
         ru.recoilStartMs = 0;
         ru.recoilDx = 0;
@@ -679,10 +687,20 @@ export class RenderableUnit extends Unit {
         // Water Shield: a light-blue circulating ring while the once-per-battle absorb buff is up. It keys off
         // the same synced "Water Shield" buff that applyDamage consumes, so it disappears the frame the shield
         // breaks. Independent of whose turn it is.
-        if (!this.isDead() && this.hasBuffActive("Water Shield")) {
+        const waterShieldActive = !this.isDead() && this.hasBuffActive("Water Shield");
+        if (waterShieldActive) {
             this.updateWaterShieldAura(worldRoot, gs, pos);
         } else if (this.waterShieldAura) {
             this.waterShieldAura.visible = false;
+        }
+        // The shield is permanent until it absorbs a hit, so a still-alive unit losing the buff means it
+        // just broke — kick off the one-shot dissolve burst at that instant.
+        if (this.waterShieldWasActive && !waterShieldActive && !this.isDead()) {
+            this.waterShieldBreakStartMs = performance.now();
+        }
+        this.waterShieldWasActive = waterShieldActive;
+        if (this.waterShieldBreakStartMs !== undefined) {
+            this.updateWaterShieldBreak(worldRoot, gs, pos);
         }
     }
     /**
@@ -776,6 +794,64 @@ export class RenderableUnit extends Unit {
             const a = (i / innerCount) * Math.PI * 2 - t * 1.0;
             const r = ringR * 0.72;
             g.circle(pos.x + r * Math.cos(a), pos.y + r * Math.sin(a), 1.6).fill({ color, alpha: 0.6 });
+        }
+    }
+    /**
+     * One-shot "dissolve" burst played when the Water Shield absorbs a hit and breaks: a brief inner splash,
+     * the ring snapping outward and thinning as it fades, and a spray of light-blue droplets flung away from
+     * it. Pure vector draw driven by a time-based progress; self-clears after ~0.55s.
+     */
+    private updateWaterShieldBreak(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+        if (this.waterShieldBreakStartMs === undefined) return;
+        const DURATION_MS = 550;
+        const elapsed = performance.now() - this.waterShieldBreakStartMs;
+        if (elapsed >= DURATION_MS || this.isDead()) {
+            if (this.waterShieldBreakGfx) this.waterShieldBreakGfx.visible = false;
+            this.waterShieldBreakStartMs = undefined;
+            return;
+        }
+        if (!this.waterShieldBreakGfx) {
+            this.waterShieldBreakGfx = new Graphics();
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            worldRoot.addChild(this.waterShieldBreakGfx);
+        } else if (this.waterShieldBreakGfx.parent !== worldRoot) {
+            worldRoot.addChild(this.waterShieldBreakGfx);
+        }
+        // Draw just above the unit so the shatter reads over her for the brief moment it lasts.
+        this.waterShieldBreakGfx.zIndex = 4000 - pos.y + 0.6;
+        this.waterShieldBreakGfx.visible = true;
+
+        const cell = gs.getCellSize();
+        const isLarge = this.getUnitProperties().size === 2;
+        const ringR = cell * (isLarge ? 0.92 : 0.52);
+        const p = elapsed / DURATION_MS; // 0 -> 1
+        const ease = 1 - (1 - p) * (1 - p); // easeOutQuad
+        const fade = 1 - p;
+        const color = 0x66ccff; // light blue
+
+        const g = this.waterShieldBreakGfx;
+        g.clear();
+
+        // Brief inner splash flash at the very start.
+        if (p < 0.35) {
+            const fp = 1 - p / 0.35;
+            g.circle(pos.x, pos.y, ringR * (0.5 + 0.6 * p)).fill({ color: 0xbfe8ff, alpha: 0.3 * fp });
+        }
+
+        // The ring snapping outward and thinning as it fades.
+        const r = ringR * (1 + 1.25 * ease);
+        g.circle(pos.x, pos.y, r).stroke({ color, alpha: 0.75 * fade, width: Math.max(0.5, 3 * fade) });
+
+        // A spray of droplets flung outward from the ring, shrinking as they go.
+        const dropletCount = 16;
+        for (let i = 0; i < dropletCount; i++) {
+            const a = (i / dropletCount) * Math.PI * 2 + (i % 3) * 0.5;
+            const dist = ringR * (1 + (1.5 + 0.15 * (i % 4)) * ease);
+            const dropR = Math.max(0.4, (2.6 - (i % 3) * 0.5) * fade);
+            g.circle(pos.x + Math.cos(a) * dist, pos.y + Math.sin(a) * dist, dropR).fill({
+                color,
+                alpha: 0.9 * fade,
+            });
         }
     }
     public setBoardSelected(selected: boolean): void {
@@ -1032,6 +1108,12 @@ export class RenderableUnit extends Unit {
             this.waterShieldAura.destroy({ children: true });
             this.waterShieldAura = undefined;
         }
+        if (this.waterShieldBreakGfx) {
+            this.waterShieldBreakGfx.destroy({ children: true });
+            this.waterShieldBreakGfx = undefined;
+        }
+        this.waterShieldBreakStartMs = undefined;
+        this.waterShieldWasActive = false;
         this.spawnAnim = undefined;
         this.oneShotAnim = undefined;
         // Spellbook sprites live in a scene-shared container, not under this unit's own display
