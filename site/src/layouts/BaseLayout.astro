@@ -21,6 +21,7 @@ const resolvedTitle = title && title !== copy.meta.title ? `${title} | ${copy.me
 const resolvedDescription = description ?? copy.meta.description;
 const siteOrigin = Astro.site ?? new URL("https://heroesofcrypto.io");
 const canonicalURL = new URL(Astro.url.pathname, siteOrigin);
+const gameURL = new URL(lang === "ru" ? "/ru/" : "/", siteOrigin);
 const ogImage = new URL("/assets/images/preview_game.webp", siteOrigin);
 // hreflang alternates: every page mirrors EN <-> RU, so map this URL to both and let search
 // engines serve the right language (x-default falls back to English).
@@ -67,7 +68,7 @@ const jsonLd = {
             applicationCategory: schemaCopy.applicationCategory,
             operatingSystem: schemaCopy.operatingSystem,
             offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-            url: canonicalURL.toString(),
+            url: gameURL.toString(),
         },
         {
             "@type": "Organization",

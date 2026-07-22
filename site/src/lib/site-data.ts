@@ -11,6 +11,7 @@ export const pageSlugs = [
     "units",
     "abilities",
     "artifacts",
+    "research",
     "token",
     "patches",
     "faq",
@@ -80,6 +81,7 @@ export const content = {
             game: "Game",
             rules: "Rules",
             blog: "Blog",
+            research: "Research",
             units: "Units",
             abilities: "Abilities",
             artifacts: "Artifacts",
@@ -234,6 +236,12 @@ export const content = {
                 description:
                     "Army-wide artifacts you draft in the pick phase — one Tier 1 and one Tier 2 per team. Every artifact, its icon and exactly what it does for your whole army.",
             },
+            research: {
+                title: "Research",
+                eyebrow: "AI research",
+                description:
+                    "Explore source-audited Heroes of Crypto research on game AI, simulation, tactical decisions, tournament evidence, and engine performance.",
+            },
             token: {
                 title: "$HOCAI Token",
                 eyebrow: "Utility and governance",
@@ -263,7 +271,8 @@ export const content = {
             "privacy-policy": {
                 title: "Privacy Policy",
                 eyebrow: "Legal",
-                description: "What data Heroes of Crypto collects and how your account and gameplay information is handled.",
+                description:
+                    "What data Heroes of Crypto collects and how your account and gameplay information is handled.",
             },
         },
         hero: {
@@ -637,6 +646,7 @@ export const content = {
             game: "Игра",
             rules: "Правила",
             blog: "Блог",
+            research: "Исследования",
             units: "Юниты",
             abilities: "Способности",
             artifacts: "Артефакты",
@@ -790,6 +800,12 @@ export const content = {
                 eyebrow: "Справочник артефактов",
                 description:
                     "Армейские артефакты, которые вы выбираете в фазе пика — по одному 1-го и 2-го уровня на команду. Все артефакты, их иконки и точное действие на всю вашу армию.",
+            },
+            research: {
+                title: "Исследования",
+                eyebrow: "Исследования ИИ",
+                description:
+                    "Исследования Heroes of Crypto об игровом ИИ, симуляциях, тактических решениях, турнирных данных и производительности движка.",
             },
             token: {
                 title: "Токен $HOCAI",

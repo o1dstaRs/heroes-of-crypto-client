@@ -3,6 +3,7 @@ import AbilitiesPage from "../../components/AbilitiesPage.astro";
 import ArtifactsPage from "../../components/ArtifactsPage.astro";
 import ContentPage from "../../components/ContentPage.astro";
 import HomePage from "../../components/HomePage.astro";
+import ResearchPage from "../../components/ResearchPage.astro";
 import RulesPage from "../../components/RulesPage.astro";
 import UnitsPage from "../../components/UnitsPage.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
@@ -19,9 +20,26 @@ const lang = "ru";
 const { slug } = Astro.props as { slug: PageSlug };
 const copy = content[lang];
 const page = copy.pages[slug];
+const researchStructuredData =
+    slug === "research"
+        ? {
+              "@type": "CollectionPage",
+              name: "Исследования ИИ Heroes of Crypto",
+              description: page.description,
+              url: new URL("/ru/research/", Astro.site ?? "https://heroesofcrypto.io").toString(),
+              inLanguage: "ru",
+              hasPart: {
+                  "@type": "TechArticle",
+                  headline: "A13 — Inside the Heroes of Crypto v0.8 AI",
+                  url: new URL("/research/a13/", Astro.site ?? "https://heroesofcrypto.io").toString(),
+                  datePublished: "2026-07-22",
+                  inLanguage: "en",
+              },
+          }
+        : undefined;
 ---
 
-<BaseLayout lang={lang} title={page.title} description={page.description}>
+<BaseLayout lang={lang} title={page.title} description={page.description} structuredData={researchStructuredData}>
     {
         slug === "game" ? (
             <HomePage lang={lang} />
@@ -33,6 +51,8 @@ const page = copy.pages[slug];
             <AbilitiesPage lang={lang} />
         ) : slug === "artifacts" ? (
             <ArtifactsPage lang={lang} />
+        ) : slug === "research" ? (
+            <ResearchPage lang={lang} />
         ) : (
             <ContentPage lang={lang} slug={slug} />
         )
