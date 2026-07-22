@@ -10388,7 +10388,13 @@ export class Sandbox extends PixiScene {
             return;
         }
         if (
-            (this.currentActiveUnit.canMove() || this.currentActiveUnit.hasEffectActive("Paralysis")) &&
+            // A web-locked flyer (Arachna Queen's Web Aura), exactly like a Paralyzed unit, cannot move but
+            // CAN still strike from where it stands — so it must run this attack-targeting pass too (the else
+            // branch below pins it to its base cell). Without web-lock here the UI silently drops its melee
+            // targets and the player can't attack, even though the engine (AI path) allows it.
+            (this.currentActiveUnit.canMove() ||
+                this.currentActiveUnit.hasEffectActive("Paralysis") ||
+                this.currentActiveUnit.isWebMovementLocked()) &&
             this.currentActiveSpell?.getSpellTargetType() !== SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE
         ) {
             let movePath;
@@ -10403,8 +10409,9 @@ export class Sandbox extends PixiScene {
                     this.currentActiveUnit.canTraverseLava(),
                 );
             } else {
-                // Paralysis: Can't move, but treat as staying at current cell to allow attack targeting
-                // Fix: Must use unit's base cell, not the cursor's currentCell, otherwise it thinks we teleported to cursor
+                // Immobilized (Paralysis or Arachna Queen's Web Aura): can't move, but treat as staying at the
+                // current cell to allow attack targeting. Must use the unit's base cell, not the cursor's
+                // currentCell, otherwise it thinks we teleported to the cursor.
                 const unitCell = this.currentActiveUnit.getBaseCell();
                 movePath = {
                     cells: [unitCell],
