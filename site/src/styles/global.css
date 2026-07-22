@@ -1671,6 +1671,12 @@ code {
     min-width: 0;
 }
 
+/* Patch history is taller than a mobile viewport can expose at the global reveal threshold. */
+html.reveal-on .patches-section {
+    opacity: 1 !important;
+    transform: none !important;
+}
+
 .patch-item {
     display: grid;
     grid-template-columns: 176px minmax(0, 1fr);
