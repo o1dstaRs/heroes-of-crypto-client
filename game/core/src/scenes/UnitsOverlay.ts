@@ -327,8 +327,32 @@ export class UnitsOverlay {
 
         this.leftColW = 1.5 * cell;
         const levelCols = this.levelBuckets.length;
-        const colW = (this.overlayW - this.leftColW) / levelCols;
         this.rowH = this.overlayH / this.factions.length;
+
+        // Weight each level column by its busiest faction bucket, so a level with more creatures per
+        // faction (e.g. L1 with 4) gets a bit more width than a sparse one (e.g. L3 with just 2). This
+        // stops the crowded low levels from squeezing their icons smaller than the sparse high ones. The
+        // 0.7 blend toward the raw count keeps the shift gentle rather than strictly proportional.
+        const availW = this.overlayW - this.leftColW;
+        const maxNPerLevel: number[] = [];
+        for (let b = 0; b < levelCols; b++) {
+            let maxN = 1;
+            for (let r = 0; r < this.factions.length; r++) {
+                const rc = this.rowsContainer.children[r] as Container | undefined;
+                const bc = rc?.children[1 + b] as Container | undefined;
+                maxN = Math.max(maxN, bc?.children.length ?? 0);
+            }
+            maxNPerLevel.push(maxN);
+        }
+        const uniformWeight = (maxNPerLevel.reduce((sum, n) => sum + n, 0) || levelCols) / levelCols;
+        const weights = maxNPerLevel.map((n) => Math.max(0.5, uniformWeight + 0.7 * (n - uniformWeight)));
+        const weightTotal = weights.reduce((sum, w) => sum + w, 0);
+        const colWByLevel = weights.map((w) => (availW * w) / weightTotal);
+        const colXByLevel: number[] = [];
+        for (let b = 0, acc = 0; b < levelCols; b++) {
+            colXByLevel.push(acc);
+            acc += colWByLevel[b];
+        }
 
         // --- Position & Scale Texture Labels ---
         for (let i = 0; i < this.headerContainer.children.length; i++) {
@@ -336,14 +360,14 @@ export class UnitsOverlay {
 
             // Position center of header cell.
             // UPDATED: Changed Y offset from -0.45 to -0.25 to move it closer to the overlay.
-            s.position.set(this.leftColW + (i + 0.5) * colW, -0.38 * this.rowH);
+            s.position.set(this.leftColW + colXByLevel[i] + 0.5 * colWByLevel[i], -0.38 * this.rowH);
 
             // Reset scale to 1 to measure natural size
             s.scale.set(1);
 
             if (s.texture && s.texture !== Texture.EMPTY) {
                 // Constrain fitting: 90% of column width, 50% of available top space height
-                const maxW = colW * 0.9;
+                const maxW = colWByLevel[i] * 0.9;
                 const maxH = this.rowH * 0.5;
                 const scale = Math.min(maxW / s.width, maxH / s.height);
                 s.scale.set(scale);
@@ -361,16 +385,17 @@ export class UnitsOverlay {
             let childIndex = 1;
             for (let b = 0; b < levelCols; b++) {
                 const bucketCont = rowCont.children[childIndex++] as Container;
-                bucketCont.position.set(this.leftColW + b * colW, 0);
+                bucketCont.position.set(this.leftColW + colXByLevel[b], 0);
 
                 const chips = bucketCont.children as unknown as UnitChip[];
                 const n = chips.length;
+                const bColW = colWByLevel[b];
                 const baseSide = cell * (this.levelBuckets[b].unitSize === 2 ? 1.05 : 0.9);
-                const spacing = Math.min(baseSide * 1.1, (colW * 0.85) / Math.max(1, n));
+                const spacing = Math.min(baseSide * 1.1, (bColW * 0.85) / Math.max(1, n));
                 // Crowded buckets (3+ large units per faction level, e.g. Chaos/Life/Might L4) shrink
                 // the chips to the spacing so they stay side by side and centered instead of overlapping.
                 const iconSide = Math.min(baseSide, spacing * 0.98);
-                const startX = colW * 0.5 - ((n - 1) * spacing) / 2;
+                const startX = bColW * 0.5 - ((n - 1) * spacing) / 2;
 
                 for (let i = 0; i < n; i++) {
                     chips[i].layout(iconSide);

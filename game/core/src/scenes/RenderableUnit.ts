@@ -201,6 +201,9 @@ export class RenderableUnit extends Unit {
     // While the active unit is mid-move or mid-attack, the aura is suppressed so it doesn't
     // distract from the action (set each frame by the scene).
     private suppressActiveAura = false;
+    // Light-blue circulating ring + small orbiting dots shown around a unit while its Water Shield buff is
+    // active (the once-per-battle absorb). Created lazily; hidden the frame the shield breaks.
+    private waterShieldAura?: Graphics;
     // Brief "jerk back" applied to the sprite/shadow (e.g. a petrifying-gaze hit yanking the
     // target away from the attacker). Decays to zero over ~220ms.
     private recoilStartMs = 0;
@@ -242,6 +245,7 @@ export class RenderableUnit extends Unit {
         // fromBase() bypasses the constructor (it re-prototypes an existing Unit), so class field
         // defaults never run — initialise every added field explicitly or it stays `undefined`.
         ru.activeAura = undefined;
+        ru.waterShieldAura = undefined;
         ru.suppressActiveAura = false;
         ru.recoilStartMs = 0;
         ru.recoilDx = 0;
@@ -666,6 +670,15 @@ export class RenderableUnit extends Unit {
         } else if (this.activeAura) {
             this.activeAura.visible = false;
         }
+
+        // Water Shield: a light-blue circulating ring while the once-per-battle absorb buff is up. It keys off
+        // the same synced "Water Shield" buff that applyDamage consumes, so it disappears the frame the shield
+        // breaks. Independent of whose turn it is.
+        if (!this.isDead() && this.hasBuffActive("Water Shield")) {
+            this.updateWaterShieldAura(worldRoot, gs, pos);
+        } else if (this.waterShieldAura) {
+            this.waterShieldAura.visible = false;
+        }
     }
     /**
      * Animated golden aura under the active unit: a soft breathing glow plus staggered rings of
@@ -709,6 +722,55 @@ export class RenderableUnit extends Unit {
             const a = (1 - phase) * 0.55;
             const width = 2 + (1 - phase) * 2.5;
             g.circle(pos.x, pos.y, r).stroke({ color: this.activeAuraColor, alpha: a, width });
+        }
+    }
+    /**
+     * Water Shield aura: a light-blue ring with small dots circulating around the unit, emphasizing that its
+     * once-per-battle absorb shield is up. Pure vector draw (no texture), redrawn each frame from a time-based
+     * phase. Drawn beneath the sprite like the active-turn aura; shown while the "Water Shield" buff is active
+     * and hidden the moment it breaks.
+     */
+    private updateWaterShieldAura(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+        if (!this.waterShieldAura) {
+            this.waterShieldAura = new Graphics();
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            worldRoot.addChild(this.waterShieldAura);
+        } else if (this.waterShieldAura.parent !== worldRoot) {
+            worldRoot.addChild(this.waterShieldAura);
+        }
+        // Sit just beneath the unit so the ring reads as circling around her feet.
+        this.waterShieldAura.zIndex = 4000 - pos.y - 0.55;
+        this.waterShieldAura.visible = true;
+
+        const cell = gs.getCellSize();
+        const isLarge = this.getUnitProperties().size === 2;
+        const ringR = cell * (isLarge ? 0.92 : 0.52);
+        const t = performance.now() / 1000;
+        const color = 0x66ccff; // light blue
+
+        const g = this.waterShieldAura;
+        g.clear();
+
+        // Faint breathing halo.
+        const pulse = 0.5 + 0.5 * Math.sin(t * 2.2);
+        g.circle(pos.x, pos.y, ringR * (1.02 + 0.04 * pulse)).fill({ color, alpha: 0.06 + 0.05 * pulse });
+
+        // The shield ring itself.
+        g.circle(pos.x, pos.y, ringR).stroke({ color, alpha: 0.55, width: 2 });
+
+        // Small dots circulating clockwise around the ring.
+        const dotCount = 8;
+        for (let i = 0; i < dotCount; i++) {
+            const a = (i / dotCount) * Math.PI * 2 + t * 1.4;
+            const dotR = 2.2 + 1.3 * (0.5 + 0.5 * Math.sin(t * 3 + i));
+            g.circle(pos.x + ringR * Math.cos(a), pos.y + ringR * Math.sin(a), dotR).fill({ color, alpha: 0.85 });
+        }
+        // A few inner dots spinning the other way for a watery swirl.
+        const innerCount = 4;
+        for (let i = 0; i < innerCount; i++) {
+            const a = (i / innerCount) * Math.PI * 2 - t * 1.0;
+            const r = ringR * 0.72;
+            g.circle(pos.x + r * Math.cos(a), pos.y + r * Math.sin(a), 1.6).fill({ color, alpha: 0.6 });
         }
     }
     public setBoardSelected(selected: boolean): void {
@@ -960,6 +1022,10 @@ export class RenderableUnit extends Unit {
         if (this.activeAura) {
             this.activeAura.destroy({ children: true });
             this.activeAura = undefined;
+        }
+        if (this.waterShieldAura) {
+            this.waterShieldAura.destroy({ children: true });
+            this.waterShieldAura = undefined;
         }
         this.spawnAnim = undefined;
         this.oneShotAnim = undefined;
