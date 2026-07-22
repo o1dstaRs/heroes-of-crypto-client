@@ -1834,6 +1834,16 @@ export class RenderableUnit extends Unit {
             );
         }
 
+        // Poison Cloud Aura: flat base % + the unit's own luck (luck-dependent though not stack-powered).
+        const poisonCloudAbility = this.getAbility("Poison Cloud Aura");
+        if (poisonCloudAbility) {
+            const percentage = Math.max(0, poisonCloudAbility.getPower() + this.getLuck());
+            this.refreshAbiltyDescription(
+                poisonCloudAbility.getName(),
+                poisonCloudAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
         // Double Punch
         const doublePunchAbility = this.getAbility("Double Punch");
         if (doublePunchAbility) {
@@ -2406,7 +2416,11 @@ export class RenderableUnit extends Unit {
             for (let i = 0; i < this.unitProperties.abilities.length; i++) {
                 if (
                     this.unitProperties.abilities[i] === abilityName &&
-                    (this.unitProperties.abilities_stack_powered[i] || abilityName === "Blind Fury")
+                    // Poison Cloud Aura is not stack-powered but IS luck-dependent, so its description must
+                    // still be refreshed with the live value like the stack-powered ones.
+                    (this.unitProperties.abilities_stack_powered[i] ||
+                        abilityName === "Blind Fury" ||
+                        abilityName === "Poison Cloud Aura")
                 ) {
                     this.unitProperties.abilities_descriptions[i] = abilityDescription;
                 }
