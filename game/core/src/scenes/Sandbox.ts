@@ -231,7 +231,16 @@ export class Sandbox extends PixiScene {
     private splitDragSourceCells: HoCMath.XY[] = [];
     private splitDragTargetCells?: HoCMath.XY[];
     private splitDragAmount = 1;
-    private placementSplitLabel?: Text;
+    // How the active split commits: mouse-up (started by shift+press) vs. the next click (started by Shift
+    // while a stack was already in hand — that drag has no held button to release). Track Shift for the latter.
+    private splitCommitOnClick = false;
+    private shiftHeld = false;
+    // Live preview of the split-off stack (an actual unit with its real team flag), shown at the target.
+    private placementSplitPreviewUnit?: RenderableUnit;
+    // Hover hint ("Shift + drag to split"): rolled once per splittable-unit hover (~1/3 chance).
+    private splitHintText?: Text;
+    private splitHintUnitId?: string;
+    private splitHintRoll = false;
     /** Is there an actual *active* selection (overlay or board)? */
     private hasActiveSelection = false;
     /** True if the active selection came from overlay; false if from board. */
@@ -4214,7 +4223,40 @@ export class Sandbox extends PixiScene {
             const teamAllowedHashes = this.placementManager.getAllowedPlacementCellHashesForTeam(
                 selectedUnit.getTeam(),
             );
-            for (const cell of allowedCells) {
+            // Prefer dropping the new stack right next to the source ("split target"): try anchor cells
+            // adjacent to its footprint first (nearest first), then fall back to the shuffled zone cells.
+            // The boundary + vacancy checks below still filter, so an occupied / out-of-zone adjacent cell
+            // is simply skipped and we move on to the next candidate.
+            const sourceCells = selectedUnit.getCells();
+            const sourceHashes = new Set(sourceCells.map((c) => (c.x << 4) | c.y));
+            const scx = sourceCells.reduce((s, c) => s + c.x, 0) / Math.max(1, sourceCells.length);
+            const scy = sourceCells.reduce((s, c) => s + c.y, 0) / Math.max(1, sourceCells.length);
+            const adjacentAnchors: HoCMath.XY[] = [];
+            const adjSeen = new Set<number>();
+            for (const c of sourceCells) {
+                for (let dx = -1; dx <= 1; dx += 1) {
+                    for (let dy = -1; dy <= 1; dy += 1) {
+                        if (dx === 0 && dy === 0) continue;
+                        const nx = c.x + dx;
+                        const ny = c.y + dy;
+                        if (nx < 0 || ny < 0) continue;
+                        const h = (nx << 4) | ny;
+                        if (sourceHashes.has(h) || adjSeen.has(h)) continue;
+                        adjSeen.add(h);
+                        adjacentAnchors.push({ x: nx, y: ny });
+                    }
+                }
+            }
+            adjacentAnchors.sort((a, b) => (a.x - scx) ** 2 + (a.y - scy) ** 2 - ((b.x - scx) ** 2 + (b.y - scy) ** 2));
+            const orderedCells: HoCMath.XY[] = [];
+            const orderedSeen = new Set<number>();
+            for (const c of [...adjacentAnchors, ...allowedCells]) {
+                const h = (c.x << 4) | c.y;
+                if (orderedSeen.has(h)) continue;
+                orderedSeen.add(h);
+                orderedCells.push(c);
+            }
+            for (const cell of orderedCells) {
                 // 2. Define the full footprint
                 let cellsToOccupy: HoCMath.XY[] = [cell];
                 if (!isSmallUnit) {
@@ -4597,6 +4639,12 @@ export class Sandbox extends PixiScene {
         this.sc_mouseWorld = p;
         if (this.sc_isAnimating) return;
 
+        // A click-committed split (started by Shift after a stack was picked up) drops on this shift-click too.
+        if (this.splitDragActive && this.splitCommitOnClick) {
+            this.finishPlacementSplit();
+            return;
+        }
+
         // During placement, shift-pressing your own placed stack starts a split-drag instead of inspection.
         if (this.tryBeginPlacementSplit(p)) return;
 
@@ -4642,6 +4690,12 @@ export class Sandbox extends PixiScene {
     /** MouseDown from screen coords (already converted to world if needed by caller) */
     public override MouseDown(p: HoCMath.XY): void {
         this.sc_mouseWorld = p;
+
+        // A click-committed split (started by Shift after a stack was picked up) drops on this click.
+        if (this.splitDragActive && this.splitCommitOnClick) {
+            this.finishPlacementSplit();
+            return;
+        }
 
         // --- SPELLBOOK: while the book is open, a click selects a spell or closes the book. ---
         // This is the authoritative spellbook input handler (the stage pointerdown closer was
@@ -8403,8 +8457,23 @@ export class Sandbox extends PixiScene {
             this.updatePlacementSplitFromCursor(p);
             return;
         }
+        // Shift pressed AFTER a stack was click-picked (it's in hand): start the split from it now. This
+        // path commits on the next click, since the in-hand drag has no held button to release.
+        if (
+            this.shiftHeld &&
+            this.placementSplitEnabled() &&
+            !FightStateManager.getInstance().getFightProperties().hasFightStarted()
+        ) {
+            const inHand = this.inHandSplittableUnit();
+            if (inHand) {
+                this.sc_mouseWorld = p;
+                this.beginPlacementSplit(inHand, true);
+                return;
+            }
+        }
         super.MouseMove(p, leftDrag);
         this.updatePlacementBenchToggleHover(p);
+        this.updateSplitHint(p);
         const fightProps = FightStateManager.getInstance().getFightProperties();
         if (fightProps.hasFightStarted()) {
             this.hoverManager.hoverPlacementCell = undefined;
@@ -8440,7 +8509,8 @@ export class Sandbox extends PixiScene {
         this.cancelPlacementSplit();
     }
     public override MouseUp(): void {
-        if (this.splitDragActive) {
+        // Shift+press splits commit on release; in-hand (click-committed) splits wait for the next click.
+        if (this.splitDragActive && !this.splitCommitOnClick) {
             this.finishPlacementSplit();
             return;
         }
@@ -8456,26 +8526,43 @@ export class Sandbox extends PixiScene {
     protected placementSplitEnabled(): boolean {
         return true;
     }
+    private canSplitPlacedUnit(unit: Unit): boolean {
+        // Placed on the board (occupies its own cells), controllable team, >=2 models, and under the team's
+        // placement cap (so a new stack is actually allowed).
+        const isPlaced = unit.getCells().some((c) => this.grid.getOccupantUnitId(c) === unit.getId());
+        return (
+            isPlaced &&
+            this.canSelectUnitForPlacement(unit) &&
+            unit.getAmountAlive() >= 2 &&
+            this.canSplitUnitWithCommonRules(unit)
+        );
+    }
+    private inHandSplittableUnit(): Unit | undefined {
+        // A stack picked up by a normal click-to-place drag (draggingUnitId), if it can still be split.
+        const unit = this.draggingUnitId ? this.unitsHolder.getAllUnits().get(this.draggingUnitId) : undefined;
+        return unit && this.canSplitPlacedUnit(unit) ? unit : undefined;
+    }
     private tryBeginPlacementSplit(p: HoCMath.XY): boolean {
         if (!this.placementSplitEnabled()) return false;
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) return false;
-        const unit = this.getUnitAtPosition(p);
+        // Prefer the stack under the cursor; else fall back to one already in hand (clicked first, then
+        // shift-pressed after the ghost was dragged off the unit). A shift+press commits on release.
+        let unit = this.getUnitAtPosition(p);
+        if (!unit || !this.canSplitPlacedUnit(unit)) unit = this.inHandSplittableUnit();
         if (!unit) return false;
-        // Only a unit already placed on the board (occupying its own cells), controllable, with >=2 models.
-        const cells = unit.getCells();
-        const isPlaced = cells.some((c) => this.grid.getOccupantUnitId(c) === unit.getId());
-        if (!isPlaced) return false;
-        if (!this.canSelectUnitForPlacement(unit)) return false;
-        if (unit.getAmountAlive() < 2) return false;
-        if (!this.canSplitUnitWithCommonRules(unit)) return false;
-
+        this.beginPlacementSplit(unit, false);
+        return true;
+    }
+    private beginPlacementSplit(unit: Unit, commitOnClick: boolean): void {
+        this.clearSplitHint();
         this.splitDragActive = true;
+        this.splitCommitOnClick = commitOnClick;
         this.splitDragSourceId = unit.getId();
-        this.splitDragSourceCells = cells.map((c) => ({ x: c.x, y: c.y }));
+        this.splitDragSourceCells = unit.getCells().map((c) => ({ x: c.x, y: c.y }));
         this.splitDragTargetCells = undefined;
         this.splitDragAmount = 1;
 
-        // Show the source as selected and clear the normal click-to-place drag so the two never mix.
+        // Show the source as selected and clear the normal click-to-place drag (and its ghost) so they never mix.
         if (this.selectedBoardUnit && this.selectedBoardUnit.getId() !== unit.getId()) {
             this.selectedBoardUnit.setBoardSelected(false);
         }
@@ -8486,9 +8573,11 @@ export class Sandbox extends PixiScene {
         this.draggingUnitId = undefined;
         this.draggingUnitTeam = undefined;
         this.hasActiveSelection = false;
+        this.hoverManager.clearHoverSilhouette();
+        this.hoverManager.hoverSelectedCells = undefined;
+        this.hoverManager.hoverSelectedCellsSwitchToRed = false;
 
-        this.updatePlacementSplitFromCursor(p);
-        return true;
+        this.updatePlacementSplitFromCursor(this.sc_mouseWorld ?? unit.getPosition());
     }
     private placementSplitFootprint(cell: HoCMath.XY, isSmall: boolean): HoCMath.XY[] {
         if (isSmall) return [{ x: cell.x, y: cell.y }];
@@ -8515,24 +8604,58 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const isSmall = source.getSize() === 1;
         const footprint = this.placementSplitFootprint(GridMath.getCellForPosition(gs, p), isSmall);
-        // Over a valid empty cell → that cell is (re)selected as the destination and the peel resets toward 1.
-        // Off valid cells → the last destination sticks and the drag distance beyond it sizes the peel.
-        if (this.isValidEmptySplitTarget(footprint, source.getTeam())) {
+        // Lock the destination on the FIRST empty cell the drag reaches (default peel 1 → N-1/1). It stays put
+        // afterwards, so moving the mouse sweeps the ratio instead of re-selecting the cell under the cursor
+        // (the placement zone is almost all empty, so re-selecting would pin the peel at 1 forever).
+        if (!this.splitDragTargetCells && this.isValidEmptySplitTarget(footprint, source.getTeam())) {
             this.splitDragTargetCells = footprint;
         }
+        // Peel scales with how far the cursor is pulled from the locked cell: on it = 1 (N-1/1), ~5 cells out =
+        // all-but-one (1/N-1); pull back toward the cell to peel fewer.
         const maxPeel = Math.max(1, source.getAmountAlive() - 1);
-        if (this.splitDragTargetCells) {
-            const center = GridMath.getPositionForCells(gs, this.splitDragTargetCells);
-            const cellSize = gs.getCellSize();
-            this.splitDragAmount =
-                center && cellSize > 0
-                    ? Math.max(
-                          1,
-                          Math.min(maxPeel, 1 + Math.floor(Math.hypot(p.x - center.x, p.y - center.y) / cellSize)),
-                      )
-                    : 1;
+        const center = this.splitDragTargetCells
+            ? GridMath.getPositionForCells(gs, this.splitDragTargetCells)
+            : undefined;
+        const cellSize = gs.getCellSize();
+        if (center && cellSize > 0) {
+            // Directional sizing: drag UP/RIGHT to peel MORE, DOWN/LEFT to peel FEWER. Radial distance made
+            // opposite directions do the same thing (they "overlapped"), so project the pull from the locked
+            // cell onto the bottom-left→top-right diagonal (world Y is up: mouse-up increases y).
+            const along = (p.x - center.x + (p.y - center.y)) / Math.SQRT2;
+            const t = Math.min(1, Math.max(0, along) / (cellSize * 4));
+            this.splitDragAmount = Math.max(1, Math.min(maxPeel, Math.round(1 + t * (maxPeel - 1))));
         } else {
             this.splitDragAmount = 1;
+        }
+        this.updateSplitPreviewVisual(source);
+    }
+    private updateSplitPreviewVisual(source: Unit): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const alive = source.getAmountAlive();
+        const peel = this.splitDragAmount;
+        // Emphasise the SOURCE's real team flag, showing its projected remaining count (N-k).
+        if (source instanceof RenderableUnit) {
+            source.setBadgeEmphasis(1.6, Math.max(0, alive - peel));
+        }
+        // Render the split-off as an actual preview unit on the destination cell, carrying its own real
+        // team flag (the split count k), also enlarged. It stays purely visual until the drag commits.
+        const center = this.splitDragTargetCells
+            ? GridMath.getPositionForCells(gs, this.splitDragTargetCells)
+            : undefined;
+        if (center) {
+            if (!this.placementSplitPreviewUnit) {
+                this.placementSplitPreviewUnit = this.createSplitRenderableUnit(source, peel);
+            }
+            const preview = this.placementSplitPreviewUnit;
+            if (preview) {
+                preview.setAmountAlive(peel);
+                preview.setBadgeEmphasis(1.6);
+                preview.setPosition(center.x, center.y);
+                preview.ensureVisual(this.drawer.getUnitsContainer(), gs);
+            }
+        } else if (this.placementSplitPreviewUnit) {
+            this.placementSplitPreviewUnit.destroyVisuals();
+            this.placementSplitPreviewUnit = undefined;
         }
     }
     private finishPlacementSplit(): void {
@@ -8550,8 +8673,13 @@ export class Sandbox extends PixiScene {
         if (!this.canSplitUnitWithCommonRules(source)) return false;
         if (!this.isValidEmptySplitTarget(targetCells, source.getTeam())) return false;
 
-        const newUnit = this.createSplitRenderableUnit(source, amount);
+        // Reuse the live preview unit as the real split-off so its already-rendered sprite/flag carry over.
+        const newUnit = this.placementSplitPreviewUnit ?? this.createSplitRenderableUnit(source, amount);
         if (!newUnit) return false;
+        const wasPreview = newUnit === this.placementSplitPreviewUnit;
+        this.placementSplitPreviewUnit = undefined; // consumed — don't let cancelPlacementSplit destroy it
+        newUnit.setAmountAlive(amount);
+        newUnit.clearBadgeEmphasis();
         this.unitsHolder.addUnit(newUnit);
 
         const placementResult = this.createActionEngine().apply({
@@ -8564,10 +8692,12 @@ export class Sandbox extends PixiScene {
         if (!placementResult.completed) {
             // Placement rejected — undo the peel entirely (source is untouched until here).
             this.unitsHolder.deleteUnitById(newUnit.getId());
+            if (wasPreview) newUnit.destroyVisuals();
             return false;
         }
 
         source.setAmountAlive(alive - amount);
+        if (source instanceof RenderableUnit) source.clearBadgeEmphasis();
         this.layoutVersion++;
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
@@ -8577,7 +8707,7 @@ export class Sandbox extends PixiScene {
             placeEvent?.type === "unit_placed" ? placeEvent.position : GridMath.getPositionForCells(gs, targetCells);
         if (placePos) newUnit.setPosition(placePos.x, placePos.y);
         const scale = newUnit.ensureVisual(this.drawer.getUnitsContainer(), gs);
-        if (scale) {
+        if (scale && !wasPreview) {
             newUnit.startSpawnAnimation(scale);
         }
         this.unitsHolder.refreshStackPowerForAllUnits();
@@ -8587,42 +8717,42 @@ export class Sandbox extends PixiScene {
         return true;
     }
     private cancelPlacementSplit(): void {
+        const source = this.splitDragSourceId ? this.unitsHolder.getAllUnits().get(this.splitDragSourceId) : undefined;
+        if (source instanceof RenderableUnit) source.clearBadgeEmphasis();
+        if (this.placementSplitPreviewUnit) {
+            this.placementSplitPreviewUnit.destroyVisuals();
+            this.placementSplitPreviewUnit = undefined;
+        }
         this.splitDragActive = false;
+        this.splitCommitOnClick = false;
         this.splitDragSourceId = undefined;
         this.splitDragSourceCells = [];
         this.splitDragTargetCells = undefined;
         this.splitDragAmount = 1;
-        if (this.placementSplitLabel) {
-            this.placementSplitLabel.visible = false;
-        }
     }
-    private ensurePlacementSplitLabel(): Text {
-        if (!this.placementSplitLabel) {
-            this.placementSplitLabel = new Text({
-                text: "",
-                style: new TextStyle({
-                    fill: 0xffe08a,
-                    fontSize: 18,
-                    fontWeight: "800",
-                    stroke: { color: 0x000000, width: 4, join: "round" },
-                }),
-            });
-            this.placementSplitLabel.anchor.set(0.5);
-            this.placementSplitLabel.scale.y = -1; // world Y is inverted (see RenderableUnit.ensureBadge)
-            this.attachToWorldRoot(this.placementSplitLabel, 2600);
-        }
-        return this.placementSplitLabel;
+    private ensureSplitText(existing: Text | undefined, fontSize: number, fill: number): Text {
+        if (existing) return existing;
+        const t = new Text({
+            text: "",
+            style: new TextStyle({
+                fill,
+                fontSize,
+                fontWeight: "900",
+                stroke: { color: 0x000000, width: 5, join: "round" },
+            }),
+        });
+        t.anchor.set(0.5);
+        t.scale.y = -1; // world Y is inverted (see RenderableUnit.ensureBadge)
+        this.attachToWorldRoot(t, 2650);
+        return t;
     }
     private drawPlacementSplitOverlay(): void {
         const g = this.placementGraphics;
-        if (!g || !this.splitDragActive) {
-            if (this.placementSplitLabel) this.placementSplitLabel.visible = false;
-            return;
-        }
+        if (!g || !this.splitDragActive) return;
         const gs = this.sc_sceneSettings.getGridSettings();
         const size = gs.getCellSize();
         const half = size / 2;
-        const drawCells = (cells: HoCMath.XY[], color: number, fillAlpha: number): void => {
+        const outline = (cells: HoCMath.XY[], color: number, fillAlpha: number): void => {
             for (const c of cells) {
                 const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
                 g.rect(pos.x - half + 1, pos.y - half + 1, size - 2, size - 2)
@@ -8630,19 +8760,41 @@ export class Sandbox extends PixiScene {
                     .fill({ color, alpha: fillAlpha });
             }
         };
-        // Green = where it peels FROM; gold = where the new stack lands.
-        if (this.splitDragSourceCells.length) drawCells(this.splitDragSourceCells, 0x39d353, 0.16);
-        if (this.splitDragTargetCells) drawCells(this.splitDragTargetCells, 0xffcc33, 0.28);
-
-        const source = this.splitDragSourceId ? this.unitsHolder.getAllUnits().get(this.splitDragSourceId) : undefined;
-        const alive = source ? source.getAmountAlive() : 0;
-        const peel = this.splitDragAmount;
-        const label = this.ensurePlacementSplitLabel();
-        label.text = `${Math.max(0, alive - peel)} / ${peel}`;
-        const anchorCells = this.splitDragTargetCells ?? this.splitDragSourceCells;
-        const anchor = anchorCells.length ? GridMath.getPositionForCells(gs, anchorCells) : this.sc_mouseWorld;
-        if (anchor) label.position.set(anchor.x, anchor.y + size * 0.9);
-        label.visible = true;
+        // Green = where it peels FROM; gold = where the new stack lands. The stacks' own enlarged team
+        // flags (source N-k, preview k) carry the amounts — see updateSplitPreviewVisual.
+        outline(this.splitDragSourceCells, 0x39d353, 0.14);
+        if (this.splitDragTargetCells) outline(this.splitDragTargetCells, 0xffcc33, 0.16);
+    }
+    private updateSplitHint(p: HoCMath.XY): void {
+        if (!this.placementSplitEnabled() || FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            this.clearSplitHint();
+            return;
+        }
+        const unit = this.getUnitAtPosition(p);
+        if (!unit || !this.canSplitPlacedUnit(unit)) {
+            this.clearSplitHint();
+            return;
+        }
+        // Roll once per newly-hovered splittable unit (~1/3 chance) so the hint teaches without nagging.
+        if (unit.getId() !== this.splitHintUnitId) {
+            this.splitHintUnitId = unit.getId();
+            this.splitHintRoll = Math.random() < 0.33;
+        }
+        if (!this.splitHintRoll) {
+            if (this.splitHintText) this.splitHintText.visible = false;
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const pos = unit.getPosition();
+        this.splitHintText = this.ensureSplitText(this.splitHintText, 20, 0xffe08a);
+        this.splitHintText.text = "⇧ Shift + drag to split";
+        this.splitHintText.position.set(pos.x, pos.y + gs.getCellSize() * (unit.getSize() === 2 ? 1.35 : 0.95));
+        this.splitHintText.visible = true;
+    }
+    private clearSplitHint(): void {
+        this.splitHintUnitId = undefined;
+        this.splitHintRoll = false;
+        if (this.splitHintText) this.splitHintText.visible = false;
     }
     protected updateUnitsOverlayVisibility(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -8727,6 +8879,7 @@ export class Sandbox extends PixiScene {
         window.removeEventListener("keyup", this.handleKeyUp);
     }
     private handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Shift") this.shiftHeld = true;
         if (e.key === "Alt" || e.code === "AltLeft" || e.code === "AltRight") {
             const fightProps = FightStateManager.getInstance().getFightProperties();
             if (!fightProps.hasFightStarted()) {
@@ -8735,6 +8888,7 @@ export class Sandbox extends PixiScene {
         }
     };
     private handleKeyUp = (e: KeyboardEvent) => {
+        if (e.key === "Shift") this.shiftHeld = false;
         if (e.key === "Alt") {
             this.unitsOverlay.setShowAllAmounts(false);
         }

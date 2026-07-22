@@ -186,6 +186,9 @@ export class RenderableUnit extends Unit {
     private isActiveTurn = false;
     private isDestroyed = false;
     private visualMode: "normal" | "hidden" | "ghost" | "revealed" = "normal";
+    // Split preview: temporarily enlarge the count badge and (optionally) show a projected amount.
+    private badgeEmphasisScale = 1;
+    private badgeAmountOverride?: number;
     // Grayscale filter for the "revealed" mode (ranked placement: opponent roster shown in B&W).
     // Created lazily, reused for the unit's lifetime.
     private desaturateFilter?: ColorMatrixFilter;
@@ -244,6 +247,8 @@ export class RenderableUnit extends Unit {
         ru.visualMode = "normal";
         // fromBase() bypasses the constructor (it re-prototypes an existing Unit), so class field
         // defaults never run — initialise every added field explicitly or it stays `undefined`.
+        ru.badgeEmphasisScale = 1;
+        ru.badgeAmountOverride = undefined;
         ru.activeAura = undefined;
         ru.waterShieldAura = undefined;
         ru.suppressActiveAura = false;
@@ -1041,6 +1046,14 @@ export class RenderableUnit extends Unit {
         this.boardSelected = false;
         this.selectionAnimFrames = undefined;
     }
+    public setBadgeEmphasis(scale: number, amountOverride?: number): void {
+        this.badgeEmphasisScale = scale;
+        this.badgeAmountOverride = amountOverride;
+    }
+    public clearBadgeEmphasis(): void {
+        this.badgeEmphasisScale = 1;
+        this.badgeAmountOverride = undefined;
+    }
     private ensureBadge(worldRoot: Container, gs: GridSettings, props: UnitProperties, pos: HoCMath.XY): void {
         if (!this.badgeContainer) {
             this.badgeContainer = new Container();
@@ -1065,7 +1078,7 @@ export class RenderableUnit extends Unit {
             worldRoot.addChild(this.badgeContainer);
         }
         const iconSide = gs.getCellSize() * this.visualScaleMultiplier;
-        const amount = this.getAmountAlive();
+        const amount = this.badgeAmountOverride ?? this.getAmountAlive();
         const flag = this.badgeFlag!;
         const text = this.badgeText!;
         const container = this.badgeContainer!;
@@ -1125,6 +1138,7 @@ export class RenderableUnit extends Unit {
         const offsetY = h * 0.5 - margin;
         container.x = pos.x + offsetX;
         container.y = pos.y + offsetY;
+        container.scale.set(this.badgeEmphasisScale, this.badgeEmphasisScale);
         container.visible = amount > 0 || isRevealed;
     }
     private ensureHourglassIndicator(
