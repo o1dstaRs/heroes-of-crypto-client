@@ -769,7 +769,7 @@ export const createLocalModelActions = (options: LocalModelActionOptions): Local
     }
 
     if (
-        fightProperties.getTeamUnitsAlive(activeUnit.getTeam()) > 1 &&
+        fightProperties.hasUnactedTeammate(activeUnit.getTeam(), activeUnitId, unitsHolder.getAllUnits()) &&
         !fightProperties.hourglassIncludes(activeUnitId) &&
         !fightProperties.hasAlreadyMadeTurn(activeUnitId) &&
         !fightProperties.hasAlreadyHourglass(activeUnitId)

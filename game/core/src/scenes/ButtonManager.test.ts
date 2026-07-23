@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import type { GameAction, Unit } from "@heroesofcrypto/common";
+import { FightStateManager, type GameAction, type Unit } from "@heroesofcrypto/common";
 
 import { ButtonManager, type ISandboxButtonContext } from "./ButtonManager";
 import { VisibleButtonState, type IVisibleButton } from "./VisibleState";
@@ -40,6 +40,7 @@ const makeContext = (over: Partial<ISandboxButtonContext> = {}): { ctx: ISandbox
         setSpellBookOverlay: () => {},
         isInputLockedByAI: () => false,
         canControlCurrentActiveUnit: () => true,
+        hasUnactedTeammateInCurrentLap: () => false,
         getVisibleState: () => undefined,
         ...over,
     };
@@ -132,5 +133,42 @@ describe("ButtonManager AI toggle", () => {
 
         expect(rec.aiActive).toEqual([]);
         expect(bm.sc_isAIActive).toBe(true);
+    });
+});
+
+describe("ButtonManager hourglass eligibility", () => {
+    const checkHourglass = (manager: ButtonManager): boolean =>
+        (
+            manager as unknown as {
+                checkHourglassCondition: () => boolean;
+            }
+        ).checkHourglassCondition();
+
+    it("disables hourglass when the active unit is its team's last unacted unit this lap", () => {
+        FightStateManager.getInstance().reset();
+        FightStateManager.getInstance().getFightProperties().startFight();
+        let activeUnit: Unit | undefined;
+        const { ctx } = makeContext({
+            getCurrentActiveUnit: () => activeUnit,
+            hasUnactedTeammateInCurrentLap: () => false,
+        });
+        const manager = new ButtonManager(ctx, false);
+        activeUnit = makeUnit();
+
+        expect(checkHourglass(manager)).toBe(false);
+    });
+
+    it("allows hourglass while another teammate still has a turn pending this lap", () => {
+        FightStateManager.getInstance().reset();
+        FightStateManager.getInstance().getFightProperties().startFight();
+        let activeUnit: Unit | undefined;
+        const { ctx } = makeContext({
+            getCurrentActiveUnit: () => activeUnit,
+            hasUnactedTeammateInCurrentLap: () => true,
+        });
+        const manager = new ButtonManager(ctx, false);
+        activeUnit = makeUnit();
+
+        expect(checkHourglass(manager)).toBe(true);
     });
 });
