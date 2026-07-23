@@ -124,6 +124,33 @@ interface IFireSweep {
     particles: IFireParticle[];
 }
 
+interface IForgeSpark {
+    gfx: Graphics;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number; // world px/s; gravity drags the spark back down after it flies off the anvil
+    age: number;
+    life: number;
+}
+
+interface ICraftForge {
+    container: Container;
+    anvil: Sprite;
+    hammer: Sprite;
+    sparks: IForgeSpark[];
+    anvilBaseY: number;
+    contactY: number; // hammer.y at the bottom of the swing (head resting on the anvil surface)
+    raise: number; // how far the hammer lifts between strikes (world px)
+    contactX: number;
+    cellSize: number;
+    age: number; // seconds since spawn
+    life: number; // total seconds of the cast animation
+    cycle: number; // seconds per hammer strike
+    impactsDone: number; // strikes whose sparks have already fired
+    impactFlash: number; // 0..1, set to 1 on each strike then decays (anvil recoil)
+}
+
 interface IChainBolt {
     gfx: Graphics;
     from: HoCMath.XY;
@@ -290,6 +317,9 @@ const WINDSPEAR_TRAIL_SPACING = 0.32; // gap (cells) between successive trail or
 // angle, then it fades while a few droplets of blood drip down. An irregular, tapered, slightly-curved
 // shape (not a clean line) reads as an open wound rather than a drawn stroke.
 const SLASH_Z = 2050; // over the unit sprite (~1000), about level with the damage numbers
+const CRAFT_Z = 2060; // Craft's anvil/hammer, just over the slash layer
+const CRAFT_FORGE_LIFE = 3.0; // seconds — the full Craft cast animation
+const CRAFT_STRIKE_CYCLE = 0.65; // seconds per hammer strike (~4 strikes across the cast)
 const SLASH_WOUND_LIFE = 0.5; // seconds the gash itself stays before it has faded
 const SLASH_DROP_LIFE = 0.85; // a blood droplet's max life as it drips and fades
 const SLASH_GRAVITY = 1000; // world px/s^2 pulling droplets down (the drip)
@@ -377,6 +407,7 @@ export class CombatVisuals {
     private slashes: ISlash[] = [];
     private clawSlashes: IClawSlash[] = [];
     private debuffPops: IDebuffPop[] = [];
+    private craftForges: ICraftForge[] = [];
     private abilitySteals: IAbilitySteal[] = [];
     private debuffStyle?: TextStyle;
     private buffStyle?: TextStyle;
@@ -988,6 +1019,9 @@ export class CombatVisuals {
             driftX: 0,
             driftY: 0,
         });
+        // Warm the Craft forge textures so the first cast's anvil/hammer don't pop in a frame late.
+        Texture.from(images.craft_anvil);
+        Texture.from(images.craft_hammer);
     }
     /** Destroy all floating numbers immediately (e.g. on fight end / restart). */
     public clear(): void {
@@ -1032,6 +1066,10 @@ export class CombatVisuals {
             claw.container.destroy({ children: true });
         }
         this.clawSlashes.length = 0;
+        for (const forge of this.craftForges) {
+            forge.container.destroy({ children: true });
+        }
+        this.craftForges.length = 0;
     }
     public update(dt: number) {
         for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
@@ -1107,6 +1145,7 @@ export class CombatVisuals {
         this.stepAbilitySteals(dt);
         this.stepSlashes(dt);
         this.stepClawSlashes(dt);
+        this.stepCraftForges(dt);
     }
     /**
      * "Broken mirror" death effect: slice the unit's current texture into a grid of shards that
@@ -1908,6 +1947,150 @@ export class CombatVisuals {
             if (!anyPending) {
                 cloud.container.destroy({ children: true });
                 this.poisonClouds.splice(i, 1);
+            }
+        }
+    }
+    /**
+     * Blacksmith's Craft cast: a runed anvil appears at `center` and an ornate hammer (rotated so its head
+     * points down at the anvil, handle raised) slams onto it ~4 times over CRAFT_FORGE_LIFE seconds, each
+     * strike throwing a burst of sparks and jolting the anvil. Purely cosmetic; self-cleans when it ends.
+     */
+    public spawnCraftForge(center: HoCMath.XY, cellSize: number): void {
+        const container = new Container();
+        this.context.attachToWorldRoot(container, CRAFT_Z);
+
+        const anvilTex = Texture.from(images.craft_anvil);
+        const hammerTex = Texture.from(images.craft_hammer);
+
+        const anvil = new Sprite(anvilTex);
+        anvil.anchor.set(0.5, 0.5);
+        const anvilW = cellSize * 1.7;
+        anvil.width = anvilW;
+        anvil.height = anvilW * ((anvilTex.height || 1) / (anvilTex.width || 1));
+        const anvilBaseY = center.y + cellSize * 0.28;
+        anvil.position.set(center.x, anvilBaseY);
+        const anvilTop = anvilBaseY - anvil.height * 0.5;
+
+        // Rotate the hammer PI so its head points DOWN at the anvil and the handle rises above — a clear
+        // striking pose. The anchor sits at the head, so animating the anchor's Y drops the head onto the
+        // anvil and lifts it back up between strikes.
+        const hammer = new Sprite(hammerTex);
+        hammer.anchor.set(0.5, 0.08);
+        hammer.rotation = Math.PI;
+        const hammerH = cellSize * 1.6;
+        hammer.height = hammerH;
+        hammer.width = hammerH * ((hammerTex.width || 1) / (hammerTex.height || 1));
+        const contactX = center.x + cellSize * 0.04;
+        const contactY = anvilTop + cellSize * 0.12;
+        hammer.position.set(contactX, contactY);
+
+        container.addChild(anvil, hammer);
+        container.alpha = 0;
+
+        this.craftForges.push({
+            container,
+            anvil,
+            hammer,
+            sparks: [],
+            anvilBaseY,
+            contactY,
+            raise: cellSize * 0.9,
+            contactX,
+            cellSize,
+            age: 0,
+            life: CRAFT_FORGE_LIFE,
+            cycle: CRAFT_STRIKE_CYCLE,
+            impactsDone: 0,
+            impactFlash: 0,
+        });
+    }
+    private spawnForgeSparks(forge: ICraftForge): void {
+        const count = 11;
+        for (let k = 0; k < count; k++) {
+            const gfx = new Graphics();
+            const r = forge.cellSize * (0.02 + Math.random() * 0.035);
+            const color = Math.random() < 0.5 ? 0xfff2a0 : 0xffab36;
+            gfx.circle(0, 0, r).fill({ color, alpha: 1 });
+            gfx.blendMode = "add";
+            gfx.position.set(forge.contactX, forge.contactY);
+            forge.container.addChild(gfx);
+            const ang = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.95; // fan upward off the anvil
+            const spd = forge.cellSize * (1.6 + Math.random() * 2.8);
+            forge.sparks.push({
+                gfx,
+                x: forge.contactX,
+                y: forge.contactY,
+                vx: Math.cos(ang) * spd,
+                vy: Math.sin(ang) * spd,
+                age: 0,
+                life: 0.34 + Math.random() * 0.28,
+            });
+        }
+    }
+    private stepCraftForges(dt: number): void {
+        const easeIn = (x: number): number => x * x * x;
+        for (let i = this.craftForges.length - 1; i >= 0; i--) {
+            const forge = this.craftForges[i];
+            forge.age += dt;
+            const t = forge.age / forge.life;
+            if (t >= 1) {
+                forge.container.destroy({ children: true });
+                this.craftForges.splice(i, 1);
+                continue;
+            }
+
+            // Group fade: in over the first 0.2s, hold, out over the last 0.35s.
+            let groupAlpha = 1;
+            if (forge.age < 0.2) {
+                groupAlpha = forge.age / 0.2;
+            } else if (t > 0.88) {
+                groupAlpha = 1 - (t - 0.88) / 0.12;
+            }
+            forge.container.alpha = Math.max(0, Math.min(1, groupAlpha));
+
+            // Hammer swing: rise for the first 55% of a cycle, slam (accelerating) to the anvil by 75%,
+            // then rest on the anvil until the next cycle. Impact lands at phase 0.75.
+            const phase = (forge.age % forge.cycle) / forge.cycle;
+            let raiseAmt: number;
+            if (phase < 0.55) {
+                raiseAmt = easeOutCubic(phase / 0.55);
+            } else if (phase < 0.75) {
+                raiseAmt = 1 - easeIn((phase - 0.55) / 0.2);
+            } else {
+                raiseAmt = 0;
+            }
+            forge.hammer.y = forge.contactY - raiseAmt * forge.raise;
+
+            // Fire sparks the first frame each strike lands (age past (n + 0.75) * cycle).
+            const impactsOccurred =
+                forge.age >= 0.75 * forge.cycle ? Math.floor((forge.age - 0.75 * forge.cycle) / forge.cycle) + 1 : 0;
+            if (impactsOccurred > forge.impactsDone && groupAlpha > 0.4) {
+                forge.impactsDone = impactsOccurred;
+                forge.impactFlash = 1;
+                this.spawnForgeSparks(forge);
+            }
+
+            // Anvil recoil: a quick downward jolt on impact that springs back.
+            if (forge.impactFlash > 0) {
+                forge.impactFlash = Math.max(0, forge.impactFlash - dt * 6);
+            }
+            forge.anvil.y = forge.anvilBaseY + forge.impactFlash * forge.cellSize * 0.05;
+
+            // Advance sparks (upward burst dragged down by gravity, fading out).
+            const gravity = forge.cellSize * 9;
+            for (let s = forge.sparks.length - 1; s >= 0; s--) {
+                const sp = forge.sparks[s];
+                sp.age += dt;
+                if (sp.age >= sp.life) {
+                    sp.gfx.destroy();
+                    forge.sparks.splice(s, 1);
+                    continue;
+                }
+                sp.vy += gravity * dt;
+                sp.x += sp.vx * dt;
+                sp.y += sp.vy * dt;
+                sp.gfx.position.set(sp.x, sp.y);
+                sp.gfx.alpha = 1 - sp.age / sp.life;
             }
         }
     }

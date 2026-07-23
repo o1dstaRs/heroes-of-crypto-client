@@ -4724,6 +4724,18 @@ export class Sandbox extends PixiScene {
 
             // --- SPELL CASTING (single-target): a spell is armed, so this click chooses the target. ---
             if (this.currentActiveSpell && this.currentActiveUnit) {
+                // Area-target spells (Craft) resolve to a CELL, not a unit: cast on the clicked 2x2.
+                if (this.currentActiveSpell.getSpellTargetType() === SpellTargetType.ALLIES_AREA) {
+                    const areaCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), p);
+                    if (areaCell && this.castAreaSpellAtCell(areaCell)) {
+                        return;
+                    }
+                    // Off-grid click — cancel the armed spell.
+                    this.currentActiveSpell = undefined;
+                    this.sc_sceneLog.updateLog("Spell cancelled");
+                    this.buttonManager.refreshButtons(true);
+                    return;
+                }
                 const spellTarget = this.getUnitAtPosition(p);
                 if (spellTarget && !spellTarget.isDead()) {
                     if (this.castSpellOnTarget(spellTarget)) {
@@ -5192,7 +5204,11 @@ export class Sandbox extends PixiScene {
             targetType === SpellTargetType.ALL_ALLIES ||
             targetType === SpellTargetType.ALL_ENEMIES;
 
-        if (!isSingleTarget) {
+        // Area-target spells (ALLIES_AREA: Craft) arm like single-target spells, but the next board
+        // click resolves to a CELL — the top-left of the 2x2 footprint — rather than a unit.
+        const isAreaTarget = targetType === SpellTargetType.ALLIES_AREA;
+
+        if (!isSingleTarget && !isAreaTarget) {
             this.closeSpellBook();
             if (isMassOrSummon && this.currentActiveUnit instanceof RenderableUnit) {
                 // Mass-cast / summon spells apply immediately (no target click needed).
@@ -5312,6 +5328,110 @@ export class Sandbox extends PixiScene {
 
         this.cleanupAfterSpell(result.events, unitSnapshot);
         return true;
+    }
+    /**
+     * Cast the currently-armed area spell (ALLIES_AREA: Craft) on the clicked cell. The engine reads
+     * `targetCell` as the top-left of the 2x2 footprint, resolves the allies inside it, and applies
+     * the per-unit Craft outcome. Returns true if the cast was applied (turn finished), false if the
+     * engine rejected it (e.g. insufficient stack power).
+     */
+    private castAreaSpellAtCell(cell: HoCMath.XY): boolean {
+        const caster = this.currentActiveUnit;
+        const spell = this.currentActiveSpell;
+        if (!spell || !caster) {
+            return false;
+        }
+
+        // Snapshot each ally inside the 2x2 BEFORE the cast (abilities + stun state) so we can diff the
+        // per-unit Craft outcome afterwards and pop an explicit result over every affected ally.
+        const before = this.snapshotCraftTargets(cell, caster);
+        const casterPos = { ...caster.getPosition() };
+
+        const action: GameAction = {
+            type: "cast_spell",
+            casterId: caster.getId(),
+            spellName: spell.getName(),
+            targetCell: cell,
+        };
+        if (this.shouldDeferActionToAuthoritativeReplay(action)) {
+            return this.submitActionForAuthoritativeReplay(action);
+        }
+        const unitSnapshot = this.snapshotRenderableUnits();
+        const result = this.createActionEngine().apply(action);
+        if (!result.completed) {
+            this.sc_sceneLog.updateLog(`Cannot cast ${spell.getName()} here`);
+            return false;
+        }
+
+        // Play the 3-second forge cast (anvil + hammer strikes) over the Blacksmith, then reveal each
+        // ally's crafted result near the end of it ("very explicit — what each unit got after the craft").
+        this.combatVisuals?.spawnCraftForge(casterPos, this.sc_sceneSettings.getGridSettings().getCellSize());
+        this.cleanupAfterSpell(result.events, unitSnapshot);
+        setTimeout(() => this.popCraftResults(before), 2200);
+        return true;
+    }
+    /**
+     * Capture the pre-cast state (ability names + whether already stunned) of every distinct ally occupying
+     * the Craft 2x2 whose top-left is `cell`. Keyed by unit id so a large (2x2) ally is captured once.
+     */
+    private snapshotCraftTargets(
+        cell: HoCMath.XY,
+        caster: Unit,
+    ): Map<string, { abilities: Set<string>; stunned: boolean }> {
+        const areaCells: HoCMath.XY[] = [
+            cell,
+            { x: cell.x + 1, y: cell.y },
+            { x: cell.x, y: cell.y + 1 },
+            { x: cell.x + 1, y: cell.y + 1 },
+        ];
+        const before = new Map<string, { abilities: Set<string>; stunned: boolean }>();
+        for (const c of areaCells) {
+            const id = this.grid.getOccupantUnitId(c);
+            if (!id || before.has(id)) {
+                continue;
+            }
+            const unit = this.unitsHolder.getAllUnits().get(id);
+            if (!unit || unit.getTeam() !== caster.getTeam()) {
+                continue;
+            }
+            before.set(id, {
+                abilities: new Set(unit.getAbilities().map((a) => a.getName())),
+                stunned: unit.hasEffectActive("Stun"),
+            });
+        }
+        return before;
+    }
+    /**
+     * Pop an explicit icon+label over each Craft target showing what it received: the granted weapon
+     * (Crafted Double / Frozen — green buff pop), a fresh Stun (violet debuff pop), or "No effect" for a
+     * failed craft. Driven by diffing post-cast state against the pre-cast snapshot.
+     */
+    private popCraftResults(before: Map<string, { abilities: Set<string>; stunned: boolean }>): void {
+        let stackIndex = 0;
+        for (const [id, prev] of before) {
+            const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
+            if (!unit || unit.isDead()) {
+                continue;
+            }
+            const gained = unit
+                .getAbilities()
+                .map((a) => a.getName())
+                .find((name) => name.startsWith("Crafted ") && !prev.abilities.has(name));
+            if (gained) {
+                const tex = this.texAny(AbilityHelper.abilityToTextureName(gained));
+                if (tex) {
+                    this.combatVisuals?.spawnDebuffPop(unit.getPosition(), tex, gained, stackIndex, "buff");
+                }
+            } else if (!prev.stunned && unit.hasEffectActive("Stun")) {
+                this.popEffectOnUnit(unit, "Stun", stackIndex, "debuff");
+            } else {
+                const tex = this.texAny(AbilityHelper.abilityToTextureName("Craft"));
+                if (tex) {
+                    this.combatVisuals?.spawnDebuffPop(unit.getPosition(), tex, "No effect", stackIndex, "debuff");
+                }
+            }
+            stackIndex++;
+        }
     }
     /**
      * Shared post-cast cleanup: remove units killed by the spell, refresh stacks, clear the
@@ -9246,6 +9366,45 @@ export class Sandbox extends PixiScene {
             hoveredUnitMoveRangeIsEnemy: this.sc_hoveredMoveRangeIsEnemy,
             enemyTurnView: this.isEnemyActiveTurn(),
         });
+
+        // Craft (ALLIES_AREA) aim preview: while armed, highlight the 2x2 that a click would craft.
+        this.drawCraftAim(g);
+    }
+    /**
+     * While Craft is armed, preview the 2x2 footprint under the cursor. The clicked cell is the block's
+     * top-left, so it extends one cell right (+x) and one down (+y) — matching craftCast in the engine.
+     * Cells holding an ally (the ones that will actually be crafted) pulse brighter than empty cells.
+     */
+    private drawCraftAim(g: Graphics): void {
+        const spell = this.currentActiveSpell;
+        if (!spell || spell.getSpellTargetType() !== SpellTargetType.ALLIES_AREA) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const origin = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
+        if (!origin) {
+            return;
+        }
+        const cells: HoCMath.XY[] = [
+            origin,
+            { x: origin.x + 1, y: origin.y },
+            { x: origin.x, y: origin.y + 1 },
+            { x: origin.x + 1, y: origin.y + 1 },
+        ];
+        const size = gs.getCellSize();
+        const half = size / 2;
+        const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2;
+        const casterTeam = this.currentActiveUnit?.getTeam();
+        for (const c of cells) {
+            const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+            const occupantId = this.grid.getOccupantUnitId(c);
+            const occupant = occupantId ? this.unitsHolder.getAllUnits().get(occupantId) : undefined;
+            const isAlly = !!occupant && !occupant.isDead() && occupant.getTeam() === casterTeam;
+            const fillAlpha = isAlly ? 0.28 + 0.14 * pulse : 0.1;
+            g.rect(pos.x - half + 1, pos.y - half + 1, size - 2, size - 2)
+                .fill({ color: 0x49b6ff, alpha: fillAlpha })
+                .stroke({ width: 2, color: 0x9fe0ff, alpha: 0.7 });
+        }
     }
     private snapshotRenderableUnits(): Map<string, RenderableUnit> {
         const snapshot = new Map<string, RenderableUnit>();
