@@ -241,7 +241,7 @@ describe("authoritative ranged projectile plan", () => {
         expect(resolveRangeProjectilePlaybackPosition(impact, false)).toEqual({ x: 320, y: 480 });
     });
 
-    it("keeps Through Shot to exactly one aimed-edge projectile despite pierced animations", () => {
+    it("keeps a single Through Shot to exactly one aimed-edge projectile despite legacy extra animations", () => {
         const plan = resolveRangeProjectileImpactPlan(
             event({
                 damageUnitId: "first-pierced-unit",
@@ -254,13 +254,43 @@ describe("authoritative ranged projectile plan", () => {
             "requested",
             ATTACKER_POSITION,
             true,
-            true,
+            false,
         );
 
         expect(plan).toEqual([
             {
                 targetUnitId: "requested",
                 targetPosition: { x: 850, y: 720 },
+                intercepted: false,
+            },
+        ]);
+    });
+
+    it("emits two aimed-edge projectiles for an authoritative Through Shot double volley", () => {
+        const secondVolleyPosition = { x: 850, y: 720 };
+        const plan = resolveRangeProjectileImpactPlan(
+            event({
+                damageUnitId: "last-pierced-unit",
+                animations: [
+                    outgoing("last-pierced-unit", secondVolleyPosition),
+                    outgoing("last-survivor", secondVolleyPosition),
+                ],
+            }),
+            "requested",
+            ATTACKER_POSITION,
+            true,
+            true,
+        );
+
+        expect(plan).toEqual([
+            {
+                targetUnitId: "requested",
+                targetPosition: secondVolleyPosition,
+                intercepted: false,
+            },
+            {
+                targetUnitId: "requested",
+                targetPosition: secondVolleyPosition,
                 intercepted: false,
             },
         ]);

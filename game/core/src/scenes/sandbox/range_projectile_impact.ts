@@ -56,7 +56,8 @@ const hasLegacyDoubleShotEvidence = (
  * retain shot one's and shot two's distinct victims. A ranged retaliation targets the original
  * attacker and is excluded. Modern events also carry fromPosition, which protects against a response
  * intercepted by a third unit; old journals fall back to first/last ordering only with double-shot
- * evidence. Through Shot always remains one projectile travelling to the requested aim.
+ * evidence. Through Shot travels to the requested aim once per authoritative volley, including a
+ * second Double Shot / Crafted Double Shot volley when the engine records one.
  */
 export function resolveRangeProjectileImpactPlan(
     attackEvent: UnitAttackedEvent,
@@ -69,13 +70,15 @@ export function resolveRangeProjectileImpactPlan(
     const requestedAnimation = animations.find((animation) => animation.affectedUnitId === requestedTargetId);
 
     if (throughShot) {
-        return [
-            {
-                targetUnitId: requestedTargetId,
-                targetPosition: clonePosition((requestedAnimation ?? animations[0])?.toPosition),
-                intercepted: false,
-            },
-        ];
+        const sourcedVolleys = animations.filter((animation) => samePosition(animation.fromPosition, attackerPosition));
+        const recordedVolleys = sourcedVolleys.length ? sourcedVolleys : animations;
+        const volleyCount = Math.max(1, Math.min(doubleShot ? 2 : 1, recordedVolleys.length));
+        const aimedEdge = (requestedAnimation ?? recordedVolleys[0])?.toPosition;
+        return Array.from({ length: volleyCount }, (_, index) => ({
+            targetUnitId: requestedTargetId,
+            targetPosition: clonePosition(aimedEdge ?? recordedVolleys[index]?.toPosition),
+            intercepted: false,
+        }));
     }
 
     const nonResponseAnimations = animations.filter((animation) => animation.affectedUnitId !== attackEvent.attackerId);

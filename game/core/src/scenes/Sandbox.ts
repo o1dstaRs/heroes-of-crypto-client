@@ -2798,8 +2798,8 @@ export class Sandbox extends PixiScene {
             // intercepts the shot before the aimed target, the damage lands on that intercepting unit —
             // the authoritative engine records each outgoing shot's victim in its ordered animation.
             // Fire each projectile at THAT unit so it visually stops where the damage lands, instead of
-            // flying to the aimed target behind it. Through Shot pierces everyone, so it remains one
-            // projectile travelling to the aimed edge.
+            // flying to the aimed target behind it. Through Shot pierces everyone, so each recorded
+            // volley travels to the aimed edge rather than stopping on a pierced stack.
             const throughShot = attacker.hasAbilityActive("Through Shot");
             const projectilePlan = resolveRangeProjectileImpactPlan(
                 attackEvent,
