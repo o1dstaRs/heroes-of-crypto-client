@@ -398,6 +398,11 @@ export class Sandbox extends PixiScene {
             getSelectedUnitProperties: () => this.sc_selectedUnitProperties,
             updateSelectedUnitProperties: (p) => {
                 this.sc_selectedUnitProperties = p;
+                // Keep the buff/debuff impact in lockstep with the stats. CombatVisuals refreshes the
+                // selected unit on every damage tick (showDamageVisualsFromDiff); without rebuilding the
+                // impact here the left sidebar's Debuffs freeze at selection time and show stale/phantom
+                // effects (e.g. a Dismorale cleared at the lap flip, or an expired Freeze) as the fight runs.
+                this.setSelectedUnitProperties(p);
             },
             setUnitPropertiesUpdateNeeded: (b) => {
                 this.sc_unitPropertiesUpdateNeeded = b;
@@ -1550,13 +1555,16 @@ export class Sandbox extends PixiScene {
         const selected = this.sc_selectedUnitProperties;
         if (!selected || teamType === TeamVals.NO_TEAM) return undefined;
         const unit = Unit.createUnit(
-            // we need to re-create unitProperties with the right team
-            {
+            // Deep-clone so each created unit OWNS its arrays. A shallow { ...selected } shares the nested
+            // arrays (abilities, effects, spells, applied_*) with `selected` and with every other unit
+            // built from the same selection, so a per-unit mutation like grantAbility (Craft's frozen
+            // weapon) leaks onto all of them — e.g. one crafted Frozen Bow showing on all 4 elves.
+            structuredClone({
                 ...selected,
                 id: HoCLib.createSecureUuid(),
                 team: teamType,
                 ...(amount !== undefined && amount > 0 ? { amount_alive: amount } : {}),
-            },
+            }),
             this.sc_sceneSettings.getGridSettings(),
             teamType,
             UnitVals.CREATURE,
@@ -1627,7 +1635,10 @@ export class Sandbox extends PixiScene {
         }
         const sourceProperties = sourceUnit.getUnitProperties();
         const baseUnit = Unit.createUnit(
-            {
+            // Deep-clone so the split-off unit OWNS its arrays instead of sharing them with the source
+            // stack — otherwise a per-unit grantAbility (e.g. a crafted Frozen Bow) on either one would
+            // leak onto the other (and every other split of the same source).
+            structuredClone({
                 ...sourceProperties,
                 id: HoCLib.createSecureUuid(),
                 team: sourceUnit.getTeam(),
@@ -1635,7 +1646,7 @@ export class Sandbox extends PixiScene {
                 amount_alive: amount,
                 amount_died: 0,
                 attack_type_selected: sourceProperties.attack_type,
-            },
+            }),
             this.sc_sceneSettings.getGridSettings(),
             sourceUnit.getTeam(),
             UnitVals.CREATURE,
@@ -1964,7 +1975,8 @@ export class Sandbox extends PixiScene {
     }
     private createRenderableUnitFromSceneState(unitState: SandboxSceneUnitState): RenderableUnit {
         const base = Unit.createUnit(
-            unitState.properties,
+            // Deep-clone so each restored unit owns its arrays (see createUnitForTeam/split).
+            structuredClone(unitState.properties),
             this.sc_sceneSettings.getGridSettings(),
             unitState.team,
             UnitVals.CREATURE,
@@ -3630,6 +3642,7 @@ export class Sandbox extends PixiScene {
             this.selectedBoardUnit = undefined;
             this.currentShiftedUnit = undefined;
             this.sc_selectedUnitProperties = undefined;
+            this.sc_visibleOverallImpact = undefined;
             this.sc_unitPropertiesUpdateNeeded = true;
             this.hoverManager.clear();
 
@@ -3644,7 +3657,8 @@ export class Sandbox extends PixiScene {
             const unitsContainer = this.drawer.getUnitsContainer();
             for (const snap of snapshot.units) {
                 const base = Unit.createUnit(
-                    { ...snap.properties, id: HoCLib.createSecureUuid(), team: snap.team },
+                    // Deep-clone so each rematched unit owns its arrays (see createUnitForTeam/split).
+                    structuredClone({ ...snap.properties, id: HoCLib.createSecureUuid(), team: snap.team }),
                     gs,
                     snap.team,
                     UnitVals.CREATURE,
@@ -4361,9 +4375,10 @@ export class Sandbox extends PixiScene {
             unit.setAmountAlive(u.amount_alive);
             // 3. Refresh Visuals (Stack power, HP bars, etc.)
             this.refreshUnits();
-            // 4. CRITICAL FIX: Sync the UI State
+            // 4. CRITICAL FIX: Sync the UI State — rebuild the buff/debuff impact too (not just flag a
+            // stats refresh), so the sidebar never emits fresh stats with a stale debuff list.
             this.sc_selectedUnitProperties = { ...unit.getUnitProperties() };
-            this.sc_unitPropertiesUpdateNeeded = true;
+            this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
         }
     }
     public override setGridType(gridType: GridType): void {
