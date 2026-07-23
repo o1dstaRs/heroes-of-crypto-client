@@ -192,10 +192,10 @@ export class PixiRenderableSpell extends Spell {
                 `Nothing: ${c.nothing}%`,
             ];
         }
-        // Enchant Armor / Weapon: the "{}" in the desc is the applied buff's running total (filled per-unit in
+        // Armor Rune / Weapon: the "{}" in the desc is the applied buff's running total (filled per-unit in
         // the Buffs section), not a cast-time value — show a clean spell blurb here instead of an empty "+ armor".
-        if (this.getName() === "Enchant Armor" || this.getName() === "Enchant Weapon") {
-            const stat = this.getName() === "Enchant Armor" ? "armor" : "attack";
+        if (this.getName() === "Armor Rune" || this.getName() === "Weapon Rune") {
+            const stat = this.getName() === "Armor Rune" ? "armor" : "attack";
             return [...lines, `50% chance per cast to add +1 ${stat}.`, "The bonus stacks on the target."];
         }
         // Fill the description's "{}" placeholder with the caster-scaled value (the actual hp healed,

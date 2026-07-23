@@ -5384,9 +5384,9 @@ export class Sandbox extends PixiScene {
         const oldCasterPos = isSwap ? { ...caster.getPosition() } : undefined;
         const oldTargetPos = isSwap ? { ...targetUnit.getPosition() } : undefined;
 
-        // Enchant Armor/Weapon: snapshot the running +N BEFORE the cast so we can tell success (it rose) from
+        // Armor Rune/Weapon: snapshot the running +N BEFORE the cast so we can tell success (it rose) from
         // the 50% miss (unchanged) afterwards and play the matching attempt->resolve VFX on the target.
-        const isEnchant = spell.getName() === "Enchant Armor" || spell.getName() === "Enchant Weapon";
+        const isEnchant = spell.getName() === "Armor Rune" || spell.getName() === "Weapon Rune";
         const enchantBefore = isEnchant ? (targetUnit.getBuff(spell.getName())?.getFirstSpellProperty() ?? 0) : 0;
 
         const action: GameAction = {
@@ -5437,14 +5437,14 @@ export class Sandbox extends PixiScene {
         return true;
     }
     /**
-     * Play the Enchant Armor / Weapon attempt->resolve VFX on the target and, on success, flash it. Success is
+     * Play the Armor Rune / Weapon attempt->resolve VFX on the target and, on success, flash it. Success is
      * detected by the buff's running +N total having risen past its pre-cast value.
      */
     private playEnchantResult(target: RenderableUnit, spellName: string, before: number): void {
         const after = target.getBuff(spellName)?.getFirstSpellProperty() ?? 0;
         const success = after > before;
-        const isArmor = spellName === "Enchant Armor";
-        const iconTexture = this.texAny(isArmor ? "enchant_armor_256" : "enchant_weapon_256");
+        const isArmor = spellName === "Armor Rune";
+        const iconTexture = this.texAny(isArmor ? "armor_rune_256" : "weapon_rune_256");
         if (!iconTexture) {
             return;
         }

@@ -375,7 +375,7 @@ const CRAFT_FORGE_LIFE = 1.5; // seconds — the full Craft cast animation (snap
 const CRAFT_STRIKE_CYCLE = 0.42; // seconds per hammer strike (~3 strikes across the cast)
 const CRAFT_HAMMER_RAISED_ANGLE = -0.45;
 const CRAFT_HAMMER_IMPACT_ANGLE = -2.1;
-const ENCHANT_Z = 2066; // Enchant Armor/Weapon attempt-then-resolve VFX, just over the craft forge
+const ENCHANT_Z = 2066; // Armor Rune/Weapon attempt-then-resolve VFX, just over the craft forge
 const ENCHANT_LIFE = 1.45; // seconds — full attempt -> resolve
 const ENCHANT_GATHER = 0.5; // seconds of the "trying" gather before it resolves (caller passes the per-spell tint)
 const SLASH_WOUND_LIFE = 0.5; // seconds the gash itself stays before it has faded
@@ -2421,7 +2421,7 @@ export class CombatVisuals {
         }
     }
     /**
-     * Blacksmith's Enchant Armor / Enchant Weapon result over the target: a short "trying" gather (a runic ring
+     * Blacksmith's Armor Rune / Weapon Rune result over the target: a short "trying" gather (a runic ring
      * tightens while motes of the enchant colour spiral in), then a RESOLVE — on success a ring-burst + the scroll
      * icon popping up with "+N armor/attack"; on the 50% miss a grey fizzle + "Failed". Returns its duration (ms).
      */
