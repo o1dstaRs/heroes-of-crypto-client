@@ -138,6 +138,14 @@ interface PlacementBenchHitBox {
     radius: number;
 }
 
+/** Multi-hit attacks show each impact on this cadence in both live play and authoritative replays. */
+export const ATTACK_HIT_STAGGER_MS = 240;
+
+/** Delay from the first impact until the last impact in a staggered attack. */
+export function getAttackFinalImpactDelayMs(hitCount: number): number {
+    return Math.max(0, Math.floor(hitCount) - 1) * ATTACK_HIT_STAGGER_MS;
+}
+
 export class Sandbox extends PixiScene {
     private static readonly MOVE_SPEED_FACTOR = 16;
     private static readonly REPLAY_ACTION_GAP_MS = 80;
@@ -541,6 +549,7 @@ export class Sandbox extends PixiScene {
                 getVisibleState: () => this.sc_visibleState,
                 isInputLockedByAI: () => this.isBoardInputLockedByAI(),
                 canControlCurrentActiveUnit: () => this.canControlCurrentActiveUnit(),
+                hasUnactedTeammateInCurrentLap: (unit) => this.hasUnactedTeammateInCurrentLap(unit),
                 setVisibleButtons: (buttons, updated) => {
                     this.sc_visibleButtonGroup = buttons;
                     this.sc_buttonGroupUpdated = updated;
@@ -2862,11 +2871,49 @@ export class Sandbox extends PixiScene {
         // Pikeman Skewer Strike: light streak through the pierced units + a wind-up thrust on the
         // attacker. Applied AFTER applyReplayAttackRecoil so the wind-up lunge overrides the plain recoil.
         this.spawnSkewerWindSpearVfx(attacker, target, attackEvent.damage);
-        await this.delayReplay(this.getReplayAttackDamageHoldMs(attackEvent));
+        // Death teardown belongs on the impact that killed the stack. Previously every replay waited
+        // through the 300ms damage-number hold before applying unit_destroyed, so even an ordinary
+        // single-hit melee/projectile kill visibly lingered after contact. Multi-hit attacks still wait
+        // until their final 240ms-staggered impact; the 300ms readability hold starts after that.
+        const teardownEventUnitIds = new Set(
+            record.events
+                .filter((event) => event.type === "unit_destroyed" || event.type === "unit_deleted")
+                .map((event) => event.unitId),
+        );
+        const destroyedUnitIds = new Set(attackEvent.unitIdsDied.filter((unitId) => teardownEventUnitIds.has(unitId)));
+        const replayRetaliationDamage = this.getReplayRetaliationDamage(attacker, target, attackEvent, record);
+        const attackerDiesFromRetaliation =
+            destroyedUnitIds.has(attacker.getId()) && replayRetaliationDamage !== undefined;
+        if (destroyedUnitIds.size > 0) {
+            // Attribute only actual teardown events. unitIdsDied can also contain a stack that resurrected,
+            // which must keep its live visual for the resurrection sequence.
+            this.noteDeathBlowsFromAttackEvent({
+                ...attackEvent,
+                unitIdsDied: [...destroyedUnitIds],
+            });
+        }
+
+        const finalPrimaryImpactDelayMs = getAttackFinalImpactDelayMs(attackEvent.damage.hits?.length ?? 0);
+        if (finalPrimaryImpactDelayMs > 0) {
+            await this.delayReplay(finalPrimaryImpactDelayMs);
+        }
+        this.destroyReplayAttackUnitsAtImpact(
+            [...destroyedUnitIds].filter((unitId) => unitId !== attacker.getId() || !attackerDiesFromRetaliation),
+        );
+        await this.delayReplay(Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS);
         // Replay the defender's counterattack so both combatants animate during an exchange — not
         // just the initiating attacker. Gives ranked (and sandbox) replays the full game experience.
-        await this.playReplayRetaliation(attacker, target, attackEvent, record);
-        this.applyReplayEvents(record.events);
+        await this.playReplayRetaliation(attacker, target, attackEvent, record, () => {
+            if (attackerDiesFromRetaliation) {
+                this.destroyReplayAttackUnitsAtImpact([attacker.getId()]);
+            }
+        });
+        // The attack event's kill attribution was consumed by the impact-time death VFX above. Do not
+        // record it again here: the later unit_destroyed pass intentionally becomes an idempotent logical
+        // cleanup, and re-noting would leave a stale blow that could color a resurrected unit's next death.
+        this.applyReplayEvents(
+            destroyedUnitIds.size > 0 ? record.events.filter((event) => event !== attackEvent) : record.events,
+        );
         // The pre-action HP snapshot has now served this exchange; drop it so a later replay falls back
         // to live HP (it only applies to the locally-applied action that captured it).
         this.preDeferredActionUnitHp = undefined;
@@ -3202,7 +3249,7 @@ export class Sandbox extends PixiScene {
                 const pos = { ...spawnPos };
                 setTimeout(() => {
                     this.combatVisuals.showFloatingDamage(pos, hit.amount, direction, hit.unitsDied);
-                }, index * 240);
+                }, index * ATTACK_HIT_STAGGER_MS);
             });
             return;
         }
@@ -3309,42 +3356,44 @@ export class Sandbox extends PixiScene {
         const magnitude = gs.getCellSize() * 0.22;
         unit.applyRecoil((dx / len) * magnitude, (dy / len) * magnitude);
     }
-    /**
-     * Replay the defender's counterattack so an exchange animates on both sides, not just the
-     * initiating attacker. The engine emits the attacker's strike but conveys the response only as
-     * damage/recoil, so here we play the return strike (ranged projectile or melee lunge), the
-     * attacker's hit reaction, and the response damage. Detection is purely data-driven: a positive
-     * HP loss on the attacker during its own action means it was struck back.
-     */
-    private async playReplayRetaliation(
+    /** Tear down only the renderable side of replay deaths; the recorded event still applies logical cleanup. */
+    private destroyReplayAttackUnitsAtImpact(unitIds: readonly string[]): void {
+        if (!unitIds.length) {
+            return;
+        }
+        const unitSnapshot = this.snapshotRenderableUnits();
+        for (const unitId of unitIds) {
+            const unit = unitSnapshot.get(unitId);
+            if (!unit) {
+                continue;
+            }
+            const shatterInfo = unit.getShatterInfo();
+            if (shatterInfo) {
+                this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId, unit.hasEffectActive("Freeze"));
+            }
+            unit.destroyVisuals();
+        }
+    }
+    private getReplayRetaliationDamage(
         attacker: RenderableUnit,
         target: RenderableUnit,
         attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
         record: SandboxReplay["actions"][number],
-    ): Promise<void> {
-        const spawnResponseAbilitySteal = (): void => this.spawnAbilityStealVfx(record.events, target.getId());
+    ): { amount: number; unitsDied: number } | undefined {
         if (attacker.isDead() || target.isDead()) {
-            spawnResponseAbilitySteal();
-            return;
+            return undefined;
         }
-        // For ranged attacks, only animate a counter the engine actually emitted. A real response
-        // pushes an animation targeting the attacker (the rangeResponseUnit); its absence means no
-        // response happened. Relying on the attacker's HP loss alone misreads any HP drop (Fire Shield,
-        // auras, or a transient client state mismatch) as a counter — including the impossible "melee
-        // unit responds to a ranged attack" the e2e log showed — and desyncs between clients because
-        // each derives the diff against a different local HP state. (Melee can't use this gate: its
-        // attacker move-into-position animation also targets the attacker, so it keeps the HP-diff path.)
+        // A ranged response always produces an authoritative animation aimed back at the attacker.
         if (
             attackEvent.attackType === "range" &&
             !attackEvent.animations.some((animation) => animation.affectedUnitId === attacker.getId())
         ) {
-            spawnResponseAbilitySteal();
-            return;
+            return undefined;
         }
         const totalResponseDamage = this.getReplayUnitDamage(record, attacker.getId());
         // The state diff includes every HP loss suffered by the initiating attacker. Every secondary
-        // entry has already rendered above (Flesh Shield yellow, the rest in their source colours), so
-        // remove all of those exact chunks before deciding whether a real retaliation remains.
+        // entry is rendered with the primary exchange, so remove those exact chunks before deciding
+        // whether a real retaliation remains.
         const secondaryOnAttacker = (attackEvent.damage.secondary ?? [])
             .filter((entry) => entry.unitId === attacker.getId())
             .reduce(
@@ -3358,7 +3407,25 @@ export class Sandbox extends PixiScene {
             amount: Math.max(0, totalResponseDamage.amount - secondaryOnAttacker.amount),
             unitsDied: Math.max(0, totalResponseDamage.unitsDied - secondaryOnAttacker.unitsDied),
         };
-        if (responseDamage.amount <= 0) {
+        return responseDamage.amount > 0 ? responseDamage : undefined;
+    }
+    /**
+     * Replay the defender's counterattack so an exchange animates on both sides, not just the
+     * initiating attacker. The engine emits the attacker's strike but conveys the response only as
+     * damage/recoil, so here we play the return strike (ranged projectile or melee lunge), the
+     * attacker's hit reaction, and the response damage. Detection is purely data-driven: a positive
+     * HP loss on the attacker during its own action means it was struck back.
+     */
+    private async playReplayRetaliation(
+        attacker: RenderableUnit,
+        target: RenderableUnit,
+        attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
+        record: SandboxReplay["actions"][number],
+        onImpact?: () => void,
+    ): Promise<void> {
+        const spawnResponseAbilitySteal = (): void => this.spawnAbilityStealVfx(record.events, target.getId());
+        const responseDamage = this.getReplayRetaliationDamage(attacker, target, attackEvent, record);
+        if (!responseDamage) {
             spawnResponseAbilitySteal();
             return;
         }
@@ -3387,15 +3454,9 @@ export class Sandbox extends PixiScene {
         const spawnPos = this.offsetReplayDamagePosition(attackerCenter, attacker, direction);
         this.combatVisuals.showFloatingDamage(spawnPos, responseDamage.amount, direction, responseDamage.unitsDied);
         spawnResponseAbilitySteal();
+        onImpact?.();
 
         await this.delayReplay(Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS);
-    }
-    private getReplayAttackDamageHoldMs(attackEvent: Extract<GameEvent, { type: "unit_attacked" }>): number {
-        const hitCount = attackEvent.damage.hits?.length ?? 0;
-        return Math.max(
-            Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS,
-            (Math.max(1, hitCount) - 1) * 240 + Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS,
-        );
     }
     protected applyReplayEvents(events: GameEvent[]): void {
         const visibleEvents = events.filter((event) => event.type !== "fight_finished");
@@ -3870,11 +3931,27 @@ export class Sandbox extends PixiScene {
         // dead unit's own center.
         const rangeAim =
             event.type === "area_attacked" ? event.targetPosition : (event.animations[0]?.toPosition ?? primaryPos);
+        // A ranged RESPONSE that kills the initiating attacker should dissolve along the RETURN shot's actual
+        // path — the responder's muzzle (primaryPos) to the attacker's aimed edge — exactly as the primary kill
+        // aims at animations[0].toPosition. The engine records that return shot as the one animation whose
+        // affectedUnitId is the attacker (the same entry playReplayRetaliation fires the counter at). Falls back
+        // to the attacker's center when there's no return projectile (Fire Shield recoil, or a melee
+        // retaliation — which already reads fine center-to-center).
+        const responseAim =
+            event.type === "unit_attacked"
+                ? event.animations.find((animation) => animation.affectedUnitId === event.attackerId)?.toPosition
+                : undefined;
         for (const unitId of event.unitIdsDied) {
-            // The attacker itself dying (melee retaliation) is a blow FROM the target's side.
+            // The attacker itself dying (melee retaliation or ranged response) is a blow FROM the target's side.
             const isAttackerDeath = unitId === event.attackerId;
             const from = isAttackerDeath ? primaryPos : attackerPos;
-            const to = isAttackerDeath ? attackerPos : kind === "range" ? rangeAim : (centerOf(unitId) ?? primaryPos);
+            let to: HoCMath.XY | undefined;
+            if (isAttackerDeath) {
+                // Ranged response → aim at the return projectile's edge; melee/Fire-Shield → the attacker's center.
+                to = kind === "range" ? (responseAim ?? attackerPos) : attackerPos;
+            } else {
+                to = kind === "range" ? rangeAim : (centerOf(unitId) ?? primaryPos);
+            }
             let dir: HoCMath.XY | undefined;
             if (from && to) {
                 const dx = to.x - from.x;
@@ -5305,6 +5382,11 @@ export class Sandbox extends PixiScene {
         const oldCasterPos = isSwap ? { ...caster.getPosition() } : undefined;
         const oldTargetPos = isSwap ? { ...targetUnit.getPosition() } : undefined;
 
+        // Enchant Armor/Weapon: snapshot the running +N BEFORE the cast so we can tell success (it rose) from
+        // the 50% miss (unchanged) afterwards and play the matching attempt->resolve VFX on the target.
+        const isEnchant = spell.getName() === "Enchant Armor" || spell.getName() === "Enchant Weapon";
+        const enchantBefore = isEnchant ? (targetUnit.getBuff(spell.getName())?.getFirstSpellProperty() ?? 0) : 0;
+
         const action: GameAction = {
             type: "cast_spell",
             casterId: caster.getId(),
@@ -5347,7 +5429,36 @@ export class Sandbox extends PixiScene {
         }
 
         this.cleanupAfterSpell(result.events, unitSnapshot);
+        if (isEnchant) {
+            this.playEnchantResult(targetUnit as RenderableUnit, spell.getName(), enchantBefore);
+        }
         return true;
+    }
+    /**
+     * Play the Enchant Armor / Weapon attempt->resolve VFX on the target and, on success, flash it. Success is
+     * detected by the buff's running +N total having risen past its pre-cast value.
+     */
+    private playEnchantResult(target: RenderableUnit, spellName: string, before: number): void {
+        const after = target.getBuff(spellName)?.getFirstSpellProperty() ?? 0;
+        const success = after > before;
+        const isArmor = spellName === "Enchant Armor";
+        const iconTexture = this.texAny(isArmor ? "enchant_armor_256" : "enchant_weapon_256");
+        if (!iconTexture) {
+            return;
+        }
+        if (success) {
+            target.flashBuffApplied();
+        }
+        this.combatVisuals?.spawnEnchantResult(
+            target.getPosition(),
+            this.sc_sceneSettings.getGridSettings().getCellSize(),
+            {
+                tint: isArmor ? 0x59b6ff : 0xff7a3c,
+                iconTexture,
+                label: success ? `+${after} ${isArmor ? "armor" : "attack"}` : "Failed",
+                success,
+            },
+        );
     }
     /**
      * Cast the currently-armed area spell (ALLIES_AREA: Craft) on the clicked cell. The engine reads
@@ -6640,7 +6751,7 @@ export class Sandbox extends PixiScene {
                     if (i === 0) {
                         attacker.applyRecoil(lungeX, lungeY);
                     } else {
-                        setTimeout(() => attacker.applyRecoil(lungeX, lungeY), i * 240);
+                        setTimeout(() => attacker.applyRecoil(lungeX, lungeY), i * ATTACK_HIT_STAGGER_MS);
                     }
                 }
 
@@ -6759,7 +6870,7 @@ export class Sandbox extends PixiScene {
                     } else {
                         setTimeout(() => {
                             this.combatVisuals.showFloatingDamage(pos, dmg.amount, dir, dmg.unitsDied);
-                        }, index * 240);
+                        }, index * ATTACK_HIT_STAGGER_MS);
                     }
                 });
             } else {
@@ -7078,16 +7189,12 @@ export class Sandbox extends PixiScene {
             this.sc_visibleStateUpdateNeeded = true;
         };
 
-        // Calculate max delay from animations
-        let maxDelay = 0;
-        if (damageForAnimation.hits && damageForAnimation.hits.length > 1) {
-            // Last hit is at (length - 1) * 1000 ms.
-            // Add a bit of time for the text to appear/float (e.g. 500ms)
-            maxDelay = (damageForAnimation.hits.length - 1) * 1000 + 500;
-        }
+        // Tear dead units down on the final visible impact. This used to use an obsolete 1000ms cadence
+        // plus a 500ms text hold even though hit numbers/lunges are now staggered by 240ms, making a
+        // Double Punch victim linger for 1.5s after it had visibly taken the killing blow.
+        const maxDelay = getAttackFinalImpactDelayMs(damageForAnimation.hits?.length ?? 0);
 
         if (maxDelay > 0) {
-            console.log(`[DEBUG] executeAttackSequence: Delaying cleanup by ${maxDelay}ms for animations.`);
             await new Promise<void>((resolve) => {
                 setTimeout(() => {
                     performCleanup();
@@ -10034,6 +10141,45 @@ export class Sandbox extends PixiScene {
      */
     protected getUpNextUnitIds(): string[] | undefined {
         return undefined;
+    }
+    /**
+     * Hourglass can only defer behind another living teammate that still has a real turn pending this lap.
+     * Ranked uses the server queue plus per-unit hourglass flags; sandbox can ask its local engine state.
+     */
+    private hasUnactedTeammateInCurrentLap(unit: Unit): boolean {
+        const fightProperties = FightStateManager.getInstance().getFightProperties();
+        const allUnits = this.unitsHolder.getAllUnits();
+        const upNextOverride = this.getUpNextUnitIds();
+        if (upNextOverride === undefined) {
+            return fightProperties.hasUnactedTeammate(unit.getTeam(), unit.getId(), allUnits);
+        }
+        if (fightProperties.getTeamUnitsAlive(unit.getTeam()) <= 1) {
+            return false;
+        }
+        for (const unitId of upNextOverride) {
+            const queuedUnit = allUnits.get(unitId);
+            if (
+                unitId !== unit.getId() &&
+                queuedUnit &&
+                !queuedUnit.isDead() &&
+                queuedUnit.getTeam() === unit.getTeam()
+            ) {
+                return true;
+            }
+        }
+        // Server snapshots publish the normal up-next queue separately; teammates already waiting on
+        // hourglass are still pending later in the lap and are identified by their authoritative unit flag.
+        for (const queuedUnit of allUnits.values()) {
+            if (
+                queuedUnit.getId() !== unit.getId() &&
+                !queuedUnit.isDead() &&
+                queuedUnit.getTeam() === unit.getTeam() &&
+                queuedUnit.isOnHourglass()
+            ) {
+                return true;
+            }
+        }
+        return false;
     }
     protected syncAuthoritativeActiveUnit(currentUnitId: string | undefined, lapNumber?: number): void {
         if (!currentUnitId) {

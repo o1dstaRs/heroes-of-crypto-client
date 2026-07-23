@@ -40,6 +40,39 @@ interface IShatterGroup {
     shards: IShard[];
 }
 
+interface IIceCrystal {
+    node: Graphics;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    spin: number;
+    delay: number;
+    life: number;
+    gravity: number;
+    drag: number;
+    large: boolean;
+}
+
+interface IIceBreak {
+    container: Container;
+    body: Sprite;
+    iceShell: Graphics;
+    crackFlash: Graphics;
+    crystals: IIceCrystal[];
+    age: number;
+    burstAt: number;
+}
+
+interface IDeathVfxInfo {
+    texture: Texture;
+    x: number;
+    y: number;
+    scaleX: number;
+    scaleY: number;
+    frozenShellHalf?: number;
+}
+
 /** What killed a unit — recorded before its death visuals spawn so the animation can match the blow. */
 export type DeathBlowKind = "melee" | "range";
 
@@ -148,6 +181,27 @@ interface ICraftForge {
     cycle: number; // seconds per hammer strike
     impactsDone: number; // strikes whose sparks have already fired
     impactFlash: number; // 0..1, set to 1 on each strike then decays (anvil recoil)
+}
+
+interface IEnchantMote {
+    gfx: Graphics;
+    ang: number; // orbit angle
+    startR: number; // starting orbit radius (world px); spirals inward during the gather
+}
+
+interface IEnchant {
+    container: Container; // counter-flipped (scale.y = -1) so local coords are screen-style (y down)
+    ring: Graphics; // the runic ring, redrawn each frame
+    icon: Sprite; // the enchant scroll icon that pops up on success
+    label: PixiText; // "+N armor/attack" (success) or "Failed" (fail)
+    motes: IEnchantMote[];
+    sparks: IForgeSpark[]; // resolve burst (bright on success, grey ash on fail)
+    iconBaseScale: number;
+    tint: number;
+    success: boolean;
+    cellSize: number;
+    age: number;
+    resolved: boolean; // whether the resolve burst has fired
 }
 
 interface IChainBolt {
@@ -321,6 +375,9 @@ const CRAFT_FORGE_LIFE = 1.5; // seconds — the full Craft cast animation (snap
 const CRAFT_STRIKE_CYCLE = 0.42; // seconds per hammer strike (~3 strikes across the cast)
 const CRAFT_HAMMER_RAISED_ANGLE = -0.45;
 const CRAFT_HAMMER_IMPACT_ANGLE = -2.1;
+const ENCHANT_Z = 2066; // Enchant Armor/Weapon attempt-then-resolve VFX, just over the craft forge
+const ENCHANT_LIFE = 1.45; // seconds — full attempt -> resolve
+const ENCHANT_GATHER = 0.5; // seconds of the "trying" gather before it resolves (caller passes the per-spell tint)
 const SLASH_WOUND_LIFE = 0.5; // seconds the gash itself stays before it has faded
 const SLASH_DROP_LIFE = 0.85; // a blood droplet's max life as it drips and fades
 const SLASH_GRAVITY = 1000; // world px/s^2 pulling droplets down (the drip)
@@ -385,6 +442,12 @@ const DISSOLVE_FLASH_LIFE = 0.2; // seconds the impact flash stays
 const DISSOLVE_TRACER_TINT = 0xffe9c2; // pale hot gold — a physical shot, not a spell
 const DISSOLVE_SPARK_TINT = 0xffe9b8;
 
+// Frozen death: the intact icy body cracks for one beat, then releases a mixture of heavy crystal chunks
+// and quick splinters. Different size/physics bands keep it from reading as a uniform particle explosion.
+const ICE_BREAK_Z = 4550;
+const ICE_BREAK_BURST_S = 0.085;
+const ICE_BREAK_COLORS = [0x91d8ff, 0xbdeaff, 0x6fc5f2, 0xd9f6ff] as const;
+
 const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
 const easeOutBack = (t: number): number => {
     const c1 = 1.70158;
@@ -396,6 +459,7 @@ export class CombatVisuals {
     private context: ICombatVisualsContext;
     private floatingTexts: IFloatingText[] = [];
     private shatterGroups: IShatterGroup[] = [];
+    private iceBreaks: IIceBreak[] = [];
     private cleaveDeaths: ICleaveDeath[] = [];
     private dissolveDeaths: IDissolveDeath[] = [];
     // Kill attribution, keyed by the dying unit's id: noted from the lethal attack event (only units
@@ -409,6 +473,7 @@ export class CombatVisuals {
     private clawSlashes: IClawSlash[] = [];
     private debuffPops: IDebuffPop[] = [];
     private craftForges: ICraftForge[] = [];
+    private enchants: IEnchant[] = [];
     private abilitySteals: IAbilitySteal[] = [];
     private debuffStyle?: TextStyle;
     private buffStyle?: TextStyle;
@@ -1055,6 +1120,10 @@ export class CombatVisuals {
             group.container.destroy({ children: true });
         }
         this.shatterGroups.length = 0;
+        for (const iceBreak of this.iceBreaks) {
+            iceBreak.container.destroy({ children: true });
+        }
+        this.iceBreaks.length = 0;
         for (const cleave of this.cleaveDeaths) {
             cleave.container.destroy({ children: true });
         }
@@ -1092,6 +1161,10 @@ export class CombatVisuals {
             forge.container.destroy({ children: true });
         }
         this.craftForges.length = 0;
+        for (const enchant of this.enchants) {
+            enchant.container.destroy({ children: true });
+        }
+        this.enchants.length = 0;
     }
     public update(dt: number) {
         for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
@@ -1158,6 +1231,7 @@ export class CombatVisuals {
         }
 
         this.stepShatters(dt);
+        this.stepIceBreaks(dt);
         this.stepCleaveDeaths(dt);
         this.stepDissolveDeaths(dt);
         this.stepFireSweeps(dt);
@@ -1168,26 +1242,20 @@ export class CombatVisuals {
         this.stepSlashes(dt);
         this.stepClawSlashes(dt);
         this.stepCraftForges(dt);
+        this.stepEnchants(dt);
     }
     /**
      * "Broken mirror" death effect: slice the unit's current texture into a grid of shards that
      * start in place (composing the unit image), then burst outward, fall, spin, and fade.
      */
-    public spawnShatter(
-        info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number },
-        opts?: { ice?: boolean },
-    ): void {
+    public spawnShatter(info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number }): void {
         const tex = info.texture;
         const source = tex?.source;
         const frame = tex?.frame;
         if (!source || !frame || frame.width <= 1 || frame.height <= 1) return;
 
-        // A frozen stack "ice-crushes": more, smaller shards tinted frosty blue that crack outward and drop
-        // sharply (little upward pop), like a block of ice bursting into crystals rather than a body.
-        const ice = opts?.ice ?? false;
-        const ICE_TINT = 0xbfe8ff;
-        const COLS = ice ? 8 : 6;
-        const ROWS = ice ? 8 : 6;
+        const COLS = 6;
+        const ROWS = 6;
         const tileTexW = frame.width / COLS;
         const tileTexH = frame.height / ROWS;
         const worldW = Math.abs(info.scaleX) * frame.width;
@@ -1211,7 +1279,7 @@ export class CombatVisuals {
                 shard.anchor.set(0.5);
                 // Same orientation as the dying unit (scaleY carries the y-up flip).
                 shard.scale.set(info.scaleX, info.scaleY);
-                shard.tint = ice ? ICE_TINT : 0xffffff;
+                shard.tint = 0xffffff;
                 shard.alpha = 1;
                 // Texture row 0 is the top of the image; in world (y-up) that's the top of the
                 // rect, so walk rows from the top down to keep the composite upright.
@@ -1227,10 +1295,7 @@ export class CombatVisuals {
                 const dist = Math.hypot(ox, oy) || 1;
                 const speed = 75 + Math.random() * 150 + dist * 0.75;
                 const vx = (ox / dist) * speed + (Math.random() - 0.5) * 60;
-                // Ice fragments are heavy — they crack outward then drop, with almost no upward pop.
-                const vy = ice
-                    ? (oy / dist) * speed + 8 + Math.random() * 44
-                    : (oy / dist) * speed + 50 + Math.random() * 112; // world +y is up → upward pop
+                const vy = (oy / dist) * speed + 50 + Math.random() * 112; // world +y is up → upward pop
                 group.shards.push({
                     sprite: shard,
                     vx,
@@ -1275,6 +1340,223 @@ export class CombatVisuals {
             }
         }
     }
+    private createIceCrystal(width: number, height: number, color: number, large: boolean): Graphics {
+        const crystal = new Graphics();
+        if (large) {
+            crystal
+                .poly([
+                    0,
+                    -height * 0.5,
+                    width * 0.5,
+                    -height * 0.12,
+                    width * 0.34,
+                    height * 0.33,
+                    0,
+                    height * 0.5,
+                    -width * 0.36,
+                    height * 0.31,
+                    -width * 0.5,
+                    -height * 0.13,
+                ])
+                .fill({ color, alpha: 0.78 })
+                .stroke({ color: 0xeafaff, alpha: 0.9, width: 1, join: "round" });
+            crystal
+                .poly([0, -height * 0.5, width * 0.5, -height * 0.12, 0, height * 0.08])
+                .fill({ color: 0xf1fcff, alpha: 0.34 });
+            crystal
+                .poly([0, height * 0.08, width * 0.34, height * 0.33, 0, height * 0.5])
+                .fill({ color: 0x469dce, alpha: 0.3 });
+            crystal
+                .moveTo(0, -height * 0.5)
+                .lineTo(0, height * 0.5)
+                .moveTo(-width * 0.5, -height * 0.13)
+                .lineTo(0, height * 0.08)
+                .stroke({ color: 0xeafaff, alpha: 0.45, width: 0.8, cap: "round" });
+        } else {
+            crystal
+                .poly([0, -height * 0.5, width * 0.5, height * 0.12, 0, height * 0.5, -width * 0.45, height * 0.08])
+                .fill({ color, alpha: 0.86 })
+                .stroke({ color: 0xf1fcff, alpha: 0.85, width: 0.7, join: "round" });
+            crystal
+                .moveTo(0, -height * 0.42)
+                .lineTo(0, height * 0.38)
+                .stroke({ color: 0xffffff, alpha: 0.45, width: 0.55, cap: "round" });
+        }
+        return crystal;
+    }
+    private spawnIceBreak(info: IDeathVfxInfo): boolean {
+        const frame = info.texture?.frame;
+        if (!frame || frame.width <= 1 || frame.height <= 1) return false;
+
+        const worldW = Math.abs(info.scaleX) * frame.width;
+        const worldH = Math.abs(info.scaleY) * frame.height;
+        const bodySize = Math.min(worldW, worldH);
+        if (bodySize <= 1) return false;
+        const shellHalf = Math.max(info.frozenShellHalf ?? Math.max(worldW, worldH) * 0.54, bodySize * 0.54);
+        const shellSize = shellHalf * 2;
+
+        const container = new Container();
+        container.position.set(info.x, info.y);
+        this.context.attachToWorldRoot(container, ICE_BREAK_Z);
+
+        // Preserve the dying unit for a very short crack beat after its live sprite is torn down.
+        const body = new Sprite(info.texture);
+        body.anchor.set(0.5);
+        body.scale.set(info.scaleX, info.scaleY);
+        body.tint = 0x9fdcff;
+        body.alpha = 0.92;
+        container.addChild(body);
+
+        // Rebuild the same square frozen pane the live unit occupied so the kill starts from its existing
+        // silhouette instead of dropping the shell and briefly reading as a circular ice cast.
+        const iceShell = new Graphics();
+        const shellCorner = shellHalf * 0.18;
+        iceShell
+            .roundRect(-shellHalf, -shellHalf, shellSize, shellSize, shellCorner)
+            .fill({ color: 0xbfe8ff, alpha: 0.1 })
+            .stroke({ color: 0xeaf7ff, alpha: 0.54, width: 1.4 });
+        const rimInset = shellHalf * 0.045;
+        iceShell
+            .roundRect(
+                -shellHalf + rimInset,
+                -shellHalf + rimInset,
+                shellSize - rimInset * 2,
+                shellSize - rimInset * 2,
+                shellCorner * 0.82,
+            )
+            .stroke({ color: 0xbfe8ff, alpha: 0.26, width: shellHalf * 0.055 });
+        container.addChild(iceShell);
+
+        const crackFlash = new Graphics();
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
+            const rayX = Math.cos(angle);
+            const rayY = Math.sin(angle);
+            const edgeDistance = (shellHalf * (0.78 + Math.random() * 0.16)) / Math.max(Math.abs(rayX), Math.abs(rayY));
+            const endX = rayX * edgeDistance;
+            const endY = rayY * edgeDistance;
+            const bendX = -Math.sin(angle) * bodySize * (Math.random() - 0.5) * 0.1;
+            const bendY = Math.cos(angle) * bodySize * (Math.random() - 0.5) * 0.1;
+            const midX = endX * 0.5 + bendX;
+            const midY = endY * 0.5 + bendY;
+            crackFlash.moveTo(0, 0).lineTo(midX, midY).lineTo(endX, endY);
+            if (i % 2 === 0) {
+                crackFlash
+                    .moveTo(midX, midY)
+                    .lineTo(midX - Math.sin(angle) * bodySize * 0.1, midY + Math.cos(angle) * bodySize * 0.1);
+            }
+        }
+        crackFlash.stroke({
+            color: 0xf4fdff,
+            alpha: 0.95,
+            width: Math.max(1, bodySize * 0.012),
+            cap: "round",
+            join: "round",
+        });
+        container.addChild(crackFlash);
+
+        const sizeScale = Math.max(1, Math.min(2, shellSize / 128));
+        const largeCount = Math.round(6 + (sizeScale - 1) * 4);
+        const smallCount = Math.round(14 + (sizeScale - 1) * 14);
+        const crystals: IIceCrystal[] = [];
+        const addCrystal = (large: boolean): void => {
+            const height = large ? shellSize * (0.2 + Math.random() * 0.13) : shellSize * (0.06 + Math.random() * 0.1);
+            const width = height * (large ? 0.28 + Math.random() * 0.22 : 0.2 + Math.random() * 0.2);
+            const color = ICE_BREAK_COLORS[Math.floor(Math.random() * ICE_BREAK_COLORS.length)];
+            const node = this.createIceCrystal(width, height, color, large);
+            const x = (Math.random() - 0.5) * shellSize * (large ? 1.36 : 1.76);
+            const y = (Math.random() - 0.5) * shellSize * (large ? 1.36 : 1.76);
+            const fallbackAngle = Math.random() * Math.PI * 2;
+            const distance = Math.hypot(x, y);
+            const outwardX = distance > shellSize * 0.04 ? x / distance : Math.cos(fallbackAngle);
+            const outwardY = distance > shellSize * 0.04 ? y / distance : Math.sin(fallbackAngle);
+            const spread = (Math.random() - 0.5) * (large ? 0.45 : 0.7);
+            const dirX = outwardX * Math.cos(spread) - outwardY * Math.sin(spread);
+            const dirY = outwardX * Math.sin(spread) + outwardY * Math.cos(spread);
+            const speed = shellSize * (large ? 0.65 + Math.random() * 0.65 : 1.5 + Math.random() * 1.2);
+            node.position.set(x, y);
+            node.rotation = Math.random() * Math.PI * 2;
+            node.visible = false;
+            container.addChild(node);
+            crystals.push({
+                node,
+                x,
+                y,
+                vx: dirX * speed,
+                vy: dirY * speed + shellSize * (large ? 0.35 + Math.random() * 0.35 : 0.45 + Math.random() * 0.45),
+                spin: (Math.random() - 0.5) * (large ? 6 : 16),
+                delay: ICE_BREAK_BURST_S + Math.random() * (large ? 0.035 : 0.065),
+                life: large ? 0.76 + Math.random() * 0.34 : 0.44 + Math.random() * 0.3,
+                gravity: shellSize * (large ? 3.8 : 5.2),
+                drag: large ? 0.32 : 0.75,
+                large,
+            });
+        };
+        for (let i = 0; i < largeCount; i++) addCrystal(true);
+        for (let i = 0; i < smallCount; i++) addCrystal(false);
+
+        this.iceBreaks.push({
+            container,
+            body,
+            iceShell,
+            crackFlash,
+            crystals,
+            age: 0,
+            burstAt: ICE_BREAK_BURST_S,
+        });
+        return true;
+    }
+    private stepIceBreaks(dt: number): void {
+        const fadeFrom = 0.62;
+        for (let i = this.iceBreaks.length - 1; i >= 0; i--) {
+            const iceBreak = this.iceBreaks[i];
+            iceBreak.age += dt;
+            if (iceBreak.age < iceBreak.burstAt) {
+                const crackT = iceBreak.age / iceBreak.burstAt;
+                iceBreak.body.alpha = 0.92 * (1 - crackT * 0.25);
+                iceBreak.iceShell.alpha = 1 - crackT * 0.12;
+                iceBreak.crackFlash.alpha = 1 - crackT * 0.35;
+            } else {
+                iceBreak.body.visible = false;
+                iceBreak.iceShell.visible = false;
+                const burstFlashT = (iceBreak.age - iceBreak.burstAt) / 0.09;
+                iceBreak.crackFlash.visible = burstFlashT < 1;
+                iceBreak.crackFlash.alpha = Math.max(0, (1 - burstFlashT) * 0.62);
+                const flashScale = 1 + Math.min(1, burstFlashT) * 0.18;
+                iceBreak.crackFlash.scale.set(flashScale);
+            }
+
+            for (let c = iceBreak.crystals.length - 1; c >= 0; c--) {
+                const crystal = iceBreak.crystals[c];
+                const elapsed = iceBreak.age - crystal.delay;
+                if (elapsed < 0) continue;
+                crystal.node.visible = true;
+                const lifeT = elapsed / crystal.life;
+                if (lifeT >= 1) {
+                    crystal.node.destroy();
+                    iceBreak.crystals.splice(c, 1);
+                    continue;
+                }
+                crystal.vy -= crystal.gravity * dt;
+                const drag = Math.exp(-crystal.drag * dt);
+                crystal.vx *= drag;
+                crystal.vy *= drag;
+                crystal.x += crystal.vx * dt;
+                crystal.y += crystal.vy * dt;
+                crystal.node.position.set(crystal.x, crystal.y);
+                crystal.node.rotation += crystal.spin * dt;
+                const releaseScale = 0.7 + 0.3 * easeOutCubic(Math.min(1, lifeT / 0.12));
+                crystal.node.scale.set(releaseScale);
+                crystal.node.alpha =
+                    lifeT > fadeFrom ? 1 - (lifeT - fadeFrom) / (1 - fadeFrom) : crystal.large ? 0.96 : 0.9;
+            }
+
+            if (iceBreak.crystals.length === 0) {
+                iceBreak.container.destroy({ children: true });
+                this.iceBreaks.splice(i, 1);
+            }
+        }
+    }
     /**
      * Record what killed a unit (and the blow's direction, attacker → victim) BEFORE its death
      * visuals spawn, so spawnDeathVfx can pick a kill-specific animation. Only note units that
@@ -1290,18 +1572,13 @@ export class CombatVisuals {
      * for any death with no recorded blow (spells, armageddon, narrowing…), the classic broken-mirror
      * shatter. Consumes the recorded blow so a stale entry can never color a later death.
      */
-    public spawnDeathVfx(
-        info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number },
-        unitId?: string,
-        frozen = false,
-    ): void {
+    public spawnDeathVfx(info: IDeathVfxInfo, unitId?: string, frozen = false): void {
         const blow = unitId ? this.deathBlowByUnitId.get(unitId) : undefined;
         if (unitId) {
             this.deathBlowByUnitId.delete(unitId);
         }
-        // A frozen stack always crushes into ice, however the killing blow was delivered.
-        if (frozen) {
-            this.spawnShatter(info, { ice: true });
+        // A frozen stack always cracks into mixed-size crystals, however the killing blow was delivered.
+        if (frozen && this.spawnIceBreak(info)) {
             return;
         }
         if (blow && Math.random() < 0.5) {
@@ -2140,6 +2417,175 @@ export class CombatVisuals {
                 sp.y += sp.vy * dt;
                 sp.gfx.position.set(sp.x, sp.y);
                 sp.gfx.alpha = 1 - sp.age / sp.life;
+            }
+        }
+    }
+    /**
+     * Blacksmith's Enchant Armor / Enchant Weapon result over the target: a short "trying" gather (a runic ring
+     * tightens while motes of the enchant colour spiral in), then a RESOLVE — on success a ring-burst + the scroll
+     * icon popping up with "+N armor/attack"; on the 50% miss a grey fizzle + "Failed". Returns its duration (ms).
+     */
+    public spawnEnchantResult(
+        center: HoCMath.XY,
+        cellSize: number,
+        opts: { tint: number; iconTexture: Texture; label: string; success: boolean },
+    ): number {
+        const container = new Container();
+        // worldRoot is y-up; counter-flip so local coords are screen-style (y down) and the icon/text stay upright.
+        container.scale.set(1, -1);
+        container.position.set(center.x, center.y);
+        this.context.attachToWorldRoot(container, ENCHANT_Z);
+
+        const ring = new Graphics();
+        container.addChild(ring);
+
+        const icon = new Sprite(opts.iconTexture);
+        icon.anchor.set(0.5);
+        const iconBaseScale = (cellSize * 0.72) / (opts.iconTexture.width || 256);
+        icon.scale.set(0.001);
+        icon.position.set(0, -cellSize * 0.55); // above the unit (local -y = up)
+        icon.alpha = 0;
+        container.addChild(icon);
+
+        const label = new PixiText({
+            text: opts.label,
+            style: new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 26,
+                fontWeight: "900",
+                fill: opts.success ? "#8ef08a" : "#b8b8b8",
+                stroke: { color: opts.success ? "#123d10" : "#2a2a2a", width: 4 },
+                dropShadow: { color: "#000000", blur: 3, angle: Math.PI / 6, distance: 2 },
+            }),
+        });
+        label.anchor.set(0.5);
+        label.position.set(0, -cellSize * 0.1);
+        label.alpha = 0;
+        container.addChild(label);
+
+        const motes: IEnchantMote[] = [];
+        const moteCount = 10;
+        for (let i = 0; i < moteCount; i++) {
+            const gfx = new Graphics();
+            gfx.circle(0, 0, cellSize * 0.035).fill({ color: opts.tint, alpha: 1 });
+            gfx.blendMode = "add";
+            gfx.alpha = 0;
+            container.addChild(gfx);
+            motes.push({ gfx, ang: (i / moteCount) * Math.PI * 2, startR: cellSize * (0.7 + 0.18 * (i % 3)) });
+        }
+
+        this.enchants.push({
+            container,
+            ring,
+            icon,
+            label,
+            motes,
+            sparks: [],
+            iconBaseScale,
+            tint: opts.tint,
+            success: opts.success,
+            cellSize,
+            age: 0,
+            resolved: false,
+        });
+        return ENCHANT_LIFE * 1000;
+    }
+    private spawnEnchantBurst(e: IEnchant): void {
+        const count = e.success ? 12 : 7;
+        for (let k = 0; k < count; k++) {
+            const gfx = new Graphics();
+            const r = e.cellSize * (0.02 + Math.random() * 0.03);
+            const color = e.success ? (Math.random() < 0.5 ? e.tint : 0xfff2b0) : 0x9a9a9a;
+            gfx.circle(0, 0, r).fill({ color, alpha: 1 });
+            if (e.success) {
+                gfx.blendMode = "add";
+            }
+            e.container.addChild(gfx);
+            const ang = Math.random() * Math.PI * 2;
+            const spd = e.cellSize * (e.success ? 1.6 + Math.random() * 2.2 : 0.6 + Math.random());
+            e.sparks.push({
+                gfx,
+                x: 0,
+                y: -e.cellSize * 0.1,
+                vx: Math.cos(ang) * spd,
+                vy: Math.sin(ang) * spd - (e.success ? e.cellSize * 1.2 : 0),
+                age: 0,
+                life: 0.4 + Math.random() * 0.3,
+            });
+        }
+    }
+    private stepEnchants(dt: number): void {
+        const easeIn = (x: number): number => x * x * x;
+        const TAU = Math.PI * 2;
+        for (let i = this.enchants.length - 1; i >= 0; i--) {
+            const e = this.enchants[i];
+            e.age += dt;
+            if (e.age / ENCHANT_LIFE >= 1) {
+                e.container.destroy({ children: true });
+                this.enchants.splice(i, 1);
+                continue;
+            }
+            e.ring.clear();
+            if (e.age < ENCHANT_GATHER) {
+                // GATHER ("trying"): the ring tightens + runes orbit; motes spiral inward and brighten.
+                const gp = e.age / ENCHANT_GATHER;
+                const rr = e.cellSize * (0.6 - 0.18 * gp);
+                e.ring.circle(0, 0, rr).stroke({ width: 2, color: e.tint, alpha: 0.25 + 0.5 * gp });
+                for (let k = 0; k < 8; k++) {
+                    const a = (k / 8) * TAU + e.age * 3;
+                    e.ring
+                        .circle(Math.cos(a) * rr, Math.sin(a) * rr, e.cellSize * 0.03)
+                        .fill({ color: e.tint, alpha: 0.5 * gp });
+                }
+                for (const m of e.motes) {
+                    const r = m.startR * (1 - easeIn(gp));
+                    const a = m.ang + e.age * 5;
+                    m.gfx.position.set(Math.cos(a) * r, Math.sin(a) * r);
+                    m.gfx.alpha = gp;
+                    m.gfx.scale.set(0.5 + gp);
+                }
+            } else {
+                const rp = (e.age - ENCHANT_GATHER) / (ENCHANT_LIFE - ENCHANT_GATHER); // 0..1
+                if (!e.resolved) {
+                    e.resolved = true;
+                    this.spawnEnchantBurst(e);
+                }
+                for (const m of e.motes) {
+                    m.gfx.alpha = Math.max(0, m.gfx.alpha - dt * 6);
+                }
+                if (e.success) {
+                    const rr = e.cellSize * (0.42 + easeOutCubic(rp));
+                    e.ring.circle(0, 0, rr).stroke({ width: 3 * (1 - rp), color: e.tint, alpha: (1 - rp) * 0.8 });
+                    const pop = Math.min(1, rp / 0.28);
+                    e.icon.scale.set(e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)));
+                    e.icon.position.y = -e.cellSize * (0.55 + 0.35 * easeOutCubic(rp));
+                    e.icon.alpha = rp < 0.7 ? pop : Math.max(0, 1 - (rp - 0.7) / 0.3);
+                    e.label.position.y = e.icon.position.y + e.cellSize * 0.5;
+                    e.label.alpha = e.icon.alpha;
+                    e.label.scale.set(0.6 + 0.4 * easeOutBack(pop));
+                } else {
+                    const rr = e.cellSize * (0.42 * (1 - rp * 0.6));
+                    e.ring.circle(0, 0, rr).stroke({ width: 2 * (1 - rp), color: 0x888888, alpha: (1 - rp) * 0.5 });
+                    const pop = Math.min(1, rp / 0.25);
+                    e.label.position.y = -e.cellSize * 0.28 + e.cellSize * 0.5 * rp; // drifts DOWN (screen y-down)
+                    e.label.alpha = rp < 0.65 ? pop : Math.max(0, 1 - (rp - 0.65) / 0.35);
+                    e.label.scale.set(0.9);
+                }
+                const grav = e.cellSize * (e.success ? 6 : 9);
+                for (let s = e.sparks.length - 1; s >= 0; s--) {
+                    const sp = e.sparks[s];
+                    sp.age += dt;
+                    if (sp.age >= sp.life) {
+                        sp.gfx.destroy();
+                        e.sparks.splice(s, 1);
+                        continue;
+                    }
+                    sp.vy += grav * dt;
+                    sp.x += sp.vx * dt;
+                    sp.y += sp.vy * dt;
+                    sp.gfx.position.set(sp.x, sp.y);
+                    sp.gfx.alpha = 1 - sp.age / sp.life;
+                }
             }
         }
     }

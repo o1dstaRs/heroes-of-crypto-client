@@ -570,7 +570,7 @@ export class RankedPlayScene extends Sandbox {
             } else if (event.type === "unit_destroyed" || event.type === "unit_deleted") {
                 const u = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
                 const info = u?.getShatterInfo();
-                if (info) this.combatVisuals?.spawnDeathVfx(info, event.unitId);
+                if (info && u) this.combatVisuals?.spawnDeathVfx(info, event.unitId, u.hasEffectActive("Freeze"));
             }
         }
     }
@@ -2018,7 +2018,7 @@ export class RankedPlayScene extends Sandbox {
             if (!shatterInfo) {
                 continue;
             }
-            this.combatVisuals?.spawnDeathVfx(shatterInfo, renderable.getId());
+            this.combatVisuals?.spawnDeathVfx(shatterInfo, renderable.getId(), renderable.hasEffectActive("Freeze"));
             // Drop the dead unit's visuals now so the imminent rebuild/skip doesn't leave it on the board,
             // and so a repeated snapshot can't shatter it twice (getShatterInfo is null after this).
             renderable.destroyVisuals();
