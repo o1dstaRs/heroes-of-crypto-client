@@ -76,6 +76,12 @@ import { LightingLayer } from "./sandbox/LightingLayer";
 import { MoveAnimationManager } from "./sandbox/MoveAnimationManager";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
 import { RangedProjectiles, BIG_PROJECTILE_UNITS } from "./sandbox/RangedProjectiles";
+import {
+    type IRangeProjectileImpact,
+    resolveLiveRangeProjectileTracePosition,
+    resolveRangeProjectileImpactPlan,
+    resolveRangeProjectilePlaybackPosition,
+} from "./sandbox/range_projectile_impact";
 import { createSummonedUnitProperties } from "./summonedUnitProperties";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 import { cloneReplayData, SandboxReplayRecorder, type SandboxReplay } from "../replay/sandbox_replay";
@@ -218,8 +224,12 @@ export class Sandbox extends PixiScene {
     // immediately, mutating unit HP to its post-action value. The authoritative replay that follows
     // derives the attacker's counter-attack damage from an HP diff (getReplayUnitDamage), which would
     // then read 0 — silently dropping the retaliation projectile + damage for the attacking side. We
-    // snapshot each unit's pre-action HP here so the diff uses the true before-state.
-    private preDeferredActionUnitHp?: Map<string, { amount: number; cumulativeHp: number; maxHp: number }>;
+    // snapshot each unit's pre-action HP and rendered center here so the diff and any removed-unit
+    // projectile endpoint use the true before-state.
+    private preDeferredActionUnitHp?: Map<
+        string,
+        { amount: number; cumulativeHp: number; maxHp: number; visualCenter: HoCMath.XY }
+    >;
     /** Re-entrancy guard so the eager turn-handoff in applyTurnEngineEvents can't recurse. */
     private isAdvancingTurnEvents = false;
     /**
@@ -2786,46 +2796,25 @@ export class Sandbox extends PixiScene {
         if (attackEvent.attackType === "range") {
             // A plain (non-piercing) shot stops at the FIRST unit on its trajectory. When a unit
             // intercepts the shot before the aimed target, the damage lands on that intercepting unit —
-            // the engine records it as the first shot animation's affectedUnitId. Fire the projectile at
-            // THAT unit so it visually stops where the damage lands, instead of flying to the aimed
-            // target behind it. Through Shot pierces everyone, so it still travels to the aimed edge.
+            // the authoritative engine records each outgoing shot's victim in its ordered animation.
+            // Fire each projectile at THAT unit so it visually stops where the damage lands, instead of
+            // flying to the aimed target behind it. Through Shot pierces everyone, so it remains one
+            // projectile travelling to the aimed edge.
             const throughShot = attacker.hasAbilityActive("Through Shot");
-            const impactUnitId = attackEvent.animations?.[0]?.affectedUnitId;
-            const impactUnit = impactUnitId
-                ? (this.unitsHolder.getAllUnits().get(impactUnitId) as RenderableUnit | undefined)
-                : undefined;
-            const intercepted = !throughShot && !!impactUnit && impactUnit.getId() !== target.getId();
-
-            // The engine records the shot's aimed visible-edge center as the target animation's
-            // toPosition; fire the replayed projectile there so it lands on the selected edge, not the
-            // target's center.
-            const targetAnimations = (attackEvent.animations ?? []).filter(
-                (animation) => animation.affectedUnitId === target.getId(),
-            );
-            // The aimed visible-edge center is the animation toPosition; all range shot-animations
-            // share it, so fall back to the first one when the primary target's own entry is absent
-            // (e.g. Through Shot records its single animation against the last pierced unit).
-            const aimedEdge = (targetAnimations[0] ?? attackEvent.animations?.[0])?.toPosition;
-            // For an intercepted shot, land on the intercepting unit's center (undefined toPosition →
-            // playReplayProjectile uses its visual center); otherwise use the recorded aimed edge.
-            const projectileTarget = intercepted && impactUnit ? impactUnit : target;
-            const projectileTo = intercepted ? undefined : aimedEdge;
-            await this.playReplayProjectile(attacker, projectileTarget, projectileTo);
-            // Double Shot fires a second projectile at the same target. Plain double-shotters expose the
-            // second shot as a second damage hit (hits.length > 1), but an AOE double-shotter (Gargantuan
-            // = Area Throw) routes its first shot through the AOE path: damage is conveyed via `splash` and
-            // `hits` is never populated — so the hits check alone misses Gargantuan's single-target shot.
-            // The authoritative animations are reliable for both: the engine records one shot-animation at
-            // the target per landed shot (a missed second shot records none), so two target-directed shot
-            // animations means the second shot landed.
-            const targetShotAnimations = targetAnimations.length;
-            const hitsCount = attackEvent.damage.hits?.length ?? 0;
-            if (
+            const projectilePlan = resolveRangeProjectileImpactPlan(
+                attackEvent,
+                target.getId(),
+                attacker.getPosition(),
+                throughShot,
                 this.shouldPlayReplayDoubleShotProjectile() &&
-                (attacker.getAbility("Double Shot") ?? attacker.getAbility("Crafted Double Shot")) &&
-                (hitsCount > 1 || targetShotAnimations > 1)
-            ) {
-                void this.playReplayProjectile(attacker, projectileTarget, projectileTo);
+                    !!(attacker.getAbility("Double Shot") ?? attacker.getAbility("Crafted Double Shot")),
+            );
+            const firstProjectile = this.resolveRangeProjectilePlaybackTarget(projectilePlan[0], target);
+            await this.playReplayProjectile(attacker, firstProjectile.target, firstProjectile.position);
+            const secondImpact = projectilePlan[1];
+            if (secondImpact) {
+                const secondProjectile = this.resolveRangeProjectilePlaybackTarget(secondImpact, target);
+                void this.playReplayProjectile(attacker, secondProjectile.target, secondProjectile.position);
             }
         } else {
             // Move + melee: the authoritative engine folds the approach into the attack (one
@@ -2920,6 +2909,19 @@ export class Sandbox extends PixiScene {
         this.sc_moveBlocked = false;
         await this.delayReplay(Sandbox.REPLAY_ATTACK_AFTER_APPLY_HOLD_MS);
         return true;
+    }
+    private resolveRangeProjectilePlaybackTarget(
+        impact: IRangeProjectileImpact,
+        requestedTarget: Unit,
+        capturedVisualCenter?: HoCMath.XY,
+    ): { target: RenderableUnit; position?: HoCMath.XY } {
+        const impactUnit = this.unitsHolder.getAllUnits().get(impact.targetUnitId) as RenderableUnit | undefined;
+        const preActionVisualCenter =
+            capturedVisualCenter ?? this.preDeferredActionUnitHp?.get(impact.targetUnitId)?.visualCenter;
+        return {
+            target: impactUnit ?? (requestedTarget as RenderableUnit),
+            position: resolveRangeProjectilePlaybackPosition(impact, !!impactUnit, preActionVisualCenter),
+        };
     }
     private async playReplayProjectile(
         attacker: RenderableUnit,
@@ -6241,29 +6243,35 @@ export class Sandbox extends PixiScene {
         return seen.size > 0;
     }
     /**
-     * The unit a plain (non-Through-Shot, non-AOE) ranged shot at `targetUnit` would actually hit. A
-     * normal projectile can't pass through units, so if another unit stands on the trajectory between
-     * the attacker and the hovered target, THAT unit is struck instead. Returns the first unit the shot
-     * meets (mirrors legacy test_heroes.ts getHoverAttackUnit = affectedUnits[0][0]); undefined if the
-     * trajectory can't be evaluated, so callers fall back to the hovered target.
+     * The unit a plain (non-Through-Shot) ranged shot at `targetUnit` would actually hit. A normal
+     * projectile can't pass through units, so if another unit stands on the trajectory between the
+     * attacker and the target, THAT unit is struck instead. `exactAimPosition` is the action's already
+     * resolved visible-edge position; hover-only callers omit it and retain cursor/default resolution.
+     * Returns the first unit the shot meets (mirrors legacy test_heroes.ts getHoverAttackUnit =
+     * affectedUnits[0][0]); undefined if the trajectory can't be evaluated.
      */
-    private resolveFirstRangeHitUnit(targetUnit: Unit): Unit | undefined {
+    private resolveFirstRangeHitUnit(targetUnit: Unit, exactAimPosition?: HoCMath.XY): Unit | undefined {
         const attacker = this.currentActiveUnit;
         if (!attacker || !this.attackHandler) {
             return undefined;
         }
-        const aim =
-            attacker instanceof RenderableUnit
-                ? this.resolveRangeAimForTarget(attacker, targetUnit)?.position
-                : undefined;
+        const aimPosition = resolveLiveRangeProjectileTracePosition(
+            exactAimPosition,
+            () =>
+                attacker instanceof RenderableUnit
+                    ? this.resolveRangeAimForTarget(attacker, targetUnit)?.position
+                    : undefined,
+            targetUnit.getPosition(),
+        );
         const evalResult = this.attackHandler.evaluateRangeAttack(
             this.unitsHolder.getAllUnits(),
             attacker,
             attacker.getPosition(),
-            aim ?? targetUnit.getPosition(),
+            aimPosition,
             false, // isThroughShot — a normal projectile stops at the first unit it meets
             false, // isSelection
-            false, // splash
+            // Match GameActionEngine.rangeAttack's terrain/splash ray semantics exactly.
+            attacker.hasAbilityActive("Large Caliber") || attacker.hasAbilityActive("Area Throw"),
         );
         return evalResult.affectedUnits[0]?.[0];
     }
@@ -6499,13 +6507,17 @@ export class Sandbox extends PixiScene {
 
         // SNAPSHOT for AOE / Secondary Damage
         // We capture state of ALL units to detect side-effects/AOE
-        const unitSnapshots = new Map<string, { amount: number; hp: number; maxHp: number; pos: HoCMath.XY }>();
+        const unitSnapshots = new Map<
+            string,
+            { amount: number; hp: number; maxHp: number; pos: HoCMath.XY; visualCenter: HoCMath.XY }
+        >();
         for (const u of this.unitsHolder.getAllUnits().values()) {
             unitSnapshots.set(u.getId(), {
                 amount: u.getAmountAlive(),
                 hp: u.getHp(),
                 maxHp: u.getMaxHp(),
                 pos: { ...u.getPosition() }, // Clone position
+                visualCenter: u instanceof RenderableUnit ? { ...u.getVisualCenter(gs) } : { ...u.getPosition() },
             });
         }
 
@@ -6655,7 +6667,7 @@ export class Sandbox extends PixiScene {
             // to the aimed edge.
             const interceptUnit = attacker.hasAbilityActive("Through Shot")
                 ? undefined
-                : this.resolveFirstRangeHitUnit(target);
+                : this.resolveFirstRangeHitUnit(target, aim?.position);
             const intercepted = !!interceptUnit && interceptUnit.getId() !== target.getId();
             const shotTarget =
                 intercepted && interceptUnit instanceof RenderableUnit
@@ -6668,19 +6680,30 @@ export class Sandbox extends PixiScene {
                 return false;
             }
 
-            // Double Shot: a second projectile timed to land as the staggered second damage number
-            // appears. Gated on the ability so Through Shot (which also yields multiple hits) doesn't
-            // spawn extras. A plain double-shotter reports two `hits`; Gargantuan's AREA double shot
-            // reports two `splash` entries on the target instead (hits is empty), so check BOTH — else the
-            // targeted Gargantuan shot fired only one projectile.
-            const doubleShotTargetSplash = (damageForAnimation.splash ?? []).filter(
-                (s) => s.unitId === target.getId(),
-            ).length;
-            if (
-                (attacker.getAbility("Double Shot") ?? attacker.getAbility("Crafted Double Shot")) &&
-                ((damageForAnimation.hits?.length ?? 0) > 1 || doubleShotTargetSplash > 1)
-            ) {
-                this.rangedProjectiles.fire({ from: muzzle, to: shotTarget, big: bigProjectile });
+            const liveAttackEvent = attackActionEvents?.find(
+                (event): event is Extract<GameEvent, { type: "unit_attacked" }> => event.type === "unit_attacked",
+            );
+
+            // Resolve shot two only AFTER the engine applies shot one. Double Shot can kill the first
+            // interceptor and retarget the follow-up, while a ranged response may sit between the two
+            // outgoing animations. The authoritative event preserves those per-shot victims in order.
+            if (liveAttackEvent) {
+                const projectilePlan = resolveRangeProjectileImpactPlan(
+                    liveAttackEvent,
+                    target.getId(),
+                    attacker.getPosition(),
+                    attacker.hasAbilityActive("Through Shot"),
+                    !!(attacker.getAbility("Double Shot") ?? attacker.getAbility("Crafted Double Shot")),
+                );
+                const secondImpact = projectilePlan[1];
+                if (secondImpact) {
+                    const secondProjectile = this.resolveRangeProjectilePlaybackTarget(
+                        secondImpact,
+                        target,
+                        unitSnapshots.get(secondImpact.targetUnitId)?.visualCenter,
+                    );
+                    void this.playReplayProjectile(attacker, secondProjectile.target, secondProjectile.position);
+                }
             }
 
             // Ranged counter: when the defender shoots back, the engine records a response shot as an
@@ -6688,9 +6711,6 @@ export class Sandbox extends PixiScene {
             // range_attack). Live play otherwise just floats the counter's damage number (section 2
             // below) — fire the return projectile so the exchange reads the same as ranked's replay
             // path (playReplayRetaliation), which uses this exact signal.
-            const liveAttackEvent = attackActionEvents?.find(
-                (event): event is Extract<GameEvent, { type: "unit_attacked" }> => event.type === "unit_attacked",
-            );
             if (
                 liveAttackEvent &&
                 target instanceof RenderableUnit &&
@@ -9588,20 +9608,26 @@ export class Sandbox extends PixiScene {
         action: GameAction,
         options?: Parameters<SceneGameActionTransport>[1],
     ): boolean {
-        // For attacks only: snapshot every unit's HP BEFORE applying locally, so the authoritative
-        // replay can recover the attacker's true pre-action state and still show its counter-attack
-        // (the local apply below would otherwise leave it at post-action and zero out the replay's
-        // HP-diff). Non-attacks clear any prior snapshot so it can't leak into a later exchange.
+        // For attacks only: snapshot every unit's HP and rendered center BEFORE applying locally, so
+        // the authoritative replay can recover both the true pre-action HP diff and the landing point
+        // of an interceptor removed by the local apply. Non-attacks clear any prior snapshot.
         const isAttackAction = action.type === "range_attack" || action.type === "melee_attack";
         const preActionHp = isAttackAction
-            ? new Map<string, { amount: number; cumulativeHp: number; maxHp: number }>()
+            ? new Map<string, { amount: number; cumulativeHp: number; maxHp: number; visualCenter: HoCMath.XY }>()
             : undefined;
         if (preActionHp) {
+            const gridSettings = this.sc_sceneSettings.getGridSettings();
             for (const u of this.unitsHolder.getAllUnits().values()) {
+                const renderable = u as RenderableUnit;
+                const visualCenter =
+                    typeof renderable.getVisualCenter === "function"
+                        ? renderable.getVisualCenter(gridSettings)
+                        : u.getPosition();
                 preActionHp.set(u.getId(), {
                     amount: u.getAmountAlive(),
                     cumulativeHp: u.getCumulativeHp(),
                     maxHp: u.getMaxHp(),
+                    visualCenter: { x: visualCenter.x, y: visualCenter.y },
                 });
             }
         }
