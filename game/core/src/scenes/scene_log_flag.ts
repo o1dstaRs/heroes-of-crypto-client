@@ -64,6 +64,11 @@ export function resolveLineTeamFlag(
             // can't tell the two instances apart, but the responder is always the enemy of the active
             // unit, so its side is the opposite of the active unit's.
             team = oppositeTeam(active.team);
+        } else if (/^(?:'s craft\b| was crafted\b)/.test(afterName)) {
+            // Craft result lines ("<Ally> was crafted …" / "<Ally>'s craft …") describe the active
+            // caster's (Blacksmith's) ALLIES, which share its team — so colour them by the active unit
+            // even though the line leads with the ally's (possibly mirrored) name, not the caster's.
+            team = active.team;
         } else if (bestName === active.name && !/\bdied\b|killed by/.test(countStripped)) {
             // The active unit's own action line (moved / ⚔️ / 🏹 / applied / skips / Morale …). Its real
             // team disambiguates a creature mirrored on both sides. Death / "killed by" lines are skipped
