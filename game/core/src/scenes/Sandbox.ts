@@ -2801,7 +2801,7 @@ export class Sandbox extends PixiScene {
             const hitsCount = attackEvent.damage.hits?.length ?? 0;
             if (
                 this.shouldPlayReplayDoubleShotProjectile() &&
-                attacker.getAbility("Double Shot") &&
+                (attacker.getAbility("Double Shot") ?? attacker.getAbility("Crafted Double Shot")) &&
                 (hitsCount > 1 || targetShotAnimations > 1)
             ) {
                 void this.playReplayProjectile(attacker, projectileTarget, projectileTo);
@@ -3920,7 +3920,7 @@ export class Sandbox extends PixiScene {
                 if (isDead) {
                     const shatterInfo = utd.getShatterInfo();
                     if (shatterInfo) {
-                        this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId);
+                        this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId, utd.hasEffectActive("Freeze"));
                     }
                 }
                 // console.log(`Sandbox: calling destroyVisuals for ${unitId}`);
@@ -5140,7 +5140,12 @@ export class Sandbox extends PixiScene {
     private setSpellHoverInfo(spell: PixiRenderableSpell | undefined, caster?: RenderableUnit): void {
         const lines =
             spell && caster
-                ? spell.getHoverInfo(caster.getStackPower(), caster.getAmountAlive(), caster.getCumulativeMaxHp())
+                ? spell.getHoverInfo(
+                      caster.getStackPower(),
+                      caster.getAmountAlive(),
+                      caster.getCumulativeMaxHp(),
+                      caster.getLuck(),
+                  )
                 : [];
         const key = lines.join("\n");
         if (this.spellHoverInfoKey === key) return;
@@ -5363,11 +5368,12 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
-        // Play the 3-second forge cast (anvil + hammer strikes) over the Blacksmith, then reveal each
-        // ally's crafted result near the end of it ("very explicit — what each unit got after the craft").
-        this.combatVisuals?.spawnCraftForge(casterPos, this.sc_sceneSettings.getGridSettings().getCellSize());
+        // Play the forge cast (anvil + hammer strikes) over the Blacksmith, then reveal each ally's crafted
+        // result ONLY AFTER it finishes ("what each unit got after the craft").
+        const forgeMs =
+            this.combatVisuals?.spawnCraftForge(casterPos, this.sc_sceneSettings.getGridSettings().getCellSize()) ?? 0;
         this.cleanupAfterSpell(result.events, unitSnapshot);
-        setTimeout(() => this.popCraftResults(before), 2200);
+        setTimeout(() => this.popCraftResults(before), forgeMs + 80);
         return true;
     }
     /**
@@ -5425,10 +5431,8 @@ export class Sandbox extends PixiScene {
             } else if (!prev.stunned && unit.hasEffectActive("Stun")) {
                 this.popEffectOnUnit(unit, "Stun", stackIndex, "debuff");
             } else {
-                const tex = this.texAny(AbilityHelper.abilityToTextureName("Craft"));
-                if (tex) {
-                    this.combatVisuals?.spawnDebuffPop(unit.getPosition(), tex, "No effect", stackIndex, "debuff");
-                }
+                // Failed craft: plain dark-grey "No effect!" text, no icon.
+                this.combatVisuals?.showCraftFail(unit.getPosition());
             }
             stackIndex++;
         }
@@ -6234,7 +6238,7 @@ export class Sandbox extends PixiScene {
         await this.rangedProjectiles.fire({ from: muzzle, to: effectivePosition, big: bigProjectile });
         // Double Shot (e.g. Gargantuan): the engine applies a second area shot, so throw a second
         // projectile too — otherwise the doubled damage lands with only one animation.
-        if (unit.hasAbilityActive("Double Shot")) {
+        if (unit.hasAbilityActive("Double Shot") || unit.hasAbilityActive("Crafted Double Shot")) {
             await this.rangedProjectiles.fire({ from: muzzle, to: effectivePosition, big: bigProjectile });
         }
 
@@ -6546,7 +6550,7 @@ export class Sandbox extends PixiScene {
                 (s) => s.unitId === target.getId(),
             ).length;
             if (
-                attacker.getAbility("Double Shot") &&
+                (attacker.getAbility("Double Shot") ?? attacker.getAbility("Crafted Double Shot")) &&
                 ((damageForAnimation.hits?.length ?? 0) > 1 || doubleShotTargetSplash > 1)
             ) {
                 this.rangedProjectiles.fire({ from: muzzle, to: shotTarget, big: bigProjectile });
@@ -8092,8 +8096,12 @@ export class Sandbox extends PixiScene {
                             }
                         }
 
-                        // Double Shot Logic (Legacy check)
-                        if (isRangeAttackContext && this.currentActiveUnit.hasAbilityActive("Double Shot")) {
+                        // Double Shot Logic (Legacy check) — Crafted Double Shot behaves identically.
+                        if (
+                            isRangeAttackContext &&
+                            (this.currentActiveUnit.hasAbilityActive("Double Shot") ||
+                                this.currentActiveUnit.hasAbilityActive("Crafted Double Shot"))
+                        ) {
                             multiplier = 2; // Display double damage
                         }
 
@@ -9966,7 +9974,7 @@ export class Sandbox extends PixiScene {
         // noted) from the unit's current sprite before tearing it down.
         const shatterInfo = unit.getShatterInfo();
         if (shatterInfo) {
-            this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId);
+            this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId, unit.hasEffectActive("Freeze"));
         }
 
         this.layoutVersion++;

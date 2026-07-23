@@ -5,7 +5,7 @@
  */
 
 import { Container, Graphics, Sprite as PixiSprite, Text, TextStyle, Texture } from "pixi.js";
-import { HoCConstants, HoCMath, ISpellParams, Spell, SpellMultiplierType } from "@heroesofcrypto/common";
+import { AllAbilities, HoCConstants, HoCMath, ISpellParams, Spell, SpellMultiplierType } from "@heroesofcrypto/common";
 
 export enum BookPosition {
     ONE = 1,
@@ -165,7 +165,12 @@ export class PixiRenderableSpell extends Spell {
     public canUse(ownerStackPower: number): boolean {
         return this.amountRemaining > 0 && ownerStackPower >= this.getMinimalCasterStackPower();
     }
-    public getHoverInfo(ownerStackPower: number, casterAmountAlive: number, casterCumulativeMaxHp: number): string[] {
+    public getHoverInfo(
+        ownerStackPower: number,
+        casterAmountAlive: number,
+        casterCumulativeMaxHp: number,
+        casterLuck?: number,
+    ): string[] {
         const lines = [this.getName(), `Scrolls: ${this.amountRemaining}`];
         if (this.amountRemaining <= 0) {
             lines.push("No scrolls left");
@@ -173,6 +178,19 @@ export class PixiRenderableSpell extends Spell {
         const minimalStackPower = this.getMinimalCasterStackPower();
         if (ownerStackPower < minimalStackPower) {
             lines.push(`Requires stack power ${minimalStackPower}`);
+        }
+        // Craft's per-ally outcome chances shift with the caster's luck, so show the exact calculated
+        // percentages instead of the static blurb (single source of truth: getCraftChances).
+        if (this.getName() === "Craft" && casterLuck !== undefined) {
+            const c = AllAbilities.getCraftChances(casterLuck);
+            return [
+                ...lines,
+                "Craft allies in a 2x2 area. Each ally:",
+                `Double Attack: ${c.double}%`,
+                `Frozen weapon: ${c.frozen}%`,
+                `Stun: ${c.stun}%`,
+                `Nothing: ${c.nothing}%`,
+            ];
         }
         // Fill the description's "{}" placeholder with the caster-scaled value (the actual hp healed,
         // wolves summoned, etc.), matching how the legacy spell book rendered it.

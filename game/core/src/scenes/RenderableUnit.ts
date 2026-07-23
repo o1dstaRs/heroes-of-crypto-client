@@ -207,6 +207,8 @@ export class RenderableUnit extends Unit {
     // Light-blue circulating ring + small orbiting dots shown around a unit while its Water Shield buff is
     // active (the once-per-battle absorb). Created lazily; hidden the frame the shield breaks.
     private waterShieldAura?: Graphics;
+    // Ice "crust" encasing a unit under the "Freeze" status (drawn over the sprite, above the icy tint).
+    private freezeCrust?: Graphics;
     // Water Shield dissolve burst: a one-shot ring-snap + droplet spray fired the instant the shield is
     // consumed (the buff disappears while the unit is still alive).
     private waterShieldWasActive = false;
@@ -256,6 +258,7 @@ export class RenderableUnit extends Unit {
         ru.badgeAmountOverride = undefined;
         ru.activeAura = undefined;
         ru.waterShieldAura = undefined;
+        ru.freezeCrust = undefined;
         ru.waterShieldBreakGfx = undefined;
         ru.waterShieldBreakStartMs = undefined;
         ru.waterShieldWasActive = false;
@@ -481,11 +484,11 @@ export class RenderableUnit extends Unit {
                 worldRoot,
                 this.stunContainer,
                 this.stunSprite,
-                "stun_256",
+                "stop",
                 pos,
                 props,
-                -1,
-                1,
+                0,
+                0,
                 this.isSkippingForDisplay(),
             );
             this.stunContainer = r.container;
@@ -693,6 +696,13 @@ export class RenderableUnit extends Unit {
         } else if (this.waterShieldAura) {
             this.waterShieldAura.visible = false;
         }
+
+        // Freeze (Blacksmith's "Freeze" status): an ice crust encasing the unit, over the icy tint.
+        if (!this.isDead() && this.hasEffectActive("Freeze")) {
+            this.updateFreezeCrust(worldRoot, gs, pos);
+        } else if (this.freezeCrust) {
+            this.freezeCrust.visible = false;
+        }
         // The shield is permanent until it absorbs a hit, so a still-alive unit losing the buff means it
         // just broke — kick off the one-shot dissolve burst at that instant.
         if (this.waterShieldWasActive && !waterShieldActive && !this.isDead()) {
@@ -794,6 +804,69 @@ export class RenderableUnit extends Unit {
             const a = (i / innerCount) * Math.PI * 2 - t * 1.0;
             const r = ringR * 0.72;
             g.circle(pos.x + r * Math.cos(a), pos.y + r * Math.sin(a), 1.6).fill({ color, alpha: 0.6 });
+        }
+    }
+    /** An ice crust encasing a "Freeze"-status unit: a frosted pane + crystalline shards creeping inward. */
+    private updateFreezeCrust(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+        if (!this.freezeCrust) {
+            this.freezeCrust = new Graphics();
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            worldRoot.addChild(this.freezeCrust);
+        } else if (this.freezeCrust.parent !== worldRoot) {
+            worldRoot.addChild(this.freezeCrust);
+        }
+        // Sit just above the sprite so the frost reads as a shell over the unit (below the badge at +1).
+        this.freezeCrust.zIndex = 4000 - pos.y + 0.5;
+        this.freezeCrust.visible = true;
+
+        const cell = gs.getCellSize();
+        const half = cell * (this.getUnitProperties().size === 2 ? 1.02 : 0.56);
+        const t = performance.now() / 1000;
+        const shimmer = 0.5 + 0.5 * Math.sin(t * 1.6);
+        const ice = 0xbfe8ff;
+        const iceBright = 0xeaf7ff;
+        const g = this.freezeCrust;
+        g.clear();
+
+        // Frosted pane over the unit + a crisp rim tracing the ice block.
+        g.rect(pos.x - half, pos.y - half, half * 2, half * 2)
+            .fill({ color: ice, alpha: 0.1 + 0.05 * shimmer })
+            .stroke({ color: iceBright, alpha: 0.5, width: 1.5 });
+
+        // Crystalline shards creeping inward from the perimeter (frost growing over the unit). Fixed angles
+        // + a deterministic per-index jag keep the crust stable frame-to-frame; only the tips shimmer.
+        const SHARDS = 12;
+        for (let i = 0; i < SHARDS; i++) {
+            const a = (i / SHARDS) * Math.PI * 2;
+            const jag = 0.7 + 0.3 * (((i * 7) % 5) / 4);
+            const cx = Math.cos(a);
+            const cy = Math.sin(a);
+            const px = -cy;
+            const py = cx;
+            const baseR = half;
+            const tipR = half * (0.42 + 0.22 * jag) * (0.9 + 0.14 * Math.sin(t * 2 + i));
+            const wBase = half * 0.16 * jag;
+            g.poly([
+                pos.x + cx * baseR + px * wBase,
+                pos.y + cy * baseR + py * wBase,
+                pos.x + cx * tipR,
+                pos.y + cy * tipR,
+                pos.x + cx * baseR - px * wBase,
+                pos.y + cy * baseR - py * wBase,
+            ])
+                .fill({ color: ice, alpha: 0.42 })
+                .stroke({ color: iceBright, alpha: 0.7, width: 1 });
+        }
+
+        // A few bright glints that twinkle.
+        for (let i = 0; i < 3; i++) {
+            const ga = t * 0.8 + i * 2.1;
+            const gr = half * 0.68;
+            const tw = 0.5 + 0.5 * Math.sin(t * 4 + i * 2);
+            g.circle(pos.x + Math.cos(ga) * gr, pos.y + Math.sin(ga) * gr, 1.5 + 1.2 * tw).fill({
+                color: iceBright,
+                alpha: 0.4 + 0.4 * tw,
+            });
         }
     }
     /**
@@ -1107,6 +1180,10 @@ export class RenderableUnit extends Unit {
         if (this.waterShieldAura) {
             this.waterShieldAura.destroy({ children: true });
             this.waterShieldAura = undefined;
+        }
+        if (this.freezeCrust) {
+            this.freezeCrust.destroy({ children: true });
+            this.freezeCrust = undefined;
         }
         if (this.waterShieldBreakGfx) {
             this.waterShieldBreakGfx.destroy({ children: true });
@@ -1590,6 +1667,11 @@ export class RenderableUnit extends Unit {
         this.effectFlashColor = 0x4dff9e; // bright green (keeps a positive, "buffed" feel)
     }
     private currentEffectTint(): number {
+        // Frozen (Blacksmith's "Freeze" status): a persistent icy-blue cast so the unit visibly reads as
+        // encased in ice, overriding any transient buff/debuff flash for as long as the freeze holds.
+        if (this.hasEffectActive("Freeze")) {
+            return 0x8ec6ff;
+        }
         if (!this.effectFlashStartMs) return 0xffffff;
         const DURATION = 650;
         const t = (performance.now() - this.effectFlashStartMs) / DURATION;
@@ -2405,6 +2487,23 @@ export class RenderableUnit extends Unit {
                 devourEssenceAbility.getName(),
                 devourEssenceAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
+        }
+
+        // Crafted Double Punch / Crafted Double Shot (from the Blacksmith's Craft) land a SECOND attack for a
+        // stack-scaled fraction of the damage — power/5 * stackPower + luck, i.e. 20/40/60/80/100% + luck —
+        // unlike the base Double Punch/Shot which always land a full second hit. Show the live scaled % (it
+        // was reading a flat 100% because nothing refreshed the {} with the calculated multiplier).
+        for (const craftedName of ["Crafted Double Punch", "Crafted Double Shot"]) {
+            const craftedAbility = this.getAbility(craftedName);
+            if (craftedAbility) {
+                const percentage = Number(
+                    (this.calculateAbilityMultiplier(craftedAbility, _synergyAbilityPowerIncrease) * 100).toFixed(0),
+                );
+                this.refreshAbiltyDescription(
+                    craftedAbility.getName(),
+                    craftedAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+                );
+            }
         }
     }
     private refreshAbiltyDescription(abilityName: string, abilityDescription: string): void {

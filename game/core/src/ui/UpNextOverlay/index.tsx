@@ -10,7 +10,7 @@ import { CasualtyChart, CasualtyPercents } from "../FightStats/CasualtyChart";
 import { meteorIconDataUrl } from "../meteorIcon";
 import { resolveUnitImage } from "../unitImage";
 import { TeamAmountFlag } from "../TeamAmountFlag";
-const stopImg = new URL("../../../images/icon_skip_black.webp", import.meta.url).toString();
+const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
 const hourglassImg = new URL("../../../images/hourglass.webp", import.meta.url).toString();
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
 import { Tooltip } from "@mui/joy";

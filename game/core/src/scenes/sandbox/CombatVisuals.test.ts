@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 
 import { Container, Texture, TextureSource } from "pixi.js";
 import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
@@ -36,6 +36,13 @@ type VisualsInternals = {
     cleaveDeaths: unknown[];
     dissolveDeaths: unknown[];
     abilitySteals: { payload: Container; arrived: boolean }[];
+    craftForges: {
+        container: Container;
+        anvil: Container;
+        hammer: Container;
+        contactY: number;
+        sparks: unknown[];
+    }[];
 };
 const internals = (visuals: CombatVisuals): VisualsInternals => visuals as unknown as VisualsInternals;
 
@@ -201,5 +208,35 @@ describe("Predatory Assimilation ability-steal VFX", () => {
         expect(arrived).toBe(false);
         expect(internals(visuals).abilitySteals.length).toBe(0);
         expect(attached[0].destroyed).toBe(true);
+    });
+});
+
+describe("Blacksmith Craft forge VFX", () => {
+    test("keeps the anvil upright and low while the hammer strikes through a circular arc", () => {
+        const { visuals, attached } = makeVisuals();
+        const forgeTexture = new Texture({ source: new TextureSource({ width: 128, height: 128 }) });
+        const textureFrom = spyOn(Texture, "from").mockReturnValue(forgeTexture);
+        const durationMs = visuals.spawnCraftForge({ x: 100, y: 200 }, 80);
+        textureFrom.mockRestore();
+        const forge = internals(visuals).craftForges[0];
+
+        expect(durationMs).toBe(1500);
+        expect(attached).toEqual([forge.container]);
+        expect(forge.container.position.x).toBe(100);
+        expect(forge.container.position.y).toBeGreaterThan(200);
+        expect(forge.container.scale.y).toBe(-1); // cancels worldRoot's y flip for upright source art
+        expect(forge.anvil.y).toBeGreaterThan(forge.contactY);
+
+        const pivot = { x: forge.hammer.x, y: forge.hammer.y };
+        const impactRotation = forge.hammer.rotation;
+        visuals.update(0.21); // halfway through the 0.42s cycle: hammer is raised
+        const raisedRotation = forge.hammer.rotation;
+        expect(raisedRotation - impactRotation).toBeGreaterThan(1);
+        expect(forge.hammer.position).toMatchObject(pivot);
+
+        visuals.update(0.1); // crosses the first impact at phase 0.72
+        expect(forge.hammer.rotation).toBeLessThan(raisedRotation - 1);
+        expect(forge.hammer.position).toMatchObject(pivot);
+        expect(forge.sparks.length).toBeGreaterThan(0);
     });
 });

@@ -140,9 +140,8 @@ interface ICraftForge {
     hammer: Sprite;
     sparks: IForgeSpark[];
     anvilBaseY: number;
-    contactY: number; // hammer.y at the bottom of the swing (head resting on the anvil surface)
-    raise: number; // how far the hammer lifts between strikes (world px)
-    contactX: number;
+    contactX: number; // where the hammer head lands on the anvil top (spark origin x)
+    contactY: number; // where the hammer head lands on the anvil top (spark origin y)
     cellSize: number;
     age: number; // seconds since spawn
     life: number; // total seconds of the cast animation
@@ -318,8 +317,10 @@ const WINDSPEAR_TRAIL_SPACING = 0.32; // gap (cells) between successive trail or
 // shape (not a clean line) reads as an open wound rather than a drawn stroke.
 const SLASH_Z = 2050; // over the unit sprite (~1000), about level with the damage numbers
 const CRAFT_Z = 2060; // Craft's anvil/hammer, just over the slash layer
-const CRAFT_FORGE_LIFE = 3.0; // seconds — the full Craft cast animation
-const CRAFT_STRIKE_CYCLE = 0.65; // seconds per hammer strike (~4 strikes across the cast)
+const CRAFT_FORGE_LIFE = 1.5; // seconds — the full Craft cast animation (snappy)
+const CRAFT_STRIKE_CYCLE = 0.42; // seconds per hammer strike (~3 strikes across the cast)
+const CRAFT_HAMMER_RAISED_ANGLE = -0.45;
+const CRAFT_HAMMER_IMPACT_ANGLE = -2.1;
 const SLASH_WOUND_LIFE = 0.5; // seconds the gash itself stays before it has faded
 const SLASH_DROP_LIFE = 0.85; // a blood droplet's max life as it drips and fades
 const SLASH_GRAVITY = 1000; // world px/s^2 pulling droplets down (the drip)
@@ -625,6 +626,27 @@ export class CombatVisuals {
         label.anchor.set(0.5);
         container.addChild(label);
         this.enqueueFloatingContainer(container, pos, direction);
+    }
+    /**
+     * Craft "failed" result: a plain dark-grey "No effect!" label with NO icon, reusing the floating-text
+     * rise/fade. Deliberately unlike the icon pops used for a successful craft so a dud reads as nothing.
+     */
+    public showCraftFail(pos: HoCMath.XY): void {
+        const container = new Container();
+        const label = new PixiText({
+            text: "No effect!",
+            style: new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 30,
+                fontWeight: "900",
+                fill: "#4a4a4a", // muted dark grey — "nothing happened"
+                stroke: { color: "#dfe4ea", width: 4 }, // light halo so it reads on a dark board
+                dropShadow: { color: "#000000", blur: 3, angle: Math.PI / 6, distance: 2 },
+            }),
+        });
+        label.anchor.set(0.5);
+        container.addChild(label);
+        this.enqueueFloatingContainer(container, pos);
     }
     /**
      * Show Flesh Shield damage on its owner as a positive, yellow two-line value. The label distinguishes
@@ -1151,14 +1173,21 @@ export class CombatVisuals {
      * "Broken mirror" death effect: slice the unit's current texture into a grid of shards that
      * start in place (composing the unit image), then burst outward, fall, spin, and fade.
      */
-    public spawnShatter(info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number }): void {
+    public spawnShatter(
+        info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number },
+        opts?: { ice?: boolean },
+    ): void {
         const tex = info.texture;
         const source = tex?.source;
         const frame = tex?.frame;
         if (!source || !frame || frame.width <= 1 || frame.height <= 1) return;
 
-        const COLS = 6;
-        const ROWS = 6;
+        // A frozen stack "ice-crushes": more, smaller shards tinted frosty blue that crack outward and drop
+        // sharply (little upward pop), like a block of ice bursting into crystals rather than a body.
+        const ice = opts?.ice ?? false;
+        const ICE_TINT = 0xbfe8ff;
+        const COLS = ice ? 8 : 6;
+        const ROWS = ice ? 8 : 6;
         const tileTexW = frame.width / COLS;
         const tileTexH = frame.height / ROWS;
         const worldW = Math.abs(info.scaleX) * frame.width;
@@ -1182,7 +1211,7 @@ export class CombatVisuals {
                 shard.anchor.set(0.5);
                 // Same orientation as the dying unit (scaleY carries the y-up flip).
                 shard.scale.set(info.scaleX, info.scaleY);
-                shard.tint = 0xffffff;
+                shard.tint = ice ? ICE_TINT : 0xffffff;
                 shard.alpha = 1;
                 // Texture row 0 is the top of the image; in world (y-up) that's the top of the
                 // rect, so walk rows from the top down to keep the composite upright.
@@ -1198,7 +1227,10 @@ export class CombatVisuals {
                 const dist = Math.hypot(ox, oy) || 1;
                 const speed = 75 + Math.random() * 150 + dist * 0.75;
                 const vx = (ox / dist) * speed + (Math.random() - 0.5) * 60;
-                const vy = (oy / dist) * speed + 50 + Math.random() * 112; // world +y is up → upward pop
+                // Ice fragments are heavy — they crack outward then drop, with almost no upward pop.
+                const vy = ice
+                    ? (oy / dist) * speed + 8 + Math.random() * 44
+                    : (oy / dist) * speed + 50 + Math.random() * 112; // world +y is up → upward pop
                 group.shards.push({
                     sprite: shard,
                     vx,
@@ -1261,10 +1293,16 @@ export class CombatVisuals {
     public spawnDeathVfx(
         info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number },
         unitId?: string,
+        frozen = false,
     ): void {
         const blow = unitId ? this.deathBlowByUnitId.get(unitId) : undefined;
         if (unitId) {
             this.deathBlowByUnitId.delete(unitId);
+        }
+        // A frozen stack always crushes into ice, however the killing blow was delivered.
+        if (frozen) {
+            this.spawnShatter(info, { ice: true });
+            return;
         }
         if (blow && Math.random() < 0.5) {
             if (blow.kind === "melee") {
@@ -1950,39 +1988,46 @@ export class CombatVisuals {
             }
         }
     }
-    /**
-     * Blacksmith's Craft cast: a runed anvil appears at `center` and an ornate hammer (rotated so its head
-     * points down at the anvil, handle raised) slams onto it ~4 times over CRAFT_FORGE_LIFE seconds, each
-     * strike throwing a burst of sparks and jolting the anvil. Purely cosmetic; self-cleans when it ends.
-     */
-    public spawnCraftForge(center: HoCMath.XY, cellSize: number): void {
+    /** Blacksmith's Craft cast: an upright anvil and a hammer swinging around its grip, just above the caster. */
+    public spawnCraftForge(center: HoCMath.XY, cellSize: number): number {
         const container = new Container();
+        // worldRoot is y-up. Counter-flip the forge art so both source images stay upright, then use ordinary
+        // screen-style local coordinates (positive y is down) to keep the anvil below the swinging hammer.
+        container.scale.set(1, -1);
+        container.position.set(center.x, center.y + cellSize * 0.7);
         this.context.attachToWorldRoot(container, CRAFT_Z);
 
         const anvilTex = Texture.from(images.craft_anvil);
         const hammerTex = Texture.from(images.craft_hammer);
 
+        // The anvil art carries transparent padding, so its visible top is about 27% down the source image.
         const anvil = new Sprite(anvilTex);
         anvil.anchor.set(0.5, 0.5);
-        const anvilW = cellSize * 1.7;
+        const anvilW = cellSize * 1.4;
+        const anvilH = anvilW * ((anvilTex.height || 1) / (anvilTex.width || 1));
         anvil.width = anvilW;
-        anvil.height = anvilW * ((anvilTex.height || 1) / (anvilTex.width || 1));
-        const anvilBaseY = center.y + cellSize * 0.28;
-        anvil.position.set(center.x, anvilBaseY);
-        const anvilTop = anvilBaseY - anvil.height * 0.5;
+        anvil.height = anvilH;
+        const anvilBaseY = cellSize * 0.34;
+        anvil.position.set(0, anvilBaseY);
+        const anvilTopY = anvilBaseY - anvilH * 0.23; // 0.5 - 0.27 content-top fraction
 
-        // Rotate the hammer PI so its head points DOWN at the anvil and the handle rises above — a clear
-        // striking pose. The anchor sits at the head, so animating the anchor's Y drops the head onto the
-        // anvil and lifts it back up between strikes.
+        // Pivot at the grip near the handle's end. The lower-left face of the mallet is the strike point;
+        // placing that point on the anvil at the impact angle makes the whole head follow a real circular arc.
         const hammer = new Sprite(hammerTex);
-        hammer.anchor.set(0.5, 0.08);
-        hammer.rotation = Math.PI;
-        const hammerH = cellSize * 1.6;
-        hammer.height = hammerH;
+        hammer.anchor.set(0.5, 0.94);
+        const hammerH = cellSize * 1.15;
         hammer.width = hammerH * ((hammerTex.width || 1) / (hammerTex.height || 1));
-        const contactX = center.x + cellSize * 0.04;
-        const contactY = anvilTop + cellSize * 0.12;
-        hammer.position.set(contactX, contactY);
+        hammer.height = hammerH;
+        const contactX = cellSize * 0.02;
+        const contactY = anvilTopY + cellSize * 0.025;
+        const strikeOffsetX = (0.23 - hammer.anchor.x) * hammer.width;
+        const strikeOffsetY = (0.16 - hammer.anchor.y) * hammer.height;
+        const impactCos = Math.cos(CRAFT_HAMMER_IMPACT_ANGLE);
+        const impactSin = Math.sin(CRAFT_HAMMER_IMPACT_ANGLE);
+        const impactOffsetX = strikeOffsetX * impactCos - strikeOffsetY * impactSin;
+        const impactOffsetY = strikeOffsetX * impactSin + strikeOffsetY * impactCos;
+        hammer.position.set(contactX - impactOffsetX, contactY - impactOffsetY);
+        hammer.rotation = CRAFT_HAMMER_IMPACT_ANGLE;
 
         container.addChild(anvil, hammer);
         container.alpha = 0;
@@ -1993,9 +2038,8 @@ export class CombatVisuals {
             hammer,
             sparks: [],
             anvilBaseY,
-            contactY,
-            raise: cellSize * 0.9,
             contactX,
+            contactY,
             cellSize,
             age: 0,
             life: CRAFT_FORGE_LIFE,
@@ -2003,6 +2047,7 @@ export class CombatVisuals {
             impactsDone: 0,
             impactFlash: 0,
         });
+        return CRAFT_FORGE_LIFE * 1000;
     }
     private spawnForgeSparks(forge: ICraftForge): void {
         const count = 11;
@@ -2029,6 +2074,7 @@ export class CombatVisuals {
     }
     private stepCraftForges(dt: number): void {
         const easeIn = (x: number): number => x * x * x;
+        const impactPhase = 0.72; // fraction of a cycle at which the head lands on the anvil
         for (let i = this.craftForges.length - 1; i >= 0; i--) {
             const forge = this.craftForges[i];
             forge.age += dt;
@@ -2039,31 +2085,34 @@ export class CombatVisuals {
                 continue;
             }
 
-            // Group fade: in over the first 0.2s, hold, out over the last 0.35s.
+            // Group fade: in over the first 0.12s, hold, out over the last 0.2s.
             let groupAlpha = 1;
-            if (forge.age < 0.2) {
-                groupAlpha = forge.age / 0.2;
-            } else if (t > 0.88) {
-                groupAlpha = 1 - (t - 0.88) / 0.12;
+            if (forge.age < 0.12) {
+                groupAlpha = forge.age / 0.12;
+            } else if (t > 0.86) {
+                groupAlpha = 1 - (t - 0.86) / 0.14;
             }
             forge.container.alpha = Math.max(0, Math.min(1, groupAlpha));
 
-            // Hammer swing: rise for the first 55% of a cycle, slam (accelerating) to the anvil by 75%,
-            // then rest on the anvil until the next cycle. Impact lands at phase 0.75.
+            // Recover around the fixed grip, then accelerate through the same circular arc into the strike.
+            // Holding the impact angle through the cycle boundary keeps each repeated hit continuous.
             const phase = (forge.age % forge.cycle) / forge.cycle;
-            let raiseAmt: number;
+            let swing: number; // 0 = raised, 1 = striking face on the anvil
             if (phase < 0.55) {
-                raiseAmt = easeOutCubic(phase / 0.55);
-            } else if (phase < 0.75) {
-                raiseAmt = 1 - easeIn((phase - 0.55) / 0.2);
+                swing = 1 - easeOutCubic(phase / 0.55);
+            } else if (phase < impactPhase) {
+                swing = easeIn((phase - 0.55) / (impactPhase - 0.55));
             } else {
-                raiseAmt = 0;
+                swing = 1;
             }
-            forge.hammer.y = forge.contactY - raiseAmt * forge.raise;
+            forge.hammer.rotation =
+                CRAFT_HAMMER_RAISED_ANGLE + (CRAFT_HAMMER_IMPACT_ANGLE - CRAFT_HAMMER_RAISED_ANGLE) * swing;
 
-            // Fire sparks the first frame each strike lands (age past (n + 0.75) * cycle).
+            // Fire sparks the first frame each strike lands (age past (n + impactPhase) * cycle).
             const impactsOccurred =
-                forge.age >= 0.75 * forge.cycle ? Math.floor((forge.age - 0.75 * forge.cycle) / forge.cycle) + 1 : 0;
+                forge.age >= impactPhase * forge.cycle
+                    ? Math.floor((forge.age - impactPhase * forge.cycle) / forge.cycle) + 1
+                    : 0;
             if (impactsOccurred > forge.impactsDone && groupAlpha > 0.4) {
                 forge.impactsDone = impactsOccurred;
                 forge.impactFlash = 1;
@@ -2072,9 +2121,9 @@ export class CombatVisuals {
 
             // Anvil recoil: a quick downward jolt on impact that springs back.
             if (forge.impactFlash > 0) {
-                forge.impactFlash = Math.max(0, forge.impactFlash - dt * 6);
+                forge.impactFlash = Math.max(0, forge.impactFlash - dt * 8);
             }
-            forge.anvil.y = forge.anvilBaseY + forge.impactFlash * forge.cellSize * 0.05;
+            forge.anvil.y = forge.anvilBaseY + forge.impactFlash * forge.cellSize * 0.04;
 
             // Advance sparks (upward burst dragged down by gravity, fading out).
             const gravity = forge.cellSize * 9;
