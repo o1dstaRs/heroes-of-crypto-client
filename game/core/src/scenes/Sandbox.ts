@@ -5413,12 +5413,14 @@ export class Sandbox extends PixiScene {
      * failed craft. Driven by diffing post-cast state against the pre-cast snapshot.
      */
     private popCraftResults(before: Map<string, { abilities: Set<string>; stunned: boolean }>): void {
-        let stackIndex = 0;
         for (const [id, prev] of before) {
             const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
             if (!unit || unit.isDead()) {
                 continue;
             }
+            // Each ally is a DISTINCT unit at its own board position, so every pop uses stackIndex 0. (The
+            // stack index only lifts multiple pops landing on the SAME unit; feeding an incrementing index
+            // across different units floated each successive pop half a cell farther off its target.)
             const gained = unit
                 .getAbilities()
                 .map((a) => a.getName())
@@ -5426,15 +5428,14 @@ export class Sandbox extends PixiScene {
             if (gained) {
                 const tex = this.texAny(AbilityHelper.abilityToTextureName(gained));
                 if (tex) {
-                    this.combatVisuals?.spawnDebuffPop(unit.getPosition(), tex, gained, stackIndex, "buff");
+                    this.combatVisuals?.spawnDebuffPop(unit.getPosition(), tex, gained, 0, "buff");
                 }
             } else if (!prev.stunned && unit.hasEffectActive("Stun")) {
-                this.popEffectOnUnit(unit, "Stun", stackIndex, "debuff");
+                this.popEffectOnUnit(unit, "Stun", 0, "debuff");
             } else {
                 // Failed craft: plain dark-grey "No effect!" text, no icon.
                 this.combatVisuals?.showCraftFail(unit.getPosition());
             }
-            stackIndex++;
         }
     }
     /**
