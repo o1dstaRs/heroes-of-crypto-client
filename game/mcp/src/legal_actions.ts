@@ -11,6 +11,8 @@ import {
     type FightProperties,
     type GameAction,
     type Grid,
+    type IReadonlyKnownPaths,
+    type IReadonlyWeightedRoute,
     type IWeightedRoute,
     type PathHelper,
     type Spell,
@@ -72,9 +74,22 @@ const addUniqueAction = (
 };
 
 const getRouteForCell = (
-    knownPaths: Map<number, IWeightedRoute[]>,
+    knownPaths: IReadonlyKnownPaths,
     cell: { x: number; y: number },
-): IWeightedRoute | undefined => knownPaths.get(cellKey(cell))?.[0];
+): IReadonlyWeightedRoute | undefined => knownPaths.get(cellKey(cell))?.[0];
+
+/** Snapshot a decision-scoped readonly path view before retaining it as mutable headless-match state. */
+const cloneKnownPaths = (knownPaths: IReadonlyKnownPaths): Map<number, IWeightedRoute[]> =>
+    new Map(
+        [...knownPaths].map(([key, routes]) => [
+            key,
+            routes.map((route) => ({
+                ...route,
+                cell: { x: route.cell.x, y: route.cell.y },
+                route: route.route.map((cell) => ({ x: cell.x, y: cell.y })),
+            })),
+        ]),
+    );
 
 const getTargetCells = (
     unit: Unit,
@@ -449,11 +464,12 @@ const createMoveActionFromAi = (
         return undefined;
     }
 
-    const knownPaths = aiAction.currentActiveKnownPaths();
-    const route = getRouteForCell(knownPaths, destination);
+    const decisionKnownPaths = aiAction.currentActiveKnownPaths();
+    const route = getRouteForCell(decisionKnownPaths, destination);
     if (!route?.route.length) {
         return undefined;
     }
+    const knownPaths = cloneKnownPaths(decisionKnownPaths);
 
     const action: GameAction = {
         type: "move_unit",
@@ -504,11 +520,12 @@ const createMoveAndMeleeActionFromAi = (
         return undefined;
     }
 
-    const knownPaths = aiAction.currentActiveKnownPaths();
-    const route = getRouteForCell(knownPaths, attackFrom);
+    const decisionKnownPaths = aiAction.currentActiveKnownPaths();
+    const route = getRouteForCell(decisionKnownPaths, attackFrom);
     if (!route?.route.length) {
         return undefined;
     }
+    const knownPaths = cloneKnownPaths(decisionKnownPaths);
     const attackFromCells = getTargetCells(activeUnit, grid, attackFrom);
     if (!grid.areCellsAdjacent(attackFromCells, targetUnit.getCells())) {
         return undefined;

@@ -67,7 +67,7 @@ import { indexUnitTeam, resolveLineTeamFlag } from "./scene_log_flag";
 import { HoverManager } from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
 import { SpellBookOverlay } from "./SpellBookOverlay";
-import { AIController } from "./AIController";
+import { AIController, cloneAIKnownPaths } from "./AIController";
 import { DungeonVisuals } from "./sandbox/DungeonVisuals";
 import { SmokeLayer } from "./sandbox/SmokeLayer";
 import { WindLayer } from "./sandbox/WindLayer";
@@ -584,7 +584,7 @@ export class Sandbox extends PixiScene {
             getSceneSettings: () => this.sc_sceneSettings,
             getSceneLog: () => this.sc_sceneLog,
             setCurrentActiveKnownPaths: (paths) => {
-                this.currentActiveKnownPaths = paths;
+                this.currentActiveKnownPaths = cloneAIKnownPaths(paths);
             },
             setSelectedAttackType: (type) => {
                 this.sc_selectedAttackType = type;

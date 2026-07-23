@@ -11,7 +11,8 @@ import {
     type FightProperties,
     type GameAction,
     type Grid,
-    type IWeightedRoute,
+    type IReadonlyKnownPaths,
+    type IReadonlyWeightedRoute,
     type PathHelper,
     type Spell,
     type TeamType,
@@ -285,9 +286,9 @@ const enumName = (enumLike: Record<string, string | number>, value: number): str
 const cellKey = (cell: { x: number; y: number }): number => (cell.x << 4) | cell.y;
 
 const getRouteForCell = (
-    knownPaths: Map<number, IWeightedRoute[]>,
+    knownPaths: IReadonlyKnownPaths,
     cell: { x: number; y: number },
-): IWeightedRoute | undefined => knownPaths.get(cellKey(cell))?.[0];
+): IReadonlyWeightedRoute | undefined => knownPaths.get(cellKey(cell))?.[0];
 
 const getTargetCells = (
     unit: Unit,

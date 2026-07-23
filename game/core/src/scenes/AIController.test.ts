@@ -11,7 +11,7 @@ import {
     type IWeightedRoute,
 } from "@heroesofcrypto/common";
 
-import { AIController, type IAIContext } from "./AIController";
+import { AIController, cloneAIKnownPaths, type IAIContext } from "./AIController";
 import type { LocalModelOpponentConfig } from "./LocalModelOpponent";
 import type { RenderableUnit } from "./RenderableUnit";
 import { SceneSettings } from "./SceneSettings";
@@ -59,6 +59,25 @@ const createMoveAndAttackAction = (cellToMove: HoCMath.XY, cellToAttack: HoCMath
 };
 
 describe("AIController", () => {
+    it("deep-copies shared decision paths at the mutable browser state boundary", () => {
+        const source = createMoveAction({ x: 4, y: 5 }).currentActiveKnownPaths();
+        const copy = cloneAIKnownPaths(source)!;
+        const key = (4 << 4) | 5;
+
+        expect(copy).toEqual(source);
+        expect(copy).not.toBe(source);
+        expect(copy.get(key)).not.toBe(source.get(key));
+        expect(copy.get(key)?.[0]).not.toBe(source.get(key)?.[0]);
+        expect(copy.get(key)?.[0]?.cell).not.toBe(source.get(key)?.[0]?.cell);
+        expect(copy.get(key)?.[0]?.route).not.toBe(source.get(key)?.[0]?.route);
+        expect(copy.get(key)?.[0]?.route[0]).not.toBe(source.get(key)?.[0]?.route[0]);
+
+        copy.get(key)![0].cell.x = 99;
+        copy.get(key)![0].route[0].y = 88;
+        expect(source.get(key)?.[0]?.cell.x).toBe(4);
+        expect(source.get(key)?.[0]?.route[0].y).toBe(1);
+    });
+
     it("uses the resolved ranked model team instead of the raw URL team", () => {
         const unit = createUnit("human-unit-1", TeamVals.LOWER);
         const context = {

@@ -7,7 +7,6 @@ import {
     GridMath,
     HoCMath,
     HoCLib,
-    IWeightedRoute,
     PathHelper,
     SpellHelper,
     SpellPowerType,
@@ -16,7 +15,7 @@ import {
     UnitsHolder,
     FightStateManager,
 } from "@heroesofcrypto/common";
-import type { AttackHandler, AttackType, GameAction, Spell, TeamType } from "@heroesofcrypto/common";
+import type { AttackHandler, AttackType, GameAction, IWeightedRoute, Spell, TeamType } from "@heroesofcrypto/common";
 import { RenderableUnit } from "./RenderableUnit";
 import { HoverManager } from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
@@ -41,6 +40,24 @@ export interface ISceneLogForAI {
     updateLog(message: string): void;
 }
 
+export type AIKnownPaths = ReturnType<AI.IAIAction["currentActiveKnownPaths"]>;
+
+/** Copy the shared decision view at the browser state boundary so UI/gameplay code retains mutable ownership. */
+export function cloneAIKnownPaths(paths: AIKnownPaths | undefined): Map<number, IWeightedRoute[]> | undefined {
+    return paths
+        ? new Map(
+              [...paths].map(([key, routes]) => [
+                  key,
+                  routes.map((route) => ({
+                      ...route,
+                      cell: { x: route.cell.x, y: route.cell.y },
+                      route: route.route.map((cell) => ({ x: cell.x, y: cell.y })),
+                  })),
+              ]),
+          )
+        : undefined;
+}
+
 /**
  * Interface defining the context needed by AIController.
  * Implemented by Sandbox to provide necessary methods and state.
@@ -59,7 +76,7 @@ export interface IAIContext {
     getSceneLog(): ISceneLogForAI;
 
     // State setters
-    setCurrentActiveKnownPaths(paths: Map<number, IWeightedRoute[]> | undefined): void;
+    setCurrentActiveKnownPaths(paths: AIKnownPaths | undefined): void;
     setSelectedAttackType(type: number): void;
 
     // Actions
@@ -1630,8 +1647,8 @@ export class AIController {
      * out-of-reach move+attack to a plain advance instead of submitting a doomed strike.
      */
     private farthestReachableRouteCell(
-        route: HoCMath.XY[],
-        knownPaths: Map<number, IWeightedRoute[]> | undefined,
+        route: readonly Readonly<HoCMath.XY>[],
+        knownPaths: AIKnownPaths | undefined,
         steps: number,
     ): HoCMath.XY | undefined {
         if (!knownPaths) {
@@ -1641,7 +1658,7 @@ export class AIController {
         for (const cell of route) {
             const weight = knownPaths.get((cell.x << 4) | cell.y)?.[0]?.weight;
             if (weight !== undefined && weight <= steps) {
-                best = cell;
+                best = { x: cell.x, y: cell.y };
             }
         }
         return best;
